@@ -1,8 +1,17 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import { InboxIcon, ListPlusIcon, Trash2Icon } from "lucide-react";
-import { type JSX, useContext } from "react";
+import { queueOrder } from "@stringsync/splates-server/queue/browser";
+import {
+	ClockIcon,
+	InboxIcon,
+	ListPlusIcon,
+	type LucideIcon,
+	PlayIcon,
+	Trash2Icon,
+} from "lucide-react";
+import { type JSX, type ReactNode, useContext } from "react";
+import { cn } from "#web/lib/utils.ts";
 import { ActionCard } from "./action-card";
 import { dropLane, queueLane, queueTodo } from "./api";
 import { Board } from "./board";
@@ -54,11 +63,12 @@ function RemoveLaneCard({
 	const lane = board.lanes.find((each) => each.id === id) ?? null;
 	const name = lane?.name ?? proposal.title ?? `lane ${id}`;
 	const todos = board.todos.filter((todo) => todo.lane === id);
+	const done = board.linked && lane === null;
 	return (
 		<ActionCard
 			label={`remove ${name}`}
 			Icon={Trash2Icon}
-			title={`Remove lane ${name}`}
+			title={done ? `Removed lane ${name}` : `Remove lane ${name}`}
 			body={proposal.body}
 			action={{
 				verb: "Remove now",
@@ -68,20 +78,43 @@ function RemoveLaneCard({
 				run: () => expect(laneDropped(id), dropLane(id)),
 				failed: "Not removed",
 			}}
-			done={board.linked && lane === null}
+			done={done}
 			gone={null}
+			note={todos.length === 0 ? undefined : "Its tasks are kept to restore."}
+			tone="destructive"
 		>
-			<p className="border-border/60 border-t px-4 py-2.5 text-sm @max-md:px-3">
-				{todos.length === 0
-					? "No tasks go with it."
-					: todos.length === 1
-						? "Its 1 task goes with it."
-						: `Its ${todos.length} tasks go with it.`}
-			</p>
+			{!done && (
+				<Panel
+					heading={
+						todos.length === 0
+							? "No tasks go with it."
+							: todos.length === 1
+								? "Its 1 task goes with it."
+								: `Its ${todos.length} tasks go with it.`
+					}
+				>
+					{todos.map((todo) => (
+						<Row
+							key={todo.id}
+							todo={todo}
+							Icon={Trash2Icon}
+							status={stageOf(todo)}
+							tone="destructive"
+						/>
+					))}
+				</Panel>
+			)}
 		</ActionCard>
 	);
 }
 
+/** The queued work above the card's own that the panel shows, the rest counted. */
+const AHEAD = 3;
+
+/**
+ * Queuing a lane whole or tasks one by one, shown where it lands: the
+ * queue as it stands, then the card's tasks joining it.
+ */
 function QueueCard({
 	proposal,
 }: {
@@ -91,14 +124,27 @@ function QueueCard({
 	const expect = useExpectSnapshot();
 	const work = new QueueWork(proposal, board);
 	const { name, todos } = work;
+	const mine = new Set(todos.map((todo) => todo.id));
+	const queue = queueOrder(board.todos);
+	const ahead = queue.filter((todo) => !mine.has(todo.id));
+	const running = board.todos.filter(
+		(todo) => todo.takenBy !== null && !mine.has(todo.id),
+	).length;
+	const hidden = Math.max(0, ahead.length - AHEAD);
+	const whole = proposal.lane !== null;
+	const what = whole ? `lane ${name}` : name;
 	return (
 		<ActionCard
 			label={`queue ${name}`}
 			Icon={InboxIcon}
-			title={proposal.lane === null ? `Queue ${name}` : `Queue lane ${name}`}
+			title={work.queued ? `Queued ${what}` : `Add ${what} to the queue`}
 			body={proposal.body}
 			action={{
-				verb: "Queue now",
+				verb: whole
+					? "Queue lane"
+					: todos.length === 1
+						? "Queue task"
+						: `Queue ${todos.length} tasks`,
 				VerbIcon: ListPlusIcon,
 				done: "Queued",
 				command: work.command,
@@ -107,24 +153,139 @@ function QueueCard({
 			}}
 			done={work.queued}
 			gone={work.gone ? "No longer on the board" : null}
+			note={whole ? "Each task joins once nothing blocks it." : undefined}
 		>
 			{todos.length > 0 && (
-				<ul className="flex flex-col gap-1 border-border/60 border-t px-4 py-2.5 text-sm @max-md:px-3">
-					{todos.map((todo) => (
-						<QueueItem key={todo.id} todo={todo} />
+				<Panel heading="Your queue">
+					{running > 0 && <Line Icon={PlayIcon}>{running} running</Line>}
+					{hidden > 0 && (
+						<Line Icon={ClockIcon}>{hidden} more queued ahead</Line>
+					)}
+					{ahead.slice(hidden).map((todo) => (
+						<Row
+							key={todo.id}
+							todo={todo}
+							Icon={ClockIcon}
+							status={`queued · ${queue.indexOf(todo) + 1}`}
+							tone="quiet"
+						/>
 					))}
-				</ul>
+					{todos.map((todo) => (
+						<QueueItem key={todo.id} todo={todo} queue={queue} whole={whole} />
+					))}
+				</Panel>
 			)}
 		</ActionCard>
 	);
 }
 
-/** A task the card would queue, which opens it, and where it stands. */
-function QueueItem({ todo }: { todo: TaskRecord }): JSX.Element {
+/**
+ * One of the card's tasks: where it stands once it is queued or running,
+ * otherwise that it joins, or for a lane's, after what blocks it.
+ */
+function QueueItem({
+	todo,
+	queue,
+	whole,
+}: {
+	todo: TaskRecord;
+	queue: readonly TaskRecord[];
+	whole: boolean;
+}): JSX.Element {
 	const board = useContext(Board);
 	const stage = stageOf(todo);
+	if (stage === "running") {
+		return <Row todo={todo} Icon={PlayIcon} status="running" tone="quiet" />;
+	}
+	if (stage === "queued") {
+		return (
+			<Row
+				todo={todo}
+				Icon={ClockIcon}
+				status={`queued · ${queue.findIndex((each) => each.id === todo.id) + 1}`}
+				tone="quiet"
+			/>
+		);
+	}
+	// A queued lane queues a task once nothing open blocks it.
+	const blocker = whole
+		? todo.blockedBy.find((id) => board.todos.some((each) => each.id === id))
+		: undefined;
 	return (
-		<li className="flex items-baseline gap-2">
+		<Row
+			todo={todo}
+			Icon={ListPlusIcon}
+			status={blocker === undefined ? "joins" : `after #${blocker}`}
+			tone="info"
+		/>
+	);
+}
+
+/** The work a card acts on, inset under its heading. */
+function Panel({
+	heading,
+	children,
+}: {
+	heading: string;
+	children?: ReactNode;
+}): JSX.Element {
+	return (
+		<div className="mx-4 mb-3.5 overflow-hidden rounded-lg border text-sm [header+&]:mt-3.5 @max-md:mx-3">
+			<div className="bg-muted/40 px-3 py-1.5 font-medium text-muted-foreground text-xs">
+				{heading}
+			</div>
+			<ul>{children}</ul>
+		</div>
+	);
+}
+
+/** A line of the panel that stands for several tasks it leaves out. */
+function Line({
+	Icon,
+	children,
+}: {
+	Icon: LucideIcon;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<li className="flex items-center gap-2 border-t px-3 py-1.5 text-muted-foreground text-xs">
+			<Icon className="size-3.5" />
+			{children}
+		</li>
+	);
+}
+
+const ROW_TONES = {
+	quiet: { row: "text-muted-foreground", icon: "", status: "" },
+	info: {
+		row: "border-dashed border-info/30 bg-info/[0.06]",
+		icon: "text-info",
+		status: "font-medium text-info",
+	},
+	destructive: {
+		row: "border-dashed border-destructive/30 bg-destructive/[0.05]",
+		icon: "text-destructive",
+		status: "text-destructive",
+	},
+};
+
+/** A task in the panel, which opens it, and where it stands. */
+function Row({
+	todo,
+	Icon,
+	status,
+	tone,
+}: {
+	todo: TaskRecord;
+	Icon: LucideIcon;
+	status: string;
+	tone: keyof typeof ROW_TONES;
+}): JSX.Element {
+	const board = useContext(Board);
+	const { row, icon, status: toned } = ROW_TONES[tone];
+	return (
+		<li className={cn("flex items-center gap-2 border-t px-3 py-1.5", row)}>
+			<Icon className={cn("size-3.5 shrink-0", icon)} />
 			<span className="text-muted-foreground text-xs tabular-nums">
 				#{todo.id}
 			</span>
@@ -135,7 +296,7 @@ function QueueItem({ todo }: { todo: TaskRecord }): JSX.Element {
 			>
 				{todo.subject}
 			</button>
-			<span className="shrink-0 text-muted-foreground text-xs">{stage}</span>
+			<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
 		</li>
 	);
 }

@@ -1,14 +1,14 @@
 import {
 	ArchiveIcon,
 	CheckIcon,
-	CopyIcon,
 	type LucideIcon,
+	TerminalIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useContext, useState } from "react";
+import { type JSX, type ReactNode, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
-import { CardBody, CardShell } from "./card-shell";
+import { CardBody, CardShell, type Tone } from "./card-shell";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -32,9 +32,11 @@ export interface Action {
 
 /**
  * The frame of a card through which an agent asks the person to have splates
- * do what it may not: what it asks, the command to run it in a terminal, and
- * the action's own button at the foot's right. Once its button has
- * done it, it offers to archive the conversation, whose work splates now has.
+ * do what it may not: what it asks, then a foot with a note on its left and,
+ * at its right, a button that copies the command to run it in a terminal,
+ * and the action's own button. Once it is done, from its button or
+ * anywhere else, it offers to archive the conversation, whose work splates
+ * now has.
  */
 export function ActionCard({
 	label,
@@ -44,6 +46,8 @@ export function ActionCard({
 	action,
 	done,
 	gone,
+	note,
+	tone = "info",
 	children,
 }: {
 	label: string;
@@ -55,31 +59,29 @@ export function ActionCard({
 	done: boolean;
 	/** Why there is nothing left to do, such as the work no longer on the board. */
 	gone: string | null;
-	/** What it acts on, between its body and its command. */
+	/** What the foot says on its left while it is still to do. */
+	note?: string;
+	/** Its header's tint while still to do, `destructive` for what it takes away. */
+	tone?: Tone;
+	/** What it acts on, between its body and its foot. */
 	children?: ReactNode;
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
-	// Whether this card's button did it, shown at once, so it offers to
-	// archive the conversation; not when it was done some other way.
-	const [doneHere, setDoneHere] = useState(false);
 	const archive = useContext(ArchiveConversation);
-	const run = (): void => {
-		setDoneHere(true);
-		void attempt(action.run(), action.failed).then(
-			(landed) => landed || setDoneHere(false),
-		);
-	};
+	const run = (): void => void attempt(action.run(), action.failed);
 	return (
 		<CardShell
 			label={label}
 			Icon={Icon}
 			title={title}
-			tone={done ? "success" : "info"}
+			tone={done ? "success" : tone}
 		>
 			{body !== "" && <CardBody text={body} />}
 			{children}
-			{gone === null && !done && <Command command={action.command} />}
 			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+				{gone === null && !done && note !== undefined && (
+					<span className="mr-auto text-muted-foreground text-xs">{note}</span>
+				)}
 				{gone !== null ? (
 					<span className="text-muted-foreground text-xs">{gone}</span>
 				) : done ? (
@@ -88,7 +90,7 @@ export function ActionCard({
 							<CheckIcon className="size-3.5" strokeWidth={3} />
 							{action.done}
 						</span>
-						{doneHere && archive !== null && (
+						{archive !== null && (
 							<Button
 								size="sm"
 								variant="outline"
@@ -101,10 +103,13 @@ export function ActionCard({
 						)}
 					</>
 				) : (
-					<Button size="sm" onClick={run} className="gap-1.5">
-						<action.VerbIcon data-icon="inline-start" />
-						{action.verb}
-					</Button>
+					<>
+						<Command command={action.command} />
+						<Button size="sm" onClick={run} className="gap-1.5">
+							<action.VerbIcon data-icon="inline-start" />
+							{action.verb}
+						</Button>
+					</>
 				)}
 			</div>
 			<Refusal refusal={refusal} />
@@ -112,25 +117,26 @@ export function ActionCard({
 	);
 }
 
-/** The command to run it from a terminal instead, which copies. */
+/**
+ * The command to run it from a terminal instead, which copies: kept to an
+ * icon, the command itself in its title, since the page's button does the
+ * same.
+ */
 function Command({ command }: { command: string }): JSX.Element {
 	const { copied, copy } = useCopy();
 	return (
-		<div className="flex items-center gap-2 border-border/60 border-t px-4 py-2 @max-md:px-3">
-			<code className="min-w-0 flex-1 truncate font-mono text-muted-foreground text-xs">
-				{command}
-			</code>
-			<Button
-				size="sm"
-				variant="ghost"
-				aria-label={`copy ${command}`}
-				title={copied.state === "failed" ? copied.error : undefined}
-				onClick={() => copy(command)}
-				className="h-7 gap-1.5 text-xs"
-			>
-				<CopyIcon data-icon="inline-start" />
-				<span aria-live="polite">{copiedLabel(copied, "Copy")}</span>
-			</Button>
-		</div>
+		<Button
+			size="sm"
+			variant="ghost"
+			aria-label={`copy ${command}`}
+			title={copied.state === "failed" ? copied.error : command}
+			onClick={() => copy(command)}
+			className="text-muted-foreground"
+		>
+			{copied.state === "copied" ? <CheckIcon /> : <TerminalIcon />}
+			<span aria-live="polite" className="sr-only">
+				{copiedLabel(copied, "")}
+			</span>
+		</Button>
 	);
 }

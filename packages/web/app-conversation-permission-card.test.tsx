@@ -45,7 +45,44 @@ describe("App's permission card", () => {
 		lanes: [{ id: 3, name: "Billing export" }],
 	};
 
-	it("lists the lane's tasks, and Queue now queues the lane from the page itself", async () => {
+	// A queue with more ahead than the card shows, and a lane task blocked.
+	const busy = {
+		todos: [
+			todo({ id: 31, subject: "Write the CSV", lane: 3, stage: "ready" }),
+			todo({
+				id: 32,
+				subject: "Serve the export",
+				lane: 3,
+				stage: "ready",
+				blockedBy: [31],
+			}),
+			...[11, 12, 13, 14].map((id) =>
+				todo({ id, subject: `Queued ${id}`, stage: "queued" }),
+			),
+		],
+		lanes: [{ id: 3, name: "Billing export" }],
+	};
+	// Tasks named one by one, not a lane.
+	const tasks = conversation({
+		title: "Billing",
+		messages: [
+			message(
+				"agent",
+				[
+					"## 🔐 Permission: queue #31, #32: the export",
+					"",
+					"Both at once.",
+				].join("\n"),
+			),
+		],
+	});
+	// The lane queued already, from the board or a terminal.
+	const queuedLane = {
+		...board,
+		lanes: [{ id: 3, name: "Billing export", queued: true as const }],
+	};
+
+	it("lists the lane's tasks, and Queue lane queues the lane from the page itself", async () => {
 		const view = await testing.openConversations([asking], undefined, board);
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "queue Billing export" }),
@@ -54,13 +91,14 @@ describe("App's permission card", () => {
 		expect(card.textContent).toContain("Serve the export");
 		expect(card.textContent).toContain("Two tasks, the writer first.");
 		// The command to queue it from a terminal instead, which the card copies.
-		expect(card.textContent).toContain("splates lane queue 3");
 		expect(
-			within(card).getByRole("button", { name: "copy splates lane queue 3" }),
-		).toBeTruthy();
+			within(card)
+				.getByRole("button", { name: "copy splates lane queue 3" })
+				.getAttribute("title"),
+		).toBe("splates lane queue 3");
 
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: /Queue now/ })),
+			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
 		);
 
 		expect(testing.posts.at(-1)).toMatchObject({
@@ -70,7 +108,7 @@ describe("App's permission card", () => {
 		});
 	});
 
-	it("offers to archive the conversation once its Queue now has queued the lane", async () => {
+	it("offers to archive the conversation once its Queue lane has queued the lane", async () => {
 		const view = await testing.openConversations([asking], undefined, board);
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "queue Billing export" }),
@@ -78,7 +116,7 @@ describe("App's permission card", () => {
 		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: /Queue now/ })),
+			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
 		);
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "Archive" })),
@@ -87,6 +125,47 @@ describe("App's permission card", () => {
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+	});
+
+	it("offers to archive the conversation once its lane is queued anywhere else", async () => {
+		const view = await testing.openConversations(
+			[asking],
+			undefined,
+			queuedLane,
+		);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "queue Billing export" }),
+		);
+
+		expect(card.textContent).toContain("Queued lane Billing export");
+		expect(within(card).getByRole("button", { name: "Archive" })).toBeTruthy();
+	});
+
+	it("shows the queue it joins: what is queued ahead, then each task joining or after what blocks it", async () => {
+		const view = await testing.openConversations([asking], undefined, busy);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "queue Billing export" }),
+		);
+		const rows = [...card.querySelectorAll("li")].map((li) => li.textContent);
+		expect(rows).toEqual([
+			"1 more queued ahead",
+			"#12Queued 12queued · 2",
+			"#13Queued 13queued · 3",
+			"#14Queued 14queued · 4",
+			"#31Write the CSVjoins",
+			"#32Serve the exportafter #31",
+		]);
+	});
+
+	it("queues tasks named one by one with a button that counts them", async () => {
+		const view = await testing.openConversations([tasks], undefined, board);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "queue the export" }),
+		);
+		expect(card.textContent).toContain("Add the export to the queue");
+		expect(
+			within(card).getByRole("button", { name: /Queue 2 tasks/ }),
+		).toBeTruthy();
 	});
 
 	it("shows what removing a lane takes with it, and Remove now removes it from the page", async () => {
@@ -110,7 +189,10 @@ describe("App's permission card", () => {
 			view.getByRole("region", { name: "remove Billing export" }),
 		);
 		expect(card.textContent).toContain("Its 2 tasks go with it.");
-		expect(card.textContent).toContain("splates lane remove 3");
+		expect(card.textContent).toContain("Write the CSV");
+		expect(
+			within(card).getByRole("button", { name: "copy splates lane remove 3" }),
+		).toBeTruthy();
 
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /Remove now/ })),
