@@ -39,8 +39,8 @@ export function WorkerBudgetSection(): JSX.Element | null {
 		return null;
 	}
 	return (
-		<div className="flex flex-col gap-3">
-			<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+		<div className="flex min-w-0 flex-col gap-4">
+			<header className="flex flex-wrap items-center gap-2">
 				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
 					Worker budget
 				</h2>

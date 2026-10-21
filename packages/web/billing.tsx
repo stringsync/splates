@@ -68,8 +68,8 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 			<TopBar title="Billing" />
 			<SpendSection />
 			<PlanSection talk={talk} />
-			<div className="flex flex-col gap-3">
-				<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+			<div className="flex min-w-0 flex-col gap-4">
+				<header className="flex flex-wrap items-center gap-2">
 					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
 						Scry budgets
 					</h2>
@@ -338,8 +338,8 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 	// Codex never sends its limits, so the server asks it as the page opens.
 	useEffect(() => void talk.refreshLimits(), [talk]);
 	return (
-		<div className="flex flex-col gap-3">
-			<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+		<div className="flex min-w-0 flex-col gap-4">
+			<header className="flex flex-wrap items-center gap-2">
 				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
 					Plan limits
 				</h2>
