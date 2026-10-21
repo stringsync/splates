@@ -19,6 +19,7 @@ import { SERVERS, WorkerCallHost } from "./call-host";
 import { RELAY, type WorkerChannel } from "./channel";
 import { hostOf, LocalWorkerMachine } from "./machine";
 import { WAKE, type WakeSender } from "./magic-packet";
+import { OrphanBound } from "./orphan";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
 import { UPDATE } from "./protocol";
@@ -65,7 +66,10 @@ export class WorkerDaemon implements AsyncResource {
 	private readonly backoff: { min: Duration; max: Duration };
 	private readonly machine: LocalWorkerMachine;
 	private readonly orphanBound: Duration;
+	private readonly clock: Clock;
 	private orphaned: Resource | undefined;
+	/** The bound passed awake: what the coordinator left ends once a redial fails. */
+	private due = false;
 	/** Where `splates` on this machine reaches the coordinator, once running. */
 	private relay: WorkerRelay | null = null;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
@@ -84,6 +88,7 @@ export class WorkerDaemon implements AsyncResource {
 			max: Duration.secs(10),
 		};
 		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
+		this.clock = opts.clock ?? new SystemClock();
 		this.busy = new AwakeWhileBusy(opts.awake ?? null);
 		this.keys = opts.keys ?? null;
 		this.machine = new LocalWorkerMachine(
@@ -98,10 +103,13 @@ export class WorkerDaemon implements AsyncResource {
 					? WORKER_CAPABILITIES
 					: [...WORKER_CAPABILITIES, KEYS],
 			timer: this.timer,
-			clock: opts.clock ?? new SystemClock(),
+			clock: this.clock,
 		});
 		this.session.events.on("channel", (channel) => this.serve(channel));
-		this.session.events.on("connected", () => this.orphaned?.dispose());
+		this.session.events.on("connected", () => {
+			this.orphaned?.dispose();
+			this.due = false;
+		});
 		this.session.events.on("lost", () => this.orphan());
 	}
 
@@ -146,6 +154,7 @@ export class WorkerDaemon implements AsyncResource {
 				}
 				return null;
 			});
+			let joined = false;
 			if (socket !== null && !this.stopped) {
 				const lost = new Promise<string>((resolve) =>
 					this.session.events.on("lost", ({ reason }) => resolve(reason), {
@@ -174,6 +183,7 @@ export class WorkerDaemon implements AsyncResource {
 					};
 				}
 				if (negotiated.ok) {
+					joined = true;
 					log.info(
 						`worker ${this.opts.id} joined ${this.dialer.where}, running ${this.running} agents and terminals`,
 					);
@@ -193,6 +203,9 @@ export class WorkerDaemon implements AsyncResource {
 			}
 			if (this.stopped) {
 				break;
+			}
+			if (!joined && this.due) {
+				this.endOrphaned();
 			}
 			await this.sleep(jittered(wait, this.opts.random ?? Math.random));
 			wait = Duration.min(wait.multiply(2), this.backoff.max);
@@ -232,21 +245,50 @@ export class WorkerDaemon implements AsyncResource {
 	/**
 	 * Starts the bound on a lost coordinator. A restart returns in seconds
 	 * and takes its channels back; one that does not return within the bound
-	 * is gone, and what it left would burn its slot and tokens for good.
+	 * is gone, and what it left would burn its slot and tokens for good. The
+	 * bound counts only time awake, and what it left ends only once a redial
+	 * past it fails, so a machine waking from a long sleep reaches its
+	 * coordinator before judging it gone.
 	 */
 	private orphan(): void {
 		if (this.stopped) {
 			return;
 		}
 		this.orphaned?.dispose();
-		this.orphaned = this.timer.setTimeout(() => {
-			this.opts.log.info(
-				`no coordinator returned within ${this.orphanBound.secs}s; ending what it left`,
-			);
-			this.session.endChannels();
-			// Whoever comes next sends its own.
-			this.keys?.clear();
-		}, this.orphanBound);
+		this.due = false;
+		this.orphaned = new OrphanBound({
+			bound: this.orphanBound,
+			timer: this.timer,
+			clock: this.clock,
+			woke: () => {
+				this.opts.log.info(
+					`woke without ${this.dialer.where}: redialing before judging it gone`,
+				);
+				this.redial();
+			},
+			due: () => {
+				this.due = true;
+				this.redial();
+			},
+		});
+	}
+
+	/** Ends what a coordinator gone past the bound left. */
+	private endOrphaned(): void {
+		this.due = false;
+		this.orphaned?.dispose();
+		this.opts.log.info(
+			`no coordinator returned within ${this.orphanBound.secs}s awake; ending what it left`,
+		);
+		this.session.endChannels();
+		// Whoever comes next sends its own.
+		this.keys?.clear();
+	}
+
+	/** Cuts short the wait between dials, to dial now. */
+	private redial(): void {
+		this.waiting?.timeout.dispose();
+		this.waiting?.wake();
 	}
 
 	private serve(channel: WorkerChannel): void {
@@ -364,8 +406,9 @@ export interface WorkerDaemonOptions {
 	/** Spreads each wait between dials, as `Math.random` by default. */
 	random?: () => number;
 	/**
-	 * How long the coordinator's session may stay lost before every channel
-	 * it held ends; ten minutes by default.
+	 * How long, awake, the coordinator's session may stay lost before every
+	 * channel it held ends, once a redial past it fails; ten minutes by
+	 * default.
 	 */
 	orphanBound?: Duration;
 	/** Paces the session, as `WorkerSession` takes it. */

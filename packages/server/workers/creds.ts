@@ -26,6 +26,12 @@ export function workerKeyFile(ps: Ps): string {
 export const WORKER_KEY = "SPLATES_WORKER_KEY";
 
 /**
+ * The id a worker joined as, kept beside its key, so it keeps that id when
+ * its hostname changes, as a laptop's does from one network to the next.
+ */
+export const WORKER_ID = "SPLATES_WORKER_ID";
+
+/**
  * Where a join token may be given instead of `--join`: an argument is in
  * `/proc/<pid>/cmdline` for every user of the machine to read, an
  * environment only for its own user.
@@ -78,7 +84,24 @@ export async function workerJoin(
 			"give the server's URL with --server and a token from `splates worker add` there with --join",
 		);
 	}
-	await workerCreds(opts.id || opts.ps.hostname, { ...opts, slots: 0 });
+	await workerCreds(await workerId(opts), { ...opts, slots: 0 });
+}
+
+/**
+ * The id a worker of a coordinator elsewhere goes by: `--id`, else the one
+ * it joined as, else this machine's hostname.
+ */
+export async function workerId(
+	opts: Pick<WorkerRunOptions, "id" | "ps" | "fs" | "keyFile" | "store">,
+): Promise<string> {
+	if (opts.id) {
+		return opts.id;
+	}
+	const kept = new Credentials([
+		new Environment({ ps: opts.ps }),
+		keptStore(opts),
+	]);
+	return (await kept.get(WORKER_ID).catch(() => undefined)) ?? opts.ps.hostname;
 }
 
 /** Where the worker's key is kept: the system's store, or the key file with `--key-file`. */
@@ -157,6 +180,7 @@ export async function workerCreds(
 		}
 		try {
 			await store.set(WORKER_KEY, key);
+			await store.set(WORKER_ID, id);
 			if (access === null) {
 				await store.delete(WORKER_ACCESS_ID);
 				await store.delete(WORKER_ACCESS_SECRET);
@@ -185,6 +209,7 @@ export async function workerCreds(
 	}
 	const clientId = await kept.get(WORKER_ACCESS_ID);
 	const clientSecret = await kept.get(WORKER_ACCESS_SECRET);
+	await keepId(id, kept, store);
 	return {
 		key,
 		access:
@@ -192,6 +217,20 @@ export async function workerCreds(
 				? null
 				: { clientId, clientSecret },
 	};
+}
+
+/**
+ * Keeps `id` as the one this worker goes by, for one that joined before
+ * its id was kept, so a later change of hostname leaves it the same.
+ */
+async function keepId(
+	id: string,
+	kept: Credentials,
+	store: SecretStore,
+): Promise<void> {
+	if ((await kept.get(WORKER_ID).catch(() => undefined)) === undefined) {
+		await store.set(WORKER_ID, id).catch(() => {});
+	}
 }
 
 /**

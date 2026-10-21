@@ -46,7 +46,7 @@ splatesWorker
 	.option("id", z.string(), {
 		default: "",
 		description:
-			"what the server knows this worker by, kept across restarts so it picks up where it was; by default the machine's host name",
+			"what the server knows this worker by, kept across restarts so it picks up where it was; by default the id it joined as, kept beside its key, else the machine's host name",
 	})
 	.option("join", z.string(), {
 		default: "",
@@ -103,7 +103,7 @@ splatesWorker
 	.option("id", z.string(), {
 		default: "",
 		description:
-			"what the server knows this worker by; by default the machine's host name",
+			"what the server knows this worker by, kept beside its key so a change of host name leaves it the same; by default the machine's host name",
 	})
 	.option("key-file", z.boolean(), {
 		default: false,

@@ -10,8 +10,10 @@ import { joinToken } from "./access";
 import {
 	WORKER_ACCESS_ID,
 	WORKER_ACCESS_SECRET,
+	WORKER_ID,
 	WORKER_KEY,
 	workerCreds,
+	workerId,
 	workerKeyFile,
 } from "./creds";
 import type { WorkerRunOptions } from "./run-options";
@@ -131,5 +133,37 @@ describe("workerCreds", () => {
 			key: "the-key",
 			access: null,
 		});
+	});
+
+	it("keeps the id it joins as, going by it after the hostname changes", async () => {
+		ps.hostname = "jareds-mbp";
+		await workerCreds(await workerId({ ...options(""), id: "" }), {
+			...options("splj_token"),
+			id: "",
+		});
+
+		ps.hostname = "jareds-mbp-2";
+
+		expect(await store.get(WORKER_ID)).toBe("jareds-mbp");
+		expect(await workerId({ ...options(""), id: "" })).toBe("jareds-mbp");
+	});
+
+	it("keeps the id of a worker that joined before its id was kept, at its next run", async () => {
+		ps.hostname = "jareds-mbp";
+		await store.set(WORKER_KEY, "the-key");
+
+		await workerCreds(await workerId({ ...options(""), id: "" }), {
+			...options(""),
+			id: "",
+		});
+		ps.hostname = "jareds-mbp-2";
+
+		expect(await workerId({ ...options(""), id: "" })).toBe("jareds-mbp");
+	});
+
+	it("goes by --id over the one it joined as", async () => {
+		await store.set(WORKER_ID, "jareds-mbp");
+
+		expect(await workerId(options(""))).toBe("box");
 	});
 });

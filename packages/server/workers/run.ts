@@ -9,7 +9,12 @@ import { heavyJobsOfMachine } from "../server/shared";
 import { FsStorage } from "../storage";
 import { accessHeaders } from "./access";
 import { keepAwakeOf } from "./awake";
-import { undumpableKeys, type WorkerCreds, workerCreds } from "./creds";
+import {
+	undumpableKeys,
+	type WorkerCreds,
+	workerCreds,
+	workerId,
+} from "./creds";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { endWithSupervisor, restartWorker } from "./lifecycle";
 import { hostOf, machineSlots, onWindowsDrive } from "./machine";
@@ -37,7 +42,6 @@ export function workerSocketPath(ps: Ps): string {
  */
 export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const { ps, log } = opts;
-	const id = opts.id || ps.hostname;
 	const home = splatesHome(ps);
 	if (onWindowsDrive(hostOf(ps), home)) {
 		fail(
@@ -60,6 +64,8 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const remote = !(
 		opts.coordinator === "" || opts.coordinator.startsWith("unix:")
 	);
+	// This machine's own goes by its hostname, as its coordinator finds it.
+	const id = remote ? await workerId(opts) : opts.id || ps.hostname;
 	const creds = remote ? await workerCreds(id, opts) : null;
 	// A worker of its own machine keeps API keys its coordinator sends while
 	// agents run beside it as the same user, so no other process may read
