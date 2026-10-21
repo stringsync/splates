@@ -3,7 +3,11 @@ import type {
 	FinishedPlan,
 	FinishedTask,
 } from "@stringsync/splates-server/tasks";
-import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
+import {
+	BotMessageSquareIcon,
+	CircleCheckIcon,
+	CircleSlashIcon,
+} from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -188,6 +192,12 @@ function FinishedRow({
 					</span>
 				)}
 			</span>
+			{task.hasDemo && (
+				<BotMessageSquareIcon
+					aria-label="has a demo"
+					className="size-3.5 shrink-0 text-muted-foreground"
+				/>
+			)}
 			<span
 				className="shrink-0 text-muted-foreground text-xs tabular-nums"
 				title={new Date(task.endedAt).toLocaleString()}

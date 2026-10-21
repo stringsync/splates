@@ -46,6 +46,25 @@ describe("Finished", () => {
 		expect(read?.took).toEqual([{ id: 3, subject: "do 3" }]);
 	});
 
+	it("says which ended on a plan with a Demo", async () => {
+		await finished.record(
+			ended(5, "2026-10-01T05:00:00.000Z", {
+				plan: "# t\n\n## Demo\n\nOpen the page.\n\n## Notes\n\nx",
+			}),
+		);
+		await finished.record(
+			ended(6, "2026-10-01T06:00:00.000Z", {
+				plan: "# t\n\n## Demo\n\n## Notes\n\nx",
+			}),
+		);
+		await finished.record(ended(7, "2026-10-01T07:00:00.000Z"));
+
+		const listed = await finished.list();
+
+		expect(listed.map((each) => each.hasDemo)).toEqual([false, false, true]);
+		expect((await finished.read(listed[2]?.key ?? ""))?.hasDemo).toBe(true);
+	});
+
 	it("keeps a number's every finish apart", async () => {
 		await finished.record(ended(4, "2026-10-01T04:00:00.000Z"));
 		await finished.record(ended(4, "2026-10-02T04:00:00.000Z"));
@@ -124,7 +143,7 @@ function ended(
 	id: number,
 	endedAt: string,
 	more: Partial<FinishedPlan> = {},
-): Omit<FinishedPlan, "key"> {
+): Omit<FinishedPlan, "key" | "hasDemo"> {
 	return {
 		id,
 		task: `task-${id}`,

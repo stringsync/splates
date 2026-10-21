@@ -230,6 +230,7 @@ function finished(more: Partial<FinishedPlan> = {}): FinishedPlan {
 		conversation: null,
 		took: [],
 		plan: PLAN,
+		hasDemo: true,
 		...more,
 	};
 }
