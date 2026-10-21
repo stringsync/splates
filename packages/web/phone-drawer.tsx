@@ -9,6 +9,7 @@ import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
+import { RestartButton } from "./restart-button";
 import { SetupDot } from "./setup-state";
 
 /**
@@ -29,6 +30,7 @@ export function Drawer({
 	archived,
 	orphans,
 	snapshot,
+	update,
 	onGo,
 }: {
 	open: boolean;
@@ -47,6 +49,8 @@ export function Drawer({
 	/** How many tasks no agent is left on. */
 	orphans: number;
 	snapshot: Snapshot | null;
+	/** Whether a restart would update splates. */
+	update: boolean;
 	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
@@ -104,8 +108,12 @@ export function Drawer({
 							/>
 						))}
 					</nav>
-					{/* Archived stays at the foot. */}
+					{/* Update and Archived stay at the foot. */}
 					<div className="mt-auto">
+						{/* Update, from any screen, while one waits or runs. */}
+						<div className="flex flex-col border-t p-2 empty:hidden [&>button]:w-full">
+							<RestartButton wide={false} update={update} />
+						</div>
 						{available && (
 							<div className="border-t p-2">
 								<Entry

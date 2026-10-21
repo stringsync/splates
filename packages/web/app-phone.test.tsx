@@ -30,7 +30,22 @@ describe("App on a phone", () => {
 		resize(1024, 768);
 	});
 
-	/** Opens task `name`'s dialog on the Tasks page, as a link to it does. */
+	/** The Header conversation as the inbox lists it, summarized. */
+	const headerSummary = () => {
+		const [, first] = [
+			message("user", "fix the header"),
+			message("agent", report),
+		];
+		return conversation({
+			id: "c1",
+			title: "Header",
+			task: "alpha",
+			summary: true,
+			messages: [message("user", "fix the header"), first as never],
+		});
+	};
+
+	/** Opens task `name's dialog on the Tasks page, as a link to it does. */
 	const openTaskAt = async (name: string) => {
 		await act(async () => {
 			location.hash = `#tasks/${name}`;
@@ -887,17 +902,7 @@ describe("App on a phone", () => {
 	});
 
 	it("keeps open the sheet the inbox opened as the conversation is read whole", async () => {
-		const [, first] = [
-			message("user", "fix the header"),
-			message("agent", report),
-		];
-		const summary = conversation({
-			id: "c1",
-			title: "Header",
-			task: "alpha",
-			summary: true,
-			messages: [message("user", "fix the header"), first as never],
-		});
+		const summary = headerSummary();
 		// Read whole, the agent's message gains the tool calls a summary drops.
 		const [call] = message("agent", tool({ id: "t1", command: "ls" })).parts;
 		testing.wholes.c1 = {
@@ -1161,19 +1166,21 @@ describe("App on a phone", () => {
 		).toContain("beta");
 	});
 
-	it("puts Update in a conversation's bar as in the inbox's, and the version in the kebab alone", async () => {
+	it("keeps Update out of a conversation's bar, its place in the inbox's and the drawer's, and the version in the kebab", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Broke" })],
 			"c1",
 			{ release: { running: "0.0.43", newest: "0.0.44" } },
 		);
 		expect(location.hash).toBe("#conversations/c1");
-		await waitFor(() => view.getByRole("button", { name: "Update" }));
+		await waitFor(() => view.getByText("Broke"));
+		expect(view.queryByRole("button", { name: "Update" })).toBeNull();
 		expect(view.queryByTitle(/^Current version/)).toBeNull();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More" })),
 		);
 		await waitFor(() => view.getByText(/^splates v/));
+		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
 
 		await act(async () =>
 			fireEvent.click(
@@ -1182,6 +1189,20 @@ describe("App on a phone", () => {
 		);
 
 		await waitFor(() => view.getByRole("button", { name: "Update" }));
+	});
+
+	it("offers Update at the drawer's foot while one waits", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Broke" })],
+			null,
+			{ release: { running: "0.0.43", newest: "0.0.44" } },
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+
+		const drawer = await waitFor(() => view.getByRole("dialog"));
+		expect(within(drawer).getByRole("button", { name: "Update" })).toBeTruthy();
 	});
 
 	it("starts a new conversation with the same agent from a conversation's bar", async () => {

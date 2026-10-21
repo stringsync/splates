@@ -142,6 +142,8 @@ export function PhoneApp({
 						<TopBarFrame
 							value={{
 								...kebab,
+								// An update is for the screens above a conversation.
+								dot: undefined,
 								badge: snapshot !== null && (
 									<WaitingBadge
 										feed={talk}
@@ -216,6 +218,7 @@ export function PhoneApp({
 							: 0
 					}
 					snapshot={snapshot}
+					update={pageMenu.dot}
 					onGo={go}
 				/>
 			</div>
