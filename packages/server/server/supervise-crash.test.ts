@@ -83,6 +83,21 @@ describe("supervise, crashed", () => {
 		expect(ps.getCalls()).toHaveLength(1);
 	});
 
+	it("ends at once on a Ctrl-C during the pause after a crash", async () => {
+		ps.simulate(async () => 1);
+		// The pause never passes on its own; Ctrl-C comes once it begins.
+		const pausing: Timer = {
+			...timer,
+			setTimeout(): Resource {
+				queueMicrotask(() => ps.dispatch("SIGINT"));
+				return { dispose() {} };
+			},
+		};
+
+		expect(await supervise(ps, { timer: pausing, clock })).toBe(130);
+		expect(ps.getCalls()).toHaveLength(1);
+	});
+
 	it("restarts from the page at once, without a pause", async () => {
 		running([RESTART, 0], [130, 0]);
 

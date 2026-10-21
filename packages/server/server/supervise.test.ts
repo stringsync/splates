@@ -72,6 +72,39 @@ describe("supervise", () => {
 		]);
 	});
 
+	it("ends, starting no server, on a Ctrl-C that comes during the build", async () => {
+		ps.args = ["server"];
+		ps.simulate(async () => {
+			ps.dispatch("SIGINT");
+			return 130;
+		});
+
+		expect(await supervise(ps, { build })).toBe(130);
+		expect(ps.getCalls()).toEqual(["bun install"]);
+	});
+
+	it("ends on a Ctrl-C that comes during the build after a restart from the page", async () => {
+		ps.args = ["server"];
+		// The build, the server restarted from the page, then the build again,
+		// which Ctrl-C ends.
+		const runs = [
+			async () => 0,
+			async () => RESTART,
+			async () => {
+				ps.dispatch("SIGINT");
+				return 130;
+			},
+		];
+		ps.simulate(() => (runs.shift() ?? (async () => 0))());
+
+		expect(await supervise(ps, { build })).toBe(130);
+		expect(ps.getCalls()).toEqual([
+			"bun install",
+			"bun /fake/entry.ts server",
+			"bun install",
+		]);
+	});
+
 	it("serves where it is told, with what it is told added, as a slot's server", async () => {
 		ps.args = ["server", "--slot"];
 		exiting(RESTART, 0);

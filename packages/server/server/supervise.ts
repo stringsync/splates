@@ -35,9 +35,10 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
  * Runs `splates server` as a child of this process, sharing its terminal, and
  * starts another each time the child exits to restart: as this one was
  * started, or on the newest splates when it asks to update. Ctrl-C reaches the
- * child too, and its exit ends this. A SIGTERM or SIGHUP to this one stops the
- * child with a SIGTERM and ends this, since the child would otherwise outlive
- * it, listening on its port. A `worker` runs beside it as a second child,
+ * child too, and its exit ends this; one while no child serves, as during a
+ * build or a crash's pause, ends this at once. A SIGTERM or SIGHUP to this one
+ * stops the child with a SIGTERM and ends this, since the child would
+ * otherwise outlive it, listening on its port. A `worker` runs beside it as a second child,
  * told this process's pid so it ends once this is gone. Both stop, ending
  * this with 0, once the `checkout` it runs from is deleted. A child that
  * crashes, ending any other way than with 0, Ctrl-C or a stop, is started
@@ -66,11 +67,10 @@ export async function supervise(
 	// Built until it updates: npm's splates ships its page.
 	let building = build;
 	// Ctrl-C is the child's to end on, and its exit then ends this, never
-	// read as a crash.
-	let interrupted = false;
-	const quiet = ps.on("SIGINT", () => {
-		interrupted = true;
-	});
+	// read as a crash. One that comes while no server runs, as during a build
+	// or the pause after a crash, ends this at once.
+	const interrupting = new AbortController();
+	const quiet = ps.on("SIGINT", () => interrupting.abort());
 	const stopping = new AbortController();
 	let stopped = 0;
 	const stopOn = (signal: string, code: number) =>
@@ -104,6 +104,9 @@ export async function supervise(
 			if (stopping.signal.aborted) {
 				return stopped;
 			}
+			if (interrupting.signal.aborted) {
+				return INTERRUPTED;
+			}
 			let exitCode: number;
 			const began = clock.now();
 			try {
@@ -123,12 +126,15 @@ export async function supervise(
 				}
 				throw error;
 			}
+			if (interrupting.signal.aborted) {
+				return exitCode;
+			}
 			if (exitCode === UPDATE) {
 				splates = NEWEST;
 				argv = [...splates, ...ps.args];
 				building = null;
 			} else if (exitCode !== RESTART) {
-				if (interrupted || STOPS.includes(exitCode)) {
+				if (STOPS.includes(exitCode)) {
 					return exitCode;
 				}
 				// One that served a while crashed afresh, not again.
@@ -144,12 +150,16 @@ export async function supervise(
 				log?.error(
 					`splates server exited (${exitCode}), starting it again in ${pause.human()}`,
 				);
-				await sleep(pause, timer, stopping.signal);
+				await sleep(
+					pause,
+					timer,
+					AbortSignal.any([stopping.signal, interrupting.signal]),
+				);
 				if (stopping.signal.aborted) {
 					return stopped;
 				}
-				if (interrupted) {
-					return exitCode;
+				if (interrupting.signal.aborted) {
+					return INTERRUPTED;
 				}
 			}
 		}
@@ -202,6 +212,9 @@ export interface SuperviseOptions {
  * and Ctrl-C's or a SIGTERM's code when one reached it alone.
  */
 const STOPS = [0, 128 + 2, 128 + 15];
+
+/** What a Ctrl-C that came while no server ran ends this with. */
+const INTERRUPTED = 128 + 2;
 
 /** How long the first crash in a row is waited on before the server starts again. */
 const FIRST_PAUSE = Duration.secs(2);
