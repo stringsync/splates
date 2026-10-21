@@ -83,6 +83,7 @@ test("a tunnel makes its DNS record, an Access application and a service token",
 		zoneId: "zone",
 	});
 	await tunnel.token.apply(() => {});
+	expect(await tunnel.tunnelId.promise()).toBe("t-tunnel-id");
 	expect(await ofType("cloudflare:index/dnsRecord:DnsRecord")).toHaveLength(1);
 	expect(
 		await ofType(

@@ -17,9 +17,9 @@ function stores(
 }
 
 describe("the creds the box needs", () => {
-	it("names none once the tunnel token and every deploy key are there", async () => {
+	it("names none once the tunnel and API tokens and every deploy key are there", async () => {
 		const kept = stores(
-			{ SPLATES_TUNNEL_TOKEN: "t" },
+			{ SPLATES_TUNNEL_TOKEN: "t", SPLATES_CLOUDFLARE_API_TOKEN: "c" },
 			{ splates: { SPLATES_DEPLOY_KEY: "key" } },
 		);
 
@@ -28,7 +28,7 @@ describe("the creds the box needs", () => {
 		);
 	});
 
-	it("names the tunnel token and each project's deploy key it lacks", async () => {
+	it("names the tunnel and API tokens and each project's deploy key it lacks", async () => {
 		const kept = stores({}, { splates: { SPLATES_DEPLOY_KEY: "key" } });
 
 		const missing = await neededCreds(kept, [
@@ -37,8 +37,9 @@ describe("the creds the box needs", () => {
 		]);
 
 		expect(missing[0]).toBe("/splates/device/SPLATES_TUNNEL_TOKEN");
-		expect(missing).toHaveLength(2);
-		expect(missing[1]).toStartWith("SPLATES_DEPLOY_KEY in ");
+		expect(missing[1]).toBe("/splates/device/SPLATES_CLOUDFLARE_API_TOKEN");
+		expect(missing).toHaveLength(3);
+		expect(missing[2]).toStartWith("SPLATES_DEPLOY_KEY in ");
 	});
 
 	it("reads a project's deploy key", async () => {

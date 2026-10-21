@@ -3,8 +3,8 @@ import { z } from "zod";
 import type { Document, Storage } from "../storage";
 import { CloudflareApi } from "./cloudflare-api";
 
-/** The file's own format. */
-const FORMAT = 1;
+/** The file's own format, which a box's record from its stack is written in too. */
+export const FORMAT = 1;
 
 /** The name the tunnel's token is kept under in the system's secret store. */
 export const TUNNEL_TOKEN = "SPLATES_TUNNEL_TOKEN";

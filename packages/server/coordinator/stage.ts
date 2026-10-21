@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { decodeTask, encodeTask, TASK_FILE } from "../board";
 import { FsStorage } from "../storage";
+import { FORMAT, type TunnelRecord } from "../tunnel/saved";
 import { WorkerRecords } from "../workers";
 import { type MovedProject, rewriteRoots } from "./paths";
 
@@ -52,6 +53,14 @@ export async function stage(opts: StageOptions): Promise<void> {
 			);
 		}
 	}
+	if (opts.tunnel !== undefined) {
+		// The stack's tunnel is the box's, over any this machine had.
+		await fs.mkdir(`${staging}/home`, { recursive: true });
+		await fs.write(
+			`${staging}/home/tunnel.json`,
+			`${JSON.stringify({ format: FORMAT, ...opts.tunnel }, null, "\t")}\n`,
+		);
+	}
 	const workers = await WorkerRecords.open(
 		new FsStorage(`${staging}/home`, fs).document("workers.json"),
 	);
@@ -69,6 +78,8 @@ export interface StageOptions {
 	/** splates's home here. */
 	home: string;
 	projects: StagedProject[];
+	/** The tunnel the box's stack made, which its `tunnel.json` is written from. */
+	tunnel?: TunnelRecord;
 	/** The directory it lays out under. */
 	staging: string;
 	/** What this machine is known by as a worker. */

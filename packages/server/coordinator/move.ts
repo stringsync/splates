@@ -4,6 +4,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
+import type { TunnelRecord } from "../tunnel/saved";
 import { accessHeaders, joinAccess } from "../workers";
 import type { BoxStanding } from "./box";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
@@ -96,7 +97,7 @@ export class CoordinatorMove {
 		}
 		let token: string | undefined;
 		try {
-			await this.carry(shell, repos, projects);
+			await this.carry(shell, repos, projects, box.tunnel);
 			log.info(`starting splates server on the box`);
 			await shell.run(startScript());
 			// Minted before anything here goes aside: the token the cloud
@@ -300,6 +301,7 @@ export class CoordinatorMove {
 		shell: BoxShell,
 		repos: MoveRepo[],
 		projects: BoxProject[],
+		tunnel: TunnelRecord | undefined,
 	): Promise<void> {
 		const { fs, ps, home, log } = this.opts;
 		const staging = `${home}/move`;
@@ -310,6 +312,7 @@ export class CoordinatorMove {
 				home,
 				staging: `${staging}/bundle`,
 				worker: this.opts.worker,
+				...(tunnel === undefined ? {} : { tunnel }),
 				projects: projects.map((project, index) => ({
 					...project,
 					worktreeRoot: repos[index]?.worktreeRoot ?? "",

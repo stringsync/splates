@@ -108,3 +108,27 @@ describe("stage", () => {
 		expect((await task(2))?.machine).toBe("hetzner-1");
 	});
 });
+
+describe("stage with a tunnel from the stack", () => {
+	it("writes the box's tunnel.json from it, over the machine's own", async () => {
+		const fs = new FakeFs();
+		await fs.mkdir(`${HOME}`, { recursive: true });
+		await fs.write(`${HOME}/tunnel.json`, '{"format":1,"host":"old"}');
+		await stage({
+			fs,
+			home: HOME,
+			staging: STAGING,
+			worker: "macbook",
+			projects: [],
+			tunnel: { host: "h.example.com", team: "acme", aud: "a", tunnel: "t" },
+		});
+
+		expect(JSON.parse(await fs.read(`${STAGING}/home/tunnel.json`))).toEqual({
+			format: 1,
+			host: "h.example.com",
+			team: "acme",
+			aud: "a",
+			tunnel: "t",
+		});
+	});
+});

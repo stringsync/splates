@@ -3,6 +3,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import { AwsCloud } from "../cloud";
 import { splatesHome } from "../models";
+import type { TunnelRecord } from "../tunnel/saved";
 import { type InfraConfig, readInfraConfig } from "./infra";
 
 /**
@@ -47,12 +48,23 @@ export class CoordinatorBox {
 		if (!outputs.success) {
 			return null;
 		}
-		const { instanceId, ipv4, roleName, tunnelHost } = outputs.data;
+		const { instanceId, ipv4, roleName, tunnelHost, tunnelRecord } =
+			outputs.data;
 		return {
 			ipv4,
 			instanceId,
 			roleName,
 			host: tunnelHost,
+			...(tunnelRecord === undefined
+				? {}
+				: {
+						tunnel: {
+							host: tunnelHost,
+							team: tunnelRecord.team,
+							aud: tunnelRecord.aud,
+							tunnel: tunnelRecord.id,
+						},
+					}),
 			key: infra.key ?? this.key,
 		};
 	}
@@ -190,6 +202,8 @@ export interface BoxStanding {
 	roleName: string;
 	/** The host the tunnel serves it through. */
 	host: string;
+	/** What the box's `tunnel.json` holds, from the stack; absent from a stack that predates it. */
+	tunnel?: TunnelRecord;
 	/** The private key that logs in as root. */
 	key: string;
 }
@@ -200,6 +214,9 @@ const Outputs = z.object({
 	ipv4: z.string(),
 	roleName: z.string(),
 	tunnelHost: z.string(),
+	tunnelRecord: z
+		.object({ team: z.string(), aud: z.string(), id: z.string() })
+		.optional(),
 });
 
 /** The user splates runs as on the box, as on a worker. */

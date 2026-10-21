@@ -22,6 +22,12 @@ export interface TunnelArgs {
 export class Tunnel extends pulumi.ComponentResource {
 	readonly host: string;
 	readonly token: pulumi.Output<string>;
+	/** The tunnel's id, which the box's `tunnel.json` names. */
+	readonly tunnelId: pulumi.Output<string>;
+	/** The Zero Trust team, as in `<team>.cloudflareaccess.com`. */
+	readonly team: pulumi.Output<string>;
+	/** The AUD tag of the Access application in front of `host`. */
+	readonly aud: pulumi.Output<string>;
 	readonly serviceTokenId: pulumi.Output<string>;
 	readonly serviceTokenSecret: pulumi.Output<string>;
 
@@ -100,7 +106,7 @@ export class Tunnel extends pulumi.ComponentResource {
 			},
 			child,
 		);
-		new cloudflare.ZeroTrustAccessApplication(
+		const access = new cloudflare.ZeroTrustAccessApplication(
 			`${name}-access`,
 			{
 				accountId: args.accountId,
@@ -112,7 +118,17 @@ export class Tunnel extends pulumi.ComponentResource {
 			child,
 		);
 
+		const organization = cloudflare.getZeroTrustOrganizationOutput(
+			{ accountId: args.accountId },
+			child,
+		);
+
 		this.host = args.host;
+		this.tunnelId = tunnel.id;
+		this.team = organization.authDomain.apply((domain) =>
+			(domain ?? "").replace(/\.cloudflareaccess\.com$/, ""),
+		);
+		this.aud = access.aud;
 		this.token = pulumi.secret(
 			pulumi
 				.all([tunnel.id, secret.base64, args.accountId])
@@ -127,6 +143,9 @@ export class Tunnel extends pulumi.ComponentResource {
 		this.registerOutputs({
 			host: this.host,
 			token: this.token,
+			tunnelId: this.tunnelId,
+			team: this.team,
+			aud: this.aud,
 			serviceTokenId: this.serviceTokenId,
 			serviceTokenSecret: this.serviceTokenSecret,
 		});

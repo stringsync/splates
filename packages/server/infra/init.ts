@@ -55,6 +55,7 @@ const box = new CoordinatorBox("splates", {
 	host,
 	secrets: {
 		SPLATES_TUNNEL_TOKEN: tunnel.token,
+		SPLATES_CLOUDFLARE_API_TOKEN: new pulumi.Config("cloudflare").requireSecret("apiToken"),
 		ANTHROPIC_API_KEY: config.requireSecret("anthropicKey"),
 	},
 });
@@ -64,6 +65,11 @@ export const ipv4 = box.ipv4;
 export const roleName = box.roleName;
 export const sshKey = box.sshKey;
 export const tunnelHost = box.host;
+export const tunnelRecord = {
+	team: tunnel.team,
+	aud: tunnel.aud,
+	id: tunnel.tunnelId,
+};
 `;
 
 /**

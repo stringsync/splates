@@ -81,6 +81,20 @@ describe("CoordinatorBox", () => {
 		});
 	});
 
+	it("carries the tunnel record the stack exports", async () => {
+		ps.outputs = {
+			...OUTPUTS,
+			tunnelRecord: { team: "acme", aud: "aud1", id: "tun1" },
+		};
+
+		expect((await box.status())?.tunnel).toEqual({
+			host: "splates.example.com",
+			team: "acme",
+			aud: "aud1",
+			tunnel: "tun1",
+		});
+	});
+
 	it("has no box while the stack has not exported one", async () => {
 		ps.outputs = {};
 
