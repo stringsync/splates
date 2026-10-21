@@ -52,7 +52,7 @@ describe.concurrent("a lane queued whole", () => {
 		await queueAdd(deps, [1]);
 		await queueRemove(deps, [1]);
 		await queueAdd(deps, [1]);
-		expect((await deps.tasks.lanes())[0]).toEqual({
+		expect((await deps.tasks.lanes())[1]).toEqual({
 			id: 1,
 			name: "Licensing",
 			queued: true,
@@ -121,8 +121,8 @@ describe.concurrent("a lane queued whole", () => {
 			takenBy: "alpha",
 		});
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 1, name: "Licensing" },
 			{ id: 0, name: "Backlog" },
+			{ id: 1, name: "Licensing" },
 		]);
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 	});
@@ -152,8 +152,8 @@ describe.concurrent("a lane queued whole", () => {
 		await deps.tasks.queueFromLanes();
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 1, name: "Licensing" },
 			{ id: 0, name: "Backlog" },
+			{ id: 1, name: "Licensing" },
 		]);
 	});
 
@@ -163,7 +163,7 @@ describe.concurrent("a lane queued whole", () => {
 		await taskAdd(deps, "first", null, { lane: 1 });
 		await laneUpdate(deps, 1, { queued: true });
 		// One task in it, plus the slack agents' follow-ups spend.
-		expect((await deps.tasks.lanes())[0]?.budget).toBe(6);
+		expect((await deps.tasks.lanes())[1]?.budget).toBe(6);
 
 		await taskAdd(deps, "a", null, { lane: 1 });
 		await taskAdd(deps, "b", null, { lane: 1 });
@@ -175,13 +175,13 @@ describe.concurrent("a lane queued whole", () => {
 		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
 			1, 2, 3, 4, 5, 6,
 		]);
-		expect((await deps.tasks.lanes())[0]?.budget).toBe(0);
+		expect((await deps.tasks.lanes())[1]?.budget).toBe(0);
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 
 		await laneUpdate(deps, 1, { approve: 5 });
 		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
 			7, 8,
 		]);
-		expect((await deps.tasks.lanes())[0]?.budget).toBe(3);
+		expect((await deps.tasks.lanes())[1]?.budget).toBe(3);
 	});
 });

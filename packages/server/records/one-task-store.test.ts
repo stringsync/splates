@@ -23,8 +23,8 @@ describe("ONE_TASK_STORE", () => {
 		);
 		expect(second?.state).toMatchObject({ id: 4, takenBy: "alpha" });
 		expect((await deps.tasks.lanes()).map((lane) => lane.name)).toEqual([
-			"Uploads",
 			"Backlog",
+			"Uploads",
 		]);
 		expect(
 			await deps.fs.read(`${deps.splatesDir}/tasks/removed/2.json`),

@@ -69,7 +69,7 @@ export class TaskLanes {
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
 			const record = { id: await this.nextLaneId(states), name: called };
-			await this.writeLanes(beforeBacklog(records, record));
+			await this.writeLanes([...records, record]);
 			return record;
 		});
 	}
@@ -102,12 +102,22 @@ export class TaskLanes {
 				position,
 			});
 		}
+		if (id === BACKLOG_LANE) {
+			fail(
+				"usage",
+				"Backlog is static: it always comes first, after untriaged",
+				{
+					lane: id,
+				},
+			);
+		}
 		return this.tasks.locked(async () => {
 			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
 			const moved = records.find((record) => record.id === id) as LaneRecord;
 			const rest = records.filter((record) => record.id !== id);
-			const at = Math.min(position - 1, rest.length);
+			// Past Backlog, which stays first.
+			const at = Math.min(Math.max(position - 1, 1), rest.length);
 			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
 			await this.writeLanes(order);
 			return order;
@@ -430,7 +440,7 @@ export class TaskLanes {
 					)
 				: laneName(name, records);
 		const record = { id: await this.nextLaneId(states), name: called };
-		await this.writeLanes(beforeBacklog(records, record));
+		await this.writeLanes([...records, record]);
 		return record;
 	}
 
@@ -461,7 +471,10 @@ export class TaskLanes {
 		if (!records.some((record) => record.id === BACKLOG_LANE)) {
 			records.push({ id: BACKLOG_LANE, name: "Backlog" });
 		}
-		return named(states, records);
+		// Backlog is static: always the first lane, right after untriaged.
+		const backlog = records.filter((record) => record.id === BACKLOG_LANE);
+		const others = records.filter((record) => record.id !== BACKLOG_LANE);
+		return named(states, [...backlog, ...others]);
 	}
 
 	/**
@@ -537,15 +550,6 @@ export class TaskLanes {
 function tagName(tag: string): string {
 	const words = tag.replaceAll("-", " ");
 	return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** New themed lanes precede the catch-all lane until the user moves them. */
-function beforeBacklog(
-	records: LaneRecord[],
-	record: LaneRecord,
-): LaneRecord[] {
-	const at = records.findIndex((each) => each.id === BACKLOG_LANE);
-	return [...records.slice(0, at), record, ...records.slice(at)];
 }
 
 /** Refuses a lane `records` lacks. */

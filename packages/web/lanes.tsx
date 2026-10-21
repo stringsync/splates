@@ -129,7 +129,11 @@ export function Lane({
 		isDragging,
 		isOver,
 		active,
-	} = useSortable({ id: columnId(lane.id) });
+	} = useSortable({
+		id: columnId(lane.id),
+		// Backlog is static, right after untriaged.
+		disabled: lane.id === BACKLOG_LANE,
+	});
 	// Lit for a card over it, not for a lane passing by.
 	const lit = isOver && active !== null && laneOf(active.id) === undefined;
 	// Who is on which task shows on the cards; the lane says only that one is,
@@ -169,7 +173,10 @@ export function Lane({
 				ref={setActivatorNodeRef}
 				onMouseDown={listeners?.onMouseDown as MouseEventHandler}
 				onTouchStart={listeners?.onTouchStart as TouchEventHandler}
-				className="flex cursor-grab touch-manipulation flex-col gap-1 px-1 pt-1 active:cursor-grabbing"
+				className={cn(
+					"flex touch-manipulation flex-col gap-1 px-1 pt-1",
+					lane.id !== BACKLOG_LANE && "cursor-grab active:cursor-grabbing",
+				)}
 			>
 				<div className="flex items-center justify-between gap-2">
 					{lane.id === BACKLOG_LANE ? (

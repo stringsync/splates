@@ -89,11 +89,11 @@ export function LaneMenu({
 						{lane.queued ? <ListXIcon /> : <ListPlusIcon />}
 						{lane.queued ? "Stop queueing lane" : "Queue lane"}
 					</DropdownMenuItem>
-					{others.length > 0 && (
+					{lane.id !== BACKLOG_LANE && others.length > 0 && (
 						<>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem
-								disabled={at === 0}
+								disabled={at <= 1}
 								onClick={() => moveLane(lane.id, at)}
 							>
 								<ArrowLeftIcon />
