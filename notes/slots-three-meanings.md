@@ -1,0 +1,19 @@
+---
+description: The three unrelated things splates calls a slot: heavy-job slots, the animal-word dev server slots, and a worker's agent slots
+---
+
+Heavy-job slots cap test runs and installs machine-wide (`SPLATES_HEAVY_JOBS`,
+default 2; `packages/server/server/heavy.ts`).
+
+Server slots are the short animal words (`fox`) that `splates server --slot`
+claims for a worktree so a task can serve its own splates with its own home
+`~/.splates/slots/<word>` and tunnel host `https://<word>.<zone>`; `splates
+slots` lists and prunes them (`packages/splates/slots.ts`, `ports/slot.ts`).
+A slot is refused on a project's main tree, and its word is held until the
+task merges or is removed.
+
+Worker slots are how many tasks a worker runs at once (`splates worker run
+--slots`; default one per core or per 4 GB, whichever is fewer). Agents the
+queue starts each hold one; an agent the person starts takes none. Those
+waiting for room stand in `splates worker queue` (`waiting.ts`), first come
+first served, never failed for waiting.
