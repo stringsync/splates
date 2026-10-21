@@ -180,7 +180,9 @@ export function Lane({
 				drop={setNodeRef}
 				lit={lit}
 				className={cn(
-					"min-h-0 w-full max-md:w-full",
+					// Shrinks to the wrapper's height, so a tall lane scrolls in its own
+					// list rather than the board scrolling up and down with it.
+					"min-h-0 w-full shrink max-md:w-full",
 					// A glint running around its edge.
 					running && "running-outline",
 					opened && "ring-1 ring-primary/40",
