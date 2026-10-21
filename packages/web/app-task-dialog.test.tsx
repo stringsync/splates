@@ -207,6 +207,37 @@ see the header
 		}
 	});
 
+	it("says a port opens only at its worker when the page is off the coordinator's machine and no ports host is saved", async () => {
+		testing.ports = [
+			{
+				task: "beta",
+				port: 5173,
+				worker: "mac",
+				local: "http://127.0.0.1:41022",
+				onWorker: "http://127.0.0.1:5173",
+				remote: null,
+			},
+		];
+		const view = await testing.openTasks({ tasks: [asking] });
+		const was = location.href;
+		setURL("https://splates.example.com/");
+		try {
+			const dialog = await openBeta(view);
+
+			const ports = await waitFor(() =>
+				within(dialog).getByRole("region", { name: "ports" }),
+			);
+			expect(
+				within(ports)
+					.getAllByRole("link")
+					.map((link) => link.getAttribute("href")),
+			).toEqual(["http://127.0.0.1:5173"]);
+			expect(within(ports).getByText(/only there/)).toBeTruthy();
+		} finally {
+			setURL(was);
+		}
+	});
+
 	it("answers none of a task's open questions, which its agent asks in its own session", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.openTasks({ tasks: [asking] });

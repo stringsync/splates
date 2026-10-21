@@ -8,7 +8,8 @@ import { HEADING } from "./markdown";
  * with its link through the ports host, which opens anywhere behind Access,
  * and its link on this machine: on the machine `splates server` runs on when
  * the page is open there, and otherwise on the worker that serves it, named,
- * which is where the user sits once the coordinator runs on a box. Nothing
+ * which is where the user sits once the coordinator runs on a box. With no
+ * ports host that link opens only at the worker, and the row says so. Nothing
  * while it serves none.
  */
 export function TaskPorts({ task }: { task: string }): JSX.Element | null {
@@ -40,6 +41,11 @@ export function TaskPorts({ task }: { task: string }): JSX.Element | null {
 							<span className="flex min-w-0 gap-x-1">
 								<PortAnchor href={onWorker} />
 								<span className="text-muted-foreground">on {worker}</span>
+								{remote === null && (
+									<span className="text-muted-foreground">
+										only there: save a ports host in setup to open it here
+									</span>
+								)}
 							</span>
 						)}
 					</li>
