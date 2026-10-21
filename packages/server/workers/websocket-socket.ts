@@ -1,4 +1,5 @@
 import { Dispatcher } from "webappwiz/events";
+import { Duration } from "webappwiz/time";
 import type { WorkerSocket, WorkerSocketEvents } from "./socket";
 
 /**
@@ -23,21 +24,37 @@ export class WebSocketWorkerSocket implements WorkerSocket {
 		socket.addEventListener("close", () => this.closed());
 	}
 
-	/** Dials `url` with `headers`, settling once the socket is open. */
+	/**
+	 * Dials `url` with `headers`, settling once the socket is open, or
+	 * rejecting once `within` is up: a box that takes the connection and
+	 * never answers would otherwise hold the dial, and the worker's retries
+	 * behind it, for good.
+	 */
 	static connect(
 		url: string,
 		headers: Record<string, string> = {},
+		within: Duration = Duration.secs(15),
 	): Promise<WebSocketWorkerSocket> {
 		// Bun's constructor takes headers; the DOM's, in scope too, does not.
 		const options: Bun.WebSocketOptions = { headers };
 		const socket = new WebSocket(url, options as string[]);
 		return new Promise((resolve, reject) => {
-			socket.addEventListener("open", () =>
-				resolve(new WebSocketWorkerSocket(socket)),
-			);
-			socket.addEventListener("error", () =>
-				reject(new Error(`cannot reach the coordinator at ${url}`)),
-			);
+			const timeout = setTimeout(() => {
+				socket.close();
+				reject(
+					new Error(
+						`no answer from the coordinator at ${url} within ${within.secs}s`,
+					),
+				);
+			}, within.ms);
+			socket.addEventListener("open", () => {
+				clearTimeout(timeout);
+				resolve(new WebSocketWorkerSocket(socket));
+			});
+			socket.addEventListener("error", () => {
+				clearTimeout(timeout);
+				reject(new Error(`cannot reach the coordinator at ${url}`));
+			});
 		});
 	}
 

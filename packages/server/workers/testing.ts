@@ -19,3 +19,5 @@ export class WorkerSocketPair {
 		this.worker.drop();
 	}
 }
+
+export { type FaultDirection, FaultProxy } from "./fault-proxy";
