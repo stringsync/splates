@@ -18,7 +18,8 @@ export class NotesRoutes {
 			...note,
 			uses: counts.get(relative(root, note.path)) ?? 0,
 		}));
-		return Response.json(listed);
+		// Array.sort is stable, so notes read equally often keep filename order.
+		return Response.json(listed.sort((a, b) => b.uses - a.uses));
 	};
 
 	readonly readNote = async (request: Request): Promise<Response> => {
