@@ -57,7 +57,7 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 	try {
 		// The server refuses a request from any other origin than its own.
 		response = await send(new URL("/api/ports", url), {
-			headers: { origin: new URL(url).origin },
+			headers: { origin: url },
 		});
 	} catch (error) {
 		fail(

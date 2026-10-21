@@ -132,7 +132,7 @@ async function ask(
 		response = await send(new URL(path, url), {
 			...init,
 			headers: {
-				origin: new URL(url).origin,
+				origin: url,
 				"content-type": "application/json",
 			},
 		});

@@ -37,7 +37,7 @@ export async function callServer(
 		response = await send(new URL(path, url), {
 			method: opts.method ?? "GET",
 			headers: {
-				origin: new URL(url).origin,
+				origin: url,
 				...(opts.body === undefined
 					? {}
 					: { "content-type": "application/json" }),

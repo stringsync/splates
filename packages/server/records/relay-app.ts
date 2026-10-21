@@ -61,7 +61,7 @@ export class RelayApp implements AppSource {
 	private async mint(): Promise<InstallationToken | null> {
 		const response = await this.fetch(`${this.url}/api/token`, {
 			method: "POST",
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", origin: this.url },
 			body: JSON.stringify({ project: this.project }),
 		});
 		if (!response.ok) {

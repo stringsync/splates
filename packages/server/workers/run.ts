@@ -135,6 +135,9 @@ async function agentSandbox({
 	return probed;
 }
 
+/** The coordinators a worker may dial without TLS: ones on its own machine. */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 function dialer(
 	id: string,
 	creds: WorkerCreds | null,
@@ -156,6 +159,12 @@ function dialer(
 	const url = new URL("/api/workers", coordinator);
 	url.protocol =
 		url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
+	if (url.protocol === "ws:" && !LOCAL_HOSTS.has(url.hostname)) {
+		fail(
+			"usage",
+			`${coordinator} would send this worker's key in the clear: give an https:// URL for a coordinator on another machine`,
+		);
+	}
 	const where = url.toString();
 	const headers = {
 		...accessHeaders(access),
