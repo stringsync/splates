@@ -4,8 +4,17 @@ import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useContext, useEffect, useState } from "react";
 import { RulesEditor } from "./auto-pick-rules";
-import { agentFor, NEW } from "./conversation-address";
-import { promptConversation, startConversation } from "./conversation-api";
+import {
+	agentFor,
+	autoModelChosen,
+	NEW,
+	startsAuto,
+} from "./conversation-address";
+import {
+	promptConversation,
+	startAutoPick,
+	startConversation,
+} from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
 import {
@@ -126,15 +135,21 @@ function Journey({
 		feed === null
 			? null
 			: () => {
-					startConversation(
-						agentFor(NEW, feed.agents, feed.conversations),
-						null,
+					// Where ⌥⌘N would start: Auto pick judging the words when the last
+					// conversation started on it, else the agent New offers.
+					const text = setupReference(step.id);
+					(startsAuto(NEW)
+						? startAutoPick({ words: text, task: null })
+						: startConversation(
+								agentFor(NEW, feed.agents, feed.conversations),
+								null,
+								{ autoPick: autoModelChosen() },
+							)
 					)
 						.then(async (state) => {
 							// Open once it is up, its message shown on its way, and
 							// kept in the thread, unsent, should the server refuse it.
 							feed.put(state);
-							const text = setupReference(step.id);
 							const sending = feed.send(state.id, text);
 							onOpen(state.id);
 							await promptConversation(state.id, text, [], false, sending.id)
