@@ -5,7 +5,12 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
-import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
+import {
+	AutoPickRoutes,
+	lifting,
+	projectJudge,
+	QueueAutoPick,
+} from "../auto-pick";
 import type { LaneRecord } from "../board";
 import { BoardRoutes } from "../board";
 import type {
@@ -20,7 +25,7 @@ import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import type { AgentPick } from "../models";
-import { NotesRoutes } from "../notes";
+import { NotesRoutes, routing } from "../notes";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -113,6 +118,9 @@ export async function serveProject(
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
 		conversations.lift = lifting(project, conversations, { slug });
+		conversations.route = routing(project, {
+			judge: (who) => projectJudge(project, slug, who),
+		});
 		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))

@@ -15,6 +15,21 @@ descriptions do not show. Do this before reading code for how something is
 meant to work, and read no note that does not fit. Judge by the
 description alone, which is why each must say what its note is about.
 
+Under `splates server`, a judge reads each note against what the person
+says, and the message may reach you with pointers after it, naming the notes
+that bear on it:
+
+- `Read before acting: notes/x.md: <description>` is a directive: read the
+  note before you act on the message. One marked `(updated since you read
+  it)` changed after you read it, so read it again rather than act on what
+  you remember.
+- `Maybe relevant: notes/y.md: <description>` is a pointer: read it when
+  its description fits what you are about to do.
+
+A note you have read and that has not changed is not pointed at again. Most
+messages carry no pointers, and pointers never list every note that may
+help: run `splates notes` and read on demand, as above, for everything else.
+
 Notes live as checked-in Markdown files in a flat `notes/` directory at the
 checkout root. A project's `splates.config.ts` may set `notesDir` to another
 directory, relative to that root or absolute. Each file has one thing to say

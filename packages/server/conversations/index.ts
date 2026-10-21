@@ -25,6 +25,7 @@ export type {
 	Lift,
 	PlacedCheckouts,
 	ProjectRef,
+	Route,
 	SlotAsk,
 } from "./host";
 export { listing } from "./listing";

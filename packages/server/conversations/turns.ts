@@ -1,3 +1,4 @@
+import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import type { AgentConnection } from "../agents";
@@ -5,6 +6,7 @@ import { agentTurn, requestError, tally } from "../agents";
 import { fail } from "../exit";
 import { CHECKPOINT } from "../plans";
 import type { ConversationFiles } from "./files";
+import { lifted, pointed, pointersFor } from "./heard";
 import type { ConversationDeps, ConversationHost } from "./host";
 import { delivered, said, shown, takeBack, textOf } from "./messages";
 import type {
@@ -146,7 +148,7 @@ export class ConversationTurns {
 			// that cannot steer, rather than being refused: that end's prompt
 			// says what is wrong with it, if anything is.
 			const outcome = await connection
-				.steer(await this.content([{ ...said(words, null, kept), ...marks }]))
+				.steer(await this.prompted([{ ...said(words, null, kept), ...marks }]))
 				.catch(() => undefined);
 			if (outcome === "injected" || outcome === "startedNewTurn") {
 				const at = host.now();
@@ -576,10 +578,18 @@ export class ConversationTurns {
 		}
 		// A new turn puts the last one's failure behind it.
 		host.set({ status: "running", error: null });
+		const messages = [...waiting, ...fresh];
 		void host.log
 			.flush()
-			.then(() => this.lifting([...waiting, ...fresh]))
-			.then(() => this.content([...waiting, ...fresh]))
+			.then(() =>
+				Promise.all([
+					lifted(this.deps.lift, host, messages),
+					pointersFor(this.deps.route, host, messages),
+				]),
+			)
+			.then(async ([, pointers]) =>
+				pointed(await this.content(messages), pointers),
+			)
 			.then((prompt) => this.connection.prompt(prompt))
 			.then(
 				(response) => {
@@ -597,22 +607,13 @@ export class ConversationTurns {
 			);
 	}
 
-	/**
-	 * Lets Auto pick look again at what the person says in `messages`, in a
-	 * conversation it started, before the agent reads them; one that fails
-	 * moves nothing.
-	 */
-	private async lifting(messages: Message[]): Promise<void> {
-		const { lift } = this.deps;
-		const said = messages.filter((each) => each.told === undefined);
-		if (
-			lift == null ||
-			said.length === 0 ||
-			this.host.state.autoPick === null
-		) {
-			return;
-		}
-		await lift(this.host, said).catch(() => {});
+	/** What `messages` say, as one prompt, with the note pointers for them after. */
+	private async prompted(messages: Message[]): Promise<acp.ContentBlock[]> {
+		const [content, pointers] = await Promise.all([
+			this.content(messages),
+			pointersFor(this.deps.route, this.host, messages),
+		]);
+		return pointed(content, pointers);
 	}
 
 	/** What `messages` say, as one prompt, for the tree the agent runs in. */

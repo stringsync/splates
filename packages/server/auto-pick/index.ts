@@ -17,7 +17,12 @@ export type {
 export { decide, decideWithout } from "./decide";
 export { DEFAULT_RULES } from "./defaults";
 export { type Attribution, Jev } from "./jev";
-export { JUDGE_CREDS, judgeFrom } from "./judge";
+export {
+	JUDGE_CREDS,
+	type JudgeFor,
+	judgeFrom,
+	projectJudge,
+} from "./judge";
 export { classificationKey } from "./key";
 export { lifting } from "./lift";
 export { QueueAutoPick } from "./queue";

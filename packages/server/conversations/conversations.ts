@@ -35,6 +35,7 @@ import type {
 	Lift,
 	PlacedCheckouts,
 	ProjectRoster,
+	Route,
 } from "./host";
 import type { ConversationsOptions } from "./options";
 import { outside } from "./outside";
@@ -95,6 +96,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	url: string | null = null;
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift: Lift | null = null;
+	/** What points each agent at the project notes that bear on what the person says; null for nothing. */
+	route: Route | null = null;
 
 	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
 	refreshRoster(agents: Agent[]): void {
@@ -152,6 +155,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// Set once the project opens too, as Auto pick reads the project.
 			get lift() {
 				return conversations.lift;
+			},
+			get route() {
+				return conversations.route;
 			},
 			fs: this.fs,
 			storage: this.storage,

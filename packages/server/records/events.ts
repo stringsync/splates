@@ -245,6 +245,19 @@ export interface Facts {
 		/** Whether a subagent read it, into its own context rather than the conversation's. */
 		subagent: boolean;
 	};
+	/**
+	 * What the judge made of each project note for a message the person
+	 * said, before its agent read it: splates's own, shown as no line, for
+	 * the message's chips and the Stats page to read.
+	 */
+	"notes attached": {
+		/** Every note judged, likeliest first, with its raw probability so tiers can be retuned. */
+		notes: JudgedNote[];
+		/** Whether the conversation is held back from pointers, so none was attached. */
+		holdout: boolean;
+		/** How long the judge took, in milliseconds. */
+		ms: number;
+	};
 	/** `splates server` starting a task on what Auto pick decided, or, before it, a first prompt on what Auto picked. */
 	auto: {
 		/** The roster agent it picked, by its id. */
@@ -268,6 +281,20 @@ export interface Facts {
 		 */
 		lifted: Lifted | null;
 	};
+}
+
+/** One note as the judge found it for a message, and what was attached of it. */
+export interface JudgedNote {
+	/** The note, by its path from the project root. */
+	path: string;
+	/** The judge's probability that it bears on what the message asks. */
+	probability: number;
+	/** What was attached: a directive to read it, an optional pointer, or nothing. */
+	tier: "now" | "optional" | null;
+	/** Read earlier in the conversation, unchanged and not compacted away since, so not attached again. */
+	inContext: boolean;
+	/** Read earlier, but edited since, so attached again as updated. */
+	updated: boolean;
 }
 
 /** What an Auto pick that moved a conversation up moved it off. */
@@ -349,6 +376,7 @@ export const FACTS = {
 	"tunnel setup": [],
 	"tunnel remove": [],
 	"note read": ["path", "hash", "tool", "subagent"],
+	"notes attached": ["notes", "holdout", "ms"],
 	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 

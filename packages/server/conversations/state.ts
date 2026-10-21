@@ -130,6 +130,12 @@ export interface ConversationState {
 	 */
 	autoPick: AutoPickMark | null;
 	/**
+	 * Whether it is among the conversations note pointers are held back
+	 * from, for the Stats page to compare against: chosen at random as the
+	 * first message is routed, its agent never told; null until then.
+	 */
+	notesHoldout: boolean | null;
+	/**
 	 * Started by the server's queue or a hook, so its agent holds one of the
 	 * workers' slots; the person's own conversations take none.
 	 */
@@ -597,6 +603,7 @@ export function blank(
 		assigned,
 		picking: false,
 		autoPick: null,
+		notesHoldout: null,
 		capped: false,
 		queued: null,
 		unread: false,

@@ -8,6 +8,7 @@ export {
 	type ReadNote,
 } from "./notes";
 export { NoteReads } from "./reads";
+export { routing } from "./route";
 export { NotesRoutes } from "./routes";
 export {
 	type NoteRemoval,
@@ -15,4 +16,5 @@ export {
 	type NoteSaved,
 	NoteSaves,
 } from "./saves";
+export { type Found, pointersOf, ROUTING, tiers } from "./tiers";
 export { NoteUses } from "./uses";

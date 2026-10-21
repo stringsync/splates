@@ -1,4 +1,11 @@
-export type { Action, Escalated, Event, Facts, Lifted } from "./events";
+export type {
+	Action,
+	Escalated,
+	Event,
+	Facts,
+	JudgedNote,
+	Lifted,
+} from "./events";
 export { isEscalation } from "./events";
 export { FORMAT, Format } from "./format";
 export { Journal } from "./journal";
