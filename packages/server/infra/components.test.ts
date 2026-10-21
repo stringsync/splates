@@ -53,6 +53,17 @@ test("the box is one hardened instance with its creds as secure parameters", asy
 		name: "/splates/device/SPLATES_TUNNEL_TOKEN",
 		type: "SecureString",
 	});
+	expect((await ofType("awsx:ec2:Vpc"))[0]?.inputs).toMatchObject({
+		subnetSpecs: [{ tags: { "splates-worker-subnet": "true" } }],
+	});
+	expect(
+		(await ofType("aws:iam/instanceProfile:InstanceProfile")).map(
+			(profile) => profile.inputs.name,
+		),
+	).toContain("splates-worker");
+	expect(
+		(await ofType("aws:iam/role:Role")).map((role) => role.inputs.name),
+	).toContain("AWSDataLifecycleManagerDefaultRole");
 	expect(await ofType("aws:dlm/lifecyclePolicy:LifecyclePolicy")).toHaveLength(
 		1,
 	);

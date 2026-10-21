@@ -42,7 +42,10 @@ export function parameterPolicy(): string {
 }
 
 /** What the box needs to make and remove the workers `AwsCloud` runs, and to hand them a role. */
-export function workerPolicy(workerProfileArn: string): string {
+export function workerPolicy(
+	workerRoleArn: string,
+	backupRoleArn: string,
+): string {
 	return JSON.stringify({
 		Version: "2012-10-17",
 		Statement: [
@@ -51,19 +54,28 @@ export function workerPolicy(workerProfileArn: string): string {
 				Action: [
 					"ec2:RunInstances",
 					"ec2:TerminateInstances",
-					"ec2:DescribeInstances",
-					"ec2:DescribeImages",
-					"ec2:DescribeSubnets",
-					"ec2:DescribeSecurityGroups",
+					"ec2:CreateImage",
+					"ec2:DeregisterImage",
+					"ec2:DeleteSnapshot",
+					"ec2:ModifyInstanceAttribute",
+					"ec2:Describe*",
 					"ec2:CreateTags",
+					"ec2:ImportKeyPair",
+					"ec2:DeleteKeyPair",
+					"ec2:CreateSecurityGroup",
+					"ec2:DeleteSecurityGroup",
+					"ec2:AuthorizeSecurityGroupIngress",
+					"ec2:RevokeSecurityGroupIngress",
+					"dlm:GetLifecyclePolicies",
+					"dlm:CreateLifecyclePolicy",
+					"dlm:TagResource",
 				],
 				Resource: "*",
 			},
-			{ Effect: "Allow", Action: "iam:PassRole", Resource: "*" },
 			{
 				Effect: "Allow",
-				Action: "iam:GetInstanceProfile",
-				Resource: workerProfileArn,
+				Action: "iam:PassRole",
+				Resource: [workerRoleArn, backupRoleArn],
 			},
 		],
 	});
@@ -107,7 +119,13 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 			{
 				numberOfAvailabilityZones: 1,
 				natGateways: { strategy: awsx.ec2.NatGatewayStrategy.None },
-				subnetSpecs: [{ type: awsx.ec2.SubnetType.Public }],
+				// `AwsCloud` puts workers in the subnet with this tag key.
+				subnetSpecs: [
+					{
+						type: awsx.ec2.SubnetType.Public,
+						tags: { "splates-worker-subnet": "true" },
+					},
+				],
 			},
 			child,
 		);
@@ -143,22 +161,46 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 			child,
 		);
 
+		const lifecycleRole = new aws.iam.Role(
+			`${name}-snapshots-role`,
+			{
+				// The role `AwsCloud` makes backups as; an account has one of this name.
+				name: "AWSDataLifecycleManagerDefaultRole",
+				assumeRolePolicy: JSON.stringify({
+					Version: "2012-10-17",
+					Statement: [
+						{
+							Effect: "Allow",
+							Principal: { Service: "dlm.amazonaws.com" },
+							Action: "sts:AssumeRole",
+						},
+					],
+				}),
+				managedPolicyArns: [
+					"arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole",
+				],
+			},
+			child,
+		);
 		// Workers get nothing beyond reading their own parameters.
 		const workerRole = new aws.iam.Role(
 			`${name}-worker-role`,
 			{ assumeRolePolicy: ASSUME_EC2 },
 			child,
 		);
+		// The names `AwsCloud` runs workers as.
 		const workerProfile = new aws.iam.InstanceProfile(
 			`${name}-worker-profile`,
-			{ role: workerRole.name },
+			{ name: "splates-worker", role: workerRole.name },
 			child,
 		);
 		new aws.iam.RolePolicy(
 			`${name}-worker`,
 			{
 				role: role.name,
-				policy: workerProfile.arn.apply(workerPolicy),
+				policy: pulumi
+					.all([workerRole.arn, lifecycleRole.arn])
+					.apply(([worker, backup]) => workerPolicy(worker, backup)),
 			},
 			child,
 		);
@@ -203,25 +245,6 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 			child,
 		);
 
-		const lifecycleRole = new aws.iam.Role(
-			`${name}-snapshots-role`,
-			{
-				assumeRolePolicy: JSON.stringify({
-					Version: "2012-10-17",
-					Statement: [
-						{
-							Effect: "Allow",
-							Principal: { Service: "dlm.amazonaws.com" },
-							Action: "sts:AssumeRole",
-						},
-					],
-				}),
-				managedPolicyArns: [
-					"arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole",
-				],
-			},
-			child,
-		);
 		new aws.dlm.LifecyclePolicy(
 			`${name}-snapshots`,
 			{
