@@ -22,6 +22,21 @@ describe("failureLine", () => {
 		);
 	});
 
+	it("keeps the causes an error goes on to list", () => {
+		const stdout = [
+			"Diagnostics:",
+			"  pulumi:providers:github (keys-acme):",
+			"    error: Preview failed: configure provider 'keys-acme': 1 error occurred:",
+			'    \t* failed to lookup organization "acme": GET https://api.github.com/orgs/acme: 401 Bad credentials []',
+			"  pulumi:pulumi:Stack (splates-prod):",
+			"    error: preview failed",
+		].join("\n");
+
+		expect(failureLine(stdout)).toBe(
+			`pulumi:providers:github (keys-acme): Preview failed: configure provider 'keys-acme': 1 error occurred: * failed to lookup organization "acme": GET https://api.github.com/orgs/acme: 401 Bad credentials []`,
+		);
+	});
+
 	it("falls back to the last error, then the last line", () => {
 		expect(failureLine("Previewing\nerror: preview failed\n")).toBe(
 			"error: preview failed",

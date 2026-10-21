@@ -204,8 +204,9 @@ export class CoordinatorBox {
 /**
  * The line that says what a failed `pulumi` run failed on: the first
  * resource's error under Diagnostics, after the resource it names, since
- * the run's own `error: update failed` says only that it failed; else its
- * last `error:` line, else its last.
+ * the run's own `error: update failed` says only that it failed, with the
+ * `* ` causes an `N errors occurred:` goes on to list; else its last
+ * `error:` line, else its last.
  */
 export function failureLine(output: string): string {
 	const lines = output
@@ -216,7 +217,17 @@ export function failureLine(output: string): string {
 		(line) => line.startsWith("error:") && !/^error: \w+ failed$/.test(line),
 	);
 	if (at !== -1) {
-		const error = lines[at]?.replace(/^error:\s*/, "").replace(/\s*\{$/, "");
+		const causes: string[] = [];
+		for (const line of lines.slice(at + 1)) {
+			if (!line.startsWith("* ")) {
+				break;
+			}
+			causes.push(line);
+		}
+		const error = [lines[at], ...causes]
+			.join(" ")
+			.replace(/^error:\s*/, "")
+			.replace(/\s*\{$/, "");
 		const resource = lines[at - 1]?.match(/^(\S+ \(.+\)):$/)?.[1];
 		return resource === undefined ? `error: ${error}` : `${resource}: ${error}`;
 	}
