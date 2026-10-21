@@ -80,8 +80,8 @@ export async function fastCli(
 			"skill-mode": { type: "string", default: "discovery" },
 			"codex-home": { type: "string" },
 			"codex-fixture-writes": { type: "boolean", default: false },
-			"reserve-tokens": { type: "string", default: "2000" },
-			"reserve-usd": { type: "string", default: "0.05" },
+			"reserve-tokens": { type: "string", default: "1000000" },
+			"reserve-usd": { type: "string", default: "2" },
 			reps: { type: "string", default: "1" },
 			parallel: { type: "string", default: "1" },
 			baseline: { type: "string" },
@@ -486,13 +486,13 @@ const HELP = `splates dev eval [fast|list|plan|report] [options]
   --skill-mode discovery|explicit  native skill loading (default discovery)
   --codex-fixture-writes  opt in to validated isolated decision task/metadata writes
   --codex-home PATH        existing native auth/config in place; may write runtime metadata
-  --reserve-tokens 2000 --reserve-usd 0.05  per-session reservation, not estimated price
+  --reserve-tokens 1000000 --reserve-usd 2  per-session reservation, not estimated price
   --parallel 1 --reps 1    bounded independent combinations
   --milliseconds N --turns N --tokens N   override each probe's bounds
   --baseline REV          required Git baseline for skill/reference change gate
   --paired                both immutable snapshots, both families, one aggregate reservation; frozen decision probes only
   --unchanged-baseline    explicit same-skill exception: local-choice, Claude alone or one Codex and one Claude, one repetition, parallel one
-  --max-tokens 4000 --max-usd 0.10  aggregate admission limits, within the shared budgets
+  --max-tokens 10000000 --max-usd 20  aggregate admission limits, within the shared budgets
   --allow-unmetered        rejected for model execution
   --yes                    start paid probes without the terminal confirmation
   --failed                 rerun compatible non-passing probes; report filters non-passes

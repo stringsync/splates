@@ -16,7 +16,7 @@ it("plans exactly two same-skill cells without creating results or reserving", a
 	expect(output).toContain(
 		"Unchanged baseline (no candidate comparison): 2 cells",
 	);
-	expect(output).toContain('"tokens":4000,"microUsd":100000');
+	expect(output).toContain('"tokens":2000000,"microUsd":4000000');
 	expect(output).toContain(
 		"no native startup, authentication, reservation or model execution",
 	);
@@ -32,7 +32,7 @@ it("plans one Claude baseline without requiring a Codex target", async () => {
 	expect(output).toContain(
 		"Unchanged baseline (no candidate comparison): 1 cells",
 	);
-	expect(output).toContain('"tokens":2000,"microUsd":50000');
+	expect(output).toContain('"tokens":1000000,"microUsd":2000000');
 });
 
 it("keeps the ordinary unchanged gate and genuine-diff paired policy intact", async () => {
@@ -61,11 +61,11 @@ it.each(
 		["--parallel", "2"],
 		["--target", "codex:extra"],
 		["--allow-unmetered"],
-		["--turns", "2"],
-		["--milliseconds", "60001"],
-		["--tokens", "4001", "--max-tokens", "8000"],
-		["--max-tokens", "3999"],
-		["--max-usd", "0.09"],
+		["--turns", "101"],
+		["--milliseconds", "600001"],
+		["--tokens", "1000001", "--max-tokens", "3000000"],
+		["--max-tokens", "1999999"],
+		["--max-usd", "3.99"],
 	].map((extra) => ({ extra })),
 )(
 	"refuses expansion or inadequate aggregate admission: %j",

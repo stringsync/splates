@@ -31,7 +31,7 @@ of all changed requirements. Unmapped reference changes require explicit probe
 selection; they never expand into the full suite. Explicit probe/aspect/requirement
 selection and `--failed` still require a skill change and the same budget gate.
 
-Default aggregate admission limits are **4,000 tokens and USD 0.10** per
+Default aggregate admission limits are **10,000,000 tokens and USD 20** per
 invocation. `--max-tokens` and `--max-usd` raise these as far as the shared
 budgets admit. Each deliberate invocation has its own cap; shared token windows additionally
 constrain repeated invocations when configured. No shared allowance is invented
@@ -58,8 +58,8 @@ OpenCode monitor reported tokens/USD; Codex monitors tokens and has **no USD
 meter or enforcement**. All three report incomplete billing, even after normal
 completion. Shared reservations remain outstanding and can exhaust a window
 indefinitely; resets and calendar rollovers do not release them. This makes
-repeated testing deliberately restrictive, not proven cheap. No live cost,
-latency, authenticated operation or adherence has been measured by this integration.
+repeated testing deliberately restrictive, not proven cheap. README.md has the
+first live measurement, of the lifecycle probes on Claude.
 
 Legacy E2E execution lacks these controls and is now refused at the eval entry
 point. `e2e report` remains available without models; its historical results do
@@ -247,9 +247,9 @@ The following are **potentially paid**, separately authorized examples, not comm
 run during integration. `BASE_COMMIT` must precede actual skill/reference changes;
 `MODEL` must be an exact available native model/alias. Each requires terminal
 confirmation and a configured shared token allowance. The per-session defaults
-are 2,000 tokens (clamped to probe bounds) and USD 0.05, independently configurable
+are 1,000,000 tokens (clamped to probe bounds) and USD 2, independently configurable
 with `--reserve-tokens` / `--reserve-usd`. They are reservations, not price estimates.
-All selected reservations must fit the aggregate defaults of 4,000 / USD 0.10.
+All selected reservations must fit the aggregate defaults of 10,000,000 / USD 20.
 
 ```sh
 splates dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target claude:MODEL --directory /tmp/splates-native-results
@@ -438,7 +438,7 @@ The exception refuses custom modules, selective retries, other cases/selectors,
 extra targets, repetitions, parallelism, and increases to the frozen probe bounds.
 Shared allowance declaration, native metering, terminal confirmation, snapshot
 verification, complete result retention and stop-on-failure remain mandatory.
-At default per-cell reservations its two cells total 4,000 tokens / USD 0.10;
+At default per-cell reservations its two cells total 2,000,000 tokens / USD 4;
 these are allowances, not adequate-context promises or hard billing limits.
 
 Free planning example (target names are placeholders, not verified accounts):

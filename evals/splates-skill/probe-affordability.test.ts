@@ -73,7 +73,7 @@ it("plans a targeted reference smoke without consulting targets or metering serv
 	);
 	const output = log.entries.map((entry) => entry.message).join("\n");
 	expect(output).toContain(
-		"Selected: orchestration/defer; reps 1; parallel 1; aggregate admission limits 4000 tokens / USD 0.100000",
+		"Selected: orchestration/defer; reps 1; parallel 1; aggregate admission limits 10000000 tokens / USD 20.000000",
 	);
 	expect(output).toContain("Plan only");
 });
@@ -186,7 +186,7 @@ it("rejects unmetered opt-in and legacy model execution, while leaving reports a
 });
 
 it("uses exact integer dollar ceilings and rejects unsafe budgets", () => {
-	expect(budget()).toEqual({ tokens: 4000, microUsd: 100000 });
+	expect(budget()).toEqual({ tokens: 10000000, microUsd: 20000000 });
 	expect(budget("1000", "0.000001")).toEqual({ tokens: 1000, microUsd: 1 });
 	expect(budget("200000", "5")).toEqual({ tokens: 200000, microUsd: 5000000 });
 	expect(() => budget("1000", "NaN")).toThrow();
@@ -222,7 +222,7 @@ it("reserves every repetition/model before setup and never launches a partial ov
 			skillHash: "test",
 			cliHash: "test",
 			reproduction: ["test"],
-			budget: { ...DEFAULT_BUDGET },
+			budget: { tokens: 4000, microUsd: 100000 },
 		}),
 	).rejects.toThrow("Aggregate");
 	expect(counter.launched).toBe(0);
@@ -408,9 +408,9 @@ it("plans all four paired cells without launching or reserving", async () => {
 			"--target",
 			"claude:fixture",
 			"--max-tokens",
-			"8000",
+			"4000000",
 			"--max-usd",
-			"0.20",
+			"8",
 		],
 		log,
 	);
@@ -418,7 +418,7 @@ it("plans all four paired cells without launching or reserving", async () => {
 		"4 cells",
 	);
 	expect(log.entries.map((entry) => entry.message).join("\n")).toContain(
-		'"tokens":8000,"microUsd":200000',
+		'"tokens":4000000,"microUsd":8000000',
 	);
 });
 it("refuses a pair that fits per snapshot but exceeds aggregate admission", async () => {
@@ -438,6 +438,8 @@ it("refuses a pair that fits per snapshot but exceeds aggregate admission", asyn
 				"codex:fixture",
 				"--target",
 				"claude:fixture",
+				"--max-tokens",
+				"3999999",
 			],
 			new MemoryLogger(),
 		),

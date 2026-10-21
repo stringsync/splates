@@ -44,7 +44,10 @@ export async function claudeLoginEnvironment(
 	if ((await realpath(config)) !== config) {
 		throw new Error("Claude config directory escapes the private home");
 	}
-	const roots = [repository, privateHome, temporary, splatesHome];
+	// Where splates puts task worktrees, beside the repository.
+	const trees = join(run, "repo-splates.noindex");
+	await mkdir(trees, { recursive: true });
+	const roots = [repository, privateHome, temporary, splatesHome, trees];
 	if (context.runtime.decisionPath !== undefined) {
 		roots.push(...(await fixtureWriteRoots(context)));
 	}
@@ -70,6 +73,8 @@ export async function claudeLoginEnvironment(
 			USER: login.user,
 			CLAUDE_CONFIG_DIR: config,
 			CLAUDE_SECURESTORAGE_CONFIG_DIR: "",
+			// Bash keeps its scratch under /tmp/claude-<uid> otherwise, outside the writes.
+			CLAUDE_CODE_TMPDIR: temporary,
 		},
 	};
 }

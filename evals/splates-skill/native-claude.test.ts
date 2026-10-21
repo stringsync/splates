@@ -392,6 +392,7 @@ else {
 
 it.skipIf(process.platform !== "darwin")(
 	"wraps all native commands with write isolation while reusing only the login identity",
+	// scry-ignore simple-test-setup: only this test lays out the run's writable directories.
 	async () => {
 		await Promise.all(
 			["home", "tmp", "splates-home"].map((name) =>
@@ -427,6 +428,7 @@ it.skipIf(process.platform !== "darwin")(
 			expect(call.env.USER).toBe("fixture-user");
 			expect(call.env.CLAUDE_CONFIG_DIR).toEndWith("/home/.claude");
 			expect(call.env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("");
+			expect(call.env.CLAUDE_CODE_TMPDIR).toEndWith("/tmp");
 		}
 		expect(request.context.env.HOME).toBe(join(directory, "home"));
 	},

@@ -16,7 +16,7 @@ reserves the whole batch against invocation and configured shared token budgets.
 Native Claude/Codex/OpenCode selection is implemented; generic ACP is not selected.
 Limits are monitored with possible in-flight overshoot; Codex USD is unavailable.
 All drivers retain outstanding reservations because billing completeness is false.
-No empirical cost or live model adherence has been measured. See RUNNER.md for
+README.md has the first live measurement, of the lifecycle probes on Claude. See RUNNER.md for
 commands, native auth prerequisites and unsupported profiles.
 
 `native-integration.test.ts` runs unchanged registered `decisions/local-choice`

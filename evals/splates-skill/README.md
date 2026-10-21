@@ -11,13 +11,19 @@ assertion behavior, not measured model adherence.
 
 The model CLI requires a changed Splates skill/reference snapshot against an
 explicit `--baseline` Git commit. `plan` is free. Defaults are at most two targeted
-probes, one repetition, parallel one, 4,000 aggregate tokens and USD 0.10.
+probes, one repetition, parallel one, 10,000,000 aggregate tokens and USD 20,
+reserving 1,000,000 tokens and USD 2 a session. Agent probes are bounded at 10
+minutes, 100 turns and 1,000,000 tokens, which a real Claude session fits in.
 Native Claude/Codex/OpenCode controls are monitored, with possible in-flight
 overshoot; Codex USD is unavailable. All retain outstanding billing reservations,
 even on success. `--allow-unmetered` cannot bypass admission. Native authentication
-prerequisites and narrow-profile refusals are detailed in RUNNER.md. No empirical
-model cost or live adherence has been measured by these fixtures. Lane 17 tracks
+prerequisites and narrow-profile refusals are detailed in RUNNER.md. Lane 17 tracks
 the shared acceptance and comparison work.
+
+The first live run, 2026-10-21, ran the nine lifecycle agent probes on Claude
+Opus 5.5 in 92s at parallel three: 12-52s and 64k-217k reported tokens (mostly
+cache reads) each, USD 1.57 in all. Every observed assertion passed; event
+assertions stay uncovered, since the Claude driver records no tool events.
 
 ```sh
 splates dev eval plan --baseline BASE_COMMIT

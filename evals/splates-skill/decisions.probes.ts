@@ -200,7 +200,7 @@ function probe(
 		evidence: ["state", "events", "reply"],
 		assertions,
 		stop: { kind: "reply" },
-		bounds: { milliseconds: 60000, turns: 1, tokens: 4000 },
+		bounds: { milliseconds: 600000, turns: 100, tokens: 1000000 },
 		execution: { kind: "agent", skill: ".agents/skills/splates" },
 	};
 }

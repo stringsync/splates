@@ -7,8 +7,8 @@ export interface Allowance {
 	microUsd: number;
 }
 export const DEFAULT_BUDGET: Readonly<Allowance> = {
-	tokens: 4000,
-	microUsd: 100000,
+	tokens: 10000000,
+	microUsd: 20000000,
 };
 
 export type LimitMode = "hard" | "monitored" | "unavailable";
@@ -32,7 +32,7 @@ export function budget(tokens?: string, usd?: string): Allowance {
 			"--max-usd must be a positive decimal with at most six fractional digits",
 		);
 	}
-	const [whole = "0", fraction = ""] = (usd ?? "0.10").split(".");
+	const [whole = "0", fraction = ""] = (usd ?? "20").split(".");
 	const value = {
 		tokens: tokens === undefined ? DEFAULT_BUDGET.tokens : Number(tokens),
 		microUsd: Number(whole) * 1000000 + Number(fraction.padEnd(6, "0")),

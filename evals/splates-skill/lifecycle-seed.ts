@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { readFile, realpath, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { encodeTask } from "@stringsync/splates-server/board";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Json } from "./probe";
@@ -35,7 +35,8 @@ export const lifecycleSeed: Seed = {
 		await seedRepository(context);
 		await seedFile(context, ".git/splates/format", `${FORMAT}\n`);
 		const root = context.isolation.repository;
-		const trees = join(context.isolation.outputs, "trees");
+		// Beside the repository, where splates puts worktrees and agents may write.
+		const trees = join(dirname(root), "repo-splates.noindex");
 		await seedFile(
 			context,
 			"splates.config.ts",
@@ -147,7 +148,10 @@ export const lifecycleSeed: Seed = {
 		const root = context.isolation.repository;
 		const task = (await taskRecord(root, "sample"))?.record ?? null;
 		const exists = await Bun.file(
-			join(context.isolation.outputs, "trees/sample/.git"),
+			join(
+				dirname(context.isolation.repository),
+				"repo-splates.noindex/sample/.git",
+			),
 		).exists();
 		const base = await readFile(
 			join(context.isolation.outputs, "base"),
@@ -183,7 +187,10 @@ export const lifecycleSeed: Seed = {
 				exists &&
 				openQuestions(
 					await readFile(
-						join(context.isolation.outputs, "trees/sample/SPLATES.md"),
+						join(
+							dirname(context.isolation.repository),
+							"repo-splates.noindex/sample/SPLATES.md",
+						),
 						"utf8",
 					).catch(() => ""),
 				).length > 0,
