@@ -15,6 +15,7 @@ export function NoteSection({ notes }: { notes: NoteStats }): JSX.Element {
 			className="flex min-w-0 flex-col gap-4 text-foreground"
 		>
 			<h3 className="font-medium text-xs">Notes</h3>
+			<p className="text-muted-foreground text-xs">{readingProjects(notes)}</p>
 			<div className="overflow-x-auto">
 				<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
 					<thead className="text-muted-foreground text-xs">
@@ -71,10 +72,11 @@ export function NoteSection({ notes }: { notes: NoteStats }): JSX.Element {
 						<tbody>
 							{notes.notes.map((note) => (
 								<tr
-									key={note.path}
+									key={`${note.project}\n${note.path}`}
 									className="border-b text-right last:border-0"
 								>
 									<td className="max-w-48 truncate py-1 text-left">
+										{notes.projects.length > 1 && `${basename(note.project)}: `}
 										{note.path}
 									</td>
 									<td className="py-1">{share(note.nowRead, note.now)}</td>
@@ -165,3 +167,12 @@ const FIGURES: { head: string; cell: (arm: Arm) => string }[] = [
 		cell: (arm) => share(arm.redone, arm.merged + arm.removed),
 	},
 ];
+
+const basename = (root: string): string => root.split("/").pop() ?? root;
+
+/** Which projects the section reads. */
+function readingProjects(notes: NoteStats): string {
+	return notes.projects.length === 1
+		? `Reading ${basename(notes.projects[0] ?? "")}.`
+		: `Reading ${notes.projects.length} projects.`;
+}

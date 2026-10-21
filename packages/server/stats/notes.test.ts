@@ -7,7 +7,7 @@ import type { Outcome } from "./outcomes";
 describe("noteStats", () => {
 	it("sets conversations with pointers against the holdout, and counts how each note was pointed at, read and applied", () => {
 		const stats = noteStats(
-			[
+			from([
 				attached("a", false, [
 					{ path: "notes/x.md", tier: "now" },
 					{ path: "notes/y.md", tier: "optional" },
@@ -20,7 +20,7 @@ describe("noteStats", () => {
 				attached("b", true, []),
 				// Not the first message, so it does not move the arm.
 				attached("b", false, [{ path: "notes/x.md", tier: "now" }]),
-			],
+			]),
 			[
 				ended({ conversation: "a", usage: usage(100) }),
 				ended({ conversation: "a", failedMerges: 1, usage: usage(300) }),
@@ -28,7 +28,6 @@ describe("noteStats", () => {
 				ended({ conversation: "other" }),
 			],
 			[judged("a", 3, 1), judged("b", 1, 1)],
-			"/repo",
 		);
 
 		expect(stats.pointed).toMatchObject({
@@ -51,6 +50,7 @@ describe("noteStats", () => {
 		expect(stats.p50).toBe(10);
 		expect(stats.notes).toEqual([
 			{
+				project: "/repo",
 				path: "notes/x.md",
 				now: 1,
 				optional: 0,
@@ -61,6 +61,7 @@ describe("noteStats", () => {
 				applied: 1,
 			},
 			{
+				project: "/repo",
 				path: "notes/y.md",
 				now: 0,
 				optional: 1,
@@ -71,6 +72,7 @@ describe("noteStats", () => {
 				applied: 0,
 			},
 			{
+				project: "/repo",
 				path: "notes/z.md",
 				now: 0,
 				optional: 0,
@@ -85,7 +87,7 @@ describe("noteStats", () => {
 
 	it("reads corrections by arm, the judge's spend, the notes' share of context and turns per merged task", () => {
 		const stats = noteStats(
-			[
+			from([
 				attached("a", false, [], { corrects: 0.9, dollars: 0.002 }),
 				attached("a", false, [], { corrects: 0.1, dollars: 0.002 }),
 				// From before corrections and spend were kept.
@@ -101,7 +103,7 @@ describe("noteStats", () => {
 				}),
 				applied("a", "notes/x.md", 0.9, { dollars: 0.001 }),
 				applied("b", "notes/x.md", 0.9, { dollars: 0.001 }),
-			],
+			]),
 			[
 				ended({ conversation: "a", turns: 3 }),
 				ended({ conversation: "a", turns: 6 }),
@@ -109,7 +111,6 @@ describe("noteStats", () => {
 				ended({ conversation: "a" }),
 			],
 			[],
-			"/repo",
 		);
 
 		expect(stats.pointed).toMatchObject({
@@ -132,8 +133,36 @@ describe("noteStats", () => {
 		});
 	});
 
+	it("reads the projects it is given, keeping their notes and outcomes apart", () => {
+		const stats = noteStats(
+			[
+				{
+					project: "/repo",
+					events: [attached("a", false, [{ path: "notes/x.md", tier: "now" }])],
+				},
+				{
+					project: "/other",
+					events: [attached("b", false, [{ path: "notes/x.md", tier: "now" }])],
+				},
+			],
+			[
+				ended({ conversation: "a" }),
+				ended({ conversation: "b", project: "/other" }),
+				ended({ conversation: "c", project: "/elsewhere" }),
+			],
+			[],
+		);
+
+		expect(stats.projects).toEqual(["/repo", "/other"]);
+		expect(stats.pointed).toMatchObject({ conversations: 2, merged: 2 });
+		expect(stats.notes.map((each) => [each.project, each.now])).toEqual([
+			["/other", 1],
+			["/repo", 1],
+		]);
+	});
+
 	it("shows nothing when the router judged no message", () => {
-		const stats = noteStats([], [], [], "/repo");
+		const stats = noteStats([], [], []);
 
 		expect(stats.pointed.conversations).toBe(0);
 		expect(stats.p50).toBeNull();
@@ -141,6 +170,11 @@ describe("noteStats", () => {
 		expect(stats.notes).toEqual([]);
 	});
 });
+
+/** Events of one project, `/repo` unless named. */
+function from(events: Event[], project = "/repo") {
+	return [{ project, events }];
+}
 
 function event(conversation: string, facts: object): Event {
 	return {

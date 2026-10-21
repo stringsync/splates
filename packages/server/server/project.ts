@@ -32,7 +32,8 @@ import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
-import { BudgetRoutes, NoteStatsRoutes } from "../stats";
+import type { NoteSource } from "../stats";
+import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, type SlotRequest } from "../workers";
@@ -169,7 +170,7 @@ export async function serveProject(
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...new NotesRoutes(project),
-		...new NoteStatsRoutes(project),
+		...new NoteEventsRoutes(project),
 		...automations.routes,
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
@@ -442,7 +443,8 @@ export interface Served extends AsyncResource {
 	removeCred: Handler;
 	dismissCred: Handler;
 	listNotes: Handler;
-	noteStats: Handler;
+	/** The project's journal, for the Stats page's Notes section. */
+	noteEvents: () => Promise<NoteSource>;
 	readNote: Handler;
 	saveNote: Handler;
 	removeNote: Handler;

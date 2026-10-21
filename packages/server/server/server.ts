@@ -28,7 +28,7 @@ import {
 	setupProjectAt,
 } from "../setup";
 import { BillingRoutes, Spend } from "../spend";
-import { DevOutcomes } from "../stats";
+import { DevOutcomes, NoteStatsRoutes } from "../stats";
 import { FsStorage } from "../storage";
 import { rescueStranded } from "../tasks";
 import { Terminals } from "../terminal";
@@ -385,6 +385,29 @@ export async function dev(
 	const picker = new Picker(deps);
 
 	const ended = new DevOutcomes(deps);
+	// The Notes section reads the journals of the projects the Stats filter takes in.
+	const notesStats = new NoteStatsRoutes({
+		fs,
+		ps,
+		sources: async (root) => {
+			if (root !== null) {
+				const known = (await projects.list()).find(
+					(each) => each.root === root && !each.gone,
+				);
+				if (known === undefined) {
+					fail("not_found", `no splates project at ${root}`, { project: root });
+				}
+				return [await (await servedAt(root)).noteEvents()];
+			}
+			await everywhere.openAll();
+			const opened = await Promise.allSettled(served.values());
+			return Promise.all(
+				opened.flatMap((each) =>
+					each.status === "fulfilled" ? [each.value.noteEvents()] : [],
+				),
+			);
+		},
+	});
 	const evalsCheckout =
 		(await sourceCommit(ps)) === null
 			? null
@@ -813,7 +836,7 @@ export async function dev(
 					},
 					"/api/notes": { GET: scoped((project) => project.listNotes) },
 					"/api/stats/notes": {
-						GET: scoped((project) => project.noteStats),
+						GET: guarded(notesStats.noteStats),
 					},
 					"/api/notes/read": { GET: scoped((project) => project.readNote) },
 					// Through a tunnel only once Access verified who is asking: a save

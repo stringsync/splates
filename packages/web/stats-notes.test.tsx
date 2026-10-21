@@ -23,6 +23,7 @@ const arm: Arm = {
 describe("NoteSection", () => {
 	it("shows pointers against the holdout with each figure's count, and each note's read-through and applied rate", () => {
 		const notes: NoteStats = {
+			projects: ["/repo"],
 			pointed: arm,
 			holdout: {
 				...arm,
@@ -40,6 +41,7 @@ describe("NoteSection", () => {
 			context: { conversations: 2, tokens: 3000, share: 0.05 },
 			notes: [
 				{
+					project: "/repo",
 					path: "notes/x.md",
 					now: 2,
 					optional: 0,

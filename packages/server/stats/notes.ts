@@ -5,21 +5,24 @@ import type { Outcome } from "./outcomes";
 /**
  * Compares the conversations that got note pointers with the ones held out,
  * and reads how the routing did, from `events` of one project, its
- * `outcomes` and `judged` skill checks. A conversation counts once the
+ * `outcomes` and `judged` skill checks. `sources` are the journals of the
+ * projects read, each by its main tree; outcomes of any other are left out. A conversation counts once the
  * router has judged a message in it: whatever its first judgment said of the
  * holdout holds for it.
  */
 export function noteStats(
-	events: Event[],
+	sources: { project: string; events: Event[] }[],
 	outcomes: Outcome[],
 	judged: Judged[],
-	project: string,
 ): NoteStats {
+	const projects = new Set(sources.map((each) => each.project));
 	const arms = new Map<string, "pointed" | "holdout">();
 	const times: number[] = [];
 	const rows = new Map<string, NoteRow>();
-	const row = (path: string): NoteRow => {
-		const found = rows.get(path) ?? {
+	const row = (project: string, path: string): NoteRow => {
+		const key = `${project}\n${path}`;
+		const found = rows.get(key) ?? {
+			project,
 			path,
 			now: 0,
 			optional: 0,
@@ -29,7 +32,7 @@ export function noteStats(
 			judged: 0,
 			applied: 0,
 		};
-		rows.set(path, found);
+		rows.set(key, found);
 		return found;
 	};
 	// What each conversation was pointed at, by note: the tiers not yet followed by a read.
@@ -43,93 +46,95 @@ export function noteStats(
 	const spend = { routing: 0, routed: 0, weighing: 0, weighed: 0 };
 	// The note bytes each conversation's own agent read, and its context as it last read one.
 	const reading = new Map<string, { bytes: number; context: number | null }>();
-	for (const event of events) {
-		if (event.reason !== null || event.conversation === null) {
-			continue;
-		}
-		const conversation = event.conversation;
-		if (event.action === "notes attached") {
-			if (!arms.has(conversation)) {
-				arms.set(conversation, event.holdout ? "holdout" : "pointed");
-			}
-			const which = arms.get(conversation) ?? "pointed";
-			if (event.corrects !== undefined) {
-				said[which] += 1;
-				if (event.corrects >= CORRECTS) {
-					corrected[which] += 1;
-				}
-			}
-			if (event.dollars !== undefined && event.dollars !== null) {
-				spend.routing += event.dollars;
-				spend.routed += 1;
-			}
-			if (which === "holdout") {
+	for (const { project, events } of sources) {
+		for (const event of events) {
+			if (event.reason !== null || event.conversation === null) {
 				continue;
 			}
-			messages += 1;
-			times.push(event.ms);
-			const tiers = event.notes.filter((note) => note.tier !== null);
-			if (tiers.length > 0) {
-				attached += 1;
-			}
-			for (const note of tiers) {
-				const entry = row(note.path);
-				if (note.tier === "now") {
-					entry.now += 1;
-				} else {
-					entry.optional += 1;
+			const conversation = event.conversation;
+			if (event.action === "notes attached") {
+				if (!arms.has(conversation)) {
+					arms.set(conversation, event.holdout ? "holdout" : "pointed");
 				}
-				const open = waiting.get(conversation) ?? new Map();
-				open.set(note.path, note.tier);
-				waiting.set(conversation, open);
-				pointedAt.add(`${conversation}\n${note.path}`);
-			}
-			// A note held in context is not a miss when it is not read again.
-			for (const note of event.notes) {
-				if (note.inContext) {
+				const which = arms.get(conversation) ?? "pointed";
+				if (event.corrects !== undefined) {
+					said[which] += 1;
+					if (event.corrects >= CORRECTS) {
+						corrected[which] += 1;
+					}
+				}
+				if (event.dollars !== undefined && event.dollars !== null) {
+					spend.routing += event.dollars;
+					spend.routed += 1;
+				}
+				if (which === "holdout") {
+					continue;
+				}
+				messages += 1;
+				times.push(event.ms);
+				const tiers = event.notes.filter((note) => note.tier !== null);
+				if (tiers.length > 0) {
+					attached += 1;
+				}
+				for (const note of tiers) {
+					const entry = row(project, note.path);
+					if (note.tier === "now") {
+						entry.now += 1;
+					} else {
+						entry.optional += 1;
+					}
+					const open = waiting.get(conversation) ?? new Map();
+					open.set(note.path, note.tier);
+					waiting.set(conversation, open);
 					pointedAt.add(`${conversation}\n${note.path}`);
 				}
-			}
-		} else if (
-			event.action === "note read" &&
-			arms.get(conversation) === "pointed"
-		) {
-			if (
-				!event.subagent &&
-				event.bytes !== undefined &&
-				event.bytes !== null
-			) {
-				const sum = reading.get(conversation) ?? { bytes: 0, context: null };
-				sum.bytes += event.bytes;
-				sum.context = event.context ?? null;
-				reading.set(conversation, sum);
-			}
-			const entry = row(event.path);
-			const open = waiting.get(conversation);
-			const tier = open?.get(event.path);
-			if (tier !== undefined) {
-				open?.delete(event.path);
-				if (tier === "now") {
-					entry.nowRead += 1;
-				} else {
-					entry.optionalRead += 1;
+				// A note held in context is not a miss when it is not read again.
+				for (const note of event.notes) {
+					if (note.inContext) {
+						pointedAt.add(`${conversation}\n${note.path}`);
+					}
 				}
-			} else if (!pointedAt.has(`${conversation}\n${event.path}`)) {
-				entry.unprompted += 1;
-				pointedAt.add(`${conversation}\n${event.path}`);
-			}
-		} else if (event.action === "note applied") {
-			if (event.dollars !== undefined && event.dollars !== null) {
-				spend.weighing += event.dollars;
-				spend.weighed += 1;
-			}
-			if (arms.get(conversation) !== "pointed") {
-				continue;
-			}
-			const entry = row(event.path);
-			entry.judged += 1;
-			if (event.probability >= APPLIED) {
-				entry.applied += 1;
+			} else if (
+				event.action === "note read" &&
+				arms.get(conversation) === "pointed"
+			) {
+				if (
+					!event.subagent &&
+					event.bytes !== undefined &&
+					event.bytes !== null
+				) {
+					const sum = reading.get(conversation) ?? { bytes: 0, context: null };
+					sum.bytes += event.bytes;
+					sum.context = event.context ?? null;
+					reading.set(conversation, sum);
+				}
+				const entry = row(project, event.path);
+				const open = waiting.get(conversation);
+				const tier = open?.get(event.path);
+				if (tier !== undefined) {
+					open?.delete(event.path);
+					if (tier === "now") {
+						entry.nowRead += 1;
+					} else {
+						entry.optionalRead += 1;
+					}
+				} else if (!pointedAt.has(`${conversation}\n${event.path}`)) {
+					entry.unprompted += 1;
+					pointedAt.add(`${conversation}\n${event.path}`);
+				}
+			} else if (event.action === "note applied") {
+				if (event.dollars !== undefined && event.dollars !== null) {
+					spend.weighing += event.dollars;
+					spend.weighed += 1;
+				}
+				if (arms.get(conversation) !== "pointed") {
+					continue;
+				}
+				const entry = row(project, event.path);
+				entry.judged += 1;
+				if (event.probability >= APPLIED) {
+					entry.applied += 1;
+				}
 			}
 		}
 	}
@@ -139,7 +144,7 @@ export function noteStats(
 		);
 		const ended = outcomes.filter(
 			(each) =>
-				each.project === project &&
+				projects.has(each.project) &&
 				!each.base.startsWith("task/") &&
 				each.conversation !== null &&
 				own.has(each.conversation),
@@ -184,6 +189,7 @@ export function noteStats(
 					Math.min(sorted.length - 1, Math.ceil(share * sorted.length) - 1)
 				] ?? null);
 	return {
+		projects: [...projects],
 		pointed: arm("pointed"),
 		holdout: arm("holdout"),
 		messages,
@@ -195,6 +201,7 @@ export function noteStats(
 		notes: [...rows.values()].sort(
 			(one, other) =>
 				other.now + other.optional - (one.now + one.optional) ||
+				one.project.localeCompare(other.project) ||
 				one.path.localeCompare(other.path),
 		),
 	};
@@ -263,6 +270,8 @@ export interface Arm {
 
 /** How one note was pointed at, read and applied, over conversations with pointers. */
 export interface NoteRow {
+	/** The main tree of the project it belongs to. */
+	project: string;
 	/** The note, by its path from the project root. */
 	path: string;
 	/** Pointers to it, by tier. */
@@ -280,6 +289,8 @@ export interface NoteRow {
 
 /** What the Stats page's Notes section shows. */
 export interface NoteStats {
+	/** The main trees of the projects read. */
+	projects: string[];
 	/** Conversations with pointers, against those held out. */
 	pointed: Arm;
 	holdout: Arm;

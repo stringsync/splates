@@ -24,8 +24,8 @@ export type StatsReportEvents = { changed: undefined };
 /** Where the summary comes from: `splates server`, or a test's own. */
 export interface StatsSource {
 	stats(period: PeriodId, project?: string): Promise<Stats>;
-	/** How note pointers did in the page's project; a source with none shows no Notes section. */
-	notes?(): Promise<NoteStats>;
+	/** How note pointers did in `project`'s main tree, or all; a source with none shows no Notes section. */
+	notes?(project?: string): Promise<NoteStats>;
 }
 
 /** A span of time the page can look at, as its control names it. */
@@ -117,7 +117,10 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 				return;
 			}
 			this.stats = stats;
-			this.notes = (await this.source.notes?.().catch(() => null)) ?? null;
+			this.notes =
+				(await this.source
+					.notes?.(this.project ?? undefined)
+					.catch(() => null)) ?? null;
 			if (this.project === null) {
 				this.choices = stats.projects.map((each) => each.project);
 			}
