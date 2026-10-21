@@ -18,6 +18,7 @@ import {
 	inviteScript,
 	placeScript,
 	readClones,
+	refreshScript,
 	restartScript,
 	startScript,
 	upgradeScript,
@@ -195,6 +196,8 @@ export class CoordinatorMove {
 		}
 		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
 		await shell.run(upgradeScript(version));
+		log.info("refreshing the box's unit, helper scripts and cloudflared");
+		await shell.run(refreshScript());
 		log.info("restarting splates server on the box");
 		await shell.run(restartScript());
 		const record = await moveRecord(fs, home);

@@ -183,6 +183,13 @@ describe("CoordinatorMove", () => {
 		});
 		expect(ps.scripts.some((each) => each.includes("bun add -g"))).toBe(true);
 		expect(ps.scripts.at(-1)).toContain("systemctl restart");
+		// The unit, helper script and cloudflared are refreshed before the restart.
+		const refreshed = ps.scripts.findIndex((each) =>
+			each.includes("systemctl daemon-reload"),
+		);
+		expect(refreshed).toBeGreaterThan(-1);
+		expect(ps.scripts[refreshed]).toContain("cloudflared.deb");
+		expect(refreshed).toBeLessThan(ps.scripts.length - 1);
 		expect(net.posted).toEqual([]);
 		expect(ps.copied).toEqual([]);
 		expect(joined).toEqual([]);

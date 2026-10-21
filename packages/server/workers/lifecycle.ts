@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import type { Resource } from "webappwiz/disposable";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { splatesHome } from "../models";
 import { carried, type WorkerCreds } from "./creds";
@@ -57,6 +57,29 @@ export function updateFile(ps: Ps, id: string): string {
 	return `${splatesHome(ps)}/workers/${id}.update`;
 }
 
+/** Where a worker keeper leaves the build it last started its worker on. */
+export function builtFile(ps: Ps, id: string): string {
+	return `${splatesHome(ps)}/workers/${id}.build`;
+}
+
+/**
+ * The build a keeper last updated worker `id` to, when it is newer than
+ * `running`, the build this process is: a keeper that pins its own release,
+ * a LaunchAgent or a global install, starts on it again after a reboot.
+ */
+export async function updatedBuild(
+	ps: Ps,
+	fs: Fs,
+	id: string,
+	running: string,
+): Promise<string | null> {
+	if (ps.env(WORKER_KEPT) !== undefined) {
+		return null;
+	}
+	const kept = (await fs.read(builtFile(ps, id)).catch(() => "")).trim();
+	return kept !== "" && Bun.semver.order(kept, running) === 1 ? kept : null;
+}
+
 /**
  * Runs this worker, one dialing a coordinator elsewhere, again on splates
  * `build`, the coordinator's: one kept already hands the build to the one
@@ -88,6 +111,8 @@ export async function restartWorker(
 		for (;;) {
 			log.info(`restarting worker ${id} on splates ${next}`);
 			await fs.rm(path, { force: true });
+			await fs.mkdir(dirname(path));
+			await fs.write(builtFile(ps, id), next);
 			const { exitCode } = await ps
 				.spawn(
 					[

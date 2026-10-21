@@ -5,7 +5,7 @@ import { SharedBrowser } from "../agents";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { relayDocument } from "../records";
-import { heavyJobsOfMachine } from "../server/shared";
+import { heavyJobsOfMachine, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { accessHeaders } from "./access";
 import { keepAwakeOf } from "./awake";
@@ -16,7 +16,7 @@ import {
 	workerId,
 } from "./creds";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
-import { endWithSupervisor, restartWorker } from "./lifecycle";
+import { endWithSupervisor, restartWorker, updatedBuild } from "./lifecycle";
 import { hostOf, machineSlots, onWindowsDrive } from "./machine";
 import {
 	WORKER_KEY_HEADER,
@@ -67,6 +67,15 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	// This machine's own goes by its hostname, as its coordinator finds it.
 	const id = remote ? await workerId(opts) : opts.id || ps.hostname;
 	const creds = remote ? await workerCreds(id, opts) : null;
+	// A keeper pinned to the release it was set up on starts on the build
+	// the worker last updated to instead.
+	const updated =
+		creds === null ? null : await updatedBuild(ps, opts.fs, id, RUNNING);
+	if (creds !== null && updated !== null) {
+		log.info(`starting on splates ${updated}, the build last updated to`);
+		await restartWorker(updated, id, creds, opts);
+		return;
+	}
 	// A worker of its own machine keeps API keys its coordinator sends while
 	// agents run beside it as the same user, so no other process may read
 	// its memory; this machine's runs agents signed in as the person.

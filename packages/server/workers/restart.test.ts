@@ -8,8 +8,10 @@ import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { WORKER_KEY } from "./creds";
 import {
+	builtFile,
 	restartWorker,
 	UPDATE_EXIT,
+	updatedBuild,
 	updateFile,
 	WORKER_KEPT,
 } from "./lifecycle";
@@ -84,5 +86,19 @@ describe("restartWorker", () => {
 		expect(ps.getCalls()).toEqual([]);
 		expect(ps.getExitCode()).toBe(UPDATE_EXIT);
 		expect(await Bun.file(updateFile(ps, "box")).text()).toBe("2.0.0");
+	});
+
+	it("starts a keeper pinned to an old release on the build it last updated to", async () => {
+		ps.simulate(async () => 0);
+		await restartWorker("3.0.0", "box", creds, options());
+		expect(await Bun.file(builtFile(ps, "box")).text()).toBe("3.0.0");
+
+		const fs = new NodeFs();
+		expect(await updatedBuild(ps, fs, "box", "2.0.0")).toBe("3.0.0");
+		expect(await updatedBuild(ps, fs, "box", "3.0.0")).toBeNull();
+		expect(await updatedBuild(ps, fs, "box", "4.0.0")).toBeNull();
+		expect(await updatedBuild(ps, fs, "other", "2.0.0")).toBeNull();
+		ps.setEnv({ SPLATES_HOME: dir, [WORKER_KEPT]: "1" });
+		expect(await updatedBuild(ps, fs, "box", "2.0.0")).toBeNull();
 	});
 });

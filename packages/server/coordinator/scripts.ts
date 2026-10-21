@@ -1,4 +1,4 @@
-import { BOX_USER, KEYRING_PASSWORD } from "./box";
+import { BOX_USER, CLOUDFLARED_DEB, KEYRING_PASSWORD } from "./box";
 import type { MovedProject } from "./paths";
 
 /** The unit that keeps `splates server` running on the box. */
@@ -172,6 +172,40 @@ export function placeScript(projects: BoxProject[], cwd: string): string {
 		unitText(cwd).trimEnd(),
 		"SPLATES_UNIT",
 		"systemctl daemon-reload",
+		"",
+	].join("\n");
+}
+
+/**
+ * The root script that brings what a release installs outside bun up to
+ * its text: `keyring-run` and the unit, each rewritten only when it
+ * differs, the unit keeping the `WorkingDirectory` it has, then
+ * `systemctl daemon-reload` when the unit changed; and cloudflared, from
+ * the latest .deb, which a deploy that cannot fetch it only says so about.
+ */
+export function refreshScript(): string {
+	const unit = `/etc/systemd/system/${COORDINATOR_UNIT}.service`;
+	const cwd = "@CWD@";
+	const fresh = (text: string, delimiter: string) => [
+		`cat > "$dir/next" <<'${delimiter}'`,
+		text.trimEnd(),
+		delimiter,
+	];
+	return [
+		"set -eu",
+		"dir=$(mktemp -d)",
+		`trap 'rm -rf "$dir"' EXIT`,
+		`mkdir -p ${KEYRING_RUN.slice(0, KEYRING_RUN.lastIndexOf("/"))}`,
+		...fresh(KEYRING_RUN_SCRIPT, "SPLATES_KEYRING_RUN"),
+		`cmp -s "$dir/next" ${KEYRING_RUN} || install -m 755 "$dir/next" ${KEYRING_RUN}`,
+		`dir_of_unit=$(sed -n 's/^WorkingDirectory=//p' ${unit})`,
+		...fresh(unitText(cwd), "SPLATES_UNIT"),
+		`sed "s|${cwd}|$dir_of_unit|" "$dir/next" > "$dir/unit"`,
+		`if ! cmp -s "$dir/unit" ${unit}; then`,
+		`  install -m 644 "$dir/unit" ${unit}`,
+		"  systemctl daemon-reload",
+		"fi",
+		`( curl -fsSL -o "$dir/cloudflared.deb" ${CLOUDFLARED_DEB} && dpkg -i "$dir/cloudflared.deb" >/dev/null ) || echo "could not upgrade cloudflared: it stays as it was" >&2`,
 		"",
 	].join("\n");
 }

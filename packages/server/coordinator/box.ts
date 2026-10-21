@@ -242,6 +242,10 @@ const BOX_RULES: FirewallRule[] = [
 	},
 ];
 
+/** Where the latest cloudflared for the box's Debian comes from. */
+export const CLOUDFLARED_DEB =
+	"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb";
+
 /**
  * The box's first-boot script: git, bun and splates `version` for
  * `BOX_USER`; cloudflared, which carries the saved tunnel to the
@@ -268,7 +272,7 @@ export function installScript(version: string, hostKey: string): string {
 		"(systemctl restart ssh || systemctl restart sshd)",
 		"apt-get update",
 		"apt-get install -y --no-install-recommends ca-certificates curl git unzip dbus-user-session gnome-keyring libsecret-1-0",
-		"curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb",
+		`curl -fsSL -o /tmp/cloudflared.deb ${CLOUDFLARED_DEB}`,
 		"dpkg -i /tmp/cloudflared.deb",
 		"rm /tmp/cloudflared.deb",
 		`test -s ${KEYRING_PASSWORD} || (umask 077 && head -c 32 /dev/urandom | base64 > ${KEYRING_PASSWORD})`,
