@@ -1,4 +1,5 @@
-import { cloudflare, openai } from "./adapters";
+import type { AwsCredentials } from "../cloud/aws-sign";
+import { aws, cloudflare, openai } from "./adapters";
 
 /** One amount a provider billed, in its own currency. */
 export interface Charge {
@@ -19,6 +20,10 @@ export interface Sources {
 	today: string;
 	/** The earliest day to pull. */
 	since: string;
+	/** The AWS credentials found, for a provider that signs with them; null when none. */
+	aws: AwsCredentials | null;
+	/** The moment now, for signing. */
+	now: Date;
 }
 
 export interface Provider {
@@ -36,6 +41,8 @@ export interface Provider {
 	 * pull: what to say on its row.
 	 */
 	counted?: string;
+	/** Set for a provider that signs with AWS credentials, not a cred; it is pulled at most once a day, as every request is billed. */
+	signed?: "aws";
 	pull?(sources: Sources, token: string): Promise<Charge[]>;
 }
 
@@ -43,12 +50,7 @@ export interface Provider {
 export const PROVIDERS: readonly Provider[] = [
 	openai,
 	cloudflare,
-	{
-		id: "aws",
-		cred: null,
-		untracked:
-			"splates will pull this from Cost Explorer with the AWS credentials it already finds",
-	},
+	aws,
 	{
 		id: "typesafe",
 		cred: null,
