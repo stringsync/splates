@@ -18,6 +18,26 @@ describe("Working", () => {
 	});
 });
 
+describe("A line splates drew before the agent began", () => {
+	it("sits above the reply's words", () => {
+		const message: Message = {
+			role: "agent",
+			at: at(5),
+			until: at(6),
+			plan: null,
+			parts: [{ type: "text", text: "Done.", at: at(5) }],
+		};
+		const lines = linesOf({
+			message,
+			events: [event("add", "e0", at(4))],
+			going: false,
+			now: Number.POSITIVE_INFINITY,
+		});
+
+		expect(lines.indexOf("event")).toBeLessThan(lines.indexOf("text"));
+	});
+});
+
 declare module "bun:test" {
 	interface Matchers<T> {
 		/** Asserts each turn says Working on its last line while it goes, and nowhere else. */

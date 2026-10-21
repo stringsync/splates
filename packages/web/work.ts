@@ -104,7 +104,7 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
-	const ordered = folded(placed(pieces, events));
+	const ordered = folded(placed(pieces, events, message.at));
 	// Keep live work below an event, or a command left in the background,
 	// even before the agent sends another part.
 	const tail = ordered.at(-1);
@@ -208,10 +208,15 @@ export function stretchesOf(
 }
 
 /**
- * `pieces` with each event placed by its time: the work it fell in cut
- * around it, after the work it came at the end of, and the rest after all.
+ * `pieces` with each event placed by its time: before everything when it
+ * came before the turn began, the work it fell in cut around it, after the work it came at the end of, and the rest after all.
  */
-function placed(pieces: Piece[], events: readonly Event[]): Piece[] {
+function placed(
+	pieces: Piece[],
+	events: readonly Event[],
+	/** When the agent began its turn: what was done before it is above all it did. */
+	began: string | null,
+): Piece[] {
 	const left = [...events];
 	// The events left that came before `by`, or by it too when `by` is an end.
 	const due = (by: string | null, end = false): Piece[] => {
@@ -222,7 +227,7 @@ function placed(pieces: Piece[], events: readonly Event[]): Piece[] {
 			.splice(0, later === -1 ? left.length : later)
 			.map((event): Piece => ({ type: "event", event }));
 	};
-	const out: Piece[] = [];
+	const out: Piece[] = began === null ? [] : due(began, true);
 	for (const piece of pieces) {
 		if (!Array.isArray(piece)) {
 			out.push(piece);
