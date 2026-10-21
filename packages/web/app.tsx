@@ -7,7 +7,6 @@ import {
 	SystemClock,
 	SystemTimer,
 	type Timer,
-	type WallClock,
 } from "webappwiz/time";
 import { TooltipProvider } from "#web/components/ui/tooltip.tsx";
 import { Opening } from "./add-project";
@@ -81,11 +80,9 @@ export function App({
 	settings,
 	checkpointEvery,
 	checkpointRestartShown,
-	offlineAfter,
 	reload = () => location.reload(),
 	autoRestart: given,
 	timer,
-	wall,
 	draftFiles,
 	feed,
 	talk,
@@ -95,15 +92,12 @@ export function App({
 	checkpointEvery?: Duration;
 	/** How long a checkpoint's Restart slide shows at least; three seconds by default. */
 	checkpointRestartShown?: Duration;
-	/** How long the server stays unreachable before the page says so; ten seconds by default. */
-	offlineAfter?: Duration;
 	/** Reloads the page, once a restart asked to is back. */
 	reload?: () => void;
 	/** Restarts `splates server` once out of date; one on the system clock by default. */
 	autoRestart?: AutoRestart;
 	/** What the conversations' threads wait and read the date by; the system's by default. */
 	timer?: Timer;
-	wall?: WallClock;
 	/** Where drafts' files outlive a reload; IndexedDB by default, where there is one. */
 	draftFiles?: DraftFiles | null;
 	/** The project's snapshot, kept by `ProjectApp` past a switch of project. */

@@ -172,7 +172,8 @@ export function second(secs: number): string {
 
 /**
  * A conversation of one turn: the user asks to run the tests, and the agent
- * answers with `parts` over a minute, under `plan`.
+ * answers with `parts` over a minute, under `plan`, or until `stopped` when
+ * the person stopped it.
  */
 export function turn(
 	parts: Parameters<typeof message>[1][],
@@ -181,6 +182,7 @@ export function turn(
 		plan = null as
 			| null
 			| { text: string; status: "pending" | "in_progress" | "completed" }[],
+		stopped = undefined as string | undefined,
 	} = {},
 ): ConversationState {
 	return conversation({
@@ -196,7 +198,8 @@ export function turn(
 				...message("agent", ...parts),
 				plan,
 				at: second(1),
-				until: second(65),
+				until: stopped ?? second(65),
+				stopped,
 			},
 		],
 	});

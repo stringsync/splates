@@ -71,11 +71,8 @@ describe("App's work row while working", () => {
 	it("stops saying Working once the turn was stopped, before the server says it ended", async () => {
 		const stopped = turn(
 			[tool({ id: "x1", command: "bun test", status: "in_progress" })],
-			{ status: "running" },
+			{ status: "running", stopped: second(30) },
 		);
-		const agent = stopped.messages[1]!;
-		agent.until = second(30);
-		agent.stopped = second(30);
 		const thread = await opened(stopped);
 
 		await waitFor(() =>

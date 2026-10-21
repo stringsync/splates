@@ -134,7 +134,7 @@ function quote(value: string): string {
 export async function taskRecord(
 	repository: string,
 	slug: string,
-): Promise<{ path: string; record: Record<string, any> } | null> {
+): Promise<{ path: string; record: Record<string, unknown> } | null> {
 	const directory = join(repository, ".git/splates/tasks");
 	for (const name of await readdir(directory).catch(() => [])) {
 		if (/^\d+\.md$/.test(name)) {

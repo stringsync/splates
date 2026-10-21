@@ -180,8 +180,12 @@ export const lifecycleSeed: Seed = {
 				(item.project === root || item.project === canonicalRoot),
 		);
 		const result: Record<string, Json> = {
-			"task/base": task?.base ?? (task ? "main" : null),
-			"task/status": task?.status ?? outcome?.ended ?? null,
+			"task/base":
+				typeof task?.base === "string" ? task.base : task ? "main" : null,
+			"task/status":
+				typeof task?.status === "string"
+					? task.status
+					: (outcome?.ended ?? null),
 			"task/exists": exists,
 			"task/asking":
 				exists &&
