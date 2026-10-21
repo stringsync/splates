@@ -1,6 +1,6 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
-import { LoaderCircleIcon } from "lucide-react";
+import { HourglassIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -77,10 +77,7 @@ export function TaskQueue({
 								)}
 							>
 								<span className="w-5 shrink-0 text-right text-muted-foreground text-xs">
-									<LoaderCircleIcon
-										aria-hidden
-										className="ml-auto size-3 animate-spin"
-									/>
+									<HourglassIcon aria-hidden className="ml-auto size-3" />
 								</span>
 								<span
 									className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}

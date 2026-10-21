@@ -5,7 +5,6 @@ import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import {
 	HourglassIcon,
 	ListPlusIcon,
-	LoaderCircleIcon,
 	type LucideIcon,
 	Trash2Icon,
 	TriangleAlertIcon,
@@ -170,9 +169,7 @@ function QueueCard({
 		>
 			{todos.length > 0 && (
 				<Panel>
-					{running > 0 && (
-						<Line Icon={LoaderCircleIcon}>{running} running</Line>
-					)}
+					{running > 0 && <Line Icon={HourglassIcon}>{running} running</Line>}
 					{hidden > 0 && (
 						<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
 					)}
@@ -211,7 +208,7 @@ function QueueItem({
 	const stage = stageOf(todo);
 	if (stage === "running") {
 		return (
-			<Row todo={todo} Icon={LoaderCircleIcon} status="running" tone="quiet" />
+			<Row todo={todo} Icon={HourglassIcon} status="running" tone="quiet" />
 		);
 	}
 	if (stage === "queued") {
