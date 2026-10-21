@@ -31,6 +31,7 @@ import {
 	STILL_SENDING,
 	type Unsent,
 } from "./sending";
+import { repeats } from "./summary-repeats";
 
 export type ConversationFeedEvents = { changed: undefined };
 
@@ -208,9 +209,13 @@ export class ConversationFeed
 		if ("changes" in update) {
 			this.streamed.set(state.id, state);
 		}
+		const at = this.recorded.findIndex((each) => each.id === state.id);
+		// A summary of what is held whole says nothing new: taking it remounts the open thread.
+		if (at !== -1 && repeats(this.recorded[at], state)) {
+			return;
+		}
 		this.settle(state.id);
 		this.changedAt.set(state.id, this.changes++);
-		const at = this.recorded.findIndex((each) => each.id === state.id);
 		this.show(
 			at === -1
 				? [state, ...this.recorded]
@@ -611,7 +616,7 @@ export class ConversationFeed
 			...conversations.flatMap((each) =>
 				moved(each.id)
 					? this.recorded.filter((kept) => kept.id === each.id)
-					: [each],
+					: [this.recorded.find((kept) => repeats(kept, each)) ?? each],
 			),
 		]);
 		this.kept();
