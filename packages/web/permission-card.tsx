@@ -3,10 +3,10 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import {
-	ClockIcon,
+	HourglassIcon,
 	ListPlusIcon,
+	LoaderCircleIcon,
 	type LucideIcon,
-	PlayIcon,
 	Trash2Icon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -162,15 +162,17 @@ function QueueCard({
 		>
 			{todos.length > 0 && (
 				<Panel>
-					{running > 0 && <Line Icon={PlayIcon}>{running} running</Line>}
+					{running > 0 && (
+						<Line Icon={LoaderCircleIcon}>{running} running</Line>
+					)}
 					{hidden > 0 && (
-						<Line Icon={ClockIcon}>{hidden} more queued ahead</Line>
+						<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
 					)}
 					{ahead.slice(hidden).map((todo) => (
 						<Row
 							key={todo.id}
 							todo={todo}
-							Icon={ClockIcon}
+							Icon={HourglassIcon}
 							status={`queued · ${queue.indexOf(todo) + 1}`}
 							tone="quiet"
 						/>
@@ -200,13 +202,15 @@ function QueueItem({
 	const board = useContext(Board);
 	const stage = stageOf(todo);
 	if (stage === "running") {
-		return <Row todo={todo} Icon={PlayIcon} status="running" tone="quiet" />;
+		return (
+			<Row todo={todo} Icon={LoaderCircleIcon} status="running" tone="quiet" />
+		);
 	}
 	if (stage === "queued") {
 		return (
 			<Row
 				todo={todo}
-				Icon={ClockIcon}
+				Icon={HourglassIcon}
 				status={`queued · ${queue.findIndex((each) => each.id === todo.id) + 1}`}
 				tone="quiet"
 			/>
@@ -221,7 +225,7 @@ function QueueItem({
 			todo={todo}
 			Icon={ListPlusIcon}
 			status={blocker === undefined ? "joins" : `after #${blocker}`}
-			tone="warning"
+			tone="plain"
 		/>
 	);
 }
@@ -267,10 +271,10 @@ function Line({
 
 const ROW_TONES = {
 	quiet: { row: "text-muted-foreground", icon: "", status: "" },
-	warning: {
-		row: "border-warning/30 bg-warning/[0.06]",
-		icon: "text-warning",
-		status: "font-medium text-warning",
+	plain: {
+		row: "",
+		icon: "text-muted-foreground",
+		status: "text-muted-foreground",
 	},
 	destructive: {
 		row: "border-destructive/30 bg-destructive/[0.05]",
