@@ -14,6 +14,13 @@ const HOME = "/Users/me/.splates";
 const ROOT = "/Users/me/Projects/splates";
 const DEV = "http://localhost:4310";
 const HOST = "splates.example.com";
+const MAC = {
+	host: "splates.example.com",
+	team: "me",
+	aud: "aud",
+	tunnel: "tunnel-id",
+};
+const BOX_HOST = "box.splates.example.com";
 const BOX = {
 	ipv4: "203.0.113.7",
 	instanceId: "i-0abc",
@@ -30,6 +37,8 @@ describe("CoordinatorMove", () => {
 	let pushed: string[];
 	let joined: string[];
 	let kept: string[];
+	let released: string[];
+	let retargeted: string[];
 	let opts: CoordinatorMoveOptions;
 
 	beforeEach(async () => {
@@ -44,6 +53,8 @@ describe("CoordinatorMove", () => {
 		pushed = [];
 		joined = [];
 		kept = [];
+		released = [];
+		retargeted = [];
 		await fs.write(
 			`${HOME}/projects.json`,
 			JSON.stringify({ format: 1, projects: [{ root: ROOT }] }),
@@ -79,6 +90,14 @@ describe("CoordinatorMove", () => {
 				ok: true,
 				said: "with this machine off, the box makes workers with AWS",
 			}),
+			previous: async () => null,
+			release: async (previous) => {
+				released.push(previous.host);
+			},
+			retarget: async (host) => {
+				retargeted.push(host);
+				return { ...BOX, host, tunnel: { ...MAC, host } };
+			},
 			join: async (coordinator, token) => {
 				joined.push(`${coordinator} ${token}`);
 			},
@@ -239,6 +258,56 @@ describe("CoordinatorMove", () => {
 			roots: [ROOT],
 			finished: true,
 		});
+	});
+
+	it("takes over the host this machine's tunnel served once the box serves, and joins there", async () => {
+		const moved = await new CoordinatorMove({
+			...opts,
+			box: async () => ({ ...BOX, host: BOX_HOST }),
+			previous: async () => MAC,
+		}).run();
+
+		expect(moved).toMatchObject({ status: "moved", host: HOST });
+		expect(released).toEqual([HOST]);
+		expect(retargeted).toEqual([HOST]);
+		const rewrite = ps.scripts.find((each) =>
+			each.includes("/.splates/tunnel.json"),
+		);
+		expect(rewrite).toContain("systemctl restart");
+		expect(joined).toEqual([`https://${HOST} join-token`]);
+		expect(kept).toEqual([`https://${HOST}`]);
+		expect(await moveRecord(fs, HOME)).toEqual({
+			host: HOST,
+			stamp: "2026-10-18T12-00-00-000Z",
+			roots: [ROOT],
+			finished: true,
+		});
+	});
+
+	it("takes over again on the next deploy when the stack failed, joining nowhere before", async () => {
+		const box = async () => ({ ...BOX, host: BOX_HOST });
+		const retarget = opts.retarget;
+		opts.retarget = async () => {
+			throw new Error("pulumi up failed");
+		};
+		const refused = await new CoordinatorMove({
+			...opts,
+			box,
+			previous: async () => MAC,
+		})
+			.run()
+			.catch((error: Error) => error.message);
+		expect(refused).toContain("pulumi up failed");
+		expect(joined).toEqual([]);
+		expect((await moveRecord(fs, HOME))?.previous).toEqual(MAC);
+		opts.retarget = retarget;
+
+		ps.active = true;
+		const moved = await new CoordinatorMove({ ...opts, box }).run();
+
+		expect(moved).toMatchObject({ status: "moved", host: HOST });
+		expect(joined).toEqual([`https://${HOST} join-token`]);
+		expect((await moveRecord(fs, HOME))?.previous).toBeUndefined();
 	});
 
 	it("passes Access with the invite's service token to find the box's server through the tunnel", async () => {

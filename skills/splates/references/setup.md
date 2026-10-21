@@ -137,9 +137,14 @@ naming each cred the box lacks; show the user those with their `pulumi config se
 after a blocked dry run). `--dry-run` stops there, the
 box ready. Run for real (`coordinator-move`), it checkpoints every agent and
 stops this machine's `splates server`, carries the records over,
-starts the server on the box under systemd with the saved tunnel, and joins
-this machine as a worker kept up by a LaunchAgent, where each task carries on
-in its worktree; this machine's records go aside, kept. It touches the user's
+starts the server on the box under systemd on a host of its own (`infra init`
+defaults it to `box.` before the saved tunnel's host), then takes the saved
+tunnel's host over: it deletes this Mac's DNS record and Access application
+there (a gap of minutes), sets the stack's `splates:host` to it and runs
+`pulumi up`, and has the box serve it, so the user's URL stays the same. This
+machine then joins there as a worker kept up by a LaunchAgent, where each task
+carries on in its worktree; this machine's records go aside, kept, and its old
+tunnel is left in Cloudflare for the user to delete. It touches the user's
 live server and tunnel: ask before running it for real, and run it from a
 terminal outside `splates server`, which it stops, or leave it to the step's
 Next on the page, which runs it apart from the server and follows it onto the

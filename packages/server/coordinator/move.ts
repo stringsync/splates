@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sshUrl } from "../git";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
-import type { TunnelRecord } from "../tunnel/saved";
+import { FORMAT, type TunnelRecord } from "../tunnel/saved";
 import { accessHeaders, joinAccess } from "../workers";
 import type { BoxStanding } from "./box";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
@@ -14,6 +14,7 @@ import {
 	BUNDLE,
 	COORDINATOR_UNIT,
 	clonesScript,
+	hostScript,
 	inviteScript,
 	needsScript,
 	placeScript,
@@ -116,7 +117,9 @@ export class CoordinatorMove {
 				`${error instanceof Error ? error.message : String(error)}\nNothing here changed: start \`splates server\` on this machine again, and move once that is fixed`,
 			);
 		}
+		const previous = await this.opts.previous();
 		const record: MoveRecord = {
+			...(previous === null || previous.host === host ? {} : { previous }),
 			host,
 			stamp: (this.opts.now?.() ?? new Date())
 				.toISOString()
@@ -136,6 +139,9 @@ export class CoordinatorMove {
 	 * The move's steps once the box serves: this machine's records go
 	 * aside, and it joins the box as its worker, kept up by its LaunchAgent.
 	 * Each may run again, so a deploy after one failed finishes the rest.
+	 * The box comes up on a host of its own, and when this machine's tunnel
+	 * had another, the box takes that over before this machine joins, so it
+	 * joins, and its LaunchAgent dials, the host the user already knows.
 	 */
 	private async finish(
 		shell: BoxShell,
@@ -143,11 +149,54 @@ export class CoordinatorMove {
 		token?: string,
 	): Promise<Moved> {
 		const aside = await this.putAside(record);
-		const coordinator = `https://${record.host}`;
-		await this.opts.join(coordinator, token ?? (await this.invite(shell)));
+		let current = record;
+		let invite = token;
+		if (record.previous !== undefined) {
+			if (token !== undefined) {
+				await this.withdraw(shell, token);
+			}
+			current = await this.takeOver(shell, record, record.previous);
+			invite = undefined;
+		}
+		const coordinator = `https://${current.host}`;
+		await this.opts.join(coordinator, invite ?? (await this.invite(shell)));
 		const worker = await this.opts.keepWorker(coordinator);
-		await this.keep({ ...record, finished: true });
-		return { status: "moved", host: record.host, aside, worker };
+		await this.keep({ ...current, finished: true });
+		return { status: "moved", host: current.host, aside, worker };
+	}
+
+	/**
+	 * Moves the box's tunnel onto `previous.host`, the one this machine's
+	 * tunnel served: frees it in Cloudflare (its record and Access
+	 * application), has the stack point its tunnel there, tells the box its
+	 * host, and waits until it serves there. The gap is the minutes between
+	 * freeing the host and the stack's apply. Each step may run again.
+	 */
+	private async takeOver(
+		shell: BoxShell,
+		record: MoveRecord,
+		previous: TunnelRecord,
+	): Promise<MoveRecord> {
+		const { log } = this.opts;
+		log.info(
+			`taking over ${previous.host} from this machine's tunnel: ${previous.host} is down until the box serves it`,
+		);
+		await this.opts.release(previous);
+		const standing = await this.opts.retarget(previous.host);
+		if (standing.tunnel === undefined) {
+			throw new Error(
+				`the stack names no tunnelRecord output, so the box's host cannot be updated: add it to the program, then \`splates server deploy\` again`,
+			);
+		}
+		await shell.run(
+			hostScript(),
+			JSON.stringify({ format: FORMAT, ...standing.tunnel }),
+		);
+		await this.served(previous.host, await this.invite(shell));
+		const taken: MoveRecord = { ...record, host: previous.host };
+		delete taken.previous;
+		await this.keep(taken);
+		return taken;
 	}
 
 	/** A join token from the box's server. */
@@ -452,6 +501,12 @@ export interface CoordinatorMoveOptions {
 	dev: string;
 	/** What this machine is known by as a worker. */
 	worker: string;
+	/** The tunnel this machine serves, which the box's host is taken over from; null for none. */
+	previous: () => Promise<TunnelRecord | null>;
+	/** Frees `previous`'s host in Cloudflare: its DNS record and Access application. */
+	release: (previous: TunnelRecord) => Promise<void>;
+	/** Points the box's tunnel at `host` through its stack, answering the box as the stack then has it. */
+	retarget: (host: string) => Promise<BoxStanding>;
 	/** How the box gets workers with this machine off, or why it gets none, said before the move. */
 	workersWithout: () => Promise<WorkersWithout>;
 	/** Spends a join token as `splates worker join --key-file` does. */
@@ -492,6 +547,15 @@ const Refused = z.object({ reason: z.string(), message: z.string() });
  */
 const MoveRecord = z.object({
 	host: z.string(),
+	/** The tunnel this machine served, whose host the box takes over; absent once it has, or when the hosts were one. */
+	previous: z
+		.object({
+			host: z.string(),
+			team: z.string(),
+			aud: z.string(),
+			tunnel: z.string(),
+		})
+		.optional(),
 	stamp: z.string(),
 	roots: z.array(z.string()),
 	finished: z.boolean(),

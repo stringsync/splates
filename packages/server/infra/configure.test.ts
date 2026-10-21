@@ -27,7 +27,8 @@ describe("infraConfigure", () => {
 		const { written } = await box.configure();
 		expect(written).toContain("Pulumi.prod.yaml");
 		const stack = await box.fs.read("/infra/Pulumi.prod.yaml");
-		expect(stack).toContain("splates.example.com");
+		// The tunnel's host stays the Mac's until the move takes it over.
+		expect(stack).toContain("splates:host: box.splates.example.com");
 		expect(stack).toContain("me@example.com");
 		expect(stack).toContain("me/app");
 		expect(stack).toContain("splates:accountId: acct");

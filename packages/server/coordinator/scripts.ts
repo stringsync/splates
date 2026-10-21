@@ -239,3 +239,17 @@ export function withdrawScript(): string {
 	const url = `http://localhost:${BOX_PORT}`;
 	return `curl -fsS -X DELETE -H 'origin: ${url}' -H 'content-type: application/json' --data-binary @- ${url}/api/workers/invite\n`;
 }
+
+/**
+ * Rewrites the box's `tunnel.json` as `record` (JSON, on stdin) and restarts
+ * the server on it, once the stack has moved the tunnel to another host.
+ */
+export function hostScript(): string {
+	return [
+		"set -eu",
+		`cat > ${HOME}/.splates/tunnel.json`,
+		`chown ${BOX_USER}:${BOX_USER} ${HOME}/.splates/tunnel.json`,
+		`systemctl restart ${COORDINATOR_UNIT}`,
+		...ANSWERS,
+	].join("\n");
+}

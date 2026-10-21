@@ -307,7 +307,7 @@ export function coordinatorArea(
 	const moveStep: SetupStep = {
 		id: "coordinator-move",
 		title: "Deploy the server to its box",
-		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records to the box (it reads its own creds), and starts the server there for good on your tunnel's host. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
+		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records to the box (it reads its own creds), and starts the server there for good. It comes up on `box.` before your tunnel's host, then takes the tunnel's host over: it deletes this Mac's DNS record and Access application there, points the stack at it and runs `pulumi up`, so your URL stays the same with a gap of minutes. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
 		user: "Press Next to deploy. This page goes away while the deploy runs, a few minutes, and comes back served from the box.",
 		agent:
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
@@ -324,6 +324,9 @@ export function coordinatorArea(
 		// Done only once moved, which refuses every undo.
 		undo: {
 			removes: async () => [],
+			leaves: async () => [
+				"This Mac's old tunnel in Cloudflare, no longer reached: delete it in Zero Trust → Networks → Tunnels once the box serves. Its DNS record and Access application were deleted, and the stack's tunnel took their host.",
+			],
 			refused: movedRefusal,
 			run: async () => {},
 		},

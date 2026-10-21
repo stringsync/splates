@@ -28,9 +28,12 @@ export interface InfraConfigureOptions {
 	region: string;
 	/** A Pulumi ESC environment the stack imports; none imports none. */
 	environment?: string;
-	/** Left "" to read it off the saved tunnel. */
+	/**
+	 * Left "" for `box.` before the saved tunnel's host: the box comes up on
+	 * a host of its own, and the move takes the tunnel's over once it serves.
+	 */
 	host: string;
-	/** Left "" to read it off the tunnel's Access application. */
+	/** Left "" to read it off the saved tunnel's Access application. */
 	email: string;
 	/** Left null to use every project registered here. */
 	projects: DeployKeyProject[] | null;
@@ -68,6 +71,11 @@ export async function originProjects(
 		}
 	}
 	return found;
+}
+
+/** The host the box comes up on while the tunnel's `host` is still the Mac's. */
+export function boxHostOf(host: string): string {
+	return `box.${host}`;
 }
 
 /** The emails the Access application in front of `host` lets in. */
@@ -148,7 +156,12 @@ export async function infraConfigure(
 ): Promise<InfraInitResult> {
 	const { creds, ps, log } = opts;
 	const record = await opts.saved.read();
-	const host = opts.host === "" ? (record?.host ?? "") : opts.host;
+	const host =
+		opts.host === ""
+			? record === null
+				? ""
+				: boxHostOf(record.host)
+			: opts.host;
 	if (host === "") {
 		fail(
 			"usage",
@@ -190,7 +203,7 @@ export async function infraConfigure(
 	}
 	let email = opts.email;
 	if (email === "") {
-		email = (await accessEmails(api, account, host)).join(",");
+		email = (await accessEmails(api, account, record?.host ?? host)).join(",");
 	}
 	if (email === "") {
 		fail(

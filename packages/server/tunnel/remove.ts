@@ -68,62 +68,13 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 		log,
 		opts.fetch,
 	);
-	const { api } = cloudflare;
-	const policies = new Map<string, string>();
 	try {
 		for (const slot of slots) {
 			await removeTunnel(cloudflare, slot.record, log);
 			await forget(creds, slot.saved, null, log);
 		}
 		if (machine !== null) {
-			const zone = await cloudflare.findZone(machine.host);
-			const account = zone.account.id;
-			const apps = await api.list(`/accounts/${account}/access/apps`, App);
-			const mine = [
-				...apps.filter((app) => app.domain === machine.host),
-				...apps.filter((app) =>
-					WORKER_PATHS.some((path) => app.domain === `${machine.host}${path}`),
-				),
-				...apps.filter(
-					(app) => app.domain === `*.${zone.name}` && app.name === SLOTS_APP,
-				),
-			];
-			const found = await api.list(
-				`/accounts/${account}/access/policies`,
-				Policy,
-			);
-			for (const app of mine) {
-				for (const { id } of app.policies) {
-					const policy = found.find((each) => each.id === id);
-					// Only the policy `tunnel setup` named for the application.
-					if (policy !== undefined && policy.name === mine[0]?.name) {
-						policies.set(id, policy.name);
-					}
-				}
-				await gone(api, `/accounts/${account}/access/apps/${app.id}`);
-				log.info(`${color.green("deleted")} Access application ${app.name}`);
-			}
-			// The workers' policy and the service tokens it lets in, which
-			// `splates worker add` made and nothing else would take back.
-			const workers = found.find(
-				(each) => each.name === workersPolicy(mine[0]?.name ?? ""),
-			);
-			if (workers !== undefined && mine[0] !== undefined) {
-				for (const id of tokensOf(workers.include)) {
-					await gone(api, `/accounts/${account}/access/service_tokens/${id}`);
-					log.info(`${color.green("deleted")} worker service token ${id}`);
-				}
-				if (tokensOf(workers.include).length > 0) {
-					log.info(
-						"workers joined through the tunnel have lost their access: add them again with `splates worker add` once `splates tunnel setup` is run",
-					);
-				}
-				policies.set(workers.id, workers.name);
-			}
-			for (const [id, name] of policies) {
-				await gone(api, `/accounts/${account}/access/policies/${id}`);
-				log.info(`${color.green("deleted")} Access policy ${name}`);
-			}
+			await removeAccess(cloudflare, machine.host, log, { slots: true });
 			await removeTunnel(cloudflare, machine, log);
 			await forget(creds, saved, TUNNEL_TOKEN, log);
 		}
@@ -160,8 +111,24 @@ async function removeTunnel(
 	log: Logger,
 ): Promise<void> {
 	const { api } = cloudflare;
+	const account = (await removeRoute(cloudflare, record, log)).account;
+	// A tunnel Cloudflare still sees connected cannot be deleted.
+	await gone(
+		api,
+		`/accounts/${account}/cfd_tunnel/${record.tunnel}/connections`,
+	);
+	await gone(api, `/accounts/${account}/cfd_tunnel/${record.tunnel}`);
+	log.info(`${color.green("deleted")} tunnel for ${record.host}`);
+}
+
+/** Deletes the proxied CNAME routing `record.host` to its tunnel; answers the account it is in. */
+async function removeRoute(
+	cloudflare: CloudflareTunnels,
+	record: TunnelRecord,
+	log: Logger,
+): Promise<{ account: string }> {
+	const { api } = cloudflare;
 	const zone = await cloudflare.findZone(record.host);
-	const account = zone.account.id;
 	const target = `${record.tunnel}.cfargotunnel.com`;
 	const routes = await api.list(
 		`/zones/${zone.id}/dns_records?name.exact=${encodeURIComponent(record.host)}`,
@@ -171,13 +138,7 @@ async function removeTunnel(
 		await gone(api, `/zones/${zone.id}/dns_records/${route.id}`);
 		log.info(`${color.green("deleted")} the record routing ${record.host}`);
 	}
-	// A tunnel Cloudflare still sees connected cannot be deleted.
-	await gone(
-		api,
-		`/accounts/${account}/cfd_tunnel/${record.tunnel}/connections`,
-	);
-	await gone(api, `/accounts/${account}/cfd_tunnel/${record.tunnel}`);
-	log.info(`${color.green("deleted")} tunnel for ${record.host}`);
+	return { account: zone.account.id };
 }
 
 /** Deletes `path`, passing over what is not there. */
@@ -203,4 +164,81 @@ async function forget(
 	}
 	await saved.forget();
 	log.info(`forgot ${saved.key}`);
+}
+
+/**
+ * Frees `record.host` for another tunnel: deletes the record routing it to
+ * `record`'s tunnel and the Access applications in front of it with their
+ * policies, leaving the tunnel itself, which nothing then reaches.
+ */
+export async function releaseHost(
+	cloudflare: CloudflareTunnels,
+	record: TunnelRecord,
+	log: Logger,
+): Promise<void> {
+	await removeRoute(cloudflare, record, log);
+	await removeAccess(cloudflare, record.host, log, { slots: false });
+}
+
+/**
+ * Deletes the Access applications in front of `host` (and its worker
+ * paths, and with `slots` the slots' wildcard one), the policies
+ * `tunnel setup` named for them, and the workers' policy with the service
+ * tokens it lets in.
+ */
+async function removeAccess(
+	cloudflare: CloudflareTunnels,
+	host: string,
+	log: Logger,
+	{ slots }: { slots: boolean },
+): Promise<void> {
+	const { api } = cloudflare;
+	const policies = new Map<string, string>();
+	const zone = await cloudflare.findZone(host);
+	const account = zone.account.id;
+	const apps = await api.list(`/accounts/${account}/access/apps`, App);
+	const mine = [
+		...apps.filter((app) => app.domain === host),
+		...apps.filter((app) =>
+			WORKER_PATHS.some((path) => app.domain === `${host}${path}`),
+		),
+		...(slots
+			? apps.filter(
+					(app) => app.domain === `*.${zone.name}` && app.name === SLOTS_APP,
+				)
+			: []),
+	];
+	const found = await api.list(`/accounts/${account}/access/policies`, Policy);
+	for (const app of mine) {
+		for (const { id } of app.policies) {
+			const policy = found.find((each) => each.id === id);
+			// Only the policy `tunnel setup` named for the application.
+			if (policy !== undefined && policy.name === mine[0]?.name) {
+				policies.set(id, policy.name);
+			}
+		}
+		await gone(api, `/accounts/${account}/access/apps/${app.id}`);
+		log.info(`${color.green("deleted")} Access application ${app.name}`);
+	}
+	// The workers' policy and the service tokens it lets in, which
+	// `splates worker add` made and nothing else would take back.
+	const workers = found.find(
+		(each) => each.name === workersPolicy(mine[0]?.name ?? ""),
+	);
+	if (workers !== undefined && mine[0] !== undefined) {
+		for (const id of tokensOf(workers.include)) {
+			await gone(api, `/accounts/${account}/access/service_tokens/${id}`);
+			log.info(`${color.green("deleted")} worker service token ${id}`);
+		}
+		if (tokensOf(workers.include).length > 0) {
+			log.info(
+				"workers joined through the tunnel have lost their access: add them again with `splates worker add` once `splates tunnel setup` is run",
+			);
+		}
+		policies.set(workers.id, workers.name);
+	}
+	for (const [id, name] of policies) {
+		await gone(api, `/accounts/${account}/access/policies/${id}`);
+		log.info(`${color.green("deleted")} Access policy ${name}`);
+	}
 }

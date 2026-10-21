@@ -82,6 +82,18 @@ export class CoordinatorBox {
 		await this.pulumi(infra, ["up", "--yes", "--non-interactive"]);
 	}
 
+	/**
+	 * Points the stack's tunnel at `host` and applies it, which moves the
+	 * tunnel's DNS record and Access application there; answers the box as the
+	 * stack then has it.
+	 */
+	async retarget(host: string): Promise<BoxStanding> {
+		const infra = await this.infraOrThrow();
+		await this.pulumi(infra, ["config", "set", "splates:host", host]);
+		await this.up();
+		return this.ready();
+	}
+
 	private async infraOrThrow(): Promise<InfraConfig> {
 		const infra = await this.infra();
 		if (infra === null) {

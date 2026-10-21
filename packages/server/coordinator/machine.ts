@@ -1,4 +1,5 @@
 import { dirname } from "node:path";
+import { Credentials } from "webappwiz/creds";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "../creds";
@@ -6,6 +7,7 @@ import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
 import { FsStorage } from "../storage";
+import { CloudflareTunnels, releaseHost, SavedTunnel } from "../tunnel";
 import { WorkerBudget, WorkerRecords, workerJoin } from "../workers";
 import { CoordinatorBox } from "./box";
 import { installWorkerAgent } from "./launch-agent";
@@ -32,6 +34,25 @@ export function machineMove(opts: MachineMoveOptions): CoordinatorMove {
 			const box = new CoordinatorBox({ ps, fs, home });
 			return (await box.status()) === null ? null : box.ready();
 		},
+		previous: () =>
+			SavedTunnel.in(new FsStorage(home, fs), stores.device).read(),
+		release: async (previous) =>
+			releaseHost(
+				await CloudflareTunnels.open(
+					{
+						credentials: new Credentials([stores.device]),
+						request: async () => null,
+						save: async () => "device",
+					},
+					previous.host,
+					null,
+					log,
+					opts.fetch,
+				),
+				previous,
+				log,
+			),
+		retarget: (host) => new CoordinatorBox({ ps, fs, home }).retarget(host),
 		repos: async () => {
 			const listed = await Projects.ofMachine({ fs, ps, log }).list();
 			return Promise.all(
