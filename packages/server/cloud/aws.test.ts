@@ -385,6 +385,48 @@ describe("AwsCredentialSource", () => {
 		expect(ps.getCalls()[0]).toContain("export-credentials");
 	});
 
+	it("signs in through the Pulumi ESC environment when the CLI has nothing, keeping it for most of the hour", async () => {
+		const ps = new FakePs();
+		const calls: string[] = [];
+		ps.spawnCapture = async (argv) => {
+			calls.push(argv.join(" "));
+			const line = argv.join(" ");
+			if (argv[0] === "aws") {
+				return { exitCode: 1, stdout: "", stderr: "" };
+			}
+			if (line === "pulumi org get-default") {
+				return { exitCode: 0, stdout: "acme\n", stderr: "" };
+			}
+			return {
+				exitCode: 0,
+				stderr: "",
+				stdout: JSON.stringify({
+					environmentVariables: {
+						AWS_ACCESS_KEY_ID: "E",
+						AWS_SECRET_ACCESS_KEY: "F",
+						AWS_SESSION_TOKEN: "G",
+					},
+				}),
+			};
+		};
+		let now = 0;
+		const source = new AwsCredentialSource({ ps, wall: { now: () => now } });
+
+		expect(await source.credentials()).toEqual({
+			accessKeyId: "E",
+			secretAccessKey: "F",
+			sessionToken: "G",
+		});
+		expect(calls).toContain("pulumi env open acme/splates/aws --format json");
+		const opened = calls.length;
+		now = 50 * 60_000;
+		await source.credentials();
+		expect(calls).toHaveLength(opened);
+		now = 56 * 60_000;
+		await source.credentials();
+		expect(calls.length).toBeGreaterThan(opened);
+	});
+
 	it("has none off an EC2 box with no sign-in", async () => {
 		const ps = new FakePs();
 		ps.simulate(async () => 1);

@@ -7,9 +7,11 @@ import type { AwsCredentials } from "./aws-sign";
  * Finds the credentials to sign with, the way the AWS CLI would, so splates
  * keeps no AWS secret of its own: the environment's `AWS_ACCESS_KEY_ID` and
  * `AWS_SECRET_ACCESS_KEY` first; then whatever `aws configure
- * export-credentials` gives, which is a profile, SSO or a role; then, on an
- * EC2 box, its instance role through IMDSv2. Temporary ones are kept until
- * shortly before they run out.
+ * export-credentials` gives, which is a profile, SSO or a role; then the
+ * Pulumi ESC environment `splates/aws` of the user's Pulumi organization,
+ * when it is there, which is how a Mac with no AWS profile signs in; then,
+ * on an EC2 box, its instance role through IMDSv2. Temporary ones are kept
+ * until shortly before they run out.
  */
 export class AwsCredentialSource {
 	private readonly ps: Ps;
@@ -41,7 +43,10 @@ export class AwsCredentialSource {
 		if (this.held !== null && this.wall.now() < this.held.until) {
 			return this.held.credentials;
 		}
-		const found = (await this.fromCli()) ?? (await this.fromInstance());
+		const found =
+			(await this.fromCli()) ??
+			(await this.fromEsc()) ??
+			(await this.fromInstance());
 		this.held = found;
 		return found?.credentials ?? null;
 	}
@@ -79,6 +84,67 @@ export class AwsCredentialSource {
 		} catch {
 			return null;
 		}
+	}
+
+	private async fromEsc(): Promise<Held | null> {
+		const org = await this.pulumiOrg();
+		if (org === null) {
+			return null;
+		}
+		const opened = await this.capture([
+			"pulumi",
+			"env",
+			"open",
+			`${org}/${ESC_ENVIRONMENT}`,
+			"--format",
+			"json",
+		]);
+		if (opened === null) {
+			return null;
+		}
+		try {
+			const parsed = Opened.safeParse(JSON.parse(opened));
+			if (!parsed.success) {
+				return null;
+			}
+			const vars = parsed.data.environmentVariables;
+			return {
+				credentials: {
+					accessKeyId: vars.AWS_ACCESS_KEY_ID,
+					secretAccessKey: vars.AWS_SECRET_ACCESS_KEY,
+					...(vars.AWS_SESSION_TOKEN === undefined
+						? {}
+						: { sessionToken: vars.AWS_SESSION_TOKEN }),
+				},
+				// The environment logs in for an hour and prints no expiry.
+				until: this.wall.now() + ESC_LOGIN.ms - RENEW_BEFORE.ms,
+			};
+		} catch {
+			return null;
+		}
+	}
+
+	/** The Pulumi organization environments live in: the default one, else the user's own; null when Pulumi is missing or logged out. */
+	private async pulumiOrg(): Promise<string | null> {
+		const def = (await this.capture(["pulumi", "org", "get-default"]))?.trim();
+		if (def) {
+			return def;
+		}
+		const who = await this.capture(["pulumi", "whoami", "--json"]);
+		try {
+			const parsed = Whoami.safeParse(JSON.parse(who ?? ""));
+			return parsed.success ? parsed.data.user : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/** `argv`'s output, or null when it fails or will not run. */
+	private async capture(argv: string[]): Promise<string | null> {
+		return this.ps.spawnCapture(argv).then(
+			({ exitCode, stdout }) => (exitCode === 0 ? stdout : null),
+			() => null,
+		);
 	}
 
 	private async fromInstance(): Promise<Held | null> {
@@ -172,6 +238,23 @@ const IMDS_PATIENCE = Duration.secs(1);
 
 /** How long before temporary credentials run out they are asked for again. */
 const RENEW_BEFORE = Duration.mins(5);
+
+/** The Pulumi ESC environment, by project and name, that `coordinator-access` makes. */
+const ESC_ENVIRONMENT = "splates/aws";
+
+/** How long the environment's OIDC login lasts. */
+const ESC_LOGIN = Duration.mins(60);
+
+/** What `pulumi env open --format json` prints of the environment's variables. */
+const Opened = z.object({
+	environmentVariables: z.object({
+		AWS_ACCESS_KEY_ID: z.string(),
+		AWS_SECRET_ACCESS_KEY: z.string(),
+		AWS_SESSION_TOKEN: z.string().optional(),
+	}),
+});
+
+const Whoami = z.object({ user: z.string() });
 
 /** What `aws configure export-credentials --format process` prints. */
 const Exported = z.object({
