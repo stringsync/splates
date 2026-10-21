@@ -63,6 +63,8 @@
 		"./projects": "./projects/index.ts",
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",
+		"./evals": "./evals/index.ts",
+		"./evals/browser": "./evals/browser.ts",
 		"./hooks": "./hooks/index.ts",
 		"./hooks/browser": "./hooks/browser.ts",
 		"./queue": "./queue/index.ts",

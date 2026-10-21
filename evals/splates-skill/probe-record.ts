@@ -218,6 +218,8 @@ export interface StoredRun {
 export interface RunOptions {
 	/** Persisted before launching any cell, with the full job matrix and reservation. */
 	experiment?: Json;
+	/** One invocation's cells, persisted as `batch.json` before any starts, so a reader sees those still to come. */
+	batch?: { skill: string; startedAt: string };
 	stopOnFailure?: boolean;
 	directory: string;
 	parallel: number;

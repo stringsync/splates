@@ -31,6 +31,9 @@ export const SetupPage = onDemand(async () => ({
 export const StatsPage = onDemand(async () => ({
 	default: (await import("./stats")).StatsPage,
 }));
+export const EvalsPage = onDemand(async () => ({
+	default: (await import("./evals-page")).EvalsPage,
+}));
 export const WorkersPage = onDemand(async () => ({
 	default: (await import("./workers")).WorkersPage,
 }));

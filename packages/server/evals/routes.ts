@@ -1,0 +1,77 @@
+import { join, resolve, sep } from "node:path";
+import type { Ps } from "webappwiz/system";
+import { fail } from "../exit";
+import { splatesHome } from "../models";
+import type { Handler } from "../server/shared";
+import { EvalStore, type ReadRun } from "./store";
+
+/**
+ * The saved eval batches the Evals page and the report card read, from
+ * `probe-evals` in splates's home, each run graded again by the harness's own
+ * `readRun`, as `splates dev eval report` grades it. Only a checkout has the
+ * harness; from a release the routes answer 404.
+ */
+export class EvalRoutes {
+	private readonly directory: string;
+	private store: EvalStore | null = null;
+
+	constructor(private readonly opts: EvalOptions) {
+		this.directory = join(splatesHome(opts.ps), "probe-evals");
+	}
+
+	/** Whether this server runs from a checkout, which has the harness. */
+	get available(): boolean {
+		return this.opts.checkout !== null;
+	}
+
+	readonly list: Handler = async () =>
+		Response.json(await (await this.opened()).batches());
+
+	/** `?id=` names the batch, as `EvalBatch.id` does. */
+	readonly batch: Handler = async (request) => {
+		const id = new URL(request.url).searchParams.get("id") ?? "";
+		const grid = await (await this.opened()).grid(id);
+		if (grid === null) {
+			fail("not_found", `no eval batch ${id}`, { id });
+		}
+		return Response.json(grid);
+	};
+
+	/** `?id=` names the run, as `EvalRun.id` does. */
+	readonly run: Handler = async (request) => {
+		const id = new URL(request.url).searchParams.get("id") ?? "";
+		const path = resolve(this.directory, id);
+		if (
+			!path.startsWith(this.directory + sep) ||
+			!path.endsWith(`${sep}result.json`)
+		) {
+			fail("usage", `no eval run ${id}`, { id });
+		}
+		const store = await this.opened();
+		return Response.json(
+			await store
+				.run(id)
+				.catch(() => fail("not_found", `no eval run ${id}`, { id })),
+		);
+	};
+
+	private async opened(): Promise<EvalStore> {
+		const { checkout } = this.opts;
+		if (checkout === null) {
+			fail("not_found", "evals are read from a splates checkout", {});
+		}
+		if (this.store === null) {
+			const { readRun } = (await import(
+				join(checkout, "evals/splates-skill/probe-record.ts")
+			)) as { readRun: ReadRun };
+			this.store = new EvalStore(this.directory, readRun);
+		}
+		return this.store;
+	}
+}
+
+interface EvalOptions {
+	ps: Ps;
+	/** The checkout's root, or null when splates runs from a release. */
+	checkout: string | null;
+}

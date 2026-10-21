@@ -37,7 +37,10 @@ export async function storedRuns(directory: string): Promise<StoredRun[]> {
 	for (const entry of entries.sort((left, right) =>
 		left.name.localeCompare(right.name),
 	)) {
-		if (entry.isDirectory() && entry.name.startsWith("experiment-")) {
+		if (
+			entry.isDirectory() &&
+			(entry.name.startsWith("experiment-") || entry.name.startsWith("batch-"))
+		) {
 			runs.push(...(await storedRuns(join(directory, entry.name))));
 		}
 		if (entry.isDirectory() && entry.name.startsWith("run-")) {

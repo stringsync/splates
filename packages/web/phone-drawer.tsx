@@ -5,9 +5,10 @@ import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
+import { useNavPages } from "./evals-available";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
-import { navPage, PAGES, type Page } from "./page-route";
+import { navPage, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import { RestartButton } from "./restart-button";
 import { SetupDot } from "./setup-state";
@@ -54,6 +55,7 @@ export function Drawer({
 	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
+	const pages = useNavPages();
 	const home = (page: Page, conversation: string | null) =>
 		page === "conversations" && conversation === null;
 	const go = (to: Page, open: string | null = null) => {
@@ -85,7 +87,7 @@ export function Drawer({
 							count={waiting}
 							urgent
 						/>
-						{PAGES.map(({ value, label, Icon }) => (
+						{pages.map(({ value, label, Icon }) => (
 							<Entry
 								key={value}
 								current={navPage(page) === value}

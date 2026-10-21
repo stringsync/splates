@@ -8,12 +8,13 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ArchivedEntry, ConversationList } from "./conversation-list";
 import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
+import { useNavPages } from "./evals-available";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
-import { navPage, PAGES, type Page } from "./page-route";
+import { navPage, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
@@ -58,6 +59,7 @@ export function AppNav({
 	sidebar: Sidebar;
 }): JSX.Element {
 	const held = useHeld();
+	const pages = useNavPages();
 	const { shown } = useReactive(
 		sidebar,
 		(sidebar) => ({ shown: sidebar.shown }),
@@ -93,7 +95,7 @@ export function AppNav({
 						onOpen={onOpen}
 					/>
 				)}
-				{PAGES.map(({ value, label, Icon, shortcut }) => (
+				{pages.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger
 						key={value}
 						value={value}

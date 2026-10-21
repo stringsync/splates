@@ -8,6 +8,7 @@ import {
 	AutomationsPage,
 	AutoPickPage,
 	BudgetPage,
+	EvalsPage,
 	NotesPage,
 	SetupPage,
 	StatsPage,
@@ -35,6 +36,8 @@ export function useAppPages({
 	talk,
 	opens,
 	rule,
+	evals,
+	openEval,
 	available,
 	terminals,
 	open,
@@ -42,7 +45,15 @@ export function useAppPages({
 	openConversation,
 }: Pick<
 	PageRoute,
-	"lane" | "task" | "openTask" | "go" | "cred" | "rule" | "open"
+	| "lane"
+	| "task"
+	| "openTask"
+	| "go"
+	| "cred"
+	| "rule"
+	| "open"
+	| "evals"
+	| "openEval"
 > & {
 	snapshot: Snapshot | null;
 	drafts: Drafts;
@@ -95,6 +106,7 @@ export function useAppPages({
 							/>
 						),
 						stats: <StatsPage report={report} />,
+						evals: <EvalsPage open={evals} onOpen={openEval} />,
 						creds: (
 							<CredsPage
 								requests={snapshot.creds}
@@ -167,6 +179,8 @@ export function useAppPages({
 			workerTasks,
 			opens,
 			rule,
+			evals,
+			openEval,
 			available,
 			terminals,
 			open,

@@ -2,6 +2,7 @@ import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	BookOpenIcon,
 	ChartColumnIcon,
+	FlaskConicalIcon,
 	GaugeIcon,
 	KanbanIcon,
 	KeyRoundIcon,
@@ -16,14 +17,14 @@ import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
-import { type Move, PageAddress } from "./page-address";
+import { type EvalsOpen, type Move, PageAddress } from "./page-address";
 import type { ShortcutKey } from "./settings";
 import { TaskIcon } from "./task-icon";
 
 /**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`,
+ * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#budget`, `#workers`, `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
@@ -33,6 +34,7 @@ export type Page =
 	| "tasks"
 	| "conversations"
 	| "stats"
+	| "evals"
 	| "creds"
 	| "budget"
 	| "workers"
@@ -59,6 +61,7 @@ export const PAGES: {
 	},
 	{ value: "tasks", label: "Tasks", Icon: TaskIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
+	{ value: "evals", label: "Evals", Icon: FlaskConicalIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
@@ -74,15 +77,16 @@ export const PAGES: {
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, cred, rule } = useReactive(
+	const { page, open, task, lane, cred, rule, evals } = useReactive(
 		address,
-		({ page, open, task, lane, cred, rule }) => ({
+		({ page, open, task, lane, cred, rule, evals }) => ({
 			page,
 			open,
 			task,
 			lane,
 			cred,
 			rule,
+			evals,
 		}),
 		["changed"],
 	);
@@ -99,12 +103,17 @@ export function usePageRoute(): PageRoute {
 		lane,
 		cred,
 		rule,
+		evals,
 		go: useCallback(
 			(next, conversation, how) => address.go(next, conversation, how),
 			[address],
 		),
 		openTask: useCallback((name) => address.openTask(name), [address]),
 		openLane: useCallback((id) => address.openLane(id), [address]),
+		openEval: useCallback(
+			(batch, run) => address.openEval(batch, run),
+			[address],
+		),
 	};
 }
 
@@ -124,6 +133,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 		"flex h-[calc(100dvh-var(--top-bar-height)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
+	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	budget: "min-w-0 px-4 py-6",
 	workers: "min-w-0 px-4 py-6",
@@ -188,4 +198,8 @@ export interface PageRoute {
 	cred: string | null;
 	/** The rule the Auto pick page is set on, by its place from 0, or null. */
 	rule: number | null;
+	/** The batch and run the Evals page has open. */
+	evals: EvalsOpen;
+	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
+	openEval: (batch: string | null, run?: string | null) => void;
 }

@@ -1,6 +1,6 @@
-import { readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
@@ -412,8 +412,12 @@ export async function fastCli(
 		log.info(
 			`Planning/identity capture: ${Math.round(performance.now() - plannedAt)}ms`,
 		);
+		// One invocation, one batch: its planned matrix is saved before any
+		// cell starts, so a reader sees which cells are still to come.
+		await mkdir(directory, { recursive: true });
 		const runs = await runProbes(module, targets, {
-			directory,
+			directory: await mkdtemp(join(directory, "batch-")),
+			batch: { skill: basename(skill), startedAt: new Date().toISOString() },
 			parallel,
 			reps,
 			skillHash,

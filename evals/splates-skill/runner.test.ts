@@ -82,6 +82,38 @@ it("runs combinations with bounded parallelism, fresh paths/ports and immediate 
 	expect(first.run.usage.milliseconds).toBeGreaterThan(0);
 });
 
+it("saves a batch's planned cells before any starts", async () => {
+	const opts = await options({
+		batch: { skill: "splates", startedAt: "2026-10-21T00:00:00.000Z" },
+	});
+	let planned: unknown;
+	const observed = adapter(async (context) => {
+		planned ??= JSON.parse(
+			await readFile(join(opts.directory, "batch.json"), "utf8"),
+		);
+		context.reply("done");
+	});
+
+	await runProbes(
+		{ probes: [probe()], seeds: [seed] },
+		[
+			{ adapter: observed, model: "one" },
+			{ adapter: observed, model: "two" },
+		],
+		opts,
+	);
+
+	expect(planned).toMatchObject({
+		schema: 1,
+		skill: "splates",
+		startedAt: "2026-10-21T00:00:00.000Z",
+		cells: [
+			{ probe: "focused", agent: "fake", model: "one", repetition: 0 },
+			{ probe: "focused", agent: "fake", model: "two", repetition: 0 },
+		],
+	});
+});
+
 it("starts the next combination without waiting for a slow peer", async () => {
 	const order: string[] = [];
 	const results = await runProbes(

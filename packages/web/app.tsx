@@ -177,8 +177,19 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, lane, go, openTask, openLane, cred, rule } =
-		usePageRoute();
+	const {
+		page,
+		open,
+		task,
+		lane,
+		go,
+		openTask,
+		openLane,
+		cred,
+		rule,
+		evals,
+		openEval,
+	} = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
 	const [todoView] = useState(() => new TodoView(localStorage));
@@ -290,6 +301,8 @@ export function App({
 		talk,
 		opens,
 		rule,
+		evals,
+		openEval,
 		available,
 		terminals,
 		open,

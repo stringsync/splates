@@ -10,6 +10,11 @@
    nothing at all. */
 @source "./app.tsx";
 @source "./app-pages.tsx";
+@source "./evals-page.tsx";
+@source "./evals-reply.tsx";
+@source "./eval-report.tsx";
+@source "./eval-debug.tsx";
+@source "./eval-status.tsx";
 @source "./conversation-checkpoint.tsx";
 @source "./splash.tsx";
 @source "./migration-failed.tsx";

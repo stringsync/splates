@@ -13,6 +13,48 @@ import {
 	type Target,
 } from "./probe-record";
 
+/** What `batch.json` holds: one invocation and every cell it planned. */
+export interface Batch {
+	schema: 1;
+	skill: string;
+	startedAt: string;
+	cells: {
+		probe: string;
+		aspect: string;
+		requirement: string;
+		agent: string;
+		adapterVersion: string;
+		model: string | null;
+		repetition: number;
+	}[];
+}
+
+export async function saveBatch(
+	jobs: { probe: Probe; target: Target; repetition: number }[],
+	opts: RunOptions,
+): Promise<void> {
+	if (!opts.batch) {
+		return;
+	}
+	const batch: Batch = {
+		schema: 1,
+		...opts.batch,
+		cells: jobs.map(({ probe, target, repetition }) => ({
+			probe: probe.id,
+			aspect: probe.aspect,
+			requirement: probe.requirement.id,
+			agent: target.adapter.id,
+			adapterVersion: `${target.adapter.id}@${target.adapter.version}`,
+			model: target.model,
+			repetition,
+		})),
+	};
+	await writeFile(
+		join(opts.directory, "batch.json"),
+		`${JSON.stringify(batch, null, 2)}\n`,
+	);
+}
+
 /** Retain the entire planned matrix, including cells later cancelled before startup. */
 export async function saveExperiment(
 	module: ProbeModule,

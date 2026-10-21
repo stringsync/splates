@@ -15,6 +15,7 @@ export {
 	removeCred,
 	saveCred,
 } from "./creds";
+export { evalBatch, evalBatches, evalRun } from "./evals";
 export {
 	addLane,
 	addTodo,

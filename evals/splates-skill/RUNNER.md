@@ -304,7 +304,11 @@ revision as well: reproduction paths alone do not reconstruct deleted source.
 
 ## Persistence, comparison and free verification
 
-Every combination gets `run-*/result.json`, the full probe definition and
+Each `fast` invocation is a batch: a `batch-*` directory whose `batch.json`
+names the skill, when it started and every cell it planned (probe, target and
+repetition), written before any cell starts, so a reader such as the Evals
+page shows the cells still to come. Every combination gets
+`run-*/result.json` inside it, the full probe definition and
 `ProbeRun`, hashes, evidence, verdicts, usage, warnings and overhead. Raw traces
 are appended to `logs/trace.jsonl` as they arrive, including the input snapshot
 under `outputs/skill` for ACP. An initial incomplete result is written before

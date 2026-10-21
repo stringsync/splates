@@ -1,7 +1,11 @@
 import { mkdir } from "node:fs/promises";
 import { cliAdapter } from "./probe-adapters";
 import { recordBudget, reserveBudget } from "./probe-budget-accounting";
-import { checkPairedControls, saveExperiment } from "./probe-experiment";
+import {
+	checkPairedControls,
+	saveBatch,
+	saveExperiment,
+} from "./probe-experiment";
 import {
 	type ProbeModule,
 	type RunOptions,
@@ -64,6 +68,7 @@ export async function runProbes(
 	const { allowances, reservationId } = await reserveBudget(jobs, opts);
 	await mkdir(opts.directory, { recursive: true });
 	await saveExperiment(module, jobs, opts, allowances, reservationId);
+	await saveBatch(jobs, opts);
 	const results: StoredRun[] = [];
 	let index = 0;
 	const batch = new AbortController();
