@@ -51,8 +51,8 @@ describe("HookRunner", () => {
 				groom: async (hook) => {
 					ran.push(`groom with ${hook.agent}`);
 				},
-				audit: async (hook) => {
-					ran.push(`audit with ${hook.agent}`);
+				garden: async (hook) => {
+					ran.push(`garden with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),

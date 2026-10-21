@@ -4,8 +4,8 @@ import {
 	type Hook,
 	HookStore,
 	hookAdd,
-	hookAudit,
 	hookEdit,
+	hookGardener,
 	hookGroomer,
 	hookList,
 	hookPause,
@@ -236,10 +236,10 @@ splatesHook
 	});
 
 splatesHook
-	.command("audit")
+	.command("gardener")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"turn on the notes audit, built-in automation `notes-audit`, or set the agent it runs as and its schedule, as the Automations page does: on each run, an agent in the main tree reads each project note no open task names by its path, checks it against the code and the other notes, and defers a task for each one gone stale or contradicting another, never fixing one itself. Off by default, since each run reads code for every note on your tokens; it runs every 7d until you set `--every` or `--cron`. `--off` turns it off",
+		"turn on the notes gardener, built-in automation `notes-gardener`, or set the agent it runs as and its schedule, as the Automations page does: on each run, an agent reads each project note no open task names by its path, checks it against the code and the other notes, and drafts the fixes in one task, `notes-garden`: rewriting what went stale, merging notes that say one thing, splitting one that says several, settling a contradiction the code settles and sharpening descriptions, then asks you to review the change rather than merge it, asking about any contradiction the code does not settle. No run starts while `notes-garden` is open. Off by default, since each run reads code for every note on your tokens; it runs every 7d until you set `--every` or `--cron`. `--off` turns it off",
 	)
 	.option("agent", z.string(), {
 		default: "",
@@ -275,7 +275,7 @@ splatesHook
 				{},
 			);
 		}
-		await hookAudit({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null, {
+		await hookGardener({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null, {
 			every: opts.every,
 			cron: opts.cron,
 		});

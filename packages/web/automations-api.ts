@@ -4,7 +4,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
-	AUDIT_AUTOMATION,
+	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 } from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
@@ -57,13 +57,13 @@ export async function groomAutomation(
 	);
 }
 
-/** Sets the agent the notes audit runs as and when, turning it on when it is off. */
-export async function auditAutomation(
+/** Sets the agent the notes gardener runs as and when, turning it on when it is off. */
+export async function gardenerAutomation(
 	pick: AgentPick,
 	schedule: { every: string } | { cron: string },
 ): Promise<AutomationRow[]> {
 	return rows(
-		await sendJson(`/api/automations/${AUDIT_AUTOMATION}`, "PUT", {
+		await sendJson(`/api/automations/${GARDENER_AUTOMATION}`, "PUT", {
 			hook: pick,
 			trigger: schedule,
 		}),

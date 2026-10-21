@@ -3,7 +3,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { MemoryStorage } from "../storage/testing";
-import { AUDIT_TRIGGER } from "./audit";
+import { GARDENER_TRIGGER } from "./garden";
 import { RunStore } from "./runs";
 import { Scheduler } from "./scheduler";
 import type { Automation } from "./store";
@@ -32,8 +32,8 @@ describe("Scheduler", () => {
 				groom: async () => {
 					ran.push("groom");
 				},
-				audit: async (hook) => {
-					ran.push(`audit with ${hook.agent}`);
+				garden: async (hook) => {
+					ran.push(`garden with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -100,12 +100,12 @@ describe("Scheduler", () => {
 		expect(ran).toEqual(["tidy"]);
 	});
 
-	it("starts the notes audit as its schedule comes due", async () => {
+	it("starts the notes gardener as its schedule comes due", async () => {
 		automations = [
 			{
-				id: "notes-audit",
-				trigger: AUDIT_TRIGGER,
-				hook: { kind: "audit", agent: "claude" },
+				id: "notes-gardener",
+				trigger: GARDENER_TRIGGER,
+				hook: { kind: "garden", agent: "claude" },
 				createdAt: new Date(clock.now()).toISOString(),
 				source: "builtin",
 			},
@@ -114,7 +114,7 @@ describe("Scheduler", () => {
 		clock.advance(Duration.days(7));
 		await running.look();
 
-		expect(ran).toEqual(["audit with claude"]);
+		expect(ran).toEqual(["garden with claude"]);
 	});
 
 	it("runs nothing paused", async () => {

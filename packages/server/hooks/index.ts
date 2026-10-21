@@ -1,10 +1,9 @@
-export { AUDIT_AUTOMATION, AUDIT_TRIGGER } from "./audit";
 export type { HookDeps } from "./commands";
 export {
 	described,
 	hookAdd,
-	hookAudit,
 	hookEdit,
+	hookGardener,
 	hookGroomer,
 	hookLabel,
 	hookList,
@@ -15,6 +14,7 @@ export {
 export type { HookChange } from "./edit";
 export type { TaskEvent, TaskEventName } from "./events";
 export { TASK_EVENTS, taskEventsOf } from "./events";
+export { GARDENER_AUTOMATION, GARDENER_TRIGGER } from "./garden";
 export { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 export type { AutomationRow } from "./routes";
 export { AutomationRoutes } from "./routes";

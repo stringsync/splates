@@ -3,8 +3,12 @@ import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";
-import { AUDIT_AUTOMATION, AUDIT_TRIGGER } from "./audit";
 import { TASK_EVENTS, type TaskEventName } from "./events";
+import {
+	AUDIT_AUTOMATION,
+	GARDENER_AUTOMATION,
+	GARDENER_TRIGGER,
+} from "./garden";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 import { scheduleOf } from "./schedule";
 
@@ -17,8 +21,8 @@ export type Hook =
 	| { kind: "run"; command: string }
 	/** The project's groomer, told to groom the backlog, as built-in automation `groomer` runs. */
 	| ({ kind: "groom" } & AgentPick)
-	/** An agent told to audit the project notes, as built-in automation `notes-audit` runs. */
-	| ({ kind: "audit" } & AgentPick);
+	/** An agent told to tend the project notes, as built-in automation `notes-gardener` runs. */
+	| ({ kind: "garden" } & AgentPick);
 
 /** Which tasks an event hook fires for; a field left out matches any. */
 export interface TaskFilter {
@@ -83,11 +87,20 @@ export class HookStore {
 		}
 		if ("automations" in parsed && Array.isArray(parsed.automations)) {
 			// The groomer's trigger is splates's own, so one saved before it
-			// changed wakes it as it is now.
+			// changed wakes it as it is now; the notes audit, saved before it
+			// grew into the gardener, runs as the gardener.
 			return (parsed.automations as Automation[]).map((each) =>
-				each.id === GROOMER_AUTOMATION && each.source === "builtin"
-					? { ...each, trigger: GROOMER_TRIGGER }
-					: each,
+				each.source !== "builtin"
+					? each
+					: each.id === GROOMER_AUTOMATION
+						? { ...each, trigger: GROOMER_TRIGGER }
+						: each.id === AUDIT_AUTOMATION
+							? {
+									...each,
+									id: GARDENER_AUTOMATION,
+									hook: { ...each.hook, kind: "garden" } as Hook,
+								}
+							: each,
 			);
 		}
 		return fromHooks(parsed as Hooks);
@@ -159,12 +172,12 @@ export class HookStore {
 	}
 
 	/**
-	 * Turns the notes audit on, running as `pick` on `trigger`, or off for
-	 * null: built-in automation `notes-audit`, which keeps its pause and, given
+	 * Turns the notes gardener on, running as `pick` on `trigger`, or off for
+	 * null: built-in automation `notes-gardener`, which keeps its pause and, given
 	 * no trigger, its schedule through a change of pick. What it is told is
 	 * splates's own.
 	 */
-	async audit(
+	async gardener(
 		pick: AgentPick | null,
 		trigger?: { every: string } | { cron: string },
 	): Promise<Automation | null> {
@@ -173,19 +186,19 @@ export class HookStore {
 		}
 		let set: Automation | null = null;
 		await this.change((automations) => {
-			const was = automations.find(({ id }) => id === AUDIT_AUTOMATION);
+			const was = automations.find(({ id }) => id === GARDENER_AUTOMATION);
 			const rest = automations.filter((each) => each !== was);
 			if (pick === null) {
 				return rest;
 			}
-			const kept = trigger ?? was?.trigger ?? AUDIT_TRIGGER;
+			const kept = trigger ?? was?.trigger ?? GARDENER_TRIGGER;
 			const retriggered =
 				was !== undefined &&
 				JSON.stringify(was.trigger) !== JSON.stringify(kept);
 			set = {
-				id: AUDIT_AUTOMATION,
+				id: GARDENER_AUTOMATION,
 				trigger: kept,
-				hook: { kind: "audit", ...pick },
+				hook: { kind: "garden", ...pick },
 				createdAt: was?.createdAt ?? new Date().toISOString(),
 				source: "builtin",
 				...(retriggered

@@ -16,7 +16,7 @@ import {
 } from "../hooks";
 import { type AgentPick, effortSettings } from "../models";
 import { Notes, unclaimed } from "../notes";
-import { AUDIT, eventReference, scheduleReference } from "../plans";
+import { eventReference, GARDEN, scheduleReference } from "../plans";
 import type { Journal } from "../records";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
@@ -171,9 +171,10 @@ export class Automations implements Resource {
 				},
 				agent: (hook, fired) =>
 					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`),
-				// No agent, and none of the person's tokens, while every note
-				// has a task open for it already, or there are none.
-				audit: async (hook) => {
+				// No agent, and none of the person's tokens, while the last
+				// run's fixes wait for review, or every note has a task open
+				// for it already, or there are none.
+				garden: async (hook) => {
 					const notes = await new Notes(this.#project.fs).list(
 						root,
 						this.#project.config,
@@ -182,9 +183,10 @@ export class Automations implements Resource {
 						notes,
 						root,
 						await this.#project.tasks.stored(),
+						(await service.list()).map(({ task }) => task),
 					);
 					if (paths.length > 0) {
-						await begin(pickOf(hook), auditPrompt(paths));
+						await begin(pickOf(hook), gardenPrompt(paths));
 					}
 				},
 				// Not awaited: the groomer works down the backlog turn by turn,
@@ -216,9 +218,9 @@ function referenceOf(fired: Fired): string {
 		: scheduleReference(fired.schedule);
 }
 
-/** What the notes audit's conversation opens with: the directive, then each note it reads. */
-function auditPrompt(paths: readonly string[]): string {
-	return `${AUDIT}\n\n${paths.map((path) => `- \`${path}\``).join("\n")}`;
+/** What the notes gardener's conversation opens with: the directive, then each note it reads. */
+function gardenPrompt(paths: readonly string[]): string {
+	return `${GARDEN}\n\n${paths.map((path) => `- \`${path}\``).join("\n")}`;
 }
 
 /** The agent, model and thinking level a groom hook runs its groomer as. */

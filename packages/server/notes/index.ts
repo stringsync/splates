@@ -1,4 +1,4 @@
-export { unclaimed } from "./audit";
+export { GARDEN_TASK, unclaimed } from "./garden";
 export { noteCalled, noteSpellings, notesRead, readsMarkdown } from "./match";
 export {
 	type ListedNote,

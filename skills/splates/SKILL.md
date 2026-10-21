@@ -138,7 +138,7 @@ from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says. A few directives have no row
 because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](references/setup.md)),
 `[SPLATES DEFER]` ([queue.md](references/queue.md), Deferring), `[SPLATES KEEP]`
-([notes.md](references/notes.md)), `[SPLATES AUDIT]` ([audit.md](references/audit.md)),
+([notes.md](references/notes.md)), `[SPLATES GARDEN]` ([garden.md](references/garden.md)),
 `[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
 the prompt after it asks. Read the file when one arrives.

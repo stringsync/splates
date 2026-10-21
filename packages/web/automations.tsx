@@ -4,7 +4,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
-	AUDIT_AUTOMATION,
+	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 } from "@stringsync/splates-server/hooks/browser";
 import { useReactive } from "@webappwiz/react";
@@ -29,7 +29,12 @@ import {
 	GroomerOff,
 	groomerPick,
 } from "./groomer-card";
-import { type Audit, AuditForm, AuditOff, auditPick } from "./notes-audit-card";
+import {
+	GardenerForm,
+	GardenerOff,
+	gardenerPick,
+	type SetGardener,
+} from "./notes-gardener-card";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal } from "./refusal";
@@ -41,7 +46,7 @@ import { TopBar } from "./top-bar";
  * `opens` opens, to edit, pause or remove, and a form to add one. The person's own come first; then those the project
  * checks in, which only `splates.config.ts` changes, and those splates
  * itself sets, as the groomer, whose agent is all that changes here, and
- * the notes audit, whose agent and schedule do.
+ * the notes gardener, whose agent and schedule do.
  */
 export function AutomationsPage({
 	opens,
@@ -53,7 +58,7 @@ export function AutomationsPage({
 }): JSX.Element {
 	const list = useReading("automations", () => new AutomationList());
 	useEffect(() => void list.read(), [list]);
-	const { rows, refusal, own, checkedIn, builtIn, groomer, notesAudit } =
+	const { rows, refusal, own, checkedIn, builtIn, groomer, notesGardener } =
 		useReactive(
 			list,
 			(list) => ({
@@ -63,7 +68,7 @@ export function AutomationsPage({
 				checkedIn: list.checkedIn,
 				builtIn: list.builtIn,
 				groomer: list.groomer,
-				notesAudit: list.notesAudit,
+				notesGardener: list.notesGardener,
 			}),
 			["changed"],
 		);
@@ -103,20 +108,20 @@ export function AutomationsPage({
 					)}
 					<Group
 						title="Built in"
-						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation; removing the notes audit turns it off."
+						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation; removing the notes gardener turns it off."
 						rows={builtIn}
 						opens={opens}
 						onGroom={(pick) => list.groom(pick)}
-						onAudit={(pick, schedule) => list.audit(pick, schedule)}
+						onGardener={(pick, schedule) => list.gardener(pick, schedule)}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRemove={(row) => void list.remove(row)}
 					>
 						{groomer === null && (
 							<GroomerOff onGroom={(pick) => list.groom(pick)} />
 						)}
-						{notesAudit === null && (
-							<AuditOff
-								onAudit={(pick, schedule) => list.audit(pick, schedule)}
+						{notesGardener === null && (
+							<GardenerOff
+								onGardener={(pick, schedule) => list.gardener(pick, schedule)}
 							/>
 						)}
 					</Group>
@@ -157,7 +162,7 @@ function Group({
 	opens,
 	onEdit,
 	onGroom,
-	onAudit,
+	onGardener,
 	onPause,
 	onRemove,
 	children,
@@ -169,7 +174,7 @@ function Group({
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
-	onAudit?: Audit;
+	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
 	children?: ReactNode;
@@ -191,7 +196,7 @@ function Group({
 							opens={opens}
 							onEdit={onEdit}
 							onGroom={onGroom}
-							onAudit={onAudit}
+							onGardener={onGardener}
 							onPause={onPause}
 							onRemove={onRemove}
 						/>
@@ -213,7 +218,7 @@ type Edit = (
 /**
  * One automation: what sets it off, what it runs, when it last ran, and its
  * buttons; or, while it is being edited, the form that edits it, which for
- * the groomer picks only its agent, and for the notes audit its agent and
+ * the groomer picks only its agent, and for the notes gardener its agent and
  * schedule.
  */
 function Card({
@@ -221,7 +226,7 @@ function Card({
 	opens,
 	onEdit,
 	onGroom,
-	onAudit,
+	onGardener,
 	onPause,
 	onRemove,
 }: {
@@ -229,35 +234,36 @@ function Card({
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
-	onAudit?: Audit;
+	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
 	const [grooming, setGrooming] = useState(false);
-	const [auditing, setAuditing] = useState(false);
+	const [editingGardener, setEditingGardener] = useState(false);
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
 	const paused = row.paused === true;
 	// The groomer's agent, all of it the page edits; null for any other.
 	const groomer = row.id === GROOMER_AUTOMATION ? groomerPick(row.hook) : null;
-	// The notes audit's agent; its schedule the page edits too.
-	const audit = row.id === AUDIT_AUTOMATION ? auditPick(row.hook) : null;
-	if (auditing && audit !== null && onAudit !== undefined) {
+	// The notes gardener's agent; its schedule the page edits too.
+	const gardener =
+		row.id === GARDENER_AUTOMATION ? gardenerPick(row.hook) : null;
+	if (editingGardener && gardener !== null && onGardener !== undefined) {
 		return (
 			<li aria-label={`automation ${row.id}`}>
-				<AuditForm
-					pick={audit}
+				<GardenerForm
+					pick={gardener}
 					trigger={row.trigger}
-					title="Edit the notes audit"
+					title="Edit the notes gardener"
 					submit="Save"
 					onSubmit={(picked, schedule) => {
 						// Shown saved at once; a refusal is said above the list.
-						setAuditing(false);
-						void onAudit(picked, schedule);
+						setEditingGardener(false);
+						void onGardener(picked, schedule);
 					}}
-					onCancel={() => setAuditing(false)}
+					onCancel={() => setEditingGardener(false)}
 				/>
 			</li>
 		);
@@ -308,7 +314,7 @@ function Card({
 			{!pending &&
 				(onEdit !== undefined ||
 					(groomer !== null && onGroom !== undefined) ||
-					(audit !== null && onAudit !== undefined)) && (
+					(gardener !== null && onGardener !== undefined)) && (
 					<Button
 						size="icon-sm"
 						variant="ghost"
@@ -316,8 +322,8 @@ function Card({
 						onClick={() =>
 							groomer
 								? setGrooming(true)
-								: audit
-									? setAuditing(true)
+								: gardener
+									? setEditingGardener(true)
 									: setEditing(AutomationDraft.of(row))
 						}
 					>

@@ -38,6 +38,11 @@ The person also writes notes on the `splates server` Notes page, each save
 landing on trunk as a commit of its own, so a note may change under an open
 task: its rebase brings that in, and a save the page tries while your task
 changes the same note is refused until it lands or the person saves over it.
+When the user turns on the notes gardener (`splates hook gardener`), an agent
+tends the notes on a schedule: it drafts fixes to stale, overlapping and
+contradicting notes and vague descriptions in task `notes-garden`, for the
+user to review, as [garden.md](garden.md) says. A note you change may also
+be in its draft; the rebase settles that as for any other task.
 Keep project notes in their own files; `AGENTS.md` and `CLAUDE.md` are the
 user's to control agents' context with. Never write notes into them or
 arrange for them to load notes.

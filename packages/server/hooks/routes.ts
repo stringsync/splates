@@ -1,9 +1,9 @@
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body } from "../server/shared";
-import { AUDIT_AUTOMATION } from "./audit";
 import { hookLabel, triggerLabel } from "./commands";
 import type { TaskEventName } from "./events";
+import { GARDENER_AUTOMATION } from "./garden";
 import { GROOMER_AUTOMATION } from "./groomer";
 import type { AutomationRun, RunStore } from "./runs";
 import {
@@ -63,16 +63,16 @@ export class AutomationRoutes {
 	/**
 	 * Edits one of the person's automations or, named `groomer`, sets the
 	 * agent the groomer runs as, turning it on when it is off: its trigger
-	 * and its prompt are splates's own. Named `notes-audit`, it sets the
-	 * agent the notes audit runs as and its schedule, turning it on.
+	 * and its prompt are splates's own. Named `notes-gardener`, it sets the
+	 * agent the notes gardener runs as and its schedule, turning it on.
 	 */
 	readonly editAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook } = await body(request);
 		const id = idIn(request);
 		if (id === GROOMER_AUTOMATION) {
 			await this.#store.groomer(pickIn(hook));
-		} else if (id === AUDIT_AUTOMATION) {
-			await this.#store.audit(
+		} else if (id === GARDENER_AUTOMATION) {
+			await this.#store.gardener(
 				pickIn(hook),
 				trigger === undefined ? undefined : scheduleIn(trigger),
 			);
@@ -119,7 +119,7 @@ function idIn(request: Request): string {
 	if (
 		!/^\d+$/.test(id) &&
 		id !== GROOMER_AUTOMATION &&
-		id !== AUDIT_AUTOMATION
+		id !== GARDENER_AUTOMATION
 	) {
 		fail("usage", `no automation ${id}: only one of yours changes here`, {
 			id,

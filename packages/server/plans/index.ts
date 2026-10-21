@@ -44,13 +44,13 @@ export {
 export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
-	AUDIT,
 	CHECKPOINT,
 	DEFER,
 	DICTATED,
 	DIRECTIVES,
 	directive,
 	eventReference,
+	GARDEN,
 	groomReference,
 	handOffReference,
 	isUpdate,
