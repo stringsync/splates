@@ -258,15 +258,14 @@ cloud account to make them in as `splates.config.ts`'s `cloud`, in the repo
 `splates server` starts in:
 
 ```ts
-import { DigitalOceanCloud } from "@stringsync/splates-server/cloud";
+import { AwsCloud } from "@stringsync/splates-server/cloud";
 import type { ConfigFile } from "@stringsync/splates-server/config";
 
-export default { cloud: new DigitalOceanCloud() } satisfies ConfigFile;
+export default { cloud: new AwsCloud() } satisfies ConfigFile;
 ```
 
-`DigitalOceanCloud` comes with splates; setup's Choose a
-cloud provider step picks which one this machine's token and coordinator's
-box are for. Another is a class that implements
+`AwsCloud` comes with splates, signed with the AWS CLI's sign-in or the
+instance role. Another is a class that implements
 `CloudProvider` from `@stringsync/splates-server/cloud`: making, listing and
 deleting tagged machines, snapshots, SSH keys and firewalls through the
 cloud's API, with its machine types and prices. splates makes both the

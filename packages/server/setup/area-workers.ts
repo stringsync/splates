@@ -24,15 +24,7 @@ import {
 } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
-import {
-	CLOUD_TOKEN_MISSING,
-	CLOUD_USES,
-	cloudChoiceStep,
-	cloudOf,
-	cloudTokenAccepted,
-	cloudTokenFields,
-	requireCloudToken,
-} from "./cloud";
+import { cloudOf } from "./cloud";
 import type { StepField } from "./fields";
 import type {
 	SetupArea,
@@ -292,31 +284,6 @@ function workersArea(): SetupArea {
 		},
 	};
 
-	const choiceStep = cloudChoiceStep("cloud-choice");
-
-	const tokenStep: SetupStep = {
-		id: "cloud-token",
-		title: "Paste your cloud provider's API token",
-		why: "Cloud workers are machines in your own account with the cloud provider you chose, made only while agents wait for a slot.",
-		user: "Make an API token in your cloud provider's account and paste it.",
-		agent:
-			"Request the cred the step names with `splates creds request <cred> --device`, with how to get it, and `splates creds wait <cred>`. Never ask for it in chat.",
-		optional: true,
-		after: [choiceStep],
-		fields: cloudTokenFields,
-		detail: async (machine) => workerPrices(await cloudOf(machine)),
-		submit: requireCloudToken,
-		check: cloudTokenAccepted,
-		notDone: CLOUD_TOKEN_MISSING,
-		undo: {
-			removes: async () => [],
-			leaves: async (machine) => [
-				`The token itself in your ${(await cloudOf(machine)).name} account: revoke it in its console, once nothing else uses it.`,
-			],
-			run: async () => {},
-		},
-	};
-
 	const providerStep: SetupStep = {
 		id: "cloud-provider",
 		title: "Turn cloud workers on",
@@ -325,11 +292,11 @@ function workersArea(): SetupArea {
 		agent:
 			"In a task of its own, add the `cloud` the step's detail shows, imported from `@stringsync/splates-server/cloud`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup cloud-provider`.",
 		detail: async (machine) =>
-			`Add \`cloud: ${(await cloudOf(machine)).configSource}\`.`,
+			`Add \`cloud: ${cloudOf(machine).configSource}\`. ${workerPrices(cloudOf(machine))}`,
 		notDone:
 			"`splates.config.ts` names no `cloud` yet: add it, merge it, then press Next.",
 		optional: true,
-		after: [tokenStep],
+		after: [],
 		check: async (machine) =>
 			(await requireProject(machine).config()).workerProvider !== null,
 		undo: {
@@ -350,8 +317,6 @@ function workersArea(): SetupArea {
 			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
 		optional: true,
 		after: [providerStep],
-		// Its image is deleted with the token, in the cloud chosen.
-		uses: CLOUD_USES,
 		doing: "Building the worker snapshot, about ten minutes…",
 		check: async ({ fs, home }) =>
 			(await keptSnapshot("linux", { document: snapshotsOf(home, fs) })) !==
@@ -375,14 +340,14 @@ function workersArea(): SetupArea {
 				return kept === null
 					? []
 					: [
-							`The worker snapshot \`${kept.id}\` in ${(await cloudOf(machine)).name}, of splates ${kept.version}`,
+							`The worker snapshot \`${kept.id}\` in ${cloudOf(machine).name}, of splates ${kept.version}`,
 						];
 			},
 			run: async (machine) => {
 				const opts = { document: snapshotsOf(machine.home, machine.fs) };
 				const kept = await keptSnapshot("linux", opts);
 				if (kept !== null) {
-					await (await cloudOf(machine)).deleteSnapshot(kept.id);
+					await cloudOf(machine).deleteSnapshot(kept.id);
 				}
 				await forgetSnapshot("linux", opts);
 			},
@@ -399,8 +364,6 @@ function workersArea(): SetupArea {
 			windowsStep,
 			wakeStep,
 			...WORKER_KEY_STEPS,
-			choiceStep,
-			tokenStep,
 			providerStep,
 			budgetStep,
 			snapshotStep,
@@ -452,7 +415,7 @@ function field(limit: WorkerLimit, label: string): StepField {
 	};
 }
 
-/** What `cloud`'s worker types cost, for the token step's detail. */
+/** What `cloud`'s worker types cost, for the provider step's detail. */
 function workerPrices(cloud: CloudProvider): string {
 	const types = cloud.defaults.workerTypes
 		.map(

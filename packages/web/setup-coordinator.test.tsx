@@ -34,10 +34,6 @@ describe("Cloud server journey", () => {
 		testing = new Testing();
 		const fs = new FakeFs();
 		await fs.mkdir("/fixture", { recursive: true });
-		await fs.write(
-			"/fixture/cloud.json",
-			'{"format":1,"cloud":"digitalocean"}',
-		);
 		progress = await new Setup(
 			{ fs, home: "/fixture", device: new FakeSecretStore() },
 			SETUP_AREAS,
@@ -93,27 +89,16 @@ describe("Cloud server journey", () => {
 	const click = (view: ReturnType<typeof open>, name: string) =>
 		act(async () => fireEvent.click(view.getByRole("button", { name })));
 	const before: Record<string, StepStatus> = {
-		"coordinator-cloud": "done",
 		"coordinator-box": "done",
 		"coordinator-remotes": "done",
 	};
 
-	it("opens on choosing a cloud provider, offering each", async () => {
-		const view = open(with_({ "coordinator-cloud": "ready" }));
-		await click(view, "Set up Cloud server");
-
-		expect(view.getByRole("form", { name: "Choose a cloud provider" }));
-		expect(view.getByText("DigitalOcean")).toBeTruthy();
-	});
-
-	it("asks for the chosen cloud's token by name on the box's page", async () => {
+	it("opens on making the box, asking for no token", async () => {
 		const view = open(progress);
 		await click(view, "Set up Cloud server");
 
 		expect(view.getByRole("form", { name: "Make the server's box" }));
-		expect(
-			view.getByLabelText("DigitalOcean API token").getAttribute("name"),
-		).toBe("DIGITALOCEAN_TOKEN");
+		expect(view.queryByLabelText("API token")).toBeNull();
 	});
 
 	it("shows each deploy key a failed Next found, to copy and add on GitHub", async () => {

@@ -377,7 +377,7 @@ export interface SetupStep {
 	readonly undo?: StepUndo;
 	/**
 	 * What the step needs to go on working, or to be undone, that others
-	 * share: creds, as the token a box is destroyed with, and `CLOUD_CHOICE`.
+	 * share: creds, as the token a box is destroyed with.
 	 * Undoing another area keeps each while this step is done, and undoing
 	 * this one forgets its creds.
 	 */

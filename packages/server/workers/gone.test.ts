@@ -15,7 +15,7 @@ describe("GoneWorkers", () => {
 	beforeEach(() => {
 		timer = new FakeTimer();
 		clock = new FakeClock();
-		connected = { mac: true, droplet: true };
+		connected = { mac: true, instance: true };
 		const worker = (id: string): PoolWorker => ({
 			id,
 			kind: "registered",
@@ -89,12 +89,12 @@ describe("GoneWorkers", () => {
 	});
 
 	it("leaves the slots of the workers still up", () => {
-		hold("droplet");
+		hold("instance");
 		hold("mac");
 		connected.mac = false;
 		pass(Duration.ms(0));
 		pass(GONE_AFTER);
 
-		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["droplet"]);
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["instance"]);
 	});
 });

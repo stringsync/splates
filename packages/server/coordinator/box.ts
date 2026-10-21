@@ -1,7 +1,7 @@
 import type { SecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
-import { ChosenCloud, type CloudProvider, type FirewallRule } from "../cloud";
+import { type CloudProvider, type FirewallRule, machineCloud } from "../cloud";
 import { splatesHome } from "../models";
 
 /**
@@ -33,16 +33,19 @@ export class CoordinatorBox {
 		this.knownHosts = `${this.home}/coordinator/known_hosts`;
 	}
 
-	/** The cloud it is made in: `cloud`, or the one chosen in setup. */
+	/** The cloud it is made in: `cloud`, or AWS. */
 	cloud(): Promise<CloudProvider> {
 		const { opts } = this;
 		this.#cloud ??=
 			opts.cloud === undefined
-				? new ChosenCloud(this.home, this.fs).cloud({
-						...(opts.store === undefined ? {} : { store: opts.store }),
-						...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
-						...(opts.wait === undefined ? {} : { wait: opts.wait }),
-					})
+				? Promise.resolve(
+						machineCloud({
+							ps: this.ps,
+							...(opts.store === undefined ? {} : { store: opts.store }),
+							...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
+							...(opts.wait === undefined ? {} : { wait: opts.wait }),
+						}),
+					)
 				: Promise.resolve(opts.cloud);
 		return this.#cloud;
 	}
@@ -192,7 +195,7 @@ export class CoordinatorBox {
 export interface CoordinatorBoxOptions {
 	/** The splates the box installs, the coordinator's own release. */
 	version: string;
-	/** The cloud it is made in; the one chosen in setup by default, made with `store`, `fetch` and `wait`. */
+	/** The cloud it is made in; AWS by default, made with `store`, `fetch` and `wait`. */
 	cloud?: CloudProvider;
 	/** Its machine type; the cloud's default box type unless set. */
 	type?: string;

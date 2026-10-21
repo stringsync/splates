@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
-import { FakeDigitalOcean } from "../cloud/testing";
+import { FakeAws } from "../cloud/testing";
 import { KeygenPs } from "../coordinator/testing";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
@@ -15,49 +14,44 @@ describe("COORDINATOR_AREA's box step", () => {
 		(each) => each.id === "coordinator-box",
 	);
 	let fs: FakeFs;
-	let digitalocean: FakeDigitalOcean;
+	let aws: FakeAws;
+	let ps: KeygenPs;
 	let machine: SetupMachine;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		digitalocean = new FakeDigitalOcean();
-		digitalocean.actionsRun = true;
-		digitalocean.stock = { nyc3: ["s-2vcpu-4gb-intel"] };
-		const device = new FakeSecretStore();
+		aws = new FakeAws();
+		aws.stock = ["t3.medium"];
+		ps = new KeygenPs(fs);
+		ps.setEnv({
+			AWS_ACCESS_KEY_ID: "AKIAEXAMPLE",
+			AWS_SECRET_ACCESS_KEY: "secret",
+		});
 		machine = {
 			fs,
-			ps: new KeygenPs(fs),
+			ps,
 			home: HOME,
-			device,
-			fetch: digitalocean.fetch,
+			device: new FakeSecretStore(),
+			fetch: aws.fetch,
 		};
-		await device.set(DIGITALOCEAN_TOKEN, "token");
-		await new ChosenCloud(HOME, fs).choose("digitalocean");
 	});
 
-	it("asks for the chosen cloud's token on its own page, after this journey's own choice of cloud", async () => {
-		expect(step?.after.map((each) => each.id)).toEqual(["coordinator-cloud"]);
-		const fields =
-			typeof step?.fields === "function" ? await step.fields(machine) : [];
-		expect(fields.map((field) => [field.kind, field.name])).toEqual([
-			["cred", DIGITALOCEAN_TOKEN],
-		]);
+	it("asks for no token: AWS is read from the CLI's sign-in or the instance role", async () => {
+		expect(step?.after).toEqual([]);
+		expect(step?.fields).toBeUndefined();
 	});
 
-	it("makes no box with a token DigitalOcean refuses", async () => {
-		await machine.device.set(DIGITALOCEAN_TOKEN, "wrong");
+	it("makes no box with an AWS sign-in AWS refuses", async () => {
+		ps.setEnv({
+			AWS_ACCESS_KEY_ID: "AKIAWRONG",
+			AWS_SECRET_ACCESS_KEY: "secret",
+		});
 
 		await expect(step?.submit?.(machine, {})).rejects.toThrow(
-			"DigitalOcean does not take that token",
+			"AWS takes no sign-in found here",
 		);
 		expect(await step?.check(machine)).toBe(false);
-	});
-
-	it("is not done without a DigitalOcean token, without asking DigitalOcean", async () => {
-		await machine.device.delete(DIGITALOCEAN_TOKEN);
-
-		expect(await step?.check(machine)).toBe(false);
-		expect(digitalocean.requests).toEqual([]);
+		expect(aws.requests).toEqual([]);
 	});
 
 	it("is done once its submit made the box", async () => {
@@ -72,6 +66,6 @@ describe("COORDINATOR_AREA's box step", () => {
 		await fs.write(UNIT, "");
 
 		expect(await step?.check(machine)).toBe(true);
-		expect(digitalocean.requests).toEqual([]);
+		expect(aws.requests).toEqual([]);
 	});
 });

@@ -42,21 +42,14 @@ const PLANS: Record<string, unknown> = {
 				id: "coordinator-box",
 				title: "Make the server's box",
 				removes: [
-					"The DigitalOcean droplet `splates-coordinator` and its daily backups",
+					"The AWS server `splates-coordinator` and its daily backups",
 					"Its firewall `splates-coordinator`",
-					"Its SSH key `splates-coordinator`, in DigitalOcean and at `~/.splates/coordinator/id_ed25519`",
+					"Its SSH key `splates-coordinator`, in AWS and at `~/.splates/coordinator/id_ed25519`",
 				],
-				leaves: [
-					"The DigitalOcean API token itself: delete it in the [DigitalOcean control panel](https://cloud.digitalocean.com/account/api/tokens) under API → Tokens",
-				],
+				leaves: [],
 			},
 		],
-		creds: [
-			{
-				name: "DIGITALOCEAN_TOKEN",
-				keptFor: "Give splates a DigitalOcean token",
-			},
-		],
+		creds: [],
 		confirm: "splates-coordinator",
 		refused: null,
 	},

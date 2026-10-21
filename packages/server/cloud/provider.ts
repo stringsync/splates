@@ -9,11 +9,11 @@ import type { WorkerType } from "../workers";
  * splates finds what it made: it keeps no state of its own about them.
  */
 export interface CloudProvider {
-	/** What the user knows it as, as "DigitalOcean". */
+	/** What the user knows it as, as "AWS". */
 	readonly name: string;
 	/**
 	 * How a `splates.config.ts` names it as its `cloud`, as
-	 * `new DigitalOceanCloud()`, imported from `@stringsync/splates-server/cloud`.
+	 * `new AwsCloud()`, imported from `@stringsync/splates-server/cloud`.
 	 */
 	readonly configSource: string;
 	/**

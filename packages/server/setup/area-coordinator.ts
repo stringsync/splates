@@ -14,13 +14,10 @@ import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
-	CLOUD_TOKEN_MISSING,
-	CLOUD_USES,
-	cloudChoiceStep,
+	CLOUD_ACCESS_MISSING,
+	cloudAccepted,
 	cloudOf,
-	cloudTokenAccepted,
-	cloudTokenFields,
-	requireCloudToken,
+	requireCloudAccess,
 } from "./cloud";
 import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
@@ -59,44 +56,38 @@ export function coordinatorArea(
 	// box's splates up and pushes to GitHub, too slow for each read of setup.
 	const dryRuns = new Map<string, Moved>();
 
-	const choiceStep = cloudChoiceStep("coordinator-cloud");
-
 	const boxStep: SetupStep = {
 		id: "coordinator-box",
 		title: "Make the server's box",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small machine in your account with the cloud provider you chose, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Paste your cloud provider's API token, or leave the one saved, and Next makes the box in that account.",
+		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small machine in your account in AWS, reached by SSH alone; it serves nothing until the server is deployed to it.",
+		user: "Sign in to AWS (`aws configure`), and Next makes the box in that account.",
 		agent:
-			"Without the cred the step names, request it with `splates creds request <cred> --device` and `splates creds wait <cred>`, never in chat. Then press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
+			"Have the user sign in to AWS with `aws configure`, never pasting keys in chat. Then press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
 		optional: true,
-		after: [choiceStep],
-		// The page asks for the token here, so this journey never sends the user to another for it.
-		fields: cloudTokenFields,
-		// The box is destroyed with the token, in the cloud chosen.
-		uses: CLOUD_USES,
+		after: [],
 		detail: async (machine) => {
-			const cloud = await cloudOf(machine);
+			const cloud = cloudOf(machine);
 			return `In ${cloud.name}, it is ${cloud.defaults.box.about}.`;
 		},
 		doing: "Making the coordinator's box, a few minutes…",
-		notDone: CLOUD_TOKEN_MISSING,
+		notDone: CLOUD_ACCESS_MISSING,
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
-			// Without a token the cloud takes there is no box to ask it about.
-			if (!(await cloudTokenAccepted(machine))) {
+			// Without a sign-in the cloud takes there is no box to ask it about.
+			if (!(await cloudAccepted(machine))) {
 				return false;
 			}
 			return (await (await box(machine)).status()) !== null;
 		},
 		submit: async (machine) => {
-			await requireCloudToken(machine);
+			await requireCloudAccess(machine);
 			await (await box(machine)).up();
 		},
 		undo: {
 			removes: async (machine) => {
-				const { name } = await cloudOf(machine);
+				const { name } = cloudOf(machine);
 				return [
 					`The ${name} server \`${BOX_NAME}\`, and with it every backup ${name} keeps of it`,
 					`The ${name} firewall \`${BOX_NAME}\``,
@@ -217,7 +208,7 @@ export function coordinatorArea(
 	return {
 		id: "coordinator",
 		title: "Cloud server",
-		steps: [choiceStep, boxStep, remotesStep, keysStep, moveStep],
+		steps: [boxStep, remotesStep, keysStep, moveStep],
 	};
 }
 
@@ -272,7 +263,7 @@ async function machineProjects(
 async function box(machine: SetupMachine): Promise<CoordinatorBox> {
 	return new CoordinatorBox({
 		version: RUNNING,
-		cloud: await cloudOf(machine),
+		cloud: cloudOf(machine),
 		ps: machine.ps,
 		fs: machine.fs,
 		home: machine.home,

@@ -30,17 +30,17 @@ describe("MovedCreds", () => {
 		});
 	});
 
-	it("carries the DigitalOcean token the box makes workers with", async () => {
+	it("carries the device creds the box makes workers with", async () => {
 		const creds = new MovedCreds({
 			device: new FakeSecretStore({
-				DIGITALOCEAN_TOKEN: "do",
+				EXAMPLE_TOKEN: "example",
 			}),
 			project: async () => new FakeSecretStore(),
 		});
 
 		const { device } = await creds.carried([]);
 
-		expect(device).toEqual({ DIGITALOCEAN_TOKEN: "do" });
+		expect(device).toEqual({ EXAMPLE_TOKEN: "example" });
 	});
 
 	it("keeps what it carried in the box's stores", async () => {

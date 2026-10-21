@@ -108,7 +108,7 @@ export interface Config {
 	tunnel: TunnelProvider | null;
 	/**
 	 * The cloud account worker machines are made in, as
-	 * `new DigitalOceanCloud()` from
+	 * `new AwsCloud()` from
 	 * `@stringsync/splates-server/cloud`; null
 	 * makes none. Naming it makes `workerProvider` one that makes workers
 	 * there, unless that is named too.

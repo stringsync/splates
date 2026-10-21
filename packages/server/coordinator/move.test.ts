@@ -85,7 +85,7 @@ describe("CoordinatorMove", () => {
 			worker: "macbook",
 			workersWithout: async () => ({
 				ok: true,
-				said: "with this machine off, the box makes workers with DigitalOcean",
+				said: "with this machine off, the box makes workers with AWS",
 			}),
 			join: async (coordinator, token) => {
 				joined.push(`${coordinator} ${token}`);

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
-import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
-import { FakeDigitalOcean } from "../cloud/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeAws } from "../cloud/testing";
 import { FakeWorkerProvider } from "../workers/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -11,20 +10,24 @@ import { Setup, type SetupMachine } from "./setup";
 const HOME = "/home/.splates";
 
 describe("WORKERS_AREA's cloud worker steps", () => {
+	let aws: FakeAws;
+	let ps: FakePs;
 	let machine: SetupMachine;
-	let tokenStatus: number;
 	let provider: FakeWorkerProvider | null;
 
 	beforeEach(async () => {
+		aws = new FakeAws();
+		ps = new FakePs();
+		ps.setEnv({
+			AWS_ACCESS_KEY_ID: "AKIAEXAMPLE",
+			AWS_SECRET_ACCESS_KEY: "secret",
+		});
 		machine = {
 			fs: new FakeFs(),
+			ps,
 			home: HOME,
 			device: new FakeSecretStore(),
-			fetch: (async () =>
-				Response.json(
-					{ servers: [] },
-					{ status: tokenStatus },
-				)) as unknown as typeof fetch,
+			fetch: aws.fetch,
 			project: {
 				root: "/repo",
 				config: async () => ({
@@ -35,7 +38,6 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 				remoteUrl: async () => null,
 			},
 		};
-		tokenStatus = 200;
 		provider = null;
 		await machine.fs.mkdir(HOME, { recursive: true });
 	});
@@ -44,53 +46,7 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		return new Setup(machine, [REMOTE_ACCESS_AREA, WORKERS_AREA]);
 	}
 
-	it("offers each cloud provider, and keeps the one picked", async () => {
-		const choice = async () =>
-			(await setup().read()).areas[1]?.steps.find(
-				(step) => step.id === "cloud-choice",
-			);
-		expect((await choice())?.status).toBe("ready");
-		expect((await choice())?.fields).toEqual([
-			{
-				kind: "choice",
-				name: "cloud",
-				label: "Cloud provider",
-				options: [{ value: "digitalocean", label: "DigitalOcean" }],
-			},
-		]);
-		await expect(
-			setup().submit("cloud-choice", { cloud: "aws" }),
-		).rejects.toThrow("Pick one of the choices");
-
-		await setup().submit("cloud-choice", { cloud: "digitalocean" });
-
-		expect((await choice())?.status).toBe("done");
-		expect(await new ChosenCloud(HOME, machine.fs).read()).toBe("digitalocean");
-	});
-
-	it("takes the cloud's token only once the cloud accepts it", async () => {
-		const status = async () =>
-			(await setup().read()).areas[1]?.steps.find(
-				(step) => step.id === "cloud-token",
-			)?.status;
-		expect(await status()).toBe("waiting");
-		await setup().submit("cloud-choice", { cloud: "digitalocean" });
-		expect(await status()).toBe("ready");
-
-		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
-		tokenStatus = 401;
-		expect(await status()).toBe("ready");
-		await expect(setup().submit("cloud-token", {})).rejects.toThrow(
-			"DigitalOcean does not take that token",
-		);
-
-		tokenStatus = 200;
-		expect(await status()).toBe("done");
-	});
-
 	it("turns cloud workers on once the project names a provider, then builds the snapshot through it", async () => {
-		await new ChosenCloud(HOME, machine.fs).choose("digitalocean");
-		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
 		await expect(setup().submit("cloud-provider", {})).rejects.toThrow(
 			"names no `cloud` yet",
 		);
@@ -105,52 +61,41 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		expect(await machine.fs.read(`${HOME}/snapshots.json`)).toContain("snap-1");
 	});
 
-	it("forgets the cloud chosen and its token once undone, leaving the token to revoke and the config to edit", async () => {
-		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
+	it("leaves the config to edit once undone", async () => {
 		provider = new FakeWorkerProvider();
-		await setup().submit("cloud-choice", { cloud: "digitalocean" });
 
 		const plan = await setup().undoPlan("workers");
 
-		expect(plan.steps.map((step) => step.id)).toEqual([
-			"cloud-provider",
-			"cloud-token",
-			"cloud-choice",
-		]);
+		expect(plan.steps.map((step) => step.id)).toEqual(["cloud-provider"]);
 		expect(plan.steps[0]?.leaves[0]).toContain("`cloud` in this project's");
-		expect(plan.steps[1]?.leaves[0]).toContain("revoke it");
-		expect(plan.steps[2]?.removes).toEqual([
-			"The cloud provider chosen, kept in `~/.splates/cloud.json`",
-		]);
-		expect(plan.creds).toEqual([{ name: DIGITALOCEAN_TOKEN, keptFor: null }]);
-
-		await setup().undo("workers", null);
-		await setup().undo("workers", null);
-
-		expect(await new ChosenCloud(HOME, machine.fs).read()).toBeNull();
-		expect(await machine.device.get(DIGITALOCEAN_TOKEN)).toBeUndefined();
+		expect(plan.creds).toEqual([]);
 	});
 
 	it("deletes the kept snapshot in the cloud and forgets it", async () => {
-		const digitalocean = new FakeDigitalOcean();
-		digitalocean.images.set(7, { id: 7, labels: {} });
-		machine.fetch = digitalocean.fetch;
-		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
+		aws.images.set("ami-7", {
+			id: "ami-7",
+			owner: aws.account,
+			name: "splates-worker",
+			state: "available",
+			tags: {},
+			snapshotId: "snap-7",
+			createdAt: "2026-01-01T00:00:00.000Z",
+		});
 		await machine.fs.write(
 			`${HOME}/snapshots.json`,
-			JSON.stringify({ linux: { id: "7", version: "1.0.0", builtAt: 0 } }),
+			JSON.stringify({ linux: { id: "ami-7", version: "1.0.0", builtAt: 0 } }),
 		);
 		const snapshot = WORKERS_AREA.steps.find(
 			(step) => step.id === "worker-snapshot",
 		);
 
 		expect(await snapshot?.undo?.removes(machine)).toEqual([
-			"The worker snapshot `7` in DigitalOcean, of splates 1.0.0",
+			"The worker snapshot `ami-7` in AWS, of splates 1.0.0",
 		]);
 		await snapshot?.undo?.run(machine);
 		await snapshot?.undo?.run(machine);
 
-		expect(digitalocean.images.size).toBe(0);
+		expect(aws.images.has("ami-7")).toBe(false);
 		expect(await snapshot?.check(machine)).toBe(false);
 		expect(await snapshot?.undo?.removes(machine)).toEqual([]);
 	});

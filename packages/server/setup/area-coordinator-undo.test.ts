@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
-import { FakeDigitalOcean } from "../cloud/testing";
+import { FakeAws } from "../cloud/testing";
 import type { Moved } from "../coordinator";
 import { KeygenPs } from "../coordinator/testing";
 import { coordinatorArea } from "./area-coordinator";
@@ -15,24 +14,26 @@ const KEY = `${HOME}/coordinator/id_ed25519`;
 
 describe("undoing COORDINATOR_AREA", () => {
 	let fs: FakeFs;
-	let digitalocean: FakeDigitalOcean;
+	let aws: FakeAws;
 	let machine: SetupMachine;
 	let area: ReturnType<typeof coordinatorArea>;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		digitalocean = new FakeDigitalOcean();
-		digitalocean.actionsRun = true;
-		digitalocean.stock = { nyc3: ["s-2vcpu-4gb-intel"] };
+		aws = new FakeAws();
+		aws.stock = ["t3.medium"];
+		const ps = new KeygenPs(fs);
+		ps.setEnv({
+			AWS_ACCESS_KEY_ID: "AKIAEXAMPLE",
+			AWS_SECRET_ACCESS_KEY: "secret",
+		});
 		machine = {
 			fs,
-			ps: new KeygenPs(fs),
+			ps,
 			home: HOME,
 			device: new FakeSecretStore(),
-			fetch: digitalocean.fetch,
+			fetch: aws.fetch,
 		};
-		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
-		await new ChosenCloud(HOME, fs).choose("digitalocean");
 		const dryRun: Moved = {
 			status: "ready",
 			host: "splates.example.com",
@@ -87,22 +88,15 @@ describe("undoing COORDINATOR_AREA", () => {
 				title: "Make the server's box",
 				done: true,
 				removes: [
-					"The DigitalOcean server `splates-coordinator`, and with it every backup DigitalOcean keeps of it",
-					"The DigitalOcean firewall `splates-coordinator`",
-					"The DigitalOcean SSH key `splates-coordinator`, and its key pair here, `~/.splates/coordinator/id_ed25519`",
+					"The AWS server `splates-coordinator`, and with it every backup AWS keeps of it",
+					"The AWS firewall `splates-coordinator`",
+					"The AWS SSH key `splates-coordinator`, and its key pair here, `~/.splates/coordinator/id_ed25519`",
 				],
-				leaves: [],
-			},
-			{
-				id: "coordinator-cloud",
-				title: "Choose a cloud provider",
-				done: true,
-				removes: ["The cloud provider chosen, kept in `~/.splates/cloud.json`"],
 				leaves: [],
 			},
 		]);
 		expect(plan.confirm).toBe("splates-coordinator");
-		expect(plan.creds).toEqual([{ name: DIGITALOCEAN_TOKEN, keptFor: null }]);
+		expect(plan.creds).toEqual([]);
 		expect(plan.refused).toBeNull();
 	});
 
@@ -116,22 +110,20 @@ describe("undoing COORDINATOR_AREA", () => {
 		await box.undo?.run(machine);
 		await box.undo?.run(machine);
 
-		expect(digitalocean.droplets.size).toBe(0);
-		expect(digitalocean.firewalls.size).toBe(0);
-		expect(digitalocean.sshKeys.size).toBe(0);
+		expect(aws.instances.size).toBe(0);
+		expect(aws.groups.size).toBe(0);
+		expect(aws.keys.size).toBe(0);
 		expect(await fs.exists(KEY)).toBe(false);
 		expect(await fs.exists(`${KEY}.pub`)).toBe(false);
 		expect(await box.check(machine)).toBe(false);
 	});
 
-	it("forgets the token, the cloud chosen and the last dry run once undone", async () => {
+	it("forgets the last dry run once undone", async () => {
 		await step("coordinator-box").submit?.(machine, {});
 		await step("coordinator-keys").submit?.(machine, {});
 
 		await setup().undo("coordinator", "splates-coordinator");
 
-		expect(await machine.device.get(DIGITALOCEAN_TOKEN)).toBeUndefined();
-		expect(await new ChosenCloud(HOME, fs).read()).toBeNull();
 		expect(await step("coordinator-keys").check(machine)).toBe(false);
 		expect(await step("coordinator-box").check(machine)).toBe(false);
 	});
@@ -145,6 +137,6 @@ describe("undoing COORDINATOR_AREA", () => {
 		await expect(
 			setup().undo("coordinator", "splates-coordinator"),
 		).rejects.toThrow(refusal);
-		expect(digitalocean.requests).toEqual([]);
+		expect(aws.requests).toEqual([]);
 	});
 });

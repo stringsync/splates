@@ -376,18 +376,7 @@ builder a died build left goes before the next one starts. Prices are
 estimates from EU list prices; Hetzner bills each started hour, capped at
 the monthly price.
 
-The second cloud is `DigitalOceanCloud` (`cloud/digitalocean.ts`, built
-2026-10-19 so the seam has two implementations): Basic `s-8vcpu-16gb`
-workers (8 shared vCPU / 16 GB, 4 slots, $0.14286/h, $96/month cap) in New
-York 3, New York 1 or San Francisco 3, billed by the second, so retired as
-soon as they idle; snapshots built on an `s-1vcpu-2gb`. DigitalOcean's tags
-are bare names, so a tag `key` with `value` is kept as `key` and
-`key:value`, each filterable on its side. It has no delete protection, so
-`protect` does nothing, and a firewall with no outbound rules lets nothing
-out, so each one splates makes lets everything out. Setup's choice of cloud
-(`~/.splates/cloud.json`, `ChosenCloud`) picks the coordinator's box's cloud
-and whose token setup asks for; it lists DigitalOcean first, but takes
-Hetzner before any is chosen, where every box was made before it asked.
+DigitalOcean was a second cloud, built 2026-10-19 so the seam has two implementations, and removed 2026-10-21 when AWS became the only cloud; `CloudProvider` stays the seam. Setup no longer asks which cloud: `machineCloud` is `AwsCloud`.
 
 Idle shutdown (built 2026-10-18). A made worker with no agent on it and none
 queued on its platform for 15 minutes (`WorkerProvider.idleAfter`, default
