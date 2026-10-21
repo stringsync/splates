@@ -38,11 +38,12 @@ export interface CloudflareWorkerAccessOptions {
 
 /**
  * Mints each worker's service token with the API token `splates tunnel
- * setup` keeps, and lets it through the Access application in front of the
- * page by a Service Auth policy of its own, `<app> workers`, which lists
- * every worker's token and no other, so no service token minted elsewhere
- * in the account gets in. Calls run one at a time, since each rewrites that
- * policy whole.
+ * setup` keeps, and lets it through at the paths only a worker calls, each its own Access application carrying a
+ * Service Auth policy of its own, `<app> workers`, which lists every
+ * worker's token and no other, so no service token minted elsewhere in the
+ * account gets in, and a leaked one reaches no more than a worker key does.
+ * The page's application never carries it. Calls run one at a time, since
+ * each rewrites that policy whole.
  */
 export class CloudflareWorkerAccess implements WorkerAccess {
 	private queue: Promise<unknown> = Promise.resolve();
@@ -118,12 +119,13 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 						want,
 						Policy,
 					);
-		if (!app.policies.some((each) => each.id === policy.id)) {
-			await this.attach(api, account, app, [
-				...app.policies.map((each) => each.id),
-				policy.id,
-			]);
-		}
+		await CloudflareTunnels.over(api, this.opts.log).ensureWorkerApps(
+			account,
+			app.name,
+			this.opts.host,
+			policy.id,
+		);
+		await this.detach(api, account, app, policy.id);
 	}
 
 	/**
@@ -150,14 +152,11 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 			);
 			return;
 		}
-		if (app.policies.some((each) => each.id === found.id)) {
-			await this.attach(
-				api,
-				account,
-				app,
-				app.policies.map((each) => each.id).filter((each) => each !== found.id),
-			);
-		}
+		await CloudflareTunnels.over(api, this.opts.log).dropWorkerApps(
+			account,
+			this.opts.host,
+		);
+		await this.detach(api, account, app, found.id);
 		await api
 			.delete(`/accounts/${account}/access/policies/${found.id}`)
 			.catch(passOverGone);
@@ -173,13 +172,22 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 		).find((each) => each.name === workersPolicy(app.name));
 	}
 
-	/** Puts `policies` on the app, in order, keeping the rest of it as it is. */
-	private async attach(
+	/**
+	 * Takes policy `id` off the page's application, which an earlier version
+	 * put it on, so a worker's token reaches the workers' paths alone.
+	 */
+	private async detach(
 		api: CloudflareApi,
 		account: string,
 		app: AppFound,
-		policies: string[],
+		id: string,
 	): Promise<void> {
+		if (!app.policies.some((each) => each.id === id)) {
+			return;
+		}
+		const policies = app.policies
+			.map((each) => each.id)
+			.filter((each) => each !== id);
 		await api.put(
 			`/accounts/${account}/access/apps/${app.id}`,
 			{

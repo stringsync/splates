@@ -13,7 +13,13 @@ import {
 	TUNNEL_TOKEN,
 	type TunnelRecord,
 } from "./saved";
-import { App, CloudflareTunnels, Policy, workersPolicy } from "./setup";
+import {
+	App,
+	CloudflareTunnels,
+	Policy,
+	WORKER_PATHS,
+	workersPolicy,
+} from "./setup";
 
 /** What `splates tunnel remove` is asked to remove, and what it runs with. */
 export interface RemoveOptions {
@@ -75,6 +81,9 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 			const apps = await api.list(`/accounts/${account}/access/apps`, App);
 			const mine = [
 				...apps.filter((app) => app.domain === machine.host),
+				...apps.filter((app) =>
+					WORKER_PATHS.some((path) => app.domain === `${machine.host}${path}`),
+				),
 				...apps.filter(
 					(app) => app.domain === `*.${zone.name}` && app.name === SLOTS_APP,
 				),

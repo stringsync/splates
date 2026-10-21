@@ -50,6 +50,13 @@ const Provision = z.object({ type: z.string().min(1).optional() });
 /** The header a joined worker shows its key in, as `Bearer <id>:<key>`. */
 export const WORKER_KEY_HEADER = "authorization";
 
+/**
+ * Where a worker's WebSocket opens: its own path, for Cloudflare Access to
+ * carry the workers' policy at, since `/api/workers` is also the page's list.
+ * The tunnel's `WORKER_PATHS` names it.
+ */
+export const WORKER_SOCKET_PATH = "/api/workers/socket";
+
 /** `Bearer <id>:<key>`, as a joined worker shows its key. */
 export function workerAuthorization(id: string, key: string): string {
 	return `Bearer ${id}:${key}`;

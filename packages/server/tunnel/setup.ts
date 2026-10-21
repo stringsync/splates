@@ -80,14 +80,16 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		);
 		await cloudflare.ensureRoute(zone.id, host, tunnel.id);
 		const policy = await ensurePolicy(api, account, name, emails, log);
-		// Kept on the app, so setting up again leaves joined workers in.
 		const workers = (
 			await api.list(`/accounts/${account}/access/policies`, Policy)
 		).find((each) => each.name === workersPolicy(name));
-		const aud = await cloudflare.ensureApp(account, name, host, [
-			policy,
-			...(workers === undefined ? [] : [workers.id]),
-		]);
+		const aud = await cloudflare.ensureApp(account, name, host, [policy]);
+		// Kept on the workers' own applications, so setting up again leaves
+		// joined workers in, and a page application that still carries the
+		// policy from before them is narrowed to the people's alone.
+		if (workers !== undefined) {
+			await cloudflare.ensureWorkerApps(account, name, host, workers.id);
+		}
 		await creds.save(TUNNEL_TOKEN, token, {
 			scope: "device",
 			by: "splates tunnel setup",
@@ -156,6 +158,16 @@ export const SESSION = "24h";
 export function workersPolicy(name: string): string {
 	return `${name} workers`;
 }
+
+/**
+ * The paths only a worker calls, each its own Access application carrying
+ * the workers' policy and no other, so a leaked worker service token reaches
+ * these and not the page. A path with no wildcard covers itself alone, and
+ * the more specific application wins over the page's, which these never
+ * inherit from. `/api/workers` itself is the page's list as well, so the
+ * worker socket sits at its own path.
+ */
+export const WORKER_PATHS = ["/api/workers/join", "/api/workers/socket"];
 
 const Zone = z.object({
 	id: z.string(),
@@ -433,6 +445,39 @@ export class CloudflareTunnels {
 		this.log.info(
 			`${color.green("routed")} ${host} to tunnel ${tunnel}, from ${record.content}`,
 		);
+	}
+
+	/** Puts the workers' policy `policy` alone on an Access application for each of `WORKER_PATHS`. */
+	async ensureWorkerApps(
+		account: string,
+		name: string,
+		host: string,
+		policy: string,
+	): Promise<void> {
+		for (const path of WORKER_PATHS) {
+			await this.ensureApp(
+				account,
+				`${name} workers ${path}`,
+				`${host}${path}`,
+				[policy],
+			);
+		}
+	}
+
+	/** Deletes the Access applications `ensureWorkerApps` made for `host`. */
+	async dropWorkerApps(account: string, host: string): Promise<void> {
+		const apps = await this.api.list(`/accounts/${account}/access/apps`, App);
+		for (const app of apps) {
+			if (WORKER_PATHS.some((path) => app.domain === `${host}${path}`)) {
+				await this.api
+					.delete(`/accounts/${account}/access/apps/${app.id}`)
+					.catch((error) => {
+						if (!(error instanceof CloudflareError && error.status === 404)) {
+							throw error;
+						}
+					});
+			}
+		}
 	}
 
 	/**

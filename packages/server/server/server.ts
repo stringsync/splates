@@ -38,6 +38,7 @@ import {
 	Machine,
 	osSensors,
 	queueListing,
+	WORKER_SOCKET_PATH,
 	WorkerBudgetRoutes,
 	type WorkerPool,
 	workerBudgetReport,
@@ -940,6 +941,9 @@ export async function dev(
 				}
 				if (pathname === "/api/workers") {
 					return workers.route(request, server, guarded);
+				}
+				if (pathname === WORKER_SOCKET_PATH) {
+					return workers.open(request, server);
 				}
 				if (pathname.startsWith("/api/workers/")) {
 					return workers.manage(request, (handle) => talk(guarded(handle)));

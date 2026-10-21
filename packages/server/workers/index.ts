@@ -88,7 +88,12 @@ export { RemoteProcess } from "./remote-process";
 export type { RolloutStanding } from "./rollout";
 export { WorkerRollout } from "./rollout";
 export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
-export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
+export {
+	DevWorkers,
+	LOCAL_WORKER,
+	WORKER_SOCKET_PATH,
+	workerAuthorization,
+} from "./routes";
 export { workerRun, workerSocketPath } from "./run";
 export type {
 	BudgetReason,

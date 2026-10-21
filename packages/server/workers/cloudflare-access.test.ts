@@ -6,11 +6,13 @@ import { Creds } from "../creds";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel, tunnelSetup } from "../tunnel";
+import { WORKER_PATHS } from "../tunnel/setup";
 import { FakeCloudflare } from "../tunnel/testing";
 import {
 	CloudflareWorkerAccess,
 	SERVICE_TOKEN_DURATION,
 } from "./cloudflare-access";
+import { WORKER_SOCKET_PATH } from "./routes";
 
 const HOST = "splates.example.com";
 
@@ -33,13 +35,27 @@ describe("CloudflareWorkerAccess", () => {
 			decision: "non_identity",
 			include: [{ service_token: { token_id: token?.id } }],
 		});
+		// The page's application keeps the people's policy alone: the workers'
+		// goes on an application for each path only a worker calls.
 		expect(cloudflare.apps[0]?.policies).toEqual([
 			{ id: cloudflare.policies[0]?.id ?? "", precedence: 1 },
-			{ id: workers?.id ?? "", precedence: 2 },
+		]);
+		expect(
+			cloudflare.apps.slice(1).map((app) => [app.domain, app.policies]),
+		).toEqual([
+			[`${HOST}/api/workers/join`, [{ id: workers?.id ?? "", precedence: 1 }]],
+			[
+				`${HOST}/api/workers/socket`,
+				[{ id: workers?.id ?? "", precedence: 1 }],
+			],
 		]);
 	});
 
-	it("revokes a token, and takes the policy off the app with the last one", async () => {
+	it("puts the workers' paths where a worker dials", () => {
+		expect(WORKER_PATHS).toContain(WORKER_SOCKET_PATH);
+	});
+
+	it("revokes a token, and takes the workers' applications and policy with the last one", async () => {
 		const { cloudflare, access } = await setUp();
 		const first = await access.mint();
 		const second = await access.mint();
@@ -56,6 +72,7 @@ describe("CloudflareWorkerAccess", () => {
 		await access.revoke(second?.id ?? "");
 		expect(cloudflare.serviceTokens).toEqual([]);
 		expect(cloudflare.policies.map((each) => each.name)).toEqual(["splates"]);
+		expect(cloudflare.apps).toHaveLength(1);
 		expect(cloudflare.apps[0]?.policies).toHaveLength(1);
 	});
 
@@ -86,7 +103,8 @@ describe("CloudflareWorkerAccess", () => {
 		await setup();
 
 		expect(cloudflare.changes).toEqual([]);
-		expect(cloudflare.apps[0]?.policies).toHaveLength(2);
+		expect(cloudflare.apps).toHaveLength(3);
+		expect(cloudflare.apps[0]?.policies).toHaveLength(1);
 	});
 });
 

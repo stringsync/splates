@@ -13,7 +13,11 @@ import { undumpableKeys, type WorkerCreds, workerCreds } from "./creds";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { endWithSupervisor, restartWorker } from "./lifecycle";
 import { hostOf, machineSlots, onWindowsDrive } from "./machine";
-import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
+import {
+	WORKER_KEY_HEADER,
+	WORKER_SOCKET_PATH,
+	workerAuthorization,
+} from "./routes";
 import type { WorkerRunOptions } from "./run-options";
 import { AgentSandbox } from "./sandbox";
 import { UnixWorkerSocket } from "./unix-socket";
@@ -164,7 +168,7 @@ function dialer(
 		return { where: path, dial: () => UnixWorkerSocket.connect(path) };
 	}
 	const { key, access } = creds;
-	const url = new URL("/api/workers", coordinator);
+	const url = new URL(WORKER_SOCKET_PATH, coordinator);
 	url.protocol =
 		url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
 	if (url.protocol === "ws:" && !LOCAL_HOSTS.has(url.hostname)) {
