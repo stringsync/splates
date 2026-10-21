@@ -3,11 +3,11 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
 import {
-	APPROVALS,
+	APPROVAL,
 	BACKLOG_LANE,
 	BUDGET_LOW,
 } from "@stringsync/splates-server/board/browser";
-import { ListPlusIcon, LockIcon } from "lucide-react";
+import { ListPlusIcon, LockIcon, OctagonXIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -272,8 +272,8 @@ export function Lane({
 
 /**
  * What a queued lane has left of the tasks it may queue on its own, once
- * that is low, with a button for each size of approval that adds to it;
- * at none the lane has stopped, and an approval lets it go on.
+ * that is low, with a button that adds an approval to it; at none the lane
+ * has stopped, which it says plainly, and an approval lets it go on.
  */
 function LaneApproval({ lane }: { lane: LaneState }): JSX.Element {
 	const { refuseLane } = useContext(Board);
@@ -281,27 +281,35 @@ function LaneApproval({ lane }: { lane: LaneState }): JSX.Element {
 	const left = lane.budget ?? 0;
 	return (
 		<div className="flex flex-wrap items-center gap-1 text-xs">
-			<span className="text-muted-foreground">
-				{left === 0 ? "Stopped for approval" : `${left} left to queue`}
-			</span>
-			{APPROVALS.map((more) => (
-				<Button
-					key={more}
-					size="xs"
-					variant="outline"
-					onClick={() =>
-						void expect(
-							laneApproved(lane.id, more),
-							approveLane(lane.id, more),
-						).catch((error: unknown) =>
-							refuseLane(lane.id, "Not approved", error),
-						)
-					}
-					{...still}
+			{left === 0 ? (
+				<span
+					className={cn(
+						"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium",
+						TONES.failed,
+					)}
+					title="The lane's budget of tasks to queue on its own is spent, so nothing more in it starts until you approve more"
 				>
-					Approve {more} more
-				</Button>
-			))}
+					<OctagonXIcon aria-hidden className="size-3 shrink-0" />
+					Budget ran out: lane stopped
+				</span>
+			) : (
+				<span className="text-muted-foreground">{left} left to queue</span>
+			)}
+			<Button
+				size="xs"
+				variant={left === 0 ? "default" : "outline"}
+				onClick={() =>
+					void expect(
+						laneApproved(lane.id, APPROVAL),
+						approveLane(lane.id, APPROVAL),
+					).catch((error: unknown) =>
+						refuseLane(lane.id, "Not approved", error),
+					)
+				}
+				{...still}
+			>
+				Approve {APPROVAL} more
+			</Button>
 		</div>
 	);
 }

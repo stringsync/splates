@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { laneAdd, laneUpdate, taskAdd, taskRemove, taskUpdate } from "../board";
+import {
+	APPROVAL,
+	laneAdd,
+	laneUpdate,
+	taskAdd,
+	taskRemove,
+	taskUpdate,
+} from "../board";
 import { add, remove } from "../tasks";
 import { Testing } from "../testing";
 import { queueAdd, queueRemove } from "./commands";
@@ -178,10 +185,10 @@ describe.concurrent("a lane queued whole", () => {
 		expect((await deps.tasks.lanes())[1]?.budget).toBe(0);
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 
-		await laneUpdate(deps, 1, { approve: 5 });
+		await laneUpdate(deps, 1, { approve: APPROVAL });
 		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
 			7, 8,
 		]);
-		expect((await deps.tasks.lanes())[1]?.budget).toBe(3);
+		expect((await deps.tasks.lanes())[1]?.budget).toBe(APPROVAL - 2);
 	});
 });

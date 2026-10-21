@@ -1,4 +1,5 @@
 import {
+	APPROVAL,
 	BACKLOG_LANE,
 	laneAdd,
 	laneList,
@@ -118,17 +119,14 @@ splatesLane
 	.command("approve")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"let a queued lane queue more tasks on its own: it stops when its budget is spent, which starts at its tasks then plus 5, and this adds to what is left; refused from an agent",
+		"let a queued lane queue more tasks on its own: it stops when its budget is spent, which starts at its tasks then plus 5, and this adds 10 to what is left; refused from an agent",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
-	.arg("count", z.coerce.number().int().positive(), {
-		description: "how many more tasks it may queue",
-	})
 	.action(async (opts, ctx) => {
 		refuseAgentQueue(ctx.service, "lane approve");
-		const change = { approve: opts.count };
+		const change = { approve: APPROVAL };
 		await ctx.journal.record(
 			"lane update",
 			null,

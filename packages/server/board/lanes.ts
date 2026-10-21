@@ -304,5 +304,5 @@ export const LANE_SLACK = 5;
 /** A queued lane shows its budget, and the button to add to it, at or below this many tasks left. */
 export const BUDGET_LOW = 3;
 
-/** The sizes of an approval the person can give a queued lane, in tasks. */
-export const APPROVALS = [5, 10] as const;
+/** The tasks an approval adds to a queued lane's budget: one size, no choice. */
+export const APPROVAL = 10;
