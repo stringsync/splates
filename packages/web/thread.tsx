@@ -4,7 +4,7 @@ import type { TaskReport } from "@stringsync/splates-server/plans";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import { ArchiveIcon } from "lucide-react";
+import { ArchiveIcon, XIcon } from "lucide-react";
 import {
 	type JSX,
 	memo,
@@ -278,7 +278,7 @@ function Conversation({
 					onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
 					onBack={onBack}
 				/>
-				{archived && <ArchivedBanner phone={onBack !== null} />}
+				{archived && <ArchivedBanner key={id} phone={onBack !== null} />}
 				{archive.confirm}
 				{task !== null && (
 					<Dialog open={details} onOpenChange={setDetails}>
@@ -468,7 +468,11 @@ function ended(conversation: ConversationState): TaskReport | null {
  * Atop an archived conversation, across the pane's padding to its edges,
  * saying so and how it comes back.
  */
-function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element {
+function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
+	const [dismissed, setDismissed] = useState(false);
+	if (dismissed) {
+		return null;
+	}
 	return (
 		<p
 			role="status"
@@ -484,6 +488,14 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element {
 				</span>{" "}
 				Sending a message unarchives it.
 			</span>
+			<button
+				type="button"
+				aria-label="Dismiss"
+				onClick={() => setDismissed(true)}
+				className="-mr-2 shrink-0 rounded-md p-1 active:bg-background"
+			>
+				<XIcon className="size-4" />
+			</button>
 		</p>
 	);
 }

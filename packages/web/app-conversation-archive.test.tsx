@@ -497,6 +497,20 @@ describe("App's archiving conversations", () => {
 		).not.toBeNull();
 	});
 
+	it("lets the archived banner be dismissed", async () => {
+		const view = await testing.openConversations([], null);
+		await testing.say(conversation({ status: "stopped", archived: true }));
+		await act(async () => {
+			location.hash = "#conversations/c1";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+
+		await view.findByText("This conversation is archived.");
+		fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
+
+		expect(view.queryByText("This conversation is archived.")).toBeNull();
+	});
+
 	it("takes a message in an archived conversation, and unarchives it from its actions", async () => {
 		const view = await testing.openConversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));
