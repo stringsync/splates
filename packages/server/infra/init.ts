@@ -105,7 +105,11 @@ description: The box \`splates server deploy\` installs splates on
 
 /** The program the user edits: three components, all from config. */
 const INDEX_TS = `import * as pulumi from "@pulumi/pulumi";
-import { CoordinatorBox, DeployKeys, Tunnel } from "@stringsync/splates-server/infra";
+import {
+	CoordinatorBox,
+	DeployKeys,
+	Tunnel,
+} from "@stringsync/splates-server/infra";
 
 const config = new pulumi.Config("splates");
 const host = config.require("host");
@@ -121,7 +125,9 @@ const box = new CoordinatorBox("splates", {
 	host,
 	secrets: {
 		SPLATES_TUNNEL_TOKEN: tunnel.token,
-		SPLATES_CLOUDFLARE_API_TOKEN: new pulumi.Config("cloudflare").requireSecret("apiToken"),
+		SPLATES_CLOUDFLARE_API_TOKEN: new pulumi.Config("cloudflare").requireSecret(
+			"apiToken",
+		),
 		ANTHROPIC_API_KEY: config.requireSecret("anthropicKey"),
 	},
 });

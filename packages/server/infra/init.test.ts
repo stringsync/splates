@@ -65,3 +65,12 @@ test("imports an environment into a stack written already, keeping the rest", as
 		config: { "aws:region": "us-east-1" },
 	});
 });
+
+test("writes the program as packages/infra keeps it, formatted, so fix leaves a rerun nothing to rewrite", async () => {
+	const fs = new FakeFs();
+	await infraInit(options(fs));
+	const kept = await Bun.file(
+		new URL("../../infra/index.ts", import.meta.url),
+	).text();
+	expect(await fs.read("/p/index.ts")).toBe(kept);
+});
