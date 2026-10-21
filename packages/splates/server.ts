@@ -209,15 +209,36 @@ splatesServer
 splatesServer
 	.command("destroy")
 	.description(
-		"say how to destroy the box: its Pulumi stack made it, so the stack unmakes it",
+		"unmake the box and everything its Pulumi stack made (its role, snapshots, creds, tunnel and deploy keys), lifting the box's termination protection first: anything only on the box is lost. The stack and its config stay, so the setup's Make the box step, or `splates server deploy`, makes it again. Without --yes, says what it would destroy",
 	)
-	.action(async (_opts, ctx) => {
+	.option("yes", z.boolean(), {
+		default: false,
+		description: "destroy without asking",
+	})
+	.action(async (opts, ctx) => {
 		const infra = await box(ctx).infra();
-		fail(
-			"usage",
-			infra === null
-				? "no infra project here: run `pulumi destroy` in the one `splates server infra init` wrote"
-				: `run \`pulumi destroy\` in ${infra.dir}, after lifting the termination protection (\`disableApiTermination\`) on the instance. Anything only on the box is lost`,
+		if (infra === null) {
+			fail(
+				"not_found",
+				"no infra project here: nothing to destroy, since `splates server infra init` has not written one",
+			);
+		}
+		const standing = await box(ctx).status();
+		const what =
+			standing === null
+				? `what the stack in ${infra.dir} made`
+				: `the box at ${standing.ipv4} (${standing.instanceId}) and everything the stack in ${infra.dir} made`;
+		if (!opts.yes) {
+			fail(
+				"usage",
+				`this destroys ${what}, and anything only on the box is lost: run again with --yes`,
+				{ dir: infra.dir, box: standing },
+			);
+		}
+		ctx.log.info(`Destroying ${what}, a few minutes…`);
+		await box(ctx).destroy();
+		ctx.log.info(
+			"Destroyed. The stack and its config stay for making it again.",
 		);
 	});
 

@@ -1,6 +1,7 @@
 import { Credentials } from "webappwiz/creds";
 import { MemoryLogger } from "webappwiz/log";
 import {
+	type BoxCloud,
 	CoordinatorBox,
 	type CoordinatorMove,
 	coordinatorMoved,
@@ -32,6 +33,8 @@ export interface CoordinatorAreaDeps {
 	move(machine: SetupMachine): Pick<CoordinatorMove, "run">;
 	/** Each project this machine's coordinator keeps, with its central remote. */
 	projects(machine: SetupMachine): Promise<MovingProject[]>;
+	/** The cloud the box is in, which destroying it lifts its protection through; AWS by default. */
+	cloud?(machine: SetupMachine): BoxCloud;
 }
 
 /** A project as the move checks its remote. */
@@ -56,6 +59,14 @@ export function coordinatorArea(
 	// The last dry run each splates home ran here: the dry run brings the
 	// box's splates up and pushes to GitHub, too slow for each read of setup.
 	const dryRuns = new Map<string, Moved>();
+
+	const box = (machine: SetupMachine): CoordinatorBox =>
+		new CoordinatorBox({
+			ps: machine.ps,
+			fs: machine.fs,
+			home: machine.home,
+			...(deps.cloud === undefined ? {} : { cloud: deps.cloud(machine) }),
+		});
 	// What `pulumi preview` last said, per splates home, until `pulumi up` runs.
 	const previews = new Map<string, string>();
 
@@ -170,15 +181,24 @@ export function coordinatorArea(
 		notDone:
 			"No infra project is written yet: run `splates server infra init <dir>`, then press Next.",
 		undo: {
-			removes: async () => [],
+			removes: async (machine) => {
+				const infra = await box(machine).infra();
+				return [
+					`The stack${infra?.stack === undefined ? "" : ` ${infra.stack}`} from Pulumi, and the record of the project here.`,
+				];
+			},
 			leaves: async (machine) => {
 				const infra = await box(machine).infra();
 				return [
-					`The project in ${infra?.dir ?? "its directory"}: delete it once \`pulumi destroy\` has unmade the stack.`,
+					`The project's files in ${infra?.dir ?? "its directory"}: delete them yourself.`,
 				];
 			},
 			refused: movedRefusal,
-			run: async () => {},
+			run: async (machine) => {
+				if ((await box(machine).infra()) !== null) {
+					await box(machine).remove();
+				}
+			},
 		},
 	};
 
@@ -217,7 +237,7 @@ export function coordinatorArea(
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
 		user: "Read what the preview says it will make and what it costs a month, then press Next to make it.",
 		agent:
-			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment. If it fails, the page says what failed: have the user fix the stack's config (`splates server infra init` prints what) and press Next again. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address.",
+			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a cred, through `splates server infra init`; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
 		optional: true,
 		after: [accessStep, pulumiStep, infraStep],
 		doing: "Making the box with `pulumi up`, a few minutes…",
@@ -252,15 +272,20 @@ export function coordinatorArea(
 			);
 		},
 		undo: {
-			removes: async () => [],
-			leaves: async (machine) => {
-				const infra = await box(machine).infra();
+			removes: async (machine) => {
+				const standing = await box(machine)
+					.status()
+					.catch(() => null);
 				return [
-					`The box and everything the stack made: \`pulumi destroy\`${infra === null ? "" : ` in ${infra.dir}`} unmakes them.`,
+					`The box${standing === null ? "" : ` at ${standing.ipv4} (${standing.instanceId})`} and everything the stack made: its role, its snapshots and the creds in its Parameter Store, the tunnel and Access application in front of it, and each project's deploy key on GitHub. Anything only on the box is lost.`,
 				];
 			},
 			refused: movedRefusal,
-			run: async () => {},
+			// The box takes minutes and dollars to make again, and what is only on it goes with it.
+			confirm: async (machine) => (await box(machine).infra())?.stack ?? null,
+			run: async (machine) => {
+				await box(machine).destroy();
+			},
 		},
 	};
 
@@ -399,14 +424,6 @@ async function machineProjects(
 		});
 	}
 	return moving;
-}
-
-function box(machine: SetupMachine): CoordinatorBox {
-	return new CoordinatorBox({
-		ps: machine.ps,
-		fs: machine.fs,
-		home: machine.home,
-	});
 }
 
 /** The machine's own move, through its system stores but for the device's this setup reads. */

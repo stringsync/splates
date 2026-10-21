@@ -9,6 +9,13 @@ account and zone ids through the API, and each secret from the creds store
 `ANTHROPIC_API_KEY`) through `pulumi config set --secret` on stdin. A cred not
 kept is requested on the Creds page. Each flag overrides its default.
 
+The user runs no Pulumi command: the setup's Make the box step runs `pulumi
+refresh` then `pulumi up`, so a run after a failed one carries on from what
+that left (and cancels the lock a killed run held), and undoing the Cloud
+server area, or `splates server destroy --yes`, lifts the box's termination
+protection, refreshes the state so what is already gone stops nothing, and
+runs `pulumi destroy`.
+
 - `CoordinatorBox`: the AWS side. A one-subnet VPC without a NAT gateway, an
   SSH-only security group, a `t3.medium` with IMDSv2 and termination
   protection, the instance role (SSM parameters under `/splates/*`, workers),

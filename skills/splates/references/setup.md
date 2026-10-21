@@ -123,10 +123,15 @@ deletes any root access keys),
 `coordinator-infra` (`splates server infra init <dir>` has written the project, by default the package `packages/infra` of the
 repo setup is opened from (bun runtime), filled from the projects, tunnel and creds splates keeps, requesting any cred
 not kept, and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
-`coordinator-up` (the page shows `pulumi preview` and the monthly cost, and Next runs `pulumi up --yes`; done when `pulumi stack output
+`coordinator-up` (the page shows `pulumi preview` and the monthly cost, and Next runs `pulumi refresh` then `pulumi up --yes`,
+so a run after a failed one carries on from what that left, cancelling the lock a killed run held; done when `pulumi stack output
 --json` gives the instance id and tunnel host) and `coordinator-creds`, then
-`coordinator-move`. Undoing the AWS steps guides the user through `pulumi
-destroy`; splates never destroys the stack itself. The box is an EC2
+`coordinator-move`. The user never runs Pulumi: undoing the area destroys
+the stack itself once the user types the stack's name (`prod`), lifting the
+box's termination protection first and skipping what is already gone, then
+removes the stack and forgets the project, leaving its files; `splates server
+destroy --yes` destroys the same from a terminal, keeping the stack to make
+the box again. The box is an EC2
 instance with daily backups, SSH alone open, its key under `~/.splates/coordinator`.
 The move needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the

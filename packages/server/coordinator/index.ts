@@ -9,10 +9,15 @@ export {
 	pulumiOrg,
 	writeAccessEnvironment,
 } from "./access";
-export type { BoxStanding, CoordinatorBoxOptions } from "./box";
+export type { BoxCloud, BoxStanding, CoordinatorBoxOptions } from "./box";
 export { BOX_USER, CoordinatorBox } from "./box";
 export { deployKey, neededCreds } from "./creds";
-export { type InfraConfig, readInfraConfig, writeInfraConfig } from "./infra";
+export {
+	type InfraConfig,
+	infraConfigPath,
+	readInfraConfig,
+	writeInfraConfig,
+} from "./infra";
 export { WORKER_AGENT } from "./launch-agent";
 export { machineMove } from "./machine";
 export type { CoordinatorMove, Moved, MoveRecord } from "./move";

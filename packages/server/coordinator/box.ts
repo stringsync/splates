@@ -4,14 +4,15 @@ import { z } from "zod";
 import { AwsCloud } from "../cloud";
 import { splatesHome } from "../models";
 import type { TunnelRecord } from "../tunnel/saved";
-import { type InfraConfig, readInfraConfig } from "./infra";
+import { type InfraConfig, infraConfigPath, readInfraConfig } from "./infra";
 
 /**
  * The coordinator's always-on box in the user's AWS account, which the
  * user's Pulumi project made (`splates server infra init`): this reads the
  * stack's outputs for where it is, and gets what the deploy needs to reach
- * it, its SSH key and its host key. It makes and destroys nothing:
- * `pulumi up` and `pulumi destroy` do.
+ * it, its SSH key and its host key. It runs `pulumi up` and `pulumi destroy`
+ * for the user, picking up where a failed run left the stack, so they never
+ * run Pulumi themselves.
  */
 export class CoordinatorBox {
 	private readonly ps: Ps;
@@ -76,10 +77,73 @@ export class CoordinatorBox {
 		return summaryOf(out);
 	}
 
-	/** Makes what the stack describes, `pulumi up --yes`; throws the line `pulumi` failed with. */
+	/**
+	 * Makes what the stack describes, `pulumi up --yes`; throws the line
+	 * `pulumi` failed with. The state is refreshed first, so a run after a
+	 * failed one carries on from what is really there: what the failure left
+	 * half made is picked up, and what was deleted by hand is made again.
+	 */
 	async up(): Promise<void> {
 		const infra = await this.infraOrThrow();
+		await this.refresh(infra);
 		await this.pulumi(infra, ["up", "--yes", "--non-interactive"]);
+	}
+
+	/**
+	 * Unmakes everything the stack made, `pulumi destroy --yes`, lifting the
+	 * termination protection the box has first, and forgets the box's login
+	 * and host keys kept here, so a box made next gets its own. The state is
+	 * refreshed first, so what is already gone, such as a deploy key deleted
+	 * by hand, stops nothing. The stack and its config stay for `remove`.
+	 */
+	async destroy(): Promise<void> {
+		const infra = await this.infraOrThrow();
+		const standing = await this.status();
+		if (standing !== null) {
+			const cloud = this.cloud();
+			if ((await cloud.machine(standing.instanceId)) !== null) {
+				await cloud.protect(standing.instanceId, false);
+			}
+		}
+		await this.refresh(infra);
+		await this.pulumi(infra, ["destroy", "--yes", "--non-interactive"]);
+		if (infra.key === undefined) {
+			await this.fs.rm(this.key).catch(() => {});
+			await this.fs.rm(`${this.key}.pub`).catch(() => {});
+		}
+		if (standing !== null && (await this.fs.exists(this.knownHosts))) {
+			const kept = (await this.fs.read(this.knownHosts))
+				.split("\n")
+				.filter((line) => !line.startsWith(`${standing.ipv4} `))
+				.join("\n");
+			await this.fs.write(this.knownHosts, kept);
+		}
+	}
+
+	/**
+	 * Forgets the stack, `pulumi stack rm`, and the infra project recorded
+	 * here, once `destroy` has unmade what it made: Pulumi refuses to remove
+	 * a stack that still has resources. The project's files are the user's
+	 * to delete.
+	 */
+	async remove(): Promise<void> {
+		const infra = await this.infraOrThrow();
+		// A project whose stack was never made, or is gone, is forgotten all the same.
+		await this.pulumi(infra, ["stack", "rm", "--yes"]).catch((error) => {
+			if (!/no stack named/i.test(String(error))) {
+				throw error;
+			}
+		});
+		await this.fs.rm(infraConfigPath(this.home));
+	}
+
+	/** Brings the state in line with what is really there; `--yes` applies every difference. */
+	private async refresh(infra: InfraConfig): Promise<void> {
+		await this.pulumi(infra, ["refresh", "--yes", "--non-interactive"]);
+	}
+
+	private cloud(): BoxCloud {
+		return this.opts.cloud ?? new AwsCloud();
 	}
 
 	/**
@@ -156,7 +220,7 @@ export class CoordinatorBox {
 		if (known.split("\n").some((line) => line.startsWith(`${ipv4} `))) {
 			return;
 		}
-		const cloud = this.opts.cloud ?? new AwsCloud();
+		const cloud = this.cloud();
 		const until = Date.now() + (this.opts.within ?? Duration.mins(10)).ms;
 		let keys: string[] = [];
 		for (;;) {
@@ -183,23 +247,41 @@ export class CoordinatorBox {
 		);
 	}
 
-	private async pulumi(infra: InfraConfig, args: string[]): Promise<string> {
-		const ran = await this.ps.spawnCapture(
-			[
-				"pulumi",
-				...args,
-				...(infra.stack === undefined ? [] : ["--stack", infra.stack]),
-			],
-			{ cwd: infra.dir },
-		);
+	/**
+	 * Runs `pulumi` in the project. A run that a killed one still holds the
+	 * stack's lock against (`pulumi` was stopped mid-update) cancels that
+	 * lock, `pulumi cancel`, and runs once more.
+	 */
+	private async pulumi(
+		infra: InfraConfig,
+		args: string[],
+		cancelled = false,
+	): Promise<string> {
+		const stack = infra.stack === undefined ? [] : ["--stack", infra.stack];
+		const ran = await this.ps.spawnCapture(["pulumi", ...args, ...stack], {
+			cwd: infra.dir,
+		});
 		if (ran.exitCode !== 0) {
+			const output = `${ran.stdout}\n${ran.stderr}`;
+			if (!cancelled && LOCKED.test(output)) {
+				await this.ps.spawnCapture(["pulumi", "cancel", "--yes", ...stack], {
+					cwd: infra.dir,
+				});
+				return this.pulumi(infra, args, true);
+			}
 			throw new Error(
-				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(`${ran.stdout}\n${ran.stderr}`)}`,
+				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(output)}`,
 			);
 		}
 		return ran.stdout;
 	}
 }
+
+/**
+ * How `pulumi` says a stack is locked by an update still in progress: Pulumi
+ * Cloud answers 409, a self-managed backend names the lock.
+ */
+const LOCKED = /another update is currently in progress|currently locked by/i;
 
 /**
  * The line that says what a failed `pulumi` run failed on: the first
@@ -270,12 +352,20 @@ export interface CoordinatorBoxOptions {
 	fs?: Fs;
 	/** splates's home, where the infra project is recorded and the box's SSH files are. */
 	home?: string;
-	/** Reads an instance's console, as AWS here does by default. */
-	cloud?: { consoleOutput(id: string): Promise<string> };
+	/** The cloud the box is in, AWS here by default. */
+	cloud?: BoxCloud;
 	/** How long the box has to print its host keys. */
 	within?: Duration;
 	/** How it waits between looks at the console. */
 	wait?: (duration: Duration) => Promise<void>;
+}
+
+/** What the box's cloud answers about it: its console, whether it is there, and its termination protection. */
+export interface BoxCloud {
+	consoleOutput(id: string): Promise<string>;
+	/** The instance, or null once it is gone. */
+	machine(id: string): Promise<unknown>;
+	protect(id: string, on: boolean): Promise<void>;
 }
 
 /** The box as its stack says it stands. */

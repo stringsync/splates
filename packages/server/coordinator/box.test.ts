@@ -3,7 +3,8 @@ import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { CoordinatorBox, hostKeys } from "./box";
-import { writeInfraConfig } from "./infra";
+import { infraConfigPath, writeInfraConfig } from "./infra";
+import { FakeBoxCloud } from "./testing";
 
 const HOME = "/Users/me/.splates";
 const OUTPUTS = {
@@ -24,36 +25,22 @@ const CONSOLE = [
 	"",
 ].join("\n");
 
-/** `pulumi`, remembering where it ran and what it was asked. */
-class PulumiPs extends FakePs {
-	readonly asked: { argv: string[]; cwd: string | undefined }[] = [];
-	outputs: unknown = OUTPUTS;
-
-	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
-		await super.spawnCapture(argv, opts);
-		this.asked.push({ argv, cwd: opts?.cwd });
-		const stdout = argv.includes("sshKey")
-			? "PRIVATE KEY\n"
-			: JSON.stringify(this.outputs);
-		return { exitCode: 0, stdout, stderr: "" };
-	}
-}
-
 describe("CoordinatorBox", () => {
 	let fs: FakeFs;
 	let ps: PulumiPs;
-	let consoles: string[];
+	let cloud: FakeBoxCloud;
 	let box: CoordinatorBox;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
 		ps = new PulumiPs();
-		consoles = [CONSOLE];
+		cloud = new FakeBoxCloud();
+		cloud.consoles = [CONSOLE];
 		box = new CoordinatorBox({
 			fs,
 			ps,
 			home: HOME,
-			cloud: { consoleOutput: async () => consoles.shift() ?? "" },
+			cloud,
 			within: Duration.ms(20),
 			wait: async () => {},
 		});
@@ -118,12 +105,12 @@ describe("CoordinatorBox", () => {
 	});
 
 	it("waits for the console to print the keys, and says so when it never does", async () => {
-		consoles = ["", "", CONSOLE];
+		cloud.consoles = ["", "", CONSOLE];
 		await box.ready();
 		expect(await fs.exists(`${HOME}/coordinator/known_hosts`)).toBe(true);
 
 		await fs.rm(`${HOME}/coordinator/known_hosts`);
-		consoles = [];
+		cloud.consoles = [];
 		await expect(box.ready()).rejects.toThrow("has not printed its host keys");
 	});
 
@@ -134,6 +121,119 @@ describe("CoordinatorBox", () => {
 		expect(await fs.exists(`${HOME}/coordinator/id_ed25519`)).toBe(false);
 	});
 
+	it("refreshes the state before `pulumi up`, so a run after a failed one carries on from what is there", async () => {
+		await box.up();
+
+		expect(ps.commands).toEqual(["refresh", "up"]);
+		expect(ps.asked[0]?.argv).toEqual([
+			"pulumi",
+			"refresh",
+			"--yes",
+			"--non-interactive",
+			"--stack",
+			"prod",
+		]);
+	});
+
+	it("cancels the lock a killed run left on the stack, and runs once more", async () => {
+		ps.failures = [
+			{
+				command: "up",
+				output:
+					"error: [409] Conflict: Another update is currently in progress.\n",
+			},
+		];
+
+		await box.up();
+
+		expect(ps.commands).toEqual(["refresh", "up", "cancel", "up"]);
+		expect(ps.asked[2]?.argv).toEqual([
+			"pulumi",
+			"cancel",
+			"--yes",
+			"--stack",
+			"prod",
+		]);
+	});
+
+	it("gives up on a stack still locked after cancelling, with pulumi's line", async () => {
+		const locked =
+			"error: [409] Conflict: Another update is currently in progress.\n";
+		ps.failures = [
+			{ command: "up", output: locked },
+			{ command: "up", output: locked },
+		];
+
+		await expect(box.up()).rejects.toThrow("Another update is currently");
+		expect(ps.commands).toEqual(["refresh", "up", "cancel", "up"]);
+	});
+
+	it("destroys the stack after lifting the box's protection, and forgets its keys", async () => {
+		await box.ready();
+
+		await box.destroy();
+
+		expect(cloud.protections).toEqual([["i-0abc", false]]);
+		expect(ps.commands.slice(-2)).toEqual(["refresh", "destroy"]);
+		expect(ps.asked.at(-1)?.argv).toEqual([
+			"pulumi",
+			"destroy",
+			"--yes",
+			"--non-interactive",
+			"--stack",
+			"prod",
+		]);
+		expect(await fs.exists(`${HOME}/coordinator/id_ed25519`)).toBe(false);
+		expect(await fs.read(`${HOME}/coordinator/known_hosts`)).toBe("");
+	});
+
+	it("destroys a stack whose box is already gone without touching its protection", async () => {
+		cloud.there = false;
+
+		await box.destroy();
+
+		expect(cloud.protections).toEqual([]);
+		expect(ps.commands.slice(-2)).toEqual(["refresh", "destroy"]);
+	});
+
+	it("leaves the user's own key when destroying", async () => {
+		await writeInfraConfig(fs, HOME, {
+			dir: "/code/infra",
+			stack: "prod",
+			key: "/me/key",
+		});
+		await fs.write("/me/key", "MINE\n");
+
+		await box.destroy();
+
+		expect(await fs.read("/me/key")).toBe("MINE\n");
+	});
+
+	it("removes the stack and forgets the project", async () => {
+		await box.remove();
+
+		expect(ps.asked.at(-1)?.argv).toEqual([
+			"pulumi",
+			"stack",
+			"rm",
+			"--yes",
+			"--stack",
+			"prod",
+		]);
+		expect(await fs.exists(infraConfigPath(HOME))).toBe(false);
+		expect(await box.status()).toBeNull();
+	});
+
+	it("forgets a project whose stack was never made", async () => {
+		ps.failures = [
+			{ command: "stack", output: "error: no stack named 'prod' found\n" },
+		];
+
+		await box.remove();
+
+		expect(await fs.exists(infraConfigPath(HOME))).toBe(false);
+	});
+
 	it("reads only host keys from a console's key block", () => {
 		expect(hostKeys(CONSOLE)).toEqual([
 			"ecdsa-sha2-nistp256 AAAAecdsa",
@@ -142,3 +242,32 @@ describe("CoordinatorBox", () => {
 		expect(hostKeys("no keys yet")).toEqual([]);
 	});
 });
+
+/**
+ * `pulumi`, remembering where it ran and what it was asked, and failing each
+ * command `failures` names next, in order, with its output.
+ */
+class PulumiPs extends FakePs {
+	readonly asked: { argv: string[]; cwd: string | undefined }[] = [];
+	outputs: unknown = OUTPUTS;
+	failures: { command: string; output: string }[] = [];
+
+	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
+		await super.spawnCapture(argv, opts);
+		this.asked.push({ argv, cwd: opts?.cwd });
+		const failure = this.failures[0];
+		if (failure !== undefined && argv[1] === failure.command) {
+			this.failures.shift();
+			return { exitCode: 1, stdout: "", stderr: failure.output };
+		}
+		const stdout = argv.includes("sshKey")
+			? "PRIVATE KEY\n"
+			: JSON.stringify(this.outputs);
+		return { exitCode: 0, stdout, stderr: "" };
+	}
+
+	/** Each `pulumi` command run, as "refresh", "up". */
+	get commands(): string[] {
+		return this.asked.map(({ argv }) => argv[1] as string);
+	}
+}
