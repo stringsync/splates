@@ -106,9 +106,7 @@ describe("CoordinatorMove", () => {
 		const refused = await move.run().catch((error: Error) => error.message);
 
 		expect(refused).toContain("pulumi up");
-		expect(refused).toContain(
-			`add \`remote: "origin"\` to ${ROOT}/splates.config.ts`,
-		);
+		expect(refused).toContain(`unless ${ROOT}/splates.config.ts sets`);
 		expect(refused).toContain("web's origin is https://github.com/me/web.git");
 		expect(ps.scripts).toEqual([]);
 	});

@@ -3,7 +3,6 @@ export { SETUP_AREAS } from "./areas";
 export type { AwsAccess } from "./aws-access";
 export {
 	CoordinatorMoveRoutes,
-	coordinatorMoved,
 	type MoveProgress,
 } from "./coordinator-move";
 export type { FieldProgress } from "./fields";

@@ -14,8 +14,10 @@ export interface Config {
 	 * after every commit and at every checkpoint, so a task outlives the
 	 * machine it runs on: the project's GitHub origin, as `"origin"`. With
 	 * one, trunk is the remote's: a merge rebases onto it and the
-	 * coordinator alone pushes it. Null, the default, pushes nothing, and
-	 * tasks live on this machine alone.
+	 * coordinator alone pushes it. Unset, it is `"origin"` where the
+	 * coordinator is deployed or being and `origin` is an SSH URL, and null
+	 * elsewhere, which pushes nothing, so tasks live on this machine alone;
+	 * `null` set here keeps it so everywhere.
 	 */
 	remote: string | null;
 	/** Directory holding one worktree per task, a sibling of the repo. */

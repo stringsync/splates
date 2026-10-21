@@ -2,6 +2,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
+import { sshUrl } from "../git";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
 import type { TunnelRecord } from "../tunnel/saved";
@@ -521,7 +522,7 @@ export function remoteProblem(
 	repo: Pick<MoveRepo, "slug" | "root" | "remote" | "url">,
 ): string | null {
 	if (repo.remote === null) {
-		return `${repo.slug} names no central remote, which this machine checks it out from as a worker: add \`remote: "origin"\` to ${repo.root}/splates.config.ts`;
+		return `${repo.slug} has no central remote, which this machine checks it out from as a worker: its \`origin\` must be an SSH URL, as git@github.com:<owner>/<repo>.git, unless ${repo.root}/splates.config.ts sets \`remote: null\` on purpose`;
 	}
 	if (repo.url === null) {
 		return `${repo.slug} has no remote ${repo.remote}`;
@@ -530,9 +531,4 @@ export function remoteProblem(
 		return `${repo.slug}'s ${repo.remote} is ${repo.url}, which a deploy key cannot push to: make it an SSH URL, as git@github.com:<owner>/<repo>.git`;
 	}
 	return null;
-}
-
-/** Whether git reaches `url` over SSH, as a deploy key signs in. */
-function sshUrl(url: string): boolean {
-	return /^ssh:\/\//.test(url) || /^[\w.-]+@[\w.-]+:/.test(url);
 }

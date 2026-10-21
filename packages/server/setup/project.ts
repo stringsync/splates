@@ -11,7 +11,7 @@ export function setupProjectAt(
 	const git = new Git(root, { fs, ps });
 	return {
 		root,
-		config: () => loadConfig(root, { fs, git }),
+		config: () => loadConfig(root, { fs, git, coordinated: async () => true }),
 		remoteUrl: (remote) => git.remoteUrl(remote),
 	};
 }

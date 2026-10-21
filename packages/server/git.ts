@@ -643,3 +643,10 @@ export function processGit(ps: Ps): GitRunner {
 		},
 	};
 }
+
+/** Whether git reaches `url` over SSH, as a deploy key signs in. */
+export function sshUrl(url: string | null): boolean {
+	return (
+		url !== null && (/^ssh:\/\//.test(url) || /^[\w.-]+@[\w.-]+:/.test(url))
+	);
+}

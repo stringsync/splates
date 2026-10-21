@@ -2,6 +2,7 @@ import {
 	BoxShell,
 	type BoxStanding,
 	CoordinatorBox,
+	coordinatorMoved,
 	deployKey,
 	machineMove,
 	neededCreds,
@@ -14,7 +15,6 @@ import {
 	type SplatesDeps,
 	serveDev,
 } from "@stringsync/splates-server/server";
-import { coordinatorMoved } from "@stringsync/splates-server/setup";
 import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";

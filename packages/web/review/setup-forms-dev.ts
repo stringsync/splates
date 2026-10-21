@@ -34,9 +34,7 @@ const PLANS: Record<string, unknown> = {
 				id: "coordinator-remotes",
 				title: "Name each project's remote",
 				removes: [],
-				leaves: [
-					'`remote: "origin"` stays in each project\'s `splates.config.ts`: land a change to take it out',
-				],
+				leaves: ["Each project's SSH origin: harmless kept."],
 			},
 			{
 				id: "coordinator-up",

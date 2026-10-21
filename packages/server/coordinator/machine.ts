@@ -98,7 +98,7 @@ async function moveRepo(
 ): Promise<MoveRepo> {
 	const repo = await openRepository(
 		{ ps: deps.ps, fs: deps.fs, log: deps.log, secrets: deps.stores },
-		{ at: project.root },
+		{ at: project.root, coordinated: true },
 	);
 	const { remote, trunk, worktreeRoot } = repo.config;
 	return {

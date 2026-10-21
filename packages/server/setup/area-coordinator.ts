@@ -2,6 +2,7 @@ import { MemoryLogger } from "webappwiz/log";
 import {
 	CoordinatorBox,
 	type CoordinatorMove,
+	coordinatorMoved,
 	type Moved,
 	machineMove,
 	remoteProblem,
@@ -12,7 +13,7 @@ import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { awsAccessStep } from "./aws-access";
-import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
+import { moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
@@ -113,11 +114,11 @@ export function coordinatorArea(
 
 	const remotesStep: SetupStep = {
 		id: "coordinator-remotes",
-		title: "Name each project's remote",
-		why: "The box keeps a clone of each project, and this Mac checks tasks out from it as a worker, both through the remote each project's `splates.config.ts` names, reached over SSH so the box's deploy key can push.",
-		user: 'Add `remote: "origin"` to each project\'s `splates.config.ts`, with an SSH origin such as `git@github.com:<owner>/<repo>.git`, then press Next.',
+		title: "Give each project an SSH origin",
+		why: "The box keeps a clone of each project, and this Mac checks tasks out from it as a worker, both through each project's `origin`, which an unset `remote` in its `splates.config.ts` means once the server moves, reached over SSH so the box's deploy key can push.",
+		user: "Make each project's origin an SSH URL such as `git@github.com:<owner>/<repo>.git`, then press Next.",
 		agent:
-			'For each project the step\'s detail lists, have a task in that project add `remote: "origin"` to its `splates.config.ts` and land it, and make its origin an SSH URL (`git remote set-url origin git@github.com:<owner>/<repo>.git`) if it is not. `splates server deploy --dry-run` lists what is still missing.',
+			"For each project the step's detail lists, make its origin an SSH URL (`git remote set-url origin git@github.com:<owner>/<repo>.git`) if it is not, and take any `remote: null` out of its `splates.config.ts` in a task of that project. `splates server deploy --dry-run` lists what is still missing.",
 		optional: true,
 		after: [],
 		check: async (machine) =>
@@ -131,12 +132,10 @@ export function coordinatorArea(
 			return problems.length === 0 ? null : `Still: ${problems.join("; ")}.`;
 		},
 		notDone:
-			"Not every project names an SSH remote yet: the step lists what is missing.",
+			"Not every project has an SSH origin yet: the step lists what is missing.",
 		undo: {
 			removes: async () => [],
-			leaves: async () => [
-				'`remote: "origin"` in each project\'s `splates.config.ts`, and its SSH origin: harmless kept, or take them out in a task of that project.',
-			],
+			leaves: async () => ["Each project's SSH origin: harmless kept."],
 			refused: movedRefusal,
 			run: async () => {},
 		},

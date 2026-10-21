@@ -6,12 +6,12 @@ import {
 	accessEnvironmentSignsIn,
 	CLOUDSHELL_URL,
 	CoordinatorBox,
+	coordinatorMoved,
 	pulumiOrg,
 	writeAccessEnvironment,
 } from "../coordinator";
 import { importEnvironment } from "../infra/init";
 import { cloudAccepted } from "./cloud";
-import { coordinatorMoved } from "./coordinator-move";
 import type { SetupStep } from "./setup";
 
 /** What the access step hands its page: the CloudShell line to paste, filled in for the user's Pulumi organization. */

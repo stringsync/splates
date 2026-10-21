@@ -3,7 +3,7 @@ import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
 import { CloudWorkers } from "../cloud";
-import { Git } from "../git";
+import { Git, sshUrl } from "../git";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 
@@ -22,6 +22,12 @@ export interface LoadConfigOptions {
 	fs?: Fs;
 	/** What the trunk is detected through; the repo's own git by default. */
 	git?: Git;
+	/**
+	 * Whether the coordinator is deployed here or being: an unset `remote`
+	 * is then `"origin"` when that is an SSH URL. Never by default, since a
+	 * remote changes how the project merges.
+	 */
+	coordinated?: () => Promise<boolean>;
 }
 
 /**
@@ -40,7 +46,15 @@ export async function loadConfig(
 		found.trunk ??
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
+	const git = opts.git ?? new Git(root);
 	const config = { ...defaults(root, trunk), ...found };
+	if (
+		found.remote === undefined &&
+		(await opts.coordinated?.()) === true &&
+		sshUrl(await git.remoteUrl("origin"))
+	) {
+		config.remote = "origin";
+	}
 	return config.workerProvider === null && config.cloud !== null
 		? { ...config, workerProvider: new CloudWorkers(config.cloud) }
 		: config;
