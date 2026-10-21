@@ -106,9 +106,8 @@ export function AgentMark({
 	name?: string;
 	className?: string;
 }): JSX.Element {
-	const gradient = useId();
 	const hidden = name === undefined;
-	if (agent === "claude") {
+	if (hasColors(agent)) {
 		return (
 			<svg
 				role={hidden ? undefined : "img"}
@@ -117,35 +116,7 @@ export function AgentMark({
 				viewBox="0 0 24 24"
 				className={cn("size-4 shrink-0", className)}
 			>
-				<path fill="#D97757" d={MARKS.claude?.path} />
-			</svg>
-		);
-	}
-	if (agent === "codex") {
-		return (
-			<svg
-				role={hidden ? undefined : "img"}
-				aria-label={name}
-				aria-hidden={hidden || undefined}
-				viewBox="0 0 24 24"
-				className={cn("size-4 shrink-0", className)}
-			>
-				<defs>
-					<linearGradient
-						id={gradient}
-						gradientUnits="userSpaceOnUse"
-						x1="12"
-						x2="12"
-						y1="3"
-						y2="21"
-					>
-						<stop stopColor="#B1A7FF" />
-						<stop offset=".5" stopColor="#7A9DFF" />
-						<stop offset="1" stopColor="#3941FF" />
-					</linearGradient>
-				</defs>
-				<path fill="#fff" d={BRANDS.codex.tile} />
-				<path fill={`url(#${gradient})`} d={BRANDS.codex.cloud} />
+				<ColoredMark agent={agent} />
 			</svg>
 		);
 	}
@@ -153,6 +124,45 @@ export function AgentMark({
 		<BotIcon aria-hidden className={cn("size-4", className)} />
 	) : (
 		<AgentIcon agent={agent} name={name} className={className} />
+	);
+}
+
+/** Whether the agent has its maker's colors here, for `ColoredMark` to draw. */
+export function hasColors(agent: string): boolean {
+	return agent === "claude" || agent === "codex";
+}
+
+/**
+ * The shapes of the agent's mark in its maker's colors, on a 24 by 24 box,
+ * for an svg to hold; nothing for an agent without colors here.
+ */
+export function ColoredMark({ agent }: { agent: string }): JSX.Element | null {
+	const gradient = useId();
+	if (agent === "claude") {
+		return <path fill="#D97757" d={MARKS.claude?.path} />;
+	}
+	if (agent !== "codex") {
+		return null;
+	}
+	return (
+		<>
+			<defs>
+				<linearGradient
+					id={gradient}
+					gradientUnits="userSpaceOnUse"
+					x1="12"
+					x2="12"
+					y1="3"
+					y2="21"
+				>
+					<stop stopColor="#B1A7FF" />
+					<stop offset=".5" stopColor="#7A9DFF" />
+					<stop offset="1" stopColor="#3941FF" />
+				</linearGradient>
+			</defs>
+			<path fill="#fff" d={BRANDS.codex.tile} />
+			<path fill={`url(#${gradient})`} d={BRANDS.codex.cloud} />
+		</>
 	);
 }
 

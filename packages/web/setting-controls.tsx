@@ -29,7 +29,7 @@ import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
 import { useWide } from "./app-nav";
-import { AutoIcon } from "./auto-brand";
+import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import type { AutoPickControl } from "./auto-pick-switch";
 
 /** The Model picker's value for Auto pick, among the models. */
@@ -191,8 +191,8 @@ function InlineSettings({
 /**
  * The settings behind one button that opens them in a dialog, as a phone's
  * row shows them; the button names the model, the setting that says the most
- * about how the next reply goes, beside Auto pick's sparkles while it picks,
- * else the agent's mark in its maker's colors. Auto pick's switch leads the
+ * about how the next reply goes, beside the agent's mark in its maker's
+ * colors, split with Auto pick's sparkles while it picks. Auto pick's switch leads the
  * dialog.
  */
 function SettingsDialog({
@@ -223,8 +223,13 @@ function SettingsDialog({
 					"inline-flex max-w-48 items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				)}
 			>
-				{/* Who answers next in color: Auto pick, or the agent's maker. */}
-				{auto ? (
+				{/* Who answers next in color: the agent's maker, split with Auto pick while it picks. */}
+				{auto && agent !== undefined ? (
+					<AutoAgentMark
+						agent={agent}
+						className="size-3 pointer-coarse:size-4"
+					/>
+				) : auto ? (
 					<AutoIcon colored className="shrink-0" />
 				) : agent !== undefined ? (
 					<AgentMark agent={agent} className="size-3 pointer-coarse:size-4" />
@@ -382,7 +387,7 @@ function SettingSelect({
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
-	/** The agent whose mark leads the picker, as it leads a phone's settings button. */
+	/** The agent whose mark leads the picker, as it leads a phone's settings button, split with Auto pick's while it picks. */
 	agent?: string | undefined;
 	/** Auto pick, offered first among the models. */
 	autoPick?: AutoPickControl | undefined;
@@ -434,8 +439,10 @@ function SettingSelect({
 				{!inDialog && !UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
-				{/* Who answers next in color: Auto pick, or the agent's maker. */}
-				{auto ? (
+				{/* Who answers next in color: the agent's maker, split with Auto pick while it picks. */}
+				{auto && agent !== undefined ? (
+					<AutoAgentMark agent={agent} className="size-3" />
+				) : auto ? (
 					<AutoIcon colored className="shrink-0" />
 				) : (
 					agent !== undefined && <AgentMark agent={agent} className="size-3" />

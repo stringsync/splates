@@ -143,6 +143,18 @@ describe("composer setting controls", () => {
 		const mark = view.getByRole("combobox").querySelector("svg path");
 		expect(mark?.getAttribute("fill")).toBe("#D97757");
 	});
+	it("splits the model picker's mark with Auto pick's sparkles while Auto pick picks", () => {
+		view.rerender(
+			<SettingControls
+				{...props}
+				agent="claude"
+				autoPick={{ on: true, switch: () => {} }}
+			/>,
+		);
+		const combobox = view.getByRole("combobox");
+		expect(combobox.querySelectorAll("clipPath")).toHaveLength(2);
+		expect(combobox.querySelector('path[fill="#D97757"]')).toBeTruthy();
+	});
 	it("collapses a crowded row even when its individual labels are short", () => {
 		layout.available = 80;
 		const settings = [
