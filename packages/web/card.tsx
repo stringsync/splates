@@ -111,6 +111,11 @@ export function Card({
 				{/* One quiet line of what there is to know, in plain text. */}
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 					<CopyLink id={todo.id} />
+					{todo.slug !== undefined && (
+						<span className="min-w-0 truncate" title="Its slug">
+							{todo.slug}
+						</span>
+					)}
 					<StageBadge todo={todo} />
 					{/* Groomed with no agent named, it runs on whichever is picked then. */}
 					{todo.takenBy === null &&

@@ -133,6 +133,7 @@ export function Edit({
 				<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
 					<CopyLink id={todo.id} />
 					<span>
+						{todo.slug !== undefined && ` · ${todo.slug}`}
 						{" · "}
 						added {age(todo.createdAt)} ago
 						{todo.files.length > 0 &&
