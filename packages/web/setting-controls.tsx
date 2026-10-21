@@ -40,6 +40,9 @@ const AUTO = "\u0000auto-pick";
  * small, so the row holds them all on one line; under a finger, tall enough
  * to tap.
  */
+/** The agent's own suffix on its default model, too wide for the composer's trigger. */
+const RECOMMENDED = / \(recommended\)$/i;
+
 export const IN_COMPOSER =
 	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
@@ -421,7 +424,9 @@ function SettingSelect({
 				className={
 					inDialog
 						? "h-auto min-h-11 w-full min-w-0 whitespace-normal *:data-[slot=select-value]:line-clamp-none"
-						: IN_COMPOSER
+						: agent !== undefined
+							? `${IN_COMPOSER} gap-1.5`
+							: IN_COMPOSER
 				}
 			>
 				{/* A mode, model, or effort says what it is by its value; "Off"
@@ -444,7 +449,9 @@ function SettingSelect({
 				>
 					{auto
 						? `Auto · ${settingLabel(setting, value)}`
-						: settingLabel(setting, value)}
+						: inDialog
+							? settingLabel(setting, value)
+							: settingLabel(setting, value).replace(RECOMMENDED, "")}
 				</SelectValue>
 			</SelectTrigger>
 			<SelectContent
