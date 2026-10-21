@@ -17,8 +17,7 @@ import { stageOf } from "./todo-queue";
  * allow because splates refuses it an agent: queue work, a lane whole or
  * tasks one by one, or remove a lane with its tasks. Its button is the
  * person's own write to the board, never a reply the agent acts on, as is the
- * command it gives to run in a terminal instead; Later leaves things as they
- * are.
+ * command it gives to run in a terminal instead.
  */
 export const PermissionUI = makeAssistantDataUI<{
 	permission: PermissionProposal;

@@ -81,7 +81,7 @@ card: `## 🔐 Permission: queue lane <n>: <name>`, `## 🔐 Permission: queue
 #<n>, #<n>: <what>` or `## 🔐 Permission: remove lane <n>: <name>`, then the
 command that does it in a code span on its own line, and a line or two on
 what it comes to. The page lists the tasks it queues or removes and gives the
-user Now and Later. The queue card ends your reply with work you added (see
+user Now. The queue card ends your reply with work you added (see
 [queue.md](queue.md), Asking the user to queue), after any report, a merge or
 remove report too. Removing a lane takes its tasks with it, kept to restore,
 and `splates lane remove` is refused an agent, so ask with the card, naming

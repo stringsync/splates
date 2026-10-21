@@ -89,21 +89,6 @@ describe("App's permission card", () => {
 		]);
 	});
 
-	it("leaves the work on the board on Later", async () => {
-		const view = await testing.openConversations([asking], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "queue Billing export" }),
-		);
-		const sent = testing.posts.length;
-
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: /Later/ })),
-		);
-
-		expect(card.textContent).toContain("Left for you to do");
-		expect(testing.posts.length).toBe(sent);
-	});
-
 	it("shows what removing a lane takes with it, and Remove now removes it from the page", async () => {
 		const removing = conversation({
 			title: "Billing",

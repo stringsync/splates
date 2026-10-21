@@ -1,7 +1,6 @@
 import {
 	ArchiveIcon,
 	CheckIcon,
-	ClockIcon,
 	CopyIcon,
 	type LucideIcon,
 } from "lucide-react";
@@ -34,7 +33,7 @@ export interface Action {
 /**
  * The frame of a card through which an agent asks the person to have splates
  * do what it may not: what it asks, the command to run it in a terminal, and
- * Later and the action's own button at the foot's right. Once its button has
+ * the action's own button at the foot's right. Once its button has
  * done it, it offers to archive the conversation, whose work splates now has.
  */
 export function ActionCard({
@@ -60,8 +59,6 @@ export function ActionCard({
 	children?: ReactNode;
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
-	// Purely this page's: Later changes nothing anywhere.
-	const [later, setLater] = useState(false);
 	// Whether this card's button did it, shown at once, so it offers to
 	// archive the conversation; not when it was done some other way.
 	const [doneHere, setDoneHere] = useState(false);
@@ -104,27 +101,10 @@ export function ActionCard({
 						)}
 					</>
 				) : (
-					<>
-						{later ? (
-							<span className="text-muted-foreground text-xs">
-								Left for you to do when you choose
-							</span>
-						) : (
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => setLater(true)}
-								className="gap-1.5"
-							>
-								<ClockIcon data-icon="inline-start" />
-								Later
-							</Button>
-						)}
-						<Button size="sm" onClick={run} className="gap-1.5">
-							<action.VerbIcon data-icon="inline-start" />
-							{action.verb}
-						</Button>
-					</>
+					<Button size="sm" onClick={run} className="gap-1.5">
+						<action.VerbIcon data-icon="inline-start" />
+						{action.verb}
+					</Button>
 				)}
 			</div>
 			<Refusal refusal={refusal} />
