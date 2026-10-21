@@ -6,6 +6,7 @@ import type {
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { ImproveMenu, improvable } from "./eval-improve";
 import { ORDER, StatusChip, spent } from "./eval-status";
 
 /**
@@ -105,6 +106,12 @@ export function EvalReport({
 										<div className="text-muted-foreground text-xs">
 											{row.requirement}
 										</div>
+										{worst(row.cells) !== null && (
+											<ImproveMenu
+												run={worst(row.cells) ?? ""}
+												className="mt-1"
+											/>
+										)}
 									</td>
 									{grid.targets.map((target) => (
 										<td key={target.key} className="px-2 py-1.5 align-top">
@@ -160,6 +167,14 @@ function Cells({
 				),
 			)}
 		</span>
+	);
+}
+
+/** The id of the first landed run of `cells` worth improving, or null for none. */
+function worst(cells: EvalCell[]): string | null {
+	return (
+		cells.find((cell) => cell.run !== null && improvable(cell.run.status))?.run
+			?.id ?? null
 	);
 }
 

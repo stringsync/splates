@@ -8,6 +8,7 @@ import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
+import { ImproveMenu, improvable } from "./eval-improve";
 import { targetLabel } from "./eval-report";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
@@ -71,6 +72,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 					{run.aspect} · {run.requirement} · {spent(run)}
 				</p>
 				<p className="text-sm">{run.requirementText}</p>
+				{improvable(run.status) && <ImproveMenu run={run} className="mt-1" />}
 			</header>
 			{run.termination !== "stop" && (
 				<p
