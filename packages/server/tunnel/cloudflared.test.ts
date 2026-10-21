@@ -8,10 +8,34 @@ describe("CloudflaredTunnelProvider", () => {
 	let ps: FakePs;
 	let log: MemoryLogger;
 
+	let waits: number[];
+	let exited: boolean;
+	const waiter = {
+		wait: async (ms: number) => {
+			waits.push(ms);
+		},
+	};
+
 	beforeEach(() => {
 		ps = new FakePs();
 		log = new MemoryLogger();
+		waits = [];
+		exited = false;
+		ps.once("exit", () => {
+			exited = true;
+		});
 	});
+
+	/** Fails each child as it starts, `count` of them, each printing its number. */
+	async function failChildren(count: number) {
+		for (const index of Array.from({ length: count }, (_, i) => i)) {
+			await Bun.sleep(10);
+			const child = ps.getChildren()[index];
+			child?.printError(`boom ${index}\n`);
+			child?.exit(1);
+		}
+		await Bun.sleep(20);
+	}
 
 	it("runs cloudflared at the url, says once where it is up, and stops on dispose", async () => {
 		const run = new CloudflaredTunnelProvider(ps, "mine").run({
@@ -38,6 +62,46 @@ describe("CloudflaredTunnelProvider", () => {
 				message: "splates server reachable at https://splates.example.com",
 			}),
 		]);
+	});
+
+	it("restarts cloudflared that exits on its own, waiting longer each time", async () => {
+		const run = new CloudflaredTunnelProvider(ps, "mine", null, { waiter });
+		run.run({ host: "h.example.com", url: "http://localhost:1", log });
+		await failChildren(2);
+
+		expect(ps.getChildren()).toHaveLength(3);
+		expect(waits).toEqual([1000, 2000]);
+		expect(log.entries[0]?.message).toContain("boom 0");
+		expect(exited).toBe(false);
+	});
+
+	it("exits the server after repeated fast failures", async () => {
+		new CloudflaredTunnelProvider(ps, "mine", null, { waiter }).run({
+			host: "h.example.com",
+			url: "http://localhost:1",
+			log,
+		});
+		await failChildren(5);
+
+		expect(ps.getChildren()).toHaveLength(5);
+		expect(waits).toEqual([1000, 2000, 4000, 8000]);
+		expect(log.entries.at(-1)?.message).toContain("exiting splates server");
+		expect(exited).toBe(true);
+	});
+
+	it("does not restart cloudflared the server stopped", async () => {
+		const run = new CloudflaredTunnelProvider(ps, "mine").run({
+			host: "h.example.com",
+			url: "http://localhost:1",
+			log,
+		});
+		const [child] = ps.getChildren();
+		await run.disposeAsync();
+		child?.exit(143);
+		await Bun.sleep(20);
+
+		expect(ps.getChildren()).toHaveLength(1);
+		expect(log.entries).toEqual([]);
 	});
 
 	it("hands a token over in the environment, never the argv", async () => {
