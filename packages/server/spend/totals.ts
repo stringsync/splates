@@ -15,6 +15,15 @@ export interface SpendEntry {
 	project: string | null;
 	task: string | null;
 	conversation: string | null;
+	/** For an amount a provider billed: a stable key, so pulling it again adds nothing. */
+	ref?: string;
+	/** For an amount billed in another currency: what was billed and the rate it was converted at. */
+	original?: {
+		amount: number;
+		currency: string;
+		rate: number;
+		rateDate: string;
+	};
 }
 
 export type Period = "day" | "week" | "month";

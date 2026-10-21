@@ -93,3 +93,47 @@ test("a turn is the agent's said cost, else its tokens at list price", () => {
 		turnSpend("codex", "nope", used({}), used({ input: 5 }), catalog),
 	).toBeNull();
 });
+
+test("pulling billing converts, dedupes, and reports what it cannot reach", async () => {
+	const { pullBilling } = await import("./index");
+	const spend = new Spend(new MemoryStorage());
+	const fetcher = (async (url: string) => {
+		if (url.includes("openai.com")) {
+			return Response.json({
+				data: [
+					{
+						start_time: Date.parse("2026-10-19T00:00:00Z") / 1000,
+						results: [
+							{ amount: { value: 2, currency: "eur" }, line_item: "whisper" },
+						],
+					},
+				],
+			});
+		}
+		if (url.includes("frankfurter")) {
+			return Response.json({ date: "2026-10-19", rates: { USD: 1.1 } });
+		}
+		return new Response("no", { status: 500 });
+	}) as unknown as typeof fetch;
+	const options = {
+		cred: async (name: string) =>
+			name === "OPENAI_ADMIN_KEY" || name === "CLOUDFLARE_API_TOKEN"
+				? "k"
+				: undefined,
+		fetcher,
+		today: "2026-10-21",
+	};
+	const statuses = await pullBilling(spend, options);
+	expect(statuses.map((each) => [each.provider, each.state])).toEqual([
+		["openai", "ok"],
+		["cloudflare", "unreachable"],
+		["digitalocean", "missing"],
+		["hetzner", "manual"],
+		["aws", "manual"],
+		["typesafe", "manual"],
+	]);
+	await pullBilling(spend, options);
+	const [row] = await spend.totals({ by: "service", provider: "openai" });
+	expect(row?.billed).toBeCloseTo(2.2);
+	expect((await spend.entries())[0]?.original?.currency).toBe("EUR");
+});
