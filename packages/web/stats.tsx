@@ -2,12 +2,12 @@ import type { SkillVersion } from "@stringsync/splates-server/stats/browser";
 import { useReactive } from "@webappwiz/react";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
-import { Tabs, TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -82,24 +82,26 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				title="Stats"
 				actions={[projectFilter(report, project, options)]}
 			/>
-			<Tabs
-				className="sticky top-0 z-10 -mt-2 items-center bg-background py-2"
-				value={period.id}
-				onValueChange={(id) => {
-					const chosen = PERIODS.find((each) => each.id === id);
-					if (chosen !== undefined) {
-						void report.choose(chosen);
-					}
-				}}
+			{/* Not Tabs: under the app's vertical Tabs it would lay out as a column. */}
+			<div
+				role="radiogroup"
+				aria-label="Period"
+				className="sticky top-0 z-10 -mt-2 flex justify-center gap-1 overflow-x-auto bg-background py-2"
 			>
-				<TabsList aria-label="Period" className="max-w-full overflow-x-auto">
-					{PERIODS.map((each) => (
-						<TabsTrigger key={each.id} value={each.id}>
-							{each.label}
-						</TabsTrigger>
-					))}
-				</TabsList>
-			</Tabs>
+				{PERIODS.map((each) => (
+					<Button
+						key={each.id}
+						type="button"
+						role="radio"
+						aria-checked={each.id === period.id}
+						variant={each.id === period.id ? "secondary" : "ghost"}
+						size="sm"
+						onClick={() => void report.choose(each)}
+					>
+						{each.label}
+					</Button>
+				))}
+			</div>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

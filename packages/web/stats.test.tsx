@@ -302,14 +302,14 @@ describe("StatsPage", () => {
 		await waitFor(() => page.getByText(/tasks ended/));
 
 		await act(async () =>
-			fireEvent.click(page.getByRole("tab", { name: "All time" })),
+			fireEvent.click(page.getByRole("radio", { name: "All time" })),
 		);
 
 		await waitFor(() =>
 			expect(
 				page
-					.getByRole("tab", { name: "All time" })
-					.getAttribute("aria-selected"),
+					.getByRole("radio", { name: "All time" })
+					.getAttribute("aria-checked"),
 			).toBe("true"),
 		);
 		expect(asked).toEqual(["7d", "all"]);
