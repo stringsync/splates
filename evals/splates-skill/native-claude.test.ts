@@ -136,7 +136,16 @@ it("turns Bash, Read and Edit calls into events with their cwd and exit code", a
 it.each([
 	["a subagent", tool("a", "Task", { prompt: "x" }), "ok"],
 	["a pipe", tool("a", "Bash", { command: "splates list | head" }), "ok"],
-	["a file reader", tool("a", "Bash", { command: "cat value.txt" }), "ok"],
+	[
+		"a piped file reader",
+		tool("a", "Bash", { command: "cat value.txt | head" }),
+		"ok",
+	],
+	[
+		"a failed fallback",
+		tool("a", "Bash", { command: "(splates list || bunx splates list)" }),
+		"Exit code 1",
+	],
 	["a search", tool("a", "Grep", { pattern: "x" }), "ok"],
 ])("leaves events incomplete after %s", async (_, call, text) => {
 	await withTools(call, answer("a", text));
@@ -144,6 +153,17 @@ it.each([
 	expect(String(request.context.runtime.claudeEvents)).toStartWith(
 		"incomplete",
 	);
+});
+
+it.each([
+	["a fallback group", "(splates list || bunx @stringsync/splates list) 2>&1"],
+	["a stderr merge", "splates list 2>&1"],
+	["a file read", "cat value.txt"],
+	["a listing", "ls -la ."],
+	["an echo", "echo done"],
+])("keeps events complete after %s", async (_, command) => {
+	await withTools(tool("a", "Bash", { command }), answer("a", "ok"));
+	expect(request.context.evidence.complete).toEqual(["events"]);
 });
 
 it("follows cd through a shell line but gives its commands no exit code", async () => {

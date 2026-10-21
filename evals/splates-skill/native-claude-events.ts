@@ -42,7 +42,16 @@ export function claudeEvents(opts: ClaudeEventsOptions) {
 	};
 	function shell(tool: Pending, exitCode: number): Event[] {
 		const line = String(tool.input.command ?? "");
-		const commands = tool.input.run_in_background ? undefined : words(line);
+		// `(a || b)` runs b only when a fails: record a, and say so when it did fail.
+		const fallback = /^\(([^()|]*)\|\|([^()|]*)\)(.*)$/s.exec(line.trim());
+		const commands = tool.input.run_in_background
+			? undefined
+			: words(fallback ? `${fallback[1]}${fallback[3]}` : line);
+		if (fallback && commands?.length && exitCode !== 0) {
+			gaps.add(
+				"a fallback after || may have run in place of the first command",
+			);
+		}
 		if (!commands?.length) {
 			gaps.add(
 				"a Bash line with a pipe, redirect, substitution or background job is one opaque command",
@@ -80,6 +89,11 @@ export function claudeEvents(opts: ClaudeEventsOptions) {
 				...(commands.length === 1 ? { exitCode } : {}),
 				payload: { cwd },
 			});
+			if (program === "cat" || program === "ls") {
+				for (const path of args.filter((arg) => !arg.startsWith("-"))) {
+					events.push(file({ name: "Read", input: {}, cwd }, path));
+				}
+			}
 			if (program === "cd" && args[0]) {
 				cwd = resolve(cwd, args[0]);
 			}
@@ -160,7 +174,17 @@ export function claudeEvents(opts: ClaudeEventsOptions) {
 
 /** Characters that make a line more than a list of plain commands. */
 const shellSyntax = "|&<>()`$" + "{}*?~#";
-const observed = new Set(["splates", "git", "bun", "bunx", "cd", "pwd"]);
+const observed = new Set([
+	"splates",
+	"git",
+	"bun",
+	"bunx",
+	"cd",
+	"pwd",
+	"echo",
+	"cat",
+	"ls",
+]);
 const writes = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 /** Tools that touch no project file and run no process. */
 const inert = new Set(["Skill", "TodoWrite", "ToolSearch"]);
@@ -202,6 +226,14 @@ function words(line: string): string[][] | undefined {
 		} else if (char === "'" || char === '"') {
 			quote = char;
 			word ??= "";
+		} else if (
+			char === "2" &&
+			word === undefined &&
+			line.startsWith("2>&1", i) &&
+			/^\s*$|^\s/.test(line.slice(i + 4, i + 5) || " ")
+		) {
+			// Stderr into stdout changes no file.
+			i += 3;
 		} else if (char === "\\") {
 			word = (word ?? "") + (line[++i] ?? "");
 		} else if (/\s/.test(char) && char !== "\n") {
