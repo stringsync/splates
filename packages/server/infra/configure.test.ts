@@ -1,0 +1,110 @@
+import { describe, expect, it } from "bun:test";
+import { FakeSecretStore } from "webappwiz/creds/testing";
+import { MemoryLogger } from "webappwiz/log";
+import type { Ps } from "webappwiz/system";
+import { FakeFs } from "webappwiz/system/testing";
+import { Creds } from "../creds";
+import { Exit } from "../exit";
+import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
+import { API_TOKEN, SavedTunnel } from "../tunnel";
+import { tunnelSetup } from "../tunnel/setup";
+import { FakeCloudflare } from "../tunnel/testing";
+import { infraConfigure, repositoryOf } from "./configure";
+
+describe("infraConfigure", () => {
+	it("reads owner/repo off SSH and HTTPS GitHub remotes", () => {
+		expect(repositoryOf("git@github.com:me/app.git\n")).toBe("me/app");
+		expect(repositoryOf("https://github.com/me/app")).toBe("me/app");
+		expect(repositoryOf("git@gitlab.com:me/app.git")).toBeNull();
+	});
+
+	it("fills the project from the registry, the tunnel and the creds", async () => {
+		const box = await machine({
+			SPLATES_DEPLOY_GITHUB_TOKEN: "gh",
+			ANTHROPIC_API_KEY: "sk",
+		});
+		const { written } = await box.configure();
+		expect(written).toContain("Pulumi.prod.yaml");
+		const stack = await box.fs.read("/infra/Pulumi.prod.yaml");
+		expect(stack).toContain("splates.example.com");
+		expect(stack).toContain("me@example.com");
+		expect(stack).toContain("me/app");
+		expect(stack).toContain("splates:accountId: acct");
+		expect(stack).toContain("splates:zoneId: zone-example.com");
+		const sets = box.calls.filter((call) => call.argv.includes("set"));
+		expect(sets.map((call) => call.argv.at(-1))).toEqual([
+			"cloudflare:apiToken",
+			"github:token",
+			"splates:anthropicKey",
+		]);
+		expect(sets.map((call) => call.stdin)).toEqual(["api-token", "gh", "sk"]);
+		expect(
+			sets.every((call) => call.argv.join(" ").includes("api-token")),
+		).toBe(false);
+	});
+
+	it("requests a cred that is not kept, and refuses with requested", async () => {
+		const box = await machine({});
+		const error = await box.configure().catch((cause: unknown) => cause);
+		expect(error).toBeInstanceOf(Exit);
+		expect((error as Exit).reason).toBe("requested");
+		const names = (await box.creds.requests()).map((each) => each.name);
+		expect(names).toContain("SPLATES_DEPLOY_GITHUB_TOKEN");
+		expect(names).toContain("ANTHROPIC_API_KEY");
+	});
+});
+
+async function machine(kept: Record<string, string>) {
+	const cloudflare = new FakeCloudflare().zone("example.com");
+	const store = new FakeSecretStore({ [API_TOKEN]: "api-token", ...kept });
+	const fs = new FakeFs();
+	const creds = new Creds(new MemoryStorage(), {
+		project: new FakeSecretStore(),
+		device: store,
+	});
+	const saved = SavedTunnel.in(new FsStorage("/home/.splates", fs), store);
+	await tunnelSetup({
+		host: "splates.example.com",
+		email: "me@example.com",
+		name: "splates",
+		team: "",
+		creds,
+		task: null,
+		saved,
+		log: new MemoryLogger(),
+		fetch: cloudflare.fetch,
+	});
+	const calls: { argv: string[]; stdin?: string }[] = [];
+	const ps = {
+		spawnCapture: async (argv: string[], opts?: SpawnOpts) => {
+			calls.push({ argv, stdin: opts?.stdin });
+			return {
+				exitCode: 0,
+				stdout: argv[1] === "remote" ? "git@github.com:me/app.git\n" : "",
+				stderr: "",
+			};
+		},
+	} as unknown as Ps;
+	const configure = () =>
+		infraConfigure({
+			dir: "/infra",
+			stack: "prod",
+			region: "us-east-1",
+			host: "",
+			email: "",
+			projects: null,
+			registered: async () => [{ slug: "app", root: "/code/app" }],
+			creds,
+			saved,
+			fs,
+			ps,
+			log: new MemoryLogger(),
+			fetch: cloudflare.fetch,
+		});
+	return { cloudflare, creds, fs, calls, configure };
+}
+
+interface SpawnOpts {
+	stdin?: string;
+}

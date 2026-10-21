@@ -1,3 +1,4 @@
+import { Credentials } from "webappwiz/creds";
 import { MemoryLogger } from "webappwiz/log";
 import {
 	CoordinatorBox,
@@ -6,11 +7,14 @@ import {
 	type Moved,
 	machineMove,
 	remoteProblem,
+	writeInfraConfig,
 } from "../coordinator";
 import { SYSTEM_STORES } from "../creds";
+import { infraConfigure } from "../infra/configure";
 import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
+import { SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { awsAccessStep } from "./aws-access";
 import { moveUnfinished } from "./coordinator-move";
@@ -79,11 +83,60 @@ export function coordinatorArea(
 		id: "coordinator-infra",
 		title: "Write the infra project",
 		why: "The box is a Pulumi project of your own that uses splates's components, so you can read, change and destroy exactly what it makes.",
-		user: "Run `splates server infra init <dir>`, which writes the project, then press Next.",
+		user: "Name a directory for the project and press Next: it is filled from your projects, your tunnel and the creds kept here. Or run `splates server infra init <dir>`.",
 		agent:
-			"Run `splates server infra init <dir> --host <host> --email <email>` for the user, in a directory of their choice. It records the directory in splates's home.",
+			"Run `splates server infra init <dir>` for the user, in a directory of their choice. It fills the host, email, projects, Cloudflare ids and secrets from what splates keeps, requests any cred not kept, and records the directory in splates's home.",
 		optional: true,
 		after: [],
+		fields: [
+			{
+				kind: "text",
+				name: "dir",
+				label: "Directory for the infra project",
+				placeholder: "~/splates-infra",
+			},
+		],
+		doing: "Writing the project and setting its config…",
+		submit: async (machine, answers) => {
+			if (machine.ps === undefined) {
+				throw new Error("setup cannot run Pulumi here");
+			}
+			const { fs, ps, home, device } = machine;
+			const dir = String(answers.dir).replace(
+				/^~(?=\/)/,
+				ps.env("HOME") ?? "~",
+			);
+			try {
+				await infraConfigure({
+					dir,
+					stack: "prod",
+					region: "us-east-1",
+					host: "",
+					email: "",
+					projects: null,
+					registered: async () =>
+						(
+							await Projects.in(
+								FsStorage.ofMachine({ fs, ps, log: new MemoryLogger(), home }),
+								fs,
+							).list()
+						).filter((project) => !project.gone),
+					creds: {
+						credentials: new Credentials([device]),
+						request: async () => null,
+						save: async () => "device",
+					},
+					saved: SavedTunnel.in(new FsStorage(home, fs), device),
+					fs,
+					ps,
+					log: new MemoryLogger(),
+					fetch: machine.fetch,
+				});
+				await writeInfraConfig(fs, home, { dir, stack: "prod" });
+			} catch (error) {
+				throw new Error(error instanceof Error ? error.message : String(error));
+			}
+		},
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;

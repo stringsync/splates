@@ -91,7 +91,8 @@
 		"./server": "./server/index.ts",
 		"./server/browser": "./server/browser.ts",
 		"./infra": "./infra/index.ts",
-		"./infra/init": "./infra/init.ts"
+		"./infra/init": "./infra/init.ts",
+		"./infra/configure": "./infra/configure.ts"
 	},
 	"scripts": {
 		"build": "bun run --cwd ../web build"

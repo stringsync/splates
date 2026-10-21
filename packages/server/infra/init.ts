@@ -11,6 +11,10 @@ export interface InfraInitOptions {
 	projects: DeployKeyProject[];
 	/** A Pulumi ESC environment the stack imports, as `splates/aws`; none imports none. */
 	environment?: string;
+	/** The Cloudflare account's id, when known; otherwise left to set. */
+	accountId?: string;
+	/** The id of the zone `host` is in, when known. */
+	zoneId?: string;
 	fs: Fs;
 }
 
@@ -19,6 +23,8 @@ export interface InfraInitResult {
 	written: string[];
 	/** Each command still to run: the account and zone ids, then each secret. */
 	todo: string[];
+	/** The secrets the stack's config still lacks, by key. */
+	secrets: string[];
 }
 
 /** What the user sets themselves, since it is theirs to look up or to keep. */
@@ -62,6 +68,10 @@ export async function infraInit(
 		"splates:host": opts.host,
 		"splates:email": opts.email,
 		"splates:projects": opts.projects,
+		...(opts.accountId === undefined
+			? {}
+			: { "splates:accountId": opts.accountId }),
+		...(opts.zoneId === undefined ? {} : { "splates:zoneId": opts.zoneId }),
 	};
 	const config = { ...stack.config };
 	for (const [key, value] of Object.entries(wanted)) {
@@ -74,15 +84,15 @@ export async function infraInit(
 		stackText(withEnvironment({ ...stack, config }, opts.environment)),
 	);
 
+	const secrets = SECRETS.filter((key) => !(key in config));
 	return {
 		written,
+		secrets,
 		todo: [
 			...IDS.filter((key) => !(key in config)).map(
 				(key) => `pulumi config set ${key} <id>`,
 			),
-			...SECRETS.filter((key) => !(key in config)).map(
-				(key) => `pulumi config set --secret ${key}`,
-			),
+			...secrets.map((key) => `pulumi config set --secret ${key}`),
 		],
 	};
 }

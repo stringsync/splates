@@ -1,7 +1,13 @@
 # Splates infrastructure, as Pulumi components
 
-`splates server infra init <dir> --host splates.example.com --email me@example.com --projects app=me/app`
-writes a Pulumi project that imports these components; edit it from there:
+`splates server infra init <dir>` writes a Pulumi project that imports these
+components; edit it from there. It fills the stack's config from what splates
+keeps: `--projects` from the projects registered here (GitHub origins), `--host`
+and `--email` from the saved tunnel and its Access application, the Cloudflare
+account and zone ids through the API, and each secret from the creds store
+(`SPLATES_CLOUDFLARE_API_TOKEN`, `SPLATES_DEPLOY_GITHUB_TOKEN`,
+`ANTHROPIC_API_KEY`) through `pulumi config set --secret` on stdin. A cred not
+kept is requested on the Creds page. Each flag overrides its default.
 
 - `CoordinatorBox`: the AWS side. A one-subnet VPC without a NAT gateway, an
   SSH-only security group, a `t3.medium` with IMDSv2 and termination

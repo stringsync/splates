@@ -120,8 +120,9 @@ and prints the account id, then gives the page the id, whose Next makes the
 Pulumi ESC environment `<org>/splates/aws` and has the infra stack import it;
 an AWS profile the fallback; done when either signs in, and then the user
 deletes any root access keys),
-`coordinator-infra` (`splates server infra init <dir>` has written the project
-and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
+`coordinator-infra` (`splates server infra init <dir>` has written the project,
+filled from the projects, tunnel and creds splates keeps, requesting any cred
+not kept, and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
 `coordinator-up` (the user runs `pulumi up`; done when `pulumi stack output
 --json` gives the instance id and tunnel host) and `coordinator-creds`, then
 `coordinator-move`. Undoing the AWS steps guides the user through `pulumi
