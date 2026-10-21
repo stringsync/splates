@@ -10,7 +10,7 @@ import {
 	useEffect,
 	useEffectEvent,
 } from "react";
-import { focusStop } from "#web/hooks/use-touch.ts";
+import { focusStop, raises } from "#web/hooks/use-touch.ts";
 import { toCardTop } from "./card-shell";
 
 /** What the cards in a conversation answer through. */
@@ -253,6 +253,17 @@ export function useArrival(
 			return;
 		}
 		const stop = first();
+		// An empty field the person already clicked into in this card keeps
+		// the focus: the card going live again must not move it to the first.
+		if (
+			typing != null &&
+			typing !== stop &&
+			typing.closest("[data-card]") !== null &&
+			typing.closest("[data-card]") === stop?.closest("[data-card]") &&
+			raises(typing)
+		) {
+			return;
+		}
 		focusStop(stop, { preventScroll: true });
 		const card = stop?.closest<HTMLElement>("[data-card]");
 		if (card != null) {
