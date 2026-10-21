@@ -52,6 +52,26 @@ describe("Tasks page's queue", () => {
 		expect(view.queryByText("Nothing queued")).toBeNull();
 	});
 
+	it("keeps a task an agent took in view, with where it came from", async () => {
+		const view = await testing.openTasks({
+			todos: [
+				todo({
+					id: 4,
+					subject: "running",
+					stage: "queued",
+					takenBy: "someone",
+					from: "other-task",
+				}),
+				todo({ id: 5, subject: "lane run", takenBy: "x", lane: 2 }),
+			],
+		});
+
+		const running = within(view.getByRole("list", { name: "running tasks" }))
+			.getAllByRole("listitem")
+			.map((row) => row.textContent);
+		expect(running).toEqual(["runningfrom other-task#4", "lane runlane 2#5"]);
+	});
+
 	it("opens a queued task's card on the board", async () => {
 		const view = await testing.openTasks({
 			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
