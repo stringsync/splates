@@ -13,6 +13,8 @@ import { hash, type ProbeModule, runProbes } from "./runner";
 interface PairOptions {
 	unchanged?: boolean;
 	plan: boolean;
+	/** Start without the terminal confirmation, for a run the user asked an agent to start. */
+	yes?: boolean;
 	directory: string;
 	root: string;
 	targets: string[];
@@ -139,12 +141,13 @@ export async function pairedCli(
 		);
 		return;
 	}
-	if (!process.stdin.isTTY) {
+	if (!opts.yes && !process.stdin.isTTY) {
 		throw new Error(
-			"Paid experiment probes require a terminal and confirmation",
+			"Paid experiment probes require a terminal and confirmation, or --yes",
 		);
 	}
 	if (
+		!opts.yes &&
 		prompt(
 			`Start this potentially paid ${unchanged ? "unchanged baseline" : "paired experiment"}? [y/N]`,
 		)

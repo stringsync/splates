@@ -96,6 +96,7 @@ export async function fastCli(
 			directory: { type: "string", default: defaultDirectory },
 			failed: { type: "boolean", default: false },
 			"allow-unmetered": { type: "boolean", default: false },
+			yes: { type: "boolean", default: false },
 			help: { type: "boolean", default: false },
 		},
 	});
@@ -263,6 +264,7 @@ export async function fastCli(
 		await pairedCli(module, change, log, {
 			unchanged,
 			plan: command === "plan",
+			yes: values.yes,
 			codexFixtureWrites: values["codex-fixture-writes"],
 			directory,
 			root,
@@ -350,13 +352,16 @@ export async function fastCli(
 			),
 			spending,
 		);
-		if (!process.stdin.isTTY) {
-			throw new Error("Paid agent probes require a terminal and confirmation");
+		if (!values.yes && !process.stdin.isTTY) {
+			throw new Error(
+				"Paid agent probes require a terminal and confirmation, or --yes",
+			);
 		}
 		log.info(
 			`${module.probes.length} probes, ${targets.length} targets, ${values.reps} repetitions; parallel ${values.parallel}. Aggregate admission limits: ${spending.tokens} tokens, USD ${(spending.microUsd / 1000000).toFixed(6)}. Per-session reservation: up to ${reservation.tokens} tokens / USD ${(reservation.microUsd / 1000000).toFixed(6)}. Tokens monitored; Claude/OpenCode USD monitored; Codex USD unavailable. In-flight overshoot is possible. All drivers report incomplete billing: shared reservations remain outstanding, even on success, and can indefinitely exhaust a window. No live affordability or full adherence claim.`,
 		);
 		if (
+			!values.yes &&
 			prompt("Start these potentially paid agent probes? [y/N]")
 				?.trim()
 				.toLowerCase() !== "y"
@@ -487,8 +492,9 @@ const HELP = `splates dev eval [fast|list|plan|report] [options]
   --baseline REV          required Git baseline for skill/reference change gate
   --paired                both immutable snapshots, both families, one aggregate reservation; frozen decision probes only
   --unchanged-baseline    explicit same-skill exception: local-choice, Claude alone or one Codex and one Claude, one repetition, parallel one
-  --max-tokens 4000 --max-usd 0.10  aggregate admission limits (configuration maxima 10000 / 0.25)
+  --max-tokens 4000 --max-usd 0.10  aggregate admission limits, within the shared budgets
   --allow-unmetered        rejected for model execution
+  --yes                    start paid probes without the terminal confirmation
   --failed                 rerun compatible non-passing probes; report filters non-passes
   --skill DIR --directory DIR
   plan                     free change-gated smoke selection; no model launch

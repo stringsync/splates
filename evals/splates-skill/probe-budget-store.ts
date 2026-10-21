@@ -204,7 +204,7 @@ export class EvalBudgets {
 				: [],
 			reservations: kept.entries,
 			costNote:
-				"Reservations are admission allowances, not provider billing ceilings, observed USD is reported usage. Token prices vary by model and token category; unknown is not zero. Invocation defaults 4000 tokens/USD 0.10; hard maxima 10000/USD 0.25 remain mandatory.",
+				"Reservations are admission allowances, not provider billing ceilings, observed USD is reported usage. Token prices vary by model and token category; unknown is not zero. Invocation defaults 4000 tokens/USD 0.10; --max-tokens/--max-usd raise them within these budgets.",
 		};
 	}
 	private async read(): Promise<State> {

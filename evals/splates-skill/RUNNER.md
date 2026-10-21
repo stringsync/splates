@@ -32,8 +32,8 @@ selection; they never expand into the full suite. Explicit probe/aspect/requirem
 selection and `--failed` still require a skill change and the same budget gate.
 
 Default aggregate admission limits are **4,000 tokens and USD 0.10** per
-invocation. `--max-tokens` and `--max-usd` may adjust these up to configuration maxima of
-**10,000 tokens and USD 0.25**. Each deliberate invocation has its own cap; shared token windows additionally
+invocation. `--max-tokens` and `--max-usd` raise these as far as the shared
+budgets admit. Each deliberate invocation has its own cap; shared token windows additionally
 constrain repeated invocations when configured. No shared allowance is invented
 until explicitly declared. Positive integer tokens
 and integer microdollars avoid rounding past an admission limit. The runner reserves the
@@ -288,7 +288,8 @@ Target syntax is `claude:MODEL`, `codex:MODEL`, or `opencode:PROVIDER/MODEL`,
 independent of the configured ACP roster. `--kind cli|agent` also filters list, run and report. Selection groups intersect; within each flag, repeated values form
 a union. Unknown selectors and invalid positive integer budgets are rejected.
 `--parallel` defaults to 1, `--reps` to 1. CLI-only probes run once per repetition,
-not once per model. Every agent invocation requires terminal confirmation;
+not once per model. Every agent invocation requires terminal confirmation, or
+`--yes` for a run the user asked an agent to start;
 no legacy LLM grader is imported on the fast execution path. `report` is free
 and read-only; it does not load aspect modules, call agents or regrade with models.
 

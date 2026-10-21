@@ -10,10 +10,6 @@ export const DEFAULT_BUDGET: Readonly<Allowance> = {
 	tokens: 4000,
 	microUsd: 100000,
 };
-export const MAX_BUDGET: Readonly<Allowance> = {
-	tokens: 10000,
-	microUsd: 250000,
-};
 
 export type LimitMode = "hard" | "monitored" | "unavailable";
 
@@ -42,14 +38,6 @@ export function budget(tokens?: string, usd?: string): Allowance {
 		microUsd: Number(whole) * 1000000 + Number(fraction.padEnd(6, "0")),
 	};
 	validateAllowance(value);
-	if (
-		value.tokens > MAX_BUDGET.tokens ||
-		value.microUsd > MAX_BUDGET.microUsd
-	) {
-		throw new Error(
-			"Invocation reservation maximum: 10000 total tokens and USD 0.25",
-		);
-	}
 	return value;
 }
 
@@ -72,7 +60,6 @@ export function admit(
 	limit: Allowance,
 ): (Readonly<Allowance> | undefined)[] {
 	validateAllowance(limit);
-	budget(String(limit.tokens), (limit.microUsd / 1000000).toFixed(6));
 	let tokens = 0;
 	let microUsd = 0;
 	return jobs.map(({ probe, target }) => {

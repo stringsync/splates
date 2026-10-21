@@ -84,8 +84,8 @@ reservation can therefore exhaust a window indefinitely; automatic recovery
 would require independent proof that all billable work ended and its usage is
 complete. No such recovery shortcut is provided.
 
-Per-invocation defaults remain **4,000 tokens / USD 0.10**, with configuration maxima of
-**10,000 tokens / USD 0.25**, regardless of shared configuration. `per: "check"`
+Per-invocation defaults remain **4,000 tokens / USD 0.10**; `--max-tokens` and
+`--max-usd` raise them as far as the shared budgets admit. `per: "check"`
 is a per-invocation limit, as in Scry; add a day/month/rolling limit to constrain
 spending across invocations. Token budgets are not dollar-equivalent across
 models: input, cached input, output and reasoning prices may differ. Reserved USD are allowances; observed USD are runtime-reported usage.

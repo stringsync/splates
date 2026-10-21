@@ -185,15 +185,10 @@ it("rejects unmetered opt-in and legacy model execution, while leaving reports a
 	expect(() => assertLegacyReport(["report"])).not.toThrow();
 });
 
-it("uses exact integer dollar ceilings and rejects unsafe or excessive budgets", () => {
+it("uses exact integer dollar ceilings and rejects unsafe budgets", () => {
 	expect(budget()).toEqual({ tokens: 4000, microUsd: 100000 });
 	expect(budget("1000", "0.000001")).toEqual({ tokens: 1000, microUsd: 1 });
-	expect(() => budget("10001", "0.1")).toThrow(
-		"Invocation reservation maximum",
-	);
-	expect(() => budget("1000", "0.250001")).toThrow(
-		"Invocation reservation maximum",
-	);
+	expect(budget("200000", "5")).toEqual({ tokens: 200000, microUsd: 5000000 });
 	expect(() => budget("1000", "NaN")).toThrow();
 	expect(() => budget("0", "0.1")).toThrow();
 	expect(() => budget("1000", "0.0000001")).toThrow();
