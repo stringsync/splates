@@ -291,8 +291,26 @@ export function useNewConversation({
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 		root,
 	);
-	// The agent is yet to be picked, so there are no settings to offer.
-	const controls = auto ? undefined : offered.length > 0 ? (
+	// On Auto pick the agent is yet to be picked: only its switch shows, off
+	// for the agent it stands in with.
+	const controls = auto ? (
+		<SettingControls
+			settings={[]}
+			current={(setting) => setting.current}
+			onChange={() => {}}
+			autoPick={{
+				on: true,
+				chooses:
+					"Chooses the agent, model and effort from your first message. Off, it starts on the agent you pick.",
+				// Off, New starts on the agent Auto pick stood in with.
+				switch: (on) => {
+					if (!on) {
+						onOpen(newAddress(agent, task), "replace");
+					}
+				},
+			}}
+		/>
+	) : offered.length > 0 ? (
 		<SettingControls
 			agent={agent}
 			settings={offered}

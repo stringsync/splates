@@ -12,6 +12,8 @@ import type { Refuse } from "./refusal";
 export interface AutoPickControl {
 	on: boolean;
 	switch: (on: boolean) => void;
+	/** What it chooses, as the sheet's switch says; the model and effort when not given. */
+	chooses?: string;
 }
 
 /**

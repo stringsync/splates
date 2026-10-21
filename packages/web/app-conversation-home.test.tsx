@@ -330,6 +330,30 @@ describe("App's conversation home", () => {
 		}
 	});
 
+	it("shows Auto pick in New's settings while it picks the agent, switched off there for the agent it stood in with", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", agent: "codex" })],
+			null,
+		);
+		await openHome();
+		await newWith(view, "Auto pick");
+		expect(location.hash.split("?")[0]).toBe("#conversations/new/auto");
+
+		const settings = view.getByRole("button", { name: "settings" });
+		expect(settings.textContent).toContain("Auto pick");
+		await act(async () => fireEvent.click(settings));
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("switch", { name: "Auto pick" }),
+			),
+		);
+
+		await waitFor(() =>
+			expect(location.hash.split("?")[0]).toBe("#conversations/new/codex"),
+		);
+	});
+
 	it("recommends no task, lane or todo to take up", async () => {
 		const view = await testing.openConversations([], null, {
 			tasks: [details({ task: "header-wrap" })],

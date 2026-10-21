@@ -66,7 +66,15 @@ export function SettingControls({
 }): JSX.Element | null {
 	const wide = useWide();
 	if (settings.length === 0) {
-		return null;
+		// Auto pick, still to choose the agent, has its switch to show alone.
+		return autoPick === undefined ? null : (
+			<SettingsDialog
+				settings={settings}
+				current={current}
+				onChange={onChange}
+				autoPick={autoPick}
+			/>
+		);
 	}
 	if (!wide) {
 		return (
@@ -226,7 +234,7 @@ function SettingsDialog({
 							?.name ?? "Unavailable model"}
 					</span>
 				)}
-				{model === undefined && <span>Settings</span>}
+				{model === undefined && <span>{auto ? "Auto pick" : "Settings"}</span>}
 				<ChevronDownIcon className="shrink-0" />
 			</DialogTrigger>
 			<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
@@ -243,8 +251,8 @@ function SettingsDialog({
 									Auto pick
 								</FieldLabel>
 								<FieldDescription>
-									Chooses the model and effort from what you say. Picking either
-									yourself turns it off.
+									{autoPick.chooses ??
+										"Chooses the model and effort from what you say. Picking either yourself turns it off."}
 								</FieldDescription>
 							</FieldContent>
 							<Switch
