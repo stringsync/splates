@@ -101,7 +101,6 @@ export function useAppPages({
 						notes: (
 							<NotesPage
 								feed={available ? talk : null}
-								drafts={drafts}
 								onOpen={openConversation}
 							/>
 						),

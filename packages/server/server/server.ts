@@ -813,6 +813,14 @@ export async function dev(
 					},
 					"/api/notes": { GET: scoped((project) => project.listNotes) },
 					"/api/notes/read": { GET: scoped((project) => project.readNote) },
+					// Through a tunnel only once Access verified who is asking: a save
+					// lands on trunk.
+					"/api/notes/save": {
+						POST: talk(scoped((project) => project.saveNote)),
+					},
+					"/api/notes/remove": {
+						POST: talk(scoped((project) => project.removeNote)),
+					},
 					"/api/budgets": scoped((project) => project.listBudgets),
 					"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },
 					"/api/budgets/:role/raises": {

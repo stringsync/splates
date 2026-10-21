@@ -19,6 +19,11 @@ export interface ReadNote extends ProjectNote {
 	body: string;
 }
 
+/** A note the page opened to edit, with the blob a save names it by. */
+export interface OpenedNote extends ReadNote {
+	blob: string | null;
+}
+
 /** Where a checkout keeps its notes, relative to its root. */
 export interface NotesOptions {
 	notesDir?: string;

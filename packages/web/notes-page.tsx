@@ -10,28 +10,28 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
-import { NEW, withDraft } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
-import { type Drafts, newDraft } from "./drafts";
 import { Markdown } from "./markdown";
-import { NEW_NOTE, NotesReading } from "./notes-reading";
-import { shownProject } from "./project-places";
+import { NoteEditing } from "./note-editing";
+import { NoteEditor, NoteLanding } from "./note-editor";
+import { NotesReading } from "./notes-reading";
 import { TopBar } from "./top-bar";
 
-/** The one new conversation New keeps for writing a note, so pressing it again returns there. */
-const NOTE_DRAFT = "note";
-
-/** Read landed project notes and ask an agent to make changes. */
+/** Read and write the project's notes, each save a commit on trunk, or ask an agent to change one. */
 export function NotesPage({
 	feed,
-	drafts,
 	onOpen,
 }: {
 	feed: ConversationFeed | null;
-	drafts: Drafts;
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	const [reading] = useState(() => new NotesReading());
+	const [editing] = useState(() => new NoteEditing(reading));
+	const { draft, pending } = useReactive(
+		editing,
+		({ draft, pending }) => ({ draft, pending }),
+		["changed"],
+	);
 	const { notes, note, loading, error, action, ask, starting } = useReactive(
 		reading,
 		({ notes, note, loading, error, action, ask, starting }) => ({
@@ -57,15 +57,7 @@ export function NotesPage({
 						label: "New note",
 						icon: <PlusIcon />,
 						text: "New",
-						run: () => {
-							// A new conversation's own composer, with its model and
-							// settings, seeded only when empty so what was typed stays.
-							const key = newDraft(shownProject(), null, NOTE_DRAFT);
-							if (!drafts.holds(key)) {
-								drafts.write(key, NEW_NOTE);
-							}
-							onOpen(withDraft(NEW, NOTE_DRAFT));
-						},
+						run: () => editing.begin(null),
 					},
 					{
 						label: "Refresh notes",
@@ -81,7 +73,20 @@ export function NotesPage({
 					{error}
 				</p>
 			)}
-			{action !== null ? (
+			<NoteLanding editing={editing} />
+			{draft !== null ? (
+				<NoteEditor editing={editing} />
+			) : pending?.kind === "save" ? (
+				<article className="flex min-w-0 max-w-3xl flex-col gap-4 opacity-70">
+					<h2 className="break-words font-medium">
+						{pending.draft.description}
+					</h2>
+					<Markdown
+						text={pending.draft.body}
+						className="min-w-0 break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto"
+					/>
+				</article>
+			) : action !== null ? (
 				<form
 					className="flex max-w-2xl flex-col gap-4"
 					onSubmit={(event) => {
@@ -91,9 +96,7 @@ export function NotesPage({
 						}
 					}}
 				>
-					<h2 className="font-medium">
-						{action === "edit" ? "Edit note" : "Remove note"}
-					</h2>
+					<h2 className="font-medium">Ask an agent</h2>
 					<p className="break-words text-sm">{note?.description}</p>
 					<p className="text-muted-foreground text-sm">
 						An agent will make this change in a task and land it after checks
@@ -102,15 +105,13 @@ export function NotesPage({
 					<FieldGroup>
 						<Field>
 							<FieldLabel htmlFor="note-request">
-								{action === "edit"
-									? "What should change?"
-									: "Why remove this note? (optional)"}
+								What should change?
 							</FieldLabel>
 							<Textarea
 								id="note-request"
 								value={ask}
 								onChange={(event) => reading.write(event.target.value)}
-								required={action === "edit"}
+								required
 								disabled={starting}
 							/>
 						</Field>
@@ -123,11 +124,7 @@ export function NotesPage({
 					<div className="flex flex-wrap gap-2">
 						<Button
 							type="submit"
-							disabled={
-								feed === null ||
-								starting ||
-								(action === "edit" && ask.trim() === "")
-							}
+							disabled={feed === null || starting || ask.trim() === ""}
 						>
 							{starting ? "Starting…" : "Start conversation"}
 						</Button>
@@ -152,11 +149,22 @@ export function NotesPage({
 							<ArrowLeftIcon data-icon="inline-start" />
 							All notes
 						</Button>
-						<Button variant="outline" onClick={() => reading.request("edit")}>
+						<Button
+							variant="outline"
+							disabled={pending !== null}
+							onClick={() => editing.begin(note)}
+						>
 							Edit
 						</Button>
-						<Button variant="outline" onClick={() => reading.request("remove")}>
+						<Button
+							variant="outline"
+							disabled={pending !== null}
+							onClick={() => void editing.remove(note)}
+						>
 							Remove
+						</Button>
+						<Button variant="ghost" onClick={() => reading.request("edit")}>
+							Ask an agent
 						</Button>
 					</div>
 					<h2 className="break-words font-medium">{note.description}</h2>
@@ -172,7 +180,7 @@ export function NotesPage({
 						<EmptyTitle>No project notes yet</EmptyTitle>
 						<EmptyDescription>
 							Keep the project's conventions and decisions here. Use New to
-							start a conversation that writes a note.
+							write a note.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

@@ -1,23 +1,20 @@
-import type { ListedNote, ReadNote } from "@stringsync/splates-server/notes";
+import type { ListedNote, OpenedNote } from "@stringsync/splates-server/notes";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { send } from "./api";
 import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 
-export type NoteAction = "edit" | "remove";
+/** Asking an agent to change the open note, the one request the reader hands off. */
+export type NoteAction = "edit";
 export type NotesReadingEvents = { changed: undefined };
-
-/** What a new note's conversation starts with in its composer, for the person to finish. */
-export const NEW_NOTE =
-	"Create a project note. Use the splates skill: make the change in a task and land it with splates merge. Consult splates notes and the notes guidance first.\n\nThe note should say:\n";
 
 /** The notes reader and its requests for an agent to change a note. */
 export class NotesReading implements Eventful<NotesReadingEvents> {
 	private readonly dispatcher = new Dispatcher<NotesReadingEvents>();
 	readonly events = this.dispatcher.events;
 	notes: ListedNote[] = [];
-	note: ReadNote | null = null;
+	note: OpenedNote | null = null;
 	loading = true;
 	error: string | null = null;
 	action: NoteAction | null = null;
@@ -68,7 +65,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 			const note = (await send(
 				`/api/notes/read?${new URLSearchParams({ path })}`,
 				{ method: "GET" },
-			)) as ReadNote;
+			)) as OpenedNote;
 			if (version === this.version) {
 				this.note = note;
 			}
@@ -81,6 +78,14 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 				this.loading = false;
 				this.dispatcher.dispatch("changed");
 			}
+		}
+	}
+
+	/** Shows what a landed change left: the note at `path`, or the list once it is gone. */
+	async show(path: string | null): Promise<void> {
+		await this.refresh();
+		if (path !== null) {
+			await this.open(path);
 		}
 	}
 
@@ -116,11 +121,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 		feed: ConversationFeed,
 		onOpen: (id: string) => void,
 	): Promise<void> {
-		if (
-			this.starting ||
-			this.action === null ||
-			(this.action === "edit" && this.ask.trim() === "")
-		) {
+		if (this.starting || this.action === null || this.ask.trim() === "") {
 			return;
 		}
 		this.starting = true;
@@ -150,7 +151,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 
 	private prompt(): string {
 		return [
-			`${this.action === "edit" ? "Edit" : "Remove"} this project note: ${this.note?.path}`,
+			`Edit this project note: ${this.note?.path}`,
 			"Use the splates skill: make the change in a task and land it with splates merge. Consult splates notes and the notes guidance first.",
 			this.note === null
 				? ""

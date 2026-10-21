@@ -313,6 +313,7 @@ export type Project = Pick<
 	| "slots"
 	| "trunk"
 	| "branches"
+	| "lock"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /**
@@ -429,6 +430,8 @@ export interface Served extends AsyncResource {
 	dismissCred: Handler;
 	listNotes: Handler;
 	readNote: Handler;
+	saveNote: Handler;
+	removeNote: Handler;
 	listBudgets: Handler;
 	setBudget: Handler;
 	raiseBudget: Handler;

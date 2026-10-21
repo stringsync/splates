@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { serving } from "../server/testing";
+import { json, serving } from "../server/testing";
 import { Testing } from "../testing";
 
 describe("notes page routes", () => {
@@ -27,6 +27,7 @@ describe("notes page routes", () => {
 			);
 			expect(await read.json()).toEqual({
 				path,
+				blob: expect.stringMatching(/^[0-9a-f]{40}$/),
 				description: "A convention",
 				text: "---\ndescription: A convention\n---\n# Conventions\n\nUse **named exports**.\n",
 				body: "# Conventions\n\nUse **named exports**.\n",
@@ -53,6 +54,27 @@ describe("notes page routes", () => {
 			expect(responses.map((response) => response.status)).toEqual([
 				404, 404, 404,
 			]);
+		});
+	});
+
+	it("lands a note the page saves and reads it back", async () => {
+		await serving(deps, async (_snapshot, port) => {
+			const saved = await json(port, "/api/notes/save", "POST", {
+				path: null,
+				file: "a.md",
+				description: "A convention",
+				body: "Use named exports.",
+				from: null,
+			});
+			const path = `${deps.root}/notes/a.md`;
+			expect(await saved.json()).toMatchObject({ status: "landed", path });
+			const read = await fetch(
+				`http://127.0.0.1:${port}/api/notes/read?${new URLSearchParams({ path })}`,
+			);
+			expect(await read.json()).toMatchObject({
+				description: "A convention",
+				body: "\nUse named exports.\n",
+			});
 		});
 	});
 });

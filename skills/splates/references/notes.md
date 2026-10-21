@@ -34,6 +34,10 @@ knowing the project's file layout. Keep no index file or path metadata.
 
 Change notes through a task: `splates add`, edit, and `splates merge`, just
 as for code. Use your current task when the note belongs to its work.
+The person also writes notes on the `splates server` Notes page, each save
+landing on trunk as a commit of its own, so a note may change under an open
+task: its rebase brings that in, and a save the page tries while your task
+changes the same note is refused until it lands or the person saves over it.
 Keep project notes in their own files; `AGENTS.md` and `CLAUDE.md` are the
 user's to control agents' context with. Never write notes into them or
 arrange for them to load notes.
