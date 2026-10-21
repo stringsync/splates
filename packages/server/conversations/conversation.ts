@@ -698,16 +698,13 @@ export class Conversation
 	}
 
 	/**
-	 * Stops it as the server goes down. One still starting, what was said
-	 * to it yet to reach its agent, keeps that unsaid, so the next run
-	 * starts it again and says it, as though the server had stayed up.
+	 * Stops it as the server goes down. One still starting, as while it
+	 * waits for a slot, keeps that unsaid, with whatever was said to it yet
+	 * to reach its agent, so the next run starts it again and says it, as
+	 * though the server had stayed up.
 	 */
 	async shutDown(): Promise<void> {
-		await this.halt(
-			this.state.status === "starting" &&
-				this.latch === null &&
-				this.state.messages.some((each) => each.queued),
-		);
+		await this.halt(this.state.status === "starting" && this.latch === null);
 	}
 
 	/**

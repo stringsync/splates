@@ -268,7 +268,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 				// Stopped by the person, or failed, it waits for them.
-				unsaid &&= entry.unsaid === true;
+				unsaid = entry.unsaid === true;
 				launched = null;
 				requests = [];
 				prompt = null;
@@ -286,11 +286,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		if (launched === null) {
 			// A held one is held again rather than started.
 			replayed.unsaid =
-				unsaid &&
-				!replayed.running &&
-				state.queued === null &&
-				!state.archived &&
-				state.messages.some((each) => each.queued);
+				unsaid && !replayed.running && state.queued === null && !state.archived;
 			await this.stopped(replayed);
 			return replayed;
 		}
