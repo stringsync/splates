@@ -3,6 +3,7 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import {
+	HandIcon,
 	HourglassIcon,
 	ListPlusIcon,
 	type LucideIcon,
@@ -142,6 +143,16 @@ function QueueCard({
 			!dispatching?.dispatch.orphaned(todo.takenBy),
 	).length;
 	const hidden = Math.max(0, ahead.length - AHEAD);
+	const shown = ahead.slice(hidden);
+	const aheadRow = (todo: TaskRecord) => (
+		<Row
+			key={todo.id}
+			todo={todo}
+			Icon={HourglassIcon}
+			status={`queued · ${queue.indexOf(todo) + 1}`}
+			tone="quiet"
+		/>
+	);
 	const whole = proposal.lane !== null;
 	const what = whole ? `lane ${name}` : name;
 	return (
@@ -173,15 +184,11 @@ function QueueCard({
 					{hidden > 0 && (
 						<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
 					)}
-					{ahead.slice(hidden).map((todo) => (
-						<Row
-							key={todo.id}
-							todo={todo}
-							Icon={HourglassIcon}
-							status={`queued · ${queue.indexOf(todo) + 1}`}
-							tone="quiet"
-						/>
-					))}
+					{shown.filter((todo) => todo.manual !== true).map(aheadRow)}
+					{shown.some((todo) => todo.manual === true) && (
+						<Line Icon={HandIcon}>By hand</Line>
+					)}
+					{shown.filter((todo) => todo.manual === true).map(aheadRow)}
 					{todos.map((todo) => (
 						<QueueItem key={todo.id} todo={todo} queue={queue} whole={whole} />
 					))}
