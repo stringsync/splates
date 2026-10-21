@@ -117,6 +117,7 @@
 @source "./take-up.tsx";
 @source "./ask-panel.tsx";
 @source "./queued.tsx";
+@source "./queue-row-menu.tsx";
 @source "./queued-time.tsx";
 @source "./conversation-list.tsx";
 @source "./new-conversation-button.tsx";

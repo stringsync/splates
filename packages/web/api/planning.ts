@@ -63,6 +63,11 @@ export async function arrangeTodo(
 	await sendJson(`/api/todos/${id}/lane`, "PUT", { lane, before, name });
 }
 
+/** Puts queued todo `id` at `position` in the queue, 1 the next to start. */
+export async function moveInQueue(id: number, position: number): Promise<void> {
+	await sendJson(`/api/todos/${id}/queue-position`, "PUT", { position });
+}
+
 /** Has `assignee` work todo `id`, or nobody in particular for null. */
 export async function assignTodo(
 	id: number,

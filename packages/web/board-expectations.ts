@@ -1,6 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { isReady } from "@stringsync/splates-server/board/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
+import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 
 /**
@@ -89,6 +90,20 @@ export function queued(id: number, queued: boolean) {
 			...todo,
 			stage: queued ? "queued" : todo.groomed ? "ready" : "backlog",
 		}));
+}
+
+/**
+ * Queued todo `id` at `place` in the queue, 1 the next to start, just ahead
+ * of the one now there; the server settles the positions it really takes.
+ */
+export function queueMoved(id: number, place: number) {
+	return (snapshot: Snapshot): Snapshot => {
+		const order = queueOrder(snapshot.todos).filter((todo) => todo.id !== id);
+		const at = order[place - 1];
+		const last = order.at(-1);
+		const position = at ? at.position - 0.5 : (last?.position ?? 0) + 1;
+		return changed(snapshot, id, (todo) => ({ ...todo, position }));
+	};
 }
 
 /** Lane `id` called `name`. */

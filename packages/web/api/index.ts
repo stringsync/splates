@@ -28,6 +28,7 @@ export {
 	joinLanes,
 	linkTodo,
 	manualTodo,
+	moveInQueue,
 	moveLane,
 	moveTodo,
 	queueLane,
