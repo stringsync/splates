@@ -1,8 +1,8 @@
 import {
 	ArchiveIcon,
 	CheckIcon,
+	CopyIcon,
 	type LucideIcon,
-	TerminalIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -118,22 +118,23 @@ export function ActionCard({
 }
 
 /**
- * The command to run it from a terminal instead, which copies: kept to an
- * icon, the command itself in its title, since the page's button does the
- * same.
+ * The command to run it from a terminal instead, which copies: a button that
+ * says so, since an icon alone read as something else.
  */
 function Command({ command }: { command: string }): JSX.Element {
 	const { copied, copy } = useCopy();
+	const done = copied.state === "copied";
 	return (
 		<Button
 			size="sm"
-			variant="ghost"
+			variant="outline"
 			aria-label={`copy ${command}`}
 			title={copied.state === "failed" ? copied.error : command}
 			onClick={() => copy(command)}
-			className="text-muted-foreground"
+			className="gap-1.5"
 		>
-			{copied.state === "copied" ? <CheckIcon /> : <TerminalIcon />}
+			{done ? <CheckIcon /> : <CopyIcon />}
+			{done ? "Copied" : "Copy command"}
 			<span aria-live="polite" className="sr-only">
 				{copiedLabel(copied, "")}
 			</span>
