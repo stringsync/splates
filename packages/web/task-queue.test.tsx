@@ -146,14 +146,14 @@ describe("Tasks page's queue", () => {
 		const view = await testing.openTasks({
 			todos: [todo({ id: 3, subject: "first", stage: "queued", manual: true })],
 		});
-		expect(view.getByText("manual")).toBeTruthy();
+		expect(view.getByRole("list", { name: "queued by hand" })).toBeTruthy();
 
 		await choose(view, "#3 actions", "Let lanes queue it");
 
 		expect(testing.posted("/api/todos/3/manual")).toEqual([
 			{ method: "PUT", body: { manual: false } },
 		]);
-		expect(view.queryByText("manual")).toBeNull();
+		expect(view.queryByRole("list", { name: "queued by hand" })).toBeNull();
 	});
 
 	it("removes a task, and puts it back with Undo", async () => {

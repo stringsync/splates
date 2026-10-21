@@ -64,53 +64,78 @@ export function UpNext({
 			{queue.length === 0 ? (
 				<p className="py-2 text-muted-foreground text-sm">Nothing queued</p>
 			) : (
-				<ol aria-label="queued tasks" className="flex flex-col">
-					{queue.map((todo, place) => (
-						<li key={todo.id} className="-mx-2 flex items-center gap-1 px-2">
-							<button
-								type="button"
-								onClick={() => onOpen(todo.id)}
-								className={cn(
-									"-ml-2 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
-									PHONE_ROW,
+				[
+					{
+						label: "queued tasks",
+						rows: queue.filter((todo) => todo.manual !== true),
+					},
+					{
+						label: "queued by hand",
+						rows: queue.filter((todo) => todo.manual === true),
+					},
+				].map(
+					({ label, rows }) =>
+						rows.length > 0 && (
+							<section key={label} className="flex flex-col">
+								{label === "queued by hand" && (
+									<h4 className="pt-2 pb-1 font-medium text-muted-foreground text-xs">
+										By hand
+									</h4>
 								)}
-							>
-								<span className="w-5 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-									{place + 1}
-								</span>
-								<span
-									className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}
-								>
-									{todo.subject}
-								</span>
-								{todo.manual === true && (
-									<span className="shrink-0 text-muted-foreground text-xs">
-										manual
-									</span>
-								)}
-								{todo.queuedAt !== undefined && (
-									<span
-										className="shrink-0 text-muted-foreground text-xs tabular-nums"
-										title="How long it has waited in the queue"
-									>
-										<span className="sr-only">Waiting: </span>
-										{age(todo.queuedAt)}
-									</span>
-								)}
-								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-									#{todo.id}
-								</span>
-							</button>
-							<QueueRowMenu
-								todo={todo}
-								place={place}
-								last={queue.length - 1}
-								refuse={refuse}
-								onRemove={remove}
-							/>
-						</li>
-					))}
-				</ol>
+								<ol aria-label={label} className="flex flex-col">
+									{rows.map((todo) => {
+										const place = queue.indexOf(todo);
+										return (
+											<li
+												key={todo.id}
+												className="-mx-2 flex items-center gap-1 px-2"
+											>
+												<button
+													type="button"
+													onClick={() => onOpen(todo.id)}
+													className={cn(
+														"-ml-2 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
+														PHONE_ROW,
+													)}
+												>
+													<span className="w-5 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+														{place + 1}
+													</span>
+													<span
+														className={cn(
+															"min-w-0 flex-1 truncate text-sm",
+															PHONE_NAME,
+														)}
+													>
+														{todo.subject}
+													</span>
+													{todo.queuedAt !== undefined && (
+														<span
+															className="shrink-0 text-muted-foreground text-xs tabular-nums"
+															title="How long it has waited in the queue"
+														>
+															<span className="sr-only">Waiting: </span>
+															{age(todo.queuedAt)}
+														</span>
+													)}
+													<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+														#{todo.id}
+													</span>
+												</button>
+												<QueueRowMenu
+													todo={todo}
+													place={place}
+													last={queue.length - 1}
+													refuse={refuse}
+													onRemove={remove}
+												/>
+											</li>
+										);
+									})}
+								</ol>
+							</section>
+						),
+				)
 			)}
 		</>
 	);
