@@ -352,6 +352,7 @@ function worker(
 		draining: false,
 		removing: false,
 		updating: false,
+		verified: null,
 		lastHeard: null,
 		wokenAt: null,
 		tasks: [],

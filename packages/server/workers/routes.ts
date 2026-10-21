@@ -7,6 +7,7 @@ import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
 import type { WorkerMachines } from "../tasks";
 import type { WorkerAccess } from "./access";
+import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
 import { KeyDelivery } from "./key-delivery";
 import { WorkerKeyRoutes } from "./key-routes";
@@ -72,6 +73,8 @@ export function workerAuthorization(id: string, key: string): string {
 export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
+	/** What proves this coordinator to its workers. */
+	readonly identity: CoordinatorIdentity;
 	/** Which API keys each worker, or type of made worker, holds; null when none is asked for. */
 	readonly keys: WorkerKeys | null;
 	/** What sends workers the keys they hold. */
@@ -105,18 +108,23 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			protocol,
 			platform = systemPs().platform,
 			records = WorkerRecords.memory(),
+			identity,
 			keys = null,
 			provider,
 			access = null,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
+		this.identity = identity ?? CoordinatorIdentity.generate();
+		records.signedBy(this.identity.publicKey);
 		this.invites = new WorkerInvites(records, access, log);
 		this.keys = keys;
 		this.keyRoutes = new WorkerKeyRoutes(this);
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
+			identity: this.identity,
+			verify: (id, key) => records.verify(id, key),
 			session: {
 				...(session === undefined ? {} : { id: session }),
 				...(protocol === undefined ? {} : { resumedProtocol: protocol }),
@@ -264,7 +272,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 
 	// A worker runs whatever its coordinator asks, so only one showing the key
 	// it joined with may connect, from wherever, and never a page: a browser
-	// always sends an Origin, a worker never does.
+	// always sends an Origin, a worker never does. One without the key in its
+	// upgrade is hung up on unless its hello shows it (`WorkerRegistry.accept`).
 	readonly open = (
 		request: Request,
 		server: Bun.Server<Connection>,
@@ -279,8 +288,13 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		if (request.headers.get("origin") !== null) {
 			return refuse(403, "forbidden", "a page cannot connect a worker");
 		}
-		const id = this.identify(request);
-		if (id === null) {
+		// A worker that keeps this coordinator's public key sends no key here:
+		// whoever answers the dial would have it. It sends it in its hello,
+		// once it has had this coordinator sign its nonce.
+		const id = request.headers.has(WORKER_KEY_HEADER)
+			? this.identify(request)
+			: null;
+		if (id === null && request.headers.has(WORKER_KEY_HEADER)) {
 			return refuse(
 				401,
 				"unauthorized",
@@ -651,6 +665,8 @@ export interface DevWorkersOptions {
 	platform?: string;
 	/** The workers that joined and what was set on each; kept in memory alone by default. */
 	records?: WorkerRecords;
+	/** What signs a worker's challenge, so it knows this coordinator from one answering for its host; new, and kept nowhere, by default. */
+	identity?: CoordinatorIdentity;
 	/** The API keys workers hold, which placement asks for; none by default, so a worker runs any agent. */
 	keys?: WorkerKeys | null;
 	/** What makes workers when agents queue; none are made without it. */

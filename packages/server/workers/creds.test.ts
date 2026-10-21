@@ -63,7 +63,7 @@ describe("workerCreds", () => {
 	it("joins with the token and keeps the key in the store, never the log", async () => {
 		const creds = await workerCreds("box", options("splj_token"));
 
-		expect(creds).toEqual({ key: "the-key", access: null });
+		expect(creds).toEqual({ key: "the-key", access: null, coordinator: null });
 		expect(sent).toMatchObject([
 			{
 				url: "https://splates.example.com/api/workers/join",
@@ -89,6 +89,7 @@ describe("workerCreds", () => {
 		expect(await workerCreds("box", options(""))).toEqual({
 			key: "the-key",
 			access,
+			coordinator: null,
 		});
 		expect(JSON.stringify(log.entries)).not.toContain("secret");
 	});
@@ -99,7 +100,7 @@ describe("workerCreds", () => {
 			ephemeral: true,
 		});
 
-		expect(joined).toEqual({ key: "the-key", access });
+		expect(joined).toEqual({ key: "the-key", access, coordinator: null });
 		expect(sent[0]?.url).toBe("https://splates.example.com/api/workers/join");
 		expect(await store.get(WORKER_KEY)).toBeUndefined();
 		expect(await store.get(WORKER_ACCESS_ID)).toBeUndefined();
@@ -112,7 +113,7 @@ describe("workerCreds", () => {
 
 		const creds = await workerCreds("box", options("splj_token"));
 
-		expect(creds).toEqual({ key: "the-key", access: null });
+		expect(creds).toEqual({ key: "the-key", access: null, coordinator: null });
 		expect(JSON.stringify(log.entries)).toContain("this run only");
 		expect(JSON.stringify(log.entries)).not.toContain("the-key");
 	});
@@ -132,6 +133,7 @@ describe("workerCreds", () => {
 		expect(await workerCreds("box", keyFile(""))).toEqual({
 			key: "the-key",
 			access: null,
+			coordinator: null,
 		});
 	});
 

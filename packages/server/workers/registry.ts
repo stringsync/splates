@@ -13,6 +13,7 @@ import {
 } from "webappwiz/time";
 import { RELAY, relayParams, type WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
+import type { CoordinatorIdentity } from "./identity";
 import { WorkerPortHost } from "./port-host";
 import { RelayScopes } from "./relay-scopes";
 import {
@@ -55,6 +56,10 @@ export interface WorkerRegistryOptions {
 	timer?: Timer;
 	clock?: Clock;
 	wall?: WallClock;
+	/** What proves this coordinator to a worker that keeps its public key; none answers no challenge. */
+	identity?: CoordinatorIdentity;
+	/** Whether `key` is the one worker `id` joined with, for a worker that sends it in its hello. */
+	verify?: (id: string, key: string) => boolean;
 }
 
 /**
@@ -83,10 +88,14 @@ export class WorkerRegistry
 	 */
 	private closed = false;
 
+	/** What the coordinator signs a worker's nonce with, new for each run unless its session is given. */
+	private readonly proofSession: string;
+
 	constructor(
 		private readonly log: Logger,
 		private readonly opts: WorkerRegistryOptions = {},
 	) {
+		this.proofSession = opts.session?.id ?? crypto.randomUUID();
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemClock();
 		this.wall = opts.wall ?? new SystemWallClock();
@@ -129,15 +138,27 @@ export class WorkerRegistry
 	/**
 	 * Takes a worker's new connection, hanging up on one that says nothing in
 	 * time. `kind` is how it reached us: `local` over this machine's socket.
-	 * `identity`, when given, is the worker its key proved it to be, and a
-	 * hello saying it is another is hung up on.
+	 * `identity`, when a string, is the worker its key proved it to be, and a
+	 * hello saying it is another is hung up on; null, the worker proves
+	 * itself in its hello, with the key it joined with, once it has had this
+	 * coordinator sign its nonce.
 	 */
 	async accept(
 		socket: WorkerSocket,
 		kind: WorkerKind = "registered",
-		identity?: string,
+		identity?: string | null,
 	): Promise<void> {
-		const hello = WorkerSession.hello(socket);
+		const { identity: signer } = this.opts;
+		const hello = WorkerSession.hello(
+			socket,
+			signer === undefined
+				? undefined
+				: (nonce) => ({
+						type: "proof",
+						session: this.proofSession,
+						signature: signer.prove(nonce, this.proofSession),
+					}),
+		);
 		const answered = await timeouts.race(
 			this.timer,
 			hello,
@@ -155,7 +176,15 @@ export class WorkerRegistry
 		if (said === null) {
 			return;
 		}
-		if (identity !== undefined && said.id !== identity) {
+		if (identity === null) {
+			if (said.key === undefined || !this.opts.verify?.(said.id, said.key)) {
+				socket.dispose();
+				this.log.error(
+					`a worker said it was ${said.id} without the key it joined with: hung up`,
+				);
+				return;
+			}
+		} else if (identity !== undefined && said.id !== identity) {
 			socket.dispose();
 			this.log.error(
 				`a worker with the key of ${identity} said it was ${said.id}: hung up`,
@@ -189,6 +218,9 @@ export class WorkerRegistry
 			known ??
 			new RemoteWorker(said.id, said.info, session, kind, this.bounds());
 		worker.info = said.info;
+		// Proved by a key sent only after this coordinator proved itself; a
+		// key in the upgrade went to whoever answered, and cannot be told.
+		worker.verified = identity === null || kind === "local";
 		// One splates made dials as any other, and stays what it was made as.
 		worker.kind = worker.kind === "provisioned" ? worker.kind : kind;
 		this.byId.set(said.id, worker);

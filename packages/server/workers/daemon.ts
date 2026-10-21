@@ -8,6 +8,7 @@ import {
 	SystemClock,
 	SystemTimer,
 	type Timer,
+	timeouts,
 } from "webappwiz/time";
 import type { SessionServers } from "../agents";
 import type { RelayFile } from "../records";
@@ -17,12 +18,13 @@ import type { KeepAwake } from "./awake";
 import { AwakeWhileBusy } from "./awake-while-busy";
 import { SERVERS, WorkerCallHost } from "./call-host";
 import { RELAY, type WorkerChannel } from "./channel";
+import { challengeNonce, proofHolds } from "./identity";
 import { hostOf, LocalWorkerMachine } from "./machine";
 import { WAKE, type WakeSender } from "./magic-packet";
 import { OrphanBound } from "./orphan";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
-import { UPDATE } from "./protocol";
+import { UPDATE, WorkerProtocol } from "./protocol";
 import { WorkerPtyHost } from "./pty-host";
 import { WorkerRelay } from "./relay";
 import type { AgentSandbox } from "./sandbox";
@@ -36,6 +38,11 @@ export interface WorkerDialer {
 	/** Where it dials, for the log. */
 	readonly where: string;
 	dial(): Promise<WorkerSocket>;
+	/**
+	 * The coordinator's public key to check on each dial, and the key to send
+	 * once it has proved itself; absent for a coordinator not checked.
+	 */
+	readonly verify?: { coordinator: string; key: string };
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
@@ -145,7 +152,7 @@ export class WorkerDaemon implements AsyncResource {
 		// Once per outage, rather than at every dial.
 		let said = false;
 		while (!this.stopped) {
-			const socket = await this.dialer.dial().catch((error: unknown) => {
+			let socket = await this.dialer.dial().catch((error: unknown) => {
 				if (!said) {
 					log.info(
 						`cannot reach ${this.dialer.where}, retrying: ${String(error)}`,
@@ -155,6 +162,17 @@ export class WorkerDaemon implements AsyncResource {
 				return null;
 			});
 			let joined = false;
+			const checked =
+				socket !== null && this.dialer.verify !== undefined
+					? await this.coordinatorProves(socket, this.dialer.verify.coordinator)
+					: null;
+			if (checked !== null) {
+				log.error(
+					`refusing the coordinator at ${this.dialer.where}, retrying without sending it this worker's key: ${checked}`,
+				);
+				socket?.dispose();
+				socket = null;
+			}
 			if (socket !== null && !this.stopped) {
 				const lost = new Promise<string>((resolve) =>
 					this.session.events.on("lost", ({ reason }) => resolve(reason), {
@@ -163,6 +181,9 @@ export class WorkerDaemon implements AsyncResource {
 				);
 				const negotiated = await this.session.connect(socket, {
 					id: this.opts.id,
+					...(this.dialer.verify === undefined
+						? {}
+						: { key: this.dialer.verify.key }),
 					info: {
 						slots: this.opts.slots,
 						platform: this.opts.ps.platform,
@@ -211,6 +232,46 @@ export class WorkerDaemon implements AsyncResource {
 			wait = Duration.min(wait.multiply(2), this.backoff.max);
 		}
 		return { stopped: true };
+	}
+
+	/**
+	 * Asks the coordinator on `socket` to sign a nonce of this worker's
+	 * choosing, answering why its signature does not hold under `publicKey`,
+	 * or null once it does. Nothing of this worker's key has been sent.
+	 */
+	private async coordinatorProves(
+		socket: WorkerSocket,
+		publicKey: string,
+	): Promise<string | null> {
+		const nonce = challengeNonce();
+		const answer = new Promise<string | null>((resolve) => {
+			const listening = socket.events.on("frame", (encoded) => {
+				listening();
+				try {
+					const frame = WorkerProtocol.decode(encoded);
+					if (frame.type !== "proof") {
+						resolve(
+							`it answered ${frame.type} where a proof of its signing key was due`,
+						);
+					} else if (
+						proofHolds(publicKey, nonce, frame.session, frame.signature)
+					) {
+						resolve(null);
+					} else {
+						resolve(
+							"its signature is not the one of the key this worker joined",
+						);
+					}
+				} catch {
+					resolve("it answered something that is no frame");
+				}
+			});
+			socket.events.on("close", () => resolve("it hung up"), { once: true });
+		});
+		socket.send(WorkerProtocol.encode({ type: "challenge", nonce }));
+		const within = this.opts.proofWithin ?? Duration.secs(10);
+		const verdict = await timeouts.race(this.timer, answer, within);
+		return verdict ? await answer : `it did not answer within ${within.secs}s`;
 	}
 
 	/** Stops dialing and everything this worker runs, and hangs up. */
@@ -411,6 +472,8 @@ export interface WorkerDaemonOptions {
 	 * default.
 	 */
 	orphanBound?: Duration;
+	/** How long a coordinator has to sign the nonce a worker challenges it with; ten seconds by default. */
+	proofWithin?: Duration;
 	/** Paces the session, as `WorkerSession` takes it. */
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
 	timer?: Timer;

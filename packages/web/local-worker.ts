@@ -59,6 +59,7 @@ function added(pool: WorkerPool): WorkerListing {
 		draining: false,
 		removing: false,
 		updating: false,
+		verified: null,
 		lastHeard: null,
 		wokenAt: null,
 		tasks: [],

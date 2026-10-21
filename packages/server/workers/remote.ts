@@ -86,6 +86,13 @@ export class RemoteWorker implements WorkerMachine {
 		private readonly bounds: CallBounds = CALL_BOUNDS,
 	) {}
 
+	/**
+	 * Whether the worker checked this coordinator's signing key before it
+	 * sent its own key; false for one that joined before join tokens carried
+	 * it, which re-joining makes verified.
+	 */
+	verified = false;
+
 	get connected(): boolean {
 		return this.session.connected;
 	}

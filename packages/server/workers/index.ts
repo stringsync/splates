@@ -49,6 +49,7 @@ export {
 } from "./creds";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
+export { CoordinatorIdentity } from "./identity";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
 export {
 	KEY_PROVIDERS,

@@ -36,6 +36,12 @@ export interface WorkerListing {
 	draining: boolean;
 	/** Is removed once its last agent ends. */
 	removing: boolean;
+	/**
+	 * Whether the worker checked this coordinator's signing key before it
+	 * sent its own key; false for one that joined before join tokens carried
+	 * it, until it joins again; null while it is away.
+	 */
+	verified: boolean | null;
 	/** Drains to be brought to the coordinator's build, a rollout's one at a time. */
 	updating: boolean;
 	/** When anything last came from it, epoch milliseconds; null before the first. */
@@ -47,22 +53,6 @@ export interface WorkerListing {
 	dollarsPerHour: number;
 	/** The providers whose API key it holds, of its own or its type's, by id. */
 	keys: string[];
-}
-
-/** What a registry keeps and turned away, as `workerList` gives them. */
-export interface WorkerListings {
-	workers: WorkerListing[];
-	refused: { id: string; protocol: string; reason: string }[];
-}
-
-/**
- * What `GET /api/workers` answers: the listings, the build the coordinator
- * runs, which a worker on another waits to be updated to, and where the
- * rollout bringing them to it stands.
- */
-export interface WorkerPool extends WorkerListings {
-	build: string;
-	rollout: RolloutStanding;
 }
 
 /**
@@ -95,6 +85,22 @@ export function workerList(
 			}),
 		refused: registry.refused,
 	};
+}
+
+/** What a registry keeps and turned away, as `workerList` gives them. */
+export interface WorkerListings {
+	workers: WorkerListing[];
+	refused: { id: string; protocol: string; reason: string }[];
+}
+
+/**
+ * What `GET /api/workers` answers: the listings, the build the coordinator
+ * runs, which a worker on another waits to be updated to, and where the
+ * rollout bringing them to it stands.
+ */
+export interface WorkerPool extends WorkerListings {
+	build: string;
+	rollout: RolloutStanding;
 }
 
 function listing(
@@ -134,6 +140,7 @@ function listing(
 		draining: record?.draining === true,
 		removing: record?.removing === true,
 		updating: record?.updating === true,
+		verified: worker.connected ? worker.verified : null,
 		lastHeard: session.lastHeard,
 		wokenAt: record?.wokenAt ?? null,
 		tasks,
@@ -155,6 +162,7 @@ const Listings = z.object({
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
 			updating: z.boolean().default(false),
+			verified: z.boolean().nullable().default(null),
 			lastHeard: z.number().nullable(),
 			wokenAt: z.number().nullable().default(null),
 			tasks: z.array(z.string()),
@@ -244,11 +252,15 @@ function health(
 			: worker.draining
 				? `${worker.health}, draining`
 				: worker.health;
+	const shown =
+		worker.verified === false
+			? `${state}, unverified: join it again to check the coordinator`
+			: state;
 	if (worker.lastHeard === null) {
-		return state;
+		return shown;
 	}
 	const ago = timeAgo(Duration.ms(Math.max(0, wall.now() - worker.lastHeard)));
-	return `${state}, heard ${ago}`;
+	return `${shown}, heard ${ago}`;
 }
 
 /** Its platform as the list shows it, with what it runs inside: `linux (wsl2)`. */

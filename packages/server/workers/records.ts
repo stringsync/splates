@@ -35,6 +35,8 @@ export class WorkerRecords {
 	// so a hash cannot be turned back, and the file lets no one in.
 	/** Serializes writes, so two changes never race to the file. */
 	private writing: Promise<void> = Promise.resolve();
+	/** The coordinator's public key, which each join token carries. */
+	private publicKey: string | null = null;
 
 	private constructor(
 		private readonly document: Document<KeptFile> | null,
@@ -68,6 +70,11 @@ export class WorkerRecords {
 		});
 	}
 
+	/** Has each join token from now on carry the coordinator's `publicKey`, for the worker to check its signature by. */
+	signedBy(publicKey: string): void {
+		this.publicKey = publicKey;
+	}
+
 	get all(): WorkerRecord[] {
 		return [...this.kept.workers];
 	}
@@ -99,7 +106,7 @@ export class WorkerRecords {
 	async invite(
 		access: ServiceToken | null = null,
 	): Promise<{ token: string; expiresAt: number }> {
-		const token = joinToken(`splj_${secret()}`, access);
+		const token = joinToken(`splj_${secret()}`, access, this.publicKey);
 		const expiresAt = this.wall.now() + JOIN_WITHIN.ms;
 		await this.change((kept) => ({
 			...kept,

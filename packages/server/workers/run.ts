@@ -182,7 +182,7 @@ function dialer(
 			coordinator === "" ? workerSocketPath(ps) : coordinator.slice(5);
 		return { where: path, dial: () => UnixWorkerSocket.connect(path) };
 	}
-	const { key, access } = creds;
+	const { key, access, coordinator: signer } = creds;
 	const url = new URL(WORKER_SOCKET_PATH, coordinator);
 	url.protocol =
 		url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
@@ -193,9 +193,19 @@ function dialer(
 		);
 	}
 	const where = url.toString();
-	const headers = {
-		...accessHeaders(access),
-		[WORKER_KEY_HEADER]: workerAuthorization(id, key),
+	// A worker that knows its coordinator's key sends its own only in its
+	// hello, once the coordinator has signed its nonce: a key in the upgrade
+	// goes to whoever answers the dial, as a stolen tunnel token lets anyone.
+	const headers =
+		signer === null
+			? {
+					...accessHeaders(access),
+					[WORKER_KEY_HEADER]: workerAuthorization(id, key),
+				}
+			: accessHeaders(access);
+	return {
+		where,
+		dial: () => WebSocketWorkerSocket.connect(where, headers),
+		...(signer === null ? {} : { verify: { coordinator: signer, key } }),
 	};
-	return { where, dial: () => WebSocketWorkerSocket.connect(where, headers) };
 }

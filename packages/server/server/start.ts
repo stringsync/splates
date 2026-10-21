@@ -31,6 +31,7 @@ import {
 } from "../tunnel";
 import {
 	CloudflareWorkerAccess,
+	CoordinatorIdentity,
 	CoordinatorState,
 	DevWorkers,
 	LOCAL_WORKER,
@@ -229,6 +230,9 @@ export async function serveDev(
 	const provider = here?.workerProvider ?? null;
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
 	const workers = new DevWorkers(ctx.log, {
+		// Signs what workers challenge it with, so one tells it from whoever
+		// answers for its host with a stolen tunnel token.
+		identity: await CoordinatorIdentity.open(device),
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		platform: ctx.ps.platform,

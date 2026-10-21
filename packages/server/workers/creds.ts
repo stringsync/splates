@@ -10,7 +10,12 @@ import { makeUndumpable, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
-import { type AccessClient, accessHeaders, joinAccess } from "./access";
+import {
+	type AccessClient,
+	accessHeaders,
+	joinAccess,
+	joinCoordinatorKey,
+} from "./access";
 import { KeyFileStore } from "./key-file";
 import type { WorkerRunOptions } from "./run-options";
 
@@ -45,10 +50,18 @@ export const WORKER_JOIN = "SPLATES_WORKER_JOIN";
 export const WORKER_ACCESS_ID = "SPLATES_WORKER_ACCESS_ID";
 export const WORKER_ACCESS_SECRET = "SPLATES_WORKER_ACCESS_SECRET";
 
+/**
+ * The public key of the coordinator that gave a join token, kept beside the
+ * worker's key: the worker sends its key only to one that signs its nonce.
+ */
+export const WORKER_COORDINATOR_KEY = "SPLATES_WORKER_COORDINATOR_KEY";
+
 /** What a joined worker shows its coordinator: its key, and the service token Access lets it through with, if any. */
 export interface WorkerCreds {
 	key: string;
 	access: AccessClient | null;
+	/** The coordinator's public key it checks, null for a worker that joined before tokens carried it. */
+	coordinator: string | null;
 }
 
 const Joined = z.object({ id: z.string(), key: z.string() });
@@ -139,7 +152,7 @@ export async function keptAccess(
 
 /** Credentials a restarted worker needs when no store or environment already keeps them. */
 export async function carried(
-	{ key, access }: WorkerCreds,
+	{ key, access, coordinator }: WorkerCreds,
 	opts: WorkerRunOptions,
 ): Promise<Record<string, string>> {
 	const kept = await keptStore(opts)
@@ -150,6 +163,7 @@ export async function carried(
 	}
 	return {
 		[WORKER_KEY]: key,
+		...(coordinator === null ? {} : { [WORKER_COORDINATOR_KEY]: coordinator }),
 		...(access === null
 			? {}
 			: {
@@ -174,13 +188,19 @@ export async function workerCreds(
 	if (opts.join) {
 		const access = joinAccess(opts.join);
 		const key = await joinCoordinator(id, access, opts);
+		const coordinator = joinCoordinatorKey(opts.join);
 		if (opts.ephemeral) {
 			log.info(`joined as ${id}, keeping its key for this run alone`);
-			return { key, access };
+			return { key, access, coordinator };
 		}
 		try {
 			await store.set(WORKER_KEY, key);
 			await store.set(WORKER_ID, id);
+			if (coordinator === null) {
+				await store.delete(WORKER_COORDINATOR_KEY);
+			} else {
+				await store.set(WORKER_COORDINATOR_KEY, coordinator);
+			}
 			if (access === null) {
 				await store.delete(WORKER_ACCESS_ID);
 				await store.delete(WORKER_ACCESS_SECRET);
@@ -197,7 +217,7 @@ export async function workerCreds(
 				`joined as ${id}, but ${store.label} could not keep its key (${error instanceof Error ? error.message : String(error)}): it lasts this run only, so run again with a new join token`,
 			);
 		}
-		return { key, access };
+		return { key, access, coordinator };
 	}
 	const kept = new Credentials([new Environment({ ps }), store]);
 	const key = await kept.get(WORKER_KEY);
@@ -210,7 +230,14 @@ export async function workerCreds(
 	const clientId = await kept.get(WORKER_ACCESS_ID);
 	const clientSecret = await kept.get(WORKER_ACCESS_SECRET);
 	await keepId(id, kept, store);
+	const coordinator = (await kept.get(WORKER_COORDINATOR_KEY)) ?? null;
+	if (coordinator === null) {
+		log.info(
+			"this coordinator's signing key is not kept, so it cannot be told from an impostor: join again with a new token from `splates worker add` to check it",
+		);
+	}
 	return {
+		coordinator,
 		key,
 		access:
 			clientId === undefined || clientSecret === undefined

@@ -13,10 +13,10 @@ import {
 import { RUNNING } from "../server/shared";
 import { WorkerChannel, type WorkerChannelLink } from "./channel";
 import { WorkerConnection } from "./connection";
+import { FrameTooLarge } from "./frame-too-large";
 import {
 	type ChannelFrame,
 	type Frame,
-	FrameTooLarge,
 	type Held,
 	type Json,
 	type Negotiated,
@@ -158,19 +158,29 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	 * Reads the first frame of a new connection, which must be a worker's
 	 * hello, so the coordinator can pick the session it resumes.
 	 */
-	static hello(socket: WorkerSocket): Promise<WorkerHello> {
+	static hello(
+		socket: WorkerSocket,
+		answer?: (nonce: string) => Frame,
+	): Promise<WorkerHello> {
 		return new Promise((resolve, reject) => {
 			const listening = new Disposer();
 			listening.defer(
 				socket.events.on("frame", (encoded) => {
-					listening.dispose();
 					try {
 						const frame = WorkerProtocol.decode(encoded);
+						// A worker that keeps the coordinator's key asks it to prove
+						// itself before it says hello.
+						if (frame.type === "challenge" && answer !== undefined) {
+							socket.send(WorkerProtocol.encode(answer(frame.nonce)));
+							return;
+						}
+						listening.dispose();
 						if (frame.type !== "hello") {
 							throw new Error(`a worker opens with hello, not ${frame.type}`);
 						}
 						resolve(frame);
 					} catch (error) {
+						listening.dispose();
 						socket.dispose();
 						reject(error);
 					}
@@ -300,7 +310,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	 */
 	connect(
 		socket: WorkerSocket,
-		hello: { id: string; info?: { [key: string]: Json } },
+		hello: { id: string; info?: { [key: string]: Json }; key?: string },
 	): Promise<Negotiated> {
 		this.assertRole("worker");
 		const connection = this.attach(socket);
@@ -312,6 +322,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			info: hello.info ?? {},
 			session: this.id,
 			held: [...this.held],
+			...(hello.key === undefined ? {} : { key: hello.key }),
 		});
 		return connection.settled.promise;
 	}

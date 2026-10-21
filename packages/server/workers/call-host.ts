@@ -3,9 +3,10 @@ import type { Resource } from "webappwiz/disposable";
 import { z } from "zod";
 import type { WorkerChannel } from "./channel";
 import { ProjectCheckout } from "./checkouts";
+import { FrameTooLarge } from "./frame-too-large";
 import type { WorkerMachine } from "./machine";
 import { type WakeSender, WakeTarget } from "./magic-packet";
-import { FrameTooLarge, type Json } from "./protocol";
+import type { Json } from "./protocol";
 import { SentKey } from "./task-keys";
 
 /** The capability of a worker that answers `servers` (protocol 1.2). */

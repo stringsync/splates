@@ -16,8 +16,8 @@ export class ServerWorkerSocket implements WorkerSocket, Connection {
 
 	constructor(
 		private readonly registry: WorkerRegistry,
-		/** The worker its key proved it to be. */
-		private readonly identity: string,
+		/** The worker its key proved it to be; null for one that proves it in its hello. */
+		private readonly identity: string | null,
 	) {}
 
 	send(frame: string | Uint8Array): boolean {

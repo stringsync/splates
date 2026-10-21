@@ -6,6 +6,7 @@ import { printed } from "../agents/testing";
 import { CONNECTIONS, type Connection, RUNNING } from "../server/shared";
 import type { RemoteWorker } from "./index";
 import { WebSocketWorkerSocket, WorkerDaemon } from "./index";
+import { WorkerProtocol } from "./protocol";
 import { DevWorkers, workerAuthorization } from "./routes";
 
 describe("DevWorkers", () => {
@@ -44,12 +45,29 @@ describe("DevWorkers", () => {
 		await daemon.disposeAsync();
 	});
 
-	it("refuses a worker that shows no key", async () => {
-		const answer = await fetch(`http://127.0.0.1:${server.port}/api/workers`, {
-			headers: { upgrade: "websocket" },
-		});
+	it("hangs up on a worker that shows no key in its upgrade or its hello", async () => {
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/api/workers`);
+		const closed = new Promise<void>((resolve) =>
+			socket.addEventListener("close", () => resolve()),
+		);
+		await new Promise<void>((resolve) =>
+			socket.addEventListener("open", () => resolve()),
+		);
+		socket.send(
+			JSON.stringify({
+				type: "hello",
+				protocol: WorkerProtocol.version,
+				capabilities: [],
+				id: "box",
+				info: {},
+				session: "s",
+				held: [],
+			}),
+		);
 
-		expect(answer.status).toBe(401);
+		await closed;
+
+		expect(workers.registry.worker("box")?.connected ?? false).toBe(false);
 	});
 
 	it("refuses a worker showing a key it did not join with", async () => {

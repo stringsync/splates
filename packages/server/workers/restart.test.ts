@@ -41,7 +41,7 @@ describe("restartWorker", () => {
 		fs: new NodeFs(),
 		store,
 	});
-	const creds = { key: "the-key", access: null };
+	const creds = { key: "the-key", access: null, coordinator: null };
 
 	it("keeps the worker on each build it is told, ending as the last one does", async () => {
 		// The first is told 3.0.0; the second ends.

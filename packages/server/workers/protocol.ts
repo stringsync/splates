@@ -104,15 +104,6 @@ export class WorkerProtocol {
 /** The capability of a worker that restarts on another build when its coordinator sends `update`. */
 export const UPDATE = "update";
 
-/** A frame the far end could never take, refused at send rather than replayed for ever. */
-export class FrameTooLarge extends Error {
-	constructor(readonly bytes: number) {
-		super(
-			`a frame of ${bytes} bytes is over the ${WorkerProtocol.maxFrameBytes} the link carries`,
-		);
-	}
-}
-
 /** A JSON value, as control frames carry them. */
 export type Json =
 	| string
@@ -140,6 +131,11 @@ export type Frame =
 			/** The worker session's id, new each time a worker starts. */
 			session: string;
 			held: Held;
+			/**
+			 * The key it joined with, sent only after the coordinator proved
+			 * itself, for a worker that kept the coordinator's public key.
+			 */
+			key?: string;
 	  }
 	| {
 			type: "welcome";
@@ -149,6 +145,10 @@ export type Frame =
 			session: string;
 			held: Held;
 	  }
+	/** A worker's first frame when it keeps the coordinator's public key: asks it to sign `nonce`. */
+	| { type: "challenge"; nonce: string }
+	/** The coordinator's answer: its signature over the nonce and its `session`. */
+	| { type: "proof"; session: string; signature: string }
 	| {
 			type: "refuse";
 			reason: string;
@@ -199,6 +199,13 @@ const frameSchema = z.discriminatedUnion("type", [
 		info: z.record(z.string(), json),
 		session: z.string(),
 		held,
+		key: z.string().optional(),
+	}),
+	z.object({ type: z.literal("challenge"), nonce: z.string() }),
+	z.object({
+		type: z.literal("proof"),
+		session: z.string(),
+		signature: z.string(),
 	}),
 	z.object({
 		type: z.literal("welcome"),
