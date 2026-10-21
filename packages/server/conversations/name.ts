@@ -1,5 +1,5 @@
 import type { LaneRecord } from "../board";
-import { leadingDirectives, UNTRIAGED } from "../plans";
+import { GARDEN, leadingDirectives, UNTRIAGED } from "../plans";
 import type { ConversationState } from "./state";
 
 /**
@@ -20,7 +20,8 @@ export function nameOf(
  * The name a conversation has earned, or null: the name the person gave it,
  * else the lanes it was started on, so an orchestrator's follows a lane's
  * renames and keeps them through a task it does itself, else "Groomer" for
- * the project's groomer (see `grooms`), else the task its
+ * the project's groomer (see `grooms`), else "Notes gardener" for the notes
+ * gardener (see `gardens`), else the task its
  * agent holds, so it follows the agent from task to task, or held last, so a
  * finished task keeps its name until the agent takes another, else the
  * agent's title.
@@ -33,6 +34,7 @@ export function realName(
 		conversation.name ??
 		lanesNamed(conversation, lanes) ??
 		(grooms(conversation) ? GROOMER : null) ??
+		(gardens(conversation) ? GARDENER : null) ??
 		conversation.lastTask ??
 		conversation.title
 	);
@@ -72,6 +74,9 @@ export function namedForTask(conversation: ConversationState): boolean {
 /** What the project's groomer goes by. */
 const GROOMER = "Groomer";
 
+/** What the notes gardener goes by, so it is told from the groomer. */
+const GARDENER = "Notes gardener";
+
 /** The persistent agent's role the project's groomer is kept for. */
 export const GROOMER_ROLE = "groomer";
 
@@ -91,6 +96,17 @@ export function grooms(conversation: ConversationState): boolean {
 		leadingDirectives(first.text).directives.some((directive) =>
 			/^\[SPLATES GROOM #\d+\]$/.test(directive),
 		)
+	);
+}
+
+/** Whether a conversation is the notes gardener's: opened on `[SPLATES GARDEN]`. */
+function gardens(conversation: ConversationState): boolean {
+	const first = conversation.messages
+		.find((message) => message.role === "user")
+		?.parts.find((part) => part.type === "text");
+	return (
+		first?.type === "text" &&
+		leadingDirectives(first.text).directives.includes(GARDEN)
 	);
 }
 

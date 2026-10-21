@@ -19,10 +19,12 @@ import { groomReference, need, sortReference } from "../plans";
  * it, so a wake missed or doubled changes nothing.
  *
  * Each run, from a wake to an empty backlog, starts a conversation of its
- * own, so its agent starts from a fresh context, and archives it resting as
+ * own (unless one waits on you, below), so its agent starts from a fresh
+ * context, and archives it resting as
  * the run ends, which stops its agent; the newest holds the groomer's row
  * on the page until the next run. One that ends asking you something stays
- * open until a turn after your reply ends with nothing more asked.
+ * open until a turn after your reply ends with nothing more asked, and the
+ * next run works in it rather than open a second.
  *
  * A task someone takes meanwhile, or one already groomed, is left be, as
  * the claim (`Task.groom`) refuses it; one a groomer had its turn on and
@@ -160,15 +162,24 @@ export class Groomer implements Resource {
 	}
 
 	/**
-	 * A new conversation for a run, in the main tree, once each the groomer
-	 * still has open with nothing asked of you, as one from before runs had
+	 * The conversation for a run, in the main tree: the one the groomer still
+	 * has open waiting on you, so there is never more than one, else a new
+	 * one, once each other the groomer has open, as one from before runs had
 	 * their own, is put away.
 	 */
 	async #start(pick: AgentPick): Promise<Conversation> {
 		const { conversations, root } = this.deps;
+		let waiting: Conversation | null = null;
 		for (const open of await this.#open()) {
+			if (waiting === null && need(null, open.state).kind === "waiting") {
+				waiting = open;
+				continue;
+			}
 			await this.#settled(open);
 			await this.#rest(open);
+		}
+		if (waiting !== null) {
+			return waiting;
 		}
 		const offered = (await conversations.settings())[pick.agent] ?? [];
 		return conversations.start(pick.agent, {

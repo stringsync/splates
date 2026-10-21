@@ -104,6 +104,29 @@ describe("Groomer", () => {
 		expect(asking.state.resting).toBe(true);
 	});
 
+	it("works in the run still waiting on you rather than open a second conversation", async () => {
+		agent.turn = async (client, sessionId, text) => {
+			told.push(text);
+			await client.sessionUpdate({
+				sessionId,
+				update: say("1. Which lane should it go in?\n   - (a) Lane 1 (chosen)"),
+			});
+			return "end_turn";
+		};
+		await taskAdd(deps, "rough", null);
+		await groomer.wake({ agent: "fake" });
+		const asking = await conversations.persistent(GROOMER_ROLE);
+		await taskAdd(deps, "later", null);
+
+		await groomer.wake({ agent: "fake" });
+
+		expect(told).toEqual(["[SPLATES GROOM #1]", "[SPLATES GROOM #2]"]);
+		expect((await conversations.list()).map(({ id }) => id)).toEqual([
+			asking?.id ?? "",
+		]);
+		expect((await deps.tasks.find(2)).state.grooming).toBe(asking?.id);
+	});
+
 	it("goes round again for a wake that comes mid-turn", async () => {
 		await taskAdd(deps, "rough", null);
 		const first = groomer.wake({ agent: "fake" });
