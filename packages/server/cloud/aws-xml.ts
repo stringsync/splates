@@ -45,10 +45,15 @@ export class AwsXml {
 		return pattern.exec(this.text);
 	}
 
+	/** Moves `at` to the root element, past the declaration and the newline AWS puts after it. */
 	private skipProlog(): void {
 		for (;;) {
 			const next = this.text.indexOf("<", this.at);
-			if (next < 0 || !/^<[?!]/.test(this.text.slice(next, next + 2))) {
+			if (next < 0) {
+				return;
+			}
+			if (!/^<[?!]/.test(this.text.slice(next, next + 2))) {
+				this.at = next;
 				return;
 			}
 			this.at = this.text.indexOf(">", next) + 1;
