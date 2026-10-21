@@ -36,6 +36,7 @@ import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
+import { keptAccess } from "../workers";
 import { Format } from "./format";
 import { Journal } from "./journal";
 import { MIGRATING, Migration } from "./migration";
@@ -371,6 +372,7 @@ export async function openRepository(
 					{
 						machine: FsStorage.ofMachine({ fs: disk, ps, log }),
 						env: (name) => ps.env(name),
+						access: (keyFile) => keptAccess({ ps, fs: disk, keyFile }),
 					},
 					() => originOf(ps, dirname(gitDir)),
 				);
@@ -379,7 +381,7 @@ export async function openRepository(
 			? disk
 			: new RoutedFs(
 					splatesDir,
-					new RelayFs(relay.url, relay.project, splatesDir),
+					new RelayFs(relay.url, relay.project, splatesDir, relay.send),
 					disk,
 				);
 
@@ -446,7 +448,7 @@ export async function openRepository(
 			: new TaskBranches(
 					git,
 					config,
-					new RelayApp(relay.url, relay.project),
+					new RelayApp(relay.url, relay.project, { fetch: relay.send }),
 					new PlanStore(fs, storage),
 				);
 	const store = new TaskStore(storage);
@@ -514,7 +516,7 @@ export async function openRepository(
 		trunk:
 			relay === null
 				? new CoordinatorLanding({ git, fs, config, lease: mergeLease })
-				: new RelayLanding(relay.url, relay.project),
+				: new RelayLanding(relay.url, relay.project, relay.send),
 		shell: new Shell({ ps }),
 		journal: new Journal(storage, config.logCapacity, { ps }),
 		tasks: new Tasks(store),

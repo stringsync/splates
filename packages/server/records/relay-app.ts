@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { AppSource, InstallationToken, TokenMinter } from "../merge";
-import type { StateProject } from "./repo-state";
+import type { RelaySend, StateProject } from "./repo-state";
 
 /** What `RelayApp` reaches the coordinator through; the global `fetch` by default. */
 export interface RelayAppOptions {
-	fetch?: typeof fetch;
+	fetch?: RelaySend;
 }
 
 /** A token this close to expiring is asked for again. */
@@ -20,7 +20,7 @@ const Answer = z.object({
  * the App's key never leaves the coordinator.
  */
 export class RelayApp implements AppSource {
-	private readonly fetch: typeof fetch;
+	private readonly fetch: RelaySend;
 	/** The last token minted, or null once the coordinator said it keeps no App. */
 	private held: Promise<InstallationToken | null> | undefined;
 

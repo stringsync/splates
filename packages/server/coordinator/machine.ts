@@ -7,10 +7,11 @@ import { Projects } from "../projects";
 import { openRepository } from "../records";
 import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
-import { workerJoin } from "../workers";
+import { WorkerBudget, WorkerRecords, workerJoin } from "../workers";
 import { CoordinatorBox } from "./box";
 import { installWorkerAgent } from "./launch-agent";
 import { CoordinatorMove, type MoveRepo } from "./move";
+import { workersWithout } from "./without";
 
 /** A `CoordinatorMove` of this machine's coordinator, onto its box. */
 export function machineMove(opts: MachineMoveOptions): CoordinatorMove {
@@ -47,6 +48,21 @@ export function machineMove(opts: MachineMoveOptions): CoordinatorMove {
 					.filter((each) => !each.gone)
 					.map((each) => moveRepo({ ps, fs, log, stores }, each)),
 			);
+		},
+		workersWithout: async () => {
+			const settings = new FsStorage(home, fs);
+			const here = await openRepository(
+				{ ps, fs, log, secrets: stores },
+				{ at: ps.cwd() },
+			).catch(() => null);
+			return workersWithout({
+				config: here?.config ?? null,
+				budget: await WorkerBudget.open(
+					settings.document("worker-budget.json"),
+				),
+				records: await WorkerRecords.open(settings.document("workers.json")),
+				worker: ps.hostname,
+			});
 		},
 		join: (coordinator, token) =>
 			workerJoin({

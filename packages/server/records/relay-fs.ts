@@ -1,9 +1,11 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Fs, MkdirOptions, RmOptions, StatResult } from "webappwiz/system";
-import type { StateCall, StateProject, WireStat } from "./repo-state";
-
-/** What `fetch` is used for here, so a test can stand in for it. */
-type Send = (url: string, init: RequestInit) => Promise<Response>;
+import type {
+	RelaySend,
+	StateCall,
+	StateProject,
+	WireStat,
+} from "./repo-state";
 
 /**
  * A project's records on the coordinator, reached over HTTP: each call one
@@ -16,7 +18,7 @@ export class RelayFs implements Fs {
 		private readonly url: string,
 		private readonly project: StateProject,
 		private readonly root: string,
-		private readonly send: Send = fetch,
+		private readonly send: RelaySend = fetch,
 	) {}
 
 	exists(path: string): Promise<boolean> {

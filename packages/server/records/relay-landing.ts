@@ -1,5 +1,5 @@
 import type { Landed, LandRequest, TrunkLanding } from "../merge";
-import type { StateProject } from "./repo-state";
+import type { RelaySend, StateProject } from "./repo-state";
 
 /**
  * A worker's landing: it asks the coordinator at `url` to land, through the
@@ -9,7 +9,7 @@ export class RelayLanding implements TrunkLanding {
 	constructor(
 		private readonly url: string,
 		private readonly project: StateProject,
-		private readonly send: typeof fetch = fetch,
+		private readonly send: RelaySend = fetch,
 	) {}
 
 	async land(request: LandRequest): Promise<Landed> {

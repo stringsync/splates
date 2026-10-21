@@ -82,13 +82,36 @@ export async function workerJoin(
 }
 
 /** Where the worker's key is kept: the system's store, or the key file with `--key-file`. */
-function keptStore(opts: WorkerRunOptions): SecretStore {
+function keptStore(
+	opts: Pick<WorkerRunOptions, "ps" | "fs" | "keyFile" | "store">,
+): SecretStore {
 	return (
 		opts.store ??
 		(opts.keyFile
 			? new KeyFileStore(workerKeyFile(opts.ps), opts.fs)
 			: SystemSecretStore.device())
 	);
+}
+
+/**
+ * The service token the worker on this machine passes Access with, kept
+ * where it joined: its key file with `keyFile`, else the system's store, or
+ * the environment; null for none, or a store that cannot be read.
+ */
+export async function keptAccess(
+	opts: Pick<WorkerRunOptions, "ps" | "fs" | "keyFile">,
+): Promise<AccessClient | null> {
+	const kept = new Credentials([
+		new Environment({ ps: opts.ps }),
+		keptStore(opts),
+	]);
+	const clientId = await kept.get(WORKER_ACCESS_ID).catch(() => undefined);
+	const clientSecret = await kept
+		.get(WORKER_ACCESS_SECRET)
+		.catch(() => undefined);
+	return clientId === undefined || clientSecret === undefined
+		? null
+		: { clientId, clientSecret };
 }
 
 /** Credentials a restarted worker needs when no store or environment already keeps them. */

@@ -10,6 +10,8 @@ export {
 	Migration,
 } from "./migration";
 export type {
+	RelayFile,
+	RelaySend,
 	StateCall,
 	StateProject,
 } from "./repo-state";

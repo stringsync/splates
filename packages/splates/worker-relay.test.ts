@@ -152,6 +152,25 @@ describe("WorkerRelay", () => {
 		expect(await env.tasks.all()).toMatchObject([{ subject: "make it so" }]);
 	});
 
+	it("reaches the coordinator directly by hand once no worker daemon runs", async () => {
+		await daemon.disposeAsync();
+		// As a daemon dialing a coordinator elsewhere leaves it once stopped.
+		await relayDocument(new FsStorage(home, env.fs)).write({
+			worker: "remote",
+			coordinator: `http://127.0.0.1:${server.port}`,
+			keyFile: true,
+		});
+		await env.fs.write(
+			`${home}/worker.env`,
+			"SPLATES_WORKER_ACCESS_ID=client.access\nSPLATES_WORKER_ACCESS_SECRET=secret\n",
+		);
+
+		await splates(clone, ["task", "add", "make it so", "--slug", "so"], {});
+
+		expect(worker.connected).toBe(false);
+		expect(await env.tasks.all()).toMatchObject([{ subject: "make it so" }]);
+	});
+
 	// scry-ignore simple-test-setup: minting a token and saving the creds it gets are what this test checks, and no other test here does either.
 	it("joins with the token `worker add` mints, over the coordinator's own routes", async () => {
 		const coordinator = `http://127.0.0.1:${server.port}`;

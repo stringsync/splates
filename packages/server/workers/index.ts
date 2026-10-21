@@ -1,4 +1,4 @@
-export type { ServiceToken, WorkerAccess } from "./access";
+export type { AccessClient, ServiceToken, WorkerAccess } from "./access";
 export { accessHeaders, joinAccess } from "./access";
 export {
 	addWorker,
@@ -40,7 +40,13 @@ export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { CoordinatorState } from "./coordinator-state";
-export { WORKER_JOIN, WORKER_KEY, workerCreds, workerJoin } from "./creds";
+export {
+	keptAccess,
+	WORKER_JOIN,
+	WORKER_KEY,
+	workerCreds,
+	workerJoin,
+} from "./creds";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";

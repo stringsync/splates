@@ -25,6 +25,7 @@ import {
 } from "./scripts";
 import { BoxShell } from "./ssh";
 import { MOVED_HOME, stage } from "./stage";
+import type { WorkersWithout } from "./without";
 
 /**
  * Moves the coordinator onto its box: checks what it needs, readies the
@@ -56,6 +57,8 @@ export class CoordinatorMove {
 			return updated;
 		}
 		const { box, host, repos } = await this.check(standing);
+		const without = await this.opts.workersWithout();
+		log.info(without.said);
 		const shell = this.shell(box);
 		const projects = await this.boxProjects(repos);
 		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
@@ -455,6 +458,8 @@ export interface CoordinatorMoveOptions {
 	dev: string;
 	/** What this machine is known by as a worker. */
 	worker: string;
+	/** How the box gets workers with this machine off, or why it gets none, said before the move. */
+	workersWithout: () => Promise<WorkersWithout>;
 	/** Spends a join token as `splates worker join --key-file` does. */
 	join: (coordinator: string, token: string) => Promise<void>;
 	/** Keeps this machine's worker dialing `coordinator` from now on, saying how. */

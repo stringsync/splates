@@ -197,11 +197,11 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 
 	/**
 	 * Frees every slot held on `worker`, as when it is removed with its
-	 * agents still on it, telling each grant's holder through `lost`, and
+	 * agents still on it or has been away too long, saying `why`, telling each grant's holder through `lost`, and
 	 * places whoever can go elsewhere: the holders that take their agents
 	 * back up included, once `worker` is out of the pool.
 	 */
-	release(worker: string): void {
+	release(worker: string, why = `worker ${worker} was removed`): void {
 		const lost: AbortController[] = [];
 		for (const [id, { held, losing }] of this.holding) {
 			if (held.worker === worker) {
@@ -210,7 +210,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			}
 		}
 		for (const losing of lost) {
-			losing.abort(new Error(`worker ${worker} was removed`));
+			losing.abort(new Error(why));
 		}
 		this.place();
 		this.changed();

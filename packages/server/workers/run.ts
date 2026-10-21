@@ -71,6 +71,14 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		fs: opts.fs,
 		log,
 		relay: relayDocument(FsStorage.ofMachine({ fs: opts.fs, ps, log })),
+		...(remote
+			? {
+					direct: {
+						coordinator: opts.coordinator,
+						keyFile: opts.keyFile === true,
+					},
+				}
+			: {}),
 		servers: browser,
 		awake: keepAwakeOf(ps, log),
 		network: await networkOf(ps, log),

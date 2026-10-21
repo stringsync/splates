@@ -2,11 +2,11 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
-import { relayOf } from "../records";
+import { type RelaySend, relayOf } from "../records";
 import { DEFAULT_PORT } from "../server/shared";
 import { FsStorage } from "../storage";
 import { table } from "../table";
-import { LOCAL_WORKER } from "../workers";
+import { keptAccess, LOCAL_WORKER } from "../workers";
 
 const Listed = z.object({
 	base: z.string().nullable(),
@@ -36,7 +36,7 @@ export interface PortsOptions {
 	log: Logger;
 	fs: Fs;
 	ps: Ps;
-	send?: typeof fetch;
+	send?: RelaySend;
 }
 
 /**
@@ -46,17 +46,20 @@ export interface PortsOptions {
  * elsewhere, only that worker's own ports open on this machine.
  */
 export async function portsLs(opts: PortsOptions): Promise<void> {
-	const { log, fs, ps, send = fetch } = opts;
+	const { log, fs, ps } = opts;
 	const relay = await relayOf({
 		machine: FsStorage.ofMachine({ fs, ps, log }),
 		env: (name) => ps.env(name),
+		access: (keyFile) => keptAccess({ ps, fs, keyFile }),
 	});
 	const url = opts.dev || relay?.url || `http://localhost:${DEFAULT_PORT}`;
 	const here = relay?.worker ?? null;
+	// Through the coordinator's tunnel, with Access headers, while no relay answers.
+	const send = opts.send ?? (opts.dev ? fetch : (relay?.send ?? fetch));
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
-		response = await send(new URL("/api/ports", url), {
+		response = await send(new URL("/api/ports", url).toString(), {
 			headers: { origin: url },
 		});
 	} catch (error) {

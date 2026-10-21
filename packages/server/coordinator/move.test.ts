@@ -83,6 +83,10 @@ describe("CoordinatorMove", () => {
 			here: `${ROOT}/packages`,
 			dev: DEV,
 			worker: "macbook",
+			workersWithout: async () => ({
+				ok: true,
+				said: "with this machine off, the box makes workers with DigitalOcean",
+			}),
 			join: async (coordinator, token) => {
 				joined.push(`${coordinator} ${token}`);
 			},
@@ -148,6 +152,20 @@ describe("CoordinatorMove", () => {
 		});
 		expect(net.posted).toEqual([]);
 		expect(ps.copied).toEqual([]);
+	});
+
+	it("says, before anything changes, that nothing runs agents with this machine off", async () => {
+		const log = new MemoryLogger();
+		const warning =
+			"with this machine off, nothing runs agents, so the box needs it up: no `workerProvider`";
+
+		await new CoordinatorMove({
+			...opts,
+			log,
+			workersWithout: async () => ({ ok: false, said: warning }),
+		}).run({ dryRun: true });
+
+		expect(log.entries[0]?.message).toBe(warning);
 	});
 
 	it("brings the box to this release and restarts it once the coordinator runs there", async () => {

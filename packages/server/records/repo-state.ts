@@ -2,6 +2,7 @@ import { isAbsolute, normalize } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { Document, Storage } from "../storage";
+import { type AccessClient, accessHeaders } from "../workers";
 
 /**
  * Runs `call` on the records under `root`, as the coordinator does for a
@@ -122,67 +123,137 @@ export interface WireStat {
 	mtimeMs: number;
 }
 
-/** What `relay.json` holds. */
-const RelayFile = z.object({ url: z.string(), worker: z.string().optional() });
+/**
+ * What `relay.json` holds: where the worker daemon's relay listens while it
+ * runs, the worker this machine is, and, for a coordinator elsewhere, its
+ * URL and whether the worker's key and Access token are in its key file,
+ * kept once the daemon stops so `splates` here reaches it directly.
+ */
+const RelayFile = z.object({
+	url: z.string().optional(),
+	worker: z.string().optional(),
+	coordinator: z.string().optional(),
+	keyFile: z.boolean().optional(),
+});
+export type RelayFile = z.infer<typeof RelayFile>;
 
 /** Where a worker daemon says its relay listens, in the machine's storage. */
-export function relayDocument(
-	machine: Storage,
-): Document<z.infer<typeof RelayFile>> {
+export function relayDocument(machine: Storage): Document<RelayFile> {
 	return machine.document("relay.json");
+}
+
+/**
+ * What a command sends the coordinator's server: `fetch`, through a relay,
+ * or with the worker's Access service token when it reaches the server
+ * through its tunnel.
+ */
+export type RelaySend = (url: string, init: RequestInit) => Promise<Response>;
+
+/** What `relayOf` reads where the relay is, and whether it answers. */
+export interface RelayDeps {
+	machine: Storage;
+	env: (name: string) => string | undefined;
+	/**
+	 * The Access service token the worker here joined with, from its key
+	 * file or the system's store; none by default, so a relay that does not
+	 * answer is used anyway.
+	 */
+	access?: (keyFile: boolean) => Promise<AccessClient | null>;
+	/** Whether something listens at `url`; a TCP connect by default. */
+	listening?: (url: string) => Promise<boolean>;
 }
 
 /**
  * The coordinator a command on a worker reaches its project's records
  * through, and which project they are: the `splates server` the agent's env
- * names, else the relay this machine's worker daemon keeps; the project its
- * env names, else the one whose origin URL `origin` is. Null when no relay is
- * known, or no project can be named.
+ * names, else the relay this machine's worker daemon keeps, or the
+ * coordinator itself while no daemon relays; the project its env names,
+ * else the one whose origin URL `origin` is. Null when no relay is known,
+ * or no project can be named.
  */
 export async function findRelay(
-	deps: { machine: Storage; env: (name: string) => string | undefined },
+	deps: RelayDeps,
 	origin: () => Promise<string | null>,
 ): Promise<FoundRelay | null> {
 	const relay = await relayOf(deps);
 	if (relay === null) {
 		return null;
 	}
-	const { url, worker } = relay;
 	const slug = deps.env("SPLATES_PROJECT");
 	if (slug !== undefined) {
-		return { url, project: { slug }, worker };
+		return { ...relay, project: { slug } };
 	}
 	const found = await origin();
-	return found === null ? null : { url, project: { origin: found }, worker };
+	return found === null ? null : { ...relay, project: { origin: found } };
 }
 
 /**
- * The coordinator's server a command on this machine reaches, and the worker
- * this machine is: the `splates server` the agent's env names, else the
- * relay this machine's worker daemon keeps. Null when neither says.
+ * The coordinator's server a command on this machine reaches, how, and the
+ * worker this machine is: the `splates server` the agent's env names, else
+ * the relay this machine's worker daemon keeps, else, once that does not
+ * answer, the coordinator elsewhere it dials, passing Access with the
+ * worker's service token. Null when none says.
  */
-export async function relayOf({
-	machine,
-	env,
-}: {
-	machine: Storage;
-	env: (name: string) => string | undefined;
-}): Promise<{ url: string; worker: string | null } | null> {
+export async function relayOf(
+	deps: RelayDeps,
+): Promise<{ url: string; worker: string | null; send: RelaySend } | null> {
+	const { machine, env, access, listening = answers } = deps;
 	const read = await relayDocument(machine)
 		.read()
 		.catch(() => null);
 	const parsed = read === null ? null : RelayFile.safeParse(read);
 	const said = parsed?.success ? parsed.data : null;
-	const url = env("SPLATES_DEV") ?? said?.url;
-	if (url === undefined) {
-		return null;
+	const worker = env("SPLATES_WORKER") ?? said?.worker ?? null;
+	const dev = env("SPLATES_DEV");
+	if (dev !== undefined) {
+		return { url: dev, worker, send: fetch };
 	}
-	return { url, worker: env("SPLATES_WORKER") ?? said?.worker ?? null };
+	const { coordinator } = said ?? {};
+	if (
+		coordinator !== undefined &&
+		access !== undefined &&
+		(said?.url === undefined || !(await listening(said.url)))
+	) {
+		const headers = accessHeaders(await access(said?.keyFile ?? false));
+		return {
+			url: coordinator,
+			worker,
+			send: (url, init) =>
+				fetch(url, {
+					...init,
+					headers: {
+						...Object.fromEntries(new Headers(init.headers)),
+						...headers,
+					},
+				}),
+		};
+	}
+	return said?.url === undefined
+		? null
+		: { url: said.url, worker, send: fetch };
+}
+
+/** Whether a TCP connection to `url`'s host and port opens. */
+async function answers(url: string): Promise<boolean> {
+	const { hostname, port } = new URL(url);
+	try {
+		const socket = await Bun.connect({
+			hostname,
+			port: Number(port),
+			socket: { data: () => {} },
+		});
+		socket.end();
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** The relay `findRelay` found, and the worker it is this machine's. */
 export interface FoundRelay {
 	url: string;
+	/** How each request reaches it. */
+	send: RelaySend;
 	project: StateProject;
 	/**
 	 * The worker this machine is, which a task's clone made here is recorded

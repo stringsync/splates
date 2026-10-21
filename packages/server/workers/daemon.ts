@@ -10,6 +10,7 @@ import {
 	type Timer,
 } from "webappwiz/time";
 import type { SessionServers } from "../agents";
+import type { RelayFile } from "../records";
 import { RUNNING } from "../server/shared";
 import type { Document } from "../storage";
 import type { KeepAwake } from "./awake";
@@ -116,7 +117,11 @@ export class WorkerDaemon implements AsyncResource {
 		this.relay = WorkerRelay.listen(this.session);
 		if (relay !== null && this.relay !== null) {
 			await relay
-				.write({ url: this.relay.url, worker: this.opts.id })
+				.write({
+					url: this.relay.url,
+					worker: this.opts.id,
+					...this.opts.direct,
+				})
 				.catch((error: unknown) =>
 					log.error(`cannot say where the relay listens: ${String(error)}`),
 				);
@@ -212,7 +217,13 @@ export class WorkerDaemon implements AsyncResource {
 			// Another daemon on this machine may have said its own since.
 			const said = relay === null ? null : await relay.read().catch(() => null);
 			if (relay !== null && said?.url === this.relay.url) {
-				await relay.remove().catch(() => {});
+				// Kept without the relay, so `splates` here reaches a
+				// coordinator elsewhere directly while no daemon runs.
+				const { direct } = this.opts;
+				await (direct === undefined
+					? relay.remove()
+					: relay.write({ worker: this.opts.id, ...direct })
+				).catch(() => {});
 			}
 			this.relay = null;
 		}
@@ -356,7 +367,13 @@ export interface WorkerDaemonOptions {
 	 * machine, which has no env to find it in; null, the default, says it
 	 * nowhere.
 	 */
-	relay?: Document<{ url: string; worker?: string }> | null;
+	relay?: Document<RelayFile> | null;
+	/**
+	 * The coordinator elsewhere it dials, said beside the relay, and kept
+	 * once it stops, with whether its key and Access token are in the key
+	 * file; none for this machine's own.
+	 */
+	direct?: { coordinator: string; keyFile: boolean };
 	/** The MCP servers it offers each agent session it runs; none by default. */
 	servers?: SessionServers | null;
 	/** Keeps the machine awake while it runs a process or terminal; none by default. */

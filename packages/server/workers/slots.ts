@@ -1,7 +1,14 @@
 import type { Resource } from "webappwiz/disposable";
-import { SystemWallClock, type WallClock } from "webappwiz/time";
+import type { Logger } from "webappwiz/log";
+import {
+	SystemClock,
+	SystemTimer,
+	SystemWallClock,
+	type WallClock,
+} from "webappwiz/time";
 import type { ConversationSlots, SlotAsk } from "../conversations";
 import { RUNNING } from "../server/shared";
+import { GoneWorkers } from "./gone";
 import type { KeyDelivery } from "./key-delivery";
 import type { KeyedWorker } from "./keys";
 import type { WorkerRecord } from "./records";
@@ -37,6 +44,8 @@ export class WorkerSlots implements Resource {
 	readonly pool: Pool;
 	private readonly unlisten: () => void;
 	private readonly delivery: KeyDelivery | null;
+	/** What frees the slots of a worker away too long; none without a log. */
+	private readonly gone: GoneWorkers | null;
 
 	constructor(
 		readonly registry: WorkerRegistry,
@@ -49,6 +58,7 @@ export class WorkerSlots implements Resource {
 			build = RUNNING,
 			waking = () => false,
 			delivery = null,
+			log = null,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
@@ -65,6 +75,8 @@ export class WorkerSlots implements Resource {
 			waking?: (id: string) => boolean;
 			/** What sends each worker an agent starts on its keys; none, unless said. */
 			delivery?: KeyDelivery | null;
+			/** Where it says a worker away too long lets go of its agents; with none, they wait for it. */
+			log?: Logger | null;
 		},
 	) {
 		this.delivery = delivery;
@@ -79,6 +91,17 @@ export class WorkerSlots implements Resource {
 		};
 		this.scheduler = new Scheduler(this.pool, wall);
 		this.unlisten = registry.events.on("joined", () => this.scheduler.poke());
+		this.gone =
+			log === null
+				? null
+				: new GoneWorkers({
+						workers: () =>
+							registry.workers.filter((each) => each.kind !== "local"),
+						scheduler: this.scheduler,
+						timer: new SystemTimer(),
+						clock: new SystemClock(),
+						log,
+					});
 	}
 
 	/** The queue as the agents of the project at `root` take slots from it. */
@@ -159,6 +182,7 @@ export class WorkerSlots implements Resource {
 
 	dispose(): void {
 		this.unlisten();
+		this.gone?.dispose();
 		this.scheduler.dispose();
 	}
 }

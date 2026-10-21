@@ -138,6 +138,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			waking: (id) => this.waking.waking(id),
 			delivery: this.delivery,
 			holds: (worker, agent) => keys?.holds(worker, agent) ?? true,
+			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 		this.wakes = new WakeRelay(this.registry, records, {
