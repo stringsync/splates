@@ -1,4 +1,7 @@
-import type { SpendReport } from "@stringsync/splates-server/spend";
+import type {
+	BillingView,
+	SpendReport,
+} from "@stringsync/splates-server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
 // before anything below loads react-dom.
 import "./testing-dom";
@@ -133,9 +136,19 @@ export class Testing implements Resource {
 	readonly notes = new FakeNotes();
 	/** What `/api/budgets` says of the project's scry budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
+	/** What `/api/billing` says of the currency and each provider's pull. */
+	billingView: BillingView = {
+		currency: "USD",
+		currencies: ["USD", "EUR"],
+		pulledAt: null,
+		providers: [],
+	};
 	/** What `/api/spend` says of the dollars spent. */
 	spendReport: SpendReport = {
 		updated: "2026-10-21T12:00:00.000Z",
+		currency: "USD",
+		rateDate: null,
+		rateError: null,
 		services: [],
 		days: [],
 	};
@@ -267,6 +280,9 @@ export class Testing implements Resource {
 				// As `fetch` does when nothing listens.
 				throw new TypeError("no server");
 			}
+			if (path === "/api/billing/pull") {
+				return Response.json(this.billingView);
+			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({
 					path,
@@ -311,6 +327,9 @@ export class Testing implements Resource {
 			const note = this.notes.respond(path);
 			if (note !== null) {
 				return note;
+			}
+			if (route === "/api/billing") {
+				return Response.json(this.billingView);
 			}
 			if (route === "/api/spend") {
 				return Response.json(this.spendReport);

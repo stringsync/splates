@@ -164,6 +164,12 @@ export function CredsPage({
 			preventScroll: true,
 		});
 	}, [cred, kept]);
+	// A link to a cred nothing has asked for or kept opens the form on its name.
+	const unkept =
+		cred !== null &&
+		kept !== null &&
+		!kept.kept.some((each) => each.name === cred) &&
+		!open.some((each) => each.name === cred);
 	const system = kept?.labels.system.device.replace(/ as ".*"$/, "") ?? null;
 
 	return (
@@ -216,10 +222,13 @@ export function CredsPage({
 						<PlusIcon /> Add
 					</Button>
 				</header>
-				{adding && (
+				{(adding || unkept) && (
 					<AddCred
 						project={project}
 						providers={kept?.providers ?? ["system"]}
+						initial={
+							unkept && !adding ? { name: cred, scope: "device" } : undefined
+						}
 						onAdded={() => {
 							setAdding(false);
 							read();

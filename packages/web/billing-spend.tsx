@@ -1,9 +1,28 @@
-import type { SpendReport, SpendTotal } from "@stringsync/splates-server/spend";
+import type {
+	BillingView,
+	SpendReport,
+	SpendTotal,
+} from "@stringsync/splates-server/spend";
 import { ChevronRightIcon } from "lucide-react";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
-import { spend } from "./api";
+import { billing, pullBilling, setCurrency, spend } from "./api";
+import { credAddress } from "./page-address";
 import { PHONE_HEADING } from "./phone-rows";
+
+const Currency = createContext("USD");
+
+const useMoney = (): ((amount: number) => string) => {
+	const currency = useContext(Currency);
+	return (amount) => money(amount, currency);
+};
 
 type Range = "day" | "week" | "month" | "custom";
 
@@ -11,10 +30,10 @@ const RANGES: Range[] = ["day", "week", "month", "custom"];
 
 const DAY = 86_400_000;
 
-const dollars = (amount: number): string =>
+const money = (amount: number, currency: string): string =>
 	new Intl.NumberFormat("en-US", {
 		style: "currency",
-		currency: "USD",
+		currency,
 		minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
 		maximumFractionDigits: 2,
 	}).format(amount);
@@ -60,6 +79,10 @@ export function SpendSection(): JSX.Element {
 	// Held while it reads again, so a change of range never blanks the figures.
 	const [report, setReport] = useState<SpendReport | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [sources, setSources] = useState<BillingView | null>(null);
+	const [pulling, setPulling] = useState(false);
+	const [sourceError, setSourceError] = useState<string | null>(null);
+	const currency = sources?.currency ?? null;
 	const span = useMemo(() => {
 		if (range !== "custom") {
 			return spanOf(range, Date.now());
@@ -73,6 +96,23 @@ export function SpendSection(): JSX.Element {
 					until: new Date(until + DAY).toISOString(),
 				};
 	}, [range, from, to]);
+	// Read what was last pulled at once, then pull again, so the figures catch up.
+	useEffect(() => {
+		let current = true;
+		billing()
+			.then((read) => current && setSources(read))
+			.catch((caught: Error) => current && setSourceError(caught.message));
+		setPulling(true);
+		pullBilling()
+			.then((read) => current && setSources(read))
+			.catch((caught: Error) => current && setSourceError(caught.message))
+			.finally(() => current && setPulling(false));
+		return () => {
+			current = false;
+		};
+	}, []);
+	const pulledAt = sources?.pulledAt ?? null;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new currency or pull is when to read again
 	useEffect(() => {
 		if (span === null) {
 			return;
@@ -90,7 +130,7 @@ export function SpendSection(): JSX.Element {
 		return () => {
 			current = false;
 		};
-	}, [span]);
+	}, [span, currency, pulledAt]);
 	const providers = useMemo(() => {
 		const byProvider = new Map<string, SpendTotal[]>();
 		for (const row of report?.services ?? []) {
@@ -112,95 +152,184 @@ export function SpendSection(): JSX.Element {
 	}, [report]);
 	const total = sum(report?.services ?? []);
 	return (
-		<section aria-label="spend" className="flex min-w-0 flex-col gap-4">
-			<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>Spend</h2>
-				<span className="text-muted-foreground text-xs">
-					Dollars across every project on this machine, by UTC day.
-				</span>
-			</header>
-			<fieldset
-				aria-label="range"
-				className="flex flex-wrap items-center gap-1"
-			>
-				{RANGES.map((each) => (
-					<button
-						key={each}
-						type="button"
-						aria-pressed={range === each}
-						onClick={() => setRange(each)}
-						className={cn(
-							"rounded-md border px-2.5 py-1 text-xs capitalize",
-							range === each
-								? "bg-accent font-medium"
-								: "text-muted-foreground",
+		<Currency.Provider value={report?.currency ?? "USD"}>
+			<section aria-label="spend" className="flex min-w-0 flex-col gap-4">
+				<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>Spend</h2>
+					<span className="text-muted-foreground text-xs">
+						Spend across every project on this machine, by UTC day.
+					</span>
+					{sources !== null && (
+						<select
+							aria-label="currency"
+							value={sources.currency}
+							onChange={(event) =>
+								setCurrency(event.target.value).then(
+									setSources,
+									(caught: Error) => setSourceError(caught.message),
+								)
+							}
+							className="ml-auto rounded-md border bg-transparent px-2 py-1 text-xs"
+						>
+							{sources.currencies.map((each) => (
+								<option key={each} value={each}>
+									{each}
+								</option>
+							))}
+						</select>
+					)}
+				</header>
+				<fieldset
+					aria-label="range"
+					className="flex flex-wrap items-center gap-1"
+				>
+					{RANGES.map((each) => (
+						<button
+							key={each}
+							type="button"
+							aria-pressed={range === each}
+							onClick={() => setRange(each)}
+							className={cn(
+								"rounded-md border px-2.5 py-1 text-xs capitalize",
+								range === each
+									? "bg-accent font-medium"
+									: "text-muted-foreground",
+							)}
+						>
+							{each === "day" ? "Today" : each === "week" ? "7 days" : each}
+						</button>
+					))}
+					{range === "custom" && (
+						<span className="flex items-center gap-1 text-xs">
+							<input
+								type="date"
+								aria-label="from"
+								value={from}
+								onChange={(event) => setFrom(event.target.value)}
+								className="rounded-md border bg-transparent px-2 py-1"
+							/>
+							to
+							<input
+								type="date"
+								aria-label="to"
+								value={to}
+								onChange={(event) => setTo(event.target.value)}
+								className="rounded-md border bg-transparent px-2 py-1"
+							/>
+						</span>
+					)}
+				</fieldset>
+				{error !== null && (
+					<p role="alert" className="text-destructive text-sm">
+						Could not read spend: {error}
+					</p>
+				)}
+				{report === null && error === null && span !== null && (
+					<p role="status" className="text-muted-foreground text-sm">
+						Reading spend…
+					</p>
+				)}
+				{span === null && (
+					<p className="text-muted-foreground text-sm">
+						Pick the first and last day to total.
+					</p>
+				)}
+				{report !== null && (
+					<>
+						<div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+							<Figure label="Billed" amount={total.billed} />
+							<Figure
+								label="Estimate"
+								amount={total.equivalent}
+								hint="Plan use priced at API list prices, not money paid"
+							/>
+						</div>
+						{providers.length === 0 ? (
+							<p className="text-muted-foreground text-sm">
+								Nothing spent in this range.
+							</p>
+						) : (
+							<ul className="flex flex-col gap-2">
+								{providers.map((each) => (
+									<ProviderRow key={each.provider} {...each} />
+								))}
+							</ul>
 						)}
-					>
-						{each === "day" ? "Today" : each === "week" ? "7 days" : each}
-					</button>
-				))}
-				{range === "custom" && (
-					<span className="flex items-center gap-1 text-xs">
-						<input
-							type="date"
-							aria-label="from"
-							value={from}
-							onChange={(event) => setFrom(event.target.value)}
-							className="rounded-md border bg-transparent px-2 py-1"
-						/>
-						to
-						<input
-							type="date"
-							aria-label="to"
-							value={to}
-							onChange={(event) => setTo(event.target.value)}
-							className="rounded-md border bg-transparent px-2 py-1"
-						/>
+						{providers.length > 0 && <Trend days={report.days} />}
+						<p className="text-muted-foreground text-xs">
+							Updated {new Date(report.updated).toLocaleTimeString()}
+							{report.rateDate !== null &&
+								`. Converted to ${report.currency} at the rate of each day, the latest from ${report.rateDate}.`}
+						</p>
+						{report.rateError !== null && (
+							<p role="alert" className="text-destructive text-xs">
+								Shown in USD: {report.rateError}
+							</p>
+						)}
+					</>
+				)}
+				<Sources sources={sources} pulling={pulling} error={sourceError} />
+			</section>
+		</Currency.Provider>
+	);
+}
+
+/** Where billed amounts come from: each provider, its last pull, and the cred it needs. */
+function Sources({
+	sources,
+	pulling,
+	error,
+}: {
+	sources: BillingView | null;
+	pulling: boolean;
+	error: string | null;
+}): JSX.Element {
+	return (
+		<section aria-label="billing sources" className="flex flex-col gap-2">
+			<h3 className="font-medium text-sm">
+				Billing sources
+				{pulling && (
+					<span role="status" className="ml-2 text-muted-foreground text-xs">
+						Pulling…
 					</span>
 				)}
-			</fieldset>
+			</h3>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
-					Could not read spend: {error}
+					Could not read billing sources: {error}
 				</p>
 			)}
-			{report === null && error === null && span !== null && (
-				<p role="status" className="text-muted-foreground text-sm">
-					Reading spend…
-				</p>
-			)}
-			{span === null && (
-				<p className="text-muted-foreground text-sm">
-					Pick the first and last day to total.
-				</p>
-			)}
-			{report !== null && (
-				<>
-					<div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-						<Figure label="Billed" amount={total.billed} />
-						<Figure
-							label="Estimate"
-							amount={total.equivalent}
-							hint="Plan use priced at API list prices, not money paid"
-						/>
-					</div>
-					{providers.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							Nothing spent in this range.
-						</p>
-					) : (
-						<ul className="flex flex-col gap-2">
-							{providers.map((each) => (
-								<ProviderRow key={each.provider} {...each} />
-							))}
-						</ul>
-					)}
-					{providers.length > 0 && <Trend days={report.days} />}
-					<p className="text-muted-foreground text-xs">
-						Updated {new Date(report.updated).toLocaleTimeString()}
-					</p>
-				</>
-			)}
+			<ul className="flex flex-col gap-1">
+				{(sources?.providers ?? []).map((each) => (
+					<li
+						key={each.provider}
+						className="flex flex-wrap items-baseline gap-x-2 text-sm"
+					>
+						<span className="font-medium">{each.provider}</span>
+						{each.state === "ok" && (
+							<span className="text-muted-foreground text-xs">pulled</span>
+						)}
+						{each.state === "manual" && (
+							<span className="text-muted-foreground text-xs">
+								{each.message}
+							</span>
+						)}
+						{each.state === "unreachable" && (
+							<span role="alert" className="text-destructive text-xs">
+								{each.message}
+							</span>
+						)}
+						{each.state === "missing" && each.cred !== null && (
+							<a
+								href={credAddress(each.cred)}
+								className="text-xs underline underline-offset-2"
+							>
+								Add {each.cred} on the Creds page
+							</a>
+						)}
+					</li>
+				))}
+			</ul>
 		</section>
 	);
 }
@@ -214,6 +343,7 @@ function Figure({
 	amount: number;
 	hint?: string;
 }): JSX.Element {
+	const dollars = useMoney();
 	return (
 		<span title={hint} className="flex flex-col">
 			<span className="text-muted-foreground text-xs">{label}</span>
@@ -274,6 +404,7 @@ function Amounts({
 	billed: number;
 	equivalent: number;
 }): JSX.Element {
+	const dollars = useMoney();
 	return (
 		<span className="ml-auto flex items-baseline gap-3 tabular-nums">
 			{billed > 0 && (
@@ -293,6 +424,7 @@ function Amounts({
 
 /** Each day's dollars as a bar, stacked by provider. */
 function Trend({ days }: { days: SpendTotal[] }): JSX.Element {
+	const dollars = useMoney();
 	const dates = [...new Set(days.map((row) => row.period ?? ""))];
 	const providers = [...new Set(days.map((row) => row.provider ?? ""))];
 	const cost = (row: SpendTotal) => row.billed + row.equivalent;

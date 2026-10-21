@@ -8,6 +8,9 @@ describe("App's billing spend", () => {
 		testing = new Testing();
 		testing.spendReport = {
 			updated: "2026-10-21T12:00:00.000Z",
+			currency: "USD",
+			rateDate: null,
+			rateError: null,
 			services: [
 				{
 					provider: "claude",
@@ -53,5 +56,70 @@ describe("App's billing spend", () => {
 		fireEvent.click(view.getByRole("button", { name: /claude/ }));
 		expect(view.getByText("opus")).toBeTruthy();
 		expect(view.getAllByText("estimate").length).toBeGreaterThan(0);
+	});
+});
+
+describe("App's billing sources", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+		testing.billingView = {
+			currency: "USD",
+			currencies: ["USD", "EUR"],
+			pulledAt: "2026-10-21T12:00:00.000Z",
+			providers: [
+				{
+					provider: "openai",
+					state: "missing",
+					message: "needs OPENAI_ADMIN_KEY",
+					added: 0,
+					cred: "OPENAI_ADMIN_KEY",
+				},
+				{
+					provider: "cloudflare",
+					state: "unreachable",
+					message: "could not reach cloudflare: answered 500",
+					added: 0,
+					cred: "CLOUDFLARE_API_TOKEN",
+				},
+			],
+		};
+		testing.spendReport = {
+			updated: "2026-10-21T12:00:00.000Z",
+			currency: "EUR",
+			rateDate: "2026-10-20",
+			rateError: null,
+			services: [
+				{
+					provider: "openai",
+					service: "whisper",
+					period: null,
+					billed: 3,
+					equivalent: 0,
+				},
+			],
+			days: [],
+		};
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+	});
+
+	it("links a missing cred to the Creds page, shows a failed pull on its row, and the rate date", async () => {
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
+		);
+		const link = await waitFor(() =>
+			view.getByRole("link", { name: /OPENAI_ADMIN_KEY/ }),
+		);
+		expect(link.getAttribute("href")).toBe("#creds/OPENAI_ADMIN_KEY");
+		expect(view.getByText(/could not reach cloudflare/)).toBeTruthy();
+		await waitFor(() => view.getByText(/rate of each day/));
+		expect(view.getByText(/2026-10-20/)).toBeTruthy();
+		expect(view.getAllByText("€3").length).toBeGreaterThan(0);
 	});
 });

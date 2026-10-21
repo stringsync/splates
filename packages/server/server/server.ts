@@ -27,7 +27,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import { Spend, spendReport } from "../spend";
+import { BillingRoutes, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
 import { rescueStranded } from "../tasks";
@@ -411,7 +411,14 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const ledger = new Spend(FsStorage.ofMachine({ fs, ps, log }));
+	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
+	const ledger = new Spend(machineStorage);
+	const billing = new BillingRoutes(
+		machineStorage,
+		ledger,
+		(name) => (deps.secrets ?? SYSTEM_STORES).device.get(name),
+		deps.fetch,
+	);
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
 		workers.slots.scheduler,
@@ -651,16 +658,10 @@ export async function dev(
 						}),
 					),
 					// Every project's, as the ledger is the machine's.
-					"/api/spend": guarded(async (request) => {
-						const { searchParams } = new URL(request.url);
-						return Response.json(
-							await spendReport(ledger, {
-								since: searchParams.get("since") ?? undefined,
-								until: searchParams.get("until") ?? undefined,
-								now: new Date().toISOString(),
-							}),
-						);
-					}),
+					"/api/spend": guarded(billing.spend),
+					"/api/billing": guarded(billing.read),
+					"/api/billing/pull": { POST: guarded(billing.pull) },
+					"/api/billing/currency": { PUT: guarded(billing.setCurrency) },
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),

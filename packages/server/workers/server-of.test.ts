@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { serverOf } from "./server-of";
 
-const ps = (env: Record<string, string>) => ({ env: (n: string) => env[n] });
+const ps = (env: Record<string, string>) => ({
+	env: (key: string) => env[key],
+});
 const log = { info() {}, error() {}, warn() {}, debug() {} };
 
 test("--dev wins over SPLATES_DEV, which wins over nothing", async () => {

@@ -205,17 +205,20 @@ export function KeptRow({
 export function AddCred({
 	project,
 	providers,
+	initial,
 	onAdded,
 	onRemoved,
 }: {
 	project: string;
 	/** Who can keep it, the system's first. */
 	providers: Provider[];
+	/** A name and scope to start on, as a link to a cred not yet kept gives. */
+	initial?: { name: string; scope: Scope };
 	onAdded: () => void;
 	onRemoved: () => void;
 }): JSX.Element {
-	const [name, setName] = useState("");
-	const [scope, setScope] = useState<Scope>("project");
+	const [name, setName] = useState(initial?.name ?? "");
+	const [scope, setScope] = useState<Scope>(initial?.scope ?? "project");
 	const [provider, setProvider] = useState<Provider>("system");
 	return (
 		<div className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3">

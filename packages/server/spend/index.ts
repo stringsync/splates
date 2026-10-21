@@ -4,6 +4,8 @@ export { PROVIDERS } from "./providers";
 export { Rates } from "./rates";
 export type { SpendReport } from "./report";
 export { spendReport } from "./report";
+export type { BillingView } from "./routes";
+export { BillingRoutes, CURRENCIES } from "./routes";
 export { Spend } from "./spend";
 export type {
 	Period,

@@ -159,3 +159,44 @@ test("a report totals the range by service and by provider's day", async () => {
 		["2026-10-22", 2],
 	]);
 });
+
+test("a report converts to the display currency at each day's rate, and says when it cannot", async () => {
+	const { spendReport } = await import("./report");
+	const { Rates } = await import("./rates");
+	const spend = new Spend(new MemoryStorage());
+	await spend.record(
+		entry({
+			kind: "billed",
+			dollars: 2.2,
+			original: {
+				amount: 2,
+				currency: "EUR",
+				rate: 1.1,
+				rateDate: "2026-10-21",
+			},
+		}),
+		entry({ dollars: 1.1 }),
+	);
+	const fetcher = (async (url: string) =>
+		url.includes("from=USD")
+			? Response.json({ date: "2026-10-20", rates: { EUR: 0.9 } })
+			: new Response("no", { status: 500 })) as unknown as typeof fetch;
+	const report = await spendReport(spend, {
+		now: "2026-10-22T12:00:00.000Z",
+		rates: new Rates("EUR", fetcher),
+	});
+	expect(report.currency).toBe("EUR");
+	expect(report.rateDate).toBe("2026-10-20");
+	expect(report.services[0]?.billed).toBeCloseTo(2);
+	expect(report.services[0]?.equivalent).toBeCloseTo(0.99);
+	const down = await spendReport(spend, {
+		now: "2026-10-22T12:00:00.000Z",
+		rates: new Rates(
+			"EUR",
+			(async () =>
+				new Response("no", { status: 500 })) as unknown as typeof fetch,
+		),
+	});
+	expect(down.currency).toBe("USD");
+	expect(down.rateError).not.toBeNull();
+});
