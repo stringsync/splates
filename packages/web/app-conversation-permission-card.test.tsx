@@ -3,6 +3,7 @@ import {
 	act,
 	cleanup,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	Testing,
@@ -81,6 +82,26 @@ describe("App's permission card", () => {
 		...board,
 		lanes: [{ id: 3, name: "Billing export", queued: true as const }],
 	};
+
+	it("counts as running only the todos an agent is still on", async () => {
+		const view = await testing.openConversations([asking], undefined, {
+			...board,
+			todos: [
+				...board.todos,
+				todo({ id: 41, subject: "Live", stage: "running", takenBy: "alpha" }),
+				todo({ id: 42, subject: "Gone", stage: "running", takenBy: "ghost" }),
+				todo({ id: 43, subject: "Dead", stage: "running", takenBy: "dead" }),
+			],
+			tasks: [
+				details({ task: "alpha", lease: "held" }),
+				details({ task: "dead", status: "working", lease: "stale" }),
+			],
+		});
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "queue Billing export" }),
+		);
+		expect(card.textContent).toContain("1 running");
+	});
 
 	it("lists the lane's tasks, and Queue lane queues the lane from the page itself", async () => {
 		const view = await testing.openConversations([asking], undefined, board);

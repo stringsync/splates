@@ -17,6 +17,7 @@ import { dropLane, queueLane, queueTodo } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
+import { Dispatching } from "./dispatching";
 import { EvalsCard } from "./evals-card";
 import { useExpectSnapshot } from "./expecting";
 import { QueueWork } from "./queue-work";
@@ -125,14 +126,21 @@ function QueueCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	const board = useContext(Board);
+	const dispatching = useContext(Dispatching);
 	const expect = useExpectSnapshot();
 	const work = new QueueWork(proposal, board);
 	const { name, todos } = work;
 	const mine = new Set(todos.map((todo) => todo.id));
 	const queue = queueOrder(board.todos);
 	const ahead = queue.filter((todo) => !mine.has(todo.id));
+	// Running means an agent is on the task that took it: not one whose
+	// conversation is gone, nor a taker the page no longer lists.
 	const running = board.todos.filter(
-		(todo) => todo.takenBy !== null && !mine.has(todo.id),
+		(todo) =>
+			todo.takenBy !== null &&
+			!mine.has(todo.id) &&
+			board.tasks.includes(todo.takenBy) &&
+			!dispatching?.dispatch.orphaned(todo.takenBy),
 	).length;
 	const hidden = Math.max(0, ahead.length - AHEAD);
 	const whole = proposal.lane !== null;
