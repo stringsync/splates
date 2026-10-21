@@ -7,7 +7,10 @@ import type {
 	ConversationState,
 	Setting,
 } from "@stringsync/splates-server/conversations";
-import { blank } from "@stringsync/splates-server/conversations/browser";
+import {
+	blank,
+	switched,
+} from "@stringsync/splates-server/conversations/browser";
 import { modelOption } from "@stringsync/splates-server/models/browser";
 import { orphaned } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -28,16 +31,20 @@ import { AgentBrand } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import type { AutoPickControl } from "./auto-pick-switch";
 import { Board } from "./board";
+import { picksFor } from "./choose-setting";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { composerIn } from "./composer-editor";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
 import {
 	AUTO,
 	autoAddress,
+	autoModelChosen,
 	NEW,
 	newAddress,
 	rememberAuto,
+	rememberAutoModel,
 	settingsFor,
 	withDraft,
 } from "./conversation-address";
@@ -132,6 +139,15 @@ export function useNewConversation({
 		(each) => each.category === "model" || each.id === "model",
 	);
 	const [picks, setPicks] = useState<Record<string, string>>({});
+	// A model a todo asked for stands: Auto pick is the person's own choice.
+	const [autoModel, setAutoModel] = useState(autoModelChosen);
+	const autoPick: AutoPickControl = {
+		on: autoModel && model === null,
+		switch: (on) => {
+			setAutoModel(on);
+			rememberAutoModel(on);
+		},
+	};
 	// Resolve against each refreshed catalog, without losing an unavailable request.
 	const asked =
 		model === null ? null : modelOption(offered, model, agent === "opencode");
@@ -186,6 +202,7 @@ export function useNewConversation({
 							model: requested,
 							// Asked for by a todo's agent, so no pick of the person's.
 							assigned: model !== null,
+							autoPick: autoPick.on,
 							id,
 						})
 			).catch((error: unknown) => {
@@ -203,9 +220,11 @@ export function useNewConversation({
 				return null;
 			});
 			// As the server will answer, so the person watches the agent come up.
+			const shown = blank(id, agent, task, new Date().toISOString());
 			feed.put({
-				...blank(id, agent, task, new Date().toISOString()),
+				...shown,
 				picking: auto,
+				autoPick: !auto && autoPick.on ? switched(shown, true) : null,
 			});
 			// Its message waits on the server for the session to open.
 			const sending =
@@ -278,8 +297,13 @@ export function useNewConversation({
 			agent={agent}
 			settings={offered}
 			current={current}
+			autoPick={model === null ? autoPick : undefined}
 			onChange={(setting, value) => {
 				setPicks((picks) => ({ ...picks, [setting.id]: value }));
+				// The person's own model or effort switches Auto pick off.
+				if (picksFor(setting)) {
+					autoPick.switch(false);
+				}
 				// Kept as the agent's default now, whether or not this one starts.
 				void chooseDefault(agent, setting.id, value).catch((error: unknown) =>
 					refuseIn(draft, `${setting.name} not kept`, error),

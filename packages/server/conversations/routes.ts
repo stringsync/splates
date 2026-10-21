@@ -159,7 +159,8 @@ export class ConversationRoutes {
 	};
 
 	readonly startConversation = async (request: Request): Promise<Response> => {
-		const { id, agent, task, settings, model, assigned } = await body(request);
+		const { id, agent, task, settings, model, assigned, autoPick } =
+			await body(request);
 		const [named, cwd, base, caller] = await this.treeFor(task);
 		const conversation = await this.held().start(String(agent ?? ""), {
 			id: typeof id === "string" ? id : undefined,
@@ -175,6 +176,11 @@ export class ConversationRoutes {
 				).map(([id, value]) => [id, String(value)]),
 			),
 		});
+		// Auto pick's model and effort for the agent the person picked: the
+		// first message decides them, before the agent reads it.
+		if (autoPick === true) {
+			conversation.switchAutoPick(true);
+		}
 		return Response.json(conversation.state);
 	};
 

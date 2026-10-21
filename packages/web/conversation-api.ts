@@ -26,6 +26,7 @@ export async function startConversation(
 		settings = {},
 		model,
 		assigned = false,
+		autoPick = false,
 		id,
 	}: {
 		settings?: Record<string, string>;
@@ -36,6 +37,8 @@ export async function startConversation(
 		 * not start where this one leaves its settings.
 		 */
 		assigned?: boolean;
+		/** Whether Auto pick chooses its model and effort from the first message. */
+		autoPick?: boolean;
 		/** The id it starts on, picked by the page to open it at once; the server's otherwise. */
 		id?: string;
 	} = {},
@@ -47,6 +50,7 @@ export async function startConversation(
 		settings,
 		...(model === undefined ? {} : { model }),
 		...(assigned ? { assigned } : {}),
+		...(autoPick ? { autoPick } : {}),
 	})) as ConversationState;
 }
 

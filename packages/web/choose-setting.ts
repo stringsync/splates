@@ -31,7 +31,7 @@ export function useChooseSetting(
 }
 
 /** Whether `setting` is one Auto pick chooses: the model or the effort. */
-function picksFor(setting: Setting): boolean {
+export function picksFor(setting: Setting): boolean {
 	return (
 		setting.category === "model" ||
 		setting.id === "model" ||

@@ -88,6 +88,27 @@ export function startsAuto(open: string | null): boolean {
 	);
 }
 
+/** Where whether New lets Auto pick choose the model and effort is kept. */
+const AUTO_MODEL = "splates.newConversationAutoModel";
+
+/** Whether the person last left New's Model picker on Auto pick, so it starts there again. */
+export function autoModelChosen(): boolean {
+	try {
+		return localStorage.getItem(AUTO_MODEL) === "true";
+	} catch {
+		return false;
+	}
+}
+
+/** Keeps whether New's Model picker is on Auto pick, for the next New to follow. */
+export function rememberAutoModel(on: boolean): void {
+	try {
+		localStorage.setItem(AUTO_MODEL, String(on));
+	} catch {
+		// Storage refused: the next New starts on the agent's own model.
+	}
+}
+
 /** Where whether the last conversation started was on Auto pick is kept. */
 const LAST_AUTO = "splates.newConversationAuto";
 

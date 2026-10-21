@@ -6,6 +6,10 @@ A conversation not yet started is the address `#conversations/new[/<agent>[/<tas
 (`NEW` and `newAddress` in `conversation-address.ts`); `new/auto` leaves the
 agent to Auto pick. Its composer carries the model and settings pickers
 (`conversation-home.tsx`), so any entry point gets those for free.
+With an agent picked, the Model picker also offers Auto pick first, which
+keeps that agent and lets Auto pick choose the model and effort from the
+first message (`autoPick: true` on `POST /api/conversations`); whether New
+was left on it is kept in `splates.newConversationAutoModel`.
 
 What is typed is kept as a draft in `Drafts` (`drafts.ts`) under `newDraft(...)`.
 A page that wants to start a conversation with words already in the composer

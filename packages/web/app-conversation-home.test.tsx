@@ -221,6 +221,115 @@ describe("App's conversation home", () => {
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 
+	it("starts on the picked agent with Auto pick choosing its model, kept for the next New", async () => {
+		const settings = [
+			{
+				id: "model",
+				name: "Model",
+				type: "select" as const,
+				category: "model",
+				current: "big",
+				options: [
+					{ value: "big", name: "Big", description: null },
+					{ value: "small", name: "Small", description: null },
+				],
+			},
+		];
+		try {
+			const view = await testing.openConversations(
+				[conversation({ id: "c1", agent: "codex", settings })],
+				null,
+				{},
+				AGENTS.map((agent) => ({
+					...agent,
+					settings: agent.id === "codex" ? settings : [],
+				})),
+			);
+			await openHome();
+			await newWith(view, "Codex");
+			testing.reply = conversation({
+				id: "c9",
+				agent: "codex",
+				task: null,
+				status: "starting",
+			});
+
+			const model = view.getByRole("combobox", { name: "model" });
+			await act(async () => fireEvent.click(model));
+			await pick(
+				await waitFor(() => view.getByRole("option", { name: "Auto pick" })),
+			);
+			await waitFor(() => expect(model.textContent).toContain("Auto · Big"));
+			const box = view.getByRole("textbox", { name: "Message input" });
+			await typeIn(box, "fix the login");
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			expect(testing.posted("/api/conversations")).toEqual([
+				{
+					method: "POST",
+					body: {
+						id: "c9",
+						agent: "codex",
+						task: null,
+						settings: { model: "big" },
+						autoPick: true,
+					},
+				},
+			]);
+			// Not a model, so nothing kept as the agent's default.
+			expect(testing.posted("/api/conversations/defaults")).toEqual([]);
+			expect(localStorage.getItem("splates.newConversationAutoModel")).toBe(
+				"true",
+			);
+		} finally {
+			localStorage.removeItem("splates.newConversationAutoModel");
+		}
+	});
+
+	it("switches New's Auto pick off when the person picks a model", async () => {
+		localStorage.setItem("splates.newConversationAutoModel", "true");
+		const settings = [
+			{
+				id: "model",
+				name: "Model",
+				type: "select" as const,
+				category: "model",
+				current: "big",
+				options: [
+					{ value: "big", name: "Big", description: null },
+					{ value: "small", name: "Small", description: null },
+				],
+			},
+		];
+		try {
+			const view = await testing.openConversations(
+				[conversation({ id: "c1", agent: "codex", settings })],
+				null,
+				{},
+				AGENTS.map((agent) => ({
+					...agent,
+					settings: agent.id === "codex" ? settings : [],
+				})),
+			);
+			await openHome();
+			await newWith(view, "Codex");
+
+			const model = view.getByRole("combobox", { name: "model" });
+			expect(model.textContent).toContain("Auto · Big");
+			await act(async () => fireEvent.click(model));
+			await pick(
+				await waitFor(() => view.getByRole("option", { name: "Small" })),
+			);
+
+			await waitFor(() => expect(model.textContent).not.toContain("Auto"));
+			expect(localStorage.getItem("splates.newConversationAutoModel")).toBe(
+				"false",
+			);
+		} finally {
+			localStorage.removeItem("splates.newConversationAutoModel");
+		}
+	});
+
 	it("recommends no task, lane or todo to take up", async () => {
 		const view = await testing.openConversations([], null, {
 			tasks: [details({ task: "header-wrap" })],
