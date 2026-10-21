@@ -138,6 +138,11 @@ describe("composer setting controls", () => {
 		);
 		expect(changes).toEqual(["openrouter/shared", "openrouter/shared"]);
 	});
+	it("leads the inline model picker with the agent's mark in its maker's colors", () => {
+		view.rerender(<SettingControls {...props} agent="claude" />);
+		const mark = view.getByRole("combobox").querySelector("svg path");
+		expect(mark?.getAttribute("fill")).toBe("#D97757");
+	});
 	it("collapses a crowded row even when its individual labels are short", () => {
 		layout.available = 80;
 		const settings = [

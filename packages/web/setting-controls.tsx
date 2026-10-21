@@ -150,6 +150,7 @@ function InlineSettings({
 			setting={setting}
 			value={current(setting)}
 			onChange={(value) => onChange(setting, value)}
+			agent={agent}
 			autoPick={autoPick}
 		/>
 	));
@@ -284,18 +285,20 @@ function SettingControl({
 	setting,
 	value,
 	onChange,
+	agent,
 	autoPick,
 	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	agent?: string | undefined;
 	autoPick?: AutoPickControl | undefined;
 	inDialog?: boolean;
 }): JSX.Element {
+	const inlineModel = setting.category === "model" && !inDialog;
 	// Inline, Auto pick is the first of the models; the sheet has its own switch.
-	const withAuto =
-		setting.category === "model" && !inDialog ? autoPick : undefined;
+	const withAuto = inlineModel ? autoPick : undefined;
 	const id = useId();
 	if (setting.type === "boolean" && inDialog) {
 		return (
@@ -354,6 +357,7 @@ function SettingControl({
 			setting={setting}
 			value={value}
 			onChange={onChange}
+			agent={inlineModel ? agent : undefined}
 			autoPick={withAuto}
 		/>
 	);
@@ -368,12 +372,15 @@ function SettingSelect({
 	setting,
 	value,
 	onChange,
+	agent,
 	autoPick,
 	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	/** The agent whose mark leads the picker, as it leads a phone's settings button. */
+	agent?: string | undefined;
 	/** Auto pick, offered first among the models. */
 	autoPick?: AutoPickControl | undefined;
 	inDialog?: boolean;
@@ -422,7 +429,12 @@ function SettingSelect({
 				{!inDialog && !UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
-				{auto && <AutoIcon colored className="shrink-0" />}
+				{/* Who answers next in color: Auto pick, or the agent's maker. */}
+				{auto ? (
+					<AutoIcon colored className="shrink-0" />
+				) : (
+					agent !== undefined && <AgentMark agent={agent} className="size-3" />
+				)}
 				<SelectValue
 					className={
 						inDialog
