@@ -19,13 +19,14 @@ import type {
 } from "@stringsync/splates-server/board";
 import type { JSX, ReactNode } from "react";
 import { Card } from "./card";
-import { columnOf, LiftedLane, laneOf } from "./lanes";
-import type { TodoBoard } from "./todo-board";
+import { columnOf, handOf, LiftedLane, laneOf } from "./lanes";
+import { byHand, type TodoBoard } from "./todo-board";
 
 /**
  * Lets a card be dragged anywhere on the board: up or down its column, onto
  * a card in a lane to join it there, onto a column's space for its bottom,
- * or onto the new lane column; and a lane, by its header, left or right
+ * onto the space under a lane for the tasks only the person queues, or onto
+ * the new lane column; and a lane, by its header, left or right
  * past the others. A mouse drags once it moves a few pixels and a finger
  * after a short press, so a tap still opens the card and a swipe still
  * scrolls; a keyboard picks a card up by its grip with Space and moves it
@@ -77,15 +78,18 @@ export function BoardDrag({
 			return;
 		}
 		const lane = over === null ? undefined : columnOf(over.id);
+		const hand = over === null ? undefined : handOf(over.id);
 		board
 			.drop(
 				todos,
 				Number(active.id),
 				over === null
 					? null
-					: lane === undefined
-						? { card: Number(over.id) }
-						: { lane },
+					: hand !== undefined
+						? { lane: hand, hand: true }
+						: lane === undefined
+							? { card: Number(over.id) }
+							: { lane },
 			)
 			?.catch((error: unknown) =>
 				refuseTodo(Number(active.id), "Not moved", error),
@@ -116,10 +120,12 @@ export function BoardDrag({
 						todo={lifted}
 						staleness={staleness}
 						step={
-							lifted.lane === null
+							lifted.lane === null || byHand(lifted)
 								? undefined
 								: todos
-										.filter((other) => other.lane === lifted.lane)
+										.filter(
+											(other) => other.lane === lifted.lane && !byHand(other),
+										)
 										.findIndex((other) => other.id === lifted.id) + 1
 						}
 						className="rotate-2 cursor-grabbing shadow-lg"
@@ -132,8 +138,8 @@ export function BoardDrag({
 }
 
 /**
- * The card under the pointer, or failing one the column, so a card dropped
- * between two lands in the column it is over; the nearest card when the
+ * The card under the pointer, or failing one the column or the space under
+ * a lane, so a card dropped between two lands in the column it is over; the nearest card when the
  * pointer is over neither, as when a keyboard moves it. A lane in hand
  * looks only at the other lanes, nearest first.
  */
@@ -147,6 +153,6 @@ const collide: CollisionDetection = (args) => {
 		});
 	}
 	const within = pointerWithin(args);
-	const card = within.find((hit) => columnOf(hit.id) === undefined);
+	const card = within.find((hit) => typeof hit.id === "number");
 	return card ? [card] : within.length > 0 ? within : closestCenter(args);
 };

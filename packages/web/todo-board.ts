@@ -1,6 +1,6 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { arrangeTodo, moveLane, moveTodo } from "./api";
+import { arrangeTodo, manualTodo, moveLane, moveTodo } from "./api";
 
 export type TodoBoardEvents = { changed: undefined };
 
@@ -8,9 +8,21 @@ export type TodoBoardEvents = { changed: undefined };
  * Where a card is let go: onto another card, which it takes the place of, or
  * onto a column's empty space, which puts it at the bottom of that lane (or
  * leaves it where it is in the list, for the todos in no lane). `"new"` is the
- * column that starts a lane, once it is named.
+ * column that starts a lane, once it is named. `hand` is the space under a
+ * lane for the tasks only the person queues, which a lane passes over.
  */
-export type Target = { card: number } | { lane: number | null | "new" };
+export type Target =
+	| { card: number }
+	| { lane: number | null | "new"; hand?: boolean };
+
+/**
+ * Whether `todo` shows under its lane, with the tasks only the person
+ * queues, rather than among the lane's steps: once an agent takes it, it is
+ * at work like any other.
+ */
+export function byHand(todo: TaskRecord): boolean {
+	return todo.lane !== null && todo.manual === true && todo.takenBy === null;
+}
 
 /** The writes a drop makes: the server's by default. */
 export interface BoardWrites {
@@ -28,6 +40,8 @@ export interface BoardWrites {
 	): Promise<void>;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane(id: number, position: number): Promise<void>;
+	/** Has only the person queue a todo when `manual`, a queued lane too when not. */
+	manual(id: number, manual: boolean): Promise<void>;
 }
 
 /** What the board shows of the todos it was given. */
@@ -65,6 +79,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 			move: moveTodo,
 			arrange: arrangeTodo,
 			moveLane,
+			manual: manualTodo,
 		},
 	) {}
 
@@ -155,7 +170,9 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	 * puts it there; null when that moves nothing, or when it waits for the
 	 * name of the lane it starts. Onto a card in its own column it takes that
 	 * card's place in the list; onto a card in another, it joins that lane
-	 * just above it. A write the server refuses puts the board back, and is
+	 * just above it. Landing among a lane's steps lets the lane queue it, and
+	 * among the tasks under it, or on the space under it, has only the person
+	 * queue it. A write the server refuses puts the board back, and is
 	 * thrown from the promise.
 	 */
 	drop(
@@ -223,8 +240,52 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 		});
 	}
 
-	/** The list as it shows once `card` lands on `target`, and the write that makes it so. */
+	/**
+	 * The list as it shows once `card` lands on `target`, and the writes that
+	 * make it so: where it goes, then whether only the person queues it, when
+	 * where it lands in a lane says otherwise than it does.
+	 */
 	private plan(
+		list: TaskRecord[],
+		card: TaskRecord,
+		target: Target,
+		name?: string,
+	): { todos: TaskRecord[]; write: () => Promise<void> } | null {
+		const moved = this.place(list, card, target, name);
+		const manual = card.takenBy === null ? this.manualOn(list, target) : null;
+		if (manual === null || manual === (card.manual === true)) {
+			return moved;
+		}
+		const flip = (todo: TaskRecord): TaskRecord => {
+			if (todo.id !== card.id) {
+				return todo;
+			}
+			const { manual: _, ...rest } = todo;
+			return manual ? { ...rest, manual: true } : rest;
+		};
+		return {
+			todos: (moved?.todos ?? list).map(flip),
+			write: async () => {
+				await moved?.write();
+				await this.writes.manual(card.id, manual);
+			},
+		};
+	}
+
+	/**
+	 * Whether a card landing on `target` is one only the person queues, by
+	 * where it lands in a lane; null where that says nothing, as in no lane.
+	 */
+	private manualOn(list: TaskRecord[], target: Target): boolean | null {
+		if ("card" in target) {
+			const onto = list.find((todo) => todo.id === target.card);
+			return onto === undefined || onto.lane === null ? null : byHand(onto);
+		}
+		return typeof target.lane === "number" ? target.hand === true : null;
+	}
+
+	/** The list as it shows once `card` moves to `target`, and the write that moves it there. */
+	private place(
 		list: TaskRecord[],
 		card: TaskRecord,
 		target: Target,

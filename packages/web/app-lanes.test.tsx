@@ -52,6 +52,26 @@ describe("App's lanes", () => {
 		expect(view.getByRole("menuitem", { name: "Queue lane" })).toBeTruthy();
 	});
 
+	it("shows a lane's tasks only the person queues under it, apart from its steps", async () => {
+		const view = await testing.open({
+			todos: [
+				todo({ id: 1, subject: "first", lane: 1 }),
+				todo({ id: 2, subject: "by hand", lane: 1, manual: true }),
+				todo({ id: 3, subject: "taken", lane: 1, manual: true, takenBy: "t" }),
+			],
+			lanes: [{ id: 1, name: "Docs" }],
+		});
+		expect(steps(view, "Docs").map((card) => card.includes("by hand"))).toEqual(
+			[false, false],
+		);
+		const hand = within(view.getByRole("region", { name: "Docs by hand" }));
+		expect(
+			within(hand.getByRole("list", { name: "Docs tasks by hand" }))
+				.getAllByRole("listitem")
+				.map((card) => card.textContent?.includes("by hand")),
+		).toEqual([true]);
+	});
+
 	it("draws each lane as a named column, saying whether it is running and what blocks it", async () => {
 		const todos = sound2score().map((each) =>
 			[200, 209].includes(each.id)

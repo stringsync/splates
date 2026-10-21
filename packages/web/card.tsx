@@ -127,16 +127,19 @@ export function Card({
 								{AUTO_PICK_NAME}
 							</span>
 						)}
-					{/* A queued lane passes over it: only Queue starts it. */}
-					{todo.takenBy === null && todo.manual === true && (
-						<span
-							className="inline-flex items-center gap-1"
-							title="A queued lane passes over it: only Queue starts it"
-						>
-							<HandIcon aria-hidden className="size-3" />
-							By hand
-						</span>
-					)}
+					{/* A queued lane passes over it: only Queue starts it. In a lane
+					    it shows under the lane, whose heading says so. */}
+					{todo.takenBy === null &&
+						todo.manual === true &&
+						todo.lane === null && (
+							<span
+								className="inline-flex items-center gap-1"
+								title="A queued lane passes over it: only Queue starts it"
+							>
+								<HandIcon aria-hidden className="size-3" />
+								By hand
+							</span>
+						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
 					{(todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">

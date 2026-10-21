@@ -10,6 +10,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { Board } from "./board";
 import { Card, type CardProps } from "./card";
+import { byHand } from "./todo-board";
 
 /** One card in a column, holding its place while another is dragged over it. */
 export function Sortable(props: CardProps): JSX.Element {
@@ -25,12 +26,15 @@ export function Sortable(props: CardProps): JSX.Element {
 		isOver,
 		active,
 	} = useSortable({ id: todo.id });
-	// A card from another column lands just above this one: a line says so,
-	// since this column's cards do not move aside for it.
+	// A card from another column, or from a lane's steps to the tasks under
+	// it or back, lands just above this one: a line says so, since these
+	// cards do not move aside for it.
 	const { todos } = useContext(Board);
+	const other = todos.find((each) => each.id === active?.id);
 	const coming =
 		isOver &&
-		todos.find((other) => other.id === active?.id)?.lane !== todo.lane;
+		(other?.lane !== todo.lane ||
+			(other !== undefined && byHand(other) !== byHand(todo)));
 	return (
 		<li
 			ref={setNodeRef}

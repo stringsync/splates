@@ -7,7 +7,7 @@ import {
 	BACKLOG_LANE,
 	BUDGET_LOW,
 } from "@stringsync/splates-server/board/browser";
-import { ListPlusIcon, LockIcon, OctagonXIcon } from "lucide-react";
+import { HandIcon, ListPlusIcon, LockIcon, OctagonXIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -28,6 +28,7 @@ import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
+import { byHand } from "./todo-board";
 import { StageCounts } from "./todo-queue";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
@@ -44,6 +45,18 @@ export function columnOf(
 	}
 	const lane = id.slice("lane:".length);
 	return lane === "none" ? null : lane === "new" ? "new" : Number(lane);
+}
+
+/** Where the space under lane `lane` takes a dropped card, for the tasks only the person queues. */
+export function handId(lane: number): string {
+	return `hand:${lane}`;
+}
+
+/** The lane whose space for tasks queued by hand a `handId` names, or undefined. */
+export function handOf(id: string | number): number | undefined {
+	return typeof id === "string" && id.startsWith("hand:")
+		? Number(id.slice("hand:".length))
+		: undefined;
 }
 
 /** The lane a `columnId` names when it is a lane's own, not the untriaged or new one. */
@@ -139,9 +152,13 @@ export function Lane({
 	// Who is on which task shows on the cards; the lane says only that one is,
 	// and only while it is queued: a lane no longer queued is paused.
 	const running = lane.queued && lane.agents.length > 0;
+	// Its steps, and under it, apart and outside its glint, the tasks it
+	// passes over because only the person queues them.
+	const steps = lane.todos.filter((todo) => !byHand(todo));
+	const hand = lane.todos.filter(byHand);
 	// The lane's next task waits on one still open elsewhere, so playing the
 	// lane starts nothing until that lands.
-	const next = lane.todos.find((todo) => todo.takenBy === null);
+	const next = steps.find((todo) => todo.takenBy === null);
 	const holdup = next
 		? todos.find(
 				(other) =>
@@ -151,122 +168,188 @@ export function Lane({
 		: undefined;
 	const blocked = !running && holdup !== undefined;
 	return (
-		<Column
-			label={lane.name}
-			lane={lane.id}
-			drop={setNodeRef}
-			lit={lit}
+		<div
 			style={{ transform: CSS.Translate.toString(transform), transition }}
-			// The slot it leaves while it is in hand, where it will land.
 			className={cn(
-				// A glint running around its edge.
-				running && "running-outline",
-				opened && "ring-1 ring-primary/40",
-				isDragging && "bg-muted ring-1 ring-border *:invisible",
+				"flex max-h-full w-72 shrink-0 snap-start flex-col gap-1.5 max-md:w-full max-md:snap-always",
 			)}
 		>
-			{/* A mouse drags the lane from its header once it moves a few pixels
-			    and a finger after a short press, so a tap still renames it; a
-			    keyboard moves it from its menu. */}
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer drags the lane by its header; a keyboard has Move left and right in its menu */}
-			<header
-				ref={setActivatorNodeRef}
-				onMouseDown={listeners?.onMouseDown as MouseEventHandler}
-				onTouchStart={listeners?.onTouchStart as TouchEventHandler}
+			<Column
+				label={lane.name}
+				lane={lane.id}
+				drop={setNodeRef}
+				lit={lit}
 				className={cn(
-					"flex touch-manipulation flex-col gap-1 px-1 pt-1",
-					lane.id !== BACKLOG_LANE && "cursor-grab active:cursor-grabbing",
+					"min-h-0 w-full max-md:w-full",
+					// A glint running around its edge.
+					running && "running-outline",
+					opened && "ring-1 ring-primary/40",
+					// The slot it leaves while it is in hand, where it will land.
+					isDragging && "bg-muted ring-1 ring-border *:invisible",
 				)}
 			>
-				<div className="flex items-center justify-between gap-2">
-					{lane.id === BACKLOG_LANE ? (
-						<h3 className="font-medium text-sm">{lane.name}</h3>
-					) : renaming ? (
-						<LaneName lane={lane} onDone={() => setRenaming(false)} />
-					) : (
-						<h3 className="flex min-w-0 items-baseline pointer-coarse:items-center font-medium text-sm">
-							<button
-								type="button"
-								onClick={() => setRenaming(true)}
-								title="Rename"
-								className="-mx-1 min-w-0 pointer-coarse:min-h-10 cursor-text truncate rounded px-1 text-left outline-none hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring"
-							>
-								{lane.name}
-							</button>
-						</h3>
+				{/* A mouse drags the lane from its header once it moves a few pixels
+			    and a finger after a short press, so a tap still renames it; a
+			    keyboard moves it from its menu. */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer drags the lane by its header; a keyboard has Move left and right in its menu */}
+				<header
+					ref={setActivatorNodeRef}
+					onMouseDown={listeners?.onMouseDown as MouseEventHandler}
+					onTouchStart={listeners?.onTouchStart as TouchEventHandler}
+					className={cn(
+						"flex touch-manipulation flex-col gap-1 px-1 pt-1",
+						lane.id !== BACKLOG_LANE && "cursor-grab active:cursor-grabbing",
 					)}
-					<div className="flex shrink-0 items-center">
-						<QueueLaneButton lane={lane} />
-						<LaneMenu
-							lane={lane}
-							lanes={lanes}
-							onRename={() => setRenaming(true)}
-						/>
+				>
+					<div className="flex items-center justify-between gap-2">
+						{lane.id === BACKLOG_LANE ? (
+							<h3 className="font-medium text-sm">{lane.name}</h3>
+						) : renaming ? (
+							<LaneName lane={lane} onDone={() => setRenaming(false)} />
+						) : (
+							<h3 className="flex min-w-0 items-baseline pointer-coarse:items-center font-medium text-sm">
+								<button
+									type="button"
+									onClick={() => setRenaming(true)}
+									title="Rename"
+									className="-mx-1 min-w-0 pointer-coarse:min-h-10 cursor-text truncate rounded px-1 text-left outline-none hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring"
+								>
+									{lane.name}
+								</button>
+							</h3>
+						)}
+						<div className="flex shrink-0 items-center">
+							<QueueLaneButton lane={lane} />
+							<LaneMenu
+								lane={lane}
+								lanes={lanes}
+								onRename={() => setRenaming(true)}
+							/>
+						</div>
 					</div>
-				</div>
-				{/* A line of its own, so a long name keeps its room. */}
-				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
-				{/* Always there, at the chips' height, so queueing or pausing the lane
+					{/* A line of its own, so a long name keeps its room. */}
+					{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
+					{/* Always there, at the chips' height, so queueing or pausing the lane
 				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
-				<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
-					{(running || lane.queued || blocked) && (
-						<>
-							{running && (
-								<span
-									className={cn(
-										"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-										TONES.working,
-									)}
-									title="An agent is at work on one of its tasks"
-								>
+					<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
+						{(running || lane.queued || blocked) && (
+							<>
+								{running && (
 									<span
-										aria-hidden
-										className="size-1.5 animate-pulse rounded-full bg-primary"
-									/>
-									Running
-								</span>
-							)}
-							{blocked && (
-								<span
-									className={cn(
-										"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
-										TONES.waiting,
-									)}
-									title={`${next?.subject} waits on #${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
-								>
-									<LockIcon aria-hidden className="size-3 shrink-0" />
-									<span className="truncate">Blocked by #{holdup?.id}</span>
-								</span>
-							)}
-							{lane.queued && (
-								<span
-									className={cn(
-										"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-										TONES.quiet,
-									)}
-									title="Each task is queued as soon as nothing blocks it, until the lane is empty"
-								>
-									<ListPlusIcon aria-hidden className="size-3" />
-									Queued lane
-								</span>
-							)}
-						</>
-					)}
-				</span>
-				{lane.queued &&
-					lane.budget !== undefined &&
-					lane.budget <= BUDGET_LOW && <LaneApproval lane={lane} />}
-				<Refusal refusal={refusedLanes.get(lane.id)} />
-			</header>
-			<Cards
-				todos={lane.todos}
-				label={`${lane.name} tasks`}
-				staleness={staleness}
-				steps
-				coming={lit && laneOfCard(todos, active?.id) !== lane.id}
-			/>
-			<AddTodo lane={lane.id} />
-		</Column>
+										className={cn(
+											"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+											TONES.working,
+										)}
+										title="An agent is at work on one of its tasks"
+									>
+										<span
+											aria-hidden
+											className="size-1.5 animate-pulse rounded-full bg-primary"
+										/>
+										Running
+									</span>
+								)}
+								{blocked && (
+									<span
+										className={cn(
+											"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
+											TONES.waiting,
+										)}
+										title={`${next?.subject} waits on #${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
+									>
+										<LockIcon aria-hidden className="size-3 shrink-0" />
+										<span className="truncate">Blocked by #{holdup?.id}</span>
+									</span>
+								)}
+								{lane.queued && (
+									<span
+										className={cn(
+											"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+											TONES.quiet,
+										)}
+										title="Each task is queued as soon as nothing blocks it, until the lane is empty"
+									>
+										<ListPlusIcon aria-hidden className="size-3" />
+										Queued lane
+									</span>
+								)}
+							</>
+						)}
+					</span>
+					{lane.queued &&
+						lane.budget !== undefined &&
+						lane.budget <= BUDGET_LOW && <LaneApproval lane={lane} />}
+					<Refusal refusal={refusedLanes.get(lane.id)} />
+				</header>
+				<Cards
+					todos={steps}
+					label={`${lane.name} tasks`}
+					staleness={staleness}
+					steps
+					coming={lit && !steps.some((todo) => todo.id === active?.id)}
+				/>
+				<AddTodo lane={lane.id} />
+			</Column>
+			{!isDragging && <ByHand lane={lane} todos={hand} staleness={staleness} />}
+		</div>
+	);
+}
+
+/**
+ * Under a lane, outside its glint: the lane's tasks only the person queues,
+ * which a queued lane passes over. While a card is dragged it shows as a
+ * dashed space, empty or not, to drop one on to take it out of the lane's
+ * queue; dragged back up among the steps, the lane queues it again.
+ */
+function ByHand({
+	lane,
+	todos,
+	staleness,
+}: {
+	lane: LaneState;
+	todos: TaskRecord[];
+	staleness: number;
+}): JSX.Element | null {
+	const { setNodeRef, isOver, active } = useDroppable({ id: handId(lane.id) });
+	// A card in hand, not a lane passing by.
+	const dragging = typeof active?.id === "number";
+	if (todos.length === 0 && !dragging) {
+		return null;
+	}
+	return (
+		<section
+			ref={setNodeRef}
+			aria-label={`${lane.name} by hand`}
+			className={cn(
+				"flex min-h-0 shrink-0 flex-col gap-1 rounded-xl border border-transparent px-[calc(--spacing(2)-1px)] pt-1.5 pb-2 transition-colors",
+				dragging && "border-foreground/20 border-dashed",
+				isOver && "border-primary/50 bg-primary/5",
+			)}
+		>
+			<h4
+				className="flex items-center gap-1.5 px-1 font-medium text-muted-foreground text-xs"
+				title="A queued lane passes over these: only Queue starts them"
+			>
+				<HandIcon aria-hidden className="size-3" />
+				By hand
+				{todos.length > 0 && (
+					<span className="font-normal">{todos.length}</span>
+				)}
+			</h4>
+			{todos.length === 0 ? (
+				<p className="px-1 py-1 text-muted-foreground text-xs">
+					Drop a task here for the lane to pass over it.
+				</p>
+			) : (
+				<Cards
+					todos={todos}
+					label={`${lane.name} tasks by hand`}
+					staleness={staleness}
+					steps={false}
+					coming={isOver && !todos.some((todo) => todo.id === active?.id)}
+				/>
+			)}
+		</section>
 	);
 }
 
@@ -381,11 +464,13 @@ export function LiftedLane({
 				<StageCounts todos={lane.todos} className="px-1" />
 			)}
 			<ol className="flex flex-col gap-1.5">
-				{lane.todos.map((todo, i) => (
-					<li key={todo.id}>
-						<Card todo={todo} staleness={staleness} step={i + 1} />
-					</li>
-				))}
+				{lane.todos
+					.filter((todo) => !byHand(todo))
+					.map((todo, i) => (
+						<li key={todo.id}>
+							<Card todo={todo} staleness={staleness} step={i + 1} />
+						</li>
+					))}
 			</ol>
 		</section>
 	);
