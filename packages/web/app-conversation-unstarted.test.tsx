@@ -73,7 +73,7 @@ describe("App's new conversations not started yet", () => {
 		expect(unstarted(view)?.getAttribute("aria-current")).toBeNull();
 	});
 
-	it("opens another draft on every shortcut and click, preserving earlier text and files", async () => {
+	it("opens the new conversation already there on every shortcut and click, keeping its text and files", async () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "New" })),
 		);
@@ -84,39 +84,27 @@ describe("App's new conversations not started yet", () => {
 			fireEvent.paste(box(view), { clipboardData: { files: [shot] } }),
 		);
 		await waitFor(() => expect(textIn(box(view))).toContain("[Image 1]"));
+		await openRow(view, "Tidy tests");
 		await pressNew();
-		const second = location.hash;
-		expect(second).not.toBe(first);
-		expect(textIn(box(view))).toBe("");
-		expect(rows()).toHaveLength(2);
-		await typeIn(box(view), "second draft");
-		const secondRow = rows().find(
-			(row) => row.getAttribute("aria-current") === "page",
-		) as HTMLElement;
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
-		);
-		await clickShown(() => view.getByRole("menuitem", { name: /Codex/ }));
-		expect(location.hash.split("?")[1]).toBe(second.split("?")[1]);
-		expect(textIn(box(view))).toBe("second draft");
-		await pressNew();
-		expect(location.hash).not.toBe(second);
-		expect(textIn(box(view))).toBe("");
-		expect(rows()).toHaveLength(3);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
-		);
-		expect(rows()).toHaveLength(4);
-		await act(async () => fireEvent.click(secondRow));
-		expect(textIn(box(view))).toBe("second draft");
-		expect(
-			view.getByRole("button", { name: "Pick an agent" }).textContent,
-		).toContain("Codex");
-		await act(async () => fireEvent.click(rows()[0] as HTMLElement));
-		expect(location.hash).toBe("#conversations/new/claude");
+		expect(location.hash).toStartWith(first);
 		await waitFor(() =>
 			expect(textIn(box(view))).toContain("keep this [Image 1]"),
 		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New" })),
+		);
+		expect(location.hash).toStartWith(first);
+		expect(location.hash).not.toContain("draft=");
+		expect(rows()).toHaveLength(1);
+	});
+
+	it("opens the empty new conversation again rather than another", async () => {
+		await pressNew();
+		await openRow(view, "Tidy tests");
+		await pressNew();
+		expect(location.hash).toStartWith("#conversations/new");
+		expect(location.hash).not.toContain("draft=");
+		expect(rows()).toHaveLength(1);
 	});
 
 	it("keeps a new conversation's words and files while away, to go back to from its row", async () => {

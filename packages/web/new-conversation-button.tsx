@@ -1,9 +1,9 @@
 import { PlusIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { UuidProvider } from "webappwiz/id";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
-import { NEW, withDraft } from "./conversation-address";
+import { focusComposer } from "./composer-editor";
+import { NEW } from "./conversation-address";
 import { type Drafts, newDraft } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -11,13 +11,12 @@ import {
 	useShortcut,
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
+import { useTouch } from "./hooks/use-touch";
 import { lastProject, ShownRoot, useOpenNew } from "./new-conversation-project";
 import { shownProject } from "./project-places";
 import type { Terminals } from "./terminals";
 
-const ids = new UuidProvider();
-
-/** New, atop the sidebar: each click or shortcut opens a fresh conversation. */
+/** New, atop the sidebar: a click or the shortcut opens the new conversation already there, else a fresh one. */
 export function NewConversation({
 	drafts,
 	terminals,
@@ -28,6 +27,7 @@ export function NewConversation({
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
 	const held = useHeld();
+	const touch = useTouch();
 	const openNew = useOpenNew(onOpen);
 	const root = useContext(ShownRoot);
 	const another = () => {
@@ -41,11 +41,16 @@ export function NewConversation({
 				? shown
 				: last.slug;
 		const key = newDraft(project);
-		openNew(
+		const place =
 			drafts.isOpen(key) || drafts.holds(key)
-				? withDraft(NEW, ids.next())
-				: NEW,
-		);
+				? (drafts.placeOf(key) ?? NEW)
+				: NEW;
+		// On a new conversation already, nothing mounts to focus its composer.
+		const there = location.hash.startsWith(`#conversations/${NEW}`);
+		openNew(place);
+		if (there && !touch) {
+			focusComposer();
+		}
 	};
 	useShortcut("shortcuts.new", another);
 	const newKey = useHeldKey("shortcuts.new");

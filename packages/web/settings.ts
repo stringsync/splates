@@ -165,7 +165,7 @@ export const SETTINGS = {
 	"shortcuts.todos": shortcut("Board", "Open the board.", "Alt+Mod+KeyT"),
 	"shortcuts.new": shortcut(
 		"New conversation",
-		"Start one with the agent, model and settings the last one started with, or on Auto when it started there.",
+		"Open the new conversation not started yet, else start one with the agent, model and settings the last one started with, or on Auto when it started there.",
 		"Alt+Mod+KeyN",
 	),
 	"shortcuts.back": shortcut(
