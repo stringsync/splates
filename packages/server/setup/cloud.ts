@@ -81,9 +81,16 @@ export async function cloudTokenFields(
 	machine: SetupMachine,
 ): Promise<StepField[]> {
 	const { token } = await cloudOf(machine);
-	return [
-		{ kind: "cred", name: token.cred, label: token.label, help: token.help },
-	];
+	return token === null
+		? []
+		: [
+				{
+					kind: "cred",
+					name: token.cred,
+					label: token.label,
+					help: token.help,
+				},
+			];
 }
 
 /** Whether the device keeps a token the chosen cloud takes. */
@@ -97,7 +104,10 @@ export async function cloudTokenAccepted(
 export async function requireCloudToken(machine: SetupMachine): Promise<void> {
 	const cloud = await cloudOf(machine);
 	if (!(await cloud.accepted())) {
-		throw new Error(cloud.token.refused);
+		throw new Error(
+			cloud.token?.refused ??
+				`${cloud.name} takes no sign-in found here: \`aws configure\`, or an instance role on the box`,
+		);
 	}
 }
 

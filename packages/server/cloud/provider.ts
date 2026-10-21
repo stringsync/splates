@@ -16,11 +16,14 @@ export interface CloudProvider {
 	 * `new DigitalOceanCloud()`, imported from `@stringsync/splates-server/cloud`.
 	 */
 	readonly configSource: string;
-	/** The API token it reads from the device's creds, and how the user gets one. */
-	readonly token: CloudToken;
+	/**
+	 * The API token it reads from the device's creds, and how the user gets
+	 * one; null for a cloud that signs in some other way, as AWS does.
+	 */
+	readonly token: CloudToken | null;
 	/** What it makes unless told otherwise, and what each costs. */
 	readonly defaults: CloudDefaults;
-	/** Whether the token it keeps is one its API takes; false without one. */
+	/** Whether the sign-in it has, a token it keeps or the one it reads, is one its API takes; false without one. */
 	accepted(): Promise<boolean>;
 	/** The locations each machine type can be ordered in now, by type name. */
 	orderable(): Promise<Map<string, Set<string>>>;

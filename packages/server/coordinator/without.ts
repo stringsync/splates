@@ -72,7 +72,10 @@ async function makes(
 	if (cloud !== null && !(await cloud.accepted().catch(() => false))) {
 		return {
 			ok: false,
-			said: `${cloud.name} takes no ${cloud.token.label} kept here: \`splates setup\` keeps one`,
+			said:
+				cloud.token === null
+					? `${cloud.name} takes no sign-in found here: \`aws configure\`, or an instance role on the box`
+					: `${cloud.name} takes no ${cloud.token.label} kept here: \`splates setup\` keeps one`,
 		};
 	}
 	const spent = budget.standing().find((each) => each.dollars <= 0);
