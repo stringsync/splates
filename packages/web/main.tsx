@@ -33,11 +33,11 @@ followAppearance(
 	matchMedia("(prefers-color-scheme: dark)"),
 );
 
-// Every spinner, and every running lane's border glint, runs on one clock:
+// Every spinner, and every running lane's header glint, runs on one clock:
 // each starts at the document timeline's origin rather than when its element
 // mounted, so all of them stand at the same angle at every frame, however many
-// come and go. The glint animates a ::before, which the subtree option reaches.
-const sharedClock = new Set(["spin", "running-turn"]);
+// come and go. The glint animates an ::after, which the subtree option reaches.
+const sharedClock = new Set(["spin", "running-sweep"]);
 document.addEventListener(
 	"animationstart",
 	(event) => {
