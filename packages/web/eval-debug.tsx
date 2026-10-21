@@ -60,7 +60,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 		<>
 			<header className="flex flex-col gap-1">
 				<span className="flex flex-wrap items-center gap-2">
-					<StatusChip status={run.status} />
+					<StatusChip status={run.status} unjudged={run.unjudged} />
 					<h2 className="font-medium">{run.probe}</h2>
 					<span className="text-muted-foreground text-sm">
 						on {targetLabel(run.target)}
@@ -85,7 +85,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 				<pre className="whitespace-pre-wrap text-sm">{run.input}</pre>
 			</Part>
 			<Part
-				title={`Checks: ${run.checks.length - failing.length} of ${run.checks.length} pass`}
+				title={`Checks: ${run.checks.length - failing.length} of ${run.checks.length} pass${run.unjudged > 0 ? `, ${run.unjudged} unjudged` : ""}`}
 			>
 				<ul className="flex flex-col gap-3">
 					{[

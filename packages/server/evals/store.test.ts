@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EvalStore, type SavedRun } from "./store";
+import { EvalStore, type SavedRun, summaryOf } from "./store";
 
 describe("EvalStore", () => {
 	let directory: string;
@@ -125,6 +125,7 @@ describe("EvalStore", () => {
 			[
 				["asked", "reply"],
 				["merged", "count"],
+				["gap", "uncovered"],
 				["$runner/complete/state", "runner"],
 			],
 		);
@@ -136,6 +137,26 @@ describe("EvalStore", () => {
 			reply: "1. Should it?",
 			termination: "stop",
 			logs: join(directory, "run-1", "logs"),
+		});
+	});
+
+	it("reads pass when only by-design uncovered checks held it back", () => {
+		const run = saved("p", "m", "uncovered");
+		run.result.verdicts = run.result.verdicts.filter(
+			(verdict) =>
+				verdict.status !== "fail" && verdict.id !== "$runner/complete/state",
+		);
+		expect(summaryOf("r", run)).toMatchObject({ status: "pass", unjudged: 1 });
+	});
+
+	it("stays uncovered when a channel is missing", () => {
+		const run = saved("p", "m", "uncovered");
+		run.result.verdicts = run.result.verdicts.filter(
+			(verdict) => verdict.status !== "fail",
+		);
+		expect(summaryOf("r", run)).toMatchObject({
+			status: "uncovered",
+			unjudged: 1,
 		});
 	});
 });
@@ -155,6 +176,7 @@ function saved(
 			assertions: [
 				{ id: "asked", kind: "reply" },
 				{ id: "merged", kind: "count" },
+				{ id: "gap", kind: "uncovered" },
 			],
 		},
 		run: {
@@ -187,6 +209,13 @@ function saved(
 					expected: { min: 1 },
 					actual: 0,
 					evidence: ["e1"],
+				},
+				{
+					id: "gap",
+					status: "uncovered",
+					expected: "later",
+					actual: null,
+					evidence: [],
 				},
 				{
 					id: "$runner/complete/state",

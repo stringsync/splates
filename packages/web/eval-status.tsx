@@ -17,9 +17,12 @@ const TONES: Record<EvalStatus, string> = {
 /** A run's outcome as a chip: its word, colored by how it went. */
 export function StatusChip({
 	status,
+	unjudged = 0,
 	className,
 }: {
 	status: EvalStatus;
+	/** Checks the harness cannot judge yet; a mark on `pass` when above 0. */
+	unjudged?: number;
 	className?: string;
 }): JSX.Element {
 	return (
@@ -32,6 +35,16 @@ export function StatusChip({
 			)}
 		>
 			{status}
+			{status === "pass" && unjudged > 0 && (
+				<span
+					title={`${unjudged} unjudged ${unjudged === 1 ? "check" : "checks"}`}
+					role="img"
+					aria-label={`${unjudged} unjudged`}
+					className="ml-1"
+				>
+					◐
+				</span>
+			)}
 		</span>
 	);
 }

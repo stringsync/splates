@@ -39,7 +39,10 @@ export interface EvalBatch {
 export interface EvalRun {
 	/** Its `result.json`, relative to the results directory. */
 	id: string;
+	/** The harness's status, but `pass` when only checks `uncovered` by design held it back. */
 	status: EvalStatus;
+	/** How many checks the harness cannot judge yet, by design. */
+	unjudged: number;
 	tokens: number | null;
 	costUsd: number | null;
 	milliseconds: number;

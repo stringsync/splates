@@ -283,6 +283,7 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 				run: {
 					id,
 					status: "unreadable",
+					unjudged: 0,
 					tokens: null,
 					costUsd: null,
 					milliseconds: 0,
@@ -350,14 +351,46 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 	};
 }
 
-function summaryOf(id: string, saved: SavedRun): EvalRun {
+export function summaryOf(id: string, saved: SavedRun): EvalRun {
 	const { usage } = saved.run;
+	const { status, unjudged } = judgedStatus(saved);
 	return {
 		id,
-		status: saved.result.status,
+		status,
+		unjudged,
 		tokens: usage.tokens,
 		costUsd: usage.costUsd,
 		milliseconds: usage.milliseconds,
+	};
+}
+
+/**
+ * The status a card shows. The harness grades any run with an `uncovered`
+ * assertion `uncovered`, though most probes carry some by design; when those
+ * are the only checks not passing, the run's judged checks all passed, so it
+ * reads `pass` and counts the unjudged. A missing channel stays `uncovered`.
+ */
+function judgedStatus(saved: SavedRun): {
+	status: EvalStatus;
+	unjudged: number;
+} {
+	const { status, verdicts } = saved.result;
+	const byDesign = new Set(
+		saved.probe.assertions
+			.filter((assertion) => assertion.kind === "uncovered")
+			.map((assertion) => assertion.id),
+	);
+	const unjudged = verdicts.filter(
+		(verdict) => verdict.status === "uncovered" && byDesign.has(verdict.id),
+	).length;
+	const rest = verdicts.every(
+		(verdict) =>
+			verdict.status === "pass" ||
+			(verdict.status === "uncovered" && byDesign.has(verdict.id)),
+	);
+	return {
+		status: status === "uncovered" && rest ? "pass" : status,
+		unjudged,
 	};
 }
 
