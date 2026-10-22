@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { Resource } from "webappwiz/disposable";
+import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Child, Ps } from "webappwiz/system";
 import type { WorkerChannel } from "./channel";
 import { JobParams, JobTold } from "./job";
@@ -29,7 +29,7 @@ export function cloneDir(home: string, project: string): string {
  * everything it started. No creds reach it: its environment is the runner's
  * own plus what the job names.
  */
-export class WorkerJobHost implements Resource {
+export class WorkerJobHost implements Resource, AsyncResource {
 	private readonly params: JobParams;
 	private readonly repo: string;
 	private readonly dir: string;
@@ -39,6 +39,8 @@ export class WorkerJobHost implements Resource {
 	private child: Child | null = null;
 	private cancelled = false;
 	private disposed = false;
+	/** Settles once the checkout and the job's files are gone. */
+	private forgotten: Promise<void> = Promise.resolve();
 
 	constructor(
 		private readonly channel: WorkerChannel,
@@ -72,7 +74,13 @@ export class WorkerJobHost implements Resource {
 		}
 		this.disposed = true;
 		this.cancelled = true;
-		void this.kill().then(() => this.forget());
+		this.forgotten = this.kill().then(() => this.forget());
+	}
+
+	/** Disposes and waits until the job's files are gone. */
+	async disposeAsync(): Promise<void> {
+		this.dispose();
+		await this.forgotten;
 	}
 
 	private told(body: unknown): void {
@@ -250,7 +258,9 @@ export class WorkerJobHost implements Resource {
 				this.tree,
 			])
 			.catch(() => {});
-		await rm(this.dir, { recursive: true, force: true });
+		// A child still dying under the checkout can fail the removal; a
+		// stray directory left behind is no reason to fail closing the job.
+		await rm(this.dir, { recursive: true, force: true }).catch(() => {});
 		await this.ps
 			.spawnCapture(["git", "-C", this.repo, "worktree", "prune"])
 			.catch(() => {});

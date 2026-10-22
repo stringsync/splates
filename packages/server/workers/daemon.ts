@@ -48,7 +48,7 @@ export const WORKER_CAPABILITIES = ["process", "pty", "calls", JOBS, UPDATE];
  */
 export class WorkerDaemon implements AsyncResource {
 	readonly session: WorkerSession;
-	private readonly hosts = new Set<Resource>();
+	private readonly hosts = new Set<Resource & Partial<AsyncResource>>();
 	/** The agents and terminals among `hosts`. */
 	private running = 0;
 	private readonly timer: Timer;
@@ -243,9 +243,11 @@ export class WorkerDaemon implements AsyncResource {
 		this.orphaned?.dispose();
 		this.waiting?.timeout.dispose();
 		this.waiting?.wake();
-		for (const host of [...this.hosts]) {
-			host.dispose();
-		}
+		await Promise.all(
+			[...this.hosts].map(async (host) =>
+				host.disposeAsync ? host.disposeAsync() : host.dispose(),
+			),
+		);
 		this.session.dispose();
 	}
 
@@ -298,7 +300,7 @@ export class WorkerDaemon implements AsyncResource {
 
 	private serve(channel: WorkerChannel): void {
 		const { ps, log } = this.opts;
-		let host: Resource;
+		let host: Resource & Partial<AsyncResource>;
 		try {
 			switch (channel.kind) {
 				case "process":
