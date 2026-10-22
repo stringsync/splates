@@ -125,9 +125,7 @@ export function coordinatorBrowserSteps(watch: MoveWatch): BrowserSteps {
 export const COORDINATOR_STEPS: StepBodies = {
 	"coordinator-access": ({ step }) => (
 		<>
-			<p>
-				<Markdown text={step.user} inline />
-			</p>
+			<Markdown text={step.user} />
 			<AccessLine access={step.data as AwsAccess | null} />
 			{step.fields.map((field) => (
 				<StepField key={field.name} field={field} />
@@ -138,9 +136,7 @@ export const COORDINATOR_STEPS: StepBodies = {
 		const needs = (step.data as CoordinatorNeeds | null)?.needs ?? [];
 		return (
 			<>
-				<p>
-					<Markdown text={step.user} inline />
-				</p>
+				<Markdown text={step.user} />
 				{needs.length > 0 && (
 					<ul aria-label="missing creds" className="flex flex-col gap-1">
 						{needs.map((name) => (
@@ -203,9 +199,7 @@ function MoveBody({ user }: { user: string }): JSX.Element {
 	const state = useReactive(watch ?? IDLE, (each) => each.state, ["changed"]);
 	return (
 		<>
-			<p>
-				<Markdown text={user} inline />
-			</p>
+			<Markdown text={user} />
 			<MoveStatus state={state} />
 		</>
 	);

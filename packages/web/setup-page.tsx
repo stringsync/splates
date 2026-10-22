@@ -222,9 +222,7 @@ function Journey({
 							<StepField key={field.name} field={field} />
 						))
 					) : (
-						<p>
-							<Markdown text={step.user} inline />
-						</p>
+						<Markdown text={step.user} />
 					)}
 				</StepForm>
 			</RulesEditorContext>

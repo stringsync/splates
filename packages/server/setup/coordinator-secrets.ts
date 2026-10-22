@@ -26,7 +26,7 @@ export function stackSecretsStep(
 		id: "coordinator-secrets",
 		title: "Paste the stack's secrets into Pulumi",
 		why: "The stack reads its tokens from an ESC environment on the Pulumi site, which splates never reads.",
-		user: "Paste each secret on the Pulumi site, one step each.",
+		user: "1. Paste each secret on the Pulumi site, one step each.\n2. Press Next once they are all in.",
 		agent:
 			"Stands for one step per secret, which the roster lists in its place.",
 		optional: true,
@@ -71,7 +71,7 @@ export function stackSecretsStep(
 			id: `coordinator-secret-${secretSlug(key)}`,
 			title: `Paste ${help.name} into Pulumi`,
 			why: help.purpose,
-			user: `${help.instructions}\n\nThen open ${where}, replace the placeholder under \`pulumiConfig\` › \`${key}\` with it as a secret (\`fn::secret: <it>\`, or the editor's secret toggle), save, and press Next.`,
+			user: `1. Get the secret: ${help.instructions}\n2. Open ${where}.\n3. Replace the placeholder under \`pulumiConfig\` › \`${key}\` with it as a secret (\`fn::secret: <it>\`, or the editor's secret toggle), and save.\n4. Press Next.`,
 			agent: `The user pastes ${help.name} on the Pulumi site; splates never sees it, so never ask for it. Next reads the environment's definition without \`--show-secrets\` and is done once \`pulumiConfig.${key}\` is no longer the placeholder. To replace a token that failed, the user pastes a new one over it the same way.`,
 			optional: true,
 			after: [after],
