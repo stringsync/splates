@@ -1,9 +1,14 @@
+import { basename } from "node:path";
 import type { Ps } from "webappwiz/system";
 import { shellQuoted } from "./scripts";
 
+/** The user EC2 puts the stack's key pair on, in Ubuntu's images. */
+const BOX_LOGIN = "ubuntu";
+
 /**
- * A root shell on the coordinator's box over SSH, signed in with the key
- * its Pulumi stack made, holding the box to the host key `CoordinatorBox`
+ * A root shell on the coordinator's box over SSH, signed in as Ubuntu's
+ * `ubuntu`, the one user EC2 gives the key its Pulumi stack made, and
+ * raised to root through its passwordless `sudo`, holding the box to the host key `CoordinatorBox`
  * recorded for it in a file of splates's own, and refusing any other.
  */
 export class BoxShell {
@@ -14,9 +19,11 @@ export class BoxShell {
 		// With stdin of its own, the script cannot come on stdin: it goes
 		// as the remote command, which the box's shell reads whole.
 		const remote =
-			stdin === undefined ? ["sh", "-s"] : ["sh", "-c", shellQuoted(script)];
+			stdin === undefined
+				? ["sudo", "sh", "-s"]
+				: ["sudo", "sh", "-c", shellQuoted(script)];
 		const ran = await this.opts.ps.spawnCapture(
-			[...this.ssh("ssh"), `root@${this.opts.ipv4}`, ...remote],
+			[...this.ssh("ssh"), this.target(), ...remote],
 			{ stdin: stdin ?? script },
 		);
 		this.refuseChangedKey(ran.stderr);
@@ -38,13 +45,17 @@ export class BoxShell {
 		}
 	}
 
-	/** Copies the file at `local` to `remote` on the box. */
+	/**
+	 * Copies the file at `local` to `remote` on the box, by way of
+	 * `ubuntu`'s home, since only root may write most of the box.
+	 */
 	async copy(local: string, remote: string): Promise<void> {
+		const staged = `copy-${basename(remote)}`;
 		const ran = await this.opts.ps.spawnCapture([
 			...this.ssh("scp"),
 			"-q",
 			local,
-			`root@${this.opts.ipv4}:${remote}`,
+			`${this.target()}:${staged}`,
 		]);
 		this.refuseChangedKey(ran.stderr);
 		if (ran.exitCode !== 0) {
@@ -52,16 +63,23 @@ export class BoxShell {
 				`could not copy ${local} to the box: ${(ran.stderr || ran.stdout).trim()}`,
 			);
 		}
+		await this.run(
+			`mv "$(getent passwd ${BOX_LOGIN} | cut -d: -f6)"/${shellQuoted(staged)} ${shellQuoted(remote)}`,
+		);
 	}
 
 	/** The `ssh` that logs in to the box as root, running `command` there, or a shell for none. */
 	login(command: string[] = []): string[] {
 		return [
 			...this.ssh("ssh"),
-			...(command.length === 0 ? ["-t"] : []),
-			`root@${this.opts.ipv4}`,
-			...command,
+			...(command.length === 0
+				? ["-t", this.target(), "sudo", "-i"]
+				: [this.target(), "sudo", ...command]),
 		];
+	}
+
+	private target(): string {
+		return `${BOX_LOGIN}@${this.opts.ipv4}`;
 	}
 
 	private ssh(command: "ssh" | "scp"): string[] {
@@ -87,7 +105,7 @@ export class BoxShell {
 export interface BoxShellOptions {
 	ps: Ps;
 	ipv4: string;
-	/** The private key that logs in as root. */
+	/** The private key that logs in as `ubuntu`. */
 	key: string;
 	/** Where the box's host key is kept, written before the first connection. */
 	knownHosts: string;

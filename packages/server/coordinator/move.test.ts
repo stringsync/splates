@@ -238,7 +238,12 @@ describe("CoordinatorMove", () => {
 		expect(place).toContain("WorkingDirectory=/home/splates/projects/splates");
 		// No creds go: the box reads its own through its instance role.
 		expect(ps.scripts.some((each) => each.includes("keep-creds"))).toBe(false);
-		expect(ps.copied).toEqual(["/root/splates-move.tgz"]);
+		expect(ps.copied).toEqual(["copy-splates-move.tgz"]);
+		expect(
+			ps.scripts.some((each) =>
+				each.endsWith("copy-splates-move.tgz' '/root/splates-move.tgz'"),
+			),
+		).toBe(true);
 		expect(ps.scripts.some((each) => each.includes("enable --now"))).toBe(true);
 		expect(joined).toEqual([`https://${HOST} join-token`]);
 		expect(kept).toEqual([`https://${HOST}`]);
