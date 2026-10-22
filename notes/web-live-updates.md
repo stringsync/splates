@@ -21,8 +21,10 @@ hidden, or back online), telling its feed it `dropped` the old one.
 has answered since the stream last opened: false over a kept copy, after a
 wake, or a dropped or failed stream. `freshness.tsx` joins the two into
 `FreshnessContext`: while stale the inbox (phone and sidebar) keeps its rows,
-dimmed and `inert`, the open thread is `inert` under a "Catching up…"
-line, and after `offlineAfter` both say "Can't reach splates" with a Retry.
+dimmed and `inert`, and the open thread is `inert`. `CatchingUp` dims the
+whole page and takes its clicks once it has been stale 300ms (sooner would
+flash on a wake the server answers at once), with "Catching up…" at the
+centre, and after `offlineAfter` says "Can't reach splates" with a Retry.
 
 `index.html` starts fetching `/api/snapshot` and `/api/conversations` before the script loads,
 and `EarlyReads` hands those to the first read. WebSockets are used only for

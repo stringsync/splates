@@ -1,4 +1,5 @@
 import { useReactive } from "@webappwiz/react";
+import { Loader2Icon, WifiOffIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -17,8 +18,8 @@ import type { Feed } from "./feed";
 /**
  * Whether what the page shows of the project may be stale: drawn from a kept
  * copy, or from before a sleep or a dropped stream, the server not having
- * said since. The inbox shows none of it then, and the open thread takes no
- * action, so nothing is done on what has since moved.
+ * said since. The page is dimmed and takes no action then, so nothing is
+ * done on what has since moved.
  */
 export interface Freshness {
 	stale: boolean;
@@ -74,27 +75,13 @@ export function useFeedsFreshness(
 	);
 }
 
-/** What the inbox shows in place of its rows while they may be stale. */
+/** What the inbox shows in place of its rows before its first read. */
 export function InboxLoading({
 	className,
 }: {
 	className?: string;
 }): JSX.Element {
-	const { unreachable, retry } = useFreshness();
-	return unreachable ? (
-		<div
-			role="alert"
-			className={cn(
-				"flex flex-col items-start gap-2 p-6 text-muted-foreground text-sm",
-				className,
-			)}
-		>
-			Can't reach splates.
-			<Button variant="outline" size="sm" onClick={retry}>
-				Retry
-			</Button>
-		</div>
-	) : (
+	return (
 		<div
 			role="status"
 			aria-label="Loading inbox"
@@ -109,63 +96,81 @@ export function InboxLoading({
 
 /**
  * The inbox's rows, kept but dimmed and `inert` while they may be stale, so
- * nothing is opened or answered on what has moved; once the server has
- * stayed unreachable it says so above them, with a Retry.
+ * nothing is opened or answered on what has moved.
  */
 export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
-	const { stale, unreachable, retry } = useFreshness();
+	const { stale } = useFreshness();
 	return (
-		<>
-			{stale && unreachable && (
-				<div
-					role="alert"
-					className="flex items-center gap-2 px-3 py-2 text-muted-foreground text-sm"
-				>
-					Can't reach splates.
-					<Button variant="outline" size="sm" onClick={retry}>
-						Retry
-					</Button>
-				</div>
-			)}
-			<div
-				inert={stale}
-				aria-busy={stale}
-				className={cn("contents", stale && "*:opacity-50")}
-			>
-				{children}
-			</div>
-		</>
+		<div
+			inert={stale}
+			aria-busy={stale}
+			className={cn("contents", stale && "*:opacity-50")}
+		>
+			{children}
+		</div>
 	);
 }
 
 /**
- * `children`, taking no input while the page may be stale, under a line
- * saying so, so an answer or an archive is never made on what has moved.
+ * `children`, taking no input while the page may be stale, so an answer or
+ * an archive is never made on what has moved; `CatchingUp` says why.
  */
 export function Locked({ children }: { children: ReactNode }): JSX.Element {
-	const { stale, unreachable, retry } = useFreshness();
+	const { stale } = useFreshness();
 	return (
-		<>
-			{stale && (
-				<div
-					role={unreachable ? "alert" : "status"}
-					className="-translate-x-1/2 fixed top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-50 flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-muted-foreground text-xs shadow-sm"
-				>
-					{unreachable ? (
-						<>
-							Can't reach splates.
-							<Button variant="ghost" size="xs" onClick={retry}>
-								Retry
-							</Button>
-						</>
-					) : (
-						"Catching up…"
-					)}
-				</div>
-			)}
-			<div inert={stale} aria-busy={stale} className="contents">
-				{children}
+		<div inert={stale} aria-busy={stale} className="contents">
+			{children}
+		</div>
+	);
+}
+
+// How long the page may be stale before it is dimmed, so a wake the server
+// answers at once never flashes the overlay.
+const DIM_AFTER_MS = 300;
+
+/**
+ * Dims the whole page and takes its clicks while it may be stale, with
+ * "Catching up…" at its centre, and once the server stays unreachable says
+ * so there, with a Retry.
+ */
+export function CatchingUp(): JSX.Element | null {
+	const { stale, unreachable, retry } = useFreshness();
+	const [waited, setWaited] = useState(false);
+	useEffect(() => {
+		setWaited(false);
+		if (!stale) {
+			return;
+		}
+		const waiting = setTimeout(() => setWaited(true), DIM_AFTER_MS);
+		return () => clearTimeout(waiting);
+	}, [stale]);
+	if (!stale || !(waited || unreachable)) {
+		return null;
+	}
+	return (
+		<div className="fade-in-0 fixed inset-0 z-[90] grid animate-in place-items-center bg-background/60 duration-200 supports-backdrop-filter:backdrop-blur-[2px]">
+			<div
+				role={unreachable ? "alert" : "status"}
+				className="flex items-center gap-3 rounded-xl border bg-background px-5 py-3 text-sm shadow-lg"
+			>
+				{unreachable ? (
+					<>
+						<WifiOffIcon aria-hidden className="size-4 text-muted-foreground" />
+						Can't reach splates.
+						<Button variant="outline" size="sm" onClick={retry}>
+							Retry
+						</Button>
+					</>
+				) : (
+					<>
+						<Loader2Icon
+							aria-hidden
+							className="size-4 animate-spin text-muted-foreground"
+						/>
+						Catching up…
+					</>
+				)}
 			</div>
-		</>
+		</div>
 	);
 }

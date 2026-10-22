@@ -68,7 +68,6 @@ describe("App's inbox while what it shows may be stale", () => {
 		await wake();
 
 		expect(input.closest("[inert]")).not.toBeNull();
-		view.getByText("Catching up…");
 		await pressArchive();
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
 		await reopen(testing);
@@ -79,7 +78,7 @@ describe("App's inbox while what it shows may be stale", () => {
 		]);
 	});
 
-	it("says it cannot reach splates once the server stays away, and tries again on Retry", async () => {
+	it("says it cannot reach splates over the dimmed page once the server stays away, and tries again on Retry", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login" })],
 			null,
@@ -89,7 +88,7 @@ describe("App's inbox while what it shows may be stale", () => {
 		await wake();
 
 		const list = view.getByRole("navigation", { name: "conversations" });
-		const said = await waitFor(() => within(list).getByRole("alert"));
+		const said = await waitFor(() => view.getByRole("alert"));
 		expect(said.textContent).toContain("Can't reach splates.");
 		testing.comeBack();
 		await act(async () =>
