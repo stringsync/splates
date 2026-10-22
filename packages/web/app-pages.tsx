@@ -38,6 +38,8 @@ export function useAppPages({
 	rule,
 	evals,
 	openEval,
+	setup,
+	openSetup,
 	available,
 	terminals,
 	open,
@@ -54,6 +56,8 @@ export function useAppPages({
 	| "open"
 	| "evals"
 	| "openEval"
+	| "setup"
+	| "openSetup"
 > & {
 	snapshot: Snapshot | null;
 	drafts: Drafts;
@@ -141,6 +145,8 @@ export function useAppPages({
 								todos={snapshot.todos}
 								feed={available ? talk : null}
 								onOpen={openConversation}
+								open={setup}
+								onSetup={openSetup}
 							/>
 						),
 						conversations: available && (
@@ -180,6 +186,8 @@ export function useAppPages({
 			rule,
 			evals,
 			openEval,
+			setup,
+			openSetup,
 			available,
 			terminals,
 			open,

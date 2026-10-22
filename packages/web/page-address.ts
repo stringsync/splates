@@ -50,6 +50,11 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	rule = ruleIn(location.hash);
 	/** The batch and run the Evals page has open, each null for none. */
 	evals = evalsIn(location.hash);
+	/** The journey and step the Setup page is on, each null for none. */
+	setup = setupIn(location.hash);
+	/** Where Setup was left, which the Setup nav entry returns to. */
+	private leftSetup: SetupOpen | null =
+		this.setup.area === null ? null : this.setup;
 	/** The window's scroll to put back once the entry returned to is drawn. */
 	private scroll: number | null = null;
 
@@ -86,14 +91,17 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.cred = null;
 		this.rule = null;
 		this.evals = NO_EVALS;
+		this.setup = next === "setup" && this.leftSetup ? this.leftSetup : NO_SETUP;
 		this.move(
-			next === "todos"
-				? ""
-				: next === "conversations" && conversation !== null
-					? `#conversations/${conversation}`
-					: next === "auto-pick"
-						? AUTO_PICK
-						: `#${next}`,
+			next === "setup"
+				? setupAddress(this.setup)
+				: next === "todos"
+					? ""
+					: next === "conversations" && conversation !== null
+						? `#conversations/${conversation}`
+						: next === "auto-pick"
+							? AUTO_PICK
+							: `#${next}`,
 			how,
 		);
 	}
@@ -136,6 +144,21 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	}
 
 	/**
+	 * Sets the Setup page on journey `area` and its step `step`, or on the
+	 * index for a null `area`, which forgets where Setup was left.
+	 */
+	openSetup(
+		area: string | null,
+		step: string | null = null,
+		how: Move = "push",
+	): void {
+		this.page = "setup";
+		this.setup = area === null ? NO_SETUP : { area, step: step };
+		this.leftSetup = area === null ? null : this.setup;
+		this.move(setupAddress(this.setup), how);
+	}
+
+	/**
 	 * The window's scroll to put back, once, after the page draws the entry
 	 * the browser went back or forward to, or null.
 	 */
@@ -143,6 +166,13 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		const scroll = this.scroll;
 		this.scroll = null;
 		return scroll;
+	}
+
+	/** Keeps the journey Setup shows, for the nav entry to return to. */
+	private remember(): void {
+		if (this.page === "setup") {
+			this.leftSetup = this.setup.area === null ? null : this.setup;
+		}
 	}
 
 	private follow = () => {
@@ -154,6 +184,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.cred = credIn(location.hash);
 		this.rule = ruleIn(location.hash);
 		this.evals = evalsIn(location.hash);
+		this.setup = setupIn(location.hash);
+		this.remember();
 		this.scroll = entry()?.scroll ?? 0;
 		this.dispatcher.dispatch("changed");
 	};
@@ -244,7 +276,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#notes") {
 		return "notes";
 	}
-	if (hash === "#setup") {
+	if (hash === "#setup" || hash.startsWith("#setup/")) {
 		return "setup";
 	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
@@ -321,6 +353,34 @@ function ruleIn(hash: string): number | null {
 /** The address of the Auto pick page set on rule `index`, from 0. */
 export function ruleAddress(index: number): string {
 	return `${AUTO_PICK}/${index + 1}`;
+}
+
+/** What the Setup page is on: a journey, and a step of it, each null for none. */
+export interface SetupOpen {
+	area: string | null;
+	step: string | null;
+}
+
+const NO_SETUP: SetupOpen = { area: null, step: null };
+
+/** The journey and step `#setup/<area>[/<step>]` sets the Setup page on. */
+function setupIn(hash: string): SetupOpen {
+	const [, area, step] = hash.match(/^#setup\/([^/]+)(?:\/([^/]+))?$/) ?? [];
+	return area === undefined
+		? NO_SETUP
+		: {
+				area: decodeURIComponent(area),
+				step: step === undefined ? null : decodeURIComponent(step),
+			};
+}
+
+/** The address of the Setup page set on `open`. */
+export function setupAddress({ area, step }: SetupOpen): string {
+	if (area === null) {
+		return "#setup";
+	}
+	const base = `#setup/${encodeURIComponent(area)}`;
+	return step === null ? base : `${base}/${encodeURIComponent(step)}`;
 }
 
 /** What the Evals page has open: a batch, and one of its runs. */

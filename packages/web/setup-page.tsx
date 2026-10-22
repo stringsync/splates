@@ -3,7 +3,7 @@ import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon, Loader2Icon } from "lucide-react";
-import { type JSX, useContext, useEffect, useState } from "react";
+import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
 import {
@@ -19,6 +19,7 @@ import {
 } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
+import type { Move, SetupOpen } from "./page-address";
 import {
 	autoPickBrowserSteps,
 	RulesEditorContext,
@@ -30,7 +31,7 @@ import {
 } from "./setup-coordinator-steps";
 import { JourneyDone, SetupIndex, StepField, StepForm } from "./setup-form";
 import { numbered, StepInstructions } from "./setup-instructions";
-import { SetupJourney } from "./setup-journey";
+import { DONE, SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
 import { UndoDialog } from "./setup-undo";
@@ -41,6 +42,8 @@ export function SetupPage({
 	feed,
 	onOpen,
 	todos,
+	open,
+	onSetup,
 }: {
 	/** Where a conversation starts, or null while `splates server` holds none. */
 	feed: ConversationFeed | null;
@@ -48,9 +51,13 @@ export function SetupPage({
 	onOpen: (id: string) => void;
 	/** The project's tasks, which Auto pick's try picks from. */
 	todos: readonly TaskRecord[];
+	/** The journey and step the address has Setup on. */
+	open: SetupOpen;
+	/** Sets Setup on a journey and step, or the index for a null journey. */
+	onSetup: (area: string | null, step?: string | null, how?: Move) => void;
 }): JSX.Element {
-	const { progress } = useContext(SetupContext);
-	const [selected, setSelected] = useState<string | null>(null);
+	const { progress, held } = useContext(SetupContext);
+	const selected = open.area;
 	const [undoing, setUndoing] = useState<string | null>(null);
 	const area = progress?.areas.find((area) => area.id === selected);
 	return (
@@ -58,7 +65,7 @@ export function SetupPage({
 			<TopBar
 				leading={
 					area ? (
-						<BarButton label="Back to setup" onClick={() => setSelected(null)}>
+						<BarButton label="Back to setup" onClick={() => onSetup(null)}>
 							<ChevronLeftIcon />
 						</BarButton>
 					) : undefined
@@ -71,16 +78,21 @@ export function SetupPage({
 					<Journey
 						key={area.id}
 						area={area}
+						stepId={open.step}
+						onStep={(step) => onSetup(area.id, step, "replace")}
 						feed={feed}
 						todos={todos}
 						onOpen={onOpen}
-						onLeave={() => setSelected(null)}
+						onLeave={() => {
+							held.drop(area.id);
+							onSetup(null);
+						}}
 						onUndo={() => setUndoing(area.id)}
 					/>
 				) : (
 					<SetupIndex
 						areas={progress.areas}
-						onSelect={setSelected}
+						onSelect={(id) => onSetup(id)}
 						onUndo={setUndoing}
 					/>
 				))}
@@ -88,8 +100,9 @@ export function SetupPage({
 				area={undoing}
 				onClose={(undone) => {
 					setUndoing(null);
-					if (undone) {
-						setSelected(null);
+					if (undone && undoing !== null) {
+						held.drop(undoing);
+						onSetup(null);
 					}
 				}}
 			/>
@@ -137,6 +150,8 @@ function SetupLoading(): JSX.Element {
 /** One area as a form, a page at a time, as `SetupJourney` walks it. */
 function Journey({
 	area,
+	stepId,
+	onStep,
 	feed,
 	todos,
 	onOpen,
@@ -144,33 +159,55 @@ function Journey({
 	onUndo,
 }: {
 	area: AreaProgress;
+	/** The step the address names, or null for none. */
+	stepId: string | null;
+	/** Puts the step shown in the address. */
+	onStep: (step: string) => void;
 	feed: ConversationFeed | null;
 	todos: readonly TaskRecord[];
 	onOpen: (id: string) => void;
 	onLeave: () => void;
 	onUndo: () => void;
 }): JSX.Element {
-	const { settle } = useContext(SetupContext);
-	const [move] = useState(() => new MoveWatch());
-	const [rules] = useState(() => new RulesEditor());
-	const [journey] = useState(
-		() =>
-			new SetupJourney(
-				area,
-				{
-					...coordinatorBrowserSteps(move),
-					...autoPickBrowserSteps(rules),
-				},
-				STEP_STOPS,
-			),
-	);
+	const { settle, held } = useContext(SetupContext);
+	// Held beyond this page, so a step left running goes on and the journey
+	// is found where it was left.
+	const { journey, move, rules } = held.obtain(area.id, () => {
+		const move = new MoveWatch();
+		const rules = new RulesEditor();
+		const journey = new SetupJourney(
+			area,
+			{
+				...coordinatorBrowserSteps(move),
+				...autoPickBrowserSteps(rules),
+			},
+			STEP_STOPS,
+		);
+		return { journey, move, rules };
+	});
 	const { step, at, next } = useReactive(
 		journey,
 		(journey) => ({ step: journey.step, at: journey.at, next: journey.next }),
 		["changed"],
 	);
 	useEffect(() => journey.events.on("settled", settle), [journey, settle]);
-	useEffect(() => () => move.stop(), [move]);
+	// The address and the journey follow each other: a step the address
+	// names (back, forward, a link) is gone to, else the step shown is put
+	// in the address.
+	const shown = step?.id ?? DONE;
+	const named = useRef<string | null | undefined>(undefined);
+	useEffect(() => {
+		if (stepId !== named.current) {
+			named.current = stepId;
+			if (stepId !== null && stepId !== shown) {
+				journey.goTo(stepId);
+				return;
+			}
+		}
+		if (stepId !== shown) {
+			onStep(shown);
+		}
+	}, [stepId, shown, journey, onStep]);
 	const working = next.kind === "working";
 	// Closing or reloading the tab mid-run asks first: a long step such as
 	// `pulumi up` is easy to lose track of, and the browser words the prompt.

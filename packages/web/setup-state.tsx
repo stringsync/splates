@@ -12,6 +12,7 @@ import {
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { UpdateDot } from "./release";
 import { setup } from "./setup-api";
+import { HeldJourneys } from "./setup-held";
 
 /** This machine's setup as the page last read it, and how to read it again. */
 export interface SetupState {
@@ -21,6 +22,8 @@ export interface SetupState {
 	refresh: () => void;
 	/** Takes what a write answered with, so the page shows it at once. */
 	settle: (progress: SetupProgress) => void;
+	/** The journeys begun, which outlive the Setup page. */
+	held: HeldJourneys;
 }
 
 /** What the Setup page reads. */
@@ -28,6 +31,7 @@ export const SetupContext = createContext<SetupState>({
 	progress: null,
 	refresh: () => {},
 	settle: () => {},
+	held: new HeldJourneys(),
 });
 
 /**
@@ -51,7 +55,8 @@ export function useSetupState(changed: unknown): SetupState {
 		});
 		return () => observer.dispose();
 	}, [refresh]);
-	return { progress, refresh, settle: setProgress };
+	const [held] = useState(() => new HeldJourneys());
+	return { progress, refresh, settle: setProgress, held };
 }
 
 /**

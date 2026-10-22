@@ -170,7 +170,24 @@ describe("App's setup", () => {
 		testing.setup = setupProgress();
 		const view = await openSetup();
 
-		expect(location.hash).toBe("#setup");
+		expect(location.hash).toBe("#setup/agents/agents");
+		await step(view, "Choose the agents splates starts");
+	});
+
+	it("comes back to the journey and step it was left on", async () => {
+		testing.setup = setupProgress();
+		const view = await openSetup();
+		await step(view, "Choose the agents splates starts");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Tasks$/ })),
+		);
+		expect(location.hash).toBe("#tasks");
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
+		);
+
+		expect(location.hash).toBe("#setup/agents/agents");
 		await step(view, "Choose the agents splates starts");
 	});
 

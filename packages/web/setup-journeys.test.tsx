@@ -7,9 +7,8 @@ import {
 } from "@stringsync/splates-server/setup";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { AppSetupPage } from "./app-setup-page";
 import { SetupIndex, StepForm } from "./setup-form";
-import { SetupPage } from "./setup-page";
-import { SetupContext } from "./setup-state";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
 describe("Setup journeys", () => {
@@ -31,18 +30,13 @@ describe("Setup journeys", () => {
 		const view = render(<Page />);
 		function Page() {
 			return (
-				<SetupContext
-					value={{
-						progress: settled,
-						refresh: () => {},
-						settle: (fresh) => {
-							settled = fresh;
-							view.rerender(<Page />);
-						},
+				<AppSetupPage
+					progress={settled}
+					settle={(fresh) => {
+						settled = fresh;
+						view.rerender(<Page />);
 					}}
-				>
-					<SetupPage feed={null} onOpen={() => {}} todos={[]} />
-				</SetupContext>
+				/>
 			);
 		}
 		return view;

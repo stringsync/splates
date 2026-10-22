@@ -186,6 +186,8 @@ export function App({
 		rule,
 		evals,
 		openEval,
+		setup,
+		openSetup,
 	} = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
@@ -313,6 +315,8 @@ export function App({
 		rule,
 		evals,
 		openEval,
+		setup,
+		openSetup,
 		available,
 		terminals,
 		open,

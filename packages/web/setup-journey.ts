@@ -120,8 +120,12 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 		});
 	}
 
-	/** Moves to the step `id` names, as to repair an earlier one. */
+	/** Moves to the step `id` names, as to repair an earlier one; "done" is past the last. */
 	goTo(id: string): void {
+		if (id === DONE) {
+			this.set(this.area.steps.length, { kind: "ready" });
+			return;
+		}
 		const found = this.area.steps.findIndex((step) => step.id === id);
 		this.set(Math.max(found, 0), { kind: "ready" });
 	}
@@ -137,6 +141,9 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 		this.dispatcher.dispatch("changed");
 	}
 }
+
+/** What a journey past its last step is called in an address. */
+export const DONE = "done";
 
 /** The first step from `from` on that is not done, has a warning or is one of `stops`, or past the last. */
 function notDone(

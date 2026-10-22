@@ -17,7 +17,12 @@ import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
-import { type EvalsOpen, type Move, PageAddress } from "./page-address";
+import {
+	type EvalsOpen,
+	type Move,
+	PageAddress,
+	type SetupOpen,
+} from "./page-address";
 import type { ShortcutKey } from "./settings";
 import { TaskIcon } from "./task-icon";
 
@@ -28,20 +33,22 @@ import { TaskIcon } from "./task-icon";
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, todo, cred, rule, evals } = useReactive(
-		address,
-		({ page, open, task, lane, todo, cred, rule, evals }) => ({
-			page,
-			open,
-			task,
-			lane,
-			todo,
-			cred,
-			rule,
-			evals,
-		}),
-		["changed"],
-	);
+	const { page, open, task, lane, todo, cred, rule, evals, setup } =
+		useReactive(
+			address,
+			({ page, open, task, lane, todo, cred, rule, evals, setup }) => ({
+				page,
+				open,
+				task,
+				lane,
+				todo,
+				cred,
+				rule,
+				evals,
+				setup,
+			}),
+			["changed"],
+		);
 	useLayoutEffect(() => {
 		const scroll = address.takeScroll();
 		if (scroll !== null) {
@@ -57,6 +64,11 @@ export function usePageRoute(): PageRoute {
 		cred,
 		rule,
 		evals,
+		setup,
+		openSetup: useCallback(
+			(area, step, how) => address.openSetup(area, step, how),
+			[address],
+		),
 		go: useCallback(
 			(next, conversation, how) => address.go(next, conversation, how),
 			[address],
@@ -205,6 +217,10 @@ export interface PageRoute {
 	rule: number | null;
 	/** The batch and run the Evals page has open. */
 	evals: EvalsOpen;
+	/** The journey and step the Setup page is on, each null for none. */
+	setup: SetupOpen;
+	/** Sets Setup on journey `area` and its `step`, or on the index for a null `area`. */
+	openSetup: (area: string | null, step?: string | null, how?: Move) => void;
 	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
 	openEval: (batch: string | null, run?: string | null) => void;
 }

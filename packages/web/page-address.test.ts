@@ -81,6 +81,26 @@ describe("PageAddress", () => {
 		expect(address.cred).toBeNull();
 	});
 
+	it("sets Setup on a journey and step, and the nav entry returns to them", () => {
+		address.openSetup("cloud", "coordinator-up");
+
+		expect(location.hash).toBe("#setup/cloud/coordinator-up");
+		expect(address.setup).toEqual({ area: "cloud", step: "coordinator-up" });
+
+		address.go("tasks");
+		address.go("setup");
+
+		expect(location.hash).toBe("#setup/cloud/coordinator-up");
+		expect(address.setup.step).toBe("coordinator-up");
+
+		address.openSetup(null);
+		address.go("tasks");
+		address.go("setup");
+
+		expect(location.hash).toBe("#setup");
+		expect(address.setup).toEqual({ area: null, step: null });
+	});
+
 	it("leaves no terminal to go back to once it is left", async () => {
 		address.go("conversations", "c1");
 		address.go("conversations", "terminal/1");

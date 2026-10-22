@@ -8,8 +8,7 @@ import {
 } from "@stringsync/splates-server/setup";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { SetupPage } from "./setup-page";
-import { SetupContext } from "./setup-state";
+import { AppSetupPage } from "./app-setup-page";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
 const NEEDS = ["/splates/device/SPLATES_TUNNEL_TOKEN"];
@@ -66,18 +65,13 @@ describe("Cloud server journey", () => {
 		const view = render(<Page />);
 		function Page() {
 			return (
-				<SetupContext
-					value={{
-						progress: settled,
-						refresh: () => {},
-						settle: (fresh) => {
-							settled = fresh;
-							view.rerender(<Page />);
-						},
+				<AppSetupPage
+					progress={settled}
+					settle={(fresh) => {
+						settled = fresh;
+						view.rerender(<Page />);
 					}}
-				>
-					<SetupPage feed={null} onOpen={() => {}} todos={[]} />
-				</SetupContext>
+				/>
 			);
 		}
 		return view;
