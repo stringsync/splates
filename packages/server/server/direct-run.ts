@@ -23,6 +23,7 @@ import {
 	snapshotRecipe,
 	WorkerBudget,
 } from "../workers";
+import { TerminalStatus } from "./direct-status";
 import { RUNNING } from "./release";
 
 /**
@@ -89,13 +90,14 @@ export async function withRunners<T>(
 	const store = ctx.store ?? SystemSecretStore.device();
 	if ((await store.get(cloud.token.cred)) === undefined) {
 		throw new NoRunner(
-			`no runner: the project's runners are made in ${cloud.name}, and this machine keeps no ${cloud.token.cred}. Set it up with \`splates setup cloud-token\`, or run it here with \`splates run --local\``,
+			`no runner: the project's runners are made in ${cloud.name}, and this machine keeps no ${cloud.token.cred}. Set it up with \`splates setup cloud-token\``,
 		);
 	}
 	const home = splatesHome(ctx.ps);
 	const machine = FsStorage.ofMachine(ctx);
 	const key = await runnerKey(store, ctx.ps);
 	await using shell = await SshShell.open(ctx.ps, key, home);
+	await using status = await TerminalStatus.open(ctx);
 	const runners = new DirectRunners({
 		cloud,
 		budget: () => WorkerBudget.open(machine.document("worker-budget.json")),
@@ -111,6 +113,7 @@ export async function withRunners<T>(
 		claims: join(home, "direct-runners", "claims.json"),
 		ps: ctx.ps,
 		log: ctx.log,
+		status,
 	});
 	return await use(runners);
 }

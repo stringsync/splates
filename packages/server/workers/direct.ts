@@ -1,24 +1,25 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import type { Logger } from "webappwiz/log";
 import type { Lock, Ps } from "webappwiz/system";
 import {
 	Duration,
+	SystemTimer,
 	SystemWallClock,
 	sleep,
+	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import { z } from "zod";
 import type { CloudMachine, CloudProvider, CloudSize } from "../cloud";
 import type { WorkerBudget } from "./budget";
+import { RunnerClaims } from "./direct-claims";
+import { runOnHost, type Tell } from "./direct-job";
+import type {
+	DirectJobReport,
+	DirectRunnerReport,
+} from "./direct-runner-report";
 import {
-	type DirectJob,
 	directBootScript,
-	directFilesScript,
 	directIdleScript,
-	directJobScript,
 	directReserveScript,
-	jobRef,
 	type Reservation,
 	type Reserved,
 } from "./direct-script";
@@ -96,10 +97,23 @@ export interface DirectRunner {
 export class DirectRunners {
 	private readonly wall: WallClock;
 	private readonly wait: (duration: Duration) => Promise<void>;
+	private readonly timer: Timer;
+	private readonly status: DirectStatus;
+	private readonly claims: RunnerClaims;
 
 	constructor(private readonly deps: DirectRunnersDeps) {
 		this.wall = deps.wall ?? new SystemWallClock();
 		this.wait = deps.wait ?? sleep;
+		this.timer = deps.timer ?? new SystemTimer();
+		this.claims = new RunnerClaims(deps.claims, deps.ps);
+		this.status = deps.status ?? {
+			job: (_report, line) => {
+				if (line !== null) {
+					deps.log.info(line);
+				}
+			},
+			runners: () => {},
+		};
 	}
 
 	/** Runs `job` on a runner, streaming its output, answering its exit code and files. */
@@ -107,72 +121,72 @@ export class DirectRunners {
 		job: DirectRun,
 	): Promise<{ code: number; files: Map<string, Uint8Array> }> {
 		const id = crypto.randomUUID().slice(0, 8);
+		const what = job.argv.join(" ").slice(0, 200);
+		const report: DirectJobReport = {
+			id,
+			runner: null,
+			project: job.project,
+			task: job.task,
+			what,
+			phase: "placing",
+			code: null,
+			reason: null,
+			since: this.wall.now(),
+		};
+		const said = new Set<string>();
+		const tell: Tell = (phase, line, patch = {}) => {
+			Object.assign(report, { phase, ...patch });
+			const fresh = line !== null && !said.has(line);
+			if (line !== null) {
+				said.add(line);
+			}
+			this.status.job({ ...report }, fresh ? line : null);
+		};
+		// Heard again each minute, so a server tells one still going from one gone.
+		const heartbeat = this.timer.setInterval(
+			() => this.status.job({ ...report }, null),
+			HEARTBEAT,
+		);
+		try {
+			const ran = await this.runReported(id, job, tell);
+			const took = Duration.ms(this.wall.now() - report.since).human();
+			tell(
+				"done",
+				ran.code === 0 ? `done in ${took}` : `exited ${ran.code} after ${took}`,
+				{ code: ran.code },
+			);
+			return ran;
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
+			tell("failed", `failed: ${reason}`, { reason });
+			throw error;
+		} finally {
+			heartbeat.dispose();
+		}
+	}
+
+	private async runReported(
+		id: string,
+		job: DirectRun,
+		tell: Tell,
+	): Promise<{ code: number; files: Map<string, Uint8Array> }> {
 		const project = projectKey(job.project);
-		const host = await this.place(id, project, job.size, job.signal);
-		const at = new Date(this.wall.now()).toISOString();
-		const { shell } = this.deps;
-		await shell.push(host, job.cwd, job.commit, project, jobRef(id));
-		const spec: DirectJob = {
+		tell("placing", `finding a runner with ${sizeLabel(job.size)}`);
+		const host = await this.place(id, project, job.size, job.signal, tell);
+		return await runOnHost(this.deps, host, {
 			id,
 			project,
-			commit: job.commit,
-			size: job.size,
-			argv: job.argv,
-			env: job.env,
-			prepare: job.prepare,
-			timeout: job.timeout === null ? null : Math.ceil(job.timeout.secs),
-			files: job.files.length > 0,
-		};
-		const child = shell.start(host, directJobScript(spec));
-		const hangUp = () => void child.stdin.close().catch(() => {});
-		job.signal?.addEventListener("abort", hangUp, { once: true });
-		const pump = async (stream: ReadableStream<Uint8Array>) => {
-			for await (const bytes of stream) {
-				job.output(bytes);
-			}
-		};
-		let code: number;
-		try {
-			await Promise.all([pump(child.stdout), pump(child.stderr)]);
-			code = await child.exited;
-		} finally {
-			job.signal?.removeEventListener("abort", hangUp);
-		}
-		const files = new Map<string, Uint8Array>();
-		if (job.files.length > 0) {
-			const sent = await shell.capture(
-				host,
-				directFilesScript({ id, project: spec.project, names: job.files }),
-			);
-			for (const line of sent.stdout.split("\n")) {
-				const tab = line.indexOf("\t");
-				if (tab > 0) {
-					files.set(
-						line.slice(0, tab),
-						new Uint8Array(Buffer.from(line.slice(tab + 1), "base64")),
-					);
-				}
-			}
-		}
-		await this.deps.ledger
-			?.note({
-				row: "job",
-				id,
-				runner: host.id,
-				project: job.project,
-				task: job.task,
-				what: job.argv.join(" ").slice(0, 200),
-				at,
-				until: new Date(this.wall.now()).toISOString(),
-			})
-			.catch(() => {});
-		return { code, files };
+			job,
+			tell,
+			wall: this.wall,
+		});
 	}
 
 	/** Every runner made, with what each is doing now. */
 	async list(): Promise<DirectRunner[]> {
 		const sizes = await this.sizes();
 		const machines = await this.deps.cloud.machines(DIRECT_TAG);
+		this.status.runners(machines.map((each) => runnerReport(each, sizes)));
 		return Promise.all(
 			machines.map(async (machine) => {
 				const size = sizes.get(machine.type);
@@ -214,6 +228,9 @@ export class DirectRunners {
 				if (why !== null) {
 					await this.delete(machine);
 					reaped.push(`${nameOf(machine)}: ${why}`);
+					this.status.runners([
+						{ ...runnerReport(machine, new Map()), state: "deleted" },
+					]);
 				}
 			}
 		} finally {
@@ -231,21 +248,15 @@ export class DirectRunners {
 		project: string,
 		size: JobSize,
 		signal: AbortSignal | undefined,
+		tell: Tell,
 	): Promise<RunnerHost> {
-		const said = new Set<string>();
-		const say = (line: string) => {
-			if (!said.has(line)) {
-				said.add(line);
-				this.deps.log.info(line);
-			}
-		};
 		const refused = new Set<string>();
 		try {
 			for (;;) {
 				signal?.throwIfAborted();
 				await this.deps.lock.acquire();
 				try {
-					const placed = await this.placeOnce(id, project, size, refused, say);
+					const placed = await this.placeOnce(id, project, size, refused, tell);
 					if (placed !== null) {
 						return placed;
 					}
@@ -255,7 +266,12 @@ export class DirectRunners {
 				await this.wait(POLL);
 			}
 		} finally {
-			await this.unclaim(id);
+			await this.deps.lock.acquire();
+			try {
+				await this.claims.release(id);
+			} finally {
+				await this.deps.lock.release();
+			}
 		}
 	}
 
@@ -265,7 +281,7 @@ export class DirectRunners {
 		project: string,
 		size: JobSize,
 		refused: Set<string>,
-		say: (line: string) => void,
+		tell: Tell,
 	): Promise<RunnerHost | null> {
 		const { cloud } = this.deps;
 		const sizes = await this.sizes();
@@ -274,7 +290,7 @@ export class DirectRunners {
 				(sizes.get(one.type)?.dollarsPerHour ?? 0) -
 				(sizes.get(other.type)?.dollarsPerHour ?? 0),
 		);
-		const claims = await this.claims();
+		this.status.runners(machines.map((each) => runnerReport(each, sizes)));
 		let booting: CloudMachine | null = null;
 		let holds = false;
 		for (const machine of machines) {
@@ -293,15 +309,7 @@ export class DirectRunners {
 				return { id: nameOf(machine), address: machine.ipv4 };
 			}
 			if (answer === "booting" && booting === null) {
-				const claimed = claims
-					.filter((claim) => claim.machine === machine.id && claim.job !== id)
-					.reduce(
-						(sum, claim) => ({
-							cpus: sum.cpus + claim.cpus,
-							memory: sum.memory + claim.memory,
-						}),
-						{ cpus: 0, memory: 0 },
-					);
+				const claimed = await this.claims.claimed(machine.id, id);
 				const room = capacityOf(type);
 				if (
 					fits(
@@ -317,8 +325,13 @@ export class DirectRunners {
 			}
 		}
 		if (booting !== null) {
-			await this.claim(id, booting.id, size);
-			say(`waiting for runner ${nameOf(booting)} to boot`);
+			await this.claims.claim(id, booting.id, size);
+			const half = Math.floor(this.age(booting) / 30_000) * 30;
+			tell(
+				"booting",
+				`waiting for ${nameOf(booting)} to boot${half === 0 ? "" : `, ${Duration.secs(half).human()} so far`}`,
+				{ runner: nameOf(booting) },
+			);
 			return null;
 		}
 		const [type] = runnerSizes(
@@ -329,27 +342,31 @@ export class DirectRunners {
 		);
 		if (type === undefined) {
 			throw new NoRunner(
-				`${cloud.name} has no size with ${sizeLabel(size)} to order now: ask for less with \`splates run --cpus --memory\` or the project's \`job\` in splates.config.ts, or run it here with \`splates run --local\``,
+				`${cloud.name} has no size with ${sizeLabel(size)} to order now: ask for less with \`splates run --cpus --memory\` or the project's \`job\` in splates.config.ts`,
 			);
 		}
 		const budget = await this.deps.budget();
 		const refusal = budget.refusal(type.dollarsPerHour);
 		if (refusal !== null) {
 			if (holds) {
-				say(
+				tell(
+					"waiting",
 					`waiting for room on a runner: another would cost $${type.dollarsPerHour.toFixed(2)}/h, and the ${refusal}`,
 				);
 				return null;
 			}
 			throw new NoRunner(
-				`no runner made: a ${sizeLabel(capacityOf(type), type.dollarsPerHour)} runner is past the budget, ${refusal}. Raise it with \`splates budget raise\`, or run it here with \`splates run --local\``,
+				`no runner made: a ${sizeLabel(capacityOf(type), type.dollarsPerHour)} runner is past the budget, ${refusal}. Raise it with \`splates budget raise\``,
 			);
 		}
 		try {
 			const machine = await this.make(type);
-			await this.claim(id, machine.id, size);
-			say(
-				`making a runner in ${cloud.name}: ${sizeLabel(capacityOf(type), type.dollarsPerHour)}, a few minutes to boot`,
+			await this.claims.claim(id, machine.id, size);
+			this.status.runners([runnerReport(machine, sizes)]);
+			tell(
+				"making",
+				`making ${nameOf(machine)} in ${cloud.name}: ${sizeLabel(capacityOf(type), type.dollarsPerHour)}, a few minutes to boot`,
+				{ runner: nameOf(machine) },
 			);
 		} catch (error) {
 			if (!(error instanceof TypeRefused)) {
@@ -467,41 +484,6 @@ export class DirectRunners {
 			(await this.deps.cloud.sizes()).map((size) => [size.name, size]),
 		);
 	}
-
-	/** The claims of jobs here waiting for a runner to boot, those whose process is gone dropped. */
-	private async claims(): Promise<Claim[]> {
-		const read = await readFile(this.deps.claims, "utf8").catch(() => "[]");
-		const parsed = Claims.safeParse(JSON.parse(read));
-		return (parsed.success ? parsed.data : []).filter((claim) =>
-			this.deps.ps.alive(claim.pid),
-		);
-	}
-
-	private async claim(
-		job: string,
-		machine: string,
-		size: JobSize,
-	): Promise<void> {
-		const claims = (await this.claims()).filter((each) => each.job !== job);
-		await this.keep([...claims, { job, machine, ...size, pid: process.pid }]);
-	}
-
-	private async unclaim(job: string): Promise<void> {
-		await this.deps.lock.acquire();
-		try {
-			const claims = await this.claims();
-			if (claims.some((each) => each.job === job)) {
-				await this.keep(claims.filter((each) => each.job !== job));
-			}
-		} finally {
-			await this.deps.lock.release();
-		}
-	}
-
-	private async keep(claims: Claim[]): Promise<void> {
-		await mkdir(dirname(this.deps.claims), { recursive: true });
-		await writeFile(this.deps.claims, JSON.stringify(claims));
-	}
 }
 
 /** What `DirectRunners` runs on. */
@@ -524,20 +506,42 @@ export interface DirectRunnersDeps {
 	log: Logger;
 	wall?: WallClock;
 	wait?: (duration: Duration) => Promise<void>;
+	/** Times the heartbeat of a job's report. */
+	timer?: Timer;
+	/** Told each step of each job and the runners as listed; lines to the log by default. */
+	status?: DirectStatus;
 }
 
-const Claims = z.array(
-	z.object({
-		job: z.string(),
-		/** The cloud's id of the machine it waits for. */
-		machine: z.string(),
-		cpus: z.number(),
-		memory: z.number(),
-		pid: z.number(),
-	}),
-);
+/**
+ * Where `DirectRunners` says how its jobs and runners stand: a line for the
+ * person at each new step, null on a report that only says it is still so,
+ * and the runners as it listed them, for a server's Runners page.
+ */
+export interface DirectStatus {
+	job(report: DirectJobReport, line: string | null): void;
+	runners(runners: DirectRunnerReport[]): void;
+}
 
-type Claim = z.infer<typeof Claims>[number];
+/** How often a job's report is sent again while it goes on. */
+const HEARTBEAT = Duration.mins(1);
+
+function runnerReport(
+	machine: CloudMachine,
+	sizes: ReadonlyMap<string, CloudSize>,
+): DirectRunnerReport {
+	const size = sizes.get(machine.type);
+	return {
+		id: nameOf(machine),
+		type: machine.type,
+		cpus: size?.cpus ?? null,
+		memory: size?.memory ?? null,
+		dollarsPerHour: size?.dollarsPerHour ?? null,
+		address: machine.ipv4,
+		state:
+			machine.status === "running" && machine.ipv4 !== null ? "up" : "booting",
+		createdAt: machine.createdAt,
+	};
+}
 
 /** A project's key on a runner, apart from every other's. */
 export function projectKey(project: string): string {

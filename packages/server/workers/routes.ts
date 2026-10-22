@@ -8,6 +8,7 @@ import { RUNNING, refuse } from "../server/shared";
 import type { RunnerJobRow } from "../spend";
 import type { WorkerAccess } from "./access";
 import type { DevWorkerProvider } from "./dev-provider";
+import { DirectBoard } from "./direct-board";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
 import { type HeldJob, JobPool } from "./job-pool";
@@ -76,6 +77,8 @@ export class DevWorkers implements AsyncResource {
 	readonly local: RemoteWorker;
 	/** Heavy jobs on the runners that joined. */
 	readonly jobs: RunnerJobs;
+	/** What `splates run` reports of the runners it makes for itself, with no server needed. */
+	readonly direct = new DirectBoard();
 	/** What makes the runners the jobs need, and keeps the one the agents do. */
 	private readonly keeper: RunnerKeeper;
 	/** Whether the project's jobs fit a runner, for the Runners page. */
@@ -311,6 +314,7 @@ export class DevWorkers implements AsyncResource {
 			build: RUNNING,
 			rollout: this.rollout.standing(),
 			jobs: await this.room.of(request),
+			direct: this.direct.view(),
 		} satisfies WorkerPool);
 
 	/** `POST /api/workers/invite`, as `WorkerInvites.invite`. */

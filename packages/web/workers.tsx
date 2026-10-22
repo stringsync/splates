@@ -8,6 +8,7 @@ import type { JSX, ReactNode } from "react";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ReadingNow } from "./countdown";
+import { DirectRunners } from "./direct-runners";
 import { useMinute } from "./hooks/use-minute";
 import { localWorker, localWorkerOn } from "./local-worker";
 import { useReading } from "./page-readings";
@@ -114,6 +115,7 @@ export function WorkersPage({
 						</ul>
 						<TurnedAway pool={pool} />
 					</div>
+					<DirectRunners pool={pool} />
 				</>
 			)}
 		</section>

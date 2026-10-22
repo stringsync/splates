@@ -10,6 +10,8 @@ import {
 	NoRunner,
 	parseMemory,
 	parseTimeout,
+	type RemoteJob,
+	type RemoteJobResult,
 	runOnRunner,
 	type ServerSend,
 } from "../workers";
@@ -46,30 +48,17 @@ export async function runHeavy(
 	);
 	// On a runner of `splates server`'s when it has one, else on one this
 	// makes in the project's cloud, its output streamed back; here, in a slot
-	// of this machine's, only when the project names no cloud or `local`
-	// says so.
-	if (opts.local !== true) {
-		const job = {
-			cwd: ctx.ps.cwd(),
-			argv,
-			size,
-			timeout,
-			output:
-				opts.write ?? ((bytes: Uint8Array) => void process.stdout.write(bytes)),
-		};
-		const ran =
-			(await runOnRunner(ctx, job)) ??
-			(await (opts.direct ?? runOnDirectRunner)(ctx, job).catch(
-				(error: unknown) => {
-					if (error instanceof NoRunner) {
-						fail("no_runner", error.message, {});
-					}
-					throw error;
-				},
-			));
-		if (ran !== null) {
-			return ran.code;
-		}
+	// of this machine's, only when the project names no cloud.
+	const ran = await (opts.runner ?? onRunner)(ctx, {
+		cwd: ctx.ps.cwd(),
+		argv,
+		size,
+		timeout,
+		output:
+			opts.write ?? ((bytes: Uint8Array) => void process.stdout.write(bytes)),
+	});
+	if (ran !== null) {
+		return ran.code;
 	}
 	await using slot = await heavy.take({
 		what: argv.join(" "),
@@ -134,8 +123,6 @@ function memoryOf(text: string): number {
 
 /** How `runHeavy` runs its command. */
 export interface RunHeavyOptions {
-	/** Runs it here even when a runner has joined. */
-	local?: boolean;
 	/** Where its output goes; stdout by default. */
 	write?: (bytes: Uint8Array) => void;
 	/** CPUs it asks of a runner, over the project's `job` setting. */
@@ -146,8 +133,27 @@ export interface RunHeavyOptions {
 	timeout?: string;
 	/** What times it; the system's by default. */
 	timer?: Timer;
-	/** Runs it on a runner made for it with no server; `runOnDirectRunner` by default. */
-	direct?: typeof runOnDirectRunner;
+	/** What runs it on a runner, null where it runs here; `splates server`'s, else one made for it. */
+	runner?: typeof onRunner;
+}
+
+/**
+ * Runs `job` on a runner of `splates server`'s, else on one made for it in
+ * the project's cloud; null where the project names none. Refuses with
+ * `no_runner` where it names one but no runner can be had.
+ */
+async function onRunner(
+	ctx: { fs: Fs; ps: Ps; log: Logger; dev?: string; send?: ServerSend },
+	job: RemoteJob,
+): Promise<RemoteJobResult | null> {
+	try {
+		return (await runOnRunner(ctx, job)) ?? (await runOnDirectRunner(ctx, job));
+	} catch (error) {
+		if (error instanceof NoRunner) {
+			fail("no_runner", error.message, {});
+		}
+		throw error;
+	}
 }
 
 /** The task whose tree this runs in, for the page to name it by. */

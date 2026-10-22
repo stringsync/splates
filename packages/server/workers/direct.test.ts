@@ -9,6 +9,7 @@ import { Git } from "../git";
 import type { RunnerRow } from "../spend";
 import { WorkerBudget } from "./budget";
 import { DIRECT_TAG, DirectRunners } from "./direct";
+import type { DirectRunnerReport } from "./direct-runner-report";
 import { cloudSize, FakeCloud } from "./fake-cloud";
 import { JobSnapshot } from "./job-snapshot";
 import { LocalShell } from "./local-shell";
@@ -33,6 +34,8 @@ describe("the runners `splates run` makes for itself", () => {
 	let log: MemoryLogger;
 	let runners: DirectRunners;
 	let booted: number;
+	let told: { phase: string; line: string | null }[];
+	let listed: DirectRunnerReport[][];
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-direct-"));
@@ -63,7 +66,14 @@ describe("the runners `splates run` makes for itself", () => {
 		ledger = [];
 		log = new MemoryLogger();
 		booted = 0;
+		told = [];
+		listed = [];
+		const waited = new Set<string>();
 		runners = new DirectRunners({
+			status: {
+				job: (report, line) => void told.push({ phase: report.phase, line }),
+				runners: (each) => void listed.push(each),
+			},
 			cloud,
 			budget: async () => budget,
 			ledger: { note: async (...rows) => void ledger.push(...rows) },
@@ -74,10 +84,12 @@ describe("the runners `splates run` makes for itself", () => {
 			claims: join(dir, "claims.json"),
 			ps,
 			log,
-			// Each wait boots whatever is starting.
+			// A machine boots on the second wait after it is made.
 			wait: async () => {
 				for (const machine of cloud.machinesById.values()) {
-					if (machine.status === "starting") {
+					if (machine.status === "starting" && !waited.has(machine.id)) {
+						waited.add(machine.id);
+					} else if (machine.status === "starting") {
 						booted += 1;
 						machine.status = "running";
 						machine.ipv4 = `10.0.0.${machine.id}`;
@@ -257,6 +269,56 @@ describe("the runners `splates run` makes for itself", () => {
 				address: "10.0.0.1",
 				state: expect.stringMatching(/^idle \d+s$/),
 			}),
+		]);
+	});
+
+	it("tells each step of a job once, with a line for the person, and lists the runners", async () => {
+		const ran = await run(["echo", "out"], { prepare: "echo prep" });
+
+		expect(ran.out).toBe("prep\nout\n");
+		expect(told.filter((each) => each.line !== null)).toEqual([
+			{ phase: "placing", line: "finding a runner with 4 CPUs, 8 GB" },
+			{
+				phase: "making",
+				line: expect.stringMatching(
+					/^making splates-run-\w+ in FakeCloud: 4 CPUs, 8 GB, \$0\.07\/h/,
+				),
+			},
+			{
+				phase: "booting",
+				line: expect.stringMatching(/^waiting for splates-run-\w+ to boot$/),
+			},
+			{
+				phase: "sending",
+				line: expect.stringMatching(
+					/^on splates-run-\w+ \(10\.0\.0\.1\): sending the worktree$/,
+				),
+			},
+			{ phase: "preparing", line: "preparing: echo prep" },
+			{ phase: "running", line: "running echo out" },
+			{ phase: "done", line: expect.stringMatching(/^done in /) },
+		]);
+		expect(listed.at(-1)).toEqual([
+			expect.objectContaining({ type: "medium", state: "up" }),
+		]);
+	});
+
+	it("tells a job that exits otherwise and one that fails in red's words", async () => {
+		await run(["sh", "-c", "exit 2"]);
+		await budget.set("hour", 0);
+		await rm(join(dir, "runners"), { recursive: true });
+		cloud.machinesById.clear();
+
+		await expect(run(["true"])).rejects.toBeInstanceOf(NoRunner);
+
+		expect(
+			told.filter((each) => each.phase === "done" || each.phase === "failed"),
+		).toEqual([
+			{ phase: "done", line: expect.stringMatching(/^exited 2 after /) },
+			{
+				phase: "failed",
+				line: expect.stringMatching(/^failed: no runner made/),
+			},
 		]);
 	});
 });

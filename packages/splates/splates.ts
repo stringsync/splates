@@ -143,10 +143,6 @@ splates
 	.description(
 		"run a command that needs a machine of its own (a full test run, an install) on a runner, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours: one that has joined `splates server` when it has one, else, in a project whose splates.config.ts names a `cloud`, one `splates run` makes there itself, server or no server (`splates runners`), refusing with `no_runner` rather than run here when none can be had, as without the cloud's token or past `splates budget`. A project that names no cloud runs it here, in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 2 by default. Run on a runner, it changes nothing here: files it writes stay there",
 	)
-	.option("local", z.boolean(), {
-		default: false,
-		description: "run it here in a heavy-job slot, never on a runner",
-	})
 	.option("cpus", z.coerce.number().positive().optional(), {
 		description:
 			"the CPUs it asks of a runner, which takes as many commands at once as fit; the project's `job` in splates.config.ts, else 4, by default",
@@ -166,7 +162,6 @@ splates
 	})
 	.action(async (opts, ctx) => {
 		const code = await runHeavy(ctx, opts.command, undefined, {
-			local: opts.local,
 			...(opts.cpus === undefined ? {} : { cpus: opts.cpus }),
 			memory: opts.memory,
 			timeout: opts.timeout,

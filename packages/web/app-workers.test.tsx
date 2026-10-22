@@ -83,6 +83,60 @@ describe("App's workers", () => {
 		expect(fits.queryByRole("alert")).toBeNull();
 	});
 
+	it("lists the runners splates run made, each job's step, and the jobs waiting for one", async () => {
+		const job = {
+			id: "j1",
+			runner: "splates-run-ab12cd",
+			project: "/repo/.git",
+			task: "fix-upload",
+			what: "bun test",
+			phase: "running" as const,
+			code: null,
+			reason: null,
+			since: Date.now(),
+		};
+		const view = await openWorkers({
+			...pool([worker("box")]),
+			direct: {
+				runners: [
+					{
+						id: "splates-run-ab12cd",
+						type: "s-4vcpu-8gb",
+						cpus: 4,
+						memory: 8,
+						dollarsPerHour: 0.07,
+						address: "10.0.0.1",
+						state: "up",
+						createdAt: Date.now(),
+						jobs: [job, { ...job, id: "j0", phase: "done", code: 3 }],
+					},
+				],
+				unplaced: [{ ...job, id: "j2", runner: null, phase: "making" }],
+			},
+		});
+
+		const card = view.getByRole("listitem", {
+			name: "runner splates-run-ab12cd",
+		});
+		expect(card.textContent).toContain("1 job");
+		expect(card.textContent).toContain("4 CPUs, 8 GB, $0.07/h");
+		expect(card.textContent).toContain(
+			"bun testrunningfix-upload, started just now",
+		);
+		expect(card.textContent).toContain("exited 3");
+		expect(
+			view.getByRole("listitem", { name: "waiting for a runner" }).textContent,
+		).toContain("making a runner");
+	});
+
+	it("shows nothing of splates run while it made no runner", async () => {
+		const view = await openWorkers(pool([worker("box")]));
+
+		expect(
+			view.queryByRole("list", { name: "made by splates run" }),
+		).toBeNull();
+	});
+
 	it("lists the jobs sent to this Mac for being too big for any runner", async () => {
 		const view = await openWorkers({
 			...pool([worker("box")]),
@@ -314,6 +368,7 @@ function pool(workers: WorkerListing[]): WorkerPool {
 		build: "1.0.0",
 		rollout: { updating: null, next: [], byHand: [] },
 		jobs: { asked: null, largest: null, tooBig: [] },
+		direct: { runners: [], unplaced: [] },
 	};
 }
 

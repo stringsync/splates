@@ -15,7 +15,7 @@ describe("a heavy command run here", () => {
 		const ctx = { fs: new NodeFs(), ps: new NodePs(), log };
 
 		const code = await runHeavy(ctx, ["sleep", "30"], free, {
-			local: true,
+			runner: async () => null,
 			timeout: "0.3s",
 		});
 
@@ -29,7 +29,9 @@ describe("a heavy command run here", () => {
 		const ctx = { fs: new NodeFs(), ps: new NodePs(), log: new MemoryLogger() };
 
 		expect(
-			await runHeavy(ctx, ["sh", "-c", "exit 3"], free, { local: true }),
+			await runHeavy(ctx, ["sh", "-c", "exit 3"], free, {
+				runner: async () => null,
+			}),
 		).toBe(3);
 	});
 });

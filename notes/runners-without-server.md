@@ -6,7 +6,8 @@ The person asked (2026-10-22) that `splates run` never depend on the server,
 which may not be running: in a project whose `splates.config.ts` names a
 `cloud`, it runs on a runner, making one when none has room, within the
 budget, and fails loudly (`no_runner`, exit 31) rather than quietly running
-here when it can have none. Only `--local` runs it here. A project that names
+here when it can have none; there is no flag to run it here (the person had
+`--local` taken out). A project that names
 no cloud runs here as before.
 
 Order: the server's pool first (`runOnRunner`, `heavy-jobs-on-runners.md`);

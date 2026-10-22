@@ -59,6 +59,7 @@ export type {
 	DirectRun,
 	DirectRunner,
 	DirectRunnersDeps,
+	DirectStatus,
 } from "./direct";
 export {
 	BOOT_LIMIT,
@@ -66,6 +67,15 @@ export {
 	DIRECT_TAG,
 	DirectRunners,
 } from "./direct";
+export { DirectBoard } from "./direct-board";
+export type { DirectBoardView } from "./direct-report";
+export { DirectReport } from "./direct-report";
+export type { DirectPhase } from "./direct-runner-report";
+export {
+	DIRECT_PHASES,
+	DirectJobReport,
+	DirectRunnerReport,
+} from "./direct-runner-report";
 export type {
 	Captured,
 	RunnerHost,
@@ -166,6 +176,7 @@ export {
 	workerRecipe,
 } from "./snapshot";
 export type { SpendShare } from "./spend";
+export { statusLine } from "./status-line";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";
 export { WebSocketWorkerSocket } from "./websocket-socket";

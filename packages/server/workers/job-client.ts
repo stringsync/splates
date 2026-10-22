@@ -1,10 +1,11 @@
-import type { Logger } from "webappwiz/log";
+import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import { loadConfig } from "../config";
 import { JobEvent } from "./job-route";
 import { type JobSize, jobSize } from "./job-size";
 import { type ServerSend, serverOf } from "./server-of";
+import { statusLine } from "./status-line";
 
 /** A heavy command to run on a runner, in the checkout of `cwd`. */
 export interface RemoteJob {
@@ -125,7 +126,10 @@ async function read(
 				code = event.code;
 				break;
 			case "queued":
-				log.info(`waiting for a runner, ${event.position} in line`);
+				statusLine(
+					`waiting for a runner of splates server's, ${event.position} in line`,
+					color.yellow,
+				);
 				break;
 			case "local":
 				local = true;

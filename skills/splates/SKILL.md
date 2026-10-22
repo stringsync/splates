@@ -30,8 +30,7 @@ the rest:
    code yours: one that has joined `splates server`, else, where the
    project's `splates.config.ts` names a `cloud`, one `splates run` makes
    there itself, server or not, refusing with `no_runner` when it can have
-   none (tell the user what its stderr says, and never fall back to
-   `--local` for want of a runner unasked). In a project with no cloud it runs here once one of the
+   none (tell the user what its stderr says). In a project with no cloud it runs here once one of the
    machine's few heavy-job slots is free, so agents at once never run it
    out of memory. A runner takes as many commands at once as fit in its
    CPUs and memory, each asking what the project's `job` setting says;
@@ -275,8 +274,7 @@ the message; a `Maybe relevant:` one only when it fits.
    once share the tree, so give each its own files. Run a whole test suite,
    an install, a build, or anything as heavy as `splates run -- <command>`
    (step 3 of The short version), and tell a subagent to as well. Files it
-   writes on a runner stay there; `--local` runs it here, in a heavy-job
-   slot, when you need what it writes.
+   writes on a runner stay there.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or

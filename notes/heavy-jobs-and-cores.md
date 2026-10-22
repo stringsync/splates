@@ -20,6 +20,7 @@ itself. A merge's claim goes first, ahead of waiters under two minutes old.
 
 These slots and cores are the machine's own, taken by a job that runs here:
 `splates run -- <cmd>` and `splates dev test` first wait on the scheduler's
-pool-wide queue for a runner, and run here as above when `--local` says so,
-there is no server, or the pool can give them no runner. See
+pool-wide queue for a runner, then a runner they make themselves in the
+project's cloud (`runners-without-server.md`), and run here as above only in
+a project that names no cloud. See
 `heavy-jobs-on-runners.md`.

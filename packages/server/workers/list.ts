@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
+import type { DirectBoardView } from "./direct-report";
 import type { TooBigJob } from "./job-pool";
 import type { JobSize } from "./job-size";
 import type { WorkerRecord } from "./records";
@@ -95,6 +96,8 @@ export interface WorkerPool extends WorkerListings {
 	build: string;
 	rollout: RolloutStanding;
 	jobs: JobRoom;
+	/** The runners `splates run` made for itself, and their jobs, as it reported them. */
+	direct: DirectBoardView;
 }
 
 /** Whether the project's heavy jobs fit on a runner, and those that did not. */

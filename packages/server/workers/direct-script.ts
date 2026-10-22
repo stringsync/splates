@@ -50,6 +50,9 @@ export function directBootScript(
 	].join("\n");
 }
 
+/** What a job writes on its stderr once its prepare step is done, which `splates run` takes out of the output. */
+export const STARTED_LINE = "\u001esplates:started\n";
+
 /** What `directReserveScript` answers. */
 export type Reserved = "ok" | "full" | "booting";
 
@@ -175,7 +178,10 @@ export function directJobScript(job: DirectJob): string {
 		...exports.map((line) => `  ${line}`),
 		...(job.prepare === null
 			? []
-			: [`  sh -c ${shellQuoted(job.prepare)} || exit $?`]),
+			: [
+					`  sh -c ${shellQuoted(job.prepare)} || exit $?`,
+					`  printf '%s' ${shellQuoted(STARTED_LINE)} >&2`,
+				]),
 		`  exec ${job.argv.map(shellQuoted).join(" ")}`,
 		") </dev/null 2>&4 &",
 		"pid=$!",
