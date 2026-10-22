@@ -465,14 +465,23 @@ export class WorkerBudget {
 		);
 	}
 
+	/**
+	 * Applies `next` to what the document keeps now, read again first: `splates
+	 * run` counts the runners it makes in the same document as the server,
+	 * so neither writes over the other's.
+	 */
 	private async change(next: (kept: KeptFile) => KeptFile): Promise<void> {
-		this.kept = next(this.kept);
 		const document = this.document;
 		if (document === null) {
+			this.kept = next(this.kept);
 			return;
 		}
-		const kept = this.kept;
-		this.writing = this.writing.then(() => document.write(kept));
+		this.writing = this.writing.then(async () => {
+			const read = await document.read().catch(() => null);
+			const current = read === null ? null : Kept.safeParse(read);
+			this.kept = next(current?.success ? current.data : this.kept);
+			await document.write(this.kept);
+		});
 		await this.writing;
 	}
 }

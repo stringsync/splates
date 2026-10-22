@@ -1,0 +1,164 @@
+import { join } from "node:path";
+import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
+import type { Logger } from "webappwiz/log";
+import { FileLock, type Fs, type Ps } from "webappwiz/system";
+import type { CloudProvider } from "../cloud";
+import { loadConfig } from "../config";
+import { Git } from "../git";
+import { splatesHome } from "../models";
+import { Spend } from "../spend";
+import { FsStorage } from "../storage";
+import {
+	DIRECT_IDLE,
+	DirectRunners,
+	JobSnapshot,
+	jobSize,
+	NoRunner,
+	type RemoteJob,
+	type RemoteJobResult,
+	runnerKey,
+	SshShell,
+	snapshotRecipe,
+	WorkerBudget,
+} from "../workers";
+import { RUNNING } from "./release";
+
+/**
+ * Runs `job` on a runner `splates run` makes for itself in the project's
+ * cloud, with no `splates server`, as `DirectRunners` does. Null where the
+ * project names no cloud, for the caller to run it here; throws `NoRunner`
+ * where it names one but no runner can be had, as without the cloud's token
+ * or past the budget, so a job meant for a runner never runs here unasked.
+ */
+export async function runOnDirectRunner(
+	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
+	job: RemoteJob,
+): Promise<RemoteJobResult | null> {
+	const toplevel = await gitOut(ctx.ps, job.cwd, [
+		"rev-parse",
+		"--show-toplevel",
+	]);
+	const project = await gitOut(ctx.ps, job.cwd, [
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	if (toplevel === null || project === null) {
+		return null;
+	}
+	const config = await loadConfig(toplevel, { fs: ctx.fs });
+	const { cloud } = config;
+	if (cloud === null) {
+		return null;
+	}
+	return await withRunners(ctx, cloud, async (runners) => {
+		const commit =
+			job.commit ??
+			(await new JobSnapshot(new Git("/", { ps: ctx.ps })).take(toplevel));
+		const ran = await runners.run({
+			project,
+			cwd: toplevel,
+			commit,
+			size: jobSize(config.job, job.size),
+			argv: job.argv,
+			env: job.env ?? {},
+			prepare: config.prepare,
+			timeout: job.timeout ?? null,
+			files: job.files ?? [],
+			task: ctx.ps.env("SPLATES_TASK") ?? null,
+			output: job.output,
+			...(job.signal === undefined ? {} : { signal: job.signal }),
+		});
+		await reapLater(ctx.ps, ctx.fs, toplevel);
+		return ran;
+	});
+}
+
+/**
+ * Opens the runners `splates run` makes in `cloud` for `use`, with the
+ * machine's budget and ledger and the runner key, made on first use.
+ * Throws `NoRunner` without the cloud's token.
+ */
+export async function withRunners<T>(
+	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
+	cloud: CloudProvider,
+	use: (runners: DirectRunners) => Promise<T>,
+): Promise<T> {
+	const store = ctx.store ?? SystemSecretStore.device();
+	if ((await store.get(cloud.token.cred)) === undefined) {
+		throw new NoRunner(
+			`no runner: the project's runners are made in ${cloud.name}, and this machine keeps no ${cloud.token.cred}. Set it up with \`splates setup cloud-token\`, or run it here with \`splates run --local\``,
+		);
+	}
+	const home = splatesHome(ctx.ps);
+	const machine = FsStorage.ofMachine(ctx);
+	const key = await runnerKey(store, ctx.ps);
+	await using shell = await SshShell.open(ctx.ps, key, home);
+	const runners = new DirectRunners({
+		cloud,
+		budget: () => WorkerBudget.open(machine.document("worker-budget.json")),
+		ledger: new Spend(machine),
+		shell,
+		publicKey: key.publicKey,
+		recipe: snapshotRecipe("linux", RUNNING)?.script ?? null,
+		lock: new FileLock(join(home, "direct-runners", "place.lock"), {
+			fs: ctx.fs,
+			ps: ctx.ps,
+			log: ctx.log,
+		}),
+		claims: join(home, "direct-runners", "claims.json"),
+		ps: ctx.ps,
+		log: ctx.log,
+	});
+	return await use(runners);
+}
+
+/** Where the pid of the reaper `splates run` leaves behind is kept, under the splates home. */
+export const REAPER_FILE = join("direct-runners", "reaper.pid");
+
+/**
+ * Leaves a process behind, apart from this one, that reaps the runners once
+ * they have stood idle `DIRECT_IDLE`, and again for as long as any is up, so
+ * none is left running, and billed, with no `splates run` to come; none when
+ * one already watches.
+ */
+async function reapLater(ps: Ps, fs: Fs, cwd: string): Promise<void> {
+	const [bun, script] = process.argv;
+	if (bun === undefined || script === undefined) {
+		return;
+	}
+	const held = Number(
+		(await fs.read(join(splatesHome(ps), REAPER_FILE)).catch(() => "")).trim(),
+	);
+	if (Number.isInteger(held) && held > 0 && ps.alive(held)) {
+		return;
+	}
+	void ps
+		.spawn(
+			[
+				"sh",
+				"-c",
+				'nohup "$@" >/dev/null 2>&1 &',
+				"sh",
+				bun,
+				script,
+				"runners",
+				"reap",
+				"--watch",
+				`${DIRECT_IDLE.mins + 1}m`,
+			],
+			{ cwd },
+		)
+		.catch(() => {});
+}
+
+async function gitOut(
+	ps: Ps,
+	cwd: string,
+	args: string[],
+): Promise<string | null> {
+	const { exitCode, stdout } = await ps
+		.spawnCapture(["git", "-C", cwd, ...args])
+		.catch(() => ({ exitCode: 1, stdout: "" }));
+	return exitCode === 0 ? stdout.trim() : null;
+}

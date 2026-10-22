@@ -25,10 +25,14 @@ the rest:
    ending at its `?`, as in Formats below.
 3. **Run tests, installs and builds with `splates run -- <command>`**,
    never bare: a whole test suite, `bun install`, a build, anything that
-   takes a machine's cores or memory for a while. It runs on a runner that
-   has joined `splates server`, in a checkout of your worktree as it stands,
-   output streamed back and its exit code yours, or else here once one of
-   the machine's few heavy-job slots is free, so agents at once never run it
+   takes a machine's cores or memory for a while. It runs on a runner, in a
+   checkout of your worktree as it stands, output streamed back and its exit
+   code yours: one that has joined `splates server`, else, where the
+   project's `splates.config.ts` names a `cloud`, one `splates run` makes
+   there itself, server or not, refusing with `no_runner` when it can have
+   none (tell the user what its stderr says, and never fall back to
+   `--local` for want of a runner unasked). In a project with no cloud it runs here once one of the
+   machine's few heavy-job slots is free, so agents at once never run it
    out of memory. A runner takes as many commands at once as fit in its
    CPUs and memory, each asking what the project's `job` setting says;
    `--cpus <n> --memory <size>` (as `8GB`) asks otherwise for one that needs

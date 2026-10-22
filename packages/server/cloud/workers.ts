@@ -8,11 +8,13 @@ import {
 	ACCESS_CLIENT_ID_HEADER,
 	ACCESS_CLIENT_SECRET_HEADER,
 	DEFAULT_JOB_SIZE,
-	fits,
 	type JobSize,
+	locationOf,
 	OWN_BUILD_HEADER,
 	type ProvisionedMachine,
+	runnerSizes,
 	SNAPSHOT_SPLATES,
+	SNAPSHOT_TAG,
 	SNAPSHOT_USER,
 	type Snapshot,
 	type SnapshotRecipe,
@@ -57,36 +59,26 @@ export class CloudWorkers implements WorkerProvider {
 
 	/**
 	 * The sizes a runner is made of, the cheapest first: each orderable now
-	 * that holds a job and boots the snapshot, up to `MAX_CPUS`, shared or
+	 * that holds a job and boots the snapshot, up to `MAX_RUNNER_CPUS`, shared or
 	 * dedicated, at the price the cloud's API says now, leaving out any it
 	 * refused in the last `REFUSED_FOR`.
 	 */
 	async types(): Promise<WorkerType[]> {
-		const sizes = await this.cloud.sizes();
-		const builders = sizes.filter((size) =>
-			this.cloud.defaults.builderTypes.includes(size.name),
-		);
-		const disk = Math.min(...builders.map((size) => size.disk), Infinity);
 		const now = this.wall.now();
-		return sizes
-			.filter(
-				(size) =>
-					size.cpus <= MAX_CPUS &&
-					fits(this.job, size) &&
-					(builders.length === 0 || size.disk >= disk) &&
-					(this.refused.get(size.name) ?? 0) <= now &&
-					this.where(size) !== null,
-			)
-			.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour)
-			.map((size) => ({
-				name: size.name,
-				platform: "linux",
-				slots: 1,
-				cpus: size.cpus,
-				memory: size.memory,
-				dollarsPerHour: size.dollarsPerHour,
-				billing: size.billing,
-			}));
+		return runnerSizes(
+			await this.cloud.sizes(),
+			this.cloud.defaults,
+			this.job,
+			(name) => (this.refused.get(name) ?? 0) > now,
+		).map((size) => ({
+			name: size.name,
+			platform: "linux",
+			slots: 1,
+			cpus: size.cpus,
+			memory: size.memory,
+			dollarsPerHour: size.dollarsPerHour,
+			billing: size.billing,
+		}));
 	}
 
 	async images(): Promise<WorkerImage[]> {
@@ -216,14 +208,7 @@ export class CloudWorkers implements WorkerProvider {
 	 * stocks it, else the first other that does, by name; null when none does.
 	 */
 	private where(size: CloudSize | undefined): string | null {
-		const at = [...(size?.locations ?? [])];
-		return (
-			this.cloud.defaults.workerLocations.find((location) =>
-				at.includes(location),
-			) ??
-			at.sort()[0] ??
-			null
-		);
+		return locationOf(size, this.cloud.defaults);
 	}
 
 	/** Waits for builder `id` to power off, which its script does once the recipe ran. */
@@ -240,9 +225,6 @@ export class CloudWorkers implements WorkerProvider {
 	}
 }
 
-/** The most CPUs a runner is made with, however big a job asks. */
-const MAX_CPUS = 16;
-
 /**
  * How long a size the cloud refused is left out, after which it is tried
  * again, as once a new account may order bigger sizes.
@@ -252,9 +234,8 @@ const REFUSED_FOR = Duration.hrs(1);
 /** The tag every worker splates made carries, its value the worker's id. */
 const WORKER_TAG = "splates-worker";
 
-/** The tags of a snapshot's builder and of the snapshot, their value its platform. */
+/** The tag of a snapshot's builder, its value its platform, as `SNAPSHOT_TAG` is the snapshot's. */
 const BUILDER_TAG = "splates-snapshot-builder";
-const SNAPSHOT_TAG = "splates-snapshot";
 
 /** How often, and how long, a snapshot's build is watched for its recipe to finish. */
 const BUILD_POLL = Duration.secs(15);

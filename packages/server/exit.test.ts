@@ -35,6 +35,7 @@ it("keeps the exit codes stable", () => {
 		slot_running: 27,
 		not_granted: 28,
 		migration_failed: 30,
+		no_runner: 31,
 	});
 });
 

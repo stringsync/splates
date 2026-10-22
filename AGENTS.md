@@ -11,8 +11,9 @@ After making code changes:
 - `splates dev fix` typecheck, format, and check the project, scry included.
 - `splates dev test` test the package. It takes a heavy-job slot itself, so
   it needs no `splates run`. `splates dev test --evals` tests the eval
-  harness, for changes under `evals/`. With a runner joined to the server
-  (Linux, as the box is), it runs on one: a snapshot of the worktree, edits
+  harness, for changes under `evals/`. It runs on a Linux runner: one
+  joined to the server, else one it makes in DigitalOcean itself, server or
+  not (`splates runners list` shows them): a snapshot of the worktree, edits
   included, output streamed back; `--local` runs it here. Run it before
   touching processes, sockets, files or git, which is where macOS and Linux
   differ. `splates dev prove runner` joins a Linux container to the server as

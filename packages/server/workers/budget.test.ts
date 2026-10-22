@@ -156,6 +156,20 @@ describe("WorkerBudget", () => {
 		expect(second.rate()).toBe(0.05);
 	});
 
+	it("counts what another process wrote to its document since it opened, writing over none of it", async () => {
+		const fs = new FakeFs();
+		const wall = clock();
+		const server = await WorkerBudget.open(budgetAt(fs), wall);
+		const run = await WorkerBudget.open(budgetAt(fs), wall);
+		await run.started("splates-run-1", "small", 0.05);
+
+		await server.started("small-2", "small", 0.1);
+
+		const after = await WorkerBudget.open(budgetAt(fs), wall);
+		expect(after.rate()).toBeCloseTo(0.15);
+		expect(server.rate()).toBeCloseTo(0.15);
+	});
+
 	it("keeps the conversations a stop held across a restart, until released", async () => {
 		const fs = new FakeFs();
 		const wall = clock();

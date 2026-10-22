@@ -1,3 +1,5 @@
+import type { CloudDefaults, CloudSize } from "../cloud";
+
 /** What a heavy job needs of a runner, or what a runner has: CPUs, and memory in GB. */
 export interface JobSize {
 	cpus: number;
@@ -98,4 +100,52 @@ const UNITS: Record<string, number> = {
 
 function invalid(what: string): never {
 	throw new Error(`${what}: name a size such as "8GB" or "512MB"`);
+}
+
+/** The most CPUs a runner is made with, however big a job asks. */
+export const MAX_RUNNER_CPUS = 16;
+
+/**
+ * The sizes a runner for a job of `job` is made of, the cheapest first:
+ * each `sizes` holds that holds the job, up to `MAX_RUNNER_CPUS`, with a disk
+ * that boots the snapshot (the smallest of the cloud's builders'), that
+ * some location stocks, leaving out those `refused` names.
+ */
+export function runnerSizes(
+	sizes: readonly CloudSize[],
+	defaults: CloudDefaults,
+	job: JobSize,
+	refused: (name: string) => boolean = () => false,
+): CloudSize[] {
+	const builders = sizes.filter((size) =>
+		defaults.builderTypes.includes(size.name),
+	);
+	const disk = Math.min(...builders.map((size) => size.disk), Infinity);
+	return sizes
+		.filter(
+			(size) =>
+				size.cpus <= MAX_RUNNER_CPUS &&
+				fits(job, size) &&
+				(builders.length === 0 || size.disk >= disk) &&
+				!refused(size.name) &&
+				locationOf(size, defaults) !== null,
+		)
+		.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
+}
+
+/**
+ * Where a machine of `size` is made: the first of the cloud's worker
+ * locations that stocks it, else the first other that does, by name; null
+ * when none does.
+ */
+export function locationOf(
+	size: CloudSize | undefined,
+	defaults: CloudDefaults,
+): string | null {
+	const at = [...(size?.locations ?? [])];
+	return (
+		defaults.workerLocations.find((location) => at.includes(location)) ??
+		at.sort()[0] ??
+		null
+	);
 }

@@ -5,6 +5,7 @@ import {
 	type CoreClaims,
 	coreClaimsOfMachine,
 	heavyJobsOfMachine,
+	runOnDirectRunner,
 } from "@stringsync/splates-server/server";
 import { runOnRunner } from "@stringsync/splates-server/workers";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
@@ -176,11 +177,13 @@ export async function test(opts: TestOptions): Promise<void> {
 }
 
 /**
- * Runs the tests on a runner, if one has joined `splates server`: a snapshot
+ * Runs the tests on a runner, one of `splates server`'s or else one made in
+ * the project's cloud (see `runOnDirectRunner`): a snapshot
  * of this worktree, checked out and prepared there, running this same command
  * with `--local`, its output streamed here and its JUnit report brought back to
  * where `SPLATES_TEST_REPORT` names. Whether it did; false, having run
- * nothing, where there is no runner to go to. Throws when the tests failed.
+ * nothing, where the project names no cloud and the server has no runner.
+ * Throws when the tests failed, or when the cloud can make no runner.
  */
 async function ranOnRunner(
 	opts: TestOptions,
@@ -193,22 +196,24 @@ async function ranOnRunner(
 		...(opts.all ? ["--all"] : []),
 		...(opts.files ?? []),
 	];
-	const ran = await runOnRunner(
-		{ ps, fs: new NodeFs(), log },
-		{
-			cwd: ROOT,
-			// The report goes where the job's files come back from.
-			argv: [
-				"sh",
-				"-c",
-				'SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/report.xml" exec ./bin/splates dev test --local "$@"',
-				"sh",
-				...flags,
-			],
-			files: report === undefined ? [] : ["report.xml"],
-			output: (bytes) => void process.stdout.write(bytes),
-		},
-	);
+	const ctx = { ps, fs: new NodeFs(), log };
+	const job = {
+		cwd: ROOT,
+		// The report goes where the job's files come back from.
+		argv: [
+			"sh",
+			"-c",
+			'SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/report.xml" exec ./bin/splates dev test --local "$@"',
+			"sh",
+			...flags,
+		],
+		files: report === undefined ? [] : ["report.xml"],
+		output: (bytes: Uint8Array) => void process.stdout.write(bytes),
+	};
+	// A project that names a cloud has one made there when the server has
+	// no runner for it, and fails rather than run the suite here.
+	const ran =
+		(await runOnRunner(ctx, job)) ?? (await runOnDirectRunner(ctx, job));
 	if (ran === null) {
 		return false;
 	}

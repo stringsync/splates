@@ -7,11 +7,13 @@ import {
 	type JobSetting,
 	type JobSize,
 	jobTimeout,
+	NoRunner,
 	parseMemory,
 	parseTimeout,
 	runOnRunner,
 	type ServerSend,
 } from "../workers";
+import { runOnDirectRunner } from "./direct-run";
 import { heavyJobsOfMachine } from "./heavy";
 
 /**
@@ -42,16 +44,29 @@ export async function runHeavy(
 			? undefined
 			: timeoutOf(opts.timeout),
 	);
-	// On a runner when one has joined, its output streamed back; here, in a
-	// slot of this machine's, when none has or `local` says so.
+	// On a runner of `splates server`'s when it has one, else on one this
+	// makes in the project's cloud, its output streamed back; here, in a slot
+	// of this machine's, only when the project names no cloud or `local`
+	// says so.
 	if (opts.local !== true) {
-		const ran = await runOnRunner(ctx, {
+		const job = {
 			cwd: ctx.ps.cwd(),
 			argv,
 			size,
 			timeout,
-			output: opts.write ?? ((bytes) => void process.stdout.write(bytes)),
-		});
+			output:
+				opts.write ?? ((bytes: Uint8Array) => void process.stdout.write(bytes)),
+		};
+		const ran =
+			(await runOnRunner(ctx, job)) ??
+			(await (opts.direct ?? runOnDirectRunner)(ctx, job).catch(
+				(error: unknown) => {
+					if (error instanceof NoRunner) {
+						fail("no_runner", error.message, {});
+					}
+					throw error;
+				},
+			));
 		if (ran !== null) {
 			return ran.code;
 		}
@@ -131,6 +146,8 @@ export interface RunHeavyOptions {
 	timeout?: string;
 	/** What times it; the system's by default. */
 	timer?: Timer;
+	/** Runs it on a runner made for it with no server; `runOnDirectRunner` by default. */
+	direct?: typeof runOnDirectRunner;
 }
 
 /** The task whose tree this runs in, for the page to name it by. */

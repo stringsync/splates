@@ -25,9 +25,11 @@ go to another runner or wait, and `short()` still counts the big job as a
 runner to make. A job that can have no runner,
 because none up, on its way or that can be made is big enough for it (none at
 all: no provider, the day's or month's limit reached, a make that just failed),
-is told `local`, and its caller runs it in this machine's
-heavy-job slots (`heavy-jobs-and-cores.md`), so the hard stop never leaves a
-job waiting.
+is told `local`. The merge gate then runs it in this machine's heavy-job
+slots (`heavy-jobs-and-cores.md`), so the hard stop never leaves a job
+waiting; `splates run` and `splates dev test` go on to a runner they make
+themselves in the project's cloud, and refuse rather than run here when
+none can be had (`runners-without-server.md`).
 
 A job told `local` because it asks more than the biggest runner there is (up,
 booting, or the type that would be made now) carries `tooBig` with what it

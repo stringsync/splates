@@ -20,6 +20,9 @@ const BUILD_BACKOFF = Duration.mins(10);
 /** The user a snapshot's worker runs as: agents refuse to run as root. */
 export const SNAPSHOT_USER = "splates";
 
+/** The tag a worker snapshot carries in the cloud, its value the platform. */
+export const SNAPSHOT_TAG = "splates-snapshot";
+
 /** Where the recipe installs `splates`, for the boot command to run. */
 export const SNAPSHOT_SPLATES = `/home/${SNAPSHOT_USER}/.bun/bin/splates`;
 

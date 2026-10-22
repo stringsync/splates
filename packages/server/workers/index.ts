@@ -54,6 +54,29 @@ export {
 	workerJoin,
 } from "./creds";
 export { WorkerDaemon } from "./daemon";
+export type {
+	DirectRun,
+	DirectRunner,
+	DirectRunnersDeps,
+} from "./direct";
+export {
+	BOOT_LIMIT,
+	DIRECT_IDLE,
+	DIRECT_TAG,
+	DirectRunners,
+} from "./direct";
+export type {
+	Captured,
+	RunnerHost,
+	RunnerKey,
+	RunnerShell,
+} from "./direct-ssh";
+export {
+	RUNNER_SSH_KEY,
+	RUNNER_SSH_PUBLIC_KEY,
+	runnerKey,
+	SshShell,
+} from "./direct-ssh";
 export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
 export type { RemoteJob, RemoteJobResult } from "./job-client";
@@ -64,9 +87,13 @@ export {
 	DEFAULT_JOB_SIZE,
 	fits,
 	jobSize,
+	locationOf,
+	MAX_RUNNER_CPUS,
 	parseMemory,
+	runnerSizes,
 	sizeLabel,
 } from "./job-size";
+export { JobSnapshot } from "./job-snapshot";
 export {
 	DEFAULT_JOB_TIMEOUT,
 	jobTimeout,
@@ -85,6 +112,7 @@ export { Machine, osSensors } from "./load";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
+export { NoRunner } from "./no-runner";
 export { OWN_BUILD_HEADER, OwnBuild } from "./own-build";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
@@ -129,6 +157,7 @@ export {
 	type KeptSnapshots,
 	keptSnapshot,
 	SNAPSHOT_SPLATES,
+	SNAPSHOT_TAG,
 	SNAPSHOT_USER,
 	Snapshots,
 	snapshotRecipe,
