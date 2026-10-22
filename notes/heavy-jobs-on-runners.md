@@ -35,6 +35,17 @@ made from the stock image and runs the recipe in its user data before joining
 (`WorkerSpec.recipe`), while the image is built in the background for the next
 one; a failed build is not tried again for 10 minutes.
 
+Measured 2026-10-22 on a real DigitalOcean account, from the droplet's create to
+the runner joined (`splates worker list` connected, polled every 3-5 s): from the
+stock image plus recipe about 2.5 minutes (`c-4` in sfo2 and `s-4vcpu-8gb` in nyc3
+alike), from the image about 80 s (`s-4vcpu-8gb`, nyc3); the image's build took
+about 3 minutes. Job queued to tests running could not be timed: a runner installs
+splates from npm at the server's version, and 0.0.54 predates `jobs: true`, so the
+pool saw no runner and sent each job here. That account could not order `c-16`,
+`c-8` or any size over 4 vCPU (DigitalOcean's starting droplet limits), and orders
+`c-4` only in blr1, lon1 and sfo2. The suite (1285 tests) runs in about 40 s at 8
+in parallel on a 16-core Mac, so a smaller runner than `c-16` may now be enough.
+
 `POST /api/jobs` (`RunnerJobs` in `workers/job-route.ts`) streams from the
 start: a `queued` event with the position while it waits, then the job's
 events, or `local`. A job whose runner is lost (the box gone, the link lost
