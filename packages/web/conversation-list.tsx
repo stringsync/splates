@@ -261,8 +261,8 @@ export const ConversationList = memo(function ConversationList({
 
 	// A row of the page's own project.
 	const goNext = useCallback(
-		() => goOn(rows, open, onOpen),
-		[rows, open, onOpen],
+		() => goOn(rows, open, taken, onOpen),
+		[rows, open, taken, onOpen],
 	);
 	const placing = useMemo(
 		() => ({

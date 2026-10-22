@@ -129,6 +129,7 @@ export function AppNav({
 						<NextWaiting
 							feed={talk}
 							tasks={snapshot.tasks}
+							todos={snapshot.todos}
 							here={{
 								root: snapshot.root,
 								repo: snapshot.repo,

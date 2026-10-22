@@ -144,25 +144,43 @@ export function hintOf(shown: Needing[], row: Needing): string | null {
 /**
  * The next of `rows` after the one `open` shows, around to the top, that
  * waits on you, or with none waiting, the next merged or finished one, then the next
- * unread one: what ⌥⌘M opens, and archiving goes on to. The one open is
+ * unread one: what ⌥⌘M opens, and archiving goes on to. Of each, one at work
+ * on the same lane as the one open comes first, as `taken` names each task's
+ * lane, so the lane's work is seen together. The one open is
  * passed over, so ⌥⌘M on a task asking questions moves on, and comes back to its
  * questions only when nothing else is left.
  */
 export function nextWaiting(
 	rows: Needing[],
 	open: string | null,
+	taken: Readonly<Record<string, number>>,
 ): Needing | undefined {
 	const waits = waitsOnYou;
 	const at = rows.findIndex((row) => openedBy(row) === open);
 	const others = [...rows.slice(at + 1), ...rows.slice(0, at + 1)].filter(
 		(row) => openedBy(row) !== open,
 	);
+	const lane = laneOf(rows[at], taken);
+	const lanemates = others.filter(
+		(row) => lane !== undefined && laneOf(row, taken) === lane,
+	);
+	const first = (is: (row: Needing) => boolean) =>
+		lanemates.find(is) ?? others.find(is);
 	return (
-		others.find(waits) ??
-		others.find(wasMerged) ??
-		others.find(isUnread) ??
+		first(waits) ??
+		first(wasMerged) ??
+		first(isUnread) ??
 		rows.find((row) => openedBy(row) === open && waits(row))
 	);
+}
+
+/** The lane `row`'s conversation is at work on, as `taken` names it. */
+function laneOf(
+	row: Needing | undefined,
+	taken: Readonly<Record<string, number>>,
+): number | undefined {
+	const task = row?.conversation?.task ?? null;
+	return task === null ? undefined : taken[task];
 }
 
 /**
@@ -172,9 +190,10 @@ export function nextWaiting(
 export function goOn(
 	rows: Needing[],
 	open: string | null,
+	taken: Readonly<Record<string, number>>,
 	onOpen: (id: string) => void,
 ): void {
-	const next = nextWaiting(rows, open);
+	const next = nextWaiting(rows, open, taken);
 	if (next === undefined || openedBy(next) === open) {
 		onOpen(NEW);
 	} else {

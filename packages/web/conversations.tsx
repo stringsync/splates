@@ -1,6 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import {
 	type LaneRecord,
+	lanesTaken,
 	named,
 } from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
@@ -301,8 +302,11 @@ export const Conversations = memo(function Conversations({
 								onLeft={() =>
 									phone
 										? onOpen(null, "replace")
-										: goOn(rowsOf(tasks, conversations), open, (id) =>
-												onOpen(id, "replace"),
+										: goOn(
+												rowsOf(tasks, conversations),
+												open,
+												lanesTaken(todos),
+												(id) => onOpen(id, "replace"),
 											)
 								}
 								onOpen={onOpen}

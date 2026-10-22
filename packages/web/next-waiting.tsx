@@ -1,3 +1,5 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
+import { lanesTaken } from "@stringsync/splates-server/board/browser";
 import { needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
@@ -34,13 +36,17 @@ type Waiting = {
  * project when the feed of every project is to be had, which opens the next
  * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting here, then another
  * project's, on its page, or else the next merged, then unread, one here,
- * lighting the line when there is none.
+ * lighting the line when there is none. Here, one on the open one's lane
+ * comes first.
  */
 export function NextWaiting({
 	open,
 	onOpen,
+	todos,
 	...given
 }: Waiting & {
+	/** The board's tasks, to tell which lane each agent at work is on. */
+	todos: TaskRecord[];
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
@@ -54,7 +60,7 @@ export function NextWaiting({
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
 	next.current = () => {
-		const first = nextWaiting(rows, open);
+		const first = nextWaiting(rows, open, lanesTaken(todos));
 		const elsewhere = others[0];
 		// Here's waiting ones, then another project's, then here's merged or unread.
 		if (

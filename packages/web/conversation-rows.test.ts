@@ -8,6 +8,7 @@ import {
 import {
 	isHostOf,
 	nestRows,
+	nextWaiting,
 	rowsOf,
 	shownIn,
 	waitsOnYou,
@@ -98,6 +99,35 @@ describe("conversation rows", () => {
 		]);
 		expect(nestRows(tasks, rows)).toEqual(
 			nest(rows, (host, part) => isHostOf(tasks, host, part)),
+		);
+	});
+
+	const at = (id: string, task: string | null, need: Need): Needing => ({
+		conversation: conversation({ id, task }),
+		task: null,
+		need,
+	});
+	const done: Need = { kind: "idle" };
+	const rows = [
+		at("open", "lane-a", done),
+		at("other", "fix-b", asking),
+		at("mate", "lane-a-more", asking),
+		at("loose", null, asking),
+	];
+	const taken = { "lane-a": 1, "lane-a-more": 1 };
+
+	it("opens next, on ⌥⌘M, one waiting on the open one's lane before those ahead of it", () => {
+		expect(nextWaiting(rows, "open", taken)?.conversation?.id).toBe("mate");
+	});
+
+	it("keeps the list's order for ⌥⌘M off a lane, or with none of its lane waiting", () => {
+		expect(nextWaiting(rows, "open", {})?.conversation?.id).toBe("other");
+		expect(nextWaiting(rows, "loose", taken)?.conversation?.id).toBe("other");
+		const waitless = rows.map((row) =>
+			row.conversation?.id === "mate" ? { ...row, need: done } : row,
+		);
+		expect(nextWaiting(waitless, "open", taken)?.conversation?.id).toBe(
+			"other",
 		);
 	});
 });
