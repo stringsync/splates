@@ -25,7 +25,7 @@ const LIMIT_ARG = {
 
 /** `splates budget`, which the root cli mounts beside `splates worker`. */
 export const splatesBudget = cli<SplatesDeps>("budget").description(
-	"what the workers a `workerProvider` makes may cost, in dollars: a rate cap per hour on those running at once ($0.25/h by default), and limits on a day ($5) and a month ($75). Past the rate cap, or once a day's or month's limit is spent, no worker is made and the queue says why; reaching the day's or month's stops made workers, whose agents stop at their checkpoint. Each warns at 80%, 90% and 100% by Web Push and on the page's header. Spend is an estimate at each type's list price. Agents' own API spend is not counted here",
+	"what the workers a `workerProvider` makes may cost, in dollars: a rate cap per hour on those running at once ($1/h by default), and limits on a day ($15) and a month ($200). Past the rate cap, or once a day's or month's limit is spent, no worker is made and the queue says why; reaching the day's or month's stops made workers, whose agents stop at their checkpoint. Each warns at 80%, 90% and 100% by Web Push and on the page's header. Spend is an estimate at each type's list price. Agents' own API spend is not counted here",
 );
 
 splatesBudget

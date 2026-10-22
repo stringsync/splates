@@ -10,7 +10,7 @@ export type WorkerLimit = (typeof WORKER_LIMITS)[number];
 
 /** What each limit is until the user sets it. */
 export const DEFAULT_WORKER_LIMITS: Readonly<Record<WorkerLimit, number>> = {
-	hour: 0.25,
-	day: 5,
-	month: 75,
+	hour: 1,
+	day: 15,
+	month: 200,
 };

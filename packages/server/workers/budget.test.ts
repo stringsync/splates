@@ -10,7 +10,7 @@ function budgetAt(fs: FakeFs) {
 }
 
 describe("WorkerBudget", () => {
-	it("holds made workers to $0.25/h, $5 a day and $75 a month by default", () => {
+	it("holds made workers to $1/h, $15 a day and $200 a month by default", () => {
 		const budget = WorkerBudget.memory(clock());
 
 		expect(
@@ -21,9 +21,9 @@ describe("WorkerBudget", () => {
 				set,
 			})),
 		).toEqual([
-			{ limit: "hour", dollars: 0.25, spent: 0, set: false },
-			{ limit: "day", dollars: 5, spent: 0, set: false },
-			{ limit: "month", dollars: 75, spent: 0, set: false },
+			{ limit: "hour", dollars: 1, spent: 0, set: false },
+			{ limit: "day", dollars: 15, spent: 0, set: false },
+			{ limit: "month", dollars: 200, spent: 0, set: false },
 		]);
 	});
 
@@ -59,33 +59,33 @@ describe("WorkerBudget", () => {
 	it("refuses a worker past the rate cap, counting those running", async () => {
 		const budget = WorkerBudget.memory(clock());
 
-		await budget.started("one", "small", 0.2);
+		await budget.started("one", "small", 0.8);
 
-		expect(budget.refusal(0.05)).toBeNull();
-		expect(budget.refusal(0.1)).toBe("rate cap $0.25/h reached");
+		expect(budget.refusal(0.2)).toBeNull();
+		expect(budget.refusal(0.3)).toBe("rate cap $1.00/h reached");
 	});
 
 	it("prices what a raise must add for a worker the rate cap refuses, to the cent", async () => {
 		const budget = WorkerBudget.memory(clock());
-		await budget.started("one", "small", 0.2);
+		await budget.started("one", "small", 0.8);
 
-		expect(budget.shortfall(0.05)).toBeNull();
-		expect(budget.shortfall(0.11)).toEqual({ limit: "hour", dollars: 0.06 });
+		expect(budget.shortfall(0.2)).toBeNull();
+		expect(budget.shortfall(0.26)).toEqual({ limit: "hour", dollars: 0.06 });
 		await budget.raise("hour", 0.06);
-		expect(budget.shortfall(0.11)).toBeNull();
+		expect(budget.shortfall(0.26)).toBeNull();
 	});
 
 	it("refuses any worker, and stops those running, once the day's limit is spent", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);
-		await budget.set("hour", 10);
+		await budget.set("hour", 20);
 
-		await budget.started("big", "big", 5);
+		await budget.started("big", "big", 15);
 		expect(budget.stopped()).toBeNull();
 		wall.advance(Duration.hrs(1));
 
-		expect(budget.refusal(0.01)).toBe("daily limit $5.00 reached");
-		expect(budget.stopped()).toBe("daily limit $5.00 reached");
+		expect(budget.refusal(0.01)).toBe("daily limit $15.00 reached");
+		expect(budget.stopped()).toBe("daily limit $15.00 reached");
 	});
 
 	it("lets a raise add to a limit until it runs out", async () => {
@@ -93,10 +93,10 @@ describe("WorkerBudget", () => {
 		const budget = WorkerBudget.memory(wall);
 
 		const raise = await budget.raise("hour", 0.25, Duration.hrs(1));
-		expect(budget.standing()[0]).toMatchObject({ dollars: 0.5, raised: 0.25 });
+		expect(budget.standing()[0]).toMatchObject({ dollars: 1.25, raised: 0.25 });
 		wall.advance(Duration.hrs(2));
 
-		expect(budget.standing()[0]).toMatchObject({ dollars: 0.25, raised: 0 });
+		expect(budget.standing()[0]).toMatchObject({ dollars: 1, raised: 0 });
 		expect(await budget.endRaise(raise.id)).toBe(false);
 	});
 
@@ -107,7 +107,7 @@ describe("WorkerBudget", () => {
 		expect(budget.standing()[2]).toMatchObject({ dollars: 20, set: true });
 		await budget.set("month", null);
 
-		expect(budget.standing()[2]).toMatchObject({ dollars: 75, set: false });
+		expect(budget.standing()[2]).toMatchObject({ dollars: 200, set: false });
 	});
 
 	it("gives every limit back to its default and forgets it was chosen", async () => {
@@ -118,9 +118,7 @@ describe("WorkerBudget", () => {
 		await budget.unreview();
 
 		expect(budget.reviewed).toBe(false);
-		expect(budget.standing().map((each) => each.dollars)).toEqual([
-			0.25, 5, 85,
-		]);
+		expect(budget.standing().map((each) => each.dollars)).toEqual([1, 15, 210]);
 	});
 
 	it("alerts each tier once per window, its highest alone", async () => {
@@ -128,7 +126,7 @@ describe("WorkerBudget", () => {
 		const budget = WorkerBudget.memory(wall);
 		await budget.set("hour", 10);
 		await budget.set("month", 1000);
-		await budget.started("big", "big", 1);
+		await budget.started("big", "big", 3);
 
 		wall.advance(Duration.hrs(4.1));
 		expect(

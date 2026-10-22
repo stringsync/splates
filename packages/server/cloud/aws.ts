@@ -339,14 +339,15 @@ const STATUS: Record<string, string> = {
 export const AWS_DEFAULTS: CloudDefaults = {
 	spot: true,
 	workerTypes: [
-		// 4 vCPU and 16 GB: four slots of 4 GB.
+		// 16 vCPU and 32 GB: eight slots of 4 GB, two cores each, so a test
+		// run gets the cores to finish in about a minute and a half.
 		{
-			name: "m7i.xlarge",
+			name: "c7i.4xlarge",
 			platform: "linux",
-			slots: 4,
-			dollarsPerHour: 0.2016,
-			// Typical m7i.xlarge spot price in us-east-1, about 40% of on demand.
-			spotDollarsPerHour: 0.08,
+			slots: 8,
+			dollarsPerHour: 0.714,
+			// Typical c7i.4xlarge spot price in us-east-1, about 40% of on demand.
+			spotDollarsPerHour: 0.29,
 			billing: "second",
 		},
 	],

@@ -53,9 +53,9 @@ describe("splates budget", () => {
 
 		await showBudget(opts(log));
 
-		expect(said(log)).toContain("$0.25/h");
-		expect(said(log)).toContain("$5.00");
-		expect(said(log)).toContain("$75.00");
+		expect(said(log)).toContain("$1.00/h");
+		expect(said(log)).toContain("$15.00");
+		expect(said(log)).toContain("$200.00");
 		expect(said(log)).toContain("estimate");
 	});
 
@@ -93,7 +93,7 @@ describe("splates budget", () => {
 			limit: "day",
 			dollars: "default",
 		});
-		expect(budget.standing()[1]).toMatchObject({ dollars: 5, set: false });
+		expect(budget.standing()[1]).toMatchObject({ dollars: 15, set: false });
 	});
 
 	it("raises a limit for a while, and ends the raise", async () => {
@@ -105,7 +105,7 @@ describe("splates budget", () => {
 			for: "2h",
 		});
 
-		expect(budget.standing()[0]).toMatchObject({ dollars: 0.35, raised: 0.1 });
+		expect(budget.standing()[0]).toMatchObject({ dollars: 1.1, raised: 0.1 });
 		expect(said(log)).toContain("raise 1: +$0.10 on hour");
 		await endBudgetRaise({ ...opts(new MemoryLogger()), id: 1 });
 		expect(budget.raises).toEqual([]);

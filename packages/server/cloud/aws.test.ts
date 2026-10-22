@@ -13,7 +13,7 @@ describe("CloudWorkers in AWS", () => {
 
 	beforeEach(() => {
 		aws = new FakeAws();
-		aws.stock = ["m7i.xlarge", "t3.medium"];
+		aws.stock = ["c7i.4xlarge", "t3.medium"];
 		ps = new FakePs();
 		ps.setEnv({
 			AWS_ACCESS_KEY_ID: "AKIAEXAMPLE",
@@ -40,11 +40,11 @@ describe("CloudWorkers in AWS", () => {
 	it("offers its size, billed by the second, while the region can make it", async () => {
 		expect(await provider.types()).toEqual([
 			{
-				name: "m7i.xlarge",
+				name: "c7i.4xlarge",
 				platform: "linux",
-				slots: 4,
-				dollarsPerHour: 0.2016,
-				spotDollarsPerHour: 0.08,
+				slots: 8,
+				dollarsPerHour: 0.714,
+				spotDollarsPerHour: 0.29,
 				billing: "second",
 			},
 		]);
@@ -55,22 +55,22 @@ describe("CloudWorkers in AWS", () => {
 
 	it("makes a worker tagged with its id in the stack's subnet, from the snapshot, its boot in its user data", async () => {
 		await provider.create({
-			id: "m7i.xlarge-abc123",
-			type: "m7i.xlarge",
+			id: "c7i.4xlarge-abc123",
+			type: "c7i.4xlarge",
 			snapshot: "ami-77",
 			join: ["splates", "worker", "join"],
 			joinEnv: { SPLATES_WORKER_JOIN: "secret-token" },
 			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
-		const [worker] = aws.tagged("splates-worker", "m7i.xlarge-abc123");
+		const [worker] = aws.tagged("splates-worker", "c7i.4xlarge-abc123");
 		expect(worker).toMatchObject({
-			type: "m7i.xlarge",
+			type: "c7i.4xlarge",
 			imageId: "ami-77",
 			subnetId: "subnet-public",
 			profile: "splates-worker",
 			diskGb: 50,
-			tags: { Name: "m7i.xlarge-abc123" },
+			tags: { Name: "c7i.4xlarge-abc123" },
 		});
 		expect(worker?.userData).toContain(
 			"'SPLATES_WORKER_JOIN=secret-token' 'splates' 'worker' 'join'; do",
@@ -81,7 +81,7 @@ describe("CloudWorkers in AWS", () => {
 			"Environment=PATH=/home/splates/.bun/bin:/usr/local/sbin:",
 		);
 		expect(await provider.list()).toEqual([
-			{ id: "m7i.xlarge-abc123", type: "m7i.xlarge", spot: true },
+			{ id: "c7i.4xlarge-abc123", type: "c7i.4xlarge", spot: true },
 		]);
 		expect(worker?.spot).toBe(true);
 		expect(worker?.userData).toContain("splates-spot-watch.service");
@@ -90,7 +90,7 @@ describe("CloudWorkers in AWS", () => {
 	it("makes a worker on demand, and says so, when EC2 has no spot capacity", async () => {
 		aws.refuseSpot = "InsufficientInstanceCapacity";
 		const spec = {
-			type: "m7i.xlarge",
+			type: "c7i.4xlarge",
 			snapshot: "ami-1",
 			join: [],
 			joinEnv: {},
@@ -99,7 +99,7 @@ describe("CloudWorkers in AWS", () => {
 		await provider.create({ id: "a", ...spec });
 		expect(aws.tagged("splates-worker", "a")[0]?.spot).toBe(false);
 		expect(await provider.list()).toEqual([
-			{ id: "a", type: "m7i.xlarge", spot: false },
+			{ id: "a", type: "c7i.4xlarge", spot: false },
 		]);
 		const asked = aws.requests.filter((each) => each.action === "RunInstances");
 		expect(asked).toHaveLength(2);
@@ -110,7 +110,7 @@ describe("CloudWorkers in AWS", () => {
 
 	it("destroys a worker's instance alone, and says why AWS refused one", async () => {
 		const spec = {
-			type: "m7i.xlarge",
+			type: "c7i.4xlarge",
 			snapshot: "ami-1",
 			join: [],
 			joinEnv: {},
@@ -123,7 +123,7 @@ describe("CloudWorkers in AWS", () => {
 		await provider.destroy("gone");
 
 		expect(await provider.list()).toEqual([
-			{ id: "v", type: "m7i.xlarge", spot: true },
+			{ id: "v", type: "c7i.4xlarge", spot: true },
 		]);
 
 		aws.refuseRun = "vCPU limit reached";

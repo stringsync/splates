@@ -306,9 +306,9 @@ rate cap, and `splates worker remove` destroys its machine.
 
 The worker budget is in dollars, at each type's list price, so every figure is
 an estimate: a rate cap on what the made workers running at once cost an hour
-($0.25/h by default), and limits on what they cost in a day ($5) and a month
-($75), from the start of each in local time. Past the rate cap no worker is
-made, and the queue says which limit holds it, as `rate cap $0.25/h reached`.
+($1/h by default), and limits on what they cost in a day ($15) and a month
+($200), from the start of each in local time. Past the rate cap no worker is
+made, and the queue says which limit holds it, as `rate cap $1.00/h reached`.
 Once a day's or month's limit is spent, made workers take nothing new, their
 agents are asked to stop at a checkpoint, and each is destroyed once its last
 agent ends. Each limit warns at 80%, 90% and 100%, once in its window, by Web

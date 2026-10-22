@@ -74,7 +74,7 @@ describe("the worker budget step", () => {
 		const day = budget.standing().find((each) => each.limit === "day");
 		const hour = budget.standing().find((each) => each.limit === "hour");
 		expect(day?.dollars).toBe(8);
-		expect(hour?.dollars).toBe(0.25);
+		expect(hour?.dollars).toBe(1);
 		expect((await step())?.status).toBe("done");
 	});
 
@@ -102,16 +102,14 @@ describe("the worker budget step", () => {
 			title: "Choose what made workers may cost",
 			done: true,
 			removes: [
-				"The limits chosen for made workers, back to their defaults (hour $0.25, day $5.00, month $75.00)",
+				"The limits chosen for made workers, back to their defaults (hour $1.00, day $15.00, month $200.00)",
 			],
 			leaves: [],
 		});
 		await new Setup(machine, ROSTER).undo("workers", null);
 		await new Setup(machine, ROSTER).undo("workers", null);
 
-		expect(budget.standing().map((each) => each.dollars)).toEqual([
-			0.25, 5, 75,
-		]);
+		expect(budget.standing().map((each) => each.dollars)).toEqual([1, 15, 200]);
 		expect((await step())?.status).toBe("ready");
 	});
 
