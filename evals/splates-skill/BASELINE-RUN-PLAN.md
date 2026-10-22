@@ -44,7 +44,7 @@ it is not an agent turn or proof that app-server tools apply the same boundary.
 Correction to the initial normal-home Claude observation: outside the outer agent
 sandbox, native `claude auth status` confirms an existing claude.ai **Max** login.
 The private runner HOME still reports logged out, including a free check pointing
-`CLAUDE_CONFIG_DIR` at `/Users/jared/.claude`. The user does not need to choose a new
+`CLAUDE_CONFIG_DIR` at `~/.claude`. The user does not need to choose a new
 account or provide credentials. Native credential/config location isolation needs
 resolution first. No login was changed or copied. Claude documents that explicit
 config directories select separate credential stores:
@@ -164,7 +164,7 @@ After auth and native configuration readiness, the two-cell execution template i
 splates dev eval fast --unchanged-baseline --baseline APPROVED_COMMIT \
   --probe decisions/local-choice \
   --target codex:gpt-6-astra --target claude:EXACT_CLAUDE_ID \
-  --codex-home /Users/jared/.codex --codex-fixture-writes \
+  --codex-home ~/.codex --codex-fixture-writes \
   --skill-mode discovery --parallel 1 --reps 1 \
   --reserve-tokens 2000 --reserve-usd 0.05 \
   --max-tokens 4000 --max-usd 0.10 \
@@ -196,7 +196,7 @@ unknown Codex USD and non-refundable reservation warning from the original plan.
 
 | Item | Observed | Remaining requirement |
 | --- | --- | --- |
-| Codex auth | `account/read` reports ChatGPT auth using `/Users/jared/.codex` in place, with private HOME and the runner's allowlisted environment | This is account readiness, not proof of successful inference. Existing home may acquire runtime metadata. No credentials copied. |
+| Codex auth | `account/read` reports ChatGPT auth using `~/.codex` in place, with private HOME and the runner's allowlisted environment | This is account readiness, not proof of successful inference. Existing home may acquire runtime metadata. No credentials copied. |
 | Codex models | Free `model/list` lists `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`; no next page | Proposed target: `gpt-6-astra`. Recheck before final approval. |
 | Codex reasoning | Config reports `low`; model list reports default `medium` for `gpt-6-astra` | Effective reasoning is unknown: do not substitute either value for a returned thread setting. The adapter does not explicitly request effort. |
 | Codex startup | No-turn `thread/start` with the adapter's override scheme failed: `invalid transport` in `mcp_servers."node_repl"` | Diagnose and repair config override compatibility using free checks, then verify returned model/cwd/reviewer/approval/sandbox/effort before any turn. No user config was edited. |
@@ -242,7 +242,7 @@ prerequisites are resolved and separately authorized**:
 splates dev eval fast --paired --baseline BASELINE_COMMIT \
   --probe decisions/local-choice \
   --target codex:gpt-6-astra --target claude:EXACT_CLAUDE_ID \
-  --codex-home /Users/jared/.codex --codex-fixture-writes \
+  --codex-home ~/.codex --codex-fixture-writes \
   --skill-mode discovery --parallel 1 --reps 1 \
   --reserve-tokens 2000 --reserve-usd 0.05 \
   --max-tokens 8000 --max-usd 0.20 \
