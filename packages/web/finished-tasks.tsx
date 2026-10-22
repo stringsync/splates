@@ -26,6 +26,7 @@ import {
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ApiError, answered, scoped } from "./api";
+import { ReadFailed, ReadingNow } from "./countdown";
 import { useFolded } from "./folded";
 import { Markdown } from "./markdown";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
@@ -131,18 +132,25 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
  * that has merged or been removed since something mentioned it.
  */
 export function FinishedByName({ name }: { name: string }): JSX.Element {
+	// A key, null once the list holds no such task, undefined while reading.
 	const [key, setKey] = useState<string | null | undefined>(undefined);
+	const [failed, setFailed] = useState(false);
+	const [attempt, setAttempt] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is what says to read again
 	useEffect(() => {
 		let current = true;
 		finishedTasks().then(
-			(read) =>
-				current && setKey(read.find((each) => each.task === name)?.key ?? null),
-			() => current && setKey(null),
+			(read) => {
+				if (current) {
+					setKey(read.find((each) => each.task === name)?.key ?? null);
+				}
+			},
+			() => current && setFailed(true),
 		);
 		return () => {
 			current = false;
 		};
-	}, [name]);
+	}, [name, attempt]);
 	if (typeof key === "string") {
 		return <FinishedDialog opened={key} listed={null} />;
 	}
@@ -150,9 +158,19 @@ export function FinishedByName({ name }: { name: string }): JSX.Element {
 		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
 			<DialogHeader>
 				<DialogTitle>{name}</DialogTitle>
-				<DialogDescription>
-					{key === undefined ? "Reading…" : "No record of this task is kept."}
-				</DialogDescription>
+				{failed ? (
+					<ReadFailed
+						error="Couldn't read the finished tasks, so this one may still be kept."
+						onRetry={() => {
+							setFailed(false);
+							setAttempt(attempt + 1);
+						}}
+					/>
+				) : key === undefined ? (
+					<ReadingNow label="Reading…" />
+				) : (
+					<DialogDescription>No record of this task is kept.</DialogDescription>
+				)}
 			</DialogHeader>
 		</DialogContent>
 	);

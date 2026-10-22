@@ -208,6 +208,13 @@ export function CheckpointDialog({
 								/>
 								<DialogDescription>{said}</DialogDescription>
 							</DialogHeader>
+							{slide === "going" && (
+								<TakingLong
+									within={CHECKPOINT_WITHIN}
+									doing="checkpointing"
+									gaveUp="Some agents have not checkpointed yet. The page keeps waiting; close this to carry on, and they stay asked."
+								/>
+							)}
 							{slide === "restarting" && (
 								<TakingLong
 									within={RESTART_WITHIN}
@@ -295,5 +302,7 @@ function back(current: ProjectChoice[], id: string): boolean {
 
 // How long a restart, an update's install included, or a shutdown may take
 // before the dialog says the server has not come back, or not gone.
+// Agents save their work first, a turn's end at worst.
+const CHECKPOINT_WITHIN = Duration.mins(3);
 const RESTART_WITHIN = Duration.mins(3);
 const SHUTDOWN_WITHIN = Duration.mins(1);

@@ -18,7 +18,7 @@ import { ReadFailed, StillWaiting } from "./countdown";
  * a chunk slow to come counts down as any read does, and one that never comes,
  * or fails, says so with Try again rather than leaving the page blank.
  */
-function onDemand<Props extends object>(
+export function onDemand<Props extends object>(
 	load: () => Promise<{ default: ComponentType<Props> }>,
 ): (props: Props) => JSX.Element {
 	const loaded = () =>
