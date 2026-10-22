@@ -39,7 +39,11 @@ const ASKED = {
  */
 export function openReplica(
 	place: ReplicaPlace,
-	{ root, fs, creds }: { root: string; fs: Fs; creds: Creds },
+	{
+		root,
+		fs,
+		creds,
+	}: { root: string; fs: Fs; creds: Pick<Creds, "credentials" | "request"> },
 ): Replica {
 	if (place.provider === "dir") {
 		return new DirReplica(

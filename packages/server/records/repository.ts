@@ -390,6 +390,14 @@ export async function openRepository(
 		database: home.stamp(),
 		into: home,
 	});
+	const moved = creates || migrates ? null : await home.movedTo();
+	if (moved !== null) {
+		fail(
+			"uninitialized",
+			`this project's records moved to ${moved}: run splates there, or \`splates replica restore\` here to bring them back from the replica.`,
+			{ movedTo: moved },
+		);
+	}
 	if (creates) {
 		await format.create();
 	}

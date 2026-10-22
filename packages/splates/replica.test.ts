@@ -52,4 +52,19 @@ describe("splates replica status", () => {
 		expect(env.out()).toContain("caught up:  never");
 		expect(env.out()).toContain("failing:    bucket unreachable");
 	});
+
+	it("stops when the project names no replica", async () => {
+		await splates.run(deps, ["replica", "restore"]);
+
+		expect(env.out()).toContain("no replica: name one");
+	});
+
+	it("leaves the records aside, and a later command says where they went", async () => {
+		await splates.run(deps, ["replica", "retire", "droplet.example.com"]);
+		expect(env.out()).toContain("the server is at droplet.example.com");
+
+		await splates.run(deps, ["replica", "status"]);
+
+		expect(env.out()).toContain("moved to droplet.example.com");
+	});
 });

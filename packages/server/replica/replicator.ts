@@ -11,6 +11,7 @@ import {
 	MANIFEST,
 	type Manifest,
 	readListing,
+	readManifest,
 	valueKey,
 } from "./layout";
 import { md5, type Replica } from "./replica";
@@ -96,6 +97,17 @@ export class Replicator implements Resource {
 			.document(RECORD_KEY, { schema: RECORD })
 			.read();
 		return record?.status ?? null;
+	}
+
+	/**
+	 * Makes `storage` the server that began the replica whose origin is
+	 * `origin`, as a restore does, so its replicator writes on into it
+	 * rather than refusing it as another server's.
+	 */
+	static async adopt(storage: Storage, origin: string): Promise<void> {
+		await storage
+			.document(RECORD_KEY, { schema: RECORD })
+			.update((current) => ({ ...current, origin }));
 	}
 
 	/** Ships what has changed now, rather than when the batch is due; done once it is. */
@@ -296,20 +308,8 @@ export class Replicator implements Resource {
 		this.logs.delete(key);
 	}
 
-	private async manifest(): Promise<Manifest | null> {
-		const bytes = await this.opts.replica.get(MANIFEST);
-		if (bytes === null) {
-			return null;
-		}
-		const parsed = MANIFEST_SCHEMA.safeParse(
-			JSON.parse(new TextDecoder().decode(bytes)),
-		);
-		if (!parsed.success) {
-			throw new Error(
-				`${this.opts.replica.name} has a ${MANIFEST} splates cannot read`,
-			);
-		}
-		return parsed.data;
+	private manifest(): Promise<Manifest | null> {
+		return readManifest(this.opts.replica);
 	}
 
 	/** Writes the manifest, saying it caught up at `at` when given. */
@@ -390,13 +390,6 @@ const RECORD = z.object({
 	origin: z.string(),
 	/** As of the last batch, for `splates replica` to read with the server stopped or elsewhere. */
 	status: STATUS.optional(),
-});
-
-const MANIFEST_SCHEMA = z.object({
-	version: z.literal(1),
-	origin: z.string(),
-	host: z.string(),
-	caughtUpAt: z.number().nullable(),
 });
 
 /** How many keys are shipped at once. */

@@ -21,6 +21,9 @@ export interface ProjectHomeOptions {
 	stalenessMs?: number;
 }
 
+/** The file beside the database naming where the records went once they moved. */
+const MOVED = "moved.txt";
+
 /** The key the database keeps its records' format under. */
 const STAMP = "format";
 
@@ -133,6 +136,49 @@ export class ProjectHome {
 		for (const old of [`${partial}-wal`, `${partial}-shm`]) {
 			await fs.rm(old, { force: true });
 		}
+	}
+
+	/**
+	 * Leaves the database aside as `state.db.moved`, as the server moves to
+	 * `to` (said as a person would read it), so nothing here treats it as the
+	 * records any more and a command run here says where they went. A
+	 * database left aside before stays, this one named `.moved-2` and on.
+	 */
+	async moveAside(to: string): Promise<string> {
+		const { fs } = this.opts;
+		this.dispose();
+		const dir = await this.dir();
+		const path = `${dir}/state.db`;
+		let aside = `${path}.moved`;
+		for (let nth = 2; await fs.exists(aside); nth += 1) {
+			aside = `${path}.moved-${nth}`;
+		}
+		for (const suffix of ["", "-wal", "-shm"]) {
+			if (await fs.exists(`${path}${suffix}`)) {
+				await fs.rename(`${path}${suffix}`, `${aside}${suffix}`);
+			}
+		}
+		await fs.write(`${dir}/${MOVED}`, `${to}\n`);
+		return aside;
+	}
+
+	/**
+	 * Where `moveAside` said the records went, while there is no database
+	 * here; null otherwise, and once a restore has brought records back.
+	 */
+	async movedTo(): Promise<string | null> {
+		const { fs, ps } = this.opts;
+		const id = await this.opts.projects.idOf(this.root);
+		if (id === null || (await this.exists())) {
+			return null;
+		}
+		const path = `${splatesHome(ps)}/projects/${id}/${MOVED}`;
+		return (await fs.exists(path)) ? (await fs.read(path)).trim() : null;
+	}
+
+	/** Forgets where the records went, as a restore here does. */
+	async clearMoved(): Promise<void> {
+		await this.opts.fs.rm(`${await this.dir()}/${MOVED}`, { force: true });
 	}
 
 	/**

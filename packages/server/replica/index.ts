@@ -5,6 +5,8 @@ export { openReplica, REPLICA_ACCESS_KEY, REPLICA_SECRET_KEY } from "./place";
 export type { Replica, ReplicaObject } from "./replica";
 export type { ReplicatorOptions } from "./replicator";
 export { Replicator } from "./replicator";
+export type { Restored, RestoreTarget } from "./restore";
+export { restoreFromReplica } from "./restore";
 export type { S3Place, S3ReplicaOptions } from "./s3";
 export { S3Replica } from "./s3";
 export { replicated } from "./shipped";

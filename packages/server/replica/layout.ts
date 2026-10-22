@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { sha256 } from "./aws-sign";
+import type { Replica } from "./replica";
 
 /**
  * Where the `Replicator` keeps each kind of thing in a replica, keyed by the
@@ -70,4 +72,26 @@ export function readListing(keys: { key: string; md5: string }[]): {
 		chunks.sort((left, right) => left.to - right.to);
 	}
 	return { values, logs };
+}
+
+const MANIFEST_SCHEMA = z.object({
+	version: z.literal(1),
+	origin: z.string(),
+	host: z.string(),
+	caughtUpAt: z.number().nullable(),
+});
+
+/** What `replica` says of itself, or null when it has no manifest yet; throws on one it cannot read. */
+export async function readManifest(replica: Replica): Promise<Manifest | null> {
+	const bytes = await replica.get(MANIFEST);
+	if (bytes === null) {
+		return null;
+	}
+	const parsed = MANIFEST_SCHEMA.safeParse(
+		JSON.parse(new TextDecoder().decode(bytes)),
+	);
+	if (!parsed.success) {
+		throw new Error(`${replica.name} has a ${MANIFEST} splates cannot read`);
+	}
+	return parsed.data;
 }

@@ -41,7 +41,7 @@ made while the server was down catch up. It only writes into an empty
 replica or one whose manifest names its own origin, a random id kept in the
 project's `replica.json`; one begun by another server is refused with an
 error, since two servers writing one prefix would delete each other's
-records. A restore (task #992) adopts the replica's origin.
+records. A restore adopts the replica's origin.
 
 Every registered project replicates from the server's start, opened apart
 from serving when no page has asked for it, and one project has one
@@ -51,3 +51,25 @@ it stops. `replica.json` also keeps the
 status as of the last batch, which `splates replica status` prints with the
 server stopped or not. Machine state (`agents.json`, Auto pick rules) is not
 replicated: it is shared by every project on the machine.
+
+## Restoring and moving
+
+`splates replica restore` (`replica/restore.ts`), with the server stopped,
+rebuilds the project's `state.db` from the replica its config names: values
+and joined log chunks are written as the files the records once were, imported
+through `ProjectHome.import` into a database beside the live one and renamed
+into place, stamped with the replica's format (refused if newer than this
+splates's). Records already there stop it unless `--force`, which leaves them
+aside as `state.db.moved`. It adopts the manifest's origin through
+`Replicator.adopt`, so the server started next replicates on into the same
+replica. A bucket's creds are read from the stores, never requested. The
+roster and Auto pick rules are not in the replica.
+
+Moving the server is: checkpoint the agents, stop the server, check `splates
+replica status` says caught up, `splates replica restore` on the new machine
+(from a checkout of the project whose config names the replica), start the
+server there, and `splates replica retire <where>` here: it leaves the
+database aside and writes `moved.txt` beside it, which makes any command run
+here refuse with `uninitialized`, saying where the server went, until a restore
+here clears it. `docker/prove-restore.sh` proves the round trip with a `dir`
+replica.
