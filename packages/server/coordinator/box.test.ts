@@ -124,8 +124,16 @@ describe("CoordinatorBox", () => {
 	it("refreshes the state before `pulumi up`, so a run after a failed one carries on from what is there", async () => {
 		await box.up();
 
-		expect(ps.commands).toEqual(["refresh", "up"]);
+		expect(ps.commands).toEqual(["stack", "refresh", "up"]);
 		expect(ps.asked[0]?.argv).toEqual([
+			"pulumi",
+			"stack",
+			"select",
+			"--create",
+			"prod",
+			"--non-interactive",
+		]);
+		expect(ps.asked[1]?.argv).toEqual([
 			"pulumi",
 			"refresh",
 			"--yes",
@@ -146,8 +154,8 @@ describe("CoordinatorBox", () => {
 
 		await box.up();
 
-		expect(ps.commands).toEqual(["refresh", "up", "cancel", "up"]);
-		expect(ps.asked[2]?.argv).toEqual([
+		expect(ps.commands).toEqual(["stack", "refresh", "up", "cancel", "up"]);
+		expect(ps.asked[3]?.argv).toEqual([
 			"pulumi",
 			"cancel",
 			"--yes",
@@ -165,7 +173,7 @@ describe("CoordinatorBox", () => {
 		];
 
 		await expect(box.up()).rejects.toThrow("Another update is currently");
-		expect(ps.commands).toEqual(["refresh", "up", "cancel", "up"]);
+		expect(ps.commands).toEqual(["stack", "refresh", "up", "cancel", "up"]);
 	});
 
 	it("destroys the stack after lifting the box's protection, and forgets its keys", async () => {

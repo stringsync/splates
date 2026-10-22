@@ -73,6 +73,7 @@ export class CoordinatorBox {
 	/** What `pulumi preview` says the stack would change, as its summary line. */
 	async preview(): Promise<string> {
 		const infra = await this.infraOrThrow();
+		await this.ensureStack(infra);
 		const out = await this.pulumi(infra, ["preview", "--non-interactive"]);
 		return summaryOf(out);
 	}
@@ -85,6 +86,7 @@ export class CoordinatorBox {
 	 */
 	async up(): Promise<void> {
 		const infra = await this.infraOrThrow();
+		await this.ensureStack(infra);
 		await this.refresh(infra);
 		await this.pulumi(infra, ["up", "--yes", "--non-interactive"]);
 	}
@@ -137,6 +139,33 @@ export class CoordinatorBox {
 		await this.fs.rm(infraConfigPath(this.home));
 	}
 
+	/**
+	 * Makes the stack in the backend if it is not there yet: `infra init`
+	 * writes only the stack's config file, so the first run would otherwise
+	 * fail with "no stack named". Selecting an existing stack changes nothing.
+	 */
+	private async ensureStack(infra: InfraConfig): Promise<void> {
+		if (infra.stack === undefined) {
+			return;
+		}
+		const ran = await this.ps.spawnCapture(
+			[
+				"pulumi",
+				"stack",
+				"select",
+				"--create",
+				infra.stack,
+				"--non-interactive",
+			],
+			{ cwd: infra.dir },
+		);
+		if (ran.exitCode !== 0) {
+			throw new Error(
+				`pulumi stack select in ${infra.dir} failed: ${failureLine(`${ran.stdout}\n${ran.stderr}`)}`,
+			);
+		}
+	}
+
 	/** Brings the state in line with what is really there; `--yes` applies every difference. */
 	private async refresh(infra: InfraConfig): Promise<void> {
 		await this.pulumi(infra, ["refresh", "--yes", "--non-interactive"]);
@@ -153,6 +182,7 @@ export class CoordinatorBox {
 	 */
 	async retarget(host: string): Promise<BoxStanding> {
 		const infra = await this.infraOrThrow();
+		await this.ensureStack(infra);
 		await this.pulumi(infra, ["config", "set", "splates:host", host]);
 		await this.up();
 		return this.ready();
