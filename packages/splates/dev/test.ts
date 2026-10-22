@@ -6,6 +6,7 @@ import {
 	coreClaimsOfMachine,
 	heavyJobsOfMachine,
 } from "@stringsync/splates-server/server";
+import { runOnRunner } from "@stringsync/splates-server/workers";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -17,11 +18,11 @@ export interface TestOptions {
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
 	/**
-	 * Run the tests on Linux, in a Docker container built from the checkout
-	 * (`docker/test.Dockerfile`), as the server's box and the workers
-	 * run them.
+	 * Run the tests here in a heavy-job slot, even when a runner has joined
+	 * `splates server`, which otherwise runs them on a snapshot of this
+	 * worktree and streams the output back.
 	 */
-	linux?: boolean;
+	local?: boolean;
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
 	files?: string[];
 	/**
@@ -49,15 +50,20 @@ export interface TestOptions {
 // a busier machine too little headroom.
 export const TEST_DEADLINE = Duration.mins(6);
 
-/** The image `--linux` builds from the checkout and runs the tests in. */
-export const LINUX_IMAGE = "splates-test";
-
 export async function test(opts: TestOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const log = opts.log ?? new ConsoleLogger();
 
 	if (opts.evals && opts.all) {
 		throw new Error("choose either --evals or --all");
+	}
+	// A run inside a heavy slot or core claim (a merge's gate, or a runner's
+	// own `--local`) is already where it should be.
+	const inSlot =
+		ps.env("SPLATES_HEAVY") !== undefined ||
+		ps.env("SPLATES_CORES") !== undefined;
+	if (!opts.local && !inSlot && (await ranOnRunner(opts, ps, log))) {
+		return;
 	}
 	// The page's tests and the rest run apart, one after the other. A DOM test
 	// puts happy-dom on `globalThis` for its whole process, `setTimeout`, `URL`
@@ -98,8 +104,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	const heavy = opts.heavy ?? heavyJobsOfMachine({ fs: new NodeFs(), ps, log });
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
-	// Not on Linux, where the path would be the container's.
-	const report = opts.linux ? undefined : ps.env("SPLATES_TEST_REPORT");
+	const report = ps.env("SPLATES_TEST_REPORT");
 	await using slot = await heavy.take({ what: "splates dev test" });
 	// a worker is a core claimed: when other heavy jobs hold the machine's
 	// cores the run waits (five minutes at most) for half its workers, rather
@@ -128,33 +133,10 @@ export async function test(opts: TestOptions): Promise<void> {
 			: []),
 		...(opts.files ?? []),
 	];
-	// The image is built in the slot, since an install is a heavy job, but
-	// ahead of the deadline: the first build pulls the base image and
-	// installs every dependency, minutes that are not the tests'.
-	if (opts.linux) {
-		const build = await ps.spawn(
-			[
-				"docker",
-				"build",
-				"-f",
-				"docker/test.Dockerfile",
-				"-t",
-				LINUX_IMAGE,
-				".",
-			],
-			{ cwd: ROOT, env: slot.env },
-		);
-		if (build.exitCode !== 0) {
-			throw new Error(
-				"Building the Linux test image failed: is Docker running?",
-			);
-		}
-	}
 	// bun's per-test timeout cannot stop a test spinning in a synchronous
 	// loop, and such a run held its slot for ten hours while every add, merge
 	// and conversation on the machine queued behind it. Ending bun's runner
-	// ends its workers too; `docker run` passes the signal on to the
-	// container's bun, and `--init` reaps what the tests spawn under it.
+	// ends its workers too.
 	const deadline = opts.deadline ?? TEST_DEADLINE;
 	const signal = AbortSignal.timeout(deadline.ms);
 	const fs = new NodeFs();
@@ -163,11 +145,8 @@ export async function test(opts: TestOptions): Promise<void> {
 	let failed = false;
 	const reports: string[] = [];
 	for (const [at, args] of runs.entries()) {
-		const argv = opts.linux
-			? ["docker", "run", "--rm", "--init", LINUX_IMAGE, ...bunTest(args, at)]
-			: bunTest(args, at);
 		const { exitCode } = await ps
-			.spawn(argv, { cwd: ROOT, env, signal })
+			.spawn(bunTest(args, at), { cwd: ROOT, env, signal })
 			.catch((error: unknown) => {
 				if (signal.aborted) {
 					throw new Error(
@@ -192,6 +171,55 @@ export async function test(opts: TestOptions): Promise<void> {
 	if (failed) {
 		throw new Error("Tests failed");
 	}
+}
+
+/**
+ * Runs the tests on a runner, if one has joined `splates server`: a snapshot
+ * of this worktree, checked out and prepared there, running this same command
+ * with `--local`, its output streamed here and its JUnit report brought back to
+ * where `SPLATES_TEST_REPORT` names. Whether it did; false, having run
+ * nothing, where there is no runner to go to. Throws when the tests failed.
+ */
+async function ranOnRunner(
+	opts: TestOptions,
+	ps: Ps,
+	log: Logger,
+): Promise<boolean> {
+	const report = ps.env("SPLATES_TEST_REPORT");
+	const flags = [
+		...(opts.evals ? ["--evals"] : []),
+		...(opts.all ? ["--all"] : []),
+		...(opts.files ?? []),
+	];
+	const ran = await runOnRunner(
+		{ ps, fs: new NodeFs(), log },
+		{
+			cwd: ROOT,
+			// The report goes where the job's files come back from.
+			argv: [
+				"sh",
+				"-c",
+				'SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/report.xml" exec ./bin/splates dev test --local "$@"',
+				"sh",
+				...flags,
+			],
+			files: report === undefined ? [] : ["report.xml"],
+			output: (bytes) => void process.stdout.write(bytes),
+		},
+	);
+	if (ran === null) {
+		return false;
+	}
+	if (report !== undefined) {
+		await new NodeFs().write(
+			report,
+			new TextDecoder().decode(ran.files.get("report.xml") ?? new Uint8Array()),
+		);
+	}
+	if (ran.code !== 0) {
+		throw new Error("Tests failed");
+	}
+	return true;
 }
 
 /**

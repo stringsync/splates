@@ -1,12 +1,13 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import { type Fs, NodePs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
 import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
+import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
 import {
@@ -75,6 +76,8 @@ export class DevWorkers implements AsyncResource {
 	 * and agents too while it is on; work waits for it to join.
 	 */
 	readonly local: RemoteWorker;
+	/** Heavy jobs on the runners that joined. */
+	readonly jobs: RunnerJobs;
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
@@ -94,6 +97,7 @@ export class DevWorkers implements AsyncResource {
 			identity,
 			provider,
 			access = null,
+			ps,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
@@ -120,6 +124,13 @@ export class DevWorkers implements AsyncResource {
 				this.registry.expect(record.id);
 			}
 		}
+		this.jobs = new RunnerJobs(
+			this.registry,
+			records,
+			LOCAL_WORKER,
+			ps ?? new NodePs(),
+			log,
+		);
 		this.slots = new WorkerSlots(this.registry, {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
@@ -593,4 +604,6 @@ export interface DevWorkersOptions {
 	 * stands in front.
 	 */
 	access?: WorkerAccess | null;
+	/** How it runs git to snapshot a worktree for a job; the real one by default. */
+	ps?: Ps;
 }

@@ -69,6 +69,7 @@ function defaults(root: string, trunk: string): Config {
 		notesDir: "notes",
 		postCheckout: null,
 		postRewrite: null,
+		prepare: null,
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,

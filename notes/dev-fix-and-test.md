@@ -33,12 +33,13 @@ Xcode's git ahead of `/usr/bin/git`, an `xcrun` stub that cost the server
 tests a third of their CPU. Measured 2026-10-22 on a 4-CPU Linux container:
 118s → 67s wall, 252s → 140s CPU.
 
-`splates dev test --linux` builds `docker/test.Dockerfile` from the checkout
-(the worker image's packages without Chromium, user `splates`, the page
-built inside) and runs the same `bun test` in it with `--init`, since
-workers are Linux and the suite had only ever run on macOS. Its first run, 2026-10-21, passed every test (3443, 554 files,
-34s) on aarch64 Linux; as `linux/amd64` under Rosetta three tests failed,
-all the ones that expect "cannot start <argv>" on a missing executable,
-which the emulation exits 127 without raising, so that is to be read on a
-real x86 box, not here. The image is the host's architecture; Docker must
-be running.
+`splates dev test` runs on a runner when one has joined the server and it is
+not already inside a heavy slot (`SPLATES_HEAVY`, `SPLATES_CORES`): see
+`heavy-jobs-on-runners.md`. The job's command is `./bin/splates dev test
+--local` with the same filters, run in the runner's checkout of a snapshot of
+the worktree, and its JUnit report comes back as a returned file to where
+`SPLATES_TEST_REPORT` names. `--local` runs it here as above. `--linux` went
+with this: every runner is Linux. Before it, on 2026-10-21, the suite's first
+Linux run passed every test (3443, 554 files, 34s) on aarch64; as `linux/amd64`
+under Rosetta three tests failed, the ones that expect "cannot start <argv>"
+on a missing executable, which the emulation exits 127 without raising.

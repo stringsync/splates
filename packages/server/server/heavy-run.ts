@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Ps } from "webappwiz/system";
 import { fail } from "../exit";
+import { runOnRunner, type ServerSend } from "../workers";
 import { heavyJobsOfMachine } from "./heavy";
 
 /**
@@ -9,12 +10,25 @@ import { heavyJobsOfMachine } from "./heavy";
  * test run, an install) passes through splates no other way.
  */
 export async function runHeavy(
-	ctx: { fs: Fs; ps: Ps; log: Logger },
+	ctx: { fs: Fs; ps: Ps; log: Logger; dev?: string; send?: ServerSend },
 	argv: string[],
 	heavy: HeavyCap = heavyJobsOfMachine(ctx),
+	opts: { local?: boolean; write?: (bytes: Uint8Array) => void } = {},
 ): Promise<number> {
 	if (argv.length === 0) {
 		fail("usage", "name the command to run: `splates heavy -- <command>`", {});
+	}
+	// On a runner when one has joined, its output streamed back; here, in a
+	// slot of this machine's, when none has or `local` says so.
+	if (opts.local !== true) {
+		const ran = await runOnRunner(ctx, {
+			cwd: ctx.ps.cwd(),
+			argv,
+			output: opts.write ?? ((bytes) => void process.stdout.write(bytes)),
+		});
+		if (ran !== null) {
+			return ran.code;
+		}
 	}
 	await using slot = await heavy.take({
 		what: argv.join(" "),

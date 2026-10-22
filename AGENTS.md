@@ -11,10 +11,12 @@ After making code changes:
 - `splates dev fix` typecheck, format, and check the project, scry included.
 - `splates dev test` test the package. It takes a heavy-job slot itself, so
   it needs no `splates heavy`. `splates dev test --evals` tests the eval
-  harness, for changes under `evals/`. `splates dev test --linux` runs the
-  suite on Linux in a Docker container built from the checkout, as the box
-  and the workers run; run it before touching processes, sockets, files or
-  git, which is where macOS and Linux differ.
+  harness, for changes under `evals/`. With a runner joined to the server
+  (Linux, as the box is), it runs on one: a snapshot of the worktree, edits
+  included, output streamed back; `--local` runs it here. Run it before
+  touching processes, sockets, files or git, which is where macOS and Linux
+  differ. `splates dev prove runner` joins a Linux container to the server as
+  a runner and runs a job on it; it needs Docker and takes minutes.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

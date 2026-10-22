@@ -27,6 +27,7 @@ describe("WorktreeService", () => {
 			notesDir: "notes",
 			postCheckout: null,
 			postRewrite: null,
+			prepare: null,
 			preMerge: "true",
 			on: {},
 			leaseStalenessMs: 90_000,

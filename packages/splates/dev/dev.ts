@@ -3,6 +3,7 @@ import type { Cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
+import { PROOFS, prove } from "./prove";
 import { ship } from "./ship";
 import { test } from "./test";
 
@@ -43,6 +44,20 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		);
 
 	dev
+		.command("prove")
+		.description(
+			"prove splates on Linux with Docker, nothing of yours used: `runner` joins a Linux container to a throwaway server on this machine as a runner, and runs `splates heavy` on it from a project with an uncommitted edit. Read docker/prove-<which>.sh for what it checks",
+		)
+		.arg("proof", z.enum(PROOFS), {
+			description: "runner",
+		})
+		.rest("args", z.string(), {
+			description: "handed to the script: a port",
+		})
+		.allowUnknownOption()
+		.action(({ proof, args }, { log, ps }) => prove({ proof, args, log, ps }));
+
+	dev
 		.command("ship")
 		.description("release the package, with its skill stamped at its version")
 		.action((_opts, { log, fs, ps }) => ship({ log, fs, ps }));
@@ -58,10 +73,10 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			default: false,
 			description: "run the package's and the eval harness's tests together",
 		})
-		.option("linux", z.boolean(), {
+		.option("local", z.boolean(), {
 			default: false,
 			description:
-				"run them on Linux, in a Docker container built from the checkout, as the box and the workers run; needs Docker",
+				"run them here in a heavy-job slot, even when a runner has joined `splates server`, which otherwise runs them on a snapshot of this worktree and streams the output back",
 		})
 		.rest("files", z.string(), {
 			description: "run only the test files whose path has one of these",

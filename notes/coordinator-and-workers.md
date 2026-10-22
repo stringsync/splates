@@ -22,4 +22,4 @@ Other machines still join with a single-use token and then show a key, and
 made workers are still provisioned and budgeted, but since 2026-10-22 none
 runs an agent, a checkout or a terminal: remote agents, their clones, the
 relay, task keys and waking were removed (see `designs/worker-pool.md`).
-They come back as stateless runners for heavy jobs.
+They come back as stateless runners for heavy jobs (`heavy-jobs-on-runners.md`).

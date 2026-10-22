@@ -9,10 +9,13 @@ import {
 	type Timer,
 	timeouts,
 } from "webappwiz/time";
+import { splatesHome } from "../models";
 import { RUNNING } from "../server/shared";
 import { WorkerCallHost } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import { challengeNonce, proofHolds } from "./identity";
+import { JOBS } from "./job";
+import { WorkerJobHost } from "./job-host";
 import { hostOf, LocalWorkerMachine } from "./machine";
 import { OrphanBound } from "./orphan";
 import { WorkerProcessHost } from "./process-host";
@@ -35,7 +38,7 @@ export interface WorkerDialer {
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
-export const WORKER_CAPABILITIES = ["process", "pty", "calls", UPDATE];
+export const WORKER_CAPABILITIES = ["process", "pty", "calls", JOBS, UPDATE];
 
 /**
  * `splates worker run`: a worker that dials out to its server and keeps
@@ -142,6 +145,8 @@ export class WorkerDaemon implements AsyncResource {
 						platform: this.opts.ps.platform,
 						...(host === null ? {} : { host }),
 						build: RUNNING,
+						// Runs heavy jobs on a `job` channel.
+						jobs: true,
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {
@@ -308,6 +313,14 @@ export class WorkerDaemon implements AsyncResource {
 				case "calls":
 					host = new WorkerCallHost(channel, this.machine);
 					break;
+				case "job":
+					host = new WorkerJobHost(
+						channel,
+						this.session,
+						ps,
+						this.opts.runnerHome ?? `${splatesHome(ps)}/runner`,
+					);
+					break;
 				default:
 					log.error(
 						`a coordinator opened a ${channel.kind} channel, which this worker does not serve`,
@@ -323,7 +336,10 @@ export class WorkerDaemon implements AsyncResource {
 		this.hosts.add(host);
 		// An agent or a terminal is told of in the log, which says what a
 		// restart left running; a call is over in a moment.
-		const lasting = channel.kind === "process" || channel.kind === "pty";
+		const lasting =
+			channel.kind === "process" ||
+			channel.kind === "pty" ||
+			channel.kind === "job";
 		if (lasting) {
 			this.running++;
 			log.info(`started ${channel.kind} channel ${channel.id}`);
@@ -390,6 +406,8 @@ export interface WorkerDaemonOptions {
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
 	timer?: Timer;
 	clock?: Clock;
+	/** Where a runner keeps its warm clones and job checkouts; `runner` under the splates home by default. */
+	runnerHome?: string;
 	/** Where it runs each agent, kept from the others; none, running each as this worker's user, by default. */
 	sandbox?: AgentSandbox | null;
 }

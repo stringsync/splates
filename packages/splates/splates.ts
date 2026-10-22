@@ -140,13 +140,20 @@ splates
 splates
 	.command("heavy")
 	.description(
-		"run a heavy command (a full test run, an install) in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 2 by default",
+		"run a heavy command (a full test run, an install) on a runner that has joined `splates server`, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours; with no runner, here in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 2 by default. Run on a runner, it changes nothing here: files it writes stay there",
 	)
+	.option("local", z.boolean(), {
+		default: false,
+		description:
+			"run it here in a heavy-job slot even when a runner has joined `splates server`",
+	})
 	.rest("command", z.string(), {
 		description: "the command and its arguments, after `--`",
 	})
 	.action(async (opts, ctx) => {
-		const code = await runHeavy(ctx, opts.command);
+		const code = await runHeavy(ctx, opts.command, undefined, {
+			local: opts.local,
+		});
 		if (code !== 0) {
 			ctx.ps.exit(code);
 		}

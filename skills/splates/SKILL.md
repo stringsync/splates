@@ -257,7 +257,10 @@ the message; a `Maybe relevant:` one only when it fits.
    may need to settle, which you treat as your own. Subagents at work at
    once share the tree, so give each its own files. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
-   script takes a slot itself: it waits for one of the machine's few
+   script takes a slot itself: it runs on a runner that has joined the
+   server, in a checkout of your worktree as it stands, its output streamed
+   back and its exit code yours (what it writes there stays there; `--local`
+   skips this), and with none joined it waits for one of the machine's few
    heavy-job slots, so agents testing at once queue rather than run it out
    of memory.
 5. **Land.** Once every step under `## Next` (including any user review) and

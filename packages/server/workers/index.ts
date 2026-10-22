@@ -49,6 +49,8 @@ export {
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
+export type { RemoteJob, RemoteJobResult } from "./job-client";
+export { runOnRunner } from "./job-client";
 export { SUPERVISOR } from "./lifecycle";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
@@ -90,7 +92,7 @@ export {
 export { workerRun, workerSocketPath } from "./run";
 export type { Grant, HeldSlot, PoolWorker, QueueEntry } from "./scheduler";
 export { Scheduler, type SlotRequest } from "./scheduler";
-export type { ServerOf } from "./server-of";
+export type { ServerOf, ServerSend } from "./server-of";
 export { serverOf } from "./server-of";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";

@@ -47,6 +47,12 @@ export interface Config {
 	 */
 	preMerge: string | null;
 	/**
+	 * Command a runner runs, via `sh -c` in its throwaway checkout of a task's
+	 * snapshot, before a heavy job's own command: the install and build the
+	 * job needs and a fresh checkout lacks (`"bun install"`). Null runs none.
+	 */
+	prepare: string | null;
+	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
 	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:

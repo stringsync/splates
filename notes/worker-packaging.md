@@ -8,10 +8,13 @@ cloud snapshots are built from it. The Windows WSL2 installer went with
 worker waking, and the worker proof (`splates dev prove worker`) with remote
 agents, on 2026-10-22. `splates dev prove coordinator`, which ran
 `splates server` in a Debian container, went the same day: the server runs
-on this machine, with its agents, and `splates dev test --linux` covers
+on this machine, with its agents, and a runner (`splates dev test` on one) covers
 what differs on Linux.
 
 `docker/worker.Dockerfile` builds a credential-free Linux worker from this
-checkout. A server on Linux needs a working device store: libsecret's, or
+checkout, which is also the runner `splates dev prove runner` joins
+(`docker/prove-runner.sh`, with `prove-lib.sh` and `forward.ts`, which gives
+the container a loopback to reach this machine's server through). A server on
+Linux needs a working device store: libsecret's, or
 files under `~/.splates/secrets/` with `SPLATES_SECRET_STORE=file`; a server
 with neither stops at once saying so.

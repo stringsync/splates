@@ -930,6 +930,7 @@ export async function dev(
 					},
 					"/api/ports": guarded(taskPorts.list),
 					"/api/queue": guarded(workers.queue),
+					"/api/jobs": { POST: talk(guarded(workers.jobs.run)) },
 					"/api/queue/:id/position": {
 						PUT: talk(guarded(workers.moveQueued)),
 					},

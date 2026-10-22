@@ -17,3 +17,8 @@ slot or claim finds `SPLATES_HEAVY` or `SPLATES_CORES` in its environment
 and claims nothing more, which is how a gate's `dev test` does not wait on
 itself. A merge's claim goes first, ahead of waiters under two minutes old.
 `Testing` gives each test its own slots and strips those variables.
+
+These slots and cores are the machine's own, taken by a job that runs here:
+`splates heavy -- <cmd>` and `splates dev test` first try a runner, and
+`--local`, no server, or no runner joined runs them here as above. See
+`heavy-jobs-on-runners.md`.
