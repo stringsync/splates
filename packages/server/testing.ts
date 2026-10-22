@@ -24,6 +24,10 @@ import { FsStorage } from "./storage";
 import { WorktreeService } from "./tasks";
 import { Shell } from "./terminal";
 
+// the machine's own git identity must not reach a test that expects none
+process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+process.env.GIT_CONFIG_NOSYSTEM = "1";
+
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an
  * splates command runs against, wired to it. A command takes the whole thing as
