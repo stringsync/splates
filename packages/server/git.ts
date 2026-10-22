@@ -115,6 +115,11 @@ export class Git {
 	}
 
 	async branchExists(branch: string): Promise<boolean> {
+		// A loose ref is answer enough, and a file is far cheaper than a git
+		// process; finding none, the branch may yet be packed, so git decides.
+		if (await this.fs.exists(`${this.root}/.git/refs/heads/${branch}`)) {
+			return true;
+		}
 		const { code } = await this.run(
 			this.root,
 			"rev-parse",

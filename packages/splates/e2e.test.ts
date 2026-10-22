@@ -1,5 +1,6 @@
-import { describe, expect, it, setDefaultTimeout } from "bun:test";
-import { chmod } from "node:fs/promises";
+import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Testing } from "@stringsync/splates-server/testing";
 import { ensure } from "webappwiz/assert";
@@ -423,7 +424,49 @@ describe.concurrent("splates", () => {
 	});
 });
 
-const CLI = join(import.meta.dirname, "index.ts");
+// Bundled once for the file: each run then loads one file rather than
+// transpiling hundreds, which halves the CPU of the ~50 runs here.
+let bundled: Promise<string> | null = null;
+const cli = () => {
+	bundled ??= (async () => {
+		const out = await mkdtemp(join(tmpdir(), "splates-e2e-cli-"));
+		const build = await Bun.build({
+			entrypoints: [join(import.meta.dirname, "index.ts")],
+			target: "bun",
+			outdir: out,
+		});
+		if (!build.success) {
+			throw new AggregateError(build.logs, "could not bundle the CLI");
+		}
+		return join(out, "index.js");
+	})();
+	return bundled;
+};
+
+// At most four runs at once. Bun starts twenty concurrent tests together,
+// and that many CLI processes on a 4-CPU box took nearly twice the CPU of
+// four, for no less wall.
+const RUNS_AT_ONCE = 4;
+let running = 0;
+const queued: (() => void)[] = [];
+const oneOfFew = async <T>(run: () => Promise<T>): Promise<T> => {
+	while (running >= RUNS_AT_ONCE) {
+		await new Promise<void>((resolve) => queued.push(resolve));
+	}
+	running++;
+	try {
+		return await run();
+	} finally {
+		running--;
+		queued.shift()?.();
+	}
+};
+
+afterAll(async () => {
+	if (bundled !== null) {
+		await rm(join(await bundled, ".."), { recursive: true, force: true });
+	}
+});
 
 const worktreeFromAdd = (stdout: string) =>
 	ensure.defined(
@@ -450,9 +493,12 @@ const setup = async ({ init = true }: { init?: boolean } = {}) => {
 
 	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
 	const splates = async (cwd: string, ...args: string[]) => {
-		const { exitCode, stdout, stderr } = await env.ps.spawnCapture(
-			["bun", CLI, ...args],
-			{ cwd, env: { PATH: `${bin}:${process.env.PATH}` } },
+		const program = await cli();
+		const { exitCode, stdout, stderr } = await oneOfFew(() =>
+			env.ps.spawnCapture(["bun", program, ...args], {
+				cwd,
+				env: { PATH: `${bin}:${process.env.PATH}` },
+			}),
 		);
 		return { exitCode, stdout: color.strip(stdout), stderr };
 	};
