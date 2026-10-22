@@ -10,6 +10,13 @@ import {
 } from "../tunnel";
 import { LOCAL_WORKER } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
+import {
+	CLOUD_USES,
+	cloudOf,
+	cloudTokenAccepted,
+	cloudTokenFields,
+	requireCloudToken,
+} from "./cloud";
 import type { SetupArea, SetupMachine, SetupStep, SetupWorker } from "./setup";
 
 /**
@@ -99,10 +106,70 @@ function workersArea(): SetupArea {
 		},
 	};
 
+	const tokenStep: SetupStep = {
+		id: "cloud-token",
+		title: "Paste your cloud provider's API token",
+		why: "Runners are machines in your own cloud account, made only while heavy jobs wait for one and deleted when they are done.",
+		user: "Make an API token in your cloud provider's account and paste it.",
+		agent:
+			"Request the cred the step names with `splates creds request <cred> --device`, with how to get it, and `splates creds wait <cred>`. Never ask for it in chat.",
+		optional: true,
+		after: [],
+		uses: CLOUD_USES,
+		fields: async (machine) => cloudTokenFields(machine),
+		detail: async (machine) => {
+			const [type] = cloudOf(machine).defaults.workerTypes;
+			return type === undefined
+				? null
+				: `A runner is a \`${type.name}\` machine in ${cloudOf(machine).name}, ${type.slots} jobs at once, about $${type.dollarsPerHour} an hour, billed ${type.billing === "second" ? "for the time it runs" : "by the started hour"}.`;
+		},
+		submit: requireCloudToken,
+		check: cloudTokenAccepted,
+		notDone:
+			"The cloud provider does not take the token kept: paste another, then press Next.",
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"The token itself in your cloud account: revoke it in its console, once nothing else uses it.",
+			],
+			run: async () => {},
+		},
+	};
+
+	const providerStep: SetupStep = {
+		id: "cloud-provider",
+		title: "Turn cloud runners on",
+		why: "A project makes runners once its `splates.config.ts` names its `cloud`.",
+		user: "Add the `cloud` the step shows to this project's `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next.",
+		agent:
+			"In a task of its own, add the `cloud` the step's detail shows, imported from `@stringsync/splates-server/cloud`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup cloud-provider`.",
+		detail: async (machine) =>
+			`Add \`cloud: ${cloudOf(machine).configSource}\`.`,
+		notDone:
+			"`splates.config.ts` names no `cloud` yet: add it, merge it, then press Next.",
+		optional: true,
+		after: [tokenStep],
+		check: async (machine) => {
+			if (machine.project === undefined) {
+				throw new Error(
+					"No project to check: open Setup from a project, or run `splates setup` in its repository.",
+				);
+			}
+			return (await machine.project.config()).workerProvider !== null;
+		},
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"`cloud` in this project's `splates.config.ts`: take it out in a task and merge it, then restart `splates server`, or it makes runners again once a token is pasted.",
+			],
+			run: async () => {},
+		},
+	};
+
 	return {
 		id: "workers",
 		title: "Workers",
-		steps: [localStep, permissionStep],
+		steps: [localStep, permissionStep, tokenStep, providerStep],
 	};
 }
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
+import { CloudWorkers } from "../cloud";
 import { Git } from "../git";
 import { Testing } from "../testing";
 import { loadConfig } from "./load";
@@ -52,6 +53,25 @@ describe("loadConfig", () => {
 		expect(config.mergeRetryCount).toBe(7);
 		expect(config.notesDir).toBe("docs/context");
 		expect(config.leaseStalenessMs).toBe(90_000);
+	});
+
+	it("makes runners in the cloud splates.config.ts names, unless it names a provider too", async () => {
+		const cloud = `{ name: "Some Cloud", defaults: { workerTypes: [] } }`;
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { cloud: ${cloud} };\n`,
+		);
+		expect((await loadConfig(root, { fs, git })).workerProvider).toBeInstanceOf(
+			CloudWorkers,
+		);
+
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { cloud: ${cloud}, workerProvider: { own: true } };\n`,
+		);
+		expect((await loadConfig(root, { fs, git })).workerProvider).toEqual({
+			own: true,
+		} as never);
 	});
 
 	it("makes no workers without a provider", async () => {

@@ -69,6 +69,32 @@ export const cloudflare: Provider = {
 	},
 };
 
+/** Invoices, one per month, in dollars. */
+export const digitalocean: Provider = {
+	id: "digitalocean",
+	cred: "DIGITALOCEAN_TOKEN",
+	async pull(sources, token) {
+		const body = (await getJson(
+			sources,
+			"https://api.digitalocean.com/v2/customers/my/invoices?per_page=100",
+			token,
+		)) as {
+			invoices?: {
+				invoice_uuid: string;
+				amount: string;
+				invoice_period: string;
+			}[];
+		};
+		return (body.invoices ?? []).map((invoice) => ({
+			day: `${invoice.invoice_period}-01`,
+			service: "droplets",
+			amount: Number(invoice.amount),
+			currency: "USD",
+			ref: `digitalocean:${invoice.invoice_uuid}`,
+		}));
+	},
+};
+
 async function getJson(
 	sources: Sources,
 	url: string,

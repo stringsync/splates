@@ -1,3 +1,4 @@
+import type { CloudProvider } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { TunnelProvider } from "../tunnel";
 import type { WorkerProvider } from "../workers";
@@ -113,6 +114,12 @@ export interface Config {
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */
 	tunnel: TunnelProvider | null;
+	/**
+	 * The cloud account runners are made in, as `new DigitalOceanCloud()` from
+	 * `@stringsync/splates-server/cloud`; null makes none. Naming it makes
+	 * `workerProvider` one that makes runners there, unless that is named too.
+	 */
+	cloud: CloudProvider | null;
 	/**
 	 * What makes worker machines when agents queue for want of a slot, and
 	 * for `splates worker add --provider`: a provider of your own; null makes

@@ -126,6 +126,7 @@ export class Testing implements AsyncDisposable {
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
+			cloud: null,
 			workerProvider: null,
 			platform: null,
 		};

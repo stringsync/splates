@@ -1,4 +1,4 @@
-import { cloudflare, openai } from "./adapters";
+import { cloudflare, digitalocean, openai } from "./adapters";
 
 /** One amount a provider billed, in its own currency. */
 export interface Charge {
@@ -43,6 +43,7 @@ export interface Provider {
 export const PROVIDERS: readonly Provider[] = [
 	openai,
 	cloudflare,
+	digitalocean,
 	{
 		id: "typesafe",
 		cred: null,
