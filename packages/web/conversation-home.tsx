@@ -33,7 +33,6 @@ import { WIDE } from "./app-nav";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import type { AutoPickControl } from "./auto-pick-switch";
 import { Board } from "./board";
-import { picksFor } from "./choose-setting";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { composerIn } from "./composer-editor";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
@@ -318,10 +317,6 @@ export function useNewConversation({
 			autoPick={model === null ? autoPick : undefined}
 			onChange={(setting, value) => {
 				setPicks((picks) => ({ ...picks, [setting.id]: value }));
-				// The person's own model or effort switches Auto pick off.
-				if (picksFor(setting)) {
-					autoPick.switch(false);
-				}
 				// Kept as the agent's default now, whether or not this one starts.
 				void chooseDefault(agent, setting.id, value).catch((error: unknown) =>
 					refuseIn(draft, `${setting.name} not kept`, error),

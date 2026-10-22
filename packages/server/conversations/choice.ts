@@ -5,7 +5,8 @@ import type { Setting } from "./state";
 
 /**
  * Applies a validated choice to the session and its log: the person's, or,
- * `byAutoPick`, Auto pick's own, which overrides nothing.
+ * `byAutoPick`, Auto pick's own. Neither switches Auto pick off: that is
+ * the person's own switch; a pick of theirs is only recorded as an override.
  */
 export async function choose(
 	host: ConversationHost,
@@ -28,22 +29,7 @@ export async function choose(
 		);
 	}
 	const aspect = overridden(setting);
-	const { autoPick } = host.state;
-	if (aspect !== null && !byAutoPick && !host.state.assigned) {
-		// Auto pick switched on by the person: their own pick switches it off.
-		if (autoPick !== null && !autoPick.overridden) {
-			host.state.autoPick = { ...autoPick, overridden: true };
-			host.log.write({
-				kind: "auto-pick-switch",
-				on: false,
-				at: new Date().toISOString(),
-			});
-		}
-	}
 	if (host.state.assigned && aspect !== null && !byAutoPick) {
-		if (autoPick !== null) {
-			host.state.autoPick = { ...autoPick, overridden: true };
-		}
 		host.log.write({
 			kind: "override",
 			setting: id,

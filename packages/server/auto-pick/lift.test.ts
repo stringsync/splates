@@ -164,14 +164,11 @@ describe("lifting", () => {
 		expect(on).toEqual(["small", "small"]);
 	});
 
-	it("leaves a conversation alone once the person moved its model", async () => {
+	it("keeps Auto pick on when the person moves the model", async () => {
 		const conversation = await start();
 		await conversation.choose("model", "small");
-		judge = new FakeJudge(WIDE);
-		await say(conversation, WIDENING);
 
-		expect(judge.asked).toEqual([]);
-		expect(conversation.state.autoPick?.overridden).toBe(true);
+		expect(conversation.state.autoPick?.overridden).toBe(false);
 	});
 
 	it("moves the conversation up for the answer to a first reply that asked back", async () => {
@@ -213,7 +210,7 @@ describe("lifting", () => {
 		expect(on).toEqual(["small", "small", "small"]);
 	});
 
-	it("keeps the move and the person's override across a restart", async () => {
+	it("keeps the move and Auto pick's switch across a restart", async () => {
 		const conversation = await start();
 		judge = new FakeJudge(WIDE);
 		await say(conversation, WIDENING);
@@ -228,7 +225,7 @@ describe("lifting", () => {
 		const back = await conversations.find(conversation.id);
 		expect(back.state.autoPick).toMatchObject({
 			model: "big",
-			overridden: true,
+			overridden: false,
 		});
 	});
 
@@ -297,13 +294,11 @@ describe("lifting", () => {
 		expect(conversation.state.autoPick?.rejudge).toBe(true);
 	});
 
-	it("switched on, is switched off by the person's own model, and stays off across a restart", async () => {
+	it("switched on, stays on when the person picks a model, across a restart too", async () => {
 		const conversation = await own();
 		conversation.switchAutoPick(true);
 		await conversation.choose("model", "big");
-		expect(conversation.state.autoPick?.overridden).toBe(true);
-		await say(conversation, "go");
-		expect(judge.asked).toEqual([]);
+		expect(conversation.state.autoPick?.overridden).toBe(false);
 		await conversations.disposeAsync();
 
 		conversations = new Conversations(
@@ -312,7 +307,7 @@ describe("lifting", () => {
 			{ launch: agent.launch },
 		);
 		const back = await conversations.find(conversation.id);
-		expect(back.state.autoPick?.overridden).toBe(true);
+		expect(back.state.autoPick?.overridden).toBe(false);
 	});
 
 	it("switches off and on again, judging afresh", async () => {

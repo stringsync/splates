@@ -397,6 +397,7 @@ function SettingSelect({
 	const known = setting.options.some((option) => option.value === value);
 	const auto = autoPick?.on === true;
 	const autoId = useId();
+	const withSwitch = autoPick !== undefined && !inDialog;
 	return (
 		<Select
 			// Base UI keeps a picker's items once it has them, and shows a
@@ -411,6 +412,13 @@ function SettingSelect({
 			onValueChange={(value) => {
 				if (value !== null) {
 					onChange(String(value));
+				}
+			}}
+			onOpenChange={(open, details) => {
+				// With Auto pick's switch inside, a pick leaves the list open to
+				// change the switch too; a click outside or Escape still closes it.
+				if (!open && withSwitch && details.reason === "item-press") {
+					details.cancel();
 				}
 			}}
 		>
@@ -461,7 +469,7 @@ function SettingSelect({
 				alignItemWithTrigger={false}
 				className="w-auto max-w-[calc(100vw-2rem)]"
 			>
-				{autoPick !== undefined && !inDialog && (
+				{withSwitch && (
 					<div className="flex items-center justify-between gap-3 px-2 py-1.5 text-xs">
 						<label
 							htmlFor={autoId}

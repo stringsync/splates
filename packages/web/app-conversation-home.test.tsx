@@ -288,7 +288,7 @@ describe("App's conversation home", () => {
 		}
 	});
 
-	it("switches New's Auto pick off when the person picks a model", async () => {
+	it("keeps New's Auto pick on when the person picks a model", async () => {
 		localStorage.setItem("splates.newConversationAutoModel", "true");
 		const settings = [
 			{
@@ -323,9 +323,10 @@ describe("App's conversation home", () => {
 				await waitFor(() => view.getByRole("option", { name: "Small" })),
 			);
 
-			await waitFor(() => expect(model.textContent).not.toContain("Auto"));
+			await waitFor(() => expect(model.textContent).toContain("Small"));
+			expect(model.textContent).toContain("Auto");
 			expect(localStorage.getItem("splates.newConversationAutoModel")).toBe(
-				"false",
+				"true",
 			);
 		} finally {
 			localStorage.removeItem("splates.newConversationAutoModel");
