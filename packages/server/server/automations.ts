@@ -14,7 +14,7 @@ import {
 	Scheduler,
 	type TaskEventName,
 } from "../hooks";
-import { type AgentPick, effortSettings } from "../models";
+import { type AgentPick, pickSettings } from "../models";
 import { Notes, unclaimed } from "../notes";
 import { eventReference, GARDEN, scheduleReference } from "../plans";
 import type { Journal } from "../records";
@@ -143,7 +143,7 @@ export class Automations implements Resource {
 				task: null,
 				cwd: root,
 				model: pick.model,
-				settings: effortSettings(pick.effort, offered),
+				settings: pickSettings(pick.effort, offered),
 				assigned: true,
 				capped: true,
 			});

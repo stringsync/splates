@@ -26,6 +26,23 @@ export function effortSettings(
 }
 
 /**
+ * What a conversation started on a pick opens with: `effort` as
+ * {@link effortSettings} has it, and the permission mode `offered` holds as the
+ * person's default for the agent, which only a pick made by hand would
+ * otherwise carry, leaving the agent on its own manual mode.
+ */
+export function pickSettings(
+	effort: string | undefined,
+	offered: Setting[],
+): Record<string, string> {
+	const mode = offered.find((each) => each.category === "mode");
+	return {
+		...(mode === undefined ? {} : { [mode.id]: mode.current }),
+		...effortSettings(effort, offered),
+	};
+}
+
+/**
  * `effort` as one of the thinking levels `agent` offers, by its value or
  * name in any case, so it goes in the setting as the agent takes it.
  * Refuses a level the agent does not offer, or any level for an agent with

@@ -1,5 +1,11 @@
 export { codexLimits, isCodex } from "./codex-limits";
-export { effortSettings, effortsOf, pickEffort, thinkingOf } from "./effort";
+export {
+	effortSettings,
+	effortsOf,
+	pickEffort,
+	pickSettings,
+	thinkingOf,
+} from "./effort";
 export { Limits } from "./limits";
 export {
 	modelOption,

@@ -1,6 +1,6 @@
 import type { Logger } from "webappwiz/log";
 import type { Conversations } from "../conversations";
-import { effortSettings } from "../models";
+import { pickSettings } from "../models";
 import type { HeldConversations } from "../queue";
 import type { WorktreeService } from "../tasks";
 
@@ -42,7 +42,7 @@ export function heldFor(
 				task: null,
 				cwd: root,
 				model: pick.model,
-				settings: effortSettings(pick.effort, offered),
+				settings: pickSettings(pick.effort, offered),
 				assigned: true,
 				capped: true,
 				queued: queued.id,

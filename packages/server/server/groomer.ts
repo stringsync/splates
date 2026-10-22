@@ -7,7 +7,7 @@ import {
 	GROOMER_ROLE,
 	SERVER_TOLD,
 } from "../conversations";
-import { type AgentPick, effortSettings } from "../models";
+import { type AgentPick, pickSettings } from "../models";
 import { groomReference, need, sortReference } from "../plans";
 
 /**
@@ -186,7 +186,7 @@ export class Groomer implements Resource {
 			task: null,
 			cwd: root,
 			model: pick.model,
-			settings: effortSettings(pick.effort, offered),
+			settings: pickSettings(pick.effort, offered),
 			assigned: true,
 			capped: true,
 			persistent: GROOMER_ROLE,

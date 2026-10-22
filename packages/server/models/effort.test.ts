@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Setting } from "../conversations";
-import { effortSettings, pickEffort } from "./effort";
+import { effortSettings, pickEffort, pickSettings } from "./effort";
 
 const EFFORT: Setting = {
 	id: "effort",
@@ -15,7 +15,29 @@ const EFFORT: Setting = {
 	})),
 };
 
+const MODE: Setting = {
+	id: "mode",
+	name: "Mode",
+	type: "select",
+	category: "mode",
+	current: "auto",
+	options: ["default", "auto"].map((value) => ({
+		value,
+		name: value,
+		description: null,
+	})),
+};
+
 describe("effort", () => {
+	it("opens a pick on the person's saved mode as well as its level", () => {
+		expect(pickSettings("high", [MODE, EFFORT])).toEqual({
+			mode: "auto",
+			effort: "high",
+		});
+		expect(pickSettings(undefined, [MODE])).toEqual({ mode: "auto" });
+		expect(pickSettings("high", [EFFORT])).toEqual({ effort: "high" });
+	});
+
 	it("puts the level in the thinking setting, or nowhere without one", () => {
 		expect(effortSettings("high", [EFFORT])).toEqual({ effort: "high" });
 		expect(effortSettings(undefined, [EFFORT])).toEqual({});

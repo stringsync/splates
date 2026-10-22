@@ -6,7 +6,7 @@ import type {
 	Picked,
 } from "../conversations";
 import { fail } from "../exit";
-import { effortSettings, Roster, splatesHome } from "../models";
+import { pickSettings, Roster, splatesHome } from "../models";
 import { goalOf, Plans } from "../plans";
 import { Prices } from "../prices";
 import type { Journal, Lifted } from "../records";
@@ -122,7 +122,7 @@ export async function startAutoPick({
 	const opened = ({ pick }: AutoPickDecision): Picked<string> => ({
 		agent: pick.agent,
 		...(pick.model === undefined ? {} : { model: pick.model }),
-		settings: effortSettings(pick.effort, offered[pick.agent] ?? []),
+		settings: pickSettings(pick.effort, offered[pick.agent] ?? []),
 	});
 	const starting = opened(fallback);
 	const conversation = start(starting.agent, {
