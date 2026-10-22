@@ -140,6 +140,11 @@ export class Replicator implements Resource {
 	}
 
 	private changed(key: string): void {
+		// A cred saved, as the bucket's key once it is filled, may be what the
+		// failing batch lacked: try again now rather than when the backoff ends.
+		if (key === CREDS_KEY && this.error !== null && !this.stopped) {
+			void this.flush();
+		}
 		if (!replicated(key)) {
 			return;
 		}
@@ -377,6 +382,9 @@ export class Replicator implements Resource {
  * where the replica last stood, which no replica carries.
  */
 const RECORD_KEY = "replica.json";
+
+/** The project's record of creds asked for and saved, which changes as one is filled. */
+const CREDS_KEY = "creds.json";
 
 const STATUS = z.object({
 	replica: z.string(),

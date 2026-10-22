@@ -32,6 +32,7 @@ describe("SETUP_AREAS", () => {
 			"opencode",
 			"remote-access",
 			"workers",
+			"replica",
 			"dictation",
 			"auto-pick",
 			"github",

@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";
+import type { ReplicaStatus } from "../replica";
 import { type Document, FsStorage } from "../storage";
 import type {
 	WorkerBudgetReport,
@@ -359,9 +360,19 @@ export type SetupWorker = Pick<
 export interface SetupProject {
 	readonly root: string;
 	/** Its `splates.config.ts`, as it stands now. */
-	config(): Promise<Pick<Config, "trunk" | "remote" | "workerProvider">>;
+	config(): Promise<
+		Pick<Config, "trunk" | "remote" | "workerProvider" | "replica">
+	>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;
+	/**
+	 * Where its replica stands: as of now while `splates server` keeps it,
+	 * else as of its last batch; null when none has run. None when its
+	 * records cannot be read.
+	 */
+	replica?(): Promise<ReplicaStatus | null>;
+	/** Whether its creds, the project's then the device's, keep `name`. None when they cannot be read. */
+	kept?(name: string): Promise<boolean>;
 }
 
 /**

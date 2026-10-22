@@ -3,6 +3,11 @@ import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
 import { fail } from "@stringsync/splates-server/exit";
 import { splatesHome } from "@stringsync/splates-server/models";
 import { Projects } from "@stringsync/splates-server/projects";
+import {
+	openRepository,
+	type Repository,
+} from "@stringsync/splates-server/records";
+import { Replicator } from "@stringsync/splates-server/replica";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	SETUP_AREAS,
@@ -123,10 +128,44 @@ export async function setupOf(deps: SplatesDeps): Promise<Setup> {
 							}),
 					}
 				: undefined,
-			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
+			project:
+				root === null
+					? undefined
+					: setupProjectAt(
+							root,
+							{ fs, ps },
+							{
+								// As of the server's last batch, so it reads the same with it stopped.
+								replica: () =>
+									withRecords(deps, root, ({ storage }) =>
+										Replicator.recorded(storage),
+									),
+								kept: (name) =>
+									withRecords(
+										deps,
+										root,
+										async ({ creds }) =>
+											(await creds.credentials.get(name)) !== undefined,
+									),
+							},
+						),
 		},
 		SETUP_AREAS,
 	);
+}
+
+/** What `read` makes of the records of the project at `root`, closed after. */
+async function withRecords<T>(
+	deps: SplatesDeps,
+	root: string,
+	read: (records: Repository) => Promise<T>,
+): Promise<T> {
+	const records = await openRepository(deps, { at: root });
+	try {
+		return await read(records);
+	} finally {
+		records.dispose();
+	}
 }
 
 /** The main tree of the repository the working directory is in, or null. */

@@ -52,7 +52,12 @@ describe("GITHUB_AREA", () => {
 				answer(github, asked, init?.method ?? "GET")) as typeof fetch,
 			project: {
 				root: "/repo",
-				config: async () => ({ trunk: "main", remote, workerProvider: null }),
+				config: async () => ({
+					trunk: "main",
+					remote,
+					workerProvider: null,
+					replica: null,
+				}),
 				remoteUrl: async (name) => (name === "origin" ? url : null),
 			},
 		};

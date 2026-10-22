@@ -582,7 +582,15 @@ export async function dev(
 				project:
 					project == null
 						? undefined
-						: setupProjectAt(project.root, { fs, ps }),
+						: setupProjectAt(
+								project.root,
+								{ fs, ps },
+								{
+									replica: async () => (await servedAt(project.root)).replica(),
+									kept: async (name) =>
+										(await servedAt(project.root)).kept(name),
+								},
+							),
 			},
 			SETUP_AREAS,
 		);

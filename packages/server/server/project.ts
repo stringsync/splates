@@ -30,6 +30,7 @@ import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
+import { type ReplicaStatus, Replicator } from "../replica";
 import type { NoteSource } from "../stats";
 import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
@@ -67,7 +68,7 @@ export async function serveProject(
 	let unwatchRoom: (() => void) | null = null;
 	let starting = Promise.resolve();
 	const automations = new Automations(project);
-	context.replicas.of(project);
+	const replicator = context.replicas.of(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
 		queueRunner = QueueRunner.watch({
@@ -202,6 +203,10 @@ export async function serveProject(
 		root: service.git.root,
 		format,
 		conversations,
+		replica: async () =>
+			replicator?.status() ?? (await Replicator.recorded(storage)),
+		kept: async (name) =>
+			(await project.creds.credentials.get(name)) !== undefined,
 		refresh: watch.changed,
 		snapshot: async () => Response.json(await watch.current()),
 		current: () => watch.current(),
@@ -447,6 +452,10 @@ export interface Served extends AsyncResource {
 	exportConfig: Handler;
 	uploadPart: Handler;
 	importConfig: Handler;
+	/** Where its replica stands now, or as last recorded; null when none has run. */
+	replica: () => Promise<ReplicaStatus | null>;
+	/** Whether its creds, the project's then the device's, keep `name`. */
+	kept: (name: string) => Promise<boolean>;
 	/** The project's journal, for the Stats page's Notes section. */
 	noteEvents: () => Promise<NoteSource>;
 	readNote: Handler;

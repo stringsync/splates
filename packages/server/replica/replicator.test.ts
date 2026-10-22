@@ -212,6 +212,24 @@ describe("Replicator", () => {
 
 		expect(copied(replica)).toEqual({ "tasks/1.md": "first" });
 	});
+
+	it("tries again at once when a cred is saved while it is failing", async () => {
+		const { storage, replica, timer, replicator } = replicating();
+		await storage.collection("tasks").write("1.md", "first");
+		replica.failing = new Error(
+			"no REPLICA_ACCESS_KEY and REPLICA_SECRET_KEY yet",
+		);
+		await replicator.start();
+		replica.failing = null;
+
+		await storage.document("creds.json").write({ requests: [] });
+		// The retry runs on its own; the backoff's timer is never fired.
+		await Bun.sleep(10);
+
+		expect(copied(replica)).toEqual({ "tasks/1.md": "first" });
+		expect(replicator.status()).toMatchObject({ error: null });
+		expect(due(timer)).toEqual([]);
+	});
 });
 
 function replicating(

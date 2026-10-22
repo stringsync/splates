@@ -49,7 +49,11 @@ replicator (`Replicas`, in `server/replicas.ts`; `serveProject` finds it
 running). The server flushes each one's last batch for up to ten seconds as
 it stops. `replica.json` also keeps the
 status as of the last batch, which `splates replica status` prints with the
-server stopped or not. Machine state (`agents.json`, Auto pick rules) is not
+server stopped or not. Setup's Replica area (`setup/area-replica.ts`) says
+the same on the page, live from the running replicator: naming one, the
+bucket's creds, and where it stands, a failure as the step's warning. A
+failing replicator tries again at once when `creds.json` changes, as when
+the Creds page fills the bucket's key, rather than when its backoff ends. Machine state (`agents.json`, Auto pick rules) is not
 replicated: it is shared by every project on the machine.
 
 ## Restoring and moving
