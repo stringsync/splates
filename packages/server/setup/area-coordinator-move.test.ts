@@ -54,6 +54,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 			"coordinator-pulumi",
 			"coordinator-access",
 			"coordinator-infra",
+			"coordinator-secrets",
 			"coordinator-remotes",
 			"coordinator-up",
 			"coordinator-creds",

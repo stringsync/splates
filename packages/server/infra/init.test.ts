@@ -23,13 +23,11 @@ test("writes the program and the stack's config, with no secret in it", async ()
 	]);
 	expect(await fs.read("/p/index.ts")).toContain("new CoordinatorBox");
 	expect(await fs.read("/p/Pulumi.prod.yaml")).toContain("splates:host");
-	expect(todo).not.toContain(
-		"pulumi config set --secret splates:githubToken-me",
-	);
+	expect(todo.some((line) => line.includes("--secret"))).toBe(false);
 	expect(await fs.read("/p/Pulumi.prod.yaml")).not.toContain("githubToken");
 });
 
-test("takes out a secret a past run set in the stack's config", async () => {
+test("takes out a secret an older run set in the stack's config", async () => {
 	const fs = new FakeFs();
 	await fs.mkdir("/p", { recursive: true });
 	await fs.write(

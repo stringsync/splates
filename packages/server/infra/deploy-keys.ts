@@ -2,8 +2,7 @@ import * as aws from "@pulumi/aws";
 import * as github from "@pulumi/github";
 import * as pulumi from "@pulumi/pulumi";
 import * as tls from "@pulumi/tls";
-import { envSecret } from "./env";
-import { githubTokenCred, ownerOf } from "./init";
+import { githubTokenName, ownerOf } from "./init";
 
 /** A project the box clones and pushes trunk of. */
 export interface DeployKeyProject {
@@ -40,6 +39,7 @@ export class DeployKeys extends pulumi.ComponentResource {
 		const child = { parent: this };
 		this.parameters = {};
 		// The resource takes a repository name alone, so each owner gets its own provider, with its own token.
+		const config = new pulumi.Config("splates");
 		const providers = new Map<string, github.Provider>();
 		for (const { slug, repository } of args.projects) {
 			const key = new tls.PrivateKey(
@@ -55,7 +55,7 @@ export class DeployKeys extends pulumi.ComponentResource {
 					`${name}-${owner}`,
 					{
 						owner,
-						token: envSecret(githubTokenCred(owner)),
+						token: config.requireSecret(githubTokenName(owner)),
 					},
 					child,
 				);

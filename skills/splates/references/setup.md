@@ -35,7 +35,9 @@ a task of its own, as Workflow says. The GitHub pushing area's steps after
 4. **Request every secret as a cred** (see [creds.md](creds.md)), with
    `--device`, since setup is for the whole machine: never ask for it in
    chat or read it from the environment. `splates creds wait <NAME>` until
-   they save it.
+   they save it. The Cloud server's stack secrets are the exception: the
+   user pastes them on the Pulumi site, through a step each, and splates
+   never requests or reads them.
 5. **Check the step after each thing you or the user did**: `splates setup
    <step>`. While it is not `done`, say in a line what went wrong, its
    `problem` or what you saw, and the one next thing to try, not every one
@@ -137,11 +139,12 @@ The move needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the
 `coordinator-remotes` step): the box reads a deploy key per project from its Parameter
 Store, and until each is set and GitHub lets it push trunk the deploy exits `blocked`,
-naming each cred the box lacks; the stack makes those, so run `pulumi up` through
-`coordinator-creds`'s Next, which does it itself after a blocked dry run, reading the
-stack's secrets (the Cloudflare token, the Anthropic key, a GitHub token per owner) from the
-creds store on every run, never from the stack's config: a cred the user replaces on the
-Creds page reaches the next run, and a failure that names one says which to replace. `--dry-run` stops there, the
+naming each cred the box lacks, which the stack makes: `coordinator-creds`'s Next
+runs `pulumi up` itself after a blocked dry run. The stack's secrets (the Cloudflare
+token, a GitHub token per owner, the Anthropic key) the user pastes on the Pulumi site,
+into the ESC environment `<org>/splates/secrets` the infra step makes with a placeholder
+each, through a `coordinator-secret-*` step each that says how to get it and reads done
+once the placeholder is gone; a failure that names one is fixed by pasting a new one there. `--dry-run` stops there, the
 box ready. Run for real (`coordinator-move`), it checkpoints every agent and
 stops this machine's `splates server`, carries the records over,
 starts the server on the box under systemd on a host of its own (`infra init`

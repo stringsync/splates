@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
+import { pulumiOrg } from "../coordinator/access";
 import { fail } from "../exit";
 import {
 	API_TOKEN,
@@ -13,27 +14,12 @@ import {
 } from "../tunnel";
 import type { TunnelCreds } from "../tunnel/setup";
 import type { DeployKeyProject } from "./deploy-keys";
+import { type InfraInitResult, importEnvironment, infraInit } from "./init";
 import {
-	githubOwnerOf,
-	githubTokenCred,
-	type InfraInitResult,
-	infraInit,
-	ownerOf,
-} from "./init";
-
-/** Where each stack secret but the GitHub tokens comes from in the creds store. */
-const SECRET_CREDS: Record<string, string> = {
-	"cloudflare:apiToken": API_TOKEN,
-	"splates:anthropicKey": "ANTHROPIC_API_KEY",
-};
-
-/** Where stack secret `key` comes from in the creds store. */
-export function secretCred(key: string): string {
-	const owner = githubOwnerOf(key);
-	return owner === null
-		? (SECRET_CREDS[key] as string)
-		: githubTokenCred(owner);
-}
+	CLOUDFLARE_PERMISSIONS,
+	SECRETS_ENVIRONMENT,
+	writeSecretsEnvironment,
+} from "./secrets";
 
 export interface InfraConfigureOptions {
 	dir: string;
@@ -128,18 +114,16 @@ export async function missingPermissions(
 	account: string,
 	zone: string,
 ): Promise<string[]> {
-	const probes: [string, string][] = [
-		["Account · Cloudflare Tunnel · Edit", `/accounts/${account}/cfd_tunnel`],
-		[
-			"Account · Access: Apps and Policies · Edit",
-			`/accounts/${account}/access/apps`,
-		],
-		[
-			"Account · Access: Service Tokens · Edit",
-			`/accounts/${account}/access/service_tokens`,
-		],
-		["Zone · DNS · Edit", `/zones/${zone}/dns_records`],
+	// In the order of `CLOUDFLARE_PERMISSIONS`, which the step for the stack's own token lists.
+	const paths = [
+		`/accounts/${account}/cfd_tunnel`,
+		`/accounts/${account}/access/apps`,
+		`/accounts/${account}/access/service_tokens`,
+		`/zones/${zone}/dns_records`,
 	];
+	const probes = CLOUDFLARE_PERMISSIONS.map(
+		(permission, at) => [permission, paths[at] as string] as const,
+	);
 	const missing: string[] = [];
 	for (const [permission, path] of probes) {
 		try {
@@ -159,9 +143,10 @@ export async function missingPermissions(
 /**
  * Writes the infra project with everything splates keeps filled in: the
  * projects from the registry, the host and email from the saved tunnel and
- * its Access application and the Cloudflare ids from the API. Each secret
- * stays in the creds store, for `CoordinatorBox` to hand to every `pulumi`
- * run; what is not kept is requested, and it refuses with `requested`.
+ * its Access application, and the Cloudflare ids from the API. The secrets
+ * it never sees: it makes the ESC environment `SECRETS_ENVIRONMENT` with a
+ * placeholder for each, which the user replaces on the Pulumi site, and has
+ * the stack import it.
  */
 export async function infraConfigure(
 	opts: InfraConfigureOptions,
@@ -248,65 +233,18 @@ export async function infraConfigure(
 		fs: opts.fs,
 	});
 
-	const lacking: string[] = [];
-	for (const key of result.secrets) {
-		const name = secretCred(key);
-		if ((await creds.credentials.get(name)) !== undefined) {
-			continue;
-		}
-		lacking.push(key);
-		const owner = githubOwnerOf(key);
-		const help =
-			owner === null
-				? SECRET_HELP[key]
-				: githubTokenHelp(
-						owner,
-						projects.filter(({ repository }) => ownerOf(repository) === owner),
-					);
-		if (help !== undefined) {
-			await creds.request(name, { scope: "device", task: null, ...help });
-		}
+	const org = await pulumiOrg(ps);
+	if (org === null) {
+		fail("usage", "Pulumi is not logged in here: `pulumi login` first", {});
 	}
-	if (lacking.length > 0) {
-		const names = lacking.map(secretCred).join(", ");
-		fail(
-			"requested",
-			`still needed: ${names}, requested on the Creds page of \`splates server\` where the setup can. Save them (\`splates creds wait <NAME>\`), then run this again.`,
-			{ names: lacking.map(secretCred) },
-		);
+	try {
+		await writeSecretsEnvironment(ps, org, result.secrets);
+	} catch (error) {
+		fail("usage", error instanceof Error ? error.message : String(error), {});
 	}
-	return { ...result, secrets: [], todo: [] };
+	const stackFile = `${opts.dir}/Pulumi.${opts.stack}.yaml`;
+	if (await importEnvironment(opts.fs, stackFile, SECRETS_ENVIRONMENT)) {
+		result.written.push(`Pulumi.${opts.stack}.yaml`);
+	}
+	return result;
 }
-
-interface SecretHelp {
-	purpose: string;
-	instructions: string;
-}
-
-/** How to get the GitHub token for `owner`, whose repositories `projects` are, as its request shows. */
-function githubTokenHelp(
-	owner: string,
-	projects: DeployKeyProject[],
-): SecretHelp {
-	const repositories = projects.map(({ repository }) => `\`${repository}\``);
-	return {
-		purpose: `For the infra stack to make a deploy key on each of ${owner}'s GitHub repositories that splates pushes (${repositories.join(", ")}), so the coordinator's box can clone and push trunk.`,
-		instructions: [
-			"1. Open [Fine-grained tokens](https://github.com/settings/personal-access-tokens/new).",
-			`2. Pick **${owner}** as the resource owner, then **Only select repositories** and ${repositories.join(", ")}, and give **Administration: Read and write**.`,
-			"3. Generate it and paste it here.",
-		].join("\n"),
-	};
-}
-
-/** How to get each other cred a stack secret is kept as, as its request shows. */
-const SECRET_HELP: Record<string, SecretHelp> = {
-	"splates:anthropicKey": {
-		purpose:
-			"For the coordinator's box, so agents that run there can reach Anthropic.",
-		instructions: [
-			"1. Open [API keys](https://console.anthropic.com/settings/keys), then **Create Key**.",
-			"2. Paste it here.",
-		].join("\n"),
-	},
-};

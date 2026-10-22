@@ -147,6 +147,42 @@ describe("Setup", () => {
 		});
 	});
 
+	it("lists the steps a step stands for in its place, each its own, and the steps after it wait on them all", async () => {
+		const host = fake("host", done);
+		const tokens: SetupStep = {
+			...fake("tokens", done, { optional: true, after: [host] }),
+			each: async () =>
+				["one", "two"].map((owner) => ({
+					...fake(`token-${owner}`, done, { optional: true, after: [host] }),
+					of: tokens,
+				})),
+			check: async () => done.has("token-one") && done.has("token-two"),
+		};
+		const up = fake("up", done, { optional: true, after: [tokens] });
+		const setup = new Setup(machine, [
+			{ id: "box", title: "Box", steps: [host, tokens, up] },
+		]);
+		done.add("host");
+		done.add("token-one");
+
+		const first = await setup.read();
+		expect(first.areas[0]?.steps.map((step) => [step.id, step.status])).toEqual(
+			[
+				["host", "done"],
+				["token-one", "done"],
+				["token-two", "ready"],
+				["up", "waiting"],
+			],
+		);
+		await expect(setup.submit("up", {})).rejects.toThrow(
+			'Do "Set up tokens" first.',
+		);
+		done.add("token-two");
+		expect(
+			(await setup.submit("token-two", {})).areas[0]?.steps.at(-1)?.status,
+		).toBe("ready");
+	});
+
 	it("refuses a step not on the roster", async () => {
 		const setup = new Setup(machine, roster());
 

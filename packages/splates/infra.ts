@@ -9,6 +9,7 @@ import {
 } from "@stringsync/splates-server/coordinator";
 import { fail } from "@stringsync/splates-server/exit";
 import { infraConfigure } from "@stringsync/splates-server/infra/configure";
+import { secretsEnvironmentUrl } from "@stringsync/splates-server/infra/secrets";
 import { Projects } from "@stringsync/splates-server/projects";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -26,7 +27,7 @@ splatesInfra
 	.command("init")
 	.use(repository({ needs: "own" }))
 	.description(
-		"write a Pulumi project in <dir>, its program a dozen lines using the components of @stringsync/splates-server/infra, and the stack's config from the flags; run again, it writes only what is not so already and keeps values you changed. It fills the stack's config from what splates keeps (the projects, the saved tunnel, the Cloudflare ids, and each secret from the creds store), requesting on the Creds page any cred not kept and exiting `requested`; run again once saved. When the Pulumi ESC environment `coordinator-access` makes (splates/aws) is there, the stack imports it. It records the directory in ~/.splates/coordinator/infra.json, where `splates server deploy` finds the stack. Its runtime is bun, which runs the program's TypeScript itself. Commit the project but not Pulumi.<stack>.yaml, which holds your own accounts and ids and which the .gitignore it writes keeps out of git; init writes it again from what splates keeps. Then `bun add @stringsync/splates-server @pulumi/pulumi @pulumi/aws @pulumi/awsx @pulumi/cloudflare @pulumi/github @pulumi/tls @pulumi/random` there and `pulumi up`",
+		"write a Pulumi project in <dir>, its program a dozen lines using the components of @stringsync/splates-server/infra, and the stack's config from the flags; run again, it writes only what is not so already and keeps values you changed. It fills the stack's config from what splates keeps (the projects, the saved tunnel, the Cloudflare ids). The secrets never pass through splates: it makes the Pulumi ESC environment splates/secrets with a placeholder for each (the Cloudflare token, a GitHub token per owner, the Anthropic key), which the stack imports and the user replaces on the Pulumi site; `splates setup` has a step for each saying how to get it. When the Pulumi ESC environment `coordinator-access` makes (splates/aws) is there, the stack imports it. It records the directory in ~/.splates/coordinator/infra.json, where `splates server deploy` finds the stack. Its runtime is bun, which runs the program's TypeScript itself. Commit the project but not Pulumi.<stack>.yaml, which holds your own accounts and ids and which the .gitignore it writes keeps out of git; init writes it again from what splates keeps. Then `bun add @stringsync/splates-server @pulumi/pulumi @pulumi/aws @pulumi/awsx @pulumi/cloudflare @pulumi/github @pulumi/tls @pulumi/random` there and `pulumi up`",
 	)
 	.arg("dir", z.string(), { description: "where the Pulumi project goes" })
 	.option("stack", z.string(), { default: "prod", description: "the stack" })
@@ -97,5 +98,10 @@ splatesInfra
 		);
 		for (const command of todo) {
 			ctx.log.info(`still to run in ${opts.dir}: ${command}`);
+		}
+		if (org !== null) {
+			ctx.log.info(
+				`paste each secret over its placeholder at ${secretsEnvironmentUrl(org)}: \`splates setup\` has a step for each saying how to get it`,
+			);
 		}
 	});

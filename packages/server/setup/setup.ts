@@ -43,12 +43,13 @@ export class Setup {
 		);
 	}
 
-	/** The step `id` names, refusing one not on the roster. */
-	step(id: string): SetupStep {
+	/** The step `id` names, one a step stands for on this machine among them, refusing one not on the roster. */
+	async step(id: string): Promise<SetupStep> {
 		for (const area of this.#areas) {
-			const found = area.steps.find((step) => step.id === id);
-			if (found !== undefined) {
-				return found;
+			for (const step of await this.#stepsOf(area)) {
+				if (step.id === id) {
+					return step;
+				}
 			}
 		}
 		fail("not_found", `no setup step '${id}': \`splates setup\` lists them`, {
@@ -65,7 +66,7 @@ export class Setup {
 	 * reads not done.
 	 */
 	async submit(id: string, answers: StepAnswers): Promise<SetupProgress> {
-		const step = this.step(id);
+		const step = await this.step(id);
 		for (const before of step.after) {
 			if (!(await checked(before, this.#machine)).done) {
 				throw new StepProblem(`Do "${before.title}" first.`);
@@ -125,7 +126,11 @@ export class Setup {
 		const areas: AreaProgress[] = [];
 		for (const area of this.#areas) {
 			const steps: StepProgress[] = [];
-			for (const step of area.steps) {
+			for (const step of await this.#stepsOf(area, true)) {
+				if (step.each !== undefined) {
+					statuses.set(step, await this.#standInStatus(step, statuses));
+					continue;
+				}
 				if (!(await listed(step, this.#machine))) {
 					continue;
 				}
@@ -200,7 +205,7 @@ export class Setup {
 
 	/** Stops `id` asking, until `unskip`. */
 	async skip(id: string): Promise<void> {
-		this.step(id);
+		await this.step(id);
 		const skipped = await this.#skipped();
 		if (!skipped.includes(id)) {
 			await this.#save([...skipped, id]);
@@ -209,7 +214,7 @@ export class Setup {
 
 	/** Asks for `id` again. */
 	async unskip(id: string): Promise<void> {
-		this.step(id);
+		await this.step(id);
 		const skipped = await this.#skipped();
 		if (skipped.includes(id)) {
 			await this.#save(skipped.filter((each) => each !== id));
@@ -238,6 +243,46 @@ export class Setup {
 	async undo(id: string, confirm: string | null): Promise<SetupProgress> {
 		await this.#undo.run(id, confirm);
 		return this.read();
+	}
+
+	/**
+	 * `area`'s steps here, each that stands for others given way to what it
+	 * stands for, and kept after them when `standIns`, to be settled there.
+	 */
+	async #stepsOf(area: SetupArea, standIns = false): Promise<SetupStep[]> {
+		const steps: SetupStep[] = [];
+		for (const step of area.steps) {
+			if (step.each === undefined) {
+				steps.push(step);
+				continue;
+			}
+			steps.push(...(await step.each(this.#machine).catch(() => [])));
+			if (standIns) {
+				steps.push(step);
+			}
+		}
+		return steps;
+	}
+
+	/**
+	 * The status of a step that stands for others, for the steps after it:
+	 * done when its check is, skipped once each it stands for is settled and
+	 * one is skipped, and waiting otherwise.
+	 */
+	async #standInStatus(
+		step: SetupStep,
+		statuses: ReadonlyMap<SetupStep, StepStatus>,
+	): Promise<StepStatus> {
+		if ((await checked(step, this.#machine)).done) {
+			return "done";
+		}
+		const each = [...statuses].flatMap(([one, status]) =>
+			one.of === step ? [status] : [],
+		);
+		return each.includes("skipped") &&
+			each.every((status) => status === "done" || status === "skipped")
+			? "skipped"
+			: "waiting";
 	}
 
 	async #skipped(): Promise<string[]> {
@@ -348,6 +393,15 @@ export interface SetupStep {
 	check(machine: SetupMachine): Promise<boolean>;
 	/** Whether the roster lists it at all on this machine; always when absent. */
 	shown?(machine: SetupMachine): Promise<boolean>;
+	/**
+	 * The steps it stands for on this machine, as one per GitHub owner its
+	 * projects are under, which the roster lists in its place, each with an
+	 * id of its own and `of` it. Its own check says whether all are done,
+	 * for the steps `after` it, and its undo takes them all back.
+	 */
+	each?(machine: SetupMachine): Promise<readonly SetupStep[]>;
+	/** The step it is one of, when made by that step's `each`. */
+	readonly of?: SetupStep;
 	/** Markdown on this machine's own state for the step, as what a choice costs; none when absent. */
 	detail?(machine: SetupMachine): Promise<string | null>;
 	/**

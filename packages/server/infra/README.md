@@ -4,15 +4,20 @@
 components; edit it from there. It fills the stack's config from what splates
 keeps: `--projects` from the projects registered here (GitHub origins), `--host`
 and `--email` from the saved tunnel and its Access application, the Cloudflare
-account and zone ids through the API. The secrets are never written into the
-stack's config: they stay in the creds store (`SPLATES_CLOUDFLARE_API_TOKEN`,
-`ANTHROPIC_API_KEY`, and a fine-grained GitHub token for each owner the
-projects are under, as `SPLATES_DEPLOY_GITHUB_TOKEN_<OWNER>`), and splates
-hands them to each `pulumi preview`, `refresh`, `up` and `destroy` in its
-environment, which the program reads with `envSecret`, so a replaced cred
-reaches the next run. A cred not kept is requested on the Creds page, so a
-project registered under a new owner has its token requested on the next run.
-A secret an older run set in the stack's config is taken out. Each flag overrides its default.
+account and zone ids through the API. Each flag overrides its default.
+
+The secrets never pass through splates. It makes the Pulumi ESC environment
+`<org>/splates/secrets`, which the stack imports, with a placeholder under
+`pulumiConfig` for each: `cloudflare:apiToken`, `splates:anthropicKey`, and
+`splates:githubToken-<owner>`, a fine-grained token for each owner the
+projects are under. The user pastes each over its placeholder as a secret on
+the Pulumi site; the setup's Cloud server journey has a step for each, saying
+how to get it, done once the environment's definition, read without
+`--show-secrets`, no longer holds the placeholder. A project registered under
+a new owner gets a placeholder for its token on the next run, leaving those
+pasted. A replaced token is pasted over the old one the same way, and the
+next `pulumi up` reads it. A secret an older splates set in the stack's file
+is taken out, since it would win over the environment.
 
 The user runs no Pulumi command: the setup's Make the box step runs `pulumi
 refresh` then `pulumi up`, so a run after a failed one carries on from what

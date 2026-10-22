@@ -19,6 +19,7 @@ import { SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { awsAccessStep } from "./aws-access";
 import { moveUnfinished } from "./coordinator-move";
+import { stackSecretsStep } from "./coordinator-secrets";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
@@ -105,9 +106,9 @@ export function coordinatorArea(
 		id: "coordinator-infra",
 		title: "Write the infra project",
 		why: "The box is a Pulumi project of your own that uses splates's components, so you can read, change and destroy exactly what it makes.",
-		user: "Press Next to write the project as a package of this repo (`packages/infra`), or name another directory: it is filled from your projects, your tunnel and the creds kept here. Or run `splates server infra init <dir>`.",
+		user: "Press Next to write the project as a package of this repo (`packages/infra`), or name another directory: it is filled from your projects and your tunnel, with a place on the Pulumi site for each secret, which the next steps have you paste. Or run `splates server infra init <dir>`.",
 		agent:
-			"Run `splates server infra init <dir>` for the user, in the repo's `packages/infra` unless they name another directory. It fills the host, email, projects, Cloudflare ids and secrets from what splates keeps, requests any cred not kept, and records the directory in splates's home.",
+			"Run `splates server infra init <dir>` for the user, in the repo's `packages/infra` unless they name another directory. It fills the host, email, projects and Cloudflare ids from what splates keeps, makes the ESC environment `<org>/splates/secrets` with a placeholder for each secret, which the stack imports, and records the directory in splates's home. splates never sees the secrets: the steps after this one have the user paste each on the Pulumi site.",
 		optional: true,
 		after: [],
 		fields: async (machine) => {
@@ -202,6 +203,8 @@ export function coordinatorArea(
 		},
 	};
 
+	const secretsStep = stackSecretsStep(infraStep, movedRefusal);
+
 	const remotesStep: SetupStep = {
 		id: "coordinator-remotes",
 		title: "Give each project an SSH origin",
@@ -237,9 +240,9 @@ export function coordinatorArea(
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
 		user: "Read what the preview says it will make and what it costs a month, then press Next to make it.",
 		agent:
-			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a cred, on the Creds page, which the next run reads afresh; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
+			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a secret, by pasting a new one over it on the Pulumi site, where its step here links; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
 		optional: true,
-		after: [accessStep, pulumiStep, infraStep],
+		after: [accessStep, pulumiStep, infraStep, secretsStep],
 		doing: "Making the box with `pulumi up`, a few minutes…",
 		detail: async (machine) => {
 			if (await coordinatorMoved(machine)) {
@@ -293,16 +296,16 @@ export function coordinatorArea(
 		id: "coordinator-creds",
 		title: "Give the box its creds",
 		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
-		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, press Next again, which runs `pulumi up` itself to make them, with the creds as they are kept. If that fails on a cred, replace it on the Creds page and press Next once more.",
+		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, press Next again, which runs `pulumi up` itself to make them; a secret that fails is pasted again on the Pulumi site, through its step.",
 		agent:
-			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. The stack makes what it lacks: have the user press Next, which runs `pulumi up` first and reads the creds store afresh, so a replaced cred reaches it; run it again until it says the box is ready. A failure that names a cred is replaced on the Creds page.",
+			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. The stack makes what it lacks: have the user press Next, which runs `pulumi up` first, and run it again until it says the box is ready. A secret a failure names is pasted again on the Pulumi site, through its step.",
 		optional: true,
 		after: [upStep, remotesStep, tunnelStep],
 		doing: "Readying each project's clone on the box, a minute or two…",
 		detail: async (machine) => {
 			const last = dryRuns.get(machine.home);
 			return last?.status === "blocked"
-				? `The box's Parameter Store lacks ${last.needs.map((name) => `\`${name}\``).join(", ")}: the stack makes ${last.needs.length === 1 ? "it" : "them"}, so press Next, which does it with the creds as they are kept.`
+				? `The box's Parameter Store lacks ${last.needs.map((name) => `\`${name}\``).join(", ")}: the stack makes ${last.needs.length === 1 ? "it" : "them"}, so press Next, which runs \`pulumi up\`.`
 				: null;
 		},
 		check: async (machine) =>
@@ -330,7 +333,7 @@ export function coordinatorArea(
 			},
 		},
 		notDone:
-			"The box lacks creds in its Parameter Store: see the list below, then press Next, which makes them.",
+			"The box lacks creds in its Parameter Store: see the list below, then press Next, which runs `pulumi up` to make them.",
 	};
 
 	const moveStep: SetupStep = {
@@ -368,6 +371,7 @@ export function coordinatorArea(
 			pulumiStep,
 			accessStep,
 			infraStep,
+			secretsStep,
 			remotesStep,
 			upStep,
 			credsStep,

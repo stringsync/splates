@@ -4,7 +4,6 @@ import { MemoryLogger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
-import { Exit } from "../exit";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel } from "../tunnel";
@@ -13,6 +12,7 @@ import { tunnelSetup } from "../tunnel/setup";
 import { FakeCloudflare } from "../tunnel/testing";
 import { infraConfigure, missingPermissions, repositoryOf } from "./configure";
 import type { DeployKeyProject } from "./deploy-keys";
+import { SECRET_PLACEHOLDER } from "./secrets";
 
 describe("infraConfigure", () => {
 	it("reads owner/repo off SSH and HTTPS GitHub remotes", () => {
@@ -21,12 +21,9 @@ describe("infraConfigure", () => {
 		expect(repositoryOf("git@gitlab.com:me/app.git")).toBeNull();
 	});
 
-	it("fills the project from the registry, the tunnel and the creds", async () => {
-		const box = await machine({
-			SPLATES_DEPLOY_GITHUB_TOKEN_ME: "gh",
-			ANTHROPIC_API_KEY: "sk",
-		});
-		const { written } = await box.configure();
+	it("fills the project from the registry and the tunnel, with no secret in it", async () => {
+		const box = await machine();
+		const { written, secrets } = await box.configure();
 		expect(written).toContain("Pulumi.prod.yaml");
 		const stack = await box.fs.read("/infra/Pulumi.prod.yaml");
 		// The tunnel's host stays the Mac's until the move takes it over.
@@ -35,40 +32,71 @@ describe("infraConfigure", () => {
 		expect(stack).toContain("me/app");
 		expect(stack).toContain("splates:accountId: acct");
 		expect(stack).toContain("splates:zoneId: zone-example.com");
-		// The secrets stay in the creds store: nothing is set in the stack.
-		expect(box.calls.some((call) => call.argv.includes("set"))).toBe(false);
-		expect(stack).not.toContain("secure");
-	});
-
-	it("requests a cred that is not kept, and refuses with requested", async () => {
-		const box = await machine({});
-		const error = await box.configure().catch((cause: unknown) => cause);
-		expect(error).toBeInstanceOf(Exit);
-		expect((error as Exit).reason).toBe("requested");
-		const names = (await box.creds.requests()).map((each) => each.name);
-		expect(names).toContain("SPLATES_DEPLOY_GITHUB_TOKEN_ME");
-		expect(names).toContain("ANTHROPIC_API_KEY");
-	});
-
-	it("requests a token for each owner the projects are under, naming its repositories", async () => {
-		const box = await machine({
-			SPLATES_DEPLOY_GITHUB_TOKEN_ACME: "gh-acme",
-			ANTHROPIC_API_KEY: "sk",
-		});
-		const error = await box
-			.configure([
-				{ slug: "app", repository: "acme/app" },
-				{ slug: "lib", repository: "my-name/lib" },
-				{ slug: "web", repository: "my-name/web" },
-			])
-			.catch((cause: unknown) => cause);
-		expect((error as Exit).reason).toBe("requested");
-		const requests = await box.creds.requests();
-		expect(requests.map((each) => each.name)).toEqual([
-			"SPLATES_DEPLOY_GITHUB_TOKEN_MY_NAME",
+		expect(stack).toContain("splates/secrets");
+		expect(stack).not.toContain("api-token");
+		expect(secrets).toEqual([
+			"cloudflare:apiToken",
+			"splates:githubToken-me",
+			"splates:anthropicKey",
 		]);
-		expect(requests[0]?.instructions).toContain("**my-name**");
-		expect(requests[0]?.instructions).toContain("`my-name/lib`, `my-name/web`");
+		expect(box.calls.some((call) => call.argv.includes("config"))).toBe(false);
+	});
+
+	it("makes the ESC environment with a placeholder for each secret, and no value", async () => {
+		const box = await machine();
+		await box.configure();
+		const init = box.calls.find((call) => call.argv[2] === "init");
+		expect(init?.argv).toEqual([
+			"pulumi",
+			"env",
+			"init",
+			"me/splates/secrets",
+			"-f",
+			"-",
+		]);
+		const config = (
+			Bun.YAML.parse(init?.stdin ?? "") as {
+				values: { pulumiConfig: Record<string, string> };
+			}
+		).values.pulumiConfig;
+		expect(config).toEqual({
+			"cloudflare:apiToken": SECRET_PLACEHOLDER,
+			"splates:githubToken-me": SECRET_PLACEHOLDER,
+			"splates:anthropicKey": SECRET_PLACEHOLDER,
+		});
+	});
+
+	it("adds a placeholder for a new owner's token, leaving the secrets pasted already", async () => {
+		const box = await machine(
+			[
+				"values:",
+				"  pulumiConfig:",
+				"    cloudflare:apiToken:",
+				"      fn::secret:",
+				"        ciphertext: ZXNjeAAA",
+				"    splates:githubToken-acme:",
+				"      fn::secret:",
+				"        ciphertext: ZXNjeBBB",
+				`    splates:anthropicKey: ${SECRET_PLACEHOLDER}`,
+				"",
+			].join("\n"),
+		);
+		await box.configure([
+			{ slug: "app", repository: "acme/app" },
+			{ slug: "lib", repository: "my-name/lib" },
+		]);
+		const changes = box.calls.filter(
+			(call) => call.argv[2] === "set" || call.argv[2] === "init",
+		);
+		expect(changes.map((call) => call.argv.slice(2))).toEqual([
+			[
+				"set",
+				"me/splates/secrets",
+				'pulumiConfig["splates:githubToken-my-name"]',
+				SECRET_PLACEHOLDER,
+				"--string",
+			],
+		]);
 	});
 });
 
@@ -109,9 +137,9 @@ describe("missingPermissions", () => {
 	});
 });
 
-async function machine(kept: Record<string, string>) {
+async function machine(definition: string | null = null) {
 	const cloudflare = new FakeCloudflare().zone("example.com");
-	const store = new FakeSecretStore({ [API_TOKEN]: "api-token", ...kept });
+	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
 	const creds = new Creds(new MemoryStorage(), {
 		project: new FakeSecretStore(),
@@ -133,9 +161,20 @@ async function machine(kept: Record<string, string>) {
 	const ps = {
 		spawnCapture: async (argv: string[], opts?: SpawnOpts) => {
 			calls.push({ argv, stdin: opts?.stdin });
+			const asks = argv.join(" ");
+			if (asks.startsWith("pulumi env get")) {
+				return definition === null
+					? { exitCode: 255, stdout: "", stderr: "[404] Not Found" }
+					: { exitCode: 0, stdout: definition, stderr: "" };
+			}
 			return {
 				exitCode: 0,
-				stdout: argv[1] === "remote" ? "git@github.com:me/app.git\n" : "",
+				stdout:
+					argv[1] === "remote"
+						? "git@github.com:me/app.git\n"
+						: asks === "pulumi org get-default"
+							? "me\n"
+							: "",
 				stderr: "",
 			};
 		},

@@ -2,7 +2,6 @@ import * as pulumi from "@pulumi/pulumi";
 import {
 	CoordinatorBox,
 	DeployKeys,
-	envSecret,
 	Tunnel,
 } from "@stringsync/splates-server/infra";
 
@@ -20,8 +19,10 @@ const box = new CoordinatorBox("splates", {
 	host,
 	secrets: {
 		SPLATES_TUNNEL_TOKEN: tunnel.token,
-		SPLATES_CLOUDFLARE_API_TOKEN: envSecret("SPLATES_CLOUDFLARE_API_TOKEN"),
-		ANTHROPIC_API_KEY: envSecret("ANTHROPIC_API_KEY"),
+		SPLATES_CLOUDFLARE_API_TOKEN: new pulumi.Config("cloudflare").requireSecret(
+			"apiToken",
+		),
+		ANTHROPIC_API_KEY: config.requireSecret("anthropicKey"),
 	},
 });
 

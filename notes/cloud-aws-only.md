@@ -20,6 +20,11 @@ in `packages/server/infra/`, Pulumi packages as optional peers kept out of
 the CLI and page bundles, and `splates server infra init` writes the user's
 own Pulumi project. Pulumi signs in to AWS through an ESC environment over
 OIDC, never long-lived keys; the box's creds are SSM `SecureString`s.
+The stack's own secrets (Cloudflare, GitHub per owner, Anthropic) the user
+pastes on the Pulumi site into a second ESC environment, `splates/secrets`,
+which setup fills with placeholders and checks without `--show-secrets`:
+the user chose on 2026-10-21 that no secret pass through splates, after a
+version that read them from the creds store and handed them to `pulumi`.
 
 Setup writes that project into the repo it is opened from, as the package
 `packages/infra` (`infra` where there is no `packages/`), not a repository of

@@ -88,6 +88,8 @@ describe("Cloud server journey", () => {
 		"coordinator-access": "done",
 		"coordinator-pulumi": "done",
 		"coordinator-infra": "done",
+		"coordinator-secret-cloudflare": "done",
+		"coordinator-secret-anthropic": "done",
 		"coordinator-up": "done",
 		"coordinator-remotes": "done",
 	};

@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Credentials } from "webappwiz/creds";
-import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
@@ -32,18 +30,9 @@ describe("CoordinatorBox", () => {
 	let ps: PulumiPs;
 	let cloud: FakeBoxCloud;
 	let box: CoordinatorBox;
-	let store: FakeSecretStore;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		store = new FakeSecretStore();
-		for (const name of [
-			"SPLATES_CLOUDFLARE_API_TOKEN",
-			"ANTHROPIC_API_KEY",
-			"SPLATES_DEPLOY_GITHUB_TOKEN_ME",
-		]) {
-			await store.set(name, `${name}-value`);
-		}
 		ps = new PulumiPs();
 		cloud = new FakeBoxCloud();
 		cloud.consoles = [CONSOLE];
@@ -52,7 +41,6 @@ describe("CoordinatorBox", () => {
 			ps,
 			home: HOME,
 			cloud,
-			secrets: new Credentials([store]),
 			within: Duration.ms(20),
 			wait: async () => {},
 		});
@@ -77,7 +65,6 @@ describe("CoordinatorBox", () => {
 		expect(ps.asked[0]).toEqual({
 			argv: ["pulumi", "stack", "output", "--json", "--stack", "prod"],
 			cwd: "/code/infra",
-			env: undefined,
 		});
 	});
 
@@ -146,62 +133,6 @@ describe("CoordinatorBox", () => {
 			"--stack",
 			"prod",
 		]);
-	});
-
-	it("hands the program's secrets from the creds store to each run of it, as they are now", async () => {
-		await fs.write(
-			"/code/infra/Pulumi.prod.yaml",
-			"config:\n  splates:projects:\n    - slug: app\n      repository: me/app\n",
-		);
-		await store.set("SPLATES_DEPLOY_GITHUB_TOKEN_ME", "replaced");
-
-		await box.up();
-
-		const env = ps.asked.find(({ argv }) => argv[1] === "up")?.env;
-		expect(env).toEqual({
-			SPLATES_CLOUDFLARE_API_TOKEN: "SPLATES_CLOUDFLARE_API_TOKEN-value",
-			CLOUDFLARE_API_TOKEN: "SPLATES_CLOUDFLARE_API_TOKEN-value",
-			ANTHROPIC_API_KEY: "ANTHROPIC_API_KEY-value",
-			SPLATES_DEPLOY_GITHUB_TOKEN_ME: "replaced",
-		});
-		expect(ps.asked.find(({ argv }) => argv[1] === "refresh")?.env).toEqual(
-			env,
-		);
-	});
-
-	it("hands no secrets to a command that does not run the program", async () => {
-		await box.status();
-
-		expect(ps.asked[0]?.env).toBeUndefined();
-	});
-
-	it("names the creds the store lacks, and runs nothing", async () => {
-		await fs.write(
-			"/code/infra/Pulumi.prod.yaml",
-			"config:\n  splates:projects:\n    - slug: app\n      repository: me/app\n",
-		);
-		await store.delete("SPLATES_DEPLOY_GITHUB_TOKEN_ME");
-
-		await expect(box.up()).rejects.toThrow("SPLATES_DEPLOY_GITHUB_TOKEN_ME");
-		expect(ps.commands).toEqual([]);
-	});
-
-	it("says which cred a provider's 401 reads", async () => {
-		await fs.write(
-			"/code/infra/Pulumi.prod.yaml",
-			"config:\n  splates:projects:\n    - slug: app\n      repository: me/app\n",
-		);
-		ps.failures = [
-			{
-				command: "up",
-				output:
-					"Diagnostics:\n  github:index:RepositoryDeployKey (keys-app):\n    error: 401 Bad credentials\n",
-			},
-		];
-
-		await expect(box.up()).rejects.toThrow(
-			"reads SPLATES_DEPLOY_GITHUB_TOKEN_ME from",
-		);
 	});
 
 	it("cancels the lock a killed run left on the stack, and runs once more", async () => {
@@ -317,17 +248,13 @@ describe("CoordinatorBox", () => {
  * command `failures` names next, in order, with its output.
  */
 class PulumiPs extends FakePs {
-	readonly asked: {
-		argv: string[];
-		cwd: string | undefined;
-		env: Record<string, string> | undefined;
-	}[] = [];
+	readonly asked: { argv: string[]; cwd: string | undefined }[] = [];
 	outputs: unknown = OUTPUTS;
 	failures: { command: string; output: string }[] = [];
 
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
-		this.asked.push({ argv, cwd: opts?.cwd, env: opts?.env });
+		this.asked.push({ argv, cwd: opts?.cwd });
 		const failure = this.failures[0];
 		if (failure !== undefined && argv[1] === failure.command) {
 			this.failures.shift();
