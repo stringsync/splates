@@ -13,5 +13,5 @@ is ignored by macOS 26, so it cannot replace the suffix.
 "notes"`, `leaseStalenessMs` 90s, `mergeRetryCount` 3, `logCapacity` 1000,
 `attachmentCapacity` 100 MB and `wiz: "bunx @webappwiz/cli"`; a project's
 `splates.config.ts` overrides any of them, and this repo's sets
-`postCheckout` and `postRewrite` to `bun install` and no `preMerge`, so no
-test run gates a merge. Older keys (`todoStalenessMs`) are renamed on load.
+`postCheckout` and `postRewrite` to `bun install` and `preMerge` to
+`./bin/splates dev test`, so the suite gates a merge. Older keys (`todoStalenessMs`) are renamed on load.
