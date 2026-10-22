@@ -28,7 +28,7 @@ import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import type { Feed } from "./feed";
-import { CatchingUp, FreshnessContext, useFeedsFreshness } from "./freshness";
+import { FreshnessContext, useFeedsFreshness } from "./freshness";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { MigrationFailed } from "./migration-failed";
 import { useWaiting } from "./next-waiting";
@@ -460,7 +460,6 @@ export function App({
 																						open={setting}
 																						onOpenChange={setSetting}
 																					/>
-																					{!wide && <CatchingUp />}
 																					{/* Until the project and its conversations are in, or the page has something else to say. */}
 																					<Splash
 																						wanted={

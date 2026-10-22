@@ -442,16 +442,6 @@
 	 * Three blinks, on and off with nothing between, as a menu item blinks once
 	 * picked: WaitingLine's, when nothing waits.
 	 */
-	/* Across a line and off its end, again and again: StaleLine's. */
-	--animate-sweep: sweep 1.2s ease-in-out infinite;
-	@keyframes sweep {
-		from {
-			transform: translateX(-100%);
-		}
-		to {
-			transform: translateX(250%);
-		}
-	}
 	--animate-blink: blink 200ms step-end 3 both;
 	@keyframes blink {
 		0% {

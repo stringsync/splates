@@ -140,16 +140,21 @@ export function InboxLoading({
 }
 
 /**
- * The inbox's rows, kept but dimmed and `inert` while the page is locked, so
- * nothing is opened or answered on what has moved.
+ * The inbox's rows, kept but `inert` while the page is locked, so nothing is
+ * opened or answered on what has moved, and dimmed once it has been a moment.
  */
 export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
 	const { locked } = useFreshness();
+	const dimmed = useDimmed();
 	return (
 		<div
 			inert={locked}
 			aria-busy={locked}
-			className={cn("contents", locked && "*:opacity-50")}
+			// Each row dims, the `contents` box taking no opacity of its own.
+			className={cn(
+				"contents *:transition-opacity *:duration-300",
+				dimmed && "*:opacity-60",
+			)}
 		>
 			{children}
 		</div>
@@ -158,7 +163,7 @@ export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
 
 /**
  * `children`, taking no input while the page is locked, so an answer or an
- * archive is never made on what has moved; `CatchingUp` and `StaleChip` say why.
+ * archive is never made on what has moved; the page dims around it to say why.
  */
 export function Locked({ children }: { children: ReactNode }): JSX.Element {
 	const { locked } = useFreshness();
@@ -192,33 +197,14 @@ export function useSaysStale(): boolean {
 }
 
 /**
- * Says on a phone that the page may be stale, once it has been a moment:
- * "Updating…" in muted text at the top of the screen, a line sweeping under it.
- * A desktop says it in its bar instead, with `StaleChip` and `StaleLine`.
- * Once the server stays unreachable the page unlocks and this says nothing:
- * the bar's `OfflinePill` does.
+ * Whether what the page shows dims: locked, and stale long enough to say so.
+ * Dimming a little is all it says, with no spinner, line or words, so coming
+ * back to the tab after a while is quiet; once the server stays unreachable the page unlocks,
+ * undimmed, and `OfflinePill` says so instead.
  */
-export function CatchingUp(): JSX.Element | null {
-	const { unreachable, locked } = useFreshness();
-	if (!useSaysStale() || unreachable || !locked) {
-		return null;
-	}
-	return (
-		<>
-			<span
-				role="status"
-				className="-translate-x-1/2 fade-in-0 fixed top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-[60] animate-in whitespace-nowrap rounded-full border bg-background px-2.5 py-0.5 text-muted-foreground text-xs duration-200"
-			>
-				Updating…
-			</span>
-			<div
-				aria-hidden
-				className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden bg-primary/10"
-			>
-				<div className="h-full w-2/5 animate-sweep bg-primary/60 motion-reduce:hidden" />
-			</div>
-		</>
-	);
+export function useDimmed(): boolean {
+	const { locked } = useFreshness();
+	return useSaysStale() && locked;
 }
 
 /** The pill that says splates cannot be reached: neutral, with no action. */
@@ -235,43 +221,8 @@ export function OfflinePill(): JSX.Element {
 	);
 }
 
-/**
- * Says in a desktop's bar, beside the title, that the page may be stale:
- * "Updating…", or once the server stays unreachable, that it is offline.
- */
+/** Says in a desktop's bar, beside the title, once the server stays unreachable. */
 export function StaleChip(): JSX.Element | null {
 	const { unreachable } = useFreshness();
-	if (!useSaysStale()) {
-		return null;
-	}
-	if (unreachable) {
-		return <OfflinePill />;
-	}
-	return (
-		<span
-			role="status"
-			className="fade-in-0 shrink-0 animate-in whitespace-nowrap text-muted-foreground text-xs duration-200"
-		>
-			Updating…
-		</span>
-	);
-}
-
-/**
- * The line along the foot of a desktop's bar while the page is locked and says
- * so, sweeping across it. Sticky under the bar, it spans the page and only the
- * page.
- */
-export function StaleLine(): JSX.Element | null {
-	const { locked } = useFreshness();
-	if (!useSaysStale() || !locked) {
-		return null;
-	}
-	return (
-		<div aria-hidden className="sticky top-(--top-bar-height) z-30 h-0">
-			<div className="-top-0.5 absolute inset-x-0 h-0.5 overflow-hidden bg-primary/10">
-				<div className="h-full w-2/5 animate-sweep bg-primary/60 motion-reduce:hidden" />
-			</div>
-		</div>
-	);
+	return unreachable ? <OfflinePill /> : null;
 }

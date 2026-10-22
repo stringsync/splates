@@ -2,62 +2,52 @@ import "./register-dom";
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import {
-	CatchingUp,
 	type Freshness,
 	FreshnessContext,
 	StaleChip,
-	StaleLine,
+	StaleRows,
 } from "./freshness";
 
 describe("Saying the page may be stale", () => {
 	afterEach(cleanup);
 
-	it("CatchingUp says on a phone, once it has been stale a moment, that it is updating, with a line sweeping, and dims nothing", async () => {
-		const page = shown(STALE);
+	it("locks the inbox rows at once and only dims them, once it has been stale a moment, with no words, line or spinner", async () => {
+		const page = rows(STALE);
 
-		expect(page.queryByText("Updating…")).toBeNull();
-		const said = await waitFor(() => page.getByRole("status"));
-		expect(said.textContent).toBe("Updating…");
-		expect(page.container.querySelector(".animate-sweep")).not.toBeNull();
-		expect(page.container.querySelector(".inset-0")).toBeNull();
+		const row = page.getByText("A row");
+		expect(row.closest("[inert]")).not.toBeNull();
+		expect(row.className).not.toContain("opacity");
+		await waitFor(() =>
+			expect(page.container.firstElementChild?.className).toContain(
+				"*:opacity-60",
+			),
+		);
+		expect(page.queryByRole("status")).toBeNull();
+		expect(page.container.textContent).toBe("A row");
 	});
 
-	it("CatchingUp shows nothing while fresh", async () => {
-		const page = shown({ stale: false, unreachable: false, locked: false });
+	it("neither locks nor dims the inbox rows while fresh", async () => {
+		const page = rows({ stale: false, unreachable: false, locked: false });
 
 		await new Promise((done) => setTimeout(done, 400));
-		expect(page.container.textContent).toBe("");
+		expect(page.container.querySelector("[inert]")).toBeNull();
+		expect(page.container.firstElementChild?.className).not.toContain(
+			"*:opacity-60",
+		);
 	});
 
-	it("CatchingUp says nothing once splates is unreachable, the bar's pill saying so", () => {
-		const page = shown(UNREACHABLE);
-
-		expect(page.container.textContent).toBe("");
-	});
-
-	it("StaleChip and StaleLine say in a desktop's bar, once it has been stale a moment, that it is updating, with a line sweeping under it", async () => {
+	it("says nothing in the bar while the page only catches up", async () => {
 		const page = barred(STALE);
 
-		expect(page.queryByText("Updating…")).toBeNull();
-		const said = await waitFor(() => page.getByRole("status"));
-		expect(said.textContent).toBe("Updating…");
-		expect(page.container.querySelector(".animate-sweep")).not.toBeNull();
-	});
-
-	it("StaleChip and StaleLine say nothing while fresh", async () => {
-		const page = barred({ stale: false, unreachable: false, locked: false });
-
 		await new Promise((done) => setTimeout(done, 400));
 		expect(page.container.textContent).toBe("");
-		expect(page.container.querySelector(".animate-sweep")).toBeNull();
 	});
 
-	it("StaleChip says at once that it is offline, with no buttons and no line", () => {
+	it("says at once in the bar that it is offline, with no buttons", () => {
 		const page = barred(UNREACHABLE);
 
 		expect(page.getByRole("status").textContent).toBe("Offline");
 		expect(page.queryByRole("button")).toBeNull();
-		expect(page.container.querySelector("[aria-hidden].sticky")).toBeNull();
 	});
 });
 
@@ -73,20 +63,21 @@ const UNREACHABLE: Freshness = {
 	locked: false,
 };
 
-function shown(freshness: Freshness) {
+function rows(freshness: Freshness) {
 	return render(
 		<FreshnessContext value={freshness}>
-			<CatchingUp />
+			<StaleRows>
+				<div>A row</div>
+			</StaleRows>
 		</FreshnessContext>,
 	);
 }
 
-/** A desktop's bar: the chip beside its title and the line along its foot. */
+/** A desktop's bar: the chip beside its title. */
 function barred(freshness: Freshness) {
 	return render(
 		<FreshnessContext value={freshness}>
 			<StaleChip />
-			<StaleLine />
 		</FreshnessContext>,
 	);
 }
