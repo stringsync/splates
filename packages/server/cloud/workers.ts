@@ -224,6 +224,10 @@ function buildScript(recipe: string): string {
 /** Where the clouds' metadata service answers, serving a machine's user data to whoever asks. */
 const METADATA_ADDRESS = "169.254.169.254";
 
+/** The PATH systemd gives a service that sets none. */
+const SYSTEMD_PATH =
+	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+
 /** Where a worker's `join` keeps its key, readable by root alone, for systemd to hand its service. */
 const WORKER_HOME = "/etc/splates-worker";
 
@@ -272,6 +276,8 @@ function bootScript(
 		"",
 		"[Service]",
 		`User=${SNAPSHOT_USER}`,
+		// systemd's own PATH leaves out bun's directory, which `splates`'s `#!/usr/bin/env bun` needs.
+		`Environment=PATH=${bin}:${SYSTEMD_PATH}`,
 		`EnvironmentFile=${WORKER_HOME}/worker.env`,
 		`ExecStart=${boot.map(systemdQuoted).join(" ")}`,
 		"Restart=always",

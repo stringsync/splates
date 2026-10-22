@@ -76,6 +76,10 @@ describe("CloudWorkers in AWS", () => {
 			"'SPLATES_WORKER_JOIN=secret-token' 'splates' 'worker' 'join'; do",
 		);
 		expect(worker?.userData).not.toMatch(/ExecStart=.*secret-token/);
+		// splates is a bun script, and systemd's own PATH has no bun.
+		expect(worker?.userData).toContain(
+			"Environment=PATH=/home/splates/.bun/bin:/usr/local/sbin:",
+		);
 		expect(await provider.list()).toEqual([
 			{ id: "m7i.xlarge-abc123", type: "m7i.xlarge", spot: true },
 		]);
