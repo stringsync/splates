@@ -136,6 +136,29 @@ describe("Setup journeys", () => {
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});
 
+	it("stops on a done step with something to put right, saying what and how", async () => {
+		progress = with_({ "codex-signin": "done" });
+		progress = {
+			...progress,
+			areas: progress.areas.map((area) => ({
+				...area,
+				steps: area.steps.map((step) =>
+					step.id === "codex-signin"
+						? { ...step, warning: "A root key signs in: **make ESC**." }
+						: step,
+				),
+			})),
+		};
+		const view = open();
+		const row = view.getByRole("button", { name: "Set up Codex" });
+		expect(row.textContent).toContain("1 of 2 steps done, 1 to put right");
+		await click(view, "Set up Codex");
+		const alert = view.getByRole("alert");
+		expect(alert.textContent).toContain("To put right");
+		expect(alert.querySelector("strong")?.textContent).toBe("make ESC");
+		expect(view.getByText("1 of 2")).toBeTruthy();
+	});
+
 	it("saves a pasted cred for the device before Next checks the step", async () => {
 		const view = open();
 		await click(view, "Set up Dictation");

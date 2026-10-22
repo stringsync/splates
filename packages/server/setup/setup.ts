@@ -158,6 +158,8 @@ export class Setup {
 					doing: step.doing ?? null,
 					detail:
 						(await step.detail?.(this.#machine).catch(() => null)) ?? null,
+					warning:
+						(await step.warning?.(this.#machine).catch(() => null)) ?? null,
 					data: (await step.data?.(this.#machine).catch(() => null)) ?? null,
 				});
 			}
@@ -349,6 +351,12 @@ export interface SetupStep {
 	/** Markdown on this machine's own state for the step, as what a choice costs; none when absent. */
 	detail?(machine: SetupMachine): Promise<string | null>;
 	/**
+	 * Markdown on what wants putting right though the step may be done, and
+	 * how, as a root key signing in; null when nothing does, and none when
+	 * absent. The page stops on a step while it has one.
+	 */
+	warning?(machine: SetupMachine): Promise<string | null>;
+	/**
 	 * What the step's own page body draws, as JSON, as the deploy keys to
 	 * add; none when absent. Only a step the page draws itself has one.
 	 */
@@ -422,6 +430,8 @@ export interface StepProgress {
 	doing: string | null;
 	/** Markdown on this machine's state for it, or null. */
 	detail: string | null;
+	/** Markdown on what wants putting right, and how, or null. */
+	warning: string | null;
 	/** What its own page body draws, or null. */
 	data: StepData | null;
 }

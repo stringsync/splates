@@ -26,10 +26,11 @@ export type SetupJourneyEvents = {
 };
 
 /**
- * One area walked a page at a time, from its first step not done or to
- * review; a finished one with none to review opens on its first page, to
- * review or redo it. Next does what the step needs, and moves on only once
- * it reads done, passing over the steps already done but those to review.
+ * One area walked a page at a time, from its first step not done, to
+ * review or with something to put right; a finished one with none of those
+ * opens on its first page, to review or redo it. Next does what the step
+ * needs, and moves on only once it reads done, passing over the steps
+ * already done but those to review or put right.
  */
 export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	private readonly dispatcher = new Dispatcher<SetupJourneyEvents>();
@@ -137,7 +138,7 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	}
 }
 
-/** The first step from `from` on that is not done or is one of `stops`, or past the last. */
+/** The first step from `from` on that is not done, has a warning or is one of `stops`, or past the last. */
 function notDone(
 	steps: readonly StepProgress[],
 	from: number,
@@ -145,7 +146,8 @@ function notDone(
 ): number {
 	const found = steps.findIndex(
 		(step, index) =>
-			index >= from && (step.status !== "done" || stops.has(step.id)),
+			index >= from &&
+			(step.status !== "done" || step.warning !== null || stops.has(step.id)),
 	);
 	return found === -1 ? steps.length : found;
 }

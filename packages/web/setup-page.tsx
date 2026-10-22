@@ -192,6 +192,11 @@ function Journey({
 							inline
 						/>
 					}
+					warning={
+						step.warning === null ? undefined : (
+							<Markdown text={step.warning} inline />
+						)
+					}
 					at={at + 1}
 					of={journey.steps.length}
 					steps={journey.steps}

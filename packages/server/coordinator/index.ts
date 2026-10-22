@@ -6,6 +6,7 @@ export {
 	accessEnvironmentIn,
 	accessEnvironmentSignsIn,
 	CLOUDSHELL_URL,
+	profileCaller,
 	pulumiOrg,
 	writeAccessEnvironment,
 } from "./access";

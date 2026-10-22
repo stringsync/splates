@@ -61,12 +61,33 @@ describe("the AWS access step", () => {
 		await step.submit?.(machine, { account: "" });
 		expect(ps.getCalls()).toEqual([]);
 	});
+
+	it("warns when a profile of the root user signs in instead of ESC", async () => {
+		ps.caller = "arn:aws:iam::123456789012:root";
+		expect(await step.warning?.(machine)).toContain("root user's access key");
+	});
+
+	it("names the profile that signs in instead of ESC", async () => {
+		ps.caller = "arn:aws:iam::123456789012:user/deploy";
+		expect(await step.warning?.(machine)).toContain(
+			"as `arn:aws:iam::123456789012:user/deploy`",
+		);
+	});
+
+	it("says nothing once ESC signs in, or when nothing does", async () => {
+		expect(await step.warning?.(machine)).toBeNull();
+		ps.caller = "arn:aws:iam::123456789012:root";
+		await step.submit?.(machine, { account: "123456789012" });
+		ps.signsIn = true;
+		expect(await step.warning?.(machine)).toBeNull();
+	});
 });
 
-/** Pulumi logged in to `acme`, the ESC environment there once made, and AWS taking only its sign-in. */
+/** Pulumi logged in to `acme`, the ESC environment there once made, AWS taking its sign-in, and the AWS CLI's own profile signing in as `caller`. */
 class EscPs extends FakePs {
 	environment = false;
 	signsIn = false;
+	caller: string | null = null;
 
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
@@ -82,6 +103,11 @@ class EscPs extends FakePs {
 		if (line.startsWith("pulumi env init")) {
 			this.environment = true;
 			return ok();
+		}
+		if (line === "aws sts get-caller-identity --output json") {
+			return this.caller === null
+				? no
+				: ok(JSON.stringify({ Arn: this.caller }));
 		}
 		if (line.startsWith("pulumi env run")) {
 			return this.environment && this.signsIn ? ok() : no;

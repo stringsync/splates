@@ -161,15 +161,20 @@ function printProgress(log: Logger, progress: SetupProgress): void {
 				step.optional ? "optional" : "",
 				step.status === "waiting" ? `after ${step.after.join(", ")}` : "",
 				step.problem ?? "",
+				step.warning === null ? "" : "to put right",
 			].filter(Boolean);
 			log.info(
 				`  ${MARKS[step.status]} ${step.id}  ${step.title}${notes.length > 0 ? color.dim(`  ${notes.join("; ")}`) : ""}`,
 			);
 		}
 	}
-	const next = progress.areas
-		.flatMap((area) => area.steps)
-		.find((step) => step.id === progress.next);
+	const steps = progress.areas.flatMap((area) => area.steps);
+	const next = steps.find((step) => step.id === progress.next);
+	for (const step of steps.filter((each) => each.warning !== null)) {
+		log.info(
+			`${color.yellow("put right:")} ${step.title}  ${color.dim(`splates setup ${step.id}`)}`,
+		);
+	}
 	log.info(
 		next === undefined
 			? color.green("nothing left to set up")
@@ -184,6 +189,9 @@ function printStep(log: Logger, step: StepProgress): void {
 	log.info(step.why);
 	if (step.detail !== null) {
 		log.info(step.detail);
+	}
+	if (step.warning !== null) {
+		log.info(`${color.yellow("put right:")} ${step.warning}`);
 	}
 	log.info(`you:    ${step.user}`);
 	log.info(`agent:  ${step.agent}`);

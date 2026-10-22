@@ -10,9 +10,15 @@ import {
 	ChevronRightIcon,
 	Loader2Icon,
 	RotateCwIcon,
+	TriangleAlertIcon,
 	Undo2Icon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "#web/components/ui/alert.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Field,
@@ -33,8 +39,9 @@ export const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
 
 /**
  * The setup index: a plain row per area, "Set up OpenCode" and the like,
- * the agents first, and a green check on each one whose steps are all done.
- * A done row still opens, to review or redo it.
+ * the agents first, and a green check on each one whose steps are all done,
+ * or a warning while one has something to put right. A done row still
+ * opens, to review or redo it.
  */
 export function SetupIndex({
 	areas,
@@ -69,6 +76,12 @@ export function SetupIndex({
 
 /** How far an area is, as a line under its name. */
 function progressLine(area: AreaProgress): string {
+	const warned = area.steps.filter((step) => step.warning !== null).length;
+	const line = doneLine(area);
+	return warned === 0 ? line : `${line}, ${warned} to put right`;
+}
+
+function doneLine(area: AreaProgress): string {
 	if (area.done === area.steps.length) {
 		return "All steps done";
 	}
@@ -87,7 +100,8 @@ function AreaRow({
 	onSelect: (id: string) => void;
 	onUndo: (id: string) => void;
 }): JSX.Element {
-	const done = area.done === area.steps.length;
+	const warned = area.steps.some((step) => step.warning !== null);
+	const done = area.done === area.steps.length && !warned;
 	return (
 		<li className="flex min-h-16 items-center gap-2 pr-3 hover:bg-muted/50">
 			<button
@@ -101,6 +115,12 @@ function AreaRow({
 					<span className="flex items-center gap-1.5 text-sm text-muted-foreground">
 						{done && (
 							<CheckIcon className="size-3.5 text-success" aria-hidden />
+						)}
+						{warned && (
+							<TriangleAlertIcon
+								className="size-3.5 text-warning"
+								aria-hidden
+							/>
 						)}
 						{progressLine(area)}
 					</span>
@@ -150,6 +170,7 @@ export type NextState =
 export function StepForm({
 	title,
 	why,
+	warning,
 	at,
 	of,
 	steps,
@@ -164,6 +185,8 @@ export function StepForm({
 }: {
 	title: string;
 	why?: ReactNode;
+	/** What wants putting right on the step, and how, shown above its fields. */
+	warning?: ReactNode;
 	/** This page's place in the journey, from 1. */
 	at: number;
 	of: number;
@@ -223,6 +246,13 @@ export function StepForm({
 					<h2 className="font-medium text-2xl">{title}</h2>
 					{why !== undefined && <p className="text-muted-foreground">{why}</p>}
 				</header>
+				{warning !== undefined && (
+					<Alert variant="warning">
+						<TriangleAlertIcon aria-hidden />
+						<AlertTitle>To put right</AlertTitle>
+						<AlertDescription>{warning}</AlertDescription>
+					</Alert>
+				)}
 				{children !== undefined && (
 					<fieldset disabled={working} className="flex min-w-0 flex-col gap-6">
 						{children}
@@ -301,19 +331,28 @@ function StepList({
 			{steps.map((step, index) => {
 				const here = index === at;
 				const done = step.status === "done";
+				const warned = step.warning !== null;
 				const row = (
 					<>
 						<span
 							className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-								done
-									? "border-success text-success"
-									: here
-										? "border-foreground bg-foreground text-background"
-										: "text-muted-foreground"
+								warned
+									? "border-warning text-warning"
+									: done
+										? "border-success text-success"
+										: here
+											? "border-foreground bg-foreground text-background"
+											: "text-muted-foreground"
 							}`}
 							aria-hidden
 						>
-							{done ? <CheckIcon className="size-3" /> : index + 1}
+							{warned ? (
+								<TriangleAlertIcon className="size-3" />
+							) : done ? (
+								<CheckIcon className="size-3" />
+							) : (
+								index + 1
+							)}
 						</span>
 						<span className={here ? "font-medium" : "text-muted-foreground"}>
 							{step.title}

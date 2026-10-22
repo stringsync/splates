@@ -34,6 +34,7 @@ export function setupProgress({
 		fields: [],
 		doing: null,
 		detail: null,
+		warning: null,
 		data: null,
 	};
 	const dictationStep: StepProgress = {
@@ -58,6 +59,7 @@ export function setupProgress({
 		],
 		doing: null,
 		detail: null,
+		warning: null,
 		data: null,
 	};
 	const area = (id: string, title: string, step: StepProgress) => ({

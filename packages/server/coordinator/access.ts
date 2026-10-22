@@ -121,7 +121,33 @@ export async function accessEnvironmentSignsIn(
 	);
 }
 
+/**
+ * The ARN the AWS CLI here signs in as, from its own profile or environment
+ * rather than the ESC environment, as `pulumi up` signs in without one; null
+ * when it signs in as no one.
+ */
+export async function profileCaller(ps: Ps): Promise<string | null> {
+	const found = await capture(ps, [
+		"aws",
+		"sts",
+		"get-caller-identity",
+		"--output",
+		"json",
+	]);
+	if (found === null) {
+		return null;
+	}
+	try {
+		const parsed = CallerIdentity.safeParse(JSON.parse(found));
+		return parsed.success ? parsed.data.Arn : null;
+	} catch {
+		return null;
+	}
+}
+
 const Whoami = z.object({ user: z.string() });
+
+const CallerIdentity = z.object({ Arn: z.string() });
 
 /** `argv`'s output, or null when it fails or will not run. */
 async function capture(ps: Ps, argv: string[]): Promise<string | null> {

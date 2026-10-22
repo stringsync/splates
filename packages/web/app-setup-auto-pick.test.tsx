@@ -287,6 +287,7 @@ function progress({
 		fields: [],
 		doing: null,
 		detail: null,
+		warning: null,
 		data: null,
 		agent: "Have the user do it on the page.",
 	};

@@ -7,6 +7,7 @@ import {
 	CLOUDSHELL_URL,
 	CoordinatorBox,
 	coordinatorMoved,
+	profileCaller,
 	pulumiOrg,
 	writeAccessEnvironment,
 } from "../coordinator";
@@ -28,6 +29,10 @@ export interface AwsAccess extends Record<string, unknown> {
 const ACCESS_MISSING =
 	"AWS takes no sign-in found here: paste the account id CloudShell printed, or `aws configure` a profile, then press Next.";
 
+/** How the user moves from a profile onto ESC, on this step's page. */
+const PUT_RIGHT =
+	"To sign in over ESC instead, paste the CloudShell line on this step's Setup page into AWS CloudShell, then give the page the account id it prints and press Next.";
+
 /** The field the account id goes in. */
 const ACCOUNT = "account";
 
@@ -45,7 +50,7 @@ export function awsAccessStep(after: readonly SetupStep[]): SetupStep {
 		title: "Sign in to AWS",
 		why: "`pulumi up` makes the server's box in your AWS account, and splates reads the box's console and Parameter Store and makes cloud workers there. A Pulumi ESC environment signs both in for an hour at a time, so no AWS key is kept anywhere.",
 		user: `Open AWS CloudShell, signed in to the console as you are, paste the line below and press Enter. It makes the role \`${ACCESS_ROLE}\` that Pulumi ESC signs in as, and prints your account id: paste that here and press Next. Once it signs in, delete any root access keys (IAM, Security credentials). Rather keep an AWS profile? \`aws configure\` one, leave the id empty and press Next.`,
-		agent: `Have the user open AWS CloudShell, paste the line the step's page shows (it deploys the CloudFormation stack \`${ACCESS_ROLE}\` from \`packages/server/infra/pulumi-access.yaml\` and prints the account id), and give the account id to the page, whose Next makes the ESC environment \`<org>/${ACCESS_ENVIRONMENT}\` and has the infra stack import it. When the account already has an OIDC provider for \`api.pulumi.com/oidc\`, the deploy fails: add \`ProviderArn=<its arn>\` to the line's overrides. \`pulumi env run <org>/${ACCESS_ENVIRONMENT} -- aws sts get-caller-identity\` checks it. Then have them delete any root access keys (IAM, Security credentials). The fallback is an AWS profile (\`aws configure\`, or \`aws sso login\`): the step is done when either signs in.`,
+		agent: `Have the user open AWS CloudShell, paste the line the step's page shows (it deploys the CloudFormation stack \`${ACCESS_ROLE}\` from \`packages/server/infra/pulumi-access.yaml\` and prints the account id), and give the account id to the page, whose Next makes the ESC environment \`<org>/${ACCESS_ENVIRONMENT}\` and has the infra stack import it. When the account already has an OIDC provider for \`api.pulumi.com/oidc\`, the deploy fails: add \`ProviderArn=<its arn>\` to the line's overrides. \`pulumi env run <org>/${ACCESS_ENVIRONMENT} -- aws sts get-caller-identity\` checks it. Then have them delete any root access keys (IAM, Security credentials). The fallback is an AWS profile (\`aws configure\`, or \`aws sso login\`): the step is done when either signs in, and while only a profile does, its page says so, warning when the profile is the root user's key.`,
 		optional: true,
 		after,
 		fields: [
@@ -58,6 +63,24 @@ export function awsAccessStep(after: readonly SetupStep[]): SetupStep {
 			},
 		],
 		doing: "Making the Pulumi ESC environment…",
+		// A profile makes the step done without the environment, so say when it is the one signing in.
+		warning: async (machine) => {
+			const { ps } = machine;
+			if (ps === undefined) {
+				return null;
+			}
+			const org = await pulumiOrg(ps);
+			if (org !== null && (await accessEnvironmentSignsIn(ps, org))) {
+				return null;
+			}
+			const caller = await profileCaller(ps);
+			if (caller === null) {
+				return null;
+			}
+			return caller.endsWith(":root")
+				? `An AWS profile here signs in instead of Pulumi ESC, with the root user's access key, which can do anything in the account and never runs out. ${PUT_RIGHT} Then delete the key in the console (IAM, Security credentials).`
+				: `An AWS profile here signs in instead of Pulumi ESC, as \`${caller}\`. ${PUT_RIGHT}`;
+		},
 		data: async (machine): Promise<AwsAccess | null> => {
 			const org = machine.ps && (await pulumiOrg(machine.ps));
 			return org
