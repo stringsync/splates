@@ -1,7 +1,9 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
+	APPROVE,
 	DIRECTIVES,
+	MERGE,
 	UNTRIAGED,
 } from "@stringsync/splates-server/plans/browser";
 import { UtensilsIcon } from "lucide-react";
@@ -184,6 +186,9 @@ export function isBare(directive: string): boolean {
 	return BARE_DIRECTIVES.some((each) => each.directive === directive);
 }
 
+/** The directives the person sends to approve a proposal or a merge. */
+const APPROVALS: ReadonlySet<string> = new Set([APPROVE, MERGE]);
+
 /** A skill or command named alone, as the composer's `/` writes it. */
 const SOLE_COMMAND = /^\/\S+$/u;
 
@@ -254,7 +259,14 @@ export function DirectiveLine({
 	const board = useContext(Board);
 	const words = wordsOf(directive, board, (agent) => dispatch?.pickName(agent));
 	return words === null ? null : (
-		<SplatesEvent event={{ words, at, title: directive }} />
+		<SplatesEvent
+			event={{
+				mark: APPROVALS.has(directive) ? "approved" : null,
+				words,
+				at,
+				title: directive,
+			}}
+		/>
 	);
 }
 

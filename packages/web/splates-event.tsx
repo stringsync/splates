@@ -147,11 +147,12 @@ export interface SplatesEventView {
 }
 
 /**
- * A command that failed, marked by a red X, or landed, by a green check; or an
+ * A command that failed, marked by a red X, or landed or approved, by a green
+ * check; or an
  * early warning of a conflict with the base or an overlap with another task,
  * each by its muted icon.
  */
-export type Mark = "failed" | "landed" | "conflict" | "overlap";
+export type Mark = "failed" | "landed" | "approved" | "conflict" | "overlap";
 
 /**
  * A wait an event counts down to `until`. Once what it waited on comes, it is
@@ -198,6 +199,12 @@ function Line({
 				<XIcon
 					aria-label="Failed"
 					className="size-3.5 shrink-0 text-destructive"
+				/>
+			)}
+			{mark === "approved" && (
+				<CheckIcon
+					aria-label="Approved"
+					className="size-3.5 shrink-0 text-success"
 				/>
 			)}
 			{mark === "landed" && (
