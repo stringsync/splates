@@ -17,8 +17,13 @@ unset (a test run is about 7 cores and 7 GB, so CPUs are overcommitted; see
 --memory` says for one command; `splates dev test` and the merge gate send the
 project's. A job goes to a runner with room for it, one that already holds the
 project's clone first, then the one with the most free CPUs, then memory, and
-the rest wait first come, first served, though a later, smaller job may take
-room a waiting bigger one cannot use yet. A job that can have no runner,
+the rest wait first come, first served. A waiting job with room nowhere yet
+reserves, on each placing pass, the runner nearest to having it (one it would
+fit once empty, the most free room first), which no job behind it is placed
+on, so a stream of smaller jobs cannot keep taking the room a bigger one
+(`splates run --cpus 8` among default-sized jobs) waits for; the jobs behind
+go to another runner or wait, and `short()` still counts the big job as a
+runner to make. A job that can have no runner,
 because none up, on its way or that can be made is big enough for it (none at
 all: no provider, the day's or month's limit reached, a make that just failed),
 is told `local`, and its caller runs it in this machine's

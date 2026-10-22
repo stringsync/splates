@@ -205,6 +205,54 @@ describe("the job pool", () => {
 		expect(third).toBe("one");
 	});
 
+	it("keeps room freed on the runner a big job waits on from the small jobs behind it", async () => {
+		const small = await Promise.all(
+			Array.from({ length: PER_RUNNER }, () => pool.take(ask())),
+		);
+		const placed: string[] = [];
+		const waiting = (id: string, size: JobSize) =>
+			void pool.take({ ...ask(), id, size }).then((_place) => {
+				placed.push(id);
+			});
+		waiting("big", { cpus: 8, memory: 16 });
+		waiting("small-1", JOB);
+		await Bun.sleep(0);
+
+		small[0]?.dispose();
+		waiting("small-2", JOB);
+		await Bun.sleep(0);
+
+		expect(placed).toEqual([]);
+		expect(pool.queue().map((each) => each.id)).toEqual([
+			"big",
+			"small-1",
+			"small-2",
+		]);
+
+		small[1]?.dispose();
+		await Bun.sleep(0);
+
+		expect(placed).toEqual(["big"]);
+
+		small[2]?.dispose();
+		await Bun.sleep(0);
+
+		expect(placed).toEqual(["big", "small-1"]);
+	});
+
+	it("reserves the one runner nearest to having room for a waiting big job, so small jobs behind it go to another", async () => {
+		ready = ["one", "two"];
+		await pool.take(ask("/a"));
+		await pool.take(ask("/a"));
+		await pool.take(ask("/b"));
+		void pool.take(ask("/a", [], { cpus: 12, memory: 8 }));
+
+		const small = await pool.take(ask("/a"));
+
+		expect(small.runner).toBe("one");
+		expect(pool.queue().map((each) => each.id)).toEqual(["job-4"]);
+	});
+
 	it("waits on memory as on CPUs", async () => {
 		await pool.take(ask("/a", [], { cpus: 1, memory: 20 }));
 		view.coming = 1;

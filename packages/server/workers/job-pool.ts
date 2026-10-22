@@ -7,9 +7,11 @@ import { fits, type JobSize } from "./job-size";
  * The pool-wide queue of heavy jobs: each job asks for CPUs and memory, a
  * runner takes as many at once as fit in its own, a job goes to the runner
  * with the most room, preferring one that already holds its project's clone,
- * and the rest wait first come, first served. A job no runner can ever take,
- * because none is up, on its way or can be made with room for it, is sent to
- * run here instead of waiting.
+ * and the rest wait first come, first served. A waiting job with no room
+ * yet reserves the runner nearest to having it, so the jobs behind it cannot
+ * keep taking that room as it frees. A job no runner can ever take, because
+ * none is up, on its way or can be made with room for it, is sent to run
+ * here instead of waiting.
  */
 export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<JobPoolEvents>();
@@ -122,12 +124,22 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 		this.dispatcher.dispose();
 	}
 
-	/** Places each waiting job, in order, that has a runner with room or none to wait for; answers whether any was. */
+	/**
+	 * Places each waiting job, in order, that has a runner with room or none
+	 * to wait for; answers whether any was. A job left waiting reserves the
+	 * runner it waits on, which no job behind it is placed on this pass, so
+	 * the room freed there goes to it once enough has.
+	 */
 	private place(): boolean {
 		let placed = false;
+		const reserved = new Set<string>();
 		for (const waiting of [...this.waiting]) {
-			const runner = this.pick(waiting.ask);
+			const runner = this.pick(waiting.ask, reserved);
 			if (runner === undefined) {
+				const nearest = this.nearest(waiting.ask, reserved);
+				if (nearest !== undefined) {
+					reserved.add(nearest);
+				}
 				continue;
 			}
 			this.waiting.splice(this.waiting.indexOf(waiting), 1);
@@ -138,17 +150,21 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	}
 
 	/**
-	 * The runner for `ask`: among those with room for it, one that holds its
-	 * project's clone ahead of the rest, then the one with the most room;
-	 * null to run it here, when no runner up, on its way or that can be made
-	 * would ever have room for it; undefined to wait.
+	 * The runner for `ask`: among those with room for it, none in `reserved`,
+	 * one that holds its project's clone ahead of the rest, then the one with
+	 * the most room; null to run it here, when no runner up, on its way or
+	 * that can be made would ever have room for it; undefined to wait, as it
+	 * does on a reserved runner, which has room for it in time.
 	 */
-	private pick(ask: JobAsk): string | null | undefined {
-		const usable = this.view
-			.runners()
-			.filter((runner) => !(ask.avoid ?? []).includes(runner.id));
+	private pick(ask: JobAsk, reserved: Set<string>): string | null | undefined {
+		const usable = this.usable(ask);
 		const open = usable
-			.filter((runner) => runner.ready && fits(ask.size, this.free(runner)))
+			.filter(
+				(runner) =>
+					runner.ready &&
+					!reserved.has(runner.id) &&
+					fits(ask.size, this.free(runner)),
+			)
 			.map((runner) => ({ id: runner.id, free: this.free(runner) }))
 			.sort(
 				(one, other) =>
@@ -164,6 +180,36 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 			this.view.booting().some((size) => fits(ask.size, size));
 		const made = this.view.canMake() && fits(ask.size, this.view.made());
 		return coming || made ? undefined : null;
+	}
+
+	/**
+	 * The runner a waiting `ask` waits on, for it to reserve: of those up
+	 * that it would fit once empty, none in `reserved`, the one with the most
+	 * room free now, then one holding its project's clone; undefined when
+	 * there is none, so it waits on a runner booting or to be made.
+	 */
+	private nearest(ask: JobAsk, reserved: Set<string>): string | undefined {
+		return this.usable(ask)
+			.filter(
+				(runner) =>
+					runner.ready &&
+					!reserved.has(runner.id) &&
+					fits(ask.size, runner.size),
+			)
+			.map((runner) => ({ id: runner.id, free: this.free(runner) }))
+			.sort(
+				(one, other) =>
+					other.free.cpus - one.free.cpus ||
+					other.free.memory - one.free.memory ||
+					this.holds(other.id, ask.project) - this.holds(one.id, ask.project),
+			)[0]?.id;
+	}
+
+	/** The runners `ask` may run on: all but those it lost a job on. */
+	private usable(ask: JobAsk): PoolRunner[] {
+		return this.view
+			.runners()
+			.filter((runner) => !(ask.avoid ?? []).includes(runner.id));
 	}
 
 	/** What `runner` has left once the jobs on it now take theirs. */
