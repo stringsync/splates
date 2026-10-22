@@ -19,7 +19,7 @@ Classifications are cached by a hash of the subject and judged detail.
 The person can switch Auto pick on or off for any conversation from the
 composer's settings (`web/auto-pick-switch.tsx`, `web/setting-controls.tsx`,
 `PUT /api/conversations/:id/auto-pick`, logged as `auto-pick-switch`): a
-switch atop the settings sheet a phone opens, and the first choice of the
+switch atop the settings sheet a phone opens, and a switch beside the
 Model picker where the settings sit inline, a new conversation's composer
 among them. The sheet's button shows Auto
 pick's sparkles while on, else the agent's mark in its maker's colors. Off, or

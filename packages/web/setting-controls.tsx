@@ -33,7 +33,6 @@ import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import type { AutoPickControl } from "./auto-pick-switch";
 
 /** The Model picker's value for Auto pick, among the models. */
-const AUTO = "\u0000auto-pick";
 
 /**
  * A picker in the composer's bottom row: quiet until hovered, as in Zed, and
@@ -305,9 +304,10 @@ function SettingControl({
 	inDialog?: boolean;
 }): JSX.Element {
 	const inlineModel = setting.category === "model" && !inDialog;
-	// Inline, Auto pick is the first of the models; the sheet has its own switch.
+	// Inline, Auto pick is a switch beside the model; the sheet has its own.
 	const withAuto = inlineModel ? autoPick : undefined;
 	const id = useId();
+	const autoId = useId();
 	if (setting.type === "boolean" && inDialog) {
 		return (
 			<Field orientation="horizontal">
@@ -360,7 +360,7 @@ function SettingControl({
 			</Field>
 		);
 	}
-	return (
+	const select = (
 		<SettingSelect
 			setting={setting}
 			value={value}
@@ -368,6 +368,32 @@ function SettingControl({
 			agent={inlineModel ? agent : undefined}
 			autoPick={withAuto}
 		/>
+	);
+	if (withAuto === undefined) {
+		return select;
+	}
+	// Auto pick is a switch beside the model, not one of its choices.
+	return (
+		<>
+			<span
+				title="Auto pick"
+				className={cn(
+					IN_COMPOSER,
+					"inline-flex items-center gap-1.5 rounded-md",
+				)}
+			>
+				<label htmlFor={autoId} className="cursor-pointer">
+					Auto
+				</label>
+				<Switch
+					id={autoId}
+					size="sm"
+					checked={withAuto.on}
+					onCheckedChange={(checked) => withAuto.switch(checked)}
+				/>
+			</span>
+			{select}
+		</>
 	);
 }
 
@@ -389,7 +415,7 @@ function SettingSelect({
 	onChange: (value: string) => void;
 	/** The agent whose mark leads the picker, as it leads a phone's settings button, split with Auto pick's while it picks. */
 	agent?: string | undefined;
-	/** Auto pick, offered first among the models. */
+	/** Auto pick, whose mark shows while it picks. */
 	autoPick?: AutoPickControl | undefined;
 	inDialog?: boolean;
 	id?: string;
@@ -402,20 +428,13 @@ function SettingSelect({
 			// value it cannot find as its text, "null" among them: a picker
 			// reused for another agent's options must start over.
 			key={JSON.stringify(setting.options)}
-			items={[
-				...(autoPick === undefined
-					? []
-					: [{ value: AUTO, label: "Auto pick" }]),
-				...setting.options.map((option) => ({
-					value: option.value,
-					label: settingLabel(setting, option.value),
-				})),
-			]}
-			value={auto ? AUTO : known ? value : null}
+			items={setting.options.map((option) => ({
+				value: option.value,
+				label: settingLabel(setting, option.value),
+			}))}
+			value={known ? value : null}
 			onValueChange={(value) => {
-				if (value === AUTO) {
-					autoPick?.switch(true);
-				} else if (value !== null) {
+				if (value !== null) {
 					onChange(String(value));
 				}
 			}}
@@ -468,12 +487,6 @@ function SettingSelect({
 				className="w-auto max-w-[calc(100vw-2rem)]"
 			>
 				<SelectGroup>
-					{autoPick !== undefined && (
-						<SelectItem className="min-h-9" value={AUTO}>
-							<AutoIcon colored />
-							Auto pick
-						</SelectItem>
-					)}
 					{setting.options.map((option) => (
 						<SelectItem
 							key={option.value}

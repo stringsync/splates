@@ -24,15 +24,14 @@ describe("App's Auto pick in the composer's settings", () => {
 		testing.dispose();
 	});
 
-	it("switches Auto pick on from the top of the Model picker, shown at once", async () => {
+	it("switches Auto pick on with the switch beside the Model picker, shown at once", async () => {
 		const view = await testing.openConversations([
 			conversation({ settings: [MODEL] }),
 		]);
 
 		const model = view.getByRole("combobox", { name: "model" });
-		await act(async () => fireEvent.click(model));
-		await pick(
-			await waitFor(() => view.getByRole("option", { name: "Auto pick" })),
+		await act(async () =>
+			fireEvent.click(view.getByRole("switch", { name: "Auto" })),
 		);
 
 		await waitFor(() => expect(model.textContent).toContain("Auto · Small"));
