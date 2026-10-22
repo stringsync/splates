@@ -8,6 +8,8 @@ import { CallAnswer, type CallRequest, READ_PART } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { WorkerMachine, WorkerRead } from "./machine";
 import type { Json } from "./protocol";
+import type { JobParams } from "./job";
+import { type JobResult, type JobRun, runRemoteJob } from "./remote-job";
 import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
 
@@ -127,6 +129,11 @@ export class RemoteWorker implements WorkerMachine {
 			this.id,
 			{ resumed: true },
 		);
+	}
+
+	/** Runs a heavy job on the worker, which must be a runner (`JOBS`); see `runRemoteJob`. */
+	job(params: JobParams, run: JobRun): Promise<JobResult> {
+		return runRemoteJob(this.session.open("job", params), this.session, run);
 	}
 
 	/** Starts a shell on a pseudo-terminal of the worker's. */
