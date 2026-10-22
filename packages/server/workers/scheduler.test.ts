@@ -199,6 +199,22 @@ describe("Scheduler", () => {
 		expect((await capped).worker).toBe("local");
 	});
 
+	it("places an uncapped agent on a worker with room before a full one", async () => {
+		workers = [worker("local"), worker("other")];
+		await take("a");
+		expect((await take("b", { uncapped: true })).worker).toBe("other");
+		expect((await take("c", { uncapped: true })).worker).toBe("local");
+	});
+
+	it("spreads agents over equal workers by load", async () => {
+		workers = [worker("one", { slots: 4 }), worker("two", { slots: 4 })];
+		const on = [];
+		for (const id of ["a", "b", "c", "d"]) {
+			on.push((await take(id, { uncapped: true })).worker);
+		}
+		expect(on).toEqual(["one", "two", "one", "two"]);
+	});
+
 	it("queues an uncapped agent only while no worker is up", async () => {
 		workers = [];
 		const waiting = take("a", { uncapped: true });

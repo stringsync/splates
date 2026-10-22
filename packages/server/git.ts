@@ -388,8 +388,8 @@ export class Git {
 		return code === 0 ? lines(stdout) : [];
 	}
 
-	rebase(cwd: string, onto: string): Promise<GitResult> {
-		return this.run(cwd, "rebase", onto);
+	async rebase(cwd: string, onto: string): Promise<GitResult> {
+		return this.run(cwd, ...(await this.fallbackIdentity(cwd)), "rebase", onto);
 	}
 
 	resetHard(cwd: string, commit: string): Promise<GitResult> {
@@ -452,8 +452,32 @@ export class Git {
 	async commitAll(cwd: string, message: string): Promise<GitResult> {
 		const added = await this.run(cwd, "add", "--all");
 		return added.code === 0
-			? this.run(cwd, "commit", "--no-verify", "--quiet", "-m", message)
+			? this.commit(cwd, "--no-verify", "--quiet", "-m", message)
 			: added;
+	}
+
+	/**
+	 * `git commit` with `args`, signed as `splates` when the machine has no
+	 * identity of its own, as a worker made fresh has none: a configured one
+	 * is never overridden.
+	 */
+	private async commit(cwd: string, ...args: string[]): Promise<GitResult> {
+		return this.run(
+			cwd,
+			...(await this.fallbackIdentity(cwd)),
+			"commit",
+			...args,
+		);
+	}
+
+	/** `-c` options naming `splates` for whichever of the name and email the machine leaves unset. */
+	private async fallbackIdentity(cwd: string): Promise<string[]> {
+		const email = await this.run(cwd, "config", "user.email");
+		const name = await this.run(cwd, "config", "user.name");
+		return [
+			...(name.stdout === "" ? ["-c", "user.name=splates"] : []),
+			...(email.stdout === "" ? ["-c", "user.email=splates@localhost"] : []),
+		];
 	}
 
 	/**
@@ -478,7 +502,7 @@ export class Git {
 		if (reset.code !== 0) {
 			return reset;
 		}
-		const committed = await this.run(cwd, "commit", "--quiet", "-m", message);
+		const committed = await this.commit(cwd, "--quiet", "-m", message);
 		if (committed.code !== 0) {
 			await this.run(cwd, "reset", "--soft", head);
 		}

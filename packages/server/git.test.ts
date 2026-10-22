@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Testing } from "./testing";
 
@@ -24,6 +25,21 @@ describe("Git", () => {
 		expect(await readFile(index)).toEqual(before);
 		await env.gitCli(env.root, "status", "--porcelain");
 		expect(await readFile(index)).not.toEqual(before);
+	});
+
+	it("commits as splates on a machine with no identity, and keeps one that is set", async () => {
+		await env.gitCli(env.root, "config", "--unset-all", "user.name");
+		await env.gitCli(env.root, "config", "--unset-all", "user.email");
+		await writeFile(join(env.root, "a.txt"), "a");
+		expect((await env.git.commitAll(env.root, "first")).code).toBe(0);
+
+		await env.gitCli(env.root, "config", "user.name", "Someone");
+		await env.gitCli(env.root, "config", "user.email", "someone@example.com");
+		await writeFile(join(env.root, "b.txt"), "b");
+		expect((await env.git.commitAll(env.root, "second")).code).toBe(0);
+		expect(
+			await env.git.run(env.root, "log", "-1", "--format=%an <%ae>"),
+		).toMatchObject({ stdout: "Someone <someone@example.com>" });
 	});
 
 	it("names the branch checked out", async () => {

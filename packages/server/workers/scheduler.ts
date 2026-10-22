@@ -306,13 +306,16 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * the ones paid for by the hour. Any on the coordinator's build come
 	 * before every one waiting on an update, which a rollout is to take
 	 * down. An uncapped request needs no free slot, and takes none from
-	 * those that do.
+	 * those that do, but still prefers a worker with one free, the least
+	 * loaded among equals.
 	 */
 	private pick(request: SlotRequest): string | null {
 		const used = new Map<string, number>();
+		const capped = new Map<string, number>();
 		for (const { worker, uncapped } of this.held()) {
+			used.set(worker, (used.get(worker) ?? 0) + 1);
 			if (!uncapped) {
-				used.set(worker, (used.get(worker) ?? 0) + 1);
+				capped.set(worker, (capped.get(worker) ?? 0) + 1);
 			}
 		}
 		const fits = this.pool
@@ -321,13 +324,25 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 				(worker) =>
 					eligible(worker, request) &&
 					(request.uncapped === true ||
-						(used.get(worker.id) ?? 0) < worker.slots),
+						(capped.get(worker.id) ?? 0) < worker.slots),
 			);
 		const last = this.last.get(request.id);
 		const order = (worker: PoolWorker): number =>
 			(worker.outdated === true ? OUTDATED : 0) +
 			(worker.id === last ? 0 : RANK[worker.kind]);
-		const [best] = fits.sort((one, other) => order(one) - order(other));
+		// Every agent held counts toward being full, so an uncapped one, which no
+		// slot refuses, still goes to a worker with room before piling onto a full
+		// one, and among equals to the least loaded, so none sits idle.
+		const full = (worker: PoolWorker): number =>
+			(used.get(worker.id) ?? 0) >= worker.slots ? 1 : 0;
+		const load = (worker: PoolWorker): number =>
+			(used.get(worker.id) ?? 0) / worker.slots;
+		const [best] = fits.sort(
+			(one, other) =>
+				full(one) - full(other) ||
+				order(one) - order(other) ||
+				load(one) - load(other),
+		);
 		return best?.id ?? null;
 	}
 
