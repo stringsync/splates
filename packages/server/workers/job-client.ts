@@ -12,6 +12,10 @@ export interface RemoteJob {
 	env?: Record<string, string>;
 	/** Names of files the command writes in `$SPLATES_JOB_FILES`, to come back. */
 	files?: string[];
+	/** Waits ahead of ordinary jobs, as a merge's gate does. */
+	first?: boolean;
+	/** Runs this commit, which the worktree's repository holds, rather than the worktree as it stands. */
+	commit?: string;
 	/** Called with the command's output as it arrives. */
 	output: (bytes: Uint8Array) => void;
 	signal?: AbortSignal;
@@ -61,6 +65,8 @@ export async function runOnRunner(
 				argv: job.argv,
 				env: job.env ?? {},
 				files: job.files ?? [],
+				first: job.first ?? false,
+				...(job.commit === undefined ? {} : { commit: job.commit }),
 			}),
 			...(job.signal === undefined ? {} : { signal: job.signal }),
 		});

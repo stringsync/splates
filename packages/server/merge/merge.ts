@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Fs, HeavyCap, Lock } from "webappwiz/system";
+import type { Fs, HeavyCap, Lock, Ps } from "webappwiz/system";
 import { type Clock, SystemClock } from "webappwiz/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
@@ -16,7 +16,7 @@ import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
-import { MergeGate } from "./gate";
+import { type GateRunners, MergeGate } from "./gate";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
@@ -53,6 +53,8 @@ export async function merge(
 		cores,
 		branches,
 		trunk,
+		ps,
+		send,
 		clock = new SystemClock(),
 	}: {
 		service: WorktreeService;
@@ -69,6 +71,9 @@ export async function merge(
 		cores: CoreClaims;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
+		/** Reaches the server a runner is asked through; the gate runs here without it. */
+		ps?: Ps;
+		send?: GateRunners["send"];
 		clock?: Clock;
 	},
 	cwd: string,
@@ -197,6 +202,7 @@ export async function merge(
 		config,
 		log,
 		timing,
+		ps === undefined ? null : { ps, ...(send === undefined ? {} : { send }) },
 	);
 	await using _capacity = await runner.reserve(task);
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
@@ -308,15 +314,11 @@ export async function merge(
 			let gated = await runner.run(worktree.path, task);
 			await state.requireLease();
 			if (gated.exitCode !== 0) {
-				const attribution = await attributeFailure(
-					{ git, gate: runner },
-					gated,
-					{
-						cwd: worktree.path,
-						task,
-						onto: rebasedOnto,
-					},
-				);
+				const attribution = await attributeFailure({ gate: runner }, gated, {
+					cwd: worktree.path,
+					task,
+					onto: rebasedOnto,
+				});
 				await state.requireLease();
 				facts.failureAttribution = attribution.kind;
 				facts.failedTests = attribution.failed.length

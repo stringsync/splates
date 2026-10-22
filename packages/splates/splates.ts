@@ -323,7 +323,10 @@ splates
 		await ctx.journal.record(
 			"merge",
 			task,
-			() => merge(ctx, ctx.ps.cwd(), facts, { message: opts.message }),
+			() =>
+				merge({ ...ctx, send: ctx.fetch }, ctx.ps.cwd(), facts, {
+					message: opts.message,
+				}),
 			facts as Facts["merge"],
 		);
 		if (task !== null) {

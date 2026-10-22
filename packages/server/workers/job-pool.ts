@@ -55,7 +55,12 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 				reject(signal?.reason);
 			};
 			signal?.addEventListener("abort", abort, { once: true });
-			this.waiting.push(waiting);
+			// A `first` ask, a merge's gate which others wait on, goes ahead of
+			// the ordinary ones, behind any `first` already waiting.
+			const at = ask.first
+				? this.waiting.findIndex((each) => each.ask.first !== true)
+				: -1;
+			this.waiting.splice(at < 0 ? this.waiting.length : at, 0, waiting);
 			this.place();
 			this.changed();
 		});
@@ -232,6 +237,8 @@ export interface JobAsk {
 	what: string;
 	/** Runners it already lost a job on, which it avoids. */
 	avoid?: string[];
+	/** Whether it waits ahead of ordinary jobs, as a merge's gate does. */
+	first?: boolean;
 }
 
 /** One job holding a place. */

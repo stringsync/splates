@@ -47,6 +47,28 @@ describe("the job pool", () => {
 		expect(pool.queue()).toEqual([]);
 	});
 
+	it("places a first job ahead of the ordinary ones waiting", async () => {
+		const full = await Promise.all(
+			Array.from({ length: JOBS_PER_RUNNER }, () => pool.take(ask())),
+		);
+		view.coming = 1;
+		const order: string[] = [];
+		const waiting = (id: string, first: boolean) =>
+			void pool.take({ ...ask(), id, first }).then((place) => {
+				order.push(id);
+				place.dispose();
+			});
+		waiting("ordinary", false);
+		waiting("gate", true);
+		await Bun.sleep(0);
+		expect(pool.queue().map((each) => each.id)).toEqual(["gate", "ordinary"]);
+
+		full[0]?.dispose();
+		await Bun.sleep(0);
+
+		expect(order).toEqual(["gate", "ordinary"]);
+	});
+
 	it("sends a job to the runner with the most room", async () => {
 		ready = ["one", "two"];
 		await pool.take(ask("/a"));

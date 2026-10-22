@@ -1,4 +1,3 @@
-import type { Git } from "../git";
 import type { FailedTest } from "../tasks";
 import type { GateRun, MergeGate } from "./gate";
 import { failingCases, timedTests } from "./test-report";
@@ -17,7 +16,7 @@ export interface AttributedFailure {
  * merge queue can call this against a batch's tip and its exact base commit.
  */
 export async function attributeFailure(
-	{ git, gate }: { git: Git; gate: MergeGate },
+	{ gate }: { gate: MergeGate },
 	run: GateRun,
 	{ cwd, task, onto }: { cwd: string; task: string; onto: string },
 ): Promise<AttributedFailure> {
@@ -44,33 +43,7 @@ export async function attributeFailure(
 			);
 		}
 		const files = [...new Set(failed.map((test) => test.file as string))];
-		const dir = await git.out(cwd, "rev-parse", "--absolute-git-dir");
-		const scratch = `${dir}/splates-attribution`;
-		const added = await git.run(
-			cwd,
-			"worktree",
-			"add",
-			"--detach",
-			scratch,
-			onto,
-		);
-		if (added.code !== 0) {
-			return environment(
-				`Could not create the baseline checkout: ${added.stderr || added.stdout}`,
-			);
-		}
-		let result: AttributedFailure;
-		try {
-			result = await reproduce(gate, files, failed, { scratch, cwd, task });
-		} catch (error) {
-			result = environment(`Attribution could not finish: ${String(error)}`);
-		}
-		const removed = await git.removeWorktree(scratch);
-		return removed.code === 0
-			? result
-			: environment(
-					`Could not remove attribution checkout ${scratch}: ${removed.stderr || removed.stdout}`,
-				);
+		return await reproduce(gate, files, failed, { cwd, task, onto });
 	} catch (error) {
 		return {
 			kind: "environment",
@@ -84,7 +57,7 @@ async function reproduce(
 	gate: MergeGate,
 	files: string[],
 	failed: FailedTest[],
-	{ scratch, cwd, task }: { scratch: string; cwd: string; task: string },
+	{ cwd, task, onto }: { cwd: string; task: string; onto: string },
 ): Promise<AttributedFailure> {
 	const environment = (why: string): AttributedFailure => ({
 		kind: "environment",
@@ -92,13 +65,8 @@ async function reproduce(
 		why,
 	});
 
-	const prepared = await gate.prepare(scratch, task);
-	if (prepared.exitCode !== 0) {
-		return environment(
-			`Baseline setup failed: ${prepared.stdout}\n${prepared.stderr}`,
-		);
-	}
-	const baseline = await gate.run(scratch, task, { files });
+	// The gate puts the baseline on a runner, or in a checkout of its own here.
+	const baseline = await gate.run(cwd, task, { files, at: onto });
 	if (baseline.exitCode !== 0) {
 		return failingCases(baseline.xml).length > 0
 			? {

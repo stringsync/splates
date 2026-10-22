@@ -430,6 +430,40 @@ describe.concurrent("merge", () => {
 	});
 
 	// scry-ignore simple-test-setup: each case owns a separate repo, as the heavy-slot case beside it does.
+	it("runs the gate on a runner, first in line, reading its report, and installs here", async () => {
+		await using deps = await Testing.open();
+		deps.proc.env = { ...deps.proc.env, SPLATES_DEV: "http://pool" };
+		const ran = join(deps.splatesHome, "ran.txt");
+		deps.config.preMerge = `echo local >> ${ran}`;
+		deps.config.postRewrite = `echo install >> ${ran}`;
+		const report = `<testsuites name="bun test"><testsuite name="a"><testcase name="t" file="a.test.ts"/></testsuite></testsuites>`;
+		const sent: { first: boolean; argv: string[] }[] = [];
+		const send = async (_url: string, init: RequestInit) => {
+			sent.push(JSON.parse(String(init.body)));
+			const lines = [
+				{ type: "out", data: Buffer.from("ok").toString("base64") },
+				{
+					type: "file",
+					name: "report.xml",
+					data: Buffer.from(report).toString("base64"),
+				},
+				{ type: "exit", code: 0 },
+			];
+			return new Response(lines.map((line) => JSON.stringify(line)).join("\n"));
+		};
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge({ ...deps, send }, worktree);
+
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.first).toBe(true);
+		expect(sent[0]?.argv.join(" ")).toContain("echo local");
+		expect((await deps.fs.read(ran)).trim()).toBe("install");
+	});
+
 	it("claims cores first in line around the gate, passing them down to it", async () => {
 		await using deps = await Testing.open();
 		const seen = join(deps.splatesHome, "seen.json");

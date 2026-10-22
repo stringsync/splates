@@ -21,6 +21,10 @@ export const JobRequest = z.object({
 	argv: JobParams.shape.argv,
 	env: JobParams.shape.env,
 	files: JobParams.shape.files,
+	/** Waits ahead of ordinary jobs in the pool's queue: a merge's gate, which others wait on. */
+	first: z.boolean().default(false),
+	/** Runs this commit of the project, which its worktree holds, instead of a snapshot of the worktree. */
+	commit: JobParams.shape.commit.optional(),
 });
 export type JobRequest = z.infer<typeof JobRequest>;
 
@@ -112,6 +116,7 @@ export class RunnerJobs {
 					task: job.task,
 					what: job.argv.join(" ").slice(0, 120),
 					avoid: lost,
+					...(job.first ? { first: true } : {}),
 				},
 				signal,
 			);
@@ -159,7 +164,7 @@ export class RunnerJobs {
 		signal: AbortSignal,
 		send: (event: JobEvent) => void,
 	): Promise<void> {
-		const commit = await this.snapshot.take(job.worktree);
+		const commit = job.commit ?? (await this.snapshot.take(job.worktree));
 		const result = await runner.job(
 			{
 				project: job.project,

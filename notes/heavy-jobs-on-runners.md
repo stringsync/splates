@@ -68,3 +68,8 @@ page build, as `docker/worker.Dockerfile` does), run on every job; bun's cache
 is what keeps it quick. `splates dev test` runs `./bin/splates dev test --local`
 on the runner and gets its JUnit report back as a file. Files a `splates heavy`
 command writes stay on the runner.
+
+The merge gate is a caller too (`MergeGate` in `merge/gate.ts`): its jobs set
+`first` in the request, which puts them ahead of ordinary jobs in the pool's
+queue, and a retest at the base commit sets `commit`, which runs that commit of
+the project instead of a snapshot of the worktree. See `merge-gate-attribution.md`.
