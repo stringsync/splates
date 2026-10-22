@@ -202,6 +202,9 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
 	if (reason.endsWith(" reached")) {
 		return `No worker it can run on is free, and no other is made: the worker budget's ${reason}. It has waited ${span}, and starts once a slot frees or the budget is raised.`;
 	}
+	if (reason === "worker draining") {
+		return `The worker it can run on is draining, so it takes no new agents (as when it is being removed or updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
+	}
 	if (reason === "no worker up") {
 		return `No worker is up to run it. It has waited ${span}, and starts once a worker joins.`;
 	}
@@ -225,7 +228,9 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
 	if (reason === "starting") {
 		return "Taking longer than usual. A fresh install can take a few minutes; if the start fails, this says why.";
 	}
-	return held === null || reason === "no free slot"
+	return held === null ||
+		reason === "no free slot" ||
+		reason === "worker draining"
 		? "Taking longer than usual. The Workers page shows what holds each slot, and can wake or add a worker."
 		: null;
 }

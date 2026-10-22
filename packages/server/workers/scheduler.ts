@@ -473,6 +473,7 @@ export type QueueReason =
 	| "no free slot"
 	| "no worker up"
 	| "waking a worker"
+	| "worker draining"
 	| `needs ${string}`
 	| BudgetReason;
 
@@ -577,7 +578,7 @@ function onPlatform(worker: PoolWorker, request: SlotRequest): boolean {
 
 /**
  * Why `request` waits: no worker up it could run on, none there holding
- * its agent's key, a budget limit, or none free.
+ * its agent's key, one that only drains, a budget limit, or none free.
  */
 function reasonFor(
 	request: SlotRequest,
@@ -596,6 +597,13 @@ function reasonFor(
 		)
 	) {
 		return "waking a worker";
+	}
+	if (
+		workers.some(
+			(worker) => worker.draining === true && couldRun(worker, request),
+		)
+	) {
+		return withheld ?? "worker draining";
 	}
 	return request.platform === null
 		? (withheld ?? "no worker up")

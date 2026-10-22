@@ -182,6 +182,12 @@ describe("Scheduler", () => {
 		expect(scheduler.spot("a")?.reason).toBe("no worker up");
 	});
 
+	it("says the worker drains when it is the only one that could run the agent", () => {
+		workers = [worker("local", { awake: false, draining: true })];
+		void take("a");
+		expect(scheduler.spot("a")?.reason).toBe("worker draining");
+	});
+
 	it("places an uncapped agent on a full worker, taking no slot from the rest", async () => {
 		await take("a");
 		expect((await take("b", { uncapped: true })).worker).toBe("local");
