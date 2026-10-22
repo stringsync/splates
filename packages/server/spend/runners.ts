@@ -138,49 +138,7 @@ export function runnersReport(
 	running: readonly RunnerJobRow[] = [],
 	images: readonly RunnerImage[] = [],
 ): RunnersReport {
-	const made = new Map<string, RunnerMadeRow>();
-	const ended = new Map<string, number>();
-	const jobs: RunnerJobRow[] = [...running];
-	const bills: SpendEntry[] = [];
-	for (const line of lines) {
-		if (!isRunnerRow(line)) {
-			if (line.kind === "billed") {
-				bills.push(line);
-			}
-			continue;
-		}
-		if (line.row === "runner") {
-			const first = made.get(line.id);
-			// A price set again keeps when it was made.
-			made.set(line.id, first === undefined ? line : { ...line, at: first.at });
-		} else if (line.row === "runner-ended") {
-			const at = Date.parse(line.at);
-			ended.set(line.id, Math.min(at, ended.get(line.id) ?? at));
-		} else {
-			jobs.push(line);
-		}
-	}
-	const lives = [...made.values()].map((row) => {
-		const from = Date.parse(row.at);
-		const until = ended.get(row.id) ?? null;
-		return {
-			row,
-			life: {
-				id: row.id,
-				dollarsPerHour: row.dollarsPerHour,
-				from,
-				until: until === null ? null : Math.max(from, until),
-			},
-		};
-	});
-	const runs = jobs.map((job) => ({
-		conversation: job.id,
-		project: job.project,
-		task: job.task,
-		worker: job.runner,
-		from: Date.parse(job.at),
-		until: job.until === null ? null : Date.parse(job.until),
-	}));
+	const { lives, runs, jobs, bills } = readRows(lines, running);
 	const runners: RunnerLife[] = lives
 		.map(({ row, life }) => {
 			const hours = ((life.until ?? now) - life.from) / HOUR;
@@ -277,6 +235,78 @@ export function runnersReport(
 				.filter(spent),
 		},
 	};
+}
+
+/** The runners' lives, each job as a run on one, and the bills, read from the ledger's `lines` and the jobs `running`. */
+function readRows(
+	lines: readonly (SpendEntry | RunnerRow)[],
+	running: readonly RunnerJobRow[],
+) {
+	const made = new Map<string, RunnerMadeRow>();
+	const ended = new Map<string, number>();
+	const jobs: RunnerJobRow[] = [...running];
+	const bills: SpendEntry[] = [];
+	for (const line of lines) {
+		if (!isRunnerRow(line)) {
+			if (line.kind === "billed") {
+				bills.push(line);
+			}
+			continue;
+		}
+		if (line.row === "runner") {
+			const first = made.get(line.id);
+			// A price set again keeps when it was made.
+			made.set(line.id, first === undefined ? line : { ...line, at: first.at });
+		} else if (line.row === "runner-ended") {
+			const at = Date.parse(line.at);
+			ended.set(line.id, Math.min(at, ended.get(line.id) ?? at));
+		} else {
+			jobs.push(line);
+		}
+	}
+	const lives = [...made.values()].map((row) => {
+		const from = Date.parse(row.at);
+		const until = ended.get(row.id) ?? null;
+		return {
+			row,
+			life: {
+				id: row.id,
+				dollarsPerHour: row.dollarsPerHour,
+				from,
+				until: until === null ? null : Math.max(from, until),
+			},
+		};
+	});
+	const runs = jobs.map((job) => ({
+		conversation: job.id,
+		project: job.project,
+		task: job.task,
+		worker: job.runner,
+		from: Date.parse(job.at),
+		until: job.until === null ? null : Date.parse(job.until),
+	}));
+	return { lives, runs, jobs, bills };
+}
+
+/**
+ * Who the runners' cost from `since` to `until` (epoch ms) went to, by
+ * project and task, the most first, counted per job as the Billing page
+ * counts it. `running` are the jobs running now.
+ */
+export function runnerShares(
+	lines: readonly (SpendEntry | RunnerRow)[],
+	now: number,
+	running: readonly RunnerJobRow[],
+	since: number,
+	until: number,
+): SpendShare[] {
+	const { lives, runs } = readRows(lines, running);
+	return splitSpend(
+		lives.map(({ life }) => life),
+		runs,
+		since,
+		Math.min(until, now),
+	);
 }
 
 const HOUR = 3_600_000;

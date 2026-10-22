@@ -18,7 +18,7 @@ export type {
 	RunnerSplit,
 	RunnersReport,
 } from "./runners";
-export { RUNNER_DAYS, runnersReport } from "./runners";
+export { RUNNER_DAYS, runnerShares, runnersReport } from "./runners";
 export { Spend } from "./spend";
 export type {
 	Period,

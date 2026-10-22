@@ -28,7 +28,11 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import { BillingRoutes, Spend } from "../spend";
+import {
+	BillingRoutes,
+	Spend,
+	runnerShares as spendRunnerShares,
+} from "../spend";
 import { DevOutcomes, NoteStatsRoutes } from "../stats";
 import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
@@ -41,6 +45,7 @@ import {
 	Machine,
 	osSensors,
 	queueListing,
+	type RunnerShares,
 	WORKER_SOCKET_PATH,
 	WorkerBudgetRoutes,
 	type WorkerPool,
@@ -435,9 +440,18 @@ export async function dev(
 			jobs: workers,
 		},
 	);
+	const runnerShares: RunnerShares = async (since, until) =>
+		spendRunnerShares(
+			await ledger.lines(),
+			Date.now(),
+			workers.runningJobs(),
+			since,
+			until,
+		);
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
 		workers.provisioning,
+		runnerShares,
 	);
 	// Loud, whatever a device asks to hear: a limit nearing costs money.
 	workers.provisioning?.events.on("alert", (alert) => {
@@ -676,7 +690,10 @@ export async function dev(
 							workerBudget:
 								workers.provisioning === null
 									? null
-									: workerBudgetReport(workers.provisioning.budget),
+									: await workerBudgetReport(
+											workers.provisioning.budget,
+											runnerShares,
+										),
 						}),
 					),
 					"/api/worker-budget": guarded(budget.show),

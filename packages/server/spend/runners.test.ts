@@ -4,6 +4,7 @@ import {
 	RUNNER_DAYS,
 	type RunnerJobRow,
 	type RunnerRow,
+	runnerShares,
 	runnersReport,
 	Spend,
 	type SpendEntry,
@@ -152,6 +153,45 @@ describe("runnersReport", () => {
 		expect(report.split.months.map((each) => each.period)).toEqual([
 			"2026-10-01",
 		]);
+	});
+
+	test("shares a runner's cost between two times by the jobs it ran, back before the month began", () => {
+		const lines = [
+			made("r", "2026-09-30T23:00:00.000Z", 1),
+			job(
+				"j1",
+				"r",
+				"a",
+				"2026-09-30T23:00:00.000Z",
+				"2026-09-30T23:30:00.000Z",
+			),
+			job("j2", "r", "b", "2026-09-30T23:30:00.000Z", null),
+		];
+
+		const shares = runnerShares(
+			lines,
+			NOW,
+			[],
+			Date.parse("2026-09-30T23:00:00.000Z"),
+			Date.parse("2026-10-01T00:00:00.000Z"),
+		);
+
+		expect(
+			shares.map((each) => [each.task, Math.round(each.dollars * 100)]),
+		).toEqual([
+			["a", 50],
+			["b", 50],
+		]);
+		// A job still running counts, from the jobs passed in.
+		expect(
+			runnerShares(
+				[made("r", "2026-10-22T10:00:00.000Z", 1)],
+				NOW,
+				[job("j", "r", "c", "2026-10-22T10:00:00.000Z", null)],
+				Date.parse("2026-10-22T10:00:00.000Z"),
+				NOW,
+			).map((each) => [each.task, each.dollars]),
+		).toEqual([["c", 2]]);
 	});
 
 	test("the ledger keeps runners' rows apart from amounts spent", async () => {

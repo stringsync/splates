@@ -3,6 +3,7 @@ import type { Logger } from "webappwiz/log";
 import { type Fs, NodeFs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
+import { runnerShares, Spend } from "../spend";
 import { FsStorage } from "../storage";
 import { table } from "../table";
 import { WORKER_LIMITS, WorkerBudget, type WorkerLimit } from "./budget";
@@ -104,7 +105,12 @@ async function askMachine(
 	const budget = await WorkerBudget.open(
 		machine.document("worker-budget.json"),
 	);
-	const routes = new WorkerBudgetRoutes(budget);
+	const ledger = new Spend(machine);
+	const routes = new WorkerBudgetRoutes(budget, null, (since, until) =>
+		ledger
+			.lines()
+			.then((lines) => runnerShares(lines, Date.now(), [], since, until)),
+	);
 	const request = new Request(new URL(path, "http://localhost"), {
 		...init,
 		headers: { "content-type": "application/json" },

@@ -25,6 +25,7 @@ import {
 	coreClaimsOfMachine,
 	heavyJobsOfMachine,
 } from "../server/shared";
+import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
@@ -418,7 +419,7 @@ export async function openRepository(
 		ps,
 		outcomes,
 		adherence: new Adherence(machine, null, fs),
-		workerBudget: machine.document("worker-budget.json"),
+		spend: new Spend(machine),
 	});
 	await service.init();
 	if (migrates) {

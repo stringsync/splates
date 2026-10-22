@@ -188,72 +188,6 @@ describe("WorkerBudget", () => {
 		expect(second.held).toEqual([]);
 		expect((await WorkerBudget.open(budgetAt(fs), wall)).held).toEqual([]);
 	});
-	it("splits made workers' spend by who held slots on them", async () => {
-		const wall = clock();
-		const budget = WorkerBudget.memory(wall);
-		await budget.started("made", "small", 1);
-
-		await budget.ran([held("one", "a", "made"), held("two", "b", "home")]);
-		wall.advance(Duration.mins(30));
-		await budget.ran([]);
-		wall.advance(Duration.mins(30));
-
-		expect(budget.split("day")).toEqual([
-			{ project: "/p", task: "a", dollars: 1, slotHours: 0.5, estimate: true },
-		]);
-	});
-
-	it("says what one task cost between two times", async () => {
-		const wall = clock();
-		const budget = WorkerBudget.memory(wall);
-		await budget.started("made", "small", 1);
-		const since = wall.now();
-		await budget.ran([held("one", "a", "made"), held("two", "b", "made")]);
-		wall.advance(Duration.mins(30));
-		await budget.ran([held("one", "a", "made")]);
-		wall.advance(Duration.mins(30));
-
-		// The hour's dollar goes by slot-time: an hour of a's to half of b's.
-		const spent = budget.spentOn("/p", "a", since, wall.now());
-		expect(spent).toMatchObject({ task: "a", slotHours: 1, estimate: true });
-		expect(spent?.dollars).toBeCloseTo(2 / 3);
-		expect(budget.spentOn("/p", "c", since, wall.now())).toBeNull();
-	});
-
-	it("ends the runs on a worker that ends", async () => {
-		const wall = clock();
-		const budget = WorkerBudget.memory(wall);
-		await budget.started("made", "small", 1);
-		await budget.ran([held("one", "a", "made")]);
-		wall.advance(Duration.mins(30));
-
-		await budget.ended("made");
-		wall.advance(Duration.hrs(2));
-
-		expect(budget.split("month")).toEqual([
-			{
-				project: "/p",
-				task: "a",
-				dollars: 0.5,
-				slotHours: 0.5,
-				estimate: true,
-			},
-		]);
-	});
-
-	it("keeps the runs across a restart", async () => {
-		const wall = clock();
-		const fs = new FakeFs();
-		const budget = await WorkerBudget.open(budgetAt(fs), wall);
-		await budget.started("made", "small", 1);
-		await budget.ran([held("one", "a", "made")]);
-		wall.advance(Duration.hrs(1));
-
-		const again = await WorkerBudget.open(budgetAt(fs), wall);
-
-		expect(again.split("day")[0]).toMatchObject({ task: "a", dollars: 1 });
-	});
-
 	it("projects the month from what is spent and what runs now", async () => {
 		const wall = new FakeWallClock();
 		wall.set(new Date(2026, 9, 31, 22, 0).getTime());
@@ -264,10 +198,6 @@ describe("WorkerBudget", () => {
 		expect(budget.projected()).toBeCloseTo(2);
 	});
 });
-
-function held(id: string, task: string, worker: string) {
-	return { id, project: "/p", task, worker, uncapped: false };
-}
 
 /** A clock at 10:00 on 17 October 2026, local time, mid-day and mid-month. */
 function clock(): FakeWallClock {

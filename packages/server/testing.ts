@@ -20,6 +20,7 @@ import { Projects } from "./projects";
 import { Format, Journal, ProjectHome } from "./records";
 import { assets } from "./server";
 import { CoreClaims, HEAVY_HELD } from "./server/shared";
+import { Spend } from "./spend";
 import { Adherence, Outcomes } from "./stats";
 import { FsStorage, SqliteStorage } from "./storage";
 import { WorktreeService } from "./tasks";
@@ -168,9 +169,7 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
-			workerBudget: new FsStorage(this.splatesHome, this.fs).document(
-				"worker-budget.json",
-			),
+			spend: new Spend(this.machine),
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.heavy = HeavyJobs.under(this.splatesHome, {

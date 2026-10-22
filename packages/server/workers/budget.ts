@@ -14,12 +14,9 @@ import {
 	WORKER_LIMITS,
 	type WorkerLimit,
 } from "./limits";
-import type { HeldSlot } from "./scheduler";
 
 /** A worker budget limit reached, like `monthly limit $75.00 reached`. */
 export type BudgetReason = `${string} reached`;
-
-import { type SpendShare, splitSpend } from "./spend";
 
 /** The shares of a limit, in percent, that each warn once per window. */
 export const ALERT_TIERS = [80, 90, 100] as const;
@@ -291,86 +288,7 @@ export class WorkerBudget {
 			lives: kept.lives.map((life) =>
 				life.id === id && life.until === null ? { ...life, until } : life,
 			),
-			runs: kept.runs.map((run) =>
-				run.worker === id && run.until === null ? { ...run, until } : run,
-			),
 		}));
-	}
-
-	/**
-	 * Squares the runs with the slots `held` now: each held on a made worker
-	 * running is counted from now, and each no longer held ends now, so
-	 * spend can be split by who ran on each worker. Writes nothing when
-	 * nothing changed.
-	 */
-	async ran(held: readonly HeldSlot[]): Promise<void> {
-		const now = this.wall.now();
-		const made = new Set(
-			this.kept.lives
-				.filter((life) => life.until === null)
-				.map((life) => life.id),
-		);
-		const holding = held.filter((slot) => made.has(slot.worker));
-		const open = this.kept.runs.filter((run) => run.until === null);
-		const same = (run: Run, slot: HeldSlot): boolean =>
-			run.conversation === slot.id && run.worker === slot.worker;
-		const starting = holding.filter(
-			(slot) => !open.some((run) => same(run, slot)),
-		);
-		const ending = open.filter(
-			(run) => !holding.some((slot) => same(run, slot)),
-		);
-		if (starting.length === 0 && ending.length === 0) {
-			return;
-		}
-		await this.change((kept) => ({
-			...kept,
-			runs: [
-				...this.recentRuns(kept).map((run) =>
-					ending.includes(run) ? { ...run, until: now } : run,
-				),
-				...starting.map((slot) => ({
-					conversation: slot.id,
-					project: slot.project,
-					task: slot.task,
-					worker: slot.worker,
-					from: now,
-					until: null,
-				})),
-			],
-		}));
-	}
-
-	/**
-	 * Who made workers' cost in `limit`'s window went to, by project and
-	 * task, the most first; for the rate cap, the hour so far.
-	 */
-	split(limit: WorkerLimit): SpendShare[] {
-		const now = this.wall.now();
-		return splitSpend(
-			this.kept.lives,
-			this.kept.runs,
-			windowStart(limit, now),
-			now,
-		);
-	}
-
-	/**
-	 * What made workers cost `project`'s `task` from `since` to `until`,
-	 * epoch ms, as `split` shares each hour; null when it held no slot on
-	 * one. Only as far back as the ledger keeps runs, the month so far.
-	 */
-	spentOn(
-		project: string,
-		task: string,
-		since: number,
-		until: number,
-	): SpendShare | null {
-		return (
-			splitSpend(this.kept.lives, this.kept.runs, since, until).find(
-				(share) => share.project === project && share.task === task,
-			) ?? null
-		);
 	}
 
 	/**
@@ -458,12 +376,6 @@ export class WorkerBudget {
 		return kept.raises.filter((raise) => raise.until > now);
 	}
 
-	/** The runs still counted in some window: holding a slot, or ended this month. */
-	private recentRuns(kept: KeptFile): Run[] {
-		const month = windowStart("month", this.wall.now());
-		return kept.runs.filter((run) => run.until === null || run.until > month);
-	}
-
 	/** The lives still counted in some window: running, or ended this month. */
 	private recent(kept: KeptFile): Life[] {
 		const month = windowStart("month", this.wall.now());
@@ -516,22 +428,6 @@ const Held = z.object({
 /** A conversation a hard stop checkpointed, to carry on once the budget allows. */
 export type BudgetHeld = z.infer<typeof Held>;
 
-const Run = z.object({
-	/** The conversation whose agent held the slot. */
-	conversation: z.string(),
-	/** Its project's main tree. */
-	project: z.string(),
-	task: z.string().nullable(),
-	/** The made worker it held a slot on. */
-	worker: z.string(),
-	/** When it took the slot, epoch ms. */
-	from: z.number(),
-	/** When it gave the slot up, epoch ms; null while it holds it. */
-	until: z.number().nullable(),
-});
-
-type Run = z.infer<typeof Run>;
-
 const Raise = z.object({
 	id: z.number().int(),
 	limit: z.enum(WORKER_LIMITS),
@@ -559,9 +455,6 @@ const Kept = z.object({
 	lives: z.array(Life).default([]),
 	/** The conversations a hard stop checkpointed, until the budget allows again. */
 	held: z.array(Held).default([]),
-
-	/** Each agent's time on a made worker, which spend is split by. */
-	runs: z.array(Run).default([]),
 	/** The highest tier already alerted of each limit, by the window it was in. */
 	alerted: z
 		.array(

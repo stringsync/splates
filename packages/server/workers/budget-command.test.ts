@@ -20,7 +20,15 @@ describe("splates budget", () => {
 
 	beforeEach(() => {
 		budget = WorkerBudget.memory();
-		const routes = new WorkerBudgetRoutes(budget);
+		const routes = new WorkerBudgetRoutes(budget, null, async () => [
+			{
+				project: "/home/me/app",
+				task: "fix-it",
+				dollars: 0.5,
+				slotHours: 1,
+				estimate: true,
+			},
+		]);
 		server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
@@ -59,18 +67,6 @@ describe("splates budget", () => {
 	});
 
 	it("shows this month's spend by project and task", async () => {
-		await budget.started("made", "small", 0.1);
-		await budget.ran([
-			{
-				id: "c",
-				project: "/home/me/app",
-				task: "fix-it",
-				worker: "made",
-				uncapped: false,
-			},
-		]);
-		// Some time on the worker, so the run has spend to show.
-		await Bun.sleep(5);
 		const log = new MemoryLogger();
 
 		await showBudget(opts(log));

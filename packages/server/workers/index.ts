@@ -40,7 +40,11 @@ export {
 } from "./budget-command";
 export { alertNotice, dollars } from "./budget-notice";
 export type { WorkerBudgetReport } from "./budget-routes";
-export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
+export {
+	type RunnerShares,
+	WorkerBudgetRoutes,
+	workerBudgetReport,
+} from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { CoordinatorState } from "./coordinator-state";

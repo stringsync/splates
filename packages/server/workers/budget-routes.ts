@@ -6,6 +6,7 @@ import {
 	type WorkerBudget,
 	type WorkerRaise,
 	type WorkerStanding,
+	windowStart,
 } from "./budget";
 import type { SpendShare } from "./spend";
 
@@ -24,6 +25,12 @@ export interface WorkerBudgetReport {
 	/** Whether the user has set a limit, or confirmed the defaults. */
 	reviewed: boolean;
 }
+
+/** Who the runners' cost from `since` to `until`, epoch ms, went to, from the spend ledger. */
+export type RunnerShares = (
+	since: number,
+	until: number,
+) => Promise<SpendShare[]>;
 
 /** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
 const SetLimit = z.object({ dollars: z.number().min(0).nullable() });
@@ -45,6 +52,7 @@ export class WorkerBudgetRoutes {
 	constructor(
 		private readonly budget: WorkerBudget | null,
 		private readonly provisioning: { refill(): Promise<void> } | null = null,
+		private readonly shares: RunnerShares = () => Promise.resolve([]),
 	) {}
 
 	/** `GET /api/worker-budget`. */
@@ -124,18 +132,25 @@ export class WorkerBudgetRoutes {
 		} catch (error) {
 			return refuse(400, "usage", (error as Error).message);
 		}
-		return Response.json(workerBudgetReport(budget));
+		return Response.json(await workerBudgetReport(budget, this.shares));
 	}
 }
 
 /** Where `budget` stands. */
-export function workerBudgetReport(budget: WorkerBudget): WorkerBudgetReport {
+export async function workerBudgetReport(
+	budget: WorkerBudget,
+	shares: RunnerShares,
+): Promise<WorkerBudgetReport> {
+	const now = Date.now();
 	return {
 		standing: budget.standing(),
 		raises: budget.raises,
 		rate: budget.rate(),
 		projected: budget.projected(),
-		split: { day: budget.split("day"), month: budget.split("month") },
+		split: {
+			day: await shares(windowStart("day", now), now),
+			month: await shares(windowStart("month", now), now),
+		},
 		stopped: budget.stopped(),
 		reviewed: budget.reviewed,
 	};

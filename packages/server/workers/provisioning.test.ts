@@ -76,24 +76,6 @@ describe("WorkerProvisioning", () => {
 		expect(budget.rate()).toBe(0);
 	});
 
-	it("keeps who holds slots on made workers, for the budget's split", async () => {
-		const { made, budget, wall } = await provisioning();
-		const scheduler = schedulerOn((await made.provision()).id);
-		made.watch(scheduler);
-
-		await scheduler.take({
-			id: "c",
-			project: "/p",
-			task: "fix-it",
-			agent: "claude",
-		});
-		await Bun.sleep(0);
-		wall.advance(Duration.mins(10));
-		made.dispose();
-
-		expect(budget.split("day").map((share) => share.task)).toEqual(["fix-it"]);
-	});
-
 	it("keeps each runner's life in the ledger, at the price it was made at, until destroyed or found gone", async () => {
 		const { provider, records, made, ledger, wall } = await provisioning();
 		provider.billing = "digitalocean";

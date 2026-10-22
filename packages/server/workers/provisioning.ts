@@ -260,20 +260,14 @@ export class WorkerProvisioning
 	}
 
 	/**
-	 * Keeps who holds slots on made workers for the budget's split as
-	 * `scheduler` changes, and looks at the budget as time passes, until
-	 * disposed.
+	 * Tracks idle workers as `scheduler` changes, and looks at the budget as
+	 * time passes, until disposed.
 	 */
 	watch(scheduler: Scheduler): void {
 		this.scheduler = scheduler;
 		this.watching?.();
 		this.tick?.dispose();
 		this.watching = scheduler.events.on("changed", () => {
-			void this.opts.budget.ran(scheduler.held()).catch((error: unknown) => {
-				this.opts.log.error(
-					`who ran on made workers could not be kept: ${String(error)}`,
-				);
-			});
 			this.idle.track(scheduler, this.opts.busy?.() ?? []);
 		});
 		const timer = this.opts.timer ?? new SystemTimer();
