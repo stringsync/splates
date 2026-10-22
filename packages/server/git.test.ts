@@ -53,9 +53,13 @@ describe("Git", () => {
 
 		await env.gitCli(env.root, "config", "--unset-all", "user.name");
 		await env.gitCli(env.root, "config", "--unset-all", "user.email");
+		// Nor one in the user's or the system's config, as on a fresh machine.
+		env.proc.env.GIT_CONFIG_GLOBAL = "/dev/null";
+		env.proc.env.GIT_CONFIG_NOSYSTEM = "1";
 		expect(await env.git.author()).toBeNull();
 		const signed = env.git.at(env.root);
 		const given = new Git(env.root, {
+			ps: env.ps,
 			identity: {
 				author: async () => ({ name: "Given", email: "g@example.com" }),
 			},

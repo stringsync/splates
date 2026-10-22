@@ -20,7 +20,6 @@ WORKDIR /home/splates/splates
 # The dependencies first, a layer that lasts across source changes: the
 # install's scripts build the page, which needs the source, so they wait.
 COPY --chown=splates:splates package.json bun.lock ./
-COPY --chown=splates:splates packages/infra/package.json packages/infra/
 COPY --chown=splates:splates packages/server/package.json packages/server/
 COPY --chown=splates:splates packages/splates/package.json packages/splates/
 COPY --chown=splates:splates packages/web/package.json packages/web/

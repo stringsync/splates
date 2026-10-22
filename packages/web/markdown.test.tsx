@@ -1,5 +1,5 @@
 import "./register-dom";
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
@@ -7,8 +7,13 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Board, NO_BOARD } from "./board";
 import { linkElsewhere, linkTasks, Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
+import { knowFocused } from "./project-places";
 
 describe("Markdown", () => {
+	// An App test run before this one in the same worker may have focused another
+	// project; these name webappwiz and vexml as projects other than this one.
+	beforeEach(() => knowFocused("splates"));
+
 	it("renders a heading at its own level", () => {
 		const page = render(<Markdown text={"# alpha\n\n## Goal\nland it\n"} />);
 

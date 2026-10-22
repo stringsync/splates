@@ -2,12 +2,12 @@
 // effect. Nothing the package exports imports it, so the build leaves it, and
 // happy-dom, out of what is published.
 //
-// Imported per file rather than preloaded through bunfig. `splates dev test` runs
-// `bun test --parallel`, a worker per file, so importing it here registers
-// happy-dom only in the workers that asked for a DOM. A preload would register
-// it in every worker, and happy-dom replaces 33 globals: not just the HTTP
-// classes below but `setTimeout`, `URL`, `AbortSignal` and the stream types,
-// which the server side is tested against.
+// Imported per file rather than preloaded through bunfig, so a file run
+// alone gets its DOM too. A bunfig preload would register happy-dom for every
+// file, and it replaces 33 globals: not just the HTTP classes below but
+// `setTimeout`, `URL`, `AbortSignal` and the stream types, which the server
+// side is tested against. `splates dev test` runs the page's tests apart,
+// preloading `test-preload.ts`, which imports this.
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // Even within one worker, `register()` replaces globals for the whole process,

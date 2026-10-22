@@ -1,3 +1,4 @@
+import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	SETUP_AREAS,
@@ -191,7 +192,9 @@ describe("Setup journeys", () => {
 		expect(view.getByLabelText("Main model")).toBeTruthy();
 		expect(view.getByLabelText("Auxiliary model, for titles")).toBeTruthy();
 		fireEvent.click(
-			view.getByLabelText("Use balance is off in my OpenCode Console"),
+			view.getByRole("switch", {
+				name: "Use balance is off in my OpenCode Console",
+			}),
 		);
 		testing.reply = with_({
 			"opencode-install": "done",
