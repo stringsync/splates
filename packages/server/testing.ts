@@ -251,14 +251,23 @@ export class Testing implements AsyncDisposable {
 		return testing;
 	}
 
-	/** Runs git in `cwd`, named apart from the `git` a command is handed. */
+	/**
+	 * Runs git in `cwd`, named apart from the `git` a command is handed. It
+	 * signs as an identity of its own, so a commit in a clone works on a
+	 * machine with none configured.
+	 */
 	async gitCli(cwd: string, ...args: string[]): Promise<string> {
-		const { exitCode, stdout, stderr } = await this.ps.spawnCapture([
-			"git",
-			"-C",
-			cwd,
-			...args,
-		]);
+		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+			["git", "-C", cwd, ...args],
+			{
+				env: {
+					GIT_AUTHOR_NAME: "splates",
+					GIT_AUTHOR_EMAIL: "splates@example.com",
+					GIT_COMMITTER_NAME: "splates",
+					GIT_COMMITTER_EMAIL: "splates@example.com",
+				},
+			},
+		);
 		if (exitCode !== 0) {
 			throw new Error(`git ${args.join(" ")}: ${stderr}`);
 		}

@@ -24,14 +24,16 @@ describe.concurrent("splates", () => {
 
 	it("does not expose the checkout's development namespace in the published CLI", async () => {
 		await using cli = await setup();
-		const { stdout } = await cli.splates(
+		const { exitCode, stdout, stderr } = await cli.splates(
 			cli.env.root,
 			"dev",
 			"--port",
 			"99999",
 		);
 
-		expect(stdout).toContain("Usage: splates <command>");
+		// Outside a checkout the release fails saying so, rather than print help.
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("only in a splates checkout");
 		expect(stdout).not.toContain("Usage: splates dev");
 		expect(stdout).not.toContain("  fix ");
 	});

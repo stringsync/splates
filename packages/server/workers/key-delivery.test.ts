@@ -123,7 +123,8 @@ describe("KeyDelivery", () => {
 		const child = launch(
 			["/bin/sh", "-c", 'echo "[$ANTHROPIC_BASE_URL]"'],
 			dir,
-			{},
+			// Emptied, so a base URL set on the machine running the test is not read as the proxy's.
+			{ ANTHROPIC_BASE_URL: "" },
 		);
 
 		expect(await printed(child)).toBe("[]\n");
