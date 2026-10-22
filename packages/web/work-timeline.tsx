@@ -138,7 +138,7 @@ export function TimelineItem({
 			);
 		case "decision":
 			return (
-				<div className="flex items-center gap-1.5 text-muted-foreground text-sm">
+				<div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-sm">
 					<span className="shrink-0">{decided(item.decision)}</span>
 					<code className="min-w-0 truncate font-mono">{item.label}</code>
 				</div>

@@ -165,7 +165,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							// biome-ignore lint/suspicious/noArrayIndexKey: decisions retain their order
 							key={index}
 							data-slot="permission-decision"
-							className="flex items-center gap-1.5 text-muted-foreground text-sm"
+							className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-sm"
 						>
 							<ShieldIcon className="size-3 shrink-0" />
 							<TimelineItem item={item} short={short} />
