@@ -2,39 +2,18 @@ import { describe, expect, it } from "bun:test";
 import type { Setting } from "../conversations";
 import { effortSettings, pickEffort, pickSettings } from "./effort";
 
-const EFFORT: Setting = {
-	id: "effort",
-	name: "Effort",
-	type: "select",
-	category: "thought_level",
-	current: "default",
-	options: ["default", "low", "high"].map((value) => ({
-		value,
-		name: value[0]?.toUpperCase() + value.slice(1),
-		description: null,
-	})),
-};
-
-const MODE: Setting = {
-	id: "mode",
-	name: "Mode",
-	type: "select",
-	category: "mode",
-	current: "auto",
-	options: ["default", "auto"].map((value) => ({
-		value,
-		name: value,
-		description: null,
-	})),
-};
-
 describe("effort", () => {
-	it("opens a pick on the person's saved mode as well as its level", () => {
+	it("opens a pick on auto mode when offered, else the saved mode, with its level", () => {
 		expect(pickSettings("high", [MODE, EFFORT])).toEqual({
 			mode: "auto",
 			effort: "high",
 		});
 		expect(pickSettings(undefined, [MODE])).toEqual({ mode: "auto" });
+		expect(
+			pickSettings(undefined, [
+				{ ...MODE, options: MODE.options.slice(0, 1), current: "default" },
+			]),
+		).toEqual({ mode: "default" });
 		expect(pickSettings("high", [EFFORT])).toEqual({ effort: "high" });
 	});
 
@@ -62,3 +41,29 @@ describe("effort", () => {
 		);
 	});
 });
+
+const EFFORT: Setting = {
+	id: "effort",
+	name: "Effort",
+	type: "select",
+	category: "thought_level",
+	current: "default",
+	options: ["default", "low", "high"].map((value) => ({
+		value,
+		name: value[0]?.toUpperCase() + value.slice(1),
+		description: null,
+	})),
+};
+
+const MODE: Setting = {
+	id: "mode",
+	name: "Mode",
+	type: "select",
+	category: "mode",
+	current: "default",
+	options: ["default", "auto"].map((value) => ({
+		value,
+		name: value,
+		description: null,
+	})),
+};

@@ -27,9 +27,9 @@ export function effortSettings(
 
 /**
  * What a conversation started on a pick opens with: `effort` as
- * {@link effortSettings} has it, and the permission mode `offered` holds as the
- * person's default for the agent, which only a pick made by hand would
- * otherwise carry, leaving the agent on its own manual mode.
+ * {@link effortSettings} has it, and the `auto` permission mode when `offered`
+ * has it, else the person's saved mode for the agent, so a pick never leaves
+ * the agent on its own manual mode.
  */
 export function pickSettings(
 	effort: string | undefined,
@@ -37,7 +37,13 @@ export function pickSettings(
 ): Record<string, string> {
 	const mode = offered.find((each) => each.category === "mode");
 	return {
-		...(mode === undefined ? {} : { [mode.id]: mode.current }),
+		...(mode === undefined
+			? {}
+			: {
+					[mode.id]: mode.options.some((each) => each.value === "auto")
+						? "auto"
+						: mode.current,
+				}),
 		...effortSettings(effort, offered),
 	};
 }
