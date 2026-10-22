@@ -176,7 +176,6 @@ function Form({
 				setTimeout(() => setNext({ kind: "ready" }), 1000);
 			}}
 			onAgent={agent}
-			onLeave={leave}
 			undo="OpenCode"
 			onUndo={leave}
 		/>

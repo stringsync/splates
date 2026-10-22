@@ -2,7 +2,7 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
-import { Loader2Icon } from "lucide-react";
+import { ChevronLeftIcon, Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useEffect, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
@@ -34,7 +34,7 @@ import { SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
 import { UndoDialog } from "./setup-undo";
-import { TopBar } from "./top-bar";
+import { BarButton, TopBar } from "./top-bar";
 
 /** Intentional setup: choose an area, then answer its steps a page at a time. */
 export function SetupPage({
@@ -55,7 +55,16 @@ export function SetupPage({
 	const area = progress?.areas.find((area) => area.id === selected);
 	return (
 		<section aria-label="setup" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Setup" />
+			<TopBar
+				leading={
+					area ? (
+						<BarButton label="Back to setup" onClick={() => setSelected(null)}>
+							<ChevronLeftIcon />
+						</BarButton>
+					) : undefined
+				}
+				title="Setup"
+			/>
 			{progress === null && <SetupLoading />}
 			{progress !== null &&
 				(area ? (
@@ -238,7 +247,6 @@ function Journey({
 					// Read before the fields lock, since a disabled field sends nothing.
 					onNext={(form) => void journey.press(new FormData(form))}
 					onAgent={onAgent}
-					onLeave={onLeave}
 					undo={area.undoable ? area.title : null}
 					onUndo={onUndo}
 				>

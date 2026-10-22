@@ -97,8 +97,15 @@ describe("Setup journeys", () => {
 		testing.reply = with_({ "claude-signin": "done", "claude-models": "done" });
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
-		await click(view, "Back to setup");
-		expect(view.getByRole("button", { name: "Set up Claude" })).toBeTruthy();
+		// The bar's way back and the finished page's button share the name.
+		fireEvent.click(
+			view
+				.getAllByRole("button", { name: "Back to setup" })
+				.at(0) as HTMLElement,
+		);
+		expect(
+			await view.findByRole("button", { name: "Set up Claude" }),
+		).toBeTruthy();
 		expect(testing.asked).not.toContain("/api/setup/opencode");
 	});
 
@@ -131,7 +138,7 @@ describe("Setup journeys", () => {
 		const view = open();
 		await click(view, "Set up Codex");
 		expect(view.getByRole("form", { name: "Choose Codex models" }));
-		await click(view, "Setup");
+		await click(view, "Back to setup");
 		await click(view, "Set up Dictation");
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});
@@ -250,7 +257,6 @@ describe("Setup journeys", () => {
 				next={{ kind: "failed", problem: "npm is not on your PATH." }}
 				onNext={() => nexts++}
 				onAgent={null}
-				onLeave={() => {}}
 			/>,
 		);
 		expect(view.getByText("2 of 4")).toBeTruthy();

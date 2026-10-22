@@ -6,7 +6,6 @@ import type {
 import {
 	BotIcon,
 	CheckIcon,
-	ChevronLeftIcon,
 	ChevronRightIcon,
 	InfoIcon,
 	Loader2Icon,
@@ -183,7 +182,6 @@ export function StepForm({
 	next,
 	onNext,
 	onAgent,
-	onLeave,
 	undo,
 	onUndo,
 	children,
@@ -206,7 +204,6 @@ export function StepForm({
 	onNext: (form: HTMLFormElement) => void;
 	/** Starts a conversation on the step; null when no agent can be started. */
 	onAgent: (() => void) | null;
-	onLeave: () => void;
 	/** The title of the journey's area, to undo, or null while it has nothing to undo. */
 	undo: string | null;
 	onUndo?: () => void;
@@ -216,14 +213,7 @@ export function StepForm({
 	const progress = steps !== undefined && steps.length > 1;
 	return (
 		<div className="flex w-full flex-col gap-6">
-			<div className="flex items-center justify-between gap-4">
-				<Button
-					variant="link"
-					className="h-auto p-0 text-muted-foreground"
-					onClick={onLeave}
-				>
-					<ChevronLeftIcon data-icon="inline-start" /> Setup
-				</Button>
+			<div className="flex items-center justify-end gap-4">
 				{undo !== null && (
 					<Button
 						variant="ghost"
