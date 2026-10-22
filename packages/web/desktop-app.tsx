@@ -141,7 +141,12 @@ export function DesktopApp({
 					)}
 					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 				>
-					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
+					<SidebarHead
+						name={name}
+						snapshot={snapshot}
+						sidebar={sidebar}
+						dimmed={dimmed}
+					/>
 					{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 					<header
@@ -163,6 +168,7 @@ export function DesktopApp({
 						terminals={terminals}
 						drafts={drafts}
 						sidebar={sidebar}
+						dimmed={dimmed}
 					/>
 					{bodies === null ? (
 						<>

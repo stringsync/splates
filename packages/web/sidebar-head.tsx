@@ -20,11 +20,14 @@ export function SidebarHead({
 	name,
 	snapshot,
 	sidebar,
+	dimmed,
 }: {
 	/** The project's name. */
 	name: string;
 	snapshot: Snapshot | null;
 	sidebar: Sidebar;
+	/** Whether the page is dimmed, as its content is. */
+	dimmed: boolean;
 }): JSX.Element {
 	const { shown } = useReactive(
 		sidebar,
@@ -56,6 +59,8 @@ export function SidebarHead({
 			className={cn(
 				"fixed top-0 left-0 z-50 flex h-(--top-bar-height) max-w-(--sidebar-width) items-center gap-2 pr-2 pl-6",
 				shown && "w-(--sidebar-width)",
+				"transition-opacity duration-300",
+				dimmed && "opacity-60",
 			)}
 		>
 			<SlotMark snapshot={snapshot} />
