@@ -55,6 +55,7 @@ import { splatesLane } from "./lane";
 import { notes } from "./notes";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
+import { splatesReplica } from "./replica";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
 import { splatesSlots } from "./slots";
@@ -575,4 +576,5 @@ splates
 	.mount("queue", splatesQueue)
 	.mount("hook", splatesHook)
 	.mount("budget", splatesBudget)
-	.mount("config", splatesConfig);
+	.mount("config", splatesConfig)
+	.mount("replica", splatesReplica);

@@ -46,11 +46,34 @@ export interface Storage {
 	children(key: string): Promise<string[]>;
 	/** The bytes everything under `key`, nested keys included, takes. */
 	size(key: string): Promise<number>;
+	/**
+	 * Every key under `key`, nested ones included, that holds something
+	 * itself: a document, a record or blob, or a log or one of its segments.
+	 * Sorted, relative to the storage, and never a lock.
+	 */
+	keys(key: string): Promise<string[]>;
+	/**
+	 * What `key` holds itself, as a copy kept elsewhere needs it: a value's
+	 * bytes, or a log's whole lines after the first `from`, with how many it
+	 * has. Null when it holds nothing.
+	 */
+	copy(key: string, from?: number): Promise<Kept | null>;
 	/** Removes everything under `key`, nested keys included; nothing there is no error. */
 	remove(key: string): Promise<void>;
 	/** The storage under `key`, which its own keys are relative to. */
 	within(key: string): Storage;
 }
+
+/** What `Storage.copy` reads at a key. */
+export type Kept =
+	| { kind: "value"; bytes: Uint8Array }
+	| {
+			kind: "log";
+			/** The lines after the ones skipped, each without its newline. */
+			lines: string[];
+			/** How many lines the log has, those skipped included. */
+			count: number;
+	  };
 
 export interface WatchOptions {
 	/** Everything under `key` too, rather than what is directly under it. */

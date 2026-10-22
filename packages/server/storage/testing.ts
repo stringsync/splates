@@ -6,7 +6,13 @@ import type { Document, DocumentOptions } from "./document";
 import { documentText, entriesOf, logLines } from "./json";
 import { checkName, keyIn } from "./key";
 import type { Log, LogOptions, Segment } from "./log";
-import type { Storage, StorageChanges, Watch, WatchOptions } from "./storage";
+import type {
+	Kept,
+	Storage,
+	StorageChanges,
+	Watch,
+	WatchOptions,
+} from "./storage";
 
 /**
  * Storage held in this process alone, for tests that need no disk, and to
@@ -18,6 +24,7 @@ export class MemoryStorage implements Storage {
 		readonly root = "",
 		private readonly held: Held = {
 			values: new Map(),
+			logs: new Set(),
 			locks: new Map(),
 			watches: new Set(),
 			cache: null,
@@ -31,6 +38,7 @@ export class MemoryStorage implements Storage {
 	static cachedIn(dir: string, fs: Fs): MemoryStorage {
 		return new MemoryStorage("", {
 			values: new Map(),
+			logs: new Set(),
 			locks: new Map(),
 			watches: new Set(),
 			cache: { dir, fs },
@@ -88,7 +96,7 @@ export class MemoryStorage implements Storage {
 			exists: async () => this.text(at) !== null,
 			append: async (...entries) => {
 				if (entries.length > 0) {
-					this.set(at, (this.text(at) ?? "") + logLines(entries));
+					this.set(at, (this.text(at) ?? "") + logLines(entries), true);
 				}
 			},
 			replay: async () => entriesOf(this.text(at) ?? "", opts.schema),
@@ -103,7 +111,7 @@ export class MemoryStorage implements Storage {
 					at: now,
 				};
 				this.delete(at);
-				this.set(segmentAt(segment), raw);
+				this.set(segmentAt(segment), raw, true);
 				return segment;
 			},
 			segments,
@@ -248,6 +256,31 @@ export class MemoryStorage implements Storage {
 		return total;
 	}
 
+	async keys(key: string): Promise<string[]> {
+		const dir = this.full(key);
+		const prefix = dir === "" ? "" : `${dir}/`;
+		return [...this.held.values.keys()]
+			.filter((at) => at.startsWith(prefix))
+			.map((at) => this.relative(at))
+			.sort();
+	}
+
+	async copy(key: string, from = 0): Promise<Kept | null> {
+		const at = this.full(key);
+		const held = this.held.values.get(at);
+		if (held === undefined) {
+			return null;
+		}
+		if (!this.held.logs.has(at)) {
+			return {
+				kind: "value",
+				bytes: typeof held === "string" ? new TextEncoder().encode(held) : held,
+			};
+		}
+		const lines = (this.text(at) ?? "").split("\n").filter(Boolean);
+		return { kind: "log", lines: lines.slice(from), count: lines.length };
+	}
+
 	async remove(key: string): Promise<void> {
 		const dir = this.full(key);
 		for (const at of [...this.held.values.keys()]) {
@@ -263,6 +296,10 @@ export class MemoryStorage implements Storage {
 
 	private full(key: string): string {
 		return keyIn(this.root, key);
+	}
+
+	private relative(at: string): string {
+		return this.root === "" ? at : at.slice(this.root.length + 1);
 	}
 
 	private text(at: string): string | null {
@@ -284,12 +321,18 @@ export class MemoryStorage implements Storage {
 			.map((at) => at.slice(prefix.length));
 	}
 
-	private set(at: string, value: string | Uint8Array): void {
+	private set(at: string, value: string | Uint8Array, log = false): void {
 		this.held.values.set(at, value);
+		if (log) {
+			this.held.logs.add(at);
+		} else {
+			this.held.logs.delete(at);
+		}
 		this.changed(at);
 	}
 
 	private delete(at: string): void {
+		this.held.logs.delete(at);
 		if (this.held.values.delete(at)) {
 			this.changed(at);
 		}
@@ -315,6 +358,8 @@ export class MemoryStorage implements Storage {
 /** What a `MemoryStorage` and every view of it share. */
 interface Held {
 	values: Map<string, string | Uint8Array>;
+	/** Which of `values` are logs or their segments. */
+	logs: Set<string>;
 	locks: Map<string, Lock>;
 	watches: Set<Watching>;
 	/** Where `materialize` writes copies; null to answer `locate`'s path. */

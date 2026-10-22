@@ -10,7 +10,13 @@ import { FsDocument } from "./fs-document";
 import { FsLog } from "./fs-log";
 import { keyIn } from "./key";
 import type { Log, LogOptions } from "./log";
-import type { Storage, StorageChanges, Watch, WatchOptions } from "./storage";
+import type {
+	Kept,
+	Storage,
+	StorageChanges,
+	Watch,
+	WatchOptions,
+} from "./storage";
 
 /** What makes the lock at a path. */
 export interface Locks {
@@ -159,6 +165,32 @@ export class FsStorage implements Storage {
 		return bytesUnder(this.fs, this.path(key));
 	}
 
+	async keys(key: string): Promise<string[]> {
+		const base = key === "" ? "" : `${key}/`;
+		return (await filesUnder(this.fs, this.path(key)))
+			.filter((file) => !LOCK_PATH.test(file) && !file.endsWith(".tmp"))
+			.map((file) => `${base}${file}`)
+			.sort();
+	}
+
+	async copy(key: string, from = 0): Promise<Kept | null> {
+		const path = this.path(key);
+		const stat = await this.fs.stat(path).catch(() => null);
+		if (stat === null || stat.isDirectory()) {
+			return null;
+		}
+		const bytes = await this.fs.readBytes(path).catch(() => null);
+		if (bytes === null) {
+			return null;
+		}
+		// A log is a JSON-lines file, as the import into a database reads one.
+		if (!key.endsWith(".jsonl")) {
+			return { kind: "value", bytes };
+		}
+		const lines = wholeLines(new TextDecoder().decode(bytes));
+		return { kind: "log", lines: lines.slice(from), count: lines.length };
+	}
+
 	async remove(key: string): Promise<void> {
 		await this.fs.rm(this.path(key), { recursive: true, force: true });
 	}
@@ -166,6 +198,30 @@ export class FsStorage implements Storage {
 	within(key: string): Storage {
 		return new FsStorage(this.path(key), this.fs, { locks: this.locks });
 	}
+}
+
+/** The files under `dir`, as paths relative to it, sorted; none when it is not there. */
+async function filesUnder(fs: Fs, dir: string): Promise<string[]> {
+	const found: string[] = [];
+	for (const name of await fs.readdir(dir).catch(() => [])) {
+		const stat = await fs.stat(`${dir}/${name}`).catch(() => null);
+		if (stat?.isDirectory()) {
+			for (const file of await filesUnder(fs, `${dir}/${name}`)) {
+				found.push(`${name}/${file}`);
+			}
+		} else if (stat !== null) {
+			found.push(name);
+		}
+	}
+	return found.sort();
+}
+
+/** The lines of `text` a crash did not cut short, empty ones left out. */
+function wholeLines(text: string): string[] {
+	return text
+		.slice(0, text.lastIndexOf("\n") + 1)
+		.split("\n")
+		.filter((line) => line !== "");
 }
 
 /** The bytes of every file under `dir`, folders included; 0 when it is not there. */

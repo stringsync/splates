@@ -72,6 +72,8 @@
 		"./queue": "./queue/index.ts",
 		"./queue/browser": "./queue/browser.ts",
 		"./records": "./records/index.ts",
+		"./replica": "./replica/index.ts",
+		"./replica/testing": "./replica/testing.ts",
 		"./records/browser": "./records/browser.ts",
 		"./workers": "./workers/index.ts",
 		"./workers/browser": "./workers/browser.ts",

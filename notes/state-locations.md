@@ -12,7 +12,7 @@ cache and `~/.splates` the one directory that matters. Keys, as they were
 files: `tasks/<N>.md` (JSON front matter and a markdown body), `tasks/last`,
 the journal `log.jsonl` and its rotated segments under `log/`,
 `plans/<task>.md`, `finished/`, `conversations/<id>.jsonl`, `hooks.json`,
-`creds.json`, `note-uses.jsonl` and `format` (the records' format number).
+`creds.json`, `note-uses.jsonl`, `replica.json` (the replica's origin and status, see replica) and `format` (the records' format number).
 Beside the database sit `merge.lock`, `imports/` and the `state.db.files/`
 cache `materialize` copies a record or blob into when an agent must open it
 as a file (attachments, a conversation's log).
@@ -28,7 +28,7 @@ Machine-wide state is under `~/.splates`, or `SPLATES_HOME` (tests set it):
 These stay files, through `FsStorage.ofMachine`.
 
 Everything goes through `Storage` (`packages/server/storage/`): `document`,
-`log`, `collection`, `lock`, `watch`, keyed by `/`-separated paths that keep
+`log`, `collection`, `lock`, `watch`, and `keys` and `copy` for a replica, keyed by `/`-separated paths that keep
 their extension, so `FsStorage` maps onto file names and stands in for
 machine files and tests. `SqliteStorage` (`storage/sqlite.ts`, on
 `bun:sqlite`), proved by the same contract suite, keeps documents and a

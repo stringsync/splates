@@ -14,7 +14,7 @@ import { importTree } from "./sqlite-import";
 import { inRange, rangeParams } from "./sqlite-keys";
 import { SqliteLock } from "./sqlite-lock";
 import { SqliteLog } from "./sqlite-log";
-import type { Storage, Watch, WatchOptions } from "./storage";
+import type { Kept, Storage, Watch, WatchOptions } from "./storage";
 
 export interface SqliteStorageOptions {
 	fs: Fs;
@@ -157,6 +157,52 @@ export class SqliteStorage implements Storage, Resource {
 			)
 			.get(...params, ...params);
 		return row?.bytes ?? 0;
+	}
+
+	async keys(key: string): Promise<string[]> {
+		const params = rangeParams(this.full(key));
+		const from = this.root === "" ? 1 : this.root.length + 2;
+		return this.shared.db.db
+			.query<{ key: string }, [number, ...typeof params, ...typeof params]>(
+				`SELECT substr(key, ?) AS key FROM (
+					SELECT key FROM kv WHERE ${inRange("key")}
+					UNION
+					SELECT coalesce(segment, log) AS key FROM entries
+					WHERE ${inRange("coalesce(segment, log)")}
+				) ORDER BY key`,
+			)
+			.all(from, ...params, ...params)
+			.map((row) => row.key);
+	}
+
+	async copy(key: string, from = 0): Promise<Kept | null> {
+		const at = this.full(key);
+		const { db } = this.shared.db;
+		const row = db
+			.query<{ data: Uint8Array }, [string]>(
+				"SELECT data FROM kv WHERE key = ?",
+			)
+			.get(at);
+		if (row !== null) {
+			return { kind: "value", bytes: row.data };
+		}
+		const owned = "(segment IS NULL AND log = ?) OR segment = ?";
+		const count =
+			db
+				.query<{ n: number }, [string, string]>(
+					`SELECT count(*) AS n FROM entries WHERE ${owned}`,
+				)
+				.get(at, at)?.n ?? 0;
+		if (count === 0) {
+			return null;
+		}
+		const lines = db
+			.query<{ line: string }, [string, string, number]>(
+				`SELECT line FROM entries WHERE ${owned} ORDER BY id LIMIT -1 OFFSET ?`,
+			)
+			.all(at, at, from)
+			.map((entry) => entry.line);
+		return { kind: "log", lines, count };
 	}
 
 	async remove(key: string): Promise<void> {

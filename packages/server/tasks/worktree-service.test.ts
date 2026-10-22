@@ -45,6 +45,7 @@ describe("WorktreeService", () => {
 			cloud: null,
 			workerProvider: null,
 			platform: null,
+			replica: null,
 		};
 	});
 

@@ -90,6 +90,7 @@ function defaults(root: string, trunk: string): Config {
 		cloud: null,
 		workerProvider: null,
 		platform: null,
+		replica: null,
 	};
 }
 

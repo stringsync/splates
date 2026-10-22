@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -273,6 +273,75 @@ describe.each([
 			const project = storage.within("projects/a");
 
 			expect(await project.document("push.json").read()).toEqual({ on: true });
+		});
+	});
+
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	describe("copies", () => {
+		let storage: Storage;
+		beforeEach(async () => {
+			storage = await open();
+		});
+
+		it("lists every key holding something, sorted, locks left out", async () => {
+			await storage.document("hooks.json").update(() => ({ on: true }));
+			const log = storage.log("a.jsonl");
+			await log.append({ n: 1 });
+			const { name } = await rotated(log);
+			await log.append({ n: 2 });
+
+			expect(await storage.keys("")).toEqual([
+				"a.jsonl",
+				`a.jsonl.segments/${name}`,
+				"hooks.json",
+			]);
+		});
+
+		it("lists the keys under one, relative to the storage", async () => {
+			await storage.collection("tasks").write("1.md", "first");
+			await storage.document("hooks.json").write({});
+
+			expect(await storage.within("tasks").keys("")).toEqual(["1.md"]);
+			expect(await storage.keys("tasks")).toEqual(["tasks/1.md"]);
+		});
+
+		it("copies a value's bytes", async () => {
+			const blob = new Uint8Array([0, 1, 255]);
+			await storage.collection("files").writeBytes("a.png", blob);
+
+			expect(await storage.copy("files/a.png")).toEqual({
+				kind: "value",
+				bytes: blob,
+			});
+		});
+
+		it("copies a log's lines after the ones skipped", async () => {
+			await storage.log("conversations/a.jsonl").append({ n: 1 }, { n: 2 });
+
+			expect(await storage.copy("conversations/a.jsonl", 1)).toEqual({
+				kind: "log",
+				lines: ['{"n":2}'],
+				count: 2,
+			});
+		});
+
+		it("copies a segment as a log", async () => {
+			const log = storage.log("conversations/a.jsonl");
+			await log.append({ n: 1 });
+
+			const { name } = await rotated(log);
+
+			expect(
+				await storage.copy(`conversations/a.jsonl.segments/${name}`),
+			).toEqual({
+				kind: "log",
+				lines: ['{"n":1}'],
+				count: 1,
+			});
+		});
+
+		it("copies nothing where nothing is", async () => {
+			expect(await storage.copy("tasks/1.md")).toBeNull();
 		});
 	});
 

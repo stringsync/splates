@@ -1,5 +1,6 @@
 import type { CloudProvider } from "../cloud";
 import type { TaskEventName } from "../hooks";
+import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
 import type { WorkerProvider } from "../workers";
 
@@ -133,6 +134,16 @@ export interface Config {
 	 * elsewhere. Null runs them on any.
 	 */
 	platform: "linux" | "macos" | "windows" | null;
+	/**
+	 * Where `splates server` keeps a copy of the project's records, a few
+	 * seconds behind every change: a bucket of any S3-compatible store, as
+	 * `{ provider: "s3", endpoint: "https://<store's endpoint>", bucket: "my-splates" }`,
+	 * whose key and secret the Creds page asks for as `REPLICA_ACCESS_KEY` and
+	 * `REPLICA_SECRET_KEY`, or a folder, as `{ provider: "dir", path: "/Volumes/Backup/splates" }`.
+	 * The copy is where the records move from when the server moves to
+	 * another machine. Null keeps none.
+	 */
+	replica: ReplicaPlace | null;
 }
 
 /**

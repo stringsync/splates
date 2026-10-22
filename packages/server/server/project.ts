@@ -4,7 +4,13 @@ import type { Transcriber } from "webappwiz/dictate";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { Debouncer, SystemTimer } from "webappwiz/time";
+import {
+	Debouncer,
+	Duration,
+	SystemTimer,
+	SystemWallClock,
+	sleep,
+} from "webappwiz/time";
 import {
 	AutoPickRoutes,
 	lifting,
@@ -30,6 +36,7 @@ import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
+import { openReplica, Replicator } from "../replica";
 import type { NoteSource } from "../stats";
 import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
@@ -66,6 +73,7 @@ export async function serveProject(
 	let unwatchRoom: (() => void) | null = null;
 	let starting = Promise.resolve();
 	const automations = new Automations(project);
+	const replicator = replicate(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
 		queueRunner = QueueRunner.watch({
@@ -254,6 +262,11 @@ export async function serveProject(
 			queueRunner?.dispose();
 			unwatchRoom?.();
 			automations.dispose();
+			if (replicator !== null) {
+				// What changed in the last seconds goes before the server does, unless the store is slow.
+				await Promise.race([replicator.flush(), sleep(REPLICA_LAST_FLUSH)]);
+				replicator.dispose();
+			}
 			events?.dispose();
 			// A run mid-start has launched an agent it has yet to record, which a
 			// server starting next would launch again.
@@ -261,6 +274,32 @@ export async function serveProject(
 			await talks.disposeAsync();
 		},
 	};
+}
+
+/** How long a stopping server waits for its last batch to reach the replica. */
+const REPLICA_LAST_FLUSH = Duration.secs(10);
+
+/**
+ * Starts copying the project's records into the replica its config names,
+ * or null when it names none. A replica it cannot reach yet is tried again
+ * on its own, so serving never waits on it.
+ */
+function replicate(project: Project): Replicator | null {
+	const { service, storage, fs, log, ps, creds } = project;
+	const place = service.config.replica;
+	if (place === null) {
+		return null;
+	}
+	const replicator = new Replicator({
+		storage,
+		replica: openReplica(place, { root: service.git.root, fs, creds }),
+		timer: new SystemTimer(),
+		clock: new SystemWallClock(),
+		log,
+		host: ps.hostname,
+	});
+	replicator.start().catch((error) => log.error(`replica: ${error}`));
+	return replicator;
 }
 
 /**
