@@ -19,6 +19,7 @@ export const CLOUDFLARE_PERMISSIONS = [
 	"Account · Cloudflare Tunnel · Edit",
 	"Account · Access: Apps and Policies · Edit",
 	"Account · Access: Service Tokens · Edit",
+	"Account · Access: Organizations, Identity Providers, and Groups · Read",
 	"Zone · DNS · Edit",
 ] as const;
 

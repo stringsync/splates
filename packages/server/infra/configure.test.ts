@@ -111,19 +111,29 @@ describe("missingPermissions", () => {
 			{ status },
 		);
 
-	it("posts an empty body to each, counting a 403 as missing and a 400 as held", async () => {
+	it("posts an empty body to each edit and gets each read, counting a 403 as missing and a 400 as held", async () => {
 		const seen: string[] = [];
 		const fetcher = (async (url: string, init: RequestInit) => {
 			seen.push(`${init.method} ${url} ${init.body}`);
-			return answer(url.includes("service_tokens") ? 403 : 400);
+			return answer(
+				url.includes("service_tokens") || url.includes("organizations")
+					? 403
+					: 400,
+			);
 		}) as unknown as typeof fetch;
 		const api = new CloudflareApi("t", { fetch: fetcher });
 		expect(await missingPermissions(api, "acct", "zone")).toEqual([
 			"Account · Access: Service Tokens · Edit",
+			"Account · Access: Organizations, Identity Providers, and Groups · Read",
 		]);
-		expect(seen).toHaveLength(4);
+		expect(seen).toHaveLength(5);
+		expect(seen.filter((each) => each.startsWith("GET "))).toEqual([
+			"GET https://api.cloudflare.com/client/v4/accounts/acct/access/organizations undefined",
+		]);
 		expect(
-			seen.every((each) => each.startsWith("POST ") && each.endsWith(" {}")),
+			seen
+				.filter((each) => !each.startsWith("GET "))
+				.every((each) => each.startsWith("POST ") && each.endsWith(" {}")),
 		).toBe(true);
 	});
 

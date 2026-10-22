@@ -106,8 +106,10 @@ async function accessEmails(
 
 /**
  * What the API token cannot do that the stack needs, as the dashboard names it.
- * Each is probed with a POST of an empty body, which makes nothing: a token
- * that can edit gets a 400 for the missing fields, one that can only read a 403.
+ * An edit is probed with a POST of an empty body, which makes nothing: a token
+ * that can edit gets a 400 for the missing fields, one that can only read a
+ * 403. A read, such as the Zero Trust organization the stack reads its team
+ * domain from, is probed with a GET.
  */
 export async function missingPermissions(
 	api: CloudflareApi,
@@ -115,25 +117,25 @@ export async function missingPermissions(
 	zone: string,
 ): Promise<string[]> {
 	// In the order of `CLOUDFLARE_PERMISSIONS`, which the step for the stack's own token lists.
-	const paths = [
-		`/accounts/${account}/cfd_tunnel`,
-		`/accounts/${account}/access/apps`,
-		`/accounts/${account}/access/service_tokens`,
-		`/zones/${zone}/dns_records`,
+	const probes: { path: string; read?: true }[] = [
+		{ path: `/accounts/${account}/cfd_tunnel` },
+		{ path: `/accounts/${account}/access/apps` },
+		{ path: `/accounts/${account}/access/service_tokens` },
+		{ path: `/accounts/${account}/access/organizations`, read: true },
+		{ path: `/zones/${zone}/dns_records` },
 	];
-	const probes = CLOUDFLARE_PERMISSIONS.map(
-		(permission, at) => [permission, paths[at] as string] as const,
-	);
 	const missing: string[] = [];
-	for (const [permission, path] of probes) {
+	for (const [at, { path, read }] of probes.entries()) {
 		try {
-			await api.post(path, {}, z.unknown());
+			await (read
+				? api.get(path, z.unknown())
+				: api.post(path, {}, z.unknown()));
 		} catch (error) {
 			if (!(error instanceof CloudflareError)) {
 				throw error;
 			}
 			if (error.status === 401 || error.status === 403) {
-				missing.push(permission);
+				missing.push(CLOUDFLARE_PERMISSIONS[at] as string);
 			}
 		}
 	}
