@@ -34,6 +34,11 @@ release tag with `bunx skills add`.
 worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
 
+In your worktree, run `bin/splates`, never the `splates` on your PATH or
+`bunx @stringsync/splates`: those are other builds, while `bin/splates` runs the
+code you are editing. Every `splates ...` command in this file means
+`bin/splates ...` for you.
+
 ## Module directories
 
 `packages/server/` is moving from flat files into one directory per module, as webappwiz lays out its packages.
