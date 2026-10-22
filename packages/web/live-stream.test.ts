@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { LiveStream } from "./live-stream";
 import { Wakes } from "./wakes";
 
@@ -27,7 +27,7 @@ describe("LiveStream", () => {
 		said = [];
 		dropped = 0;
 		timer = new FakeTimer();
-		wakes = new Wakes(new FakeClock());
+		wakes = new Wakes(new FakeWallClock(), new FakeTimer());
 		globalThis.EventSource = class {
 			onmessage = null;
 			onopen = null;
