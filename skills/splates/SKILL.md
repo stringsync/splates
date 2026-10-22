@@ -23,12 +23,20 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Commit as you go**, in plain messages with no attribution.
-4. **Queue what you would offer.** Each follow-up you would suggest, or ask
+3. **Run tests, installs and builds with `splates run -- <command>`**,
+   never bare: a whole test suite, `bun install`, a build, anything that
+   takes a machine's cores or memory for a while. It runs on a runner that
+   has joined `splates server`, in a checkout of your worktree as it stands,
+   output streamed back and its exit code yours, or else here once one of
+   the machine's few heavy-job slots is free, so agents at once never run it
+   out of memory. Skip it only where the project's instructions say a
+   script takes a slot itself.
+4. **Commit as you go**, in plain messages with no attribution.
+5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
-5. **Land with `splates merge --message "<what the base gains>"`**, then `cd`
+6. **Land with `splates merge --message "<what the base gains>"`**, then `cd`
    to the main tree it prints. When it fails, do what its stderr says.
-6. **End with the report**, its title copied from Formats below, one line on
+7. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
    report asks nothing and offers nothing.
 
@@ -255,14 +263,11 @@ the message; a `Maybe relevant:` one only when it fits.
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
-   once share the tree, so give each its own files. Run a whole test suite, an install, or anything as heavy as
-   `splates heavy -- <command>`, unless the project's instructions say its
-   script takes a slot itself: it runs on a runner that has joined the
-   server, in a checkout of your worktree as it stands, its output streamed
-   back and its exit code yours (what it writes there stays there; `--local`
-   skips this), and with none joined it waits for one of the machine's few
-   heavy-job slots, so agents testing at once queue rather than run it out
-   of memory.
+   once share the tree, so give each its own files. Run a whole test suite,
+   an install, a build, or anything as heavy as `splates run -- <command>`
+   (step 3 of The short version), and tell a subagent to as well. Files it
+   writes on a runner stay there; `--local` runs it here, in a heavy-job
+   slot, when you need what it writes.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or

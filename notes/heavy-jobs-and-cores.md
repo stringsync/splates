@@ -7,7 +7,7 @@ work takes one of the machine's heavy-job slots: `HeavyJobs` from
 `webappwiz/system`, set up in `packages/server/server/heavy.ts`, kept under
 the machine home so every server and worktree on the machine shares one cap.
 `SPLATES_HEAVY_JOBS` sets it, 2 by default, because one `splates dev test`
-takes about 7 cores and 7.3 GB. `splates heavy -- <cmd>`, `splates dev
+takes about 7 cores and 7.3 GB. `splates run -- <cmd>`, `splates dev
 test`, the `postCheckout`, `postRewrite` and `preMerge` hooks and the shared
 browser's start all take a slot.
 
@@ -19,7 +19,7 @@ itself. A merge's claim goes first, ahead of waiters under two minutes old.
 `Testing` gives each test its own slots and strips those variables.
 
 These slots and cores are the machine's own, taken by a job that runs here:
-`splates heavy -- <cmd>` and `splates dev test` first wait on the scheduler's
+`splates run -- <cmd>` and `splates dev test` first wait on the scheduler's
 pool-wide queue for a runner, and run here as above when `--local` says so,
 there is no server, or the pool can give them no runner. See
 `heavy-jobs-on-runners.md`.

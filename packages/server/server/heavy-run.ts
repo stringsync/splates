@@ -16,7 +16,7 @@ export async function runHeavy(
 	opts: { local?: boolean; write?: (bytes: Uint8Array) => void } = {},
 ): Promise<number> {
 	if (argv.length === 0) {
-		fail("usage", "name the command to run: `splates heavy -- <command>`", {});
+		fail("usage", "name the command to run: `splates run -- <command>`", {});
 	}
 	// On a runner when one has joined, its output streamed back; here, in a
 	// slot of this machine's, when none has or `local` says so.

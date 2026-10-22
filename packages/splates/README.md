@@ -62,7 +62,7 @@ Keep sensitive information out of them.
 **Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one
 of the machine's heavy-job slots, two by default (`SPLATES_HEAVY_JOBS` sets
 how many), so several agents testing at once queue rather than run the
-machine out of memory. `splates heavy -- <command>` runs anything else as
+machine out of memory. `splates run -- <command>` runs anything else as
 heavy, such as a test suite an agent runs mid-task, in a slot too.
 
 **Pushing.** With `remote: "origin"` in `splates.config.ts`, each task's

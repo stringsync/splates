@@ -1,5 +1,5 @@
 ---
-description: How `splates heavy` and `splates dev test` run on a runner: the pool-wide queue that places them, the runners made and stopped to meet it, a snapshot commit shipped as a bundle, output and files streamed back; and when they run here instead
+description: How `splates run` and `splates dev test` run on a runner: the pool-wide queue that places them, the runners made and stopped to meet it, a snapshot commit shipped as a bundle, output and files streamed back; and when they run here instead
 ---
 
 A runner is a joined worker (not this machine's own `local`) that says
@@ -87,7 +87,7 @@ descendants and removes the worktree. Nothing of the person's creds reaches a
 runner. `prepare` is a `splates.config.ts` setting (here `bun install` and the
 page build, as `docker/worker.Dockerfile` does), run on every job; bun's cache
 is what keeps it quick. `splates dev test` runs `./bin/splates dev test --local`
-on the runner and gets its JUnit report back as a file. Files a `splates heavy`
+on the runner and gets its JUnit report back as a file. Files a `splates run`
 command writes stay on the runner.
 
 The merge gate is a caller too (`MergeGate` in `merge/gate.ts`): its jobs set

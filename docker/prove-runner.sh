@@ -1,7 +1,7 @@
 #!/bin/sh
 # Proves a Linux container as a runner of a server on this machine, end to
 # end: a throwaway server and project, the image `worker.Dockerfile` builds
-# joined with a token, and `splates heavy` run in the project, which goes to
+# joined with a token, and `splates run` run in the project, which goes to
 # the runner as a snapshot of the worktree, uncommitted edit included. It checks
 # the command ran on Linux in a checkout the project's `prepare` step had run
 # in, that its output and exit code came back, and that a second job ships
@@ -38,7 +38,7 @@ until grep -q "splates server on" "$dir/server.log"; do sleep 1; done
 port=$(sed -n 's/.*splates server on http:\/\/127\.0\.0\.1:\([0-9]*\).*/\1/p' "$dir/server.log")
 
 echo "--- with no runner joined, the job runs here"
-splates heavy -- sh -c 'echo here:$(uname -s)' | tee "$dir/local.txt"
+splates run -- sh -c 'echo here:$(uname -s)' | tee "$dir/local.txt"
 grep -q "^here:" "$dir/local.txt"
 if [ "$(uname -s)" != Linux ]; then ! grep -q "Linux" "$dir/local.txt"; fi
 
@@ -55,7 +55,7 @@ echo "--- a job on the runner, with an edit that is not committed"
 echo edited >tracked.txt
 echo untracked >new.txt
 code=0
-splates heavy -- sh -c 'echo on:$(uname -s); cat tracked.txt new.txt marker.txt; exit 3' >"$dir/runner.txt" || code=$?
+splates run -- sh -c 'echo on:$(uname -s); cat tracked.txt new.txt marker.txt; exit 3' >"$dir/runner.txt" || code=$?
 cat "$dir/runner.txt"
 [ "$code" = 3 ]
 grep -q "^on:Linux" "$dir/runner.txt"
@@ -67,6 +67,6 @@ grep -q "^prepared" "$dir/runner.txt"
 
 echo "--- a second job, shipping only what changed"
 echo more >new.txt
-splates heavy -- cat new.txt | tee "$dir/second.txt"
+splates run -- cat new.txt | tee "$dir/second.txt"
 grep -q "^more" "$dir/second.txt"
 echo "proved"

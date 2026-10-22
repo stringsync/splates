@@ -46,7 +46,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("prove")
 		.description(
-			"prove splates on Linux with Docker, nothing of yours used: `runner` joins a Linux container to a throwaway server on this machine as a runner, and runs `splates heavy` on it from a project with an uncommitted edit. Read docker/prove-<which>.sh for what it checks",
+			"prove splates on Linux with Docker, nothing of yours used: `runner` joins a Linux container to a throwaway server on this machine as a runner, and runs `splates run` on it from a project with an uncommitted edit. Read docker/prove-<which>.sh for what it checks",
 		)
 		.arg("proof", z.enum(PROOFS), {
 			description: "runner",

@@ -138,9 +138,9 @@ splates
 	});
 
 splates
-	.command("heavy")
+	.command("run")
 	.description(
-		"run a heavy command (a full test run, an install) on a runner that has joined `splates server`, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours; with no runner, here in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 2 by default. Run on a runner, it changes nothing here: files it writes stay there",
+		"run a command that needs a machine of its own (a full test run, an install) on a runner that has joined `splates server`, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours; with no runner, here in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 2 by default. Run on a runner, it changes nothing here: files it writes stay there",
 	)
 	.option("local", z.boolean(), {
 		default: false,
