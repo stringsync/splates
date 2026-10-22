@@ -63,6 +63,7 @@ export class Tunnel extends pulumi.ComponentResource {
 				tunnelId: tunnel.id,
 				config: {
 					ingresses: [
+						// The port the box's `splates server` listens on (BOX_PORT).
 						{ hostname: args.host, service: "http://localhost:7272" },
 						{ service: "http_status:404" },
 					],

@@ -7,8 +7,11 @@ export const COORDINATOR_UNIT = "splates-coordinator";
 /** Where the move leaves its bundle on the box for `placeScript`. */
 export const BUNDLE = "/root/splates-move.tgz";
 
-/** The port the box's `splates server` listens on, on its loopback alone. */
-export const BOX_PORT = 4310;
+/**
+ * The port the box's `splates server` listens on, on its loopback alone. The
+ * stack's tunnel (`infra/tunnel.ts`) sends its host there, so the two agree.
+ */
+export const BOX_PORT = 7272;
 
 const HOME = `/home/${BOX_USER}`;
 const SPLATES = `${HOME}/.bun/bin/splates`;

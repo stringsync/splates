@@ -59,7 +59,7 @@ describe("the box's scripts", () => {
 		expect(unit).toContain("User=splates");
 		expect(unit).toContain("Environment=SPLATES_SECRET_STORE=ssm");
 		expect(unit).toContain(
-			"ExecStart=/home/splates/.bun/bin/splates server --port 4310",
+			"ExecStart=/home/splates/.bun/bin/splates server --port 7272",
 		);
 		expect(unit).toContain("Restart=always");
 		expect(unit).not.toContain("keyring");
@@ -83,13 +83,15 @@ describe("the box's scripts", () => {
 			);
 			await mkdir(`${dir}/bin`);
 			// Stand-ins for the commands that would change the machine.
-			for (const name of ["systemctl", "curl", "dpkg"]) {
-				await writeFile(
-					`${dir}/bin/${name}`,
-					`#!/bin/sh\necho ${name} "$@" >> ${dir}/calls\n`,
-					{ mode: 0o755 },
-				);
-			}
+			await Promise.all(
+				["systemctl", "curl", "dpkg"].map((name) =>
+					writeFile(
+						`${dir}/bin/${name}`,
+						`#!/bin/sh\necho ${name} "$@" >> ${dir}/calls\n`,
+						{ mode: 0o755 },
+					),
+				),
+			);
 			const script = refreshScript().replaceAll(
 				"/etc/systemd/system/splates-coordinator.service",
 				unit,
