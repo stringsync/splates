@@ -18,37 +18,19 @@ if (!js) {
 }
 /** What undoing each area would do, as the server plans it on a machine set up throughout. */
 const PLANS: Record<string, unknown> = {
-	coordinator: {
-		area: "coordinator",
-		title: "Cloud server",
+	workers: {
+		area: "workers",
+		title: "Workers",
 		steps: [
 			{
-				id: "coordinator-creds",
-				title: "Give the box its creds",
-				removes: [],
-				leaves: [
-					"The deploy key `splates-coordinator` on stringsync/splates: delete it under its repository's Settings → Deploy keys on GitHub",
-				],
-			},
-			{
-				id: "coordinator-remotes",
-				title: "Name each project's remote",
-				removes: [],
-				leaves: ["Each project's SSH origin: harmless kept."],
-			},
-			{
-				id: "coordinator-up",
-				title: "Make the server's box",
-				removes: [
-					"The AWS server `splates-coordinator` and its daily backups",
-					"Its firewall `splates-coordinator`",
-					"Its SSH key `splates-coordinator`, in AWS and at `~/.splates/coordinator/id_ed25519`",
-				],
+				id: "local-worker",
+				title: "Make this Mac a worker",
+				removes: ["The local worker and its LaunchAgent"],
 				leaves: [],
 			},
 		],
 		creds: [],
-		confirm: "splates-coordinator",
+		confirm: "workers",
 		refused: null,
 	},
 	"remote-access": {

@@ -139,7 +139,7 @@ const SCREENS: Record<string, () => JSX.Element> = {
 		</JourneyDone>
 	),
 	// The dev server answers each area's plan from its fixtures.
-	undo: () => <UndoScreen area="coordinator" />,
+	undo: () => <UndoScreen area="workers" />,
 	"undo-refused": () => <UndoScreen area="remote-access" />,
 };
 

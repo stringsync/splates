@@ -1,4 +1,3 @@
-import type { AwsCredentials } from "../cloud/aws-sign";
 import {
 	type Charge,
 	PROVIDERS,
@@ -33,12 +32,6 @@ export interface BillingOptions {
 	/** How far back to pull; 90 days unsaid. */
 	days?: number;
 	providers?: readonly Provider[];
-	/** The AWS credentials to sign with, null when none are found. */
-	aws?(): Promise<AwsCredentials | null>;
-	/** The day a provider signed with AWS credentials was last pulled, which is pulled once a day. */
-	pulledOn?(provider: string): Promise<string | undefined>;
-	/** Keeps that `provider` was pulled on `day`. */
-	pulled?(provider: string, day: string): Promise<void>;
 }
 
 /**
@@ -62,8 +55,6 @@ export async function pullBilling(
 		fetcher,
 		today: opts.today,
 		since,
-		aws: null,
-		now: new Date(),
 	};
 	const kept = new Set(
 		(await spend.entries()).flatMap((each) => (each.ref ? [each.ref] : [])),
@@ -75,32 +66,13 @@ export async function pullBilling(
 			message: string,
 			added = 0,
 		): ProviderStatus => ({ provider: provider.id, state, message, added });
-		let pullSources = sources;
-		let token = "";
-		if (provider.signed === "aws") {
-			if ((await opts.pulledOn?.(provider.id)) === opts.today) {
-				statuses.push(status("ok", ""));
-				continue;
-			}
-			const credentials = (await opts.aws?.()) ?? null;
-			if (credentials === null) {
-				statuses.push(
-					status(
-						"missing",
-						"splates found no AWS credentials: run `aws configure sso` or `aws login` on this machine, or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY",
-					),
-				);
-				continue;
-			}
-			pullSources = { ...sources, aws: credentials, now: new Date() };
-		} else {
-			const unpulled = unpulledStatus(provider);
-			if (unpulled !== null) {
-				statuses.push(unpulled);
-				continue;
-			}
+		const unpulled = unpulledStatus(provider);
+		if (unpulled !== null) {
+			statuses.push(unpulled);
+			continue;
 		}
-		if (provider.signed === undefined && provider.cred !== null) {
+		let token = "";
+		if (provider.cred !== null) {
 			const found = await opts.cred(provider.cred);
 			if (found === undefined) {
 				statuses.push(
@@ -111,9 +83,7 @@ export async function pullBilling(
 			token = found;
 		}
 		try {
-			const charges = (
-				(await provider.pull?.(pullSources, token)) ?? []
-			).filter(
+			const charges = ((await provider.pull?.(sources, token)) ?? []).filter(
 				(charge: Charge) =>
 					charge.day >= since &&
 					charge.day < sources.today &&
@@ -141,9 +111,6 @@ export async function pullBilling(
 				kept.add(charge.ref);
 			}
 			await spend.record(...entries);
-			if (provider.signed !== undefined) {
-				await opts.pulled?.(provider.id, opts.today);
-			}
 			statuses.push(status("ok", "", entries.length));
 		} catch (error) {
 			statuses.push(
@@ -168,10 +135,7 @@ export function unpulledStatus(provider: Provider): ProviderStatus | null {
 	if (provider.counted !== undefined) {
 		return status("counted", provider.counted);
 	}
-	if (
-		provider.signed === undefined &&
-		(provider.pull === undefined || provider.cred === null)
-	) {
+	if (provider.pull === undefined || provider.cred === null) {
 		return status(
 			"untracked",
 			provider.untracked ?? "splates does not count it yet",

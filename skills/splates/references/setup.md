@@ -99,14 +99,7 @@ worker run --server <url> --join <token>` on the other machine),
 PowerShell as an administrator there: the worker in a WSL2 distro of its own,
 started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
 on in its BIOS and adapter, so splates wakes it when agents queue, before
-making a worker; `splates worker wake <id>` wakes one by hand). Workers
-in their own AWS account start with `cloud-provider`
-(a task adding the `cloud` the step shows, `new AwsCloud()`, from `@stringsync/splates-server/cloud`, to
-`splates.config.ts`) and
-`worker-snapshot` (builds the snapshot workers boot from); and, only when
-`splates.config.ts` names a `cloud` or a `workerProvider`, `worker-budget` (what made
-workers may cost: `splates budget set <hour|day|month> <dollars>`; any set counts
-as the user having seen it). Walk them
+making a worker; `splates worker wake <id>` wakes one by hand). Walk them
 through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 

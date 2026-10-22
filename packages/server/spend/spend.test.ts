@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MemoryStorage } from "../storage/testing";
-import { PROVIDERS, Spend } from "./index";
+import { Spend } from "./index";
 import { turnSpend } from "./turn";
 
 const entry = (over: Partial<Parameters<Spend["record"]>[0]> = {}) => ({
@@ -132,7 +132,6 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 	expect(statuses.map((each) => [each.provider, each.state])).toEqual([
 		["openai", "ok"],
 		["cloudflare", "unreachable"],
-		["aws", "missing"],
 		["typesafe", "counted"],
 	]);
 	expect(statuses[1]?.message).toBe("api.cloudflare.com answered 500");
@@ -205,66 +204,6 @@ test("a report converts to the display currency at each day's rate, and says whe
 	expect(down.rateError).not.toBeNull();
 });
 
-test("aws is pulled from Cost Explorer once a day, and says what a refusal needs", async () => {
-	const { pullBilling } = await import("./index");
-	const spend = new Spend(new MemoryStorage());
-	const sent: { target: string | null; body: unknown }[] = [];
-	let status = 200;
-	const answer = {
-		ResultsByTime: [
-			{
-				TimePeriod: { Start: "2026-10-19" },
-				Groups: [
-					{
-						Keys: ["Amazon EC2"],
-						Metrics: { UnblendedCost: { Amount: "1.5", Unit: "USD" } },
-					},
-				],
-			},
-		],
-	};
-	const fetcher = (async (url: string, init?: RequestInit) => {
-		if (String(url).includes("frankfurter")) {
-			return Response.json({ date: "2026-10-19", rates: {} });
-		}
-		const headers = init?.headers as Record<string, string>;
-		sent.push({
-			target: headers["x-amz-target"] ?? null,
-			body: JSON.parse(String(init?.body)),
-		});
-		return new Response(JSON.stringify(answer), { status });
-	}) as unknown as typeof fetch;
-	const days = new Map<string, string>();
-	const options = {
-		cred: async () => undefined,
-		fetcher,
-		today: "2026-10-21",
-		providers: PROVIDERS.filter((each) => each.id === "aws"),
-		aws: async () => ({ accessKeyId: "a", secretAccessKey: "s" }),
-		pulledOn: async (id: string) => days.get(id),
-		pulled: async (id: string, day: string) => void days.set(id, day),
-	};
-	status = 403;
-	const [refused] = await pullBilling(spend, options);
-	expect(refused?.state).toBe("unreachable");
-	expect(refused?.message).toContain("ce:GetCostAndUsage");
-	status = 200;
-	const [ok] = await pullBilling(spend, options);
-	expect(ok).toMatchObject({ state: "ok", added: 1 });
-	expect(sent.at(-1)?.target).toBe("AWSInsightsIndexService.GetCostAndUsage");
-	expect((await spend.entries())[0]?.ref).toBe("aws:2026-10-19:Amazon EC2");
-	const count = sent.length;
-	await pullBilling(spend, options);
-	expect(sent.length).toBe(count);
-	const [none] = await pullBilling(spend, {
-		...options,
-		aws: async () => null,
-		pulledOn: async () => undefined,
-	});
-	expect(none?.state).toBe("missing");
-	expect(none?.message).toContain("AWS credentials");
-});
-
 test("before any pull, the sources show TypeSafe counted", async () => {
 	const { BillingRoutes } = await import("./routes");
 	const storage = new MemoryStorage();
@@ -279,7 +218,6 @@ test("before any pull, the sources show TypeSafe counted", async () => {
 	expect(view.providers.map((each) => [each.provider, each.state])).toEqual([
 		["openai", "ok"],
 		["cloudflare", "ok"],
-		["aws", "ok"],
 		["typesafe", "counted"],
 	]);
 });

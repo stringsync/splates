@@ -1,4 +1,3 @@
-import type { CloudProvider } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { TunnelProvider } from "../tunnel";
 import type { WorkerProvider } from "../workers";
@@ -109,17 +108,9 @@ export interface Config {
 	 */
 	tunnel: TunnelProvider | null;
 	/**
-	 * The cloud account worker machines are made in, as
-	 * `new AwsCloud()` from
-	 * `@stringsync/splates-server/cloud`; null
-	 * makes none. Naming it makes `workerProvider` one that makes workers
-	 * there, unless that is named too.
-	 */
-	cloud: CloudProvider | null;
-	/**
 	 * What makes worker machines when agents queue for want of a slot, and
-	 * for `splates worker add --provider`: the `cloud`'s, unless named for a
-	 * provider of your own; null makes none. Read, as `tunnel` is, from the
+	 * for `splates worker add --provider`: a provider of your own; null makes
+	 * none. Read, as `tunnel` is, from the
 	 * repo `splates server` is started in.
 	 */
 	workerProvider: WorkerProvider | null;

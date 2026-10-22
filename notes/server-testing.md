@@ -16,7 +16,7 @@ changes only the config it is about.
 
 `fixtures.ts` builds records and conversations (`todo`, `conversation`,
 `message`, `turn`, `second(n)` for fixed timestamps). Each module's fakes
-live in its `testing.ts`: `MemoryStorage`, `FakeAgent`, `FakeAws`,
-`FakeCloudflare`, `WorkerSocketPair` and `FaultProxy`, `mockPulumi`,
+live in its `testing.ts`: `MemoryStorage`, `FakeAgent`,
+`FakeCloudflare`, `WorkerSocketPair` and `FaultProxy`,
 `FakePicker`. Tests use the real built page assets, since the server is
 tested by serving a page and fetching it.

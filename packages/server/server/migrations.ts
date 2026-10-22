@@ -1,6 +1,5 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { shellQuoted } from "../coordinator";
 import { Exit, fail } from "../exit";
 import type { Projects } from "../projects";
 import {
@@ -122,4 +121,9 @@ export class Migrations {
 		// One line, as typed into the shell, so it runs without a continuation.
 		return `claude ${shellQuoted(prompt)}`;
 	}
+}
+
+/** `text` as one single-quoted shell word. */
+function shellQuoted(text: string): string {
+	return `'${text.replaceAll("'", `'\\''`)}'`;
 }

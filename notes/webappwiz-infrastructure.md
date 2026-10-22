@@ -3,8 +3,7 @@ description: Which infrastructure comes from webappwiz rather than being written
 ---
 
 The server's runtime dependencies are `webappwiz` (pinned to one version),
-`@agentclientprotocol/sdk` and `zod`; Pulumi packages are optional peers used
-only by `infra/`. From webappwiz: `webappwiz/system` (`Fs`/`NodeFs`,
+`@agentclientprotocol/sdk` and `zod`. From webappwiz: `webappwiz/system` (`Fs`/`NodeFs`,
 `Ps`/`NodePs`, `FileLock`, `HeavyJobs`, `OpenPortProvider`,
 `makeUndumpable`), `webappwiz/log` (`Logger`, `MemoryLogger`),
 `webappwiz/time` (`Duration`, `Timer`, `Clock`, `Throttler`, `Debouncer`),

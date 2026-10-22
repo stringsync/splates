@@ -1,7 +1,7 @@
 #!/bin/sh
 # Proves the coordinator on Linux end to end, the inverse of
 # `prove-worker.sh`: `splates server` runs in a Debian container as the user
-# `splates`, as the AWS box will, and this machine joins it as a worker.
+# `splates`, and this machine joins it as a worker.
 # Through the CLI and the server's routes it registers a project, adds a
 # task, has the scripted agent (`scripted-agent.ts`, `coordinator-turn.sh`)
 # claim it here, forward a port, commit and merge through the gate, and
@@ -11,8 +11,7 @@
 # box keeps in its secret service. Needs Docker, whose
 # `host.docker.internal` reaches this machine's loopback, and nothing of the
 # user's: no credentials, no splates home. What Docker cannot stand in for
-# (IMDSv2, Parameter Store, systemd, cloudflared) is for a rehearsal of
-# `splates server deploy` on a real box.
+# (systemd, cloudflared) is not proved here.
 #
 #   docker/prove-coordinator.sh [port]
 set -eu

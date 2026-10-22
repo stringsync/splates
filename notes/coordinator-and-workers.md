@@ -19,6 +19,4 @@ A worker that loses its coordinator for ten minutes ends what it held. The
 hello carries `protocol: major.minor` and capabilities; a minor negotiates,
 another major is drained. Workers join with a single-use token and then show
 a key. `Scheduler` places agents on free slots first come first served, the
-local worker first. The coordinator can move onto an always-on AWS box
-(`coordinator/move.ts`), after which the Mac joins it as a worker and keeps
-its tasks in their worktrees.
+local worker first.

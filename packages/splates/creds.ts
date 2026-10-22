@@ -39,8 +39,7 @@ splatesCreds
 			"keep it for every project on this device, as for a person's own account, rather than this project alone",
 	})
 	.option("provider", z.optional(z.enum(PROVIDERS)), {
-		description:
-			"who keeps it: `system`, the machine's own store, or `ssm`, AWS Parameter Store, where that is offered",
+		description: "who keeps it: `system`, the machine's own store",
 	})
 	.option("replace", z.boolean(), {
 		default: false,

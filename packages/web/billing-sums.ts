@@ -134,7 +134,6 @@ const ORDER = [
 	"opencode",
 	"openai",
 	"cloudflare",
-	"aws",
 	"typesafe",
 ];
 
@@ -149,7 +148,6 @@ const NAMES: Record<string, string> = {
 	opencode: "OpenCode",
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",
-	aws: "AWS",
 	typesafe: "TypeSafe",
 };
 

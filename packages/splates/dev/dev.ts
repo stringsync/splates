@@ -46,7 +46,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("prove")
 		.description(
-			"prove splates on Linux end to end with Docker, nothing of yours used: `coordinator` runs the server in a Debian container as the user splates, as the AWS box will, with this machine as its worker, and drives a task, a restart, an archive and a cred through it; `worker` runs a container as a worker of a server here. Read docker/prove-<which>.sh for what each checks",
+			"prove splates on Linux end to end with Docker, nothing of yours used: `coordinator` runs the server in a Debian container as the user splates, with this machine as its worker, and drives a task, a restart, an archive and a cred through it; `worker` runs a container as a worker of a server here. Read docker/prove-<which>.sh for what each checks",
 		)
 		.arg("proof", z.enum(PROOFS), {
 			description: "coordinator or worker",

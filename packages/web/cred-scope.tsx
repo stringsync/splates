@@ -12,8 +12,8 @@ export function scopeLabel(scope: Scope, project: string): string {
 }
 
 /** What the page calls a provider of creds. */
-export function providerLabel(provider: Provider): string {
-	return provider === "ssm" ? "AWS Parameter Store" : "this machine";
+export function providerLabel(_provider: Provider): string {
+	return "this machine";
 }
 
 /**

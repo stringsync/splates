@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemorySecretStore } from "webappwiz/creds";
 import { NodeFs } from "webappwiz/system";
-import { Imds } from "./imds";
 import { cannotReach, systemStores } from "./stores";
 
 describe("systemStores with SPLATES_SECRET_STORE=file", () => {
@@ -24,12 +23,6 @@ describe("systemStores with SPLATES_SECRET_STORE=file", () => {
 			choice: "file",
 			home,
 			fs: new NodeFs(),
-			// The metadata service is never asked.
-			imds: new Imds({
-				fetch: (async () => {
-					throw new Error("asked the metadata service");
-				}) as unknown as typeof fetch,
-			}),
 		});
 		await stores.device.set("K", "v");
 		await (await stores.project(home)).set("P", "w");
@@ -38,7 +31,6 @@ describe("systemStores with SPLATES_SECRET_STORE=file", () => {
 		expect((await stat(`${home}/secrets/device.env`)).mode & 0o777).toBe(0o600);
 		expect(await (await stores.project(home)).get("P")).toBe("w");
 		expect(await stores.device.get("P")).toBeUndefined();
-		expect(stores.ssm).toBeDefined();
 	});
 
 	test("is what a machine whose store cannot be reached is told of", () => {

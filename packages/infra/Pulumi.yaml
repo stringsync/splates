@@ -1,4 +1,0 @@
-name: splates
-runtime:
-  name: bun
-description: The box `splates server deploy` installs splates on

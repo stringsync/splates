@@ -1,9 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import type { CloudProvider } from "../cloud";
-import { RUNNING } from "../server/shared";
-import { type Document, FsStorage } from "../storage";
+import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	CloudflareApi,
@@ -11,39 +8,14 @@ import {
 	CloudflareTunnels,
 	SavedTunnel,
 } from "../tunnel";
-import {
-	DEFAULT_WORKER_LIMITS,
-	dollars,
-	forgetSnapshot,
-	type KeptSnapshots,
-	keptSnapshot,
-	LOCAL_WORKER,
-	Snapshots,
-	WORKER_LIMITS,
-	type WorkerLimit,
-} from "../workers";
+import { LOCAL_WORKER } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
-import { cloudOf } from "./cloud";
-import type { StepField } from "./fields";
-import type {
-	SetupArea,
-	SetupMachine,
-	SetupStep,
-	SetupWorker,
-	SetupWorkerBudget,
-} from "./setup";
-
-/** What each limit is asked as, in the order the budget lists them. */
-const LIMIT_FIELDS: readonly StepField[] = [
-	field("hour", "Most made workers running at once may cost, dollars an hour"),
-	field("day", "Most made workers may cost in a day, dollars"),
-	field("month", "Most made workers may cost in a month, dollars"),
-];
+import type { SetupArea, SetupMachine, SetupStep, SetupWorker } from "./setup";
 
 /**
- * Running agents on this Mac, on other machines, and on machines splates
- * makes in your own cloud account: the pool `splates server` places them on.
+ * Running agents on this Mac and on other machines: the pool `splates server`
+ * places them on.
  */
 export const WORKERS_AREA: SetupArea = workersArea();
 
@@ -218,142 +190,6 @@ function workersArea(): SetupArea {
 		},
 	};
 
-	const budgetStep: SetupStep = {
-		id: "worker-budget",
-		title: "Choose what made workers may cost",
-		why: "`workerProvider` makes workers when work waits and bills your cloud account for them, so splates holds them to a rate cap an hour and to limits on a day and a month. The defaults already hold; this is your chance to see and change them.",
-		user: "Set the most made workers may cost, in dollars, or leave a field empty to keep what it shows, then press Next.",
-		agent: `Show the user the three limits with \`splates budget show\` and the type's price from the step's detail, and ask what each should be. Run \`splates budget set <hour|day|month> <dollars>\` for each, or \`splates budget set <limit> default\` to keep the default (${WORKER_LIMITS.map((limit) => `${limit} ${dollars(DEFAULT_WORKER_LIMITS[limit])}`).join(", ")}). Any set counts as the user having seen the budget.`,
-		optional: true,
-		after: [],
-		shown: async (machine) =>
-			((await machine.project?.config())?.workerProvider ?? null) !== null,
-		detail: async (machine) => {
-			const provider = (await machine.project?.config())?.workerProvider;
-			const types = (await provider?.types()) ?? [];
-			const cheapest = types.toSorted(
-				(cheap, dear) => cheap.dollarsPerHour - dear.dollarsPerHour,
-			)[0];
-			return cheapest === undefined
-				? null
-				: `The cheapest worker is \`${cheapest.name}\`: ${cheapest.platform}, ${cheapest.slots} ${cheapest.slots === 1 ? "slot" : "slots"}, ${dollars(cheapest.dollarsPerHour)} an hour at list price.`;
-		},
-		fields: LIMIT_FIELDS,
-		submit: async (machine, answers) => {
-			const budget = budgetOf(machine);
-			const chosen = new Map<WorkerLimit, number>();
-			for (const field of LIMIT_FIELDS) {
-				const text = String(answers[field.name] ?? "")
-					.trim()
-					.replace(/^\$/, "");
-				if (text === "") {
-					continue;
-				}
-				const value = Number(text);
-				if (!(Number.isFinite(value) && value >= 0)) {
-					throw new Error(
-						`"${field.label}" should be dollars, like 5 or 0.25.`,
-					);
-				}
-				chosen.set(field.name as WorkerLimit, value);
-			}
-			const { standing } = await budget.report();
-			for (const each of standing) {
-				// Left empty, a limit keeps what it was, which still counts as chosen.
-				await budget.set(
-					each.limit,
-					chosen.get(each.limit) ??
-						(each.set ? each.dollars - each.raised : null),
-				);
-			}
-		},
-		check: async (machine) => (await budgetOf(machine).report()).reviewed,
-		notDone:
-			"The worker budget has not been looked at: choose its limits, then press Next.",
-		undo: {
-			removes: async () => [
-				`The limits chosen for made workers, back to their defaults (${WORKER_LIMITS.map((limit) => `${limit} ${dollars(DEFAULT_WORKER_LIMITS[limit])}`).join(", ")})`,
-			],
-			refused: async (machine) =>
-				machine.workerBudget?.unreview === undefined
-					? "No `splates server` to put the worker budget back: undo it from the Setup page it serves."
-					: null,
-			run: async (machine) => {
-				await budgetOf(machine).unreview?.();
-			},
-		},
-	};
-
-	const providerStep: SetupStep = {
-		id: "cloud-provider",
-		title: "Turn cloud workers on",
-		why: "A project makes cloud workers once its `splates.config.ts` names its `cloud`, up to `provisionedWorkers` at once (2 by default), and only for work its agents hand out.",
-		user: "Add the `cloud` the step shows to this project's `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next.",
-		agent:
-			"In a task of its own, add the `cloud` the step's detail shows, imported from `@stringsync/splates-server/cloud`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup cloud-provider`.",
-		detail: async (machine) =>
-			`Add \`cloud: ${cloudOf(machine).configSource}\`. ${workerPrices(cloudOf(machine))}`,
-		notDone:
-			"`splates.config.ts` names no `cloud` yet: add it, merge it, then press Next.",
-		optional: true,
-		after: [],
-		check: async (machine) =>
-			(await requireProject(machine).config()).workerProvider !== null,
-		undo: {
-			removes: async () => [],
-			leaves: async () => [
-				"`cloud` in this project's `splates.config.ts`: take it out in a task and merge it, then restart `splates server`, or it makes cloud workers again once a token is pasted.",
-			],
-			run: async () => {},
-		},
-	};
-
-	const snapshotStep: SetupStep = {
-		id: "worker-snapshot",
-		title: "Build the worker snapshot",
-		why: "Workers boot from a snapshot with splates already installed, so one is ready to work within a minute. splates rebuilds it when it updates or after a week.",
-		user: "Next builds it on a small machine in your cloud account, about ten minutes and a few cents, then keeps it for about $0.10 a month.",
-		agent:
-			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
-		optional: true,
-		after: [providerStep],
-		doing: "Building the worker snapshot, about ten minutes…",
-		check: async ({ fs, home }) =>
-			(await keptSnapshot("linux", { document: snapshotsOf(home, fs) })) !==
-			null,
-		submit: async (machine) => {
-			const { workerProvider } = await requireProject(machine).config();
-			if (workerProvider === null) {
-				throw new Error("`splates.config.ts` names no `workerProvider` yet.");
-			}
-			const snapshots = await Snapshots.open(workerProvider, {
-				version: RUNNING,
-				document: snapshotsOf(machine.home, machine.fs),
-			});
-			await snapshots.current("linux");
-		},
-		undo: {
-			removes: async (machine) => {
-				const kept = await keptSnapshot("linux", {
-					document: snapshotsOf(machine.home, machine.fs),
-				});
-				return kept === null
-					? []
-					: [
-							`The worker snapshot \`${kept.id}\` in ${cloudOf(machine).name}, of splates ${kept.version}`,
-						];
-			},
-			run: async (machine) => {
-				const opts = { document: snapshotsOf(machine.home, machine.fs) };
-				const kept = await keptSnapshot("linux", opts);
-				if (kept !== null) {
-					await cloudOf(machine).deleteSnapshot(kept.id);
-				}
-				await forgetSnapshot("linux", opts);
-			},
-		},
-	};
-
 	return {
 		id: "workers",
 		title: "Workers",
@@ -364,9 +200,6 @@ function workersArea(): SetupArea {
 			windowsStep,
 			wakeStep,
 			...WORKER_KEY_STEPS,
-			providerStep,
-			budgetStep,
-			snapshotStep,
 		],
 	};
 }
@@ -381,54 +214,13 @@ async function pool(machine: SetupMachine) {
 	return machine.workers();
 }
 
-/** The server's worker budget, or a throw saying there is none to ask. */
-function budgetOf(machine: SetupMachine): SetupWorkerBudget {
-	if (machine.workerBudget === undefined) {
-		throw new Error(
-			"no `splates server` to ask about its worker budget: start one, or give --dev",
-		);
-	}
-	return machine.workerBudget;
-}
-
-/** Where `splates server` keeps the snapshot workers boot from, as `Snapshots` reads it. */
-function snapshotsOf(home: string, fs: Fs): Document<KeptSnapshots> {
-	return new FsStorage(home, fs).document<KeptSnapshots>("snapshots.json");
-}
-
-function requireProject({ project }: SetupMachine) {
+function _requireProject({ project }: SetupMachine) {
 	if (project === undefined) {
 		throw new Error(
 			"No project to check: open Setup from a project, or run `splates setup` in its repository.",
 		);
 	}
 	return project;
-}
-
-function field(limit: WorkerLimit, label: string): StepField {
-	return {
-		kind: "text",
-		name: limit,
-		label,
-		placeholder: String(DEFAULT_WORKER_LIMITS[limit]),
-		optional: true,
-	};
-}
-
-/** What `cloud`'s worker types cost, for the provider step's detail. */
-function workerPrices(cloud: CloudProvider): string {
-	const types = cloud.defaults.workerTypes
-		.map(
-			(type) =>
-				`a ${type.name} runs ${type.slots} agents for about ${dollars(type.dollarsPerHour)} an hour`,
-		)
-		.join(", ");
-	const billing = cloud.defaults.workerTypes.some(
-		(type) => type.billing === "hour",
-	)
-		? ", billed by the started hour"
-		: ", billed for the time it runs";
-	return `In ${cloud.name}, ${types}${billing}.`;
 }
 
 /** Why a worker cannot be removed from here: no `splates server` to remove it; null when one can. */

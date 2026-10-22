@@ -145,8 +145,6 @@ export interface RepositoryOptions {
 	at?: string;
 	/** The workers a task cloned on one is read through, as `splates server` holds them. */
 	machines?: WorkerMachines;
-	/** Treats the coordinator as deployed or being, which the move does; it is read from this machine by default. */
-	coordinated?: boolean;
 }
 
 /**
@@ -335,13 +333,7 @@ export async function openRepository(
 		log,
 		secrets = SYSTEM_STORES,
 	}: Deps & { fs: Fs; secrets?: SecretStores },
-	{
-		migrates = false,
-		creates = false,
-		at,
-		machines,
-		coordinated,
-	}: RepositoryOptions = {},
+	{ migrates = false, creates = false, at, machines }: RepositoryOptions = {},
 ): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
@@ -403,15 +395,6 @@ export async function openRepository(
 	const config = await loadConfig(root, {
 		fs,
 		git,
-		coordinated: async () =>
-			coordinated ??
-			// Loaded here because the coordinator reaches records through the
-			// cloud, and importing it up front would make a cycle.
-			(await import("../coordinator")).coordinatorMoved({
-				fs: disk,
-				ps,
-				home: _registry,
-			}),
 	});
 	const timer = new SystemTimer();
 	const lockAt = (path: string): Lock =>

@@ -1,9 +1,8 @@
 # The box `prove-coordinator.sh` runs `splates server` on: the worker image
 # (`worker.Dockerfile`, built first as splates-worker) with a secret service.
 # Creds and the keys of workers are kept in the machine's store, which on
-# Linux is libsecret's, or Parameter Store under an EC2 instance role as the
-# real box has, which Docker cannot stand in for. SPLATES_SECRET_STORE=file
-# would do without either; the keyring proves the path most Linux take.
+# Linux is libsecret's. SPLATES_SECRET_STORE=file would do without it; the
+# keyring proves the path most Linux take.
 FROM splates-worker
 
 USER root

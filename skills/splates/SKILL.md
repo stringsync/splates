@@ -190,7 +190,7 @@ show` says is `groomed: no`, and as the project's groomer:
 These only when their moment comes:
 
 - When the user asks to set splates up on this machine, or any part of it
-  (agents, remote access, workers, a cloud server, a tunnel of their
+  (agents, remote access, workers, a tunnel of their
   own, dictation): [references/setup.md](references/setup.md),
   one step at a time.
 - When your work needs a secret only the user can get, such as an API token:

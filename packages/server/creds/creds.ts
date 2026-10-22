@@ -16,7 +16,6 @@ import {
 	type Scope,
 	type SecretStores,
 } from "./stores";
-import { Unreachable } from "./unreachable";
 
 const FILE_KEY = "creds.json";
 
@@ -41,8 +40,6 @@ export class Creds {
 		/** The project's, holding `creds.json`. */
 		storage: Storage,
 		private readonly stores: Record<Scope, SecretStore>,
-		/** Parameter Store by name, when the system's store is not it. */
-		private readonly ssm?: Record<Scope, SecretStore>,
 	) {
 		this.#record = storage.document(FILE_KEY, {
 			schema: FILE,
@@ -56,36 +53,23 @@ export class Creds {
 		root: string,
 		stores: SecretStores,
 	): Promise<Creds> {
-		return new Creds(
-			storage,
-			{ project: await stores.project(root), device: stores.device },
-			stores.ssm && {
-				project: await stores.ssm.project(root),
-				device: stores.ssm.device,
-			},
-		);
+		return new Creds(storage, {
+			project: await stores.project(root),
+			device: stores.device,
+		});
 	}
 
 	/**
-	 * Where code reads a cred's value: Parameter Store's, when it is a provider
-	 * and reachable, then the project's store, then the device's. Never the
+	 * Where code reads a cred's value: the project's store, then the device's. Never the
 	 * environment, so a stray export is not what splates reads.
 	 */
 	get credentials(): Credentials {
-		const ssm = this.ssm && [
-			new Unreachable(this.ssm.project),
-			new Unreachable(this.ssm.device),
-		];
-		return new Credentials([
-			...(ssm ?? []),
-			this.stores.project,
-			this.stores.device,
-		]);
+		return new Credentials([this.stores.project, this.stores.device]);
 	}
 
 	/** Who can keep a cred here, the system's first. */
 	get providers(): Provider[] {
-		return this.ssm ? ["system", "ssm"] : ["system"];
+		return ["system"];
 	}
 
 	/** Every request, open or not, the latest first. */
@@ -328,14 +312,8 @@ export class Creds {
 		return this.store(provider, scope).label;
 	}
 
-	private store(provider: Provider, scope: Scope): SecretStore {
-		const stores = provider === "ssm" ? this.ssm : this.stores;
-		if (stores === undefined) {
-			fail("usage", `${provider} is not a provider of creds here`, {
-				provider,
-			});
-		}
-		return stores[scope];
+	private store(_provider: Provider, scope: Scope): SecretStore {
+		return this.stores[scope];
 	}
 
 	private async has(

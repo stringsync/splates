@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { AwsCredentialSource } from "../cloud/aws-credentials";
 import { fail } from "../exit";
 import { body } from "../server/shared";
 import type { Storage } from "../storage";
@@ -13,9 +12,6 @@ import type { Spend } from "./spend";
 export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "CHF", "JPY"];
 
 const SETTINGS = z.object({ currency: z.string() });
-
-/** The day each AWS-signed provider was last pulled, since every request is billed. */
-const PULLED = z.record(z.string(), z.string());
 
 /** What the Billing page shows of its sources. */
 export interface BillingView {
@@ -33,7 +29,6 @@ export interface BillingView {
  */
 export class BillingRoutes {
 	readonly #settings;
-	readonly #pulledDays;
 	#pulled: { at: string; statuses: ProviderStatus[] } | null = null;
 	#pulling: Promise<void> | null = null;
 
@@ -42,11 +37,7 @@ export class BillingRoutes {
 		private readonly ledger: Spend,
 		private readonly cred: (name: string) => Promise<string | undefined>,
 		private readonly fetcher: typeof fetch = fetch,
-		private readonly aws: AwsCredentialSource = new AwsCredentialSource(),
 	) {
-		this.#pulledDays = storage.document("billing-pulled.json", {
-			schema: PULLED,
-		});
 		this.#settings = storage.document("billing.json", { schema: SETTINGS });
 	}
 
@@ -85,13 +76,6 @@ export class BillingRoutes {
 				cred: this.cred,
 				fetcher: this.fetcher,
 				today: now.slice(0, 10),
-				aws: () => this.aws.credentials(),
-				pulledOn: async (id) => (await this.#pulledDays.read())?.[id],
-				pulled: async (id, day) =>
-					this.#pulledDays.write({
-						...(await this.#pulledDays.read()),
-						[id]: day,
-					}),
 			});
 			this.#pulled = { at: now, statuses };
 		})().finally(() => {

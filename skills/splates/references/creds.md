@@ -17,7 +17,7 @@ splates creds request CLOUDFLARE_TUNNEL_TOKEN --device --purpose 'To add the DNS
 `--device` keeps it for every project on this machine, for the user's own
 account; leave it off for a cred of this project's alone. When the store
 already keeps it, `request` asks nothing; `--replace` asks again when the
-kept one does not work. Leave `--provider` off: the user picks who keeps it (`system`, or `ssm` for AWS Parameter Store) on the Creds page. The `splates server` page shows a "Requested" line in
+kept one does not work. Leave `--provider` off: the user picks who keeps it on the Creds page. The `splates server` page shows a "Requested" line in
 the conversation that opens the cred on its Creds page, with what it is for,
 your instructions and a field to paste it in; say nothing more of the
 request. The page's Creds item gets a yellow dot while any request is open, and its

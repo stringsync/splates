@@ -26,14 +26,6 @@ describe("App's billing sources", () => {
 					cred: "CLOUDFLARE_API_TOKEN",
 				},
 				{
-					provider: "aws",
-					state: "untracked",
-					message:
-						"splates will pull this from Cost Explorer with the AWS credentials it already finds",
-					added: 0,
-					cred: null,
-				},
-				{
 					provider: "typesafe",
 					state: "counted",
 					message:
@@ -82,11 +74,6 @@ describe("App's billing sources", () => {
 				.getByRole("link", { name: /Fix CLOUDFLARE_API_TOKEN/ })
 				.getAttribute("href"),
 		).toBe("#creds/CLOUDFLARE_API_TOKEN");
-		// Said in full, never cut to fit a column.
-		expect(
-			view.getByText(/with the AWS credentials it already finds$/),
-		).toBeTruthy();
-		expect(view.getByText("Not tracked yet")).toBeTruthy();
 		expect(view.getByText("Counted as used")).toBeTruthy();
 		expect(
 			view.getByText(/other apps on the same key are not counted$/),

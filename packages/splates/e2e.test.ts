@@ -80,7 +80,7 @@ describe.concurrent("splates", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stdout).toMatch(/run .*\(default\)/);
-		expect(stdout).toContain("deploy");
+		expect(stdout).not.toContain("deploy");
 	});
 
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {

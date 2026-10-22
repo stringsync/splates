@@ -202,8 +202,8 @@ function Journey({
 		}
 	}, [stepId, shown, journey, onStep]);
 	const working = next.kind === "working";
-	// Closing or reloading the tab mid-run asks first: a long step such as
-	// `pulumi up` is easy to lose track of, and the browser words the prompt.
+	// Closing or reloading the tab mid-run asks first: a long step is easy
+	// to lose track of, and the browser words the prompt.
 	useEffect(() => {
 		if (!working) {
 			return;

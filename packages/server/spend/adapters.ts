@@ -1,4 +1,3 @@
-import { AwsSigner } from "../cloud/aws-sign";
 import type { Charge, Provider, Sources } from "./providers";
 
 /** Organization costs by day and line item; needs an admin key. */
@@ -67,79 +66,6 @@ export const cloudflare: Provider = {
 			currency: item.currency,
 			ref: `cloudflare:${item.id}`,
 		}));
-	},
-};
-
-/** Cost Explorer's daily unblended cost by service; it bills $0.01 a request and runs about a day behind. */
-export const aws: Provider = {
-	id: "aws",
-	cred: null,
-	signed: "aws",
-	async pull(sources) {
-		if (sources.aws === null) {
-			throw new Error("no AWS credentials");
-		}
-		const url = new URL("https://ce.us-east-1.amazonaws.com/");
-		const signer = new AwsSigner(sources.aws, "us-east-1", "ce");
-		const charges: Charge[] = [];
-		let page: string | undefined;
-		do {
-			const request = JSON.stringify({
-				TimePeriod: { Start: sources.since, End: sources.today },
-				Granularity: "DAILY",
-				Metrics: ["UnblendedCost"],
-				GroupBy: [{ Type: "DIMENSION", Key: "SERVICE" }],
-				...(page === undefined ? {} : { NextPageToken: page }),
-			});
-			const response = await sources.fetcher(url, {
-				method: "POST",
-				headers: signer.sign(
-					{
-						method: "POST",
-						url,
-						headers: {
-							"content-type": "application/x-amz-json-1.1",
-							"x-amz-target": "AWSInsightsIndexService.GetCostAndUsage",
-						},
-						body: request,
-					},
-					sources.now,
-				),
-				body: request,
-			});
-			if (!response.ok) {
-				throw new Error(
-					response.status === 400 || response.status === 403
-						? `AWS refused the credentials (${response.status}): they need ce:GetCostAndUsage, and Cost Explorer turned on for the account`
-						: `${url.host} answered ${response.status}`,
-				);
-			}
-			const body = (await response.json()) as {
-				NextPageToken?: string | null;
-				ResultsByTime?: {
-					TimePeriod: { Start: string };
-					Groups?: {
-						Keys: string[];
-						Metrics: { UnblendedCost: { Amount: string; Unit: string } };
-					}[];
-				}[];
-			};
-			for (const result of body.ResultsByTime ?? []) {
-				const billed = result.TimePeriod.Start;
-				for (const group of result.Groups ?? []) {
-					const service = group.Keys[0] ?? "other";
-					charges.push({
-						day: billed,
-						service,
-						amount: Number(group.Metrics.UnblendedCost.Amount),
-						currency: group.Metrics.UnblendedCost.Unit,
-						ref: `aws:${billed}:${service}`,
-					});
-				}
-			}
-			page = body.NextPageToken ?? undefined;
-		} while (page !== undefined);
-		return charges;
 	},
 };
 
