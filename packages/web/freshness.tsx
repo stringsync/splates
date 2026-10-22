@@ -209,7 +209,7 @@ export function useDimmed(): boolean {
 }
 
 /**
- * The page's one spinner, once a wait has run on: how long until the page
+ * Once a wait has run on: how long until the page
  * stops waiting on the server, unlocks and says it cannot reach it, so a wait
  * never locks the page for good.
  */
