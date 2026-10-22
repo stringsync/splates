@@ -20,6 +20,32 @@ export async function moveUnfinished({
 	return (await moveRecord(fs, home))?.finished === false;
 }
 
+/**
+ * What the last deploy the page started said when it failed, in a line
+ * saying nothing here changed, or null when it did not fail. Seen once the
+ * server is started again, since the deploy stops it on its way.
+ */
+export async function failedMove({
+	fs,
+	home,
+}: {
+	fs: Fs;
+	home: string;
+}): Promise<string | null> {
+	const files = moveFiles(home);
+	if (!(await fs.exists(files.exit))) {
+		return null;
+	}
+	const code = (await fs.read(files.exit)).trim();
+	if (code === "" || code === "0") {
+		return null;
+	}
+	const said = (await fs.exists(files.log))
+		? (await fs.read(files.log)).trim().split("\n").slice(-LOG_LINES).join("\n")
+		: "";
+	return `The last deploy failed (exit ${code}) after stopping this server, which is why you restarted it. It said:\n\n${said}`;
+}
+
 /** Where a move the page started writes what it says, its pid, and its exit code. */
 export function moveFiles(home: string): {
 	log: string;

@@ -18,7 +18,7 @@ import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { awsAccessStep } from "./aws-access";
-import { moveUnfinished } from "./coordinator-move";
+import { failedMove, moveUnfinished } from "./coordinator-move";
 import { stackSecretsStep } from "./coordinator-secrets";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
@@ -340,7 +340,7 @@ export function coordinatorArea(
 		id: "coordinator-move",
 		title: "Deploy the server to its box",
 		why: "The server moves to the box and keeps your URL. Agents here checkpoint first, and this Mac stays on as the box's worker.",
-		user: "1. Press Next to deploy\n2. Keep this page open: it goes away for a few minutes and comes back served from the box",
+		user: "**Next stops the server on this Mac, and this page goes dark** while the box takes over. Every agent here checkpoints first. If the page has not come back in a few minutes, the deploy failed and nothing here changed: run `splates server` on this Mac again and open this step, which shows what the deploy said.\n\n1. Press Next to deploy\n2. Keep this page open: it goes away for a few minutes and comes back served from the box",
 		agent:
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
 		optional: true,
@@ -350,7 +350,7 @@ export function coordinatorArea(
 		detail: async (machine) =>
 			(await moveUnfinished(machine))
 				? "The server runs on its box, but this Mac has not joined it as a worker yet: the deploy stopped on its way. Next, or `splates server deploy`, finishes it."
-				: null,
+				: await failedMove(machine),
 		notDone:
 			"The server is not deployed yet: press Next to deploy it, or run `splates server deploy`.",
 		// Done only once moved, which refuses every undo.

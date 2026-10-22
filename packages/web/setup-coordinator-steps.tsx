@@ -231,6 +231,11 @@ function MoveStatus({ state }: { state: MoveState }): JSX.Element | null {
 						and creds go to the box, and this page carries on once the box
 						answers here.
 					</p>
+					<p className="text-muted-foreground">
+						If it does not, the deploy failed and nothing here changed: run{" "}
+						<code>splates server</code> on this Mac again and open this step,
+						which says what the deploy said.
+					</p>
 					{elsewhere && box !== null && (
 						<p>
 							This page is on this Mac, so it cannot follow the deploy: open{" "}
