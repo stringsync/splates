@@ -1,12 +1,13 @@
 import { basename } from "node:path";
 import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import { type Fs, NodeFs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
+import { FsStorage } from "../storage";
 import { table } from "../table";
-import { WORKER_LIMITS, type WorkerLimit } from "./budget";
+import { WORKER_LIMITS, WorkerBudget, type WorkerLimit } from "./budget";
 import { dollars } from "./budget-notice";
-import type { WorkerBudgetReport } from "./budget-routes";
+import { type WorkerBudgetReport, WorkerBudgetRoutes } from "./budget-routes";
 import { serverOf } from "./server-of";
 
 /** What `splates budget` is run with. */
@@ -85,6 +86,42 @@ export async function endBudgetRaise(
 	);
 }
 
+/**
+ * What `splates server` would answer, answered from the machine's own
+ * `worker-budget.json` when no server runs, so a person past the budget can
+ * raise it though `splates run` made runners with none.
+ */
+async function askMachine(
+	path: string,
+	init: RequestInit,
+	opts: BudgetCommandOptions,
+): Promise<Response> {
+	const machine = FsStorage.ofMachine({
+		fs: opts.fs ?? new NodeFs(),
+		ps: opts.ps,
+		log: opts.log,
+	});
+	const budget = await WorkerBudget.open(
+		machine.document("worker-budget.json"),
+	);
+	const routes = new WorkerBudgetRoutes(budget);
+	const request = new Request(new URL(path, "http://localhost"), {
+		...init,
+		headers: { "content-type": "application/json" },
+	});
+	const method = init.method ?? "GET";
+	if (method === "PUT") {
+		return routes.set(request);
+	}
+	if (method === "POST") {
+		return routes.raise(request);
+	}
+	if (method === "DELETE") {
+		return routes.endRaise(request);
+	}
+	return routes.show();
+}
+
 /** Where the worker budget stands, asked of the running `splates server`. */
 export async function fetchWorkerBudget(
 	opts: Omit<BudgetCommandOptions, "json">,
@@ -122,28 +159,31 @@ async function ask(
 	opts: BudgetCommandOptions,
 ): Promise<WorkerBudgetReport> {
 	const server = await serverOf(opts);
-	if (server === null) {
-		fail(
-			"usage",
-			"no `splates server` to ask: give its URL with --dev, as in --dev http://localhost:4310",
-		);
-	}
-	const { url, send } = server;
 	let response: Response;
-	try {
-		// The server refuses a request from any other origin than its own.
-		response = await send(new URL(path, url).toString(), {
-			...init,
-			headers: {
-				origin: url,
-				"content-type": "application/json",
-			},
-		});
-	} catch (error) {
-		fail(
-			"not_found",
-			`splates server at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
-		);
+	if (server === null) {
+		response = await askMachine(path, init, opts);
+	} else {
+		const { url, send } = server;
+		try {
+			// The server refuses a request from any other origin than its own.
+			response = await send(new URL(path, url).toString(), {
+				...init,
+				headers: {
+					origin: url,
+					"content-type": "application/json",
+				},
+			});
+		} catch (error) {
+			// A server named only by a stale SPLATES_DEV is no server: the
+			// machine's own budget, which `splates run` counts in, answers.
+			if (opts.dev) {
+				fail(
+					"not_found",
+					`splates server at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+			response = await askMachine(path, init, opts);
+		}
 	}
 	const answer = (await response.json().catch(() => ({}))) as {
 		reason?: string;
@@ -152,7 +192,8 @@ async function ask(
 	if (!response.ok) {
 		fail(
 			answer.reason === "not_found" ? "not_found" : "usage",
-			answer.message ?? `splates server at ${url} answered ${response.status}`,
+			answer.message ??
+				`the budget answered ${response.status}${server === null ? "" : ` from ${server.url}`}`,
 		);
 	}
 	return Report.parse(answer) as WorkerBudgetReport;

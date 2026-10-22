@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { MemoryLogger } from "webappwiz/log";
-import { NodePs } from "webappwiz/system";
+import { NodeFs, NodePs } from "webappwiz/system";
+import { FakePs } from "webappwiz/system/testing";
 import { WorkerBudget } from "./budget";
 import {
 	endBudgetRaise,
@@ -122,5 +125,69 @@ describe("splates budget", () => {
 				for: "soon",
 			}),
 		).rejects.toThrow("hours, days or weeks");
+	});
+
+	describe("with no server", () => {
+		async function offline(env: Record<string, string> = {}) {
+			const home = await mkdtemp(`${tmpdir()}/splates-budget-`);
+			const ps = new FakePs();
+			ps.setEnv({ HOME: home, SPLATES_HOME: home, ...env });
+			return { home, ps };
+		}
+
+		it("sets and raises the machine's own budget, which a server reads later", async () => {
+			const { home, ps } = await offline();
+			const log = new MemoryLogger();
+			const base = { dev: "", json: false, ps, fs: new NodeFs() };
+
+			await setBudget({ ...base, log, limit: "day", dollars: "2" });
+			await raiseBudget({
+				...base,
+				log,
+				limit: "day",
+				dollars: "1",
+				for: "1d",
+			});
+
+			const kept = JSON.parse(
+				await readFile(`${home}/worker-budget.json`, "utf8"),
+			);
+			expect(kept.limits.day).toBe(2);
+			expect(kept.raises).toHaveLength(1);
+			expect(said(log)).toContain("raise 1: +$1.00 on day");
+
+			await endBudgetRaise({ ...base, log, id: 1 });
+			await showBudget({ ...base, log });
+			expect(said(log)).toContain("$2.00");
+		});
+
+		it("falls back from a SPLATES_DEV nothing answers, but not from a --dev", async () => {
+			const { ps } = await offline({ SPLATES_DEV: "http://localhost:1" });
+			const down = (() =>
+				Promise.reject(
+					new Error("connection refused"),
+				)) as unknown as typeof fetch;
+			const log = new MemoryLogger();
+
+			await showBudget({
+				dev: "",
+				json: false,
+				log,
+				ps,
+				send: down,
+				fs: new NodeFs(),
+			});
+			expect(said(log)).toContain("$15.00");
+
+			await expect(
+				showBudget({
+					dev: "http://localhost:1",
+					json: false,
+					log,
+					ps,
+					send: down,
+				}),
+			).rejects.toThrow("could not be reached");
+		});
 	});
 });

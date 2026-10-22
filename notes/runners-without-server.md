@@ -50,7 +50,9 @@ as base64 lines from a second SSH. Each job is a `job` row in the ledger.
 
 Cost: each runner is a life in the shared `worker-budget.json` (which now reads
 itself again before each change, so the server and `splates run` keep each
-other's) and `runner` / `runner-ended` rows in the spend ledger, so Billing
+other's; `splates budget show|set|raise|end` read and write that document
+directly when no server answers, through the same `WorkerBudgetRoutes`, so a
+person past the budget can raise it) and `runner` / `runner-ended` rows in the spend ledger, so Billing
 shows it. `splates run` leaves a detached `splates runners reap --watch 11m`
 behind it, one on the machine at a time (its pid in
 `~/.splates/direct-runners/reaper.pid`), which looks every 11 minutes for as

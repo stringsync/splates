@@ -11,7 +11,7 @@ import { z } from "zod";
 const DEV = {
 	default: "",
 	description:
-		"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV",
+		"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV. With none answering, this machine's own budget file is read and changed",
 };
 
 const JSON_OPTION = { default: false, description: "emit JSON" };
