@@ -17,7 +17,7 @@ test spinning in a synchronous loop held a heavy slot for ten hours. It
 takes a heavy-job slot itself. `evals/**` is excluded unless `--evals` (only
 evals) or `--all`. Under the merge gate `SPLATES_TEST_REPORT` adds a JUnit
 reporter, which is how a failure is blamed and a failing test becomes a task.
-The repo's `preMerge` is `./bin/splates dev test`. Trailing arguments
+The repo sets no `preMerge` (dropped in ab003c58, tests being too heavy for the workers), so its merge gate runs only `postRewrite`'s `bun install`; `./bin/splates dev test` is run by hand. Trailing arguments
 filter the test files by path, as `bun test` does.
 
 `splates dev test --linux` builds `docker/test.Dockerfile` from the checkout
