@@ -14,11 +14,11 @@ splates config export ~/splates-<project>.json
 ```
 
 Give it a file: conversations make the export large, too large for stdout.
-`splates config --help` lists what goes in and what stays behind. The creds
-never go: tell the user that each cred their agents use must be requested
-again on the new machine (see [creds.md](creds.md)), and that the export
-holds their conversations, so it is theirs to carry, not something to commit
-or send anywhere.
+`splates config --help` lists what goes in and what stays behind. No cred's
+value goes, only each one agents asked for, with what for and how to get it:
+tell the user the import asks for them again on the new machine's Creds page,
+and that the export holds their conversations, so it is theirs to carry, not
+something to commit or send anywhere.
 
 ## Import
 
@@ -31,7 +31,10 @@ On the machine or in the project that takes it, from its main tree:
    export. Show the user the list and ask before running it again with
    `--force`, which overwrites them: tasks, plans and conversations of the
    same names here are lost.
-4. Ask the user to start `splates server` again.
+4. When it names creds it requested, tell the user to fill them on the Creds
+   page, each with the instructions it was first asked with, once
+   `splates server` runs.
+5. Ask the user to start `splates server` again.
 
 The export holds task records, not their worktrees or branches, so a task
 open when it was made has nothing checked out on the other side. Before

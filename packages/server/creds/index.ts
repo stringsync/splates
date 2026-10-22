@@ -6,6 +6,7 @@ export type { Provider, Scope, SecretStores } from "./stores";
 export {
 	cannotReach,
 	PROVIDERS,
+	SCOPES,
 	SYSTEM_STORES,
 	systemStores,
 } from "./stores";

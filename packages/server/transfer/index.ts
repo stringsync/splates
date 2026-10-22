@@ -1,2 +1,2 @@
-export type { Bundle, Imported, Places } from "./transfer";
-export { exportBundle, importBundle, parseBundle } from "./transfer";
+export type { AskedCred, Bundle, Imported, Places } from "./transfer";
+export { askAgain, exportBundle, importBundle, parseBundle } from "./transfer";

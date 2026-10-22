@@ -1,43 +1,21 @@
 import type { Fs } from "webappwiz/system";
+import { z } from "zod";
+import { type CredRequest, type Creds, SCOPES } from "../creds";
 import { fail } from "../exit";
 
 /** What an export file says it is, so an import refuses any other JSON. */
 export const BUNDLE_FORMAT = "splates-config";
 
-export const BUNDLE_VERSION = 1;
+/** 2 added `creds`, what to ask for again where the bundle goes. */
+export const BUNDLE_VERSION = 2;
 
-/**
- * What moves from a project's `.git/splates`: its hooks, and its tasks,
- * lanes, plans, conversations and the records of tasks it ended. Never `creds.json`, which names what the
- * project's agents asked a person for, nor the journal, locks or leases,
- * which belong to this machine and its processes.
- */
-export const PROJECT_STATE = [
-	"hooks.json",
-	"tasks",
-	"plans",
-	"finished",
-	"removed",
-	"conversations",
-];
-
-/** What moves from splates's home: what the person set, its agent defaults (`offered.json`) included. */
-export const MACHINE_STATE = [
-	"agents.json",
-	"auto-pick.json",
-	"offered.json",
-	"eval-agents.json",
-];
-
-/** Files that stay behind wherever they are found. */
-const KEPT_BACK = /(^|\/)creds\.json$|\.lock(\/|$)/;
-
-/** What an export holds: each file's text, by path under its directory. */
+/** What an export holds: each file's text, by path under its directory, and the creds to ask for again. */
 export interface Bundle {
 	format: typeof BUNDLE_FORMAT;
 	version: number;
 	project: Record<string, string>;
 	machine: Record<string, string>;
+	creds: AskedCred[];
 }
 
 /** Where a bundle's two halves are read from and written to. */
@@ -49,18 +27,53 @@ export interface Places {
 	home: string;
 }
 
-/** Reads the project's and the machine's configuration into a bundle. */
-export async function exportBundle({
-	fs,
-	splatesDir,
-	home,
-}: Places): Promise<Bundle> {
+/**
+ * Reads the project's and the machine's configuration into a bundle, with
+ * each cred `requests` asked for and the person did not turn down.
+ */
+export async function exportBundle(
+	{ fs, splatesDir, home }: Places,
+	requests: CredRequest[],
+): Promise<Bundle> {
 	return {
 		format: BUNDLE_FORMAT,
 		version: BUNDLE_VERSION,
 		project: await collect(fs, splatesDir, PROJECT_STATE),
 		machine: await collect(fs, home, MACHINE_STATE),
+		creds: requests
+			.filter((each) => each.status !== "dismissed")
+			.map(({ name, scope, purpose, instructions }) => ({
+				name,
+				scope,
+				purpose,
+				instructions,
+			}))
+			.toSorted((left, right) => left.name.localeCompare(right.name)),
 	};
+}
+
+/**
+ * Asks the person again for each of the bundle's creds `creds` does not keep
+ * yet, with the purpose and instructions they were first asked with, so the
+ * Creds page lists what to fill in; the names asked for.
+ */
+export async function askAgain(
+	creds: Creds,
+	bundle: Bundle,
+): Promise<string[]> {
+	const asked: string[] = [];
+	for (const { name, scope, purpose, instructions } of bundle.creds) {
+		const request = await creds.request(name, {
+			scope,
+			purpose: purpose.trim() === "" ? NO_PURPOSE : purpose,
+			instructions,
+			task: null,
+		});
+		if (request !== null) {
+			asked.push(name);
+		}
+	}
+	return asked;
 }
 
 /** How `importBundle` treats what is already here. */
@@ -159,11 +172,16 @@ export function parseBundle(text: string, from: string): Bundle {
 			}
 		}
 	}
+	const creds = z.array(ASKED).safeParse(bundle.creds ?? []);
+	if (!creds.success) {
+		fail("usage", `${from} holds creds splates cannot read`, { path: from });
+	}
 	return {
 		format: BUNDLE_FORMAT,
 		version: bundle.version,
 		project: bundle.project ?? {},
 		machine: bundle.machine ?? {},
+		creds: creds.data,
 	};
 }
 
@@ -191,3 +209,47 @@ async function collect(
 	}
 	return files;
 }
+
+/**
+ * A cred the project's agents asked for, by name and with how to get it but
+ * never its value, for the import to ask the person for again.
+ */
+const ASKED = z.object({
+	name: z.string(),
+	scope: z.enum(SCOPES),
+	purpose: z.string(),
+	instructions: z.string(),
+});
+
+export type AskedCred = z.infer<typeof ASKED>;
+
+/** What a request from before requests said what for asks again with. */
+const NO_PURPOSE =
+	"Used by this project's agents on the machine this setup was exported from.";
+
+/**
+ * What moves from a project's `.git/splates`: its hooks, and its tasks,
+ * lanes, plans, conversations and the records of tasks it ended. Never `creds.json`, which
+ * holds this machine's record of requests (the bundle carries what to ask
+ * for again in `creds`), nor the journal, locks or leases,
+ * which belong to this machine and its processes.
+ */
+export const PROJECT_STATE = [
+	"hooks.json",
+	"tasks",
+	"plans",
+	"finished",
+	"removed",
+	"conversations",
+];
+
+/** What moves from splates's home: what the person set, its agent defaults (`offered.json`) included. */
+export const MACHINE_STATE = [
+	"agents.json",
+	"auto-pick.json",
+	"offered.json",
+	"eval-agents.json",
+];
+
+/** Files that stay behind wherever they are found. */
+const KEPT_BACK = /(^|\/)creds\.json$|\.lock(\/|$)/;

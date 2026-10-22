@@ -1,4 +1,8 @@
-import type { Provider, Scope } from "@stringsync/splates-server/creds";
+import type {
+	CredRequest,
+	Provider,
+	Scope,
+} from "@stringsync/splates-server/creds";
 import { EllipsisIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -13,12 +17,15 @@ import { cn } from "#web/lib/utils.ts";
 import { removeCred, saveCred } from "./api";
 import { useWide } from "./app-nav";
 import { touchItems } from "./board";
+import { RequestBody } from "./cred-how";
 import { Paste } from "./cred-paste";
 import { ProviderPicker, ScopeChip, scopeLabel } from "./cred-scope";
 import { PHONE_TILE } from "./phone-rows";
 
 /**
- * A kept cred: its name and scope, with Replace and Remove. On a phone it is
+ * A kept cred: its name and scope, with Replace and Remove, and How, which
+ * shows what it was asked for with, as Replace does, so getting it again on
+ * another machine or after it expires needs no hunting. On a phone it is
  * one of the inbox's rows, led by a key, its scope under its name and its
  * actions in a menu.
  */
@@ -28,6 +35,7 @@ export function KeptRow({
 	provider = "system",
 	savedBy,
 	project,
+	request,
 	picked = false,
 	onChanged,
 }: {
@@ -36,12 +44,15 @@ export function KeptRow({
 	provider?: Provider;
 	savedBy: string | null;
 	project: string;
+	/** The request it was saved for, saying what for and how to get it. */
+	request?: CredRequest;
 	/** Whether the address set the page on it. */
 	picked?: boolean;
 	onChanged: () => void;
 }): JSX.Element {
 	const wide = useWide();
 	const [replacing, setReplacing] = useState(false);
+	const [showing, setShowing] = useState(false);
 	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const remove = () =>
@@ -86,6 +97,16 @@ export function KeptRow({
 							</>
 						) : (
 							<>
+								{request !== undefined && (
+									<Button
+										variant="ghost"
+										size="sm"
+										aria-expanded={showing}
+										onClick={() => setShowing(!showing)}
+									>
+										How
+									</Button>
+								)}
 								<Button
 									variant="ghost"
 									size="sm"
@@ -132,6 +153,11 @@ export function KeptRow({
 							<EllipsisIcon />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className={`w-44 ${touchItems}`}>
+							{request !== undefined && (
+								<DropdownMenuItem onClick={() => setShowing(!showing)}>
+									{showing ? "Hide how" : "How to get it"}
+								</DropdownMenuItem>
+							)}
 							<DropdownMenuItem
 								onClick={() => {
 									setRemoving(false);
@@ -165,6 +191,11 @@ export function KeptRow({
 					>
 						Remove
 					</Button>
+				</div>
+			)}
+			{request !== undefined && (showing || replacing) && (
+				<div className="-mx-4 [&>div]:py-1">
+					<RequestBody request={request} />
 				</div>
 			)}
 			{replacing && (

@@ -4,10 +4,10 @@ import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { dismissCred, type KeptCreds, keptCreds, saveCred } from "./api";
+import { RequestBody } from "./cred-how";
 import { Paste } from "./cred-paste";
 import { ProviderPicker, ScopeChip } from "./cred-scope";
 import { AddCred, KeptRow } from "./kept-creds";
-import { Markdown } from "./markdown";
 import { PHONE_HEADING } from "./phone-rows";
 import { TaskChip } from "./reference-chip";
 import { TopBar } from "./top-bar";
@@ -17,26 +17,6 @@ import { WorkerKeys } from "./worker-keys";
 export function openRequests(requests: CredRequest[]): CredRequest[] {
 	return requests.filter((each) => each.status === "open");
 }
-/**
- * What a request is for, then how to get it, so the person knows why before
- * going to get it. A record from before requests said what for shows only how.
- */
-function RequestBody({ request }: { request: CredRequest }): JSX.Element {
-	return (
-		<div className="flex flex-col gap-2 px-4 py-3 text-sm leading-relaxed">
-			{request.purpose !== "" && (
-				<p className="font-medium">
-					<Markdown text={request.purpose} inline />
-				</p>
-			)}
-			<Markdown
-				text={request.instructions}
-				className="[&_p:first-child]:mt-0"
-			/>
-		</div>
-	);
-}
-
 /** A request on the Creds page: what, for whom, what for, how to get it, the field. */
 function RequestRow({
 	request,
@@ -257,6 +237,12 @@ export function CredsPage({
 										{...each}
 										picked={each.name === cred}
 										project={project}
+										request={requests.find(
+											(request) =>
+												request.name === each.name &&
+												request.scope === each.scope &&
+												request.status === "saved",
+										)}
 										onChanged={read}
 									/>
 								))}

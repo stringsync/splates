@@ -2,6 +2,7 @@ import { splatesHome } from "@stringsync/splates-server/models";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
+	askAgain,
 	exportBundle,
 	importBundle,
 	parseBundle,
@@ -11,7 +12,7 @@ import { z } from "zod";
 
 /** `splates config`, which the root cli mounts after `splates budget`. */
 export const splatesConfig = cli<SplatesDeps>("config").description(
-	"move this project's setup to another machine or project as one JSON file: its hooks, tasks and lanes, plans, the records of ended tasks and conversations, and from splates's home the agent roster, Auto pick rules, the agent settings picked as defaults and the eval agents. Never the creds: `creds.json` and the values in the secret stores stay behind, so ask for those again on the new machine. Nor the journal, locks, leases, spend or the registry of projects, which belong to the machine",
+	"move this project's setup to another machine or project as one JSON file: its hooks, tasks and lanes, plans, the records of ended tasks and conversations, and from splates's home the agent roster, Auto pick rules, the agent settings picked as defaults and the eval agents. Never the creds' values, which stay in this machine's secret stores: the export names each cred agents asked for, with how to get it, and the import requests those the new machine does not keep yet on its Creds page. Nor the journal, locks, leases, spend or the registry of projects, which belong to the machine",
 );
 
 splatesConfig
@@ -25,11 +26,14 @@ splatesConfig
 		description: "where to write it; stdout when left off",
 	})
 	.action(async (opts, ctx) => {
-		const bundle = await exportBundle({
-			fs: ctx.fs,
-			splatesDir: ctx.splatesDir,
-			home: splatesHome(ctx.ps),
-		});
+		const bundle = await exportBundle(
+			{
+				fs: ctx.fs,
+				splatesDir: ctx.splatesDir,
+				home: splatesHome(ctx.ps),
+			},
+			await ctx.creds.requests(),
+		);
 		const text = `${JSON.stringify(bundle, null, "\t")}\n`;
 		if (opts.file === "") {
 			ctx.log.info(text);
@@ -37,7 +41,7 @@ splatesConfig
 		}
 		await ctx.fs.write(opts.file, text);
 		ctx.log.info(
-			`exported ${Object.keys(bundle.project).length} project file(s) and ${Object.keys(bundle.machine).length} machine file(s) to ${opts.file}`,
+			`exported ${Object.keys(bundle.project).length} project file(s) and ${Object.keys(bundle.machine).length} machine file(s) to ${opts.file}, with how to get ${bundle.creds.length} cred(s) but not their values`,
 		);
 	});
 
@@ -45,7 +49,7 @@ splatesConfig
 	.command("import")
 	.use(repository({ needs: "own" }))
 	.description(
-		"write an export file's contents into this project and splates's home, with `splates server` stopped, since it rewrites the settings it holds; a file that already exists with other contents stops the import, naming each, unless --force overwrites it",
+		"write an export file's contents into this project and splates's home, with `splates server` stopped, since it rewrites the settings it holds, and request on the Creds page each cred it names that this machine does not keep; a file that already exists with other contents stops the import, naming each, unless --force overwrites it",
 	)
 	.arg("file", z.string(), { description: "an export from `config export`" })
 	.option("force", z.boolean(), {
@@ -63,5 +67,10 @@ splatesConfig
 			bundle,
 			{ force: opts.force },
 		);
-		ctx.log.info(`imported ${done.written.length} file(s)`);
+		const asked = await askAgain(ctx.creds, bundle);
+		ctx.log.info(
+			asked.length === 0
+				? `imported ${done.written.length} file(s)`
+				: `imported ${done.written.length} file(s) and requested ${asked.length} cred(s) to fill on the Creds page: ${asked.join(", ")}`,
+		);
 	});

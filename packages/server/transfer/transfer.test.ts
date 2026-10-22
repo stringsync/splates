@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Testing } from "../testing";
-import { exportBundle, importBundle, parseBundle } from "./index";
+import { askAgain, exportBundle, importBundle, parseBundle } from "./index";
 
 describe("config transfer", () => {
 	let from: Testing;
@@ -32,7 +32,7 @@ describe("config transfer", () => {
 		await from.fs.write(`${from.splatesHome}/offered.json`, "{}");
 		await from.fs.write(`${from.splatesHome}/spend.jsonl`, "");
 
-		const bundle = await exportBundle(places(from));
+		const bundle = await exportBundle(places(from), []);
 		expect(Object.keys(bundle.project).sort()).toEqual([
 			"hooks.json",
 			"plans/a.md",
@@ -51,7 +51,7 @@ describe("config transfer", () => {
 	it("stops on a differing file unless forced", async () => {
 		await from.fs.write(`${from.splatesDir}/hooks.json`, "new");
 		await to.fs.write(`${to.splatesDir}/hooks.json`, "old");
-		const bundle = await exportBundle(places(from));
+		const bundle = await exportBundle(places(from), []);
 		await expect(
 			importBundle(places(to), bundle, { force: false }),
 		).rejects.toThrow("differ");
@@ -64,12 +64,73 @@ describe("config transfer", () => {
 		const bundle = (project: Record<string, string>) =>
 			JSON.stringify({
 				format: "splates-config",
-				version: 1,
+				version: 2,
 				project,
 				machine: {},
+				creds: [],
 			});
 		expect(() => parseBundle(bundle({ "../x": "" }), "f")).toThrow();
 		expect(() => parseBundle(bundle({ "creds.json": "" }), "f")).toThrow();
 		expect(() => parseBundle("{}", "f")).toThrow();
+	});
+
+	it("carries what to ask for again, never a value, and asks for what is not kept", async () => {
+		await from.creds.request("API_TOKEN", {
+			scope: "project",
+			purpose: "To call the API.",
+			instructions: "Make one on its settings page.",
+			task: null,
+		});
+		await from.creds.save("API_TOKEN", "secret");
+		await from.creds.request("GONE", {
+			scope: "device",
+			purpose: "Turned down.",
+			instructions: "Nowhere.",
+			task: null,
+		});
+		await from.creds.dismiss("GONE");
+		await from.creds.request("KEPT_THERE", {
+			scope: "device",
+			purpose: "To sign in.",
+			instructions: "Copy it from the dashboard.",
+			task: null,
+		});
+		await to.creds.save("KEPT_THERE", "already", { scope: "device" });
+
+		const bundle = await exportBundle(
+			places(from),
+			await from.creds.requests(),
+		);
+		expect(bundle.creds.map((each) => each.name)).toEqual([
+			"API_TOKEN",
+			"KEPT_THERE",
+		]);
+		expect(JSON.stringify(bundle)).not.toContain("secret");
+
+		const read = parseBundle(JSON.stringify(bundle), "f");
+		expect(await askAgain(to.creds, read)).toEqual(["API_TOKEN"]);
+		const [asked] = (await to.creds.requests()).filter(
+			(each) => each.status === "open",
+		);
+		expect(asked).toMatchObject({
+			name: "API_TOKEN",
+			scope: "project",
+			purpose: "To call the API.",
+			instructions: "Make one on its settings page.",
+			task: null,
+		});
+	});
+
+	it("reads an export from before creds went with it", () => {
+		const read = parseBundle(
+			JSON.stringify({
+				format: "splates-config",
+				version: 1,
+				project: {},
+				machine: {},
+			}),
+			"f",
+		);
+		expect(read.creds).toEqual([]);
 	});
 });
