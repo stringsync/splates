@@ -19,6 +19,9 @@ const REPLY_CHARS = 2000;
 /** How long a turn's judgment may take before it is given up. */
 const TIMEOUT = Duration.secs(30);
 
+/** The probability at which a judged note counts as applied. */
+export const APPLIED = 0.5;
+
 /**
  * After a turn, asks the project's judge, of each note the agent read in it,
  * whether what it did applied what the note says, in one judgment, and

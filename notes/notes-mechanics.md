@@ -33,6 +33,15 @@ ask the judge with `purpose: "notes"`, so the ledger names their spend
 `jev-latest`. `note read` keeps the note's `bytes` and the conversation's
 `context` tokens as it was read.
 
+The tiers' bars and caps are `ROUTING` (`notes/tiers.ts`), tuned on
+2026-10-21 against 94 recorded judgments labelled by hand: a `notes
+attached` event holds no message text, so each was joined to the last
+`prompt` record at or before its `at` in `conversations/<id>.jsonl`. At
+p ≥ 0.8 nine in ten notes bore on the message, between 0.7 and 0.8 half, and
+between 0.5 and 0.7 under a quarter, so the optional tier starts at 0.7 and
+takes one. The judge answered in about 0.3s (p95 0.5s, never over 0.9s),
+hence the 2s timeout.
+
 The Stats page's Notes section (`stats/notes.ts`, served per project at
 `/api/stats/notes`) reads those events from the project's journal beside the
 machine's outcomes and adherence: conversations with pointers against the

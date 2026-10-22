@@ -9,11 +9,11 @@ export const ROUTING = {
 	/** Attached as a directive to read it before acting. */
 	now: { at: 0.8, most: 2 },
 	/** Attached as a pointer, path and description only. */
-	optional: { at: 0.5, most: 3 },
+	optional: { at: 0.7, most: 1 },
 	/** The share of conversations held back from pointers, for the Stats page to compare. */
 	holdout: 0.2,
 	/** How long a message waits on the judge before going without pointers. */
-	timeout: Duration.secs(5),
+	timeout: Duration.secs(2),
 } as const;
 
 /** A note as the judge found it, before it is put in a tier. */

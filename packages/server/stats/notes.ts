@@ -1,3 +1,4 @@
+import { APPLIED } from "../notes";
 import type { Event } from "../records";
 import type { Judged } from "./adherence";
 import type { Outcome } from "./outcomes";
@@ -206,9 +207,6 @@ export function noteStats(
 		),
 	};
 }
-
-/** The probability at which a judged note counts as applied, the router's own bar for worth. */
-export const APPLIED = 0.5;
 
 /** The probability at which a judged message counts as correcting the agent. */
 export const CORRECTS = 0.5;

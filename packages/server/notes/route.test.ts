@@ -48,7 +48,7 @@ describe("routing", () => {
 			[AGENT],
 			{ launch: agent.launch },
 		);
-		judge = new FakeJudge({ n0: 0.9, n1: 0.6 });
+		judge = new FakeJudge({ n0: 0.9, n1: 0.75 });
 		conversations.route = routing(deps, {
 			judge: async () => judge,
 			random: () => 0.5,
@@ -94,7 +94,7 @@ describe("routing", () => {
 					},
 					{
 						path: "notes/tests.md",
-						probability: 0.6,
+						probability: 0.75,
 						tier: "optional",
 						inContext: false,
 						updated: false,

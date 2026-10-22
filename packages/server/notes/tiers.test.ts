@@ -15,31 +15,27 @@ const found = (
 });
 
 describe("tiers", () => {
-	it("directs at most two likely notes, points at three more, and leaves the unlikely", () => {
+	it("directs at most two likely notes, points at one more, and leaves the rest", () => {
 		const tiered = tiers([
 			found("a", 0.95),
 			found("b", 0.9),
 			found("c", 0.85),
-			found("d", 0.6),
-			found("e", 0.55),
-			found("f", 0.51),
-			found("g", 0.3),
+			found("d", 0.75),
+			found("e", 0.65),
 		]);
 		expect(tiered.map((each) => [each.path, each.tier])).toEqual([
 			["a", "now"],
 			["b", "now"],
 			["c", "optional"],
-			["d", "optional"],
-			["e", "optional"],
-			["f", null],
-			["g", null],
+			["d", null],
+			["e", null],
 		]);
 	});
 
 	it("skips a note in context, and directs one edited since it was read", () => {
 		const tiered = tiers([
 			found("a", 0.9, { inContext: true }),
-			found("b", 0.6, { updated: true }),
+			found("b", 0.75, { updated: true }),
 		]);
 		expect(tiered.map((each) => each.tier)).toEqual([null, "now"]);
 		expect(pointersOf(tiered)).toBe(

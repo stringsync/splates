@@ -1,9 +1,9 @@
 import { relative } from "node:path";
 import { fail } from "../exit";
 import type { Project } from "../server/shared";
+import { APPLIED } from "./applied";
 import { type ListedNote, Notes } from "./notes";
 import { NoteRemoval, NoteSave, NoteSaves } from "./saves";
-import { ROUTING } from "./tiers";
 import { NoteUses } from "./uses";
 
 /** Read the project's landed notes from its main checkout, and land the page's changes to them. */
@@ -60,7 +60,7 @@ export class NotesRoutes {
 			} else if (
 				event.action === "note applied" &&
 				event.path !== undefined &&
-				(event.probability ?? 0) >= ROUTING.optional.at
+				(event.probability ?? 0) >= APPLIED
 			) {
 				bump(followed, event.path);
 			}
