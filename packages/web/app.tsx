@@ -456,7 +456,7 @@ export function App({
 																						open={setting}
 																						onOpenChange={setSetting}
 																					/>
-																					<CatchingUp />
+																					<CatchingUp wide={wide} />
 																					{/* Until the project and its conversations are in, or the page has something else to say. */}
 																					<Splash
 																						wanted={

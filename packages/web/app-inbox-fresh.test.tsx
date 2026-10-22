@@ -97,4 +97,24 @@ describe("App's inbox while what it shows may be stale", () => {
 		await reopen(testing);
 		await waitFor(() => within(list).getByText("Fix login"));
 	});
+
+	it("unlocks the open thread once its saying it cannot reach splates is dismissed", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Fix login", status: "stopped" }),
+		]);
+		const input = await waitFor(() =>
+			view.getByRole("textbox", { name: "Message input" }),
+		);
+		testing.goAway();
+
+		await wake();
+
+		const said = await waitFor(() => view.getByRole("alert"));
+		expect(input.closest("[inert]")).not.toBeNull();
+		await act(async () =>
+			fireEvent.click(within(said).getByRole("button", { name: "Dismiss" })),
+		);
+		expect(input.closest("[inert]")).toBeNull();
+		within(view.getByRole("alert")).getByRole("button", { name: "Retry" });
+	});
 });

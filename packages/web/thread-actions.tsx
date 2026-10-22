@@ -142,9 +142,9 @@ export function useThreadActions(
 			: []),
 	];
 	// Not while the page may be stale, as the thread it would file takes no input then.
-	const { stale } = useFreshness();
+	const { locked } = useFreshness();
 	const fileByKey = () => {
-		if (!stale && !archived && filable(conversation)) {
+		if (!locked && !archived && filable(conversation)) {
 			archive.file(onLeft);
 		}
 	};
