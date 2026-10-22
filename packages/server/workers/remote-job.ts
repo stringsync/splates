@@ -8,6 +8,14 @@ export interface JobResult {
 	files: Map<string, Uint8Array>;
 }
 
+/** A job lost with its runner: the box is gone or the link was lost past replay, which another runner may redo. */
+export class RunnerLost extends Error {
+	constructor() {
+		super("the runner no longer runs the job");
+		this.name = "RunnerLost";
+	}
+}
+
 /** What the server does for a job's runner, beyond the params it opened the channel with. */
 export interface JobRun {
 	/** The bundle to ship a runner that holds `tip` (null: nothing of the project). Empty where it holds the commit. */
@@ -92,9 +100,7 @@ export async function runRemoteJob(
 		}
 	});
 	channel.events.on("close", () => {
-		finish(() =>
-			settled.reject(new Error("the runner no longer runs the job")),
-		);
+		finish(() => settled.reject(new RunnerLost()));
 	});
 	const ship = async (tip: string | null) => {
 		try {

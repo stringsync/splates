@@ -31,11 +31,15 @@ export class IdleWorkers {
 
 	/**
 	 * Notes which made workers are idle now, as it changes: none holds an
-	 * agent, a worker still booting included.
+	 * agent and none is in `busy`, workers kept busy for another reason such
+	 * as a job running on them; a worker still booting included.
 	 */
-	track(scheduler: Scheduler): void {
+	track(scheduler: Scheduler, busy: Iterable<string> = []): void {
 		const now = this.wall.now();
-		const held = new Set(scheduler.held().map((each) => each.worker));
+		const held = new Set([
+			...scheduler.held().map((each) => each.worker),
+			...busy,
+		]);
 		const live = new Set<string>();
 		for (const record of this.records.all) {
 			if (record.provisioned === null || record.removing) {

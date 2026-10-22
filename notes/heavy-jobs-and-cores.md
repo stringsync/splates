@@ -19,6 +19,7 @@ itself. A merge's claim goes first, ahead of waiters under two minutes old.
 `Testing` gives each test its own slots and strips those variables.
 
 These slots and cores are the machine's own, taken by a job that runs here:
-`splates heavy -- <cmd>` and `splates dev test` first try a runner, and
-`--local`, no server, or no runner joined runs them here as above. See
+`splates heavy -- <cmd>` and `splates dev test` first wait on the scheduler's
+pool-wide queue for a runner, and run here as above when `--local` says so,
+there is no server, or the pool can give them no runner. See
 `heavy-jobs-on-runners.md`.

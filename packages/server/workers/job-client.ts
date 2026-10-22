@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { loadConfig } from "../config";
-import { JobEvent, NO_RUNNER } from "./job-route";
+import { JobEvent } from "./job-route";
 import { type ServerSend, serverOf } from "./server-of";
 
 /** A heavy command to run on a runner, in the checkout of `cwd`. */
@@ -26,8 +26,8 @@ export interface RemoteJobResult {
 /**
  * Runs `job` on a runner through the `splates server` this agent runs under,
  * streaming its output to `job.output`. Null where it cannot go that way,
- * for the caller to run it here: no server to ask, no runner joined, or
- * `cwd` is no git checkout. A job that started and then failed throws.
+ * for the caller to run it here: no server to ask, no runner to be had for
+ * it, or `cwd` is no git checkout. A job that started and then failed throws.
  */
 export async function runOnRunner(
 	ctx: { ps: Ps; fs: Fs; log: Logger; dev?: string; send?: ServerSend },
@@ -72,22 +72,25 @@ export async function runOnRunner(
 		const said = (await response.json().catch(() => null)) as {
 			reason?: string;
 		} | null;
-		if (said?.reason === NO_RUNNER) {
+		// What a server before the pool answered for want of a runner.
+		if (said?.reason === "no_runner") {
 			return null;
 		}
 		throw new Error(
 			`splates server refused the job: ${said?.reason ?? response.status}`,
 		);
 	}
-	return await read(response, job);
+	return await read(response, job, ctx.log);
 }
 
 async function read(
 	response: Response,
 	job: RemoteJob,
-): Promise<RemoteJobResult> {
+	log: Logger,
+): Promise<RemoteJobResult | null> {
 	const files = new Map<string, Uint8Array>();
 	let code: number | null = null;
+	let local = false;
 	const decoder = new TextDecoder();
 	let pending = "";
 	const handle = (line: string) => {
@@ -105,6 +108,12 @@ async function read(
 			case "exit":
 				code = event.code;
 				break;
+			case "queued":
+				log.info(`waiting for a runner, ${event.position} in line`);
+				break;
+			case "local":
+				local = true;
+				break;
 			case "error":
 				throw new Error(`the job failed on its runner: ${event.reason}`);
 		}
@@ -121,6 +130,9 @@ async function read(
 	}
 	if (pending !== "") {
 		handle(pending);
+	}
+	if (local) {
+		return null;
 	}
 	if (code === null) {
 		throw new Error(

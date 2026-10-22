@@ -1,12 +1,14 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { type Fs, NodePs, type Ps } from "webappwiz/system";
+import { SystemWallClock } from "webappwiz/time";
 import { z } from "zod";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
 import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
+import { JobPool } from "./job-pool";
 import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
@@ -19,6 +21,7 @@ import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { WorkerRollout } from "./rollout";
+import { RunnerKeeper } from "./runner-keeper";
 import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
@@ -78,6 +81,8 @@ export class DevWorkers implements AsyncResource {
 	readonly local: RemoteWorker;
 	/** Heavy jobs on the runners that joined. */
 	readonly jobs: RunnerJobs;
+	/** What makes the runners the jobs need, and keeps the one the agents do. */
+	private readonly keeper: RunnerKeeper;
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
@@ -124,13 +129,6 @@ export class DevWorkers implements AsyncResource {
 				this.registry.expect(record.id);
 			}
 		}
-		this.jobs = new RunnerJobs(
-			this.registry,
-			records,
-			LOCAL_WORKER,
-			ps ?? new NodePs(),
-			log,
-		);
 		this.slots = new WorkerSlots(this.registry, {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
@@ -148,7 +146,24 @@ export class DevWorkers implements AsyncResource {
 						log,
 						stop: (ids) => this.stopMade(ids),
 						retire: (ids) => this.retireMade(ids),
+						busy: () => this.keeper.busy(),
 					});
+		this.keeper = new RunnerKeeper({
+			registry: this.registry,
+			records,
+			local: LOCAL_WORKER,
+			provisioning: this.provisioning,
+			scheduler: this.slots.scheduler,
+			log,
+		});
+		this.jobs = new RunnerJobs(
+			this.registry,
+			new JobPool(this.keeper, new SystemWallClock()),
+			ps ?? new NodePs(),
+			log,
+		);
+		this.keeper.watch(this.jobs.pool);
+		this.jobs.pool.events.on("changed", () => void this.removeIdle());
 		this.provisioning?.watch(this.slots.scheduler);
 		// A spot machine told it is to be reclaimed: its agents move off now, and a replacement is made.
 		this.registry.events.on("leaving", ({ id }) => {
@@ -160,7 +175,7 @@ export class DevWorkers implements AsyncResource {
 			registry: this.registry,
 			records,
 			build: RUNNING,
-			used: () => this.slots.used(),
+			used: () => this.used(),
 			pooled: (id) => this.pooled(id),
 			made: (id) => this.provisioning?.made(id) ?? false,
 			replace: (id) => this.forget(id),
@@ -168,6 +183,18 @@ export class DevWorkers implements AsyncResource {
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
+	}
+
+	/** What runs on each worker: the tasks its agents run and the jobs on it, a conversation's or job's id for one in no task. */
+	private used(): Map<string, string[]> {
+		const used = this.slots.used();
+		for (const job of this.jobs.pool.held()) {
+			used.set(job.runner, [
+				...(used.get(job.runner) ?? []),
+				job.task ?? job.id,
+			]);
+		}
+		return used;
 	}
 
 	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
@@ -270,7 +297,7 @@ export class DevWorkers implements AsyncResource {
 		Response.json({
 			...workerList(
 				this.registry,
-				this.slots.used(),
+				this.used(),
 				(id) => this.records.of(id),
 				(id) => this.pooled(id),
 			),
@@ -414,7 +441,7 @@ export class DevWorkers implements AsyncResource {
 				"this machine's own agents run to their end once it is removed: remove it without --force",
 			);
 		}
-		const running = this.slots.used().get(id) ?? [];
+		const running = this.used().get(id) ?? [];
 		if (running.length > 0 && !force) {
 			await this.records.set(id, { draining: true, removing: true });
 			this.slots.scheduler.poke();
@@ -454,7 +481,7 @@ export class DevWorkers implements AsyncResource {
 
 	/** Removes each worker waiting to be once its last agent has ended. */
 	private async removeIdle(): Promise<void> {
-		const used = this.slots.used();
+		const used = this.used();
 		for (const record of this.records.all) {
 			if (record.removing && (used.get(record.id) ?? []).length === 0) {
 				await this.forget(record.id);
@@ -564,6 +591,8 @@ export class DevWorkers implements AsyncResource {
 
 	async disposeAsync(): Promise<void> {
 		this.rollout.dispose();
+		this.keeper.dispose();
+		this.jobs.pool.dispose();
 		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();

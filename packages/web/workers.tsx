@@ -22,7 +22,7 @@ import {
 import { behind, WorkerPoolView } from "./worker-pool";
 
 /**
- * The Workers page: this Mac as a worker, which it turns on and off, the
+ * The Runners page: this Mac as a worker, which it turns on and off, the
  * pool as `splates worker list` shows it, with the same actions as the CLI,
  * and the workers waiting on an update.
  */
@@ -50,21 +50,22 @@ export function WorkersPage({
 	const frame: WorkerCardFrame = { tasks, onOpenTask };
 	return (
 		<section aria-label="workers" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Workers" />
+			<TopBar title="Runners" />
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}
 				</p>
 			)}
 			{pool === null && error === null && (
-				<ReadingNow label="Reading workers…" />
+				<ReadingNow label="Reading runners…" />
 			)}
 			{pool !== null && (
 				<>
 					<Updates pool={pool} />
 					<div className="flex flex-col gap-3">
 						<Heading title="Pool">
-							Every worker agents run on, this Mac first.
+							This Mac, which runs the agents, then each runner heavy jobs run
+							on.
 						</Heading>
 						<ul aria-label="pool" className="flex flex-col gap-4">
 							<ThisMac

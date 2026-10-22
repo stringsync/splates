@@ -2,6 +2,7 @@ export { FakeWorkerAccess } from "./fake-access";
 
 import { MemoryWorkerSocket } from "./memory-socket";
 
+export { FakeJobView } from "./fake-job-view";
 export { FakeWorkerProvider } from "./fake-provider";
 
 /** Two ends of an in-memory connection, for tests. */

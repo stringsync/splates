@@ -218,7 +218,7 @@ export class WorkerProvisioning
 					`who ran on made workers could not be kept: ${String(error)}`,
 				);
 			});
-			this.idle.track(scheduler);
+			this.idle.track(scheduler, this.opts.busy?.() ?? []);
 		});
 		const timer = this.opts.timer ?? new SystemTimer();
 		this.tick = timer.setInterval(
@@ -270,7 +270,7 @@ export class WorkerProvisioning
 		if (retire === undefined) {
 			return;
 		}
-		this.idle.track(scheduler);
+		this.idle.track(scheduler, this.opts.busy?.() ?? []);
 		const unjoined = this.unjoined();
 		if (unjoined.length > 0) {
 			log.error(
@@ -339,6 +339,11 @@ export interface WorkerProvisioningOptions {
 	 * new agent and is destroyed once any that arrived since ends.
 	 */
 	retire?: (ids: string[]) => Promise<void>;
+	/**
+	 * The made workers kept from being destroyed as idle for a reason of
+	 * their own: a job running on a runner, or the one kept warm.
+	 */
+	busy?: () => Iterable<string>;
 	log: Logger;
 	wall?: WallClock;
 	timer?: Timer;

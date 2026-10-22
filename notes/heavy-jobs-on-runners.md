@@ -1,13 +1,39 @@
 ---
-description: How `splates heavy` and `splates dev test` run on a runner: a snapshot commit shipped as a bundle over a job channel, prepared and run in a throwaway worktree, output and files streamed back; and when they run here instead
+description: How `splates heavy` and `splates dev test` run on a runner: the pool-wide queue that places them, the runners made and stopped to meet it, a snapshot commit shipped as a bundle, output and files streamed back; and when they run here instead
 ---
 
 A runner is a joined worker (not this machine's own `local`) that says
 `jobs: true` in its hello and holds no state but a bare warm clone per project
-under `<splates home>/runner/<hash of the project>/repo.git`. `POST /api/jobs`
-(`RunnerJobs` in `workers/job-route.ts`) picks the connected, undrained runner
-with the fewest jobs; none gives `no_runner` (409), which the caller answers by
-running the job here. Pool-wide queueing and making runners are separate work.
+under `<splates home>/runner/<hash of the project>/repo.git`.
+
+`JobPool` (`workers/job-pool.ts`) is the pool-wide queue, over every project:
+each runner takes 3 jobs at once (`JOBS_PER_RUNNER`: 16 vCPU and 32 GB, a run
+about 7 cores and 7 GB), a job goes to the runner with the most free room,
+one that already holds the project's clone first, and the rest wait first come,
+first served. A job that can have no runner, because none is up or on its way
+and none can be made (no provider, the day's or month's limit reached, a make
+that just failed), is told `local`, and its caller runs it in this machine's
+heavy-job slots (`heavy-jobs-and-cores.md`), so the hard stop never leaves a
+job waiting.
+
+`RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants:
+one while any agent is live (made when the first starts), and a second only
+while more jobs wait than the runners up or booting have room for (at most
+`MAX_RUNNERS`, 2). Its `busy` keeps from `WorkerProvisioning`'s idle sweep each
+runner running a job, all while jobs wait, and the first made while an agent
+is live; any other is destroyed after 15 idle minutes (at once when its type
+bills by the second, which is why a DigitalOcean runner's idle time need not
+be rounded up). The day, month and rate limits in `workers/budget.ts` hold
+over runners as over any made worker, with their 80, 90 and 100% warnings. A
+runner that could not be made is not tried again for a minute.
+
+`POST /api/jobs` (`RunnerJobs` in `workers/job-route.ts`) streams from the
+start: a `queued` event with the position while it waits, then the job's
+events, or `local`. A job whose runner is lost (the box gone, the link lost
+past replay: `RunnerLost`) is run again on another runner once, with the first
+kept out, then told `local`; output of the first try has already streamed, so
+it shows again. Servers before the pool answered 409 `no_runner` for want of a
+runner, which the caller still treats as `local`.
 
 The caller (`runOnRunner`, `workers/job-client.ts`) sends the worktree, the
 project's common git dir, the command, its env, the files it wants back and the

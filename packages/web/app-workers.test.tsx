@@ -21,7 +21,7 @@ describe("App's workers", () => {
 		testing.workers = pool;
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Workers/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Runners/ })),
 		);
 		await waitFor(() => view.getByRole("list", { name: "pool" }));
 		return view;
@@ -65,7 +65,7 @@ describe("App's workers", () => {
 
 		const box = view.getByRole("listitem", { name: "worker box" });
 		expect(box.textContent).toContain("linux");
-		expect(box.textContent).toContain("none in use");
+		expect(box.textContent).toContain("free room4 of 4");
 		expect(box.textContent).toContain("draining");
 		expect(box.textContent).toContain("update waiting");
 		expect(
@@ -197,7 +197,7 @@ describe("App's workers", () => {
 		});
 	});
 
-	it("drains a worker, and removes one with agents on it once they end", async () => {
+	it("drains a worker, and stops one with jobs on it once they end", async () => {
 		const view = await openWorkers(
 			pool([worker("box", { slots: { used: 1, total: 4 }, tasks: ["a"] })]),
 		);
@@ -209,7 +209,7 @@ describe("App's workers", () => {
 		);
 		expect(within(box).getByRole("button", { name: "Resume" })).toBeTruthy();
 		await act(async () =>
-			fireEvent.click(within(box).getByRole("button", { name: "Remove" })),
+			fireEvent.click(within(box).getByRole("button", { name: "Stop" })),
 		);
 
 		expect(box.textContent).toContain("removing");
@@ -218,7 +218,7 @@ describe("App's workers", () => {
 			["/api/workers/box", "DELETE"],
 		]);
 		await act(async () =>
-			fireEvent.click(within(box).getByRole("button", { name: "Remove now" })),
+			fireEvent.click(within(box).getByRole("button", { name: "Stop now" })),
 		);
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/box?force",
@@ -261,6 +261,7 @@ function worker(
 		lastHeard: null,
 		tasks: [],
 		dollarsPerHour: 0,
+		upSince: null,
 		...overrides,
 	};
 }

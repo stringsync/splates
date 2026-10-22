@@ -47,6 +47,8 @@ export interface WorkerListing {
 	/** The tasks its agents run, a conversation's id for one in no task. */
 	tasks: string[];
 	dollarsPerHour: number;
+	/** When a runner a provider made was asked for, epoch milliseconds; null for any other. */
+	upSince: number | null;
 }
 
 /**
@@ -117,6 +119,7 @@ function listing(
 		lastHeard: session.lastHeard,
 		tasks,
 		dollarsPerHour: record?.provisioned?.dollarsPerHour ?? 0,
+		upSince: record?.provisioned?.createdAt ?? null,
 	};
 }
 
@@ -139,6 +142,7 @@ const Listings = z.object({
 			lastHeard: z.number().nullable(),
 			tasks: z.array(z.string()),
 			dollarsPerHour: z.number(),
+			upSince: z.number().nullable().default(null),
 		}),
 	),
 	refused: z.array(

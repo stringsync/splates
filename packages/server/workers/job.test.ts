@@ -4,14 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { Duration, SystemWallClock } from "webappwiz/time";
 import { Testing } from "../testing";
 import { WorkerDaemon } from "./daemon";
+import { JobPool } from "./job-pool";
 import { JobEvent, RunnerJobs } from "./job-route";
 import { JobSnapshot } from "./job-snapshot";
-import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
+import { FakeJobView } from "./testing";
 import { UnixWorkerListener } from "./unix-listener";
 import { UnixWorkerSocket } from "./unix-socket";
 
@@ -181,37 +182,30 @@ describe("heavy jobs on a runner", () => {
 			}),
 		);
 
-	it("answers a job request no_runner where none has joined, for the caller to run it itself", async () => {
-		const none = new RunnerJobs(
-			new WorkerRegistry(new MemoryLogger()),
-			WorkerRecords.memory(),
-			"local",
+	const jobsOf = (of: WorkerRegistry) =>
+		new RunnerJobs(
+			of,
+			new JobPool(new FakeJobView(of), new SystemWallClock()),
 			new NodePs(),
 			new MemoryLogger(),
 		);
 
-		const response = await post(none);
-
-		expect(response.status).toBe(409);
-		expect(await response.json()).toMatchObject({ reason: "no_runner" });
-	});
-
-	it("streams a job request's output and exit code from the runner", async () => {
-		const jobs = new RunnerJobs(
-			registry,
-			WorkerRecords.memory(),
-			"local",
-			new NodePs(),
-			new MemoryLogger(),
-		);
-
-		const response = await post(jobs);
-		const events = (await response.text())
+	const events = async (response: Response) =>
+		(await response.text())
 			.trim()
 			.split("\n")
 			.map((line) => JobEvent.parse(JSON.parse(line)));
 
-		expect(events).toEqual([
+	it("sends a job request to its caller to run itself where no runner is up or can be made", async () => {
+		const response = await post(jobsOf(new WorkerRegistry(new MemoryLogger())));
+
+		expect(await events(response)).toEqual([{ type: "local" }]);
+	});
+
+	it("streams a job request's output and exit code from the runner", async () => {
+		const response = await post(jobsOf(registry));
+
+		expect(await events(response)).toEqual([
 			{ type: "out", data: Buffer.from("hi\n").toString("base64") },
 			{ type: "exit", code: 2 },
 		]);

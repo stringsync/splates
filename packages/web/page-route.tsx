@@ -126,7 +126,7 @@ export const PAGES: {
 	{ value: "evals", label: "Evals", Icon: FlaskConicalIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "billing", label: "Billing", Icon: GaugeIcon },
-	{ value: "workers", label: "Workers", Icon: ServerIcon },
+	{ value: "workers", label: "Runners", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
 	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },

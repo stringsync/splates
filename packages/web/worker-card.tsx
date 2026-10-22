@@ -57,7 +57,7 @@ export function WorkerCard({
 							<Button
 								variant="ghost"
 								size="sm"
-								title="Takes new agents again"
+								title="Takes new jobs again"
 								onClick={() => onDrain(false)}
 							>
 								<PlayIcon /> Resume
@@ -66,7 +66,7 @@ export function WorkerCard({
 							<Button
 								variant="ghost"
 								size="sm"
-								title="Takes no new agents; those on it run to their end"
+								title="Takes no new jobs; those on it run to their end"
 								onClick={() => onDrain(true)}
 							>
 								<PauseIcon /> Drain
@@ -77,10 +77,10 @@ export function WorkerCard({
 							variant="ghost"
 							size="sm"
 							className="text-destructive hover:text-destructive"
-							title={`Ends the ${used} running on it now`}
+							title={`Ends the ${used} jobs running on it now`}
 							onClick={() => onRemove(true)}
 						>
-							<TriangleAlertIcon /> Remove now
+							<TriangleAlertIcon /> Stop now
 						</Button>
 					) : (
 						<Button
@@ -89,12 +89,12 @@ export function WorkerCard({
 							className="text-muted-foreground hover:text-destructive"
 							title={
 								used > 0
-									? "Drains it, and removes it once what runs on it ends"
-									: "Revokes its key and forgets it"
+									? "Takes no new jobs, and stops once those on it end"
+									: "Stops it and revokes its key"
 							}
 							onClick={() => onRemove(false)}
 						>
-							<Trash2Icon /> Remove
+							<Trash2Icon /> Stop
 						</Button>
 					)}
 				</>
@@ -158,9 +158,11 @@ export function WorkerShell({
 			{worker !== null && (
 				<>
 					<Facts worker={worker} updating={updating} frame={frame} />
-					<footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-4 py-2">
-						<SlotsField worker={worker} onSet={onSlots} />
-					</footer>
+					{worker.kind === "local" && (
+						<footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-4 py-2">
+							<SlotsField worker={worker} onSet={onSlots} />
+						</footer>
+					)}
 				</>
 			)}
 			<Refusal refusal={refusal} className="px-4 pb-2" />
@@ -228,6 +230,27 @@ function Facts({
 					`$${worker.dollarsPerHour.toFixed(2)}/hour`
 				)}
 			</Fact>
+			{!local && (
+				<>
+					<Fact name="jobs now">
+						{worker.tasks.length === 0 ? (
+							<Quiet>none</Quiet>
+						) : (
+							worker.tasks.join(", ")
+						)}
+					</Fact>
+					<Fact name="free room">
+						{worker.slots.total === null
+							? "?"
+							: `${Math.max(0, worker.slots.total - worker.slots.used)} of ${worker.slots.total}`}
+					</Fact>
+					{worker.upSince !== null && (
+						<Fact name="up since">
+							{new Date(worker.upSince).toLocaleString()}
+						</Fact>
+					)}
+				</>
+			)}
 			{local && (
 				<Fact name="tasks">
 					{worker.tasks.length === 0 ? (

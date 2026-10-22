@@ -4,10 +4,11 @@ import { z } from "zod";
 import { Git } from "../git";
 import { refuse } from "../server/shared";
 import { JobParams } from "./job";
+import type { JobPool } from "./job-pool";
 import { JobSnapshot } from "./job-snapshot";
-import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
+import { RunnerLost } from "./remote-job";
 
 /** What `POST /api/jobs` is sent. */
 export const JobRequest = z.object({
@@ -30,47 +31,32 @@ export const JobEvent = z.discriminatedUnion("type", [
 	/** A file the job returned, base64. */
 	z.object({ type: z.literal("file"), name: z.string(), data: z.string() }),
 	z.object({ type: z.literal("exit"), code: z.number() }),
+	/** The job waits for a place on a runner, at this position in the pool's queue, from 1. */
+	z.object({ type: z.literal("queued"), position: z.number() }),
+	/** No runner is to be had for the job: the caller runs it here. */
+	z.object({ type: z.literal("local") }),
 	z.object({ type: z.literal("error"), reason: z.string() }),
 ]);
 export type JobEvent = z.infer<typeof JobEvent>;
 
-/** The reason a request is refused for want of a runner, which a caller answers by running the job itself. */
-export const NO_RUNNER = "no_runner";
-
 /**
  * Runs heavy jobs on the runners that have joined: `POST /api/jobs` snapshots
- * the worktree, picks a runner, and streams the job's output and result back
- * until it ends. A caller that hangs up ends the job on the runner.
+ * the worktree, waits for a place in the pool's queue, and streams the job's
+ * output and result back until it ends. A caller that hangs up ends the job
+ * on the runner. A job whose runner is lost is run again on another, once,
+ * and then by its caller, here.
  */
 export class RunnerJobs {
-	/** Jobs on each runner now, so the next goes to the idlest. */
-	private readonly running = new Map<string, number>();
 	private readonly snapshot: JobSnapshot;
+	private jobs = 0;
 
 	constructor(
 		private readonly registry: WorkerRegistry,
-		private readonly records: WorkerRecords,
-		private readonly local: string,
+		readonly pool: JobPool,
 		ps: Ps,
 		private readonly log: Logger,
 	) {
 		this.snapshot = new JobSnapshot(new Git("/", { ps }));
-	}
-
-	/** The runner that takes the next job: connected, not draining, and idlest; none if there is none. */
-	pick(): RemoteWorker | null {
-		const ready = this.registry.workers.filter(
-			(worker) =>
-				worker.id !== this.local &&
-				worker.connected &&
-				worker.info.jobs === true &&
-				this.records.of(worker.id)?.draining !== true,
-		);
-		ready.sort(
-			(first, second) =>
-				(this.running.get(first.id) ?? 0) - (this.running.get(second.id) ?? 0),
-		);
-		return ready[0] ?? null;
 	}
 
 	readonly run = async (request: Request): Promise<Response> => {
@@ -78,20 +64,30 @@ export class RunnerJobs {
 		if (!body.success) {
 			return refuse(400, "usage", "send the worktree, project and command");
 		}
-		const runner = this.pick();
-		if (runner === null) {
-			return refuse(409, NO_RUNNER, "no runner has joined: run the job here");
-		}
 		const job = body.data;
 		const abort = new AbortController();
 		const encoder = new TextEncoder();
 		const stream = new ReadableStream<Uint8Array>({
 			start: (controller) => {
-				const send = (event: JobEvent) =>
-					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-				void this.execute(runner, job, abort.signal, send).finally(() =>
-					controller.close(),
-				);
+				const send = (event: JobEvent) => {
+					if (!abort.signal.aborted) {
+						controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+					}
+				};
+				void this.execute(job, abort.signal, send)
+					.catch((error: unknown) => {
+						if (!abort.signal.aborted) {
+							send({
+								type: "error",
+								reason: error instanceof Error ? error.message : String(error),
+							});
+						}
+					})
+					.finally(() => {
+						if (!abort.signal.aborted) {
+							controller.close();
+						}
+					});
 			},
 			cancel: () => abort.abort(),
 		});
@@ -100,50 +96,94 @@ export class RunnerJobs {
 		});
 	};
 
+	/** Runs `job` where the pool places it, again on another runner once if its runner is lost. */
 	private async execute(
+		job: JobRequest,
+		signal: AbortSignal,
+		send: (event: JobEvent) => void,
+	): Promise<void> {
+		const id = `job-${++this.jobs}`;
+		const lost: string[] = [];
+		for (;;) {
+			const taking = this.pool.take(
+				{
+					id,
+					project: job.project,
+					task: job.task,
+					what: job.argv.join(" ").slice(0, 120),
+					avoid: lost,
+				},
+				signal,
+			);
+			const at = this.pool.queue().find((each) => each.id === id);
+			if (at !== undefined) {
+				send({ type: "queued", position: at.position });
+			}
+			const place = await taking;
+			try {
+				const runner =
+					place.runner === null
+						? undefined
+						: this.registry.worker(place.runner);
+				if (runner === undefined) {
+					send({ type: "local" });
+					return;
+				}
+				try {
+					await this.runOn(runner, job, signal, send);
+					return;
+				} catch (error) {
+					if (signal.aborted) {
+						return;
+					}
+					if (!(error instanceof RunnerLost || !runner.connected)) {
+						throw error;
+					}
+					this.log.info(`a job lost its runner ${runner.id}: ${String(error)}`);
+					// Once more on another runner, then here.
+					if (lost.length > 0) {
+						send({ type: "local" });
+						return;
+					}
+					lost.push(runner.id);
+				}
+			} finally {
+				place.dispose();
+			}
+		}
+	}
+
+	private async runOn(
 		runner: RemoteWorker,
 		job: JobRequest,
 		signal: AbortSignal,
 		send: (event: JobEvent) => void,
 	): Promise<void> {
-		this.running.set(runner.id, (this.running.get(runner.id) ?? 0) + 1);
-		try {
-			const commit = await this.snapshot.take(job.worktree);
-			const result = await runner.job(
-				{
-					project: job.project,
-					commit,
-					task: job.task,
-					prepare: job.prepare,
-					argv: job.argv,
-					env: job.env,
-					files: job.files,
-				},
-				{
-					bundle: (tip) => this.snapshot.bundle(job.worktree, commit, tip),
-					output: (bytes) =>
-						send({ type: "out", data: Buffer.from(bytes).toString("base64") }),
-					signal,
-				},
-			);
-			for (const [name, bytes] of result.files) {
-				send({
-					type: "file",
-					name,
-					data: Buffer.from(bytes).toString("base64"),
-				});
-			}
-			send({ type: "exit", code: result.code });
-		} catch (error) {
-			if (!signal.aborted) {
-				this.log.info(`a job on runner ${runner.id} failed: ${String(error)}`);
-				send({
-					type: "error",
-					reason: error instanceof Error ? error.message : String(error),
-				});
-			}
-		} finally {
-			this.running.set(runner.id, (this.running.get(runner.id) ?? 1) - 1);
+		const commit = await this.snapshot.take(job.worktree);
+		const result = await runner.job(
+			{
+				project: job.project,
+				commit,
+				task: job.task,
+				prepare: job.prepare,
+				argv: job.argv,
+				env: job.env,
+				files: job.files,
+			},
+			{
+				bundle: (tip) => this.snapshot.bundle(job.worktree, commit, tip),
+				output: (bytes) =>
+					send({ type: "out", data: Buffer.from(bytes).toString("base64") }),
+				signal,
+			},
+		);
+		for (const [name, bytes] of result.files) {
+			send({
+				type: "file",
+				name,
+				data: Buffer.from(bytes).toString("base64"),
+			});
 		}
+		send({ type: "exit", code: result.code });
 	}
 }
