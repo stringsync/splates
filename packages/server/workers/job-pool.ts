@@ -3,14 +3,14 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { WallClock } from "webappwiz/time";
 
 /**
- * How many heavy jobs a runner takes at once: a runner is 16 vCPU and 32 GB,
+ * How many heavy jobs a runner takes at once: a runner is 4 vCPU and 8 GB,
  * and one test run takes about 7 cores and 7 GB.
  */
-export const JOBS_PER_RUNNER = 3;
+export const JOBS_PER_RUNNER = 1;
 
 /**
  * The pool-wide queue of heavy jobs: each runner takes `JOBS_PER_RUNNER`
- * at once, a job goes to the runner with the most room, preferring one that
+ * (or the count it is made with) at once, a job goes to the runner with the most room, preferring one that
  * already holds its project's clone, and the rest wait first come, first
  * served. A job no runner can ever take, because none is up or can be
  * made, is sent to run here instead of waiting.
@@ -26,6 +26,8 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	constructor(
 		private readonly view: JobPoolView,
 		private readonly clock: WallClock,
+		/** How many jobs each runner takes at once. */
+		private readonly perRunner = JOBS_PER_RUNNER,
 	) {}
 
 	/**
@@ -108,7 +110,7 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	 * way: what a second runner would be made for.
 	 */
 	short(): number {
-		const coming = this.view.booting() * JOBS_PER_RUNNER;
+		const coming = this.view.booting() * this.perRunner;
 		return Math.max(0, this.waiting.length - this.room() - coming);
 	}
 
@@ -158,7 +160,7 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	}
 
 	private free(id: string): number {
-		return Math.max(0, JOBS_PER_RUNNER - this.running(id));
+		return Math.max(0, this.perRunner - this.running(id));
 	}
 
 	private holds(id: string, project: string): number {

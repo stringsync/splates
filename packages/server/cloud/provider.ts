@@ -70,7 +70,7 @@ export interface CloudToken {
 export interface CloudDefaults {
 	/** The types runners are made of, with what each costs. */
 	workerTypes: readonly WorkerType[];
-	/** Where runners go, in the order tried. */
+	/** Where runners go first, in the order tried, before any other location that stocks them. */
 	workerLocations: readonly string[];
 	/** The types a runner snapshot is built on, the first orderable taken. */
 	builderTypes: readonly string[];

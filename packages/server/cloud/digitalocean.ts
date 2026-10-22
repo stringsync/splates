@@ -129,7 +129,7 @@ export class DigitalOceanCloud implements CloudProvider {
 
 /** What a `DigitalOceanCloud` runs on; the real ones by default. */
 export interface DigitalOceanCloudOptions {
-	/** Where runners may go, in the order tried; New York 3, New York 1, San Francisco 3 by default. */
+	/** Where runners go first, in the order tried, before any other region; New York 3, New York 1, San Francisco 3 by default. */
 	regions?: readonly string[];
 	/** Where `DIGITALOCEAN_TOKEN` is kept: the device's creds. */
 	store?: SecretStore;
@@ -156,17 +156,27 @@ const TOKEN: CloudToken = {
  */
 export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
 	workerTypes: [
-		// CPU-Optimized, dedicated: 16 vCPU and 32 GB, room for 3 jobs of about
-		// 7 cores and 7 GB at once.
+		// Basic, shared: 4 vCPU and 8 GB, room for one job of about 7 cores and
+		// 7 GB. A new account orders nothing over 4 vCPU, and this is the
+		// cheapest that holds a run and is stocked in most regions.
 		{
-			name: "c-16",
+			name: "s-4vcpu-8gb",
 			platform: "linux",
-			slots: 3,
-			dollarsPerHour: 0.5,
+			slots: 1,
+			dollarsPerHour: 0.071,
+			billing: "second",
+		},
+		// CPU-Optimized, dedicated: the same room, for where the Basic one is out.
+		{
+			name: "c-4",
+			platform: "linux",
+			slots: 1,
+			dollarsPerHour: 0.125,
 			billing: "second",
 		},
 	],
-	// New York first, nearest to New Jersey.
+	// New York first, nearest to New Jersey, then any region that has stock:
+	// a runner need not be near the person.
 	workerLocations: ["nyc3", "nyc1", "sfo3"],
 	// Small, with room to install splates; a snapshot boots on any disk at least its size.
 	builderTypes: ["s-1vcpu-2gb", "s-2vcpu-4gb"],

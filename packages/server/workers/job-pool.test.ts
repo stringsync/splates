@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { JOBS_PER_RUNNER, type JobAsk, JobPool } from "./job-pool";
+import { type JobAsk, JobPool } from "./job-pool";
 import { FakeJobView } from "./testing";
+
+/** Room for three a runner, so placement among runners with room shows. */
+const PER_RUNNER = 3;
 
 describe("the job pool", () => {
 	let view: FakeJobView;
@@ -25,12 +28,12 @@ describe("the job pool", () => {
 		view = new FakeJobView();
 		view.runners = () => ready.map((id) => ({ id, ready: true }));
 		clock = new FakeWallClock();
-		pool = new JobPool(view, clock);
+		pool = new JobPool(view, clock, PER_RUNNER);
 	});
 
 	it("gives each runner three jobs at once and queues the rest in order", async () => {
 		const placed = await Promise.all(
-			Array.from({ length: JOBS_PER_RUNNER }, () => pool.take(ask())),
+			Array.from({ length: PER_RUNNER }, () => pool.take(ask())),
 		);
 		let fourth: string | null | undefined;
 		view.coming = 1;
@@ -52,7 +55,7 @@ describe("the job pool", () => {
 
 	it("places a first job ahead of the ordinary ones waiting", async () => {
 		const full = await Promise.all(
-			Array.from({ length: JOBS_PER_RUNNER }, () => pool.take(ask())),
+			Array.from({ length: PER_RUNNER }, () => pool.take(ask())),
 		);
 		view.coming = 1;
 		const order: string[] = [];
@@ -159,7 +162,7 @@ describe("the job pool", () => {
 
 	it("counts the room of runners up and those booting against the queue", async () => {
 		await Promise.all(
-			Array.from({ length: JOBS_PER_RUNNER }, () => pool.take(ask())),
+			Array.from({ length: PER_RUNNER }, () => pool.take(ask())),
 		);
 		view.coming = 1;
 		void Promise.all([

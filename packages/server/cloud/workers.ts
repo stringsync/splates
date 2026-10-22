@@ -64,12 +64,25 @@ export class CloudWorkers implements WorkerProvider {
 	async snapshot(recipe: SnapshotRecipe): Promise<Snapshot> {
 		const { cloud } = this;
 		const orderable = await cloud.orderable();
+		// A snapshot boots droplets only in its own region, so it is built where
+		// the cheapest runner would be made, as `pickType` picks one.
+		const [runner] = (await this.types())
+			.filter((type) => type.platform === recipe.platform)
+			.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
+		const near =
+			runner === undefined ? null : this.where(orderable, runner.name);
 		const builder = cloud.defaults.builderTypes
-			.map((type) => ({ type, location: this.where(orderable, type) }))
+			.map((type) => ({
+				type,
+				location:
+					near !== null && orderable.get(type)?.locations.has(near)
+						? near
+						: this.where(orderable, type),
+			}))
 			.find((each) => each.location !== null);
 		if (builder === undefined) {
 			throw new Error(
-				`no ${cloud.name} type to build a snapshot on can be ordered in ${this.locations().join(", ")} right now`,
+				`no ${cloud.name} type to build a snapshot on can be ordered in any region right now`,
 			);
 		}
 		const { platform } = recipe;
@@ -111,7 +124,7 @@ export class CloudWorkers implements WorkerProvider {
 		const location = this.where(await cloud.orderable(), spec.type);
 		if (location === null) {
 			throw new Error(
-				`${cloud.name} cannot make a ${spec.type} in ${this.locations().join(", ")} right now`,
+				`${cloud.name} cannot make a ${spec.type} in any region right now`,
 			);
 		}
 		if ((await cloud.machines(WORKER_TAG, spec.id)).length > 0) {
@@ -160,17 +173,22 @@ export class CloudWorkers implements WorkerProvider {
 		return swept;
 	}
 
-	private locations(): readonly string[] {
-		return this.cloud.defaults.workerLocations;
-	}
-
-	/** The first of its locations where `type` can be ordered, or null. */
+	/**
+	 * Where `type` is made: the first of its locations that stocks it, else
+	 * the first other that does, by name; null when none does.
+	 */
 	private where(
 		orderable: Map<string, Orderable>,
 		type: string,
 	): string | null {
-		const at = orderable.get(type)?.locations;
-		return this.locations().find((location) => at?.has(location)) ?? null;
+		const at = [...(orderable.get(type)?.locations ?? [])];
+		return (
+			this.cloud.defaults.workerLocations.find((location) =>
+				at.includes(location),
+			) ??
+			at.sort()[0] ??
+			null
+		);
 	}
 
 	/** Waits for builder `id` to power off, which its script does once the recipe ran. */

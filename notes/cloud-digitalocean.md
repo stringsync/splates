@@ -17,11 +17,24 @@ SSH keys, firewalls or spot. The token is the device cred `DIGITALOCEAN_TOKEN`
 (setup step `cloud-token`); the same cred pulls invoices into the spend
 ledger (`spend/adapters.ts`).
 
-A runner is `c-16`, CPU-Optimized dedicated, 16 vCPU and 32 GB, $0.50 an
-hour at list ($336 a month), picked for 3 jobs of about 7 cores and 7 GB at
-once (Basic stops at 8 vCPU; General Purpose 16 vCPU has 64 GB). The type
-and its hourly price are recorded on each runner's record when made, and
-in the spend ledger for the Billing page (see `billing-pulled-only.md`).
+A runner is `s-4vcpu-8gb`, Basic shared, 4 vCPU and 8 GB, about $0.07 an
+hour at list, one job at a time; `c-4`, CPU-Optimized with the same room at
+about $0.125, is made where the Basic one is out (the cheapest orderable type
+is taken). Until 2026-10-22 it was `c-16` at 3 jobs, but a new account orders
+nothing over 4 vCPU (DigitalOcean's starting droplet limits), so no runner
+could be made at all, and the suite now runs in about 40 s at 8 in parallel
+on a 16-core Mac. A run is about 7 cores and 7 GB, so 8 GB holds one. The
+time from job queued to tests running on these sizes is still to measure
+(see `heavy-jobs-on-runners.md`), and may change the pick.
+
+Runners go to New York first, then any region that stocks the type, since
+a runner need not be near the person. A snapshot boots droplets only in its
+own region, so the worker image is built where the cheapest runner type
+would be made.
+
+The type and its hourly price are recorded on each runner's record when
+made, and in the spend ledger for the Billing page (see
+`billing-pulled-only.md`).
 
 Billing is per second with a minute at least (bundled droplets also cap at
 672 hours a month), so `billing: "second"`: an idle runner is destroyed as

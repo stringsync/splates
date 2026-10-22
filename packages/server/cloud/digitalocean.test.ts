@@ -14,8 +14,8 @@ describe("CloudWorkers in DigitalOcean", () => {
 		digitalocean = new FakeDigitalOcean();
 		digitalocean.actionsRun = true;
 		digitalocean.stock = {
-			nyc3: ["c-16", "s-1vcpu-2gb"],
-			sfo3: ["c-16"],
+			nyc3: ["s-4vcpu-8gb", "s-1vcpu-2gb"],
+			sfo3: ["s-4vcpu-8gb"],
 		};
 		store = new FakeSecretStore();
 		await store.set(DIGITALOCEAN_TOKEN, "token");
@@ -33,29 +33,35 @@ describe("CloudWorkers in DigitalOcean", () => {
 		);
 	});
 
-	it("offers its size, billed by the second at the price the API says, while a region can make it", async () => {
-		digitalocean.prices = { "c-16": 0.476 };
+	it("offers its sizes, billed by the second at the price the API says, while any region can make them", async () => {
+		digitalocean.prices = { "s-4vcpu-8gb": 0.0714 };
 		expect(await provider.types()).toEqual([
 			{
-				name: "c-16",
+				name: "s-4vcpu-8gb",
 				platform: "linux",
-				slots: 3,
-				dollarsPerHour: 0.476,
+				slots: 1,
+				dollarsPerHour: 0.0714,
 				billing: "second",
 			},
 		]);
 		expect(provider.billing).toBe("digitalocean");
+
+		digitalocean.stock = { ams3: ["s-4vcpu-8gb"], lon1: ["c-4"] };
+		expect((await provider.types()).map((type) => type.name)).toEqual([
+			"s-4vcpu-8gb",
+			"c-4",
+		]);
 
 		digitalocean.stock = { ams3: ["c-16"] };
 		expect(await provider.types()).toEqual([]);
 	});
 
 	it("makes a worker tagged with its id, in the first region with stock, from the snapshot, its boot in its user data", async () => {
-		digitalocean.stock = { nyc1: ["c-16"] };
+		digitalocean.stock = { nyc1: ["s-4vcpu-8gb"] };
 
 		await provider.create({
-			id: "c-16-abc123",
-			type: "c-16",
+			id: "s-4vcpu-8gb-abc123",
+			type: "s-4vcpu-8gb",
 			snapshot: "77",
 			recipe: null,
 			join: ["splates", "worker", "join"],
@@ -63,10 +69,10 @@ describe("CloudWorkers in DigitalOcean", () => {
 			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
-		const [droplet] = digitalocean.tagged("splates-worker:c-16-abc123");
+		const [droplet] = digitalocean.tagged("splates-worker:s-4vcpu-8gb-abc123");
 		expect(droplet).toMatchObject({
-			name: "c-16-abc123",
-			size_slug: "c-16",
+			name: "s-4vcpu-8gb-abc123",
+			size_slug: "s-4vcpu-8gb",
 			image: 77,
 			region: { slug: "nyc1" },
 		});
@@ -78,16 +84,33 @@ describe("CloudWorkers in DigitalOcean", () => {
 		);
 		expect(droplet?.user_data).not.toMatch(/ExecStart=.*secret-token/);
 		expect(await provider.list()).toEqual([
-			{ id: "c-16-abc123", type: "c-16" },
+			{ id: "s-4vcpu-8gb-abc123", type: "s-4vcpu-8gb" },
 		]);
 	});
 
-	it("makes a worker from the stock image when no snapshot is ready, running the recipe first", async () => {
-		digitalocean.stock = { nyc1: ["c-16"] };
+	it("makes a worker in any region that has stock when none of its own does", async () => {
+		digitalocean.stock = { sfo2: ["c-4"], lon1: ["c-4"] };
 
 		await provider.create({
-			id: "c-16-abc123",
-			type: "c-16",
+			id: "c-4-abc123",
+			type: "c-4",
+			snapshot: null,
+			recipe: null,
+			join: [],
+			joinEnv: {},
+			boot: [],
+		});
+
+		const [droplet] = digitalocean.tagged("splates-worker:c-4-abc123");
+		expect(droplet?.region).toEqual({ slug: "lon1" });
+	});
+
+	it("makes a worker from the stock image when no snapshot is ready, running the recipe first", async () => {
+		digitalocean.stock = { nyc1: ["s-4vcpu-8gb"] };
+
+		await provider.create({
+			id: "s-4vcpu-8gb-abc123",
+			type: "s-4vcpu-8gb",
 			snapshot: null,
 			recipe: "#!/bin/sh\napt-get update\n",
 			join: ["splates", "worker", "join"],
@@ -95,7 +118,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			boot: ["splates", "worker", "run"],
 		});
 
-		const [droplet] = digitalocean.tagged("splates-worker:c-16-abc123");
+		const [droplet] = digitalocean.tagged("splates-worker:s-4vcpu-8gb-abc123");
 		expect(droplet?.image).toBe("ubuntu-24-04-x64");
 		const script = droplet?.user_data ?? "";
 		expect(script).toContain("apt-get update");
@@ -106,7 +129,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 
 	it("destroys a worker's droplet alone, and says why DigitalOcean refused one", async () => {
 		const spec = {
-			type: "c-16",
+			type: "s-4vcpu-8gb",
 			snapshot: "1",
 			recipe: null,
 			join: [],
@@ -119,7 +142,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 		await provider.destroy("w");
 		await provider.destroy("gone");
 
-		expect(await provider.list()).toEqual([{ id: "v", type: "c-16" }]);
+		expect(await provider.list()).toEqual([{ id: "v", type: "s-4vcpu-8gb" }]);
 
 		digitalocean.refuseCreate = "droplet limit reached";
 		await expect(provider.create({ id: "u", ...spec })).rejects.toThrow(
@@ -155,6 +178,24 @@ describe("CloudWorkers in DigitalOcean", () => {
 			"splates-snapshot",
 			"splates-snapshot:linux",
 		]);
+	});
+
+	it("builds the snapshot in the region the cheapest runner would be made in, which it alone boots in", async () => {
+		digitalocean.stock = {
+			nyc3: ["s-1vcpu-2gb"],
+			sfo2: ["c-4", "s-1vcpu-2gb"],
+		};
+
+		await provider.snapshot({
+			platform: "linux",
+			version: "1.2.3",
+			script: "",
+		});
+
+		const builder = digitalocean.requests.find(
+			(each) => each.method === "POST" && each.path === "/droplets",
+		);
+		expect(builder?.body).toMatchObject({ region: "sfo2" });
 	});
 
 	it("prices each snapshot by the size DigitalOcean reports at $0.06 a gigabyte a month", async () => {

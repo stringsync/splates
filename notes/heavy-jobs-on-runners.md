@@ -7,8 +7,8 @@ A runner is a joined worker (not this machine's own `local`) that says
 under `<splates home>/runner/<hash of the project>/repo.git`.
 
 `JobPool` (`workers/job-pool.ts`) is the pool-wide queue, over every project:
-each runner takes 3 jobs at once (`JOBS_PER_RUNNER`: 16 vCPU and 32 GB, a run
-about 7 cores and 7 GB), a job goes to the runner with the most free room,
+each runner takes 1 job at once (`JOBS_PER_RUNNER`: 4 vCPU and 8 GB, a run
+about 7 cores and 7 GB; see `cloud-digitalocean.md` for why that size), a job goes to the runner with the most free room,
 one that already holds the project's clone first, and the rest wait first come,
 first served. A job that can have no runner, because none is up or on its way
 and none can be made (no provider, the day's or month's limit reached, a make

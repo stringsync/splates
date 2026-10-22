@@ -71,7 +71,7 @@ describe("the runner keeper", () => {
 			log: new MemoryLogger(),
 			wall,
 		});
-		pool = new JobPool(keeper, wall);
+		pool = new JobPool(keeper, wall, 3);
 		keeper.watch(pool);
 	});
 
