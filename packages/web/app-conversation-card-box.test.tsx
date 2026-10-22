@@ -217,6 +217,70 @@ describe("App's card answer boxes", () => {
 		);
 	});
 
+	it("finishes a take on Enter, keeping its words, then goes on to the next question", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "1"));
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "1")).getByRole("button", { name: "Dictate" }),
+			),
+		);
+		await waitFor(() =>
+			within(card(view, "1")).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+
+		await act(async () => fireEvent.keyDown(document.body, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(textIn(answer(view, "1"))).toBe("something more"),
+		);
+		await waitFor(() =>
+			expect(card(view, "2").contains(document.activeElement)).toBe(true),
+		);
+	});
+
+	it("sends on Enter from the last paged question's take, with its words", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([asking]);
+		await toThread(view);
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /2 questions for you/ }),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "2 questions for you" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		await waitFor(() =>
+			within(sheet).getByRole("listitem", { name: "question 2" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() =>
+			within(sheet).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+
+		await act(async () => fireEvent.keyDown(document.body, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "> **What looks off at 390px?**\n\nsomething more",
+						dictated: "true",
+					},
+				},
+			]),
+		);
+	});
+
 	it("stops a card's take with Escape even when focus moves to the message composer", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));

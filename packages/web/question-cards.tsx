@@ -34,6 +34,7 @@ import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
+import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
@@ -268,6 +269,31 @@ export function QuestionCards({
 		following?.closest("li, [data-more]")?.scrollIntoView({ block: "nearest" });
 		toEnd(following);
 	};
+	// A take makes its box inert, which drops the focus to the page, so Enter
+	// never reaches the box: catch it there, let the take finish with its words
+	// kept, then do what Enter does from that box.
+	const enterTaking = () => {
+		const owner = panel.current?.querySelector<HTMLElement>(
+			"[data-dictation-owner]",
+		);
+		if (owner === null || owner === undefined) {
+			return false;
+		}
+		const number = owner
+			.closest("li")
+			?.getAttribute("aria-label")
+			?.replace("question ", "");
+		const at = questions.findIndex((asked) => asked.number === number);
+		if (number === undefined || at === -1 || (paging && at === end - 1)) {
+			sendNow();
+		} else if (paging) {
+			next(number);
+		} else {
+			finishThen(() => next(number));
+		}
+		return true;
+	};
+	useEnterWhileTaking(live, enterTaking);
 	// The page turned to, its question's first stop; the sheet keeps it in view.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: each turn is a page to land on
 	useLayoutEffect(() => {
