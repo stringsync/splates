@@ -10,7 +10,7 @@ export interface UnixWorkerListenerEvents extends Record<string, unknown> {
 
 /**
  * Where the local worker dials its coordinator: a Unix socket only this
- * user may open. Listening takes the path over from a coordinator that died
+ * user may open. Listening takes the path over from a server that died
  * without cleaning up, and refuses one still answering there.
  */
 export class UnixWorkerListener

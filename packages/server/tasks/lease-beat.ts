@@ -4,7 +4,7 @@ import type { WorktreeService } from "./worktree-service";
 
 /**
  * Keeps the leases this process takes fresh while it runs, for a command on
- * a worker: a holder on another host than the coordinator's is judged by its
+ * a worker: a holder on another host than the server's is judged by its
  * lease's `heartbeatAt` alone, so one long merge would read as gone. Each
  * lease beats until the process lets it go or another takes it; the beats
  * end with the command, and the lease goes stale after, as it does locally.

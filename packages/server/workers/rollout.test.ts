@@ -36,7 +36,7 @@ describe("WorkerRollout", () => {
 		told = new Map();
 	});
 
-	/** Starts the rollout over the workers joined so far, as a coordinator does as it comes up. */
+	/** Starts the rollout over the workers joined so far, as a server does as it comes up. */
 	function start(): WorkerRollout {
 		rollout = new WorkerRollout({
 			registry,

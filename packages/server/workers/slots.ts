@@ -71,7 +71,7 @@ export class WorkerSlots implements Resource {
 			pooled?: (id: string) => boolean;
 			/** Whether a worker holds the key an agent runs on; every one, unless said. */
 			holds?: (worker: KeyedWorker, agent: string) => boolean;
-			/** The build the coordinator runs, which a worker on another waits to be updated to. */
+			/** The build the server runs, which a worker on another waits to be updated to. */
 			build?: string;
 			/** Whether worker `id` was woken and has yet to join; none is, unless said. */
 			waking?: (id: string) => boolean;

@@ -110,7 +110,7 @@ export class KeyDelivery {
 
 /** What a {@link KeyDelivery} sends from and to. */
 export interface KeyDeliveryOptions {
-	/** The roster, and the store its values are in; null for a coordinator that keeps none, which sends none. */
+	/** The roster, and the store its values are in; null for a server that keeps none, which sends none. */
 	keys: WorkerKeys | null;
 	registry: WorkerRegistry;
 	/** What each worker was made as, whose type's keys it holds. */

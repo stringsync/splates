@@ -49,7 +49,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		child = ps.getChildren()[0];
 	});
 
-	/** A coordinator session as `splates server` makes one: named, acking by hand. */
+	/** A server session as `splates server` makes one: named, acking by hand. */
 	const session = () =>
 		new WorkerSession("coordinator", {
 			id: "coordinator-1",
@@ -66,7 +66,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		await Bun.sleep(0);
 	};
 
-	/** The coordinator dies, and one with the same id comes up on a new link, which the worker redials. */
+	/** The server dies, and one with the same id comes up on a new link, which the worker redials. */
 	const restart = async () => {
 		coordinator.detach();
 		pair.drop();
@@ -74,7 +74,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		remote = new RemoteWorker("local", {}, coordinator);
 		pair = new WorkerSocketPair();
 		await Bun.sleep(0);
-		// The worker's redial backoff, not the bound on a coordinator that never returns.
+		// The worker's redial backoff, not the bound on a server that never returns.
 		timer.timeouts.forEach((entry, index) => {
 			if (entry.delay.secs !== ORPHAN_BOUND_SECS) {
 				timer.fireTimeout(index);

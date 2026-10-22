@@ -15,7 +15,7 @@ interface Leg {
 }
 
 /**
- * A TCP proxy between a real worker and a real coordinator, for `bun test`:
+ * A TCP proxy between a real worker and a real server, for `bun test`:
  * the worker dials `port`, and bytes pass to `upstream` unless a fault says
  * otherwise. It cuts the link, stalls it without closing it (as a half-open
  * connection looks to TCP: bytes wait, and arrive late if it resumes), adds

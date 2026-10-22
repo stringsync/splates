@@ -15,11 +15,11 @@ export const SERVERS = "servers";
 /** The most of a git call's output in one part: characters, up to three bytes each. */
 const GIT_PART = 512 * 1024;
 
-/** The most of a file one read answers with, once the coordinator gives a limit. */
+/** The most of a file one read answers with, once the server gives a limit. */
 export const READ_PART = 2 * 1024 * 1024;
 
 /**
- * Answers a coordinator's calls on the machine a task runs on, each request
+ * Answers a server's calls on the machine a task runs on, each request
  * a message on a `calls` channel and each answer one back, in whatever order
  * they finish. A read's bytes go as base64.
  */
@@ -105,7 +105,7 @@ export class WorkerCallHost implements Resource {
 					request.path,
 					request.from,
 				);
-				// A coordinator that sends a limit asks again for the rest.
+				// A server that sends a limit asks again for the rest.
 				const taken =
 					request.limit === undefined
 						? bytes
@@ -131,7 +131,7 @@ export class WorkerCallHost implements Resource {
 				if (this.store === null) {
 					throw new Error("this worker keeps no keys");
 				}
-				// The whole set each time, so a key the coordinator took away goes.
+				// The whole set each time, so a key the server took away goes.
 				const sent = new Set(request.keys.map((key) => key.cred));
 				for (const name of await this.store.names()) {
 					if (!sent.has(name)) {
@@ -164,7 +164,7 @@ export class WorkerCallHost implements Resource {
 	}
 }
 
-/** A question a coordinator asks on a `calls` channel, answered by its id. */
+/** A question a server asks on a `calls` channel, answered by its id. */
 export const CallRequest = z.discriminatedUnion("method", [
 	z.object({
 		id: z.number().int(),

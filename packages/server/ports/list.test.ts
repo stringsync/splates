@@ -80,7 +80,7 @@ const listed = {
 	],
 };
 
-/** One task on this Mac, a worker of a coordinator on a box, and one on another worker. */
+/** One task on this Mac, a worker of a server on a box, and one on another worker. */
 const onWorkers = {
 	base: "ports.example.com",
 	ports: [

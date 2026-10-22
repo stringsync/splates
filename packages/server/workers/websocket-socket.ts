@@ -8,7 +8,7 @@ const MAX_BUFFERED = 2 * WorkerProtocol.maxPayloadBytes;
 
 /**
  * A `WorkerSocket` over a WebSocket the worker dials, as a remote worker
- * reaches its coordinator's `/api/workers`: each frame is one message, text
+ * reaches its server's `/api/workers`: each frame is one message, text
  * or binary as the protocol has it.
  */
 export class WebSocketWorkerSocket implements WorkerSocket {
@@ -66,7 +66,7 @@ export class WebSocketWorkerSocket implements WorkerSocket {
 		if (!this.open) {
 			return false;
 		}
-		// A coordinator that stops reading leaves frames piling up here; past
+		// A server that stops reading leaves frames piling up here; past
 		// the most a session holds unacked, hang up and replay on a new link.
 		if (this.socket.bufferedAmount > MAX_BUFFERED) {
 			this.dispose();

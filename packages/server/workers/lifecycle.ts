@@ -49,7 +49,7 @@ export function endWithSupervisor(
 // So each update starts one worker in place of the last, never nesting.
 export const WORKER_KEPT = "SPLATES_WORKER_KEPT";
 
-/** What a kept worker exits with when its coordinator asks it to update. */
+/** What a kept worker exits with when its server asks it to update. */
 export const UPDATE_EXIT = 75;
 
 /** Where a kept worker leaves the build it is to restart on. */
@@ -81,8 +81,8 @@ export async function updatedBuild(
 }
 
 /**
- * Runs this worker, one dialing a coordinator elsewhere, again on splates
- * `build`, the coordinator's: one kept already hands the build to the one
+ * Runs this worker, one dialing a server elsewhere, again on splates
+ * `build`, the server's: one kept already hands the build to the one
  * that keeps it; any other keeps it, starting it again on each build it is
  * told of until it ends some other way. A made worker is never told: it is
  * destroyed and made again from a new snapshot instead.

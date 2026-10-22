@@ -19,7 +19,7 @@ describe("WorkerSession replay", () => {
 		const clock = new FakeClock();
 		pair = new WorkerSocketPair();
 		worker = new WorkerSession("worker", { timer, clock });
-		// Acks only what it says it holds, as a coordinator that logs first does.
+		// Acks only what it says it holds, as a server that logs first does.
 		coordinator = new WorkerSession("coordinator", {
 			acks: "manual",
 			timer,
@@ -133,7 +133,7 @@ describe("WorkerSession replay", () => {
 	});
 });
 
-/** A worker's connect and a coordinator's accept over `pair`, as a handshake. */
+/** A worker's connect and a server's accept over `pair`, as a handshake. */
 async function link(
 	worker: WorkerSession,
 	coordinator: WorkerSession,

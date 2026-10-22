@@ -23,7 +23,7 @@ export type SentKey = z.infer<typeof SentKey>;
  * through: one per key it names, each reading the key from the worker's
  * store, so the process is handed only a placeholder and the proxy's URL.
  * Where each proxy forwards is the worker's own `KEY_PROVIDERS`, never
- * anything the coordinator sends, so a key goes only to its provider.
+ * anything the server sends, so a key goes only to its provider.
  */
 export class TaskKeys implements AsyncResource {
 	private constructor(

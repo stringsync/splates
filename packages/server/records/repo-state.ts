@@ -5,7 +5,7 @@ import type { Document, Storage } from "../storage";
 import { type AccessClient, accessHeaders } from "../workers";
 
 /**
- * Runs `call` on the records under `root`, as the coordinator does for a
+ * Runs `call` on the records under `root`, as the server does for a
  * worker: the path never reaches outside `root`. Throws what `fs` throws, for
  * the route to answer as an error.
  */
@@ -125,7 +125,7 @@ export interface WireStat {
 
 /**
  * What `relay.json` holds: where the worker daemon's relay listens while it
- * runs, the worker this machine is, and, for a coordinator elsewhere, its
+ * runs, the worker this machine is, and, for a server elsewhere, its
  * URL and whether the worker's key and Access token are in its key file,
  * kept once the daemon stops so `splates` here reaches it directly.
  */
@@ -143,7 +143,7 @@ export function relayDocument(machine: Storage): Document<RelayFile> {
 }
 
 /**
- * What a command sends the coordinator's server: `fetch`, through a relay,
+ * What a command sends the server: `fetch`, through a relay,
  * or with the worker's Access service token when it reaches the server
  * through its tunnel.
  */
@@ -164,10 +164,10 @@ export interface RelayDeps {
 }
 
 /**
- * The coordinator a command on a worker reaches its project's records
+ * The server a command on a worker reaches its project's records
  * through, and which project they are: the `splates server` the agent's env
  * names, else the relay this machine's worker daemon keeps, or the
- * coordinator itself while no daemon relays; the project its env names,
+ * server itself while no daemon relays; the project its env names,
  * else the one whose origin URL `origin` is. Null when no relay is known,
  * or no project can be named.
  */
@@ -188,10 +188,10 @@ export async function findRelay(
 }
 
 /**
- * The coordinator's server a command on this machine reaches, how, and the
+ * The server a command on this machine reaches, how, and the
  * worker this machine is: the `splates server` the agent's env names, else
  * the relay this machine's worker daemon keeps, else, once that does not
- * answer, the coordinator elsewhere it dials, passing Access with the
+ * answer, the server elsewhere it dials, passing Access with the
  * worker's service token. Null when none says.
  */
 export async function relayOf(

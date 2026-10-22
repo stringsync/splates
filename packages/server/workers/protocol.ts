@@ -76,7 +76,7 @@ export class WorkerProtocol {
 
 	/**
 	 * Settles on the lower minor and the capabilities both ends have; another
-	 * major cannot be read, so it is refused with a reason the coordinator
+	 * major cannot be read, so it is refused with a reason the server
 	 * shows when it drains that worker.
 	 */
 	static negotiate(
@@ -101,10 +101,10 @@ export class WorkerProtocol {
 	}
 }
 
-/** The capability of a worker that restarts on another build when its coordinator sends `update`. */
+/** The capability of a worker that restarts on another build when its server sends `update`. */
 export const UPDATE = "update";
 
-/** The capability of a coordinator that frees what a worker runs when the worker sends `leaving`, as a spot reclaim's notice does. */
+/** The capability of a server that frees what a worker runs when the worker sends `leaving`, as a spot reclaim's notice does. */
 export const LEAVING = "leaving";
 
 /** A JSON value, as control frames carry them. */
@@ -120,7 +120,7 @@ export type Json =
 export type Held = [channel: number, seq: number][];
 
 /**
- * Every frame on the link between a coordinator and a worker. Those naming a
+ * Every frame on the link between a server and a worker. Those naming a
  * `channel` carry its seq and are kept until acked, so they survive a
  * reconnect; the rest belong to one connection and are never replayed.
  */
@@ -135,8 +135,8 @@ export type Frame =
 			session: string;
 			held: Held;
 			/**
-			 * The key it joined with, sent only after the coordinator proved
-			 * itself, for a worker that kept the coordinator's public key.
+			 * The key it joined with, sent only after the server proved
+			 * itself, for a worker that kept the server's public key.
 			 */
 			key?: string;
 	  }
@@ -144,23 +144,23 @@ export type Frame =
 			type: "welcome";
 			protocol: string;
 			capabilities: string[];
-			/** The coordinator session's id, new each time a coordinator starts. */
+			/** The server session's id, new each time a server starts. */
 			session: string;
 			held: Held;
 	  }
-	/** A worker's first frame when it keeps the coordinator's public key: asks it to sign `nonce`. */
+	/** A worker's first frame when it keeps the server's public key: asks it to sign `nonce`. */
 	| { type: "challenge"; nonce: string }
-	/** The coordinator's answer: its signature over the nonce and its `session`. */
+	/** The server's answer: its signature over the nonce and its `session`. */
 	| { type: "proof"; session: string; signature: string }
 	| {
 			type: "refuse";
 			reason: string;
-			/** The build the coordinator runs, for a worker turned away for its major to restart on; absent from one before 1.3. */
+			/** The build the server runs, for a worker turned away for its major to restart on; absent from one before 1.3. */
 			update?: string;
 	  }
-	/** Asks a worker that offers `update` to restart on the coordinator's `build`, once nothing of its own runs on it. */
+	/** Asks a worker that offers `update` to restart on the server's `build`, once nothing of its own runs on it. */
 	| { type: "update"; build: string }
-	/** Tells the coordinator the worker is about to be taken from under it, for it to carry its agents elsewhere at once. */
+	/** Tells the server the worker is about to be taken from under it, for it to carry its agents elsewhere at once. */
 	| { type: "leaving"; reason: string }
 	| { type: "open"; channel: number; seq: number; kind: string; params: Json }
 	| { type: "message"; channel: number; seq: number; body: Json }
@@ -178,7 +178,7 @@ export type Negotiated =
 	| { ok: true; protocol: string; capabilities: string[] }
 	/**
 	 * `refused` when the other end turned this one away, rather than the
-	 * link going; `update`, the build a coordinator that refused a worker
+	 * link going; `update`, the build a server that refused a worker
 	 * runs, for the worker to restart on.
 	 */
 	| { ok: false; reason: string; refused: boolean; update?: string };

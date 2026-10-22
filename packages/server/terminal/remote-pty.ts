@@ -12,7 +12,7 @@ const Said = z.discriminatedUnion("type", [
 ]);
 
 /**
- * A shell on a worker's pseudo-terminal, seen from the coordinator as a
+ * A shell on a worker's pseudo-terminal, seen from the server as a
  * `Pty` is: what it writes arrives as `data`, and `write` is typing at it.
  * Its pid is null until the worker says it started, or says it again when
  * asked to `describe` itself, as one taken back after a restart is.
@@ -23,7 +23,7 @@ export class RemotePty implements AsyncResource, Eventful<PtyEvents> {
 	private _pid: number | null = null;
 	private exited = false;
 
-	/** What takes it back after a coordinator restart. */
+	/** What takes it back after a server restart. */
 	get handle(): ProcessHandle {
 		return { worker: this.worker, channel: this.channel.id };
 	}

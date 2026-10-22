@@ -12,7 +12,7 @@ export interface ServiceToken {
 export type AccessClient = Pick<ServiceToken, "clientId" | "clientSecret">;
 
 /**
- * Where a coordinator behind Cloudflare Access gets each worker it invites
+ * Where a server behind Cloudflare Access gets each worker it invites
  * past Access, and takes it back once the worker is removed.
  */
 export interface WorkerAccess {
@@ -38,12 +38,12 @@ export function accessHeaders(
 			};
 }
 
-// A join token carries the service token after a dot, then the coordinator's
+// A join token carries the service token after a dot, then the server's
 // public key after a second, which neither its secret nor base64url ever
 // holds, so `--join` stays one argument and the worker passes Access with it
 // before it has joined. Either part is empty when the token has none.
 
-/** The join token `base`, carrying `access`'s client id and secret and the coordinator's `publicKey` when given. */
+/** The join token `base`, carrying `access`'s client id and secret and the server's `publicKey` when given. */
 export function joinToken(
 	base: string,
 	access: AccessClient | null,
@@ -74,7 +74,7 @@ export function joinAccess(token: string): AccessClient | null {
 		: { clientId, clientSecret };
 }
 
-/** The coordinator's public key join token `token` carries, or null for a token from before they did. */
+/** The server's public key join token `token` carries, or null for a token from before they did. */
 export function joinCoordinatorKey(token: string): string | null {
 	return token.split(".")[2] || null;
 }

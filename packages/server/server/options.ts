@@ -30,7 +30,7 @@ export interface DevOptions {
 	/** Where workers are taken in; one of its own by default. */
 	workers?: DevWorkers | null;
 	/**
-	 * What this coordinator keeps across its restarts: the roots of the
+	 * What this server keeps across its restarts: the roots of the
 	 * projects whose agents the last run let go of, served before the worker
 	 * joins so they are taken back, and written again at the next restart;
 	 * null keeps nothing, and a restart ends every agent.

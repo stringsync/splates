@@ -79,7 +79,7 @@ export interface Repository {
 	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
 	splatesDir: string;
 	/**
-	 * The project's records, under `splatesDir`: the coordinator's on a
+	 * The project's records, under `splatesDir`: the server's on a
 	 * worker, locked through the relay.
 	 */
 	storage: Storage;
@@ -87,12 +87,12 @@ export interface Repository {
 	machine: Storage;
 	/**
 	 * Reads and writes the command's files. On a worker, the records under
-	 * `splatesDir` it reaches are the coordinator's.
+	 * `splatesDir` it reaches are the server's.
 	 */
 	fs: Fs;
 	/**
 	 * What keeps a worker's leases and locks fresh while the command runs,
-	 * ended once it has; null on the coordinator's machine.
+	 * ended once it has; null on the server's machine.
 	 */
 	beats: LeaseBeat | null;
 	config: Config;
@@ -121,11 +121,11 @@ export interface Repository {
 	branches: TaskBranches;
 	/**
 	 * What moves trunk on the central remote once a merge has tested its
-	 * branch: this machine itself on the coordinator, the coordinator through
+	 * branch: this machine itself on the server, the server through
 	 * the relay on a worker.
 	 */
 	trunk: TrunkLanding;
-	/** Whether this checkout's records are the coordinator's, reached through the relay. */
+	/** Whether this checkout's records are the server's, reached through the relay. */
 	relayed: boolean;
 }
 
@@ -363,7 +363,7 @@ export async function openRepository(
 	// `SPLATES_HOME` moves it, as the tests do to keep theirs out of the user's.
 	const _registry = splatesHome(ps);
 	// A checkout with no records of its own is a worker's: they are the
-	// coordinator's, reached through the relay. Never for the server or
+	// server's, reached through the relay. Never for the server or
 	// `init`, which keep them here.
 	const relay =
 		migrates || creates || (await disk.exists(splatesDir))
@@ -412,7 +412,7 @@ export async function openRepository(
 					timer,
 					stalenessMs: config.leaseStalenessMs,
 				});
-	// The merge lease: one per repository, kept on the coordinator's disk so
+	// The merge lease: one per repository, kept on the server's disk so
 	// it outlives a restart, and beating on either side, so neither judges a
 	// long test run on the other's host stale. One whose holder dies is free
 	// once its pid is gone on the same host, or its beat is old elsewhere.
@@ -444,7 +444,7 @@ export async function openRepository(
 	const storage = new FsStorage(splatesDir, fs, { locks: { at: lockAt } });
 	const machine = FsStorage.ofMachine({ fs, ps, log });
 	const outcomes = new Outcomes(machine);
-	// On a worker, the coordinator mints each token its git signs in with.
+	// On a worker, the server mints each token its git signs in with.
 	const relayed =
 		relay === null
 			? null

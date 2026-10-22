@@ -303,7 +303,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * The worker for `request`: the one it last ran on, then the local one,
 	 * then any registered one, then one a provider made, among those awake
 	 * with a slot free on its platform. Made ones come last, since they are
-	 * the ones paid for by the hour. Any on the coordinator's build come
+	 * the ones paid for by the hour. Any on the server's build come
 	 * before every one waiting on an update, which a rollout is to take
 	 * down. An uncapped request needs no free slot, and takes none from
 	 * those that do, but still prefers a worker with one free, the least
@@ -390,7 +390,7 @@ const RANK: Record<WorkerKind, number> = {
 	provisioned: 3,
 };
 
-/** Ranks every worker on another build than the coordinator's after the rest. */
+/** Ranks every worker on another build than the server's after the rest. */
 const OUTDATED = 10;
 
 /** The platforms a worker runs and a project can require, as people name them. */
@@ -444,12 +444,12 @@ export interface PoolWorker {
 	 */
 	draining?: boolean;
 	/**
-	 * Whether it runs another build than the coordinator, so waits on an
+	 * Whether it runs another build than the server, so waits on an
 	 * update; absent for one on the same build, or that has not said.
 	 */
 	outdated?: boolean;
 	/**
-	 * Whether it drains to be replaced by one on the coordinator's build, so
+	 * Whether it drains to be replaced by one on the server's build, so
 	 * its agents move off it at their next pause; absent for one that does not.
 	 */
 	replacing?: boolean;

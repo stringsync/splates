@@ -59,7 +59,7 @@ export const CALL_BOUNDS: CallBounds = {
 export type WorkerKind = "local" | "registered" | "provisioned";
 
 /**
- * The coordinator's handle on one worker: what it said of itself in its
+ * The server's handle on one worker: what it said of itself in its
  * hello, and the work it can be given. Its session outlives any one
  * connection, so a call or process started before a drop finishes after it.
  */
@@ -87,7 +87,7 @@ export class RemoteWorker implements WorkerMachine {
 	) {}
 
 	/**
-	 * Whether the worker checked this coordinator's signing key before it
+	 * Whether the worker checked this server's signing key before it
 	 * sent its own key; false for one that joined before join tokens carried
 	 * it, which re-joining makes verified.
 	 */
@@ -126,8 +126,8 @@ export class RemoteWorker implements WorkerMachine {
 
 	/**
 	 * Takes back the process `handle` names, which this worker kept running
-	 * while its coordinator restarted: its output replays from past `held`,
-	 * the last frame the coordinator wrote down, or from wherever the worker's
+	 * while its server restarted: its output replays from past `held`,
+	 * the last frame the server wrote down, or from wherever the worker's
 	 * replay starts for null.
 	 */
 	resume(handle: ProcessHandle, held: number | null): RemoteProcess {
@@ -153,7 +153,7 @@ export class RemoteWorker implements WorkerMachine {
 	}
 
 	/**
-	 * Takes back a shell the worker kept through a coordinator restart, by
+	 * Takes back a shell the worker kept through a server restart, by
 	 * the `handle` the last run's `pty` had; it says its pid and screen again
 	 * once asked to describe itself. One the worker no longer runs exits.
 	 */

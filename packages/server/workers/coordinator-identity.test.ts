@@ -81,7 +81,7 @@ describe("a worker checking its coordinator", () => {
 		}
 	});
 
-	/** A coordinator on `identity` that takes `KEY` as `box`'s, and the keys it was shown. */
+	/** A server on `identity` that takes `KEY` as `box`'s, and the keys it was shown. */
 	function coordinator(identity: CoordinatorIdentity, header: boolean) {
 		const shown: string[] = [];
 		const registry = new WorkerRegistry(new MemoryLogger(), {

@@ -2,7 +2,7 @@ import type { Worktree } from "../tasks";
 import type { Landed, TrunkLanding } from "./trunk";
 
 /**
- * Asks the coordinator to land an already pushed, tested branch and
+ * Asks the server to land an already pushed, tested branch and
  * move the remote's trunk to it from `onto`, the commit it was tested on.
  */
 export async function landOnRemote({

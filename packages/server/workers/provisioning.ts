@@ -426,7 +426,7 @@ export interface WorkerProvisioningOptions {
 	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
 	access?: WorkerAccess | null;
 	/**
-	 * The URL a made worker dials its coordinator at, from wherever it runs:
+	 * The URL a made worker dials its server at, from wherever it runs:
 	 * the page's tunnel host; null when the page has none, so none is made.
 	 */
 	coordinator: () => string | null;

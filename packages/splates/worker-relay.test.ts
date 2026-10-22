@@ -28,7 +28,7 @@ import { Duration } from "webappwiz/time";
 
 const CLI = join(import.meta.dirname, "index.ts");
 
-// Real git, a real coordinator and worker, and a fresh CLI process per
+// Real git, a real server and worker, and a fresh CLI process per
 // command, as in the e2e tests.
 setDefaultTimeout(90_000);
 
@@ -37,7 +37,7 @@ describe("WorkerRelay", () => {
 	let server: DevServer;
 	let workers: DevWorkers;
 	let daemon: WorkerDaemon;
-	/** The worker, as the coordinator holds it. */
+	/** The worker, as the server holds it. */
 	let worker: RemoteWorker;
 	/** A worker on another machine: a home of its own, and a clone with no `.git/splates`. */
 	let home: string;
@@ -55,7 +55,7 @@ describe("WorkerRelay", () => {
 		);
 		env.config.remote = "origin";
 		const base = dirname(env.root);
-		// The central remote, which only the coordinator moves trunk on.
+		// The central remote, which only the server moves trunk on.
 		const remote = join(base, "remote.git");
 		await env.gitCli(base, "init", "--quiet", "--bare", "-b", "main", remote);
 		await env.gitCli(env.root, "remote", "add", "origin", remote);
@@ -139,7 +139,7 @@ describe("WorkerRelay", () => {
 		return color.strip(stdout);
 	};
 
-	/** What an agent the worker starts finds as `SPLATES_DEV`, told the coordinator's own. */
+	/** What an agent the worker starts finds as `SPLATES_DEV`, told the server's own. */
 	const agentDev = (): Promise<string> =>
 		printed(
 			worker.start(["sh", "-c", 'printf "$SPLATES_DEV"'], clone, {
@@ -159,7 +159,7 @@ describe("WorkerRelay", () => {
 
 	it("reaches the coordinator directly by hand once no worker daemon runs", async () => {
 		await daemon.disposeAsync();
-		// As a daemon dialing a coordinator elsewhere leaves it once stopped.
+		// As a daemon dialing a server elsewhere leaves it once stopped.
 		await relayDocument(new FsStorage(home, env.fs)).write({
 			worker: "remote",
 			coordinator: `http://127.0.0.1:${server.port}`,
@@ -224,7 +224,7 @@ describe("WorkerRelay", () => {
 		await env.finish(tree);
 		await splates(tree, ["merge"]);
 
-		// Landed by the coordinator, on the remote and in its own checkout.
+		// Landed by the server, on the remote and in its own checkout.
 		const remote = join(dirname(env.root), "remote.git");
 		expect(await env.gitCli(remote, "log", "-1", "--format=%s", "main")).toBe(
 			"Do the work",

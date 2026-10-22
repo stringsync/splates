@@ -19,9 +19,9 @@ interface Head {
 }
 
 /**
- * Where `splates` on a worker reaches its coordinator's server: a port on
+ * Where `splates` on a worker reaches its server: a port on
  * the worker's loopback whose every connection goes up the worker's socket,
- * as a `relay` channel the coordinator pipes into its own server. Agents
+ * as a `relay` channel the server pipes into its own listener. Agents
  * find it as their `SPLATES_DEV`; `splates` run by hand, in `relay.json`.
  *
  * Other processes on the machine can reach the port too, so a connection is
@@ -30,8 +30,8 @@ interface Head {
  * URL's password. A connection is as trusted as its first request.
  *
  * The relay's own secret, in `url`, is for `splates` run by hand, and
- * reaches whatever the coordinator's server does. Each agent a worker runs
- * gets a secret of its own from `issue`, which the coordinator is told the
+ * reaches whatever the server does. Each agent a worker runs
+ * gets a secret of its own from `issue`, which the server is told the
  * project of with every connection made by it, so the agent reaches that
  * project's records alone and a secret it was never handed gets nowhere.
  */
@@ -44,7 +44,7 @@ export class WorkerRelay implements Resource {
 
 	/**
 	 * Listens on any free loopback port. A connection made while the
-	 * coordinator cannot take one, since it has not joined or speaks no
+	 * server cannot take one, since it has not joined or speaks no
 	 * relay, is closed at once.
 	 */
 	static listen(session: WorkerSession): WorkerRelay {
@@ -135,7 +135,7 @@ export class WorkerRelay implements Resource {
 		};
 	}
 
-	/** What a `splates` on this machine reaches the coordinator's server by. */
+	/** What a `splates` on this machine reaches the server by. */
 	get url(): string {
 		return this.urlWith(this.secret);
 	}
@@ -149,7 +149,7 @@ export class WorkerRelay implements Resource {
 	}
 }
 
-/** Whether `session`'s coordinator takes relayed connections. */
+/** Whether `session`'s server takes relayed connections. */
 export function relays(session: WorkerSession): boolean {
 	const negotiated = session.negotiated;
 	return negotiated?.ok === true && negotiated.capabilities.includes(RELAY);

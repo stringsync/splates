@@ -8,7 +8,7 @@ export interface WorkerSocketEvents extends Record<string, unknown> {
 }
 
 /**
- * One connection between a coordinator and a worker, carrying whole frames in
+ * One connection between a server and a worker, carrying whole frames in
  * order: a WebSocket as it is, or a Unix socket behind length-prefixed
  * framing. Disposing it hangs up, and both ends then hear `close`.
  */

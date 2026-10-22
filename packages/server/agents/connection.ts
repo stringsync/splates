@@ -60,7 +60,7 @@ type Options = Extract<Asked, { type: "permission" }>["options"];
  * it, what the agent asks of this side, routed to the person, and the calls
  * the conversation makes on it. Opened anew each time the agent starts or
  * comes back, with the same session, or reattached to a process a worker
- * kept running while the coordinator restarted.
+ * kept running while the server restarted.
  */
 export class AgentConnection {
 	private connection: acp.ClientSideConnection | null = null;
@@ -208,7 +208,7 @@ export class AgentConnection {
 			// level deep.
 			const { id, startedBy } = host.state;
 			// And its project by name, which a worker with no records of its
-			// own names to the coordinator for them.
+			// own names to the server for them.
 			const { root, projects } = this.deps;
 			const slug =
 				root === null || projects === null
@@ -424,7 +424,7 @@ export class AgentConnection {
 
 	/**
 	 * Speaks ACP again to `process`, which a worker kept running while the
-	 * coordinator restarted, where the log left off: `live` says what was in
+	 * server restarted, where the log left off: `live` says what was in
 	 * flight. A late answer to the prompt it was on ends the turn, and the
 	 * question it was asking is answered on the request it came in.
 	 */
@@ -478,7 +478,7 @@ export class AgentConnection {
 	}
 
 	/**
-	 * Lets go of the running agent for the next coordinator to take back:
+	 * Lets go of the running agent for the next server to take back:
 	 * await it, then flush the conversation log, before shutting down.
 	 */
 	async detach(): Promise<void> {
@@ -1056,7 +1056,7 @@ export class AgentConnection {
 
 	/**
 	 * Holds `asked` until the person answers it, or the turn is cancelled,
-	 * logged with the request it came in, so a coordinator started again can
+	 * logged with the request it came in, so a server started again can
 	 * answer it there.
 	 */
 	private ask(asked: Asked, at = this.host.now()): Promise<Answer> {

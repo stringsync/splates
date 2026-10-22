@@ -1,8 +1,8 @@
 #!/bin/sh
 # One turn of the scripted agent (`scripted-agent.ts`) proving the
-# coordinator (`prove-coordinator.sh`), on the worker that joined it: told
+# server (`prove-coordinator.sh`), on the worker that joined it: told
 # `[SPLATES TASK <task>]`, it claims the task, serves a page on a port for
-# the coordinator to forward, waits for whoever watches to open it, commits
+# the server to forward, waits for whoever watches to open it, commits
 # and merges through the gate.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
@@ -18,7 +18,7 @@ trap 'kill $! 2>/dev/null || true' EXIT
 sleep 1
 echo "serving on $port"
 
-# Held until whoever watches has opened the port through the coordinator,
+# Held until whoever watches has opened the port through the server,
 # who says so by creating $PROVE_OPENED, or half a minute has passed.
 if [ -n "${PROVE_OPENED:-}" ]; then
 	for _ in $(seq 30); do [ -e "$PROVE_OPENED" ] && break; sleep 1; done

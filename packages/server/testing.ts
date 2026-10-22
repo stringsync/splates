@@ -92,7 +92,7 @@ export class Testing implements AsyncDisposable {
 
 	/** Pushes to `config.remote`, read at each push, so a test can set one. */
 	readonly branches: TaskBranches;
-	/** Lands on `config.remote`'s trunk as the coordinator does. */
+	/** Lands on `config.remote`'s trunk as the server does. */
 	readonly trunk: CoordinatorLanding;
 
 	private constructor(private readonly base: string) {

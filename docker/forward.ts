@@ -1,8 +1,8 @@
 // Forwards a port on every interface to one on a host, the loopback by
-// default. For the coordinator in a container: `splates server` listens on
+// default. For the server in a container: `splates server` listens on
 // the loopback alone, which `docker run -p` cannot reach, so this stands
 // where the box's tunnel would. For a worker in a container: it will not
-// dial a coordinator on another machine over plain http, so this makes
+// dial a server on another machine over plain http, so this makes
 // `host.docker.internal` answer on its own loopback.
 // `bun forward.ts <from> <to> [host]`
 const [from, to] = process.argv.slice(2, 4).map(Number);

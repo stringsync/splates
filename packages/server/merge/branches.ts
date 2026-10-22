@@ -26,7 +26,7 @@ export type Pushed =
 	/** Git or GitHub refused it, saying `why`. */
 	| { status: "failed"; why: string };
 
-/** What mints a task's tokens: the GitHub App, or a coordinator that keeps it. */
+/** What mints a task's tokens: the GitHub App, or a server that keeps it. */
 export type TokenMinter = Pick<GitHubApp, "token">;
 
 /** Where `TaskBranches` finds what it mints tokens with. */
@@ -211,7 +211,7 @@ export class TaskBranches {
 	/**
 	 * Fetches the remote's `trunk` into `refs/remotes/<remote>/<trunk>`,
 	 * signing in as `task`'s pushes do, and gives the commit it is at: what a
-	 * merge rebases onto, since only the coordinator moves trunk there.
+	 * merge rebases onto, since only the server moves trunk there.
 	 */
 	async fetchTrunk(
 		task: string,
@@ -268,7 +268,7 @@ export class TaskBranches {
 
 	/**
 	 * A token of the App's for the project's own repository, as the
-	 * coordinator mints one for a worker's git; null when the App is not
+	 * server mints one for a worker's git; null when the App is not
 	 * kept or the remote is not on github.com. Never for any other
 	 * repository, whatever the worker asks.
 	 */

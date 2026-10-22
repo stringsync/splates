@@ -35,7 +35,7 @@ function within(limit: string | null, project: StateProject): void {
 
 /**
  * Answers `POST /api/state`: a command on a worker reading or writing its
- * project's records, which only the coordinator keeps. Each call names the
+ * project's records, which only the server keeps. Each call names the
  * project by its slug or its origin URL, and reaches nothing outside that
  * project's `.git/splates`.
  */
@@ -85,7 +85,7 @@ export class StateRoutes {
 
 	/**
 	 * Answers `POST /api/land`: a merge on a worker, holding the merge lease,
-	 * asking the coordinator to move trunk to the branch it tested.
+	 * asking the server to move trunk to the branch it tested.
 	 */
 	readonly land = async (
 		request: Request,

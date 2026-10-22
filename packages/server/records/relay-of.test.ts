@@ -14,7 +14,7 @@ describe("relayOf", () => {
 	let machine: FsStorage;
 	let env: Record<string, string>;
 	let up: Set<string>;
-	/** The headers each request to the coordinator came with. */
+	/** The headers each request to the server came with. */
 	let heard: Headers[];
 	let coordinator: ReturnType<typeof Bun.serve>;
 

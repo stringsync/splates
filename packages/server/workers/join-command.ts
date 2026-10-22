@@ -1,5 +1,5 @@
 /**
- * The commands that join another machine to the coordinator at
+ * The commands that join another machine to the server at
  * `coordinator` with join token `token`, as `splates worker add` and the
  * Workers page hand them out. Browser-safe, for the page.
  */
@@ -15,7 +15,7 @@ export function joinCommand(coordinator: string, token: string): string {
 
 /**
  * Joins a Windows machine, run in PowerShell as an administrator: the
- * installer of release `version`, the coordinator's own, sets up a WSL2
+ * installer of release `version`, the server's own, sets up a WSL2
  * distro of its own with this build in it, joins, and starts the worker at
  * each boot (`windows/install-worker.ps1`).
  */

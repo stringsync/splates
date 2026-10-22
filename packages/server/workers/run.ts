@@ -29,14 +29,14 @@ import { UnixWorkerSocket } from "./unix-socket";
 import { networkOf, wakeSenderOf } from "./wake";
 import { WebSocketWorkerSocket } from "./websocket-socket";
 
-/** Where the local worker finds the coordinator on this machine. */
+/** Where the local worker finds the server on this machine. */
 export function workerSocketPath(ps: Ps): string {
 	return `${splatesHome(ps)}/worker.sock`;
 }
 
 /**
- * `splates worker run`: serves the coordinator until a SIGINT or SIGTERM.
- * Told the coordinator's build, once its agents have moved off it or when
+ * `splates worker run`: serves the server until a SIGINT or SIGTERM.
+ * Told the server's build, once its agents have moved off it or when
  * refused for speaking another protocol, it restarts on that build
  * (`restartWorker`); refused with no build, it exits `outdated`.
  */
@@ -50,7 +50,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		);
 	}
 	// Started on the first session that asks, so a worker whose agents all
-	// run on the coordinator's own machine never starts one.
+	// run on the server's own machine never starts one.
 	const browser = new SharedBrowser(
 		{
 			ps,
@@ -64,7 +64,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const remote = !(
 		opts.coordinator === "" || opts.coordinator.startsWith("unix:")
 	);
-	// This machine's own goes by its hostname, as its coordinator finds it.
+	// This machine's own goes by its hostname, as its server finds it.
 	const id = remote ? await workerId(opts) : opts.id || ps.hostname;
 	const creds = remote ? await workerCreds(id, opts) : null;
 	// A keeper pinned to the release it was set up on starts on the build
@@ -76,7 +76,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		await restartWorker(updated, id, creds, opts);
 		return;
 	}
-	// A worker of its own machine keeps API keys its coordinator sends while
+	// A worker of its own machine keeps API keys its server sends while
 	// agents run beside it as the same user, so no other process may read
 	// its memory; this machine's runs agents signed in as the person.
 	const keys = remote ? await undumpableKeys(log) : null;
@@ -143,7 +143,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 }
 
 /**
- * Where a Linux worker of a coordinator elsewhere runs its agents, each
+ * Where a Linux worker of a server elsewhere runs its agents, each
  * kept from the others; none,
  * said in the log, where it cannot sandbox one, as on macOS or a machine
  * without bubblewrap, whose agents then run as this worker's user.
@@ -198,8 +198,8 @@ function dialer(
 		);
 	}
 	const where = url.toString();
-	// A worker that knows its coordinator's key sends its own only in its
-	// hello, once the coordinator has signed its nonce: a key in the upgrade
+	// A worker that knows its server's key sends its own only in its
+	// hello, once the server has signed its nonce: a key in the upgrade
 	// goes to whoever answers the dial, as a stolen tunnel token lets anyone.
 	const headers =
 		signer === null

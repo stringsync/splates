@@ -5,7 +5,7 @@ import { z } from "zod";
 import { type GitResult, type GitRunner, processGit } from "../git";
 import { MIRROR_KEY } from "../merge";
 
-/** What a coordinator asks a worker to check out for a project. */
+/** What a server asks a worker to check out for a project. */
 export const ProjectCheckout = z.object({
 	/** The project's slug, which names its mirror and clone here. */
 	project: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
@@ -14,7 +14,7 @@ export const ProjectCheckout = z.object({
 	/** What the clones name the remote, as `remote` in its config. */
 	remote: z.string(),
 	trunk: z.string(),
-	/** Signs git in, a token of the coordinator's minting; held in memory only. */
+	/** Signs git in, a token of the server's minting; held in memory only. */
 	env: z.record(z.string(), z.string()),
 });
 export type ProjectCheckout = z.infer<typeof ProjectCheckout>;
@@ -97,7 +97,7 @@ export class WorkerCheckouts {
 
 	/**
 	 * Takes away a task's clone, one this keeps a project's clones beside;
-	 * any other path is refused, since the coordinator names it.
+	 * any other path is refused, since the server names it.
 	 */
 	async remove(path: string): Promise<void> {
 		const projects = `${await this.root()}/projects${sep}`;

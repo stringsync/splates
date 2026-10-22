@@ -7,7 +7,7 @@ import { joinToken, type ServiceToken } from "./access";
 /** How long a join token lets a machine join, once. */
 export const JOIN_WITHIN = Duration.mins(15);
 
-/** What the coordinator keeps of one worker across restarts. */
+/** What the server keeps of one worker across restarts. */
 export type WorkerRecord = z.output<typeof Record>;
 
 /** What may be changed of a worker by hand. */
@@ -25,7 +25,7 @@ export type WorkerSettings = Partial<
 >;
 
 /**
- * The workers the coordinator has let join, with what was set on each, kept
+ * The workers the server has let join, with what was set on each, kept
  * at `path` so a restart forgets none. `invite` makes a join token, single
  * use and good for `JOIN_WITHIN`; `join` spends it, answering the key the
  * worker shows on every connection after, which `verify` checks.
@@ -35,7 +35,7 @@ export class WorkerRecords {
 	// so a hash cannot be turned back, and the file lets no one in.
 	/** Serializes writes, so two changes never race to the file. */
 	private writing: Promise<void> = Promise.resolve();
-	/** The coordinator's public key, which each join token carries. */
+	/** The server's public key, which each join token carries. */
 	private publicKey: string | null = null;
 
 	private constructor(
@@ -61,7 +61,7 @@ export class WorkerRecords {
 		return new WorkerRecords(document, wall, kept);
 	}
 
-	/** Records kept in memory alone, for a coordinator that keeps nothing. */
+	/** Records kept in memory alone, for a server that keeps nothing. */
 	static memory(wall: WallClock = new SystemWallClock()): WorkerRecords {
 		return new WorkerRecords(null, wall, {
 			workers: [],
@@ -70,7 +70,7 @@ export class WorkerRecords {
 		});
 	}
 
-	/** Has each join token from now on carry the coordinator's `publicKey`, for the worker to check its signature by. */
+	/** Has each join token from now on carry the server's `publicKey`, for the worker to check its signature by. */
 	signedBy(publicKey: string): void {
 		this.publicKey = publicKey;
 	}
@@ -271,7 +271,7 @@ const Record = z.object({
 	/** Is removed once its last agent ends. */
 	removing: z.boolean(),
 	/**
-	 * Drains to be replaced by one on the coordinator's build, a rollout's
+	 * Drains to be replaced by one on the server's build, a rollout's
 	 * one at a time: its agents move off at their next pause.
 	 */
 	updating: z.boolean().default(false),

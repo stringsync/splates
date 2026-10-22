@@ -56,7 +56,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		coordinator.dispose();
 	});
 
-	/** A coordinator session as `splates server` makes one: named, acking by hand. */
+	/** A server session as `splates server` makes one: named, acking by hand. */
 	const session = () =>
 		new WorkerSession("coordinator", {
 			id: "coordinator-1",
@@ -65,7 +65,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 			clock,
 		});
 
-	/** The conversations of a coordinator running `session`, over the one log directory. */
+	/** The conversations of a server running `session`, over the one log directory. */
 	const talk = (session: WorkerSession) => {
 		const remote = new RemoteWorker("local", {}, session);
 		return new Conversations(DIR, [AGENT, { ...AGENT, id: "opencode" }], {
@@ -98,7 +98,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 	};
 
 	/**
-	 * The coordinator restarts: lets its agents go, hangs up, and one with
+	 * The server restarts: lets its agents go, hangs up, and one with
 	 * the same session id reads the logs and takes the worker back.
 	 */
 	const restart = async () => {

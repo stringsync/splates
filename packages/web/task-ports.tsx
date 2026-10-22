@@ -8,7 +8,7 @@ import { HEADING } from "./markdown";
  * with its link through the ports host, which opens anywhere behind Access,
  * and its link on this machine: on the machine `splates server` runs on when
  * the page is open there, and otherwise on the worker that serves it, named,
- * which is where the user sits once the coordinator runs on a box. With no
+ * which is where the user sits once the server runs on a box. With no
  * ports host that link opens only at the worker, and the row says so. Nothing
  * while it serves none.
  */

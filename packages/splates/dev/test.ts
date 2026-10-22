@@ -16,7 +16,7 @@ export interface TestOptions {
 	all?: boolean;
 	/**
 	 * Run the tests on Linux, in a Docker container built from the checkout
-	 * (`docker/test.Dockerfile`), as the coordinator's box and the workers
+	 * (`docker/test.Dockerfile`), as the server's box and the workers
 	 * run them.
 	 */
 	linux?: boolean;

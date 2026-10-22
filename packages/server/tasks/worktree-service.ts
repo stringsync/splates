@@ -408,7 +408,7 @@ export class WorktreeService {
 	/**
 	 * How to read and remove the checkout at `path`: a worktree of the main
 	 * tree for a null `machine`; else a clone, on this machine when it is
-	 * this worker, or on the worker `machine` as the coordinator holds it.
+	 * this worker, or on the worker `machine` as the server holds it.
 	 * One on a worker nobody here reaches is taken to be there still, and
 	 * left for that worker's disk, a cache, to lose.
 	 */
@@ -665,7 +665,7 @@ interface Ending {
 	size: DiffSize | null;
 }
 
-/** The workers a coordinator holds, by id. */
+/** The workers a server holds, by id. */
 export interface WorkerMachines {
 	/** The worker `id`, or null when none by that id has joined. */
 	machine(id: string): WorkerMachine | null;
@@ -695,17 +695,17 @@ export interface WorktreeServiceOptions {
 	workerBudget?: Document<WorkerBudgetFile>;
 	/**
 	 * What keeps the leases this process takes fresh while it runs, for a
-	 * command on a worker; none on the coordinator's machine, where a pid
+	 * command on a worker; none on the server's machine, where a pid
 	 * judges its holder.
 	 */
 	leases?: LeaseBeat;
 	/**
 	 * How this machine checks tasks out when it is a remote worker: clones,
 	 * each record naming `machine`, this worker's id. None on the
-	 * coordinator's machine, whose tasks are worktrees of the main tree.
+	 * server's machine, whose tasks are worktrees of the main tree.
 	 */
 	clones?: { checkouts: Checkouts; machine: string };
-	/** The workers the coordinator reaches, which a clone elsewhere is read on. */
+	/** The workers the server reaches, which a clone elsewhere is read on. */
 	machines?: WorkerMachines;
 	/**
 	 * The numbered records, shared with the list of tasks so both write under

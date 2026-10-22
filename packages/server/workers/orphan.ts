@@ -5,7 +5,7 @@ import { type Clock, Duration, type Timer } from "webappwiz/time";
 const TICK = Duration.secs(10);
 
 /**
- * Counts the time a worker spends without its coordinator while the machine
+ * Counts the time a worker spends without its server while the machine
  * is awake, so a laptop whose lid was shut for an hour does not wake to end
  * every agent it runs before it has even redialed. Time asleep shows as a
  * gap between ticks far longer than one: only a tick of it counts, and the
@@ -46,7 +46,7 @@ export class OrphanBound implements Resource {
 
 /** What an `OrphanBound` counts against and tells. */
 export interface OrphanBoundOptions {
-	/** How long awake without a coordinator before what it left ends. */
+	/** How long awake without a server before what it left ends. */
 	bound: Duration;
 	timer: Timer;
 	clock: Clock;

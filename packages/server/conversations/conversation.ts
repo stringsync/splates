@@ -407,7 +407,7 @@ export class Conversation
 	}
 
 	/**
-	 * The handle for reattaching after a coordinator restart, or null when
+	 * The handle for reattaching after a server restart, or null when
 	 * this process cannot survive a restart.
 	 */
 	get handle(): ProcessHandle | null {
@@ -951,7 +951,7 @@ export class Conversation
 	}
 
 	/**
-	 * Lets go of the agent's process without ending it, for a coordinator
+	 * Lets go of the agent's process without ending it, for a server
 	 * started again to take back from the worker: its log, flushed, says
 	 * where it stopped. Answers whether there was one to let go of; a
 	 * conversation with none, or one nothing could take back, stops as ever.

@@ -223,7 +223,7 @@ describe("WorkerDaemon", () => {
 		expect(ran).toMatchObject({ code: 0, stdout: "hello\n" });
 	});
 
-	// scry-ignore simple-test-setup: it alone drops and brings back the coordinator, which is what it tests
+	// scry-ignore simple-test-setup: it alone drops and brings back the server, which is what it tests
 	it("stalls a process while the coordinator is away past the bound, and loses nothing", async () => {
 		const child = worker.start(
 			["/bin/sh", "-c", "sleep 0.3; head -c 20000000 /dev/zero"],
@@ -264,7 +264,7 @@ describe("WorkerDaemon", () => {
 		expect(new NodePs().alive(pid)).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: it alone drops the coordinator for good, which is what it tests
+	// scry-ignore simple-test-setup: it alone drops the server for good, which is what it tests
 	it("ends a process when the coordinator does not return within the bound", async () => {
 		const child = worker.start(["sleep", "30"], dir);
 		await sleep(Duration.ms(100));

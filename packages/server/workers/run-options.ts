@@ -4,7 +4,7 @@ import type { Fs, Ps } from "webappwiz/system";
 
 /** What `splates worker run` is run with. */
 export interface WorkerRunOptions {
-	/** Empty for this machine's coordinator, a URL for another's, or `unix:<path>`. */
+	/** Empty for this machine's server, a URL for another's, or `unix:<path>`. */
 	coordinator: string;
 	/** How many tasks it takes at once, or 0 for what the machine has (`machineSlots`). */
 	slots: number;

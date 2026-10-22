@@ -8,7 +8,7 @@ import type { RelaySend, StateProject } from "./repo-state";
  */
 export const LAND_WITHIN = Duration.mins(5);
 
-/** What `RelayLanding` reaches the coordinator through, and how long it waits. */
+/** What `RelayLanding` reaches the server through, and how long it waits. */
 export interface RelayLandingOptions {
 	/** The global `fetch` by default. */
 	fetch?: RelaySend;
@@ -16,7 +16,7 @@ export interface RelayLandingOptions {
 }
 
 /**
- * A worker's landing: it asks the coordinator at `url` to land, through the
+ * A worker's landing: it asks the server at `url` to land, through the
  * worker's relay, as `POST /api/land`.
  */
 export class RelayLanding implements TrunkLanding {

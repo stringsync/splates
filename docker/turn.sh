@@ -1,7 +1,7 @@
 #!/bin/sh
 # One turn of the scripted agent (`scripted-agent.ts`) proving a worker:
 # told `[SPLATES TASK <task>]`, it claims the task, serves a page on a port
-# for the coordinator to forward, opens it in the browser it was offered,
+# for the server to forward, opens it in the browser it was offered,
 # checks it runs sandboxed, commits, and merges.
 set -eu
 task=$(printf '%s' "$1" | sed -n 's/.*\[SPLATES TASK \([^]]*\)\].*/\1/p')
@@ -37,7 +37,7 @@ else
 	echo "no browser mcp offered"
 fi
 
-# Held until whoever watches has opened the port through the coordinator,
+# Held until whoever watches has opened the port through the server,
 # who says so by `opened` in the project's directory, the one of
 # splates's home the sandbox lets it write, or a minute has passed.
 opened=$HOME/.splates/worker/projects/$project/opened

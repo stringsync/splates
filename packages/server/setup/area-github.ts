@@ -23,7 +23,7 @@ const PROBE_BRANCH = "splates-probe/unnamed";
 /**
  * The rules that keep a branch from being pushed: made, moved or deleted.
  * A ruleset on trunk carries them, and one on every branch outside
- * `splates/*`, its bypass the coordinator's identity alone.
+ * `splates/*`, its bypass the server's identity alone.
  */
 const PUSH_RULES = ["creation", "update", "deletion"] as const;
 

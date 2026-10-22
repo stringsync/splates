@@ -11,7 +11,7 @@ import type { AgentSandbox } from "./sandbox";
 import type { WorkerSession } from "./session";
 import { TaskKey, TaskKeys } from "./task-keys";
 
-/** What a coordinator opens a `process` channel with. */
+/** What a server opens a `process` channel with. */
 export const ProcessParams = z.object({
 	argv: z.array(z.string()).min(1),
 	cwd: z.string(),
@@ -20,11 +20,11 @@ export const ProcessParams = z.object({
 	keys: z.array(TaskKey).default([]),
 });
 
-/** What the coordinator says on a process's channel that is not stdin. */
+/** What the server says on a process's channel that is not stdin. */
 const ProcessMessage = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("kill"), signal: z.string().optional() }),
 	z.object({ type: z.literal("end") }),
-	/** Say `started` again, for a coordinator that took the channel back and never heard it. */
+	/** Say `started` again, for a server that took the channel back and never heard it. */
 	z.object({ type: z.literal("describe") }),
 ]);
 
@@ -35,7 +35,7 @@ const WATCH_EVERY = Duration.secs(2);
  * One process a `process` channel started on the worker, such as an agent:
  * its stdout as the channel's bytes, its stdin from them, and its pid,
  * stderr and exit code as messages. Its stdout is read only while the
- * session has room, so a coordinator away for long stalls the process
+ * session has room, so a server away for long stalls the process
  * rather than losing what it says. Closing the channel kills it, and
  * everything it started.
  */
@@ -234,7 +234,7 @@ export class WorkerProcessHost implements Resource {
 export interface WorkerProcessHostOptions {
 	/**
 	 * This worker's relay, which a process told where `splates server` is
-	 * reaches it through instead, since the coordinator's own address is
+	 * reaches it through instead, since the server's own address is
 	 * its machine's loopback; absent to leave its env as it is.
 	 */
 	relay?: Pick<WorkerRelay, "url" | "issue"> | null;

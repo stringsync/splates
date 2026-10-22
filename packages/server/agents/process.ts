@@ -68,7 +68,7 @@ export type Launch = (
 export interface Launcher {
 	launch: Launch;
 	/**
-	 * The process `handle` names, kept running while this coordinator was
+	 * The process `handle` names, kept running while this server was
 	 * away, its output carrying on from past frame `held`, the last one the
 	 * log holds. Throws when nothing here can take it back.
 	 */

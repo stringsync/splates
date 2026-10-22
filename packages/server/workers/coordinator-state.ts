@@ -30,7 +30,7 @@ const Kept = z.object({
 export class CoordinatorState {
 	private constructor(
 		private readonly document: Document<z.input<typeof Kept>>,
-		/** What this coordinator's worker sessions answer as, the same across restarts. */
+		/** What this server's worker sessions answer as, the same across restarts. */
 		readonly session: string,
 		/** The worker protocol the last run spoke; this run's on a fresh start. */
 		readonly protocol: string,

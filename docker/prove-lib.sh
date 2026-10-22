@@ -25,7 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# This machine's `splates` against the coordinator at $port, with a splates
+# This machine's `splates` against the server at $port, with a splates
 # home of its own under $dir.
 splates() {
 	env -i HOME="$HOME" PATH="$PATH" SPLATES_HOME="$dir/home" \

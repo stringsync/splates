@@ -12,7 +12,7 @@ export const LeaseHolder = z.object({
 export type LeaseHolder = z.infer<typeof LeaseHolder>;
 
 /**
- * What a merge holding the lease asks the coordinator to land: `head`, the
+ * What a merge holding the lease asks the server to land: `head`, the
  * tested `splates/<task>` it pushed, onto `onto`, the trunk commit it
  * rebased onto and tested on.
  */
@@ -26,7 +26,7 @@ export type LandRequest = z.infer<typeof LandRequest>;
 
 /** How a landing went. */
 export type Landed =
-	/** Trunk is `head` on the remote; `local` says what became of the coordinator's own checkout. */
+	/** Trunk is `head` on the remote; `local` says what became of the server's own checkout. */
 	| { status: "landed"; local: "moved" | { stuck: string } }
 	/** Refused before trunk moved, for `why`. */
 	| { status: "refused"; why: string }
@@ -35,15 +35,15 @@ export type Landed =
 
 /**
  * Moves trunk on the central remote to a task's tested branch, which only
- * the coordinator does, with an identity no worker holds: in-process on the
- * coordinator's own machine, over `POST /api/land` from a worker.
+ * the server does, with an identity no worker holds: in-process on the
+ * server's own machine, over `POST /api/land` from a worker.
  */
 export interface TrunkLanding {
 	land(request: LandRequest): Promise<Landed>;
 }
 
 /**
- * Lands a tested branch on the remote's trunk, from the coordinator's machine,
+ * Lands a tested branch on the remote's trunk, from the server's machine,
  * refused unless the request's holder still holds the merge lease and trunk
  * has not moved since the branch was tested.
  */
@@ -131,7 +131,7 @@ export class CoordinatorLanding implements TrunkLanding {
 	}
 
 	/**
-	 * Brings the coordinator's own trunk to `head`, where it is checked out,
+	 * Brings the server's own trunk to `head`, where it is checked out,
 	 * so a single machine sees what landed as it did before the remote.
 	 */
 	private async fastForward(

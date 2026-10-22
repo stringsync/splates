@@ -12,7 +12,7 @@ export interface WorkerRead {
 }
 
 /**
- * What the coordinator asks of the machine a task runs on: git in its
+ * What the server asks of the machine a task runs on: git in its
  * worktree around each tool call (`Watch`), a background command's output
  * (`ConversationBackground`), the process table (`heldBy`), and the ports
  * its processes listen on (`TaskPorts`).

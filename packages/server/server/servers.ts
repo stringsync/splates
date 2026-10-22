@@ -46,7 +46,7 @@ export async function devServers({
 			.read()
 			.then((record) => record?.host ?? null);
 	const servers: ServerChoice[] = [];
-	// Once the coordinator moved onto its box, its host serves it there.
+	// Once the server moved onto its box, its host serves it there.
 	const machine =
 		(await machineTunnel({ fs, home, store: secrets.device }))?.host ?? null;
 	if (machine !== null) {

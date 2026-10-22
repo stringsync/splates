@@ -8,15 +8,15 @@ import {
 } from "node:crypto";
 import type { SecretStore } from "webappwiz/creds";
 
-/** What the coordinator's signing key is kept as, with its other creds. */
+/** What the server's signing key is kept as, with its other creds. */
 export const COORDINATOR_SIGNING_KEY = "SPLATES_COORDINATOR_SIGNING_KEY";
 
-/** A fresh nonce for a worker to challenge a coordinator with. */
+/** A fresh nonce for a worker to challenge a server with. */
 export function challengeNonce(): string {
 	return randomBytes(32).toString("base64url");
 }
 
-/** The bytes a proof signs: the worker's nonce and the session the coordinator answers as. */
+/** The bytes a proof signs: the worker's nonce and the session the server answers as. */
 function proven(nonce: string, session: string): Buffer {
 	return Buffer.from(`splates-coordinator-v1\n${nonce}\n${session}`);
 }
@@ -50,9 +50,9 @@ export function proofHolds(
 }
 
 /**
- * The Ed25519 key a coordinator proves itself to its workers with. Cloudflare
+ * The Ed25519 key a server proves itself to its workers with. Cloudflare
  * serves one certificate for every connector of a tunnel, so a stolen tunnel
- * token lets an impostor answer for the coordinator's host; only the holder
+ * token lets an impostor answer for the server's host; only the holder
  * of this key can sign a worker's nonce. Its public half is in each join
  * token, which a worker keeps beside its own key.
  */
@@ -63,7 +63,7 @@ export class CoordinatorIdentity {
 		readonly publicKey: string,
 	) {}
 
-	/** A key kept nowhere, for a coordinator with no store. */
+	/** A key kept nowhere, for a server with no store. */
 	static generate(): CoordinatorIdentity {
 		const { privateKey, publicKey } = generateKeyPairSync("ed25519");
 		return new CoordinatorIdentity(

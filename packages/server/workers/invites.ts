@@ -9,7 +9,7 @@ import type { WorkerRecords } from "./records";
 const Withdraw = z.object({ token: z.string() });
 
 /**
- * `/api/workers/invite`: the join tokens the coordinator hands out, each
+ * `/api/workers/invite`: the join tokens the server hands out, each
  * carrying a Cloudflare Access service token of the worker's own when
  * `access` stands in front, and the revoking of those tokens once no worker
  * will use them.

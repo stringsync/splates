@@ -12,7 +12,7 @@ import { Refusal, useRefusals } from "./refusal";
 /**
  * Mints a join token, and shows the commands that join another machine
  * with it, to copy there: one for Linux or macOS, one for Windows, which
- * installs the coordinator's own build, `build`, in WSL2.
+ * installs the server's own build, `build`, in WSL2.
  */
 export function JoinToken({ build }: { build: string }): JSX.Element {
 	const [invite, setInvite] = useState<{

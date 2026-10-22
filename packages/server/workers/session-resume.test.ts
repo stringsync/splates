@@ -43,7 +43,7 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 		await Bun.sleep(0);
 	});
 
-	/** The coordinator dies mid-stream, and one answering as it comes up. */
+	/** The server dies mid-stream, and one answering as it comes up. */
 	const restarted = (resumedProtocol?: string) => {
 		coordinator.detach();
 		pair.drop();
@@ -63,7 +63,7 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 	};
 
 	/**
-	 * The coordinator started again, taking the shell back, and the worker
+	 * The server started again, taking the shell back, and the worker
 	 * rejoined it, with each hang-up the new session made since.
 	 */
 	const rejoined = async () => {
@@ -219,7 +219,7 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 
 	it("stays joined to a worker replaying a channel it opened that the coordinator never answered", async () => {
 		// An agent's `splates` call through the worker's relay, its open acked
-		// but nothing yet said back when the coordinator went.
+		// but nothing yet said back when the server went.
 		coordinator.events.on("channel", (channel) =>
 			channel.events.on("data", () => {}),
 		);
@@ -241,7 +241,7 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 	});
 
 	it("stays joined to a worker replaying the open of a channel the coordinator answered before acking it", async () => {
-		// The coordinator acks an open a moment after it, and its relay can
+		// The server acks an open a moment after it, and its relay can
 		// answer first.
 		coordinator.events.on("channel", (channel) =>
 			channel.send({ type: "connected" }),

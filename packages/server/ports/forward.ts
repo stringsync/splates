@@ -4,7 +4,7 @@ import type { RemoteWorker } from "../workers";
 import { PIPE_HANDLERS, PortPipe } from "./pipe";
 
 /**
- * A loopback port on the coordinator standing in for `port` on a worker:
+ * A loopback port on the server standing in for `port` on a worker:
  * each connection made to it goes down the worker's socket as a `port`
  * channel, so a task's dev server opens here wherever its worker runs.
  */
@@ -50,7 +50,7 @@ export class PortForward implements Resource {
 		return new PortForward(worker, port, listener);
 	}
 
-	/** The coordinator's port it listens on. */
+	/** The server's port it listens on. */
 	get local(): number {
 		return this.listener.port;
 	}

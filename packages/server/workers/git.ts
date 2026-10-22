@@ -4,9 +4,9 @@ import type { WorkerMachine } from "./machine";
 
 /**
  * Git on the worker a checkout is on, rooted at `root`: what `Watch` runs
- * around an agent's commands, and what the coordinator reads a task's
+ * around an agent's commands, and what the server reads a task's
  * branch through when its checkout is a worker's clone. Commits there are
- * signed as the author `identity` names, the coordinator's, when the
+ * signed as the author `identity` names, the server's, when the
  * worker has none.
  */
 export function workerGit(

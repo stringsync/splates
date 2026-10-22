@@ -5,7 +5,7 @@ import type { WorkerChannel } from "./channel";
 import type { RelayScopes } from "./relay-scopes";
 import type { WorkerSession } from "./session";
 
-/** What a coordinator opens a `port` channel with. */
+/** What a server opens a `port` channel with. */
 export const PortParams = z.object({
 	port: z.number().int().min(1).max(65_535),
 });
@@ -31,7 +31,7 @@ export class WorkerPortHost implements Resource {
 		session: WorkerSession,
 		/**
 		 * The port to connect to, where it is this end's to say rather than
-		 * the channel's, as for a worker's relay into the coordinator's server.
+		 * the channel's, as for a worker's relay into the server.
 		 */
 		port: number = PortParams.parse(channel.params).port,
 		/** Who the connection is limited to, for a relayed one made by an agent. */

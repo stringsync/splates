@@ -8,10 +8,10 @@ import type {
 } from "./repo-state";
 
 /**
- * A project's records on the coordinator, reached over HTTP: each call one
+ * A project's records on the server, reached over HTTP: each call one
  * `POST /api/state` to the `splates server` at `url`, through a worker's
  * relay. Paths are this machine's, under `root`, where the records would be
- * were they here; the coordinator answers for its own.
+ * were they here; the server answers for its own.
  */
 export class RelayFs implements Fs {
 	constructor(

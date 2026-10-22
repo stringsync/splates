@@ -21,7 +21,7 @@ export interface ServerOfOptions {
 
 /**
  * The `splates server` a command reaches: `dev`, else the one the agent's
- * env names, else the coordinator this machine's worker daemon relays to,
+ * env names, else the server this machine's worker daemon relays to,
  * else one elsewhere through its tunnel with the worker's Access token. An
  * explicit `send` stands in for how it is reached. Null when none says, or
  * when there is no `fs` to read the worker's relay from.

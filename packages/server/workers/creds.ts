@@ -51,7 +51,7 @@ export const WORKER_ACCESS_ID = "SPLATES_WORKER_ACCESS_ID";
 export const WORKER_ACCESS_SECRET = "SPLATES_WORKER_ACCESS_SECRET";
 
 /**
- * The public key of the coordinator that gave a join token, kept beside the
+ * The public key of the server that gave a join token, kept beside the
  * worker's key: the worker sends its key only to one that signs its nonce.
  */
 export const WORKER_COORDINATOR_KEY = "SPLATES_WORKER_COORDINATOR_KEY";
@@ -60,7 +60,7 @@ export const WORKER_COORDINATOR_KEY = "SPLATES_WORKER_COORDINATOR_KEY";
 export interface WorkerCreds {
 	key: string;
 	access: AccessClient | null;
-	/** The coordinator's public key it checks, null for a worker that joined before tokens carried it. */
+	/** The server's public key it checks, null for a worker that joined before tokens carried it. */
 	coordinator: string | null;
 }
 
@@ -80,7 +80,7 @@ export async function undumpableKeys(log: Logger): Promise<MemorySecretStore> {
 }
 
 /**
- * `splates worker join`: spends `opts.join` at the coordinator and keeps
+ * `splates worker join`: spends `opts.join` at the server and keeps
  * the key it answers, as `workerRun` would, then exits, for an installer
  * to join now and leave running to a service.
  */
@@ -101,7 +101,7 @@ export async function workerJoin(
 }
 
 /**
- * The id a worker of a coordinator elsewhere goes by: `--id`, else the one
+ * The id a worker of a server elsewhere goes by: `--id`, else the one
  * it joined as, else this machine's hostname.
  */
 export async function workerId(
@@ -174,7 +174,7 @@ export async function carried(
 }
 
 /**
- * The key this worker shows its coordinator, and the service token it
+ * The key this worker shows its server, and the service token it
  * passes Access with: joined for now with `--join`, kept in the system's
  * store, or for this run alone where it has none, else the ones kept
  * already.
@@ -261,7 +261,7 @@ async function keepId(
 }
 
 /**
- * Spends `opts.join` at the coordinator, passing Access with `access` when
+ * Spends `opts.join` at the server, passing Access with `access` when
  * given, answering the key it gave worker `id`.
  */
 async function joinCoordinator(

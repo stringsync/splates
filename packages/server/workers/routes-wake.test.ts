@@ -46,7 +46,7 @@ describe("DevWorkers waking a worker at home", () => {
 		server.stop(true);
 	});
 
-	/** A coordinator over `records`, its own machine's worker taking nothing, so every agent queues. */
+	/** A server over `records`, its own machine's worker taking nothing, so every agent queues. */
 	async function coordinator(): Promise<DevWorkers> {
 		const made = new DevWorkers(new MemoryLogger(), {
 			records,

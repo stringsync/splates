@@ -9,14 +9,14 @@ import { SavedTunnel, type TunnelRecord } from "./saved";
  */
 const ASIDE = "moved-";
 
-/** Where a move at `stamp` puts this machine's coordinator records aside, kept. */
+/** Where a move at `stamp` puts this machine's server records aside, kept. */
 export function asideOf(home: string, stamp: string): string {
 	return `${home}/${ASIDE}${stamp}`;
 }
 
 /**
  * The machine's tunnel, as `splates tunnel setup` saved it: in `home`, or,
- * once the coordinator moved onto its box and took the tunnel with it, as
+ * once the server moved onto its box and took the tunnel with it, as
  * the last move put it aside, still naming the zone and Access team the
  * box serves under. Null when neither holds one.
  */

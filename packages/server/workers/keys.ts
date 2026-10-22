@@ -106,7 +106,7 @@ export interface KeyedWorker {
 }
 
 /**
- * The coordinator's roster of workers' API keys: which provider's key each
+ * The server's roster of workers' API keys: which provider's key each
  * worker, or type of worker a provider makes, holds. Each value lives in
  * `store`, the device's, under a name of its own; the roster in `document`
  * keeps only that name, so the file lets no one spend a key.

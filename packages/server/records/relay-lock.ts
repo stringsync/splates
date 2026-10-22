@@ -11,14 +11,14 @@ interface Holder {
 }
 
 /**
- * The lock a command on a worker takes on the coordinator's records, where
+ * The lock a command on a worker takes on the server's records, where
  * `FileLock` would take one on this machine's disk: either waits for the
  * other, as both keep the same directory and holder. Release it, or let it go
  * stale once the process ends. The merge lease is one on either side, since
  * a holder that beats is never judged stale by a worker on another host.
  */
 export class RelayLock implements Lock {
-	// Made, judged and stolen through `fs`, which reaches the coordinator, and
+	// Made, judged and stolen through `fs`, which reaches the server, and
 	// its holder's `at` kept fresh while held, since a holder on another host
 	// is judged by its age alone. Nothing removes it when the process dies.
 	private beat: Resource | null = null;

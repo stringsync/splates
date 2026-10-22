@@ -49,7 +49,7 @@ describe("CloneCheckouts", () => {
 			{ app: async () => null },
 			new PlanStore(deps.fs, deps.storage),
 		);
-		// Its records are the coordinator's, as the relay reaches them.
+		// Its records are the server's, as the relay reaches them.
 		const service = new WorktreeService(git, config, deps.splatesDir, {
 			fs: deps.fs,
 			ps: deps.ps,
@@ -71,7 +71,7 @@ describe("CloneCheckouts", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	/** The coordinator's view, holding the workers in `machines`. */
+	/** The server's view, holding the workers in `machines`. */
 	const coordinator = (machines: Map<string, LocalWorkerMachine>) =>
 		new WorktreeService(deps.git, deps.config, deps.splatesDir, {
 			fs: deps.fs,

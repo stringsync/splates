@@ -38,7 +38,7 @@ export interface SandboxHomes {
 export class AgentSandbox {
 	// bubblewrap, in a process namespace of its own on the worker's network:
 	// its processes stay the worker's descendants, which `WorkerProcessHost`
-	// ends with it and the coordinator finds with `ps` and `ss`.
+	// ends with it and the server finds with `ps` and `ss`.
 	private constructor(private readonly homes: SandboxHomes) {}
 
 	/**

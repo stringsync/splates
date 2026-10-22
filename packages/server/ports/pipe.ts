@@ -18,7 +18,7 @@ export const PIPE_HANDLERS: Bun.SocketHandler<PortPipe | undefined> = {
 
 /**
  * One TCP connection carried over a `port` channel, the same at both ends: at
- * the worker, to the task's port; at the coordinator, from whoever opened its
+ * the worker, to the task's port; at the server, from whoever opened its
  * forward. Bytes go both ways as the channel's data, the socket stops reading
  * while the session is full, and either end closing closes the other.
  */

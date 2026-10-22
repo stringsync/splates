@@ -45,7 +45,7 @@ export interface Snapshot {
 
 /** What a provider is asked to make. */
 export interface WorkerSpec {
-	/** What the coordinator knows the worker by, and the provider names its machine for. */
+	/** What the server knows the worker by, and the provider names its machine for. */
 	id: string;
 	/** One of the provider's `types()`. */
 	type: string;
@@ -67,7 +67,7 @@ export interface WorkerSpec {
 	joinEnv: Record<string, string>;
 	/**
 	 * What the machine runs once `join` has, and runs again if it stops:
-	 * the worker, dialing its coordinator with the key `join` kept, handed
+	 * the worker, dialing its server with the key `join` kept, handed
 	 * it in its environment, so a restart needs no token.
 	 */
 	boot: string[];

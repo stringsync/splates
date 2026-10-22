@@ -19,7 +19,7 @@ export const ANSWER_WITHIN = Duration.mins(1);
 const STDERR_CHARS = 2_000;
 
 /**
- * A process running on a worker, seen from the coordinator as any
+ * A process running on a worker, seen from the server as any
  * `AgentProcess` is: writing `input` is its stdin, `output` its stdout, each
  * frame in the seq its channel gave it, acked back to the worker once written
  * down. Its pid is null until the worker says it started; one taken back
@@ -32,7 +32,7 @@ export class RemoteProcess implements AgentProcess {
 	private _pid: number | null = null;
 	private tail = "";
 
-	/** What takes it back after a coordinator restart. */
+	/** What takes it back after a server restart. */
 	get handle(): ProcessHandle {
 		return { worker: this.worker, channel: this.channel.id };
 	}

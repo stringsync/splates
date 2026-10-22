@@ -3,10 +3,10 @@ import { z } from "zod";
 import type { AppSource, InstallationToken, TokenMinter } from "../merge";
 import type { RelaySend, StateProject } from "./repo-state";
 
-/** What `RelayApp` reaches the coordinator through; the global `fetch` by default. */
+/** What `RelayApp` reaches the server through; the global `fetch` by default. */
 export interface RelayAppOptions {
 	fetch?: RelaySend;
-	/** How long the coordinator has to mint a token. */
+	/** How long the server has to mint a token. */
 	within?: Duration;
 }
 
@@ -18,14 +18,14 @@ const Answer = z.object({
 });
 
 /**
- * The GitHub App for a command on a worker: asks the coordinator for a token
+ * The GitHub App for a command on a worker: asks the server for a token
  * (`POST /api/token`) when it needs one and again as it nears its expiry, since
  * the App's key never leaves the coordinator.
  */
 export class RelayApp implements AppSource {
 	private readonly fetch: RelaySend;
 	private readonly within: Duration;
-	/** The last token minted, or null once the coordinator said it keeps no App. */
+	/** The last token minted, or null once the server said it keeps no App. */
 	private held: Promise<InstallationToken | null> | undefined;
 
 	constructor(

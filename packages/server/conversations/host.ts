@@ -151,7 +151,7 @@ export interface ConversationSlots {
 	take(request: SlotAsk, signal: AbortSignal): Promise<Placement>;
 	/**
 	 * Counts an agent already running on `worker` against its slots, and
-	 * reaches it there; throws for a worker this coordinator no longer knows.
+	 * reaches it there; throws for a worker this server no longer knows.
 	 */
 	hold(request: SlotAsk, worker: string): Hold;
 	/** Where the agent of conversation `id` waits; null for one not waiting. */

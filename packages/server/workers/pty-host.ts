@@ -5,7 +5,7 @@ import { Pty } from "../terminal";
 import type { WorkerChannel } from "./channel";
 import type { WorkerSession } from "./session";
 
-/** What a coordinator opens a `pty` channel with. */
+/** What a server opens a `pty` channel with. */
 export const PtyParams = z.object({
 	argv: z.array(z.string()).min(1),
 	cwd: z.string(),
@@ -31,7 +31,7 @@ export const SCREEN_BYTES = 64 * 1024;
  * the terminal's bytes both ways, a resize as a message, and its pid and
  * exit code as messages back. It keeps the last `SCREEN_BYTES` the shell
  * wrote, and says its pid and writes them again when asked to `describe`
- * itself, for a terminal taken back after a coordinator restart, or a page
+ * itself, for a terminal taken back after a server restart, or a page
  * come back to it. Closing the channel hangs it up.
  */
 export class WorkerPtyHost implements Resource {

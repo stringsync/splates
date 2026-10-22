@@ -35,7 +35,7 @@ const TAIL_LINES = 40;
  *
  * With a central remote, trunk is the remote's: the merge fetches it,
  * rebases onto it, runs the gate, pushes the tested `splates/<task>`, and
- * asks the coordinator to move trunk there, which only it does.
+ * asks the server to move trunk there, which only it does.
  */
 export async function merge(
 	{
@@ -70,7 +70,7 @@ export async function merge(
 		cores: CoreClaims;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
-		/** Whether this runs on a worker, whose records are the coordinator's. */
+		/** Whether this runs on a worker, whose records are the server's. */
 		relayed?: boolean;
 		clock?: Clock;
 	},
@@ -228,8 +228,8 @@ export async function merge(
 			facts.failedTests = [];
 
 			const before = await git.head(worktree.path);
-			// Trunk as the remote has it, which only the coordinator moves: the
-			// commit the gate tests on, and the one the coordinator checks trunk is
+			// Trunk as the remote has it, which only the server moves: the
+			// commit the gate tests on, and the one the server checks trunk is
 			// still at before it lands.
 			let onto: string | null = null;
 			if (remote !== null) {

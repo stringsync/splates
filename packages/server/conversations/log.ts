@@ -57,7 +57,7 @@ export interface ConversationLogEvents extends Record<string, unknown> {
 export class ConversationLog implements Eventful<ConversationLogEvents> {
 	// Appended a little behind what happens, so an agent streaming chunks does
 	// not write a line each. Each entry carries the seq of the agent's frame
-	// being handled as it was written, so a coordinator started again knows
+	// being handled as it was written, so a server started again knows
 	// where its process's replay carries on from, and acks the worker only for
 	// what the log holds.
 	private readonly dispatcher = new Dispatcher<ConversationLogEvents>();
@@ -595,7 +595,7 @@ type Said =
 	| { kind: "artifact"; change: ArtifactChange }
 	/**
 	 * The agent's session is open on a process a worker runs, which a
-	 * coordinator started again takes back by `handle`, until `end`.
+	 * server started again takes back by `handle`, until `end`.
 	 */
 	| {
 			kind: "launched";

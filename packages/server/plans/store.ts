@@ -4,7 +4,7 @@ import { PLAN_FILE, Plans } from "./plan";
 
 /**
  * Each task's `SPLATES.md` kept in repo state, ``plans/<task>.md``,
- * through the command's `fs`: on a worker that is the coordinator's disk, so
+ * through the command's `fs`: on a worker that is the server's disk, so
  * the plan outlives the checkout it was written in. It is never in a branch,
  * and so never on trunk.
  */

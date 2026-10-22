@@ -53,7 +53,7 @@ describe("A conversation on a registered worker across a coordinator restart", (
 	});
 
 	/**
-	 * A coordinator as `splates server` makes one: its registry, knowing
+	 * A server as `splates server` makes one: its registry, knowing
 	 * `box` from its record before it dials, its slots, and the project's
 	 * conversations, which require Linux, over the one log directory.
 	 */
@@ -102,7 +102,7 @@ describe("A conversation on a registered worker across a coordinator restart", (
 	};
 
 	/**
-	 * The coordinator restarts: lets its agents go, hangs up, and a new one
+	 * The server restarts: lets its agents go, hangs up, and a new one
 	 * reads the logs, `box` dialing it only after.
 	 */
 	const restart = async ({ known = true } = {}) => {

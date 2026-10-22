@@ -28,7 +28,7 @@ export interface PortsOptions {
 	task: string;
 	/**
 	 * The `splates server` to ask; empty for the one this agent runs under,
-	 * else the coordinator this machine's worker daemon relays to, else this
+	 * else the server this machine's worker daemon relays to, else this
 	 * machine's.
 	 */
 	dev: string;
@@ -42,7 +42,7 @@ export interface PortsOptions {
 /**
  * `splates ports`: asks the running `splates server` which ports tasks serve, each
  * with its link through the saved ports host and its link on this machine,
- * so an agent can hand the user both. On a worker whose coordinator runs
+ * so an agent can hand the user both. On a worker whose server runs
  * elsewhere, only that worker's own ports open on this machine.
  */
 export async function portsLs(opts: PortsOptions): Promise<void> {
@@ -54,7 +54,7 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 	});
 	const url = opts.dev || relay?.url || `http://localhost:${DEFAULT_PORT}`;
 	const here = relay?.worker ?? null;
-	// Through the coordinator's tunnel, with Access headers, while no relay answers.
+	// Through the server's tunnel, with Access headers, while no relay answers.
 	const send = opts.send ?? (opts.dev ? fetch : (relay?.send ?? fetch));
 	let response: Response;
 	try {
@@ -117,7 +117,7 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 
 /**
  * A port's link on the machine `splates ports` runs on, `here` the worker it
- * is, null for none: the coordinator's forward on the coordinator's machine,
+ * is, null for none: the server's forward on the server's machine,
  * which runs the local worker; on any other worker, the port itself when the
  * worker serves it, and null when another does, which opens only remotely.
  */

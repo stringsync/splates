@@ -41,7 +41,7 @@ export interface WorkerChannelLink {
 }
 
 /**
- * One stream between a coordinator and a worker, such as an agent's stdio or
+ * One stream between a server and a worker, such as an agent's stdio or
  * a PTY: bytes as `data`, and JSON as `message` for what is not bytes (a
  * resize, an exit code). Its frames survive a reconnect. Disposing it closes
  * it at both ends, and each hears `close` once both have.
@@ -119,7 +119,7 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 
 	/**
 	 * Ends it here without a word to the other end, which no longer knows it,
-	 * as a coordinator started again does not; this end hears `close`.
+	 * as a server started again does not; this end hears `close`.
 	 */
 	drop(): void {
 		if (this.sentClose && this.heardClose) {

@@ -3,7 +3,7 @@
 # from the repo root, then `docker run --rm splates-test bun test`. The
 # system packages are the worker image's (`worker.Dockerfile`) without the
 # shared browser's Chromium, which no test opens; the user is `splates`
-# since agents refuse to run as root and the coordinator's box runs as it.
+# since agents refuse to run as root and the server's box runs as it.
 FROM oven/bun:1.4.2-debian
 
 ENV DEBIAN_FRONTEND=noninteractive

@@ -181,7 +181,7 @@ async function readKept({
 
 /** What `Snapshots` builds for and keeps its record in. */
 export interface SnapshotsOptions {
-	/** The splates version a snapshot installs: the coordinator's own. */
+	/** The splates version a snapshot installs: the server's own. */
 	version: string;
 	/** Where the record is kept; null keeps it in memory alone. */
 	document: Document<z.infer<typeof Kept>> | null;

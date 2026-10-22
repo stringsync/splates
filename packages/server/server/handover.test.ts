@@ -69,7 +69,7 @@ describe("dev restart with agents on the worker", () => {
 		await deps.disposeAsync();
 	});
 
-	/** Starts `splates server` as the next run of the one coordinator, over the logs as they are. */
+	/** Starts `splates server` as the next run of the one server, over the logs as they are. */
 	async function run(): Promise<DevServer> {
 		opened.clear();
 		const coordinator = await CoordinatorState.open(

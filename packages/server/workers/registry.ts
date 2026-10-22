@@ -30,7 +30,7 @@ import { KEYS } from "./task-keys";
 /** How long a restart waits for a worker to ack what it was sent. */
 const ACK_WAIT = Duration.secs(5);
 
-/** A worker turned away, and why, so the coordinator can drain it. */
+/** A worker turned away, and why, so the server can drain it. */
 export interface RefusedWorker {
 	id: string;
 	protocol: string;
@@ -59,14 +59,14 @@ export interface WorkerRegistryOptions {
 	timer?: Timer;
 	clock?: Clock;
 	wall?: WallClock;
-	/** What proves this coordinator to a worker that keeps its public key; none answers no challenge. */
+	/** What proves this server to a worker that keeps its public key; none answers no challenge. */
 	identity?: CoordinatorIdentity;
 	/** Whether `key` is the one worker `id` joined with, for a worker that sends it in its hello. */
 	verify?: (id: string, key: string) => boolean;
 }
 
 /**
- * The coordinator's roster of workers, in memory for now: it takes each
+ * The server's roster of workers, in memory for now: it takes each
  * connection, on whatever transport, reads its hello, and resumes the session
  * of a worker it knows by its id, so what it was running carries on.
  */
@@ -91,7 +91,7 @@ export class WorkerRegistry
 	 */
 	private closed = false;
 
-	/** What the coordinator signs a worker's nonce with, new for each run unless its session is given. */
+	/** What the server signs a worker's nonce with, new for each run unless its session is given. */
 	private readonly proofSession: string;
 
 	constructor(
@@ -144,7 +144,7 @@ export class WorkerRegistry
 	 * `identity`, when a string, is the worker its key proved it to be, and a
 	 * hello saying it is another is hung up on; null, the worker proves
 	 * itself in its hello, with the key it joined with, once it has had this
-	 * coordinator sign its nonce.
+	 * server sign its nonce.
 	 */
 	async accept(
 		socket: WorkerSocket,
@@ -221,7 +221,7 @@ export class WorkerRegistry
 			known ??
 			new RemoteWorker(said.id, said.info, session, kind, this.bounds());
 		worker.info = said.info;
-		// Proved by a key sent only after this coordinator proved itself; a
+		// Proved by a key sent only after this server proved itself; a
 		// key in the upgrade went to whoever answered, and cannot be told.
 		worker.verified = identity === null || kind === "local";
 		// One splates made dials as any other, and stays what it was made as.

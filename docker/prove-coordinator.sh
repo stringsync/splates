@@ -1,5 +1,5 @@
 #!/bin/sh
-# Proves the coordinator on Linux end to end, the inverse of
+# Proves the server on Linux end to end, the inverse of
 # `prove-worker.sh`: `splates server` runs in a Debian container as the user
 # `splates`, and this machine joins it as a worker.
 # Through the CLI and the server's routes it registers a project, adds a
@@ -23,7 +23,7 @@ echo "building the image"
 docker build -q -f "$here/worker.Dockerfile" -t splates-worker "$checkout" >/dev/null
 docker build -q -f "$here/coordinator.Dockerfile" -t splates-coordinator "$checkout" >/dev/null
 
-# The coordinator's box: the worker image with a secret service and a shell
+# The server's box: the worker image with a secret service and a shell
 # for its entry, the remote shared at its path here, and the server's port
 # published on this machine's loopback through a forwarder. Unconfined so bubblewrap may
 # sandbox the agents of its own worker (`workers/sandbox.ts`), which a

@@ -44,7 +44,7 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 			throw error;
 		},
 	);
-	// Moving the coordinator onto its box takes the machine's tunnel with it,
+	// Moving the server onto its box takes the machine's tunnel with it,
 	// but slots stay here, under its zone still.
 	const machine = await machineTunnel({
 		fs,

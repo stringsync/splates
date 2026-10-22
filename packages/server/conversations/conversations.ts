@@ -481,7 +481,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	/**
-	 * Lets go of every agent a worker runs, for a coordinator started again
+	 * Lets go of every agent a worker runs, for a server started again
 	 * to take back, and says whether there was any: the rest stop as ever.
 	 */
 	async detachAsync(): Promise<boolean> {

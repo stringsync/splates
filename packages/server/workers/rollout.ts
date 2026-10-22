@@ -25,7 +25,7 @@ export interface RolloutStanding {
 export interface WorkerRolloutOptions {
 	registry: WorkerRegistry;
 	records: WorkerRecords;
-	/** The build the coordinator runs, which every worker is brought to. */
+	/** The build the server runs, which every worker is brought to. */
 	build: string;
 	/** What holds each worker's slots, by its id. */
 	used: () => Map<string, string[]>;
@@ -48,7 +48,7 @@ const ORDER: Record<WorkerKind, number> = {
 };
 
 /**
- * Brings every worker to the coordinator's build, one at a time, so the
+ * Brings every worker to the server's build, one at a time, so the
  * pool keeps the rest of its slots meanwhile: the worker drains, marked
  * `updating` in its record so a restart carries on; its agents move off at
  * their next pause from their saved task (`Grant.replaces`); and once it is

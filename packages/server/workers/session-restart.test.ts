@@ -11,7 +11,7 @@ describe("WorkerSession after the other end starts again", () => {
 	let clock: FakeClock;
 	let worker: WorkerSession;
 	let coordinator: WorkerSession;
-	/** The coordinator's end of the channel open before either starts again. */
+	/** The server's end of the channel open before either starts again. */
 	let claude: WorkerChannel;
 	/** The channels the worker was opened, in order. */
 	let opened: WorkerChannel[];
@@ -42,7 +42,7 @@ describe("WorkerSession after the other end starts again", () => {
 			[2, { argv: ["codex"] }, false],
 		]);
 		expect(next.write(bytes("hi"))).toBe(true);
-		// The coordinator gone never hears.
+		// The server gone never hears.
 		expect(claude.closed).toBe(false);
 	});
 

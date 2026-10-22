@@ -6,7 +6,7 @@ import { removeWorker, updateWorker } from "./api";
 
 // Whether this Mac runs agents as a worker. Off removes its worker, which
 // then drains and leaves the pool once its agents end, keeping this Mac
-// coordinator only across restarts; on adds it back.
+// server only across restarts; on adds it back.
 
 /** What this machine's own worker is known by. */
 const LOCAL = "local";

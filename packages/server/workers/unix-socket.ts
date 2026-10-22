@@ -14,7 +14,7 @@ export const UNIX_HANDLERS: Bun.SocketHandler<UnixWorkerSocket> = {
 
 /**
  * A `WorkerSocket` over a Unix socket, how the local worker speaks to the
- * coordinator on its machine. Dial one with `connect`; a `UnixWorkerListener`
+ * server on its machine. Dial one with `connect`; a `UnixWorkerListener`
  * hands over the other end.
  */
 export class UnixWorkerSocket implements WorkerSocket {
@@ -29,7 +29,7 @@ export class UnixWorkerSocket implements WorkerSocket {
 	private unsent: Uint8Array[] = [];
 	private open = true;
 
-	/** Dials the coordinator listening at `path`. */
+	/** Dials the server listening at `path`. */
 	static async connect(path: string): Promise<UnixWorkerSocket> {
 		const adapter = new UnixWorkerSocket();
 		const socket = await Bun.connect<UnixWorkerSocket>({

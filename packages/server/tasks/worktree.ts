@@ -429,7 +429,7 @@ export interface TaskState {
 	 */
 	caller?: string;
 	/**
-	 * The worker whose clone the task's checkout is, which the coordinator
+	 * The worker whose clone the task's checkout is, which the server
 	 * asks about it; absent for a worktree of the main tree.
 	 */
 	machine?: string;

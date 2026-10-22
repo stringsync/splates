@@ -13,13 +13,13 @@ It holds no credentials itself: the worker's key goes into a file in the
 distro only its user may read (`splates worker join --key-file`).
 #>
 param(
-	# The coordinator's `splates server` URL.
+	# The server's `splates server` URL.
 	[Parameter(Mandatory = $true)][string]$Coordinator,
 	# A join token from `splates worker add` there, good for 15 minutes.
 	[Parameter(Mandatory = $true)][string]$Join,
-	# The release of splates to install, the coordinator's own.
+	# The release of splates to install, the server's own.
 	[Parameter(Mandatory = $true)][string]$Version,
-	# What the coordinator knows this worker by.
+	# What the server knows this worker by.
 	[string]$Id = $env:COMPUTERNAME.ToLower(),
 	# How many agents it runs at once; 0 for what WSL2 has.
 	[int]$Slots = 0,
@@ -164,7 +164,7 @@ Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Settin
 	-Principal $runAs -Description "Runs the splates worker in WSL2 for $Coordinator." -Force | Out-Null
 Start-ScheduledTask -TaskName $Task
 
-# 7. Let a magic packet wake it, so the coordinator wakes it when agents
+# 7. Let a magic packet wake it, so the server wakes it when agents
 # queue, on the adapter the worker says waking it takes (the one with a
 # default gateway). The BIOS must allow it too, which no script can set.
 $nic = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).NetAdapter

@@ -13,11 +13,11 @@ import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
 export interface PortLink extends TaskPort {
 	/** The worker, by id, whose processes listen on it. */
 	worker: string;
-	/** On the coordinator's machine. */
+	/** On the server's machine. */
 	local: string;
 	/**
 	 * On the worker's own machine, where its server listens: the link to give
-	 * a user at that machine once the coordinator runs elsewhere.
+	 * a user at that machine once the server runs elsewhere.
 	 */
 	onWorker: string;
 	/** Through the saved base host, behind Access; null with none saved. */

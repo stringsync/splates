@@ -33,14 +33,14 @@ import type { WorkerSocket } from "./socket";
 import { KEYS } from "./task-keys";
 import type { WorkerNetwork } from "./wake";
 
-/** How a worker reaches its coordinator, dialed afresh after each drop. */
+/** How a worker reaches its server, dialed afresh after each drop. */
 export interface WorkerDialer {
 	/** Where it dials, for the log. */
 	readonly where: string;
 	dial(): Promise<WorkerSocket>;
 	/**
-	 * The coordinator's public key to check on each dial, and the key to send
-	 * once it has proved itself; absent for a coordinator not checked.
+	 * The server's public key to check on each dial, and the key to send
+	 * once it has proved itself; absent for a server not checked.
 	 */
 	readonly verify?: { coordinator: string; key: string };
 }
@@ -58,11 +58,11 @@ export const WORKER_CAPABILITIES = [
 ];
 
 /**
- * `splates worker run`: a worker that dials out to its coordinator and keeps
+ * `splates worker run`: a worker that dials out to its server and keeps
  * dialing, waiting longer after each failure, and runs what it is asked to
  * on this machine: processes, PTYs, calls, and connections to the ports its
  * tasks serve. What it runs outlives a
- * dropped link, since the session replays what the coordinator missed.
+ * dropped link, since the session replays what the server missed.
  */
 export class WorkerDaemon implements AsyncResource {
 	readonly session: WorkerSession;
@@ -75,14 +75,14 @@ export class WorkerDaemon implements AsyncResource {
 	private readonly orphanBound: Duration;
 	private readonly clock: Clock;
 	private orphaned: Resource | undefined;
-	/** The bound passed awake: what the coordinator left ends once a redial fails. */
+	/** The bound passed awake: what the server left ends once a redial fails. */
 	private due = false;
-	/** Where `splates` on this machine reaches the coordinator, once running. */
+	/** Where `splates` on this machine reaches the server, once running. */
 	private relay: WorkerRelay | null = null;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
 	private readonly busy: AwakeWhileBusy;
-	/** The keys its coordinator sent, in this process's memory alone. */
+	/** The keys its server sent, in this process's memory alone. */
 	private readonly keys: MemorySecretStore | null;
 
 	constructor(
@@ -121,15 +121,15 @@ export class WorkerDaemon implements AsyncResource {
 	}
 
 	/**
-	 * Dials and serves until disposed, until the coordinator refuses this
+	 * Dials and serves until disposed, until the server refuses this
 	 * worker, or until it asks this one to restart on its build, resolving
 	 * with why it stopped: a refusal names that build too, from a
-	 * coordinator that says it.
+	 * server that says it.
 	 */
 	async run(): Promise<WorkerEnded> {
 		const { log, relay = null } = this.opts;
 		const host = hostOf(this.opts.ps);
-		// This machine's own worker runs beside its coordinator, whose server
+		// This machine's own worker runs beside its server, whose address
 		// its agents reach directly at the `SPLATES_DEV` they are given; one
 		// left by an older daemon would send `splates` through a dead relay.
 		if (this.opts.direct === undefined) {
@@ -242,7 +242,7 @@ export class WorkerDaemon implements AsyncResource {
 	}
 
 	/**
-	 * Asks the coordinator on `socket` to sign a nonce of this worker's
+	 * Asks the server on `socket` to sign a nonce of this worker's
 	 * choosing, answering why its signature does not hold under `publicKey`,
 	 * or null once it does. Nothing of this worker's key has been sent.
 	 */
@@ -282,7 +282,7 @@ export class WorkerDaemon implements AsyncResource {
 	}
 
 	/**
-	 * Tells the coordinator this worker's machine is going, as a spot
+	 * Tells the server this worker's machine is going, as a spot
 	 * reclaim's notice says, so its agents carry on elsewhere at once;
 	 * answers whether it was told.
 	 */
@@ -313,7 +313,7 @@ export class WorkerDaemon implements AsyncResource {
 				said?.url === this.relay.url
 			) {
 				// Kept without the relay, so `splates` here reaches a
-				// coordinator elsewhere directly while no daemon runs.
+				// server elsewhere directly while no daemon runs.
 				await relay.write({ worker: this.opts.id, ...direct }).catch(() => {});
 			}
 			this.relay = null;
@@ -326,7 +326,7 @@ export class WorkerDaemon implements AsyncResource {
 	 * is gone, and what it left would burn its slot and tokens for good. The
 	 * bound counts only time awake, and what it left ends only once a redial
 	 * past it fails, so a machine waking from a long sleep reaches its
-	 * coordinator before judging it gone.
+	 * server before judging it gone.
 	 */
 	private orphan(): void {
 		if (this.stopped) {
@@ -351,7 +351,7 @@ export class WorkerDaemon implements AsyncResource {
 		});
 	}
 
-	/** Ends what a coordinator gone past the bound left. */
+	/** Ends what a server gone past the bound left. */
 	private endOrphaned(): void {
 		this.due = false;
 		this.orphaned?.dispose();
@@ -455,8 +455,8 @@ function hello(network: WorkerNetwork | null) {
 
 /**
  * Why `WorkerDaemon.run` stopped: disposed; refused, for speaking another
- * protocol, with the coordinator's build when it says one; or asked to
- * restart on the coordinator's build.
+ * protocol, with the server's build when it says one; or asked to
+ * restart on the server's build.
  */
 export type WorkerEnded =
 	| { stopped: true }
@@ -464,7 +464,7 @@ export type WorkerEnded =
 	| { update: string };
 
 /**
- * Somewhere in the latter half of `wait`, so workers a coordinator's restart
+ * Somewhere in the latter half of `wait`, so workers a server's restart
  * dropped together do not all redial at the same moment.
  */
 export function jittered(wait: Duration, random: () => number): Duration {
@@ -473,7 +473,7 @@ export function jittered(wait: Duration, random: () => number): Duration {
 
 /** Who a `WorkerDaemon` is and what it runs on. */
 export interface WorkerDaemonOptions {
-	/** Stays the same across restarts, so the coordinator resumes its session. */
+	/** Stays the same across restarts, so the server resumes its session. */
 	id: string;
 	slots: number;
 	ps: Ps;
@@ -484,12 +484,12 @@ export interface WorkerDaemonOptions {
 	/** Spreads each wait between dials, as `Math.random` by default. */
 	random?: () => number;
 	/**
-	 * How long, awake, the coordinator's session may stay lost before every
+	 * How long, awake, the server's session may stay lost before every
 	 * channel it held ends, once a redial past it fails; ten minutes by
 	 * default.
 	 */
 	orphanBound?: Duration;
-	/** How long a coordinator has to sign the nonce a worker challenges it with; ten seconds by default. */
+	/** How long a server has to sign the nonce a worker challenges it with; ten seconds by default. */
 	proofWithin?: Duration;
 	/** Paces the session, as `WorkerSession` takes it. */
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
@@ -502,7 +502,7 @@ export interface WorkerDaemonOptions {
 	 */
 	relay?: Document<RelayFile> | null;
 	/**
-	 * The coordinator elsewhere it dials, said beside the relay, and kept
+	 * The server elsewhere it dials, said beside the relay, and kept
 	 * once it stops, with whether its key and Access token are in the key
 	 * file; none for this machine's own, which keeps no relay.
 	 */
@@ -513,14 +513,14 @@ export interface WorkerDaemonOptions {
 	awake?: KeepAwake | null;
 	/**
 	 * The network it says in its hello: where it can send a magic packet
-	 * for the coordinator, and what waking this machine takes, for one that
+	 * for the server, and what waking this machine takes, for one that
 	 * may sleep; none by default.
 	 */
 	network?: WorkerNetwork | null;
-	/** What sends a magic packet when the coordinator asks; none by default. */
+	/** What sends a magic packet when the server asks; none by default. */
 	waker?: WakeSender | null;
 	/**
-	 * Where it keeps the API keys its coordinator sends for its agents,
+	 * Where it keeps the API keys its server sends for its agents,
 	 * which it proxies so no agent holds one; none, for a worker whose
 	 * agents run signed in as the person, by default. Make the process
 	 * undumpable before it holds one.

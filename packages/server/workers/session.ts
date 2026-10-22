@@ -27,13 +27,13 @@ import {
 import { WorkerReplay } from "./replay";
 import type { WorkerSocket } from "./socket";
 
-/** A worker's hello, which the coordinator reads to pick its session. */
+/** A worker's hello, which the server reads to pick its session. */
 export type WorkerHello = Extract<Frame, { type: "hello" }>;
 
 /** How a `WorkerSession` paces and bounds itself. */
 export interface WorkerSessionOptions {
 	/**
-	 * What its hello or welcome names it by: the id a coordinator started
+	 * What its hello or welcome names it by: the id a server started
 	 * again answers as, so its worker finds it unchanged and keeps every
 	 * channel; new by default.
 	 */
@@ -62,7 +62,7 @@ export interface WorkerSessionOptions {
 }
 
 /**
- * One end of the link between a coordinator and a worker, the same code on
+ * One end of the link between a server and a worker, the same code on
  * both. It outlives any one connection: channels stay open across a
  * reconnect, every channel frame is kept until the other end acks it, and a
  * new connection replays what was not acked, in order, once.
@@ -157,7 +157,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 
 	/**
 	 * Reads the first frame of a new connection, which must be a worker's
-	 * hello, so the coordinator can pick the session it resumes.
+	 * hello, so the server can pick the session it resumes.
 	 */
 	static hello(
 		socket: WorkerSocket,
@@ -169,7 +169,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 				socket.events.on("frame", (encoded) => {
 					try {
 						const frame = WorkerProtocol.decode(encoded);
-						// A worker that keeps the coordinator's key asks it to prove
+						// A worker that keeps the server's key asks it to prove
 						// itself before it says hello.
 						if (frame.type === "challenge" && answer !== undefined) {
 							socket.send(WorkerProtocol.encode(answer(frame.nonce)));
@@ -231,7 +231,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	}
 
 	/**
-	 * Tells the coordinator this worker is about to go, answering whether it
+	 * Tells the server this worker is about to go, answering whether it
 	 * could: connected to one that offers `leaving`.
 	 */
 	leaving(reason: string): boolean {
@@ -325,7 +325,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 
 	/**
 	 * The worker's side of a handshake: says hello on `socket`, and on welcome
-	 * replays what the coordinator does not hold. Resolves with what was
+	 * replays what the server does not hold. Resolves with what was
 	 * negotiated, or why not: refused for another major, or the link went.
 	 */
 	connect(
@@ -348,10 +348,10 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	}
 
 	/**
-	 * The coordinator's side of a handshake, given the hello
+	 * The server's side of a handshake, given the hello
 	 * `WorkerSession.hello` read: welcomes the worker and replays what it
 	 * does not hold, or refuses one on another major, hanging up, so the
-	 * coordinator can drain it with the reason.
+	 * server can drain it with the reason.
 	 */
 	accept(socket: WorkerSocket, hello: WorkerHello): Negotiated {
 		this.assertRole("coordinator");
@@ -492,7 +492,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 
 	/**
 	 * Ends every channel here while staying up, for an other end that has not
-	 * returned: what they ran stops now, and a coordinator that does come back
+	 * returned: what they ran stops now, and a server that does come back
 	 * hears the closes it missed.
 	 */
 	endChannels(): void {
@@ -859,7 +859,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.channels.delete(channel);
 		this.sent.delete(channel);
 		// Closed at both ends, nothing will take it back, so what the other
-		// end never acked, as a coordinator acking by hand does for a process
+		// end never acked, as a server acking by hand does for a process
 		// it only listed, goes with it.
 		this.replay.drop(channel);
 		this.acknowledged([]);
@@ -947,7 +947,7 @@ export interface WorkerSessionEvents extends Record<string, unknown> {
 	drain: undefined;
 	/** The other end acked something; `acked()` waits on it. */
 	acked: undefined;
-	/** The coordinator asks this worker to restart on its `build`. */
+	/** The server asks this worker to restart on its `build`. */
 	update: { build: string };
 	/** The worker says its machine is about to be taken away. */
 	leaving: { reason: string };

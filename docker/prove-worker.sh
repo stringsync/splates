@@ -1,16 +1,16 @@
 #!/bin/sh
-# Proves a Linux container as a second worker of a coordinator on this
-# machine, end to end: a throwaway coordinator and project requiring Linux,
+# Proves a Linux container as a second worker of a server on this
+# machine, end to end: a throwaway server and project requiring Linux,
 # the image `worker.Dockerfile` builds, joined with a token, and a task
 # handed to the scripted agent (`scripted-agent.ts`, `turn.sh`), which runs
 # in the container: it claims the task into a clone there, serves a port the
-# coordinator forwards, opens it in the worker's own browser, checks it
+# server forwards, opens it in the worker's own browser, checks it
 # runs in a sandbox of its own, and merges. Needs Docker, whose
 # `host.docker.internal` reaches this machine's loopback, and nothing of
 # the user's: no credentials, no splates home.
 #
 # With `--agent` and `--model`, a roster agent takes the task instead, told
-# to do as the scripted one does; it runs on whatever key the coordinator
+# to do as the scripted one does; it runs on whatever key the server
 # delivers or login the container has, and what it does is printed, not
 # checked.
 #
@@ -57,7 +57,7 @@ token=$(splates worker add 2>&1 | grep -o 'splj_[A-Za-z0-9_.=-]*' | head -1)
 # Unconfined, so bubblewrap may make the namespaces and mount the `/proc`
 # that sandbox each agent (`packages/server/workers/sandbox.ts`).
 holds "$name"
-# The worker dials its coordinator over plain http only on its own loopback,
+# The worker dials its server over plain http only on its own loopback,
 # so a forwarder there reaches this machine's.
 docker run -d --name "$name" -v "$dir/remote.git:$dir/remote.git" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \

@@ -1,5 +1,5 @@
 #!/bin/sh
-# The coordinator box's entry (`coordinator.Dockerfile`): a session bus and
+# The server box's entry (`coordinator.Dockerfile`): a session bus and
 # an unlocked login keyring (a password makes one), as a Linux with a secret service has, written to
 # ~/session.env for what `docker exec` runs; then the forwarder that
 # publishes the server's port, `forward.ts <from> <to>`.

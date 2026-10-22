@@ -39,12 +39,12 @@ export interface WorkerListing {
 	/** Runs on a spot machine the cloud may take back. */
 	spot: boolean;
 	/**
-	 * Whether the worker checked this coordinator's signing key before it
+	 * Whether the worker checked this server's signing key before it
 	 * sent its own key; false for one that joined before join tokens carried
 	 * it, until it joins again; null while it is away.
 	 */
 	verified: boolean | null;
-	/** Drains to be brought to the coordinator's build, a rollout's one at a time. */
+	/** Drains to be brought to the server's build, a rollout's one at a time. */
 	updating: boolean;
 	/** When anything last came from it, epoch milliseconds; null before the first. */
 	lastHeard: number | null;
@@ -96,7 +96,7 @@ export interface WorkerListings {
 }
 
 /**
- * What `GET /api/workers` answers: the listings, the build the coordinator
+ * What `GET /api/workers` answers: the listings, the build the server
  * runs, which a worker on another waits to be updated to, and where the
  * rollout bringing them to it stands.
  */
