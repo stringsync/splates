@@ -161,6 +161,17 @@ function Journey({
 	);
 	useEffect(() => journey.events.on("settled", settle), [journey, settle]);
 	useEffect(() => () => move.stop(), [move]);
+	const working = next.kind === "working";
+	// Closing or reloading the tab mid-run asks first: a long step such as
+	// `pulumi up` is easy to lose track of, and the browser words the prompt.
+	useEffect(() => {
+		if (!working) {
+			return;
+		}
+		const ask = (event: BeforeUnloadEvent) => event.preventDefault();
+		window.addEventListener("beforeunload", ask);
+		return () => window.removeEventListener("beforeunload", ask);
+	}, [working]);
 	if (step === undefined) {
 		const End = JOURNEY_ENDS[area.id];
 		return (
