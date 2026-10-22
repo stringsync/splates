@@ -19,7 +19,7 @@
     },
     "packages/infra": {
       "name": "splates-infra",
-      "version": "0.0.52",
+      "version": "0.0.53",
       "dependencies": {
         "@pulumi/aws": "^7.51.1",
         "@pulumi/awsx": "^3.11.0",
@@ -36,7 +36,7 @@
     },
     "packages/server": {
       "name": "@stringsync/splates-server",
-      "version": "0.0.52",
+      "version": "0.0.53",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
         "webappwiz": "0.0.47",
@@ -73,7 +73,7 @@
     },
     "packages/splates": {
       "name": "@stringsync/splates",
-      "version": "0.0.52",
+      "version": "0.0.53",
       "bin": {
         "splates": "./index.ts",
         "arbor": "./index.ts",
@@ -89,7 +89,7 @@
     },
     "packages/web": {
       "name": "splates-web",
-      "version": "0.0.52",
+      "version": "0.0.53",
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
         "webappwiz": "0.0.47",
