@@ -89,11 +89,18 @@ describe("App's merged card actions", () => {
 				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
 			}),
 		]);
-		const outcome = await waitFor(() =>
-			view.getByRole("region", { name: "outcome" }),
+		const card = view.getByRole("region", { name: "merged header" });
+		expect(within(card).getByText("Done.")).not.toBeNull();
+		expect(within(card).queryByText("Moved the header.")).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => within(card).getByRole("button", { name: "More" })),
+			),
 		);
+		const outcome = view.getByRole("region", { name: "outcome" });
 		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
 		expect(within(outcome).queryByRole("button")).toBeNull();
+		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
 
 		// The bar above the composer offers it too while the card's foot is
 		// out of sight.
@@ -103,7 +110,6 @@ describe("App's merged card actions", () => {
 				{ name: "Demo it" },
 			),
 		);
-		const card = view.getByRole("region", { name: "merged header" });
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
@@ -119,6 +125,22 @@ describe("App's merged card actions", () => {
 					.map((post) => JSON.stringify(post)),
 			).toEqual([expect.stringContaining("[SPLATES DEMO header after]")]),
 		);
+	});
+
+	it("leads with the outcome's first paragraph when the report says nothing, and offers no More when there is no more", async () => {
+		testing.landed.header = {
+			outcome: { ...header(), outcome: "Moved the header." },
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [message("agent", "## ✅ Merged header onto main")],
+			}),
+		]);
+		const card = view.getByRole("region", { name: "merged header" });
+
+		await waitFor(() => within(card).getByText("Moved the header."));
+		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
 	});
 
 	it("offers no demo for an outcome that says none, nor on a merge the conversation carried on past", async () => {
@@ -144,7 +166,14 @@ describe("App's merged card actions", () => {
 			}),
 		]);
 		await waitFor(() =>
-			expect(view.getAllByRole("region", { name: "outcome" })).toHaveLength(2),
+			expect(
+				view
+					.getAllByRole("region", { name: /^merged / })
+					.map(
+						(card) =>
+							within(card).queryByRole("button", { name: "More" }) !== null,
+					),
+			).toEqual([true, true]),
 		);
 		await waitFor(() =>
 			within(view.getByRole("region", { name: "merged header" })).getByRole(

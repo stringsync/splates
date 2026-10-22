@@ -41,41 +41,17 @@ export function demoed(landed: Landed | null): boolean {
 }
 
 /**
- * How a task went once it merged, under its card's report: its time, cost,
- * size and the calls the person made beside its project's usual, what the gate made of it, and anything that
- * went worse than it could have. Nothing while `landed` loads.
+ * How a task went once it merged, as its card's footer: its time, cost,
+ * size and the calls the person made beside its project's usual, what the
+ * gate made of it, and anything that went worse than it could have. Nothing
+ * while `landed` loads.
  */
 export function MergedStats({
 	landed,
 }: {
 	landed: Landed | null;
 }): JSX.Element | null {
-	if (landed === null) {
-		return null;
-	}
-	return (
-		<>
-			{landed.outcome.outcome !== undefined && (
-				<OutcomeNotes text={landed.outcome.outcome} />
-			)}
-			<Went landed={landed} />
-		</>
-	);
-}
-
-/**
- * What came of a merged task, as its `## Outcome` said: a summary with any
- * pivot, and its verification and screenshots.
- */
-function OutcomeNotes({ text }: { text: string }): JSX.Element {
-	return (
-		<section
-			aria-label="outcome"
-			className="flex flex-col gap-2 border-t px-4 py-3 text-sm"
-		>
-			<Markdown text={text} />
-		</section>
-	);
+	return landed === null ? null : <Went landed={landed} />;
 }
 
 function Went({ landed }: { landed: Landed }): JSX.Element {
