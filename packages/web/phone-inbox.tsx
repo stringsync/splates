@@ -167,6 +167,7 @@ export function Inbox({
 	}, [tasks, conversations]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
+		listing: feed.loading,
 		projects: feed.projects,
 		tasks: feed.tasks,
 		conversations: conversationIndex(feed),
@@ -272,7 +273,8 @@ export function Inbox({
 						agents={agents}
 						onOpen={onOpen}
 					/>
-					{loading || pending ? (
+					{/* Held while the all-projects listing is on its way, so the folders' headers and + do not push the flat groups down. */}
+					{loading || pending || everywhere.listing ? (
 						<InboxLoading />
 					) : empty && mains.length === 0 && unstarted.length === 0 ? (
 						<Empty className="py-16">
