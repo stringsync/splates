@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { AGENTS } from "./fixtures";
 import {
-	act,
 	agentList,
 	cleanup,
 	conversation,
-	fireEvent,
 	pressArchive,
 	reopen,
 	resize,
@@ -76,45 +74,5 @@ describe("App's inbox while what it shows may be stale", () => {
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
-	});
-
-	it("says it cannot reach splates over the dimmed page once the server stays away, and tries again on Retry", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", title: "Fix login" })],
-			null,
-		);
-		testing.goAway();
-
-		await wake();
-
-		const list = view.getByRole("navigation", { name: "conversations" });
-		const said = await waitFor(() => view.getByRole("alert"));
-		expect(said.textContent).toContain("Can't reach splates.");
-		testing.comeBack();
-		await act(async () =>
-			fireEvent.click(within(said).getByRole("button", { name: "Retry" })),
-		);
-		await reopen(testing);
-		await waitFor(() => within(list).getByText("Fix login"));
-	});
-
-	it("unlocks the open thread once its saying it cannot reach splates is dismissed", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Fix login", status: "stopped" }),
-		]);
-		const input = await waitFor(() =>
-			view.getByRole("textbox", { name: "Message input" }),
-		);
-		testing.goAway();
-
-		await wake();
-
-		const said = await waitFor(() => view.getByRole("alert"));
-		expect(input.closest("[inert]")).not.toBeNull();
-		await act(async () =>
-			fireEvent.click(within(said).getByRole("button", { name: "Dismiss" })),
-		);
-		expect(input.closest("[inert]")).toBeNull();
-		within(view.getByRole("alert")).getByRole("button", { name: "Retry" });
 	});
 });

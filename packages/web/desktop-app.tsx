@@ -8,6 +8,7 @@ import { AppNav } from "./app-nav";
 import { BESIDE_PANE } from "./changes";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import { StaleLine, useFreshness, useSaysStale } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import { ShownRoot } from "./new-conversation-project";
 import type { PageMenu } from "./page-menu";
@@ -106,6 +107,9 @@ export function DesktopApp({
 			? false
 			: sidebar.toggle(),
 	);
+	// The page takes no input while locked, and fades once it says why.
+	const { locked } = useFreshness();
+	const faded = useSaysStale() && locked;
 	// Where each page's bar goes: the row atop the page.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const frame = {
@@ -147,6 +151,7 @@ export function DesktopApp({
 							!shown && "pl-(--top-bar-start)",
 						)}
 					/>
+					<StaleLine />
 					<AppNav
 						available={available}
 						snapshot={snapshot}
@@ -174,7 +179,13 @@ export function DesktopApp({
 								<TabsContent
 									key={value}
 									value={value}
-									className={DESKTOP_PAGES[value]}
+									inert={locked}
+									aria-busy={locked}
+									className={cn(
+										DESKTOP_PAGES[value],
+										"transition-opacity duration-200",
+										faded && "opacity-50",
+									)}
 								>
 									{bodies[value]}
 								</TabsContent>

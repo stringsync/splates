@@ -24,11 +24,14 @@ wake, or a dropped or failed stream. `freshness.tsx` joins the two into
 (phone and sidebar) keeps its rows, dimmed and `inert`, and the open thread
 is `inert`. `CatchingUp` says so once the page has been stale 300ms (sooner
 would flash on a wake the server answers at once): a phone dims its whole
-screen with "Catching up…" at the centre; a desktop greys the page below
-the bar, the sidebar left usable, with a toast at the foot. After
+screen with "Catching up…" at the centre (`CatchingUp`); a desktop says it
+in a chip after the bar's title (`StaleChip`, in `AppStatus`, which then
+drops its Offline badge), a line sweeping along the bar's foot
+(`StaleLine`), and fades the page, the bar left usable. After
 `offlineAfter` it says "Can't reach splates" with Retry and a dismiss, which
-unlocks the page so what it shows can be read and copied, leaving a pill
-with Retry; the next stale spell locks it again.
+unlocks the page so what it shows can be read and copied, leaving a pill (a
+phone) or the chip (a desktop) with Retry; the next stale spell locks it
+again.
 
 `index.html` starts fetching `/api/snapshot` and `/api/conversations` before the script loads,
 and `EarlyReads` hands those to the first read. WebSockets are used only for

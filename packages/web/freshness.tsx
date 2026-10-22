@@ -192,14 +192,11 @@ export function Locked({ children }: { children: ReactNode }): JSX.Element {
 const SAY_AFTER_MS = 300;
 
 /**
- * Says the page may be stale once it has been a moment. On a phone it dims
- * the whole screen with "Catching up…" at its centre; on a desktop it greys
- * the page below the bar, leaving the sidebar, with a toast at the foot.
- * Once the server stays unreachable it says so, with Retry and a dismiss
- * that unlocks the page, leaving a pill that still offers Retry.
+ * Whether the page says it may be stale: once it has been stale a moment, or
+ * at once when the server cannot be reached.
  */
-export function CatchingUp({ wide }: { wide: boolean }): JSX.Element | null {
-	const { stale, unreachable, locked, retry, dismiss } = useFreshness();
+export function useSaysStale(): boolean {
+	const { stale, unreachable } = useFreshness();
 	const [waited, setWaited] = useState(false);
 	useEffect(() => {
 		setWaited(false);
@@ -209,7 +206,19 @@ export function CatchingUp({ wide }: { wide: boolean }): JSX.Element | null {
 		const waiting = setTimeout(() => setWaited(true), SAY_AFTER_MS);
 		return () => clearTimeout(waiting);
 	}, [stale]);
-	if (!stale || !(waited || unreachable)) {
+	return stale && (waited || unreachable);
+}
+
+/**
+ * Says on a phone that the page may be stale, once it has been a moment: it
+ * dims the whole screen with "Catching up…" at its centre. Once the server
+ * stays unreachable it says so, with Retry and a dismiss that unlocks the
+ * page, leaving a pill that still offers Retry. A desktop says it in its bar
+ * instead, with `StaleChip` and `StaleLine`.
+ */
+export function CatchingUp(): JSX.Element | null {
+	const { unreachable, locked, retry, dismiss } = useFreshness();
+	if (!useSaysStale()) {
 		return null;
 	}
 	const said = (
@@ -222,29 +231,92 @@ export function CatchingUp({ wide }: { wide: boolean }): JSX.Element | null {
 	);
 	if (!locked) {
 		return (
-			<div
-				className={cn(
-					"-translate-x-1/2 fixed left-1/2 z-[60]",
-					wide ? "bottom-6" : "top-[calc(env(safe-area-inset-top)+0.5rem)]",
-				)}
-			>
+			<div className="-translate-x-1/2 fixed top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-[60]">
 				{said}
 			</div>
-		);
-	}
-	if (wide) {
-		return (
-			<>
-				<div className="fade-in-0 fixed inset-x-0 top-(--top-bar-height) bottom-0 z-[35] animate-in bg-background/50 duration-200" />
-				<div className="fade-in-0 slide-in-from-bottom-2 -translate-x-1/2 fixed bottom-6 left-1/2 z-[60] animate-in duration-200">
-					{said}
-				</div>
-			</>
 		);
 	}
 	return (
 		<div className="fade-in-0 fixed inset-0 z-[90] grid animate-in place-items-center bg-background/60 duration-200 supports-backdrop-filter:backdrop-blur-[2px]">
 			{said}
+		</div>
+	);
+}
+
+/**
+ * Says in a desktop's bar, beside the title, that the page may be stale:
+ * "Catching up…", or once the server stays unreachable, that it cannot reach
+ * splates, with Retry and, while the page is locked, a dismiss that unlocks it.
+ */
+export function StaleChip(): JSX.Element | null {
+	const { unreachable, locked, retry, dismiss } = useFreshness();
+	if (!useSaysStale()) {
+		return null;
+	}
+	if (!unreachable) {
+		return (
+			<span
+				role="status"
+				className="fade-in-0 flex shrink-0 animate-in items-center gap-1.5 whitespace-nowrap rounded-full border bg-background px-2.5 py-0.5 text-muted-foreground text-xs duration-200"
+			>
+				<Loader2Icon aria-hidden className="size-3.5 animate-spin" />
+				Catching up…
+			</span>
+		);
+	}
+	return (
+		<span
+			role="alert"
+			className="fade-in-0 flex shrink-0 animate-in items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/10 py-0.5 pr-0.5 pl-2.5 text-amber-700 text-xs duration-200 dark:text-amber-300"
+		>
+			<WifiOffIcon aria-hidden className="size-3.5" />
+			Can't reach splates
+			<Button
+				variant="outline"
+				size="xs"
+				className="ml-1 h-5 rounded-full"
+				onClick={retry}
+			>
+				Retry
+			</Button>
+			{locked && (
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					className="size-5 rounded-full"
+					aria-label="Dismiss"
+					title="Dismiss, to use the page as it was"
+					onClick={dismiss}
+				>
+					<XIcon />
+				</Button>
+			)}
+		</span>
+	);
+}
+
+/**
+ * The line along the foot of a desktop's bar while the page is locked and says
+ * so: one sweeping across it while catching up, amber once splates cannot be
+ * reached. Sticky under the bar, it spans the page and only the page.
+ */
+export function StaleLine(): JSX.Element | null {
+	const { unreachable, locked } = useFreshness();
+	if (!useSaysStale() || !locked) {
+		return null;
+	}
+	return (
+		<div aria-hidden className="sticky top-(--top-bar-height) z-30 h-0">
+			<div
+				className={cn(
+					"-top-0.5 absolute inset-x-0 h-0.5 overflow-hidden",
+					unreachable ? "bg-amber-500/70" : "bg-primary/10",
+				)}
+			>
+				{!unreachable && (
+					<div className="h-full w-2/5 animate-sweep bg-primary/60 motion-reduce:hidden" />
+				)}
+			</div>
 		</div>
 	);
 }

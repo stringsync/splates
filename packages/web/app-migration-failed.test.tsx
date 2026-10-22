@@ -50,7 +50,7 @@ describe("App, on a project whose records failed to migrate", () => {
 		expect(
 			view.getByText("bunx @stringsync/splates@0.0.47 server"),
 		).toBeTruthy();
-		expect(view.queryByText(/Offline/)).toBeNull();
+		expect(view.queryByText(/Can't reach splates/)).toBeNull();
 	});
 
 	it("retries at once, then shows the project once the server opens it", async () => {
