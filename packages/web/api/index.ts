@@ -62,7 +62,13 @@ export {
 	sendJson,
 	WAITS,
 } from "./request";
-export { billing, pullBilling, setCurrency, spend } from "./spend";
+export {
+	billing,
+	pullBilling,
+	runners,
+	setCurrency,
+	spend,
+} from "./spend";
 export {
 	noteStats,
 	openFile,

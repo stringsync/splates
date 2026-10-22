@@ -1,5 +1,6 @@
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
+import type { Orderable } from "./provider";
 
 /** The device cred the DigitalOcean API token is kept as, named as DigitalOcean's own tools read it. */
 export const DIGITALOCEAN_TOKEN = "DIGITALOCEAN_TOKEN";
@@ -23,8 +24,8 @@ export class DigitalOceanApi {
 		private readonly wait: (duration: Duration) => Promise<void> = sleep,
 	) {}
 
-	/** The regions each size can be ordered in now, by size slug. */
-	async orderable(): Promise<Map<string, Set<string>>> {
+	/** The regions each size can be ordered in now, and what it costs an hour, by size slug. */
+	async orderable(): Promise<Map<string, Orderable>> {
 		const { sizes } = await this.request(
 			"GET",
 			`/sizes?per_page=${PAGE}`,
@@ -33,7 +34,13 @@ export class DigitalOceanApi {
 		return new Map(
 			sizes
 				.filter((size) => size.available)
-				.map((size) => [size.slug, new Set(size.regions)]),
+				.map((size) => [
+					size.slug,
+					{
+						locations: new Set(size.regions),
+						dollarsPerHour: size.price_hourly,
+					},
+				]),
 		);
 	}
 
@@ -297,6 +304,7 @@ const Answers = {
 				slug: z.string(),
 				available: z.boolean(),
 				regions: z.array(z.string()),
+				price_hourly: z.number(),
 			}),
 		),
 	}),

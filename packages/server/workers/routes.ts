@@ -5,10 +5,11 @@ import { SystemWallClock } from "webappwiz/time";
 import { z } from "zod";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
+import type { RunnerJobRow } from "../spend";
 import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
-import { JobPool } from "./job-pool";
+import { type HeldJob, JobPool } from "./job-pool";
 import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
@@ -22,6 +23,7 @@ import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { WorkerRollout } from "./rollout";
 import { RunnerKeeper } from "./runner-keeper";
+import type { RunnerLedger } from "./runner-ledger";
 import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
@@ -102,6 +104,7 @@ export class DevWorkers implements AsyncResource {
 			identity,
 			provider,
 			access = null,
+			ledger,
 			ps,
 		}: DevWorkersOptions = {},
 	) {
@@ -142,6 +145,7 @@ export class DevWorkers implements AsyncResource {
 						...provider,
 						records,
 						access,
+						...(ledger === undefined ? {} : { ledger }),
 						registry: this.registry,
 						log,
 						stop: (ids) => this.stopMade(ids),
@@ -163,6 +167,11 @@ export class DevWorkers implements AsyncResource {
 			log,
 		);
 		this.keeper.watch(this.jobs.pool);
+		this.jobs.pool.events.on("ended", (job) => {
+			void ledger?.note(jobRow(job)).catch((error: unknown) => {
+				log.error(`a runner's job could not be kept: ${String(error)}`);
+			});
+		});
 		this.jobs.pool.events.on("changed", () => void this.removeIdle());
 		this.provisioning?.watch(this.slots.scheduler);
 		// A spot machine told it is to be reclaimed: its agents move off now, and a replacement is made.
@@ -183,6 +192,11 @@ export class DevWorkers implements AsyncResource {
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
+	}
+
+	/** The jobs running on runners now, as the ledger keeps one once it ends. */
+	runningJobs(): RunnerJobRow[] {
+		return this.jobs.pool.held().map((job) => jobRow({ ...job, until: null }));
 	}
 
 	/** What runs on each worker: the tasks its agents run and the jobs on it, a conversation's or job's id for one in no task. */
@@ -600,6 +614,20 @@ export class DevWorkers implements AsyncResource {
 	}
 }
 
+/** `job` as the spend ledger keeps it. */
+function jobRow(job: HeldJob & { until: number | null }): RunnerJobRow {
+	return {
+		row: "job",
+		id: job.id,
+		runner: job.runner,
+		project: job.project,
+		task: job.task,
+		what: job.what,
+		at: new Date(job.since).toISOString(),
+		until: job.until === null ? null : new Date(job.until).toISOString(),
+	};
+}
+
 /** The worker `/api/workers/:id` names. */
 function workerId(request: Request): string {
 	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
@@ -633,6 +661,8 @@ export interface DevWorkersOptions {
 	 * stands in front.
 	 */
 	access?: WorkerAccess | null;
+	/** Where runners' lives and their jobs are kept for the Billing page; nowhere by default. */
+	ledger?: RunnerLedger;
 	/** How it runs git to snapshot a worktree for a job; the real one by default. */
 	ps?: Ps;
 }

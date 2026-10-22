@@ -5,14 +5,16 @@ import type { WorkerBudget } from "./budget";
 import type { WorkerProvider } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
+import type { RunnerLedger } from "./runner-ledger";
 
 /** How often the provider is squared with the records, for machines lost or left behind. */
 export const SWEEP_EVERY = Duration.mins(5);
 
-/** How long a machine no record knows is seen before it is destroyed, as one a failed provision left. */
-// A worker's record is written before its machine is asked for, so such a
-// machine is one a failed or interrupted provision left, but a second look
-// keeps a slow listing from costing a worker.
+/**
+ * How long a machine no record knows is seen before it is destroyed, as one
+ * a failed or interrupted provision left; a second look keeps a slow
+ * listing from costing a worker.
+ */
 export const ORPHAN_AFTER = Duration.mins(10);
 
 /** What `ProviderReconciler` squares and with what. */
@@ -21,6 +23,7 @@ export interface ProviderReconcilerOptions {
 	records: WorkerRecords;
 	registry: WorkerRegistry;
 	budget: WorkerBudget;
+	ledger?: RunnerLedger;
 	access?: WorkerAccess | null;
 	log: Logger;
 	wall: WallClock;
@@ -67,7 +70,7 @@ export class ProviderReconciler {
 
 	/** Forgets each made worker whose machine is not among `exists`, answering them. */
 	private async forgetGone(exists: Set<string>): Promise<string[]> {
-		const { records, registry, budget, access, log } = this.opts;
+		const { records, registry, budget, ledger, access, log, wall } = this.opts;
 		const gone: string[] = [];
 		for (const record of records.all) {
 			if (
@@ -77,6 +80,11 @@ export class ProviderReconciler {
 			) {
 				await records.remove(record.id);
 				await budget.ended(record.id);
+				await ledger?.note({
+					row: "runner-ended",
+					id: record.id,
+					at: new Date(wall.now()).toISOString(),
+				});
 				if (record.access !== null) {
 					await access?.revoke(record.access).catch((error: unknown) => {
 						log.error(

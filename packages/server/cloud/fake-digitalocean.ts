@@ -30,6 +30,8 @@ export interface FakeDigitalOceanRequest {
 export class FakeDigitalOcean {
 	/** Size slugs orderable now, by region. */
 	stock: Record<string, string[]> = {};
+	/** What each size slug costs an hour, as `/v2/sizes` says; $0.50 for one not named. */
+	prices: Record<string, number> = {};
 	readonly droplets = new Map<number, FakeDroplet>();
 	readonly images = new Map<number, { id: number; tags: string[] }>();
 	readonly tags = new Set<string>();
@@ -97,6 +99,7 @@ export class FakeDigitalOcean {
 						regions: Object.keys(this.stock).filter((region) =>
 							this.stock[region]?.includes(slug),
 						),
+						price_hourly: this.prices[slug] ?? 0.5,
 					})),
 				});
 			}

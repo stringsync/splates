@@ -22,6 +22,7 @@ import type {
 import { ProviderReconciler, SWEEP_EVERY } from "./reconcile";
 import { JOIN_WITHIN, type WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
+import type { RunnerLedger } from "./runner-ledger";
 import type { HeldSlot, Scheduler } from "./scheduler";
 import { SNAPSHOT_SPLATES, type Snapshots } from "./snapshot";
 
@@ -128,6 +129,7 @@ export class WorkerProvisioning
 			(await this.opts.access?.mint()) ?? null,
 		);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
+		await this.keepMade(id, type.name, type.dollarsPerHour);
 		let made: ProvisionedMachine;
 		try {
 			made = await this.reconciler.creating(id, () =>
@@ -165,6 +167,7 @@ export class WorkerProvisioning
 			registry.forget(id);
 			await records.remove(id);
 			await this.opts.budget.ended(id);
+			await this.keepEnded(id);
 			throw error;
 		}
 		// Counted at the regular rate until the machine says it got spot.
@@ -181,6 +184,7 @@ export class WorkerProvisioning
 				},
 			});
 			await this.opts.budget.started(id, type.name, rate);
+			await this.keepMade(id, type.name, rate);
 		}
 		this.opts.log.info(
 			`provisioned ${id}, a ${type.name} at $${rate.toFixed(2)}/hour${made.spot === true ? " on spot" : ""}`,
@@ -193,6 +197,32 @@ export class WorkerProvisioning
 		this.idle.forget(id);
 		await this.opts.provider.destroy(id);
 		await this.opts.budget.ended(id);
+		await this.keepEnded(id);
+	}
+
+	/** Keeps runner `id`, of `type` at `dollarsPerHour`, in the ledger the Billing page reads. */
+	private async keepMade(
+		id: string,
+		type: string,
+		dollarsPerHour: number,
+	): Promise<void> {
+		await this.opts.ledger?.note({
+			row: "runner",
+			id,
+			type,
+			provider: this.opts.provider.billing ?? null,
+			dollarsPerHour,
+			at: new Date(this.wall.now()).toISOString(),
+		});
+	}
+
+	/** Keeps that runner `id` is destroyed now in the ledger. */
+	private async keepEnded(id: string): Promise<void> {
+		await this.opts.ledger?.note({
+			row: "runner-ended",
+			id,
+			at: new Date(this.wall.now()).toISOString(),
+		});
 	}
 
 	/**
@@ -331,6 +361,8 @@ export interface WorkerProvisioningOptions {
 	coordinator: () => string | null;
 	/** What made workers may cost, which placement makes none past. */
 	budget: WorkerBudget;
+	/** Where each runner's life is kept for good, for the Billing page; nowhere by default. */
+	ledger?: RunnerLedger;
 	/**
 	 * Stops the made workers `ids` once the day's or month's limit is
 	 * reached: they take no new agents, and are destroyed once those on

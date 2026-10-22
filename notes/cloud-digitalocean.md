@@ -20,12 +20,15 @@ ledger (`spend/adapters.ts`).
 A runner is `c-16`, CPU-Optimized dedicated, 16 vCPU and 32 GB, $0.50 an
 hour at list ($336 a month), picked for 3 jobs of about 7 cores and 7 GB at
 once (Basic stops at 8 vCPU; General Purpose 16 vCPU has 64 GB). The type
-and its hourly price are recorded on each runner's record when made.
+and its hourly price are recorded on each runner's record when made, and
+in the spend ledger for the Billing page (see `billing-pulled-only.md`).
 
 Billing is per second with a minute at least (bundled droplets also cap at
 672 hours a month), so `billing: "second"`: an idle runner is destroyed as
-soon as it is idle, with no paid hour to wait out. Sizes and stock are read
-from `/v2/sizes`; the price above is the list price, not read from the API.
+soon as it is idle, with no paid hour to wait out. Sizes, stock and each
+size's `price_hourly` are read from `/v2/sizes`, and `CloudWorkers.types`
+gives a runner the API's price, so its estimate follows what DigitalOcean
+charges rather than the list price in `DIGITALOCEAN_DEFAULTS`.
 
 No vendor lock-in: only `cloud/digitalocean*.ts`, `machineCloud` (the one
 place that picks the cloud) and the spend adapter name DigitalOcean. Setup,

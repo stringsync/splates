@@ -418,7 +418,10 @@ export async function dev(
 		machineStorage,
 		ledger,
 		(name) => (deps.secrets ?? SYSTEM_STORES).device.get(name),
-		deps.fetch,
+		{
+			...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
+			jobs: workers,
+		},
 	);
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
@@ -643,6 +646,7 @@ export async function dev(
 					"/api/spend": guarded(billing.spend),
 					"/api/billing": guarded(billing.read),
 					"/api/billing/pull": { POST: guarded(billing.pull) },
+					"/api/billing/runners": guarded(billing.runners),
 					"/api/billing/currency": { PUT: guarded(billing.setCurrency) },
 					"/api/machine": guarded(async () =>
 						Response.json({

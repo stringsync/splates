@@ -21,8 +21,13 @@ export interface CloudProvider {
 	readonly defaults: CloudDefaults;
 	/** Whether the token it keeps is one its API takes; false without one. */
 	accepted(): Promise<boolean>;
-	/** The locations each machine type can be ordered in now, by type name. */
-	orderable(): Promise<Map<string, Set<string>>>;
+	/**
+	 * The billing provider its bill is pulled into the spend ledger as, as
+	 * `digitalocean`, which each runner's estimate is set beside.
+	 */
+	readonly billing: string;
+	/** Where each machine type can be ordered now, and what it costs, by type name. */
+	orderable(): Promise<Map<string, Orderable>>;
 	/** Machine `id`, or null when there is none. */
 	machine(id: string): Promise<CloudMachine | null>;
 	/** The machines tagged `tag`, with `value` when given. */
@@ -37,6 +42,14 @@ export interface CloudProvider {
 	snapshots(tag: string, value?: string): Promise<string[]>;
 	/** Deletes snapshot `id`; silent when it is already gone. */
 	deleteSnapshot(id: string): Promise<void>;
+}
+
+/** A machine type that can be ordered now. */
+export interface Orderable {
+	/** The locations it can be ordered in. */
+	locations: Set<string>;
+	/** What it costs an hour, in US dollars, as the cloud's API says now. */
+	dollarsPerHour: number;
 }
 
 /** The API token a cloud reads, and how the setup page asks for it. */

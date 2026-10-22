@@ -6,6 +6,7 @@ import { type ProviderStatus, pullBilling, unpulledStatus } from "./billing";
 import { PROVIDERS } from "./providers";
 import { Rates } from "./rates";
 import { type SpendReport, spendReport } from "./report";
+import { type RunnerJobRow, runnersReport } from "./runners";
 import type { Spend } from "./spend";
 
 /** The currencies the Billing page offers, the European Central Bank's most traded. */
@@ -23,6 +24,17 @@ export interface BillingView {
 	providers: (ProviderStatus & { cred: string | null })[];
 }
 
+/** What runs on runners now, which the ledger keeps a job of once it ends. */
+export interface RunningJobs {
+	runningJobs(): RunnerJobRow[];
+}
+
+/** What a `BillingRoutes` reads beyond the ledger; the real fetch and no runners by default. */
+export interface BillingRoutesOptions {
+	fetcher?: typeof fetch;
+	jobs?: RunningJobs;
+}
+
 /**
  * The Billing page's sources: the display currency, kept on the machine, and
  * a pull of what each provider billed, whose results the page reads back.
@@ -31,13 +43,17 @@ export class BillingRoutes {
 	readonly #settings;
 	#pulled: { at: string; statuses: ProviderStatus[] } | null = null;
 	#pulling: Promise<void> | null = null;
+	private readonly fetcher: typeof fetch;
+	private readonly jobs: RunningJobs | null;
 
 	constructor(
 		storage: Storage,
 		private readonly ledger: Spend,
 		private readonly cred: (name: string) => Promise<string | undefined>,
-		private readonly fetcher: typeof fetch = fetch,
+		opts: BillingRoutesOptions = {},
 	) {
+		this.fetcher = opts.fetcher ?? fetch;
+		this.jobs = opts.jobs ?? null;
 		this.#settings = storage.document("billing.json", { schema: SETTINGS });
 	}
 
@@ -107,4 +123,14 @@ export class BillingRoutes {
 		});
 		return Response.json(report);
 	};
+
+	/** Every runner ever made, what each cost, and their days and months beside the bill. */
+	readonly runners = async (): Promise<Response> =>
+		Response.json(
+			runnersReport(
+				await this.ledger.lines(),
+				Date.now(),
+				this.jobs?.runningJobs() ?? [],
+			),
+		);
 }

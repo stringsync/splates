@@ -9,6 +9,7 @@ export type {
 	CloudProvider,
 	CloudToken,
 	NewMachine,
+	Orderable,
 	SnapshotOptions,
 } from "./provider";
 export type { CloudWorkersOptions } from "./workers";

@@ -247,6 +247,8 @@ export async function serveDev(
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
 	const workers = new DevWorkers(ctx.log, {
 		identity,
+		// Each runner's life and its jobs, kept for good for the Billing page.
+		ledger: spend,
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		records,

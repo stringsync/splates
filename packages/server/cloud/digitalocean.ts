@@ -11,6 +11,7 @@ import type {
 	CloudProvider,
 	CloudToken,
 	NewMachine,
+	Orderable,
 	SnapshotOptions,
 } from "./provider";
 
@@ -30,6 +31,7 @@ import type {
 export class DigitalOceanCloud implements CloudProvider {
 	readonly name = "DigitalOcean";
 	readonly configSource = "new DigitalOceanCloud()";
+	readonly billing = "digitalocean";
 	readonly token: CloudToken = TOKEN;
 	readonly defaults: CloudDefaults;
 	private readonly store: SecretStore;
@@ -54,7 +56,7 @@ export class DigitalOceanCloud implements CloudProvider {
 		);
 	}
 
-	async orderable(): Promise<Map<string, Set<string>>> {
+	async orderable(): Promise<Map<string, Orderable>> {
 		return (await this.api()).orderable();
 	}
 
@@ -137,8 +139,10 @@ const TOKEN: CloudToken = {
 
 /**
  * What splates makes in DigitalOcean. Prices are DigitalOcean's list prices
- * of October 2026 in US dollars; it bills each droplet by the second, at
- * least a minute, so an idle runner is destroyed as soon as it is idle.
+ * of October 2026 in US dollars, which `CloudWorkers` replaces with what
+ * `/v2/sizes` says when it lists the types; it bills each droplet by the
+ * second, at least a minute, so an idle runner is destroyed as soon as it
+ * is idle.
  */
 export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
 	workerTypes: [

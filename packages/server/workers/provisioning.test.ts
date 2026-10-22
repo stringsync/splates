@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
+import type { RunnerRow } from "../spend";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
 import { WorkerProvisioning } from "./provisioning";
@@ -66,6 +67,49 @@ describe("WorkerProvisioning", () => {
 		made.dispose();
 
 		expect(budget.split("day").map((share) => share.task)).toEqual(["fix-it"]);
+	});
+
+	it("keeps each runner's life in the ledger, at the price it was made at, until destroyed or found gone", async () => {
+		const { provider, records, made, ledger, wall } = await provisioning();
+		provider.billing = "digitalocean";
+		const destroyed = await made.provision();
+		wall.advance(Duration.mins(30));
+		await made.destroy(destroyed.id);
+		await records.remove(destroyed.id);
+		const gone = await made.provision();
+		await provider.destroy(gone.id);
+		await made.reconcile();
+
+		expect(ledger.rows).toEqual([
+			{
+				row: "runner",
+				id: destroyed.id,
+				type: "small",
+				provider: "digitalocean",
+				dollarsPerHour: 0.05,
+				at: expect.any(String),
+			},
+			{ row: "runner-ended", id: destroyed.id, at: expect.any(String) },
+			expect.objectContaining({ row: "runner", id: gone.id }),
+			{ row: "runner-ended", id: gone.id, at: expect.any(String) },
+		]);
+		const [made1, ended1] = ledger.rows;
+		expect(Date.parse(ended1?.at ?? "") - Date.parse(made1?.at ?? "")).toBe(
+			Duration.mins(30).ms,
+		);
+	});
+
+	it("ends in the ledger a runner its provider failed to make", async () => {
+		const { provider, made, ledger } = await provisioning();
+		provider.create = async () => {
+			throw new Error("quota");
+		};
+
+		await expect(made.provision()).rejects.toThrow("quota");
+		expect(ledger.rows.map((row) => row.row)).toEqual([
+			"runner",
+			"runner-ended",
+		]);
 	});
 
 	it("counts nothing for a worker its provider failed to make", async () => {
@@ -228,6 +272,12 @@ async function provisioning(
 	const log = new MemoryLogger();
 	const registry = new WorkerRegistry(new MemoryLogger());
 	const access = new FakeWorkerAccess();
+	const ledger = {
+		rows: [] as RunnerRow[],
+		async note(...rows: RunnerRow[]) {
+			ledger.rows.push(...rows);
+		},
+	};
 	const made = new WorkerProvisioning({
 		provider,
 		snapshots: await Snapshots.open(provider, {
@@ -239,8 +289,19 @@ async function provisioning(
 		access,
 		coordinator: () => coordinator,
 		budget,
+		ledger,
 		log,
 		wall,
 	});
-	return { provider, records, registry, access, made, budget, log, wall };
+	return {
+		provider,
+		records,
+		registry,
+		access,
+		made,
+		budget,
+		ledger,
+		log,
+		wall,
+	};
 }

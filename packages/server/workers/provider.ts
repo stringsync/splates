@@ -112,7 +112,13 @@ export interface WorkerProvider {
 	 * when it bills by the hour; `DEFAULT_IDLE_AFTER` (15 minutes) when unset.
 	 */
 	readonly idleAfter?: Duration;
-	/** The types it makes, with what each costs per hour. */
+	/**
+	 * The provider its bill is pulled into the spend ledger as, as
+	 * `digitalocean`, which the Billing page sets each month's estimate of
+	 * its runners beside; absent when no bill is pulled for it.
+	 */
+	readonly billing?: string;
+	/** The types it makes, with what each costs per hour, as near what it bills as it can tell. */
 	types(): Promise<WorkerType[]>;
 	/**
 	 * Builds a snapshot from `recipe`, answering it once workers can boot

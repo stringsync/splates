@@ -192,6 +192,10 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 				if (this.holding.get(ask.id) === held) {
 					this.holding.delete(ask.id);
 				}
+				this.dispatcher.dispatch("ended", {
+					...held,
+					until: this.clock.now(),
+				});
 				this.place();
 				this.changed();
 			},
@@ -272,5 +276,8 @@ export interface JobPlace extends Resource {
 	readonly runner: string | null;
 }
 
-/** `changed` whenever the jobs waiting or running change. */
-export type JobPoolEvents = { changed: undefined };
+/** `changed` whenever the jobs waiting or running change, and `ended` as a job on a runner gives its place up. */
+export type JobPoolEvents = {
+	changed: undefined;
+	ended: HeldJob & { until: number };
+};

@@ -14,7 +14,7 @@ import {
 	type WorkerSpec,
 	type WorkerType,
 } from "../workers";
-import type { CloudProvider } from "./provider";
+import type { CloudProvider, Orderable } from "./provider";
 
 /**
  * Makes workers in a cloud account: each worker a machine tagged with its
@@ -36,12 +36,24 @@ export class CloudWorkers implements WorkerProvider {
 		this.idleAfter = opts.idleAfter;
 	}
 
-	/** The types orderable now in one of its locations. */
+	/** The cloud its bill is pulled as, as `CloudProvider.billing` says. */
+	get billing(): string {
+		return this.cloud.billing;
+	}
+
+	/**
+	 * The types orderable now in one of its locations, each at the price the
+	 * cloud's API says now, which a runner made of it is counted at.
+	 */
 	async types(): Promise<WorkerType[]> {
 		const orderable = await this.cloud.orderable();
-		return this.cloud.defaults.workerTypes.filter(
-			(type) => this.where(orderable, type.name) !== null,
-		);
+		return this.cloud.defaults.workerTypes
+			.filter((type) => this.where(orderable, type.name) !== null)
+			.map((type) => ({
+				...type,
+				dollarsPerHour:
+					orderable.get(type.name)?.dollarsPerHour ?? type.dollarsPerHour,
+			}));
 	}
 
 	async snapshot(recipe: SnapshotRecipe): Promise<Snapshot> {
@@ -149,10 +161,10 @@ export class CloudWorkers implements WorkerProvider {
 
 	/** The first of its locations where `type` can be ordered, or null. */
 	private where(
-		orderable: Map<string, Set<string>>,
+		orderable: Map<string, Orderable>,
 		type: string,
 	): string | null {
-		const at = orderable.get(type);
+		const at = orderable.get(type)?.locations;
 		return this.locations().find((location) => at?.has(location)) ?? null;
 	}
 

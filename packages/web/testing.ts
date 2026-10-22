@@ -1,6 +1,7 @@
 // scry-ignore-file compact-files: the page tests' one fake server; its routes belong together
 import type {
 	BillingView,
+	RunnersReport,
 	SpendReport,
 } from "@stringsync/splates-server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
@@ -138,6 +139,14 @@ export class Testing implements Resource {
 		rateError: null,
 		services: [],
 		days: [],
+	};
+	/** What `/api/billing/runners` says of every runner made. */
+	runnersReport: RunnersReport = {
+		updated: "2026-10-21T12:00:00.000Z",
+		runners: [],
+		days: [],
+		months: [],
+		split: { days: [], months: [] },
 	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();
@@ -325,6 +334,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/spend") {
 				return Response.json(this.spendReport);
+			}
+			if (route === "/api/billing/runners") {
+				return Response.json(this.runnersReport);
 			}
 			if (route === "/api/budgets") {
 				await this.readingBudgets;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { JOBS_PER_RUNNER, type JobAsk, JobPool } from "./job-pool";
 import { FakeJobView } from "./testing";
@@ -8,6 +9,7 @@ describe("the job pool", () => {
 	let ready: string[];
 	let pool: JobPool;
 	let count: number;
+	let clock: FakeWallClock;
 
 	const ask = (project = "/a", avoid: string[] = []): JobAsk => ({
 		id: `job-${++count}`,
@@ -22,7 +24,8 @@ describe("the job pool", () => {
 		ready = ["one"];
 		view = new FakeJobView();
 		view.runners = () => ready.map((id) => ({ id, ready: true }));
-		pool = new JobPool(view, new FakeWallClock());
+		clock = new FakeWallClock();
+		pool = new JobPool(view, clock);
 	});
 
 	it("gives each runner three jobs at once and queues the rest in order", async () => {
@@ -118,6 +121,28 @@ describe("the job pool", () => {
 		const place = await pool.take(ask("/a", ["one"]));
 
 		expect(place.runner).toBeNull();
+	});
+
+	it("tells of a job on a runner once as it ends, with how long it held its place", async () => {
+		const ended: unknown[] = [];
+		pool.events.on("ended", (job) => ended.push(job));
+		const place = await pool.take(ask());
+		const since = clock.now();
+		clock.advance(Duration.secs(40));
+		place.dispose();
+		place.dispose();
+
+		expect(ended).toEqual([
+			{
+				id: "job-1",
+				project: "/a",
+				task: null,
+				what: "bun test",
+				runner: "one",
+				since,
+				until: since + Duration.secs(40).ms,
+			},
+		]);
 	});
 
 	it("takes an aborted job out of the queue", async () => {

@@ -20,6 +20,8 @@ export class FakeWorkerProvider implements WorkerProvider {
 	/** What its next `sweep` says it deleted. */
 	readonly leftovers: string[] = [];
 	private built = 0;
+	/** The provider its bill is pulled as; none unless set. */
+	billing?: string;
 
 	constructor(
 		private readonly offered: WorkerType[] = [

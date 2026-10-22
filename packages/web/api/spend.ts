@@ -1,5 +1,6 @@
 import type {
 	BillingView,
+	RunnersReport,
 	SpendReport,
 } from "@stringsync/splates-server/spend";
 import { Duration } from "webappwiz/time";
@@ -19,6 +20,21 @@ export async function spend(
 		throw new ApiError(
 			"error",
 			body.message ?? `/api/spend: ${response.status}`,
+		);
+	}
+	return body;
+}
+
+/** Every runner ever made, what each cost, and their days and months beside the bill, across every project on this machine. */
+export async function runners(): Promise<RunnersReport> {
+	const response = await answered("/api/billing/runners");
+	const body = (await response.json().catch(() => ({}))) as RunnersReport & {
+		message?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError(
+			"error",
+			body.message ?? `/api/billing/runners: ${response.status}`,
 		);
 	}
 	return body;

@@ -33,16 +33,18 @@ describe("CloudWorkers in DigitalOcean", () => {
 		);
 	});
 
-	it("offers its size, billed by the second, while a region can make it", async () => {
+	it("offers its size, billed by the second at the price the API says, while a region can make it", async () => {
+		digitalocean.prices = { "c-16": 0.476 };
 		expect(await provider.types()).toEqual([
 			{
 				name: "c-16",
 				platform: "linux",
 				slots: 3,
-				dollarsPerHour: 0.5,
+				dollarsPerHour: 0.476,
 				billing: "second",
 			},
 		]);
+		expect(provider.billing).toBe("digitalocean");
 
 		digitalocean.stock = { ams3: ["c-16"] };
 		expect(await provider.types()).toEqual([]);
