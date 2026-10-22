@@ -14,7 +14,7 @@ import { ATTACH } from "#web/components/assistant-ui/elements/attachment.aui.tsx
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { BoxDictation } from "./box-dictation";
-import { BoxEditor, type BoxEditorProps } from "./box-editor";
+import { BoxEditor, type BoxEditorProps, caretToEnd } from "./box-editor";
 import { ReplyContext } from "./card-reply";
 import { BoxMic } from "./dictate-button";
 import { COMPOSER, type Dictation } from "./dictation";
@@ -84,6 +84,35 @@ function Box({
 	...props
 }: Props & { box: BoxDictation | null; taking?: boolean }): JSX.Element {
 	const shell = useRef<HTMLDivElement>(null);
+	// A take makes the editor inert, which drops its focus; once the take is
+	// done the box has it back, caret after the words, so Enter and the arrows
+	// work as before. Skipped when the person has moved the focus elsewhere.
+	const wasTaking = useRef(false);
+	useEffect(() => {
+		const done = wasTaking.current && !taking;
+		wasTaking.current = taking;
+		if (!done) {
+			return;
+		}
+		const active = document.activeElement;
+		if (
+			active !== null &&
+			active !== document.body &&
+			!shell.current?.contains(active)
+		) {
+			return;
+		}
+		const frame = requestAnimationFrame(() => {
+			const editor = shell.current?.querySelector<HTMLElement>(
+				"[contenteditable=true]",
+			);
+			editor?.focus();
+			if (editor) {
+				caretToEnd(editor);
+			}
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [taking]);
 	return (
 		<div
 			ref={shell}
