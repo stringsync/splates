@@ -11,24 +11,15 @@ export interface JobSize {
  */
 export const DEFAULT_JOB_SIZE: JobSize = { cpus: 4, memory: 8 };
 
-/** What a project's `splates.config.ts` sets as `job`, memory as GB or a size such as `"8GB"`. */
-export interface JobSizeSetting {
+/**
+ * What a project's `splates.config.ts` sets as `job`: memory as GB or a size
+ * such as `"8GB"`, and `timeout` as minutes or a length such as `"90s"`.
+ */
+export interface JobSetting {
 	cpus?: number;
 	memory?: number | string;
+	timeout?: number | string;
 }
-
-const UNITS: Record<string, number> = {
-	"": 1,
-	g: 1,
-	gb: 1,
-	gib: 1,
-	m: 1 / 1024,
-	mb: 1 / 1024,
-	mib: 1 / 1024,
-	t: 1024,
-	tb: 1024,
-	tib: 1024,
-};
 
 /**
  * `text` as GB: `8`, `8g`, `8GB`, `512MB`, `0.5GiB`. Binary and decimal
@@ -49,7 +40,7 @@ export function parseMemory(text: string): number | null {
  * else the default. Throws on a memory that is no size.
  */
 export function jobSize(
-	setting: JobSizeSetting | undefined,
+	setting: JobSetting | undefined,
 	override: Partial<JobSize> = {},
 ): JobSize {
 	const memory = setting?.memory;
@@ -91,6 +82,19 @@ export function sizeLabel(size: JobSize, dollarsPerHour?: number): string {
 		? `${cpus}, ${memory}`
 		: `${cpus}, ${memory}, $${dollarsPerHour.toFixed(2)}/h`;
 }
+
+const UNITS: Record<string, number> = {
+	"": 1,
+	g: 1,
+	gb: 1,
+	gib: 1,
+	m: 1 / 1024,
+	mb: 1 / 1024,
+	mib: 1 / 1024,
+	t: 1024,
+	tb: 1024,
+	tib: 1024,
+};
 
 function invalid(what: string): never {
 	throw new Error(`${what}: name a size such as "8GB" or "512MB"`);

@@ -2,7 +2,7 @@ import type { CloudProvider } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
-import type { JobSizeSetting, WorkerProvider } from "../workers";
+import type { JobSetting, WorkerProvider } from "../workers";
 
 export interface Config {
 	/**
@@ -59,9 +59,10 @@ export interface Config {
 	 * `{ cpus: 4, memory: "8GB" }`: a runner takes as many jobs at once as
 	 * fit in its CPUs and memory. Unset, 4 CPUs and 8 GB, one test run being
 	 * about 7 cores and 7 GB; `splates run --cpus --memory` overrides it
-	 * for one command.
+	 * for one command. `timeout`, as minutes or `"90s"`, is how long a
+	 * `splates run` command may run before it is killed, 30 minutes unset.
 	 */
-	job: JobSizeSetting;
+	job: JobSetting;
 	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma

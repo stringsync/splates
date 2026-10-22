@@ -30,6 +30,7 @@ export const JobRequest = z.object({
 	first: z.boolean().default(false),
 	/** Runs this commit of the project, which its worktree holds, instead of a snapshot of the worktree. */
 	commit: JobParams.shape.commit.optional(),
+	timeoutMs: JobParams.shape.timeoutMs,
 });
 export type JobRequest = z.infer<typeof JobRequest>;
 
@@ -201,6 +202,7 @@ export class RunnerJobs {
 				argv: job.argv,
 				env: job.env,
 				files: job.files,
+				timeoutMs: job.timeoutMs,
 			},
 			{
 				bundle: (tip) => this.snapshot.bundle(job.worktree, commit, tip),

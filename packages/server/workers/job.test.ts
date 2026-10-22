@@ -68,6 +68,7 @@ describe("heavy jobs on a runner", () => {
 			files?: string[];
 			env?: Record<string, string>;
 			signal?: AbortSignal;
+			timeoutMs?: number;
 		} = {},
 	) {
 		const commit = await snapshot.take(deps.root);
@@ -82,6 +83,7 @@ describe("heavy jobs on a runner", () => {
 				argv,
 				env: extra.env ?? {},
 				files: extra.files ?? [],
+				timeoutMs: extra.timeoutMs ?? null,
 			},
 			{
 				bundle: (tip) => {
@@ -168,6 +170,26 @@ describe("heavy jobs on a runner", () => {
 		abort.abort();
 
 		await expect(running).rejects.toThrow("cancelled");
+	});
+
+	it("kills a command that runs past its timeout, and exits 124 saying so", async () => {
+		const { result, text } = await job(["sh", "-c", "echo started; sleep 30"], {
+			timeoutMs: 300,
+		});
+
+		expect(result.code).toBe(124);
+		expect(text).toContain("started");
+		expect(text).toContain("killed after running past its 300ms timeout");
+	});
+
+	it("counts a slow prepare step against the timeout, and skips the command", async () => {
+		const { result, text } = await job(["echo", "ran"], {
+			prepare: "sleep 30",
+			timeoutMs: 300,
+		});
+
+		expect(result.code).toBe(124);
+		expect(text).not.toContain("ran");
 	});
 
 	// Asks little of the runner, this machine, whatever it has.

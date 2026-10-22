@@ -32,7 +32,9 @@ the rest:
    out of memory. A runner takes as many commands at once as fit in its
    CPUs and memory, each asking what the project's `job` setting says;
    `--cpus <n> --memory <size>` (as `8GB`) asks otherwise for one that needs
-   more or less. Skip it only where the project's instructions say a
+   more or less. It is killed, exiting 124, past 30 minutes or the `job`
+   setting's `timeout`; `--timeout <length>` (as `90m`) gives one that
+   needs longer. Skip it only where the project's instructions say a
    script takes a slot itself.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask

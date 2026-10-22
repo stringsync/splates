@@ -1,9 +1,14 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Ps } from "webappwiz/system";
+import { type Duration, SystemTimer, type Timer } from "webappwiz/time";
+import { loadConfig } from "../config";
 import { fail } from "../exit";
 import {
+	type JobSetting,
 	type JobSize,
+	jobTimeout,
 	parseMemory,
+	parseTimeout,
 	runOnRunner,
 	type ServerSend,
 } from "../workers";
@@ -12,7 +17,9 @@ import { heavyJobsOfMachine } from "./heavy";
 /**
  * Runs `argv` in one of the machine's heavy-job slots, waiting for one to
  * come free first, and says how it exited. What an agent runs itself (a full
- * test run, an install) passes through splates no other way.
+ * test run, an install) passes through splates no other way. A command that
+ * runs past its timeout, the project's `job.timeout` or 30 minutes, is
+ * killed and exits 124, so a hung one cannot hold a runner or a slot.
  */
 export async function runHeavy(
 	ctx: { fs: Fs; ps: Ps; log: Logger; dev?: string; send?: ServerSend },
@@ -29,6 +36,12 @@ export async function runHeavy(
 			? {}
 			: { memory: memoryOf(opts.memory) }),
 	};
+	const timeout = jobTimeout(
+		await settingOf(ctx),
+		opts.timeout === undefined || opts.timeout === ""
+			? undefined
+			: timeoutOf(opts.timeout),
+	);
 	// On a runner when one has joined, its output streamed back; here, in a
 	// slot of this machine's, when none has or `local` says so.
 	if (opts.local !== true) {
@@ -36,6 +49,7 @@ export async function runHeavy(
 			cwd: ctx.ps.cwd(),
 			argv,
 			size,
+			timeout,
 			output: opts.write ?? ((bytes) => void process.stdout.write(bytes)),
 		});
 		if (ran !== null) {
@@ -46,11 +60,54 @@ export async function runHeavy(
 		what: argv.join(" "),
 		task: await taskOf(ctx.ps),
 	});
-	const { exitCode } = await ctx.ps.spawn(argv, {
-		cwd: ctx.ps.cwd(),
-		env: slot.env,
-	});
-	return exitCode;
+	const expired = new AbortController();
+	const deadline = (opts.timer ?? new SystemTimer()).setTimeout(
+		() => expired.abort(),
+		timeout,
+	);
+	try {
+		const { exitCode } = await ctx.ps.spawn(argv, {
+			cwd: ctx.ps.cwd(),
+			env: slot.env,
+			signal: expired.signal,
+		});
+		return exitCode;
+	} catch (error) {
+		if (!expired.signal.aborted) {
+			throw error;
+		}
+		ctx.log.error(
+			`killed after running past its ${timeout.human()} timeout; set a longer one with \`splates run --timeout\` or the project's job.timeout in splates.config.ts`,
+		);
+		return 124;
+	} finally {
+		deadline.dispose();
+	}
+}
+
+/** The `job` setting of the project this runs in, if it is one. */
+async function settingOf(ctx: {
+	fs: Fs;
+	ps: Ps;
+}): Promise<JobSetting | undefined> {
+	const { exitCode, stdout } = await ctx.ps.spawnCapture(
+		["git", "rev-parse", "--show-toplevel"],
+		{ cwd: ctx.ps.cwd() },
+	);
+	return exitCode === 0
+		? (await loadConfig(stdout.trim(), { fs: ctx.fs })).job
+		: undefined;
+}
+
+function timeoutOf(text: string): Duration {
+	return (
+		parseTimeout(text) ??
+		fail(
+			"usage",
+			`--timeout ${text} is no length of time: name one as 30m, 90s or 2h`,
+			{},
+		)
+	);
 }
 
 function memoryOf(text: string): number {
@@ -70,6 +127,10 @@ export interface RunHeavyOptions {
 	cpus?: number;
 	/** Memory it asks of a runner, as `8GB` or `512MB`, over the project's `job` setting. */
 	memory?: string;
+	/** How long it may run before it is killed, as `30m` or `90s`, over the project's `job` setting. */
+	timeout?: string;
+	/** What times it; the system's by default. */
+	timer?: Timer;
 }
 
 /** The task whose tree this runs in, for the page to name it by. */

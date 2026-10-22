@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Child, Ps } from "webappwiz/system";
+import { Duration, type Timer } from "webappwiz/time";
 import type { WorkerChannel } from "./channel";
 import { JobParams, JobTold } from "./job";
 import { descendants } from "./process-host";
@@ -26,8 +27,9 @@ export function cloneDir(home: string, project: string): string {
  * then the command there, and streams the output back as data. Once the
  * command exits it sends the exit code and the files it asked for, and
  * forgets the worktree. Closing the channel kills the command and
- * everything it started. No creds reach it: its environment is the runner's
- * own plus what the job names.
+ * everything it started, as does its `timeoutMs` passing, which ends the job
+ * with exit code 124 so a hung command cannot hold the runner. No creds reach
+ * it: its environment is the runner's own plus what the job names.
  */
 export class WorkerJobHost implements Resource, AsyncResource {
 	private readonly params: JobParams;
@@ -39,6 +41,9 @@ export class WorkerJobHost implements Resource, AsyncResource {
 	private child: Child | null = null;
 	private cancelled = false;
 	private disposed = false;
+	/** Whether the job ran past its `timeoutMs` and was killed for it. */
+	private expired = false;
+	private deadline: Resource | null = null;
 	/** Settles once the checkout and the job's files are gone. */
 	private forgotten: Promise<void> = Promise.resolve();
 
@@ -47,6 +52,7 @@ export class WorkerJobHost implements Resource, AsyncResource {
 		private readonly session: WorkerSession,
 		private readonly ps: Ps,
 		home: string,
+		private readonly timer: Timer,
 	) {
 		this.params = JobParams.parse(channel.params);
 		const base = cloneDir(home, this.params.project);
@@ -74,6 +80,7 @@ export class WorkerJobHost implements Resource, AsyncResource {
 		}
 		this.disposed = true;
 		this.cancelled = true;
+		this.deadline?.dispose();
 		this.forgotten = this.kill().then(() => this.forget());
 	}
 
@@ -162,16 +169,32 @@ export class WorkerJobHost implements Resource, AsyncResource {
 				SPLATES_WORKTREE: this.tree,
 				SPLATES_JOB_FILES: this.filesDir,
 			};
+			const { timeoutMs } = this.params;
+			if (timeoutMs !== null) {
+				this.deadline = this.timer.setTimeout(() => {
+					this.expired = true;
+					void this.kill();
+				}, Duration.ms(timeoutMs));
+			}
 			let code = 0;
 			if (this.params.prepare !== null) {
 				code = await this.exec(["sh", "-c", this.params.prepare], env);
 			}
-			if (code === 0 && !this.cancelled) {
+			if (code === 0 && !this.cancelled && !this.expired) {
 				this.channel.send({ type: "started" });
 				code = await this.exec(this.params.argv, env);
 			}
+			this.deadline?.dispose();
 			if (this.cancelled) {
 				return;
+			}
+			if (this.expired) {
+				code = 124;
+				this.channel.write(
+					new TextEncoder().encode(
+						`\nsplates: killed after running past its ${Duration.ms(timeoutMs ?? 0).human()} timeout; set a longer one with \`splates run --timeout\` or the project's job.timeout in splates.config.ts\n`,
+					),
+				);
 			}
 			this.channel.send({ type: "exit", code });
 			await this.sendFiles();

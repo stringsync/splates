@@ -21,6 +21,11 @@ export const JobParams = z.object({
 	 * names; each comes back once it exits, if it wrote it.
 	 */
 	files: z.array(z.string().regex(/^[\w.-]+$/)).default([]),
+	/**
+	 * How long the prepare step and the command may run together, in ms,
+	 * before both are killed and the job exits 124; null for no limit.
+	 */
+	timeoutMs: z.number().positive().nullable().default(null),
 });
 export type JobParams = z.infer<typeof JobParams>;
 

@@ -327,6 +327,7 @@ export class WorkerDaemon implements AsyncResource {
 						this.session,
 						ps,
 						this.opts.runnerHome ?? `${splatesHome(ps)}/runner`,
+						this.timer,
 					);
 					break;
 				default:

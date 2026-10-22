@@ -59,7 +59,7 @@ export { CoordinatorIdentity } from "./identity";
 export type { RemoteJob, RemoteJobResult } from "./job-client";
 export { runOnRunner } from "./job-client";
 export type { TooBigJob } from "./job-pool";
-export type { JobSize, JobSizeSetting } from "./job-size";
+export type { JobSetting, JobSize } from "./job-size";
 export {
 	DEFAULT_JOB_SIZE,
 	fits,
@@ -67,6 +67,11 @@ export {
 	parseMemory,
 	sizeLabel,
 } from "./job-size";
+export {
+	DEFAULT_JOB_TIMEOUT,
+	jobTimeout,
+	parseTimeout,
+} from "./job-timeout";
 export { SUPERVISOR } from "./lifecycle";
 export type {
 	JobRoom,

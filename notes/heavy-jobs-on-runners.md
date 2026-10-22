@@ -108,7 +108,15 @@ config's `prepare`. The server then:
    `error`); the caller's exit code is the job's.
 
 A caller that hangs up cancels the job: the runner kills the command and its
-descendants and removes the worktree. Nothing of the person's creds reaches a
+descendants and removes the worktree. A `splates run` command that hangs with
+its caller still up is ended by its timeout: the project's `job.timeout`
+(minutes, or `"90s"`, `"2h"`), else 30 minutes, or `splates run --timeout`.
+It is sent as the request's `timeoutMs`, and the runner counts it from the
+prepare step's start, kills the job as on a hang-up, says so in its output
+and exits 124; run here, the command is killed past it the same way (only the
+command, not what it started) once it has its slot. Without it a hung job
+kept its runner busy, so never idle-stopped, until a budget limit. `splates
+dev test` and the merge gate send none: `dev test` has its own deadline. Nothing of the person's creds reaches a
 runner. `prepare` is a `splates.config.ts` setting (here `bun install` and the
 page build, as `docker/worker.Dockerfile` does), run on every job; bun's cache
 is what keeps it quick. `splates dev test` runs `./bin/splates dev test --local`

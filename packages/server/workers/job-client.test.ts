@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
+import { Duration } from "webappwiz/time";
 import { Testing } from "../testing";
 import { runOnRunner } from "./job-client";
 
@@ -16,7 +17,7 @@ describe("a job sent to run on a runner", () => {
 		return new Response(`${JSON.stringify(answer)}\n`);
 	};
 
-	const run = (size?: { cpus?: number; memory?: number }) =>
+	const run = (size?: { cpus?: number; memory?: number }, timeout?: Duration) =>
 		runOnRunner(
 			{
 				ps: deps.ps,
@@ -29,6 +30,7 @@ describe("a job sent to run on a runner", () => {
 				cwd: deps.root,
 				argv: ["bun", "test"],
 				...(size === undefined ? {} : { size }),
+				...(timeout === undefined ? {} : { timeout }),
 				output: () => {},
 			},
 		);
@@ -48,6 +50,14 @@ describe("a job sent to run on a runner", () => {
 		await run();
 
 		expect(sent[0]).toMatchObject({ cpus: 4, memory: 8 });
+	});
+
+	it("tells the runner how long it may run, when it says", async () => {
+		await run();
+		await run(undefined, Duration.mins(30));
+
+		expect(sent[0]).not.toHaveProperty("timeoutMs");
+		expect(sent[1]).toMatchObject({ timeoutMs: Duration.mins(30).ms });
 	});
 
 	it("says on stderr when no runner has room for it, and leaves it to run here", async () => {

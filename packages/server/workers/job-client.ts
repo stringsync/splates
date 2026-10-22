@@ -1,5 +1,6 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
+import type { Duration } from "webappwiz/time";
 import { loadConfig } from "../config";
 import { JobEvent } from "./job-route";
 import { type JobSize, jobSize } from "./job-size";
@@ -19,6 +20,8 @@ export interface RemoteJob {
 	size?: Partial<JobSize>;
 	/** Runs this commit, which the worktree's repository holds, rather than the worktree as it stands. */
 	commit?: string;
+	/** How long it may run on the runner before it is killed; none by default. */
+	timeout?: Duration;
 	/** Called with the command's output as it arrives. */
 	output: (bytes: Uint8Array) => void;
 	signal?: AbortSignal;
@@ -73,6 +76,7 @@ export async function runOnRunner(
 				cpus: size.cpus,
 				memory: size.memory,
 				...(job.commit === undefined ? {} : { commit: job.commit }),
+				...(job.timeout === undefined ? {} : { timeoutMs: job.timeout.ms }),
 			}),
 			...(job.signal === undefined ? {} : { signal: job.signal }),
 		});

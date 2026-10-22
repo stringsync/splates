@@ -156,6 +156,11 @@ splates
 		description:
 			"the memory it asks of a runner, as 8GB or 512MB; the project's `job` in splates.config.ts, else 8GB, by default",
 	})
+	.option("timeout", z.string(), {
+		default: "",
+		description:
+			"how long it may run, as 30m, 90s or 2h, before it is killed and exits 124, so a hung command holds no runner or slot; the project's `job.timeout` in splates.config.ts, else 30m, by default",
+	})
 	.rest("command", z.string(), {
 		description: "the command and its arguments, after `--`",
 	})
@@ -164,6 +169,7 @@ splates
 			local: opts.local,
 			...(opts.cpus === undefined ? {} : { cpus: opts.cpus }),
 			memory: opts.memory,
+			timeout: opts.timeout,
 		});
 		if (code !== 0) {
 			ctx.ps.exit(code);
