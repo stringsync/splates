@@ -131,7 +131,7 @@ describe("Cloud server journey", () => {
 				.getAttribute("href"),
 		).toBe("https://console.aws.amazon.com/cloudshell/home");
 		expect(view.getByText("aws cloudformation deploy PulumiOrg=acme"));
-		expect(view.getByRole("button", { name: "Copy the line" }));
+		expect(view.getByRole("button", { name: "Copy the command" }));
 		expect(view.getByLabelText("AWS account id"));
 	});
 

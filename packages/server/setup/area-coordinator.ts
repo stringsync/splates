@@ -80,8 +80,8 @@ export function coordinatorArea(
 	const pulumiStep: SetupStep = {
 		id: "coordinator-pulumi",
 		title: "Install Pulumi and log in",
-		why: "Pulumi makes and keeps the box as code in your account. It keeps the stack's state in Pulumi Cloud, whose ESC environments sign in to AWS with no long-lived key, or in an S3 bucket of your own.",
-		user: "1. Install Pulumi: `brew install pulumi`.\n2. Log in: `pulumi login` for Pulumi Cloud, or `pulumi login s3://<bucket>` for a backend of your own.\n3. Press Next.",
+		why: "Pulumi makes the box in your AWS account and keeps its state, in Pulumi Cloud or an S3 bucket of your own.",
+		user: "1. Install Pulumi: `brew install pulumi`\n2. Log in: `pulumi login`, or `pulumi login s3://<bucket>` for a backend of your own\n3. Press Next",
 		agent:
 			"Have the user install Pulumi and log in to Pulumi Cloud or an S3 backend of their own. The step is done when `pulumi whoami` answers.",
 		optional: true,
@@ -105,8 +105,8 @@ export function coordinatorArea(
 	const infraStep: SetupStep = {
 		id: "coordinator-infra",
 		title: "Write the infra project",
-		why: "The box is a Pulumi project of your own that uses splates's components, so you can read, change and destroy exactly what it makes.",
-		user: "1. Leave the directory empty to write the project as `packages/infra` in this repo, or name another directory.\n2. Press Next. It fills the project from your projects and tunnel, and leaves a place on the Pulumi site for each secret, which the next steps have you paste.\n\nFrom a terminal instead: `splates server infra init <dir>`.",
+		why: "The box is a Pulumi project you own, so you can read, change and destroy exactly what it makes.",
+		user: "1. Pick a directory for the project, or keep the default\n2. Press Next to write it, with a placeholder on the Pulumi site for each secret\n\nFrom a terminal: `splates server infra init <dir>`",
 		agent:
 			"Run `splates server infra init <dir>` for the user, in the repo's `packages/infra` unless they name another directory. It fills the host, email, projects and Cloudflare ids from what splates keeps, makes the ESC environment `<org>/splates/secrets` with a placeholder for each secret, which the stack imports, and records the directory in splates's home. splates never sees the secrets: the steps after this one have the user paste each on the Pulumi site.",
 		optional: true,
@@ -208,8 +208,8 @@ export function coordinatorArea(
 	const remotesStep: SetupStep = {
 		id: "coordinator-remotes",
 		title: "Give each project an SSH origin",
-		why: "The box keeps a clone of each project, and this Mac checks tasks out from it as a worker, both through each project's `origin`, which an unset `remote` in its `splates.config.ts` means once the server moves, reached over SSH so the box's deploy key can push.",
-		user: "1. In each project, point `origin` at an SSH URL such as `git@github.com:<owner>/<repo>.git`.\n2. Press Next.",
+		why: "The box clones each project, and pushes trunk with a deploy key, over SSH.",
+		user: "1. Set each project's `origin` to an SSH URL, as `git@github.com:<owner>/<repo>.git`\n2. Press Next",
 		agent:
 			"For each project the step's detail lists, make its origin an SSH URL (`git remote set-url origin git@github.com:<owner>/<repo>.git`) if it is not, and take any `remote: null` out of its `splates.config.ts` in a task of that project. `splates server deploy --dry-run` lists what is still missing.",
 		optional: true,
@@ -237,8 +237,8 @@ export function coordinatorArea(
 	const upStep: SetupStep = {
 		id: "coordinator-up",
 		title: "Bring the server's box up",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "1. Read what the preview says it will make, and what it costs a month.\n2. Press Next to make it.",
+		why: "A small EC2 instance keeps the page, the queue and merging up while this Mac sleeps. Only SSH reaches it.",
+		user: "1. Check what the preview makes and its monthly cost\n2. Press Next to make it, a few minutes",
 		agent:
 			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a secret, by pasting a new one over it on the Pulumi site, where its step here links; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
 		optional: true,
@@ -295,8 +295,8 @@ export function coordinatorArea(
 	const credsStep: SetupStep = {
 		id: "coordinator-creds",
 		title: "Give the box its creds",
-		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
-		user: "1. Press Next to ready each project's clone on the box.\n2. If it lists creds the box lacks, press Next again: that runs `pulumi up` itself to make them.\n\nA secret that fails is pasted again on the Pulumi site, through its step.",
+		why: "The box clones and pushes with a deploy key per project, which the stack keeps in its Parameter Store.",
+		user: "1. Press Next to ready each project's clone on the box\n2. If it lists missing creds, press Next again to make them\n\nA secret that fails is pasted again on the Pulumi site, from its step.",
 		agent:
 			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. The stack makes what it lacks: have the user press Next, which runs `pulumi up` first, and run it again until it says the box is ready. A secret a failure names is pasted again on the Pulumi site, through its step.",
 		optional: true,
@@ -339,8 +339,8 @@ export function coordinatorArea(
 	const moveStep: SetupStep = {
 		id: "coordinator-move",
 		title: "Deploy the server to its box",
-		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records to the box (it reads its own creds), and starts the server there for good. It comes up on `box.` before your tunnel's host, then takes the tunnel's host over: it deletes this Mac's DNS record and Access application there, points the stack at it and runs `pulumi up`, so your URL stays the same with a gap of minutes. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
-		user: "1. Press Next to deploy.\n2. Wait a few minutes: this page goes away while the deploy runs.\n3. It comes back served from the box, at the same URL.",
+		why: "The server moves to the box and keeps your URL. Agents here checkpoint first, and this Mac stays on as the box's worker.",
+		user: "1. Press Next to deploy\n2. Keep this page open: it goes away for a few minutes and comes back served from the box",
 		agent:
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
 		optional: true,

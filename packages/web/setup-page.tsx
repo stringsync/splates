@@ -29,6 +29,7 @@ import {
 	MoveWatchContext,
 } from "./setup-coordinator-steps";
 import { JourneyDone, SetupIndex, StepField, StepForm } from "./setup-form";
+import { numbered, StepInstructions } from "./setup-instructions";
 import { SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
@@ -218,13 +219,11 @@ function Journey({
 				<StepForm
 					key={step.id}
 					title={step.title}
-					why={
-						<Markdown
-							text={
-								step.detail === null ? step.why : `${step.why} ${step.detail}`
-							}
-							inline
-						/>
+					why={<Markdown text={step.why} inline />}
+					detail={
+						step.detail === null ? undefined : (
+							<Markdown text={step.detail} inline />
+						)
 					}
 					warning={
 						step.warning === null ? undefined : (
@@ -250,6 +249,15 @@ function Journey({
 							onOpen={onOpen}
 							journey={journey}
 							todos={todos}
+						/>
+					) : numbered(step.user) ? (
+						<StepInstructions
+							text={step.user}
+							under={{
+								1: step.fields.map((field) => (
+									<StepField key={field.name} field={field} />
+								)),
+							}}
 						/>
 					) : step.fields.length > 0 ? (
 						step.fields.map((field) => (

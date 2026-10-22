@@ -129,8 +129,8 @@ export interface SecretHelp {
 	/** A few words naming it, as "the Anthropic API key". */
 	name: string;
 	purpose: string;
-	/** Markdown steps that end with the value copied. */
-	instructions: string;
+	/** Markdown steps, one line each and unnumbered, that end with the value copied. */
+	instructions: readonly string[];
 }
 
 /** How to get the secret stack config key `key` holds, for the projects the box pushes. */
@@ -147,10 +147,10 @@ export function secretHelp(
 			name: `the GitHub token for ${owner}`,
 			purpose: `The stack makes a deploy key on each of ${owner}'s repositories that splates pushes (${repositories.join(", ")}), so the box can clone and push trunk.`,
 			instructions: [
-				"1. Open [Fine-grained tokens](https://github.com/settings/personal-access-tokens/new).",
-				`2. Pick **${owner}** as the resource owner, then **Only select repositories** and ${repositories.join(", ")}, and give **Administration: Read and write**.`,
-				"3. Generate it and copy it.",
-			].join("\n"),
+				"Open [Fine-grained tokens](https://github.com/settings/personal-access-tokens/new)",
+				`Pick **${owner}** as the owner, **Only select repositories** and ${repositories.join(", ")}, with **Administration: Read and write**`,
+				"Generate it and copy it",
+			],
 		};
 	}
 	if (key === "cloudflare:apiToken") {
@@ -159,18 +159,18 @@ export function secretHelp(
 			purpose:
 				"The stack makes the box's tunnel, its DNS record and the Access application in front of it, and the box keeps the token to manage them.",
 			instructions: [
-				"1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token** and **Create Custom Token**.",
-				`2. Give it ${CLOUDFLARE_PERMISSIONS.map((each) => `**${each}**`).join(", ")}, the zone your host is in.`,
-				"3. Create it and copy it.",
-			].join("\n"),
+				"Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token** › **Create Custom Token**",
+				`Give it ${CLOUDFLARE_PERMISSIONS.map((each) => `**${each}**`).join(", ")}, on the zone your host is in`,
+				"Create it and copy it",
+			],
 		};
 	}
 	return {
 		name: "the Anthropic API key",
 		purpose: "The box keeps it, so agents that run there can reach Anthropic.",
 		instructions: [
-			"1. Open [API keys](https://console.anthropic.com/settings/keys), then **Create Key**.",
-			"2. Copy it.",
-		].join("\n"),
+			"Open [API keys](https://console.anthropic.com/settings/keys), then **Create Key**",
+			"Copy it",
+		],
 	};
 }

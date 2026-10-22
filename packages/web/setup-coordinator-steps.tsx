@@ -1,16 +1,19 @@
 import type {
 	AwsAccess,
 	CoordinatorNeeds,
+	FieldProgress,
 } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
-import { createContext, type JSX, useContext } from "react";
+import { ExternalLinkIcon } from "lucide-react";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, sleep } from "webappwiz/time";
-import { Button } from "#web/components/ui/button.tsx";
-import { copiedLabel, useCopy } from "./card";
-import { Markdown } from "./markdown";
+import { Badge } from "#web/components/ui/badge.tsx";
+import { buttonVariants } from "#web/components/ui/button.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { coordinatorMoveProgress, startCoordinatorMove } from "./setup-api";
 import { StepField } from "./setup-form";
+import { CommandBlock, StepInstructions } from "./setup-instructions";
 import type { BrowserSteps } from "./setup-journey";
 import type { StepBodies } from "./setup-steps";
 
@@ -119,89 +122,89 @@ export function coordinatorBrowserSteps(watch: MoveWatch): BrowserSteps {
 }
 
 /**
- * The sign-in page, with CloudShell's line to copy; the creds page, listing
- * each cred the box lacks; and the move's page, following it.
+ * The sign-in page, CloudShell's link, its command and the account id each
+ * under its own step; the creds page, each cred the box lacks under the
+ * step that makes them; and the move's page, following it.
  */
 export const COORDINATOR_STEPS: StepBodies = {
 	"coordinator-access": ({ step }) => (
-		<>
-			<Markdown text={step.user} />
-			<AccessLine access={step.data as AwsAccess | null} />
-			{step.fields.map((field) => (
-				<StepField key={field.name} field={field} />
-			))}
-		</>
+		<StepInstructions
+			text={step.user}
+			under={accessUnder(step.data as AwsAccess | null, step.fields)}
+		/>
 	),
 	"coordinator-creds": ({ step }) => {
 		const needs = (step.data as CoordinatorNeeds | null)?.needs ?? [];
 		return (
-			<>
-				<Markdown text={step.user} />
-				{needs.length > 0 && (
-					<ul aria-label="missing creds" className="flex flex-col gap-1">
-						{needs.map((name) => (
-							<li key={name}>
-								<code className="font-mono text-[12px]">{name}</code>
-							</li>
-						))}
-					</ul>
-				)}
-			</>
+			<StepInstructions
+				text={step.user}
+				under={{
+					2: needs.length > 0 && (
+						<ul aria-label="missing creds" className="flex flex-wrap gap-1.5">
+							{needs.map((name) => (
+								<li key={name}>
+									<Badge variant="outline" className="font-mono">
+										{name}
+									</Badge>
+								</li>
+							))}
+						</ul>
+					),
+				}}
+			/>
 		);
 	},
 	"coordinator-move": ({ step }) => <MoveBody user={step.user} />,
 };
 
 /**
- * CloudShell's link and the line to paste there, or, before Pulumi is
- * logged in to an organization, what to do first.
+ * CloudShell's link, the command to paste there and the account id it
+ * prints, or, before Pulumi is logged in to an organization, what to do first.
  */
-function AccessLine({ access }: { access: AwsAccess | null }): JSX.Element {
-	const { copied, copy } = useCopy();
+function accessUnder(
+	access: AwsAccess | null,
+	fields: readonly FieldProgress[],
+): Record<number, ReactNode> {
+	const field = fields.map((each) => (
+		<StepField key={each.name} field={each} />
+	));
 	if (access === null) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				Log Pulumi in to Pulumi Cloud first (the step before), and the line to
-				paste shows here.
-			</p>
-		);
+		return {
+			2: (
+				<p className="text-muted-foreground text-sm">
+					Log Pulumi in to Pulumi Cloud first, the step before, and the command
+					shows here.
+				</p>
+			),
+			3: field,
+		};
 	}
-	return (
-		<div className="flex flex-col gap-2">
+	return {
+		1: (
 			<a
 				href={access.cloudShell}
 				target="_blank"
 				rel="noreferrer"
-				className="text-sm underline underline-offset-4"
+				className={cn(
+					buttonVariants({ variant: "outline", size: "sm" }),
+					"self-start",
+				)}
 			>
 				Open AWS CloudShell
+				<ExternalLinkIcon data-icon="inline-end" aria-hidden />
 			</a>
-			<pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md border bg-muted px-2 py-1 font-mono text-[12px]">
-				{access.command}
-			</pre>
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				className="self-start"
-				title={copied.state === "failed" ? copied.error : undefined}
-				onClick={() => copy(access.command)}
-			>
-				<span aria-live="polite">{copiedLabel(copied, "Copy the line")}</span>
-			</Button>
-		</div>
-	);
+		),
+		2: <CommandBlock command={access.command} />,
+		3: field,
+	};
 }
 
-/** The move's page: what to expect, then where the move stands once Next starts it. */
+/** The move's page: its steps, then where the move stands once Next starts it. */
 function MoveBody({ user }: { user: string }): JSX.Element {
 	const watch = useContext(MoveWatchContext);
 	const state = useReactive(watch ?? IDLE, (each) => each.state, ["changed"]);
 	return (
-		<>
-			<Markdown text={user} />
-			<MoveStatus state={state} />
-		</>
+		<StepInstructions text={user} under={{ 2: <MoveStatus state={state} /> }} />
 	);
 }
 

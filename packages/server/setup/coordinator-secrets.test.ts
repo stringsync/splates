@@ -77,6 +77,14 @@ describe("stackSecretsStep", () => {
 			"(https://app.pulumi.com/me/esc/splates/secrets)",
 		);
 		expect(each[0]?.user).toContain("Zone · DNS · Edit");
+		// How to get it, then where it goes, numbered as one list.
+		expect(each[3]?.user.split("\n").map((line) => line.slice(0, 3))).toEqual([
+			"1. ",
+			"2. ",
+			"3. ",
+			"4. ",
+			"5. ",
+		]);
 	});
 
 	it("reads a secret done once Pulumi holds anything but its placeholder, never asking for the value", async () => {

@@ -8,6 +8,7 @@ import {
 	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	InfoIcon,
 	Loader2Icon,
 	RotateCwIcon,
 	TriangleAlertIcon,
@@ -170,6 +171,7 @@ export type NextState =
 export function StepForm({
 	title,
 	why,
+	detail,
 	warning,
 	at,
 	of,
@@ -185,6 +187,8 @@ export function StepForm({
 }: {
 	title: string;
 	why?: ReactNode;
+	/** What stands on the step now, as what the box will cost, in a box of its own under `why`. */
+	detail?: ReactNode;
 	/** What wants putting right on the step, and how, shown above its fields. */
 	warning?: ReactNode;
 	/** This page's place in the journey, from 1. */
@@ -246,6 +250,12 @@ export function StepForm({
 					<h2 className="font-medium text-2xl">{title}</h2>
 					{why !== undefined && <p className="text-muted-foreground">{why}</p>}
 				</header>
+				{detail !== undefined && (
+					<Alert>
+						<InfoIcon aria-hidden />
+						<AlertDescription>{detail}</AlertDescription>
+					</Alert>
+				)}
 				{warning !== undefined && (
 					<Alert variant="warning">
 						<TriangleAlertIcon aria-hidden />
