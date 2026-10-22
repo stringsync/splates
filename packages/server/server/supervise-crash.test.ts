@@ -41,7 +41,7 @@ describe("supervise, crashed", () => {
 	};
 
 	it("starts a crashed server again, waiting twice as long each time", async () => {
-		running([1, 0], [137, 0], [1, 0], [130, 0]);
+		running([139, 0], [137, 0], [139, 0], [130, 0]);
 
 		expect(await supervise(ps, { timer, clock })).toBe(130);
 		expect(ps.getCalls()).toHaveLength(4);
@@ -49,15 +49,36 @@ describe("supervise, crashed", () => {
 	});
 
 	it("gives up after five crashes in a row, each before it served a minute", async () => {
-		running([1, 0], [1, 0], [1, 30], [1, 0], [1, 0], [0, 0]);
+		running([139, 0], [139, 0], [139, 30], [139, 0], [139, 0], [0, 0]);
 
-		expect(await supervise(ps, { timer, clock })).toBe(1);
+		expect(await supervise(ps, { timer, clock })).toBe(139);
 		expect(ps.getCalls()).toHaveLength(5);
 		expect(pauses).toEqual([2, 4, 8, 16]);
 	});
 
+	it("does not start a server again that refused with a reason no start changes", async () => {
+		for (const code of [1, 23]) {
+			ps = new FakePs();
+			ps.args = ["server"];
+			pauses = [];
+			running([code, 0], [0, 0]);
+
+			expect(await supervise(ps, { timer, clock })).toBe(code);
+			expect(ps.getCalls()).toHaveLength(1);
+			expect(pauses).toEqual([]);
+		}
+	});
+
 	it("starts a new row of crashes after a server that served a while", async () => {
-		running([1, 0], [1, 0], [1, 0], [1, 0], [1, 120], [1, 0], [130, 0]);
+		running(
+			[139, 0],
+			[139, 0],
+			[139, 0],
+			[139, 0],
+			[139, 120],
+			[139, 0],
+			[130, 0],
+		);
 
 		expect(await supervise(ps, { timer, clock })).toBe(130);
 		expect(ps.getCalls()).toHaveLength(7);
@@ -84,7 +105,7 @@ describe("supervise, crashed", () => {
 	});
 
 	it("ends at once on a Ctrl-C during the pause after a crash", async () => {
-		ps.simulate(async () => 1);
+		ps.simulate(async () => 139);
 		// The pause never passes on its own; Ctrl-C comes once it begins.
 		const pausing: Timer = {
 			...timer,

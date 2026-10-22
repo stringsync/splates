@@ -8,6 +8,7 @@ import {
 	SystemTimer,
 	type Timer,
 } from "webappwiz/time";
+import { EXIT } from "../exit";
 import { SUPERVISOR } from "../workers";
 
 /** What a server exits with to be started again as it was. */
@@ -41,7 +42,8 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
  * otherwise outlive it, listening on its port. A `worker` runs beside it as a second child,
  * told this process's pid so it ends once this is gone. Both stop, ending
  * this with 0, once the `checkout` it runs from is deleted. A child that
- * crashes, ending any other way than with 0, Ctrl-C or a stop, is started
+ * crashes, ending any other way than with 0, Ctrl-C, a stop or a refusal no
+ * start can change (`usage`, `no_secret_store`), which ends this at once, is started
  * again after a pause that doubles with each crash that came quickly, until
  * so many come in a row that it would only crash again. With `awake`, the
  * platform's own command keeps the machine from sleeping while this runs,
@@ -137,6 +139,12 @@ export async function supervise(
 				if (STOPS.includes(exitCode)) {
 					return exitCode;
 				}
+				if (FATAL.includes(exitCode)) {
+					log?.error(
+						`splates server exited (${exitCode}) with a refusal no start can change: not starting it again`,
+					);
+					return exitCode;
+				}
 				// One that served a while crashed afresh, not again.
 				const served = clock.now().subtract(began);
 				quick = served.isLessThan(SERVED) ? quick + 1 : 1;
@@ -212,6 +220,12 @@ export interface SuperviseOptions {
  * and Ctrl-C's or a SIGTERM's code when one reached it alone.
  */
 const STOPS = [0, 128 + 2, 128 + 15];
+
+/**
+ * What a server refuses with when no start can change the answer: it has
+ * said why on the terminal, and starting it again would only say so again.
+ */
+const FATAL: number[] = [EXIT.usage, EXIT.no_secret_store];
 
 /** What a Ctrl-C that came while no server ran ends this with. */
 const INTERRUPTED = 128 + 2;
