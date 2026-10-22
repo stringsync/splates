@@ -18,6 +18,8 @@ After making code changes:
   touching processes, sockets, files or git, which is where macOS and Linux
   differ. `splates dev prove runner` joins a Linux container to the server as
   a runner and runs a job on it; it needs Docker and takes minutes.
+  Pass `--ci` to print only the failing tests and the summaries, rather
+  than piping its output through `tail`, `grep` or a file to cut it down.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

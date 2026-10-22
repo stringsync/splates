@@ -24,6 +24,8 @@ export interface TestOptions {
 	 * worktree and streams the output back.
 	 */
 	local?: boolean;
+	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
+	ci?: boolean;
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
 	files?: string[];
 	/**
@@ -130,6 +132,7 @@ export async function test(opts: TestOptions): Promise<void> {
 		"--no-isolate",
 		"--timeout",
 		"30000",
+		...(opts.ci ? ["--only-failures"] : []),
 		...args,
 		...(report
 			? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
@@ -194,6 +197,7 @@ async function ranOnRunner(
 	const flags = [
 		...(opts.evals ? ["--evals"] : []),
 		...(opts.all ? ["--all"] : []),
+		...(opts.ci ? ["--ci"] : []),
 		...(opts.files ?? []),
 	];
 	const ctx = { ps, fs: new NodeFs(), log };

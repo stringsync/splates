@@ -78,6 +78,11 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			description:
 				"run them here in a heavy-job slot, even when a runner has joined `splates server`, which otherwise runs them on a snapshot of this worktree and streams the output back",
 		})
+		.option("ci", z.boolean(), {
+			default: false,
+			description:
+				"print only the failing tests and each run's summary, not every passing test",
+		})
 		.rest("files", z.string(), {
 			description: "run only the test files whose path has one of these",
 		})
