@@ -10,12 +10,12 @@ agents, on 2026-10-22.
 
 `docker/worker.Dockerfile` builds a credential-free Linux worker from this
 checkout. `splates dev prove coordinator` (`docker/prove-coordinator.sh`)
-runs `splates server` in a Debian container as the user `splates`, joins
-this machine to it as a worker, and drives a task through to a merge, a
-restart, an archive and a cred with `docker/scripted-agent.ts`, an ACP agent
-that runs `coordinator-turn.sh` each turn in place of a real model, sharing
-`docker/prove-lib.sh`. It placed that task's agent on this machine's worker,
-which no longer runs a remote agent, so it waits on being reworked. The
+runs `splates server` in a Debian container as the user `splates`, and
+drives a task through to a merge, a restart, an archive and a cred with
+`docker/scripted-agent.ts`, an ACP agent that runs `coordinator-turn.sh`
+each turn in place of a real model, sharing `docker/prove-lib.sh`. The box's
+own worker runs that agent, in a container run unconfined so bubblewrap may
+sandbox it; the task's port is checked on the box's loopback. The
 coordinator needs a working device store: on Linux that is libsecret's, or
 files under `~/.splates/secrets/` with `SPLATES_SECRET_STORE=file`; a server
 on a Linux with neither stops at once saying so. The box's image adds

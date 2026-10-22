@@ -17,7 +17,7 @@ export interface ProveOptions {
 
 /**
  * Runs a proof of splates on Linux end to end: `coordinator` runs the server
- * in a Docker container with this machine as its worker. It prints what it
+ * in a Docker container, its agents with it. It prints what it
  * checked and fails on the first thing wrong.
  */
 export async function prove(opts: ProveOptions): Promise<void> {
