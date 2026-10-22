@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { Git } from "./git";
 import { Testing } from "./testing";
 
 describe("Git", () => {
@@ -40,6 +41,32 @@ describe("Git", () => {
 		expect(
 			await env.git.run(env.root, "log", "-1", "--format=%an <%ae>"),
 		).toMatchObject({ stdout: "Someone <someone@example.com>" });
+	});
+
+	it("commits as the identity it is given on a machine with none, and reads its own as one", async () => {
+		await env.gitCli(env.root, "config", "user.name", "Someone");
+		await env.gitCli(env.root, "config", "user.email", "someone@example.com");
+		expect(await env.git.author()).toEqual({
+			name: "Someone",
+			email: "someone@example.com",
+		});
+
+		await env.gitCli(env.root, "config", "--unset-all", "user.name");
+		await env.gitCli(env.root, "config", "--unset-all", "user.email");
+		expect(await env.git.author()).toBeNull();
+		const signed = env.git.at(env.root);
+		const given = new Git(env.root, {
+			identity: {
+				author: async () => ({ name: "Given", email: "g@example.com" }),
+			},
+		});
+		await writeFile(join(env.root, "c.txt"), "c");
+		expect((await given.commitAll(env.root, "third")).code).toBe(0);
+		expect(
+			await signed.run(env.root, "log", "-1", "--format=%an <%ae>"),
+		).toMatchObject({
+			stdout: "Given <g@example.com>",
+		});
 	});
 
 	it("names the branch checked out", async () => {

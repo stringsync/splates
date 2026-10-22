@@ -305,7 +305,7 @@ export async function serveDev(
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
 					launcher: worker,
-					slots: slots.project(git.root, config.platform),
+					slots: slots.project(git.root, config.platform, () => git.author()),
 					machine: worker,
 					checkouts: new WorkerPlacement({
 						service,

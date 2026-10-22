@@ -430,7 +430,8 @@ export class WorktreeService {
 		}
 		const worker = this.machines?.machine(machine) ?? null;
 		return {
-			git: worker === null ? this.git.at(path) : workerGit(path, worker),
+			git:
+				worker === null ? this.git.at(path) : workerGit(path, worker, this.git),
 			exists: async () =>
 				worker === null ? true : worker.exists(path).catch(() => true),
 			remove: async () => {

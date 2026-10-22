@@ -1,4 +1,12 @@
+// scry-ignore-file compact-files: every git call splates makes goes through this one class, so the identity it signs with moved out and the rest stays together
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import {
+	type Author,
+	authorOf,
+	fallbackIdentity,
+	type GitIdentity,
+} from "./git-identity";
+import { processGit } from "./git-process";
 
 export interface GitResult {
 	code: number;
@@ -34,23 +42,14 @@ export interface GitOptions {
 	fs?: GitFiles;
 	/** Where git runs; a process through `ps` by default. */
 	run?: GitRunner;
-}
-
-/** One commit as `Git.log` reads it. */
-export interface Commit {
-	hash: string;
-	/** When it was written, as ISO 8601. */
-	at: string;
-	author: string;
-	/** Its message's first line. */
-	subject: string;
-	/** The paths it changed, repo-relative. */
-	files: string[];
+	/** Whose author commits are signed as where the machine git runs on has none of its own; `splates` without. */
+	identity?: Author;
 }
 
 export class Git {
 	private readonly fs: GitFiles;
 	private readonly runner: GitRunner;
+	private readonly identity: Author | undefined;
 
 	constructor(
 		/** The main worktree, where trunk lives. */
@@ -59,6 +58,12 @@ export class Git {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.runner = opts.run ?? processGit(opts.ps ?? new NodePs());
+		this.identity = opts.identity;
+	}
+
+	/** Who this machine's git commits as, from its config; null unless both name and email are set. */
+	author(): Promise<GitIdentity | null> {
+		return authorOf(this.runner, this.root);
 	}
 
 	/**
@@ -66,7 +71,11 @@ export class Git {
 	 * clone's own, whose branches its main tree does not have.
 	 */
 	at(root: string): Git {
-		return new Git(root, { fs: this.fs, run: this.runner });
+		return new Git(root, {
+			fs: this.fs,
+			run: this.runner,
+			...(this.identity === undefined ? {} : { identity: this.identity }),
+		});
 	}
 
 	async run(cwd: string, ...args: string[]): Promise<GitResult> {
@@ -389,7 +398,12 @@ export class Git {
 	}
 
 	async rebase(cwd: string, onto: string): Promise<GitResult> {
-		return this.run(cwd, ...(await this.fallbackIdentity(cwd)), "rebase", onto);
+		return this.run(
+			cwd,
+			...(await fallbackIdentity(this.runner, cwd, this.identity)),
+			"rebase",
+			onto,
+		);
 	}
 
 	resetHard(cwd: string, commit: string): Promise<GitResult> {
@@ -464,20 +478,10 @@ export class Git {
 	private async commit(cwd: string, ...args: string[]): Promise<GitResult> {
 		return this.run(
 			cwd,
-			...(await this.fallbackIdentity(cwd)),
+			...(await fallbackIdentity(this.runner, cwd, this.identity)),
 			"commit",
 			...args,
 		);
-	}
-
-	/** `-c` options naming `splates` for whichever of the name and email the machine leaves unset. */
-	private async fallbackIdentity(cwd: string): Promise<string[]> {
-		const email = await this.run(cwd, "config", "user.email");
-		const name = await this.run(cwd, "config", "user.name");
-		return [
-			...(name.stdout === "" ? ["-c", "user.name=splates"] : []),
-			...(email.stdout === "" ? ["-c", "user.email=splates@localhost"] : []),
-		];
 	}
 
 	/**
@@ -655,22 +659,16 @@ function lines(out: string): string[] {
 	return out === "" ? [] : out.split("\n");
 }
 
-/** `GitRunner` as a process through `ps`. */
-export function processGit(ps: Ps): GitRunner {
-	return {
-		git: async (cwd, args, env) => {
-			const { exitCode, stdout, stderr } = await ps.spawnCapture(
-				["git", "-C", cwd, ...args],
-				env === undefined ? undefined : { env },
-			);
-			return { code: exitCode, stdout, stderr };
-		},
-	};
+/** One commit as `Git.log` reads it. */
+export interface Commit {
+	hash: string;
+	/** When it was written, as ISO 8601. */
+	at: string;
+	author: string;
+	/** Its message's first line. */
+	subject: string;
+	/** The paths it changed, repo-relative. */
+	files: string[];
 }
 
-/** Whether git reaches `url` over SSH, as a deploy key signs in. */
-export function sshUrl(url: string | null): boolean {
-	return (
-		url !== null && (/^ssh:\/\//.test(url) || /^[\w.-]+@[\w.-]+:/.test(url))
-	);
-}
+export { processGit, sshUrl } from "./git-process";

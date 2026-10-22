@@ -1,15 +1,23 @@
 import { Git, type GitFiles } from "../git";
+import type { Author } from "../git-identity";
 import type { WorkerMachine } from "./machine";
 
 /**
  * Git on the worker a checkout is on, rooted at `root`: what `Watch` runs
  * around an agent's commands, and what the coordinator reads a task's
- * branch through when its checkout is a worker's clone.
+ * branch through when its checkout is a worker's clone. Commits there are
+ * signed as the author `identity` names, the coordinator's, when the
+ * worker has none.
  */
-export function workerGit(root: string, machine: WorkerMachine): Git {
+export function workerGit(
+	root: string,
+	machine: WorkerMachine,
+	identity: Author | null = null,
+): Git {
 	return new Git(root, {
 		run: machine,
 		fs: workerFiles(machine),
+		...(identity === null ? {} : { identity }),
 	});
 }
 

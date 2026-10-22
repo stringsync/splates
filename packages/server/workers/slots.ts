@@ -6,7 +6,9 @@ import {
 	SystemWallClock,
 	type WallClock,
 } from "webappwiz/time";
+import type { Launch } from "../agents";
 import type { ConversationSlots, SlotAsk } from "../conversations";
+import type { GitIdentity } from "../git-identity";
 import { RUNNING } from "../server/shared";
 import { GoneWorkers } from "./gone";
 import type { KeyDelivery } from "./key-delivery";
@@ -105,7 +107,12 @@ export class WorkerSlots implements Resource {
 	}
 
 	/** The queue as the agents of the project at `root` take slots from it. */
-	project(root: string, platform: Platform | null): ConversationSlots {
+	project(
+		root: string,
+		platform: Platform | null,
+		/** Who the project's own git commits as, which an agent on a remote worker commits as too. */
+		author: () => Promise<GitIdentity | null> = async () => null,
+	): ConversationSlots {
 		const { scheduler, registry } = this;
 		const delivery = this.delivery;
 		const request = ({ id, task, agent, uncapped }: SlotAsk) => ({
@@ -131,6 +138,9 @@ export class WorkerSlots implements Resource {
 				} catch (error) {
 					grant.dispose();
 					throw error;
+				}
+				if (worker.kind !== "local") {
+					launch = signedAs(launch, await author());
 				}
 				return {
 					worker: grant.worker,
@@ -270,4 +280,22 @@ function poolWorker(
 			local ||
 			holds({ id: worker.id, type: record?.provisioned?.type ?? null }, agent),
 	};
+}
+
+/**
+ * `launch` with git's author and committer set to `identity`, for a worker
+ * that has none of its own: an agent's commits there are the person's, not
+ * anonymous. Left as it is without one.
+ */
+function signedAs(launch: Launch, identity: GitIdentity | null): Launch {
+	return identity === null
+		? launch
+		: (argv, cwd, env) =>
+				launch(argv, cwd, {
+					GIT_AUTHOR_NAME: identity.name,
+					GIT_AUTHOR_EMAIL: identity.email,
+					GIT_COMMITTER_NAME: identity.name,
+					GIT_COMMITTER_EMAIL: identity.email,
+					...env,
+				});
 }
