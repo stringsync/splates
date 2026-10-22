@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	setSystemTime,
+} from "bun:test";
 import {
 	act,
 	cleanup,
@@ -227,6 +234,31 @@ describe("App's conversation header", () => {
 
 		await testing.say(conversation({ id: "c1", title: "Fix login" }));
 		expect(within(actions()).queryByText(/Paus/)).toBeNull();
+	});
+
+	it("says an agent has not checkpointed once a pause has waited three minutes", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "running",
+				checkpoint: "asked",
+				pausing: true,
+			}),
+		]);
+		const actions = () => view.getByRole("navigation", { name: "actions" });
+		expect(within(actions()).getByText("Pausing…")).toBeTruthy();
+		expect(within(actions()).queryByText(/not checkpointed/)).toBeNull();
+
+		const real = Date.now();
+		setSystemTime(new Date(real + 3 * 60_000 + 1_000));
+		try {
+			expect(
+				await within(actions()).findByText(/not checkpointed/),
+			).toBeTruthy();
+		} finally {
+			setSystemTime();
+		}
 	});
 
 	it("requests a project-note draft without interrupting a running turn", async () => {

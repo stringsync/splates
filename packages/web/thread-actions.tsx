@@ -17,6 +17,7 @@ import {
 	WalletIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
+import { Duration } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
@@ -28,6 +29,7 @@ import {
 	sendQueuedNow,
 } from "./conversation-api";
 import { filable, useArchive } from "./conversation-archive";
+import { TakingLong } from "./countdown";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
@@ -188,6 +190,9 @@ export interface ThreadActions {
 	startNew: (id: number, assignee: AgentPick | null) => void;
 }
 
+/** How long a pause waits on the agent's checkpoint before saying so. */
+const PAUSE_WITHIN = Duration.mins(3);
+
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
  * stopped; once the person's last word paused it, Resume, under a row saying
@@ -205,6 +210,14 @@ function pauseActions(
 			{
 				label: "Pausing…",
 				icon: <ClockIcon className="opacity-60" />,
+				// Counted from when the row shows, as the page has no time for the ask.
+				detail: (
+					<TakingLong
+						within={PAUSE_WITHIN}
+						doing="pausing"
+						gaveUp="The agent has not checkpointed yet."
+					/>
+				),
 				run: null,
 			},
 		];
