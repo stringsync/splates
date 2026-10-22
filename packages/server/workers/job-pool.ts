@@ -20,6 +20,8 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	private readonly holding = new Map<string, HeldJob>();
 	/** The projects each runner has run a job of, so holds their clones. */
 	private readonly clones = new Map<string, Set<string>>();
+	/** The last jobs sent to run here for asking more than any runner has, newest first. */
+	private readonly tooBigs: TooBigJob[] = [];
 
 	constructor(
 		private readonly view: JobPoolView,
@@ -91,6 +93,27 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	/** How many jobs runner `id` runs now. */
 	running(id: string): number {
 		return this.held().filter((each) => each.runner === id).length;
+	}
+
+	/** The last `TOO_BIG_KEPT` jobs sent to run here for asking more than any runner has, newest first. */
+	tooBig(): TooBigJob[] {
+		return [...this.tooBigs];
+	}
+
+	/**
+	 * The biggest runner a job could have: up, on its way, or to be made
+	 * now; null when there is none, as without a provider or past the budget.
+	 */
+	largest(): JobSize | null {
+		const sizes = [
+			...this.view
+				.runners()
+				.filter((runner) => runner.ready)
+				.map((runner) => runner.size),
+			...this.view.booting(),
+			...(this.view.canMake() ? [this.view.made()] : []),
+		];
+		return biggest(sizes);
 	}
 
 	/**
@@ -227,7 +250,21 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 
 	private grant(ask: JobAsk, runner: string | null): JobPlace {
 		if (runner === null) {
-			return { runner, dispose: () => {} };
+			const largest = this.largest();
+			if (largest === null || fits(ask.size, largest)) {
+				return { runner, tooBig: null, dispose: () => {} };
+			}
+			this.tooBigs.unshift({
+				id: ask.id,
+				project: ask.project,
+				task: ask.task,
+				what: ask.what,
+				size: ask.size,
+				largest,
+				at: this.clock.now(),
+			});
+			this.tooBigs.splice(TOO_BIG_KEPT);
+			return { runner, tooBig: largest, dispose: () => {} };
 		}
 		const held: HeldJob = {
 			id: ask.id,
@@ -245,6 +282,7 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 		let freed = false;
 		return {
 			runner,
+			tooBig: null,
 			dispose: () => {
 				if (freed) {
 					return;
@@ -345,9 +383,39 @@ export interface WaitingJob {
  */
 export interface JobPlace extends Resource {
 	readonly runner: string | null;
+	/**
+	 * For a job sent here because it asks more than any runner has, the
+	 * biggest runner there was; null for any other.
+	 */
+	readonly tooBig: JobSize | null;
 }
 
-/** `changed` whenever the jobs waiting or running change, and `ended` as a job on a runner gives its place up. */
+/** How many jobs sent here for being too big the pool keeps, for the Runners page. */
+export const TOO_BIG_KEPT = 10;
+
+/** A job sent to run here because it asked more than any runner has. */
+export interface TooBigJob {
+	id: string;
+	project: string;
+	task: string | null;
+	what: string;
+	size: JobSize;
+	/** The biggest runner there was. */
+	largest: JobSize;
+	/** When, epoch milliseconds. */
+	at: number;
+}
+
+/** The size with the most CPUs among `sizes`, the most memory among those; null for none. */
+export function biggest(sizes: JobSize[]): JobSize | null {
+	return (
+		[...sizes].sort(
+			(one, other) => other.cpus - one.cpus || other.memory - one.memory,
+		)[0] ?? null
+	);
+}
+
+/** `changed` whenever the jobs waiting or running change, or one is sent here for being too big, and `ended` as a job on a runner gives its place up. */
 export type JobPoolEvents = {
 	changed: undefined;
 	ended: HeldJob & { until: number };

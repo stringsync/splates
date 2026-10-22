@@ -55,6 +55,63 @@ describe("App's workers", () => {
 		]);
 	});
 
+	it("warns while this project's jobs ask more than the biggest runner has, and says nothing while they fit", async () => {
+		const view = await openWorkers({
+			...pool([worker("box")]),
+			jobs: {
+				asked: { cpus: 8, memory: 16 },
+				largest: { cpus: 4, memory: 8 },
+				tooBig: [],
+			},
+		});
+
+		expect(view.getByRole("alert").textContent).toContain(
+			"This project's jobs ask for 8 CPUs and 16 GB, more than the biggest runner's 4 CPUs and 8 GB, so they run on this Mac.",
+		);
+		expect(view.queryByRole("list", { name: "too big" })).toBeNull();
+		cleanup();
+
+		const fits = await openWorkers({
+			...pool([worker("box")]),
+			jobs: {
+				asked: { cpus: 4, memory: 8 },
+				largest: { cpus: 4, memory: 8 },
+				tooBig: [],
+			},
+		});
+
+		expect(fits.queryByRole("alert")).toBeNull();
+	});
+
+	it("lists the jobs sent to this Mac for being too big for any runner", async () => {
+		const view = await openWorkers({
+			...pool([worker("box")]),
+			jobs: {
+				asked: { cpus: 4, memory: 8 },
+				largest: { cpus: 4, memory: 8 },
+				tooBig: [
+					{
+						id: "job-3",
+						project: "/repo/.git",
+						task: "big-build",
+						what: "make all",
+						size: { cpus: 16, memory: 0.5 },
+						largest: { cpus: 4, memory: 8 },
+						at: Date.now(),
+					},
+				],
+			},
+		});
+
+		const [line] = within(view.getByRole("list", { name: "too big" }))
+			.getAllByRole("listitem")
+			.map((each) => each.textContent);
+		expect(line).toStartWith(
+			"make all in big-build, asked 16 CPUs and 0.5 GB, the biggest had 4 CPUs and 8 GB,",
+		);
+		expect(view.queryByRole("alert")).toBeNull();
+	});
+
 	it("says why a joined runner takes no jobs, and nothing of a runner that takes them or is away", async () => {
 		const view = await openWorkers(
 			pool([
@@ -256,6 +313,7 @@ function pool(workers: WorkerListing[]): WorkerPool {
 		refused: [],
 		build: "1.0.0",
 		rollout: { updating: null, next: [], byHand: [] },
+		jobs: { asked: null, largest: null, tooBig: [] },
 	};
 }
 

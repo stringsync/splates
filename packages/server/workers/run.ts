@@ -9,15 +9,12 @@ import { type WorkerCreds, workerCreds, workerId } from "./creds";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { endWithSupervisor, restartWorker, updatedBuild } from "./lifecycle";
 import { machineSlots } from "./machine";
-import {
-	WORKER_KEY_HEADER,
-	WORKER_SOCKET_PATH,
-	workerAuthorization,
-} from "./routes";
+import { WORKER_SOCKET_PATH } from "./routes";
 import type { WorkerRunOptions } from "./run-options";
 import { AgentSandbox } from "./sandbox";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
+import { WORKER_KEY_HEADER, workerAuthorization } from "./worker-key";
 
 /** Where the local worker finds the server on this machine. */
 export function workerSocketPath(ps: Ps): string {

@@ -125,6 +125,9 @@ async function read(
 				break;
 			case "local":
 				local = true;
+				if (event.tooBig !== undefined) {
+					log.error(tooBigLine(event.tooBig.asked, event.tooBig.largest));
+				}
 				break;
 			case "error":
 				throw new Error(`the job failed on its runner: ${event.reason}`);
@@ -152,6 +155,15 @@ async function read(
 		);
 	}
 	return { code, files };
+}
+
+/** What a caller is told of a job no runner has room for, which it runs here. */
+export function tooBigLine(asked: JobSize, largest: JobSize): string {
+	return `no runner has ${sizeText(asked)}, the biggest has ${sizeText(largest)}: running it here. Ask for less with \`splates run --cpus --memory\` or the project's \`job\` in splates.config.ts`;
+}
+
+function sizeText(size: JobSize): string {
+	return `${size.cpus} ${size.cpus === 1 ? "CPU" : "CPUs"} and ${size.memory} GB`;
 }
 
 async function git(

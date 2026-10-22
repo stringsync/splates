@@ -10,6 +10,7 @@ import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
 import { type HeldJob, JobPool } from "./job-pool";
+import { JobRooms } from "./job-room";
 import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
@@ -29,6 +30,7 @@ import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
 import { UnixWorkerListener } from "./unix-listener";
+import { keyedWorker, WORKER_KEY_HEADER } from "./worker-key";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
@@ -48,20 +50,12 @@ const Settings = z.object({
 /** What `POST /api/workers/provision` is sent: the provider's type to make, by default its cheapest. */
 const Provision = z.object({ type: z.string().min(1).optional() });
 
-/** The header a joined worker shows its key in, as `Bearer <id>:<key>`. */
-export const WORKER_KEY_HEADER = "authorization";
-
 /**
  * Where a worker's WebSocket opens: its own path, for Cloudflare Access to
  * carry the workers' policy at, since `/api/workers` is also the page's list.
  * The tunnel's `WORKER_PATHS` names it.
  */
 export const WORKER_SOCKET_PATH = "/api/workers/socket";
-
-/** `Bearer <id>:<key>`, as a joined worker shows its key. */
-export function workerAuthorization(id: string, key: string): string {
-	return `Bearer ${id}:${key}`;
-}
 
 /**
  * Where `splates server` takes its workers in, as their coordinator: the local
@@ -86,6 +80,8 @@ export class DevWorkers implements AsyncResource {
 	readonly jobs: RunnerJobs;
 	/** What makes the runners the jobs need, and keeps the one the agents do. */
 	private readonly keeper: RunnerKeeper;
+	/** Whether the project's jobs fit a runner, for the Runners page. */
+	readonly room: JobRooms;
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
@@ -168,6 +164,11 @@ export class DevWorkers implements AsyncResource {
 			log,
 		);
 		this.keeper.watch(this.jobs.pool);
+		this.room = new JobRooms(
+			this.jobs.pool,
+			this.keeper,
+			this.provisioning !== null,
+		);
 		this.jobs.pool.events.on("ended", (job) => {
 			void ledger?.note(jobRow(job)).catch((error: unknown) => {
 				log.error(`a runner's job could not be kept: ${String(error)}`);
@@ -281,7 +282,7 @@ export class DevWorkers implements AsyncResource {
 		// whoever answers the dial would have it. It sends it in its hello,
 		// once it has had this server sign its nonce.
 		const id = request.headers.has(WORKER_KEY_HEADER)
-			? this.identify(request)
+			? keyedWorker(request, this.records)
 			: null;
 		if (id === null && request.headers.has(WORKER_KEY_HEADER)) {
 			return refuse(
@@ -297,23 +298,11 @@ export class DevWorkers implements AsyncResource {
 			: refuse(400, "usage", "a worker connects with a WebSocket");
 	};
 
-	/** The worker `request`'s key proves it to be; null for none, or a key no worker joined with. */
-	private identify(request: Request): string | null {
-		const shown = request.headers.get(WORKER_KEY_HEADER) ?? "";
-		const match = /^Bearer (.+):([^:]+)$/.exec(shown);
-		if (match === null) {
-			return null;
-		}
-		const [, id = "", key = ""] = match;
-		// One being removed still connects, to finish the agents it drains.
-		return this.records.verify(id, key) ? id : null;
-	}
-
 	/**
 	 * `GET /api/workers`: each worker and each refusal, as `splates worker
 	 * list` shows them, and the build this server runs.
 	 */
-	readonly list = async (): Promise<Response> =>
+	readonly list = async (request?: Request): Promise<Response> =>
 		Response.json({
 			...workerList(
 				this.registry,
@@ -323,6 +312,7 @@ export class DevWorkers implements AsyncResource {
 			),
 			build: RUNNING,
 			rollout: this.rollout.standing(),
+			jobs: await this.room.of(request),
 		} satisfies WorkerPool);
 
 	/** `POST /api/workers/invite`, as `WorkerInvites.invite`. */
@@ -438,7 +428,7 @@ export class DevWorkers implements AsyncResource {
 			...(local ? { removing: false } : {}),
 		});
 		this.slots.scheduler.poke();
-		return this.list();
+		return this.list(request);
 	};
 
 	/**

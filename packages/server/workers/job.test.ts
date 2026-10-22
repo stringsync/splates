@@ -218,7 +218,18 @@ describe("heavy jobs on a runner", () => {
 			memory: 0.5,
 		});
 
-		expect(await events(response)).toEqual([{ type: "local" }]);
+		expect(await events(response)).toEqual([
+			{
+				type: "local",
+				tooBig: {
+					asked: { cpus: availableParallelism() + 1, memory: 0.5 },
+					largest: {
+						cpus: availableParallelism(),
+						memory: Math.round(totalmem() / 1024 ** 3),
+					},
+				},
+			},
+		]);
 	});
 
 	it("streams a job request's output and exit code from the runner", async () => {

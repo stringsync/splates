@@ -30,6 +30,16 @@ is told `local`, and its caller runs it in this machine's
 heavy-job slots (`heavy-jobs-and-cores.md`), so the hard stop never leaves a
 job waiting.
 
+A job told `local` because it asks more than the biggest runner there is (up,
+booting, or the type that would be made now) carries `tooBig` with what it
+asked and that biggest size, and the caller (`runOnRunner`) says so on stderr
+before running it here; the pool keeps the last 10 such jobs
+(`JobPool.tooBig`). `GET /api/workers` gives them as `jobs.tooBig`, beside
+`jobs.asked`, the `job` size of the project the request names, and
+`jobs.largest`, the biggest runner joined or the type the provider makes
+whatever the budget allows. The Runners page warns while `asked` is bigger
+than `largest` and lists the too-big jobs.
+
 `RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants:
 one while any agent is live (made when the first starts), and a second only
 while jobs wait that fit in no room left on the runners up or booting, counting

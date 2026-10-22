@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { type JobAsk, JobPool } from "./job-pool";
+import { type JobAsk, JobPool, TOO_BIG_KEPT } from "./job-pool";
 import type { JobSize } from "./job-size";
 import { FakeJobView } from "./testing";
 
@@ -263,12 +263,48 @@ describe("the job pool", () => {
 		expect(pool.queue()).toHaveLength(1);
 	});
 
-	it("runs a job here that no runner up, on its way or to be made has room for", async () => {
+	it("runs a job here that no runner up, on its way or to be made has room for, saying the biggest and keeping it", async () => {
 		view.making = true;
 
 		const place = await pool.take(ask("/a", [], { cpus: 16, memory: 8 }));
 
 		expect(place.runner).toBeNull();
+		expect(place.tooBig).toEqual(RUNNER);
+		expect(pool.tooBig()).toEqual([
+			{
+				id: "job-1",
+				project: "/a",
+				task: null,
+				what: "bun test",
+				size: { cpus: 16, memory: 8 },
+				largest: RUNNER,
+				at: clock.now(),
+			},
+		]);
+	});
+
+	it("says no job is too big that runs here only for want of any runner", async () => {
+		ready = [];
+
+		const place = await pool.take(ask("/a", [], { cpus: 16, memory: 8 }));
+
+		expect(place.tooBig).toBeNull();
+		expect(pool.tooBig()).toEqual([]);
+	});
+
+	it("keeps only the last too-big jobs, newest first", async () => {
+		await Promise.all(
+			Array.from({ length: TOO_BIG_KEPT + 2 }, () =>
+				pool.take(ask("/a", [], { cpus: 16, memory: 8 })),
+			),
+		);
+
+		expect(pool.tooBig().map((each) => each.id)).toEqual(
+			Array.from(
+				{ length: TOO_BIG_KEPT },
+				(_, at) => `job-${TOO_BIG_KEPT + 2 - at}`,
+			),
+		);
 	});
 
 	it("waits for a runner on its way big enough for a job none up has room for", async () => {

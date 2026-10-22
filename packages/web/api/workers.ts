@@ -6,7 +6,7 @@ import type {
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
-import { ApiError, answered, send, sendJson } from "./request";
+import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**
  * The email Cloudflare Access signed this page's visitor in with, or null
@@ -63,7 +63,8 @@ export async function machine(): Promise<MachineStatus> {
 
 /** Every worker, those turned away, and the build `splates server` runs, as `splates worker list` reads them. */
 export async function workerPool(): Promise<WorkerPool> {
-	const response = await answered("/api/workers");
+	// Scoped, so the pool says whether this project's jobs fit a runner.
+	const response = await answered(scoped("/api/workers"));
 	if (!response.ok) {
 		throw new ApiError("error", `/api/workers: ${response.status}`);
 	}

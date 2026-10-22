@@ -42,8 +42,19 @@ export const JobEvent = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("exit"), code: z.number() }),
 	/** The job waits for a place on a runner, at this position in the pool's queue, from 1. */
 	z.object({ type: z.literal("queued"), position: z.number() }),
-	/** No runner is to be had for the job: the caller runs it here. */
-	z.object({ type: z.literal("local") }),
+	/**
+	 * No runner is to be had for the job: the caller runs it here. `tooBig`
+	 * says it asked more than any runner has, and the biggest there was.
+	 */
+	z.object({
+		type: z.literal("local"),
+		tooBig: z
+			.object({
+				asked: z.object({ cpus: z.number(), memory: z.number() }),
+				largest: z.object({ cpus: z.number(), memory: z.number() }),
+			})
+			.optional(),
+	}),
 	z.object({ type: z.literal("error"), reason: z.string() }),
 ]);
 export type JobEvent = z.infer<typeof JobEvent>;
@@ -137,7 +148,17 @@ export class RunnerJobs {
 						? undefined
 						: this.registry.worker(place.runner);
 				if (runner === undefined) {
-					send({ type: "local" });
+					send(
+						place.tooBig === null
+							? { type: "local" }
+							: {
+									type: "local",
+									tooBig: {
+										asked: { cpus: job.cpus, memory: job.memory },
+										largest: place.tooBig,
+									},
+								},
+					);
 					return;
 				}
 				try {

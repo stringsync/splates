@@ -7,10 +7,13 @@ import { runOnRunner } from "./job-client";
 describe("a job sent to run on a runner", () => {
 	let deps: Testing;
 	let sent: Record<string, unknown>[];
+	let log: MemoryLogger;
+	/** What the server answers each job, one JSON object a line. */
+	let answer: unknown;
 
 	const send = async (_url: string | URL | Request, init?: RequestInit) => {
 		sent.push(JSON.parse(String(init?.body)));
-		return new Response(`${JSON.stringify({ type: "exit", code: 0 })}\n`);
+		return new Response(`${JSON.stringify(answer)}\n`);
 	};
 
 	const run = (size?: { cpus?: number; memory?: number }) =>
@@ -18,7 +21,7 @@ describe("a job sent to run on a runner", () => {
 			{
 				ps: deps.ps,
 				fs: deps.fs,
-				log: new MemoryLogger(),
+				log,
 				dev: "http://splates.test",
 				send: send as typeof fetch,
 			},
@@ -33,6 +36,8 @@ describe("a job sent to run on a runner", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		sent = [];
+		log = new MemoryLogger();
+		answer = { type: "exit", code: 0 };
 	});
 
 	afterEach(async () => {
@@ -43,6 +48,25 @@ describe("a job sent to run on a runner", () => {
 		await run();
 
 		expect(sent[0]).toMatchObject({ cpus: 4, memory: 8 });
+	});
+
+	it("says on stderr when no runner has room for it, and leaves it to run here", async () => {
+		answer = {
+			type: "local",
+			tooBig: {
+				asked: { cpus: 16, memory: 32 },
+				largest: { cpus: 4, memory: 8 },
+			},
+		};
+
+		expect(await run()).toBeNull();
+		expect(
+			log.entries
+				.filter((entry) => entry.level === "error")
+				.map((entry) => entry.message),
+		).toEqual([
+			"no runner has 16 CPUs and 32 GB, the biggest has 4 CPUs and 8 GB: running it here. Ask for less with `splates run --cpus --memory` or the project's `job` in splates.config.ts",
+		]);
 	});
 
 	it("asks for the project's size, and a command's own over it", async () => {

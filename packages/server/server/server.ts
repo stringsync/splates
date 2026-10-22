@@ -1,8 +1,10 @@
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
+
 import { dirname, join } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
+import { loadConfig } from "../config";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import {
@@ -34,6 +36,7 @@ import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
 	alertNotice,
 	DevWorkers,
+	jobSize,
 	LocalWorkerMachine,
 	Machine,
 	osSensors,
@@ -289,6 +292,9 @@ export async function dev(
 			})(request);
 
 	const workers = givenWorkers ?? new DevWorkers(log);
+	workers.room.sizeJobsBy(async (request) =>
+		jobSize((await loadConfig((await projectFor(request)).root, { fs })).job),
+	);
 	const open =
 		givenOpen ??
 		(async (root: string) => {

@@ -58,6 +58,7 @@ export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
 export type { RemoteJob, RemoteJobResult } from "./job-client";
 export { runOnRunner } from "./job-client";
+export type { TooBigJob } from "./job-pool";
 export type { JobSize, JobSizeSetting } from "./job-size";
 export {
 	DEFAULT_JOB_SIZE,
@@ -67,7 +68,12 @@ export {
 	sizeLabel,
 } from "./job-size";
 export { SUPERVISOR } from "./lifecycle";
-export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
+export type {
+	JobRoom,
+	WorkerListing,
+	WorkerListings,
+	WorkerPool,
+} from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
 export { Machine, osSensors } from "./load";
@@ -104,7 +110,6 @@ export {
 	DevWorkers,
 	LOCAL_WORKER,
 	WORKER_SOCKET_PATH,
-	workerAuthorization,
 } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
 export type { Grant, HeldSlot, PoolWorker, QueueEntry } from "./scheduler";
@@ -128,3 +133,4 @@ export type { SpendShare } from "./spend";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";
 export { WebSocketWorkerSocket } from "./websocket-socket";
+export { workerAuthorization } from "./worker-key";

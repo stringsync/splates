@@ -7,7 +7,8 @@ import { CONNECTIONS, type Connection, RUNNING } from "../server/shared";
 import type { RemoteWorker } from "./index";
 import { WebSocketWorkerSocket, WorkerDaemon } from "./index";
 import { WorkerProtocol } from "./protocol";
-import { DevWorkers, workerAuthorization } from "./routes";
+import { DevWorkers } from "./routes";
+import { workerAuthorization } from "./worker-key";
 
 describe("DevWorkers", () => {
 	let workers: DevWorkers;
@@ -170,6 +171,26 @@ describe("DevWorkers", () => {
 		expect(listed).toMatchObject({
 			build: RUNNING,
 			workers: [{ id: "local", draining: true, slots: { total: 3 } }],
+		});
+	});
+
+	it("lists the job size of the project a request names, beside no runner to fit it without a provider", async () => {
+		workers.room.sizeJobsBy(async (asked) =>
+			new URL(asked.url).searchParams.get("project") === "big"
+				? { cpus: 16, memory: 32 }
+				: null,
+		);
+
+		const listed = await (
+			await workers.list(
+				new Request("http://localhost/api/workers?project=big"),
+			)
+		).json();
+
+		expect(listed.jobs).toEqual({
+			asked: { cpus: 16, memory: 32 },
+			largest: null,
+			tooBig: [],
 		});
 	});
 

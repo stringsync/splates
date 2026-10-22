@@ -9,9 +9,10 @@ import { Duration } from "webappwiz/time";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
-import { DevWorkers, workerAuthorization } from "./routes";
+import { DevWorkers } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
+import { workerAuthorization } from "./worker-key";
 
 describe("splates worker list", () => {
 	let dir: string;

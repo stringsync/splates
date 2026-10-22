@@ -9,6 +9,8 @@ import {
 import { z } from "zod";
 import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
+import type { TooBigJob } from "./job-pool";
+import type { JobSize } from "./job-size";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
@@ -92,6 +94,17 @@ export interface WorkerListings {
 export interface WorkerPool extends WorkerListings {
 	build: string;
 	rollout: RolloutStanding;
+	jobs: JobRoom;
+}
+
+/** Whether the project's heavy jobs fit on a runner, and those that did not. */
+export interface JobRoom {
+	/** What each of the project's jobs asks, as its `job` setting says; null where it cannot be read. */
+	asked: JobSize | null;
+	/** The biggest runner there is or the provider makes; null for none. */
+	largest: JobSize | null;
+	/** The last jobs, of any project, sent to run here for asking more than any runner had, newest first. */
+	tooBig: TooBigJob[];
 }
 
 function listing(
