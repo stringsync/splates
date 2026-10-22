@@ -6,7 +6,6 @@ import type { Worktree, WorktreeService } from "../tasks";
 import type { TaskBranches } from "./branches";
 import { landLocally } from "./local-landing";
 import { MergeState } from "./merge-state";
-import { landOnRemote } from "./remote-landing";
 import type { TrunkLanding } from "./trunk";
 
 /**
@@ -21,14 +20,12 @@ export async function landTested(
 		lock,
 		branches,
 		trunk,
-		relayed,
 	}: {
 		service: WorktreeService;
 		git: Git;
 		lock: Lock;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
-		relayed: boolean;
 	},
 	worktree: Worktree,
 	{
@@ -98,12 +95,10 @@ export async function landTested(
 			const size = (await current.size()) ?? undefined;
 			const landed =
 				remote !== null
-					? await landOnRemote({
-							trunk,
-							worktree: current,
+					? await trunk.land({
+							task: current.task,
 							onto,
 							head: testedHead,
-							relayed,
 							holder: {
 								pid: service.ps.pid,
 								hostname: service.ps.hostname,

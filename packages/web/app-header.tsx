@@ -146,12 +146,7 @@ function ServerBadges({
 			)}
 			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
-			{!offline && (
-				<QueueBadge
-					queue={machine?.queue ?? []}
-					offer={machine?.workerBudget?.offer}
-				/>
-			)}
+			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
 			{!offline && <WorkerBudgetBadge budget={machine?.workerBudget} />}
 		</>
 	);

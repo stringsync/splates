@@ -11,12 +11,10 @@ import {
 	timeouts,
 	type WallClock,
 } from "webappwiz/time";
-import { RELAY, relayParams, type WorkerChannel } from "./channel";
+import type { WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import type { CoordinatorIdentity } from "./identity";
-import { WorkerPortHost } from "./port-host";
 import { LEAVING } from "./protocol";
-import { RelayScopes } from "./relay-scopes";
 import {
 	CALL_BOUNDS,
 	type CallBounds,
@@ -25,7 +23,6 @@ import {
 } from "./remote";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
-import { KEYS } from "./task-keys";
 
 /** How long a restart waits for a worker to ack what it was sent. */
 const ACK_WAIT = Duration.secs(5);
@@ -80,10 +77,6 @@ export class WorkerRegistry
 	private readonly timer: Timer;
 	private readonly clock: Clock;
 	private readonly wall: WallClock;
-	/** The port of the server a worker's relay reaches, once it listens. */
-	private relayPort: number | null = null;
-	/** The project each connection a worker's relay made is limited to. */
-	readonly scopes = new RelayScopes();
 	/**
 	 * Detached for a restart, or disposed: a worker that redials now is hung
 	 * up on, since a fresh session's welcome would have it end everything it
@@ -260,14 +253,6 @@ export class WorkerRegistry
 		);
 	}
 
-	/**
-	 * Pipes each connection a worker's relay takes into the server at
-	 * `port` on this machine's loopback, from now on.
-	 */
-	relayTo(port: number): void {
-		this.relayPort = port;
-	}
-
 	private bounds(): CallBounds {
 		return { ...CALL_BOUNDS, ...this.opts.calls };
 	}
@@ -275,13 +260,12 @@ export class WorkerRegistry
 	private session(): WorkerSession {
 		const session = new WorkerSession("coordinator", {
 			...this.opts.session,
-			// It sends keys to any worker that keeps them.
-			capabilities: [...WORKER_CAPABILITIES, KEYS, LEAVING],
+			capabilities: [...WORKER_CAPABILITIES, LEAVING],
 			timer: this.timer,
 			clock: this.clock,
 			wall: this.wall,
 		});
-		session.events.on("channel", (channel) => this.serve(channel, session));
+		session.events.on("channel", (channel) => this.serve(channel));
 		session.events.on("leaving", ({ reason }) => {
 			const worker = this.workers.find((each) => each.session === session);
 			if (worker !== undefined) {
@@ -301,19 +285,9 @@ export class WorkerRegistry
 
 	// Closed rather than left open: its frames would never be acked, and
 	// would fill the worker's buffer until it stopped.
-	private serve(channel: WorkerChannel, session: WorkerSession): void {
-		if (channel.kind === RELAY && this.relayPort !== null) {
-			const { project } = relayParams(channel.params);
-			new WorkerPortHost(
-				channel,
-				session,
-				this.relayPort,
-				project === undefined ? null : { scopes: this.scopes, project },
-			);
-			return;
-		}
+	private serve(channel: WorkerChannel): void {
 		this.log.error(
-			`a worker opened a ${channel.kind} channel, which this coordinator does not serve${channel.kind === RELAY ? " until its server listens" : ""}`,
+			`a worker opened a ${channel.kind} channel, which this coordinator does not serve`,
 		);
 		channel.dispose();
 	}

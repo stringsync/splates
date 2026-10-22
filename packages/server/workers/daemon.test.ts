@@ -12,7 +12,6 @@ import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { UnixWorkerListener } from "./unix-listener";
 import { UnixWorkerSocket } from "./unix-socket";
-import type { WakeTarget } from "./wake";
 
 describe("WorkerDaemon", () => {
 	let dir: string;
@@ -20,13 +19,9 @@ describe("WorkerDaemon", () => {
 	let listener: UnixWorkerListener;
 	let daemon: WorkerDaemon;
 	let worker: RemoteWorker;
-	let holds: boolean[];
-	let woke: WakeTarget[];
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
-		holds = [];
-		woke = [];
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
@@ -45,26 +40,6 @@ describe("WorkerDaemon", () => {
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 				session: { bufferBytes: 64 * 1024 },
 				orphanBound: Duration.secs(2),
-				servers: { servers: async () => [BROWSER] },
-				network: {
-					broadcasts: ["192.168.1.255"],
-					wake: { mac: "aa:bb:cc:dd:ee:01", broadcast: "192.168.1.255" },
-				},
-				waker: {
-					send: async (target) => {
-						woke.push(target);
-					},
-				},
-				awake: {
-					hold: () => {
-						const at = holds.push(true) - 1;
-						return {
-							dispose: () => {
-								holds[at] = false;
-							},
-						};
-					},
-				},
 			},
 		);
 		void daemon.run();
@@ -83,25 +58,8 @@ describe("WorkerDaemon", () => {
 			slots: 8,
 			platform: process.platform,
 			build: expect.any(String),
-			checkouts: true,
 		});
 		expect(worker.connected).toBe(true);
-	});
-
-	it("says where it can wake others, and what waking it takes", () => {
-		expect(worker.info).toMatchObject({
-			broadcasts: ["192.168.1.255"],
-			wake: { mac: "aa:bb:cc:dd:ee:01", broadcast: "192.168.1.255" },
-		});
-	});
-
-	it("sends a magic packet when the coordinator asks", async () => {
-		const target = { mac: "aa:bb:cc:dd:ee:02", broadcast: "192.168.1.255" };
-
-		expect(worker.wakes).toBe(true);
-		await worker.wake(target);
-
-		expect(woke).toEqual([target]);
 	});
 
 	it("stops, ending what it runs, once the coordinator asks it to restart on its build", async () => {
@@ -137,19 +95,6 @@ describe("WorkerDaemon", () => {
 
 		expect(await printed(child)).toBe("hello\n");
 		expect(await child.exited).toBe(0);
-	});
-
-	it("keeps the machine awake while a process runs", async () => {
-		const child = worker.start(["sleep", "30"], dir);
-		await sleep(Duration.ms(100));
-
-		expect(holds).toEqual([true]);
-
-		child.kill();
-		await child.exited;
-		await sleep(Duration.ms(100));
-
-		expect(holds).toEqual([false]);
 	});
 
 	it("kills a process when asked", async () => {
@@ -207,10 +152,6 @@ describe("WorkerDaemon", () => {
 			size: 0,
 			bytes: new Uint8Array(0),
 		});
-	});
-
-	it("offers the coordinator's sessions the MCP servers it runs, such as its browser", async () => {
-		expect(await worker.servers()).toEqual([BROWSER]);
 	});
 
 	it("runs git with what the coordinator adds to its environment, such as a token", async () => {
@@ -279,10 +220,3 @@ describe("WorkerDaemon", () => {
 		expect(new NodePs().alive(pid)).toBe(false);
 	});
 });
-
-const BROWSER = {
-	type: "http" as const,
-	name: "playwright",
-	url: "http://localhost:4100/mcp",
-	headers: [],
-};

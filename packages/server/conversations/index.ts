@@ -23,7 +23,6 @@ export type {
 	ConversationSlots,
 	ConversationsEvents,
 	Lift,
-	PlacedCheckouts,
 	ProjectRef,
 	Route,
 	SlotAsk,

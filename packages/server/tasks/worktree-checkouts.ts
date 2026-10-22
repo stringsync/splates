@@ -1,9 +1,8 @@
 import type { Fs } from "webappwiz/system";
 import type { Git, GitResult } from "../git";
-import type { Checkouts } from "../merge";
 
 /** Linked worktrees of the main tree, as the local worker keeps. */
-export class WorktreeCheckouts implements Checkouts {
+export class WorktreeCheckouts {
 	constructor(
 		private readonly git: Git,
 		private readonly fs: Fs,
@@ -18,14 +17,6 @@ export class WorktreeCheckouts implements Checkouts {
 		return this.git.addWorktree(branch, path, base);
 	}
 
-	async resume(task: string): Promise<GitResult> {
-		return {
-			code: 1,
-			stdout: "",
-			stderr: `a worktree is never made again from the remote: '${task}' has no tree here`,
-		};
-	}
-
 	async remove(path: string, branch: string): Promise<GitResult> {
 		const removed = (await this.fs.exists(path))
 			? await this.git.removeWorktree(path)
@@ -35,9 +26,5 @@ export class WorktreeCheckouts implements Checkouts {
 			return removed;
 		}
 		return this.git.deleteBranch(branch);
-	}
-
-	gitOf(): Git {
-		return this.git;
 	}
 }

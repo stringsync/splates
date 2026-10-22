@@ -11,8 +11,8 @@ describe("splates worker queue", () => {
 	const signal = new AbortController().signal;
 
 	beforeEach(async () => {
-		workers = new DevWorkers(new MemoryLogger(), { platform: "darwin" });
-		workers.local.info = { slots: 1, platform: "darwin" };
+		workers = new DevWorkers(new MemoryLogger());
+		workers.local.info = { slots: 1 };
 		server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
@@ -22,12 +22,12 @@ describe("splates worker queue", () => {
 					: workers.queue(),
 		});
 		url = `http://127.0.0.1:${server.port}`;
-		const app = workers.slots.project("/code/app", null);
+		const app = workers.slots.project("/code/app");
 		await app.take({ id: "c1", task: "login", agent: "claude" }, signal);
 		void app.take({ id: "c2", task: "signup", agent: "claude" }, signal);
 		void app.take({ id: "c3", task: null, agent: "claude" }, signal);
 		void workers.slots
-			.project("/code/site", "linux")
+			.project("/code/site")
 			.take({ id: "c4", task: "deploy", agent: "claude" }, signal);
 	});
 
@@ -54,7 +54,6 @@ describe("splates worker queue", () => {
 			["2", "app", "-", "c3"],
 			["3", "site", "deploy", "c4"],
 		]);
-		expect(rows[2]).toContain("needs Linux");
 		expect(rows[0]).toContain("no free slot");
 	});
 

@@ -80,18 +80,13 @@ export {
 	uploadPart,
 } from "./transfer";
 export {
-	addWorkerKey,
 	identity,
 	type MachineStatus,
 	machine,
 	moveQueued,
 	removeWorker,
-	removeWorkerKey,
 	taskPorts,
 	updateWorker,
 	type WorkerChange,
-	type WorkerKeysListing,
-	wakeWorker,
-	workerKeys,
 	workerPool,
 } from "./workers";

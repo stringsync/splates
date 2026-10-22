@@ -1,7 +1,7 @@
 #!/bin/sh
-# Proves the server on Linux end to end, the inverse of
-# `prove-worker.sh`: `splates server` runs in a Debian container as the user
-# `splates`, and this machine joins it as a worker.
+# Proves the server on Linux end to end: `splates server` runs in a
+# Debian container as the user `splates`, and this machine joins it as a
+# worker.
 # Through the CLI and the server's routes it registers a project, adds a
 # task, has the scripted agent (`scripted-agent.ts`, `coordinator-turn.sh`)
 # claim it here, forward a port, commit and merge through the gate, and

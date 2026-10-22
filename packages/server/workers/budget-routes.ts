@@ -1,14 +1,12 @@
 import { z } from "zod";
 import { body, refuse } from "../server/shared";
 import {
-	type RaiseOffer,
 	span,
 	WORKER_LIMITS,
 	type WorkerBudget,
 	type WorkerRaise,
 	type WorkerStanding,
 } from "./budget";
-import type { Scheduler } from "./scheduler";
 import type { SpendShare } from "./spend";
 
 /** Where the worker budget stands, as `/api/worker-budget` answers and `splates budget` prints. */
@@ -23,10 +21,6 @@ export interface WorkerBudgetReport {
 	split: { day: SpendShare[]; month: SpendShare[] };
 	/** Why made workers are stopped, the day's or month's limit reached; null while they may run. */
 	stopped: string | null;
-	/** Why no worker is made for the queue, as the queue says it; null when nothing holds it. */
-	holding: string | null;
-	/** What one click raises to start a worker for the held queue, and what it buys; null when nothing is held. */
-	offer: RaiseOffer | null;
 	/** Whether the user has set a limit, or confirmed the defaults. */
 	reviewed: boolean;
 }
@@ -50,11 +44,7 @@ const AddRaise = z.object({
 export class WorkerBudgetRoutes {
 	constructor(
 		private readonly budget: WorkerBudget | null,
-		private readonly scheduler: Scheduler,
-		private readonly provisioning: {
-			offer(): RaiseOffer | null;
-			refill(): Promise<void>;
-		} | null = null,
+		private readonly provisioning: { refill(): Promise<void> } | null = null,
 	) {}
 
 	/** `GET /api/worker-budget`. */
@@ -134,22 +124,12 @@ export class WorkerBudgetRoutes {
 		} catch (error) {
 			return refuse(400, "usage", (error as Error).message);
 		}
-		return Response.json(
-			workerBudgetReport(
-				budget,
-				this.scheduler,
-				this.provisioning?.offer() ?? null,
-			),
-		);
+		return Response.json(workerBudgetReport(budget));
 	}
 }
 
-/** Where `budget` stands, with what holds `scheduler`'s queue. */
-export function workerBudgetReport(
-	budget: WorkerBudget,
-	scheduler: Scheduler,
-	offer: RaiseOffer | null = null,
-): WorkerBudgetReport {
+/** Where `budget` stands. */
+export function workerBudgetReport(budget: WorkerBudget): WorkerBudgetReport {
 	return {
 		standing: budget.standing(),
 		raises: budget.raises,
@@ -157,8 +137,6 @@ export function workerBudgetReport(
 		projected: budget.projected(),
 		split: { day: budget.split("day"), month: budget.split("month") },
 		stopped: budget.stopped(),
-		holding: scheduler.withheldReason(),
-		offer: scheduler.withheldReason() === null ? null : offer,
 		reviewed: budget.reviewed,
 	};
 }

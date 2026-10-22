@@ -3,7 +3,6 @@ import {
 	type SplatesDeps,
 	serveDev,
 } from "@stringsync/splates-server/server";
-import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 
@@ -52,11 +51,6 @@ splatesServer
 		default: "",
 		description:
 			"the wildcard base host to serve task ports under, saved for this machine so a bare `splates server` serves it too: each port a task's processes listen on opens at https://<task>-<port>.<base>, to whoever Cloudflare Access lets in, and is refused without Access; routing *.<base> here, its DNS and TLS, are yours. `none` forgets it, leaving each task port forwarded to a port on this machine's loopback alone",
-	})
-	.option("worker-slots", z.coerce.number().int().min(1), {
-		default: LOCAL_SLOTS,
-		description:
-			"how many agents that other agents started (with `splates add --agent`, or a lane's orchestrator handing out tasks) this machine's worker runs at once; past them, each new or resumed one waits in the queue, first come, first served, which `splates worker queue` shows and reorders. An agent you start runs at once on any worker up, taking no slot. Read as the server starts its worker, which a restart from the page leaves running",
 	})
 	.option("keepalive", z.boolean(), {
 		default: false,

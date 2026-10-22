@@ -5,10 +5,7 @@ description: Each task's SPLATES.md sits at its worktree root excluded from git,
 `SPLATES.md` (`PLAN_FILE` in `packages/server/plans/plan.ts`) is the task's
 plan, at the worktree root and excluded from git: it is never on a branch,
 so never reaches trunk, and `merge` refuses a branch that tracks it.
-`PlanStore` keeps a copy in repo state at `plans/<task>.md`; on a worker
-that copy is on the coordinator's disk, so the plan survives the clone being
-swept away, and `TaskBranches.restorePlan` puts it back after a re-clone.
-The page's task dialog shows that copy, and merge keeps the last one in
+`PlanStore` keeps a copy in repo state at `plans/<task>.md`. The page's task dialog shows that copy, and merge keeps the last one in
 `finished/`.
 
 The plan's h2 sections are fixed: `## Goal` (its first line is what

@@ -1,5 +1,8 @@
 import type { Duration } from "webappwiz/time";
-import type { Platform } from "./scheduler";
+
+/** The platforms a provider's machines run, as people name them. */
+export const PLATFORMS = ["linux", "macos", "windows"] as const;
+export type Platform = (typeof PLATFORMS)[number];
 
 /** One kind of machine a provider can make, and what it costs. */
 export interface WorkerType {

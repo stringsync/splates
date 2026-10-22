@@ -1,12 +1,10 @@
 import {
 	Credentials,
 	Environment,
-	MemorySecretStore,
 	type SecretStore,
 	SystemSecretStore,
 } from "webappwiz/creds";
-import type { Logger } from "webappwiz/log";
-import { makeUndumpable, type Ps } from "webappwiz/system";
+import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { KeyFileStore } from "../creds";
 import { fail } from "../exit";
@@ -65,19 +63,6 @@ export interface WorkerCreds {
 }
 
 const Joined = z.object({ id: z.string(), key: z.string() });
-
-/** A store for the keys a worker is sent, once this process is undumpable. */
-export async function undumpableKeys(log: Logger): Promise<MemorySecretStore> {
-	const made = await makeUndumpable();
-	if (made.undumpable) {
-		log.info(`keys stay in memory no other process can read: ${made.how}`);
-	} else {
-		log.info(
-			`other processes of this user may read the keys it holds: ${made.why}`,
-		);
-	}
-	return new MemorySecretStore("this worker's keys");
-}
 
 /**
  * `splates worker join`: spends `opts.join` at the server and keeps

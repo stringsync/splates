@@ -1,13 +1,8 @@
 import type { QueueSpot } from "@stringsync/splates-server/conversations";
-import type {
-	QueueListing,
-	RaiseOffer,
-} from "@stringsync/splates-server/workers";
-import { dollars } from "@stringsync/splates-server/workers/browser";
+import type { QueueListing } from "@stringsync/splates-server/workers";
 import {
 	ArrowUpIcon,
 	ArrowUpToLineIcon,
-	CoinsIcon,
 	HourglassIcon,
 	ListTodoIcon,
 	RotateCwIcon,
@@ -25,8 +20,6 @@ import { cn } from "#web/lib/utils.ts";
 import { ApiError, moveQueued, retryQueuedStart } from "./api";
 import { Board } from "./board";
 import { useNow } from "./hooks/use-now";
-import { useMachine } from "./machine";
-import { raiseWorkerLimit } from "./worker-budget-api";
 
 /** `place` as a place in line: 1st, 2nd, 3rd, 4th. */
 export function ordinal(place: number): string {
@@ -67,87 +60,6 @@ function useMove(): {
 	};
 }
 
-/** What `offer` adds, like `+$0.06/h` or `+$0.50 today`. */
-function raised(offer: RaiseOffer): string {
-	return offer.limit === "hour"
-		? `+${dollars(offer.dollars)}/h`
-		: `+${dollars(offer.dollars)} ${offer.limit === "day" ? "today" : "this month"}`;
-}
-
-/**
- * Next to a queue the worker budget holds: what a raise costs and buys,
- * the worker's specs under it, and a button that asks once more in place
- * before raising the limit that holds it for a day.
- */
-export function RaiseOfferButton({
-	offer,
-}: {
-	offer: RaiseOffer | null | undefined;
-}): JSX.Element | null {
-	const [step, setStep] = useState<"idle" | "asking" | "raising" | "raised">(
-		"idle",
-	);
-	const [error, setError] = useState<string | null>(null);
-	if (offer == null) {
-		return null;
-	}
-	const buys = `starts 1 more worker, which clears ${offer.clears} queued ${offer.clears === 1 ? "task" : "tasks"}`;
-	const raise = () => {
-		setStep("raising");
-		setError(null);
-		raiseWorkerLimit(offer.limit, offer.dollars, "1d").then(
-			() => setStep("raised"),
-			(caught: unknown) => {
-				setStep("idle");
-				setError(caught instanceof ApiError ? caught.message : String(caught));
-			},
-		);
-	};
-	return (
-		<div data-slot="raise-offer" className="flex flex-col gap-0.5">
-			<div className="flex items-center gap-2">
-				<span className="min-w-0 flex-1 text-foreground text-xs">
-					{raised(offer)} {buys}
-				</span>
-				{step === "asking" ? (
-					<>
-						<Button size="sm" onClick={raise}>
-							Raise for a day
-						</Button>
-						<Button size="sm" variant="ghost" onClick={() => setStep("idle")}>
-							Cancel
-						</Button>
-					</>
-				) : (
-					<Button
-						variant="outline"
-						size="sm"
-						className="shrink-0"
-						disabled={step === "raising" || step === "raised"}
-						onClick={() => setStep("asking")}
-					>
-						<CoinsIcon />
-						{step === "raised" ? "Raised" : `Raise ${raised(offer)}`}
-					</Button>
-				)}
-			</div>
-			<span className="text-muted-foreground text-xs">
-				A {offer.type} on {offer.platform}: {offer.slots} slots at{" "}
-				{dollars(offer.dollarsPerHour)}/h.
-			</span>
-			{error !== null && (
-				<span className="text-destructive text-xs">{error}</span>
-			)}
-		</div>
-	);
-}
-
-/** The offer for the banner, asked of the machine's reading only while one is held. */
-function BannerOffer(): JSX.Element | null {
-	const machine = useMachine();
-	return <RaiseOfferButton offer={machine?.workerBudget?.offer} />;
-}
-
 /** How long a wait goes before the page calls it longer than usual. */
 export const QUEUE_LATE = Duration.mins(1);
 
@@ -182,7 +94,7 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
 	const { reason } = spot;
 	if (reason === "no free slot") {
 		return held === null
-			? `Every worker it can run on is full. It has waited ${span}, and starts on its own once a slot frees.`
+			? `Every slot is taken. It has waited ${span}, and starts on its own once a slot frees.`
 			: `Every agent slot is taken. It has waited ${span}, and starts on its own once a slot frees.`;
 	}
 	if (reason === "starting") {
@@ -199,16 +111,13 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
 	if (reason.startsWith(REFUSED)) {
 		return `Its task could not start: ${reason.slice(REFUSED.length)}. Fix what that says, then retry.`;
 	}
-	if (reason.endsWith(" reached")) {
-		return `No worker it can run on is free, and no other is made: the worker budget's ${reason}. It has waited ${span}, and starts once a slot frees or the budget is raised.`;
-	}
 	if (reason === "worker draining") {
-		return `The worker it can run on is draining, so it takes no new agents (as when it is being removed or updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
+		return `This machine's worker is draining, so it takes no new agents (as when it is being updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
 	}
 	if (reason === "no worker up") {
-		return `No worker is up to run it. It has waited ${span}, and starts once a worker joins.`;
+		return `This machine's worker is not up. It has waited ${span}, and starts once it joins.`;
 	}
-	return `It ${reason}, and no worker on it is up. It has waited ${span}, and starts once one joins.`;
+	return `It ${reason}. It has waited ${span}.`;
 }
 
 /**
@@ -218,11 +127,7 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
  */
 function lateSays(spot: QueueSpot, held: number | null): string | null {
 	const { reason } = spot;
-	if (
-		reason.startsWith("needs you") ||
-		reason.startsWith(REFUSED) ||
-		reason.endsWith(" reached")
-	) {
+	if (reason.startsWith("needs you") || reason.startsWith(REFUSED)) {
 		return null;
 	}
 	if (reason === "starting") {
@@ -231,7 +136,7 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
 	return held === null ||
 		reason === "no free slot" ||
 		reason === "worker draining"
-		? "Taking longer than usual. The Workers page shows what holds each slot, and can wake or add a worker."
+		? "Taking longer than usual. The Workers page shows what holds each slot."
 		: null;
 }
 
@@ -356,7 +261,6 @@ export function QueueBanner({
 					)}
 				</div>
 			)}
-			{reason.endsWith(" reached") && <BannerOffer />}
 		</div>
 	);
 }
@@ -419,10 +323,7 @@ export function QueueMark({ spot }: { spot: QueueSpot }): JSX.Element {
 export function QueueBadge({
 	queue,
 	nameOf,
-	offer,
 }: {
-	/** What a raise would buy, when the worker budget holds the queue. */
-	offer?: RaiseOffer | null;
 	queue: QueueListing[];
 	/** What to call the conversation `id`, when the page holds it. */
 	nameOf?: (id: string) => string | null;
@@ -477,7 +378,6 @@ export function QueueBadge({
 					))}
 				</ol>
 				{error !== null && <p className="text-destructive text-xs">{error}</p>}
-				<RaiseOfferButton offer={offer} />
 			</PopoverContent>
 		</Popover>
 	);

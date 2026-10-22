@@ -1,19 +1,31 @@
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { type PoolWorker, Scheduler, type SlotRequest } from "./scheduler";
 
 describe("Scheduler room", () => {
+	let workers: PoolWorker[];
+	let clock: FakeWallClock;
+	let scheduler: Scheduler;
+	/** How often the scheduler said its queue changed. */
+	let changes: number;
+
+	beforeEach(() => {
+		workers = [worker("local")];
+		clock = new FakeWallClock(1_000);
+		scheduler = new Scheduler({ workers: () => workers }, clock);
+		changes = 0;
+		scheduler.events.on("changed", () => {
+			changes += 1;
+		});
+	});
+
 	it("counts the free slots of workers taking work, less those waiting", async () => {
-		const workers = [
+		workers = [
 			worker("local", { slots: 2 }),
 			worker("asleep", { awake: false }),
 			worker("draining", { draining: true }),
 		];
-		const scheduler = new Scheduler(
-			{ workers: () => workers },
-			new FakeWallClock(1_000),
-		);
 		expect(scheduler.room()).toBe(2);
 
 		await scheduler.take(request("a"));
@@ -26,35 +38,8 @@ describe("Scheduler room", () => {
 		expect(scheduler.room()).toBe(0);
 	});
 
-	it("leaves the free slots to the queue when the agents waiting cannot use them", async () => {
-		const workers = [
-			worker("local", { slots: 2 }),
-			worker("box", { runs: (agent) => agent === "claude" }),
-		];
-		const scheduler = new Scheduler(
-			{ workers: () => workers },
-			new FakeWallClock(1_000),
-		);
-		void scheduler.take(request("a", { platform: "linux" }));
-		await scheduler.take(request("b"));
-		await scheduler.take(request("c"));
-		void scheduler.take(request("d", { agent: "codex" }));
-		await Bun.sleep(0);
-		expect(scheduler.queue().map(({ id }) => id)).toEqual(["a", "d"]);
-		// "box" has a slot free, which neither waiting agent can take.
-		expect(scheduler.room()).toBe(1);
-	});
-
 	it("tells the queue when a worker joins while queued tasks want a slot", () => {
-		const workers = [worker("local", { slots: 0 })];
-		const scheduler = new Scheduler(
-			{ workers: () => workers },
-			new FakeWallClock(1_000),
-		);
-		let changes = 0;
-		scheduler.events.on("changed", () => {
-			changes += 1;
-		});
+		workers = [worker("local", { slots: 0 })];
 		scheduler.poke();
 		expect(changes).toBe(0);
 
@@ -67,13 +52,6 @@ describe("Scheduler room", () => {
 	});
 
 	it("lines up the queued tasks that find no room behind the agents waiting, placing none", async () => {
-		const workers = [worker("local")];
-		const clock = new FakeWallClock(1_000);
-		const scheduler = new Scheduler({ workers: () => workers }, clock);
-		let changes = 0;
-		scheduler.events.on("changed", () => {
-			changes += 1;
-		});
 		await scheduler.take(request("a"));
 		void scheduler.take(request("b"));
 		await Bun.sleep(0);
@@ -106,12 +84,8 @@ describe("Scheduler room", () => {
 function worker(id: string, overrides: Partial<PoolWorker> = {}): PoolWorker {
 	return {
 		id,
-		kind: id === "local" ? "local" : "registered",
 		slots: 1,
-		platform: "macos",
 		awake: true,
-		checkouts: true,
-		runs: () => true,
 		...overrides,
 	};
 }
@@ -124,7 +98,6 @@ function request(
 		id,
 		project: "/repo",
 		task: id,
-		platform: null,
 		agent: "claude",
 		...overrides,
 	};

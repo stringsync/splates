@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: one service over a task's record, tree and checkout, which resuming a clone elsewhere and amending its record share
+// scry-ignore-file compact-files: one service over a task's record, tree and checkout, which adding, discarding and amending its record share
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Attachments } from "../artifacts";
@@ -7,7 +7,6 @@ import type { Config } from "../config";
 import type { Entry } from "../conversations";
 import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
-import type { Checkouts } from "../merge";
 import { ranWith } from "../models";
 import { decisions, goalLine, outcomeOf, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
@@ -19,10 +18,9 @@ import {
 	type Log,
 	type Storage,
 } from "../storage";
-import type { WorkerBudgetFile, WorkerMachine } from "../workers";
-import { WorkerBudget, workerGit } from "../workers";
+import type { WorkerBudgetFile } from "../workers";
+import { WorkerBudget } from "../workers";
 import { Finished } from "./finished";
-import type { LeaseBeat } from "./lease-beat";
 import { StartedRecords } from "./started-records";
 import {
 	type DiffSize,
@@ -64,10 +62,7 @@ export class WorktreeService {
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
 	private readonly workerBudget: Document<WorkerBudgetFile> | null;
-	private readonly leases: LeaseBeat | null;
 	private readonly worktrees: WorktreeCheckouts;
-	private readonly clones: { checkouts: Checkouts; machine: string } | null;
-	private readonly machines: WorkerMachines | null;
 	readonly ps: Ps;
 
 	// scry-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
@@ -84,10 +79,7 @@ export class WorktreeService {
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.workerBudget = opts.workerBudget ?? null;
-		this.leases = opts.leases ?? null;
 		this.worktrees = new WorktreeCheckouts(git, this.fs);
-		this.clones = opts.clones ?? null;
-		this.machines = opts.machines ?? null;
 		this.records = new StartedRecords(
 			opts.store ?? new TaskStore(this.storage),
 		);
@@ -141,11 +133,6 @@ export class WorktreeService {
 	/** Whether the `splates server` conversation `id` is one of this repo's. */
 	holds(id: string): Promise<boolean> {
 		return this.conversationLog(id).exists();
-	}
-
-	/** Keeps `task`'s lease fresh while this process runs, once it has taken it. */
-	held(task: string): void {
-		this.leases?.held(this, task);
 	}
 
 	async init(): Promise<void> {
@@ -248,11 +235,8 @@ export class WorktreeService {
 		const corrupt = false;
 		const path = state?.worktree ?? this.pathFor(task);
 		const branch = state?.branch ?? this.branchFor(task);
-		const machine =
-			(state === null ? this.clones?.machine : state.machine) ?? null;
-		const reach = this.reach(machine, path, branch);
-		const exists = await reach.exists();
-		const hasBranch = await reach.git.branchExists(branch);
+		const exists = await this.fs.exists(path);
+		const hasBranch = await this.git.branchExists(branch);
 		return new Worktree(this, {
 			task,
 			branch,
@@ -261,8 +245,7 @@ export class WorktreeService {
 			exists,
 			hasBranch,
 			corrupt,
-			machine,
-			git: reach.git,
+			git: this.git,
 			// Only worth asking when there is nothing else left of the task.
 			removedAt:
 				state || exists || hasBranch || corrupt
@@ -299,65 +282,12 @@ export class WorktreeService {
 		{ base = this.config.trunk }: AddOptions = {},
 	): Promise<GitResult> {
 		await this.fs.mkdir(this.config.worktreeRoot);
-		return (this.clones?.checkouts ?? this.worktrees).add(
+		return this.worktrees.add(
 			task,
 			this.branchFor(task),
 			this.pathFor(task),
 			base,
 		);
-	}
-
-	/**
-	 * Whether `worktree`'s checkout is somewhere this machine cannot work
-	 * in, though a clone of it can be made here again: on another worker,
-	 * or gone from this one.
-	 */
-	elsewhere(worktree: Worktree): boolean {
-		return (
-			this.clones !== null &&
-			worktree.state !== null &&
-			(worktree.machine !== this.clones.machine || !worktree.exists)
-		);
-	}
-
-	/**
-	 * Clones `worktree` here again from its pushed branch, as a remote
-	 * worker resumes a task whose checkout was on another worker, or was
-	 * swept from this one, and points its record at the new clone.
-	 */
-	async resume(worktree: Worktree): Promise<GitResult> {
-		if (this.clones === null) {
-			return this.worktrees.resume(worktree.task);
-		}
-		const path = this.pathFor(worktree.task);
-		await this.fs.rm(path, { recursive: true, force: true });
-		const resumed = await this.clones.checkouts.resume(
-			worktree.task,
-			worktree.branch,
-			path,
-			worktree.base,
-		);
-		if (resumed.code === 0) {
-			// The clone it leaves may hold commits its last push does not.
-			const left =
-				worktree.machine !== null && worktree.machine !== this.clones.machine
-					? [
-							{
-								machine: worktree.machine,
-								path: worktree.path,
-								branch: worktree.branch,
-							},
-						]
-					: [];
-			await worktree.save({
-				worktree: path,
-				machine: this.clones.machine,
-				...(left.length === 0
-					? {}
-					: { stranded: [...(worktree.state?.stranded ?? []), ...left] }),
-			});
-		}
-		return resumed;
 	}
 
 	async discard(
@@ -369,11 +299,7 @@ export class WorktreeService {
 		const ending = await this.ending(worktree, opts);
 		const plan = await this.finalPlan(worktree);
 		const record = await this.records.ending(worktree.task);
-		const removed = await this.reach(
-			worktree.machine,
-			worktree.path,
-			worktree.branch,
-		).remove();
+		const removed = await this.worktrees.remove(worktree.path, worktree.branch);
 		if (removed.code !== 0) {
 			return removed;
 		}
@@ -403,42 +329,6 @@ export class WorktreeService {
 		await this.rememberRemoved(worktree.task);
 		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
-	}
-
-	/**
-	 * How to read and remove the checkout at `path`: a worktree of the main
-	 * tree for a null `machine`; else a clone, on this machine when it is
-	 * this worker, or on the worker `machine` as the server holds it.
-	 * One on a worker nobody here reaches is taken to be there still, and
-	 * left for that worker's disk, a cache, to lose.
-	 */
-	private reach(machine: string | null, path: string, branch: string): Reach {
-		if (machine === null) {
-			return {
-				git: this.git,
-				exists: () => this.fs.exists(path),
-				remove: () => this.worktrees.remove(path, branch),
-			};
-		}
-		if (machine === this.clones?.machine) {
-			const { checkouts } = this.clones;
-			return {
-				git: checkouts.gitOf(path),
-				exists: () => this.fs.exists(path),
-				remove: () => checkouts.remove(path, branch),
-			};
-		}
-		const worker = this.machines?.machine(machine) ?? null;
-		return {
-			git:
-				worker === null ? this.git.at(path) : workerGit(path, worker, this.git),
-			exists: async () =>
-				worker === null ? true : worker.exists(path).catch(() => true),
-			remove: async () => {
-				await worker?.removeCheckout(path).catch(() => {});
-				return { code: 0, stdout: "", stderr: "" };
-			},
-		};
 	}
 
 	/**
@@ -665,22 +555,6 @@ interface Ending {
 	size: DiffSize | null;
 }
 
-/** The workers a server holds, by id. */
-export interface WorkerMachines {
-	/** The worker `id`, or null when none by that id has joined. */
-	machine(id: string): WorkerMachine | null;
-	/** Calls `listener` with the id of each worker that connects; answers how to stop. */
-	joined(listener: (id: string) => void): () => void;
-}
-
-/** Where a task's checkout is, and how to read it there. */
-interface Reach {
-	git: Git;
-	exists(): Promise<boolean>;
-	/** Takes the checkout away, and its branch with it. */
-	remove(): Promise<GitResult>;
-}
-
 /** What a `WorktreeService` works through; the real ones by default. */
 export interface WorktreeServiceOptions {
 	fs?: Fs;
@@ -693,20 +567,6 @@ export interface WorktreeServiceOptions {
 	adherence?: Adherence;
 	/** The worker budget's ledger, which an ending reads what made workers cost it from. */
 	workerBudget?: Document<WorkerBudgetFile>;
-	/**
-	 * What keeps the leases this process takes fresh while it runs, for a
-	 * command on a worker; none on the server's machine, where a pid
-	 * judges its holder.
-	 */
-	leases?: LeaseBeat;
-	/**
-	 * How this machine checks tasks out when it is a remote worker: clones,
-	 * each record naming `machine`, this worker's id. None on the
-	 * server's machine, whose tasks are worktrees of the main tree.
-	 */
-	clones?: { checkouts: Checkouts; machine: string };
-	/** The workers the server reaches, which a clone elsewhere is read on. */
-	machines?: WorkerMachines;
 	/**
 	 * The numbered records, shared with the list of tasks so both write under
 	 * one lock; one of its own, locked in this process alone, by default.

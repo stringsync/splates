@@ -19,5 +19,5 @@ export { PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 export { StartLock } from "./start-lock";
 export { AgentStream } from "./stream";
 export { toolIn } from "./tool-calls";
-export type { BranchMoves, Flag } from "./watch";
+export type { Flag } from "./watch";
 export { Watch } from "./watch";

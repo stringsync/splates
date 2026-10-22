@@ -59,7 +59,6 @@ describe("WorkerProvisioning", () => {
 			id: "c",
 			project: "/p",
 			task: "fix-it",
-			platform: null,
 			agent: "claude",
 		});
 		await Bun.sleep(0);
@@ -158,7 +157,7 @@ describe("WorkerProvisioning", () => {
 		const { provider, made } = await provisioning();
 		const scheduler = schedulerOn("joined");
 		scheduler.want("/p", [
-			{ id: "q", project: "/p", task: "t", platform: null, agent: "claude" },
+			{ id: "q", project: "/p", task: "t", agent: "claude" },
 		]);
 
 		made.watch(scheduler);
@@ -176,12 +175,8 @@ function schedulerOn(id: string): Scheduler {
 			workers: () => [
 				{
 					id,
-					kind: "provisioned",
 					slots: 4,
-					platform: "linux",
 					awake: true,
-					checkouts: true,
-					runs: () => true,
 				},
 			],
 		},

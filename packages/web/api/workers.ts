@@ -1,11 +1,8 @@
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type {
-	KeyHolder,
-	KeyProvider,
 	MachineReading,
 	QueueListing,
 	WorkerBudgetReport,
-	WorkerKey,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
@@ -91,13 +88,6 @@ export async function updateWorker(
 	)) as WorkerPool;
 }
 
-/** Wakes worker `id`, asleep at home, answering the pool once its packet is sent. */
-export async function wakeWorker(id: string): Promise<WorkerPool> {
-	return (await send(`/api/workers/${encodeURIComponent(id)}/wake`, {
-		method: "POST",
-	})) as WorkerPool;
-}
-
 /**
  * Removes worker `id`, at once if nothing runs on it or `force`, which ends
  * what does; otherwise it drains and goes once `running` ends.
@@ -110,49 +100,4 @@ export async function removeWorker(
 		`/api/workers/${encodeURIComponent(id)}${force ? "?force" : ""}`,
 		{ method: "DELETE" },
 	)) as { id: string; removed: boolean; running: string[] };
-}
-
-/** Every worker's API key, by whose and which provider's, with the providers and who may hold one. */
-export interface WorkerKeysListing {
-	keys: WorkerKey[];
-	providers: KeyProvider[];
-	holders: { workers: string[]; types: string[] };
-}
-
-/** The API keys workers hold; never a value. */
-export async function workerKeys(): Promise<WorkerKeysListing> {
-	const response = await answered("/api/workers/keys");
-	const body = (await response
-		.json()
-		.catch(() => ({}))) as WorkerKeysListing & {
-		reason?: string;
-		message?: string;
-	};
-	if (!response.ok) {
-		throw new ApiError(
-			body.reason ?? "error",
-			body.message ?? `/api/workers/keys: ${response.status}`,
-		);
-	}
-	return body;
-}
-
-/** Keeps `value` as `provider`'s key for `holder`, over the one it held. */
-export async function addWorkerKey(
-	holder: KeyHolder,
-	provider: string,
-	value: string,
-): Promise<void> {
-	await sendJson("/api/workers/keys", "PUT", { provider, ...holder, value });
-}
-
-/** Deletes `provider`'s key for `holder`. */
-export async function removeWorkerKey(
-	holder: KeyHolder,
-	provider: string,
-): Promise<void> {
-	await send(
-		`/api/workers/keys?${new URLSearchParams({ provider, ...holder })}`,
-		{ method: "DELETE" },
-	);
 }

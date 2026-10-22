@@ -12,7 +12,7 @@ export const LeaseHolder = z.object({
 export type LeaseHolder = z.infer<typeof LeaseHolder>;
 
 /**
- * What a merge holding the lease asks the server to land: `head`, the
+ * What a merge holding the lease lands: `head`, the
  * tested `splates/<task>` it pushed, onto `onto`, the trunk commit it
  * rebased onto and tested on.
  */
@@ -33,11 +33,7 @@ export type Landed =
 	/** Trunk moved: rebase and test again without charging an attempt. */
 	| { status: "moved" };
 
-/**
- * Moves trunk on the central remote to a task's tested branch, which only
- * the server does, with an identity no worker holds: in-process on the
- * server's own machine, over `POST /api/land` from a worker.
- */
+/** Moves trunk on the central remote to a task's tested branch. */
 export interface TrunkLanding {
 	land(request: LandRequest): Promise<Landed>;
 }

@@ -1,6 +1,5 @@
-# Plumbing the proofs share (`prove-worker.sh`, `prove-coordinator.sh`),
-# sourced by each: a scratch directory under /private, which Docker Desktop
-# shares, so a path is one on this machine and in a container; the
+# Plumbing `prove-coordinator.sh` sources: a scratch directory under
+# /private, which Docker Desktop shares, so a path is one on this machine and in a container; the
 # `splates` of this checkout, run as the person and nothing of the agent
 # this runs under; the roster with the scripted agent (`scripted-agent.ts`)
 # beside the defaults; and the throwaway project's bare remote.
@@ -51,7 +50,7 @@ prove_remote() {
 	)
 }
 
-# Adds the scripted agent, running the script $2 (turn.sh), to the roster file $1, wherever it runs: from the
+# Adds the scripted agent, running the script $2 (coordinator-turn.sh), to the roster file $1, wherever it runs: from the
 # image's checkout when there is one, else from this one.
 prove_roster() {
 	bun -e '
@@ -65,7 +64,7 @@ roster.agents.push({
 	models: [{ id: "script", name: "Script", strengths: "proving a worker", cost: "none" }],
 });
 await Bun.write(path, JSON.stringify(roster, null, "\t"));
-' "$1" "$here" "${2:-turn.sh}"
+' "$1" "$here" "${2:-coordinator-turn.sh}"
 }
 
 # What the agent said in the conversation log $1, as it was streamed.

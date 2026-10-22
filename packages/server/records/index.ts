@@ -17,20 +17,6 @@ export {
 	MIGRATION_LIMIT,
 	Migration,
 } from "./migration";
-export type {
-	RelayFile,
-	RelaySend,
-	StateCall,
-	StateProject,
-} from "./repo-state";
-export {
-	answerState,
-	relayDocument,
-	relayOf,
-	StateRequest,
-	sameOrigin,
-	TokenRequest,
-} from "./repo-state";
 export type { Repository } from "./repository";
 export {
 	migrateRecords,

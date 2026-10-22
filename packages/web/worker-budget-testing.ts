@@ -29,8 +29,6 @@ export function workerBudgetFixture(
 		projected: 0,
 		split: { day: [], month: [] },
 		stopped: null,
-		holding: null,
-		offer: null,
 		reviewed: false,
 	};
 }

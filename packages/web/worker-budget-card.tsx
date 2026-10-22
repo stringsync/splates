@@ -149,11 +149,10 @@ function WorkerCard({
 					/>
 					<Figure name="Projected month" value={dollars(report.projected)} />
 				</dl>
-				{(report.stopped ?? report.holding) !== null && (
+				{report.stopped !== null && (
 					<p role="status" className="text-destructive text-sm">
-						{report.stopped !== null
-							? `Stopped: ${report.stopped}. Made workers take nothing new until it is raised.`
-							: `Queue held: ${report.holding}.`}
+						Stopped: {report.stopped}. Made workers take nothing new until it is
+						raised.
 					</p>
 				)}
 				<Limits standing={report.standing} />

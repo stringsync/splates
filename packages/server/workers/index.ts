@@ -5,12 +5,11 @@ export {
 	drainWorker,
 	removeWorker,
 	setWorkerSlots,
-	wakeWorker,
 } from "./admin";
 export type {
 	AlertTier,
 	BudgetHeld,
-	RaiseOffer,
+	BudgetReason,
 	WorkerAlert,
 	WorkerLimit,
 	WorkerRaise,
@@ -50,14 +49,6 @@ export {
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
-export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
-export {
-	KEY_PROVIDERS,
-	keyProvider,
-	providerOf,
-	WORKER_KEYS_FILE,
-	WorkerKeys,
-} from "./keys";
 export { SUPERVISOR } from "./lifecycle";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
@@ -66,10 +57,10 @@ export { Machine, osSensors } from "./load";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
-export { WorkerPlacement } from "./placement";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
 export type {
+	Platform,
 	ProvisionedMachine,
 	Snapshot,
 	SnapshotRecipe,
@@ -77,6 +68,7 @@ export type {
 	WorkerSpec,
 	WorkerType,
 } from "./provider";
+export { PLATFORMS } from "./provider";
 export type { Provisioned } from "./provisioning";
 export { WorkerProvisioning } from "./provisioning";
 export type { QueueListing } from "./queue";
@@ -96,20 +88,8 @@ export {
 	workerAuthorization,
 } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
-export type {
-	BudgetReason,
-	Grant,
-	HeldSlot,
-	Platform,
-	PoolWorker,
-	QueueEntry,
-} from "./scheduler";
-export {
-	PLATFORMS,
-	platformOf,
-	Scheduler,
-	type SlotRequest,
-} from "./scheduler";
+export type { Grant, HeldSlot, PoolWorker, QueueEntry } from "./scheduler";
+export { Scheduler, type SlotRequest } from "./scheduler";
 export type { ServerOf } from "./server-of";
 export { serverOf } from "./server-of";
 export { ServerWorkerSocket } from "./server-socket";

@@ -14,13 +14,7 @@ export type WorkerRecord = z.output<typeof Record>;
 export type WorkerSettings = Partial<
 	Pick<
 		WorkerRecord,
-		| "slots"
-		| "draining"
-		| "removing"
-		| "updating"
-		| "provisioned"
-		| "wake"
-		| "wokenAt"
+		"slots" | "draining" | "removing" | "updating" | "provisioned"
 	>
 >;
 
@@ -176,8 +170,6 @@ export class WorkerRecords {
 			updating: false,
 			provisioned: was?.provisioned ?? null,
 			access: spent.access,
-			wake: was?.wake ?? null,
-			wokenAt: was?.wokenAt ?? null,
 		};
 		await this.change((kept) => ({
 			...kept,
@@ -206,8 +198,6 @@ export class WorkerRecords {
 				updating: false,
 				provisioned: null,
 				access: null,
-				wake: null,
-				wokenAt: null,
 			}),
 			...settings,
 		};
@@ -291,23 +281,6 @@ const Record = z.object({
 		.default(null),
 	/** The id of the Cloudflare Access service token it passes Access with; null for none. */
 	access: z.string().nullable().default(null),
-	/**
-	 * What waking it takes, for one that may sleep, as its last hello said,
-	 * with the platform and slots it said beside it: kept so that it can be
-	 * woken, and the queue known to fit it, while it sleeps through a
-	 * restart. Null for one that never sleeps.
-	 */
-	wake: z
-		.object({
-			mac: z.string(),
-			broadcast: z.string(),
-			platform: z.string().nullable(),
-			slots: z.number().int().min(1).nullable(),
-		})
-		.nullable()
-		.default(null),
-	/** When it last joined after it was woken, epoch milliseconds, so Wake-on-LAN works for it; null before. */
-	wokenAt: z.number().nullable().default(null),
 });
 
 const Kept = z.object({

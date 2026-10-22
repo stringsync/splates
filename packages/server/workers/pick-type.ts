@@ -1,5 +1,4 @@
-import type { WorkerType } from "./provider";
-import type { Platform } from "./scheduler";
+import type { Platform, WorkerType } from "./provider";
 import { snapshotRecipe } from "./snapshot";
 
 /** What worker `WorkerProvisioning.provision` is asked for. */
@@ -8,16 +7,11 @@ export interface ProvisionOptions {
 	type?: string;
 	/** The platform the cheapest must run; null or unset for any. */
 	platform?: Platform | null;
-	/** The agent it is made for, which says why none fits. */
-	agent?: string;
-	/** Whether workers of a type, by name, can run what it is made for; any can, unless said. */
-	runs?: (type: string) => boolean;
 }
 
 /**
  * The type `opts` asks for: the one it names, else the cheapest on its
- * platform among those splates can build a snapshot for whose workers hold
- * the key its agent runs on.
+ * platform among those splates can build a snapshot for.
  */
 export function pickType(
 	types: WorkerType[],
@@ -42,13 +36,8 @@ export function pickType(
 			`the worker provider makes no worker splates can boot${opts.platform == null ? "" : ` on ${opts.platform}`}`,
 		);
 	}
-	const [cheapest] = bootable
-		.filter((each) => opts.runs?.(each.name) ?? true)
-		.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
-	if (cheapest === undefined) {
-		throw new Error(
-			`no type of worker the provider makes holds a key for ${opts.agent ?? "its agent"}: add one for a type on the Creds page`,
-		);
-	}
-	return cheapest;
+	const [cheapest] = bootable.sort(
+		(one, other) => one.dollarsPerHour - other.dollarsPerHour,
+	);
+	return cheapest as WorkerType;
 }

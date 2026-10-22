@@ -199,7 +199,6 @@
 @source "./setup-native-steps.tsx";
 @source "./setup-instructions.tsx";
 @source "./kept-creds.tsx";
-@source "./worker-keys.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";
 @source "./project-app.tsx";

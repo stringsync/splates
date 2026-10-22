@@ -5,9 +5,8 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { taskReference } from "../plans";
-import type { WorkerMachine } from "../workers";
 import { type PoolWorker, Scheduler } from "../workers";
-import type { ConversationSlots, PlacedCheckouts } from "./host";
+import type { ConversationSlots } from "./host";
 import { type Conversation, Conversations } from "./index";
 import { eventually, type Held, until } from "./testing";
 
@@ -17,13 +16,8 @@ describe("A conversation whose worker is removed under it", () => {
 	let workers: PoolWorker[];
 	let scheduler: Scheduler;
 	let conversations: Conversations;
-	/** The tasks saved to free a slot, and whether saving fails. */
-	let saved: string[];
-	let saving: "ok" | "fails";
 
 	beforeEach(async () => {
-		saved = [];
-		saving = "ok";
 		const fs = new FakeFs();
 		await fs.mkdir("/repo");
 		const clock = new FakeWallClock(Date.parse("2026-10-17T10:00:00Z"));
@@ -47,62 +41,32 @@ describe("A conversation whose worker is removed under it", () => {
 		};
 		const worker = (id: string): PoolWorker => ({
 			id,
-			kind: "registered",
 			slots: 1,
-			platform: "linux",
 			awake: true,
-			checkouts: true,
-			runs: () => true,
 		});
 		workers = [worker("w1"), worker("w2")];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
-		const machine = (id: string): WorkerMachine => ({
-			git: async () => ({ code: 0, stdout: "", stderr: "" }),
-			processes: async () => [],
-			listening: async () => [],
-			read: async () => ({ size: 0, bytes: new Uint8Array(0) }),
-			exists: async (path) => path.startsWith(`/${id}/`),
-			checkout: async () => "",
-			removeCheckout: async () => {},
-			servers: async () => [],
-		});
 		const slots: ConversationSlots = {
 			events: scheduler.events,
 			take: async ({ id, task, agent: wants }, signal) => {
 				const grant = await scheduler.take(
-					{ id, task, agent: wants, project: "/repo", platform: null },
+					{ id, task, agent: wants, project: "/repo" },
 					signal,
 				);
-				return {
-					...grant,
-					launch: agent.launch,
-					machine: machine(grant.worker),
-				};
+				return { ...grant, launch: agent.launch };
 			},
 			hold: ({ id, task, agent: wants }, worker) => {
 				const grant = scheduler.hold(
-					{ id, task, agent: wants, project: "/repo", platform: null },
+					{ id, task, agent: wants, project: "/repo" },
 					worker,
 				);
 				return {
 					...grant,
 					dispose: grant.dispose,
 					resume: launcherOf(agent.launch).resume,
-					machine: machine(worker),
 				};
 			},
 			spot: () => null,
-		};
-		// Each worker readies the project's clone, which the agent claims its task from.
-		const checkouts: PlacedCheckouts = {
-			where: async (worker) => `/${worker}/projects/repo/repo`,
-			elsewhere: async () => true,
-			save: async (task) => {
-				if (saving === "fails") {
-					throw new Error("worker unreachable");
-				}
-				saved.push(task);
-			},
 		};
 		conversations = new Conversations(
 			"/repo/.git/splates/conversations",
@@ -114,7 +78,6 @@ describe("A conversation whose worker is removed under it", () => {
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
 				slots,
-				checkouts,
 				root: "/repo",
 			},
 		);
@@ -155,10 +118,7 @@ describe("A conversation whose worker is removed under it", () => {
 		await eventually(() => said().includes(taskReference("login")));
 		await until(conversation, "idle");
 
-		expect(agent.launched.map(({ cwd }) => cwd)).toEqual([
-			"/w1/projects/repo/repo",
-			"/w2/projects/repo/repo",
-		]);
+		expect(agent.launched).toHaveLength(2);
 		expect(agent.resumed).toEqual([]);
 		expect(agent.opened.length).toBe(sessions + 1);
 		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w2"]);
@@ -175,7 +135,7 @@ describe("A conversation whose worker is removed under it", () => {
 
 		expect(said()).toEqual([taskReference("login"), "and now?"]);
 		expect(agent.resumed).toEqual([]);
-		expect(agent.launched.at(-1)?.cwd).toBe("/w2/projects/repo/repo");
+		expect(agent.launched).toHaveLength(2);
 	});
 
 	it("leaves one in no task stopped, with nothing pushed to carry on from", async () => {
@@ -226,13 +186,12 @@ describe("A conversation whose worker is removed under it", () => {
 				conversation.state.ask !== null,
 		);
 
-	it("frees the slot of one asking once its worker drains, saving its task and keeping the question", async () => {
+	it("frees the slot of one asking once its worker drains, keeping the question", async () => {
 		const conversation = await asking();
 
 		drain();
 		await freed(conversation);
 
-		expect(saved).toEqual(["login"]);
 		expect(scheduler.held()).toEqual([]);
 		expect(conversation.state.ask).toMatchObject({
 			type: "permission",
@@ -256,7 +215,7 @@ describe("A conversation whose worker is removed under it", () => {
 			"You asked permission for: rm -rf build\nI answered: Allow",
 		]);
 		expect(agent.resumed).toEqual([]);
-		expect(agent.launched.at(-1)?.cwd).toBe("/w2/projects/repo/repo");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w2"]);
 		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w2"]);
 	});
 
@@ -281,23 +240,8 @@ describe("A conversation whose worker is removed under it", () => {
 		void conversation.prompt("ask");
 		await freed(conversation);
 
-		expect(saved).toEqual(["login"]);
 		expect(scheduler.held()).toEqual([]);
 		expect(conversation.state.ask?.id).toBe("t1");
-	});
-
-	it("keeps the slot of one whose task could not be saved", async () => {
-		saving = "fails";
-		const conversation = await asking();
-
-		drain();
-		await Bun.sleep(0);
-		await Bun.sleep(0);
-
-		expect(conversation.state.status).toBe("running");
-		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
-		conversation.answer("t1", { type: "permission", option: "yes" });
-		await until(conversation, "idle");
 	});
 
 	it("keeps the slot of one asking in no task, with nothing to carry on from", async () => {
@@ -306,7 +250,6 @@ describe("A conversation whose worker is removed under it", () => {
 		drain();
 		await Bun.sleep(0);
 
-		expect(saved).toEqual([]);
 		expect(conversation.state.status).toBe("running");
 		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
 	});
@@ -321,19 +264,18 @@ describe("A conversation whose worker is removed under it", () => {
 		scheduler.poke();
 	};
 
-	it("moves an idle one off a worker being replaced, saving its task, and carries it on elsewhere", async () => {
+	it("moves an idle one off a worker being replaced, and carries it on elsewhere", async () => {
 		const conversation = await start();
 
 		replace();
 		await until(conversation, "stopped");
 
-		expect(saved).toEqual(["login"]);
 		expect(scheduler.held()).toEqual([]);
 		await conversation.prompt("and now?");
 		await eventually(() => said().includes("and now?"));
 		expect(said()).toEqual([taskReference("login"), "and now?"]);
 		expect(agent.resumed).toEqual([]);
-		expect(agent.launched.at(-1)?.cwd).toBe("/w2/projects/repo/repo");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w2"]);
 	});
 
 	it("lets one at work on a worker being replaced finish its turn, then moves it", async () => {
@@ -344,12 +286,10 @@ describe("A conversation whose worker is removed under it", () => {
 		replace();
 		await Bun.sleep(0);
 		expect(conversation.state.status).toBe("running");
-		expect(saved).toEqual([]);
 
 		held.finish?.("end_turn");
 		await until(conversation, "stopped");
 
-		expect(saved).toEqual(["login"]);
 		expect(scheduler.held()).toEqual([]);
 	});
 
@@ -359,7 +299,6 @@ describe("A conversation whose worker is removed under it", () => {
 		replace();
 		await Bun.sleep(0);
 
-		expect(saved).toEqual([]);
 		expect(conversation.state.status).toBe("idle");
 		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
 	});

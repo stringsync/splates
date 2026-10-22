@@ -4,7 +4,7 @@ import { NodePs, type Ps } from "webappwiz/system";
 import { ROOT } from "./root";
 
 /** The proofs, each a script in `docker/`. */
-export const PROOFS = ["coordinator", "worker"] as const;
+export const PROOFS = ["coordinator"] as const;
 export type Proof = (typeof PROOFS)[number];
 
 export interface ProveOptions {
@@ -17,8 +17,8 @@ export interface ProveOptions {
 
 /**
  * Runs a proof of splates on Linux end to end: `coordinator` runs the server
- * in a Docker container with this machine as its worker, and `worker` the
- * inverse. Each prints what it checked and fails on the first thing wrong.
+ * in a Docker container with this machine as its worker. It prints what it
+ * checked and fails on the first thing wrong.
  */
 export async function prove(opts: ProveOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();

@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeWallClock } from "webappwiz/time/testing";
-import {
-	type PoolWorker,
-	platformOf,
-	Scheduler,
-	type SlotRequest,
-} from "./scheduler";
+import { type PoolWorker, Scheduler, type SlotRequest } from "./scheduler";
 
 describe("Scheduler", () => {
 	let clock: FakeWallClock;
@@ -53,7 +48,6 @@ describe("Scheduler", () => {
 				id: "b",
 				project: "/repo",
 				task: "b",
-				platform: null,
 				agent: "claude",
 				position: 1,
 				since: 5_000,
@@ -66,7 +60,8 @@ describe("Scheduler", () => {
 	});
 
 	it("tells each grant on a worker released that it is lost, and places the next elsewhere", async () => {
-		workers = [worker("box"), worker("local")];
+		// scry-ignore simple-test-setup: the two workers and the grants on each are this test's own inputs
+		workers = [worker("local"), worker("box")];
 		const here = await take("a");
 		const there = await take("b");
 		const next = take("c");
@@ -115,44 +110,23 @@ describe("Scheduler", () => {
 		expect(scheduler.queue().map((entry) => entry.id)).toEqual(["b", "c"]);
 	});
 
-	it("goes back to the worker an agent last ran on, else the local one", async () => {
-		workers = [worker("remote"), worker("local", { slots: 2 })];
-		scheduler.hold(request("a"), "remote").dispose();
-		expect((await take("a")).worker).toBe("remote");
-		expect((await take("b")).worker).toBe("local");
-	});
-
 	it("falls back to a registered worker when the local one is full", async () => {
 		workers = [worker("local"), worker("remote")];
 		expect((await take("a")).worker).toBe("local");
 		expect((await take("b")).worker).toBe("remote");
 	});
 
-	it("takes a worker paid by the hour only when no other has room", async () => {
-		workers = [
-			worker("made", { kind: "provisioned" }),
-			worker("remote"),
-			worker("local"),
-		];
-		expect((await take("a")).worker).toBe("local");
-		expect((await take("b")).worker).toBe("remote");
-		expect((await take("c")).worker).toBe("made");
-	});
-
 	it("takes a worker waiting on an update only when none on the coordinator's build has room", async () => {
-		workers = [
-			worker("local", { outdated: true }),
-			worker("made", { kind: "provisioned" }),
-		];
+		workers = [worker("local", { outdated: true }), worker("made")];
 		scheduler.hold(request("a"), "local").dispose();
 		expect((await take("a")).worker).toBe("made");
 		expect((await take("b")).worker).toBe("local");
 	});
 
-	it("passes over a worker that is away or cannot hold the checkout", async () => {
+	it("passes over a worker that is away", async () => {
 		workers = [
 			worker("local", { awake: false }),
-			worker("remote", { checkouts: false }),
+			worker("remote", { awake: false }),
 		];
 		const waiting = take("a");
 		await settle();
@@ -160,20 +134,6 @@ describe("Scheduler", () => {
 		workers = [worker("local")];
 		scheduler.poke();
 		expect((await waiting).worker).toBe("local");
-	});
-
-	it("places only on the platform a project requires, letting others past", async () => {
-		void take("a", { platform: "linux" });
-		await take("b");
-		expect(placed).toEqual(["b"]);
-		expect(scheduler.spot("a")?.reason).toBe("needs Linux");
-	});
-
-	it("says a free slot is what an agent waits for once its platform has a worker", async () => {
-		workers = [worker("local", { platform: "linux" })];
-		await take("a");
-		void take("b", { platform: "linux" });
-		expect(scheduler.spot("b")?.reason).toBe("no free slot");
 	});
 
 	it("says no worker is up when none it could run on is", async () => {
@@ -208,11 +168,13 @@ describe("Scheduler", () => {
 
 	it("spreads agents over equal workers by load", async () => {
 		workers = [worker("one", { slots: 4 }), worker("two", { slots: 4 })];
-		const on = [];
-		for (const id of ["a", "b", "c", "d"]) {
-			on.push((await take(id, { uncapped: true })).worker);
-		}
-		expect(on).toEqual(["one", "two", "one", "two"]);
+		const first = await take("a", { uncapped: true });
+		const second = await take("b", { uncapped: true });
+		const third = await take("c", { uncapped: true });
+		const fourth = await take("d", { uncapped: true });
+		expect([first, second, third, fourth].map((grant) => grant.worker)).toEqual(
+			["one", "two", "one", "two"],
+		);
 	});
 
 	it("queues an uncapped agent only while no worker is up", async () => {
@@ -223,17 +185,6 @@ describe("Scheduler", () => {
 		workers = [worker("remote")];
 		scheduler.poke();
 		expect((await waiting).worker).toBe("remote");
-	});
-
-	it("places an agent only on a worker that holds its key, letting others past", async () => {
-		workers = [
-			worker("local", { awake: false }),
-			worker("box", { runs: (agent) => agent !== "codex" }),
-		];
-		void take("a", { agent: "codex" });
-		await take("b");
-		expect(placed).toEqual(["b"]);
-		expect(scheduler.spot("a")?.reason).toBe("needs a key for codex");
 	});
 
 	it("counts a held agent against its worker's slots", async () => {
@@ -284,23 +235,13 @@ describe("Scheduler", () => {
 		scheduler.poke();
 		expect(drains).toEqual(["w1", "local", "local"]);
 	});
-
-	it("names each platform as people do", () => {
-		expect(
-			["darwin", "linux", "win32", "aix"].map((each) => platformOf(each)),
-		).toEqual(["macos", "linux", "windows", null]);
-	});
 });
 
 function worker(id: string, overrides: Partial<PoolWorker> = {}): PoolWorker {
 	return {
 		id,
-		kind: id === "local" ? "local" : "registered",
 		slots: 1,
-		platform: "macos",
 		awake: true,
-		checkouts: true,
-		runs: () => true,
 		...overrides,
 	};
 }
@@ -313,7 +254,6 @@ function request(
 		id,
 		project: "/repo",
 		task: id,
-		platform: null,
 		agent: "claude",
 		...overrides,
 	};

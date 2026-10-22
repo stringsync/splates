@@ -14,10 +14,8 @@ import { Conversations } from "../conversations";
 import { cannotReach, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
-import { pushOnMove, TaskBranches } from "../merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
 import { NoteReads, NoteUses } from "../notes";
-import { PlanStore } from "../plans";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
 import { Spend } from "../spend";
@@ -35,12 +33,10 @@ import {
 	CoordinatorIdentity,
 	CoordinatorState,
 	DevWorkers,
+	LOCAL_SLOTS,
 	LOCAL_WORKER,
 	Snapshots,
-	WORKER_KEYS_FILE,
 	WorkerBudget,
-	WorkerKeys,
-	WorkerPlacement,
 	WorkerRecords,
 	workerGit,
 	workerSocketPath,
@@ -132,7 +128,7 @@ export async function serveDev(
 			"--id",
 			LOCAL_WORKER,
 			"--slots",
-			String(opts["worker-slots"]),
+			String(LOCAL_SLOTS),
 			"--quiet",
 		];
 		ctx.ps.exit(
@@ -228,12 +224,6 @@ export async function serveDev(
 	const identity = await CoordinatorIdentity.open(device).catch(
 		(error: unknown) => fail("no_secret_store", cannotReach(device, error)),
 	);
-	// Each worker's API keys, in the device's store, since workers serve
-	// every project.
-	const keys = await WorkerKeys.open(
-		settingsStorage.document(WORKER_KEYS_FILE),
-		device,
-	);
 	// Made workers dial the page where the tunnel publishes it.
 	const provider = here?.workerProvider ?? null;
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
@@ -241,7 +231,6 @@ export async function serveDev(
 		identity,
 		session: coordinator.session,
 		protocol: coordinator.protocol,
-		platform: ctx.ps.platform,
 		records,
 		access:
 			tunnel === null
@@ -251,7 +240,6 @@ export async function serveDev(
 						apiToken: () => device.get(API_TOKEN),
 						log: ctx.log,
 					}),
-		keys,
 		...(provider === null || here === null
 			? {}
 			: {
@@ -290,35 +278,13 @@ export async function serveDev(
 				await offered.reload();
 				return seeded(rosterOf(ctx), offered);
 			},
-			conversations: ({
-				splatesDir,
-				storage,
-				git,
-				config,
-				creds,
-				service,
-				journal,
-			}) => {
-				const branches = TaskBranches.of({
-					git,
-					config,
-					creds,
-					plans: new PlanStore(ctx.fs, storage),
-				});
+			conversations: ({ splatesDir, storage, git, config, journal }) => {
 				return new Conversations(`${splatesDir}/conversations`, roster, {
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
 					launcher: worker,
-					slots: slots.project(git.root, config.platform, () => git.author()),
+					slots: slots.project(git.root),
 					machine: worker,
-					checkouts: new WorkerPlacement({
-						service,
-						branches,
-						config,
-						slug: async () =>
-							(await projects.list()).find((each) => each.root === git.root)
-								?.slug ?? null,
-					}),
 					starting,
 					offered,
 					limits,
@@ -341,10 +307,7 @@ export async function serveDev(
 									codex: ctx.ps.env("CODEX_PATH"),
 								})
 							: [],
-					watch: new Watch(
-						workerGit(git.root, worker),
-						pushOnMove(branches, ctx.log),
-					),
+					watch: new Watch(workerGit(git.root, worker)),
 					root: git.root,
 					projects,
 					servers: browser,
@@ -400,7 +363,6 @@ export interface DevFlags {
 	tunnel: string;
 	"tunnel-name": string;
 	"ports-host": string;
-	"worker-slots": number;
 	keepalive: boolean;
 	slot: boolean;
 }

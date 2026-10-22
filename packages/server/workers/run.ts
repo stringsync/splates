@@ -1,23 +1,14 @@
 import { availableParallelism, totalmem } from "node:os";
 import type { Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
-import { SharedBrowser } from "../agents";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
-import { relayDocument } from "../records";
-import { heavyJobsOfMachine, RUNNING } from "../server/shared";
-import { FsStorage } from "../storage";
+import { RUNNING } from "../server/shared";
 import { accessHeaders } from "./access";
-import { keepAwakeOf } from "./awake";
-import {
-	undumpableKeys,
-	type WorkerCreds,
-	workerCreds,
-	workerId,
-} from "./creds";
+import { type WorkerCreds, workerCreds, workerId } from "./creds";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { endWithSupervisor, restartWorker, updatedBuild } from "./lifecycle";
-import { hostOf, machineSlots, onWindowsDrive } from "./machine";
+import { machineSlots } from "./machine";
 import {
 	WORKER_KEY_HEADER,
 	WORKER_SOCKET_PATH,
@@ -26,7 +17,6 @@ import {
 import type { WorkerRunOptions } from "./run-options";
 import { AgentSandbox } from "./sandbox";
 import { UnixWorkerSocket } from "./unix-socket";
-import { networkOf, wakeSenderOf } from "./wake";
 import { WebSocketWorkerSocket } from "./websocket-socket";
 
 /** Where the local worker finds the server on this machine. */
@@ -35,32 +25,12 @@ export function workerSocketPath(ps: Ps): string {
 }
 
 /**
- * `splates worker run`: serves the server until a SIGINT or SIGTERM.
- * Told the server's build, once its agents have moved off it or when
- * refused for speaking another protocol, it restarts on that build
- * (`restartWorker`); refused with no build, it exits `outdated`.
+ * `splates worker run`: serves the server until a SIGINT or SIGTERM,
+ * restarting on the server's build when told it, and exiting
+ * `outdated` when refused without one.
  */
 export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const { ps, log } = opts;
-	const home = splatesHome(ps);
-	if (onWindowsDrive(hostOf(ps), home)) {
-		fail(
-			"usage",
-			`${home} is on a Windows drive, where clones are slow and paths break: give the worker a home on WSL's own filesystem, such as ~/.splates`,
-		);
-	}
-	// Started on the first session that asks, so a worker whose agents all
-	// run on the server's own machine never starts one.
-	const browser = new SharedBrowser(
-		{
-			ps,
-			fs: opts.fs,
-			timer: new SystemTimer(),
-			log,
-			heavy: heavyJobsOfMachine({ fs: opts.fs, ps, log }),
-		},
-		splatesHome(ps),
-	);
 	const remote = !(
 		opts.coordinator === "" || opts.coordinator.startsWith("unix:")
 	);
@@ -76,10 +46,6 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		await restartWorker(updated, id, creds, opts);
 		return;
 	}
-	// A worker of its own machine keeps API keys its server sends while
-	// agents run beside it as the same user, so no other process may read
-	// its memory; this machine's runs agents signed in as the person.
-	const keys = remote ? await undumpableKeys(log) : null;
 	// Its agents work in the person's own worktrees, whose `.git` a sandbox
 	// would leave read-only.
 	const sandbox = remote ? await agentSandbox(opts) : null;
@@ -89,20 +55,6 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		ps,
 		fs: opts.fs,
 		log,
-		relay: relayDocument(FsStorage.ofMachine({ fs: opts.fs, ps, log })),
-		...(remote
-			? {
-					direct: {
-						coordinator: opts.coordinator,
-						keyFile: opts.keyFile === true,
-					},
-				}
-			: {}),
-		servers: browser,
-		awake: keepAwakeOf(ps, log),
-		network: await networkOf(ps, log),
-		waker: wakeSenderOf(ps),
-		keys,
 		sandbox,
 	});
 	const stopping = [
@@ -126,7 +78,6 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 			each.dispose();
 		}
 		await daemon.disposeAsync();
-		await browser.disposeAsync();
 	}
 	if ("update" in ended && ended.update !== undefined && creds !== null) {
 		await restartWorker(ended.update, id, creds, opts);

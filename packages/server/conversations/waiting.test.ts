@@ -21,12 +21,8 @@ describe("An agent waiting for a slot as the server goes down", () => {
 		const workers: PoolWorker[] = [
 			{
 				id: "local",
-				kind: "local",
 				slots: 1,
-				platform: "macos",
 				awake: true,
-				checkouts: true,
-				runs: () => true,
 			},
 		];
 		const scheduler = new Scheduler({ workers: () => workers }, clock);
@@ -34,7 +30,7 @@ describe("An agent waiting for a slot as the server goes down", () => {
 			events: scheduler.events,
 			take: async (asked, signal) => {
 				const grant = await scheduler.take(
-					{ ...asked, project: "/repo", platform: null },
+					{ ...asked, project: "/repo" },
 					signal,
 				);
 				return {
@@ -48,10 +44,7 @@ describe("An agent waiting for a slot as the server goes down", () => {
 				};
 			},
 			hold: (asked, worker) => {
-				const grant = scheduler.hold(
-					{ ...asked, project: "/repo", platform: null },
-					worker,
-				);
+				const grant = scheduler.hold({ ...asked, project: "/repo" }, worker);
 				return {
 					worker: grant.worker,
 					lost: grant.lost,

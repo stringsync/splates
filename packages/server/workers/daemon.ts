@@ -1,4 +1,3 @@
-import type { MemorySecretStore } from "webappwiz/creds";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -10,28 +9,18 @@ import {
 	type Timer,
 	timeouts,
 } from "webappwiz/time";
-import type { SessionServers } from "../agents";
-import type { RelayFile } from "../records";
 import { RUNNING } from "../server/shared";
-import type { Document } from "../storage";
-import type { KeepAwake } from "./awake";
-import { AwakeWhileBusy } from "./awake-while-busy";
-import { SERVERS, WorkerCallHost } from "./call-host";
-import { RELAY, type WorkerChannel } from "./channel";
+import { WorkerCallHost } from "./call-host";
+import type { WorkerChannel } from "./channel";
 import { challengeNonce, proofHolds } from "./identity";
 import { hostOf, LocalWorkerMachine } from "./machine";
-import { WAKE, type WakeSender } from "./magic-packet";
 import { OrphanBound } from "./orphan";
-import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
 import { UPDATE, WorkerProtocol } from "./protocol";
 import { WorkerPtyHost } from "./pty-host";
-import { WorkerRelay } from "./relay";
 import type { AgentSandbox } from "./sandbox";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
-import { KEYS } from "./task-keys";
-import type { WorkerNetwork } from "./wake";
 
 /** How a worker reaches its server, dialed afresh after each drop. */
 export interface WorkerDialer {
@@ -46,22 +35,12 @@ export interface WorkerDialer {
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
-export const WORKER_CAPABILITIES = [
-	"process",
-	"pty",
-	"calls",
-	"port",
-	RELAY,
-	SERVERS,
-	UPDATE,
-	WAKE,
-];
+export const WORKER_CAPABILITIES = ["process", "pty", "calls", UPDATE];
 
 /**
  * `splates worker run`: a worker that dials out to its server and keeps
  * dialing, waiting longer after each failure, and runs what it is asked to
- * on this machine: processes, PTYs, calls, and connections to the ports its
- * tasks serve. What it runs outlives a
+ * on this machine: processes, PTYs and calls. What it runs outlives a
  * dropped link, since the session replays what the server missed.
  */
 export class WorkerDaemon implements AsyncResource {
@@ -77,13 +56,8 @@ export class WorkerDaemon implements AsyncResource {
 	private orphaned: Resource | undefined;
 	/** The bound passed awake: what the server left ends once a redial fails. */
 	private due = false;
-	/** Where `splates` on this machine reaches the server, once running. */
-	private relay: WorkerRelay | null = null;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
-	private readonly busy: AwakeWhileBusy;
-	/** The keys its server sent, in this process's memory alone. */
-	private readonly keys: MemorySecretStore | null;
 
 	constructor(
 		private readonly dialer: WorkerDialer,
@@ -96,19 +70,10 @@ export class WorkerDaemon implements AsyncResource {
 		};
 		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
 		this.clock = opts.clock ?? new SystemClock();
-		this.busy = new AwakeWhileBusy(opts.awake ?? null);
-		this.keys = opts.keys ?? null;
-		this.machine = new LocalWorkerMachine(
-			opts.ps,
-			opts.fs,
-			opts.servers ?? null,
-		);
+		this.machine = new LocalWorkerMachine(opts.ps, opts.fs);
 		this.session = new WorkerSession("worker", {
 			...opts.session,
-			capabilities:
-				this.keys === null
-					? WORKER_CAPABILITIES
-					: [...WORKER_CAPABILITIES, KEYS],
+			capabilities: WORKER_CAPABILITIES,
 			timer: this.timer,
 			clock: this.clock,
 		});
@@ -127,27 +92,8 @@ export class WorkerDaemon implements AsyncResource {
 	 * server that says it.
 	 */
 	async run(): Promise<WorkerEnded> {
-		const { log, relay = null } = this.opts;
+		const { log } = this.opts;
 		const host = hostOf(this.opts.ps);
-		// This machine's own worker runs beside its server, whose address
-		// its agents reach directly at the `SPLATES_DEV` they are given; one
-		// left by an older daemon would send `splates` through a dead relay.
-		if (this.opts.direct === undefined) {
-			await relay?.remove().catch(() => {});
-		} else {
-			this.relay = WorkerRelay.listen(this.session);
-		}
-		if (relay !== null && this.relay !== null) {
-			await relay
-				.write({
-					url: this.relay.url,
-					worker: this.opts.id,
-					...this.opts.direct,
-				})
-				.catch((error: unknown) =>
-					log.error(`cannot say where the relay listens: ${String(error)}`),
-				);
-		}
 		// Asked once its own have moved off it, so ending what it runs loses
 		// nothing a checkpoint does not hold.
 		const update = new Promise<string>((resolve) =>
@@ -196,13 +142,9 @@ export class WorkerDaemon implements AsyncResource {
 						platform: this.opts.ps.platform,
 						...(host === null ? {} : { host }),
 						build: RUNNING,
-						// It clones each project and task it runs agents in (`checkout`).
-						checkouts: true,
-						...hello(this.opts.network ?? null),
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {
-					this.keys?.clear();
 					return {
 						refused: negotiated.reason,
 						...(negotiated.update === undefined
@@ -293,7 +235,6 @@ export class WorkerDaemon implements AsyncResource {
 	/** Stops dialing and everything this worker runs, and hangs up. */
 	async disposeAsync(): Promise<void> {
 		this.stopped = true;
-		this.keys?.clear();
 		this.orphaned?.dispose();
 		this.waiting?.timeout.dispose();
 		this.waiting?.wake();
@@ -301,23 +242,6 @@ export class WorkerDaemon implements AsyncResource {
 			host.dispose();
 		}
 		this.session.dispose();
-		if (this.relay !== null) {
-			this.relay.dispose();
-			const { relay = null } = this.opts;
-			// Another daemon on this machine may have said its own since.
-			const said = relay === null ? null : await relay.read().catch(() => null);
-			const { direct } = this.opts;
-			if (
-				relay !== null &&
-				direct !== undefined &&
-				said?.url === this.relay.url
-			) {
-				// Kept without the relay, so `splates` here reaches a
-				// server elsewhere directly while no daemon runs.
-				await relay.write({ worker: this.opts.id, ...direct }).catch(() => {});
-			}
-			this.relay = null;
-		}
 	}
 
 	/**
@@ -359,8 +283,6 @@ export class WorkerDaemon implements AsyncResource {
 			`no coordinator returned within ${this.orphanBound.secs}s awake; ending what it left`,
 		);
 		this.session.endChannels();
-		// Whoever comes next sends its own.
-		this.keys?.clear();
 	}
 
 	/** Cuts short the wait between dials, to dial now. */
@@ -376,9 +298,7 @@ export class WorkerDaemon implements AsyncResource {
 			switch (channel.kind) {
 				case "process":
 					host = new WorkerProcessHost(channel, this.session, ps, {
-						relay: this.relay,
 						timer: this.timer,
-						store: this.keys,
 						sandbox: this.opts.sandbox ?? null,
 					});
 					break;
@@ -386,15 +306,7 @@ export class WorkerDaemon implements AsyncResource {
 					host = new WorkerPtyHost(channel, this.session, ps);
 					break;
 				case "calls":
-					host = new WorkerCallHost(
-						channel,
-						this.machine,
-						this.opts.waker ?? null,
-						this.keys,
-					);
-					break;
-				case "port":
-					host = new WorkerPortHost(channel, this.session);
+					host = new WorkerCallHost(channel, this.machine);
 					break;
 				default:
 					log.error(
@@ -409,18 +321,15 @@ export class WorkerDaemon implements AsyncResource {
 			return;
 		}
 		this.hosts.add(host);
-		// An agent or a terminal keeps the machine up, and is told of in the
-		// log, which says what a restart left running; a call or a port is
-		// over in a moment.
+		// An agent or a terminal is told of in the log, which says what a
+		// restart left running; a call is over in a moment.
 		const lasting = channel.kind === "process" || channel.kind === "pty";
-		const busy = lasting ? this.busy.busy() : null;
 		if (lasting) {
 			this.running++;
 			log.info(`started ${channel.kind} channel ${channel.id}`);
 		}
 		channel.events.on("close", () => {
 			this.hosts.delete(host);
-			busy?.dispose();
 			if (lasting) {
 				this.running--;
 				log.info(`ended ${channel.kind} channel ${channel.id}`);
@@ -437,20 +346,6 @@ export class WorkerDaemon implements AsyncResource {
 			this.waiting = { wake, timeout: this.timer.setTimeout(wake, duration) };
 		});
 	}
-}
-
-/**
- * What a hello says of `network`: the broadcast addresses this worker can
- * wake another on, and, only for one that may sleep, what waking it takes.
- */
-function hello(network: WorkerNetwork | null) {
-	if (network === null) {
-		return {};
-	}
-	return {
-		broadcasts: network.broadcasts,
-		...(network.wake === null ? {} : { wake: { ...network.wake } }),
-	};
 }
 
 /**
@@ -495,37 +390,6 @@ export interface WorkerDaemonOptions {
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
 	timer?: Timer;
 	clock?: Clock;
-	/**
-	 * Where to say the relay listens, for `splates` run by hand on this
-	 * machine, which has no env to find it in; null, the default, says it
-	 * nowhere.
-	 */
-	relay?: Document<RelayFile> | null;
-	/**
-	 * The server elsewhere it dials, said beside the relay, and kept
-	 * once it stops, with whether its key and Access token are in the key
-	 * file; none for this machine's own, which keeps no relay.
-	 */
-	direct?: { coordinator: string; keyFile: boolean };
-	/** The MCP servers it offers each agent session it runs; none by default. */
-	servers?: SessionServers | null;
-	/** Keeps the machine awake while it runs a process or terminal; none by default. */
-	awake?: KeepAwake | null;
-	/**
-	 * The network it says in its hello: where it can send a magic packet
-	 * for the server, and what waking this machine takes, for one that
-	 * may sleep; none by default.
-	 */
-	network?: WorkerNetwork | null;
-	/** What sends a magic packet when the server asks; none by default. */
-	waker?: WakeSender | null;
-	/**
-	 * Where it keeps the API keys its server sends for its agents,
-	 * which it proxies so no agent holds one; none, for a worker whose
-	 * agents run signed in as the person, by default. Make the process
-	 * undumpable before it holds one.
-	 */
-	keys?: MemorySecretStore | null;
 	/** Where it runs each agent, kept from the others; none, running each as this worker's user, by default. */
 	sandbox?: AgentSandbox | null;
 }

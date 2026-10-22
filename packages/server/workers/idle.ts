@@ -1,7 +1,6 @@
 import { Duration, type WallClock } from "webappwiz/time";
-import type { WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
-import type { Platform, Scheduler } from "./scheduler";
+import type { Scheduler } from "./scheduler";
 
 /** How long a made worker may be idle before it is destroyed, unless its provider says otherwise. */
 export const DEFAULT_IDLE_AFTER = Duration.mins(15);
@@ -19,20 +18,11 @@ const HOUR = Duration.hrs(1);
 export class IdleWorkers {
 	/** When each made worker was first seen idle, by id; absent while it is busy. */
 	private readonly since = new Map<string, number>();
-	/** The platform of each type the provider has made, for what a queued agent could take. */
-	private readonly platforms = new Map<string, Platform>();
 
 	constructor(
 		private readonly records: WorkerRecords,
 		private readonly wall: WallClock,
 	) {}
-
-	/** Notes the platform of each of `types`, for which queued agents a worker could take. */
-	learn(types: WorkerType[]): void {
-		for (const type of types) {
-			this.platforms.set(type.name, type.platform);
-		}
-	}
 
 	/** Stops tracking worker `id`, as when it is destroyed. */
 	forget(id: string): void {
@@ -41,23 +31,18 @@ export class IdleWorkers {
 
 	/**
 	 * Notes which made workers are idle now, as it changes: none holds an
-	 * agent and none queued could take it, a worker still booting included.
+	 * agent, a worker still booting included.
 	 */
 	track(scheduler: Scheduler): void {
 		const now = this.wall.now();
 		const held = new Set(scheduler.held().map((each) => each.worker));
-		const queued = scheduler.queue();
 		const live = new Set<string>();
 		for (const record of this.records.all) {
 			if (record.provisioned === null || record.removing) {
 				continue;
 			}
 			live.add(record.id);
-			const platform = this.platforms.get(record.provisioned.type);
-			const wanted = queued.some(
-				(entry) => platform === undefined || entry.platform === platform,
-			);
-			if (held.has(record.id) || wanted) {
+			if (held.has(record.id)) {
 				this.since.delete(record.id);
 			} else if (!this.since.has(record.id)) {
 				this.since.set(record.id, now);

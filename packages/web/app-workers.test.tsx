@@ -227,76 +227,6 @@ describe("App's workers", () => {
 		expect(view.queryByRole("listitem", { name: "worker box" })).toBeNull();
 		await act(async () => testing.release());
 	});
-
-	it("wakes a worker asleep at home, showing it waking at once", async () => {
-		const view = await openWorkers(
-			pool([worker("pc", { health: "asleep", host: "wsl2" }), worker("box")]),
-		);
-		const pc = view.getByRole("listitem", { name: "worker pc" });
-		const box = view.getByRole("listitem", { name: "worker box" });
-		testing.holdWrites();
-
-		expect(within(box).queryByRole("button", { name: "Wake" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(pc).getByRole("button", { name: "Wake" })),
-		);
-
-		expect(pc.textContent).toContain("waking");
-		expect(within(pc).queryByRole("button", { name: "Wake" })).toBeNull();
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/workers/pc/wake",
-			method: "POST",
-		});
-		await act(async () => testing.release());
-	});
-
-	it("names the keys each worker holds, and links an empty cell to the Creds page", async () => {
-		testing.workerKeys = {
-			keys: [],
-			providers: [
-				{
-					id: "anthropic",
-					name: "Anthropic",
-					env: "ANTHROPIC_API_KEY",
-					agents: ["claude"],
-					keys: "https://platform.claude.com/settings/keys",
-					limits: "https://platform.claude.com/settings/workspaces",
-					scope: "workspace",
-					proxy: {
-						upstream: "https://api.anthropic.com",
-						header: "x-api-key",
-						base: "ANTHROPIC_BASE_URL",
-					},
-				},
-			],
-			holders: { workers: ["box", "bare"], types: [] },
-		};
-		const view = await openWorkers(
-			pool([
-				worker("local", { kind: "local" }),
-				worker("box", { keys: ["anthropic", "mystery"] }),
-				worker("bare"),
-			]),
-		);
-
-		await waitFor(() =>
-			expect(
-				view.getByRole("listitem", { name: "worker box" }).textContent,
-			).toContain("Anthropic, mystery"),
-		);
-		expect(
-			view.getByRole("listitem", { name: "worker local" }).textContent,
-		).toContain("signs in as you");
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("listitem", { name: "worker bare" })).getByRole(
-					"button",
-					{ name: "none: add one" },
-				),
-			),
-		);
-		expect(view.getByRole("region", { name: "creds" })).toBeTruthy();
-	});
 });
 
 /** A pool of `workers`, its server on 1.0.0. */
@@ -329,10 +259,8 @@ function worker(
 		updating: false,
 		verified: null,
 		lastHeard: null,
-		wokenAt: null,
 		tasks: [],
 		dollarsPerHour: 0,
-		keys: [],
 		...overrides,
 	};
 }

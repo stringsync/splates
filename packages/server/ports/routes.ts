@@ -1,32 +1,18 @@
-import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { type Clock, Duration, SystemClock } from "webappwiz/time";
 import type { Connection, Served } from "../server/shared";
 import { hostname, LOOPBACK, refuse } from "../server/shared";
 import { ACCESS_COOKIE, ACCESS_HEADER, type Access } from "../tunnel";
 import type { RemoteWorker } from "../workers";
-import { PortForward } from "./forward";
 import { PortSocket } from "./socket";
 import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
 
 /** One task port, with where to open it. */
 export interface PortLink extends TaskPort {
-	/** The worker, by id, whose processes listen on it. */
-	worker: string;
-	/** On the server's machine. */
+	/** On this machine. */
 	local: string;
-	/**
-	 * On the worker's own machine, where its server listens: the link to give
-	 * a user at that machine once the server runs elsewhere.
-	 */
-	onWorker: string;
 	/** Through the saved base host, behind Access; null with none saved. */
 	remote: string | null;
-}
-
-/** A task port, on the worker whose processes listen on it. */
-interface WorkerPort extends TaskPort {
-	worker: RemoteWorker;
 }
 
 /**
@@ -55,23 +41,21 @@ const SOCKET_HEADERS = [
 ];
 
 /**
- * The ports each task's processes listen on, found on whichever worker runs
- * them, as VS Code finds the ports to forward: each one forwarded to a
- * loopback port here, down the worker's socket, and, under a saved base
- * host, served at `<task>-<port>.<base>` to whoever Cloudflare Access lets
- * in, and never without it. DNS and TLS for the base are the operator's.
+ * The ports each task's processes listen on, read on this machine's worker,
+ * as VS Code finds the ports to forward: each open on this machine's
+ * loopback, and, under a saved base host, served at `<task>-<port>.<base>`
+ * to whoever Cloudflare Access lets in, and never without it. DNS and TLS
+ * for the base are the operator's.
  */
-export class DevTaskPorts implements Resource, Claimer {
-	/** By worker and port, as `key` names them. */
-	private readonly forwards = new Map<string, PortForward>();
-	private looked: { at: Duration; ports: Promise<WorkerPort[]> } | null = null;
+export class DevTaskPorts implements Claimer {
+	private looked: { at: Duration; ports: Promise<TaskPort[]> } | null = null;
 	private readonly clock: Clock;
 
 	constructor(
 		private readonly deps: {
-			/** The workers the tasks' agents run on. */
-			workers: () => RemoteWorker[];
-			/** Each served project's worktrees and agents, on every worker. */
+			/** This machine's worker, which the tasks' agents run on. */
+			worker: () => RemoteWorker;
+			/** Each served project's worktrees and agents. */
 			owners: () => Promise<PortOwners>;
 			/** `<task>-<port>.<base>` is a task port's; null for none. */
 			base: string | null;
@@ -84,7 +68,7 @@ export class DevTaskPorts implements Resource, Claimer {
 		this.clock = deps.clock ?? new SystemClock();
 	}
 
-	/** Each port a task serves now, forwarded, with its links. */
+	/** Each port a task serves now, with its links. */
 	async links(): Promise<PortLink[]> {
 		return (await this.look(true)).map((each) => this.link(each));
 	}
@@ -107,13 +91,6 @@ export class DevTaskPorts implements Resource, Claimer {
 			return null;
 		}
 		return this.proxy(request, server, host.slice(0, -base.length - 1));
-	}
-
-	dispose(): void {
-		for (const forward of this.forwards.values()) {
-			forward.dispose();
-		}
-		this.forwards.clear();
 	}
 
 	private async proxy(
@@ -157,9 +134,8 @@ export class DevTaskPorts implements Resource, Claimer {
 				`task '${task}' serves nothing on port ${port} now`,
 			);
 		}
-		const forward = this.forward(found);
 		const url = new URL(request.url);
-		const target = `${LOOPBACK}:${forward.local}${url.pathname}${url.search}`;
+		const target = `${LOOPBACK}:${port}${url.pathname}${url.search}`;
 		const headers = passed(request.headers, port, host(request));
 		if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
 			for (const name of SOCKET_HEADERS) {
@@ -222,7 +198,7 @@ export class DevTaskPorts implements Resource, Claimer {
 	}
 
 	/** The ports tasks serve: as last seen while fresh, unless `again`. */
-	private look(again: boolean): Promise<WorkerPort[]> {
+	private look(again: boolean): Promise<TaskPort[]> {
 		const now = this.clock.now();
 		const looked = this.looked;
 		if (
@@ -243,93 +219,45 @@ export class DevTaskPorts implements Resource, Claimer {
 		return ports;
 	}
 
-	private async read(): Promise<WorkerPort[]> {
+	/** The ports tasks serve, tied to them by the worker's own processes. */
+	private async read(): Promise<TaskPort[]> {
 		const owners = await this.deps.owners();
-		// One that is away would hold its answer until it is back, and has
-		// nothing to forward meanwhile.
-		const workers = this.deps.workers().filter((each) => each.connected);
-		const looked = await Promise.allSettled(
-			workers.map((worker) => this.readOn(worker, owners)),
-		);
-		const ports = looked.flatMap((each, i) => {
-			if (each.status === "fulfilled") {
-				return each.value;
-			}
-			this.deps.log.error(
-				`could not read the ports on worker ${workers[i]?.id}: ${each.reason instanceof Error ? each.reason.message : String(each.reason)}`,
-			);
+		const worker = this.deps.worker();
+		// One that is away would hold its answer until it is back.
+		if (!worker.connected) {
 			return [];
-		});
-		// A port no task serves any more takes its forward with it.
-		const served = new Set(ports.map(key));
-		for (const [at, forward] of this.forwards) {
-			if (!served.has(at)) {
-				forward.dispose();
-				this.forwards.delete(at);
-			}
 		}
-		for (const each of ports) {
-			this.forward(each);
-		}
-		return ports;
-	}
-
-	/** The ports tasks serve on `worker`, tied to them by its own processes. */
-	private async readOn(
-		worker: RemoteWorker,
-		owners: PortOwners,
-	): Promise<WorkerPort[]> {
 		const [table, listening] = await Promise.all([
 			worker.processes(),
 			worker.listening(),
-		]);
+		]).catch((error: unknown) => {
+			this.deps.log.error(
+				`could not read the ports on worker ${worker.id}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [null, null] as const;
+		});
+		if (table === null || listening === null) {
+			return [];
+		}
 		const on = <Each extends { worker: string }>(each: Each) =>
 			each.worker === worker.id;
 		return taskPorts(table, listening, {
 			worktrees: owners.worktrees.filter(on),
 			agents: owners.agents.filter(on),
-		}).map((each) => ({ ...each, worker }));
+		});
 	}
 
-	/**
-	 * The forward to `port` on its worker, made on first use. A local
-	 * worker's port is open here already, so its forward takes any port; a
-	 * remote one's keeps its number when it is free.
-	 */
-	private forward(port: WorkerPort): PortForward {
-		let forward = this.forwards.get(key(port));
-		if (forward === undefined) {
-			const { worker } = port;
-			forward = PortForward.listen(
-				worker,
-				port.port,
-				worker.kind === "local" ? null : port.port,
-			);
-			this.forwards.set(key(port), forward);
-		}
-		return forward;
-	}
-
-	private link(each: WorkerPort): PortLink {
-		const { task, port, worker } = each;
-		const local = worker.kind === "local" ? port : this.forward(each).local;
+	private link({ task, port }: TaskPort): PortLink {
 		return {
 			task,
 			port,
-			worker: worker.id,
-			local: `http://${LOOPBACK}:${local}`,
-			onWorker: `http://${LOOPBACK}:${port}`,
+			local: `http://${LOOPBACK}:${port}`,
 			remote:
 				this.deps.base === null
 					? null
 					: `https://${task}-${port}.${this.deps.base}`,
 		};
 	}
-}
-
-/** What a forward is kept by: its worker and port. */
-function key({ worker, port }: WorkerPort): string {
-	return `${worker.id}:${port}`;
 }
 
 /** The Host the request came to, its port included. */

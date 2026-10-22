@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FakePs } from "webappwiz/system/testing";
 import { platformLabel } from "./list";
-import { hostOf, machineSlots, onWindowsDrive } from "./machine";
+import { hostOf, machineSlots } from "./machine";
 
 describe("the machine a worker runs on", () => {
 	const GB = 1024 ** 3;
@@ -31,14 +31,5 @@ describe("the machine a worker runs on", () => {
 
 	it("takes one slot however small the machine", () => {
 		expect(machineSlots(2, 2 * GB)).toBe(1);
-	});
-
-	it("finds a home under WSL on a Windows drive", () => {
-		expect(onWindowsDrive("wsl2", "/mnt/c/Users/me/.splates")).toBe(true);
-		expect(onWindowsDrive("wsl2", "/home/splates/.splates")).toBe(false);
-	});
-
-	it("leaves /mnt alone outside WSL", () => {
-		expect(onWindowsDrive(null, "/mnt/c/.splates")).toBe(false);
 	});
 });

@@ -9,7 +9,7 @@ import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
 import { handOffReference, RECONNECT, taskReference } from "../plans";
-import type { Grant, WorkerMachine } from "../workers";
+import type { Grant } from "../workers";
 import { answerWords } from "./answered";
 import { put } from "./archive";
 import { ConversationBackground } from "./background";
@@ -92,8 +92,6 @@ export class Conversation
 	 * while it is not held.
 	 */
 	private latch: ((go: boolean) => void) | null = null;
-	/** The worker other than this machine's it was last placed on; null for none. */
-	private placed: WorkerMachine | null = null;
 	/**
 	 * What its next prompt is to follow, for an agent taken off a worker
 	 * while idle: its new session knows nothing of the task. Null for none.
@@ -104,8 +102,6 @@ export class Conversation
 	 * on the page for the person to answer (`free`); null for none.
 	 */
 	private kept: Ask | null = null;
-	/** Under way while it saves its task to free its slot. */
-	private freeing = false;
 	/** Stops hearing of workers that start draining; null with no slots. */
 	private readonly unlistenDrain: (() => void) | null;
 
@@ -201,7 +197,6 @@ export class Conversation
 		conversation.unsaid = replayed.unsaid === true && taken === null;
 		if (taken !== null && agent !== null) {
 			conversation.grant = taken.hold;
-			conversation.placed = taken.hold?.machine ?? null;
 			conversation.connection.reattach(agent, taken.process, taken.live);
 		}
 		return conversation;
@@ -422,10 +417,6 @@ export class Conversation
 	/** Where it runs; null for a log too old to say. */
 	get cwd(): string | null {
 		return this.dir;
-	}
-
-	get placedOn(): WorkerMachine | null {
-		return this.placed;
 	}
 
 	/**
@@ -789,7 +780,6 @@ export class Conversation
 		this.carry = busy ? null : carry;
 		// Freed already, with the worker.
 		this.grant = null;
-		this.placed = null;
 		await this.close(null);
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
@@ -850,42 +840,19 @@ export class Conversation
 	/**
 	 * Lets go of the slot of an agent asking the person something on a
 	 * worker that drains, rather than keep the worker up until they answer,
-	 * which may be hours: saves its task as `splates checkpoint` would, since
-	 * the agent is mid-turn and cannot, ends it, and keeps its question on
-	 * the page. The answer, or whatever the person says instead, places it
-	 * again in a new session, told `[SPLATES TASK <task>]` first, as
-	 * `requeue` does for an idle one. One in no task has nothing to carry
-	 * on from, and one whose task could not be saved would lose work, so
-	 * each keeps its slot until answered, as before.
+	 * which may be hours: ends it, its worktree left as it stands, and keeps
+	 * its question on the page. The answer, or whatever the person says
+	 * instead, places it again in a new session, told `[SPLATES TASK <task>]`
+	 * first, as `requeue` does for an idle one. One in no task has nothing
+	 * to carry on from, so it keeps its slot until answered.
 	 */
 	private async free(): Promise<void> {
 		const { task, ask } = this.state;
-		const grant = this.grant;
-		const { checkouts } = this.deps;
-		if (
-			task === null ||
-			ask === null ||
-			grant === null ||
-			checkouts === undefined ||
-			this.freeing
-		) {
-			return;
-		}
-		this.freeing = true;
-		try {
-			await checkouts.save(task);
-		} catch {
-			return;
-		} finally {
-			this.freeing = false;
-		}
-		// Answered, stopped or placed elsewhere while it saved.
-		if (this.grant !== grant || this.state.ask?.id !== ask.id) {
+		if (task === null || ask === null || this.grant === null) {
 			return;
 		}
 		this.kept = ask;
 		this.carry = taskReference(task);
-		this.placed = null;
 		await this.close(null);
 		this.connection.forgetSession();
 		this.set({ ask });
@@ -894,12 +861,11 @@ export class Conversation
 	/**
 	 * Moves its agent off a worker being replaced, at its next pause, so the
 	 * worker can update without waiting on the person: one asking does as
-	 * `free` says; one idle, nothing running in the background, saves its
-	 * task, ends and frees its slot, and the person's next words place it
-	 * again in a new session told `[SPLATES TASK <task>]` first, as
-	 * `requeue` does for an idle one. One at work moves once its turn ends.
-	 * One in no task has nothing to carry on from, and one whose task could
-	 * not be saved would lose work, so each keeps its slot until it ends.
+	 * `free` says; one idle, nothing running in the background, ends and
+	 * frees its slot, and the person's next words place it again in a new
+	 * session told `[SPLATES TASK <task>]` first, as `requeue` does for an
+	 * idle one. One at work moves once its turn ends. One in no task has
+	 * nothing to carry on from, so it keeps its slot until it ends.
 	 */
 	private async moveOff(): Promise<void> {
 		if (this.state.ask !== null) {
@@ -907,36 +873,15 @@ export class Conversation
 			return;
 		}
 		const { task, status, background } = this.state;
-		const grant = this.grant;
-		const { checkouts } = this.deps;
 		if (
 			task === null ||
 			status !== "idle" ||
 			background.length > 0 ||
-			grant === null ||
-			checkouts === undefined ||
-			this.freeing
-		) {
-			return;
-		}
-		this.freeing = true;
-		try {
-			await checkouts.save(task);
-		} catch {
-			return;
-		} finally {
-			this.freeing = false;
-		}
-		// Prompted, stopped or placed elsewhere while it saved.
-		if (
-			this.grant !== grant ||
-			this.state.status !== "idle" ||
-			this.state.ask !== null
+			this.grant === null
 		) {
 			return;
 		}
 		this.carry = taskReference(task);
-		this.placed = null;
 		await this.close(null);
 		this.connection.forgetSession();
 	}
@@ -1230,23 +1175,9 @@ export class Conversation
 		}, IDLE_STOP);
 	}
 
-	/**
-	 * Whether `dir` is still there: on the worker it was placed on, or for a
-	 * task cloned on a worker, taken to be, since the placement finds or
-	 * makes its clone again; else on this machine.
-	 */
-	private async there(dir: string): Promise<boolean> {
-		const { task } = this.state;
-		const { checkouts, fs } = this.deps;
-		if (this.placed !== null) {
-			return this.placed.exists(dir).catch(() => true);
-		}
-		return (
-			(await fs.exists(dir)) ||
-			(task !== null && checkouts !== undefined
-				? await checkouts.elsewhere(task).catch(() => false)
-				: false)
-		);
+	/** Whether `dir` is still there. */
+	private there(dir: string): Promise<boolean> {
+		return this.deps.fs.exists(dir);
 	}
 
 	/**
@@ -1286,8 +1217,7 @@ export class Conversation
 
 	/**
 	 * Opens the agent in `cwd` once it has a slot, clearing `opening` once it
-	 * has, failed to, or was stopped while it waited for one. On a worker
-	 * other than this machine's it opens in its checkout there instead.
+	 * has, failed to, or was stopped while it waited for one.
 	 */
 	private async wake(agent: Agent, cwd: string): Promise<void> {
 		try {
@@ -1295,43 +1225,9 @@ export class Conversation
 			if (placement === null) {
 				return;
 			}
-			this.placed = placement?.machine ?? null;
-			const at = await this.checkout(placement, cwd);
-			if (at !== null) {
-				await this.connection.open(agent, at, placement?.launch);
-			}
+			await this.connection.open(agent, cwd, placement?.launch);
 		} finally {
 			this.opening = null;
-		}
-	}
-
-	/**
-	 * Where its agent opens on the worker `placement` names: `cwd` on this
-	 * machine's, or with no placement; else the checkout `PlacedCheckouts`
-	 * finds or readies there, which it then runs in. Null once readying it
-	 * failed, which fails the conversation.
-	 */
-	private async checkout(
-		placement: Placement | undefined,
-		cwd: string,
-	): Promise<string | null> {
-		const { checkouts } = this.deps;
-		if (placement?.machine == null || checkouts === undefined) {
-			return cwd;
-		}
-		try {
-			const at = await checkouts.where(
-				placement.worker,
-				placement.machine,
-				this.state.task,
-			);
-			this.dir = at;
-			return at;
-		} catch (error) {
-			await this.close(
-				`could not ready a checkout on worker ${placement.worker}: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			return null;
 		}
 	}
 

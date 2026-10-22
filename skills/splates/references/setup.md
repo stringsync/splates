@@ -88,20 +88,15 @@ Access: that host then reaches only the tasks.
 
 ## Workers
 
-When the user asks to run agents on this Mac with more slots, or on another
-machine, that is the Workers setup area: `local-worker` (`splates worker add
---local <slots>`), `worker-access` (through a tunnel, whether the API token
-may mint a worker's Access service token, **Account · Access: Service Tokens ·
+When the user asks to run more agents at once on this Mac, that is the
+Workers setup area: `local-worker` (`splates worker add --local <slots>`)
+and `worker-access` (through a tunnel, whether the API token may mint a
+made worker's Access service token, **Account · Access: Service Tokens ·
 Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
-for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --server <url> --join <token>` on the other machine),
-`windows-worker` (the Windows command `splates worker add` prints, run in
-PowerShell as an administrator there: the worker in a WSL2 distro of its own,
-started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
-on in its BIOS and adapter, so splates wakes it when agents queue, before
-making a worker; `splates worker wake <id>` wakes one by hand). Walk them
-through it as the steps at the top say. Each checks
-`GET /api/workers` of the `splates server` in `SPLATES_DEV`.
+for one that may not). Agents run only on this Mac: another machine runs
+none, so there is no step to register one for agents. Walk them through it
+as the steps at the top say. Each checks `GET /api/workers` of the
+`splates server` in `SPLATES_DEV`.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

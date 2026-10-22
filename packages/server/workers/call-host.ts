@@ -1,16 +1,9 @@
-import type { SecretStore } from "webappwiz/creds";
 import type { Resource } from "webappwiz/disposable";
 import { z } from "zod";
 import type { WorkerChannel } from "./channel";
-import { ProjectCheckout } from "./checkouts";
 import { FrameTooLarge } from "./frame-too-large";
 import type { WorkerMachine } from "./machine";
-import { type WakeSender, WakeTarget } from "./magic-packet";
 import type { Json } from "./protocol";
-import { SentKey } from "./task-keys";
-
-/** The capability of a worker that answers `servers` (protocol 1.2). */
-export const SERVERS = "servers";
 
 /** The most of a git call's output in one part: characters, up to three bytes each. */
 const GIT_PART = 512 * 1024;
@@ -29,10 +22,6 @@ export class WorkerCallHost implements Resource {
 	constructor(
 		private readonly channel: WorkerChannel,
 		private readonly machine: WorkerMachine,
-		/** What sends a magic packet for `wake`; none, refusing it, by default. */
-		private readonly waker: WakeSender | null = null,
-		/** Where the keys `keys` sends are kept; none, refusing them, by default. */
-		private readonly store: SecretStore | null = null,
 	) {
 		this.unlisten = channel.events.on(
 			"message",
@@ -112,37 +101,6 @@ export class WorkerCallHost implements Resource {
 						: bytes.subarray(0, request.limit);
 				return { size, bytes: Buffer.from(taken).toString("base64") };
 			}
-			case "checkout":
-				return await this.machine.checkout(request.request);
-			case "removeCheckout":
-				await this.machine.removeCheckout(request.path);
-				return null;
-			case "servers":
-				return (await this.machine.servers()) as unknown as Json;
-			case "wake": {
-				if (this.waker === null) {
-					throw new Error("this worker sends no Wake-on-LAN packet");
-				}
-				const target = WakeTarget.parse(request);
-				await this.waker.send(target);
-				return null;
-			}
-			case "keys": {
-				if (this.store === null) {
-					throw new Error("this worker keeps no keys");
-				}
-				// The whole set each time, so a key the server took away goes.
-				const sent = new Set(request.keys.map((key) => key.cred));
-				for (const name of await this.store.names()) {
-					if (!sent.has(name)) {
-						await this.store.delete(name);
-					}
-				}
-				for (const { cred, value } of request.keys) {
-					await this.store.set(cred, value);
-				}
-				return null;
-			}
 		}
 	}
 
@@ -189,29 +147,6 @@ export const CallRequest = z.discriminatedUnion("method", [
 		from: z.number().int().nonnegative(),
 		/** At most this many bytes; a worker before this sends all of them. */
 		limit: z.number().int().positive().optional(),
-	}),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("checkout"),
-		request: ProjectCheckout,
-	}),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("removeCheckout"),
-		path: z.string(),
-	}),
-	z.object({ id: z.number().int(), method: z.literal("servers") }),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("wake"),
-		mac: z.string(),
-		broadcast: z.string(),
-	}),
-	/** Every key the worker holds now, replacing those it kept (protocol 1.5). */
-	z.object({
-		id: z.number().int(),
-		method: z.literal("keys"),
-		keys: z.array(SentKey),
 	}),
 ]);
 export type CallRequest = z.infer<typeof CallRequest>;

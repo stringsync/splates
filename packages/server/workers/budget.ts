@@ -14,7 +14,11 @@ import {
 	WORKER_LIMITS,
 	type WorkerLimit,
 } from "./limits";
-import type { BudgetReason, HeldSlot } from "./scheduler";
+import type { HeldSlot } from "./scheduler";
+
+/** A worker budget limit reached, like `monthly limit $75.00 reached`. */
+export type BudgetReason = `${string} reached`;
+
 import { type SpendShare, splitSpend } from "./spend";
 
 /** The shares of a limit, in percent, that each warn once per window. */

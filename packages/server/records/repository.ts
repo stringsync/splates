@@ -15,13 +15,7 @@ import {
 import { Creds, type SecretStores, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
-import {
-	CloneCheckouts,
-	CoordinatorLanding,
-	HOME_KEY,
-	TaskBranches,
-	type TrunkLanding,
-} from "../merge";
+import { CoordinatorLanding, TaskBranches, type TrunkLanding } from "../merge";
 import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
@@ -34,18 +28,12 @@ import {
 } from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
-import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
+import { WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
-import { keptAccess } from "../workers";
 import { Format } from "./format";
 import { Journal } from "./journal";
+import { LeaseLock } from "./lease-lock";
 import { MIGRATING, Migration } from "./migration";
-import { RelayApp } from "./relay-app";
-import { RelayFs } from "./relay-fs";
-import { RelayLanding } from "./relay-landing";
-import { RelayLock } from "./relay-lock";
-import { findRelay } from "./repo-state";
-import { RoutedFs } from "./routed-fs";
 
 /**
  * Runs the action against the repository `cwd` sits in, or the registered
@@ -65,12 +53,8 @@ export function repository<
 				? undefined
 				: (await Projects.ofMachine(ctx).named(ctx.project)).root;
 		const repo = await openRepository(ctx, { ...opts, at });
-		try {
-			const elsewhere = await checkReach({ ...ctx, ...repo }, repo, opts.needs);
-			await next({ ...ctx, ...repo, elsewhere });
-		} finally {
-			repo.beats?.dispose();
-		}
+		const elsewhere = await checkReach({ ...ctx, ...repo }, repo, opts.needs);
+		await next({ ...ctx, ...repo, elsewhere });
 	};
 }
 
@@ -78,23 +62,12 @@ export function repository<
 export interface Repository {
 	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
 	splatesDir: string;
-	/**
-	 * The project's records, under `splatesDir`: the server's on a
-	 * worker, locked through the relay.
-	 */
+	/** The project's records, under `splatesDir`. */
 	storage: Storage;
 	/** What every project on this machine shares, under the splates home. */
 	machine: Storage;
-	/**
-	 * Reads and writes the command's files. On a worker, the records under
-	 * `splatesDir` it reaches are the server's.
-	 */
+	/** Reads and writes the command's files. */
 	fs: Fs;
-	/**
-	 * What keeps a worker's leases and locks fresh while the command runs,
-	 * ended once it has; null on the server's machine.
-	 */
-	beats: LeaseBeat | null;
 	config: Config;
 	/** Checked before the command runs, so its records are in this splates's format. */
 	format: Format;
@@ -119,14 +92,8 @@ export interface Repository {
 	cores: CoreClaims;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
-	/**
-	 * What moves trunk on the central remote once a merge has tested its
-	 * branch: this machine itself on the server, the server through
-	 * the relay on a worker.
-	 */
+	/** What moves trunk on the central remote once a merge has tested its branch. */
 	trunk: TrunkLanding;
-	/** Whether this checkout's records are the server's, reached through the relay. */
-	relayed: boolean;
 }
 
 /** How `repository` treats records in an older format than this splates's. */
@@ -143,8 +110,6 @@ export interface RepositoryOptions {
 	creates?: boolean;
 	/** Where to look for the repository; the working directory by default. */
 	at?: string;
-	/** The workers a task cloned on one is read through, as `splates server` holds them. */
-	machines?: WorkerMachines;
 }
 
 /**
@@ -328,12 +293,12 @@ export async function recordsMigration(
  */
 export async function openRepository(
 	{
-		fs: disk,
+		fs,
 		ps,
 		log,
 		secrets = SYSTEM_STORES,
 	}: Deps & { fs: Fs; secrets?: SecretStores },
-	{ migrates = false, creates = false, at, machines }: RepositoryOptions = {},
+	{ migrates = false, creates = false, at }: RepositoryOptions = {},
 ): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
@@ -354,7 +319,7 @@ export async function openRepository(
 	const gitDir = stdout.trim();
 	if (migrates) {
 		await moveLegacyDir(`${gitDir}/${LEGACY_DIR}`, `${gitDir}/splates`, {
-			fs: disk,
+			fs,
 			log,
 		});
 	}
@@ -362,66 +327,23 @@ export async function openRepository(
 	// The registry is the user's, shared by every repository on this machine:
 	// `SPLATES_HOME` moves it, as the tests do to keep theirs out of the user's.
 	const _registry = splatesHome(ps);
-	// A checkout with no records of its own is a worker's: they are the
-	// server's, reached through the relay. Never for the server or
-	// `init`, which keep them here.
-	const relay =
-		migrates || creates || (await disk.exists(splatesDir))
-			? null
-			: await findRelay(
-					{
-						machine: FsStorage.ofMachine({ fs: disk, ps, log }),
-						env: (name) => ps.env(name),
-						access: (keyFile) => keptAccess({ ps, fs: disk, keyFile }),
-					},
-					() => originOf(ps, dirname(gitDir)),
-				);
-	const fs =
-		relay === null
-			? disk
-			: new RoutedFs(
-					splatesDir,
-					new RelayFs(relay.url, relay.project, splatesDir, relay.send),
-					disk,
-				);
-
-	// A worker's task clone works against the project clone it was made
-	// from, as a worktree does against its main tree.
-	const root =
-		relay === null
-			? dirname(gitDir)
-			: await cloneHome(ps, cwd, dirname(gitDir));
+	const root = dirname(gitDir);
 	const git = new Git(root, { ps, fs });
 	const config = await loadConfig(root, {
 		fs,
 		git,
 	});
-	const timer = new SystemTimer();
 	const lockAt = (path: string): Lock =>
-		relay === null
-			? new FileLock(path, {
-					fs,
-					ps,
-					log,
-					stalenessMs: config.leaseStalenessMs,
-				})
-			: new RelayLock(path, {
-					fs,
-					ps,
-					log,
-					timer,
-					stalenessMs: config.leaseStalenessMs,
-				});
-	// The merge lease: one per repository, kept on the server's disk so
-	// it outlives a restart, and beating on either side, so neither judges a
-	// long test run on the other's host stale. One whose holder dies is free
-	// once its pid is gone on the same host, or its beat is old elsewhere.
+		new FileLock(path, { fs, ps, log, stalenessMs: config.leaseStalenessMs });
+	// The merge lease: one per repository, kept on disk so it outlives a
+	// restart, and beating while held, so a long test run is never judged
+	// stale. One whose holder dies is free once its pid is gone.
 	const mergeLease = `${splatesDir}/merge.lock`;
-	const lease = new RelayLock(mergeLease, {
+	const lease = new LeaseLock(mergeLease, {
 		fs,
 		ps,
 		log,
-		timer,
+		timer: new SystemTimer(),
 		stalenessMs: config.leaseStalenessMs,
 	});
 	// Before anything reads or makes a record.
@@ -434,26 +356,14 @@ export async function openRepository(
 		await format.create();
 	}
 	await (migrates
-		? migrationOf(format, { fs: disk, ps, log }).run()
+		? migrationOf(format, { fs, ps, log }).run()
 		: format.check());
 	// The user's, shared by every repository on this machine: the registry,
 	// which only `splates init` writes this one into, and how each task ended.
-	const beats =
-		relay === null ? null : new LeaseBeat(timer, config.leaseStalenessMs);
 	// The one place a project's storage is picked, and the machine's.
 	const storage = new FsStorage(splatesDir, fs, { locks: { at: lockAt } });
 	const machine = FsStorage.ofMachine({ fs, ps, log });
 	const outcomes = new Outcomes(machine);
-	// On a worker, the server mints each token its git signs in with.
-	const relayed =
-		relay === null
-			? null
-			: new TaskBranches(
-					git,
-					config,
-					new RelayApp(relay.url, relay.project, { fetch: relay.send }),
-					new PlanStore(fs, storage),
-				);
 	const store = new TaskStore(storage);
 	const service = new WorktreeService(git, config, splatesDir, {
 		store,
@@ -463,17 +373,6 @@ export async function openRepository(
 		outcomes,
 		adherence: new Adherence(machine, null, fs),
 		workerBudget: machine.document("worker-budget.json"),
-		leases: beats ?? undefined,
-		...(machines === undefined ? {} : { machines }),
-		// A remote worker clones each task, the local one keeps worktrees.
-		...(relay === null || relayed === null
-			? {}
-			: {
-					clones: {
-						checkouts: new CloneCheckouts(git, config, relayed, fs),
-						machine: relay.worker ?? ps.hostname,
-					},
-				}),
 	});
 	await service.init();
 	if (migrates) {
@@ -494,16 +393,13 @@ export async function openRepository(
 		fs,
 		storage,
 		machine,
-		beats,
 		projects,
-		branches:
-			relayed ??
-			TaskBranches.of({
-				git,
-				config,
-				creds,
-				plans: new PlanStore(fs, storage),
-			}),
+		branches: TaskBranches.of({
+			git,
+			config,
+			creds,
+			plans: new PlanStore(fs, storage),
+		}),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		cores: coreClaimsOfMachine({ fs, ps, log }),
@@ -515,42 +411,9 @@ export async function openRepository(
 		service,
 		outcomes,
 		lock: lease,
-		relayed: relay !== null,
-		trunk:
-			relay === null
-				? new CoordinatorLanding({ git, fs, config, lease: mergeLease })
-				: new RelayLanding(relay.url, relay.project, { fetch: relay.send }),
+		trunk: new CoordinatorLanding({ git, fs, config, lease: mergeLease }),
 		shell: new Shell({ ps }),
 		journal: new Journal(storage, config.logCapacity, { ps }),
 		tasks: new Tasks(store),
 	};
-}
-
-/**
- * The project clone the task clone at `cwd` was made from, as its config
- * names it, or `root`, the checkout's own, for any other.
- */
-async function cloneHome(ps: Ps, cwd: string, root: string): Promise<string> {
-	const { exitCode, stdout } = await ps.spawnCapture([
-		"git",
-		"-C",
-		cwd,
-		"config",
-		"--get",
-		HOME_KEY,
-	]);
-	return exitCode === 0 && stdout.trim() !== "" ? stdout.trim() : root;
-}
-
-/** The URL of `root`'s `origin` remote, or null for none. */
-async function originOf(ps: Ps, root: string): Promise<string | null> {
-	const { exitCode, stdout } = await ps.spawnCapture([
-		"git",
-		"-C",
-		root,
-		"remote",
-		"get-url",
-		"origin",
-	]);
-	return exitCode === 0 && stdout.trim() !== "" ? stdout.trim() : null;
 }

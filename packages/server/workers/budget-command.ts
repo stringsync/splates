@@ -211,8 +211,6 @@ function print(
 		lines.push(
 			`Stopped: ${report.stopped}; made workers take nothing new until it is raised.`,
 		);
-	} else if (report.holding !== null) {
-		lines.push(`Queue held: ${report.holding}.`);
 	}
 	log.info(lines.join("\n"));
 }
@@ -255,6 +253,5 @@ const Report = z.object({
 		.object({ day: z.array(Share), month: z.array(Share) })
 		.default({ day: [], month: [] }),
 	stopped: z.string().nullable(),
-	holding: z.string().nullable(),
 	reviewed: z.boolean(),
 });

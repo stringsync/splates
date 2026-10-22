@@ -32,12 +32,8 @@ describe("Conversations waiting for a slot", () => {
 		workers = [
 			{
 				id: "local",
-				kind: "local",
 				slots: 1,
-				platform: "macos",
 				awake: true,
-				checkouts: true,
-				runs: () => true,
 			},
 		];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
@@ -45,7 +41,7 @@ describe("Conversations waiting for a slot", () => {
 			events: scheduler.events,
 			take: async (asked, signal) => {
 				const grant = await scheduler.take(
-					{ ...asked, project: "/repo", platform: null },
+					{ ...asked, project: "/repo" },
 					signal,
 				);
 				return {
@@ -59,10 +55,7 @@ describe("Conversations waiting for a slot", () => {
 				};
 			},
 			hold: (asked, worker) => {
-				const grant = scheduler.hold(
-					{ ...asked, project: "/repo", platform: null },
-					worker,
-				);
+				const grant = scheduler.hold({ ...asked, project: "/repo" }, worker);
 				return {
 					worker: grant.worker,
 					lost: grant.lost,
@@ -196,12 +189,8 @@ describe("Conversations waiting for a slot", () => {
 		workers = [
 			{
 				id: "remote",
-				kind: "registered",
 				slots: 1,
-				platform: "linux",
 				awake: true,
-				checkouts: true,
-				runs: () => true,
 			},
 		];
 		scheduler.poke();

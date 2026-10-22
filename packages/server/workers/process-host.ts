@@ -1,4 +1,3 @@
-import type { CredentialSource } from "webappwiz/creds";
 import type { Resource } from "webappwiz/disposable";
 import type { Child, ProcessEntry, Ps } from "webappwiz/system";
 import type { Timer } from "webappwiz/time";
@@ -6,18 +5,14 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
-import { relays, type WorkerRelay } from "./relay";
 import type { AgentSandbox } from "./sandbox";
 import type { WorkerSession } from "./session";
-import { TaskKey, TaskKeys } from "./task-keys";
 
 /** What a server opens a `process` channel with. */
 export const ProcessParams = z.object({
 	argv: z.array(z.string()).min(1),
 	cwd: z.string(),
 	env: z.record(z.string(), z.string()).default({}),
-	/** The keys it runs on, by name: the worker proxies each, so the process never holds one. */
-	keys: z.array(TaskKey).default([]),
 });
 
 /** What the server says on a process's channel that is not stdin. */
@@ -46,9 +41,6 @@ export class WorkerProcessHost implements Resource {
 	private readonly seen = new Set<number>();
 	private ended = false;
 	private watch: Resource | null = null;
-	private readonly keys: TaskKeys;
-	/** The relay URL only this process was given, when it was given one. */
-	private readonly issued: (Resource & { url: string }) | null;
 
 	constructor(
 		private readonly channel: WorkerChannel,
@@ -56,34 +48,13 @@ export class WorkerProcessHost implements Resource {
 		private readonly ps: Ps,
 		opts: WorkerProcessHostOptions = {},
 	) {
-		const { relay = null, timer = null, store = null, sandbox = null } = opts;
-		const { argv, cwd, env, keys } = ProcessParams.parse(channel.params);
-		this.keys = TaskKeys.start(keys, store);
-		// A process that names its project gets a relay URL of its own, limited to
-		// it; one that names none, such as a shell, shares the relay's.
-		const project = env.SPLATES_PROJECT;
-		this.issued =
-			relay !== null && env.SPLATES_DEV !== undefined && relays(session)
-				? project === undefined
-					? { url: relay.url, dispose: () => {} }
-					: relay.issue(project)
-				: null;
-		try {
-			this.child = ps.start(sandbox?.wrap(argv, cwd) ?? argv, {
-				cwd,
-				env: {
-					...(this.issued === null
-						? env
-						: { ...env, SPLATES_DEV: this.issued.url }),
-					...this.keys.env,
-				},
-				unset: [SERVING],
-			});
-		} catch (error) {
-			this.issued?.dispose();
-			void this.keys.disposeAsync();
-			throw error;
-		}
+		const { timer = null, sandbox = null } = opts;
+		const { argv, cwd, env } = ProcessParams.parse(channel.params);
+		this.child = ps.start(sandbox?.wrap(argv, cwd) ?? argv, {
+			cwd,
+			env,
+			unset: [SERVING],
+		});
 		this.stdin = this.child.stdin.getWriter();
 		channel.send({ type: "started", pid: this.child.pid });
 		channel.events.on("data", ({ bytes }) => {
@@ -98,10 +69,7 @@ export class WorkerProcessHost implements Resource {
 
 	dispose(): void {
 		this.watch?.dispose();
-		void this.end().finally(() => {
-			this.issued?.dispose();
-			return this.keys.disposeAsync();
-		});
+		void this.end();
 	}
 
 	/** Remembers what runs under the child now. */
@@ -204,7 +172,6 @@ export class WorkerProcessHost implements Resource {
 			return 127;
 		});
 		await this.reap();
-		await this.keys.disposeAsync();
 		if (!this.channel.closed) {
 			this.channel.send({ type: "exit", code });
 			this.channel.dispose();
@@ -232,16 +199,8 @@ export class WorkerProcessHost implements Resource {
 
 /** What a {@link WorkerProcessHost} is set up with, beyond its channel. */
 export interface WorkerProcessHostOptions {
-	/**
-	 * This worker's relay, which a process told where `splates server` is
-	 * reaches it through instead, since the server's own address is
-	 * its machine's loopback; absent to leave its env as it is.
-	 */
-	relay?: Pick<WorkerRelay, "url" | "issue"> | null;
 	/** What notes the child's descendants while it runs; absent to note none. */
 	timer?: Timer | null;
-	/** Where the keys this worker was sent are kept; absent for one that keeps none. */
-	store?: CredentialSource | null;
 	/** Where it runs its process, kept from its siblings; absent to run it as this worker's user alone. */
 	sandbox?: Pick<AgentSandbox, "wrap"> | null;
 }

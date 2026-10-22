@@ -95,10 +95,7 @@ export function PhoneApp({
 			<OfflinePill />
 		) : (
 			<>
-				<QueueBadge
-					queue={pageMenu.machine?.queue ?? []}
-					offer={pageMenu.machine?.workerBudget?.offer}
-				/>
+				<QueueBadge queue={pageMenu.machine?.queue ?? []} />
 				<WorkerBudgetBadge budget={pageMenu.machine?.workerBudget} />
 			</>
 		);

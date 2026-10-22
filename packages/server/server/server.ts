@@ -29,7 +29,6 @@ import {
 import { BillingRoutes, Spend } from "../spend";
 import { DevOutcomes, NoteStatsRoutes } from "../stats";
 import { FsStorage } from "../storage";
-import { rescueStranded } from "../tasks";
 import { Terminals } from "../terminal";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
@@ -62,7 +61,6 @@ import { RUNNING, sourceCommit } from "./release";
 import { Restarts } from "./restart";
 import { Serving } from "./serving";
 import { CONNECTIONS, type Connection } from "./sockets";
-import { StateRoutes } from "./state";
 import { Versions } from "./versions";
 
 export type { DevOptions } from "./options";
@@ -284,44 +282,13 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
-	const state = new StateRoutes({
-		ps,
-		projects,
-		named: projectNamed,
-		at: servedAt,
-	});
-
 	const workers = givenWorkers ?? new DevWorkers(log);
-	// A call through an agent's relay reaches its own project alone: the
-	// connection it came in on says which.
-	const limited =
-		(handle: (request: Request, limit: string | null) => Promise<Response>) =>
-		(request: Request, server: Bun.Server<Connection>) =>
-			talk(
-				guarded((each) =>
-					handle(
-						each,
-						workers.registry.scopes.of(server.requestIP(request)?.port),
-					),
-				),
-			)(request);
-	// Each project reads a task cloned on a worker through that worker.
 	const open =
 		givenOpen ??
 		(async (root: string) => {
 			const repository = await openRepository(deps, {
 				at: root,
 				migrates: true,
-				machines: workers,
-			});
-			// A worker back from being away has commits its tasks went on without.
-			workers.joined((machine) => {
-				void rescueStranded(machine, {
-					service: repository.service,
-					machines: workers,
-					branches: repository.branches,
-					log: deps.log,
-				}).catch((error: unknown) => deps.log.error(String(error)));
 			});
 			return { ps: deps.ps, log: deps.log, ...repository };
 		});
@@ -455,7 +422,6 @@ export async function dev(
 	);
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
-		workers.slots.scheduler,
 		workers.provisioning,
 	);
 	// Loud, whatever a device asks to hear: a limit nearing costs money.
@@ -567,16 +533,6 @@ export async function dev(
 						throw new Error(`worker ${id} was not removed`);
 					}
 				},
-				removeWorkerKeys: async (provider) => {
-					const keys = workers.keys;
-					if (keys === null) {
-						return;
-					}
-					for (const { holder } of keys.all) {
-						await keys.remove(holder, provider);
-					}
-					await workers.delivery.resend();
-				},
 				removeTunnel:
 					project == null
 						? undefined
@@ -617,13 +573,12 @@ export async function dev(
 
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
-		workers: () => workers.registry.workers,
+		worker: () => workers.local,
 		owners: () => portOwnersOf(served),
 		base: portsHost,
 		access: gate.access,
 		log,
 	});
-	disposer.defer(async () => taskPorts.dispose());
 
 	// The port was free when `ports` probed it, not necessarily when it binds,
 	// so a bind lost to someone else's asks again, which moves on past it.
@@ -697,11 +652,7 @@ export async function dev(
 							workerBudget:
 								workers.provisioning === null
 									? null
-									: workerBudgetReport(
-											workers.provisioning.budget,
-											workers.slots.scheduler,
-											workers.provisioning.offer(),
-										),
+									: workerBudgetReport(workers.provisioning.budget),
 						}),
 					),
 					"/api/worker-budget": guarded(budget.show),
@@ -770,7 +721,7 @@ export async function dev(
 					"/api/everywhere": talk(guarded(everywhere.list)),
 					"/api/everywhere/events": talk(guarded(everywhere.events)),
 					"/api/file": scoped((project) => project.file),
-					// It runs the person's editor, so only as far as a conversation reaches.
+					// Limited to what a conversation reaches, since it runs the person's editor.
 					"/api/open": { POST: talk(scoped((project) => project.open)) },
 					"/api/paths": scoped((project) => project.paths),
 					"/api/tasks/:task/diff": scoped((project) => project.diff),
@@ -978,17 +929,10 @@ export async function dev(
 						PUT: talk(owned((project) => project.moveConversation)),
 					},
 					"/api/ports": guarded(taskPorts.list),
-					// Through a worker's relay, which reaches only this machine's
-					// names: the records of a project its commands run on.
-					"/api/state": { POST: limited(state.answer) },
-					// And a merge there holding the lease, which only this end
-					// lands on trunk.
-					"/api/land": { POST: limited(state.land) },
 					"/api/queue": guarded(workers.queue),
 					"/api/queue/:id/position": {
 						PUT: talk(guarded(workers.moveQueued)),
 					},
-					"/api/token": { POST: limited(state.token) },
 				},
 				taskPorts,
 			),
@@ -1056,7 +1000,7 @@ export async function dev(
 				log.error(`${root} did not open: ${String(error)}`),
 			);
 	}
-	workers.serving(port);
+	workers.serving();
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);
 	}

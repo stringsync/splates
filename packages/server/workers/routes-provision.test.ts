@@ -1,28 +1,12 @@
 // scry-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { FakeWorkerProvider } from "../workers/testing";
-import {
-	Snapshots,
-	WebSocketWorkerSocket,
-	WorkerBudget,
-	WorkerDaemon,
-	WorkerRecords,
-	type WorkerSpec,
-} from "./index";
-import { DevWorkers, workerAuthorization } from "./routes";
-
-// Polls rather than sleeps a fixed while, which a loaded machine outlasts.
-async function until(done: () => boolean): Promise<void> {
-	const deadline = Date.now() + 5000;
-	while (!done() && Date.now() < deadline) {
-		await Bun.sleep(5);
-	}
-}
+import { Snapshots, WorkerBudget, WorkerRecords } from "./index";
+import { DevWorkers } from "./routes";
 
 describe("DevWorkers with a worker provider", () => {
 	let provider: FakeWorkerProvider;
@@ -64,42 +48,8 @@ describe("DevWorkers with a worker provider", () => {
 		server.stop(true);
 	});
 
-	it("makes a worker for an agent that queues, which joins and runs it", async () => {
-		const placed = workers.slots.scheduler.take(request("one"));
-		await Bun.sleep(10);
-		const [spec] = provider.specs;
-		const id = spec?.id ?? "";
-		const daemon = await booted(server, workers, spec);
-		void daemon.run();
-
-		expect((await placed).worker).toBe(id);
-		expect(provider.getCalls()).toEqual([
-			"snapshot linux 1.0.0",
-			`create ${id} small snap-1`,
-		]);
-		expect(workers.registry.worker(id)?.kind).toBe("provisioned");
-		await daemon.disposeAsync();
-	});
-
-	it("makes a worker for a queued task that finds no room, which then has room for it", async () => {
-		workers.slots.scheduler.want("/repo", [request("#3")]);
-		await until(() => provider.specs.length > 0);
-		const [spec] = provider.specs;
-		const daemon = await booted(server, workers, spec);
-		void daemon.run();
-		await until(() => workers.slots.scheduler.room() > 0);
-
-		expect(provider.getCalls()).toContain(
-			`create ${spec?.id ?? ""} small snap-1`,
-		);
-		expect(workers.slots.scheduler.room()).toBeGreaterThan(0);
-		await daemon.disposeAsync();
-	});
-
-	it("replaces a made worker that has not joined once its join token runs out", async () => {
-		void workers.slots.scheduler.take(request("one")).catch(() => {});
-		await until(() => provider.specs.length > 0);
-		const id = provider.specs[0]?.id ?? "";
+	it("destroys a made worker that has not joined once its join token runs out", async () => {
+		const { id } = await (await workers.provision(post({}))).json();
 
 		wall.advance(Duration.mins(14));
 		await workers.provisioning?.look(workers.slots.scheduler);
@@ -110,37 +60,6 @@ describe("DevWorkers with a worker provider", () => {
 		expect(provider.getCalls()).toContain(`destroy ${id}`);
 		expect(workers.registry.worker(id)).toBeUndefined();
 		expect(workers.records.of(id)).toBeUndefined();
-		await until(() => provider.specs.length > 1);
-		expect(provider.specs).toHaveLength(2);
-		const daemon = await booted(server, workers, provider.specs[1]);
-		void daemon.run();
-		await until(
-			() =>
-				workers.registry.worker(provider.specs[1]?.id ?? "")?.connected ===
-				true,
-		);
-		wall.advance(Duration.mins(15));
-		await workers.provisioning?.look(workers.slots.scheduler);
-
-		expect(provider.getCalls()).not.toContain(
-			`destroy ${provider.specs[1]?.id}`,
-		);
-		await daemon.disposeAsync();
-	});
-
-	it("makes no more than the rate cap allows, and the queue says so", async () => {
-		void workers.slots.scheduler.take(request("one")).catch(() => {});
-		await Bun.sleep(10);
-		void workers.slots.scheduler.take(request("two")).catch(() => {});
-		void workers.slots.scheduler.take(request("three")).catch(() => {});
-		void workers.slots.scheduler.take(request("four")).catch(() => {});
-		void workers.slots.scheduler.take(request("five")).catch(() => {});
-		await Bun.sleep(10);
-
-		expect(provider.specs).toHaveLength(1);
-		expect(workers.slots.scheduler.spot("five")?.reason).toBe(
-			"rate cap $0.05/h reached",
-		);
 	});
 
 	it("stops made workers once the day's limit is reached, destroying each once idle", async () => {
@@ -157,36 +76,6 @@ describe("DevWorkers with a worker provider", () => {
 		expect(workers.registry.worker(made.id)).toBeUndefined();
 		expect(workers.provisioning?.budget.rate()).toBe(0);
 		expect(stopping).toEqual([]);
-	});
-
-	it("holds the agents a stop checkpoints, and carries them on once the budget allows", async () => {
-		const placed = workers.slots.scheduler.take(request("one"));
-		await Bun.sleep(10);
-		const daemon = await booted(server, workers, provider.specs[0]);
-		void daemon.run();
-		await placed;
-		const budget = workers.provisioning?.budget;
-		const stopping: string[][] = [];
-		workers.provisioning?.events.on("stopping", ({ held }) => {
-			stopping.push(held.map((each) => each.id));
-		});
-		const carrying: string[][] = [];
-		workers.provisioning?.events.on("carrying", ({ held }) => {
-			carrying.push(held.map((each) => each.conversation));
-		});
-
-		await budget?.set("day", 0);
-		await workers.provisioning?.look(workers.slots.scheduler);
-		await workers.provisioning?.look(workers.slots.scheduler);
-		expect(stopping).toEqual([["one"]]);
-		expect(budget?.held).toEqual([{ project: "/repo", conversation: "one" }]);
-		expect(carrying).toEqual([]);
-
-		await budget?.set("day", null);
-		await workers.provisioning?.refill();
-		expect(carrying).toEqual([["one"]]);
-		expect(budget?.held).toEqual([]);
-		await daemon.disposeAsync();
 	});
 
 	it("destroys a made worker's machine when it is removed", async () => {
@@ -214,43 +103,6 @@ describe("DevWorkers with a worker provider", () => {
 	});
 });
 
-/**
- * Boots the worker `spec` describes as its machine would: spends its join
- * token, then dials with the key that answers.
- */
-async function booted(
-	server: Bun.Server<Connection>,
-	workers: DevWorkers,
-	spec: WorkerSpec | undefined,
-): Promise<WorkerDaemon> {
-	const args = [...(spec?.join ?? []), ...(spec?.boot ?? [])];
-	const flag = (name: string) => args[args.indexOf(name) + 1] ?? "";
-	const id = flag("--id");
-	const joined = await workers.join(
-		new Request("http://127.0.0.1/api/workers/join", {
-			method: "POST",
-			body: JSON.stringify({
-				token: spec?.joinEnv.SPLATES_WORKER_JOIN ?? "",
-				id,
-			}),
-		}),
-	);
-	const { key } = (await joined.json()) as { key: string };
-	const url = `ws://127.0.0.1:${server.port}/api/workers`;
-	const headers = { authorization: workerAuthorization(id, key) };
-	return new WorkerDaemon(
-		{ where: url, dial: () => WebSocketWorkerSocket.connect(url, headers) },
-		{
-			id,
-			slots: Number(flag("--slots")),
-			ps: new NodePs(),
-			fs: new NodeFs(),
-			log: new MemoryLogger(),
-			backoff: { min: Duration.ms(20), max: Duration.ms(100) },
-		},
-	);
-}
-
 /** A budget in memory with `limits` set over the defaults. */
 async function budgetOf(
 	limits: Partial<Record<"hour" | "day" | "month", number>>,
@@ -260,16 +112,6 @@ async function budgetOf(
 		await budget.set(limit as "hour" | "day" | "month", dollars);
 	}
 	return budget;
-}
-
-function request(id: string) {
-	return {
-		id,
-		task: `${id}-task`,
-		agent: "claude",
-		project: "/repo",
-		platform: null,
-	};
 }
 
 function put(id: string, body: unknown): Request {

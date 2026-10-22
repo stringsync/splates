@@ -1,5 +1,4 @@
-import type { WorkerAlert, WorkerStanding } from "./budget";
-import type { BudgetReason } from "./scheduler";
+import type { BudgetReason, WorkerAlert, WorkerStanding } from "./budget";
 
 /**
  * What a push says of `alert`, like `Workers: 90% of today's $5.00`, keyed
@@ -32,7 +31,7 @@ export function alertNotice(alert: WorkerAlert): {
 	};
 }
 
-/** What a queue says when `standing`'s limit holds it, like `daily limit $5.00 reached`. */
+/** What a reached limit is called, like `daily limit $5.00 reached`. */
 export function reached(standing: WorkerStanding): BudgetReason {
 	return standing.limit === "hour"
 		? `rate cap ${dollars(standing.dollars)}/h reached`

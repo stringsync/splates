@@ -118,13 +118,7 @@ export function useAppPages({
 							/>
 						),
 						billing: <BillingPage talk={talk} />,
-						workers: (
-							<WorkersPage
-								tasks={workerTasks}
-								onOpenTask={openTask}
-								onOpenKeys={() => go("creds")}
-							/>
-						),
+						workers: <WorkersPage tasks={workerTasks} onOpenTask={openTask} />,
 						automations: (
 							<AutomationsPage
 								opens={opens}

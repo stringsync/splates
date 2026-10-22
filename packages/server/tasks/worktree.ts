@@ -109,15 +109,7 @@ export class Worktree {
 		return this.snapshot.removedAt;
 	}
 
-	/**
-	 * The worker whose clone the task's checkout is, or null for a worktree
-	 * of the main tree.
-	 */
-	get machine(): string | null {
-		return this.snapshot.machine;
-	}
-
-	/** The git its branch is read through: the main tree's, or its clone's. */
+	/** The git its branch is read through. */
 	get git(): Git {
 		return this.snapshot.git;
 	}
@@ -165,9 +157,6 @@ export class Worktree {
 			lease: null,
 			mergeAttempts: 0,
 			createdAt: now,
-			...(this.snapshot.machine === null
-				? {}
-				: { machine: this.snapshot.machine }),
 			...(this.snapshot.state ?? {}),
 			...changes,
 			updatedAt: now,
@@ -192,7 +181,6 @@ export class Worktree {
 				...(conversation === undefined ? {} : { conversation }),
 			},
 		});
-		this.service.held(this.task);
 		return taken;
 	}
 
@@ -428,42 +416,17 @@ export interface TaskState {
 	 * tasks remembered it.
 	 */
 	caller?: string;
-	/**
-	 * The worker whose clone the task's checkout is, which the server
-	 * asks about it; absent for a worktree of the main tree.
-	 */
+	// What records from when tasks ran on remote workers may still hold: the
+	// worker of a task's clone, the clones it left on others, and what was
+	// pushed from them. Read with the rest, never acted on.
 	machine?: string;
-	/**
-	 * The clones on other workers this task carried on from, left behind
-	 * when their worker was away too long. Each is looked at once that
-	 * worker rejoins, for commits it made after the push the task resumed
-	 * from.
-	 */
-	stranded?: StrandedTree[];
-	/**
-	 * What was pushed from those clones, for the agent to hear of on its
-	 * next claim, which then clears it.
-	 */
-	rescued?: RescuedTree[];
+	stranded?: unknown[];
+	rescued?: unknown[];
 	/**
 	 * The last Auto pick for it, as its record keeps it beside what it was
 	 * queued as: read with the rest, never written back through it.
 	 */
 	autoPick?: AutoPicked;
-}
-
-/** A clone of a task on a worker it no longer runs on. */
-export interface StrandedTree {
-	machine: string;
-	path: string;
-	branch: string;
-}
-
-/** Commits found in a stranded clone and pushed as `branch` on the remote. */
-export interface RescuedTree {
-	machine: string;
-	branch: string;
-	commits: number;
 }
 
 /**
@@ -517,8 +480,6 @@ export interface WorktreeSnapshot {
 	hasBranch: boolean;
 	removedAt: string | null;
 	corrupt: boolean;
-	/** As `Worktree.machine`. */
-	machine: string | null;
 	/** As `Worktree.git`. */
 	git: Git;
 }

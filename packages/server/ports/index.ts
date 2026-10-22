@@ -1,5 +1,4 @@
 export { portsLs } from "./list";
-export { PIPE_HANDLERS, PortPipe } from "./pipe";
 export type { PortLink } from "./routes";
 export { claimedFirst, DevTaskPorts, portOwnersOf } from "./routes";
 export { devSlot } from "./slot";

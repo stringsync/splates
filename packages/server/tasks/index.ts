@@ -10,7 +10,6 @@ export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
 export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, SERVER_WAIT_MS, serveProject } from "./follow";
-export { LeaseBeat } from "./lease-beat";
 export { list } from "./list";
 export { overlapWarnings, TaskOverlaps } from "./overlaps";
 export { path } from "./path";
@@ -22,7 +21,6 @@ export type { Details } from "./show";
 export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";
 export { fingerprint, snapshot, tasksOf } from "./snapshot";
-export { rescueStranded } from "./stranded";
 export { DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
 export type {
 	DiffSize,
@@ -30,11 +28,8 @@ export type {
 	GateFailure,
 	MergeFailure,
 	RemoveReason,
-	RescuedTree,
-	StrandedTree,
 	TaskState,
 	Worktree,
 } from "./worktree";
 export { REMOVE_REASONS } from "./worktree";
-export type { WorkerMachines } from "./worktree-service";
 export { taskOf, WorktreeService } from "./worktree-service";

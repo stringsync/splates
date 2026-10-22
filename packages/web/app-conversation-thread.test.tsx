@@ -560,7 +560,7 @@ describe("App's conversation thread", () => {
 			'[data-slot="queue-banner"]',
 		);
 		expect(banner?.textContent).toContain(
-			"Waiting for a slot, 3rd of 4 in line. Every worker it can run on is full. It has waited 5m, and starts on its own once a slot frees.",
+			"Waiting for a slot, 3rd of 4 in line. Every slot is taken. It has waited 5m, and starts on its own once a slot frees.",
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Start next" })),

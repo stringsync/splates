@@ -11,7 +11,6 @@ import { AddCred, KeptRow } from "./kept-creds";
 import { PHONE_HEADING } from "./phone-rows";
 import { TaskChip } from "./reference-chip";
 import { TopBar } from "./top-bar";
-import { WorkerKeys } from "./worker-keys";
 
 /** The requests still waiting on the person. */
 export function openRequests(requests: CredRequest[]): CredRequest[] {
@@ -115,8 +114,6 @@ export function CredsPage({
 	const [kept, setKept] = useState<KeptCreds | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [adding, setAdding] = useState(false);
-	// The workers' keys, listed under Worker keys rather than here.
-	const [workers, setWorkers] = useState<string[]>([]);
 	const read = useCallback(() => {
 		keptCreds()
 			.then((read) => {
@@ -229,27 +226,24 @@ export function CredsPage({
 					) : (
 						// On a phone, the inbox's rows out to the screen's edges.
 						<ul className="divide-y rounded-xl border bg-card max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
-							{kept.kept
-								.filter((each) => !workers.includes(each.name))
-								.map((each) => (
-									<KeptRow
-										key={`${each.provider}:${each.scope}:${each.name}`}
-										{...each}
-										picked={each.name === cred}
-										project={project}
-										request={requests.find(
-											(request) =>
-												request.name === each.name &&
-												request.scope === each.scope &&
-												request.status === "saved",
-										)}
-										onChanged={read}
-									/>
-								))}
+							{kept.kept.map((each) => (
+								<KeptRow
+									key={`${each.provider}:${each.scope}:${each.name}`}
+									{...each}
+									picked={each.name === cred}
+									project={project}
+									request={requests.find(
+										(request) =>
+											request.name === each.name &&
+											request.scope === each.scope &&
+											request.status === "saved",
+									)}
+									onChanged={read}
+								/>
+							))}
 						</ul>
 					))}
 			</div>
-			<WorkerKeys onRead={setWorkers} />
 		</section>
 	);
 }

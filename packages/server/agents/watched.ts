@@ -1,4 +1,4 @@
-import type { BranchMoves, Flag, WatchGit } from "./watch";
+import type { Flag, WatchGit } from "./watch";
 
 /** A command being watched, from the look before it ran. */
 export class Watched {
@@ -6,16 +6,11 @@ export class Watched {
 		private readonly git: WatchGit,
 		private readonly cwd: string,
 		private readonly before: Promise<Look>,
-		private readonly moves: BranchMoves | null = null,
 	) {}
 
 	/** Starts watching a command run in `cwd`, looking at git as it stands. */
-	static start(
-		git: WatchGit,
-		cwd: string,
-		moves: BranchMoves | null = null,
-	): Watched {
-		return new Watched(git, cwd, look(git, cwd), moves);
+	static start(git: WatchGit, cwd: string): Watched {
+		return new Watched(git, cwd, look(git, cwd));
 	}
 
 	/** Settles once the look before the command is taken. */
@@ -33,14 +28,6 @@ export class Watched {
 		const before = await this.before;
 		const after = await look(this.git, this.cwd);
 		const flags: Flag[] = [];
-		if (
-			after.branch !== null &&
-			after.branch === before.branch &&
-			after.tip !== null &&
-			after.tip !== before.tip
-		) {
-			this.moves?.moved(short(after.branch), this.git.at(this.cwd));
-		}
 		const stashed = after.stash.filter(
 			(each) => !before.stash.includes(each),
 		).length;

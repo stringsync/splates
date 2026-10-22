@@ -18,12 +18,8 @@ describe("GoneWorkers", () => {
 		connected = { mac: true, instance: true };
 		const worker = (id: string): PoolWorker => ({
 			id,
-			kind: "registered",
 			slots: 1,
-			platform: "linux",
 			awake: connected[id] === true,
-			checkouts: true,
-			runs: () => true,
 		});
 		scheduler = new Scheduler(
 			{ workers: () => Object.keys(connected).map(worker) },
@@ -55,7 +51,6 @@ describe("GoneWorkers", () => {
 				task: "fix",
 				agent: "claude",
 				project: "/repo",
-				platform: null,
 			},
 			worker,
 		);

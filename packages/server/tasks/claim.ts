@@ -1,7 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
-import type { TaskBranches } from "../merge";
 import { Notes } from "../notes";
 import { goalOf, Plans } from "../plans";
 import type { Worktree } from "./worktree";
@@ -16,38 +15,19 @@ export async function claim(
 		service,
 		log,
 		fs,
-		branches,
 	}: {
 		service: WorktreeService;
 		log: Logger;
 		fs: Fs;
-		branches: TaskBranches;
 	},
 	task: string,
 ): Promise<{ goal: string }> {
-	let found = await service.find(task);
+	const found = await service.find(task);
 
 	if (found.gone) {
 		fail("not_found", `no task '${task}': run \`splates add ${task}\``, {
 			task,
 		});
-	}
-	// A remote worker picks a task up from its pushed branch, wherever its
-	// last checkout was, once nobody there drives it.
-	if (service.elsewhere(found)) {
-		refuseHeld(found);
-		const resumed = await service.resume(found);
-		if (resumed.code !== 0) {
-			fail(
-				"orphaned",
-				`could not clone '${task}' again from its pushed branch: ${resumed.stderr || resumed.stdout}`,
-				{ task },
-			);
-		}
-		found = await service.find(task);
-		await new Plans(fs).exclude(await found.git.commonDir());
-		// The clone has the branch, not the plan, which stayed in repo state.
-		await branches.restorePlan(found);
 	}
 	if (found.status === "orphaned") {
 		fail(
@@ -68,11 +48,7 @@ export async function claim(
 	// A worktree with no readable record is still work: `save` writes a fresh
 	// one rather than refusing the resume.
 	const rebuilt = found.state === null;
-	// Told once: the claim that hears of them clears them.
-	const rescued = found.state?.rescued ?? [];
-	const worktree = await found.take(
-		rescued.length === 0 ? {} : { rescued: [] },
-	);
+	const worktree = await found.take();
 
 	const interrupted = await worktree.interruptedOps();
 	const changes = await worktree.uncommitted();
@@ -97,12 +73,6 @@ export async function claim(
 			? "  uncommitted: none"
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
-	for (const { machine, branch, commits } of rescued) {
-		lines.push(
-			`  ${color.yellow(`note: worker ${machine} rejoined with ${commits} commit${commits === 1 ? "" : "s"} this task carried on without, pushed as ${branch}`)}`,
-			`  look at them: git fetch, then git log HEAD..<remote>/${branch}`,
-		);
-	}
 	const notes = await new Notes(fs).list(worktree.path, service.config);
 	if (notes.length > 0) {
 		lines.push(`  notes: ${notes.length}, splates notes lists them`);

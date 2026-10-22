@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakePs } from "webappwiz/system/testing";
 import { portsLs } from "./list";
 
 describe("splates ports", () => {
@@ -22,35 +22,6 @@ describe("splates ports", () => {
 		expect(said).toContain("--ports-host");
 	});
 
-	it("asks the coordinator this machine's worker relays to when no agent env names one", async () => {
-		const { asked } = await ports("alpha", listed, {
-			env: {},
-			relay: { url: "http://127.0.0.1:50123", worker: "mac" },
-		});
-
-		expect(asked).toEqual(["http://127.0.0.1:50123/api/ports"]);
-	});
-
-	it("gives on a worker its own ports' links there, and none for another worker's", async () => {
-		const { said } = await ports("", onWorkers, {
-			env: { SPLATES_DEV: "http://127.0.0.1:50123", SPLATES_WORKER: "mac" },
-		});
-
-		expect(said).toContain("http://127.0.0.1:5173");
-		expect(said).not.toContain("http://127.0.0.1:40001");
-		expect(said).not.toContain("http://127.0.0.1:40002");
-		expect(said).toContain("- (on hetzner-1)");
-	});
-
-	it("gives on the coordinator's machine the forwards it keeps there", async () => {
-		const { said } = await ports("", onWorkers, {
-			env: { SPLATES_DEV: "http://localhost:4310", SPLATES_WORKER: "local" },
-		});
-
-		expect(said).toContain("http://127.0.0.1:40001");
-		expect(said).toContain("http://127.0.0.1:40002");
-	});
-
 	it("says when a task serves nothing yet", async () => {
 		const { said } = await ports("gamma");
 
@@ -64,40 +35,13 @@ const listed = {
 		{
 			task: "alpha",
 			port: 5173,
-			worker: "local",
 			local: "http://localhost:5173",
-			onWorker: "http://localhost:5173",
 			remote: "https://alpha-5173.ports.example.com",
 		},
 		{
 			task: "beta",
 			port: 3000,
-			worker: "local",
 			local: "http://localhost:3000",
-			onWorker: "http://localhost:3000",
-			remote: "https://beta-3000.ports.example.com",
-		},
-	],
-};
-
-/** One task on this Mac, a worker of a server on a box, and one on another worker. */
-const onWorkers = {
-	base: "ports.example.com",
-	ports: [
-		{
-			task: "alpha",
-			port: 5173,
-			worker: "mac",
-			local: "http://127.0.0.1:40001",
-			onWorker: "http://127.0.0.1:5173",
-			remote: "https://alpha-5173.ports.example.com",
-		},
-		{
-			task: "beta",
-			port: 3000,
-			worker: "hetzner-1",
-			local: "http://127.0.0.1:40002",
-			onWorker: "http://127.0.0.1:3000",
 			remote: "https://beta-3000.ports.example.com",
 		},
 	],
@@ -106,28 +50,17 @@ const onWorkers = {
 async function ports(
 	task: string,
 	answer: object = listed,
-	{
-		env = { SPLATES_DEV: "http://localhost:4310" },
-		relay = null,
-	}: {
-		env?: Record<string, string>;
-		relay?: { url: string; worker: string } | null;
-	} = {},
+	env: Record<string, string> = { SPLATES_DEV: "http://localhost:4310" },
 ) {
 	const log = new MemoryLogger();
 	const asked: string[] = [];
-	const fs = new FakeFs();
 	const ps = new FakePs();
-	ps.setEnv({ SPLATES_HOME: "/home/me/.splates", ...env });
-	if (relay !== null) {
-		await fs.write("/home/me/.splates/relay.json", JSON.stringify(relay));
-	}
+	ps.setEnv(env);
 	await portsLs({
 		task,
 		dev: "",
 		json: false,
 		log,
-		fs,
 		ps,
 		send: (async (url: URL) => {
 			asked.push(String(url));

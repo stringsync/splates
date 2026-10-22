@@ -265,9 +265,8 @@ export class AgentConnection {
 			this.following = null;
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
-			// Offered only to an agent that takes them over HTTP, which they are,
-			// by the worker it runs on, whose loopback they listen on.
-			const offering = this.host.placedOn ?? this.deps.servers;
+			// Offered only to an agent that takes them over HTTP, which they are.
+			const offering = this.deps.servers;
 			const mcpServers =
 				initialized.agentCapabilities?.mcpCapabilities?.http === true
 					? ((await offering?.servers()) ?? [])
@@ -994,7 +993,7 @@ export class AgentConnection {
 		const watched = this.watching.get(tool.id);
 		if (tool.status !== "completed" && tool.status !== "failed") {
 			if (watched === undefined) {
-				this.watching.set(tool.id, watch.command(host.cwd, host.placedOn));
+				this.watching.set(tool.id, watch.command(host.cwd));
 			}
 			return;
 		}

@@ -35,8 +35,7 @@ export class ConversationBackground {
 	output(id: string): ReadableStream<Uint8Array> {
 		this.command(id);
 		const { timer } = this.deps;
-		// On the worker it was placed on, where the command runs.
-		const machine = this.host.placedOn ?? this.deps.machine;
+		const { machine } = this.deps;
 		let read = 0;
 		let waiting: Resource | null = null;
 		let cancelled = false;

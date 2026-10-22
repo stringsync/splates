@@ -1,6 +1,5 @@
 import type { WorkerListing } from "@stringsync/splates-server/workers";
 import {
-	AlarmClockIcon,
 	PauseIcon,
 	PlayIcon,
 	Trash2Icon,
@@ -21,7 +20,6 @@ export function WorkerCard({
 	frame,
 	refusal,
 	onDrain,
-	onWake,
 	onSlots,
 	onRemove,
 }: {
@@ -30,8 +28,6 @@ export function WorkerCard({
 	frame: WorkerCardFrame;
 	refusal: string | undefined;
 	onDrain: (draining: boolean) => void;
-	/** Wakes it, asleep at home. */
-	onWake: () => void;
 	onSlots: (slots: number) => void;
 	onRemove: (force: boolean) => void;
 }): JSX.Element {
@@ -56,16 +52,6 @@ export function WorkerCard({
 			refusal={refusal}
 			actions={
 				<>
-					{worker.health === "asleep" && (
-						<Button
-							variant="ghost"
-							size="sm"
-							title="Sends the packet that wakes it, from a worker on its network"
-							onClick={onWake}
-						>
-							<AlarmClockIcon /> Wake
-						</Button>
-					)}
 					{!worker.removing &&
 						(worker.draining ? (
 							<Button
@@ -117,15 +103,11 @@ export function WorkerCard({
 	);
 }
 
-/** What a worker's tasks and keys open, and where its actions are refused. */
+/** What the tasks running on this Mac's worker open. */
 export interface WorkerCardFrame {
 	/** The tasks of this project, which a worker's tasks open on the Tasks page. */
 	tasks: ReadonlySet<string>;
 	onOpenTask: (name: string) => void;
-	/** The names of the key providers, by id; a provider not here shows by its id. */
-	providers: ReadonlyMap<string, string>;
-	/** Opens the Creds page, where a worker's keys are added. */
-	onOpenKeys: () => void;
 }
 
 /**
@@ -246,43 +228,30 @@ function Facts({
 					`$${worker.dollarsPerHour.toFixed(2)}/hour`
 				)}
 			</Fact>
-			<Fact name="keys">
-				{local ? (
-					"signs in as you"
-				) : worker.keys.length === 0 ? (
-					<button
-						type="button"
-						className="text-muted-foreground underline-offset-2 hover:underline"
-						onClick={frame.onOpenKeys}
-					>
-						none: add one
-					</button>
-				) : (
-					worker.keys.map((id) => frame.providers.get(id) ?? id).join(", ")
-				)}
-			</Fact>
-			<Fact name="tasks">
-				{worker.tasks.length === 0 ? (
-					<Quiet>none</Quiet>
-				) : (
-					worker.tasks.map((task, at) => (
-						<span key={task}>
-							{at > 0 && ", "}
-							{frame.tasks.has(task) ? (
-								<button
-									type="button"
-									className="underline-offset-2 hover:underline"
-									onClick={() => frame.onOpenTask(task)}
-								>
-									{task}
-								</button>
-							) : (
-								task
-							)}
-						</span>
-					))
-				)}
-			</Fact>
+			{local && (
+				<Fact name="tasks">
+					{worker.tasks.length === 0 ? (
+						<Quiet>none</Quiet>
+					) : (
+						worker.tasks.map((task, at) => (
+							<span key={task}>
+								{at > 0 && ", "}
+								{frame.tasks.has(task) ? (
+									<button
+										type="button"
+										className="underline-offset-2 hover:underline"
+										onClick={() => frame.onOpenTask(task)}
+									>
+										{task}
+									</button>
+								) : (
+									task
+								)}
+							</span>
+						))
+					)}
+				</Fact>
+			)}
 		</dl>
 	);
 }

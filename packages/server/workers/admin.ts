@@ -2,8 +2,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
-import { RUNNING } from "../server/shared";
-import { joinCommand, windowsJoinCommand } from "./join-command";
+import { joinCommand } from "./join-command";
 import { LOCAL_WORKER } from "./routes";
 import { serverOf } from "./server-of";
 
@@ -128,9 +127,7 @@ export async function addWorker(opts: AddWorkerOptions): Promise<void> {
 			"",
 			`  ${joinCommand(url, token)}`,
 			"",
-			"Run it on the machine to join, which keeps the key it is given in its system store. On Windows, run this in PowerShell as an administrator instead, which sets up WSL2 and starts the worker at each boot:",
-			"",
-			`  ${windowsJoinCommand(url, token, RUNNING)}`,
+			"Run it on the machine to join, which keeps the key it is given in its system store.",
 		].join("\n"),
 	);
 }
@@ -148,19 +145,6 @@ export async function drainWorker(
 		opts.undo
 			? `${opts.id} takes new agents again`
 			: `${opts.id} takes no new agents; those on it run to their end, and those asking you something let their slots go until you answer`,
-	);
-}
-
-/** `splates worker wake <id>`: has an awake worker on its network send the packet that wakes it. */
-export async function wakeWorker(
-	opts: ServerCallOptions & { id: string },
-): Promise<void> {
-	await callServer(`/api/workers/${encodeURIComponent(opts.id)}/wake`, {
-		...opts,
-		method: "POST",
-	});
-	opts.log.info(
-		`woke ${opts.id}: it takes agents once it joins, and placement stops counting on it after two minutes`,
 	);
 }
 

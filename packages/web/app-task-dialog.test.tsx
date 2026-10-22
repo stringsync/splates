@@ -146,17 +146,13 @@ see the header
 			{
 				task: "beta",
 				port: 5173,
-				worker: "local",
 				local: "http://localhost:5173",
-				onWorker: "http://localhost:5173",
 				remote: "https://beta-5173.ports.example.com",
 			},
 			{
 				task: "gamma",
 				port: 3000,
-				worker: "local",
 				local: "http://localhost:3000",
-				onWorker: "http://localhost:3000",
 				remote: null,
 			},
 		];
@@ -171,71 +167,6 @@ see the header
 				.getAllByRole("link")
 				.map((link) => link.getAttribute("href")),
 		).toEqual(["https://beta-5173.ports.example.com", "http://localhost:5173"]);
-	});
-
-	it("links a port on the worker that serves it, named, when the page is open off the coordinator's machine", async () => {
-		testing.ports = [
-			{
-				task: "beta",
-				port: 5173,
-				worker: "mac",
-				local: "http://127.0.0.1:41022",
-				onWorker: "http://127.0.0.1:5173",
-				remote: "https://beta-5173.ports.example.com",
-			},
-		];
-		const view = await testing.openTasks({ tasks: [asking] });
-		const was = location.href;
-		setURL("https://splates.example.com/");
-		try {
-			const dialog = await openBeta(view);
-
-			const ports = await waitFor(() =>
-				within(dialog).getByRole("region", { name: "ports" }),
-			);
-			expect(
-				within(ports)
-					.getAllByRole("link")
-					.map((link) => link.getAttribute("href")),
-			).toEqual([
-				"https://beta-5173.ports.example.com",
-				"http://127.0.0.1:5173",
-			]);
-			expect(within(ports).getByText("on mac")).toBeTruthy();
-		} finally {
-			setURL(was);
-		}
-	});
-
-	it("says a port opens only at its worker when the page is off the coordinator's machine and no ports host is saved", async () => {
-		testing.ports = [
-			{
-				task: "beta",
-				port: 5173,
-				worker: "mac",
-				local: "http://127.0.0.1:41022",
-				onWorker: "http://127.0.0.1:5173",
-				remote: null,
-			},
-		];
-		const view = await testing.openTasks({ tasks: [asking] });
-		const was = location.href;
-		setURL("https://splates.example.com/");
-		try {
-			const dialog = await openBeta(view);
-
-			const ports = await waitFor(() =>
-				within(dialog).getByRole("region", { name: "ports" }),
-			);
-			expect(
-				within(ports)
-					.getAllByRole("link")
-					.map((link) => link.getAttribute("href")),
-			).toEqual(["http://127.0.0.1:5173"]);
-			expect(within(ports).getByText(/only there/)).toBeTruthy();
-		} finally {
-			setURL(was);
-		}
 	});
 
 	it("answers none of a task's open questions, which its agent asks in its own session", async () => {
@@ -392,9 +323,3 @@ see the header
 		expect(testing.posts).toEqual([]);
 	});
 });
-
-function setURL(url: string): void {
-	(
-		window as unknown as { happyDOM: { setURL(url: string): void } }
-	).happyDOM.setURL(url);
-}

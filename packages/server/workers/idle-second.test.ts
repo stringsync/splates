@@ -28,7 +28,6 @@ describe("idle made workers billed by the second", () => {
 			id: "c",
 			project: "/p",
 			task: null,
-			platform: null,
 			agent: "claude",
 		});
 

@@ -3,7 +3,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Lock, Ps } from "webappwiz/system";
 import { Duration, sleep, type Timer } from "webappwiz/time";
 
-/** Who holds a lock, as `FileLock` writes it, so either side reads the other's. */
+/** Who holds a lock, as `FileLock` writes it. */
 interface Holder {
 	pid: number;
 	hostname: string;
@@ -11,16 +11,14 @@ interface Holder {
 }
 
 /**
- * The lock a command on a worker takes on the server's records, where
- * `FileLock` would take one on this machine's disk: either waits for the
- * other, as both keep the same directory and holder. Release it, or let it go
- * stale once the process ends. The merge lease is one on either side, since
- * a holder that beats is never judged stale by a worker on another host.
+ * The merge lease: a lock whose holder keeps its `at` fresh while it holds
+ * it, so a long test run is never judged stale. Release it, or let it go
+ * stale once the process ends: one on this host is free once its pid is
+ * gone, one on another once its beat is old.
  */
-export class RelayLock implements Lock {
-	// Made, judged and stolen through `fs`, which reaches the server, and
-	// its holder's `at` kept fresh while held, since a holder on another host
-	// is judged by its age alone. Nothing removes it when the process dies.
+export class LeaseLock implements Lock {
+	// Its holder's `at` is kept fresh while held, since a holder on another
+	// host is judged by its age alone. Nothing removes it when the process dies.
 	private beat: Resource | null = null;
 
 	constructor(

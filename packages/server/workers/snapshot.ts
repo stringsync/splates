@@ -4,8 +4,12 @@ import { z } from "zod";
 import { PLAYWRIGHT_MCP } from "../agents";
 import { RUNNING } from "../server/shared";
 import type { Document } from "../storage";
-import type { Snapshot, SnapshotRecipe, WorkerProvider } from "./provider";
-import type { Platform } from "./scheduler";
+import type {
+	Platform,
+	Snapshot,
+	SnapshotRecipe,
+	WorkerProvider,
+} from "./provider";
 
 /** How old a snapshot may get before the next worker waits for a new one, for the updates it lacks. */
 export const SNAPSHOT_FRESH = Duration.days(7);

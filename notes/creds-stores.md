@@ -14,7 +14,5 @@ The environment is never read, so a stray export is not picked up.
 `0600` files under `~/.splates/secrets/` (`KeyFileStore`, as a worker's
 `--key-file`), for a Linux with no secret service; a server that cannot reach its store says so and names these. A hosted secrets
 manager was rejected for workers since it would put a second standing
-credential on each. Remote workers get provider keys in memory only, from
-`KeyDelivery`, served to agents through a loopback credential proxy by an
-undumpable process; the local worker gets none, its agents running signed
-in as the person. Tests use `FakeSecretStore` from `webappwiz/creds/testing`.
+credential on each. Workers hold no provider keys: every agent runs on this
+machine's own worker, signed in as the person. Tests use `FakeSecretStore` from `webappwiz/creds/testing`.

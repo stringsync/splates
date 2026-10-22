@@ -23,7 +23,6 @@ import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
-import type { InstallationToken, Landed, LandRequest } from "../merge";
 import type { AgentPick } from "../models";
 import { NotesRoutes, routing, weighing } from "../notes";
 import { type Needing, needs } from "../plans";
@@ -31,7 +30,6 @@ import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
-import { answerState, type StateCall } from "../records";
 import type { NoteSource } from "../stats";
 import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
@@ -201,15 +199,6 @@ export async function serveProject(
 		root: service.git.root,
 		format,
 		conversations,
-		land: (request) => project.trunk.land(request),
-		mintToken: () => project.branches.mint(),
-		answerState: async (call) => {
-			const value = await answerState(fs, project.splatesDir, call);
-			if (!READS.has(call.op)) {
-				watch.changed();
-			}
-			return value;
-		},
 		refresh: watch.changed,
 		snapshot: async () => Response.json(await watch.current()),
 		current: () => watch.current(),
@@ -231,11 +220,7 @@ export async function serveProject(
 		portOwners: async () => ({
 			worktrees: (await service.list())
 				.filter((each) => each.exists)
-				.map(({ task, path, machine }) => ({
-					task,
-					path,
-					worker: machine ?? LOCAL_WORKER,
-				})),
+				.map(({ task, path }) => ({ task, path, worker: LOCAL_WORKER })),
 			agents: ((await conversations?.list()) ?? []).flatMap(
 				({ state, pid, handle }) =>
 					state.task !== null && pid !== null
@@ -402,12 +387,6 @@ export interface Served extends AsyncResource {
 	root: string;
 	format: Format;
 	conversations: Conversations | null;
-	/** Runs a worker's call on its records, as `POST /api/state` asks. */
-	answerState: (call: StateCall) => Promise<unknown>;
-	/** Moves trunk to a worker's tested branch, as `POST /api/land` asks. */
-	land: (request: LandRequest) => Promise<Landed>;
-	/** A token for its repository's git, as `POST /api/token` asks; null without the App. */
-	mintToken: () => Promise<InstallationToken | null>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;
@@ -550,13 +529,3 @@ export function waitingOn(
 		({ need }) => need.kind === "waiting",
 	).length;
 }
-
-/** The calls on a project's records that change nothing. */
-const READS = new Set<StateCall["op"]>([
-	"exists",
-	"read",
-	"readBytes",
-	"readdir",
-	"stat",
-	"isSymlink",
-]);

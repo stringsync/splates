@@ -62,10 +62,8 @@ function added(pool: WorkerPool): WorkerListing {
 		updating: false,
 		verified: null,
 		lastHeard: null,
-		wokenAt: null,
 		tasks: [],
 		dollarsPerHour: 0,
-		keys: [],
 	};
 }
 

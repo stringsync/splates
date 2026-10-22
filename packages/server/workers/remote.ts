@@ -1,19 +1,15 @@
-import type * as acp from "@agentclientprotocol/sdk";
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
 import { RemotePty } from "../terminal";
-import { CallAnswer, type CallRequest, READ_PART, SERVERS } from "./call-host";
+import { CallAnswer, type CallRequest, READ_PART } from "./call-host";
 import type { WorkerChannel } from "./channel";
-import type { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine, WorkerRead } from "./machine";
-import { WAKE, type WakeTarget } from "./magic-packet";
 import type { Json } from "./protocol";
 import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
-import { KEYS, type SentKey, type TaskKey } from "./task-keys";
 
 /** Where and how big a shell on a worker starts, as `Pty` takes it. */
 export interface RemotePtyOptions {
@@ -35,21 +31,16 @@ type Call = CallRequest extends infer Each
 export type CallBounds = Record<Call["method"], Duration>;
 
 /**
- * Long enough for a slow worker's honest answer, a clone of a big
- * repository included, and short enough that a link gone silent, or a call
- * hung on the worker, frees whatever waits on it.
+ * How long a worker may take over each call before whatever waits on it
+ * gives up: long enough for a slow worker's honest answer, short enough
+ * that a link gone silent, or a call hung on the worker, frees the caller.
  */
 export const CALL_BOUNDS: CallBounds = {
 	git: Duration.mins(5),
-	checkout: Duration.mins(15),
-	removeCheckout: Duration.mins(2),
 	read: Duration.mins(1),
 	exists: Duration.mins(1),
 	processes: Duration.mins(1),
 	listening: Duration.mins(1),
-	servers: Duration.mins(1),
-	keys: Duration.mins(1),
-	wake: Duration.mins(1),
 };
 
 /**
@@ -100,24 +91,18 @@ export class RemoteWorker implements WorkerMachine {
 	/** `start`, as the `Launch` that conversations start their agents with. */
 	readonly launch: Launch = (argv, cwd, env) => this.start(argv, cwd, env);
 
-	/**
-	 * Starts `argv` in `cwd` on the worker, its stdio piped back here,
-	 * proxying its requests with each of `keys`, which `sendKeys` sent: the
-	 * process gets only a placeholder and the proxy's URL.
-	 */
+	/** Starts `argv` in `cwd` on the worker, its stdio piped back here. */
 	start(
 		argv: string[],
 		cwd: string,
 		env: Record<string, string> = {},
-		keys: TaskKey[] = [],
 	): RemoteProcess {
 		return new RemoteProcess(
-			// Which worker it is, so a task it clones is recorded on this one.
+			// Which worker it is, so what it runs knows it runs on one.
 			this.session.open("process", {
 				argv,
 				cwd,
 				env: { SPLATES_WORKER: this.id, ...env },
-				...(keys.length === 0 ? {} : { keys }),
 			}),
 			this.session,
 			this.id,
@@ -168,14 +153,6 @@ export class RemoteWorker implements WorkerMachine {
 			this.id,
 			this.session,
 		);
-	}
-
-	/**
-	 * Opens a connection to `port` on the worker's loopback, such as a task's
-	 * dev server, as a `port` channel for a `PortPipe` to carry.
-	 */
-	port(port: number): WorkerChannel {
-		return this.session.open("port", { port });
 	}
 
 	async git(
@@ -229,45 +206,6 @@ export class RemoteWorker implements WorkerMachine {
 			}
 		} while (from + have < size);
 		return { size, bytes: Buffer.concat(pieces) };
-	}
-
-	async checkout(request: ProjectCheckout): Promise<string> {
-		return z.string().parse(await this.call({ method: "checkout", request }));
-	}
-
-	async removeCheckout(path: string): Promise<void> {
-		await this.call({ method: "removeCheckout", path });
-	}
-
-	/** What it offers its sessions; none from a worker too old to say. */
-	async servers(): Promise<acp.McpServer[]> {
-		const { negotiated } = this.session;
-		if (negotiated?.ok !== true || !negotiated.capabilities.includes(SERVERS)) {
-			return [];
-		}
-		return ServersAnswer.parse(await this.call({ method: "servers" }));
-	}
-
-	/** Whether it sends a magic packet when asked: a worker on 1.4 on. */
-	get wakes(): boolean {
-		const { negotiated } = this.session;
-		return negotiated?.ok === true && negotiated.capabilities.includes(WAKE);
-	}
-
-	/** Whether it keeps keys it is sent and proxies its agents': a worker of its own machine on 1.5 on. */
-	get keeps(): boolean {
-		const { negotiated } = this.session;
-		return negotiated?.ok === true && negotiated.capabilities.includes(KEYS);
-	}
-
-	/** Has it keep `keys`, in its memory alone, in place of every key it kept. */
-	async sendKeys(keys: SentKey[]): Promise<void> {
-		await this.call({ method: "keys", keys });
-	}
-
-	/** Has it send the magic packet that wakes `target`, from its network. */
-	async wake(target: WakeTarget): Promise<void> {
-		await this.call({ method: "wake", ...target });
 	}
 
 	private call(request: Call): Promise<unknown> {
@@ -376,12 +314,3 @@ const ListeningAnswer = z.array(
 	}),
 );
 const ReadAnswer = z.object({ size: z.number(), bytes: z.string() });
-
-const ServersAnswer = z.array(
-	z.object({
-		type: z.literal("http"),
-		name: z.string(),
-		url: z.string(),
-		headers: z.array(z.object({ name: z.string(), value: z.string() })),
-	}),
-);

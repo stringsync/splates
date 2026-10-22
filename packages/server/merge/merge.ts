@@ -53,7 +53,6 @@ export async function merge(
 		cores,
 		branches,
 		trunk,
-		relayed = false,
 		clock = new SystemClock(),
 	}: {
 		service: WorktreeService;
@@ -70,8 +69,6 @@ export async function merge(
 		cores: CoreClaims;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
-		/** Whether this runs on a worker, whose records are the server's. */
-		relayed?: boolean;
 		clock?: Clock;
 	},
 	cwd: string,
@@ -186,13 +183,6 @@ export async function merge(
 		);
 	}
 	const remote = base === config.trunk ? branches.remote() : null;
-	if (relayed && base === config.trunk && remote === null) {
-		fail(
-			"blocked",
-			`'${task}' runs on a worker, which lands on ${base} only through the central remote: set \`remote\` in splates.config.ts. No merge attempt was spent.`,
-			{ task },
-		);
-	}
 
 	// Working until landing holds the lock: waiting and testing must not
 	// leave a dead merge's `merging` status showing another landing.
@@ -244,7 +234,7 @@ export async function merge(
 					);
 				}
 				onto = fetched.commit;
-				if (!relayed && !(await git.isAncestor(`refs/heads/${base}`, onto))) {
+				if (!(await git.isAncestor(`refs/heads/${base}`, onto))) {
 					fail(
 						"blocked",
 						[
@@ -253,11 +243,6 @@ export async function merge(
 						].join("\n"),
 						{ task, remote },
 					);
-				}
-				if (relayed) {
-					// A worker's own trunk follows the remote's, so what the task
-					// changed reads against what it rebased onto.
-					await worktree.moveBase(onto);
 				}
 			}
 			const rebasedOnto = onto ?? (await git.out(git.root, "rev-parse", base));
@@ -424,7 +409,7 @@ export async function merge(
 			const testTimes = timedTests(gated.xml);
 
 			const result = await landTested(
-				{ service, git, lock, branches, trunk, relayed },
+				{ service, git, lock, branches, trunk },
 				worktree,
 				{ remote, onto: rebasedOnto, testedHead },
 				facts,

@@ -12,7 +12,7 @@ import { keyIn } from "./key";
 import type { Log, LogOptions } from "./log";
 import type { Storage, StorageChanges, Watch, WatchOptions } from "./storage";
 
-/** What makes the lock at a path, which a worker's records take through the relay. */
+/** What makes the lock at a path. */
 export interface Locks {
 	at(path: string): Lock;
 }

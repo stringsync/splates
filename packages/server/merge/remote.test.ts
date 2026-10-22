@@ -123,15 +123,6 @@ describe("merge with a central remote", () => {
 		expect((await deps.service.find("alpha")).status).toBe("working");
 	});
 
-	it("refuses a worker's merge with no remote to land through", async () => {
-		deps.config.remote = null;
-
-		await expect(merge({ ...deps, relayed: true }, tree)).toBail("blocked", {
-			message: "set `remote`",
-		});
-		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
-	});
-
 	it("lands only for the holder of the merge lease", async () => {
 		await deps.branches.push("alpha", "task/alpha");
 		const head = await deps.gitCli(tree, "rev-parse", "HEAD");

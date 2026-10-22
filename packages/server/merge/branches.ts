@@ -1,12 +1,10 @@
-import { color, type Logger } from "webappwiz/log";
-import type { BranchMoves } from "../agents";
+import { color } from "webappwiz/log";
 import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import type { Creds } from "../creds";
 import type { Git } from "../git";
 import { PLAN_FILE, type PlanStore } from "../plans";
 import type { Worktree } from "../tasks";
-import { taskOf } from "../tasks";
 import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
 
 /** What a task's branch is pushed as on the central remote: `splates/<task>`. */
@@ -386,30 +384,4 @@ export function pushedLine(
 				`  remote:   not ${what}, so ${what === "pushed" ? "the remote's copy is behind" : "the remote still has it"}: ${pushed.why}`,
 			);
 	}
-}
-
-/**
- * What `Watch` tells of each command that moved a branch, as `splates server`
- * does for its agents: pushes the branch when it is a task's, so each commit
- * reaches the remote as it is made, and logs a push that fails.
- */
-export function pushOnMove(branches: TaskBranches, log: Logger): BranchMoves {
-	return {
-		moved: (branch, at) => {
-			const task = taskOf(branch);
-			if (task === null) {
-				return;
-			}
-			// From the tree it moved in, on its worker: a clone's branch is
-			// in no other repository.
-			void branches.push(task, branch, { at }).then(
-				(pushed) => {
-					if (pushed.status === "refused" || pushed.status === "failed") {
-						log.error(`could not push ${branch}: ${pushed.why}`);
-					}
-				},
-				(error: unknown) => log.error(`could not push ${branch}: ${error}`),
-			);
-		},
-	};
 }

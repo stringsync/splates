@@ -333,12 +333,6 @@ export interface SetupMachine {
 	 */
 	removeWorker?(id: string): Promise<void>;
 	/**
-	 * Deletes every `provider` key a worker or type of made worker holds,
-	 * through the server's own roster, which sends the workers theirs again.
-	 * None with no server, when the roster file is all there is.
-	 */
-	removeWorkerKeys?(provider: string): Promise<void>;
-	/**
 	 * Deletes what `splates tunnel setup` and the slots made in Cloudflare and
 	 * forgets their saved files, as `splates tunnel remove` does. None outside
 	 * a project, whose creds it reads the API token through.
@@ -358,7 +352,7 @@ export interface SetupWorkerBudget {
 /** A worker as a step reads it, from `GET /api/workers`. */
 export type SetupWorker = Pick<
 	WorkerListing,
-	"id" | "kind" | "draining" | "removing" | "host" | "wokenAt"
+	"id" | "kind" | "draining" | "removing" | "host"
 >;
 
 /** What a step that sets up a repository reads of its project, afresh each time. */

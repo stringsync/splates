@@ -2,16 +2,11 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import { systemPs } from "../config";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
-import type { WorkerMachines } from "../tasks";
 import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
-import { KeyDelivery } from "./key-delivery";
-import { WorkerKeyRoutes } from "./key-routes";
-import type { WorkerKeys } from "./keys";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
 import {
@@ -27,8 +22,6 @@ import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
 import { UnixWorkerListener } from "./unix-listener";
-import { WakeRelay } from "./wake-relay";
-import type { WorkerWaking } from "./waking";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
@@ -70,17 +63,11 @@ export function workerAuthorization(id: string, key: string): string {
  * join token, and every agent another agent starts waits in `slots` for
  * room on one.
  */
-export class DevWorkers implements AsyncResource, WorkerMachines {
+export class DevWorkers implements AsyncResource {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
 	/** What proves this server to its workers. */
 	readonly identity: CoordinatorIdentity;
-	/** Which API keys each worker, or type of made worker, holds; null when none is asked for. */
-	readonly keys: WorkerKeys | null;
-	/** What sends workers the keys they hold. */
-	readonly delivery: KeyDelivery;
-	/** `/api/workers/keys`, over `keys`. */
-	private readonly keyRoutes: WorkerKeyRoutes;
 	/** The queue agents take a slot on a worker from: capped for those other agents start, not for the person's. */
 	readonly slots: WorkerSlots;
 	/**
@@ -92,9 +79,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
 	readonly rollout: WorkerRollout;
-	/** What wakes sleeping workers for the queue, before any is made. */
-	readonly waking: WorkerWaking;
-	private readonly wakes: WakeRelay;
 	private listener: UnixWorkerListener | null = null;
 	/** Join tokens, and the service tokens minted for them. */
 	private readonly invites: WorkerInvites;
@@ -106,10 +90,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		{
 			session,
 			protocol,
-			platform = systemPs().platform,
 			records = WorkerRecords.memory(),
 			identity,
-			keys = null,
 			provider,
 			access = null,
 		}: DevWorkersOptions = {},
@@ -118,8 +100,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.identity = identity ?? CoordinatorIdentity.generate();
 		records.signedBy(this.identity.publicKey);
 		this.invites = new WorkerInvites(records, access, log);
-		this.keys = keys;
-		this.keyRoutes = new WorkerKeyRoutes(this);
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
@@ -132,12 +112,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
-		this.delivery = new KeyDelivery({
-			keys,
-			registry: this.registry,
-			records,
-			log,
-		});
 		// Listed while away, so one can be drained or removed before it dials.
 		for (const record of records.all) {
 			if (record.provisioned !== null) {
@@ -147,22 +121,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			}
 		}
 		this.slots = new WorkerSlots(this.registry, {
-			platform,
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
-			waking: (id) => this.waking.waking(id),
-			delivery: this.delivery,
-			holds: (worker, agent) => keys?.holds(worker, agent) ?? true,
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
-		this.wakes = new WakeRelay(this.registry, records, {
-			pool: this.slots.pool,
-			log,
-		});
-		this.waking = this.wakes.waking;
-		// Before provisioning watches, so a wake is counted before a worker is made.
-		this.waking.watch(this.slots.scheduler);
 		this.provisioning =
 			provider === undefined
 				? null
@@ -171,14 +134,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						records,
 						access,
 						registry: this.registry,
-						holds: (type, agent) => keys?.typeHolds(type, agent) ?? true,
-						waking: () => this.waking.seats(),
 						log,
 						stop: (ids) => this.stopMade(ids),
 						retire: (ids) => this.retireMade(ids),
 					});
 		this.provisioning?.watch(this.slots.scheduler);
-		this.waking.events.on("missed", () => void this.provisioning?.refill());
 		// A spot machine told it is to be reclaimed: its agents move off now, and a replacement is made.
 		this.registry.events.on("leaving", ({ id }) => {
 			if (this.provisioning?.made(id)) {
@@ -199,40 +159,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
 	}
 
-	/**
-	 * `POST /api/workers/:id/wake`: wakes worker `id`, asleep, answering
-	 * the workers once its packet is sent.
-	 */
-	readonly wake = async (request: Request): Promise<Response> => {
-		const id = workerId(request);
-		if (this.registry.worker(id) === undefined || !this.pooled(id)) {
-			return refuse(404, "not_found", `no worker ${id}`);
-		}
-		try {
-			await this.waking.wake(id);
-		} catch (error) {
-			return refuse(
-				409,
-				"not_woken",
-				error instanceof Error ? error.message : String(error),
-			);
-		}
-		return this.list();
-	};
-
 	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
 	private pooled(id: string): boolean {
 		return id !== LOCAL_WORKER || this.records.localOn;
-	}
-
-	/** As `WorkerMachines.joined`. */
-	joined(listener: (id: string) => void): () => void {
-		return this.registry.events.on("joined", (worker) => listener(worker.id));
-	}
-
-	/** The worker `id`, as a project reads a task cloned there through it. */
-	machine(id: string): RemoteWorker | null {
-		return this.registry.worker(id) ?? null;
 	}
 
 	/**
@@ -244,12 +173,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.ready = false;
 	}
 
-	/**
-	 * Lets workers join again, their relays reaching the server at `port`
-	 * on this machine's loopback.
-	 */
-	serving(port: number): void {
-		this.registry.relayTo(port);
+	/** Lets workers join again. */
+	serving(): void {
 		this.ready = true;
 	}
 
@@ -337,8 +262,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				this.slots.used(),
 				(id) => this.records.of(id),
 				(id) => this.pooled(id),
-				(worker) => this.keys?.of(worker) ?? [],
-				(id) => this.waking.waking(id),
 			),
 			build: RUNNING,
 			rollout: this.rollout.standing(),
@@ -549,8 +472,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				);
 			});
 		}
-		// Before hanging up, so it holds none of them while it stays up.
-		await this.delivery.forget(id);
 		const was = await this.records.remove(id);
 		this.registry.forget(id);
 		this.slots.scheduler.release(id);
@@ -608,13 +529,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			handle: (request: Request) => Promise<Response>,
 		) => (request: Request) => Promise<Response>,
 	): Promise<Response> => {
-		const [, , , what, action] = new URL(request.url).pathname.split("/");
-		if (action === "wake" && request.method === "POST") {
-			return guard(this.wake)(request);
-		}
-		if (what === "keys") {
-			return guard(this.keyRoutes.handle)(request);
-		}
+		const [, , , what] = new URL(request.url).pathname.split("/");
 		if (what === "join" && request.method === "POST") {
 			return this.join(request);
 		}
@@ -638,7 +553,6 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 
 	async disposeAsync(): Promise<void> {
 		this.rollout.dispose();
-		this.wakes.dispose();
 		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();
@@ -667,14 +581,10 @@ export interface DevWorkersOptions {
 	session?: string;
 	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
 	protocol?: string;
-	/** This machine's `ps.platform`, the local worker's until its hello says. */
-	platform?: string;
 	/** The workers that joined and what was set on each; kept in memory alone by default. */
 	records?: WorkerRecords;
 	/** What signs a worker's challenge, so it knows this server from one answering for its host; new, and kept nowhere, by default. */
 	identity?: CoordinatorIdentity;
-	/** The API keys workers hold, which placement asks for; none by default, so a worker runs any agent. */
-	keys?: WorkerKeys | null;
 	/** What makes workers when agents queue; none are made without it. */
 	provider?: DevWorkerProvider;
 	/**

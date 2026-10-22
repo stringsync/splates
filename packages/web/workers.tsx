@@ -3,10 +3,9 @@ import type {
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import type { JSX, ReactNode } from "react";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { workerKeys } from "./api";
 import { ReadingNow } from "./countdown";
 import { localWorker, localWorkerOn } from "./local-worker";
 import { useReading } from "./page-readings";
@@ -30,13 +29,10 @@ import { behind, WorkerPoolView } from "./worker-pool";
 export function WorkersPage({
 	tasks,
 	onOpenTask,
-	onOpenKeys,
 }: {
 	/** The tasks of this project, which a worker's tasks open on the Tasks page. */
 	tasks: ReadonlySet<string>;
 	onOpenTask: (name: string) => void;
-	/** Opens the Creds page, where a worker's keys are added. */
-	onOpenKeys: () => void;
 }): JSX.Element {
 	const view = useReading("workers", () => new WorkerPoolView());
 	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
@@ -45,14 +41,13 @@ export function WorkersPage({
 		({ pool, error }) => ({ pool, error }),
 		["changed"],
 	);
-	const providers = useProviderNames();
 	const { refusals, refuse } = useRefusals<string>();
 	// Each change says why it was refused on the worker it was for.
 	const attempt = (id: string, title: string, write: Promise<void>) =>
 		void write.catch((caught) => refuse(id, title, caught));
 	const setSlots = (id: string, slots: number) =>
 		attempt(id, "Slots not changed", view.change(id, { slots }));
-	const frame: WorkerCardFrame = { tasks, onOpenTask, providers, onOpenKeys };
+	const frame: WorkerCardFrame = { tasks, onOpenTask };
 	return (
 		<section aria-label="workers" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Workers" />
@@ -101,9 +96,6 @@ export function WorkersPage({
 												view.change(worker.id, { draining }),
 											)
 										}
-										onWake={() =>
-											attempt(worker.id, "Not woken", view.wake(worker.id))
-										}
 										onSlots={(slots) => setSlots(worker.id, slots)}
 										onRemove={(force) =>
 											attempt(
@@ -121,19 +113,6 @@ export function WorkersPage({
 			)}
 		</section>
 	);
-}
-
-/** The names of the key providers by id, read once; empty until read, or if it cannot be. */
-function useProviderNames(): ReadonlyMap<string, string> {
-	const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
-	useEffect(() => {
-		workerKeys()
-			.then((read) =>
-				setNames(new Map(read.providers.map((each) => [each.id, each.name]))),
-			)
-			.catch(() => {});
-	}, []);
-	return names;
 }
 
 /** A section's heading, with a line on what it holds. */

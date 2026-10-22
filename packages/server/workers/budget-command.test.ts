@@ -9,7 +9,6 @@ import {
 	showBudget,
 } from "./budget-command";
 import { WorkerBudgetRoutes } from "./budget-routes";
-import { Scheduler } from "./scheduler";
 
 describe("splates budget", () => {
 	let server: Bun.Server<undefined>;
@@ -18,10 +17,7 @@ describe("splates budget", () => {
 
 	beforeEach(() => {
 		budget = WorkerBudget.memory();
-		const routes = new WorkerBudgetRoutes(
-			budget,
-			new Scheduler({ workers: () => [] }, { now: () => Date.now() }),
-		);
+		const routes = new WorkerBudgetRoutes(budget);
 		server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",

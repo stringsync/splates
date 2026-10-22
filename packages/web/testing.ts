@@ -35,12 +35,7 @@ import { aborts } from "webappwiz/abort";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import type {
-	Budgets,
-	KeptCreds,
-	MachineStatus,
-	WorkerKeysListing,
-} from "./api";
+import type { Budgets, KeptCreds, MachineStatus } from "./api";
 import { WAITS } from "./api";
 import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
@@ -123,12 +118,6 @@ export class Testing implements Resource {
 				device: 'the macOS Keychain as "webappwiz"',
 			},
 		},
-	};
-	/** What `/api/workers/keys` says workers hold. */
-	workerKeys: WorkerKeysListing = {
-		keys: [],
-		providers: [],
-		holders: { workers: [], types: [] },
 	};
 	/** What `/api/notes` lists and `/api/notes/read` reads. */
 	readonly notes = new FakeNotes();
@@ -326,9 +315,6 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/creds") {
 				return Response.json(this.kept);
-			}
-			if (route === "/api/workers/keys") {
-				return Response.json(this.workerKeys);
 			}
 			const note = this.notes.respond(path);
 			if (note !== null) {
