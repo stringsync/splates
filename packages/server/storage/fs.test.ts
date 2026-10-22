@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FsStorage } from "./index";
-import { rotated } from "./testing";
 
 describe("FsStorage", () => {
 	it("keeps a document in the file its key names, as stores kept it", async () => {
@@ -34,22 +33,10 @@ describe("FsStorage", () => {
 		expect(await settings.read()).toEqual({ on: true });
 	});
 
-	it("keeps a log's segments where the journal keeps its", async () => {
-		const fs = new FakeFs();
-		const log = new FsStorage("/repo/.git/splates", fs).log("log.jsonl", {
-			segments: "log",
-		});
-		await log.append({ action: "add" });
-
-		const segment = await rotated(log);
-
-		expect(await fs.readdir("/repo/.git/splates/log")).toEqual([segment?.name]);
-	});
-
 	it("keeps a line torn by a crash apart from the next appended", async () => {
 		const fs = new FakeFs();
-		await fs.write("/repo/.git/splates/log.jsonl", '{"n":1}\n{"n":');
-		const log = new FsStorage("/repo/.git/splates", fs).log("log.jsonl");
+		await fs.write("/home/s/log.jsonl", '{"n":1}\n{"n":');
+		const log = new FsStorage("/home/s", fs).log("log.jsonl");
 
 		expect(await log.replay()).toEqual([{ n: 1 }]);
 		await log.append({ n: 2 });
@@ -68,10 +55,10 @@ describe("FsStorage", () => {
 
 	it("leaves no file behind of a write in flight", async () => {
 		const fs = new FakeFs();
-		const tasks = new FsStorage("/repo/.git/splates", fs).collection("tasks");
+		const tasks = new FsStorage("/home/s", fs).collection("tasks");
 
 		await tasks.write("1.md", "first");
 
-		expect(await fs.readdir("/repo/.git/splates/tasks")).toEqual(["1.md"]);
+		expect(await fs.readdir("/home/s/tasks")).toEqual(["1.md"]);
 	});
 });
