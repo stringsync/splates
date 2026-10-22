@@ -253,6 +253,21 @@ describe("Conversation queue", () => {
 		await finish(conversation, held);
 	});
 
+	it("sends what waited when the turn ends, after a message said once the turn was cancelled", async () => {
+		agent.steering = "injected";
+		const conversation = await working(conversations, held);
+		agent.steering = null;
+		await conversation.prompt("two");
+		await conversation.cancel();
+
+		await conversation.prompt("three");
+		await finish(conversation, held);
+
+		await eventually(() => said.length === 2);
+		expect(said).toEqual(["one", "two\n\nthree"]);
+		await finish(conversation, held);
+	});
+
 	it("takes back a queued message, answering with its words", async () => {
 		const conversation = await working(conversations, held);
 		await conversation.prompt("two");

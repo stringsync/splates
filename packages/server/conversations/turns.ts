@@ -139,7 +139,15 @@ export class ConversationTurns {
 				this.held = false;
 				return;
 			}
-			if (!connection.canSteer || waited) {
+			// Something said to the person's cancelled turn holds the queue until
+			// they say something: this is it, so the turn's end sends what waited.
+			this.held = false;
+			// Behind what already waits, so it is not heard ahead of it.
+			if (
+				!connection.canSteer ||
+				waited ||
+				state.messages.some((each) => each.queued)
+			) {
 				this.queue(words, kept, from, marks);
 				return;
 			}
