@@ -28,66 +28,27 @@ while [ $# -gt 0 ]; do
 	esac
 done
 port=${1:-4390}
-# Under /private, which Docker Desktop shares, at the same path inside the
-# container, so the project's remote is one URL on both.
-dir=$(mktemp -d /private/tmp/splates-prove-XXXXXX)
-name=splates-prove-$$
-server=""
-daemon=""
-
-cleanup() {
-	docker rm -f "$name" >/dev/null 2>&1 || true
-	[ -n "$server" ] && kill "$server" 2>/dev/null || true
-	[ -n "$daemon" ] && kill "$daemon" 2>/dev/null || true
-	echo "left in $dir"
-}
-trap cleanup EXIT
-
-splates() {
-	# Nothing of the agent this runs under, so the task reads as the person's.
-	env -i HOME="$HOME" PATH="$PATH" SPLATES_HOME="$dir/home" \
-		SPLATES_DEV="http://127.0.0.1:$port" \
-		bun "$checkout/packages/splates/index.ts" "$@"
-}
+. "$here/prove-lib.sh"
 
 echo "building the worker image"
 docker build -q -f "$here/worker.Dockerfile" -t splates-worker "$checkout" >/dev/null
 
 mkdir -p "$dir/home"
-git init -q --bare -b main "$dir/remote.git"
-git init -q -b main "$dir/repo"
+prove_remote 'preMerge: "true", remote: "origin", platform: "linux"' "$dir/repo"
 cd "$dir/repo"
-git config user.email prove@example.com
-git config user.name prove
-git config commit.gpgsign false
-printf 'export default { preMerge: "true", remote: "origin", platform: "linux" };\n' >splates.config.ts
-git add -A
-git commit -qm init
-git remote add origin "$dir/remote.git"
-git push -q origin main
 splates init >/dev/null 2>&1
 git add -A
 git commit -qm skill
 git push -q origin main
 
-# The roster, with the scripted agent beside the defaults, wherever it runs.
+# The roster, with the scripted agent beside the defaults.
 splates agents >/dev/null
-bun -e '
-const [path, here] = process.argv.slice(1);
-const roster = JSON.parse(await Bun.file(path).text());
-const find = `d=/home/splates/splates/docker; [ -d "$d" ] || d=${here}; exec bun "$d/scripted-agent.ts" "$d/turn.sh"`;
-roster.agents.push({
-	id: "scripted",
-	name: "Scripted",
-	argv: ["sh", "-c", find],
-	models: [{ id: "script", name: "Script", strengths: "proving a worker", cost: "none" }],
-});
-await Bun.write(path, JSON.stringify(roster, null, "\t"));
-' "$dir/home/agents.json" "$here"
+prove_roster "$dir/home/agents.json"
 
 echo "starting the coordinator on $port"
 splates server --port "$port" >"$dir/server.log" 2>&1 &
 server=$!
+ends "$server"
 until grep -q "splates server on" "$dir/server.log"; do sleep 1; done
 # The port it took, the next free one when another server holds this one.
 port=$(sed -n 's/.*splates server on http:\/\/127\.0\.0\.1:\([0-9]*\).*/\1/p' "$dir/server.log")
@@ -95,10 +56,13 @@ port=$(sed -n 's/.*splates server on http:\/\/127\.0\.0\.1:\([0-9]*\).*/\1/p' "$
 token=$(splates worker add 2>&1 | grep -o 'splj_[A-Za-z0-9_.=-]*' | head -1)
 # Unconfined, so bubblewrap may make the namespaces and mount the `/proc`
 # that sandbox each agent (`packages/server/workers/sandbox.ts`).
+holds "$name"
+# The worker dials its coordinator over plain http only on its own loopback,
+# so a forwarder there reaches this machine's.
 docker run -d --name "$name" -v "$dir/remote.git:$dir/remote.git" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-	--security-opt systempaths=unconfined splates-worker \
-	--coordinator "http://host.docker.internal:$port" --join "$token" --id linux-box --slots 2 >/dev/null
+	--security-opt systempaths=unconfined --entrypoint sh splates-worker -c \
+	"bun /home/splates/splates/docker/forward.ts $port $port host.docker.internal & exec splates worker run --coordinator http://127.0.0.1:$port --join $token --id linux-box --slots 2" >/dev/null
 # The mount is owned by this machine's user, not the container's.
 docker exec "$name" git config --global --add safe.directory '*'
 # An agent's sandbox sees the mount read-only, as it sees all but its
@@ -107,6 +71,7 @@ docker exec "$name" git config --global --add safe.directory '*'
 git daemon --reuseaddr --listen=127.0.0.1 --port="$((port + 1000))" \
 	--base-path="$dir" --export-all --enable=receive-pack "$dir" 2>"$dir/daemon.log" &
 daemon=$!
+ends "$daemon"
 docker exec "$name" git config --global \
 	url."git://host.docker.internal:$((port + 1000))/remote.git".pushInsteadOf "$dir/remote.git"
 until splates worker list 2>/dev/null | grep -q "linux-box .*connected"; do sleep 1; done
@@ -124,11 +89,7 @@ fi
 
 log() { grep -l '"task":"proof"' "$dir"/repo/.git/splates/conversations/*.jsonl 2>/dev/null | head -1; }
 said() {
-	grep '"agent_message_chunk"' "$(log)" | bun -e '
-for (const line of (await Bun.stdin.text()).trim().split("\n")) {
-	const { content } = JSON.parse(line).update;
-	if (content.type === "text") process.stdout.write(content.text);
-}'
+	prove_said "$(log)"
 }
 
 if [ "$agent" != scripted ]; then

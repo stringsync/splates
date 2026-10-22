@@ -15,7 +15,16 @@ what waking it takes, so the coordinator can wake it by asking a worker on
 the same network to send the packet.
 
 `docker/worker.Dockerfile` builds a credential-free Linux worker from this
-checkout, and `docker/prove-worker.sh` proves it end to end against a
+checkout, and `splates dev prove worker` (`docker/prove-worker.sh`) proves it end to end against a
 throwaway coordinator with `docker/scripted-agent.ts`, an ACP agent that
-runs `turn.sh` each turn in place of a real model. Home workers are extra
+runs `turn.sh` each turn in place of a real model. `splates dev prove coordinator`
+(`docker/prove-coordinator.sh`) is its inverse: `splates server` runs in a Debian
+container as the user `splates`, this machine joins it as a worker, and the
+script drives a task through to a merge, a restart, an archive and a cred. Both
+share `docker/prove-lib.sh`. The coordinator needs a working device store, as
+the worker's key does not: on Linux that is libsecret's, or Parameter Store
+under an instance role, and a server on a Linux with neither does not start
+(`libsecret not available`), so the box's image adds gnome-keyring
+(`coordinator.Dockerfile`). IMDSv2, Parameter Store, systemd and cloudflared
+have no stand-in in Docker. Home workers are extra
 capacity at $0/hour, never the only capacity.

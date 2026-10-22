@@ -3,6 +3,7 @@ import type { Cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
+import { PROOFS, prove } from "./prove";
 import { ship } from "./ship";
 import { test } from "./test";
 
@@ -41,6 +42,21 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.action(({ "code-only": codeOnly, ...opts }, { log, ps }) =>
 			fix({ ...opts, codeOnly, log, ps }),
 		);
+
+	dev
+		.command("prove")
+		.description(
+			"prove splates on Linux end to end with Docker, nothing of yours used: `coordinator` runs the server in a Debian container as the user splates, as the AWS box will, with this machine as its worker, and drives a task, a restart, an archive and a cred through it; `worker` runs a container as a worker of a server here. Read docker/prove-<which>.sh for what each checks",
+		)
+		.arg("proof", z.enum(PROOFS), {
+			description: "coordinator or worker",
+		})
+		.rest("args", z.string(), {
+			description:
+				"handed to the script: a port, and for `worker` --agent <id> --model <model> to hand the task to a roster agent",
+		})
+		.allowUnknownOption()
+		.action(({ proof, args }, { log, ps }) => prove({ proof, args, log, ps }));
 
 	dev
 		.command("ship")
