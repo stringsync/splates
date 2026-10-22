@@ -19,7 +19,6 @@ import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
 import { openRepository } from "../records";
 import {
-	CoordinatorMoveRoutes,
 	OpenCodeSetup,
 	OpenCodeSetupRoutes,
 	SETUP_AREAS,
@@ -605,14 +604,6 @@ export async function dev(
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
 	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
 
-	const coordinatorMove = new CoordinatorMoveRoutes({
-		fs,
-		ps,
-		home: splatesHome(ps),
-		device: (deps.secrets ?? SYSTEM_STORES).device,
-		dev: () => url,
-	});
-
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
 		workers: () => workers.registry.workers,
@@ -756,11 +747,6 @@ export async function dev(
 					// It may ask the judge, on the person's key, as a start would.
 					"/api/auto-pick/try": {
 						POST: talk(scoped((project) => project.tryAutoPick)),
-					},
-					// It stops this server: from a page Access let in alone.
-					"/api/setup/coordinator/move": {
-						GET: guarded(coordinatorMove.progress),
-						POST: talk(guarded(coordinatorMove.start)),
 					},
 					"/api/migration": guarded(migrations.read),
 					"/api/migration/retry": { POST: guarded(migrations.retry) },

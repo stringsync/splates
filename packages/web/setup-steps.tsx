@@ -3,7 +3,6 @@ import type { StepProgress } from "@stringsync/splates-server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";
-import { COORDINATOR_STEPS } from "./setup-coordinator-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
 import { OPENCODE_STEPS, OpenCodeEnd } from "./setup-opencode-steps";
@@ -31,7 +30,6 @@ export type StepBodies = Record<string, (props: StepBodyProps) => JSX.Element>;
 export const STEP_BODIES: StepBodies = {
 	...OPENCODE_STEPS,
 	...NATIVE_STEPS,
-	...COORDINATOR_STEPS,
 	...AUTO_PICK_STEPS,
 };
 

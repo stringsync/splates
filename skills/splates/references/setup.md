@@ -35,9 +35,7 @@ a task of its own, as Workflow says. The GitHub pushing area's steps after
 4. **Request every secret as a cred** (see [creds.md](creds.md)), with
    `--device`, since setup is for the whole machine: never ask for it in
    chat or read it from the environment. `splates creds wait <NAME>` until
-   they save it. The Cloud server's stack secrets are the exception: the
-   user pastes them on the Pulumi site, through a step each, and splates
-   never requests or reads them.
+   they save it.
 5. **Check the step after each thing you or the user did**: `splates setup
    <step>`. While it is not `done`, say in a line what went wrong, its
    `problem` or what you saw, and the one next thing to try, not every one
@@ -111,58 +109,6 @@ workers may cost: `splates budget set <hour|day|month> <dollars>`; any set count
 as the user having seen it). Walk them
 through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
-
-When the user asks for an always-on server, that is the Cloud server setup
-area, the AWS path, each step checked from real state: `coordinator-pulumi`
-(Pulumi installed and logged in to Pulumi Cloud or an S3 backend of the
-user's own; done when `pulumi whoami` answers), `coordinator-access` (how
-`pulumi up` and splates sign in to AWS with no long-lived key: the user pastes
-the page's line into AWS CloudShell, which makes the role `splates-pulumi`
-and prints the account id, then gives the page the id, whose Next makes the
-Pulumi ESC environment `<org>/splates/aws` and has the infra stack import it;
-an AWS profile the fallback; done when either signs in, and then the user
-deletes any root access keys),
-`coordinator-infra` (`splates server infra init <dir>` has written the project, by default the package `packages/infra` of the
-repo setup is opened from (bun runtime), filled from the projects, tunnel and creds splates keeps, requesting any cred
-not kept, and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
-`coordinator-up` (the page shows `pulumi preview` and the monthly cost, and Next runs `pulumi refresh` then `pulumi up --yes`,
-so a run after a failed one carries on from what that left, cancelling the lock a killed run held; done when `pulumi stack output
---json` gives the instance id and tunnel host) and `coordinator-creds`, then
-`coordinator-move`. The user never runs Pulumi: undoing the area destroys
-the stack itself once the user types the stack's name (`prod`), lifting the
-box's termination protection first and skipping what is already gone, then
-removes the stack and forgets the project, leaving its files; `splates server
-destroy --yes` destroys the same from a terminal, keeping the stack to make
-the box again. The box is an EC2
-instance with daily backups, SSH alone open, its key under `~/.splates/coordinator`.
-The move needs
-`remote` set in every project's `splates.config.ts` and an SSH origin (the
-`coordinator-remotes` step): the box reads a deploy key per project from its Parameter
-Store, and until each is set and GitHub lets it push trunk the deploy exits `blocked`,
-naming each cred the box lacks, which the stack makes: `coordinator-creds`'s Next
-runs `pulumi up` itself after a blocked dry run. The stack's secrets (the Cloudflare
-token, a GitHub token per owner, the Anthropic key) the user pastes on the Pulumi site,
-into the ESC environment `<org>/splates/secrets` the infra step makes with a placeholder
-each, through a `coordinator-secret-*` step each that says how to get it and reads done
-once the placeholder is gone; a failure that names one is fixed by pasting a new one there. `--dry-run` stops there, the
-box ready. Run for real (`coordinator-move`), it checkpoints every agent and
-stops this machine's `splates server`, carries the records over,
-starts the server on the box under systemd on a host of its own (`infra init`
-defaults it to `box.` before the saved tunnel's host), then takes the saved
-tunnel's host over: it deletes this Mac's DNS record and Access application
-there (a gap of minutes), sets the stack's `splates:host` to it and runs
-`pulumi up`, and has the box serve it, so the user's URL stays the same. This
-machine then joins there as a worker kept up by a LaunchAgent, where each task
-carries on in its worktree; this machine's records go aside, kept, and its old
-tunnel is left in Cloudflare for the user to delete. It touches the user's
-live server and tunnel: ask before running it for real, and run it from a
-terminal outside `splates server`, which it stops, or leave it to the step's
-Next on the page, which runs it apart from the server and follows it onto the
-box's host. Once the server runs on the box, `splates server deploy` again
-brings the box's splates to the running release and restarts it there, the
-way to update it; this machine's worker updates itself. `splates server status` says where the server runs and the box's
-address, `splates server ssh` opens a shell on the box, and `splates server
-destroy` destroys it and its backups.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

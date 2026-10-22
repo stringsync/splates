@@ -1,11 +1,9 @@
 import type { RulesEditor } from "./auto-pick-rules";
-import type { MoveWatch } from "./setup-coordinator-steps";
 import type { SetupJourney } from "./setup-journey";
 
 /** A journey and what it runs, kept while the page is elsewhere. */
 export interface HeldJourney {
 	journey: SetupJourney;
-	move: MoveWatch;
 	rules: RulesEditor;
 }
 
@@ -28,7 +26,6 @@ export class HeldJourneys {
 
 	/** Lets `area` go, as when it is finished or undone, to begin again. */
 	drop(area: string): void {
-		this.held.get(area)?.move.stop();
 		this.held.delete(area);
 	}
 }

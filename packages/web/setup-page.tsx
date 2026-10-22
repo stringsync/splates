@@ -24,11 +24,6 @@ import {
 	autoPickBrowserSteps,
 	RulesEditorContext,
 } from "./setup-auto-pick-steps";
-import {
-	coordinatorBrowserSteps,
-	MoveWatch,
-	MoveWatchContext,
-} from "./setup-coordinator-steps";
 import { JourneyDone, SetupIndex, StepField, StepForm } from "./setup-form";
 import { numbered, StepInstructions } from "./setup-instructions";
 import { DONE, SetupJourney } from "./setup-journey";
@@ -172,18 +167,16 @@ function Journey({
 	const { settle, held } = useContext(SetupContext);
 	// Held beyond this page, so a step left running goes on and the journey
 	// is found where it was left.
-	const { journey, move, rules } = held.obtain(area.id, () => {
-		const move = new MoveWatch();
+	const { journey, rules } = held.obtain(area.id, () => {
 		const rules = new RulesEditor();
 		const journey = new SetupJourney(
 			area,
 			{
-				...coordinatorBrowserSteps(move),
 				...autoPickBrowserSteps(rules),
 			},
 			STEP_STOPS,
 		);
-		return { journey, move, rules };
+		return { journey, rules };
 	});
 	const { step, at, next } = useReactive(
 		journey,
@@ -260,59 +253,57 @@ function Journey({
 				};
 	const Body = STEP_BODIES[step.id];
 	return (
-		<MoveWatchContext value={move}>
-			<RulesEditorContext value={rules}>
-				<StepForm
-					key={step.id}
-					title={step.title}
-					why={<Markdown text={step.why} inline />}
-					detail={
-						step.detail === null ? undefined : (
-							<Markdown text={step.detail} inline />
-						)
-					}
-					warning={
-						step.warning === null ? undefined : (
-							<Markdown text={step.warning} inline />
-						)
-					}
-					at={at + 1}
-					of={journey.steps.length}
-					steps={journey.steps}
-					onGo={(index) => journey.goToIndex(index)}
-					next={next}
-					// Read before the fields lock, since a disabled field sends nothing.
-					onNext={(form) => void journey.press(new FormData(form))}
-					onAgent={onAgent}
-					undo={area.undoable ? area.title : null}
-					onUndo={onUndo}
-				>
-					{Body !== undefined ? (
-						<Body
-							step={step}
-							feed={feed}
-							onOpen={onOpen}
-							journey={journey}
-							todos={todos}
-						/>
-					) : numbered(step.user) ? (
-						<StepInstructions
-							text={step.user}
-							under={{
-								1: step.fields.map((field) => (
-									<StepField key={field.name} field={field} />
-								)),
-							}}
-						/>
-					) : step.fields.length > 0 ? (
-						step.fields.map((field) => (
-							<StepField key={field.name} field={field} />
-						))
-					) : (
-						<Markdown text={step.user} />
-					)}
-				</StepForm>
-			</RulesEditorContext>
-		</MoveWatchContext>
+		<RulesEditorContext value={rules}>
+			<StepForm
+				key={step.id}
+				title={step.title}
+				why={<Markdown text={step.why} inline />}
+				detail={
+					step.detail === null ? undefined : (
+						<Markdown text={step.detail} inline />
+					)
+				}
+				warning={
+					step.warning === null ? undefined : (
+						<Markdown text={step.warning} inline />
+					)
+				}
+				at={at + 1}
+				of={journey.steps.length}
+				steps={journey.steps}
+				onGo={(index) => journey.goToIndex(index)}
+				next={next}
+				// Read before the fields lock, since a disabled field sends nothing.
+				onNext={(form) => void journey.press(new FormData(form))}
+				onAgent={onAgent}
+				undo={area.undoable ? area.title : null}
+				onUndo={onUndo}
+			>
+				{Body !== undefined ? (
+					<Body
+						step={step}
+						feed={feed}
+						onOpen={onOpen}
+						journey={journey}
+						todos={todos}
+					/>
+				) : numbered(step.user) ? (
+					<StepInstructions
+						text={step.user}
+						under={{
+							1: step.fields.map((field) => (
+								<StepField key={field.name} field={field} />
+							)),
+						}}
+					/>
+				) : step.fields.length > 0 ? (
+					step.fields.map((field) => (
+						<StepField key={field.name} field={field} />
+					))
+				) : (
+					<Markdown text={step.user} />
+				)}
+			</StepForm>
+		</RulesEditorContext>
 	);
 }

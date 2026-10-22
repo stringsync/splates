@@ -1,10 +1,4 @@
-export type { CoordinatorNeeds } from "./area-coordinator";
 export { SETUP_AREAS } from "./areas";
-export type { AwsAccess } from "./aws-access";
-export {
-	CoordinatorMoveRoutes,
-	type MoveProgress,
-} from "./coordinator-move";
 export type { FieldProgress } from "./fields";
 export { OpenCodeSetup } from "./opencode";
 export { OpenCodeSetupRoutes } from "./opencode-routes";

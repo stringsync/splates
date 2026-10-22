@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: the page tests' one fake server; its routes belong together
 import type {
 	BillingView,
 	SpendReport,
@@ -14,11 +15,7 @@ import type {
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { ServerChoice } from "@stringsync/splates-server/server";
-import type {
-	MoveProgress,
-	SetupProgress,
-	UndoPlan,
-} from "@stringsync/splates-server/setup";
+import type { SetupProgress, UndoPlan } from "@stringsync/splates-server/setup";
 import type {
 	Landed,
 	RuleOverrides,
@@ -250,8 +247,6 @@ export class Testing implements Resource {
 	autoPickRules: AutoPickRulesView | null = null;
 	/** What `/api/auto-pick/overrides` reads. */
 	autoPickOverrides: RuleOverrides[] = [];
-	/** What `/api/setup/coordinator/move` reads, or null for it to fail. */
-	coordinatorMove: MoveProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
 	ports: PortLink[] = [];
 	/**
@@ -366,11 +361,6 @@ export class Testing implements Resource {
 				return this.autoPickRules === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.autoPickRules);
-			}
-			if (route === "/api/setup/coordinator/move") {
-				return this.coordinatorMove === null
-					? new Response(null, { status: 502 })
-					: Response.json(this.coordinatorMove);
 			}
 			if (route === "/api/ports") {
 				return Response.json({ base: null, ports: this.ports });
