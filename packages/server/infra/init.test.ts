@@ -15,7 +15,12 @@ const options = (fs: FakeFs) => ({
 test("writes the program and the stack's config, with no secret in it", async () => {
 	const fs = new FakeFs();
 	const { written, todo } = await infraInit(options(fs));
-	expect(written).toEqual(["Pulumi.yaml", "index.ts", "Pulumi.prod.yaml"]);
+	expect(written).toEqual([
+		"Pulumi.yaml",
+		"index.ts",
+		".gitignore",
+		"Pulumi.prod.yaml",
+	]);
 	expect(await fs.read("/p/index.ts")).toContain("new CoordinatorBox");
 	expect(await fs.read("/p/Pulumi.prod.yaml")).toContain("splates:host");
 	expect(todo).not.toContain(
@@ -107,4 +112,14 @@ test("writes the program as packages/infra keeps it, formatted, so fix leaves a 
 		new URL("../../infra/index.ts", import.meta.url),
 	).text();
 	expect(await fs.read("/p/index.ts")).toBe(kept);
+});
+
+test("keeps the stack's file out of git, as packages/infra does", async () => {
+	const fs = new FakeFs();
+	await infraInit(options(fs));
+	const kept = await Bun.file(
+		new URL("../../infra/.gitignore", import.meta.url),
+	).text();
+	expect(await fs.read("/p/.gitignore")).toBe(kept);
+	expect(kept).toContain("Pulumi.*.yaml");
 });

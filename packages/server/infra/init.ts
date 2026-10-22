@@ -76,8 +76,9 @@ const IDS = ["splates:accountId", "splates:zoneId"] as const;
 /**
  * Writes the user's own Pulumi project, which imports the components of
  * `@stringsync/splates-server/infra`, with what setup knows in the stack's
- * config. Run again, it writes only what is not so already: the program and
- * `Pulumi.yaml` as given, and in the stack's config only the keys it lacks,
+ * config, and a `.gitignore` that keeps the stack's file out of git, since
+ * its config is the user's own. Run again, it writes only what is not so
+ * already: the program and `Pulumi.yaml` as given, and in the stack's config only the keys it lacks,
  * so values the user changed stay. A secret a past run set in the config is
  * taken out, since it would win over the creds store's current value.
  */
@@ -97,6 +98,7 @@ export async function infraInit(
 	await fs.mkdir(dir, { recursive: true });
 	await put("Pulumi.yaml", PULUMI_YAML);
 	await put("index.ts", INDEX_TS);
+	await put(".gitignore", GITIGNORE);
 
 	const stackFile = `Pulumi.${opts.stack}.yaml`;
 	const stack = await readStack(fs, `${dir}/${stackFile}`);
@@ -142,6 +144,10 @@ const PULUMI_YAML = `name: splates
 runtime:
   name: bun
 description: The box \`splates server deploy\` installs splates on
+`;
+
+/** Each stack's config is one user's accounts, hosts and ids, never committed. */
+const GITIGNORE = `Pulumi.*.yaml
 `;
 
 /** The program the user edits: three components, all from config. */
