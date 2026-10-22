@@ -52,6 +52,7 @@ import {
 	soleDirective,
 	unshown,
 } from "#web/directives.tsx";
+import { earlyWarningOf, warningLines } from "#web/early-warning.ts";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { type Chip, listedOf } from "#web/notes-attached.ts";
@@ -63,6 +64,7 @@ import {
 	SentAttachments,
 	unnamed,
 } from "#web/sent-attachments.tsx";
+import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SendingLine, UnsentLine } from "#web/unsent.tsx";
 
@@ -185,6 +187,24 @@ export const UserMessage: FC = () => {
 				repliesToProposal(s.thread.messages, s.message.index)),
 	);
 	const sent = sentOf(attachments);
+	const warning =
+		told === SERVER_TOLD && sent.length === 0 ? earlyWarningOf(text) : null;
+	if (warning !== null) {
+		// What the agent heard, said as splates's lines, which carry on the
+		// turn it comes in (see `carriesOn`) as a bare directive's does.
+		return (
+			<div
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				className="px-2"
+				data-role="user"
+			>
+				{warningLines(warning, at, text).map((line) => (
+					<SplatesEvent key={JSON.stringify(line.words)} event={line} />
+				))}
+			</div>
+		);
+	}
 	if (sole !== null && sent.length === 0 && isBare(sole)) {
 		// Not a primitive's root, which assistant-ui would anchor a reply's
 		// turn to: it carries on the turn it comes in (see `carriesOn`).

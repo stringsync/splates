@@ -2,7 +2,9 @@ import {
 	BookOpenIcon,
 	CheckIcon,
 	FileIcon,
+	FilesIcon,
 	GitBranchIcon,
+	GitMergeConflictIcon,
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -31,7 +33,8 @@ import { LaneIcon, TaskIcon } from "./task-icon";
  * nothing else in the thread uses, so it reads as splates speaking without
  * pulling the eye from the turns around it. Its one color is a mark leading
  * it, when it has one: a red X for a command that failed, a green check for
- * one that landed. A live wait counts down in its action's place, and goes
+ * one that landed. An early warning's mark, of a conflict or an overlap, is
+ * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
  * once what it waited on came. Where the line runs out of room, the names it
  * holds give way, each cut short and whole in its title. A burst of todos it
  * names lists each beneath, whole, with no hairlines of their own.
@@ -143,8 +146,12 @@ export interface SplatesEventView {
 	act?: Act | null;
 }
 
-/** A command that failed, marked by a red X, or landed, by a green check. */
-export type Mark = "failed" | "landed";
+/**
+ * A command that failed, marked by a red X, or landed, by a green check; or an
+ * early warning of a conflict with the base or an overlap with another task,
+ * each by its muted icon.
+ */
+export type Mark = "failed" | "landed" | "conflict" | "overlap";
 
 /**
  * A wait an event counts down to `until`. Once what it waited on comes, it is
@@ -198,6 +205,15 @@ function Line({
 					aria-label="Landed"
 					className="size-3.5 shrink-0 text-success"
 				/>
+			)}
+			{mark === "conflict" && (
+				<GitMergeConflictIcon
+					aria-label="Conflict"
+					className="size-3.5 shrink-0"
+				/>
+			)}
+			{mark === "overlap" && (
+				<FilesIcon aria-label="Overlap" className="size-3.5 shrink-0" />
 			)}
 			<Words words={event.words} />
 			{stamped && event.at != null && <Stamp at={event.at} />}

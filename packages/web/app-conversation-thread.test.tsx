@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
+import {
+	conflictWarning,
+	earlyWarning,
+} from "@stringsync/splates-server/server/browser";
 import {
 	act,
 	cleanup,
@@ -122,6 +127,40 @@ describe("App's conversation thread", () => {
 		expect(labels[0]?.querySelector("a")?.getAttribute("href")).toBe(
 			"#conversations/orch",
 		);
+	});
+
+	it("draws splates server's early warning as an event line, not a message", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Read the note",
+					messages: [
+						{
+							...message(
+								"user",
+								earlyWarning("c1-task", conflictWarning("main", ["state.ts"])),
+							),
+							told: SERVER_TOLD,
+						},
+					],
+				}),
+			],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toContain("Conflict with");
+		expect(within(line).getByLabelText("Conflict")).toBeDefined();
+		expect(within(line).getByTitle("Branch main")).toBeDefined();
+		expect(within(line).getByTitle("state.ts")).toBeDefined();
+		expect(thread.textContent).not.toContain("Splates early warning");
+		expect(
+			thread.querySelector("[data-slot=aui_user-message-told]"),
+		).toBeNull();
 	});
 
 	it("leaves a reply unstamped while it is still being written", async () => {

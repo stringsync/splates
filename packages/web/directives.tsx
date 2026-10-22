@@ -1,4 +1,5 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
 	DIRECTIVES,
 	UNTRIAGED,
@@ -7,6 +8,7 @@ import { UtensilsIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
+import { earlyWarningOf } from "./early-warning";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
@@ -193,7 +195,8 @@ export function isSoleCommand(text: string): boolean {
 /**
  * Whether `message` is a person's message of one bare directive alone, which
  * shows as one of splates's event lines, as a checkpoint, a resume, or a merge
- * does, or of one skill or command alone. It carries on the turn it comes in
+ * does, or of one skill or command alone, or splates server's early warning
+ * (`isEarlyWarning`). It carries on the turn it comes in
  * rather than opening one, and takes none of the scroll a turn's start does,
  * so the message stuck atop that turn stays there while the reply goes on.
  */
@@ -211,8 +214,18 @@ export function carriesOn(message: ThreadMessageLike): boolean {
 		only?.type === "text" &&
 		more.length === 0 &&
 		!files &&
-		(isBare(only.text.trim()) || isSoleCommand(only.text))
+		(isBare(only.text.trim()) ||
+			isSoleCommand(only.text) ||
+			isEarlyWarning(only.text, message.metadata?.custom?.told))
 	);
+}
+
+/**
+ * Whether a message of `text` alone, from `told`, is splates server's early
+ * warning to the agent, which the page draws as event lines instead.
+ */
+export function isEarlyWarning(text: string, told: unknown): boolean {
+	return told === SERVER_TOLD && earlyWarningOf(text) !== null;
 }
 
 /**

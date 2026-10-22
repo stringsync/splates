@@ -2,6 +2,7 @@ import { type AsyncResource, Disposer } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { type Conversations, SERVER_TOLD } from "../conversations";
 import { ConflictChecks, overlapWarnings, TaskOverlaps } from "../tasks";
+import { conflictWarning, earlyWarning } from "./early-warning";
 import type { Project } from "./project";
 
 /** Checks active tasks after ref moves, even with no page open. */
@@ -70,7 +71,7 @@ export class ConflictWatch implements AsyncResource {
 						await this.tell(
 							worktree.task,
 							"conflict",
-							`The committed changes will conflict with ${worktree.base} in: ${result.conflict.files.join(", ")}. Align the changes before merging. This check did not rebase or change your worktree.`,
+							conflictWarning(worktree.base, result.conflict.files),
 						);
 					}
 					if (result === null) {
@@ -114,12 +115,7 @@ export class ConflictWatch implements AsyncResource {
 			}
 			this.told.set(key, words);
 			void conversation
-				.prompt(
-					`Splates early warning for ${task}:\n\n${words}`,
-					[],
-					undefined,
-					{ told: SERVER_TOLD },
-				)
+				.prompt(earlyWarning(task, words), [], undefined, { told: SERVER_TOLD })
 				.catch((error: unknown) => {
 					this.told.delete(key);
 					this.project.log.error(String(error));
