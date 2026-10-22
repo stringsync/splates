@@ -15,6 +15,7 @@ import type { TunnelCreds } from "../tunnel/setup";
 import type { DeployKeyProject } from "./deploy-keys";
 import {
 	githubOwnerOf,
+	githubTokenCred,
 	type InfraInitResult,
 	infraInit,
 	ownerOf,
@@ -25,11 +26,6 @@ const SECRET_CREDS: Record<string, string> = {
 	"cloudflare:apiToken": API_TOKEN,
 	"splates:anthropicKey": "ANTHROPIC_API_KEY",
 };
-
-/** The cred keeping the GitHub token for `owner`'s repositories. */
-export function githubTokenCred(owner: string): string {
-	return `SPLATES_DEPLOY_GITHUB_TOKEN_${owner.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
-}
 
 /** Where stack secret `key` comes from in the creds store. */
 export function secretCred(key: string): string {
@@ -163,9 +159,9 @@ export async function missingPermissions(
 /**
  * Writes the infra project with everything splates keeps filled in: the
  * projects from the registry, the host and email from the saved tunnel and
- * its Access application, the Cloudflare ids from the API, and each secret
- * from the creds store, fed to `pulumi config set --secret` on stdin. What
- * is not kept is requested, and it refuses with `requested`.
+ * its Access application and the Cloudflare ids from the API. Each secret
+ * stays in the creds store, for `CoordinatorBox` to hand to every `pulumi`
+ * run; what is not kept is requested, and it refuses with `requested`.
  */
 export async function infraConfigure(
 	opts: InfraConfigureOptions,
@@ -252,54 +248,23 @@ export async function infraConfigure(
 		fs: opts.fs,
 	});
 
-	const values = new Map<string, string>();
 	const lacking: string[] = [];
 	for (const key of result.secrets) {
 		const name = secretCred(key);
-		const value = await creds.credentials.get(name);
-		if (value === undefined) {
-			lacking.push(key);
-			const owner = githubOwnerOf(key);
-			const help =
-				owner === null
-					? SECRET_HELP[key]
-					: githubTokenHelp(
-							owner,
-							projects.filter(
-								({ repository }) => ownerOf(repository) === owner,
-							),
-						);
-			if (help !== undefined) {
-				await creds.request(name, {
-					scope: "device",
-					task: null,
-					...help,
-				});
-			}
-		} else {
-			values.set(key, value);
+		if ((await creds.credentials.get(name)) !== undefined) {
+			continue;
 		}
-	}
-	if (values.size > 0) {
-		const run = async (argv: string[], stdin?: string) => {
-			const out = await ps.spawnCapture(argv, {
-				cwd: opts.dir,
-				...(stdin === undefined ? { stdin: "" } : { stdin }),
-			});
-			if (out.exitCode !== 0) {
-				fail(
-					"usage",
-					`\`${argv.join(" ")}\` in ${opts.dir} failed: ${out.stderr.trim().split("\n").at(-1) ?? ""}`,
-					{ dir: opts.dir },
-				);
-			}
-		};
-		await run(["pulumi", "stack", "select", "--create", opts.stack]);
-		for (const [key, value] of values) {
-			await run(
-				["pulumi", "config", "set", "--secret", "--stack", opts.stack, key],
-				value,
-			);
+		lacking.push(key);
+		const owner = githubOwnerOf(key);
+		const help =
+			owner === null
+				? SECRET_HELP[key]
+				: githubTokenHelp(
+						owner,
+						projects.filter(({ repository }) => ownerOf(repository) === owner),
+					);
+		if (help !== undefined) {
+			await creds.request(name, { scope: "device", task: null, ...help });
 		}
 	}
 	if (lacking.length > 0) {
@@ -310,7 +275,7 @@ export async function infraConfigure(
 			{ names: lacking.map(secretCred) },
 		);
 	}
-	return { ...result, secrets: lacking, todo: [] };
+	return { ...result, secrets: [], todo: [] };
 }
 
 interface SecretHelp {

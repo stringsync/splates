@@ -1,10 +1,13 @@
+import { Credentials } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import { AwsCloud } from "../cloud";
+import { SYSTEM_STORES } from "../creds";
 import { splatesHome } from "../models";
 import type { TunnelRecord } from "../tunnel/saved";
 import { type InfraConfig, infraConfigPath, readInfraConfig } from "./infra";
+import { credsFor, type SecretSource, secretNames, stackEnv } from "./secrets";
 
 /**
  * The coordinator's always-on box in the user's AWS account, which the
@@ -12,7 +15,9 @@ import { type InfraConfig, infraConfigPath, readInfraConfig } from "./infra";
  * stack's outputs for where it is, and gets what the deploy needs to reach
  * it, its SSH key and its host key. It runs `pulumi up` and `pulumi destroy`
  * for the user, picking up where a failed run left the stack, so they never
- * run Pulumi themselves.
+ * run Pulumi themselves. The program's secrets stay in the creds store and
+ * are handed to each run that runs the program, so a replaced cred reaches
+ * the next one.
  */
 export class CoordinatorBox {
 	private readonly ps: Ps;
@@ -142,6 +147,10 @@ export class CoordinatorBox {
 		await this.pulumi(infra, ["refresh", "--yes", "--non-interactive"]);
 	}
 
+	private secrets(): SecretSource {
+		return this.opts.secrets ?? new Credentials([SYSTEM_STORES.device]);
+	}
+
 	private cloud(): BoxCloud {
 		return this.opts.cloud ?? new AwsCloud();
 	}
@@ -258,8 +267,12 @@ export class CoordinatorBox {
 		cancelled = false,
 	): Promise<string> {
 		const stack = infra.stack === undefined ? [] : ["--stack", infra.stack];
+		const env = RUNS_PROGRAM.has(args[0] ?? "")
+			? await stackEnv(this.fs, this.secrets(), infra.dir, infra.stack)
+			: undefined;
 		const ran = await this.ps.spawnCapture(["pulumi", ...args, ...stack], {
 			cwd: infra.dir,
+			...(env === undefined ? {} : { env }),
 		});
 		if (ran.exitCode !== 0) {
 			const output = `${ran.stdout}\n${ran.stderr}`;
@@ -269,13 +282,21 @@ export class CoordinatorBox {
 				});
 				return this.pulumi(infra, args, true);
 			}
+			const failure = failureLine(output);
+			const replace = credsFor(
+				failure,
+				await secretNames(this.fs, infra.dir, infra.stack),
+			);
 			throw new Error(
-				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(output)}`,
+				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failure}${replace === null ? "" : ` (that provider reads ${replace.join(", ")} from the creds store: replace it on the Creds page, then press Next again)`}`,
 			);
 		}
 		return ran.stdout;
 	}
 }
+
+/** The `pulumi` commands that run the program, so read the secrets it takes from its environment. */
+const RUNS_PROGRAM = new Set(["preview", "refresh", "up", "destroy"]);
 
 /**
  * How `pulumi` says a stack is locked by an update still in progress: Pulumi
@@ -354,6 +375,8 @@ export interface CoordinatorBoxOptions {
 	home?: string;
 	/** The cloud the box is in, AWS here by default. */
 	cloud?: BoxCloud;
+	/** Where the program's secrets are read from on each run; this device's creds store by default. */
+	secrets?: SecretSource;
 	/** How long the box has to print its host keys. */
 	within?: Duration;
 	/** How it waits between looks at the console. */

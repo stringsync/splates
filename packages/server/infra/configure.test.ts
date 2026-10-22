@@ -35,16 +35,9 @@ describe("infraConfigure", () => {
 		expect(stack).toContain("me/app");
 		expect(stack).toContain("splates:accountId: acct");
 		expect(stack).toContain("splates:zoneId: zone-example.com");
-		const sets = box.calls.filter((call) => call.argv.includes("set"));
-		expect(sets.map((call) => call.argv.at(-1))).toEqual([
-			"cloudflare:apiToken",
-			"splates:githubToken-me",
-			"splates:anthropicKey",
-		]);
-		expect(sets.map((call) => call.stdin)).toEqual(["api-token", "gh", "sk"]);
-		expect(
-			sets.every((call) => call.argv.join(" ").includes("api-token")),
-		).toBe(false);
+		// The secrets stay in the creds store: nothing is set in the stack.
+		expect(box.calls.some((call) => call.argv.includes("set"))).toBe(false);
+		expect(stack).not.toContain("secure");
 	});
 
 	it("requests a cred that is not kept, and refuses with requested", async () => {
@@ -76,12 +69,6 @@ describe("infraConfigure", () => {
 		]);
 		expect(requests[0]?.instructions).toContain("**my-name**");
 		expect(requests[0]?.instructions).toContain("`my-name/lib`, `my-name/web`");
-		const sets = box.calls.filter((call) => call.argv.includes("set"));
-		expect(sets.map((call) => [call.argv.at(-1), call.stdin])).toEqual([
-			["cloudflare:apiToken", "api-token"],
-			["splates:githubToken-acme", "gh-acme"],
-			["splates:anthropicKey", "sk"],
-		]);
 	});
 });
 

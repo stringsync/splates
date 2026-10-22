@@ -137,9 +137,11 @@ The move needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the
 `coordinator-remotes` step): the box reads a deploy key per project from its Parameter
 Store, and until each is set and GitHub lets it push trunk the deploy exits `blocked`,
-naming each cred the box lacks; show the user those with their `pulumi config set
---secret` line, and run it again once set (`coordinator-creds`'s Next runs `pulumi up` itself
-after a blocked dry run). `--dry-run` stops there, the
+naming each cred the box lacks; the stack makes those, so run `pulumi up` through
+`coordinator-creds`'s Next, which does it itself after a blocked dry run, reading the
+stack's secrets (the Cloudflare token, the Anthropic key, a GitHub token per owner) from the
+creds store on every run, never from the stack's config: a cred the user replaces on the
+Creds page reaches the next run, and a failure that names one says which to replace. `--dry-run` stops there, the
 box ready. Run for real (`coordinator-move`), it checkpoints every agent and
 stops this machine's `splates server`, carries the records over,
 starts the server on the box under systemd on a host of its own (`infra init`

@@ -12,13 +12,29 @@ const options = (fs: FakeFs) => ({
 	fs,
 });
 
-test("writes the program and the stack's config, naming what is left to set", async () => {
+test("writes the program and the stack's config, with no secret in it", async () => {
 	const fs = new FakeFs();
 	const { written, todo } = await infraInit(options(fs));
 	expect(written).toEqual(["Pulumi.yaml", "index.ts", "Pulumi.prod.yaml"]);
 	expect(await fs.read("/p/index.ts")).toContain("new CoordinatorBox");
 	expect(await fs.read("/p/Pulumi.prod.yaml")).toContain("splates:host");
-	expect(todo).toContain("pulumi config set --secret splates:githubToken-me");
+	expect(todo).not.toContain(
+		"pulumi config set --secret splates:githubToken-me",
+	);
+	expect(await fs.read("/p/Pulumi.prod.yaml")).not.toContain("githubToken");
+});
+
+test("takes out a secret a past run set in the stack's config", async () => {
+	const fs = new FakeFs();
+	await fs.mkdir("/p", { recursive: true });
+	await fs.write(
+		"/p/Pulumi.prod.yaml",
+		"config:\n  aws:region: us-west-2\n  cloudflare:apiToken:\n    secure: v1:x\n  splates:githubToken-me:\n    secure: v1:y\n",
+	);
+	await infraInit(options(fs));
+	const text = await fs.read("/p/Pulumi.prod.yaml");
+	expect(text).toContain("us-west-2");
+	expect(text).not.toContain("secure");
 });
 
 test("names a GitHub token to set for each owner the projects are under, once", async () => {

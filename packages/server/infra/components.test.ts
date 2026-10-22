@@ -1,11 +1,9 @@
 import { expect, test } from "bun:test";
 import { mockPulumi } from "./testing";
 
-process.env.PULUMI_CONFIG = JSON.stringify({
-	"splates:githubToken-me": "tok-me",
-	"splates:githubToken-one": "tok-one",
-	"splates:githubToken-two": "tok-two",
-});
+process.env.SPLATES_DEPLOY_GITHUB_TOKEN_ME = "tok-me";
+process.env.SPLATES_DEPLOY_GITHUB_TOKEN_ONE = "tok-one";
+process.env.SPLATES_DEPLOY_GITHUB_TOKEN_TWO = "tok-two";
 
 const ofType = mockPulumi();
 

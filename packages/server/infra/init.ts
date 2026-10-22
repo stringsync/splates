@@ -21,9 +21,9 @@ export interface InfraInitOptions {
 export interface InfraInitResult {
 	/** The files it wrote or changed, relative to `dir`. */
 	written: string[];
-	/** Each command still to run: the account and zone ids, then each secret. */
+	/** Each command still to run: the account and zone ids. */
 	todo: string[];
-	/** The secrets the stack's config still lacks, by key. */
+	/** The secrets the stack needs from the creds store, by key. They never go in the stack's config. */
 	secrets: string[];
 }
 
@@ -41,6 +41,11 @@ export function githubTokenName(owner: string): string {
 	return `githubToken-${owner}`;
 }
 
+/** The cred keeping the GitHub token for `owner`'s repositories, which the program reads from its environment under this name. */
+export function githubTokenCred(owner: string): string {
+	return `SPLATES_DEPLOY_GITHUB_TOKEN_${owner.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
+}
+
 /** The GitHub owner whose token stack secret `key` holds, or null for any other. */
 export function githubOwnerOf(key: string): string | null {
 	const prefix = `splates:${githubTokenName("")}`;
@@ -48,8 +53,9 @@ export function githubOwnerOf(key: string): string | null {
 }
 
 /**
- * What the user sets themselves, since it is theirs to look up or to keep:
- * a GitHub token for each owner the projects are under.
+ * The secrets the stack needs, which the user looks up or keeps: a GitHub
+ * token for each owner the projects are under. They stay in the creds store
+ * and reach each `pulumi` run in its environment, never the stack's config.
  */
 export function secretsOf(projects: DeployKeyProject[]): string[] {
 	const owners = new Set(projects.map(({ repository }) => ownerOf(repository)));
@@ -60,6 +66,10 @@ export function secretsOf(projects: DeployKeyProject[]): string[] {
 	];
 }
 
+/** The stack config keys a secret was once set under. */
+const SECRET_KEYS =
+	/^(cloudflare:apiToken|splates:(githubToken-.*|anthropicKey))$/;
+
 /** The Cloudflare ids of the account and zone, which only its dashboard shows. */
 const IDS = ["splates:accountId", "splates:zoneId"] as const;
 
@@ -68,7 +78,8 @@ const IDS = ["splates:accountId", "splates:zoneId"] as const;
  * `@stringsync/splates-server/infra`, with what setup knows in the stack's
  * config. Run again, it writes only what is not so already: the program and
  * `Pulumi.yaml` as given, and in the stack's config only the keys it lacks,
- * so values the user changed stay.
+ * so values the user changed stay. A secret a past run set in the config is
+ * taken out, since it would win over the creds store's current value.
  */
 export async function infraInit(
 	opts: InfraInitOptions,
@@ -100,6 +111,12 @@ export async function infraInit(
 		...(opts.zoneId === undefined ? {} : { "splates:zoneId": opts.zoneId }),
 	};
 	const config = { ...stack.config };
+	const secrets = secretsOf(opts.projects);
+	for (const key of Object.keys(config)) {
+		if (SECRET_KEYS.test(key)) {
+			delete config[key];
+		}
+	}
 	for (const [key, value] of Object.entries(wanted)) {
 		if (!(key in config)) {
 			config[key] = value;
@@ -110,7 +127,6 @@ export async function infraInit(
 		stackText(withEnvironment({ ...stack, config }, opts.environment)),
 	);
 
-	const secrets = secretsOf(opts.projects).filter((key) => !(key in config));
 	return {
 		written,
 		secrets,
@@ -118,7 +134,6 @@ export async function infraInit(
 			...IDS.filter((key) => !(key in config)).map(
 				(key) => `pulumi config set ${key} <id>`,
 			),
-			...secrets.map((key) => `pulumi config set --secret ${key}`),
 		],
 	};
 }
@@ -134,6 +149,7 @@ const INDEX_TS = `import * as pulumi from "@pulumi/pulumi";
 import {
 	CoordinatorBox,
 	DeployKeys,
+	envSecret,
 	Tunnel,
 } from "@stringsync/splates-server/infra";
 
@@ -151,10 +167,8 @@ const box = new CoordinatorBox("splates", {
 	host,
 	secrets: {
 		SPLATES_TUNNEL_TOKEN: tunnel.token,
-		SPLATES_CLOUDFLARE_API_TOKEN: new pulumi.Config("cloudflare").requireSecret(
-			"apiToken",
-		),
-		ANTHROPIC_API_KEY: config.requireSecret("anthropicKey"),
+		SPLATES_CLOUDFLARE_API_TOKEN: envSecret("SPLATES_CLOUDFLARE_API_TOKEN"),
+		ANTHROPIC_API_KEY: envSecret("ANTHROPIC_API_KEY"),
 	},
 });
 

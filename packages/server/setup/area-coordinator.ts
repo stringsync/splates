@@ -237,7 +237,7 @@ export function coordinatorArea(
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
 		user: "Read what the preview says it will make and what it costs a month, then press Next to make it.",
 		agent:
-			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a cred, through `splates server infra init`; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
+			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment, after `pulumi refresh`, so a run after a failed one carries on from what that left. If it fails, the page says what failed: fix that (a cred, on the Creds page, which the next run reads afresh; a permission, in AWS) and press Next again, which picks up where it stopped. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address. Undoing the area, or `splates server destroy --yes`, unmakes the box and all the stack made, lifting its termination protection itself; the user never runs Pulumi.",
 		optional: true,
 		after: [accessStep, pulumiStep, infraStep],
 		doing: "Making the box with `pulumi up`, a few minutes…",
@@ -293,18 +293,16 @@ export function coordinatorArea(
 		id: "coordinator-creds",
 		title: "Give the box its creds",
 		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
-		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each with `pulumi config set --secret`, then press Next again, which runs `pulumi up` itself.",
+		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, press Next again, which runs `pulumi up` itself to make them, with the creds as they are kept. If that fails on a cred, replace it on the Creds page and press Next once more.",
 		agent:
-			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. Have the user fix the stack and `pulumi up`, and run it again until it says the box is ready.",
+			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. The stack makes what it lacks: have the user press Next, which runs `pulumi up` first and reads the creds store afresh, so a replaced cred reaches it; run it again until it says the box is ready. A failure that names a cred is replaced on the Creds page.",
 		optional: true,
 		after: [upStep, remotesStep, tunnelStep],
 		doing: "Readying each project's clone on the box, a minute or two…",
 		detail: async (machine) => {
 			const last = dryRuns.get(machine.home);
 			return last?.status === "blocked"
-				? last.needs
-						.map((name) => `\`pulumi config set --secret ${name} <value>\``)
-						.join("\n")
+				? `The box's Parameter Store lacks ${last.needs.map((name) => `\`${name}\``).join(", ")}: the stack makes ${last.needs.length === 1 ? "it" : "them"}, so press Next, which does it with the creds as they are kept.`
 				: null;
 		},
 		check: async (machine) =>
@@ -332,7 +330,7 @@ export function coordinatorArea(
 			},
 		},
 		notDone:
-			"The box lacks creds in its Parameter Store: see the list below, fix the stack, `pulumi up`, then press Next.",
+			"The box lacks creds in its Parameter Store: see the list below, then press Next, which makes them.",
 	};
 
 	const moveStep: SetupStep = {
