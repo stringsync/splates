@@ -535,7 +535,7 @@
 /* A lane an agent is at work on: a still violet ring, whatever the accent,
    as AI work is commonly marked, masked down to the border on a layer of its
    own, so the lane's own rings (opened, a card over it) still show. It stays
-   still, since the page's one spinner is `GivingUp`'s. */
+   still. */
 .running-outline {
 	position: relative;
 }

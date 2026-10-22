@@ -49,13 +49,12 @@ describe("Saying the page may be stale", () => {
 		expect(page.container.textContent).toBe("");
 	});
 
-	it("counts down in the bar, with one spinner, once a wait has run on", () => {
+	it("counts down in the bar once a wait has run on", () => {
 		const page = barred({ ...STALE, givesUpAt: Date.now() + 4_000 });
 
 		expect(page.getByRole("status").textContent).toBe(
 			"Still loading, gives up in 4s",
 		);
-		expect(page.container.querySelectorAll(".animate-spin")).toHaveLength(1);
 	});
 
 	it("says at once in the bar, as an error, that it cannot reach the server, with no buttons", () => {
