@@ -14,6 +14,9 @@ import type {
 /** How old a snapshot may get before the next worker waits for a new one, for the updates it lacks. */
 export const SNAPSHOT_FRESH = Duration.days(7);
 
+/** How long after a build fails another is not started by a worker's asking. */
+const BUILD_BACKOFF = Duration.mins(10);
+
 /** The user a snapshot's worker runs as: agents refuse to run as root. */
 export const SNAPSHOT_USER = "splates";
 
@@ -43,9 +46,12 @@ export function snapshotRecipe(
 		"export DEBIAN_FRONTEND=noninteractive",
 		"apt-get update",
 		// bubblewrap sandboxes each agent (`sandbox.ts`).
-		"apt-get install -y --no-install-recommends ca-certificates curl git unzip bubblewrap iptables",
+		// procps and iproute2 find a task's processes and ports.
+		"apt-get install -y --no-install-recommends ca-certificates curl git unzip procps iproute2 bubblewrap iptables",
 		`id ${SNAPSHOT_USER} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ${SNAPSHOT_USER}`,
 		as("curl -fsSL https://bun.sh/install | bash"),
+		// Installing splates fills bun's cache (`~/.bun/install/cache`) with its
+		// packages, which a job's `bun install` then finds warm.
 		as(`${bun}/bun add -g @stringsync/splates@${version}`),
 		as(`${bun}/bunx ${PLAYWRIGHT_MCP} install-browser chromium-headless-shell`),
 		`${bun}/bunx playwright install-deps chromium`,
@@ -77,6 +83,8 @@ export type KeptSnapshots = z.infer<typeof Kept>;
  */
 export class Snapshots {
 	private readonly building = new Map<Platform, Promise<Snapshot>>();
+	/** When a build on each platform last failed, epoch milliseconds. */
+	private readonly failedAt = new Map<Platform, number>();
 
 	private constructor(
 		private readonly provider: WorkerProvider,
@@ -94,6 +102,37 @@ export class Snapshots {
 	/** The snapshot on `platform` as kept, fresh or not; null before the first. */
 	of(platform: Platform): Snapshot | null {
 		return this.kept[platform] ?? null;
+	}
+
+	/**
+	 * The fresh snapshot on `platform`, or null when there is none, in which
+	 * case one is built in the background for the next worker, so a worker
+	 * need not wait minutes for it: it runs the recipe on a stock image.
+	 */
+	async ready(platform: Platform): Promise<Snapshot | null> {
+		if (this.opts.document !== null) {
+			this.kept = await readKept(this.opts);
+		}
+		const kept = this.of(platform);
+		if (kept !== null && this.fresh(kept)) {
+			return kept;
+		}
+		const { wall = new SystemWallClock() } = this.opts;
+		const failed = this.failedAt.get(platform);
+		if (failed === undefined || wall.now() - failed >= BUILD_BACKOFF.ms) {
+			this.refresh(platform).catch((error: unknown) => {
+				this.failedAt.set(platform, wall.now());
+				this.opts.log?.error(
+					`the ${platform} snapshot could not be built: ${String(error)}`,
+				);
+			});
+		}
+		return null;
+	}
+
+	/** The recipe a worker on `platform` runs when no snapshot is ready; null for no recipe. */
+	recipe(platform: Platform): string | null {
+		return snapshotRecipe(platform, this.opts.version)?.script ?? null;
 	}
 
 	/** The snapshot a worker on `platform` boots from now, built first when there is none fresh. */
@@ -190,4 +229,6 @@ export interface SnapshotsOptions {
 	/** Where the record is kept; null keeps it in memory alone. */
 	document: Document<z.infer<typeof Kept>> | null;
 	wall?: WallClock;
+	/** Where a background build's failure is told. */
+	log?: Logger;
 }

@@ -52,8 +52,14 @@ export interface WorkerSpec {
 	id: string;
 	/** One of the provider's `types()`. */
 	type: string;
-	/** The snapshot it boots from, as `snapshot` answered it. */
-	snapshot: string;
+	/** The snapshot it boots from, as `snapshot` answered it; null while none is ready. */
+	snapshot: string | null;
+	/**
+	 * The recipe's script when `snapshot` is null: the machine boots from
+	 * the provider's stock image and runs it as root, before `join`, to
+	 * become what a snapshot would have been. Null with a snapshot.
+	 */
+	recipe: string | null;
 	/**
 	 * What the machine runs once booted, until it succeeds and before
 	 * `boot`, with `SPLATES_HOME` a directory only root reads: it spends a

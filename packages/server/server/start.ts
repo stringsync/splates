@@ -266,6 +266,7 @@ export async function serveDev(
 						snapshots: await Snapshots.open(provider, {
 							version: RUNNING,
 							document: settingsStorage.document("snapshots.json"),
+							log: ctx.log,
 						}),
 						coordinator: () => reached,
 						budget: await WorkerBudget.open(

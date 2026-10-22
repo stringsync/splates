@@ -55,6 +55,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			id: "c-16-abc123",
 			type: "c-16",
 			snapshot: "77",
+			recipe: null,
 			join: ["splates", "worker", "join"],
 			joinEnv: { SPLATES_WORKER_JOIN: "secret-token" },
 			boot: ["splates", "worker", "run", "--key-file"],
@@ -79,10 +80,33 @@ describe("CloudWorkers in DigitalOcean", () => {
 		]);
 	});
 
+	it("makes a worker from the stock image when no snapshot is ready, running the recipe first", async () => {
+		digitalocean.stock = { nyc1: ["c-16"] };
+
+		await provider.create({
+			id: "c-16-abc123",
+			type: "c-16",
+			snapshot: null,
+			recipe: "#!/bin/sh\napt-get update\n",
+			join: ["splates", "worker", "join"],
+			joinEnv: {},
+			boot: ["splates", "worker", "run"],
+		});
+
+		const [droplet] = digitalocean.tagged("splates-worker:c-16-abc123");
+		expect(droplet?.image).toBe("ubuntu-24-04-x64");
+		const script = droplet?.user_data ?? "";
+		expect(script).toContain("apt-get update");
+		expect(script.indexOf("apt-get update")).toBeLessThan(
+			script.indexOf("'splates' 'worker' 'join'"),
+		);
+	});
+
 	it("destroys a worker's droplet alone, and says why DigitalOcean refused one", async () => {
 		const spec = {
 			type: "c-16",
 			snapshot: "1",
+			recipe: null,
 			join: [],
 			joinEnv: {},
 			boot: [],

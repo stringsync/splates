@@ -108,7 +108,9 @@ export class WorkerProvisioning
 				"a provisioned worker dials the page at its tunnel host: start `splates server` with a tunnel (`splates tunnel setup`)",
 			);
 		}
-		const snapshot = await snapshots.current(type.platform);
+		// A runner never waits for a snapshot to be built: with none ready it
+		// runs the recipe on a stock image, and the build goes on behind it.
+		const snapshot = await snapshots.ready(type.platform);
 		const id = `${type.name}-${randomBytes(3).toString("hex")}`;
 		const provisioned = {
 			type: type.name,
@@ -132,7 +134,8 @@ export class WorkerProvisioning
 				provider.create({
 					id,
 					type: type.name,
-					snapshot: snapshot.id,
+					snapshot: snapshot?.id ?? null,
+					recipe: snapshot === null ? snapshots.recipe(type.platform) : null,
 					join: [
 						SNAPSHOT_SPLATES,
 						"worker",

@@ -27,6 +27,14 @@ be rounded up). The day, month and rate limits in `workers/budget.ts` hold
 over runners as over any made worker, with their 80, 90 and 100% warnings. A
 runner that could not be made is not tried again for a minute.
 
+A runner boots from the worker image (`Snapshots`, `workers/snapshot.ts`): the
+recipe (`splates worker recipe`) applied to a stock image, with bun's package
+cache warm from installing splates. A runner never waits for the image to be
+built: with no fresh one (none yet, another splates version, a week old) it is
+made from the stock image and runs the recipe in its user data before joining
+(`WorkerSpec.recipe`), while the image is built in the background for the next
+one; a failed build is not tried again for 10 minutes.
+
 `POST /api/jobs` (`RunnerJobs` in `workers/job-route.ts`) streams from the
 start: a `queued` event with the position while it waits, then the job's
 events, or `local`. A job whose runner is lost (the box gone, the link lost

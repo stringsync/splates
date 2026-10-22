@@ -104,7 +104,7 @@ export class CloudWorkers implements WorkerProvider {
 			await cloud.create({
 				name: spec.id,
 				type: spec.type,
-				image: spec.snapshot,
+				image: spec.snapshot ?? cloud.defaults.image,
 				location,
 				// In the request's body alone, so the join token never reaches an argv or a log.
 				userData: bootScript(spec),
@@ -237,12 +237,13 @@ const JOIN_APART = Duration.secs(10);
  * metadata address, which serves all of this, is closed to the snapshot's
  * user first, agents included.
  */
-function bootScript({ join, joinEnv, boot }: WorkerSpec): string {
+function bootScript({ join, joinEnv, boot, recipe }: WorkerSpec): string {
 	// The snapshot's splates is a bun script, which root's PATH cannot run.
 	const bin = SNAPSHOT_SPLATES.slice(0, SNAPSHOT_SPLATES.lastIndexOf("/"));
 	return [
 		"#!/bin/sh",
 		"set -eu",
+		...(recipe === null ? [] : stockRecipe(recipe)),
 		"umask 077",
 		// The metadata service serves this script, join token and all, to any process.
 		`iptables -I OUTPUT -d ${METADATA_ADDRESS} -m owner --uid-owner ${SNAPSHOT_USER} -j REJECT`,
@@ -279,6 +280,17 @@ function bootScript({ join, joinEnv, boot }: WorkerSpec): string {
 		"systemctl enable --now splates-worker.service",
 		"",
 	].join("\n");
+}
+
+/** Runs the recipe on a machine of the stock image, which must succeed for the worker to start. */
+function stockRecipe(recipe: string): string[] {
+	return [
+		"cat > /root/splates-recipe.sh <<'SPLATES_RECIPE'",
+		recipe.trimEnd(),
+		"SPLATES_RECIPE",
+		"sh /root/splates-recipe.sh > /var/log/splates-recipe.log 2>&1",
+		"rm /root/splates-recipe.sh",
+	];
 }
 
 /** `word` as one argument of a shell command. */

@@ -50,6 +50,16 @@ describe("the worker snapshot", () => {
 		expect(provider.getCalls()).toEqual(["snapshot linux 1.0.0"]);
 	});
 
+	it("answers none at first and builds one behind, then answers it", async () => {
+		const snapshots = await opened("1.0.0");
+
+		expect(await snapshots.ready("linux")).toBeNull();
+		await snapshots.refresh("linux");
+		expect(await snapshots.ready("linux")).toMatchObject({ version: "1.0.0" });
+		expect(provider.getCalls()).toEqual(["snapshot linux 1.0.0"]);
+		expect(snapshots.recipe("linux")).toContain("@stringsync/splates@1.0.0");
+	});
+
 	it("boots from one another process built since it opened, as setup does", async () => {
 		const server = await opened("1.0.0");
 		const built = await (await opened("1.0.0")).current("linux");
