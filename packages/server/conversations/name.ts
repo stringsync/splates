@@ -99,8 +99,17 @@ export function grooms(conversation: ConversationState): boolean {
 	);
 }
 
-/** Whether a conversation is the notes gardener's: opened on `[SPLATES GARDEN]`. */
+/** The persistent agent's role the notes gardener is kept for. */
+export const GARDENER_ROLE = "gardener";
+
+/**
+ * Whether a conversation is the notes gardener's: kept for its role, or,
+ * from before persistent agents, opened on `[SPLATES GARDEN]`.
+ */
 function gardens(conversation: ConversationState): boolean {
+	if (conversation.persistent !== undefined) {
+		return conversation.persistent === GARDENER_ROLE;
+	}
 	const first = conversation.messages
 		.find((message) => message.role === "user")
 		?.parts.find((part) => part.type === "text");

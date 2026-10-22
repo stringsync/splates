@@ -1,5 +1,10 @@
 import type { Resource } from "webappwiz/disposable";
-import { type Conversations, SERVER_TOLD } from "../conversations";
+import {
+	type Conversation,
+	type Conversations,
+	GARDENER_ROLE,
+	SERVER_TOLD,
+} from "../conversations";
 import {
 	type Automation,
 	AutomationRoutes,
@@ -16,7 +21,7 @@ import {
 } from "../hooks";
 import { type AgentPick, pickSettings } from "../models";
 import { Notes, unclaimed } from "../notes";
-import { eventReference, GARDEN, scheduleReference } from "../plans";
+import { eventReference, GARDEN, need, scheduleReference } from "../plans";
 import type { Journal } from "../records";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
@@ -126,6 +131,33 @@ export class Automations implements Resource {
 		);
 	}
 
+	/**
+	 * Puts a persistent run away resting once no turn of it runs, unless it
+	 * waits on you, so the newest holds its role's row until the next run.
+	 */
+	async #restAfterTurn(
+		conversations: Conversations,
+		conversation: Conversation,
+	): Promise<void> {
+		const done = (): boolean =>
+			conversation.state.status !== "running" &&
+			conversation.state.status !== "starting" &&
+			!conversation.state.messages.some((message) => message.queued);
+		if (!done()) {
+			await new Promise<void>((resolve) => {
+				const off = conversations.events.on("changed", (id) => {
+					if (id === conversation.id && done()) {
+						off();
+						resolve();
+					}
+				});
+			});
+		}
+		if (need(null, conversation.state).kind !== "waiting") {
+			await conversation.archive(undefined, { rest: true });
+		}
+	}
+
 	dispose(): void {
 		this.#watching?.dispose();
 		this.#runner?.dispose();
@@ -137,7 +169,11 @@ export class Automations implements Resource {
 	#fireDeps(conversations: Conversations): FireDeps {
 		const { ps, service, log } = this.#project;
 		const root = service.git.root;
-		const begin = async (pick: AgentPick, prompt: string): Promise<void> => {
+		const begin = async (
+			pick: AgentPick,
+			prompt: string,
+			persistent?: string,
+		): Promise<void> => {
 			const offered = (await conversations.settings())[pick.agent] ?? [];
 			const conversation = await conversations.start(pick.agent, {
 				task: null,
@@ -146,9 +182,15 @@ export class Automations implements Resource {
 				settings: pickSettings(pick.effort, offered),
 				assigned: true,
 				capped: true,
+				...(persistent === undefined ? {} : { persistent }),
 			});
 			void conversation
 				.prompt(prompt, [], undefined, { told: SERVER_TOLD })
+				.then(() =>
+					persistent === undefined
+						? undefined
+						: this.#restAfterTurn(conversations, conversation),
+				)
 				.catch((error: unknown) =>
 					log.error(`a hook's agent could not start: ${String(error)}`),
 				);
@@ -186,7 +228,17 @@ export class Automations implements Resource {
 						(await service.list()).map(({ task }) => task),
 					);
 					if (paths.length > 0) {
-						await begin(pickOf(hook), gardenPrompt(paths));
+						// An earlier run still open is put away, so the page keeps
+						// one gardener row, apart from the person's conversations.
+						for (const open of await conversations.list()) {
+							if (
+								open.state.persistent === GARDENER_ROLE &&
+								!open.state.archived
+							) {
+								await this.#restAfterTurn(conversations, open);
+							}
+						}
+						await begin(pickOf(hook), gardenPrompt(paths), GARDENER_ROLE);
 					}
 				},
 				// Not awaited: the groomer works down the backlog turn by turn,

@@ -33,6 +33,7 @@ export type { Entry, Live } from "./log";
 export { ConversationLog, LOG_FORMAT } from "./log";
 export { messageOf, paused, said, textOf } from "./messages";
 export {
+	GARDENER_ROLE,
 	GROOMER_ROLE,
 	grooms,
 	lanesOf,
