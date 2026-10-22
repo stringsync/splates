@@ -1,12 +1,7 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
-import {
-	holdHome,
-	PageAddress,
-	ruleAddress,
-	todoAddress,
-} from "./page-address";
+import { PageAddress, ruleAddress, todoAddress } from "./page-address";
 
 /** Waits for the browser to move through its history, as a swipe does. */
 function traverse(step: () => void): Promise<void> {
@@ -182,19 +177,5 @@ describe("PageAddress", () => {
 
 		expect(address.takeScroll()).toBe(240);
 		expect(address.takeScroll()).toBeNull();
-	});
-});
-
-describe("holdHome", () => {
-	it("tells of a back from the inbox and holds it there", async () => {
-		history.replaceState(null, "", `${location.pathname}#conversations`);
-		const start = history.length;
-		let backs = 0;
-		const stop = holdHome(() => backs++);
-		expect(history.length).toBe(start + 1);
-		await traverse(() => history.back());
-		expect(backs).toBe(1);
-		expect(history.length).toBe(start + 1);
-		stop();
 	});
 });

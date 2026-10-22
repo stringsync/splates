@@ -10,7 +10,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import { orphanCount } from "./orphans";
-import { holdHome, type Move } from "./page-address";
+import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
@@ -81,9 +81,6 @@ export function PhoneApp({
 		["changed"],
 	);
 	useHomeIsInbox(page, go);
-	// Back from the inbox, as a swipe from the edge, opens the drawer.
-	const home = page === "conversations" && open === null;
-	useEffect(() => (home ? holdHome(() => setDrawer(true)) : undefined), [home]);
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
