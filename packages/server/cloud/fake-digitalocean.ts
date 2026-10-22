@@ -11,6 +11,7 @@ export interface FakeDroplet {
 	created_at: string;
 	image: string | number;
 	user_data: string;
+	ssh_keys: number[];
 	snapshots: { id: number; name: string }[];
 }
 
@@ -40,6 +41,8 @@ export class FakeDigitalOcean {
 		{ id: number; tags: string[]; size_gigabytes?: number }
 	>();
 	readonly tags = new Set<string>();
+	/** The account's SSH keys. */
+	readonly keys: { id: number; name: string; public_key: string }[] = [];
 	readonly requests: FakeDigitalOceanRequest[] = [];
 	/** When set, creating a droplet is refused with it. */
 	refuseCreate: string | null = null;
@@ -108,6 +111,18 @@ export class FakeDigitalOcean {
 						...(this.shapes[slug] ?? shapeOf(slug)),
 					})),
 				});
+			}
+			case "GET account/keys":
+				return Response.json({ ssh_keys: this.keys });
+			case "POST account/keys": {
+				const name = String(body?.name);
+				const publicKey = String(body?.public_key);
+				if (this.keys.some((key) => key.name === name)) {
+					return error(422, "SSH Key is already in use on your account");
+				}
+				const key = { id: this.next++, name, public_key: publicKey };
+				this.keys.push(key);
+				return Response.json({ ssh_key: key }, { status: 201 });
 			}
 			case "GET droplets":
 				return Response.json({
@@ -198,6 +213,7 @@ export class FakeDigitalOcean {
 			created_at: new Date().toISOString(),
 			image: body.image as string | number,
 			user_data: String(body.user_data ?? ""),
+			ssh_keys: (body.ssh_keys as number[]) ?? [],
 			snapshots: [],
 		};
 		this.droplets.set(id, droplet);

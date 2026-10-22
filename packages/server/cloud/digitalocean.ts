@@ -83,6 +83,7 @@ export class DigitalOceanCloud implements CloudProvider {
 				region: spec.location,
 				userData: spec.userData,
 				tags: tagsOf(spec.tags),
+				sshKeys: [await api.sshKey(SSH_KEY_NAME)],
 			});
 			return machineOf(droplet);
 		} catch (error) {
@@ -176,6 +177,9 @@ export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
 	builderTypes: ["s-1vcpu-2gb", "s-2vcpu-4gb"],
 	image: "ubuntu-24-04-x64",
 };
+
+/** The account's SSH key every droplet is made with, so DigitalOcean emails no root password. */
+const SSH_KEY_NAME = "splates-runners";
 
 /** What DigitalOcean bills a snapshot a gigabyte a month, in US dollars; its API does not say. */
 const SNAPSHOT_DOLLARS_PER_GB_MONTH = 0.06;

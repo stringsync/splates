@@ -141,6 +141,30 @@ describe("CloudWorkers in DigitalOcean", () => {
 		]);
 	});
 
+	it("makes every droplet with one SSH key, made once and found again by name", async () => {
+		digitalocean.stock = { nyc3: ["s-4vcpu-8gb"] };
+		const spec = (id: string) => ({
+			id,
+			type: "s-4vcpu-8gb",
+			snapshot: "77",
+			recipe: null,
+			join: ["splates", "worker", "join"],
+			joinEnv: {},
+			boot: ["splates", "worker", "run"],
+			build: null,
+		});
+
+		await provider.create(spec("s-4vcpu-8gb-one"));
+		await provider.create(spec("s-4vcpu-8gb-two"));
+
+		expect(digitalocean.keys).toHaveLength(1);
+		expect(digitalocean.keys[0]?.public_key).toMatch(/^ssh-ed25519 AAAA/);
+		const id = digitalocean.keys[0]?.id;
+		expect(
+			[...digitalocean.droplets.values()].map((droplet) => droplet.ssh_keys),
+		).toEqual([[id as number], [id as number]]);
+	});
+
 	it("makes a worker in any region that has stock when none of its own does", async () => {
 		digitalocean.stock = { sfo2: ["c-4"], lon1: ["c-4"] };
 

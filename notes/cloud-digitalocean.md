@@ -13,7 +13,11 @@ the API itself, since it scales runners up and down on its own.
 `WorkerProvider`. A provider finds what it made by tags (bare names in
 DigitalOcean, so a tag `key:value` is kept as `key` and `key:value`) and
 keeps no state of its own. It makes runners only: no coordinator box, backups,
-SSH keys, firewalls or spot. The token is the device cred `DIGITALOCEAN_TOKEN`
+firewalls or spot. Every droplet is made with one account SSH key,
+`splates-runners`, found by name or made on first use from a throwaway
+ed25519 pair whose private half is dropped: a droplet with no key has its
+root password emailed to the user. Any later provider should attach a key
+for the same reason (Hetzner mails a password too). The token is the device cred `DIGITALOCEAN_TOKEN`
 (setup step `cloud-token`); the same cred pulls invoices into the spend
 ledger (`spend/adapters.ts`).
 

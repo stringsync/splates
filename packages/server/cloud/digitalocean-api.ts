@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import { DigitalOceanError } from "./digitalocean-error";
@@ -90,6 +91,7 @@ export class DigitalOceanApi {
 				region: droplet.region,
 				user_data: droplet.userData,
 				tags: droplet.tags,
+				ssh_keys: droplet.sshKeys,
 			},
 		});
 		for (const action of made.links.actions) {
@@ -98,6 +100,41 @@ export class DigitalOceanApi {
 		return (
 			(await this.droplet(String(made.droplet.id))) ?? dropletOf(made.droplet)
 		);
+	}
+
+	/**
+	 * The id of the account's key named `name`, made when there is none. A
+	 * droplet made with no key has its root password emailed, so every one
+	 * gets this key; nobody logs in, so the private half is thrown away at
+	 * once. Found by name each time, so splates keeps no state of it.
+	 */
+	async sshKey(name: string): Promise<number> {
+		const found = await this.findKey(name);
+		if (found !== undefined) {
+			return found;
+		}
+		try {
+			const made = await this.request("POST", "/account/keys", Answers.key, {
+				body: { name, public_key: throwawayPublicKey() },
+			});
+			return made.ssh_key.id;
+		} catch (error) {
+			// Another create made it first.
+			const raced = await this.findKey(name);
+			if (raced === undefined) {
+				throw error;
+			}
+			return raced;
+		}
+	}
+
+	private async findKey(name: string): Promise<number | undefined> {
+		const { ssh_keys } = await this.request(
+			"GET",
+			`/account/keys?per_page=${PAGE}`,
+			Answers.keys,
+		);
+		return ssh_keys.find((key) => key.name === name)?.id;
 	}
 
 	/** Deletes droplet `id`; silent when it is already gone. */
@@ -294,6 +331,8 @@ export interface NewDroplet {
 	/** Run once on first boot by cloud-init. */
 	userData: string;
 	tags: string[];
+	/** Ids of the account's SSH keys to put on it. */
+	sshKeys: number[];
 }
 
 /** How long an action is waited on before it counts as stuck. */
@@ -350,8 +389,28 @@ const Answers = {
 			z.object({ id: z.number(), size_gigabytes: z.number().optional() }),
 		),
 	}),
+	keys: z.object({
+		ssh_keys: z.array(z.object({ id: z.number(), name: z.string() })),
+	}),
+	key: z.object({ ssh_key: z.object({ id: z.number() }) }),
 	any: z.unknown(),
 };
+
+/** The public half of a new ed25519 key in OpenSSH's one-line form; the private half is dropped. */
+function throwawayPublicKey(): string {
+	const { publicKey } = generateKeyPairSync("ed25519");
+	const raw = Buffer.from(
+		publicKey.export({ format: "jwk" }).x as string,
+		"base64url",
+	);
+	const type = Buffer.from("ssh-ed25519");
+	const field = (bytes: Buffer) => {
+		const length = Buffer.alloc(4);
+		length.writeUInt32BE(bytes.length);
+		return Buffer.concat([length, bytes]);
+	};
+	return `ssh-ed25519 ${Buffer.concat([field(type), field(raw)]).toString("base64")}`;
+}
 
 function dropletOf(json: z.infer<typeof DropletJson>): DigitalOceanDroplet {
 	return {
