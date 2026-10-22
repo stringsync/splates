@@ -26,7 +26,7 @@ Once the page has been stale 300ms (sooner would flash on a wake the server
 answers at once), `useDimmed` dims what may change to 60%: the desktop's
 pages and sidebar rows, the phone's inbox rows and open thread. That is all
 it says at first; once a third of `offlineAfter` has passed, `GivingUp`, the
-page's one spinner, counts down to giving up ("Still loading, gives up in
+page's one spinner besides the sidebar's working marks, counts down to giving up ("Still loading, gives up in
 6s"), in a desktop's bar or a phone's pill at the top of the screen. After
 `offlineAfter` the page unlocks, undimmed, so what it shows can be read and
 copied, and `OfflinePill` says "Can't reach the server" as an error, with no

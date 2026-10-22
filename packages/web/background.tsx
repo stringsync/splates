@@ -225,13 +225,12 @@ export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 
 /** Marks a command still running, in a list that drops it once it ends. */
 export function RunningMark(): JSX.Element {
-	// A loader, since a green dot reads as done; still, since the page's one
-	// spinner is `GivingUp`'s.
+	// A loader, since a green dot reads as done.
 	return (
 		<Loader2Icon
 			role="img"
 			aria-label="running"
-			className="size-3.5 shrink-0 text-muted-foreground"
+			className="size-3.5 shrink-0 animate-spin text-muted-foreground"
 		/>
 	);
 }

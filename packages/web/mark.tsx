@@ -126,7 +126,7 @@ export function Mark({
 			aria-label="working"
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
-			<Loader2Icon className="size-3.5 text-foreground/60" />
+			<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
 		</span>
 	);
 }

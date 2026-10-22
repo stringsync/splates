@@ -16,9 +16,14 @@ describe("the page's motion", () => {
 		);
 	});
 
-	it("spins only GivingUp, the page's one spinner", () => {
+	it("spins only GivingUp and the working marks", () => {
 		// Rows, buttons and dots that spin or pulse each draw the eye at once;
-		// what they mark shows still, dimmed or in words instead.
-		expect(moving).toEqual(["freshness.tsx"]);
+		// what they mark shows still, dimmed or in words instead. The working
+		// marks of the sidebar, inbox and board spin, or a frozen agent looks alike.
+		expect(moving.sort()).toEqual([
+			"background.tsx",
+			"freshness.tsx",
+			"mark.tsx",
+		]);
 	});
 });
