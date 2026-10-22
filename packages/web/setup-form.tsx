@@ -34,6 +34,7 @@ import {
 import { Switch } from "#web/components/ui/switch.tsx";
 import { CredPrivacy } from "./cred-privacy";
 import { Markdown } from "./markdown";
+import { StepBar, StepRail } from "./setup-step-nav";
 
 /** The agents' areas, which the index lists first, in this order. */
 export const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
@@ -162,8 +163,10 @@ export type NextState =
 
 /**
  * One page of a journey, as a plain web form: the question, one line on why,
- * its fields, then Next, which does what the step needs. Beside Next, "2 of
- * 4"; the last page's says Finish, and a failed one's Try again. The only
+ * its fields, then Next, which does what the step needs. The journey's steps
+ * run down a rail beside the page on a wide screen, and as a bar over its
+ * title on a phone. The last page's Next says Finish, and a failed one's Try
+ * again. The only
  * other ways out are a quiet link back to the index, one to hand the step
  * to an agent, and, once a step is done or started, the index's Undo, so a
  * journey left partway can be taken back out from where it stands.
@@ -210,6 +213,7 @@ export function StepForm({
 	children?: ReactNode;
 }): JSX.Element {
 	const working = next.kind === "working";
+	const progress = steps !== undefined && steps.length > 1;
 	return (
 		<div className="flex w-full flex-col gap-6">
 			<div className="flex items-center justify-between gap-4">
@@ -233,183 +237,116 @@ export function StepForm({
 					</Button>
 				)}
 			</div>
-			{steps !== undefined && steps.length > 1 && (
-				<StepList steps={steps} at={at - 1} working={working} onGo={onGo} />
-			)}
-			<form
-				aria-label={title}
-				className="flex flex-col gap-8"
-				onSubmit={(event) => {
-					event.preventDefault();
-					if (!working) {
-						onNext(event.currentTarget);
-					}
-				}}
+			<div
+				className={
+					progress
+						? "grid gap-10 md:grid-cols-[13rem_minmax(0,1fr)]"
+						: "contents"
+				}
 			>
-				<header className="flex flex-col gap-2">
-					<h2 className="font-medium text-2xl">{title}</h2>
-					{why !== undefined && <p className="text-muted-foreground">{why}</p>}
-				</header>
-				{detail !== undefined && (
-					<Alert>
-						<InfoIcon aria-hidden />
-						<AlertDescription>{detail}</AlertDescription>
-					</Alert>
+				{progress && (
+					<StepRail steps={steps} at={at - 1} working={working} onGo={onGo} />
 				)}
-				{warning !== undefined && (
-					<Alert variant="warning">
-						<TriangleAlertIcon aria-hidden />
-						<AlertTitle>To put right</AlertTitle>
-						<AlertDescription>{warning}</AlertDescription>
-					</Alert>
-				)}
-				{children !== undefined && (
-					<fieldset disabled={working} className="flex min-w-0 flex-col gap-6">
-						{children}
-					</fieldset>
-				)}
-				{next.kind === "failed" && (
-					<p role="alert" className="text-destructive text-sm">
-						{next.problem}
-					</p>
-				)}
-				{next.kind === "working" && (
-					<p
-						role="status"
-						className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
-					>
-						<Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
-						{next.doing ?? "Working on it…"}
-					</p>
-				)}
-				<footer className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-6">
-					{onAgent !== null && (
-						<Button
-							type="button"
-							variant="link"
-							className="h-auto gap-1.5 p-0 text-muted-foreground"
-							onClick={onAgent}
-						>
-							<BotIcon /> Set it up with an agent
-						</Button>
-					)}
-					{/* Together, so on a phone they wrap under the link as one. */}
-					<span className="ml-auto flex items-center gap-4">
-						<span className="text-muted-foreground text-sm tabular-nums">
-							{at} of {of}
-						</span>
-						<Button type="submit" className="min-w-24" disabled={working}>
-							{working ? (
-								<>
-									<Loader2Icon className="animate-spin" /> Next
-								</>
-							) : next.kind === "failed" ? (
-								<>
-									<RotateCwIcon /> Try again
-								</>
-							) : at === of ? (
-								"Finish"
-							) : (
-								"Next"
-							)}
-						</Button>
-					</span>
-				</footer>
-			</form>
-		</div>
-	);
-}
-
-/**
- * The journey's steps, folded to what the person needs: the ones before the
- * page behind one "N of M done" line that opens on click, then the page's own
- * and the next, with a line on how many follow. A journey opened partway shows
- * what came first when that line is opened.
- */
-function StepList({
-	steps,
-	at,
-	working,
-	onGo,
-}: {
-	steps: readonly StepProgress[];
-	/** The page shown, from 0. */
-	at: number;
-	working: boolean;
-	onGo?: (index: number) => void;
-}): JSX.Element {
-	const done = steps.filter((step) => step.status === "done").length;
-	const later = steps.length - at - 2;
-	const row = (step: StepProgress, index: number) => {
-		const here = index === at;
-		const finished = step.status === "done";
-		const warned = step.warning !== null;
-		const content = (
-			<>
-				<span
-					className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-						warned
-							? "border-warning text-warning"
-							: finished
-								? "border-success text-success"
-								: here
-									? "border-foreground bg-foreground text-background"
-									: "text-muted-foreground"
-					}`}
-					aria-hidden
+				<form
+					aria-label={title}
+					className="flex flex-col gap-8"
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (!working) {
+							onNext(event.currentTarget);
+						}
+					}}
 				>
-					{warned ? (
-						<TriangleAlertIcon className="size-3" />
-					) : finished ? (
-						<CheckIcon className="size-3" />
-					) : (
-						index + 1
+					<header className="flex flex-col gap-2">
+						{progress && (
+							<StepBar
+								steps={steps}
+								at={at - 1}
+								working={working}
+								onGo={onGo}
+								className="mb-2 md:hidden"
+							/>
+						)}
+						<h2 className="font-medium text-2xl">{title}</h2>
+						{why !== undefined && (
+							<p className="text-muted-foreground">{why}</p>
+						)}
+					</header>
+					{detail !== undefined && (
+						<Alert>
+							<InfoIcon aria-hidden />
+							<AlertDescription>{detail}</AlertDescription>
+						</Alert>
 					)}
-				</span>
-				<span className={here ? "font-medium" : "text-muted-foreground"}>
-					{step.title}
-				</span>
-			</>
-		);
-		return (
-			<li key={step.id} aria-current={here ? "step" : undefined}>
-				{onGo !== undefined && !here && index < at ? (
-					<button
-						type="button"
-						disabled={working}
-						className="flex cursor-pointer items-center gap-2 text-left hover:underline disabled:cursor-default"
-						onClick={() => onGo(index)}
-					>
-						{content}
-					</button>
-				) : (
-					<span className="flex items-center gap-2">{content}</span>
-				)}
-			</li>
-		);
-	};
-	return (
-		<div className="flex flex-col gap-2 text-sm">
-			{at > 0 && (
-				<details className="group flex flex-col gap-1">
-					<summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground">
-						<ChevronRightIcon
-							className="size-4 transition-transform group-open:rotate-90"
-							aria-hidden
-						/>
-						{done} of {steps.length} done
-					</summary>
-					<ol aria-label="earlier steps" className="mt-2 flex flex-col gap-1">
-						{steps.slice(0, at).map((step, index) => row(step, index))}
-					</ol>
-				</details>
-			)}
-			<ol aria-label="steps" className="flex flex-col gap-1">
-				{steps.slice(at, at + 2).map((step, index) => row(step, at + index))}
-			</ol>
-			{later > 0 && (
-				<p className="pl-7 text-muted-foreground">then {later} more</p>
-			)}
+					{warning !== undefined && (
+						<Alert variant="warning">
+							<TriangleAlertIcon aria-hidden />
+							<AlertTitle>To put right</AlertTitle>
+							<AlertDescription>{warning}</AlertDescription>
+						</Alert>
+					)}
+					{children !== undefined && (
+						<fieldset
+							disabled={working}
+							className="flex min-w-0 flex-col gap-6"
+						>
+							{children}
+						</fieldset>
+					)}
+					{next.kind === "failed" && (
+						<p role="alert" className="text-destructive text-sm">
+							{next.problem}
+						</p>
+					)}
+					{next.kind === "working" && (
+						<p
+							role="status"
+							className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
+						>
+							<Loader2Icon
+								className="size-4 shrink-0 animate-spin"
+								aria-hidden
+							/>
+							{next.doing ?? "Working on it…"}
+						</p>
+					)}
+					<footer className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-6">
+						{onAgent !== null && (
+							<Button
+								type="button"
+								variant="link"
+								className="h-auto gap-1.5 p-0 text-muted-foreground"
+								onClick={onAgent}
+							>
+								<BotIcon /> Set it up with an agent
+							</Button>
+						)}
+						{/* Together, so on a phone they wrap under the link as one. */}
+						<span className="ml-auto flex items-center gap-4">
+							{!progress && (
+								<span className="text-muted-foreground text-sm tabular-nums">
+									{at} of {of}
+								</span>
+							)}
+							<Button type="submit" className="min-w-24" disabled={working}>
+								{working ? (
+									<>
+										<Loader2Icon className="animate-spin" /> Next
+									</>
+								) : next.kind === "failed" ? (
+									<>
+										<RotateCwIcon /> Try again
+									</>
+								) : at === of ? (
+									"Finish"
+								) : (
+									"Next"
+								)}
+							</Button>
+						</span>
+					</footer>
+				</form>
+			</div>
 		</div>
 	);
 }

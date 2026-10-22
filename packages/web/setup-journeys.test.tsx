@@ -74,7 +74,7 @@ describe("Setup journeys", () => {
 		await click(view, "Set up Claude");
 
 		expect(view.getByRole("form", { name: "Install and sign in to Claude" }));
-		expect(view.getByText("1 of 2")).toBeTruthy();
+		expect(view.getByText("Step 1 of 2")).toBeTruthy();
 		expect(view.queryByRole("progressbar")).toBeNull();
 		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
 		expect(view.queryByRole("button", { name: "Skip" })).toBeNull();
@@ -87,7 +87,7 @@ describe("Setup journeys", () => {
 		await waitFor(() =>
 			view.getByRole("form", { name: "Choose Claude models" }),
 		);
-		expect(view.getByText("2 of 2")).toBeTruthy();
+		expect(view.getByText("Step 2 of 2")).toBeTruthy();
 		expect(
 			view
 				.getAllByRole("switch")
@@ -156,7 +156,7 @@ describe("Setup journeys", () => {
 		const alert = view.getByRole("alert");
 		expect(alert.textContent).toContain("To put right");
 		expect(alert.querySelector("strong")?.textContent).toBe("make ESC");
-		expect(view.getByText("1 of 2")).toBeTruthy();
+		expect(view.getByText("Step 1 of 2")).toBeTruthy();
 	});
 
 	it("saves a pasted cred for the device before Next checks the step", async () => {

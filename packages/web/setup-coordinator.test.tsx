@@ -99,7 +99,9 @@ describe("Cloud server journey", () => {
 		await click(view, "Set up Cloud server");
 
 		expect(view.getByRole("form", { name: "Install Pulumi and log in" }));
-		expect(view.queryByLabelText(/API token/)).toBeNull();
+		expect(
+			view.queryByLabelText(/API token/, { selector: "input" }),
+		).toBeNull();
 	});
 
 	it("signs in to AWS with CloudShell's line and the account id it prints", async () => {
