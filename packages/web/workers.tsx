@@ -19,13 +19,12 @@ import {
 	WorkerName,
 	WorkerShell,
 } from "./worker-card";
-import { JoinToken } from "./worker-invite";
 import { behind, WorkerPoolView } from "./worker-pool";
 
 /**
  * The Workers page: this Mac as a worker, which it turns on and off, the
  * pool as `splates worker list` shows it, with the same actions as the CLI,
- * the workers waiting on an update, and a join token for another.
+ * and the workers waiting on an update.
  */
 export function WorkersPage({
 	tasks,
@@ -118,13 +117,6 @@ export function WorkersPage({
 								))}
 						</ul>
 						<TurnedAway pool={pool} />
-					</div>
-					<div className="flex flex-col gap-3">
-						<Heading title="Add a worker">
-							Join another machine with a token, single use and good for 15
-							minutes.
-						</Heading>
-						<JoinToken build={pool.build} />
 					</div>
 				</>
 			)}

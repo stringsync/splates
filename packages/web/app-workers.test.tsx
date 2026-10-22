@@ -297,32 +297,6 @@ describe("App's workers", () => {
 		);
 		expect(view.getByRole("region", { name: "creds" })).toBeTruthy();
 	});
-
-	it("gives a join command to copy for another machine", async () => {
-		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
-		testing.reply = { token: "t0ken", expiresAt: Date.now() + 900_000 };
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Mint a join token" })),
-		);
-
-		await waitFor(() =>
-			expect(
-				view.getByRole("region", { name: "join command" }).textContent,
-			).toContain(
-				`splates worker run --server ${location.origin} --join t0ken`,
-			),
-		);
-		expect(
-			view.getByRole("region", { name: "windows join command" }).textContent,
-		).toContain(
-			`stringsync/splates/v1.0.0/windows/install-worker.ps1))) -Coordinator '${location.origin}' -Join 't0ken' -Version '1.0.0'`,
-		);
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/workers/invite",
-			method: "POST",
-		});
-	});
 });
 
 /** A pool of `workers`, its server on 1.0.0. */

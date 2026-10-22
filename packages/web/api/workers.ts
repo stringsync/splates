@@ -73,17 +73,6 @@ export async function workerPool(): Promise<WorkerPool> {
 	return (await response.json()) as WorkerPool;
 }
 
-/** A join token, single use, for `splates worker run --join` on another machine. */
-export async function inviteWorker(): Promise<{
-	token: string;
-	expiresAt: number;
-}> {
-	return (await send("/api/workers/invite", {})) as {
-		token: string;
-		expiresAt: number;
-	};
-}
-
 /** What can be set on a worker: its slots, null to go by its hello, and whether it drains. */
 export interface WorkerChange {
 	slots?: number | null;

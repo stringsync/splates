@@ -74,7 +74,6 @@ export {
 export {
 	addWorkerKey,
 	identity,
-	inviteWorker,
 	type MachineStatus,
 	machine,
 	moveQueued,
