@@ -193,7 +193,6 @@
 @source "./setup-page.tsx";
 @source "./setup-state.tsx";
 @source "./setup-steps.tsx";
-@source "./setup-transfer.tsx";
 @source "./setup-undo.tsx";
 @source "./setup-opencode-steps.tsx";
 @source "./setup-native-steps.tsx";

@@ -35,7 +35,6 @@ import type { NoteSource } from "../stats";
 import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
-import { TransferRoutes } from "../transfer";
 import { LOCAL_WORKER, type SlotRequest } from "../workers";
 import type { Assets } from "./assets";
 import { Automations } from "./automations";
@@ -54,7 +53,7 @@ export async function serveProject(
 	project: Project,
 	context: DevContext,
 ): Promise<Served> {
-	const { service, format, storage, fs, log, journal } = project;
+	const { service, format, storage, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
 	const slug = () => context.everywhere.slug(project.service.git.root);
@@ -175,21 +174,6 @@ export async function serveProject(
 		...new NoteEventsRoutes(project),
 		...automations.routes,
 		...new AutoPickRoutes(project, conversations, watch, slug),
-		...new TransferRoutes(
-			{
-				fs,
-				ps: project.ps,
-				storage: project.storage,
-				dir: project.dir,
-				root: service.git.root,
-				creds: project.creds,
-			},
-			async () => {
-				await context.settingsImported();
-				await conversations?.reread();
-				watch.changed();
-			},
-		),
 		...talks,
 		retryQueued: async (request) => {
 			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
@@ -385,8 +369,6 @@ export interface DevContext {
 	wantWorkers(root: string, requests: SlotRequest[]): void;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
-	/** Reads again the machine's settings an import wrote, for every served project. */
-	settingsImported(): Promise<void>;
 }
 
 /** A route's work once its project is known. */
@@ -449,9 +431,6 @@ export interface Served extends AsyncResource {
 	removeCred: Handler;
 	dismissCred: Handler;
 	listNotes: Handler;
-	exportConfig: Handler;
-	uploadPart: Handler;
-	importConfig: Handler;
 	/** Where its replica stands now, or as last recorded; null when none has run. */
 	replica: () => Promise<ReplicaStatus | null>;
 	/** Whether its creds, the project's then the device's, keep `name`. */

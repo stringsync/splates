@@ -33,7 +33,7 @@ a backup, so it is key-shaped and engine-neutral: it restores into any
   a rotated segment is a key of its own. `manifest.json` holds the origin,
   the host and when it last held every change.
 - `replicated(key)` keeps back `creds.json`, locks and `replica.json`, on the
-  way in and the way out, as `config export` does.
+  way in and the way out.
 
 On start it lists the replica and diffs it against `Storage.keys`, shipping
 only what differs (values by MD5, logs from their last chunk), so changes

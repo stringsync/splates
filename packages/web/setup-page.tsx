@@ -30,7 +30,6 @@ import { numbered, StepInstructions } from "./setup-instructions";
 import { DONE, SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
-import { SetupTransfer } from "./setup-transfer";
 import { UndoDialog } from "./setup-undo";
 import { BarButton, TopBar } from "./top-bar";
 
@@ -95,15 +94,11 @@ export function SetupPage({
 						onUndo={() => setUndoing(area.id)}
 					/>
 				) : (
-					<>
-						{progress.fresh && <SetupTransfer fresh />}
-						<SetupIndex
-							areas={progress.areas}
-							onSelect={(id) => onSetup(id)}
-							onUndo={setUndoing}
-						/>
-						{!progress.fresh && <SetupTransfer fresh={false} />}
-					</>
+					<SetupIndex
+						areas={progress.areas}
+						onSelect={(id) => onSetup(id)}
+						onUndo={setUndoing}
+					/>
 				))}
 			<UndoDialog
 				area={undoing}

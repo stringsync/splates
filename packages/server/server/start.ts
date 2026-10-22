@@ -295,10 +295,6 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			reloadSettings: async () => {
-				await offered.reload();
-				return seeded(rosterOf(ctx), offered);
-			},
 			conversations: ({ dir, storage, git, config, journal }) => {
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,

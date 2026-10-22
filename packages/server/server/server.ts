@@ -111,7 +111,6 @@ export async function dev(
 		portsHost = null,
 		pusher,
 		open: givenOpen,
-		reloadSettings = null,
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects, opened = [] } = deps;
@@ -177,16 +176,6 @@ export async function dev(
 			workers.slots.scheduler.events.on("changed", listener),
 		wantWorkers: (root, requests) =>
 			workers.slots.scheduler.want(root, requests),
-		settingsImported: async () => {
-			const agents = await reloadSettings?.();
-			if (agents === undefined) {
-				return;
-			}
-			for (const opened of served.values()) {
-				const project = await opened.catch(() => null);
-				project?.conversations?.refreshRoster(agents);
-			}
-		},
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
@@ -812,15 +801,6 @@ export async function dev(
 						POST: talk(scoped((project) => project.dismissCred)),
 					},
 					"/api/notes": { GET: scoped((project) => project.listNotes) },
-					// Its conversations and the machine's settings, so only as far
-					// as a conversation reaches.
-					"/api/config/export": talk(scoped((project) => project.exportConfig)),
-					"/api/config/import/parts": {
-						POST: talk(scoped((project) => project.uploadPart)),
-					},
-					"/api/config/import": {
-						POST: talk(scoped((project) => project.importConfig)),
-					},
 					"/api/stats/notes": {
 						GET: guarded(notesStats.noteStats),
 					},

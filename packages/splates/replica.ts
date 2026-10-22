@@ -21,7 +21,7 @@ import { cli } from "webappwiz/cmd";
 import { Credentials } from "webappwiz/creds";
 import { z } from "zod";
 
-/** `splates replica`, which the root cli mounts after `splates config`. */
+/** `splates replica`, which the root cli mounts after `splates budget`. */
 export const splatesReplica = cli<SplatesDeps>("replica").description(
 	"the copy of this project's records `splates server` keeps a few seconds behind every change, in the bucket or folder `replica` names in splates.config.ts",
 );
