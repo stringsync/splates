@@ -43,8 +43,11 @@ project's `replica.json`; one begun by another server is refused with an
 error, since two servers writing one prefix would delete each other's
 records. A restore (task #992) adopts the replica's origin.
 
-Every served project replicates (`serveProject`), flushing its last batch
-for up to ten seconds as the server stops. `replica.json` also keeps the
+Every registered project replicates from the server's start, opened apart
+from serving when no page has asked for it, and one project has one
+replicator (`Replicas`, in `server/replicas.ts`; `serveProject` finds it
+running). The server flushes each one's last batch for up to ten seconds as
+it stops. `replica.json` also keeps the
 status as of the last batch, which `splates replica status` prints with the
 server stopped or not. Machine state (`agents.json`, Auto pick rules) is not
 replicated: it is shared by every project on the machine.

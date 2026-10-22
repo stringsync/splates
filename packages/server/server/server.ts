@@ -58,6 +58,7 @@ import {
 	serveProject,
 } from "./project";
 import { RUNNING, sourceCommit } from "./release";
+import { Replicas } from "./replicas";
 import { Restarts } from "./restart";
 import { Serving } from "./serving";
 import { CONNECTIONS, type Connection } from "./sockets";
@@ -144,7 +145,9 @@ export async function dev(
 	// By root, each opened on its first request: the focused one at once,
 	// every other registered one only when a page asks for it.
 	const served = new Map<string, Promise<Served>>();
+	const replicas = new Replicas(log);
 	const context: DevContext = {
+		replicas,
 		get url() {
 			return url;
 		},
@@ -203,6 +206,20 @@ export async function dev(
 			served.set(root, found);
 		}
 		return found;
+	};
+
+	/** Opens the project at `root` apart from serving it, only to replicate it. */
+	const startReplicating = (root: string): void => {
+		// A served one replicates from `serveProject`.
+		if (served.has(root)) {
+			return;
+		}
+		const ready = opened.find((each) => each.git.root === root);
+		(ready === undefined ? open(root) : Promise.resolve(ready))
+			.then((project) => replicas.of(project))
+			.catch((error: unknown) =>
+				log.error(`${root} did not open to replicate: ${String(error)}`),
+			);
 	};
 
 	/** The project a request names with `?project=`, or the focused one. */
@@ -1005,6 +1022,12 @@ export async function dev(
 				log.error(`${root} did not open: ${String(error)}`),
 			);
 	}
+	// Every registered project replicates, whether or not a page opens it.
+	for (const registered of await projects.list()) {
+		if (!registered.gone) {
+			startReplicating(registered.root);
+		}
+	}
 	workers.serving();
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);
@@ -1029,6 +1052,7 @@ export async function dev(
 	disposer.defer(() => server.stop(true));
 	disposer.defer(() => terminals.disposeAsync());
 	disposer.defer(() => everywhere.disposeAsync());
+	disposer.defer(() => replicas.disposeAsync());
 	disposer.defer(async () => {
 		for (const settled of await Promise.allSettled(served.values())) {
 			if (settled.status === "fulfilled") {

@@ -10,7 +10,7 @@ import type { Snapshot } from "../tasks";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
-import { serving } from "./testing";
+import { eventually, serving } from "./testing";
 
 describe("dev projects", () => {
 	let deps: Testing;
@@ -40,6 +40,24 @@ describe("dev projects", () => {
 			},
 			body: JSON.stringify(body),
 		});
+
+	it("replicates a registered project no page has opened", async () => {
+		await using other = await another();
+		const folder = join(tmpdir(), `replica-${crypto.randomUUID()}`);
+		await Bun.write(
+			join(other.root, "splates.config.ts"),
+			`export default { replica: { provider: "dir", path: ${JSON.stringify(folder)} } };\n`,
+		);
+
+		await serving(deps, async () => {
+			expect(
+				await eventually(
+					() => Bun.file(join(folder, "manifest.json")).exists(),
+					5000,
+				),
+			).toBe(true);
+		});
+	});
 
 	it("serves another registered project by its slug, writes and all", async () => {
 		await using other = await another();
