@@ -329,12 +329,14 @@ describe.concurrent("merge", () => {
 		await Bun.spawn(["chmod", "+x", join(hooks, "pre-rebase")]).exited;
 
 		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("merge_failed", {
+		const facts: Partial<Facts["merge"]> = {};
+		await expect(merge(deps, worktree, facts)).toBail("merge_failed", {
 			message: "no file in conflict",
 		});
 		expect(
 			(await deps.service.find("alpha")).state?.gateFailures?.at(-1)?.output,
 		).toContain("refused-by-hook");
+		expect(facts.output).toContain("refused-by-hook");
 	});
 
 	it("rolls the branch back and leaves trunk alone when the gate fails", async () => {
@@ -349,9 +351,12 @@ describe.concurrent("merge", () => {
 		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 
 		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("tests_failed", {
+		const facts: Partial<Facts["merge"]> = {};
+		await expect(merge(deps, worktree, facts)).toBail("tests_failed", {
 			message: "boom-from-tests",
 		});
+		// It named no test, so what the gate printed is all there is to show.
+		expect(facts.output).toBe("boom-from-tests");
 		expect(await deps.gitCli(worktree, "rev-parse", "HEAD")).toBe(before);
 		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
@@ -385,9 +390,11 @@ describe.concurrent("merge", () => {
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
 		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("tests_failed", {
+		const facts: Partial<Facts["merge"]> = {};
+		await expect(merge(deps, worktree, facts)).toBail("tests_failed", {
 			message: "a > b\n    noise\n    Expected: 1\n    Received: 2\n",
 		});
+		expect(facts.output).toBeUndefined();
 	});
 
 	it("keeps the timeout note bun prints after a timed-out test's name", async () => {

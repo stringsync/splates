@@ -47,6 +47,7 @@ export async function landTested(
 		if (pushed.status !== "pushed") {
 			const why = `${branches.pushedBranch(task)} was not pushed to ${remote}: ${pushed.status === "off" ? "no remote is configured" : pushed.why}`;
 			await state.bump("merge_failed", { error: why });
+			facts.output = MergeState.said(why);
 			facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 			fail(
 				"merge_failed",
@@ -114,6 +115,7 @@ export async function landTested(
 			}
 			if (landed !== null && landed.status === "refused") {
 				await state.bump("merge_failed", { error: landed.why });
+				facts.output = MergeState.said(landed.why);
 				facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 				fail(
 					"merge_failed",
@@ -145,6 +147,7 @@ export async function landTested(
 				await state.bump("merge_failed", {
 					error: (merged.stderr || merged.stdout).trim(),
 				});
+				facts.output = MergeState.said(merged.stderr || merged.stdout);
 				facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 				// Said to the agent landing the part, not the one holding the tree: telling
 				// it to stash sends it into a tree it does not own, and a stash there is

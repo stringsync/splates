@@ -71,6 +71,12 @@ export interface Facts {
 		failedTests: FailedTest[];
 		/** Absent on older events or a gate that passed the first time. */
 		failureAttribution?: "task" | "trunk" | "flake" | "environment";
+		/**
+		 * The end of what git or the gate printed, for a refusal that names no
+		 * file or test to say why, at most its last 40 lines and 4,000
+		 * characters. Absent on older events and on other refusals.
+		 */
+		output?: string;
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
@@ -387,6 +393,7 @@ export const FACTS = {
 		"gateMs",
 		"capacityWaitMs",
 		"retests",
+		"output",
 	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
@@ -496,6 +503,7 @@ export function isCurrent(event: Event): boolean {
 					"gateMs",
 					"capacityWaitMs",
 					"retests",
+					"output",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

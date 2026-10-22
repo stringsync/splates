@@ -130,6 +130,7 @@ export async function merge(
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
 	facts.failedTests = [];
 	delete facts.failureAttribution;
+	delete facts.output;
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(
@@ -225,6 +226,7 @@ export async function merge(
 		for (;;) {
 			worktree = await state.requireLease();
 			delete facts.failureAttribution;
+			delete facts.output;
 			facts.failedTests = [];
 
 			const before = await git.head(worktree.path);
@@ -281,6 +283,9 @@ export async function merge(
 					files: paths,
 					...(paths.length === 0 && { output }),
 				});
+				if (paths.length === 0) {
+					facts.output = MergeState.said(output);
+				}
 				facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 				fail(
 					reason,
@@ -376,6 +381,9 @@ export async function merge(
 				} else {
 				}
 				const named = facts.failedTests?.length ? facts.failedTests : failed;
+				if (named.length === 0) {
+					facts.output = MergeState.said(output);
+				}
 				// The failing tests and what to do come last, after the gate's own
 				// output: an agent that reads only the end of this, as through `tail`,
 				// would otherwise see the runner's summary alone, and merge again just

@@ -10,6 +10,7 @@
    nothing at all. */
 @source "./app.tsx";
 @source "./auto-pick-line.tsx";
+@source "./merge-failed-line.tsx";
 @source "./app-pages.tsx";
 @source "./app-setup-page.tsx";
 @source "./evals-page.tsx";

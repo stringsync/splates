@@ -7,6 +7,7 @@ import { AutoPickLine } from "./auto-pick-line";
 import { type Start, useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
+import { MergeFailedLine } from "./merge-failed-line";
 import {
 	type Named,
 	SplatesEvent,
@@ -299,6 +300,9 @@ function EventLine({
 	}
 	if (event.action === "auto" && event.reason === null) {
 		return <AutoPickLine event={event} />;
+	}
+	if (event.action === "merge" && event.reason !== null) {
+		return <MergeFailedLine view={view} event={event} />;
 	}
 	const start = startOf(event);
 	return start === null ? (

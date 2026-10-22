@@ -47,6 +47,15 @@ export class MergeState {
 			],
 		});
 	}
+	/**
+	 * The end of what git or the gate printed, bounded for the merge event,
+	 * which the page opens to say why a merge was refused.
+	 */
+	static said(output: string): string {
+		const end = tail(output, SAID_LINES);
+		return end.length > SAID_CHARS ? `…${end.slice(-SAID_CHARS)}` : end;
+	}
+
 	/** Refuses to mutate or land a tree whose lease changed while checks ran. */
 	async requireLease(): Promise<Worktree> {
 		const current = await this.worktree.reload();
@@ -61,8 +70,13 @@ export class MergeState {
 	}
 }
 
-function tail(output: string): string {
-	return output.trim().split("\n").slice(-40).join("\n");
+/** How many lines of git's or the gate's output a merge event keeps. */
+const SAID_LINES = 40;
+/** How many characters of them, since one line can run long. */
+const SAID_CHARS = 4000;
+
+function tail(output: string, lines = 40): string {
+	return output.trim().split("\n").slice(-lines).join("\n");
 }
 
 function indent(text: string): string {
