@@ -87,16 +87,39 @@ export function SetupPage({
 	);
 }
 
-/** Shown while setup is read, which takes a few seconds the first time. */
+/**
+ * Shown while setup is read, which takes a few seconds the first time: the
+ * index's grouped rows, each a title, a progress line and a chevron.
+ */
 function SetupLoading(): JSX.Element {
 	return (
-		<div role="status" className="flex flex-col gap-3">
+		<div role="status" className="flex flex-col gap-4">
 			<p className="flex items-center gap-2 text-muted-foreground text-sm">
 				<Loader2Icon className="size-4 animate-spin" aria-hidden /> Reading your
 				setup…
 			</p>
-			<Skeleton className="h-16 w-full" />
-			<Skeleton className="h-16 w-full" />
+			<div aria-hidden className="flex flex-col gap-6">
+				{[3, 2].map((rows) => (
+					<ul
+						key={rows}
+						className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
+					>
+						{Array.from({ length: rows }, (_, index) => (
+							<li
+								// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
+								key={index}
+								className="flex min-h-16 items-center gap-3 px-4"
+							>
+								<span className="flex flex-1 flex-col gap-2">
+									<Skeleton className="h-4 w-40 motion-reduce:animate-none" />
+									<Skeleton className="h-3 w-24 motion-reduce:animate-none" />
+								</span>
+								<Skeleton className="size-4 rounded-full motion-reduce:animate-none" />
+							</li>
+						))}
+					</ul>
+				))}
+			</div>
 		</div>
 	);
 }

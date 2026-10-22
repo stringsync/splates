@@ -94,7 +94,19 @@ export function useFeedsFreshness(
 	);
 }
 
-/** What the inbox shows in place of its rows before its first read. */
+/** Widths of each placeholder row's name, project and preview, in rems. */
+const INBOX_ROWS = [
+	{ name: "w-44", project: "w-14", preview: "w-64" },
+	{ name: "w-32", project: "w-16", preview: "w-52" },
+	{ name: "w-52", project: "w-12", preview: "w-60" },
+	{ name: "w-36", project: "w-14", preview: "w-44" },
+];
+
+/**
+ * What the inbox shows in place of its rows before its first read: rows shaped
+ * like the real ones, an avatar, a name with its project and age, and a line
+ * of preview, so they hold the same height and nothing jumps when they load.
+ */
 export function InboxLoading({
 	className,
 }: {
@@ -104,11 +116,43 @@ export function InboxLoading({
 		<div
 			role="status"
 			aria-label="Loading inbox"
-			className={cn("flex flex-col gap-3 p-6", className)}
+			className={cn("flex flex-col", className)}
 		>
 			<span className="sr-only">Loading inbox…</span>
-			<Skeleton className="h-16 w-full" />
-			<Skeleton className="h-16 w-full" />
+			<ul aria-hidden className="flex flex-col">
+				{INBOX_ROWS.map((row, index) => (
+					<li
+						// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
+						key={index}
+						className="flex min-h-16 items-center gap-3 py-2.5 pr-4 pl-4"
+					>
+						<Skeleton className="size-10 shrink-0 rounded-full motion-reduce:animate-none" />
+						<span className="flex min-w-0 flex-1 flex-col gap-2">
+							<span className="flex items-center gap-2">
+								<Skeleton
+									className={cn(
+										"h-4 max-w-[60%] flex-1 motion-reduce:animate-none",
+										row.name,
+									)}
+								/>
+								<Skeleton
+									className={cn(
+										"ml-auto h-3 shrink-0 motion-reduce:animate-none",
+										row.project,
+									)}
+								/>
+								<Skeleton className="h-3 w-8 shrink-0 motion-reduce:animate-none" />
+							</span>
+							<Skeleton
+								className={cn(
+									"h-3.5 max-w-[85%] motion-reduce:animate-none",
+									row.preview,
+								)}
+							/>
+						</span>
+					</li>
+				))}
+			</ul>
 		</div>
 	);
 }
