@@ -27,7 +27,8 @@ export interface TestOptions {
 	files?: string[];
 	/**
 	 * Test files run at once; half the cores when left out, fewer (down to half
-	 * of that) when the machine's other heavy jobs hold some of its cores.
+	 * of that) when the machine's other heavy jobs hold some of its cores. On a
+	 * runner, or in a merge's gate, the cores the run already holds.
 	 */
 	workers?: number;
 	ps?: Ps;
@@ -57,8 +58,9 @@ export async function test(opts: TestOptions): Promise<void> {
 	if (opts.evals && opts.all) {
 		throw new Error("choose either --evals or --all");
 	}
-	// A run inside a heavy slot or core claim (a merge's gate, or a runner's
-	// own `--local`) is already where it should be.
+	// A run inside a heavy slot or core claim (a merge's gate, or a job on a
+	// runner, which runs with the CPUs its job asked for) is already where it
+	// should be.
 	const inSlot =
 		ps.env("SPLATES_HEAVY") !== undefined ||
 		ps.env("SPLATES_CORES") !== undefined;

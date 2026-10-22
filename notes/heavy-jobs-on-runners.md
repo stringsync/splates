@@ -12,8 +12,7 @@ many at once as fit in what it said it has in its hello (`cpus`, and `memory`
 rounded to the GB, since a box sold as 8 GB tells the kernel a little less; a
 runner from before says neither and is taken as 4 and 8). A job asks what its
 project's `job` in `splates.config.ts` says, `{ cpus: 4, memory: "8GB" }` when
-unset (a test run is about 7 cores and 7 GB, so CPUs are overcommitted; see
-`cloud-digitalocean.md` for the runner size), or what `splates run --cpus
+unset (see `cloud-digitalocean.md` for the runner size), or what `splates run --cpus
 --memory` says for one command; `splates dev test` and the merge gate send the
 project's. A job goes to a runner with room for it, one that already holds the
 project's clone first, then the one with the most free CPUs, then memory, and
@@ -120,7 +119,16 @@ dev test` and the merge gate send none: `dev test` has its own deadline. Nothing
 runner. `prepare` is a `splates.config.ts` setting (here `bun install` and the
 page build, as `docker/worker.Dockerfile` does), run on every job; bun's cache
 is what keeps it quick. `splates dev test` runs `./bin/splates dev test --local`
-on the runner and gets its JUnit report back as a file. Files a `splates run`
+on the runner and gets its JUnit report back as a file.
+
+The server sets `SPLATES_CORES` to the job's `cpus` and `SPLATES_HEAVY` in
+every job's env (`RunnerJobs.runOn`): the pool already gave the job those CPUs,
+so what it runs holds a slot and a core claim, and `splates dev test` runs one
+worker per CPU asked for rather than half the box, waiting on none of the
+runner's slots. Measured 2026-10-22 in a Linux container held to 4 CPUs and
+8 GB (`docker run --cpus=4 --memory=8g`, as an `s-4vcpu-8gb` stands): the whole
+suite took 188 s at 2 workers and 93 s at 4. The "about 7 cores and 7 GB" a
+test run was once put at was measured at 8 workers on a 16-core Mac. Files a `splates run`
 command writes stay on the runner.
 
 The merge gate is a caller too (`MergeGate` in `merge/gate.ts`): its jobs set

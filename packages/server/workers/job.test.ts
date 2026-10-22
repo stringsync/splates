@@ -193,14 +193,18 @@ describe("heavy jobs on a runner", () => {
 	});
 
 	// Asks little of the runner, this machine, whatever it has.
-	const post = (jobs: RunnerJobs, size = { cpus: 1, memory: 0.5 }) =>
+	const post = (
+		jobs: RunnerJobs,
+		size = { cpus: 1, memory: 0.5 },
+		argv = ["sh", "-c", "echo hi; exit 2"],
+	) =>
 		jobs.run(
 			new Request("http://localhost/api/jobs", {
 				method: "POST",
 				body: JSON.stringify({
 					worktree: deps.root,
 					project: deps.root,
-					argv: ["sh", "-c", "echo hi; exit 2"],
+					argv,
 					...size,
 				}),
 			}),
@@ -260,6 +264,19 @@ describe("heavy jobs on a runner", () => {
 		expect(await events(response)).toEqual([
 			{ type: "out", data: Buffer.from("hi\n").toString("base64") },
 			{ type: "exit", code: 2 },
+		]);
+	});
+
+	it("runs a job request on the CPUs it asked for, in a slot and claim of its own", async () => {
+		const response = await post(jobsOf(registry), { cpus: 1, memory: 0.5 }, [
+			"sh",
+			"-c",
+			"echo $SPLATES_CORES $SPLATES_HEAVY",
+		]);
+
+		expect(await events(response)).toEqual([
+			{ type: "out", data: Buffer.from("1 runner\n").toString("base64") },
+			{ type: "exit", code: 0 },
 		]);
 	});
 });
