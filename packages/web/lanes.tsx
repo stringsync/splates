@@ -246,7 +246,7 @@ export function Lane({
 									>
 										<span
 											aria-hidden
-											className="size-1.5 animate-pulse rounded-full bg-primary"
+											className="size-1.5 rounded-full bg-primary"
 										/>
 										Running
 									</span>

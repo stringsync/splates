@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
+import { CheckIcon, PowerIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -485,7 +485,7 @@ export function CheckpointItem({
 			slide === "restarting" ||
 			slide === "resuming" ||
 			slide === "shuttingDown" ? (
-				<Loader2Icon className="animate-spin" />
+				<PowerIcon className="opacity-60" />
 			) : slide === "pick" || slide === "counting" ? (
 				<span className="relative flex">
 					<PowerIcon />
@@ -515,7 +515,6 @@ export function PowerBadge(): JSX.Element | null {
 			onClick={() => open()}
 			className="flex min-w-0 items-center gap-1.5 self-start text-muted-foreground text-xs hover:underline"
 		>
-			<Loader2Icon aria-hidden className="size-3 shrink-0 animate-spin" />
 			<span className="truncate">{badge}</span>
 		</button>
 	);

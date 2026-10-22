@@ -1,4 +1,4 @@
-import { CheckIcon, Loader2Icon, RotateCwIcon } from "lucide-react";
+import { CheckIcon, RotateCwIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useCheckpoint } from "./checkpoint";
@@ -49,15 +49,7 @@ export function RestartButton({
 			disabled={restartBusy}
 			onClick={restart}
 		>
-			{restartBusy ? (
-				<Loader2Icon
-					aria-hidden
-					data-icon="inline-start"
-					className="animate-spin"
-				/>
-			) : (
-				<RotateCwIcon aria-hidden data-icon="inline-start" />
-			)}
+			<RotateCwIcon aria-hidden data-icon="inline-start" />
 			{label}
 		</Button>
 	);

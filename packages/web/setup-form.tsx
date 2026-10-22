@@ -8,7 +8,6 @@ import {
 	CheckIcon,
 	ChevronRightIcon,
 	InfoIcon,
-	Loader2Icon,
 	RotateCwIcon,
 	TriangleAlertIcon,
 	Undo2Icon,
@@ -293,10 +292,6 @@ export function StepForm({
 							role="status"
 							className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
 						>
-							<Loader2Icon
-								className="size-4 shrink-0 animate-spin"
-								aria-hidden
-							/>
 							{next.doing ?? "Working on it…"}
 						</p>
 					)}
@@ -320,9 +315,7 @@ export function StepForm({
 							)}
 							<Button type="submit" className="min-w-24" disabled={working}>
 								{working ? (
-									<>
-										<Loader2Icon className="animate-spin" /> Next
-									</>
+									"Working…"
 								) : next.kind === "failed" ? (
 									<>
 										<RotateCwIcon /> Try again

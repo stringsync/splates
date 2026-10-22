@@ -1,5 +1,4 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { send } from "./api";
@@ -47,8 +46,9 @@ export function OpenCodeEnd({
 		<>
 			{feed !== null && (
 				<Button disabled={busy !== null} onClick={() => void run("start")}>
-					{busy === "start" && <Loader2Icon className="animate-spin" />}
-					Start an OpenCode conversation
+					{busy === "start"
+						? "Starting an OpenCode conversation…"
+						: "Start an OpenCode conversation"}
 				</Button>
 			)}
 			<Button

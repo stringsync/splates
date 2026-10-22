@@ -1,4 +1,4 @@
-import { CircleAlertIcon, Loader2Icon } from "lucide-react";
+import { CircleAlertIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import type { Sending, Unsent } from "./sending";
 
@@ -22,7 +22,6 @@ export function SendingLine({ seconds }: { seconds: number }): JSX.Element {
 			data-slot="aui_user-message-sending"
 			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
 		>
-			<Loader2Icon className="size-3 animate-spin" aria-hidden />
 			Sending… times out in {seconds}s
 		</div>
 	);

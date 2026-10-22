@@ -10,7 +10,7 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
-import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
 import {
 	type FC,
 	useContext,
@@ -402,11 +402,7 @@ const ComposerAction: FC = () => {
 							/>
 						}
 					>
-						{stopping ? (
-							<Loader2Icon className="animate-spin" aria-hidden="true" />
-						) : (
-							<SquareIcon className="aui-composer-cancel-icon size-3.5 pointer-coarse:size-4 fill-current" />
-						)}
+						<SquareIcon className="aui-composer-cancel-icon size-3.5 pointer-coarse:size-4 fill-current" />
 					</ComposerPrimitive.Cancel>
 				</AuiIf>
 			</div>

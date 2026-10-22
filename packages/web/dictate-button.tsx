@@ -111,10 +111,7 @@ function DictationControl({ phase }: { phase: DictationPhase }) {
 	return phase === "recording" ? (
 		<SquareIcon aria-hidden="true" strokeWidth={1.75} />
 	) : (
-		<LoaderCircleIcon
-			aria-hidden="true"
-			className="animate-spin motion-reduce:animate-none"
-		/>
+		<LoaderCircleIcon aria-hidden="true" className="opacity-60" />
 	);
 }
 

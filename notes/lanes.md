@@ -7,8 +7,8 @@ orders anything. For a few days in October 2026 a lane was a queue an
 orchestrator agent worked through; "Stop running lanes" (2026-10-19) removed
 that with `lane run`, `lane pause`, `task take` and `task release`, and the
 same day lanes gained "queue whole": each task is queued as soon as nothing
-blocks it, until the lane is empty, which is the running glint on its
-header. A task marked By hand sits under the lane outside the glint and is
+blocks it, until the lane is empty, which is the still violet running ring on its
+header. A task marked By hand sits under the lane outside the ring and is
 skipped when a queued lane starts work. A lane ends when its last task merges
 or is removed; one emptied by hand stays.
 

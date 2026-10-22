@@ -30,7 +30,6 @@ export function StatusChip({
 			className={cn(
 				"inline-flex h-5 shrink-0 items-center rounded-full px-2 font-medium text-xs whitespace-nowrap",
 				TONES[status],
-				status === "pending" && "animate-pulse",
 				className,
 			)}
 		>

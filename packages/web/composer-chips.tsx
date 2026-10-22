@@ -5,7 +5,6 @@ import type {
 import { useAuiState } from "@assistant-ui/react";
 import type { DirectiveChipProps } from "@assistant-ui/react-lexical";
 import { DIRECTIVES } from "@stringsync/splates-server/plans/browser";
-import { LoaderCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import {
 	ATTACHMENT_REFERENCE,
@@ -166,10 +165,6 @@ function Chip({
 				title={serialize({ id: directiveId, type: directiveType, label })}
 				className={`${CHIP} text-muted-foreground`}
 			>
-				<LoaderCircleIcon
-					aria-hidden
-					className="size-3 shrink-0 animate-spin"
-				/>
 				Resolving…
 			</span>
 		);

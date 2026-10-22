@@ -349,7 +349,7 @@ function Face({ action }: { action: BarAction }): JSX.Element {
 			{action.busy === true && action.expanded !== true && (
 				<span
 					aria-hidden
-					className="absolute top-1 right-1 size-1.5 animate-pulse rounded-full bg-success"
+					className="absolute top-1 right-1 size-1.5 rounded-full bg-success"
 				/>
 			)}
 		</>
@@ -424,7 +424,7 @@ function Kebab({
 				{busy && (
 					<span
 						aria-hidden
-						className="absolute top-1 right-1 size-1.5 animate-pulse rounded-full bg-success"
+						className="absolute top-1 right-1 size-1.5 rounded-full bg-success"
 					/>
 				)}
 			</DropdownMenuTrigger>

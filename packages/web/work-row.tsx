@@ -247,7 +247,7 @@ function Plan({ steps }: { steps: Step[] }): JSX.Element {
 					{step.status === "completed" ? (
 						<CheckIcon className="size-3 shrink-0" />
 					) : step.status === "in_progress" ? (
-						<LoaderIcon className="size-3 shrink-0 animate-spin" />
+						<LoaderIcon className="size-3 shrink-0" />
 					) : (
 						<CircleIcon className="size-3 shrink-0" />
 					)}

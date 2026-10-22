@@ -187,7 +187,7 @@ export function AttachedMenu({
 					{uploading ? (
 						<LoaderCircleIcon
 							aria-hidden
-							className="size-3 shrink-0 animate-spin text-muted-foreground"
+							className="size-3 shrink-0 text-muted-foreground"
 						/>
 					) : failed !== undefined ? (
 						<AlertCircleIcon

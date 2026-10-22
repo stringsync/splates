@@ -7,7 +7,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
-import { RunningSpinner } from "./background";
+import { RunningMark } from "./background";
 import { useCloseTerminal } from "./close-terminal";
 import { RenameBox } from "./list-rows";
 import { NestedPanesContext } from "./side-panes";
@@ -89,7 +89,7 @@ export function useShells(
 								panes.watch(id, each.id);
 							}}
 						/>
-						<RunningSpinner />
+						<RunningMark />
 					</li>
 				)),
 		].filter(Boolean);

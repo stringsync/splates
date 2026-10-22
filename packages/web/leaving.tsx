@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import { type JSX, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
@@ -31,8 +30,7 @@ export function Leaving({ name }: { name: string }): JSX.Element {
 				role="status"
 				className="flex items-center gap-2 rounded-xl border bg-popover px-4 py-3 text-sm shadow-lg"
 			>
-				Opening {name}
-				<Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+				Opening {name}…
 			</div>
 		</div>,
 		document.body,

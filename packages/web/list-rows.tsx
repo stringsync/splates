@@ -10,7 +10,7 @@ import {
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { RunningSpinner } from "./background";
+import { RunningMark } from "./background";
 import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
 import type { Nested } from "./parts";
@@ -250,7 +250,7 @@ export function CommandRow({
 			<span className="min-w-0 flex-1 truncate text-muted-foreground text-sm italic">
 				{background.name}
 			</span>
-			<RunningSpinner />
+			<RunningMark />
 		</button>
 	);
 }

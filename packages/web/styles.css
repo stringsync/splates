@@ -530,22 +530,10 @@
 	animation: none;
 }
 
-/* A lane an agent is at work on: a blue-violet-pink glint runs around its
-   edge, over a faint violet ring, whatever the accent, as AI work is
-   commonly marked. The glint is a conic gradient turned by an animated
-   angle, and both are masked down to the border on a layer of their own, so
-   the lane's own rings (opened, a card over it) still show. With reduced
-   motion only the ring shows, a little stronger. */
-@property --running-angle {
-	syntax: "<angle>";
-	initial-value: 0deg;
-	inherits: false;
-}
-@keyframes running-turn {
-	to {
-		--running-angle: 360deg;
-	}
-}
+/* A lane an agent is at work on: a still violet ring, whatever the accent,
+   as AI work is commonly marked, masked down to the border on a layer of its
+   own, so the lane's own rings (opened, a card over it) still show. It stays
+   still, since the page's one spinner is `GivingUp`'s. */
 .running-outline {
 	position: relative;
 }
@@ -556,26 +544,8 @@
 	padding: 2px;
 	border-radius: inherit;
 	pointer-events: none;
-	background:
-		conic-gradient(
-			from var(--running-angle),
-			transparent 0%,
-			transparent 55%,
-			#4f8cff 68%,
-			#a259ff 78%,
-			#ff5fa2 88%,
-			#ffb347 95%,
-			transparent 100%
-		),
-		color-mix(in oklab, #a259ff 15%, transparent);
+	background: color-mix(in oklab, #a259ff 45%, transparent);
 	mask:
 		linear-gradient(#000 0 0) content-box exclude,
 		linear-gradient(#000 0 0);
-	animation: running-turn 3s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-	.running-outline::before {
-		background: color-mix(in oklab, #a259ff 45%, transparent);
-		animation: none;
-	}
 }

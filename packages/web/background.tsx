@@ -67,10 +67,7 @@ export function BackgroundCard({
 				<span className="flex items-center gap-1.5 font-normal text-muted-foreground">
 					{running.length > 0 ? (
 						<>
-							<span
-								aria-hidden
-								className="size-2 animate-pulse rounded-full bg-success"
-							/>
+							<span aria-hidden className="size-2 rounded-full bg-success" />
 							{running.length} running
 						</>
 					) : (
@@ -171,11 +168,7 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 			<div className="flex items-center gap-3">
 				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
 				<p className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-					{state === "running" ? (
-						<RunningSpinner />
-					) : (
-						<StateMark state={state} />
-					)}
+					{state === "running" ? <RunningMark /> : <StateMark state={state} />}
 					<span>{ENDED[state]}</span>
 					{watch !== null && listed !== null && shown !== undefined ? (
 						<button
@@ -211,7 +204,7 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 	);
 }
 
-/** How a command stands, at a glance: a pulsing dot while it runs. */
+/** How a command stands, at a glance: a green dot while it runs. */
 export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 	return (
 		<span
@@ -219,7 +212,7 @@ export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 			className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"
 		>
 			{state === "running" && (
-				<span className="size-2 animate-pulse rounded-full bg-success" />
+				<span className="size-2 rounded-full bg-success" />
 			)}
 			{state === "completed" && <CheckIcon className="text-muted-foreground" />}
 			{state === "failed" && <XIcon className="text-destructive" />}
@@ -230,16 +223,15 @@ export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 	);
 }
 
-/**
- * A command still running, in a list that drops it once it ends: a spinner,
- * since a green dot reads as done.
- */
-export function RunningSpinner(): JSX.Element {
+/** Marks a command still running, in a list that drops it once it ends. */
+export function RunningMark(): JSX.Element {
+	// A loader, since a green dot reads as done; still, since the page's one
+	// spinner is `GivingUp`'s.
 	return (
 		<Loader2Icon
 			role="img"
 			aria-label="running"
-			className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+			className="size-3.5 shrink-0 text-muted-foreground"
 		/>
 	);
 }

@@ -44,24 +44,6 @@ export interface OptionListProps
 	choice?: readonly string[] | undefined;
 }
 
-const row =
-	"flex w-full items-start gap-2.5 rounded-xl px-2 py-2 text-start transition-colors outline-none focus-visible:ring-1 focus-visible:ring-foreground/20";
-
-function OptionText({ option }: { option: OptionListOption }) {
-	return (
-		<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span className="text-[13.5px] leading-5 break-words">
-				{option.label}
-			</span>
-			{option.description ? (
-				<span className="text-foreground/45 text-xs leading-4 break-words">
-					{option.description}
-				</span>
-			) : null}
-		</span>
-	);
-}
-
 export function OptionList({
 	options,
 	selectionMode = "single",
@@ -250,7 +232,7 @@ export function OptionList({
 								aria-hidden
 								className="flex h-5 w-3.5 shrink-0 items-center justify-center"
 							>
-								<Loader2Icon className="text-foreground/45 size-3.5 animate-spin motion-reduce:animate-none" />
+								<Loader2Icon className="text-foreground/45 size-3.5" />
 							</span>
 						) : null}
 						<OptionText option={option} />
@@ -289,16 +271,28 @@ export function OptionList({
 							!canConfirm && "cursor-default opacity-40 hover:opacity-40",
 						)}
 					>
-						{locked ? (
-							<Loader2Icon
-								aria-hidden
-								className="size-3.5 animate-spin motion-reduce:animate-none"
-							/>
-						) : null}
 						{confirmLabel}
 					</button>
 				</div>
 			) : null}
 		</div>
+	);
+}
+
+const row =
+	"flex w-full items-start gap-2.5 rounded-xl px-2 py-2 text-start transition-colors outline-none focus-visible:ring-1 focus-visible:ring-foreground/20";
+
+function OptionText({ option }: { option: OptionListOption }) {
+	return (
+		<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span className="text-[13.5px] leading-5 break-words">
+				{option.label}
+			</span>
+			{option.description ? (
+				<span className="text-foreground/45 text-xs leading-4 break-words">
+					{option.description}
+				</span>
+			) : null}
+		</span>
 	);
 }

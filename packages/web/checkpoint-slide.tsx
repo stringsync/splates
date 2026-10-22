@@ -168,10 +168,7 @@ function StepIcon({ state }: { state: Step["state"] }): JSX.Element {
 			return <CheckIcon aria-hidden className="size-3.5 text-success" />;
 		case "now":
 			return (
-				<Loader2Icon
-					aria-hidden
-					className="size-3.5 animate-spin text-muted-foreground"
-				/>
+				<Loader2Icon aria-hidden className="size-3.5 text-muted-foreground" />
 			);
 		case "todo":
 			return (

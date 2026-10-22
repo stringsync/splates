@@ -9,7 +9,6 @@ import {
 	BookmarkIcon,
 	ClockIcon,
 	FileDiffIcon,
-	Loader2Icon,
 	PauseIcon,
 	PlayIcon,
 	RotateCwIcon,
@@ -205,7 +204,7 @@ function pauseActions(
 		return [
 			{
 				label: "Pausing…",
-				icon: <Loader2Icon className="animate-spin" />,
+				icon: <ClockIcon className="opacity-60" />,
 				run: null,
 			},
 		];

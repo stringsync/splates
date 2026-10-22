@@ -476,7 +476,7 @@ describe("App's sending messages", () => {
 		const stopping = view.getByRole("button", { name: "Stopping…" });
 		expect(stopping.hasAttribute("disabled")).toBe(true);
 		expect(stopping.getAttribute("aria-busy")).toBe("true");
-		expect(stopping.querySelector(".animate-spin")).not.toBeNull();
+		expect(stopping.querySelector(".animate-spin")).toBeNull();
 		await act(async () => {
 			fireEvent.click(stopping);
 			fireEvent.keyDown(box, { key: "Escape" });

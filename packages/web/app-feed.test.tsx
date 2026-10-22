@@ -233,7 +233,7 @@ describe("App's feed", () => {
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
 		const busy = view.getByRole("button", { name: "Updating" });
 		expect(busy.hasAttribute("disabled")).toBe(true);
-		expect(busy.querySelector(".animate-spin")).not.toBeNull();
+		expect(busy.querySelector(".animate-spin")).toBeNull();
 	});
 
 	it("keeps the update available to retry when a restart is refused", async () => {
