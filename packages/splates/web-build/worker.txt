@@ -1,4 +1,0 @@
-var n=self;n.addEventListener("install",()=>void n.skipWaiting());n.addEventListener("activate",(i)=>i.waitUntil(n.clients.claim()));n.addEventListener("notificationclick",(i)=>{let e=i.notification;e?.close();let t=e?.data;if(t===void 0)return;i.waitUntil((async()=>{let s=new URL(t.url).search,o=(await n.clients.matchAll({type:"window",includeUncontrolled:!0})).find((a)=>new URL(a.url).search===s);if(o===void 0){await n.clients.openWindow(t.url);return}o.postMessage({type:"splates:open",key:t.key}),await o.focus()})())});n.addEventListener("push",(i)=>{let e=i.data?.json();if(e===void 0)return;i.waitUntil((async()=>{let t=await n.clients.matchAll({type:"window",includeUncontrolled:!0});if(!e.inFront&&t.some((o)=>o.focused))return;let s={key:e.key,url:new URL(e.url,n.registration.scope).href};await n.registration.showNotification(e.title,{body:e.body,tag:e.key,data:s})})())});
-
-//# debugId=EC63F45E1045E59E64756E2164756E21
-//# sourceMappingURL=worker.js.map

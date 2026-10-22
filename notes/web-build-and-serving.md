@@ -17,5 +17,4 @@ and release use the same minified output with linked source maps, so a
 change shows only after a rebuild and a server restart. `pages.ts` stamps
 `?v=<hash>` on the script and stylesheet, and the service worker caches the
 shell and tells the window to reload once the server's shell differs; a tab
-never reloads while in use. `packages/splates/web-build/` is a tracked
-leftover nothing reads.
+never reloads while in use.
