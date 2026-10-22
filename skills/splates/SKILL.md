@@ -199,6 +199,9 @@ These only when their moment comes:
 --project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
+- When the user asks to move splates's tasks, conversations or settings to
+  another machine or project, or to back them up or restore them:
+  [references/transfer.md](references/transfer.md).
 
 ## Workflow
 

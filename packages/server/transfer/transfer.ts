@@ -8,7 +8,7 @@ export const BUNDLE_VERSION = 1;
 
 /**
  * What moves from a project's `.git/splates`: its hooks, and its tasks,
- * plans and conversations. Never `creds.json`, which names what the
+ * lanes, plans, conversations and the records of tasks it ended. Never `creds.json`, which names what the
  * project's agents asked a person for, nor the journal, locks or leases,
  * which belong to this machine and its processes.
  */
@@ -17,11 +17,17 @@ export const PROJECT_STATE = [
 	"tasks",
 	"plans",
 	"finished",
+	"removed",
 	"conversations",
 ];
 
-/** What moves from splates's home: what the person set, not what this machine does for itself. */
-export const MACHINE_STATE = ["agents.json", "auto-pick.json"];
+/** What moves from splates's home: what the person set, its agent defaults (`offered.json`) included. */
+export const MACHINE_STATE = [
+	"agents.json",
+	"auto-pick.json",
+	"offered.json",
+	"eval-agents.json",
+];
 
 /** Files that stay behind wherever they are found. */
 const KEPT_BACK = /(^|\/)creds\.json$|\.lock(\/|$)/;

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 /** `splates config`, which the root cli mounts after `splates budget`. */
 export const splatesConfig = cli<SplatesDeps>("config").description(
-	"move this project's setup to another machine or project as one JSON file: its hooks, tasks, plans, finished-task records and conversations, and from splates's home the agent roster and Auto pick rules. Never the creds: `creds.json` and the values in the secret stores stay behind, so ask for those again on the new machine. Nor the journal, locks, leases, spend or the registry of projects, which belong to the machine",
+	"move this project's setup to another machine or project as one JSON file: its hooks, tasks and lanes, plans, the records of ended tasks and conversations, and from splates's home the agent roster, Auto pick rules, the agent settings picked as defaults and the eval agents. Never the creds: `creds.json` and the values in the secret stores stay behind, so ask for those again on the new machine. Nor the journal, locks, leases, spend or the registry of projects, which belong to the machine",
 );
 
 splatesConfig
@@ -45,7 +45,7 @@ splatesConfig
 	.command("import")
 	.use(repository({ needs: "own" }))
 	.description(
-		"write an export file's contents into this project and splates's home; a file that already exists with other contents stops the import, naming each, unless --force overwrites it",
+		"write an export file's contents into this project and splates's home, with `splates server` stopped, since it rewrites the settings it holds; a file that already exists with other contents stops the import, naming each, unless --force overwrites it",
 	)
 	.arg("file", z.string(), { description: "an export from `config export`" })
 	.option("force", z.boolean(), {

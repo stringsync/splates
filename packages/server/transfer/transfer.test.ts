@@ -29,17 +29,22 @@ describe("config transfer", () => {
 		await from.fs.write(`${from.splatesDir}/creds.json`, "secret");
 		await from.fs.mkdir(from.splatesHome, { recursive: true });
 		await from.fs.write(`${from.splatesHome}/agents.json`, "{}");
+		await from.fs.write(`${from.splatesHome}/offered.json`, "{}");
+		await from.fs.write(`${from.splatesHome}/spend.jsonl`, "");
 
 		const bundle = await exportBundle(places(from));
 		expect(Object.keys(bundle.project).sort()).toEqual([
 			"hooks.json",
 			"plans/a.md",
 		]);
-		expect(Object.keys(bundle.machine)).toEqual(["agents.json"]);
+		expect(Object.keys(bundle.machine)).toEqual([
+			"agents.json",
+			"offered.json",
+		]);
 		expect(JSON.stringify(bundle)).not.toContain("secret");
 
 		const done = await importBundle(places(to), bundle, { force: false });
-		expect(done.written).toHaveLength(3);
+		expect(done.written).toHaveLength(4);
 		expect(await to.fs.read(`${to.splatesDir}/plans/a.md`)).toBe("plan");
 	});
 
