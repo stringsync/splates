@@ -341,8 +341,13 @@ export class WorkerProvisioning
 		}
 		const { registry, budget, provider, log } = this.opts;
 		const waiting = scheduler.queue();
-		// A sleeping worker woken for the queue seats it before any is made.
-		const seats = this.coming.seats(registry) + (this.opts.waking?.() ?? 0);
+		// A sleeping worker woken for the queue seats it before any is made, and
+		// so do the free slots of workers already up: a queued task counts as
+		// waiting until its queue starts it, just after a worker joins.
+		const seats =
+			this.coming.seats(registry) +
+			(this.opts.waking?.() ?? 0) +
+			scheduler.room();
 		if (waiting.length <= seats) {
 			scheduler.withhold(null);
 			this.offering = null;

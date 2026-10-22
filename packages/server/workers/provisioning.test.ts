@@ -153,6 +153,20 @@ describe("WorkerProvisioning", () => {
 
 		expect(access.revoked).toEqual(["st-1"]);
 	});
+
+	it("makes no second worker for queued tasks a joined worker has slots free for", async () => {
+		const { provider, made } = await provisioning();
+		const scheduler = schedulerOn("joined");
+		scheduler.want("/p", [
+			{ id: "q", project: "/p", task: "t", platform: null, agent: "claude" },
+		]);
+
+		made.watch(scheduler);
+		await made.refill();
+		made.dispose();
+
+		expect(provider.specs).toEqual([]);
+	});
 });
 
 /** A scheduler whose one worker is made worker `id`, of four slots. */
