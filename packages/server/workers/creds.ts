@@ -8,6 +8,7 @@ import {
 import type { Logger } from "webappwiz/log";
 import { makeUndumpable, type Ps } from "webappwiz/system";
 import { z } from "zod";
+import { KeyFileStore } from "../creds";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import {
@@ -16,7 +17,6 @@ import {
 	joinAccess,
 	joinCoordinatorKey,
 } from "./access";
-import { KeyFileStore } from "./key-file";
 import type { WorkerRunOptions } from "./run-options";
 
 /** Where `--key-file` keeps a worker's key. */

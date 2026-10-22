@@ -14,7 +14,10 @@ The environment is never read, so a stray export is not picked up.
 Linux box under an EC2 instance role uses `SsmSecretStore` instead:
 `SecureString` parameters under `/splates/device/` and
 `/splates/projects/<project>/`, signed through IMDSv2;
-`SPLATES_SECRET_STORE=ssm|keyring` forces the choice. A hosted secrets
+`SPLATES_SECRET_STORE=ssm|keyring` forces the choice, and `file` keeps
+both stores in `0600` files under `~/.splates/secrets/` (`KeyFileStore`, as
+a worker's `--key-file`), for a Linux with neither a secret service nor an
+instance role; a server that cannot reach its store says so and names these. A hosted secrets
 manager was rejected for workers since it would put a second standing
 credential on each. Remote workers get provider keys in memory only, from
 `KeyDelivery`, served to agents through a loopback credential proxy by an

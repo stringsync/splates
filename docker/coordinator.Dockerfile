@@ -2,8 +2,8 @@
 # (`worker.Dockerfile`, built first as splates-worker) with a secret service.
 # Creds and the keys of workers are kept in the machine's store, which on
 # Linux is libsecret's, or Parameter Store under an EC2 instance role as the
-# real box has, which Docker cannot stand in for; a server on a Linux with
-# neither does not start.
+# real box has, which Docker cannot stand in for. SPLATES_SECRET_STORE=file
+# would do without either; the keyring proves the path most Linux take.
 FROM splates-worker
 
 USER root

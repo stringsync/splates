@@ -9,7 +9,14 @@ import {
 	FILE,
 	type KeptCred,
 } from "./requests";
-import { type Provider, SCOPES, type Scope, type SecretStores } from "./stores";
+import {
+	cannotReach,
+	type Provider,
+	SCOPES,
+	type Scope,
+	type SecretStores,
+} from "./stores";
+import { Unreachable } from "./unreachable";
 
 const FILE_KEY = "creds.json";
 
@@ -364,27 +371,6 @@ function savedKey(provider: Provider, scope: Scope, name: string): string {
 		: `${provider}:${scope}:${name}`;
 }
 
-/** A store read as keeping nothing when it cannot be reached, so the others still answer. */
-class Unreachable implements SecretStore {
-	constructor(private readonly inner: SecretStore) {}
-
-	get label(): string {
-		return this.inner.label;
-	}
-	get(name: string): Promise<string | undefined> {
-		return this.inner.get(name).catch(() => undefined);
-	}
-	set(name: string, value: string): Promise<void> {
-		return this.inner.set(name, value);
-	}
-	delete(name: string): Promise<boolean> {
-		return this.inner.delete(name);
-	}
-	names(): Promise<string[]> {
-		return this.inner.names().catch(() => []);
-	}
-}
-
 /** `name`, refused unless an environment variable could have it. */
 function usable(name: string): void {
 	try {
@@ -405,10 +391,6 @@ async function reach<T>(
 	try {
 		return await use(store);
 	} catch (error) {
-		fail(
-			"no_secret_store",
-			`${store.label} cannot be reached: ${(error as Error).message}. On Linux, start a secret service such as GNOME Keyring or KWallet`,
-			{},
-		);
+		fail("no_secret_store", cannotReach(store, error), {});
 	}
 }

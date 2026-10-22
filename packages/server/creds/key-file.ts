@@ -3,11 +3,11 @@ import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
 
 /**
- * A worker's key and Access token kept in a file only its user may read
- * (`0600`), as `NAME=value` lines, for a machine whose system store is
- * locked or missing when it boots, as WSL's is with no one signed in. The
- * key reaches its coordinator alone, which revokes it on
- * `splates worker remove`.
+ * Secrets kept in a file only its user may read (`0600`), as `NAME=value`
+ * lines, for a machine whose system store is locked or missing when it
+ * boots, as WSL's is with no one signed in or a headless Linux's with no
+ * secret service: a worker's key and Access token with `--key-file`, a
+ * server's creds with `SPLATES_SECRET_STORE=file`.
  */
 export class KeyFileStore implements SecretStore {
 	readonly label: string;

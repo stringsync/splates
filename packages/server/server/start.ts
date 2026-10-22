@@ -11,7 +11,7 @@ import {
 	unmigrated,
 } from "../config";
 import { Conversations } from "../conversations";
-import { SYSTEM_STORES } from "../creds";
+import { cannotReach, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
 import { pushOnMove, TaskBranches } from "../merge";
@@ -222,6 +222,12 @@ export async function serveDev(
 	// Through a tunnel, each worker passes Access with a service token of its
 	// own, minted with the API token `splates tunnel setup` keeps.
 	const device = (ctx.secrets ?? SYSTEM_STORES).device;
+	// Signs what workers challenge it with, so one tells it from whoever
+	// answers for its host with a stolen tunnel token. A machine whose store
+	// cannot be reached is told what it needs.
+	const identity = await CoordinatorIdentity.open(device).catch(
+		(error: unknown) => fail("no_secret_store", cannotReach(device, error)),
+	);
 	// Each worker's API keys, in the device's store, since workers serve
 	// every project.
 	const keys = await WorkerKeys.open(
@@ -232,9 +238,7 @@ export async function serveDev(
 	const provider = here?.workerProvider ?? null;
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
 	const workers = new DevWorkers(ctx.log, {
-		// Signs what workers challenge it with, so one tells it from whoever
-		// answers for its host with a stolen tunnel token.
-		identity: await CoordinatorIdentity.open(device),
+		identity,
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		platform: ctx.ps.platform,
