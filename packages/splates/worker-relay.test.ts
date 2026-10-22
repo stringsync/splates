@@ -95,6 +95,11 @@ describe("WorkerRelay", () => {
 				log,
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 				relay: relayDocument(new FsStorage(home, env.fs)),
+				// A worker elsewhere, which keeps the relay this machine's own does not.
+				direct: {
+					coordinator: `http://127.0.0.1:${server.port}`,
+					keyFile: false,
+				},
 			},
 		);
 		void daemon.run();

@@ -129,7 +129,14 @@ export class WorkerDaemon implements AsyncResource {
 	async run(): Promise<WorkerEnded> {
 		const { log, relay = null } = this.opts;
 		const host = hostOf(this.opts.ps);
-		this.relay = WorkerRelay.listen(this.session);
+		// This machine's own worker runs beside its coordinator, whose server
+		// its agents reach directly at the `SPLATES_DEV` they are given; one
+		// left by an older daemon would send `splates` through a dead relay.
+		if (this.opts.direct === undefined) {
+			await relay?.remove().catch(() => {});
+		} else {
+			this.relay = WorkerRelay.listen(this.session);
+		}
 		if (relay !== null && this.relay !== null) {
 			await relay
 				.write({
@@ -299,14 +306,15 @@ export class WorkerDaemon implements AsyncResource {
 			const { relay = null } = this.opts;
 			// Another daemon on this machine may have said its own since.
 			const said = relay === null ? null : await relay.read().catch(() => null);
-			if (relay !== null && said?.url === this.relay.url) {
+			const { direct } = this.opts;
+			if (
+				relay !== null &&
+				direct !== undefined &&
+				said?.url === this.relay.url
+			) {
 				// Kept without the relay, so `splates` here reaches a
 				// coordinator elsewhere directly while no daemon runs.
-				const { direct } = this.opts;
-				await (direct === undefined
-					? relay.remove()
-					: relay.write({ worker: this.opts.id, ...direct })
-				).catch(() => {});
+				await relay.write({ worker: this.opts.id, ...direct }).catch(() => {});
 			}
 			this.relay = null;
 		}
@@ -496,7 +504,7 @@ export interface WorkerDaemonOptions {
 	/**
 	 * The coordinator elsewhere it dials, said beside the relay, and kept
 	 * once it stops, with whether its key and Access token are in the key
-	 * file; none for this machine's own.
+	 * file; none for this machine's own, which keeps no relay.
 	 */
 	direct?: { coordinator: string; keyFile: boolean };
 	/** The MCP servers it offers each agent session it runs; none by default. */

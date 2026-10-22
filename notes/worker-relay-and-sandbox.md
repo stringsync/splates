@@ -8,6 +8,8 @@ relay.ts`), each connection going up the worker's socket as a `relay`
 channel; agents find it as `SPLATES_DEV`, and a hand-run `splates` finds
 `relay.json`. A connection is served only when its first request carries
 the relay secret, issued per agent and limited to that agent's project.
+This machine's own worker keeps no relay: its agents reach the server at
+the loopback URL they are given, and it removes any `relay.json` it finds.
 Record reads and writes go through `RelayFs` (`records/relay-fs.ts`), one
 `POST /api/state` each, which is why `merge` has a `relayed` flag.
 

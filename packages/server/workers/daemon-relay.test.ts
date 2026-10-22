@@ -9,9 +9,12 @@ import { FsStorage } from "../storage";
 import { WorkerDaemon } from "./daemon";
 
 describe("WorkerDaemon's relay.json", () => {
+	// What an older daemon left, which this one replaces.
+	const stale = { url: "http://x:old@127.0.0.1:1", worker: "mac" };
 	const run = async (direct?: { coordinator: string; keyFile: boolean }) => {
 		const fs = new FakeFs();
 		const relay = relayDocument(new FsStorage("/home/.splates", fs));
+		await relay.write(stale);
 		const daemon = new WorkerDaemon(
 			{
 				where: "https://splates.example.com",
@@ -29,7 +32,7 @@ describe("WorkerDaemon's relay.json", () => {
 			},
 		);
 		const ran = daemon.run();
-		await eventually(async () => (await relay.read()) !== null);
+		await eventually(async () => (await relay.read())?.url !== stale.url);
 		const running = await relay.read();
 		await daemon.disposeAsync();
 		await ran;
@@ -49,10 +52,10 @@ describe("WorkerDaemon's relay.json", () => {
 		expect(stopped).toEqual({ worker: "mac", ...direct });
 	});
 
-	it("removes it once stopped for this machine's own coordinator", async () => {
+	it("keeps no relay for this machine's own coordinator, whose server its agents reach directly", async () => {
 		const { running, stopped } = await run();
 
-		expect(running?.coordinator).toBeUndefined();
+		expect(running).toBeNull();
 		expect(stopped).toBeNull();
 	});
 });
