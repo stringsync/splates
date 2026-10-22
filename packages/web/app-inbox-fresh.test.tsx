@@ -28,7 +28,7 @@ describe("App's inbox while what it shows may be stale", () => {
 		testing.dispose();
 	});
 
-	it("shows a phone's inbox loading after a wake, then what the server lists now", async () => {
+	it("dims and locks a phone's inbox rows after a wake, then shows what the server lists now", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login" })],
@@ -43,12 +43,16 @@ describe("App's inbox while what it shows may be stale", () => {
 		await wake();
 
 		const inbox = view.getByRole("region", { name: "inbox" });
-		within(inbox).getByRole("status", { name: "Loading inbox" });
-		expect(within(inbox).queryByText("Fix login")).toBeNull();
+		expect(
+			within(inbox).getByText("Fix login").closest("[inert]"),
+		).not.toBeNull();
+		expect(
+			within(inbox).queryByRole("status", { name: "Loading inbox" }),
+		).toBeNull();
 		await reopen(testing);
 		await waitFor(() => within(agentList(view)).getByText("Fix signup"));
 		expect(
-			within(inbox).queryByRole("status", { name: "Loading inbox" }),
+			within(inbox).queryByText("Fix signup")?.closest("[inert]"),
 		).toBeNull();
 	});
 

@@ -20,8 +20,8 @@ hidden, or back online), telling its feed it `dropped` the old one.
 `Feed` and `ConversationFeed` each keep `fresh`, true only once the server
 has answered since the stream last opened: false over a kept copy, after a
 wake, or a dropped or failed stream. `freshness.tsx` joins the two into
-`FreshnessContext`: while stale the inbox (phone and sidebar) shows a
-skeleton instead of rows, the open thread is `inert` under a "Catching up…"
+`FreshnessContext`: while stale the inbox (phone and sidebar) keeps its rows,
+dimmed and `inert`, the open thread is `inert` under a "Catching up…"
 line, and after `offlineAfter` both say "Can't reach splates" with a Retry.
 
 `index.html` starts fetching `/api/snapshot` and `/api/conversations` before the script loads,

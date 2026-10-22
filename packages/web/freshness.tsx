@@ -108,6 +108,37 @@ export function InboxLoading({
 }
 
 /**
+ * The inbox's rows, kept but dimmed and `inert` while they may be stale, so
+ * nothing is opened or answered on what has moved; once the server has
+ * stayed unreachable it says so above them, with a Retry.
+ */
+export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
+	const { stale, unreachable, retry } = useFreshness();
+	return (
+		<>
+			{stale && unreachable && (
+				<div
+					role="alert"
+					className="flex items-center gap-2 px-3 py-2 text-muted-foreground text-sm"
+				>
+					Can't reach splates.
+					<Button variant="outline" size="sm" onClick={retry}>
+						Retry
+					</Button>
+				</div>
+			)}
+			<div
+				inert={stale}
+				aria-busy={stale}
+				className={cn("contents", stale && "*:opacity-50")}
+			>
+				{children}
+			</div>
+		</>
+	);
+}
+
+/**
  * `children`, taking no input while the page may be stale, under a line
  * saying so, so an answer or an archive is never made on what has moved.
  */

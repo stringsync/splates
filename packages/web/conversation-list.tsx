@@ -34,7 +34,7 @@ import { UnstartedRow, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
-import { InboxLoading, useFreshness } from "./freshness";
+import { StaleRows } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { byLane, inOrder } from "./lane-groups";
@@ -113,7 +113,6 @@ export const ConversationList = memo(function ConversationList({
 	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
 		"changed",
 	]);
-	const { stale } = useFreshness();
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
@@ -358,56 +357,56 @@ export const ConversationList = memo(function ConversationList({
 					}}
 				/>
 			))}
-			{stale ? (
-				<InboxLoading className="px-3 py-2" />
-			) : grouped !== null ? (
-				<Placing value={placing}>
-					<FolderList
-						folders={grouped.folders}
-						folded={folded}
-						onFold={fold}
-						onNew={(folder) =>
-							folder.here || folder.project === null
-								? onOpen(NEW)
-								: navigation.show(newConversationUrl(folder.project))
-						}
-						render={renderRow}
-						beneath={beneathOf}
-						groupsOf={groupsOf}
-						onLane={(folder, lane) =>
-							folder.here || folder.project === null
-								? onLane(lane)
-								: navigation.show(laneUrl(folder.project, lane))
-						}
-					/>
-				</Placing>
-			) : /* None, and no list either: an empty one would still take a gap. */
-			listed.length === 0 ? null : (
-				<Placing value={placing}>
-					<div className="flex flex-col">
-						{keptHere.length > 0 && (
-							<Rows
-								label="persistent agents"
-								rows={keptHere}
-								render={(row, nested) => renderHere(row, nested)}
-								beneath={beneath}
-							/>
-						)}
-						{keptHere.length > 0 && groupsHere.length > 0 && (
-							<hr className="mx-3 my-1 border-foreground/10" />
-						)}
-						{groupsHere.length > 0 && (
-							<LaneRows
-								label="conversation list"
-								groups={groupsHere}
-								beneath={beneath}
-								render={(row, nested) => renderHere(row, nested)}
-								onLane={onLane}
-							/>
-						)}
-					</div>
-				</Placing>
-			)}
+			<StaleRows>
+				{grouped !== null ? (
+					<Placing value={placing}>
+						<FolderList
+							folders={grouped.folders}
+							folded={folded}
+							onFold={fold}
+							onNew={(folder) =>
+								folder.here || folder.project === null
+									? onOpen(NEW)
+									: navigation.show(newConversationUrl(folder.project))
+							}
+							render={renderRow}
+							beneath={beneathOf}
+							groupsOf={groupsOf}
+							onLane={(folder, lane) =>
+								folder.here || folder.project === null
+									? onLane(lane)
+									: navigation.show(laneUrl(folder.project, lane))
+							}
+						/>
+					</Placing>
+				) : /* None, and no list either: an empty one would still take a gap. */
+				listed.length === 0 ? null : (
+					<Placing value={placing}>
+						<div className="flex flex-col">
+							{keptHere.length > 0 && (
+								<Rows
+									label="persistent agents"
+									rows={keptHere}
+									render={(row, nested) => renderHere(row, nested)}
+									beneath={beneath}
+								/>
+							)}
+							{keptHere.length > 0 && groupsHere.length > 0 && (
+								<hr className="mx-3 my-1 border-foreground/10" />
+							)}
+							{groupsHere.length > 0 && (
+								<LaneRows
+									label="conversation list"
+									groups={groupsHere}
+									beneath={beneath}
+									render={(row, nested) => renderHere(row, nested)}
+									onLane={onLane}
+								/>
+							)}
+						</div>
+					</Placing>
+				)}
+			</StaleRows>
 			{closing.confirm}
 		</nav>
 	);

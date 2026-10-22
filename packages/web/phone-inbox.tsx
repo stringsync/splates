@@ -43,7 +43,7 @@ import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
-import { InboxLoading, useFreshness } from "./freshness";
+import { InboxLoading, StaleRows } from "./freshness";
 import { NavigationContext } from "./navigation";
 import {
 	laneUrl,
@@ -135,7 +135,6 @@ export function Inbox({
 		}),
 		["changed"],
 	);
-	const { stale } = useFreshness();
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
 	// In the project the last one started in, which may be another's page.
 	const openNew = useOpenNew(onOpen);
@@ -266,96 +265,102 @@ export function Inbox({
 				]}
 			/>
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
-				<UndoRow conversations={conversations} />
-				<UnstartedGroup unstarted={unstarted} agents={agents} onOpen={onOpen} />
-				{loading || pending || stale ? (
-					<InboxLoading />
-				) : empty && mains.length === 0 && unstarted.length === 0 ? (
-					<Empty className="py-16">
-						<EmptyHeader>
-							<EmptyDescription>
-								{available
-									? "No conversations yet. Start one below."
-									: "No conversations yet."}
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<Placing
-						value={{
-							places: placesOf(trees),
-							agentOf: (each) => agentName(agents, each.agent),
-						}}
-					>
-						{grouped === null ? (
-							[
-								["Needs you", waiting],
-								["Pinned", pinned],
-								["Working", working],
-								["Recent", recent],
-							].map(([title, group]) => (
-								<Fragment key={String(title)}>
+				<StaleRows>
+					<UndoRow conversations={conversations} />
+					<UnstartedGroup
+						unstarted={unstarted}
+						agents={agents}
+						onOpen={onOpen}
+					/>
+					{loading || pending ? (
+						<InboxLoading />
+					) : empty && mains.length === 0 && unstarted.length === 0 ? (
+						<Empty className="py-16">
+							<EmptyHeader>
+								<EmptyDescription>
+									{available
+										? "No conversations yet. Start one below."
+										: "No conversations yet."}
+								</EmptyDescription>
+							</EmptyHeader>
+						</Empty>
+					) : (
+						<Placing
+							value={{
+								places: placesOf(trees),
+								agentOf: (each) => agentName(agents, each.agent),
+							}}
+						>
+							{grouped === null ? (
+								[
+									["Needs you", waiting],
+									["Pinned", pinned],
+									["Working", working],
+									["Recent", recent],
+								].map(([title, group]) => (
+									<Fragment key={String(title)}>
+										<Group
+											title={String(title)}
+											items={(group as Nested<Needing>[]).map((tree) => ({
+												tree,
+												folder: null,
+												hosting,
+											}))}
+											agents={agents}
+											urgent={title === "Needs you"}
+											lanes={title === "Needs you" ? undefined : lanesHere}
+											beneath={beneath}
+											onOpen={open}
+										/>
+									</Fragment>
+								))
+							) : (
+								<>
 									<Group
-										title={String(title)}
-										items={(group as Nested<Needing>[]).map((tree) => ({
-											tree,
-											folder: null,
-											hosting,
-										}))}
+										title="Needs you"
+										items={grouped.needsYou}
 										agents={agents}
-										urgent={title === "Needs you"}
-										lanes={title === "Needs you" ? undefined : lanesHere}
+										urgent
+										named
 										beneath={beneath}
 										onOpen={open}
 									/>
-								</Fragment>
-							))
-						) : (
-							<>
-								<Group
-									title="Needs you"
-									items={grouped.needsYou}
-									agents={agents}
-									urgent
-									named
-									beneath={beneath}
-									onOpen={open}
-								/>
-								{grouped.folders.map((folder) => (
-									<FolderSection
-										key={folderKey(folder)}
-										folder={folder}
-										open={!folded.has(folderKey(folder))}
-										onFold={(open) => fold(folderKey(folder), open)}
-										onNew={available ? () => startIn(folder) : null}
-										agents={agents}
-										lanes={lanesOf(folder)}
-										beneath={beneath}
-										onOpen={open}
-									/>
-								))}
-							</>
-						)}
-						<TerminalGroup
-							mains={mains}
-							nameOf={(key) => terminals.nameOf(key)}
-							onRename={(key, name) => terminals.rename(key, name)}
-							onOpen={onOpen}
-							onClose={close}
-						/>
-					</Placing>
-				)}
-				{wide && available && (
-					<button
-						type="button"
-						onClick={() => onOpen(ARCHIVED)}
-						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
-					>
-						<ArchiveIcon className="size-3.5" />
-						<span>Archived</span>
-						{archived > 0 && <span className="tabular-nums">{archived}</span>}
-					</button>
-				)}
+									{grouped.folders.map((folder) => (
+										<FolderSection
+											key={folderKey(folder)}
+											folder={folder}
+											open={!folded.has(folderKey(folder))}
+											onFold={(open) => fold(folderKey(folder), open)}
+											onNew={available ? () => startIn(folder) : null}
+											agents={agents}
+											lanes={lanesOf(folder)}
+											beneath={beneath}
+											onOpen={open}
+										/>
+									))}
+								</>
+							)}
+							<TerminalGroup
+								mains={mains}
+								nameOf={(key) => terminals.nameOf(key)}
+								onRename={(key, name) => terminals.rename(key, name)}
+								onOpen={onOpen}
+								onClose={close}
+							/>
+						</Placing>
+					)}
+					{wide && available && (
+						<button
+							type="button"
+							onClick={() => onOpen(ARCHIVED)}
+							className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
+						>
+							<ArchiveIcon className="size-3.5" />
+							<span>Archived</span>
+							{archived > 0 && <span className="tabular-nums">{archived}</span>}
+						</button>
+					)}
+				</StaleRows>
 			</div>
 			{confirm}
 		</section>

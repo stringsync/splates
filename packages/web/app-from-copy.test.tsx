@@ -34,7 +34,7 @@ describe("App drawn from its last copy", () => {
 		expect(view.queryByText("Kept")).toBeNull();
 	});
 
-	it("shows the inbox loading, not the conversations it last listed, until the server answers", async () => {
+	it("dims and locks the inbox rows until the server answers", async () => {
 		await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login" })],
 			null,
@@ -51,12 +51,14 @@ describe("App drawn from its last copy", () => {
 		const list = await waitFor(() =>
 			view.getByRole("navigation", { name: "conversations" }),
 		);
-		await waitFor(() =>
-			within(list).getByRole("status", { name: "Loading inbox" }),
-		);
-		expect(within(list).queryByText("Fix login")).toBeNull();
+		const row = await waitFor(() => within(list).getByText("Fix signup"));
+		expect(row.closest("[inert]")).not.toBeNull();
 		arrive();
-		await waitFor(() => within(list).getByText("Fix signup"));
+		await waitFor(() =>
+			expect(
+				within(list).getByText("Fix signup").closest("[inert]"),
+			).toBeNull(),
+		);
 		expect(within(list).queryByText("Fix login")).toBeNull();
 	});
 
