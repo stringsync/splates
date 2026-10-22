@@ -1,4 +1,5 @@
 import { useReactive } from "@webappwiz/react";
+import { LoaderCircleIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -26,12 +27,18 @@ export interface Freshness {
 	unreachable: boolean;
 	/** Stale and reachable: the page takes no input. */
 	locked: boolean;
+	/** While locked, when the page stops waiting and unlocks, in `Date.now()` ms. */
+	givesUpAt: number | null;
+	/** How long the page waits in all, from going stale to giving up, in ms. */
+	waitsMs: number;
 }
 
 const FRESH: Freshness = {
 	stale: false,
 	unreachable: false,
 	locked: false,
+	givesUpAt: null,
+	waitsMs: 0,
 };
 
 /** Fresh unless given, so a part drawn without the page works as it is. */
@@ -57,22 +64,29 @@ export function useFeedsFreshness(
 	const stale = !snapshot.fresh || !listing.fresh;
 	// Counted here as well as by `feed`, which counts only its own failures.
 	const [waited, setWaited] = useState(false);
+	const [since, setSince] = useState<number | null>(null);
 	useEffect(() => {
 		setWaited(false);
 		if (!stale) {
+			setSince(null);
 			return;
 		}
+		setSince(Date.now());
 		const waiting = setTimeout(() => setWaited(true), feed.offlineAfter.ms);
 		return () => clearTimeout(waiting);
 	}, [stale, feed]);
 	const unreachable = stale && (waited || snapshot.offline);
+	const locked = stale && !unreachable;
+	const waitsMs = feed.offlineAfter.ms;
 	return useMemo(
 		() => ({
 			stale,
 			unreachable,
-			locked: stale && !unreachable,
+			locked,
+			givesUpAt: locked && since !== null ? since + waitsMs : null,
+			waitsMs,
 		}),
-		[stale, unreachable],
+		[stale, unreachable, locked, since, waitsMs],
 	);
 }
 
@@ -108,29 +122,14 @@ export function InboxLoading({
 						key={index}
 						className="flex min-h-16 items-center gap-3 py-2.5 pr-4 pl-4"
 					>
-						<Skeleton className="size-10 shrink-0 rounded-full motion-reduce:animate-none" />
+						<Skeleton className="size-10 shrink-0 rounded-full" />
 						<span className="flex min-w-0 flex-1 flex-col gap-2">
 							<span className="flex items-center gap-2">
-								<Skeleton
-									className={cn(
-										"h-4 max-w-[60%] flex-1 motion-reduce:animate-none",
-										row.name,
-									)}
-								/>
-								<Skeleton
-									className={cn(
-										"ml-auto h-3 shrink-0 motion-reduce:animate-none",
-										row.project,
-									)}
-								/>
-								<Skeleton className="h-3 w-8 shrink-0 motion-reduce:animate-none" />
+								<Skeleton className={cn("h-4 max-w-[60%] flex-1", row.name)} />
+								<Skeleton className={cn("ml-auto h-3 shrink-0", row.project)} />
+								<Skeleton className="h-3 w-8 shrink-0" />
 							</span>
-							<Skeleton
-								className={cn(
-									"h-3.5 max-w-[85%] motion-reduce:animate-none",
-									row.preview,
-								)}
-							/>
+							<Skeleton className={cn("h-3.5 max-w-[85%]", row.preview)} />
 						</span>
 					</li>
 				))}
@@ -198,31 +197,96 @@ export function useSaysStale(): boolean {
 
 /**
  * Whether what the page shows dims: locked, and stale long enough to say so.
- * Dimming a little is all it says, with no spinner, line or words, so coming
- * back to the tab after a while is quiet; once the server stays unreachable the page unlocks,
- * undimmed, and `OfflinePill` says so instead.
+ * Dimming a little is all it says at first, so coming back to the tab after a
+ * while is quiet; a wait that runs on gets `GivingUp`'s countdown, and once
+ * the server stays unreachable the page unlocks, undimmed, and `OfflinePill`
+ * says so instead.
  */
 export function useDimmed(): boolean {
 	const { locked } = useFreshness();
 	return useSaysStale() && locked;
 }
 
-/** The pill that says splates cannot be reached: neutral, with no action. */
-export function OfflinePill(): JSX.Element {
+// The share of the wait that passes quietly, dimmed, before the countdown shows.
+const QUIET_SHARE = 1 / 3;
+
+/**
+ * The page's one spinner, once a wait has run on: how long until the page
+ * stops waiting on the server, unlocks and says it cannot reach it, so a wait
+ * never locks the page for good.
+ */
+export function GivingUp({
+	className,
+}: {
+	className?: string;
+}): JSX.Element | null {
+	const { givesUpAt, waitsMs } = useFreshness();
+	const now = useTicking(givesUpAt !== null);
+	if (givesUpAt === null || givesUpAt - now > waitsMs * (1 - QUIET_SHARE)) {
+		return null;
+	}
+	const seconds = Math.max(1, Math.ceil((givesUpAt - now) / 1000));
 	return (
 		<span
 			role="status"
-			title="splates server stopped answering: is it still running?"
-			className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 font-medium text-[11px] text-muted-foreground leading-none"
+			className={cn(
+				"fade-in-0 flex shrink-0 animate-in items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs duration-300",
+				className,
+			)}
 		>
-			<span className="size-1.5 rounded-full bg-muted-foreground/60" />
-			Offline
+			<LoaderCircleIcon aria-hidden className="size-3 animate-spin" />
+			Still loading, gives up in {seconds}s
 		</span>
 	);
 }
 
-/** Says in a desktop's bar, beside the title, once the server stays unreachable. */
+/** `Date.now()`, read again every quarter second while `ticking`. */
+function useTicking(ticking: boolean): number {
+	const [now, setNow] = useState(() => Date.now());
+	useEffect(() => {
+		if (!ticking) {
+			return;
+		}
+		setNow(Date.now());
+		const ticks = setInterval(() => setNow(Date.now()), 250);
+		return () => clearInterval(ticks);
+	}, [ticking]);
+	return now;
+}
+
+/**
+ * Where a phone shows `GivingUp`, having no bar of its own on every screen:
+ * a small pill at the top of the screen, only while it counts down.
+ */
+export function GivingUpPill(): JSX.Element | null {
+	return (
+		<GivingUp className="-translate-x-1/2 fixed top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-[60] rounded-full border bg-background px-2.5 py-0.5" />
+	);
+}
+
+/**
+ * The error the page shows once it gave up waiting: the server cannot be
+ * reached. The page is unlocked by then, so what it shows can be read and
+ * copied; the streams reopen by themselves, so it offers no Retry.
+ */
+export function OfflinePill(): JSX.Element {
+	return (
+		<span
+			role="alert"
+			title="splates server stopped answering: is it still running? The page keeps trying."
+			className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-destructive/40 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
+		>
+			<span className="size-1.5 rounded-full bg-destructive" />
+			Can't reach the server
+		</span>
+	);
+}
+
+/**
+ * Says in a desktop's bar, beside the title, how long a wait that runs on has
+ * left, then once the server stays unreachable, that it cannot be reached.
+ */
 export function StaleChip(): JSX.Element | null {
 	const { unreachable } = useFreshness();
-	return unreachable ? <OfflinePill /> : null;
+	return unreachable ? <OfflinePill /> : <GivingUp />;
 }

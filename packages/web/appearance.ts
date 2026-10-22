@@ -51,11 +51,11 @@ export function followAppearance(
 }
 
 /**
- * The 🍽️ on `background`, the size of this screen, as a PNG data URL, or null
+ * `background` alone, the size of this screen, as a PNG data URL, or null
  * where there is no canvas to draw it on. iOS opens an installed app on a
  * white screen unless it has a launch image exactly the screen's size, and
- * never reads the manifest's colors. The tree is index.html's splash, at its
- * size, so the launch screen gives way to the page without a jump.
+ * never reads the manifest's colors. It is index.html's bare background, so
+ * the launch screen gives way to the page without a jump.
  */
 function launchImage(document: Document, background: string): string | null {
 	const view = document.defaultView;
@@ -72,9 +72,5 @@ function launchImage(document: Document, background: string): string | null {
 	}
 	context.fillStyle = background;
 	context.fillRect(0, 0, canvas.width, canvas.height);
-	context.font = `${96 * scale}px "Apple Color Emoji", sans-serif`;
-	context.textAlign = "center";
-	context.textBaseline = "middle";
-	context.fillText("🍽️", canvas.width / 2, canvas.height / 2);
 	return canvas.toDataURL("image/png");
 }

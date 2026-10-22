@@ -1,7 +1,14 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	type Duration,
 	SystemClock,
@@ -28,7 +35,7 @@ import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import type { Feed } from "./feed";
-import { FreshnessContext, useFeedsFreshness } from "./freshness";
+import { FreshnessContext, GivingUpPill, useFeedsFreshness } from "./freshness";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { MigrationFailed } from "./migration-failed";
 import { useWaiting } from "./next-waiting";
@@ -54,7 +61,6 @@ import { SettingsDialog } from "./settings-dialog";
 import { SetupProvider } from "./setup-state";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
-import { Splash } from "./splash";
 import { StatsReport } from "./stats-report";
 import {
 	OpenTerminalPage,
@@ -133,10 +139,9 @@ export function App({
 		},
 		[talk],
 	);
-	const { loading, available } = useReactive(
+	const { available } = useReactive(
 		talk,
 		(talk) => ({
-			loading: talk.loading,
 			available: talk.available,
 		}),
 		["changed"],
@@ -300,7 +305,7 @@ export function App({
 		[go],
 	);
 	const editorOpener = useMemo(() => openerOf(opener), [opener]);
-	const bodies = useAppPages({
+	const pages = useAppPages({
 		snapshot,
 		drafts,
 		todoView,
@@ -323,6 +328,20 @@ export function App({
 		wide,
 		openConversation,
 	});
+	// A seeded snapshot draws only the pages it holds; the rest stay empty,
+	// dimmed with the page, until the project's own is in.
+	const bodies = useMemo(
+		() =>
+			pages === null || !seeded
+				? pages
+				: (Object.fromEntries(
+						Object.entries(pages).map(([each, body]) => [
+							each,
+							SEEDED_PAGES.has(each as Page) ? body : null,
+						]),
+					) as Record<Page, ReactNode>),
+		[pages, seeded],
+	);
 	const reachable = !offline && outdated === null;
 	const opening =
 		failed === null ? (
@@ -460,18 +479,7 @@ export function App({
 																						open={setting}
 																						onOpenChange={setSetting}
 																					/>
-																					{/* Until the project and its conversations are in, or the page has something else to say. */}
-																					<Splash
-																						wanted={
-																							missing === null &&
-																							failed === null &&
-																							reachable &&
-																							(snapshot === null ||
-																								loading ||
-																								(seeded &&
-																									!SEEDED_PAGES.has(page)))
-																						}
-																					/>
+																					{!wide && <GivingUpPill />}
 																				</ConversationCheckpoint>
 																			</TooltipProvider>
 																		</ShortcutSettings>

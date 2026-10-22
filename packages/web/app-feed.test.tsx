@@ -36,28 +36,30 @@ describe("App's feed", () => {
 		await waitFor(() => expect(view.getByText(/new one/)).toBeTruthy());
 	});
 
-	it("says it is offline when the server goes away", async () => {
+	it("says it cannot reach the server when the server goes away", async () => {
 		const view = await testing.open();
-		expect(view.queryByText(/Offline/)).toBeNull();
+		expect(view.queryByText(/Can't reach the server/)).toBeNull();
 
 		testing.goAway();
 		await act(async () => testing.stream?.onmessage?.());
 
-		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
+		await waitFor(() =>
+			expect(view.getByText(/Can't reach the server/)).toBeTruthy(),
+		);
 	});
 
-	it("waits out a blip, as a tunnel reconnecting, before saying it is offline", async () => {
+	it("waits out a blip, as a tunnel reconnecting, before saying it cannot reach the server", async () => {
 		const view = await testing.open();
 
 		testing.goAway();
 		await act(async () => testing.stream?.onerror?.());
 		await Bun.sleep(OFFLINE_AFTER.ms / 2);
-		expect(view.queryByText(/Offline/)).toBeNull();
+		expect(view.queryByText(/Can't reach the server/)).toBeNull();
 		testing.comeBack();
 		await act(async () => testing.stream?.onopen?.());
 		await Bun.sleep(OFFLINE_AFTER.ms);
 
-		expect(view.queryByText(/Offline/)).toBeNull();
+		expect(view.queryByText(/Can't reach the server/)).toBeNull();
 	});
 
 	it("says it is outdated, with what to run, when a newer splates moved the records on", async () => {
@@ -72,7 +74,7 @@ describe("App's feed", () => {
 		const badge = await waitFor(() => view.getByText("Outdated"));
 		expect(badge.textContent).toBe("Outdated");
 		expect(badge.title).toContain("bunx @stringsync/splates@latest");
-		expect(view.queryByText(/Offline/)).toBeNull();
+		expect(view.queryByText(/Can't reach the server/)).toBeNull();
 	});
 
 	it("says the build failed when the page it serves is the one built before", async () => {

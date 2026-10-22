@@ -2,7 +2,7 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
-import { ChevronLeftIcon, Loader2Icon } from "lucide-react";
+import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
@@ -112,10 +112,7 @@ export function SetupPage({
 function SetupLoading(): JSX.Element {
 	return (
 		<div role="status" className="flex flex-col gap-4">
-			<p className="flex items-center gap-2 text-muted-foreground text-sm">
-				<Loader2Icon className="size-4 animate-spin" aria-hidden /> Reading your
-				setup…
-			</p>
+			<p className="text-muted-foreground text-sm">Reading your setup…</p>
 			<div aria-hidden className="flex flex-col gap-6">
 				{[3, 2].map((rows) => (
 					<ul
@@ -129,10 +126,10 @@ function SetupLoading(): JSX.Element {
 								className="flex min-h-16 items-center gap-3 px-4"
 							>
 								<span className="flex flex-1 flex-col gap-2">
-									<Skeleton className="h-4 w-40 motion-reduce:animate-none" />
-									<Skeleton className="h-3 w-24 motion-reduce:animate-none" />
+									<Skeleton className="h-4 w-40" />
+									<Skeleton className="h-3 w-24" />
 								</span>
-								<Skeleton className="size-4 rounded-full motion-reduce:animate-none" />
+								<Skeleton className="size-4 rounded-full" />
 							</li>
 						))}
 					</ul>

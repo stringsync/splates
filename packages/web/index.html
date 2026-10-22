@@ -17,9 +17,9 @@
 		<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
 		<link rel="apple-touch-icon" href="/icon-192.png" />
 		<meta name="theme-color" content="#1d1f23" />
-		<!-- The theme as web/appearance.ts sets it, and the 🍽️ on its background
-		     until the app mounts over it, so opening the app never paints white
-		     while the styles and script are on their way. -->
+		<!-- The theme as web/appearance.ts sets it, its bare background until the
+		     app mounts over it, so opening the app never paints white while the
+		     styles and script are on their way. -->
 		<script>
 			// What the page kept as arbor, under splates's keys, once: kept for one
 			// release after the rename.
@@ -55,14 +55,13 @@
 		<style>
 			html { background: #f3f4f7; }
 			html.dark { background: #1d1f23; }
-			.splash { position: fixed; inset: 0; display: grid; place-items: center; font-size: 96px; line-height: 1; }
 		</style>
 		<!-- Both are routes the server builds on request, not files next to this
 		     one. See assets.ts in splates for why they are not Bun's HTML import. -->
 		<link rel="stylesheet" href="/styles.css" />
 	</head>
 	<body>
-		<div id="root"><div class="splash" aria-hidden="true">🍽️</div></div>
+		<div id="root"></div>
 		<script type="module" src="/main.js"></script>
 	</body>
 </html>

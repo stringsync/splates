@@ -21,7 +21,6 @@
 @source "./eval-status.tsx";
 @source "./evals-card.tsx";
 @source "./conversation-checkpoint.tsx";
-@source "./splash.tsx";
 @source "./migration-failed.tsx";
 @source "./dictate-button.tsx";
 @source "./dictation-status.tsx";

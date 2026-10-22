@@ -28,20 +28,20 @@ describe("App once the server stays away after a wake", () => {
 		testing.dispose();
 	});
 
-	it("says in the bar it is offline and unlocks the page so it can be read", async () => {
+	it("says in the bar it cannot reach the server and unlocks the page so it can be read", async () => {
 		const input = view.getByRole("textbox", { name: "Message input" });
-		const said = await waitFor(() => view.getByText("Offline"));
-		expect(said.textContent).toBe("Offline");
+		const said = await waitFor(() => view.getByText("Can't reach the server"));
+		expect(said.textContent).toBe("Can't reach the server");
 		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
 		expect(input.closest("[inert]")).toBeNull();
 	});
 
 	it("shows the conversations again once the server is back", async () => {
 		const list = view.getByRole("navigation", { name: "conversations" });
-		await waitFor(() => view.getByText("Offline"));
+		await waitFor(() => view.getByText("Can't reach the server"));
 		testing.comeBack();
 		await reopen(testing);
 		await waitFor(() => within(list).getByText("Fix login"));
-		expect(view.queryByText("Offline")).toBeNull();
+		expect(view.queryByText("Can't reach the server")).toBeNull();
 	});
 });

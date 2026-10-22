@@ -27,7 +27,13 @@ describe("Saying the page may be stale", () => {
 	});
 
 	it("neither locks nor dims the inbox rows while fresh", async () => {
-		const page = rows({ stale: false, unreachable: false, locked: false });
+		const page = rows({
+			stale: false,
+			unreachable: false,
+			locked: false,
+			givesUpAt: null,
+			waitsMs: 10_000,
+		});
 
 		await new Promise((done) => setTimeout(done, 400));
 		expect(page.container.querySelector("[inert]")).toBeNull();
@@ -43,11 +49,21 @@ describe("Saying the page may be stale", () => {
 		expect(page.container.textContent).toBe("");
 	});
 
-	it("says at once in the bar that it is offline, with no buttons", () => {
+	it("counts down in the bar, with one spinner, once a wait has run on", () => {
+		const page = barred({ ...STALE, givesUpAt: Date.now() + 4_000 });
+
+		expect(page.getByRole("status").textContent).toBe(
+			"Still loading, gives up in 4s",
+		);
+		expect(page.container.querySelectorAll(".animate-spin")).toHaveLength(1);
+	});
+
+	it("says at once in the bar, as an error, that it cannot reach the server, with no buttons", () => {
 		const page = barred(UNREACHABLE);
 
-		expect(page.getByRole("status").textContent).toBe("Offline");
+		expect(page.getByRole("alert").textContent).toBe("Can't reach the server");
 		expect(page.queryByRole("button")).toBeNull();
+		expect(page.queryByRole("status")).toBeNull();
 	});
 });
 
@@ -55,12 +71,17 @@ const STALE: Freshness = {
 	stale: true,
 	unreachable: false,
 	locked: true,
+	// Just gone stale: the countdown is a while off.
+	givesUpAt: Date.now() + 10_000,
+	waitsMs: 10_000,
 };
 
 const UNREACHABLE: Freshness = {
 	stale: true,
 	unreachable: true,
 	locked: false,
+	givesUpAt: null,
+	waitsMs: 10_000,
 };
 
 function rows(freshness: Freshness) {
