@@ -47,6 +47,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
 import { splatesBudget } from "./budget";
+import { splatesConfig } from "./config";
 import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
@@ -564,4 +565,5 @@ splates
 	.mount("worker", splatesWorker)
 	.mount("queue", splatesQueue)
 	.mount("hook", splatesHook)
-	.mount("budget", splatesBudget);
+	.mount("budget", splatesBudget)
+	.mount("config", splatesConfig);
