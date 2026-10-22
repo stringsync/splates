@@ -69,15 +69,13 @@ function adding(name: string, description: string, ready: boolean) {
 			description:
 				"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
 		})
-		.option("file", z.string(), {
-			default: "",
+		.repeated("file", z.string(), {
 			description:
-				"files to attach, comma separated: copied under .git/splates/tasks/<n>/",
+				"files to attach, comma separated or the flag repeated: copied under .git/splates/tasks/<n>/",
 		})
-		.option("blocked-by", z.string(), {
-			default: "",
+		.repeated("blocked-by", z.string(), {
 			description:
-				"numbers of the tasks blocking it, comma separated: each has to merge before this one starts",
+				"numbers of the tasks blocking it, comma separated or the flag repeated: each has to merge before this one starts",
 		})
 		.option("lane", z.string(), {
 			default: "",
@@ -135,8 +133,8 @@ function adding(name: string, description: string, ready: boolean) {
 						slug: opts.slug,
 						text: opts.text,
 						position: opts.position,
-						files: commaList(opts.file),
-						blockedBy: taskIds(opts["blocked-by"]),
+						files: commaList(opts.file.join(",")),
+						blockedBy: taskIds(opts["blocked-by"].join(",")),
 						lane: laneIn(opts.lane) ?? null,
 						assignee,
 						origin,
@@ -227,23 +225,20 @@ splatesTask
 		description:
 			"where to move it in the list, 1 at the top; the others close up around it",
 	})
-	.option("file", z.string(), {
-		default: "",
-		description: "files to attach, comma separated",
+	.repeated("file", z.string(), {
+		description: "files to attach, comma separated or the flag repeated",
 	})
-	.option("remove-file", z.string(), {
-		default: "",
+	.repeated("remove-file", z.string(), {
 		description:
-			"attached files to drop, comma separated, by path or stored name",
+			"attached files to drop, comma separated or the flag repeated, by path or stored name",
 	})
-	.option("blocked-by", z.string(), {
-		default: "",
+	.repeated("blocked-by", z.string(), {
 		description:
-			"numbers of more tasks blocking it, comma separated: each has to merge before this one starts; refused when that makes a loop",
+			"numbers of more tasks blocking it, comma separated or the flag repeated: each has to merge before this one starts; refused when that makes a loop",
 	})
-	.option("remove-blocked-by", z.string(), {
-		default: "",
-		description: "numbers of tasks no longer blocking it, comma separated",
+	.repeated("remove-blocked-by", z.string(), {
+		description:
+			"numbers of tasks no longer blocking it, comma separated or the flag repeated",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -294,10 +289,10 @@ splatesTask
 				slug: opts.slug,
 				text: opts.text,
 				position: opts.position,
-				files: commaList(opts.file),
-				removeFiles: commaList(opts["remove-file"]),
-				blockedBy: taskIds(opts["blocked-by"]),
-				removeBlockedBy: taskIds(opts["remove-blocked-by"]),
+				files: commaList(opts.file.join(",")),
+				removeFiles: commaList(opts["remove-file"].join(",")),
+				blockedBy: taskIds(opts["blocked-by"].join(",")),
+				removeBlockedBy: taskIds(opts["remove-blocked-by"].join(",")),
 				lane: laneIn(opts.lane),
 				assignee,
 				ready: opts.ready,

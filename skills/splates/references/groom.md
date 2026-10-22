@@ -112,7 +112,7 @@ few `splates task` commands, then your turn ends.
    add` a lane for them and move that one into it too. When no themed lane
    fits, use `--lane backlog`: the permanent catch-all lane for deferred work.
 6. **Mark it ready**, last and in one `splates task update N '<detail>'
-   --blocked-by <ids> --lane <n> --ready`. Pick no agent, model or
+   --blocked-by <id> (repeated per id) --lane <n> --ready`. Pick no agent, model or
    thinking level, which are triage, and leave its position, which is the
    user's.
 

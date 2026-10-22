@@ -238,6 +238,27 @@ describe("splates cli", () => {
 		});
 	});
 
+	it("links every task a repeated or comma-listed --blocked-by names", async () => {
+		for (const slug of ["a", "b", "c"]) {
+			await splates.run(deps, ["task", "add", slug, "--slug", slug]);
+		}
+		await splates.run(deps, [
+			"task",
+			"add",
+			"d",
+			"--slug",
+			"d",
+			"--blocked-by",
+			"1",
+			"--blocked-by",
+			"2",
+		]);
+		await splates.run(deps, ["task", "update", "4", "--blocked-by", "3"]);
+
+		await splates.run(deps, ["task", "show", "4"]);
+		expect(env.out()).toMatch(/blocked.*1.*2.*3/s);
+	});
+
 	it("lists the thinking levels an agent offers, starts a task on one, and refuses any other", async () => {
 		await env.fs.write(
 			join(env.splatesHome, "offered.json"),
