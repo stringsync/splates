@@ -66,6 +66,12 @@ export {
 	taskOutcome,
 } from "./tasks";
 export {
+	exportUrl,
+	type Imported,
+	importConfig,
+	uploadPart,
+} from "./transfer";
+export {
 	addWorkerKey,
 	identity,
 	inviteWorker,

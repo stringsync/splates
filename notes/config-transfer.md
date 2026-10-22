@@ -20,3 +20,11 @@ SKILL.md points to in one line under "only when their moment comes", so the
 skill's main file says nothing more of it. An import runs with
 `splates server` stopped: the server caches files such as `offered.json` and
 would write its copy back over the import.
+
+The Setup page does the same through `packages/server/transfer/routes.ts`
+with the server running. An upload comes in parts of 6M characters, since an
+export with conversations outgrows the 25 MB a request may carry. Its import
+passes `keep: ["conversations"]`, so a conversation already here is never
+overwritten under its running log, and new ones are read in with
+`Conversations.reread()`. `Offered.reload()` and the roster refresh take in
+the imported settings without a restart.

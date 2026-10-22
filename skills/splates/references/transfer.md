@@ -6,6 +6,10 @@ Auto pick rules under `~/.splates`, so a clone or a push carries none of it.
 When the user asks to move that state to another machine or project, back it
 up, or bring it back, use `splates config`, never a copy of those
 directories, which takes along locks, leases and paths of this machine.
+The `splates server` page does the same from Setup, under "Move to another
+machine": point a user who has the page open there rather than running it
+for them, since it downloads the file to their device and imports while the
+server runs.
 
 ## Export
 

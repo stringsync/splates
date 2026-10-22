@@ -286,6 +286,10 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
+			reloadSettings: async () => {
+				await offered.reload();
+				return seeded(rosterOf(ctx), offered);
+			},
 			conversations: ({
 				splatesDir,
 				storage,

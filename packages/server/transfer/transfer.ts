@@ -34,11 +34,18 @@ export interface Places {
 export async function exportBundle(
 	{ fs, splatesDir, home }: Places,
 	requests: CredRequest[],
+	{ conversations = true }: ExportOptions = {},
 ): Promise<Bundle> {
 	return {
 		format: BUNDLE_FORMAT,
 		version: BUNDLE_VERSION,
-		project: await collect(fs, splatesDir, PROJECT_STATE),
+		project: await collect(
+			fs,
+			splatesDir,
+			conversations
+				? PROJECT_STATE
+				: PROJECT_STATE.filter((name) => name !== "conversations"),
+		),
 		machine: await collect(fs, home, MACHINE_STATE),
 		creds: requests
 			.filter((each) => each.status !== "dismissed")
@@ -76,10 +83,22 @@ export async function askAgain(
 	return asked;
 }
 
+/** What `exportBundle` leaves out. */
+export interface ExportOptions {
+	/** Whether the conversations go too, most of an export's size; they do by default. */
+	conversations?: boolean;
+}
+
 /** How `importBundle` treats what is already here. */
 export interface ImportOptions {
 	/** Overwrite files that differ from the bundle instead of stopping. */
 	force: boolean;
+	/**
+	 * Directories of the project's half whose files here stay as they are,
+	 * the bundle's copy left out rather than a conflict: a running server's
+	 * conversations, which write their own logs.
+	 */
+	keep?: readonly string[];
 }
 
 /** What importing a bundle did. */
@@ -87,6 +106,8 @@ export interface Imported {
 	written: string[];
 	/** Files the bundle names that already exist here with other contents. */
 	conflicts: string[];
+	/** Files under `keep` that exist here, left as they are. */
+	kept: string[];
 }
 
 /**
@@ -99,11 +120,21 @@ export async function importBundle(
 	opts: ImportOptions,
 ): Promise<Imported> {
 	const { fs, splatesDir, home } = places;
+	const kept: string[] = [];
+	const project: [string, string, string][] = [];
+	for (const [path, text] of Object.entries(bundle.project)) {
+		const at = `${splatesDir}/${path}`;
+		if (
+			(opts.keep ?? []).some((dir) => path.startsWith(`${dir}/`)) &&
+			(await fs.exists(at))
+		) {
+			kept.push(`project ${path}`);
+			continue;
+		}
+		project.push([at, text, `project ${path}`]);
+	}
 	const targets = [
-		...Object.entries(bundle.project).map(
-			([path, text]) =>
-				[`${splatesDir}/${path}`, text, `project ${path}`] as const,
-		),
+		...project,
 		...Object.entries(bundle.machine).map(
 			([path, text]) => [`${home}/${path}`, text, `machine ${path}`] as const,
 		),
@@ -130,7 +161,7 @@ export async function importBundle(
 		await fs.write(path, text);
 		written.push(label);
 	}
-	return { written, conflicts };
+	return { written, conflicts, kept };
 }
 
 /** Reads an export file's text as a bundle, refusing anything else. */

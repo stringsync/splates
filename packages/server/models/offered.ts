@@ -28,6 +28,14 @@ export class Offered {
 		}>,
 	) {}
 
+	/** Reads the file again on next use, once any write under way is done, as after an import. */
+	async reload(): Promise<void> {
+		await this.writing;
+		this.known = null;
+		this.images = {};
+		this.newer = false;
+	}
+
 	/** Every agent's settings, by its id; none for one never started. */
 	async all(): Promise<Record<string, Setting[]>> {
 		this.known ??= this.read();

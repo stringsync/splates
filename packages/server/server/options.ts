@@ -6,6 +6,7 @@ import type { Conversations } from "../conversations";
 import type { Creds } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { Git } from "../git";
+import type { RosterAgent } from "../models";
 import type { Slot } from "../ports";
 import type { Journal } from "../records";
 import type { Storage } from "../storage";
@@ -89,6 +90,12 @@ export interface DevOptions {
 				journal: Journal;
 		  }) => Conversations)
 		| null;
+	/**
+	 * Reads the machine's settings again after an import wrote them,
+	 * answering the roster as it now stands; without it an import's roster
+	 * applies from the restart.
+	 */
+	reloadSettings?: (() => Promise<RosterAgent[]>) | null;
 	/**
 	 * The shell a page's terminal runs, as argv, in the main tree or a task's
 	 * worktree; without it, the page has no terminal and the route says so.

@@ -579,6 +579,12 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			.catch(() => {});
 	}
 
+	/** Takes in the logs written since it read them, as an import adds, leaving each it holds as it is. */
+	async reread(): Promise<void> {
+		await this.load();
+		await this.read();
+	}
+
 	private load(): Promise<void> {
 		// Logs archived before any were deleted go as they are read back.
 		this.loaded ??= this.read().then(() => this.trim());

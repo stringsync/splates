@@ -228,4 +228,31 @@ describe("App's setup", () => {
 		expect(testing.posts).toEqual([]);
 		expect(location.hash).not.toBe("#setup");
 	});
+
+	it("offers a fresh machine an import above the areas, and others an export below them", async () => {
+		testing.setup = setupProgress({ fresh: true });
+		const view = await openSetup(null);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "move to another machine" }),
+		);
+		expect(card.textContent).toContain("Coming from another machine?");
+		const areas = view.getByRole("navigation", { name: "setup areas" });
+		expect(
+			card.compareDocumentPosition(areas) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		cleanup();
+
+		testing.setup = setupProgress();
+		const later = await openSetup(null);
+		const moved = await waitFor(() =>
+			later.getByRole("region", { name: "move to another machine" }),
+		);
+		expect(moved.textContent).toContain("Move to another machine");
+		const exported = within(moved).getByRole("button", { name: "Export" });
+		expect(exported.getAttribute("href")).toBe("/api/config/export");
+		fireEvent.click(within(moved).getByRole("switch"));
+		expect(exported.getAttribute("href")).toBe(
+			"/api/config/export?conversations=0",
+		);
+	});
 });
