@@ -30,16 +30,22 @@ setDefaultTimeout(20_000);
 const BIG = 20 * 1024 * 1024;
 
 // The link's pace, scaled down from heartbeat 10s and timeout 30s so a
-// stall past the timeout takes a second.
+// stall past the timeout takes half a second.
 const PACE = {
-	heartbeat: Duration.ms(100),
-	timeout: Duration.ms(400),
+	heartbeat: Duration.ms(50),
+	timeout: Duration.ms(250),
 	ackDelay: Duration.ms(5),
 };
 
-/** Counts to `count` over about `count * 50`ms, one number a line. */
+/** A silence the link's timeout ends in a reconnect. */
+const PAST_TIMEOUT = Duration.ms(500);
+
+/** How long a dial waits for the server to answer. */
+const DIAL = Duration.ms(150);
+
+/** Counts to `count` over about `count * 20`ms, one number a line. */
 const COUNT = (count: number) =>
-	`i=1; while [ $i -le ${count} ]; do echo $i; i=$((i+1)); sleep 0.05; done`;
+	`i=1; while [ $i -le ${count} ]; do echo $i; i=$((i+1)); sleep 0.02; done`;
 const COUNTED = (count: number) =>
 	Array.from({ length: count }, (_, i) => `${i + 1}\n`).join("");
 
@@ -69,7 +75,7 @@ describe("the worker link through a faulty network", () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-link-"));
 		registry = new WorkerRegistry(new MemoryLogger(), {
 			session: PACE,
-			calls: { exists: Duration.ms(800) },
+			calls: { exists: Duration.ms(500) },
 		});
 		joins = 0;
 		registry.events.on("joined", () => joins++);
@@ -82,7 +88,7 @@ describe("the worker link through a faulty network", () => {
 		daemon = new WorkerDaemon(
 			{
 				where: url,
-				dial: () => WebSocketWorkerSocket.connect(url, {}, Duration.ms(300)),
+				dial: () => WebSocketWorkerSocket.connect(url, {}, DIAL),
 			},
 			{
 				id: "box",
@@ -121,37 +127,37 @@ describe("the worker link through a faulty network", () => {
 	});
 
 	it("keeps an agent's output across a dropped connection", async () => {
-		const child = worker.start(["/bin/sh", "-c", COUNT(30)], dir);
+		const child = worker.start(["/bin/sh", "-c", COUNT(15)], dir);
 		const received = printed(child);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 
 		proxy.drop();
 
-		expect(await received).toBe(COUNTED(30));
+		expect(await received).toBe(COUNTED(15));
 		expect(joins).toBeGreaterThan(1);
 	});
 
 	it("keeps an agent's output across a silence long past the link's timeout", async () => {
-		const child = worker.start(["/bin/sh", "-c", COUNT(40)], dir);
+		const child = worker.start(["/bin/sh", "-c", COUNT(30)], dir);
 		const received = printed(child);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 
 		proxy.stall();
-		await sleep(Duration.secs(1));
+		await sleep(PAST_TIMEOUT);
 		proxy.resume();
 
-		expect(await received).toBe(COUNTED(40));
+		expect(await received).toBe(COUNTED(30));
 		expect(joins).toBeGreaterThan(1);
 	});
 
 	it("keeps an agent's output when a frame is cut in half", async () => {
-		const child = worker.start(["/bin/sh", "-c", COUNT(30)], dir);
+		const child = worker.start(["/bin/sh", "-c", COUNT(15)], dir);
 		const received = printed(child);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 
 		proxy.cutNextFrame("toCoordinator");
 
-		expect(await received).toBe(COUNTED(30));
+		expect(await received).toBe(COUNTED(15));
 		expect(joins).toBeGreaterThan(1);
 	});
 
@@ -164,7 +170,7 @@ describe("the worker link through a faulty network", () => {
 
 		const input = child.input.getWriter();
 		await input.write(new TextEncoder().encode("hello\n"));
-		await sleep(Duration.ms(600));
+		await sleep(Duration.ms(300));
 		await input.write(new TextEncoder().encode("again\n"));
 		await input.close();
 
@@ -175,7 +181,7 @@ describe("the worker link through a faulty network", () => {
 		proxy.refuse();
 		proxy.drop();
 		await eventually(() => !worker.connected, 10);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 		const before = joins;
 
 		proxy.reopen();
@@ -189,7 +195,7 @@ describe("the worker link through a faulty network", () => {
 		proxy.drop();
 		await eventually(() => !worker.connected, 10);
 		// Long enough that every dial in flight has been swallowed.
-		await sleep(Duration.secs(1));
+		await sleep(DIAL.multiply(2));
 		const before = joins;
 
 		proxy.reopen();
@@ -203,14 +209,14 @@ describe("the worker link through a faulty network", () => {
 		proxy.stall();
 
 		await expect(worker.exists(dir)).rejects.toThrow(
-			"worker box did not answer the exists call within 0.8s, its link down",
+			"worker box did not answer the exists call within 0.5s, its link down",
 		);
 	});
 
 	it("answers a call once a short silence passes", async () => {
 		proxy.stall();
 		const answered = worker.exists(dir);
-		await sleep(Duration.ms(200));
+		await sleep(Duration.ms(100));
 		proxy.resume();
 
 		expect(await answered).toBe(true);
@@ -220,14 +226,14 @@ describe("the worker link through a faulty network", () => {
 	it("keeps its process through a server restart, and reattaches to it", async () => {
 		const child = worker.start(["/bin/sh", "-c", COUNT(40)], dir);
 		const received = printed(child);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 		const pid = child.pid as number;
 		const { id } = worker.session;
 
 		await registry.detach();
 		registry.dispose();
 		await server.stop(true);
-		await sleep(Duration.ms(300));
+		await sleep(Duration.ms(100));
 		expect(new NodePs().alive(pid)).toBe(true);
 		registry = new WorkerRegistry(new MemoryLogger(), {
 			session: { ...PACE, id },
@@ -253,7 +259,7 @@ describe("the worker link through a faulty network", () => {
 		await sleep(Duration.ms(50));
 
 		proxy.stall();
-		await sleep(Duration.secs(1));
+		await sleep(PAST_TIMEOUT);
 		proxy.resume();
 
 		expect((await received).length).toBe(BIG);
