@@ -6,7 +6,7 @@ import type {
 	RunnerSplit,
 	RunnersReport,
 } from "@stringsync/splates-server/spend";
-import { dollars } from "@stringsync/splates-server/workers/browser";
+import { dollars, sizeLabel } from "@stringsync/splates-server/workers/browser";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import type { JSX } from "react";
@@ -161,7 +161,13 @@ function RunnerList({
 						className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm"
 					>
 						<span className="flex min-w-40 flex-col">
-							<code className="font-mono text-[13px]">{runner.type}</code>
+							{runner.size === null ? (
+								<code className="font-mono text-[13px]">{runner.type}</code>
+							) : (
+								<span className="tabular-nums">
+									{sizeLabel(runner.size, runner.dollarsPerHour)}
+								</span>
+							)}
 							<span className="text-muted-foreground text-xs">{runner.id}</span>
 						</span>
 						<span className="flex min-w-44 flex-col text-xs tabular-nums">
@@ -183,8 +189,8 @@ function RunnerList({
 							{dollars(hours * runner.dollarsPerHour)}
 						</span>
 						<span className="text-muted-foreground text-xs tabular-nums">
-							{runner.jobs} {runner.jobs === 1 ? "job" : "jobs"} ·{" "}
-							{dollars(runner.dollarsPerHour)}/h
+							{runner.jobs} {runner.jobs === 1 ? "job" : "jobs"}
+							{runner.size === null && ` · ${dollars(runner.dollarsPerHour)}/h`}
 						</span>
 						{up && (
 							<Button

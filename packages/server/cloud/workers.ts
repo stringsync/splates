@@ -7,12 +7,16 @@ import {
 import {
 	ACCESS_CLIENT_ID_HEADER,
 	ACCESS_CLIENT_SECRET_HEADER,
+	DEFAULT_JOB_SIZE,
+	fits,
+	type JobSize,
 	OWN_BUILD_HEADER,
 	type ProvisionedMachine,
 	SNAPSHOT_SPLATES,
 	SNAPSHOT_USER,
 	type Snapshot,
 	type SnapshotRecipe,
+	TypeRefused,
 	WORKER_ACCESS_ID,
 	WORKER_ACCESS_SECRET,
 	type WorkerImage,
@@ -20,7 +24,7 @@ import {
 	type WorkerSpec,
 	type WorkerType,
 } from "../workers";
-import type { CloudProvider, Orderable } from "./provider";
+import type { CloudProvider, CloudSize } from "./provider";
 
 /**
  * Makes workers in a cloud account: each worker a machine tagged with its
@@ -31,6 +35,9 @@ import type { CloudProvider, Orderable } from "./provider";
 export class CloudWorkers implements WorkerProvider {
 	private readonly wall: WallClock;
 	private readonly wait: (duration: Duration) => Promise<void>;
+	private readonly job: JobSize;
+	/** The sizes the cloud refused to make, by name, until when each is left out, epoch ms. */
+	private readonly refused = new Map<string, number>();
 	readonly idleAfter: Duration | undefined;
 
 	constructor(
@@ -39,6 +46,7 @@ export class CloudWorkers implements WorkerProvider {
 	) {
 		this.wall = opts.wall ?? new SystemWallClock();
 		this.wait = opts.wait ?? sleep;
+		this.job = opts.job ?? DEFAULT_JOB_SIZE;
 		this.idleAfter = opts.idleAfter;
 	}
 
@@ -48,17 +56,36 @@ export class CloudWorkers implements WorkerProvider {
 	}
 
 	/**
-	 * The types orderable now in one of its locations, each at the price the
-	 * cloud's API says now, which a runner made of it is counted at.
+	 * The sizes a runner is made of, the cheapest first: each orderable now
+	 * that holds a job and boots the snapshot, up to `MAX_CPUS`, shared or
+	 * dedicated, at the price the cloud's API says now, leaving out any it
+	 * refused in the last `REFUSED_FOR`.
 	 */
 	async types(): Promise<WorkerType[]> {
-		const orderable = await this.cloud.orderable();
-		return this.cloud.defaults.workerTypes
-			.filter((type) => this.where(orderable, type.name) !== null)
-			.map((type) => ({
-				...type,
-				dollarsPerHour:
-					orderable.get(type.name)?.dollarsPerHour ?? type.dollarsPerHour,
+		const sizes = await this.cloud.sizes();
+		const builders = sizes.filter((size) =>
+			this.cloud.defaults.builderTypes.includes(size.name),
+		);
+		const disk = Math.min(...builders.map((size) => size.disk), Infinity);
+		const now = this.wall.now();
+		return sizes
+			.filter(
+				(size) =>
+					size.cpus <= MAX_CPUS &&
+					fits(this.job, size) &&
+					(builders.length === 0 || size.disk >= disk) &&
+					(this.refused.get(size.name) ?? 0) <= now &&
+					this.where(size) !== null,
+			)
+			.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour)
+			.map((size) => ({
+				name: size.name,
+				platform: "linux",
+				slots: 1,
+				cpus: size.cpus,
+				memory: size.memory,
+				dollarsPerHour: size.dollarsPerHour,
+				billing: size.billing,
 			}));
 	}
 
@@ -68,21 +95,22 @@ export class CloudWorkers implements WorkerProvider {
 
 	async snapshot(recipe: SnapshotRecipe): Promise<Snapshot> {
 		const { cloud } = this;
-		const orderable = await cloud.orderable();
-		// A snapshot boots droplets only in its own region, so it is built where
-		// the cheapest runner would be made, as `pickType` picks one.
-		const [runner] = (await this.types())
-			.filter((type) => type.platform === recipe.platform)
-			.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
-		const near =
-			runner === undefined ? null : this.where(orderable, runner.name);
+		const sizes = new Map(
+			(await cloud.sizes()).map((size) => [size.name, size]),
+		);
+		// A snapshot boots machines only in its own location, so it is built
+		// where the cheapest runner would be made, as `pickType` picks one.
+		const [runner] = (await this.types()).filter(
+			(type) => type.platform === recipe.platform,
+		);
+		const near = this.where(sizes.get(runner?.name ?? ""));
 		const builder = cloud.defaults.builderTypes
 			.map((type) => ({
 				type,
 				location:
-					near !== null && orderable.get(type)?.locations.has(near)
+					near !== null && sizes.get(type)?.locations.has(near)
 						? near
-						: this.where(orderable, type),
+						: this.where(sizes.get(type)),
 			}))
 			.find((each) => each.location !== null);
 		if (builder === undefined) {
@@ -126,7 +154,9 @@ export class CloudWorkers implements WorkerProvider {
 
 	async create(spec: WorkerSpec): Promise<ProvisionedMachine> {
 		const { cloud } = this;
-		const location = this.where(await cloud.orderable(), spec.type);
+		const location = this.where(
+			(await cloud.sizes()).find((size) => size.name === spec.type),
+		);
 		if (location === null) {
 			throw new Error(
 				`${cloud.name} cannot make a ${spec.type} in any region right now`,
@@ -146,6 +176,9 @@ export class CloudWorkers implements WorkerProvider {
 				tags: { [WORKER_TAG]: spec.id },
 			});
 		} catch (error) {
+			if (error instanceof TypeRefused) {
+				this.refused.set(error.type, this.wall.now() + REFUSED_FOR.ms);
+			}
 			await this.destroy(spec.id).catch(() => {});
 			throw error;
 		}
@@ -179,14 +212,11 @@ export class CloudWorkers implements WorkerProvider {
 	}
 
 	/**
-	 * Where `type` is made: the first of its locations that stocks it, else
-	 * the first other that does, by name; null when none does.
+	 * Where a machine of `size` is made: the first of its locations that
+	 * stocks it, else the first other that does, by name; null when none does.
 	 */
-	private where(
-		orderable: Map<string, Orderable>,
-		type: string,
-	): string | null {
-		const at = [...(orderable.get(type)?.locations ?? [])];
+	private where(size: CloudSize | undefined): string | null {
+		const at = [...(size?.locations ?? [])];
 		return (
 			this.cloud.defaults.workerLocations.find((location) =>
 				at.includes(location),
@@ -210,6 +240,15 @@ export class CloudWorkers implements WorkerProvider {
 	}
 }
 
+/** The most CPUs a runner is made with, however big a job asks. */
+const MAX_CPUS = 16;
+
+/**
+ * How long a size the cloud refused is left out, after which it is tried
+ * again, as once a new account may order bigger sizes.
+ */
+const REFUSED_FOR = Duration.hrs(1);
+
 /** The tag every worker splates made carries, its value the worker's id. */
 const WORKER_TAG = "splates-worker";
 
@@ -226,6 +265,8 @@ const STALE_BUILDER = Duration.hrs(1);
 
 /** What a `CloudWorkers` runs on; the real ones by default. */
 export interface CloudWorkersOptions {
+	/** What one of the project's heavy jobs asks of a runner, which every runner made holds. */
+	job?: JobSize;
 	wall?: WallClock;
 	/** How long an idle worker may stand before it is destroyed at the end of its paid hour; 15 minutes by default. */
 	idleAfter?: Duration;

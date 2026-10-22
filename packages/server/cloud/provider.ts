@@ -1,4 +1,4 @@
-import type { WorkerType } from "../workers";
+export { TypeRefused } from "../workers";
 
 /**
  * CloudProvider is the seam onto a cloud account splates makes machines in,
@@ -26,13 +26,17 @@ export interface CloudProvider {
 	 * `digitalocean`, which each runner's estimate is set beside.
 	 */
 	readonly billing: string;
-	/** Where each machine type can be ordered now, and what it costs, by type name. */
-	orderable(): Promise<Map<string, Orderable>>;
+	/** Each size it sells that can be ordered now somewhere, with where and what it costs. */
+	sizes(): Promise<CloudSize[]>;
 	/** Machine `id`, or null when there is none. */
 	machine(id: string): Promise<CloudMachine | null>;
 	/** The machines tagged `tag`, with `value` when given. */
 	machines(tag: string, value?: string): Promise<CloudMachine[]>;
-	/** Makes a machine as `spec` says, answering once it is booting. */
+	/**
+	 * Makes a machine as `spec` says, answering once it is booting. Throws
+	 * `TypeRefused` when the cloud will not make its type for this account,
+	 * as a limit its API does not list.
+	 */
 	create(spec: NewMachine): Promise<CloudMachine>;
 	/** Deletes machine `id`; silent when it is already gone. */
 	delete(id: string): Promise<void>;
@@ -46,12 +50,23 @@ export interface CloudProvider {
 	deleteSnapshot(id: string): Promise<void>;
 }
 
-/** A machine type that can be ordered now. */
-export interface Orderable {
-	/** The locations it can be ordered in. */
-	locations: Set<string>;
-	/** What it costs an hour, in US dollars, as the cloud's API says now. */
+/** A size of machine a cloud sells, as its API says now. */
+export interface CloudSize {
+	/** The cloud's own name for it, which machines are ordered by and the bill names. */
+	name: string;
+	cpus: number;
+	/** In GB. */
+	memory: number;
+	/** Its disk in GB, which must hold the snapshot it boots. */
+	disk: number;
+	/** Whether its CPUs are its own, rather than shared with other machines. */
+	dedicated: boolean;
+	/** What it costs an hour, in US dollars. */
 	dollarsPerHour: number;
+	/** `"second"` for only the time a machine of it runs, `"hour"` for each started hour. */
+	billing: "hour" | "second";
+	/** The locations it can be ordered in now. */
+	locations: Set<string>;
 }
 
 /** The API token a cloud reads, and how the setup page asks for it. */
@@ -68,11 +83,9 @@ export interface CloudToken {
 
 /** What a cloud makes when not told otherwise. */
 export interface CloudDefaults {
-	/** The types runners are made of, with what each costs. */
-	workerTypes: readonly WorkerType[];
 	/** Where runners go first, in the order tried, before any other location that stocks them. */
 	workerLocations: readonly string[];
-	/** The types a runner snapshot is built on, the first orderable taken. */
+	/** The sizes a runner snapshot is built on, the first orderable taken; a runner's disk is at least the smallest's. */
 	builderTypes: readonly string[];
 	/** The image machines start from: Debian or Ubuntu with cloud-init. */
 	image: string;

@@ -4,6 +4,7 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
 import { CloudWorkers } from "../cloud";
 import { Git } from "../git";
+import { jobSize } from "../workers";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 
@@ -43,7 +44,12 @@ export async function loadConfig(
 	const _git = opts.git ?? new Git(root);
 	const config = { ...defaults(root, trunk), ...found };
 	return config.workerProvider === null && config.cloud !== null
-		? { ...config, workerProvider: new CloudWorkers(config.cloud) }
+		? {
+				...config,
+				workerProvider: new CloudWorkers(config.cloud, {
+					job: jobSize(config.job),
+				}),
+			}
 		: config;
 }
 

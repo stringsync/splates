@@ -1,5 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
+import { CloudWorkers } from "../cloud";
 import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
@@ -8,7 +9,12 @@ import {
 	CloudflareTunnels,
 	SavedTunnel,
 } from "../tunnel";
-import { LOCAL_WORKER } from "../workers";
+import {
+	DEFAULT_JOB_SIZE,
+	LOCAL_WORKER,
+	sizeLabel,
+	type WorkerType,
+} from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
 	CLOUD_USES,
@@ -118,10 +124,11 @@ function workersArea(): SetupArea {
 		uses: CLOUD_USES,
 		fields: async (machine) => cloudTokenFields(machine),
 		detail: async (machine) => {
-			const [type] = cloudOf(machine).defaults.workerTypes;
-			return type === undefined
-				? null
-				: `A runner is a \`${type.name}\` machine in ${cloudOf(machine).name}, ${type.slots} jobs at once, about $${type.dollarsPerHour} an hour, billed ${type.billing === "second" ? "for the time it runs" : "by the started hour"}.`;
+			const cloud = cloudOf(machine);
+			const [type] = await runnerTypes(machine);
+			return type?.cpus === undefined || type.memory === undefined
+				? `A runner is the cheapest machine in ${cloud.name} that holds one of the project's heavy jobs, ${sizeLabel(DEFAULT_JOB_SIZE)} unless its \`splates.config.ts\` sets \`job\`.`
+				: `A runner is a machine in ${cloud.name} of ${sizeLabel({ cpus: type.cpus, memory: type.memory }, type.dollarsPerHour)}, the cheapest that holds one of the project's heavy jobs, billed ${type.billing === "second" ? "for the time it runs" : "by the started hour"}.`;
 		},
 		submit: requireCloudToken,
 		check: cloudTokenAccepted,
@@ -211,5 +218,26 @@ async function removeWorkers(
 		if (which(worker) && !worker.removing) {
 			await machine.removeWorker(worker.id);
 		}
+	}
+}
+
+/**
+ * The types runners would be made of, the cheapest first, sized for the
+ * project's jobs once it names its cloud; none while the cloud does not
+ * take the token kept, or cannot say.
+ */
+async function runnerTypes(machine: SetupMachine): Promise<WorkerType[]> {
+	const cloud = cloudOf(machine);
+	try {
+		if (!(await cloud.accepted())) {
+			return [];
+		}
+		const own = (await machine.project?.config())?.workerProvider;
+		return await (own instanceof CloudWorkers
+			? own
+			: new CloudWorkers(cloud)
+		).types();
+	} catch {
+		return [];
 	}
 }

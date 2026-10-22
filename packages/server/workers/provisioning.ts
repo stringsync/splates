@@ -143,7 +143,7 @@ export class WorkerProvisioning
 			(await this.opts.access?.mint()) ?? null,
 		);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
-		await this.keepMade(id, type.name, type.dollarsPerHour);
+		await this.keepMade(id, type, type.dollarsPerHour);
 		let made: ProvisionedMachine;
 		try {
 			made = await this.reconciler.creating(id, () =>
@@ -205,7 +205,7 @@ export class WorkerProvisioning
 				},
 			});
 			await this.opts.budget.started(id, type.name, rate);
-			await this.keepMade(id, type.name, rate);
+			await this.keepMade(id, type, rate);
 		}
 		this.opts.log.info(
 			`provisioned ${id}, a ${type.name} at $${rate.toFixed(2)}/hour${made.spot === true ? " on spot" : ""}`,
@@ -224,13 +224,15 @@ export class WorkerProvisioning
 	/** Keeps runner `id`, of `type` at `dollarsPerHour`, in the ledger the Billing page reads. */
 	private async keepMade(
 		id: string,
-		type: string,
+		type: WorkerType,
 		dollarsPerHour: number,
 	): Promise<void> {
 		await this.opts.ledger?.note({
 			row: "runner",
 			id,
-			type,
+			type: type.name,
+			...(type.cpus === undefined ? {} : { cpus: type.cpus }),
+			...(type.memory === undefined ? {} : { memory: type.memory }),
 			provider: this.opts.provider.billing ?? null,
 			dollarsPerHour,
 			at: new Date(this.wall.now()).toISOString(),

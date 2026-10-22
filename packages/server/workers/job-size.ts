@@ -80,6 +80,18 @@ export function fits(size: JobSize, room: JobSize): boolean {
 	return size.cpus <= room.cpus && size.memory <= room.memory;
 }
 
+/**
+ * A runner's size as people read it, with its price when given:
+ * "4 CPUs, 8 GB, $0.07/h".
+ */
+export function sizeLabel(size: JobSize, dollarsPerHour?: number): string {
+	const cpus = `${size.cpus} ${size.cpus === 1 ? "CPU" : "CPUs"}`;
+	const memory = `${Number(size.memory.toFixed(1))} GB`;
+	return dollarsPerHour === undefined
+		? `${cpus}, ${memory}`
+		: `${cpus}, ${memory}, $${dollarsPerHour.toFixed(2)}/h`;
+}
+
 function invalid(what: string): never {
 	throw new Error(`${what}: name a size such as "8GB" or "512MB"`);
 }

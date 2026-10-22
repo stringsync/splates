@@ -5,6 +5,7 @@ import { FakeWallClock } from "webappwiz/time/testing";
 import { WorkerBudget } from "./budget";
 import { JobPool } from "./job-pool";
 import type { JobSize } from "./job-size";
+import { TypeRefused, type WorkerType } from "./provider";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -150,6 +151,43 @@ describe("the runner keeper", () => {
 
 		wall.advance(Duration.secs(61));
 
+		expect(keeper.canMake()).toBe(true);
+	});
+
+	it("makes the next type at once when the provider refuses one, with no backoff", async () => {
+		const types: WorkerType[] = [
+			{
+				name: "cheap",
+				platform: "linux",
+				slots: 1,
+				cpus: 4,
+				memory: 8,
+				dollarsPerHour: 0.07,
+				billing: "second",
+			},
+			{
+				name: "dear",
+				platform: "linux",
+				slots: 1,
+				cpus: 4,
+				memory: 8,
+				dollarsPerHour: 0.12,
+				billing: "second",
+			},
+		];
+		const create = provider.create.bind(provider);
+		provider.types = async () => types;
+		// Refuses the first it is asked for, which it then leaves out, as a cloud's provider does.
+		provider.create = async () => {
+			types.shift();
+			provider.create = create;
+			throw new TypeRefused("cheap", "size not available on this account");
+		};
+		void job("j1");
+		await Bun.sleep(0);
+		await keeper.look();
+
+		expect(made()).toEqual([expect.stringMatching(/^create dear-\w+ dear /)]);
 		expect(keeper.canMake()).toBe(true);
 	});
 });

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { DIGITALOCEAN_TOKEN } from "../cloud";
+import { FakeDigitalOcean } from "../cloud/testing";
 import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
@@ -128,5 +130,22 @@ describe("WORKERS_AREA", () => {
 
 		status = 403;
 		expect((await steps())["worker-access"]?.status).toBe("ready");
+	});
+
+	it("describes a runner by its CPUs, memory and price once the cloud takes the token", async () => {
+		const digitalocean = new FakeDigitalOcean();
+		digitalocean.stock = { nyc3: ["s-4vcpu-8gb", "c-4", "s-1vcpu-2gb"] };
+		digitalocean.prices = { "s-4vcpu-8gb": 0.0714, "c-4": 0.125 };
+		machine.fetch = digitalocean.fetch;
+		const detail = async () => (await steps())["cloud-token"]?.detail ?? "";
+
+		expect(await detail()).toContain(
+			"the cheapest machine in DigitalOcean that holds one of the project's heavy jobs, 4 CPUs, 8 GB unless",
+		);
+
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
+		expect(await detail()).toBe(
+			"A runner is a machine in DigitalOcean of 4 CPUs, 8 GB, $0.07/h, the cheapest that holds one of the project's heavy jobs, billed for the time it runs.",
+		);
 	});
 });

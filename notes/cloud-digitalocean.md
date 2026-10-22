@@ -1,5 +1,5 @@
 ---
-description: Why DigitalOcean is the cloud runners are made in, behind the CloudProvider seam, what a runner is and costs, and how DigitalOcean bills it
+description: Why DigitalOcean is the cloud runners are made in, behind the CloudProvider seam, how a runner's size is picked from CPUs and memory, sizes an account may not order, and how DigitalOcean bills it
 ---
 
 Clouds went Hetzner (2026-10-17), DigitalOcean beside it (10-19), AWS alone
@@ -17,31 +17,44 @@ SSH keys, firewalls or spot. The token is the device cred `DIGITALOCEAN_TOKEN`
 (setup step `cloud-token`); the same cred pulls invoices into the spend
 ledger (`spend/adapters.ts`).
 
-A runner is `s-4vcpu-8gb`, Basic shared, 4 vCPU and 8 GB, about $0.07 an
-hour at list, one job at a time; `c-4`, CPU-Optimized with the same room at
-about $0.125, is made where the Basic one is out (the cheapest orderable type
-is taken). Until 2026-10-22 it was `c-16` at 3 jobs, but a new account orders
-nothing over 4 vCPU (DigitalOcean's starting droplet limits), so no runner
-could be made at all, and the suite now runs in about 40 s at 8 in parallel
-on a 16-core Mac. A run is about 7 cores and 7 GB, so 8 GB holds one. The
+A runner's size is never named in splates: `CloudProvider.sizes` lists
+each size orderable now with its CPUs, memory, disk, shared or dedicated,
+hourly price and regions (DigitalOcean's `/v2/sizes`, GPU sizes left out),
+and `CloudWorkers.types` offers those that hold one of the project's heavy
+jobs (`job` in `splates.config.ts`, 4 CPUs and 8 GB unset), up to 16 CPUs,
+shared allowed, with a disk that holds the snapshot, the cheapest first,
+which is what is made: with the default job that is `s-4vcpu-8gb`, Basic
+shared, about $0.07 an hour. Until 2026-10-22 the types were fixed in
+`DIGITALOCEAN_DEFAULTS`, `c-16` then `s-4vcpu-8gb` with `c-4` beside it.
+
+A new DigitalOcean account orders nothing over 4 vCPU, a limit its API
+does not list. A create refused with a 422 naming the size becomes
+`TypeRefused`; `CloudWorkers` leaves that size out for an hour and the
+runner keeper makes the next cheapest at once, with no backoff, so a bigger
+job still gets a runner once support raises the limit. A 422 naming no
+size, as the droplet limit, is an ordinary failure, backed off a minute.
+
+A run of the suite is about 7 cores and 7 GB, so 8 GB holds one. The
 time from job queued to tests running on these sizes is still to measure
-(see `heavy-jobs-on-runners.md`), and may change the pick.
+(see `heavy-jobs-on-runners.md`).
 
 Runners go to New York first, then any region that stocks the type, since
 a runner need not be near the person. A snapshot boots droplets only in its
 own region, so the worker image is built where the cheapest runner type
 would be made.
 
-The type and its hourly price are recorded on each runner's record when
-made, and in the spend ledger for the Billing page (see
-`billing-pulled-only.md`).
+The type, its CPUs and memory and its hourly price are recorded on each
+runner's record when made, and in the spend ledger for the Billing page
+(see `billing-pulled-only.md`). Setup and Billing describe a runner as
+"4 CPUs, 8 GB, $0.07/h" (`sizeLabel`); the size's name stays in the
+ledger only as what the bill names it by.
 
 Billing is per second with a minute at least (bundled droplets also cap at
 672 hours a month), so `billing: "second"`: an idle runner is destroyed as
 soon as it is idle, with no paid hour to wait out. Sizes, stock and each
 size's `price_hourly` are read from `/v2/sizes`, and `CloudWorkers.types`
 gives a runner the API's price, so its estimate follows what DigitalOcean
-charges rather than the list price in `DIGITALOCEAN_DEFAULTS`.
+charges.
 
 The worker snapshot costs to keep, which `/v2/sizes` does not price: the
 Runners section of Billing lists it with the `size_gigabytes` that
@@ -49,7 +62,8 @@ Runners section of Billing lists it with the `size_gigabytes` that
 `CloudProvider.snapshotCosts`). It is shown, never counted into a runner's
 estimate.
 
-No vendor lock-in: only `cloud/digitalocean*.ts`, `machineCloud` (the one
+No vendor lock-in: no DigitalOcean size slug appears outside
+`cloud/digitalocean*.ts`, and only those files, `machineCloud` (the one
 place that picks the cloud) and the spend adapter name DigitalOcean. Setup,
 `CloudWorkers`, the scheduler and provisioning go through `CloudProvider`
 and `WorkerProvider`, and read the token's cred, label and help from

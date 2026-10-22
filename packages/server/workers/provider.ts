@@ -1,5 +1,16 @@
 import type { Duration } from "webappwiz/time";
 
+/** The provider would not make a worker of `type`, though another type may do. */
+export class TypeRefused extends Error {
+	constructor(
+		readonly type: string,
+		reason: string,
+	) {
+		super(reason);
+		this.name = "TypeRefused";
+	}
+}
+
 /** The platforms a provider's machines run, as people name them. */
 export const PLATFORMS = ["linux", "macos", "windows"] as const;
 export type Platform = (typeof PLATFORMS)[number];
@@ -150,7 +161,11 @@ export interface WorkerProvider {
 	snapshot(recipe: SnapshotRecipe): Promise<Snapshot>;
 	/** The snapshots it keeps and what each costs to keep, for the Billing page; absent when it bills nothing for them. */
 	images?(): Promise<WorkerImage[]>;
-	/** Makes a machine as `spec` says, answering once it is booting. */
+	/**
+	 * Makes a machine as `spec` says, answering once it is booting. Throws
+	 * `TypeRefused` when the provider will not make its type now, leaving it
+	 * out of `types` for a while, so another type is taken.
+	 */
 	create(spec: WorkerSpec): Promise<ProvisionedMachine>;
 	/** Destroys worker `id`'s machine; silent when it is already gone. */
 	destroy(id: string): Promise<void>;

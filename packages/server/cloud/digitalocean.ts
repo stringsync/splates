@@ -5,15 +5,17 @@ import {
 	DigitalOceanApi,
 	type DigitalOceanDroplet,
 } from "./digitalocean-api";
-import type {
-	CloudDefaults,
-	CloudMachine,
-	CloudProvider,
-	CloudToken,
-	NewMachine,
-	Orderable,
-	SnapshotCost,
-	SnapshotOptions,
+import { DigitalOceanError } from "./digitalocean-error";
+import {
+	type CloudDefaults,
+	type CloudMachine,
+	type CloudProvider,
+	type CloudSize,
+	type CloudToken,
+	type NewMachine,
+	type SnapshotCost,
+	type SnapshotOptions,
+	TypeRefused,
 } from "./provider";
 
 /**
@@ -57,8 +59,8 @@ export class DigitalOceanCloud implements CloudProvider {
 		);
 	}
 
-	async orderable(): Promise<Map<string, Orderable>> {
-		return (await this.api()).orderable();
+	async sizes(): Promise<CloudSize[]> {
+		return (await this.api()).sizes();
 	}
 
 	async machine(id: string): Promise<CloudMachine | null> {
@@ -73,15 +75,29 @@ export class DigitalOceanCloud implements CloudProvider {
 
 	async create(spec: NewMachine): Promise<CloudMachine> {
 		const api = await this.api();
-		const droplet = await api.createDroplet({
-			name: spec.name,
-			size: spec.type,
-			image: spec.image,
-			region: spec.location,
-			userData: spec.userData,
-			tags: tagsOf(spec.tags),
-		});
-		return machineOf(droplet);
+		try {
+			const droplet = await api.createDroplet({
+				name: spec.name,
+				size: spec.type,
+				image: spec.image,
+				region: spec.location,
+				userData: spec.userData,
+				tags: tagsOf(spec.tags),
+			});
+			return machineOf(droplet);
+		} catch (error) {
+			// A size the account may not order yet, as a new account's over 4
+			// vCPU, is refused with a 422 naming the size; a droplet limit
+			// names none, and no other size would do.
+			if (
+				error instanceof DigitalOceanError &&
+				error.status === 422 &&
+				/\bsize\b/i.test(error.reason)
+			) {
+				throw new TypeRefused(spec.type, error.message);
+			}
+			throw error;
+		}
 	}
 
 	async delete(id: string): Promise<void> {
@@ -148,37 +164,11 @@ const TOKEN: CloudToken = {
 };
 
 /**
- * What splates makes in DigitalOcean. Prices are DigitalOcean's list prices
- * of October 2026 in US dollars, which `CloudWorkers` replaces with what
- * `/v2/sizes` says when it lists the types; it bills each droplet by the
- * second, at least a minute, so an idle runner is destroyed as soon as it
- * is idle.
+ * Where and on what splates makes machines in DigitalOcean. A runner's size
+ * is not named here: `CloudWorkers` takes the cheapest `/v2/sizes` lists
+ * that holds a job.
  */
 export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
-	workerTypes: [
-		// Basic, shared: 4 vCPU and 8 GB, room for one job of about 7 cores and
-		// 7 GB. A new account orders nothing over 4 vCPU, and this is the
-		// cheapest that holds a run and is stocked in most regions.
-		{
-			name: "s-4vcpu-8gb",
-			platform: "linux",
-			slots: 1,
-			cpus: 4,
-			memory: 8,
-			dollarsPerHour: 0.071,
-			billing: "second",
-		},
-		// CPU-Optimized, dedicated: the same room, for where the Basic one is out.
-		{
-			name: "c-4",
-			platform: "linux",
-			slots: 1,
-			cpus: 4,
-			memory: 8,
-			dollarsPerHour: 0.125,
-			billing: "second",
-		},
-	],
 	// New York first, nearest to New Jersey, then any region that has stock:
 	// a runner need not be near the person.
 	workerLocations: ["nyc3", "nyc1", "sfo3"],

@@ -1,6 +1,11 @@
 import { type SpendShare, splitSpend } from "../workers/browser";
 import { periodStart, type SpendEntry } from "./totals";
 
+/** Whether a line of the ledger is a runner's row rather than an amount spent. */
+export function isRunnerRow(line: SpendEntry | RunnerRow): line is RunnerRow {
+	return "row" in line;
+}
+
 /**
  * A runner made, as the ledger keeps it: written as it is asked for, and
  * again should its price change, the last for an id counting.
@@ -9,8 +14,11 @@ export interface RunnerMadeRow {
 	row: "runner";
 	/** The worker's id, as `c-16-ab12cd`. */
 	id: string;
-	/** Its machine type, as `c-16`. */
+	/** Its machine type, the provider's own name for it, as `c-16`, which the bill names it by. */
 	type: string;
+	/** Its CPUs and memory in GB; absent in a row from before they were kept, or from a provider that does not say. */
+	cpus?: number;
+	memory?: number;
 	/** The provider whose bill it is on, as `digitalocean`; null when no bill is pulled for it. */
 	provider: string | null;
 	/** What it costs an hour, in US dollars, as the provider's API said when it was made. */
@@ -48,15 +56,13 @@ export interface RunnerJobRow {
 /** A row of the ledger that is no amount spent: runners and their jobs, which estimates are counted from. */
 export type RunnerRow = RunnerMadeRow | RunnerEndedRow | RunnerJobRow;
 
-/** Whether a line of the ledger is a runner's row rather than an amount spent. */
-export function isRunnerRow(line: SpendEntry | RunnerRow): line is RunnerRow {
-	return "row" in line;
-}
-
 /** One runner's life, as the Billing page lists it. */
 export interface RunnerLife {
 	id: string;
+	/** The provider's own name for its machine type. */
 	type: string;
+	/** Its CPUs and memory in GB, null where the ledger does not say. */
+	size: { cpus: number; memory: number } | null;
 	provider: string | null;
 	dollarsPerHour: number;
 	/** When it was made, and destroyed, as ISO timestamps; `until` is null while it is up. */
@@ -181,6 +187,10 @@ export function runnersReport(
 			return {
 				id: row.id,
 				type: row.type,
+				size:
+					row.cpus === undefined || row.memory === undefined
+						? null
+						: { cpus: row.cpus, memory: row.memory },
 				provider: row.provider,
 				dollarsPerHour: row.dollarsPerHour,
 				from: row.at,

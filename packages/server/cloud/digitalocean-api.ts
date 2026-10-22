@@ -1,6 +1,7 @@
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
-import type { Orderable } from "./provider";
+import { DigitalOceanError } from "./digitalocean-error";
+import type { CloudSize } from "./provider";
 
 /** The device cred the DigitalOcean API token is kept as, named as DigitalOcean's own tools read it. */
 export const DIGITALOCEAN_TOKEN = "DIGITALOCEAN_TOKEN";
@@ -24,24 +25,35 @@ export class DigitalOceanApi {
 		private readonly wait: (duration: Duration) => Promise<void> = sleep,
 	) {}
 
-	/** The regions each size can be ordered in now, and what it costs an hour, by size slug. */
-	async orderable(): Promise<Map<string, Orderable>> {
+	/**
+	 * Each size orderable now in some region, GPU sizes left out. Basic
+	 * sizes, `s-`, share their CPUs; the rest have their own. DigitalOcean
+	 * bills a droplet by the second, at least a minute.
+	 */
+	async sizes(): Promise<CloudSize[]> {
 		const { sizes } = await this.request(
 			"GET",
 			`/sizes?per_page=${PAGE}`,
 			Answers.sizes,
 		);
-		return new Map(
-			sizes
-				.filter((size) => size.available)
-				.map((size) => [
-					size.slug,
-					{
-						locations: new Set(size.regions),
-						dollarsPerHour: size.price_hourly,
-					},
-				]),
-		);
+		return sizes
+			.filter(
+				(size) =>
+					size.available &&
+					size.regions.length > 0 &&
+					size.gpu_info == null &&
+					!size.slug.startsWith("gpu-"),
+			)
+			.map((size) => ({
+				name: size.slug,
+				cpus: size.vcpus,
+				memory: size.memory / 1024,
+				disk: size.disk,
+				dedicated: !size.slug.startsWith("s-"),
+				dollarsPerHour: size.price_hourly,
+				billing: "second",
+				locations: new Set(size.regions),
+			}));
 	}
 
 	/** Droplet `id`, or null when there is none. */
@@ -236,8 +248,10 @@ export class DigitalOceanApi {
 			return schema.parse({});
 		}
 		if (!response.ok) {
-			throw new Error(
-				`DigitalOcean answered ${response.status} to ${method} ${path.replace(/\?.*/, "")}: ${await reason(response)}`,
+			throw new DigitalOceanError(
+				response.status,
+				await reason(response),
+				`${method} ${path.replace(/\?.*/, "")}`,
 			);
 		}
 		const text = await response.text();
@@ -313,6 +327,11 @@ const Answers = {
 				available: z.boolean(),
 				regions: z.array(z.string()),
 				price_hourly: z.number(),
+				vcpus: z.number(),
+				// In MB, and the disk in GB.
+				memory: z.number(),
+				disk: z.number(),
+				gpu_info: z.unknown().optional(),
 			}),
 		),
 	}),

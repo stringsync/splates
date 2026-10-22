@@ -14,6 +14,7 @@ describe("App's billing runners", () => {
 				{
 					id: "c-16-up",
 					type: "c-16",
+					size: { cpus: 16, memory: 32 },
 					provider: "digitalocean",
 					dollarsPerHour: 0.5,
 					from: up,
@@ -25,6 +26,7 @@ describe("App's billing runners", () => {
 				{
 					id: "c-16-old",
 					type: "c-16",
+					size: null,
 					provider: "digitalocean",
 					dollarsPerHour: 0.5,
 					from: "2026-09-30T10:00:00.000Z",
@@ -83,13 +85,16 @@ describe("App's billing runners", () => {
 		return view;
 	};
 
-	it("lists each runner with what it cost, one up now with its time and Stop", async () => {
+	it("lists each runner by its size, or its type where the ledger kept none, with what it cost, one up now with its time and Stop", async () => {
 		const view = await open();
 		const up = view.getByLabelText("c-16-up");
 		const old = view.getByLabelText("c-16-old");
 
+		expect(up.textContent).toContain("16 CPUs, 32 GB, $0.50/h");
 		expect(up.textContent).toContain("up now, 2h 14m");
 		expect(up.textContent).toContain("3 jobs");
+		expect(old.textContent).toContain("c-16");
+		expect(old.textContent).toContain("7 jobs · $0.50/h");
 		expect(old.textContent).toContain("Stopped");
 		expect(old.textContent).toContain("$2.00");
 		expect(within(old).queryByRole("button", { name: /Stop/ })).toBeNull();

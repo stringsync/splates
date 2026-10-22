@@ -10,7 +10,7 @@ import {
 } from "./index";
 
 describe("runnersReport", () => {
-	test("lists every runner newest first, with its hours, dollars and jobs, one up now counted to now", () => {
+	test("lists every runner newest first, with its size where the ledger kept one, its hours, dollars and jobs, one up now counted to now", () => {
 		const report = runnersReport(
 			[
 				made("old", "2026-10-21T10:00:00.000Z"),
@@ -22,7 +22,7 @@ describe("runnersReport", () => {
 					"2026-10-21T10:06:00.000Z",
 				),
 				ended("old", "2026-10-21T12:30:00.000Z"),
-				made("up", "2026-10-22T10:00:00.000Z", 0.25),
+				made("up", "2026-10-22T10:00:00.000Z", 0.25, { cpus: 4, memory: 8 }),
 			],
 			NOW,
 			[job("j2", "up", "fix", "2026-10-22T11:59:00.000Z", null)],
@@ -32,6 +32,7 @@ describe("runnersReport", () => {
 			{
 				id: "up",
 				type: "c-16",
+				size: { cpus: 4, memory: 8 },
 				provider: "digitalocean",
 				dollarsPerHour: 0.25,
 				from: "2026-10-22T10:00:00.000Z",
@@ -43,6 +44,7 @@ describe("runnersReport", () => {
 			{
 				id: "old",
 				type: "c-16",
+				size: null,
 				provider: "digitalocean",
 				dollarsPerHour: 0.5,
 				from: "2026-10-21T10:00:00.000Z",
@@ -165,10 +167,16 @@ describe("runnersReport", () => {
 	});
 });
 
-const made = (id: string, at: string, dollarsPerHour = 0.5): RunnerRow => ({
+const made = (
+	id: string,
+	at: string,
+	dollarsPerHour = 0.5,
+	size: { cpus?: number; memory?: number } = {},
+): RunnerRow => ({
 	row: "runner",
 	id,
 	type: "c-16",
+	...size,
 	provider: "digitalocean",
 	dollarsPerHour,
 	at,

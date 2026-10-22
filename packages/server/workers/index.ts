@@ -61,8 +61,10 @@ export { runOnRunner } from "./job-client";
 export type { JobSize, JobSizeSetting } from "./job-size";
 export {
 	DEFAULT_JOB_SIZE,
+	fits,
 	jobSize,
 	parseMemory,
+	sizeLabel,
 } from "./job-size";
 export { SUPERVISOR } from "./lifecycle";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
@@ -85,7 +87,7 @@ export type {
 	WorkerSpec,
 	WorkerType,
 } from "./provider";
-export { PLATFORMS } from "./provider";
+export { PLATFORMS, TypeRefused } from "./provider";
 export type { Provisioned } from "./provisioning";
 export { WorkerProvisioning } from "./provisioning";
 export type { QueueListing } from "./queue";

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
+import { Duration } from "webappwiz/time";
+import { TypeRefused } from "../workers";
 import { DIGITALOCEAN_TOKEN, DigitalOceanCloud } from "./index";
 import { FakeDigitalOcean } from "./testing";
 import { CloudWorkers } from "./workers";
@@ -8,6 +10,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 	let digitalocean: FakeDigitalOcean;
 	let store: FakeSecretStore;
 	let stuck: boolean;
+	let now: number;
 	let provider: CloudWorkers;
 
 	beforeEach(async () => {
@@ -20,6 +23,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 		store = new FakeSecretStore();
 		await store.set(DIGITALOCEAN_TOKEN, "token");
 		stuck = false;
+		now = 1000;
 		const wait = async () => {
 			if (!stuck) {
 				for (const builder of digitalocean.tagged("splates-snapshot-builder")) {
@@ -29,12 +33,20 @@ describe("CloudWorkers in DigitalOcean", () => {
 		};
 		provider = new CloudWorkers(
 			new DigitalOceanCloud({ store, fetch: digitalocean.fetch, wait }),
-			{ wall: { now: () => 1000 }, wait },
+			{ wall: { now: () => now }, wait },
 		);
 	});
 
-	it("offers its sizes, billed by the second at the price the API says, while any region can make them", async () => {
-		digitalocean.prices = { "s-4vcpu-8gb": 0.0714 };
+	it("offers the sizes that hold a job, the cheapest first, billed by the second at the price the API says, while any region can make them", async () => {
+		digitalocean.prices = {
+			"s-4vcpu-8gb": 0.0714,
+			"c-4": 0.125,
+			"s-8vcpu-16gb": 0.143,
+		};
+		digitalocean.stock = {
+			nyc3: ["c-4", "s-4vcpu-8gb", "s-2vcpu-4gb", "s-1vcpu-2gb"],
+			sfo3: ["s-8vcpu-16gb", "c-32"],
+		};
 		expect(await provider.types()).toEqual([
 			{
 				name: "s-4vcpu-8gb",
@@ -45,17 +57,55 @@ describe("CloudWorkers in DigitalOcean", () => {
 				dollarsPerHour: 0.0714,
 				billing: "second",
 			},
+			expect.objectContaining({ name: "c-4", cpus: 4, memory: 8 }),
+			expect.objectContaining({ name: "s-8vcpu-16gb", cpus: 8, memory: 16 }),
 		]);
 		expect(provider.billing).toBe("digitalocean");
 
-		digitalocean.stock = { ams3: ["s-4vcpu-8gb"], lon1: ["c-4"] };
+		digitalocean.stock = { ams3: ["c-16"] };
+		expect((await provider.types()).map((type) => type.name)).toEqual(["c-16"]);
+
+		digitalocean.stock = { ams3: ["c-32", "s-2vcpu-4gb"] };
+		expect(await provider.types()).toEqual([]);
+	});
+
+	it("offers only the sizes that hold the project's job", async () => {
+		digitalocean.stock = { nyc3: ["s-4vcpu-8gb", "s-8vcpu-16gb", "c-16"] };
+		const big = new CloudWorkers(
+			new DigitalOceanCloud({ store, fetch: digitalocean.fetch }),
+			{ job: { cpus: 6, memory: 12 } },
+		);
+
+		expect((await big.types()).map((type) => type.name)).toEqual([
+			"s-8vcpu-16gb",
+			"c-16",
+		]);
+	});
+
+	it("leaves out a size DigitalOcean refuses the account for an hour, then offers it again", async () => {
+		digitalocean.prices = { "s-4vcpu-8gb": 0.07, "c-4": 0.125 };
+		digitalocean.stock = { nyc3: ["s-4vcpu-8gb", "c-4"] };
+		digitalocean.refuseCreate =
+			"You do not have access to this size: contact support to raise your limits";
+		const spec = {
+			id: "s-4vcpu-8gb-abc123",
+			type: "s-4vcpu-8gb",
+			snapshot: null,
+			recipe: null,
+			join: [],
+			joinEnv: {},
+			boot: [],
+			build: null,
+		};
+
+		await expect(provider.create(spec)).rejects.toBeInstanceOf(TypeRefused);
+		expect((await provider.types()).map((type) => type.name)).toEqual(["c-4"]);
+
+		now += Duration.hrs(1).ms + 1;
 		expect((await provider.types()).map((type) => type.name)).toEqual([
 			"s-4vcpu-8gb",
 			"c-4",
 		]);
-
-		digitalocean.stock = { ams3: ["c-16"] };
-		expect(await provider.types()).toEqual([]);
 	});
 
 	it("makes a worker tagged with its id, in the first region with stock, from the snapshot, its boot in its user data", async () => {

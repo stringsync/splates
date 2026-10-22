@@ -32,6 +32,8 @@ export class FakeDigitalOcean {
 	stock: Record<string, string[]> = {};
 	/** What each size slug costs an hour, as `/v2/sizes` says; $0.50 for one not named. */
 	prices: Record<string, number> = {};
+	/** Each size slug's vCPUs, memory in MB and disk in GB, as `/v2/sizes` says; read from a slug such as `s-4vcpu-8gb` or `c-4` when not named. */
+	shapes: Record<string, { vcpus: number; memory: number; disk: number }> = {};
 	readonly droplets = new Map<number, FakeDroplet>();
 	readonly images = new Map<
 		number,
@@ -103,6 +105,7 @@ export class FakeDigitalOcean {
 							this.stock[region]?.includes(slug),
 						),
 						price_hourly: this.prices[slug] ?? 0.5,
+						...(this.shapes[slug] ?? shapeOf(slug)),
 					})),
 				});
 			}
@@ -236,6 +239,24 @@ export class FakeDigitalOcean {
 		}
 		return id;
 	}
+}
+
+/**
+ * A size's vCPUs, memory and disk read from its slug, as DigitalOcean's
+ * own: `s-4vcpu-8gb` is 4 and 8 GB, `c-4` 4 and twice that in GB.
+ */
+function shapeOf(slug: string): {
+	vcpus: number;
+	memory: number;
+	disk: number;
+} {
+	const basic = /^s-(\d+)vcpu-(\d+)gb/.exec(slug);
+	const dedicated = /^[a-z]+-(\d+)/.exec(slug);
+	const [vcpus, gb] =
+		basic !== null
+			? [Number(basic[1]), Number(basic[2])]
+			: [Number(dedicated?.[1] ?? 1), Number(dedicated?.[1] ?? 1) * 2];
+	return { vcpus, memory: gb * 1024, disk: Math.max(25, gb * 20) };
 }
 
 function error(status: number, message: string): Response {

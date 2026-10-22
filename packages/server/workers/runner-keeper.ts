@@ -10,6 +10,7 @@ import {
 import { BUDGET_EVERY } from "./budget-stop";
 import type { JobPool, JobPoolView, PoolRunner } from "./job-pool";
 import { DEFAULT_JOB_SIZE, type JobSize, runnerSize } from "./job-size";
+import { TypeRefused } from "./provider";
 import type { WorkerProvisioning } from "./provisioning";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -166,8 +167,19 @@ export class RunnerKeeper implements JobPoolView, Resource {
 					`runner ${made.id} made for ${pool.queue().length} waiting jobs${this.agentsLive() ? " and live agents" : ""}`,
 				);
 			} catch (error) {
-				this.failedAt = this.wall.now();
-				log.error(`a runner could not be made: ${String(error)}`);
+				if (error instanceof TypeRefused) {
+					// The provider leaves that type out now, so the next cheapest is
+					// read and made at once.
+					this.price = null;
+					this.size = null;
+					this.again = true;
+					log.info(
+						`a ${error.type} runner was refused, so another type is made: ${error.message}`,
+					);
+				} else {
+					this.failedAt = this.wall.now();
+					log.error(`a runner could not be made: ${String(error)}`);
+				}
 			} finally {
 				this.making = false;
 			}

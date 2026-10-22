@@ -7,11 +7,12 @@ export type {
 	CloudDefaults,
 	CloudMachine,
 	CloudProvider,
+	CloudSize,
 	CloudToken,
 	NewMachine,
-	Orderable,
 	SnapshotCost,
 	SnapshotOptions,
 } from "./provider";
+export { TypeRefused } from "./provider";
 export type { CloudWorkersOptions } from "./workers";
 export { CloudWorkers } from "./workers";

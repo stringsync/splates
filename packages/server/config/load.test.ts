@@ -56,7 +56,7 @@ describe("loadConfig", () => {
 	});
 
 	it("makes runners in the cloud splates.config.ts names, unless it names a provider too", async () => {
-		const cloud = `{ name: "Some Cloud", defaults: { workerTypes: [] } }`;
+		const cloud = `{ name: "Some Cloud", defaults: { workerLocations: [] } }`;
 		await fs.write(
 			join(root, "splates.config.ts"),
 			`export default { cloud: ${cloud} };\n`,
