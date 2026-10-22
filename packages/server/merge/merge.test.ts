@@ -211,6 +211,10 @@ describe.concurrent("merge", () => {
 
 		expect((await deps.service.find("alpha")).status).toBe("removed");
 		expect(await deps.fs.exists(worktree)).toBe(false);
+		// The shell that ran it is left there, which merge cannot change.
+		expect(deps.out()).toContain(
+			`your shell is still in the removed ${worktree}: \`cd ${deps.root}\``,
+		);
 		expect(await deps.service.list()).toEqual([]);
 	});
 

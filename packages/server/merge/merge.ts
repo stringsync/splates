@@ -463,6 +463,11 @@ export async function merge(
 				`${color.green("merged")} ${task} onto ${base} (${head})${
 					landing === git.root ? "" : `\n  landed in: ${landing}`
 				}\n  worktree removed, cd ${git.root}`,
+				// Merge stepped out of the tree, but it cannot move the shell that
+				// ran it, always in that tree, nor an agent session opened there.
+				color.yellow(
+					`  your shell is still in the removed ${current.path}: \`cd ${git.root}\` before running anything else`,
+				),
 				...(landed !== null && landed.local !== "moved"
 					? [
 							color.yellow(
