@@ -8,7 +8,8 @@ Run many coding agents on one repository at once: see
   `@stringsync/splates`.
 - `packages/server`: the server and shared backend operations, published as
   `@stringsync/splates-server`, with its entry point in `index.ts`.
-- `packages/web`: the browser app and its build toolchain.
+- `packages/web`: the browser app, the `splates server` page, and its build
+  toolchain.
 - `packages/splates/dev`: `splates dev`, the commands for working on this
   repository (`fix`, `test`, `eval`, `ship`), which `bin/splates` mounts on
   the cli from a checkout and which never ship.
