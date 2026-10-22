@@ -3,7 +3,6 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
-import { SLOTS_APP } from "../ports";
 import { tokensOf } from "../workers/cloudflare-access";
 import type { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
@@ -17,6 +16,7 @@ import {
 	App,
 	CloudflareTunnels,
 	Policy,
+	SLOTS_APP,
 	WORKER_PATHS,
 	workersPolicy,
 } from "./setup";

@@ -8,6 +8,7 @@ import {
 	type Include,
 	Policy,
 	SESSION,
+	SLOTS_APP,
 	workersPolicy,
 } from "../tunnel";
 import type { ServiceToken, WorkerAccess } from "./access";
@@ -25,6 +26,17 @@ const Minted = z.object({
 });
 
 type AppFound = z.output<typeof App>;
+
+/**
+ * The account, the name the workers' policy and applications are named for,
+ * and the page's application a token's policy may need taking off; null for a
+ * slot, whose wildcard application is never given one.
+ */
+interface Guard {
+	account: string;
+	name: string;
+	app: AppFound | null;
+}
 
 /** What a `CloudflareWorkerAccess` reaches Cloudflare with. */
 export interface CloudflareWorkerAccessOptions {
@@ -59,14 +71,15 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 				);
 				return null;
 			}
-			const { account, app } = await this.app(api);
+			const guard = await this.app(api);
+			const { account, name } = guard;
 			const made = await api.post(
 				`/accounts/${account}/access/service_tokens`,
-				{ name: `${app.name} worker`, duration: SERVICE_TOKEN_DURATION },
+				{ name: `${name} worker`, duration: SERVICE_TOKEN_DURATION },
 				Minted,
 			);
 			try {
-				await this.allow(api, account, app, made.id);
+				await this.allow(api, guard, made.id);
 			} catch (error) {
 				await api
 					.delete(`/accounts/${account}/access/service_tokens/${made.id}`)
@@ -90,24 +103,24 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 				);
 				return;
 			}
-			const { account, app } = await this.app(api);
-			await this.disallow(api, account, app, id);
+			const guard = await this.app(api);
+			await this.disallow(api, guard, id);
+			const { account } = guard;
 			await api
 				.delete(`/accounts/${account}/access/service_tokens/${id}`)
 				.catch(passOverGone);
 		});
 	}
 
-	/** Adds token `id` to the app's workers policy, making it and putting it on the app when there is none. */
+	/** Adds token `id` to the workers policy, making it and the workers' applications when there is none. */
 	private async allow(
 		api: CloudflareApi,
-		account: string,
-		app: AppFound,
+		{ account, name, app }: Guard,
 		id: string,
 	): Promise<void> {
-		const found = await this.policy(api, account, app);
+		const found = await this.policy(api, account, name);
 		const want = {
-			name: workersPolicy(app.name),
+			name: workersPolicy(name),
 			decision: "non_identity",
 			include: [...tokensOf(found?.include ?? []), id].map(rule),
 		};
@@ -121,7 +134,7 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 					);
 		await CloudflareTunnels.over(api, this.opts.log).ensureWorkerApps(
 			account,
-			app.name,
+			name,
 			this.opts.host,
 			policy.id,
 		);
@@ -129,17 +142,16 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 	}
 
 	/**
-	 * Takes token `id` out of the app's workers policy, taking the policy off
-	 * the app and deleting it once it lists none, since Access refuses a
+	 * Takes token `id` out of the workers policy, deleting it and the
+	 * workers' applications once it lists none, since Access refuses a
 	 * policy that includes no one.
 	 */
 	private async disallow(
 		api: CloudflareApi,
-		account: string,
-		app: AppFound,
+		{ account, name, app }: Guard,
 		id: string,
 	): Promise<void> {
-		const found = await this.policy(api, account, app);
+		const found = await this.policy(api, account, name);
 		if (found === undefined) {
 			return;
 		}
@@ -165,11 +177,11 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 	private async policy(
 		api: CloudflareApi,
 		account: string,
-		app: AppFound,
+		name: string,
 	): Promise<z.output<typeof Policy> | undefined> {
 		return (
 			await api.list(`/accounts/${account}/access/policies`, Policy)
-		).find((each) => each.name === workersPolicy(app.name));
+		).find((each) => each.name === workersPolicy(name));
 	}
 
 	/**
@@ -179,10 +191,10 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 	private async detach(
 		api: CloudflareApi,
 		account: string,
-		app: AppFound,
+		app: AppFound | null,
 		id: string,
 	): Promise<void> {
-		if (!app.policies.some((each) => each.id === id)) {
+		if (app === null || !app.policies.some((each) => each.id === id)) {
 			return;
 		}
 		const policies = app.policies
@@ -201,27 +213,45 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 		);
 	}
 
-	/** The account and the Access application in front of the host, as they stand now. */
-	private async app(
-		api: CloudflareApi,
-	): Promise<{ account: string; app: AppFound }> {
+	/**
+	 * What guards the host, as it stands now: its own Access application, or,
+	 * for a slot's `<word>.<zone>`, the slots' wildcard one, which slots share,
+	 * so a slot's workers are named for its tunnel, `splates-<word>`.
+	 */
+	private async app(api: CloudflareApi): Promise<Guard> {
 		const { host } = this.opts;
 		const zone = await CloudflareTunnels.over(api, this.opts.log).findZone(
 			host,
 		);
 		const account = zone.account.id;
-		const app = (
+		const app = await this.guarding(api, account, host);
+		if (app !== undefined) {
+			return { account, name: app.name, app };
+		}
+		const word = host.slice(0, -`.${zone.name}`.length);
+		const slots =
+			host.endsWith(`.${zone.name}`) && !word.includes(".")
+				? await this.guarding(api, account, `*.${zone.name}`)
+				: undefined;
+		if (slots?.name === SLOTS_APP) {
+			return { account, name: `splates-${word}`, app: null };
+		}
+		throw new Error(
+			`no Access application guards ${host}: run \`splates tunnel setup\` again`,
+		);
+	}
+
+	private async guarding(
+		api: CloudflareApi,
+		account: string,
+		domain: string,
+	): Promise<AppFound | undefined> {
+		return (
 			await api.list(
-				`/accounts/${account}/access/apps?domain=${encodeURIComponent(host)}&exact=true`,
+				`/accounts/${account}/access/apps?domain=${encodeURIComponent(domain)}&exact=true`,
 				App,
 			)
-		).find((each) => each.domain === host);
-		if (app === undefined) {
-			throw new Error(
-				`no Access application guards ${host}: run \`splates tunnel setup\` again`,
-			);
-		}
-		return { account, app };
+		).find((each) => each.domain === domain);
 	}
 
 	private async api(): Promise<CloudflareApi | null> {

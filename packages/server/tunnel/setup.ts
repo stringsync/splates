@@ -151,6 +151,9 @@ const ZERO_TRUST = "https://one.dash.cloudflare.com/";
 /** How long a sign-in through Access lasts before it asks again. */
 export const SESSION = "24h";
 
+/** What the Access application in front of every slot, `*.<zone>`, is called. */
+export const SLOTS_APP = "splates-slots";
+
 /**
  * The Service Auth policy on the Access application called `name` that
  * lets in each joined worker's service token, beside the people's policy.

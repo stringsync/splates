@@ -71,7 +71,10 @@ export async function serveDev(
 	// Read before the child starts, so a half-given pair fails once.
 	let access = accessConfig(opts["access-team"], opts["access-aud"]);
 	const portsFlag = portsHostFlag(opts["ports-host"]);
-	const here = await startedIn(ctx);
+	const here = await startedIn(
+		ctx,
+		opts.slot || ctx.ps.env(SLOT) !== undefined,
+	);
 	let tunnel = tunnelConfig(
 		opts.tunnel,
 		opts["tunnel-name"],
@@ -368,17 +371,23 @@ export async function serveDev(
 /**
  * The config of the repository `splates server` was started in, if it was
  * started in one, for the providers it names: the one thing it reads from
- * where it runs. Null outside a repository.
+ * where it runs. Null outside a repository. A slot, which serves a task's
+ * own code, reads its worktree's; any other, the main tree's.
  */
-async function startedIn({ fs, ps }: SplatesDeps): Promise<Config | null> {
+async function startedIn(
+	{ fs, ps }: SplatesDeps,
+	slot: boolean,
+): Promise<Config | null> {
 	const { exitCode, stdout } = await ps.spawnCapture(
-		["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+		slot
+			? ["git", "rev-parse", "--show-toplevel"]
+			: ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
 		{ cwd: ps.cwd() },
 	);
 	if (exitCode !== 0) {
 		return null;
 	}
-	const root = dirname(stdout.trim());
+	const root = slot ? stdout.trim() : dirname(stdout.trim());
 	return loadConfig(root, { fs, git: new Git(root, { ps, fs }) });
 }
 

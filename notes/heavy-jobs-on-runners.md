@@ -137,3 +137,14 @@ The merge gate is a caller too (`MergeGate` in `merge/gate.ts`): its jobs set
 `first` in the request, which puts them ahead of ordinary jobs in the pool's
 queue, and a retest at the base commit sets `commit`, which runs that commit of
 the project instead of a snapshot of the worktree. See `merge-gate-attribution.md`.
+
+`splates run` sends its job to the server `SPLATES_DEV` names, which is the
+person's own while an agent runs under it. To try runners from a server of
+an agent's own, start `splates server --slot` in the task's worktree, which
+reads that worktree's `splates.config.ts` for its `cloud`, and run
+`SPLATES_DEV=http://127.0.0.1:<its port> splates run -- <command>`. The
+slot's host has no Access application of its own, only the slots' wildcard
+`splates-slots` on `*.<zone>`, so its runners' service tokens go on a policy
+and worker-path applications named for the slot's tunnel, `splates-<word>`
+(`CloudflareWorkerAccess.app`). Its runner stops once idle like any other
+(15 minutes); stop the slot's server after that.

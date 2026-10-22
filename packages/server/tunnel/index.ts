@@ -15,6 +15,7 @@ export {
 	Include,
 	Policy,
 	SESSION,
+	SLOTS_APP,
 	TOKEN_PERMISSIONS,
 	TOKENS_PAGE,
 	tokenInstructions,

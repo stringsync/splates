@@ -2,11 +2,8 @@ import type { Logger } from "webappwiz/log";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
 import type { CloudflareApi, SavedTunnel, TunnelRecord } from "../tunnel";
-import { App, CloudflareError, CloudflareTunnels } from "../tunnel";
+import { App, CloudflareError, CloudflareTunnels, SLOTS_APP } from "../tunnel";
 import type { Slot } from "./slots";
-
-/** What the Access application in front of every slot is called. */
-export const SLOTS_APP = "splates-slots";
 
 /**
  * Makes what carries `<word>.<zone>` to a slot's `splates server`, beside the
