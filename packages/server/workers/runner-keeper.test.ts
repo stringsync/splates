@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { WorkerBudget } from "./budget";
 import { JobPool } from "./job-pool";
+import type { JobSize } from "./job-size";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -11,6 +12,8 @@ import { RunnerKeeper } from "./runner-keeper";
 import { Scheduler } from "./scheduler";
 import { Snapshots } from "./snapshot";
 import { FakeWorkerProvider } from "./testing";
+
+const JOB: JobSize = { cpus: 4, memory: 8 };
 
 describe("the runner keeper", () => {
 	let wall: FakeWallClock;
@@ -24,7 +27,7 @@ describe("the runner keeper", () => {
 	const made = () =>
 		provider.getCalls().filter((call) => call.startsWith("create"));
 	const job = (id: string) =>
-		pool.take({ id, project: "/a", task: null, what: "bun test" });
+		pool.take({ id, project: "/a", task: null, what: "bun test", size: JOB });
 
 	beforeEach(async () => {
 		wall = new FakeWallClock();
@@ -34,6 +37,9 @@ describe("the runner keeper", () => {
 					name: "c-16",
 					platform: "linux",
 					slots: 3,
+					// Room for three jobs of `JOB`.
+					cpus: 12,
+					memory: 24,
 					dollarsPerHour: 0.5,
 					billing: "second",
 				},
@@ -71,7 +77,7 @@ describe("the runner keeper", () => {
 			log: new MemoryLogger(),
 			wall,
 		});
-		pool = new JobPool(keeper, wall, 3);
+		pool = new JobPool(keeper, wall);
 		keeper.watch(pool);
 	});
 
@@ -91,7 +97,13 @@ describe("the runner keeper", () => {
 	});
 
 	it("makes a runner for a waiting job, then a second only while more wait than room on the way", async () => {
-		void pool.take({ id: "j1", project: "/a", task: null, what: "x" });
+		void pool.take({
+			id: "j1",
+			project: "/a",
+			task: null,
+			what: "x",
+			size: JOB,
+		});
 		await Bun.sleep(0);
 		await keeper.look();
 

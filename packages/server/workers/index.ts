@@ -58,6 +58,12 @@ export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
 export type { RemoteJob, RemoteJobResult } from "./job-client";
 export { runOnRunner } from "./job-client";
+export type { JobSize, JobSizeSetting } from "./job-size";
+export {
+	DEFAULT_JOB_SIZE,
+	jobSize,
+	parseMemory,
+} from "./job-size";
 export { SUPERVISOR } from "./lifecycle";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";

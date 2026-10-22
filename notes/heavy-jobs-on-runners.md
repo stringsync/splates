@@ -7,18 +7,28 @@ A runner is a joined worker (not this machine's own `local`) that says
 under `<splates home>/runner/<hash of the project>/repo.git`.
 
 `JobPool` (`workers/job-pool.ts`) is the pool-wide queue, over every project:
-each runner takes 1 job at once (`JOBS_PER_RUNNER`: 4 vCPU and 8 GB, a run
-about 7 cores and 7 GB; see `cloud-digitalocean.md` for why that size), a job goes to the runner with the most free room,
-one that already holds the project's clone first, and the rest wait first come,
-first served. A job that can have no runner, because none is up or on its way
-and none can be made (no provider, the day's or month's limit reached, a make
-that just failed), is told `local`, and its caller runs it in this machine's
+each job asks for CPUs and memory (`workers/job-size.ts`), and a runner takes as
+many at once as fit in what it said it has in its hello (`cpus`, and `memory`
+rounded to the GB, since a box sold as 8 GB tells the kernel a little less; a
+runner from before says neither and is taken as 4 and 8). A job asks what its
+project's `job` in `splates.config.ts` says, `{ cpus: 4, memory: "8GB" }` when
+unset (a test run is about 7 cores and 7 GB, so CPUs are overcommitted; see
+`cloud-digitalocean.md` for the runner size), or what `splates run --cpus
+--memory` says for one command; `splates dev test` and the merge gate send the
+project's. A job goes to a runner with room for it, one that already holds the
+project's clone first, then the one with the most free CPUs, then memory, and
+the rest wait first come, first served, though a later, smaller job may take
+room a waiting bigger one cannot use yet. A job that can have no runner,
+because none up, on its way or that can be made is big enough for it (none at
+all: no provider, the day's or month's limit reached, a make that just failed),
+is told `local`, and its caller runs it in this machine's
 heavy-job slots (`heavy-jobs-and-cores.md`), so the hard stop never leaves a
 job waiting.
 
 `RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants:
 one while any agent is live (made when the first starts), and a second only
-while more jobs wait than the runners up or booting have room for (at most
+while jobs wait that fit in no room left on the runners up or booting, counting
+a booting runner's room by its type's `cpus` and `memory` (at most
 `MAX_RUNNERS`, 2). Its `busy` keeps from `WorkerProvisioning`'s idle sweep each
 runner running a job, all while jobs wait, and the first made while an agent
 is live; any other is destroyed after 15 idle minutes (at once when its type

@@ -73,6 +73,7 @@ function defaults(root: string, trunk: string): Config {
 		postCheckout: null,
 		postRewrite: null,
 		prepare: null,
+		job: {},
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,

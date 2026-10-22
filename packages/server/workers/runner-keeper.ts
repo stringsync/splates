@@ -9,6 +9,7 @@ import {
 } from "webappwiz/time";
 import { BUDGET_EVERY } from "./budget-stop";
 import type { JobPool, JobPoolView, PoolRunner } from "./job-pool";
+import { DEFAULT_JOB_SIZE, type JobSize, runnerSize } from "./job-size";
 import type { WorkerProvisioning } from "./provisioning";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -36,6 +37,8 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	private failedAt: number | null = null;
 	/** What the cheapest runner costs an hour, once known. */
 	private price: number | null = null;
+	/** The cheapest runner's size, once known, which is what is made. */
+	private size: JobSize | null = null;
 	private readonly disposer = new Disposer();
 	private readonly wall: WallClock;
 
@@ -73,11 +76,22 @@ export class RunnerKeeper implements JobPoolView, Resource {
 			.map((worker) => ({
 				id: worker.id,
 				ready: this.opts.records.of(worker.id)?.draining !== true,
+				size: runnerSize(worker.info),
 			}));
 	}
 
-	booting(): number {
-		return this.live().filter((record) => record.joinedAt === null).length;
+	booting(): JobSize[] {
+		return this.live()
+			.filter((record) => record.joinedAt === null)
+			.map(({ provisioned }) =>
+				provisioned?.cpus !== undefined && provisioned.memory !== undefined
+					? { cpus: provisioned.cpus, memory: provisioned.memory }
+					: DEFAULT_JOB_SIZE,
+			);
+	}
+
+	made(): JobSize {
+		return this.size ?? DEFAULT_JOB_SIZE;
 	}
 
 	canMake(): boolean {
@@ -131,6 +145,10 @@ export class RunnerKeeper implements JobPoolView, Resource {
 					(one, other) => one.dollarsPerHour - other.dollarsPerHour,
 				);
 				this.price = cheapest?.dollarsPerHour ?? null;
+				this.size =
+					cheapest?.cpus !== undefined && cheapest.memory !== undefined
+						? { cpus: cheapest.cpus, memory: cheapest.memory }
+						: null;
 			} catch (error) {
 				log.error(`the runner types could not be read: ${String(error)}`);
 			}

@@ -1,19 +1,15 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { WallClock } from "webappwiz/time";
+import { fits, type JobSize } from "./job-size";
 
 /**
- * How many heavy jobs a runner takes at once: a runner is 4 vCPU and 8 GB,
- * and one test run takes about 7 cores and 7 GB.
- */
-export const JOBS_PER_RUNNER = 1;
-
-/**
- * The pool-wide queue of heavy jobs: each runner takes `JOBS_PER_RUNNER`
- * (or the count it is made with) at once, a job goes to the runner with the most room, preferring one that
- * already holds its project's clone, and the rest wait first come, first
- * served. A job no runner can ever take, because none is up or can be
- * made, is sent to run here instead of waiting.
+ * The pool-wide queue of heavy jobs: each job asks for CPUs and memory, a
+ * runner takes as many at once as fit in its own, a job goes to the runner
+ * with the most room, preferring one that already holds its project's clone,
+ * and the rest wait first come, first served. A job no runner can ever take,
+ * because none is up, on its way or can be made with room for it, is sent to
+ * run here instead of waiting.
  */
 export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<JobPoolEvents>();
@@ -26,8 +22,6 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	constructor(
 		private readonly view: JobPoolView,
 		private readonly clock: WallClock,
-		/** How many jobs each runner takes at once. */
-		private readonly perRunner = JOBS_PER_RUNNER,
 	) {}
 
 	/**
@@ -97,21 +91,30 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 		return this.held().filter((each) => each.runner === id).length;
 	}
 
-	/** How many more jobs the runners up could take now, before those waiting. */
-	room(): number {
-		return this.view
-			.runners()
-			.filter((runner) => runner.ready)
-			.reduce((sum, runner) => sum + this.free(runner.id), 0);
-	}
-
 	/**
 	 * How many jobs wait with no room for them on the runners up or on their
-	 * way: what a second runner would be made for.
+	 * way, placed in turn wherever they fit: what another runner would be
+	 * made for.
 	 */
 	short(): number {
-		const coming = this.view.booting() * this.perRunner;
-		return Math.max(0, this.waiting.length - this.room() - coming);
+		const rooms = [
+			...this.view
+				.runners()
+				.filter((runner) => runner.ready)
+				.map((runner) => this.free(runner)),
+			...this.view.booting().map((size) => ({ ...size })),
+		];
+		let short = 0;
+		for (const { ask } of this.waiting) {
+			const room = rooms.find((each) => fits(ask.size, each));
+			if (room === undefined) {
+				short++;
+				continue;
+			}
+			room.cpus -= ask.size.cpus;
+			room.memory -= ask.size.memory;
+		}
+		return short;
 	}
 
 	dispose(): void {
@@ -135,32 +138,41 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	}
 
 	/**
-	 * The runner for `ask`: the one with the most room, among those with
-	 * some, one that holds its project's clone ahead of the rest; null to
-	 * run it here, when no runner is up or on its way and none can be made;
-	 * undefined to wait.
+	 * The runner for `ask`: among those with room for it, one that holds its
+	 * project's clone ahead of the rest, then the one with the most room;
+	 * null to run it here, when no runner up, on its way or that can be made
+	 * would ever have room for it; undefined to wait.
 	 */
 	private pick(ask: JobAsk): string | null | undefined {
 		const usable = this.view
 			.runners()
 			.filter((runner) => !(ask.avoid ?? []).includes(runner.id));
 		const open = usable
-			.filter((runner) => runner.ready && this.free(runner.id) > 0)
+			.filter((runner) => runner.ready && fits(ask.size, this.free(runner)))
+			.map((runner) => ({ id: runner.id, free: this.free(runner) }))
 			.sort(
 				(one, other) =>
 					this.holds(other.id, ask.project) - this.holds(one.id, ask.project) ||
-					this.free(other.id) - this.free(one.id),
+					other.free.cpus - one.free.cpus ||
+					other.free.memory - one.free.memory,
 			);
 		if (open[0] !== undefined) {
 			return open[0].id;
 		}
 		const coming =
-			usable.some((runner) => runner.ready) || this.view.booting() > 0;
-		return coming || this.view.canMake() ? undefined : null;
+			usable.some((runner) => runner.ready && fits(ask.size, runner.size)) ||
+			this.view.booting().some((size) => fits(ask.size, size));
+		const made = this.view.canMake() && fits(ask.size, this.view.made());
+		return coming || made ? undefined : null;
 	}
 
-	private free(id: string): number {
-		return Math.max(0, this.perRunner - this.running(id));
+	/** What `runner` has left once the jobs on it now take theirs. */
+	private free(runner: PoolRunner): JobSize {
+		const jobs = this.held().filter((each) => each.runner === runner.id);
+		return {
+			cpus: runner.size.cpus - sum(jobs, (job) => job.size.cpus),
+			memory: runner.size.memory - sum(jobs, (job) => job.size.memory),
+		};
 	}
 
 	private holds(id: string, project: string): number {
@@ -176,6 +188,7 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 			project: ask.project,
 			task: ask.task,
 			what: ask.what,
+			size: ask.size,
 			runner,
 			since: this.clock.now(),
 		};
@@ -209,6 +222,9 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	}
 }
 
+const sum = <T>(items: T[], of: (item: T) => number): number =>
+	items.reduce((total, item) => total + of(item), 0);
+
 interface Waiting {
 	ask: JobAsk;
 	since: number;
@@ -220,16 +236,20 @@ export interface PoolRunner {
 	id: string;
 	/** Whether it is connected and takes new jobs: not draining or being removed. */
 	ready: boolean;
+	/** The CPUs and memory it said it has when it joined. */
+	size: JobSize;
 }
 
 /** What the pool reads of the world beyond its own jobs. */
 export interface JobPoolView {
 	/** The runners that have joined. */
 	runners(): PoolRunner[];
-	/** How many runners are made but yet to join, whose room is on its way. */
-	booting(): number;
+	/** The size of each runner made but yet to join, whose room is on its way. */
+	booting(): JobSize[];
 	/** Whether another runner may be made now: a provider, within the budget, and not just failed. */
 	canMake(): boolean;
+	/** The size of the runner that would be made now. */
+	made(): JobSize;
 }
 
 /** What wants a place on a runner: one heavy job. */
@@ -241,6 +261,8 @@ export interface JobAsk {
 	task: string | null;
 	/** What it runs, shortened for the page. */
 	what: string;
+	/** What it asks of a runner. */
+	size: JobSize;
 	/** Runners it already lost a job on, which it avoids. */
 	avoid?: string[];
 	/** Whether it waits ahead of ordinary jobs, as a merge's gate does. */
@@ -253,6 +275,7 @@ export interface HeldJob {
 	project: string;
 	task: string | null;
 	what: string;
+	size: JobSize;
 	/** The runner it runs on. */
 	runner: string;
 	since: number;

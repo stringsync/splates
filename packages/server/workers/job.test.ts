@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
@@ -170,7 +170,8 @@ describe("heavy jobs on a runner", () => {
 		await expect(running).rejects.toThrow("cancelled");
 	});
 
-	const post = (jobs: RunnerJobs) =>
+	// Asks little of the runner, this machine, whatever it has.
+	const post = (jobs: RunnerJobs, size = { cpus: 1, memory: 0.5 }) =>
 		jobs.run(
 			new Request("http://localhost/api/jobs", {
 				method: "POST",
@@ -178,6 +179,7 @@ describe("heavy jobs on a runner", () => {
 					worktree: deps.root,
 					project: deps.root,
 					argv: ["sh", "-c", "echo hi; exit 2"],
+					...size,
 				}),
 			}),
 		);
@@ -198,6 +200,23 @@ describe("heavy jobs on a runner", () => {
 
 	it("sends a job request to its caller to run itself where no runner is up or can be made", async () => {
 		const response = await post(jobsOf(new WorkerRegistry(new MemoryLogger())));
+
+		expect(await events(response)).toEqual([{ type: "local" }]);
+	});
+
+	it("says in the runner's hello the CPUs it has and its memory to the GB", () => {
+		expect(worker.info).toMatchObject({
+			jobs: true,
+			cpus: availableParallelism(),
+			memory: Math.round(totalmem() / 1024 ** 3),
+		});
+	});
+
+	it("sends a job request to its caller to run itself when it asks more than any runner has", async () => {
+		const response = await post(jobsOf(registry), {
+			cpus: availableParallelism() + 1,
+			memory: 0.5,
+		});
 
 		expect(await events(response)).toEqual([{ type: "local" }]);
 	});

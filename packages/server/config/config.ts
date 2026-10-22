@@ -2,7 +2,7 @@ import type { CloudProvider } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
-import type { WorkerProvider } from "../workers";
+import type { JobSizeSetting, WorkerProvider } from "../workers";
 
 export interface Config {
 	/**
@@ -54,6 +54,14 @@ export interface Config {
 	 * job needs and a fresh checkout lacks (`"bun install"`). Null runs none.
 	 */
 	prepare: string | null;
+	/**
+	 * What each of the project's heavy jobs asks of a runner, as
+	 * `{ cpus: 4, memory: "8GB" }`: a runner takes as many jobs at once as
+	 * fit in its CPUs and memory. Unset, 4 CPUs and 8 GB, one test run being
+	 * about 7 cores and 7 GB; `splates run --cpus --memory` overrides it
+	 * for one command.
+	 */
+	job: JobSizeSetting;
 	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma

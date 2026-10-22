@@ -1,4 +1,5 @@
 import type { JobPoolView, PoolRunner } from "./job-pool";
+import { DEFAULT_JOB_SIZE, type JobSize, runnerSize } from "./job-size";
 import type { WorkerRegistry } from "./registry";
 
 /**
@@ -9,20 +10,30 @@ export class FakeJobView implements JobPoolView {
 	making = false;
 	/** How many runners are made but yet to join. */
 	coming = 0;
+	/** The size of each runner made, on its way or to be. */
+	size: JobSize = DEFAULT_JOB_SIZE;
 
 	constructor(private readonly registry: WorkerRegistry | null = null) {}
 
 	runners(): PoolRunner[] {
 		return (this.registry?.workers ?? [])
 			.filter((worker) => worker.connected && worker.info.jobs === true)
-			.map((worker) => ({ id: worker.id, ready: true }));
+			.map((worker) => ({
+				id: worker.id,
+				ready: true,
+				size: runnerSize(worker.info),
+			}));
 	}
 
-	booting(): number {
-		return this.coming;
+	booting(): JobSize[] {
+		return Array.from({ length: this.coming }, () => this.size);
 	}
 
 	canMake(): boolean {
 		return this.making;
+	}
+
+	made(): JobSize {
+		return this.size;
 	}
 }

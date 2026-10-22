@@ -2,6 +2,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { loadConfig } from "../config";
 import { JobEvent } from "./job-route";
+import { type JobSize, jobSize } from "./job-size";
 import { type ServerSend, serverOf } from "./server-of";
 
 /** A heavy command to run on a runner, in the checkout of `cwd`. */
@@ -14,6 +15,8 @@ export interface RemoteJob {
 	files?: string[];
 	/** Waits ahead of ordinary jobs, as a merge's gate does. */
 	first?: boolean;
+	/** What it asks of a runner where it overrides the project's `job` setting. */
+	size?: Partial<JobSize>;
 	/** Runs this commit, which the worktree's repository holds, rather than the worktree as it stands. */
 	commit?: string;
 	/** Called with the command's output as it arrives. */
@@ -51,6 +54,7 @@ export async function runOnRunner(
 		return null;
 	}
 	const config = await loadConfig(toplevel, { fs: ctx.fs });
+	const size = jobSize(config.job, job.size);
 	let response: Response;
 	try {
 		response = await server.send(`${server.url}/api/jobs`, {
@@ -66,6 +70,8 @@ export async function runOnRunner(
 				env: job.env ?? {},
 				files: job.files ?? [],
 				first: job.first ?? false,
+				cpus: size.cpus,
+				memory: size.memory,
 				...(job.commit === undefined ? {} : { commit: job.commit }),
 			}),
 			...(job.signal === undefined ? {} : { signal: job.signal }),

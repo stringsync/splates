@@ -128,6 +128,8 @@ export class WorkerProvisioning
 		const provisioned = {
 			type: type.name,
 			dollarsPerHour: type.dollarsPerHour,
+			...(type.cpus === undefined ? {} : { cpus: type.cpus }),
+			...(type.memory === undefined ? {} : { memory: type.memory }),
 		};
 		await records.set(id, {
 			provisioned: {

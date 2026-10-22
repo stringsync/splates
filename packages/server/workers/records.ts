@@ -276,6 +276,9 @@ const Record = z.object({
 			createdAt: z.number().nullable().default(null),
 			/** Whether its machine is on spot, at a discount the cloud may take back. */
 			spot: z.boolean().optional(),
+			/** Its type's CPUs and memory in GB, the room it brings for jobs once joined; absent where unknown. */
+			cpus: z.number().optional(),
+			memory: z.number().optional(),
 		})
 		.nullable()
 		.default(null),

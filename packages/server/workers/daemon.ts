@@ -1,3 +1,4 @@
+import { availableParallelism, totalmem } from "node:os";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -145,8 +146,13 @@ export class WorkerDaemon implements AsyncResource {
 						platform: this.opts.ps.platform,
 						...(host === null ? {} : { host }),
 						build: RUNNING,
-						// Runs heavy jobs on a `job` channel.
+						// Runs heavy jobs on a `job` channel, as many at once as fit
+						// in its CPUs and memory.
 						jobs: true,
+						cpus: availableParallelism(),
+						// Rounded to the GB, as a machine sold as 8 GB says less to
+						// the kernel's reserve and should still take a job of 8 GB.
+						memory: Math.round(totalmem() / 1024 ** 3),
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {

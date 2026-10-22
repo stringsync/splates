@@ -147,12 +147,23 @@ splates
 		description:
 			"run it here in a heavy-job slot even when a runner has joined `splates server`",
 	})
+	.option("cpus", z.coerce.number().positive().optional(), {
+		description:
+			"the CPUs it asks of a runner, which takes as many commands at once as fit; the project's `job` in splates.config.ts, else 4, by default",
+	})
+	.option("memory", z.string(), {
+		default: "",
+		description:
+			"the memory it asks of a runner, as 8GB or 512MB; the project's `job` in splates.config.ts, else 8GB, by default",
+	})
 	.rest("command", z.string(), {
 		description: "the command and its arguments, after `--`",
 	})
 	.action(async (opts, ctx) => {
 		const code = await runHeavy(ctx, opts.command, undefined, {
 			local: opts.local,
+			...(opts.cpus === undefined ? {} : { cpus: opts.cpus }),
+			memory: opts.memory,
 		});
 		if (code !== 0) {
 			ctx.ps.exit(code);

@@ -125,6 +125,7 @@ export class Testing implements AsyncDisposable {
 			postCheckout: null,
 			postRewrite: null,
 			prepare: null,
+			job: {},
 			// Keeps merge's gate green unless a test asks otherwise.
 			preMerge: "true",
 			on: {},

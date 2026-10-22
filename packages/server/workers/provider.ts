@@ -11,6 +11,10 @@ export interface WorkerType {
 	platform: Platform;
 	/** How many agents a worker of this type runs at once. */
 	slots: number;
+	/** Its CPUs, which heavy jobs are placed by; absent where the provider does not say. */
+	cpus?: number;
+	/** Its memory in GB, which heavy jobs are placed by; absent where the provider does not say. */
+	memory?: number;
 	/** What the user pays for one per hour, in US dollars. */
 	dollarsPerHour: number;
 	/** What one costs per hour on spot, in US dollars, for a provider with a spot market; absent for none. */

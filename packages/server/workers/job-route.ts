@@ -5,6 +5,7 @@ import { Git } from "../git";
 import { refuse } from "../server/shared";
 import { JobParams } from "./job";
 import type { JobPool } from "./job-pool";
+import { DEFAULT_JOB_SIZE } from "./job-size";
 import { JobSnapshot } from "./job-snapshot";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
@@ -21,6 +22,10 @@ export const JobRequest = z.object({
 	argv: JobParams.shape.argv,
 	env: JobParams.shape.env,
 	files: JobParams.shape.files,
+	/** The CPUs it asks of a runner; the default from a caller before jobs had a size. */
+	cpus: z.number().positive().default(DEFAULT_JOB_SIZE.cpus),
+	/** The memory it asks of a runner, in GB. */
+	memory: z.number().positive().default(DEFAULT_JOB_SIZE.memory),
 	/** Waits ahead of ordinary jobs in the pool's queue: a merge's gate, which others wait on. */
 	first: z.boolean().default(false),
 	/** Runs this commit of the project, which its worktree holds, instead of a snapshot of the worktree. */
@@ -115,6 +120,7 @@ export class RunnerJobs {
 					project: job.project,
 					task: job.task,
 					what: job.argv.join(" ").slice(0, 120),
+					size: { cpus: job.cpus, memory: job.memory },
 					avoid: lost,
 					...(job.first ? { first: true } : {}),
 				},

@@ -29,7 +29,10 @@ the rest:
    has joined `splates server`, in a checkout of your worktree as it stands,
    output streamed back and its exit code yours, or else here once one of
    the machine's few heavy-job slots is free, so agents at once never run it
-   out of memory. Skip it only where the project's instructions say a
+   out of memory. A runner takes as many commands at once as fit in its
+   CPUs and memory, each asking what the project's `job` setting says;
+   `--cpus <n> --memory <size>` (as `8GB`) asks otherwise for one that needs
+   more or less. Skip it only where the project's instructions say a
    script takes a slot itself.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask

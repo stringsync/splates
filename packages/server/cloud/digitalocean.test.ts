@@ -40,6 +40,8 @@ describe("CloudWorkers in DigitalOcean", () => {
 				name: "s-4vcpu-8gb",
 				platform: "linux",
 				slots: 1,
+				cpus: 4,
+				memory: 8,
 				dollarsPerHour: 0.0714,
 				billing: "second",
 			},
