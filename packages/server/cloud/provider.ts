@@ -40,6 +40,8 @@ export interface CloudProvider {
 	snapshot(id: string, opts: SnapshotOptions): Promise<string>;
 	/** The ids of the snapshots tagged `tag`, with `value` when given. */
 	snapshots(tag: string, value?: string): Promise<string[]>;
+	/** What the snapshots tagged `tag`, with `value` when given, cost to keep. */
+	snapshotCosts(tag: string, value?: string): Promise<SnapshotCost[]>;
 	/** Deletes snapshot `id`; silent when it is already gone. */
 	deleteSnapshot(id: string): Promise<void>;
 }
@@ -101,6 +103,14 @@ export interface NewMachine {
 	/** Run once on first boot by cloud-init; may hold secrets, so it goes in no log. */
 	userData: string;
 	tags: Record<string, string>;
+}
+
+/** What it costs to keep one snapshot, as the cloud's API says. */
+export interface SnapshotCost {
+	id: string;
+	gigabytes: number;
+	/** In US dollars. */
+	dollarsPerMonth: number;
 }
 
 /** What `CloudProvider.snapshot` takes. */

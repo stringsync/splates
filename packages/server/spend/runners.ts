@@ -93,12 +93,22 @@ export interface RunnerSplit {
 	shares: SpendShare[];
 }
 
+/** A snapshot runners boot from, which costs to keep. */
+export interface RunnerImage {
+	id: string;
+	gigabytes: number;
+	/** In US dollars, as the provider's API prices it. */
+	dollarsPerMonth: number;
+}
+
 /** What the Billing page shows of runners. */
 export interface RunnersReport {
 	/** When it was read, as an ISO timestamp. */
 	updated: string;
 	/** Every runner ever made, the newest first. */
 	runners: RunnerLife[];
+	/** The snapshots runners boot from, with what each costs to keep a month. */
+	images: RunnerImage[];
 	/** Each of the last `RUNNER_DAYS` days, oldest first, today last. */
 	days: RunnerPeriod[];
 	/** Each month from the first runner's to this one, oldest first. */
@@ -120,6 +130,7 @@ export function runnersReport(
 	lines: readonly (SpendEntry | RunnerRow)[],
 	now: number,
 	running: readonly RunnerJobRow[] = [],
+	images: readonly RunnerImage[] = [],
 ): RunnersReport {
 	const made = new Map<string, RunnerMadeRow>();
 	const ended = new Map<string, number>();
@@ -246,6 +257,7 @@ export function runnersReport(
 	return {
 		updated: new Date(now).toISOString(),
 		runners,
+		images: [...images],
 		days: dayStarts.map((since) => used(since, since + DAY)),
 		months,
 		split: {

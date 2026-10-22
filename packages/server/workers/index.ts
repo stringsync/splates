@@ -66,6 +66,7 @@ export type {
 	ProvisionedMachine,
 	Snapshot,
 	SnapshotRecipe,
+	WorkerImage,
 	WorkerProvider,
 	WorkerSpec,
 	WorkerType,

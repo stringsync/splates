@@ -6,7 +6,7 @@ import { type ProviderStatus, pullBilling, unpulledStatus } from "./billing";
 import { PROVIDERS } from "./providers";
 import { Rates } from "./rates";
 import { type SpendReport, spendReport } from "./report";
-import { type RunnerJobRow, runnersReport } from "./runners";
+import { type RunnerImage, type RunnerJobRow, runnersReport } from "./runners";
 import type { Spend } from "./spend";
 
 /** The currencies the Billing page offers, the European Central Bank's most traded. */
@@ -27,6 +27,8 @@ export interface BillingView {
 /** What runs on runners now, which the ledger keeps a job of once it ends. */
 export interface RunningJobs {
 	runningJobs(): RunnerJobRow[];
+	/** What the snapshots runners boot from cost to keep. */
+	images(): Promise<RunnerImage[]>;
 }
 
 /** What a `BillingRoutes` reads beyond the ledger; the real fetch and no runners by default. */
@@ -131,6 +133,7 @@ export class BillingRoutes {
 				await this.ledger.lines(),
 				Date.now(),
 				this.jobs?.runningJobs() ?? [],
+				(await this.jobs?.images()) ?? [],
 			),
 		);
 }

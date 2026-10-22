@@ -9,6 +9,7 @@ describe("App's billing runners", () => {
 		const up = new Date(Date.now() - (2 * 60 + 14) * 60_000).toISOString();
 		testing.runnersReport = {
 			updated: new Date().toISOString(),
+			images: [{ id: "1", gigabytes: 4.5, dollarsPerMonth: 0.27 }],
 			runners: [
 				{
 					id: "c-16-up",
@@ -103,6 +104,14 @@ describe("App's billing runners", () => {
 				.filter(({ path }) => path.startsWith("/api/workers"))
 				.map(({ path, method }) => [path, method]),
 		).toEqual([["/api/workers/c-16-up", "DELETE"]]);
+	});
+
+	it("lists the runner image with its size and monthly cost", async () => {
+		const view = await open();
+		const image = view.getByLabelText("runner images");
+
+		expect(image.textContent).toContain("4.5 GB");
+		expect(image.textContent).toContain("$0.27/month");
 	});
 
 	it("lists the newest eight runners until asked for all", async () => {

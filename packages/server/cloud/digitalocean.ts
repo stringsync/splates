@@ -12,6 +12,7 @@ import type {
 	CloudToken,
 	NewMachine,
 	Orderable,
+	SnapshotCost,
 	SnapshotOptions,
 } from "./provider";
 
@@ -102,6 +103,15 @@ export class DigitalOceanCloud implements CloudProvider {
 		return (await this.api()).snapshots(tagName(tag, value));
 	}
 
+	async snapshotCosts(tag: string, value?: string): Promise<SnapshotCost[]> {
+		const images = await (await this.api()).images(tagName(tag, value));
+		return images.map((image) => ({
+			id: image.id,
+			gigabytes: image.gigabytes,
+			dollarsPerMonth: image.gigabytes * SNAPSHOT_DOLLARS_PER_GB_MONTH,
+		}));
+	}
+
 	async deleteSnapshot(id: string): Promise<void> {
 		await (await this.api()).deleteImage(id);
 	}
@@ -162,6 +172,9 @@ export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
 	builderTypes: ["s-1vcpu-2gb", "s-2vcpu-4gb"],
 	image: "ubuntu-24-04-x64",
 };
+
+/** What DigitalOcean bills a snapshot a gigabyte a month, in US dollars; its API does not say. */
+const SNAPSHOT_DOLLARS_PER_GB_MONTH = 0.06;
 
 /** The tag naming `tag` with `value`, or `tag` alone, as `tagsOf` keeps them. */
 function tagName(tag: string, value?: string): string {

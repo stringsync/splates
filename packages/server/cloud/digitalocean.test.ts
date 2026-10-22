@@ -157,6 +157,20 @@ describe("CloudWorkers in DigitalOcean", () => {
 		]);
 	});
 
+	it("prices each snapshot by the size DigitalOcean reports at $0.06 a gigabyte a month", async () => {
+		digitalocean.images.set(7, {
+			id: 7,
+			tags: ["splates-snapshot", "splates-snapshot:linux"],
+			size_gigabytes: 5,
+		});
+
+		const images = await provider.images();
+
+		expect(images).toHaveLength(1);
+		expect(images[0]).toMatchObject({ id: "7", gigabytes: 5 });
+		expect(images[0]?.dollarsPerMonth).toBeCloseTo(0.3);
+	});
+
 	it("lets the builder go, keeping the last snapshot, when the recipe never finishes", async () => {
 		stuck = true;
 		digitalocean.images.set(7, {

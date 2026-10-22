@@ -33,7 +33,10 @@ export class FakeDigitalOcean {
 	/** What each size slug costs an hour, as `/v2/sizes` says; $0.50 for one not named. */
 	prices: Record<string, number> = {};
 	readonly droplets = new Map<number, FakeDroplet>();
-	readonly images = new Map<number, { id: number; tags: string[] }>();
+	readonly images = new Map<
+		number,
+		{ id: number; tags: string[]; size_gigabytes?: number }
+	>();
 	readonly tags = new Set<string>();
 	readonly requests: FakeDigitalOceanRequest[] = [];
 	/** When set, creating a droplet is refused with it. */

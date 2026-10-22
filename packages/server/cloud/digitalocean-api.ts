@@ -130,12 +130,20 @@ export class DigitalOceanApi {
 
 	/** The ids of the snapshots tagged `tag`. */
 	async snapshots(tag: string): Promise<string[]> {
+		return (await this.images(tag)).map((image) => String(image.id));
+	}
+
+	/** The snapshots tagged `tag`, each with the size DigitalOcean bills it by. */
+	async images(tag: string): Promise<{ id: string; gigabytes: number }[]> {
 		const found = await this.request(
 			"GET",
 			`/images?private=true&per_page=${PAGE}&tag_name=${encodeURIComponent(tag)}`,
 			Answers.images,
 		);
-		return found.images.map((image) => String(image.id));
+		return found.images.map((image) => ({
+			id: String(image.id),
+			gigabytes: image.size_gigabytes ?? 0,
+		}));
 	}
 
 	/** Deletes image `id`; silent when it is already gone. */
@@ -318,7 +326,11 @@ const Answers = {
 	snapshots: z.object({
 		snapshots: z.array(z.object({ id: z.number(), name: z.string() })),
 	}),
-	images: z.object({ images: z.array(z.object({ id: z.number() })) }),
+	images: z.object({
+		images: z.array(
+			z.object({ id: z.number(), size_gigabytes: z.number().optional() }),
+		),
+	}),
 	any: z.unknown(),
 };
 

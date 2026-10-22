@@ -144,6 +144,7 @@ export class Testing implements Resource {
 	runnersReport: RunnersReport = {
 		updated: "2026-10-21T12:00:00.000Z",
 		runners: [],
+		images: [],
 		days: [],
 		months: [],
 		split: { days: [], months: [] },

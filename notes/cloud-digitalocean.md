@@ -30,6 +30,12 @@ size's `price_hourly` are read from `/v2/sizes`, and `CloudWorkers.types`
 gives a runner the API's price, so its estimate follows what DigitalOcean
 charges rather than the list price in `DIGITALOCEAN_DEFAULTS`.
 
+The worker snapshot costs to keep, which `/v2/sizes` does not price: the
+Runners section of Billing lists it with the `size_gigabytes` that
+`/v2/images` reports, at $0.06 a gigabyte a month (`WorkerProvider.images`,
+`CloudProvider.snapshotCosts`). It is shown, never counted into a runner's
+estimate.
+
 No vendor lock-in: only `cloud/digitalocean*.ts`, `machineCloud` (the one
 place that picks the cloud) and the spend adapter name DigitalOcean. Setup,
 `CloudWorkers`, the scheduler and provisioning go through `CloudProvider`

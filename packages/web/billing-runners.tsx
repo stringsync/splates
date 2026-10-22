@@ -1,4 +1,5 @@
 import type {
+	RunnerImage,
 	RunnerLife,
 	RunnerMonth,
 	RunnerPeriod,
@@ -72,6 +73,9 @@ export function RunnersSection(): JSX.Element {
 					No runner made yet: one is made when a heavy job or an agent needs it.
 				</p>
 			)}
+			{report !== null && report.images.length > 0 && (
+				<RunnerImages images={report.images} />
+			)}
 			{report !== null && report.runners.length > 0 && (
 				<>
 					<RunnerList
@@ -99,6 +103,31 @@ export function RunnersSection(): JSX.Element {
 				</>
 			)}
 		</section>
+	);
+}
+
+/** The snapshots runners boot from, each with its size and what it costs to keep a month. */
+function RunnerImages({ images }: { images: RunnerImage[] }): JSX.Element {
+	return (
+		<ul
+			aria-label="runner images"
+			className="flex flex-col divide-y rounded-xl border bg-card shadow-xs"
+		>
+			{images.map((image) => (
+				<li
+					key={image.id}
+					className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
+				>
+					<span className="font-medium">Runner image</span>
+					<span className="text-muted-foreground text-xs">
+						{image.gigabytes.toFixed(1)} GB kept
+					</span>
+					<span className="ml-auto tabular-nums">
+						{dollars(image.dollarsPerMonth)}/month
+					</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 

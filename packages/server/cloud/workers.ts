@@ -10,6 +10,7 @@ import {
 	SNAPSHOT_USER,
 	type Snapshot,
 	type SnapshotRecipe,
+	type WorkerImage,
 	type WorkerProvider,
 	type WorkerSpec,
 	type WorkerType,
@@ -54,6 +55,10 @@ export class CloudWorkers implements WorkerProvider {
 				dollarsPerHour:
 					orderable.get(type.name)?.dollarsPerHour ?? type.dollarsPerHour,
 			}));
+	}
+
+	async images(): Promise<WorkerImage[]> {
+		return this.cloud.snapshotCosts(SNAPSHOT_TAG);
 	}
 
 	async snapshot(recipe: SnapshotRecipe): Promise<Snapshot> {

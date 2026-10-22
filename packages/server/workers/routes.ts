@@ -13,6 +13,7 @@ import { type HeldJob, JobPool } from "./job-pool";
 import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
+import type { WorkerImage } from "./provider";
 import {
 	WorkerProvisioning,
 	type WorkerProvisioningOptions,
@@ -197,6 +198,11 @@ export class DevWorkers implements AsyncResource {
 	/** The jobs running on runners now, as the ledger keeps one once it ends. */
 	runningJobs(): RunnerJobRow[] {
 		return this.jobs.pool.held().map((job) => jobRow({ ...job, until: null }));
+	}
+
+	/** The runner snapshots kept and what each costs a month; none when it cannot be read. */
+	async images(): Promise<WorkerImage[]> {
+		return (await this.provisioning?.images().catch(() => [])) ?? [];
 	}
 
 	/** What runs on each worker: the tasks its agents run and the jobs on it, a conversation's or job's id for one in no task. */

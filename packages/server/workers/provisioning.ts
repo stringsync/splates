@@ -16,6 +16,7 @@ import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
 import { type ProvisionOptions, pickType } from "./pick-type";
 import type {
 	ProvisionedMachine,
+	WorkerImage,
 	WorkerProvider,
 	WorkerType,
 } from "./provider";
@@ -88,6 +89,11 @@ export class WorkerProvisioning
 	/** The types of worker the provider makes. */
 	types(): Promise<WorkerType[]> {
 		return this.opts.provider.types();
+	}
+
+	/** The snapshots its provider keeps and what each costs; none when it cannot say. */
+	async images(): Promise<WorkerImage[]> {
+		return (await this.opts.provider.images?.()) ?? [];
 	}
 
 	/** Whether worker `id` is one a provider made. */

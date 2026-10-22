@@ -46,6 +46,15 @@ export interface Snapshot {
 	builtAt: number;
 }
 
+/** What it costs to keep a snapshot a provider built, as its API says. */
+export interface WorkerImage {
+	/** The snapshot's id, as `Snapshot.id`. */
+	id: string;
+	gigabytes: number;
+	/** In US dollars. */
+	dollarsPerMonth: number;
+}
+
 /** What a provider is asked to make. */
 export interface WorkerSpec {
 	/** What the server knows the worker by, and the provider names its machine for. */
@@ -126,6 +135,8 @@ export interface WorkerProvider {
 	 * only the newest.
 	 */
 	snapshot(recipe: SnapshotRecipe): Promise<Snapshot>;
+	/** The snapshots it keeps and what each costs to keep, for the Billing page; absent when it bills nothing for them. */
+	images?(): Promise<WorkerImage[]>;
 	/** Makes a machine as `spec` says, answering once it is booting. */
 	create(spec: WorkerSpec): Promise<ProvisionedMachine>;
 	/** Destroys worker `id`'s machine; silent when it is already gone. */

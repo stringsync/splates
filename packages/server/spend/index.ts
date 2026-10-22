@@ -8,6 +8,7 @@ export type { BillingView } from "./routes";
 export { BillingRoutes, CURRENCIES } from "./routes";
 export type {
 	RunnerEndedRow,
+	RunnerImage,
 	RunnerJobRow,
 	RunnerLife,
 	RunnerMadeRow,
