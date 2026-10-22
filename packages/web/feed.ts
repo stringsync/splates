@@ -53,6 +53,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	 * project's own arrives.
 	 */
 	seeded = false;
+	/**
+	 * Whether the server has answered since the stream last opened, so
+	 * `snapshot` is its word now rather than a kept copy, or one from before
+	 * a sleep or a dropped stream.
+	 */
+	fresh = false;
 
 	private stream: LiveStream | null = null;
 	/** The changes on their way, in the order made (see `expect`). */
@@ -68,7 +74,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	/** Counting down to `offline` while the server is unreachable. */
 	private unreachable: Resource | null = null;
 
-	private readonly offlineAfter: Duration;
+	readonly offlineAfter: Duration;
 	private readonly timer: Timer;
 	private readonly project: string | null;
 	private readonly copy: PageCopy<Snapshot> | null;
@@ -103,12 +109,23 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		}
 		this.stream = new LiveStream(scoped("/events", this.project), {
 			message: () => void this.load(),
-			// Back after the stream dropped, what moved meanwhile was never said.
-			open: (again) => (again ? void this.load() : this.reached({})),
+			// Back after the stream dropped, or gave way to another as stale, what
+			// moved meanwhile was never said; the first read, still on its way, says it.
+			open: (again) =>
+				again || (!this.fresh && this.loading === null)
+					? void this.load()
+					: this.reached({}),
 			// The stream reconnects on its own, so this is a notice rather than
 			// an error to recover from: `open` clears it when the server comes
 			// back.
-			error: () => this.lost(),
+			error: () => {
+				// A server that refuses the project refuses its stream too.
+				if (this.missing === null && this.failed === null) {
+					this.set({ fresh: false });
+				}
+				this.lost();
+			},
+			dropped: () => this.set({ fresh: false }),
 		});
 		void this.paint();
 		void this.load();
@@ -117,6 +134,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	/** Reads the snapshot again now, as after a retry the server took. */
 	reload(): Promise<void> {
 		return this.load();
+	}
+
+	/** Opens the stream again now and reads afresh, as when the person asks. */
+	retry(): void {
+		this.stream?.reopen();
+		void this.load();
 	}
 
 	dispose(): void {
@@ -128,6 +151,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		this.unreachable?.dispose();
 		this.unreachable = null;
 		this.expected = [];
+		this.fresh = false;
 		this.copy?.dispose();
 	}
 
@@ -167,6 +191,8 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 			return;
 		}
 		this.seeded = !whole;
+		// What the page holds of it from the server's streams, not a kept copy.
+		this.fresh = true;
 		this.show(snapshot);
 	}
 
@@ -280,8 +306,8 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 			this.reached({ snapshot, outdated: null, missing: null, failed: null });
 			this.copy?.keep(() => snapshot);
 		} catch {
-			// The last good snapshot stays on screen: a page that empties itself
-			// because one poll failed is worse than one that admits it is stale.
+			// The last good snapshot stays, for the page to say it is stale.
+			this.set({ fresh: false });
 			this.lost();
 		}
 	}
@@ -303,18 +329,25 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		}, this.offlineAfter);
 	}
 
-	/** The server answered with `next`: the countdown to `offline` stops. */
+	/**
+	 * The server answered with `next`, or only opened its stream with none:
+	 * the countdown to `offline` stops.
+	 */
 	private reached(
 		next: Partial<Pick<Feed, "snapshot" | "outdated" | "missing" | "failed">>,
 	): void {
 		this.unreachable?.dispose();
 		this.unreachable = null;
-		this.set({ ...next, offline: false });
+		const answered = Object.keys(next).length > 0 ? { fresh: true } : {};
+		this.set({ ...next, ...answered, offline: false });
 	}
 
 	private set(
 		next: Partial<
-			Pick<Feed, "snapshot" | "offline" | "outdated" | "missing" | "failed">
+			Pick<
+				Feed,
+				"snapshot" | "offline" | "outdated" | "missing" | "failed" | "fresh"
+			>
 		>,
 	): void {
 		const { snapshot, ...rest } = next;

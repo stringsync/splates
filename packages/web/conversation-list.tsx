@@ -34,6 +34,7 @@ import { UnstartedRow, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
+import { InboxLoading, useFreshness } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { byLane, inOrder } from "./lane-groups";
@@ -112,6 +113,7 @@ export const ConversationList = memo(function ConversationList({
 	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
 		"changed",
 	]);
+	const { stale } = useFreshness();
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
@@ -356,7 +358,9 @@ export const ConversationList = memo(function ConversationList({
 					}}
 				/>
 			))}
-			{grouped !== null ? (
+			{stale ? (
+				<InboxLoading className="px-3 py-2" />
+			) : grouped !== null ? (
 				<Placing value={placing}>
 					<FolderList
 						folders={grouped.folders}

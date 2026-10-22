@@ -73,3 +73,24 @@ export function forget(message: Sending): void {
 		}
 	}
 }
+
+/**
+ * When a message of `sending` next needs its countdown refreshed, as epoch
+ * ms: as it goes unanswered for `STILL_SENDING`, then each second after;
+ * null when none is on its way.
+ */
+export function nextCountdown(
+	sending: readonly Sending[],
+	now: number,
+): number | null {
+	const due = sending
+		.map((each) =>
+			now < each.at + STILL_SENDING.ms
+				? each.at + STILL_SENDING.ms
+				: each.at +
+					(Math.floor((now - each.at) / Duration.secs(1).ms) + 1) *
+						Duration.secs(1).ms,
+		)
+		.filter((at) => at > now);
+	return due.length === 0 ? null : Math.min(...due);
+}

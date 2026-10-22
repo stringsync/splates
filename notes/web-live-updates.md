@@ -13,7 +13,17 @@ opens `/api/conversations/events`, where a plain message carries a whole
 All three go through `LiveStream` (`live-stream.ts`), an `EventSource` that
 reopens after two server pulses of silence, because a stream can sit open
 but dead after the machine sleeps, and reads everything afresh on reopen;
-messages still sending on a reconnect are marked unsent. `index.html` starts
-fetching `/api/snapshot` and `/api/conversations` before the script loads,
+messages still sending on a reconnect are marked unsent. It also reopens at
+once on a wake (`wakes.ts`: the page shown again after a pulse or more
+hidden, or back online), telling its feed it `dropped` the old one.
+
+`Feed` and `ConversationFeed` each keep `fresh`, true only once the server
+has answered since the stream last opened: false over a kept copy, after a
+wake, or a dropped or failed stream. `freshness.tsx` joins the two into
+`FreshnessContext`: while stale the inbox (phone and sidebar) shows a
+skeleton instead of rows, the open thread is `inert` under a "Catching up…"
+line, and after `offlineAfter` both say "Can't reach splates" with a Retry.
+
+`index.html` starts fetching `/api/snapshot` and `/api/conversations` before the script loads,
 and `EarlyReads` hands those to the first read. WebSockets are used only for
 terminals (`terminal-session.ts`) and dictation (`/api/dictation`).

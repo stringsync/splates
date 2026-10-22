@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeClock, FakeTimer } from "webappwiz/time/testing";
 import { LiveStream } from "./live-stream";
+import { Wakes } from "./wakes";
 
 /** A stream the page opened, to say what the server would. */
 interface Stream {
@@ -17,12 +18,16 @@ describe("LiveStream", () => {
 	let live: LiveStream;
 	let opens: boolean[];
 	let said: string[];
+	let dropped: number;
+	let wakes: Wakes;
 
 	beforeEach(() => {
 		streams = [];
 		opens = [];
 		said = [];
+		dropped = 0;
 		timer = new FakeTimer();
+		wakes = new Wakes(new FakeClock());
 		globalThis.EventSource = class {
 			onmessage = null;
 			onopen = null;
@@ -46,13 +51,16 @@ describe("LiveStream", () => {
 			{
 				message: (event) => said.push(event.data),
 				open: (again) => opens.push(again),
+				dropped: () => dropped++,
 			},
 			timer,
+			wakes,
 		);
 	});
 
 	afterEach(() => {
 		live.dispose();
+		wakes.dispose();
 		globalThis.EventSource = Source;
 	});
 
@@ -77,6 +85,26 @@ describe("LiveStream", () => {
 		// The wait for silence starts over: only the newest is still to fire.
 		expect(timer.timeouts.length).toBe(waiting + 1);
 		expect(timer.timeouts.filter((each) => !each.disposed)).toHaveLength(1);
+		expect(streams).toHaveLength(1);
+	});
+
+	it("opens again at once when the page wakes, saying it dropped the one it had", () => {
+		streams[0]?.onopen?.();
+
+		wakes.woke();
+
+		expect(dropped).toBe(1);
+		expect(streams.map((each) => each.closed)).toEqual([true, false]);
+		streams[1]?.onopen?.();
+		expect(opens).toEqual([false, true]);
+	});
+
+	it("hears no wake once disposed", () => {
+		live.dispose();
+
+		wakes.woke();
+
+		expect(dropped).toBe(0);
 		expect(streams).toHaveLength(1);
 	});
 

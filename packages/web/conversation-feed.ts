@@ -1,7 +1,5 @@
 import type {
 	ConversationState,
-	Limit,
-	Setting,
 	Taking,
 } from "@stringsync/splates-server/conversations";
 import {
@@ -13,12 +11,12 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import {
-	Duration,
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
+import type { AgentChoice } from "./agent-choice";
 import { scoped } from "./api";
 import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
@@ -27,11 +25,13 @@ import type { PageCopy } from "./page-copy";
 import {
 	forget,
 	messageOf,
+	nextCountdown,
 	type Sending,
-	STILL_SENDING,
 	type Unsent,
 } from "./sending";
 import { repeats } from "./summary-repeats";
+
+export { type AgentChoice, agentName } from "./agent-choice";
 
 export type ConversationFeedEvents = { changed: undefined };
 
@@ -63,6 +63,12 @@ export class ConversationFeed
 	/** Whether the first listing is still on its way. */
 	loading = true;
 	available = false;
+	/**
+	 * Whether the server has listed them since the stream last opened, so
+	 * what shows is its word now rather than a kept copy, or one from before
+	 * a sleep or a dropped stream.
+	 */
+	fresh = false;
 	agents: AgentChoice[] = [];
 	/** Newest first, each with the messages on their way (see `send`) as said. */
 	conversations: ConversationState[] = [];
@@ -166,6 +172,7 @@ export class ConversationFeed
 		this.copy?.dispose();
 		this.stream?.dispose();
 		this.stream = null;
+		this.fresh = false;
 		this.streamed.clear();
 		for (const messages of this.sending.values()) {
 			messages.forEach(forget);
@@ -190,7 +197,8 @@ export class ConversationFeed
 			return;
 		}
 		this.seeded = true;
-		Object.assign(this, { available: true, loading: false });
+		// What the page holds of them from the server's streams, not a kept copy.
+		Object.assign(this, { available: true, loading: false, fresh: true });
 		this.show(conversations);
 	}
 
@@ -445,17 +453,7 @@ export class ConversationFeed
 	 * as epoch ms; null when nothing is on its way.
 	 */
 	nextSlow(id: string): number | null {
-		const now = this.wall.now();
-		const due = (this.sending.get(id) ?? [])
-			.map((each) =>
-				now < each.at + STILL_SENDING.ms
-					? each.at + STILL_SENDING.ms
-					: each.at +
-						(Math.floor((now - each.at) / Duration.secs(1).ms) + 1) *
-							Duration.secs(1).ms,
-			)
-			.filter((at) => at > now);
-		return due.length === 0 ? null : Math.min(...due);
+		return nextCountdown(this.sending.get(id) ?? [], this.wall.now());
 	}
 
 	/** Shows what is on its way afresh, as the clock now reads. */
@@ -513,8 +511,20 @@ export class ConversationFeed
 		};
 	}
 
+	/** Opens the stream again now and lists afresh, as when the person asks. */
+	retry(): void {
+		if (this.stream === null) {
+			void this.load();
+		} else {
+			this.stream.reopen();
+		}
+	}
+
 	private async load(): Promise<void> {
 		if (!(await this.list())) {
+			return;
+		}
+		if (this.stream !== null) {
 			return;
 		}
 		this.stream = new LiveStream(
@@ -538,8 +548,18 @@ export class ConversationFeed
 					this.streamed.clear();
 					void this.reopened(again);
 				},
+				error: () => this.stale(),
+				dropped: () => this.stale(),
 			},
 		);
+	}
+
+	/** Stops counting what it shows as the server's word, until it lists them again. */
+	private stale(): void {
+		if (this.fresh) {
+			this.fresh = false;
+			this.dispatcher.dispatch("changed");
+		}
 	}
 
 	/**
@@ -585,6 +605,8 @@ export class ConversationFeed
 		// Off, or a host that may not have them: either way, nothing to show.
 		if (response === null || !response.ok) {
 			this.loading = false;
+			// A server that answers has said there are none; one that does not, nothing.
+			this.fresh = response !== null;
 			if (this.seeded) {
 				// Off after all: what stood in for them goes.
 				this.seeded = false;
@@ -600,7 +622,12 @@ export class ConversationFeed
 			agents: AgentChoice[];
 			conversations: ConversationState[];
 		};
-		Object.assign(this, { available: true, loading: false, agents });
+		Object.assign(this, {
+			available: true,
+			loading: false,
+			fresh: true,
+			agents,
+		});
 		this.heard = true;
 		// What streamed while the listing was on its way is newer than it, as
 		// when the stream reopens and a message is said before this answers.
@@ -622,29 +649,6 @@ export class ConversationFeed
 		this.kept();
 		return true;
 	}
-}
-
-/** An agent a conversation can be started with. */
-export interface AgentChoice {
-	id: string;
-	name: string;
-	/** The models the roster lists for it, by the ids its Model setting takes. */
-	models?: { id: string; name: string }[];
-	/**
-	 * What its sessions last offered, from any project, each where it was
-	 * left; none until it has had one on this machine.
-	 */
-	settings: Setting[];
-	/**
-	 * The plan's windows of use, as it last said in any project; none until
-	 * it has, and never from an agent that does not say.
-	 */
-	limits: Limit[];
-}
-
-/** What to call agent `id`: its name, or its id once it is off the roster. */
-export function agentName(agents: AgentChoice[], id: string): string {
-	return agents.find((agent) => agent.id === id)?.name ?? id;
 }
 
 /** The images an agent that takes images is sent as such, as the server keeps them. */

@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { TextNode } from "lexical";
-import type { ConversationsView } from "./testing";
+import type { ConversationsView, Testing } from "./testing";
 import {
 	$createParagraphNode,
 	$createTextNode,
@@ -14,6 +14,7 @@ import {
 	waitFor,
 	within,
 } from "./testing-dom";
+import { WAKES } from "./wakes";
 
 /** Every agent the page lists: the phone's inbox, or the sidebar beside it. */
 export function agentList(view: ConversationsView): HTMLElement {
@@ -279,4 +280,20 @@ export function nameIn(held: ConversationState[], id: string): string {
 		.find((text) => text !== "")
 		?.split("\n")[0];
 	return found?.name ?? found?.task ?? found?.title ?? opening ?? "Not started";
+}
+
+/**
+ * Wakes the page, as a phone brought back after a while does: each stream
+ * gives way to a new one, for `reopen` to open.
+ */
+export function wake(): Promise<void> {
+	return act(async () => WAKES.woke());
+}
+
+/** Opens the page's newest streams, as the server does once it answers. */
+export function reopen(testing: Testing): Promise<void> {
+	return act(async () => {
+		testing.stream?.onopen?.();
+		testing.talkStream?.onopen?.();
+	});
 }

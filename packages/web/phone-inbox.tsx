@@ -25,7 +25,6 @@ import {
 	EmptyDescription,
 	EmptyHeader,
 } from "#web/components/ui/empty.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { arriveAt } from "./arrivals";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
@@ -44,6 +43,7 @@ import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
+import { InboxLoading, useFreshness } from "./freshness";
 import { NavigationContext } from "./navigation";
 import {
 	laneUrl,
@@ -135,6 +135,7 @@ export function Inbox({
 		}),
 		["changed"],
 	);
+	const { stale } = useFreshness();
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
 	// In the project the last one started in, which may be another's page.
 	const openNew = useOpenNew(onOpen);
@@ -267,16 +268,8 @@ export function Inbox({
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
 				<UndoRow conversations={conversations} />
 				<UnstartedGroup unstarted={unstarted} agents={agents} onOpen={onOpen} />
-				{loading || pending ? (
-					<div
-						role="status"
-						aria-label="Loading inbox"
-						className="flex flex-col gap-3 p-6"
-					>
-						<span className="sr-only">Loading inbox…</span>
-						<Skeleton className="h-16 w-full" />
-						<Skeleton className="h-16 w-full" />
-					</div>
+				{loading || pending || stale ? (
+					<InboxLoading />
 				) : empty && mains.length === 0 && unstarted.length === 0 ? (
 					<Empty className="py-16">
 						<EmptyHeader>

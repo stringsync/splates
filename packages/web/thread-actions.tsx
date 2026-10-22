@@ -32,6 +32,7 @@ import { filable, useArchive } from "./conversation-archive";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
+import { useFreshness } from "./freshness";
 import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
@@ -140,8 +141,10 @@ export function useThreadActions(
 				]
 			: []),
 	];
+	// Not while the page may be stale, as the thread it would file takes no input then.
+	const { stale } = useFreshness();
 	const fileByKey = () => {
-		if (!archived && filable(conversation)) {
+		if (!stale && !archived && filable(conversation)) {
 			archive.file(onLeft);
 		}
 	};
