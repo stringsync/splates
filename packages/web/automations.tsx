@@ -23,6 +23,7 @@ import { AutomationDraft } from "./automation-draft";
 import { AutomationFace, type RunOpens } from "./automation-face";
 import { AddForm, AutomationForm } from "./automation-form";
 import { AutomationList } from "./automation-list";
+import { ReadFailed, ReadingNow } from "./countdown";
 import {
 	type Groom,
 	GroomerForm,
@@ -81,13 +82,15 @@ export function AutomationsPage({
 			</p>
 			{/* Apart from the list, so it opens however reading that goes. */}
 			<AutoPickCard onOpen={onAutoPick} />
-			<Refusal refusal={refusal} />
 			{rows === null ? (
-				<p role="status" className="text-muted-foreground text-sm">
-					Reading automations…
-				</p>
+				refusal === null ? (
+					<ReadingNow label="Reading automations…" />
+				) : (
+					<ReadFailed error={refusal} onRetry={() => void list.read()} />
+				)
 			) : (
 				<>
+					<Refusal refusal={refusal} />
 					<Group
 						title="Yours"
 						detail="Kept on this machine, never checked in, since an agent spends your tokens."

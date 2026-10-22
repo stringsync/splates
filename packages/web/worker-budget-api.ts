@@ -2,14 +2,14 @@ import type {
 	WorkerBudgetReport,
 	WorkerLimit,
 } from "@stringsync/splates-server/workers";
-import { ApiError, send, sendJson } from "./api";
+import { ApiError, answered, send, sendJson } from "./api";
 
 /**
  * Where the worker budget stands; null when there is none, as without a
  * `workerProvider`.
  */
 export async function workerBudget(): Promise<WorkerBudgetReport | null> {
-	const response = await fetch("/api/worker-budget");
+	const response = await answered("/api/worker-budget");
 	const body = (await response.json().catch(() => ({}))) as
 		| WorkerBudgetReport
 		| { reason?: string; message?: string };

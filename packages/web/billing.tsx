@@ -23,6 +23,7 @@ import { SpendSection } from "./billing-spend";
 import { EditForm, ends, PauseForm, RaiseForm } from "./budget-forms";
 import { BudgetReading } from "./budget-reading";
 import type { ConversationFeed } from "./conversation-feed";
+import { ReadFailed, ReadingNow } from "./countdown";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { useReading } from "./page-readings";
@@ -78,15 +79,11 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 					</span>
 				</header>
 				{error !== null && (
-					<p role="alert" className="text-destructive text-sm">
-						{error}
-					</p>
+					<ReadFailed error={error} onRetry={() => void reading.refresh()} />
 				)}
 				{budgets === null && error === null && (
 					// Each read runs the CLI, which takes a moment.
-					<p role="status" className="text-muted-foreground text-sm">
-						Reading budgets…
-					</p>
+					<ReadingNow label="Reading budgets…" />
 				)}
 				{budgets !== null && !budgets.declared && (
 					<p className="text-muted-foreground text-sm">

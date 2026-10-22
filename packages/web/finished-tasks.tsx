@@ -25,7 +25,7 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ApiError, scoped } from "./api";
+import { ApiError, answered, scoped } from "./api";
 import { useFolded } from "./folded";
 import { Markdown } from "./markdown";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
@@ -373,7 +373,7 @@ function endedHow(task: FinishedTask): string {
 
 /** Every task that merged or was removed in this project, newest first. */
 async function finishedTasks(): Promise<FinishedTask[]> {
-	const response = await fetch(scoped("/api/finished"));
+	const response = await answered(scoped("/api/finished"));
 	if (!response.ok) {
 		throw new ApiError("error", `finished tasks: ${response.status}`);
 	}
@@ -382,7 +382,7 @@ async function finishedTasks(): Promise<FinishedTask[]> {
 
 /** The finished task kept as `key`, with the SPLATES.md it ended on. */
 async function finishedTask(key: string): Promise<FinishedPlan> {
-	const response = await fetch(
+	const response = await answered(
 		scoped(`/api/finished/${encodeURIComponent(key)}`),
 	);
 	if (!response.ok) {

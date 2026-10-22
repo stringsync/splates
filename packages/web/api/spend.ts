@@ -2,7 +2,8 @@ import type {
 	BillingView,
 	SpendReport,
 } from "@stringsync/splates-server/spend";
-import { ApiError } from "./request";
+import { Duration } from "webappwiz/time";
+import { type Answering, ApiError, answered } from "./request";
 
 /** The dollars spent from `since` to `until` (ISO timestamps), across every project on this machine. */
 export async function spend(
@@ -10,7 +11,7 @@ export async function spend(
 	until: string,
 ): Promise<SpendReport> {
 	const query = new URLSearchParams({ since, until });
-	const response = await fetch(`/api/spend?${query}`);
+	const response = await answered(`/api/spend?${query}`);
 	const body = (await response.json().catch(() => ({}))) as SpendReport & {
 		message?: string;
 	};
@@ -25,9 +26,9 @@ export async function spend(
 
 async function billingCall(
 	path: string,
-	init?: RequestInit,
+	init?: Answering,
 ): Promise<BillingView> {
-	const response = await fetch(path, init);
+	const response = await answered(path, init);
 	const body = (await response.json().catch(() => ({}))) as BillingView & {
 		message?: string;
 	};
@@ -42,7 +43,11 @@ export const billing = (): Promise<BillingView> => billingCall("/api/billing");
 
 /** Pulls what each provider billed, answering as `billing` does. */
 export const pullBilling = (): Promise<BillingView> =>
-	billingCall("/api/billing/pull", { method: "POST" });
+	billingCall("/api/billing/pull", {
+		method: "POST",
+		// Each provider is asked in turn, any of them slow to answer.
+		within: Duration.mins(2),
+	});
 
 /** Sets the currency the Billing page shows amounts in. */
 export const setCurrency = (currency: string): Promise<BillingView> =>

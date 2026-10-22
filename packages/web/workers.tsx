@@ -7,6 +7,7 @@ import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { workerKeys } from "./api";
+import { ReadingNow } from "./countdown";
 import { localWorker, localWorkerOn } from "./local-worker";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
@@ -61,9 +62,7 @@ export function WorkersPage({
 				</p>
 			)}
 			{pool === null && error === null && (
-				<p role="status" className="text-muted-foreground text-sm">
-					Reading workers…
-				</p>
+				<ReadingNow label="Reading workers…" />
 			)}
 			{pool !== null && (
 				<>

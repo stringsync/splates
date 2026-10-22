@@ -14,6 +14,7 @@ import {
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { ReadFailed, ReadingNow } from "./countdown";
 import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
@@ -106,11 +107,11 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				))}
 			</div>
 			{error !== null && (
-				<p role="alert" className="text-destructive text-sm">
-					{error}
-				</p>
+				<ReadFailed error={error} onRetry={() => void report.refresh()} />
 			)}
-			{stats === null ? null : empty ? (
+			{stats === null ? (
+				error === null && <ReadingNow label="Reading stats…" />
+			) : empty ? (
 				<p className="text-muted-foreground text-sm">
 					No task has ended since splates started counting. Each one merged or
 					removed from now on shows up here.

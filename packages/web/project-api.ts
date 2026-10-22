@@ -11,11 +11,11 @@ import type {
 import type { Added } from "@stringsync/splates-server/projects";
 import type { Behind, ServerChoice } from "@stringsync/splates-server/server";
 import type { Held } from "@stringsync/splates-server/terminal";
-import { ApiError, send, sendJson } from "./api";
+import { ApiError, answered, send, sendJson } from "./api";
 
 /** Every splates project on this machine, and the `splates server` serving them. */
 export async function listProjects(): Promise<Projects> {
-	const response = await fetch("/api/projects");
+	const response = await answered("/api/projects");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/projects: ${response.status}`);
 	}
@@ -30,7 +30,7 @@ export async function listProjects(): Promise<Projects> {
 export async function forgetProject(
 	slug: string,
 ): Promise<{ slug: string } | null> {
-	return fetch(`/api/projects/${encodeURIComponent(slug)}`, {
+	return answered(`/api/projects/${encodeURIComponent(slug)}`, {
 		method: "DELETE",
 	}).then(async (response) => {
 		if (!response.ok) {

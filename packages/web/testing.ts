@@ -31,6 +31,7 @@ import type {
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import { createElement } from "react";
+import { aborts } from "webappwiz/abort";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
@@ -40,6 +41,7 @@ import type {
 	MachineStatus,
 	WorkerKeysListing,
 } from "./api";
+import { WAITS } from "./api";
 import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
@@ -259,6 +261,8 @@ export class Testing implements Resource {
 	#heldWrites: Promise<void> | null = null;
 	#answerWrites = () => {};
 	#refusal: { reason: string; message: string } | null = null;
+	#hung: string[] = [];
+	readonly #answer = WAITS.answer;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
 	readonly #webSocket = globalThis.WebSocket;
@@ -266,8 +270,14 @@ export class Testing implements Resource {
 	constructor() {
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
 			this.asked.push(path);
+			// A real fetch rejects once its signal aborts, as the page's timeouts do.
+			const waiting = (until: Promise<void>) =>
+				init?.signal ? aborts.race(init.signal, until) : until;
+			if (this.#hung.some((route) => path.startsWith(route))) {
+				await waiting(new Promise<void>(() => {}));
+			}
 			if (this.#held !== null && path.startsWith("/api/snapshot")) {
-				await this.#held;
+				await waiting(this.#held);
 			}
 			if (typeof this.#down === "number") {
 				return new Response(null, { status: this.#down });
@@ -286,7 +296,7 @@ export class Testing implements Resource {
 					body: init.body,
 					headers: init.headers,
 				});
-				await this.#heldWrites;
+				await waiting(this.#heldWrites ?? Promise.resolve());
 				return this.refuseWrites === null
 					? Response.json(this.reply)
 					: Response.json(this.refuseWrites, { status: 409 });
@@ -497,6 +507,27 @@ export class Testing implements Resource {
 		this.#answerWrites();
 	}
 
+	/**
+	 * Leaves every request whose path starts with `route` unanswered for good,
+	 * as a server stuck on it, so the page's own timeout ends the wait.
+	 */
+	hang(route: string): void {
+		this.#hung.push(route);
+	}
+
+	/** Answers what `hang` left unanswered from now on. */
+	unhang(): void {
+		this.#hung = [];
+	}
+
+	/**
+	 * Gives the page `within` for each request instead of its thirty seconds,
+	 * so a test of a timeout runs in a moment.
+	 */
+	answerWithin(within: Duration): void {
+		WAITS.answer = within;
+	}
+
 	/** Fails every fetch from now on, standing in for a server that went away. */
 	goAway(status?: number): void {
 		this.#down = status ?? true;
@@ -653,6 +684,7 @@ export class Testing implements Resource {
 		localStorage.clear();
 		sessionStorage.clear();
 		globalThis.fetch = this.#fetch;
+		WAITS.answer = this.#answer;
 		globalThis.EventSource = this.#eventSource;
 		globalThis.WebSocket = this.#webSocket;
 	}

@@ -30,8 +30,10 @@ import {
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
+import { StillWaiting } from "./countdown";
 import { CredPrivacy } from "./cred-privacy";
 import { Markdown } from "./markdown";
+import { SETUP_WORK } from "./setup-api";
 import { StepBar, StepRail } from "./setup-step-nav";
 
 /** The agents' areas, which the index lists first, in this order. */
@@ -293,6 +295,11 @@ export function StepForm({
 							className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
 						>
 							{next.doing ?? "Working on it…"}
+							<StillWaiting
+								within={SETUP_WORK}
+								doing="working"
+								className="ml-auto"
+							/>
 						</p>
 					)}
 					<footer className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-6">

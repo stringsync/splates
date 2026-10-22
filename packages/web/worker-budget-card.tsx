@@ -16,6 +16,7 @@ import {
 	WorkerLimitsForm,
 	WorkerRaiseForm,
 } from "./budget-forms";
+import { ReadingNow } from "./countdown";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { useReading } from "./page-readings";
@@ -54,9 +55,7 @@ export function WorkerBudgetSection(): JSX.Element | null {
 				</p>
 			)}
 			{report === undefined && error === null && (
-				<p role="status" className="text-muted-foreground text-sm">
-					Reading the worker budget…
-				</p>
+				<ReadingNow label="Reading the worker budget…" />
 			)}
 			{report !== undefined && <WorkerCard report={report} change={change} />}
 		</div>

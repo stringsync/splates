@@ -18,6 +18,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import type { ConversationFeed } from "./conversation-feed";
+import { ReadingNow } from "./countdown";
 import { FileChip } from "./file-chip";
 import { GardenDraft } from "./garden-draft";
 import { Markdown } from "./markdown";
@@ -148,9 +149,7 @@ export function NotesPage({
 					</div>
 				</form>
 			) : loading ? (
-				<p role="status" className="text-muted-foreground text-sm">
-					Loading notes…
-				</p>
+				<ReadingNow label="Loading notes…" />
 			) : note !== null ? (
 				<article className="flex min-w-0 max-w-3xl flex-col gap-4">
 					<div className="flex flex-wrap gap-2">

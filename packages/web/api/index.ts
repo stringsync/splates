@@ -53,7 +53,15 @@ export {
 	updateTodo,
 } from "./planning";
 export { pushKey, subscribePush, unsubscribePush } from "./push";
-export { ApiError, scoped, send, sendJson } from "./request";
+export {
+	ApiError,
+	answered,
+	answeredFrom,
+	scoped,
+	send,
+	sendJson,
+	WAITS,
+} from "./request";
 export { billing, pullBilling, setCurrency, spend } from "./spend";
 export {
 	noteStats,

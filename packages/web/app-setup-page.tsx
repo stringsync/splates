@@ -19,7 +19,9 @@ export function AppSetupPage({
 	const [held] = useState(() => new HeldJourneys());
 	const [open, setOpen] = useState<SetupOpen>({ area: null, step: null });
 	return (
-		<SetupContext value={{ progress, refresh: () => {}, settle, held }}>
+		<SetupContext
+			value={{ progress, error: null, refresh: () => {}, settle, held }}
+		>
 			<SetupPage
 				feed={null}
 				onOpen={() => {}}

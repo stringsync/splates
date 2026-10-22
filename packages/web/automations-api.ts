@@ -8,11 +8,11 @@ import {
 	GROOMER_AUTOMATION,
 } from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { ApiError, scoped, send, sendJson } from "./api";
+import { ApiError, answered, scoped, send, sendJson } from "./api";
 
 /** Every automation set for this project, the checked-in ones too. */
 export async function automations(): Promise<AutomationRow[]> {
-	const response = await fetch(scoped("/api/automations"));
+	const response = await answered(scoped("/api/automations"));
 	const body = (await response.json().catch(() => ({}))) as {
 		automations?: AutomationRow[];
 		reason?: string;

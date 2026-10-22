@@ -1,6 +1,6 @@
 import type { Held } from "@stringsync/splates-server/terminal";
 import { type JSX, useState } from "react";
-import type { Duration } from "webappwiz/time";
+import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -20,6 +20,7 @@ import {
 	standing,
 	stepsOf,
 } from "./checkpoint-slide";
+import { TakingLong } from "./countdown";
 import {
 	checkpointProjects,
 	type ProjectChoice,
@@ -207,6 +208,20 @@ export function CheckpointDialog({
 								/>
 								<DialogDescription>{said}</DialogDescription>
 							</DialogHeader>
+							{slide === "restarting" && (
+								<TakingLong
+									within={RESTART_WITHIN}
+									doing={updating ? "updating" : "restarting"}
+									gaveUp="splates server has not come back: is it still running? Run splates server to start it; the page keeps trying."
+								/>
+							)}
+							{slide === "shuttingDown" && (
+								<TakingLong
+									within={SHUTDOWN_WITHIN}
+									doing="shutting down"
+									gaveUp="splates server has not shut down yet. The page keeps checking; stop it from its terminal if it stays."
+								/>
+							)}
 							<Steps steps={steps} />
 							{restarted !== null && (
 								<Version running={restarted} from={from} />
@@ -277,3 +292,8 @@ function back(current: ProjectChoice[], id: string): boolean {
 		found.status !== "failed"
 	);
 }
+
+// How long a restart, an update's install included, or a shutdown may take
+// before the dialog says the server has not come back, or not gone.
+const RESTART_WITHIN = Duration.mins(3);
+const SHUTDOWN_WITHIN = Duration.mins(1);

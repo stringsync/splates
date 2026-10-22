@@ -92,6 +92,11 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	}
 
 	async read(): Promise<void> {
+		if (this.rows === null && this.refusal !== null) {
+			// Read again after the first read failed: the page says it is reading.
+			this.refusal = null;
+			this.dispatcher.dispatch("changed");
+		}
 		try {
 			this.#set(await this.api.read());
 		} catch (error) {

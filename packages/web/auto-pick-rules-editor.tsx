@@ -29,6 +29,7 @@ import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { PickChips } from "./auto-pick-pick-chips";
 import type { RulesEditor } from "./auto-pick-rules";
+import { ReadingNow } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -84,7 +85,7 @@ export function RulesEditorView({
 		);
 	}
 	if (saved === null) {
-		return <p className="text-muted-foreground text-sm">Reading your rules…</p>;
+		return <ReadingNow label="Reading your rules…" />;
 	}
 	return (
 		<div className="flex flex-col gap-6">

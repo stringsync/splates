@@ -23,6 +23,7 @@ import {
 	whole,
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
+import { StillWaiting } from "./countdown";
 import { METER_COLUMNS, Meter } from "./meter";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
@@ -283,13 +284,14 @@ function Headline({
 					{report === null ? (
 						<span
 							role={reading ? "status" : undefined}
-							className="flex h-12 items-center text-muted-foreground text-sm"
+							className="flex h-12 items-center gap-3 text-muted-foreground text-sm"
 						>
 							{picking
 								? "Pick the first and last day to total."
 								: reading
 									? "Reading spend…"
 									: "Not read"}
+							{!picking && reading && <StillWaiting />}
 						</span>
 					) : (
 						<span className="font-semibold text-5xl leading-none tracking-tight">

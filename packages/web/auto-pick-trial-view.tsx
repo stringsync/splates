@@ -14,6 +14,7 @@ import {
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
 import type { TrialRun } from "./auto-pick-trial";
+import { StillWaiting } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -71,6 +72,7 @@ export function TrialView({
 					>
 						{trying ? "Trying…" : "Try it"}
 					</Button>
+					{trying && <StillWaiting doing="asking the judge" />}
 				</div>
 				<FieldDescription>
 					Asks the judge, unless an earlier Auto pick kept what it said of the

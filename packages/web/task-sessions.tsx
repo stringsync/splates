@@ -8,6 +8,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { AgentIcon } from "./agent-icons";
 import { bringSession, listSessions } from "./conversation-api";
 import { type AgentChoice, agentName } from "./conversation-feed";
+import { StillWaiting } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -57,7 +58,10 @@ export function Sessions({
 				Sessions in this worktree
 			</h3>
 			{sessions === null ? (
-				<p className="text-muted-foreground text-xs">Asking the agents…</p>
+				<div className="flex flex-wrap items-center gap-x-3">
+					<p className="text-muted-foreground text-xs">Asking the agents…</p>
+					<StillWaiting />
+				</div>
 			) : sessions.length === 0 ? (
 				<p className="text-muted-foreground text-xs">
 					None the page could bring in.

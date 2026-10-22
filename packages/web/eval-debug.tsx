@@ -8,6 +8,7 @@ import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
+import { ReadingNow } from "./countdown";
 import { ImproveMenu, improvable } from "./eval-improve";
 import { targetLabel } from "./eval-report";
 import { StatusChip, spent } from "./eval-status";
@@ -49,6 +50,9 @@ export function EvalDebug({
 				<p role="alert" className="text-destructive text-sm">
 					{error}
 				</p>
+			)}
+			{run === null && error === null && (
+				<ReadingNow label="Reading the run…" />
 			)}
 			{run !== null && <Run run={run} />}
 		</section>

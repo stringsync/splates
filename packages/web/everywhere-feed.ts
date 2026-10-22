@@ -11,6 +11,7 @@ import type {
 import type { Details } from "@stringsync/splates-server/tasks";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { answered } from "./api";
 import { LiveStream } from "./live-stream";
 
 export type EverywhereFeedEvents = { changed: undefined };
@@ -197,7 +198,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	/** Reads every project afresh, keeping what streamed while it was on its way. */
 	private async list(): Promise<void> {
 		const since = this.changes;
-		const response = await fetch("/api/everywhere").catch(() => null);
+		const response = await answered("/api/everywhere").catch(() => null);
 		if (response === null || !response.ok) {
 			this.loading = false;
 			this.dispatcher.dispatch("changed");

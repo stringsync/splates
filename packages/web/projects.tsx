@@ -220,7 +220,9 @@ export function ProjectSwitcher({
 
 	return (
 		<>
-			{leaving !== null && <Leaving name={leaving} />}
+			{leaving !== null && (
+				<Leaving name={leaving} onStay={() => setLeaving(null)} />
+			)}
 			<Popover
 				open={open}
 				onOpenChange={(next) => {

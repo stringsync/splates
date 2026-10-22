@@ -1,4 +1,4 @@
-import { ApiError, scoped, send, sendJson } from "./request";
+import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**
  * Where a project's scry budgets stand, as `scry budgets --format json`
@@ -33,7 +33,7 @@ export interface RoleBudget {
 }
 
 export async function budgets(): Promise<Budgets> {
-	const response = await fetch(scoped("/api/budgets"));
+	const response = await answered(scoped("/api/budgets"));
 	const body = (await response.json().catch(() => ({}))) as Budgets & {
 		reason?: string;
 		message?: string;

@@ -108,6 +108,11 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 
 	async refresh(): Promise<void> {
 		const asked = ++this.asked;
+		if (this.error !== null) {
+			// Read again after a failure: the page says it is reading once more.
+			this.error = null;
+			this.dispatcher.dispatch("changed");
+		}
 		try {
 			const stats = await this.source.stats(
 				this.period.id,

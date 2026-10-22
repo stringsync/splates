@@ -7,14 +7,14 @@ import type {
 	EvalPlan,
 	EvalProbe,
 } from "@stringsync/splates-server/evals/browser";
-import { ApiError, sendJson } from "./request";
+import { ApiError, answered, sendJson } from "./request";
 
 /**
  * Every saved eval batch, newest first; null when this server runs from a
  * release, which has no eval harness to read them with.
  */
 export async function evalBatches(): Promise<EvalBatch[] | null> {
-	const response = await fetch("/api/evals");
+	const response = await answered("/api/evals");
 	if (response.status === 404) {
 		return null;
 	}
@@ -26,7 +26,9 @@ export async function evalBatches(): Promise<EvalBatch[] | null> {
 
 /** The batch `id` names, with every cell, planned or landed. */
 export async function evalBatch(id: string): Promise<EvalGrid> {
-	const response = await fetch(`/api/evals/batch?id=${encodeURIComponent(id)}`);
+	const response = await answered(
+		`/api/evals/batch?id=${encodeURIComponent(id)}`,
+	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/batch: ${response.status}`);
 	}
@@ -35,7 +37,9 @@ export async function evalBatch(id: string): Promise<EvalGrid> {
 
 /** The run `id` names, opened with its checks and the evidence they read. */
 export async function evalRun(id: string): Promise<EvalDetail> {
-	const response = await fetch(`/api/evals/run?id=${encodeURIComponent(id)}`);
+	const response = await answered(
+		`/api/evals/run?id=${encodeURIComponent(id)}`,
+	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/run: ${response.status}`);
 	}
@@ -44,7 +48,7 @@ export async function evalRun(id: string): Promise<EvalDetail> {
 
 /** The agents evals run on, and what a pick of them can name. */
 export async function evalAgents(): Promise<EvalAgentsView> {
-	const response = await fetch("/api/evals/agents");
+	const response = await answered("/api/evals/agents");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/agents: ${response.status}`);
 	}
@@ -67,7 +71,7 @@ export async function evalPlan(run: EvalRunAsk): Promise<EvalPlan> {
 
 /** Every probe the harness registers. */
 export async function evalProbes(): Promise<EvalProbe[]> {
-	const response = await fetch("/api/evals/probes");
+	const response = await answered("/api/evals/probes");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/probes: ${response.status}`);
 	}
@@ -87,7 +91,7 @@ export async function startEvalRun(
 
 /** The run of card `key`; null when this server has none for it. */
 export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
-	const response = await fetch(
+	const response = await answered(
 		`/api/evals/launch?key=${encodeURIComponent(key)}`,
 	);
 	if (!response.ok) {

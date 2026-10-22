@@ -3,7 +3,7 @@ import type {
 	Provider,
 	Scope,
 } from "@stringsync/splates-server/creds";
-import { ApiError, scoped, send, sendJson } from "./request";
+import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /** What the project's store and the device's keep, by name, and what each store is called. */
 export interface KeptCreds {
@@ -15,7 +15,7 @@ export interface KeptCreds {
 
 /** The creds kept for this project and this device; never a value. */
 export async function keptCreds(): Promise<KeptCreds> {
-	const response = await fetch(scoped("/api/creds"));
+	const response = await answered(scoped("/api/creds"));
 	const body = (await response.json().catch(() => ({}))) as KeptCreds & {
 		reason?: string;
 		message?: string;

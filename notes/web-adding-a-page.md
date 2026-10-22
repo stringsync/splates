@@ -12,7 +12,9 @@ TypeScript flag most misses, but not `pageIn`, which falls through to the
 board. Its `.tsx` files also need `@source` lines in `styles.css`.
 
 Heavy pages are exported from `lazy-pages.tsx` through `onDemand(() =>
-import(...))`, `React.lazy` with a null fallback, each its own hashed chunk:
+import(...))`, `React.lazy` with a fallback that stays blank until a slow chunk counts down,
+timed out by `WAITS.answer` under an error boundary with Try again, each its
+own hashed chunk:
 Board, Stats, Evals, Billing, Workers, Automations, Auto pick, Notes, Setup,
 the lightbox and the annotator. `navPage()` lets a sub-page highlight its
 parent in the nav, as Auto pick sits under Automations.

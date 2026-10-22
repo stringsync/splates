@@ -1,3 +1,6 @@
+import { aborts } from "webappwiz/abort";
+import { Duration } from "webappwiz/time";
+
 export class ApiError extends Error {
 	constructor(
 		readonly reason: string,
@@ -24,11 +27,85 @@ export function scoped(path: string, project: string | null = null): string {
 }
 
 /**
+ * How long the page waits on the server's answer to one request before it
+ * gives up on it, so no read or action waits for good. A test shortens them.
+ */
+export const WAITS = {
+	/** For any request the server answers at once, or nearly. */
+	answer: Duration.secs(30),
+	/** For one that sends files, which a slow connection takes a while to carry. */
+	upload: Duration.mins(5),
+};
+
+/** What `answered` takes beyond `fetch`'s own: how long to wait. */
+export interface Answering extends RequestInit {
+	/** How long the server has to answer; `WAITS.answer` unless given. */
+	within?: Duration;
+}
+
+/**
+ * `fetch`, given up on once the server takes longer than `within` to answer,
+ * as an `ApiError` with reason `timeout`, so a caller says so beside the
+ * control rather than spinning on. Every request the page awaits comes
+ * through here.
+ */
+export async function answered(
+	input: string,
+	{ within = WAITS.answer, signal, ...init }: Answering = {},
+): Promise<Response> {
+	const timeout = AbortSignal.timeout(within.ms);
+	try {
+		return await fetch(input, {
+			...init,
+			signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+		});
+	} catch (error) {
+		throw timedOut(error, timeout, within);
+	}
+}
+
+/**
+ * `waiting`, as `answered` gives up on a request, for one the page did not
+ * start itself and so cannot abort, such as a read index.html began.
+ */
+export async function answeredFrom(
+	waiting: Promise<Response>,
+	within: Duration = WAITS.answer,
+): Promise<Response> {
+	const timeout = AbortSignal.timeout(within.ms);
+	try {
+		return await aborts.race(timeout, waiting);
+	} catch (error) {
+		throw timedOut(error, timeout, within);
+	}
+}
+
+/** `error`, or the timeout's own `ApiError` when `timeout` caused it. */
+function timedOut(error: unknown, timeout: AbortSignal, within: Duration) {
+	return timeout.aborted
+		? new ApiError("timeout", `no answer in ${seconds(within)}`)
+		: error;
+}
+
+/** `within` as the page says it: "30s", or "5m" from a minute on. */
+function seconds(within: Duration): string {
+	if (within.ms < 1000) {
+		return `${within.ms}ms`;
+	}
+	const secs = Math.round(within.ms / 1000);
+	return secs >= 60 && secs % 60 === 0 ? `${secs / 60}m` : `${secs}s`;
+}
+
+/**
  * POSTs to `path` for this project, or as `init` says, answering with the
  * body, or throwing the refusal as an `ApiError`.
  */
-export async function send(path: string, init: RequestInit): Promise<unknown> {
-	const response = await fetch(scoped(path), { method: "POST", ...init });
+export async function send(path: string, init: Answering): Promise<unknown> {
+	const response = await answered(scoped(path), {
+		method: "POST",
+		within: init.body instanceof FormData ? WAITS.upload : WAITS.answer,
+		...init,
+	});
 	const body = (await response.json().catch(() => ({}))) as {
 		reason?: string;
 		message?: string;
@@ -46,9 +123,16 @@ export async function send(path: string, init: RequestInit): Promise<unknown> {
 }
 
 /** `send` with `body` as JSON, by `method`. */
-export function sendJson(path: string, method: string, body: unknown) {
+export function sendJson(
+	path: string,
+	method: string,
+	body: unknown,
+	/** How long the server has to answer, for an action that takes it a while. */
+	within?: Duration,
+) {
 	return send(path, {
 		method,
+		...(within === undefined ? {} : { within }),
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(body),
 	});

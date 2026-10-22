@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
+import { Countdown } from "./countdown";
 import type { Feed } from "./feed";
 
 /**
@@ -207,9 +208,6 @@ export function useDimmed(): boolean {
 	return useSaysStale() && locked;
 }
 
-// The share of the wait that passes quietly, dimmed, before the countdown shows.
-const QUIET_SHARE = 1 / 3;
-
 /**
  * The page's one spinner, once a wait has run on: how long until the page
  * stops waiting on the server, unlocks and says it cannot reach it, so a wait
@@ -221,37 +219,14 @@ export function GivingUp({
 	className?: string;
 }): JSX.Element | null {
 	const { givesUpAt, waitsMs } = useFreshness();
-	const now = useTicking(givesUpAt !== null);
-	if (givesUpAt === null || givesUpAt - now > waitsMs * (1 - QUIET_SHARE)) {
-		return null;
-	}
-	const seconds = Math.max(1, Math.ceil((givesUpAt - now) / 1000));
 	return (
-		<span
-			role="status"
-			className={cn(
-				"fade-in-0 flex shrink-0 animate-in items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs duration-300",
-				className,
-			)}
-		>
-			<LoaderCircleIcon aria-hidden className="size-3 animate-spin" />
-			Still loading, gives up in {seconds}s
-		</span>
+		<Countdown
+			givesUpAt={givesUpAt}
+			waitsMs={waitsMs}
+			spinner={<LoaderCircleIcon aria-hidden className="size-3 animate-spin" />}
+			className={className}
+		/>
 	);
-}
-
-/** `Date.now()`, read again every quarter second while `ticking`. */
-function useTicking(ticking: boolean): number {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		if (!ticking) {
-			return;
-		}
-		setNow(Date.now());
-		const ticks = setInterval(() => setNow(Date.now()), 250);
-		return () => clearInterval(ticks);
-	}, [ticking]);
-	return now;
 }
 
 /**

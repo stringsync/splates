@@ -1,9 +1,9 @@
 import type { Wants } from "@stringsync/splates-server/push/browser";
-import { ApiError, sendJson } from "./request";
+import { ApiError, answered, sendJson } from "./request";
 
 /** The public key this device subscribes to the server's pushes with. */
 export async function pushKey(): Promise<string> {
-	const response = await fetch("/api/push");
+	const response = await answered("/api/push");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/push: ${response.status}`);
 	}

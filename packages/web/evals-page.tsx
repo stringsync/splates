@@ -7,6 +7,7 @@ import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import { evalBatch, evalBatches } from "./api";
+import { ReadingNow } from "./countdown";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
@@ -62,7 +63,9 @@ export function EvalsPage({
 					onBack={() => onOpen(null)}
 					onOpen={(each) => onOpen(open, each)}
 				/>
-			) : batches === null ? null : batches.length === 0 ? (
+			) : batches === null ? (
+				error === null && <ReadingNow label="Reading evals…" />
+			) : batches.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No eval has run on this machine yet. Each run of{" "}
 					<code>splates dev eval</code> is saved in ~/.splates/probe-evals and
@@ -167,6 +170,9 @@ function Batch({
 				<p role="alert" className="text-destructive text-sm">
 					{error}
 				</p>
+			)}
+			{grid === null && error === null && (
+				<ReadingNow label="Reading the batch…" />
 			)}
 			{grid !== null && <EvalReport grid={grid} onOpen={onOpen} />}
 		</div>

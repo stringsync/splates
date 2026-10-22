@@ -27,6 +27,11 @@ export class BudgetReading implements Eventful<BudgetReadingEvents> {
 	) {}
 
 	refresh(): Promise<void> {
+		if (this.error !== null) {
+			// Read again after a failure: the page says it is reading once more.
+			this.error = null;
+			this.dispatcher.dispatch("changed");
+		}
 		return this.source.budgets().then(
 			(read) => this.set(read),
 			(caught: Error) => {

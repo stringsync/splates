@@ -12,7 +12,7 @@ import type {
 	Session,
 } from "@stringsync/splates-server/conversations";
 import { FROM_HEADER } from "@stringsync/splates-server/conversations/browser";
-import { scoped, send, sendJson } from "./api";
+import { answered, scoped, send, sendJson, WAITS } from "./api";
 import { WIDE } from "./app-nav";
 
 /**
@@ -214,7 +214,9 @@ export async function unqueueConversation(
 		text,
 		files: await Promise.all(
 			files.map(async (file) => {
-				const response = await fetch(conversationAttachment(id, file));
+				const response = await answered(conversationAttachment(id, file), {
+					within: WAITS.upload,
+				});
 				return new File([await response.blob()], file.title, {
 					type: file.mimeType,
 				});

@@ -1,5 +1,6 @@
 import { type JSX, useContext, useState } from "react";
 import { useAnnotate } from "./annotate";
+import { answered, WAITS } from "./api";
 import { Composing } from "./composing";
 import { Lightbox } from "./lazy-pages";
 
@@ -95,7 +96,7 @@ export function useSendBack(): {
 	const composer = useContext(Composing);
 	const annotator = useAnnotate();
 	const markUp = async (image: Shown) => {
-		const response = await fetch(image.url);
+		const response = await answered(image.url, { within: WAITS.upload });
 		const blob = await response.blob();
 		const marked = await annotator.open(
 			new File([blob], nameOf(image), { type: blob.type }),

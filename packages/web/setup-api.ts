@@ -3,11 +3,15 @@ import type {
 	StepAnswers,
 	UndoPlan,
 } from "@stringsync/splates-server/setup";
-import { ApiError, scoped, sendJson } from "./api";
+import { Duration } from "webappwiz/time";
+import { ApiError, answered, scoped, sendJson } from "./api";
+
+/** How long a step's Next may take: it may install a tool, which the server gives ten minutes. */
+export const SETUP_WORK = Duration.mins(11);
 
 /** This machine's setup: every step checked, by area, and the one to do next. */
 export async function setup(): Promise<SetupProgress> {
-	const response = await fetch(scoped("/api/setup"));
+	const response = await answered(scoped("/api/setup"));
 	if (!response.ok) {
 		throw new ApiError("error", `/api/setup: ${response.status}`);
 	}
@@ -27,13 +31,14 @@ export async function nextSetupStep(
 		`/api/setup/${encodeURIComponent(step)}/next`,
 		"POST",
 		{ answers },
+		SETUP_WORK,
 	)) as SetupProgress;
 }
 
 /** What undoing setup area `area` would remove and leave, for its dialog to ask. */
 export async function setupUndoPlan(area: string): Promise<UndoPlan> {
 	const path = `/api/setup/${encodeURIComponent(area)}/undo`;
-	const response = await fetch(scoped(path));
+	const response = await answered(scoped(path));
 	if (!response.ok) {
 		throw new ApiError("error", `${path}: ${response.status}`);
 	}
@@ -53,6 +58,7 @@ export async function undoSetup(
 		`/api/setup/${encodeURIComponent(area)}/undo`,
 		"POST",
 		{ confirm },
+		SETUP_WORK,
 	)) as SetupProgress;
 }
 

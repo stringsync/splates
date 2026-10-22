@@ -17,7 +17,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import type { AgentChoice } from "./agent-choice";
-import { scoped } from "./api";
+import { answered, scoped } from "./api";
 import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
@@ -244,7 +244,7 @@ export class ConversationFeed
 		this.reading.add(id);
 		try {
 			const since = this.changes;
-			const response = await fetch(
+			const response = await answered(
 				scoped(`/api/conversations/${encodeURIComponent(id)}`, this.project),
 			).catch(() => null);
 			if (response?.ok) {
@@ -589,7 +589,7 @@ export class ConversationFeed
 	 * then reads the agents afresh, so the page shows what they said.
 	 */
 	async refreshLimits(): Promise<void> {
-		await fetch(scoped("/api/conversations/limits", this.project), {
+		await answered(scoped("/api/conversations/limits", this.project), {
 			method: "POST",
 		}).catch(() => null);
 		await this.list();

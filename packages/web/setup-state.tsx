@@ -7,6 +7,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
@@ -16,8 +17,10 @@ import { HeldJourneys } from "./setup-held";
 
 /** This machine's setup as the page last read it, and how to read it again. */
 export interface SetupState {
-	/** Null before the first read, and while the server does not answer. */
+	/** Null before the first read answers. */
 	progress: SetupProgress | null;
+	/** Why the last read failed, as when it timed out, or null. */
+	error: string | null;
 	/** Reads it again, as after "I did it". */
 	refresh: () => void;
 	/** Takes what a write answered with, so the page shows it at once. */
@@ -29,6 +32,7 @@ export interface SetupState {
 /** What the Setup page reads. */
 export const SetupContext = createContext<SetupState>({
 	progress: null,
+	error: null,
 	refresh: () => {},
 	settle: () => {},
 	held: new HeldJourneys(),
@@ -41,8 +45,19 @@ export const SetupContext = createContext<SetupState>({
  */
 export function useSetupState(changed: unknown): SetupState {
 	const [progress, setProgress] = useState<SetupProgress | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	// Only the newest read counts, so one that gives up late cannot undo a later one.
+	const reads = useRef(0);
 	const refresh = useCallback(() => {
-		setup().then(setProgress, () => setProgress(null));
+		const read = ++reads.current;
+		setError(null);
+		// A failed read keeps what the last one showed, to be read and copied.
+		setup().then(
+			(fresh) => read === reads.current && setProgress(fresh),
+			(failed: unknown) =>
+				read === reads.current &&
+				setError(failed instanceof Error ? failed.message : String(failed)),
+		);
 	}, []);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: read again whenever `changed` moves
 	useEffect(refresh, [refresh, changed]);
@@ -56,7 +71,7 @@ export function useSetupState(changed: unknown): SetupState {
 		return () => observer.dispose();
 	}, [refresh]);
 	const [held] = useState(() => new HeldJourneys());
-	return { progress, refresh, settle: setProgress, held };
+	return { progress, error, refresh, settle: setProgress, held };
 }
 
 /**

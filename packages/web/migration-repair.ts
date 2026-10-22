@@ -1,5 +1,5 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { ApiError, scoped, send } from "./api";
+import { ApiError, answered, scoped, send } from "./api";
 import type { Feed } from "./feed";
 import type { Terminals } from "./terminals";
 
@@ -47,7 +47,7 @@ export class MigrationRepair implements Eventful<{ changed: undefined }> {
 	 * again with each new one, as a retry that failed afresh brings.
 	 */
 	async read(_refused: string): Promise<void> {
-		const response = await fetch(scoped("/api/migration")).catch(() => null);
+		const response = await answered(scoped("/api/migration")).catch(() => null);
 		if (response?.ok) {
 			this.set({ said: (await response.json()) as MigrationSaid });
 		}

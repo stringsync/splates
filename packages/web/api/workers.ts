@@ -9,14 +9,14 @@ import type {
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
-import { ApiError, send, sendJson } from "./request";
+import { ApiError, answered, send, sendJson } from "./request";
 
 /**
  * The email Cloudflare Access signed this page's visitor in with, or null
  * when the page is opened on this machine or Access is off.
  */
 export async function identity(): Promise<string | null> {
-	const response = await fetch("/api/identity");
+	const response = await answered("/api/identity");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/identity: ${response.status}`);
 	}
@@ -28,7 +28,7 @@ export async function identity(): Promise<string | null> {
  * is saved, and on the machine `splates server` runs on.
  */
 export async function taskPorts(): Promise<PortLink[]> {
-	const response = await fetch("/api/ports");
+	const response = await answered("/api/ports");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/ports: ${response.status}`);
 	}
@@ -57,7 +57,7 @@ export async function moveQueued(id: string, position: number): Promise<void> {
 
 /** How hard the machine `splates server` runs on is working right now. */
 export async function machine(): Promise<MachineStatus> {
-	const response = await fetch("/api/machine");
+	const response = await answered("/api/machine");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/machine: ${response.status}`);
 	}
@@ -66,7 +66,7 @@ export async function machine(): Promise<MachineStatus> {
 
 /** Every worker, those turned away, and the build `splates server` runs, as `splates worker list` reads them. */
 export async function workerPool(): Promise<WorkerPool> {
-	const response = await fetch("/api/workers");
+	const response = await answered("/api/workers");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/workers: ${response.status}`);
 	}
@@ -121,7 +121,7 @@ export interface WorkerKeysListing {
 
 /** The API keys workers hold; never a value. */
 export async function workerKeys(): Promise<WorkerKeysListing> {
-	const response = await fetch("/api/workers/keys");
+	const response = await answered("/api/workers/keys");
 	const body = (await response
 		.json()
 		.catch(() => ({}))) as WorkerKeysListing & {

@@ -18,6 +18,7 @@ import {
 	startConversation,
 } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import { ReadFailed, StillWaiting } from "./countdown";
 import { Markdown } from "./markdown";
 import type { Move, SetupOpen } from "./page-address";
 import {
@@ -52,7 +53,7 @@ export function SetupPage({
 	/** Sets Setup on a journey and step, or the index for a null journey. */
 	onSetup: (area: string | null, step?: string | null, how?: Move) => void;
 }): JSX.Element {
-	const { progress, held } = useContext(SetupContext);
+	const { progress, error, refresh, held } = useContext(SetupContext);
 	const selected = open.area;
 	const [undoing, setUndoing] = useState<string | null>(null);
 	const area = progress?.areas.find((area) => area.id === selected);
@@ -68,7 +69,15 @@ export function SetupPage({
 				}
 				title="Setup"
 			/>
-			{progress === null && <SetupLoading />}
+			{progress === null &&
+				(error === null ? (
+					<SetupLoading />
+				) : (
+					<ReadFailed
+						error={`Couldn't read your setup: ${error}`}
+						onRetry={refresh}
+					/>
+				))}
 			{progress !== null &&
 				(area ? (
 					<Journey
@@ -117,7 +126,10 @@ export function SetupPage({
 function SetupLoading(): JSX.Element {
 	return (
 		<div role="status" className="flex flex-col gap-4">
-			<p className="text-muted-foreground text-sm">Reading your setup…</p>
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+				<p className="text-muted-foreground text-sm">Reading your setup…</p>
+				<StillWaiting />
+			</div>
 			<div aria-hidden className="flex flex-col gap-6">
 				{[3, 2].map((rows) => (
 					<ul
