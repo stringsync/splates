@@ -321,8 +321,10 @@ export function StepForm({
 }
 
 /**
- * Every step of the journey in order, the page's among them marked, and the
- * ones before it done or not, so a journey opened partway shows what came first.
+ * The journey's steps, folded to what the person needs: the ones before the
+ * page behind one "N of M done" line that opens on click, then the page's own
+ * and the next, with a line on how many follow. A journey opened partway shows
+ * what came first when that line is opened.
  */
 function StepList({
 	steps,
@@ -336,57 +338,79 @@ function StepList({
 	working: boolean;
 	onGo?: (index: number) => void;
 }): JSX.Element {
+	const done = steps.filter((step) => step.status === "done").length;
+	const later = steps.length - at - 2;
+	const row = (step: StepProgress, index: number) => {
+		const here = index === at;
+		const finished = step.status === "done";
+		const warned = step.warning !== null;
+		const content = (
+			<>
+				<span
+					className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+						warned
+							? "border-warning text-warning"
+							: finished
+								? "border-success text-success"
+								: here
+									? "border-foreground bg-foreground text-background"
+									: "text-muted-foreground"
+					}`}
+					aria-hidden
+				>
+					{warned ? (
+						<TriangleAlertIcon className="size-3" />
+					) : finished ? (
+						<CheckIcon className="size-3" />
+					) : (
+						index + 1
+					)}
+				</span>
+				<span className={here ? "font-medium" : "text-muted-foreground"}>
+					{step.title}
+				</span>
+			</>
+		);
+		return (
+			<li key={step.id} aria-current={here ? "step" : undefined}>
+				{onGo !== undefined && !here && index < at ? (
+					<button
+						type="button"
+						disabled={working}
+						className="flex cursor-pointer items-center gap-2 text-left hover:underline disabled:cursor-default"
+						onClick={() => onGo(index)}
+					>
+						{content}
+					</button>
+				) : (
+					<span className="flex items-center gap-2">{content}</span>
+				)}
+			</li>
+		);
+	};
 	return (
-		<ol aria-label="steps" className="flex flex-col gap-1 text-sm">
-			{steps.map((step, index) => {
-				const here = index === at;
-				const done = step.status === "done";
-				const warned = step.warning !== null;
-				const row = (
-					<>
-						<span
-							className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-								warned
-									? "border-warning text-warning"
-									: done
-										? "border-success text-success"
-										: here
-											? "border-foreground bg-foreground text-background"
-											: "text-muted-foreground"
-							}`}
+		<div className="flex flex-col gap-2 text-sm">
+			{at > 0 && (
+				<details className="group flex flex-col gap-1">
+					<summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground">
+						<ChevronRightIcon
+							className="size-4 transition-transform group-open:rotate-90"
 							aria-hidden
-						>
-							{warned ? (
-								<TriangleAlertIcon className="size-3" />
-							) : done ? (
-								<CheckIcon className="size-3" />
-							) : (
-								index + 1
-							)}
-						</span>
-						<span className={here ? "font-medium" : "text-muted-foreground"}>
-							{step.title}
-						</span>
-					</>
-				);
-				return (
-					<li key={step.id} aria-current={here ? "step" : undefined}>
-						{onGo !== undefined && !here && index < at ? (
-							<button
-								type="button"
-								disabled={working}
-								className="flex cursor-pointer items-center gap-2 text-left hover:underline disabled:cursor-default"
-								onClick={() => onGo(index)}
-							>
-								{row}
-							</button>
-						) : (
-							<span className="flex items-center gap-2">{row}</span>
-						)}
-					</li>
-				);
-			})}
-		</ol>
+						/>
+						{done} of {steps.length} done
+					</summary>
+					<ol aria-label="earlier steps" className="mt-2 flex flex-col gap-1">
+						{steps.slice(0, at).map((step, index) => row(step, index))}
+					</ol>
+				</details>
+			)}
+			<ol aria-label="steps" className="flex flex-col gap-1">
+				{steps.slice(at, at + 2).map((step, index) => row(step, at + index))}
+			</ol>
+			{later > 0 && (
+				<p className="pl-7 text-muted-foreground">then {later} more</p>
+			)}
+		</div>
 	);
 }
 

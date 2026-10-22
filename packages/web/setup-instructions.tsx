@@ -52,34 +52,24 @@ export function StepInstructions({
 	return (
 		<div className="flex flex-col gap-4">
 			{before !== "" && <Markdown text={before} />}
-			<ol aria-label="instructions" className="flex flex-col">
-				{items.map((item, index) => {
-					const at = index + 1;
-					const last = at === items.length;
-					return (
-						<li
-							key={item}
-							className="relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 pb-5 last:pb-0"
+			<ol aria-label="instructions" className="flex flex-col gap-3">
+				{items.map((item, index) => (
+					<li
+						key={item}
+						className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-2"
+					>
+						<span
+							aria-hidden
+							className="text-muted-foreground text-xs leading-5 tabular-nums"
 						>
-							{!last && (
-								<span
-									aria-hidden
-									className="absolute top-8 bottom-1 left-[0.875rem] w-px -translate-x-1/2 bg-border"
-								/>
-							)}
-							<span
-								aria-hidden
-								className="flex size-7 items-center justify-center rounded-full border bg-background font-medium text-muted-foreground text-xs tabular-nums"
-							>
-								{at}
-							</span>
-							<div className="flex min-w-0 flex-col gap-3 pt-1">
-								<Markdown text={item} inline className="text-sm leading-5" />
-								{under[at]}
-							</div>
-						</li>
-					);
-				})}
+							{index + 1}.
+						</span>
+						<div className="flex min-w-0 flex-col gap-3">
+							<Markdown text={item} inline className="text-sm leading-5" />
+							{under[index + 1]}
+						</div>
+					</li>
+				))}
 			</ol>
 			{after !== "" && (
 				<Markdown text={after} className="text-muted-foreground text-sm" />
