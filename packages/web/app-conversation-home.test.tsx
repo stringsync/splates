@@ -255,8 +255,11 @@ describe("App's conversation home", () => {
 			});
 
 			const model = view.getByRole("combobox", { name: "model" });
+			await act(async () => fireEvent.click(model));
 			await act(async () =>
-				fireEvent.click(view.getByRole("switch", { name: "Auto" })),
+				fireEvent.click(
+					await waitFor(() => view.getByRole("switch", { name: "Auto pick" })),
+				),
 			);
 			await waitFor(() => expect(model.textContent).toContain("Auto · Big"));
 			const box = view.getByRole("textbox", { name: "Message input" });

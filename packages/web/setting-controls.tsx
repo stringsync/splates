@@ -304,10 +304,9 @@ function SettingControl({
 	inDialog?: boolean;
 }): JSX.Element {
 	const inlineModel = setting.category === "model" && !inDialog;
-	// Inline, Auto pick is a switch beside the model; the sheet has its own.
+	// Inline, Auto pick's switch tops the model's dropdown; the sheet has its own.
 	const withAuto = inlineModel ? autoPick : undefined;
 	const id = useId();
-	const autoId = useId();
 	if (setting.type === "boolean" && inDialog) {
 		return (
 			<Field orientation="horizontal">
@@ -369,32 +368,7 @@ function SettingControl({
 			autoPick={withAuto}
 		/>
 	);
-	if (withAuto === undefined) {
-		return select;
-	}
-	// Auto pick is a switch beside the model, not one of its choices.
-	return (
-		<>
-			<span
-				title="Auto pick"
-				className={cn(
-					IN_COMPOSER,
-					"inline-flex items-center gap-1.5 rounded-md",
-				)}
-			>
-				<label htmlFor={autoId} className="cursor-pointer">
-					Auto
-				</label>
-				<Switch
-					id={autoId}
-					size="sm"
-					checked={withAuto.on}
-					onCheckedChange={(checked) => withAuto.switch(checked)}
-				/>
-			</span>
-			{select}
-		</>
-	);
+	return select;
 }
 
 /** The categories of setting a picker shows by value alone, effort among them. */
@@ -422,6 +396,7 @@ function SettingSelect({
 }): JSX.Element {
 	const known = setting.options.some((option) => option.value === value);
 	const auto = autoPick?.on === true;
+	const autoId = useId();
 	return (
 		<Select
 			// Base UI keeps a picker's items once it has them, and shows a
@@ -486,6 +461,23 @@ function SettingSelect({
 				alignItemWithTrigger={false}
 				className="w-auto max-w-[calc(100vw-2rem)]"
 			>
+				{autoPick !== undefined && !inDialog && (
+					<div className="flex items-center justify-between gap-3 px-2 py-1.5 text-xs">
+						<label
+							htmlFor={autoId}
+							className="flex cursor-pointer items-center gap-1.5"
+						>
+							<AutoIcon colored={auto} />
+							Auto pick
+						</label>
+						<Switch
+							id={autoId}
+							size="sm"
+							checked={auto}
+							onCheckedChange={(checked) => autoPick.switch(checked)}
+						/>
+					</div>
+				)}
 				<SelectGroup>
 					{setting.options.map((option) => (
 						<SelectItem

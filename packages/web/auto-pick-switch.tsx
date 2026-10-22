@@ -7,7 +7,7 @@ import type { Refuse } from "./refusal";
 /**
  * Whether Auto pick chooses a conversation's model and effort, and the
  * switch for it, which the composer's settings show: a switch atop the
- * settings sheet, and beside the model where they sit inline.
+ * settings sheet, and atop the model's dropdown where they sit inline.
  */
 export interface AutoPickControl {
 	on: boolean;
