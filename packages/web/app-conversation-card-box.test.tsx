@@ -482,7 +482,7 @@ describe("App's card answer boxes", () => {
 				{
 					method: "POST",
 					body: {
-						text: "And [Image 2] too\n\n> **What looks off at 390px?**\n\nThis [Image 1]",
+						text: "> **What looks off at 390px?**\n\nThis [Image 1]\n\n> **Anything else?**\n\nAnd [Image 2] too",
 						file: [first, second],
 					},
 				},

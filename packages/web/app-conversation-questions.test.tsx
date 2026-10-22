@@ -206,8 +206,6 @@ describe("App's question cards", () => {
 
 	it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
 		const QUOTED = [
-			"Also the footer.",
-			"",
 			"> **Which pages need it?**",
 			"",
 			"- (a) Todos",
@@ -218,6 +216,10 @@ describe("App's question cards", () => {
 			"- (a) A muted card",
 			"",
 			"only on phones",
+			"",
+			"> **Anything else?**",
+			"",
+			"Also the footer.",
 		].join("\n");
 		const view = await testing.openConversations([asking()]);
 		await waitFor(() => card(view, "2"));

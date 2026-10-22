@@ -43,8 +43,6 @@ describe("replyOf", () => {
 
 		expect(reply).toBe(
 			[
-				"Looks good.",
-				"",
 				"> **Which one?**",
 				"",
 				"- (b) choice b",
@@ -57,6 +55,10 @@ describe("replyOf", () => {
 				"only on phones",
 				"",
 				"- footer too",
+				"",
+				"> **Anything else?**",
+				"",
+				"Looks good.",
 			].join("\n"),
 		);
 		expect(answerIn(reply, one)).toEqual({ picks: ["b"], words: "" });

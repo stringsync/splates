@@ -14,14 +14,17 @@ type Asked = Pick<Question, "number" | "text" | "choices" | "pick">;
 
 /** A question's line, quoted in a reply: `> **How should …?**`. */
 const QUOTED = /^> \*\*(.+)\*\*[ \t]*$/;
+/** The line quoted over what the person adds beyond the questions. */
+const ANYTHING_ELSE = "Anything else?";
 /** A pick under a quoted question: `- (b) …`, or in order, `2. (b) …`. */
 const PICKED = /^(?:-|\d+\.)[ \t]+\(([a-z])\)(?=[ \t]|$)/;
 
 /**
- * `answers` to `questions` as a reply, quote and reply: what else the person
- * says first, then each question answered, its line quoted in bold, its picks
- * under it as a list spelled out with their text, numbered when in order, and
- * then its words. Unanswered questions are left out, so nothing in the reply
+ * `answers` to `questions` as a reply, quote and reply: each question
+ * answered, its line quoted in bold, its picks under it as a list spelled out
+ * with their text, numbered when in order, and then its words; last, what else
+ * the person says, under a quoted "Anything else?" (alone, bare, when no
+ * question is answered). Unanswered questions are left out, so nothing in the reply
  * goes by a number or a letter alone.
  */
 export function replyOf(
@@ -29,7 +32,7 @@ export function replyOf(
 	answers: (Answer | null)[],
 	more: string,
 ): string {
-	const parts = more.trim() === "" ? [] : [escaped(more.trim(), [])];
+	const parts: string[] = [];
 	questions.forEach((asked, at) => {
 		const answer = answers[at] ?? null;
 		if (answer === null || isEmpty(answer)) {
@@ -50,6 +53,12 @@ export function replyOf(
 				.join("\n\n"),
 		);
 	});
+	if (more.trim() !== "") {
+		const words = escaped(more.trim(), []);
+		parts.push(
+			parts.length === 0 ? words : `> **${ANYTHING_ELSE}**\n\n${words}`,
+		);
+	}
 	return parts.join("\n\n");
 }
 
@@ -142,13 +151,23 @@ export function answerIn(text: string, asked: Asked): Answer | null {
 }
 
 /**
- * What `text`, a reply, says besides its answers to `asked`: what comes
- * before its first quoted question, or around the lines typed by hand.
+ * What `text`, a reply, says besides its answers to `asked`: what follows
+ * its quoted "Anything else?", else what comes before its first quoted question, or around the lines typed by hand.
  */
 export function besides(text: string, asked: Asked[]): string {
 	const lines = text.split("\n");
+	const last = lines.findLastIndex((line) => {
+		const quoted = QUOTED.exec(line);
+		return quoted !== null && sameLine(quoted[1] as string, ANYTHING_ELSE);
+	});
 	const quoted = lines.findIndex((line) => QUOTED.test(line));
-	return (quoted === -1 ? lines : lines.slice(0, quoted))
+	return (
+		last !== -1
+			? lines.slice(last + 1)
+			: quoted === -1
+				? lines
+				: lines.slice(0, quoted)
+	)
 		.filter((line) => !asked.some((each) => replyLine(each).test(line)))
 		.map(unescaped)
 		.join("\n")

@@ -101,8 +101,6 @@ describe("App's question card keys", () => {
 				method: "POST",
 				body: {
 					text: [
-						"Thanks",
-						"",
 						"> **Which pages need it?**",
 						"",
 						"- (a) Todos",
@@ -115,6 +113,10 @@ describe("App's question card keys", () => {
 						"> **Ready to merge?**",
 						"",
 						"soon",
+						"",
+						"> **Anything else?**",
+						"",
+						"Thanks",
 					].join("\n"),
 				},
 			},
