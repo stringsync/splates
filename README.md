@@ -1,5 +1,7 @@
 # Spinning Plates
 
+Run many agents, land every change on trunk.
+
 Run many coding agents on one repository at once: see
 [`packages/splates`](packages/splates/README.md), published to npm as
 `@stringsync/splates`.
