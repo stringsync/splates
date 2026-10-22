@@ -1,6 +1,11 @@
 Use the splates skill for any work that may change code: start a task with
 `splates add` before investigating, and land it with `splates merge`.
 
+When the user says "the server", they mean the splates server, `splates server`:
+it serves the splates web app and coordinates agents and their workers. Code
+may still call it the coordinator, as in `CoordinatorIdentity` or `--coordinator`,
+where that sets it apart from a worker; it is the same thing.
+
 After making code changes:
 
 - `splates dev fix` typecheck, format, and check the project, scry included.
