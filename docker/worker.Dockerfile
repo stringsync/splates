@@ -1,5 +1,5 @@
-# A Linux worker built from this checkout, for proving a second worker on
-# one machine: `docker build -f docker/worker.Dockerfile -t splates-worker .`
+# A Linux worker built from this checkout:
+# `docker build -f docker/worker.Dockerfile -t splates-worker .`
 # from the repo root. It holds no credentials: the worker joins with a token
 # at `docker run` and keeps its key in memory, since the image has no
 # secret service. The system packages follow `snapshotRecipe` in
@@ -9,7 +9,7 @@ FROM oven/bun:1.4.2-debian
 ENV DEBIAN_FRONTEND=noninteractive
 # procps for `ps`, iproute2 for `ss`, which find a task's processes and ports;
 # bubblewrap sandboxes each agent, which needs the container run with
-# seccomp, AppArmor and the system paths unconfined (`prove-worker.sh`).
+# seccomp, AppArmor and the system paths unconfined (`packages/server/workers/sandbox.ts`).
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ca-certificates curl git unzip procps iproute2 bubblewrap \
 	&& rm -rf /var/lib/apt/lists/*

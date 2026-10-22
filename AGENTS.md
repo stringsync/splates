@@ -14,9 +14,7 @@ After making code changes:
   harness, for changes under `evals/`. `splates dev test --linux` runs the
   suite on Linux in a Docker container built from the checkout, as the box
   and the workers run; run it before touching processes, sockets, files or
-  git, which is where macOS and Linux differ. `splates dev prove coordinator`
-  runs the server itself in a Linux container with this machine as its worker;
-  it needs Docker and takes minutes.
+  git, which is where macOS and Linux differ.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as
