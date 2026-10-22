@@ -25,7 +25,7 @@ describe("TASK_FILES", () => {
 		expect(await deps.fs.read(`${store}/2.md`)).toEndWith(
 			"---\nWhat is left of task 2.\n",
 		);
-		const [one, two] = await deps.tasks.all();
+		const [one, two] = await deps.legacyRecords().tasks.all();
 		expect(one?.state).toMatchObject({
 			id: 1,
 			stage: "ready",
@@ -35,7 +35,9 @@ describe("TASK_FILES", () => {
 		expect(decodeTask(await deps.fs.read(`${store}/3.md`))).not.toHaveProperty(
 			"stage",
 		);
-		expect((await deps.service.find("alpha")).state?.id).toBe(3);
+		expect((await deps.legacyRecords().service.find("alpha")).state?.id).toBe(
+			3,
+		);
 	});
 
 	it("comes out the same when run again, as after being cut short", async () => {
@@ -59,7 +61,7 @@ describe("TASK_FILES", () => {
 
 		await TASK_FILES.run(deps.splatesDir, deps.fs);
 
-		expect(await deps.tasks.all()).toEqual([]);
+		expect(await deps.legacyRecords().tasks.all()).toEqual([]);
 	});
 });
 

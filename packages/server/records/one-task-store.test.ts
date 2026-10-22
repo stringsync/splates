@@ -11,7 +11,7 @@ describe("ONE_TASK_STORE", () => {
 
 		await toFormatThree(deps);
 
-		const [first, second] = await deps.tasks.all();
+		const [first, second] = await deps.legacyRecords().tasks.all();
 		expect(first?.state).toMatchObject({
 			id: 3,
 			subject: "Three",
@@ -22,10 +22,9 @@ describe("ONE_TASK_STORE", () => {
 			"png",
 		);
 		expect(second?.state).toMatchObject({ id: 4, takenBy: "alpha" });
-		expect((await deps.tasks.lanes()).map((lane) => lane.name)).toEqual([
-			"Backlog",
-			"Uploads",
-		]);
+		expect(
+			(await deps.legacyRecords().tasks.lanes()).map((lane) => lane.name),
+		).toEqual(["Backlog", "Uploads"]);
 		expect(
 			await deps.fs.read(`${deps.splatesDir}/tasks/removed/2.json`),
 		).toContain(`${deps.splatesDir}/tasks/2/b-gone.png`);
@@ -51,7 +50,7 @@ describe("ONE_TASK_STORE", () => {
 
 		await toFormatThree(deps);
 
-		const alpha = await deps.service.find("alpha");
+		const alpha = await deps.legacyRecords().service.find("alpha");
 		expect(alpha.state).toMatchObject({
 			id: 4,
 			task: "alpha",
@@ -60,14 +59,15 @@ describe("ONE_TASK_STORE", () => {
 			createdAt: "2026-10-01T00:00:00.000Z",
 			mergeAttempts: 2,
 		});
-		const beta = await deps.service.find("beta");
+		const beta = await deps.legacyRecords().service.find("beta");
 		expect(beta.state).toMatchObject({ id: 8, task: "beta" });
-		expect((await deps.service.list()).map(({ task }) => task)).toEqual([
-			"alpha",
-			"beta",
-		]);
+		expect(
+			(await deps.legacyRecords().service.list()).map(({ task }) => task),
+		).toEqual(["alpha", "beta"]);
 		// Todo 4 is alpha now, still on the list; 5 waits on alpha to land.
-		expect((await deps.tasks.all()).map((todo) => todo.id)).toEqual([3, 4, 5]);
+		expect(
+			(await deps.legacyRecords().tasks.all()).map((todo) => todo.id),
+		).toEqual([3, 4, 5]);
 		expect(await deps.fs.read(`${deps.splatesDir}/tasks/last`)).toBe("8");
 		expect(await deps.fs.read(`${deps.splatesDir}/tasks/4/started/q.png`)).toBe(
 			"question",
@@ -91,8 +91,8 @@ describe("ONE_TASK_STORE", () => {
 
 		await toFormatThree(deps);
 
-		expect(await deps.tasks.all()).toEqual([]);
-		expect(await deps.service.list()).toEqual([]);
+		expect(await deps.legacyRecords().tasks.all()).toEqual([]);
+		expect(await deps.legacyRecords().service.list()).toEqual([]);
 	});
 });
 

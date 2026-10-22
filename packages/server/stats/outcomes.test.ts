@@ -169,9 +169,8 @@ describe.concurrent("outcomes", () => {
 				},
 			],
 		});
-		await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
-		await deps.fs.write(
-			join(deps.splatesDir, "conversations", "c1.jsonl"),
+		await deps.writeLog(
+			"conversations/c1.jsonl",
 			[
 				{ kind: "start", id: "c1", agent: "claude", task: null },
 				model("sonnet"),
@@ -198,9 +197,8 @@ describe.concurrent("outcomes", () => {
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		await add(deps, "alpha");
 		const during = new Date().toISOString();
-		await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
-		await deps.fs.write(
-			join(deps.splatesDir, "conversations", "c1.jsonl"),
+		await deps.writeLog(
+			"conversations/c1.jsonl",
 			[
 				{ kind: "start", id: "c1", agent: "claude", task: null },
 				// Before the task, so another task's.
@@ -389,7 +387,7 @@ describe.concurrent("outcomes", () => {
 			`${JSON.stringify(old)}\n${JSON.stringify(orphan)}\n`,
 		);
 		await deps.fs.write(join(deps.splatesHome, "outcome-usage.jsonl"), "");
-		const logOf = (_project: string, id: string) =>
+		const logOf = async (_project: string, id: string) =>
 			deps.service.conversationLog(id);
 
 		await deps.outcomes.backfill(logOf);
@@ -563,9 +561,8 @@ async function logged(
 	lines: object[],
 	agent = "claude",
 ): Promise<void> {
-	await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
-	await deps.fs.write(
-		join(deps.splatesDir, "conversations", "c1.jsonl"),
+	await deps.writeLog(
+		"conversations/c1.jsonl",
 		[{ kind: "start", id: "c1", agent, task: null }, ...lines]
 			.map((line) => `${JSON.stringify(line)}\n`)
 			.join(""),

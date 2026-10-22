@@ -459,6 +459,8 @@ export class Restarts {
 		this.restarting = { resume: reopens, shutdown };
 		const deadline = this.opts.deadlineMs ?? DEADLINE_MS;
 		void within(deadline, Promise.all(asked)).then(async (answered) => {
+			// The response that asked for this goes out before the server closes.
+			await Bun.sleep(0);
 			if (!answered) {
 				log.error(
 					`splates server went on without every checkpoint after ${Math.round(deadline / 1000)}s`,

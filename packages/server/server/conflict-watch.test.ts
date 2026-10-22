@@ -21,9 +21,9 @@ describe("server conflict notices", () => {
 				finish = () => resolve("end_turn");
 			});
 		const conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[AGENT],
-			{ launch: agent.launch },
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
 		);
 		const conversation = await conversations.start("fake", {
 			task: "alpha",

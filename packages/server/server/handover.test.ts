@@ -7,6 +7,7 @@ import { AGENT, FakeAgent, FakeAgentPs } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
 import { eventually } from "../conversations/testing";
+import type { Storage } from "../storage";
 import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import {
@@ -86,15 +87,22 @@ describe("dev restart with agents on the worker", () => {
 		});
 	}
 
-	/** The conversations of the project kept in `splatesDir`, run on the worker. */
-	function converse({ splatesDir }: { splatesDir: string }): Conversations {
+	/** The conversations of the project kept in `dir`, run on the worker. */
+	function converse({
+		dir,
+		storage,
+	}: {
+		dir: string;
+		storage: Storage;
+	}): Conversations {
 		const found =
-			opened.get(splatesDir) ??
-			new Conversations(`${splatesDir}/conversations`, [AGENT], {
+			opened.get(dir) ??
+			new Conversations(`${dir}/conversations`, [AGENT], {
+				storage: storage.within("conversations"),
 				launcher: workers.local,
 				machine: workers.local,
 			});
-		opened.set(splatesDir, found);
+		opened.set(dir, found);
 		return found;
 	}
 

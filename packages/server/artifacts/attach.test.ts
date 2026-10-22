@@ -103,7 +103,7 @@ describe("attach", () => {
 		await add(deps, "alpha");
 		const tree = (await deps.service.find("alpha")).path;
 		const [stored = ""] = await attach(deps, [await taken("a.png")], tree);
-		await deps.fs.rm(await deps.recordOf("alpha"));
+		await deps.storage.remove(await deps.recordOf("alpha"));
 
 		await deps.service.init();
 

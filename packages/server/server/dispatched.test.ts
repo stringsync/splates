@@ -56,11 +56,11 @@ describe("dev dispatched", () => {
 				],
 			},
 		]);
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch, offered },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+			offered,
+		});
 	});
 
 	afterEach(() => deps.disposeAsync());

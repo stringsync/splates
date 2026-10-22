@@ -101,6 +101,7 @@ describe("dev terminal", () => {
 				at: "2026-10-20T00:00:00.000Z",
 			}),
 		);
+		await deps.fs.mkdir(deps.splatesDir, { recursive: true });
 		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		// Opened as `splates server` opens it, so its records migrate first.
 		const unopened = Object.create(deps, { opened: { value: [] } }) as Testing;

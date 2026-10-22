@@ -11,11 +11,9 @@ describe("attach from a conversation", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
-		await deps.fs.writeBytes(
-			`${deps.splatesDir}/conversations/${ID}.jsonl`,
-			new Uint8Array(),
-		);
+		await deps.storage
+			.log(`conversations/${ID}.jsonl`)
+			.append({ kind: "read" });
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -38,10 +36,12 @@ describe("attach from a conversation", () => {
 		expect(stored).toContain(`/conversations/${ID}/attached/alpha/`);
 		expect(deps.service.owns(stored)).toBe(true);
 		expect(
-			deps.service.owns(`${deps.splatesDir}/conversations/${ID}.jsonl`),
+			deps.service.owns(`${deps.storage.locate("conversations")}/${ID}.jsonl`),
 		).toBe(false);
 		expect(
-			deps.service.owns(`${deps.splatesDir}/conversations/${ID}/artifacts/x`),
+			deps.service.owns(
+				`${deps.storage.locate("conversations")}/${ID}/artifacts/x`,
+			),
 		).toBe(false);
 		await attach(deps, [], tree);
 		expect(deps.out()).toContain("holds 1 file");

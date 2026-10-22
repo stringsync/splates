@@ -29,7 +29,7 @@ splatesConfig
 		const bundle = await exportBundle(
 			{
 				fs: ctx.fs,
-				splatesDir: ctx.splatesDir,
+				storage: ctx.storage,
 				home: splatesHome(ctx.ps),
 			},
 			await ctx.creds.requests(),
@@ -61,7 +61,7 @@ splatesConfig
 		const done = await importBundle(
 			{
 				fs: ctx.fs,
-				splatesDir: ctx.splatesDir,
+				storage: ctx.storage,
 				home: splatesHome(ctx.ps),
 			},
 			bundle,

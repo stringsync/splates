@@ -64,7 +64,7 @@ export class NoteSaves {
 			service: WorktreeService;
 			branches: TaskBranches;
 			trunk: TrunkLanding;
-			splatesDir: string;
+			dir: string;
 		},
 	) {}
 
@@ -256,8 +256,8 @@ export class NoteSaves {
 			message: string;
 		},
 	): Promise<string> {
-		const { git, fs, splatesDir } = this.deps;
-		const scratch = join(splatesDir, "note-save");
+		const { git, fs, dir } = this.deps;
+		const scratch = join(dir, "note-save");
 		await fs.mkdir(scratch, { recursive: true });
 		const env = { GIT_INDEX_FILE: join(scratch, "index") };
 		const run = async (...args: string[]): Promise<string> => {

@@ -19,9 +19,9 @@ describe("dev groomer", () => {
 			return "end_turn";
 		};
 		const conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[AGENT],
-			{ launch: agent.launch },
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
 		);
 		await new HookStore(deps.storage).groomer({
 			agent: "fake",

@@ -18,15 +18,28 @@ describe("config transfer", () => {
 
 	const places = (side: Testing) => ({
 		fs: side.fs,
-		splatesDir: side.splatesDir,
+		storage: side.storage,
 		home: side.splatesHome,
 	});
 
+	const put = (side: Testing, path: string, text: string) => {
+		const at = path.lastIndexOf("/");
+		return side.storage
+			.collection(at < 0 ? "" : path.slice(0, at))
+			.write(path.slice(at + 1), text);
+	};
+
+	const get = (side: Testing, path: string) => {
+		const at = path.lastIndexOf("/");
+		return side.storage
+			.collection(at < 0 ? "" : path.slice(0, at))
+			.read(path.slice(at + 1));
+	};
+
 	it("carries config, tasks and plans, never creds", async () => {
-		await from.fs.mkdir(`${from.splatesDir}/plans`, { recursive: true });
-		await from.fs.write(`${from.splatesDir}/plans/a.md`, "plan");
-		await from.fs.write(`${from.splatesDir}/hooks.json`, "{}");
-		await from.fs.write(`${from.splatesDir}/creds.json`, "secret");
+		await put(from, "plans/a.md", "plan");
+		await put(from, "hooks.json", "{}");
+		await put(from, "creds.json", "secret");
 		await from.fs.mkdir(from.splatesHome, { recursive: true });
 		await from.fs.write(`${from.splatesHome}/agents.json`, "{}");
 		await from.fs.write(`${from.splatesHome}/offered.json`, "{}");
@@ -45,19 +58,19 @@ describe("config transfer", () => {
 
 		const done = await importBundle(places(to), bundle, { force: false });
 		expect(done.written).toHaveLength(4);
-		expect(await to.fs.read(`${to.splatesDir}/plans/a.md`)).toBe("plan");
+		expect(await get(to, "plans/a.md")).toBe("plan");
 	});
 
 	it("stops on a differing file unless forced", async () => {
-		await from.fs.write(`${from.splatesDir}/hooks.json`, "new");
-		await to.fs.write(`${to.splatesDir}/hooks.json`, "old");
+		await put(from, "hooks.json", "new");
+		await put(to, "hooks.json", "old");
 		const bundle = await exportBundle(places(from), []);
 		await expect(
 			importBundle(places(to), bundle, { force: false }),
 		).rejects.toThrow("differ");
-		expect(await to.fs.read(`${to.splatesDir}/hooks.json`)).toBe("old");
+		expect(await get(to, "hooks.json")).toBe("old");
 		await importBundle(places(to), bundle, { force: true });
-		expect(await to.fs.read(`${to.splatesDir}/hooks.json`)).toBe("new");
+		expect(await get(to, "hooks.json")).toBe("new");
 	});
 
 	it("refuses a bundle that reaches outside or names creds", () => {

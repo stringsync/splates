@@ -60,9 +60,12 @@ describe("QueueAutoPick", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[AGENT, OTHER],
-			{ launch: new FakeAgent().launch },
+			{
+				storage: deps.storage.within("conversations"),
+				launch: new FakeAgent().launch,
+			},
 		);
 		fake = new FakeJudge(LIGHT_EDIT);
 		judge = fake;

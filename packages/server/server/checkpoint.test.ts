@@ -29,13 +29,10 @@ describe("dev checkpoint", () => {
 			said.push(text);
 			return turn();
 		};
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{
-				launch: agent.launch,
-			},
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,

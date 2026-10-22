@@ -156,9 +156,9 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		conversationsFor: ({ splatesDir, storage, git, service, creds, journal }) =>
+		conversationsFor: ({ dir, storage, git, service, creds, journal }) =>
 			converse?.({
-				splatesDir,
+				dir,
 				storage,
 				git,
 				config: service.config,

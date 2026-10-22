@@ -21,7 +21,9 @@ describe("dev everywhere", () => {
 
 	/** A second repository, registered after the one the server runs in. */
 	const another = async () => {
-		const other = await Testing.open();
+		const other = await Testing.open({ alongside: deps });
+		// Opening it registered it; this one is registered first.
+		await deps.projects.forget(other.root);
 		await deps.projects.register(deps.root);
 		await deps.projects.register(other.root);
 		return other;
@@ -31,8 +33,9 @@ describe("dev everywhere", () => {
 	const serving = async (body: (port: number) => Promise<void>) => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			conversations: ({ splatesDir }) =>
-				new Conversations(`${splatesDir}/conversations`, [AGENT], {
+			conversations: ({ dir, storage }) =>
+				new Conversations(`${dir}/conversations`, [AGENT], {
+					storage: storage.within("conversations"),
 					launch: agent.launch,
 				}),
 		});

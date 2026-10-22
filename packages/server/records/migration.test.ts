@@ -10,6 +10,7 @@ describe("Migration", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
+		await deps.fs.mkdir(deps.splatesDir, { recursive: true });
 		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 	});
 

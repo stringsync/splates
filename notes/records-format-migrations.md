@@ -1,11 +1,18 @@
 ---
-description: The records under .git/splates carry a format version; older records are migrated forward in a guarded child process and never written backward
+description: A project's records carry a format version; older records are migrated forward in a guarded child process and never written backward, the last step moving the files of .git/splates into the project's SQLite database
 ---
 
-`.git/splates/format` holds the records' format version; `FORMAT` is
-`MIGRATIONS.length + 1` in `packages/server/records/format.ts`, 4 today
+The records' format version is the file `.git/splates/format` while they are
+files, and the `format` document in the project's database after; `FORMAT` is
+`MIGRATIONS.length + 1` in `packages/server/records/format.ts`, 5 today
 (`ONE_TASK_STORE`, `TASK_FILES` turning `tasks/<N>.json` into `.md`,
-`TASK_STAGES` giving every task a `stage`). Any change an older splates would
+`TASK_STAGES` giving every task a `stage`, `TO_SQLITE` copying every file
+under `.git/splates` into `~/.splates/projects/<id>/state.db`, built in a
+temp file renamed into place so a database is only ever whole). Once
+`Migration.run` passes, its `settle` leaves `.git/splates` aside as
+`.git/splates.moved` for a downgrade to find; the backup and failure files
+stay beside `.git/splates`. A new repository is stamped in the database at
+once and never has the files. Any change an older splates would
 misread adds a step. A step reads and writes raw JSON in the old shape, never
 through today's types, and must be safe to run again after an interruption.
 

@@ -151,9 +151,9 @@ describe("weighing", () => {
 			return "end_turn";
 		};
 		const conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[AGENT],
-			{ launch: agent.launch },
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
 		);
 		const weighed: string[] = [];
 		conversations.weigh = async (_, since) => {

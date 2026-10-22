@@ -82,8 +82,7 @@ describe("show", () => {
 	});
 
 	it("carries the page conversation that last took it, none once an agent outside the page claims it", async () => {
-		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
-		await deps.fs.write(`${deps.splatesDir}/conversations/c1.jsonl`, "");
+		await deps.storage.log("conversations/c1.jsonl").append({ kind: "read" });
 		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
 		delete deps.proc.env.SPLATES_CONVERSATION;

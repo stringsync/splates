@@ -1,9 +1,11 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import { fail } from "../exit";
+import type { DatabaseStamp } from "./home";
 import { ONE_TASK_STORE } from "./one-task-store";
 import { TASK_FILES } from "./task-files";
 import { TASK_STAGES } from "./task-stages";
+import { TO_SQLITE } from "./to-sqlite";
 
 /**
  * One step forward in the format of the records under `.git/splates`: from the
@@ -13,7 +15,13 @@ import { TASK_STAGES } from "./task-stages";
 export interface Migration {
 	/** What the step changes, said as it runs: "moves lanes into their own files". */
 	does: string;
-	run(splatesDir: string, fs: Fs): Promise<void>;
+	run(splatesDir: string, fs: Fs, into?: Into): Promise<void>;
+}
+
+/** Where the last step moves the records: the project's database. */
+export interface Into {
+	/** Copies the files under `splatesDir` in, stamping the database with the format the records end in. */
+	import(splatesDir: string): Promise<void>;
 }
 
 /**
@@ -24,6 +32,7 @@ export const MIGRATIONS: readonly Migration[] = [
 	ONE_TASK_STORE,
 	TASK_FILES,
 	TASK_STAGES,
+	TO_SQLITE,
 ];
 
 /**
@@ -41,6 +50,16 @@ export interface FormatOptions {
 	log: Logger;
 	/** The steps from version 1; a test passes its own. */
 	migrations?: readonly Migration[];
+	/**
+	 * Where the format is stamped once the records have left the files for the
+	 * project's database; the file `format` under `splatesDir` alone without.
+	 */
+	database?: DatabaseStamp;
+	/**
+	 * Where the step that leaves the files moves them, told the format the
+	 * database is stamped with.
+	 */
+	into?: { import(splatesDir: string, format: number): Promise<void> };
 }
 
 /** The format of one repository's records, kept in `<splatesDir>/format`. */
@@ -50,11 +69,18 @@ export class Format {
 	private readonly log: Logger;
 	private readonly migrations: readonly Migration[];
 	private readonly path: string;
+	private readonly database: DatabaseStamp | null;
+	private readonly into: Into | undefined;
 
 	constructor(
 		readonly splatesDir: string,
-		{ fs, lock, log, migrations = MIGRATIONS }: FormatOptions,
+		{ fs, lock, log, migrations = MIGRATIONS, database, into }: FormatOptions,
 	) {
+		this.database = database ?? null;
+		this.into =
+			into === undefined
+				? undefined
+				: { import: (dir) => into.import(dir, this.current) };
 		this.fs = fs;
 		this.lock = lock;
 		this.log = log;
@@ -88,6 +114,10 @@ export class Format {
 			return;
 		}
 		const records = await this.fs.exists(this.splatesDir);
+		if (this.database !== null && !records) {
+			await this.database.write(this.current);
+			return;
+		}
 		await this.fs.mkdir(this.splatesDir);
 		await this.write(records ? 1 : this.current);
 	}
@@ -143,7 +173,7 @@ export class Format {
 				this.log.info(
 					`migrating splates's records to format ${format + 1}: ${step.does}`,
 				);
-				await step.run(this.splatesDir, this.fs);
+				await step.run(this.splatesDir, this.fs, this.into);
 				// After each step, so one cut short starts again from there.
 				await this.write(format + 1);
 			}
@@ -158,7 +188,13 @@ export class Format {
 	 * stamped, which are version 1. Refuses one this splates cannot read.
 	 */
 	async stored(): Promise<number | null> {
-		const raw = await this.fs.read(this.path).catch(() => null);
+		const raw =
+			(await this.fs.read(this.path).catch(() => null)) ??
+			// Once the records are in the database the files are gone.
+			(await this.database
+				?.read()
+				.then((stamped) => (stamped === null ? null : String(stamped)))) ??
+			null;
 		if (raw === null) {
 			return null;
 		}
@@ -182,6 +218,10 @@ export class Format {
 	}
 
 	private async write(format: number): Promise<void> {
+		if (this.database !== null && !(await this.fs.exists(this.splatesDir))) {
+			await this.database.write(format);
+			return;
+		}
 		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
 		await this.fs.write(tmp, `${format}\n`);
 		await this.fs.rename(tmp, this.path);

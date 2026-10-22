@@ -10,6 +10,7 @@ import type { Log, LogOptions } from "./log";
 import { SqliteCollection } from "./sqlite-collection";
 import { SqliteDb } from "./sqlite-db";
 import { SqliteDocument } from "./sqlite-document";
+import { importTree } from "./sqlite-import";
 import { inRange, rangeParams } from "./sqlite-keys";
 import { SqliteLock } from "./sqlite-lock";
 import { SqliteLog } from "./sqlite-log";
@@ -74,7 +75,11 @@ export class SqliteStorage implements Storage, Resource {
 	}
 
 	collection(key: string): Collection {
-		return new SqliteCollection(key, this.full(key), this.shared.db);
+		return new SqliteCollection(key, this.full(key), this.shared.db, (at) =>
+			this.shared.cache.fs.rm(keyIn(this.shared.cache.dir, at), {
+				force: true,
+			}),
+		);
 	}
 
 	lock(key: string): Lock {
@@ -158,6 +163,10 @@ export class SqliteStorage implements Storage, Resource {
 		const at = this.full(key);
 		const params = rangeParams(at);
 		const { db } = this.shared.db;
+		await this.shared.cache.fs.rm(this.locate(key), {
+			recursive: true,
+			force: true,
+		});
 		this.shared.db.write(() => {
 			const gone = db
 				.query<
@@ -183,6 +192,15 @@ export class SqliteStorage implements Storage, Resource {
 			);
 			return gone;
 		});
+	}
+
+	/**
+	 * Copies the files under `dir` on `fs` in, each at its path as a key, as
+	 * a log, a record or a blob by its name: what moves records kept as files
+	 * into the database. Leaves locks and stamps behind.
+	 */
+	async importFiles(fs: Fs, dir: string): Promise<void> {
+		await importTree(this.shared.db, fs, dir, this.root);
 	}
 
 	within(key: string): Storage {

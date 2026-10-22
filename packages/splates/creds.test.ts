@@ -132,9 +132,7 @@ describe("creds", () => {
 		});
 		await deps.creds.save("API_TOKEN", "hunter2", { by: "a tool" });
 
-		expect(await deps.fs.read(`${deps.splatesDir}/creds.json`)).not.toContain(
-			"hunter2",
-		);
+		expect(await deps.readRecord("creds.json")).not.toContain("hunter2");
 	});
 
 	it("ends a wait once the value is saved", async () => {

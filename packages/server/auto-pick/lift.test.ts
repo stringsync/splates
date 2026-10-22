@@ -79,11 +79,10 @@ describe("lifting", () => {
 			}
 			return "end_turn";
 		};
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		judge = new FakeJudge(LIGHT_EDIT);
 		conversations.lift = lifting(deps, conversations, {
 			judge: async () => judge,
@@ -217,11 +216,10 @@ describe("lifting", () => {
 		await conversation.choose("model", "small");
 		await conversations.disposeAsync();
 
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		const back = await conversations.find(conversation.id);
 		expect(back.state.autoPick).toMatchObject({
 			model: "big",
@@ -301,11 +299,10 @@ describe("lifting", () => {
 		expect(conversation.state.autoPick?.overridden).toBe(false);
 		await conversations.disposeAsync();
 
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		const back = await conversations.find(conversation.id);
 		expect(back.state.autoPick?.overridden).toBe(false);
 	});

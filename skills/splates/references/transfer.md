@@ -1,7 +1,7 @@
 # Moving splates state
 
 Splates keeps nothing in the working tree: a project's tasks, lanes, plans,
-conversations and hooks are under `.git/splates`, and the agent roster and
+conversations and hooks are in a database under `~/.splates/projects`, and the agent roster and
 Auto pick rules under `~/.splates`, so a clone or a push carries none of it.
 When the user asks to move that state to another machine or project, back it
 up, or bring it back, use `splates config`, never a copy of those

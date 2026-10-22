@@ -19,7 +19,7 @@ describe("dev", () => {
 	it("refuses every request once a newer splates has moved the records on", async () => {
 		await serving(deps, async (snapshot, port) => {
 			expect((await snapshot()).tasks).toEqual([]);
-			await deps.fs.write(`${deps.splatesDir}/format`, "5\n");
+			await deps.storage.document("format").write(FORMAT + 1);
 
 			const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
 
@@ -47,6 +47,7 @@ describe("dev", () => {
 				at: "2026-10-20T00:00:00.000Z",
 			}),
 		);
+		await deps.fs.mkdir(deps.splatesDir, { recursive: true });
 		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 
 		await serving(unopened, async (_, port) => {

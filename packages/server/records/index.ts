@@ -9,6 +9,7 @@ export type {
 } from "./events";
 export { isEscalation } from "./events";
 export { FORMAT, Format } from "./format";
+export { ProjectHome } from "./home";
 export { Journal } from "./journal";
 export type { MigrationFailure } from "./migration";
 export {

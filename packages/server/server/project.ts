@@ -176,7 +176,8 @@ export async function serveProject(
 			{
 				fs,
 				ps: project.ps,
-				splatesDir: project.splatesDir,
+				storage: project.storage,
+				dir: project.dir,
 				root: service.git.root,
 				creds: project.creds,
 			},
@@ -320,7 +321,7 @@ export type Project = Pick<
 	| "journal"
 	| "tasks"
 	| "format"
-	| "splatesDir"
+	| "dir"
 	| "storage"
 	| "git"
 	| "creds"

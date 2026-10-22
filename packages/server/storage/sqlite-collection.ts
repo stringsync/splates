@@ -14,6 +14,8 @@ export class SqliteCollection implements Collection {
 		/** The collection's key in the whole database. */
 		readonly at: string,
 		private readonly db: SqliteDb,
+		/** Drops the copy written out for an agent to read, when a record goes. */
+		private readonly forget: (key: string) => Promise<void> = async () => {},
 	) {}
 
 	async ensure(): Promise<void> {}
@@ -82,6 +84,7 @@ export class SqliteCollection implements Collection {
 				.run(key);
 			return changes > 0 ? [key] : [];
 		});
+		await this.forget(key);
 	}
 
 	async clear(): Promise<void> {

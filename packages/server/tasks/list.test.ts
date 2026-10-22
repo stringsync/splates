@@ -16,7 +16,7 @@ describe("list", () => {
 	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
-		await deps.fs.write(`${deps.splatesDir}/tasks/999.json`, "{not json");
+		await deps.writeRecord("tasks/999.json", "{not json");
 		const beta = (await deps.service.find("beta")).path;
 		await deps.fs.rm(beta, { recursive: true, force: true });
 

@@ -18,6 +18,7 @@ import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
 import { NoteReads, NoteUses } from "../notes";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
+import { ProjectHome } from "../records";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -183,15 +184,32 @@ export async function serveDev(
 	const starting = StartLock.ofMachine(ctx);
 	const projects = Projects.ofMachine(ctx);
 	// Tasks that ended before Codex and OpenCode were priced get their cost now.
+	const backfilling = new Map<string, ProjectHome>();
 	void outcomes
-		.backfill((project, conversation) =>
-			new FsStorage(
-				unmigrated(`${project}/.git/splates`, `${project}/.git/${LEGACY_DIR}`),
-				ctx.fs,
-			).log(`conversations/${conversation}.jsonl`),
-		)
+		.backfill(async (project, conversation) => {
+			let home = backfilling.get(project);
+			if (home === undefined) {
+				home = new ProjectHome(project, { ...ctx, projects });
+				backfilling.set(project, home);
+			}
+			const records = (await home.exists())
+				? await home.open()
+				: new FsStorage(
+						unmigrated(
+							`${project}/.git/splates`,
+							`${project}/.git/${LEGACY_DIR}`,
+						),
+						ctx.fs,
+					);
+			return records.log(`conversations/${conversation}.jsonl`);
+		})
 		.catch((error: unknown) => {
 			ctx.log.error(`the price backfill failed: ${String(error)}`);
+		})
+		.finally(() => {
+			for (const home of backfilling.values()) {
+				home.dispose();
+			}
 		});
 	// One for every project, so every agent on the machine shares one browser.
 	const browser = new SharedBrowser(
@@ -278,9 +296,10 @@ export async function serveDev(
 				await offered.reload();
 				return seeded(rosterOf(ctx), offered);
 			},
-			conversations: ({ splatesDir, storage, git, config, journal }) => {
-				return new Conversations(`${splatesDir}/conversations`, roster, {
+			conversations: ({ dir, storage, git, config, journal }) => {
+				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,
+					storage: storage.within("conversations"),
 					artifacts: artifactLimits(config),
 					launcher: worker,
 					slots: slots.project(git.root),

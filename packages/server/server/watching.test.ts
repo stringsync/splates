@@ -62,14 +62,12 @@ describe("dev", () => {
 		}, 15_000);
 
 		it("stays quiet while only a conversation's log grows", async () => {
-			await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
 			await serving(deps, async (_, port) => {
 				const reader = await listen(port);
 
-				await deps.fs.write(
-					`${deps.splatesDir}/conversations/c1.jsonl`,
-					'{"kind":"prompt","text":"hi"}\n',
-				);
+				await deps.storage
+					.log("conversations/c1.jsonl")
+					.append({ kind: "prompt", text: "hi" });
 				expect(await within(reader, "data: changed", 500)).toBe(false);
 				await reader.cancel();
 			});

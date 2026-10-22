@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -316,11 +317,19 @@ describe.concurrent("splates", () => {
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),
 		).not.toContain("add epsilon");
-		expect(await env.fs.exists(join(env.splatesDir, "merge.lock"))).toBe(false);
+		expect(await env.fs.exists(join(env.dir, "merge.lock"))).toBe(false);
 
-		expect(
-			await env.fs.exists(join(env.splatesDir, "merge-trees/epsilon.lock")),
-		).toBe(true);
+		// Its tree lock is a row in the database, left by a merge that died.
+		const records = new Database(join(env.dir, "state.db"), { readonly: true });
+		try {
+			expect(
+				records
+					.query("SELECT count(*) AS n FROM locks WHERE key = ?")
+					.get("merge-trees/epsilon.lock"),
+			).toEqual({ n: 1 });
+		} finally {
+			records.close();
+		}
 
 		// The next merge steals the abandoned tree lock; landings were never blocked.
 		const resumed = await splates(tree, "claim", "epsilon");
@@ -349,7 +358,6 @@ describe.concurrent("splates", () => {
 			await splates(env.root, "add", "alpha", "--goal", "land it"),
 			await splates(env.root, "list"),
 		]).toMatchObject([uninitialized, uninitialized, uninitialized]);
-		expect(await env.fs.exists(env.splatesDir)).toBe(false);
 		expect(await env.projects.list()).toEqual([]);
 
 		const [registered, again] = [
@@ -358,7 +366,7 @@ describe.concurrent("splates", () => {
 		];
 		expect(registered.exitCode).toBe(0);
 		expect(registered.stdout).toContain(`registered ${env.root}`);
-		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("4\n");
+		expect(await env.storage.document<number>("format").read()).toBe(5);
 		expect(again.stdout).toContain(`${env.root} is already registered`);
 		expect(
 			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
@@ -402,12 +410,12 @@ describe.concurrent("splates", () => {
 	it("leaves records a newer splates wrote alone", async () => {
 		await using cli = await setup();
 		const { env, splates } = cli;
-		const format = join(env.splatesDir, "format");
+		const format = env.storage.document<number>("format");
 
 		expect((await splates(env.root, "list")).exitCode).toBe(0);
-		expect(await env.fs.read(format)).toBe("4\n");
+		expect(await format.read()).toBe(5);
 
-		await env.fs.write(format, "5\n");
+		await format.write(6);
 		const refused = await splates(
 			env.root,
 			"add",
@@ -418,9 +426,7 @@ describe.concurrent("splates", () => {
 		expect(refused.exitCode).toBe(19);
 		expect(refused.stdout).toContain("outdated");
 		expect(refused.stderr).toContain("bunx @stringsync/splates@latest");
-		expect(await env.fs.exists(join(env.splatesDir, "tasks", "1.md"))).toBe(
-			false,
-		);
+		expect(await env.readRecord("tasks/1.md")).toBeNull();
 	});
 });
 

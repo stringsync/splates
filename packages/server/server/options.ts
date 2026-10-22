@@ -72,14 +72,14 @@ export interface DevOptions {
 	tunnel?: TunnelConfig | null;
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
-	 * records in `splatesDir`, its commands watched through `git`, its limits
+	 * records in `storage`, its commands watched through `git`, its limits
 	 * from `config`, its agents placed on a remote worker in its tasks'
 	 * clones that `service` records; without it no page has any to show, and the routes
 	 * say they are off.
 	 */
 	conversations?:
 		| ((project: {
-				splatesDir: string;
+				dir: string;
 				storage: Storage;
 				git: Git;
 				config: Config;

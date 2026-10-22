@@ -10,7 +10,7 @@ block scalar (`|` or `>`), throws, and merge then logs `project notes not
 read` instead of the index. `splates notes` prints descriptions only, since
 notes are disclosed progressively: an agent reads the few that fit.
 
-`NoteUses` (`notes/uses.ts`) counts reads in `.git/splates/note-uses.jsonl`:
+`NoteUses` (`notes/uses.ts`) counts reads in the `note-uses.jsonl` log of the project records:
 a conversation counts as having read a note when a non-editing tool call
 names its path, and listing descriptions counts for nothing; the Notes page
 shows the counts so the person sees where to spend attention. The Notes

@@ -1004,11 +1004,8 @@ export class Conversation
 		await this.stop();
 		await this.log.remove();
 		await this.files.remove();
-		// Its artifacts too, kept in a directory beside its log off storage.
-		await this.deps.fs.rm(`${this.deps.dir}/${this.id}`, {
-			recursive: true,
-			force: true,
-		});
+		// Its artifacts too, kept under its id beside its log.
+		await this.deps.storage.remove(this.id);
 	}
 
 	dispose(): void {

@@ -13,11 +13,10 @@ describe("dev artifacts", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		const agent = new FakeAgent();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 	});
 
 	afterEach(() => deps.disposeAsync());

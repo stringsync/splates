@@ -90,14 +90,15 @@ describe("dev tasks", () => {
 
 	it("serves a file a conversation holds for a task, but not its log or artifacts", async () => {
 		await add(deps, "alpha");
-		const dir = `${deps.splatesDir}/conversations`;
-		await deps.fs.mkdir(dir);
-		await deps.fs.writeBytes(`${dir}/c1.jsonl`, new Uint8Array([1]));
+		const dir = deps.storage.locate("conversations");
+		await deps.storage.log("conversations/c1.jsonl").append({ kind: "read" });
 		const [shot = ""] = await deps.service
 			.attached("c1", "alpha")
 			.store([{ name: "shot.png", bytes: new Uint8Array([5]) }]);
-		await deps.fs.mkdir(`${dir}/c1/artifacts`);
-		await deps.fs.writeBytes(`${dir}/c1/artifacts/a.png`, new Uint8Array([6]));
+		await deps.storage
+			.collection("conversations/c1/artifacts")
+			.writeBytes("a.png", new Uint8Array([6]));
+		await deps.storage.materialize("conversations/c1/artifacts/a.png");
 
 		await serving(deps, async (_snapshot, port) => {
 			const file = (path: string) =>
@@ -121,7 +122,7 @@ describe("dev tasks", () => {
 			`![shot](${shot})`,
 		);
 		await remove(deps, "alpha");
-		const kept = `${deps.splatesDir}/finished/${(await deps.service.finished.list())[0]?.key}`;
+		const kept = `${deps.storage.locate("finished")}/${(await deps.service.finished.list())[0]?.key}`;
 
 		await serving(deps, async (_snapshot, port) => {
 			const file = (path: string) =>
@@ -166,7 +167,9 @@ describe("dev tasks", () => {
 			expect(new Uint8Array(await tail.arrayBuffer())).toEqual(
 				new Uint8Array([4]),
 			);
-			expect((await file(await deps.recordOf("alpha"))).status).toBe(404);
+			expect(
+				(await file(deps.storage.locate(await deps.recordOf("alpha")))).status,
+			).toBe(404);
 		});
 	});
 

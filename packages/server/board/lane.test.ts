@@ -441,8 +441,8 @@ describe.concurrent("task links and lanes", () => {
 	it("drops the agent a lane was once assigned, since lanes have none", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
-		await deps.fs.write(
-			`${deps.tasks.dir}/lanes`,
+		await deps.writeRecord(
+			"tasks/lanes",
 			JSON.stringify([
 				{ id: 1, name: "Licensing", assignee: { agent: "claude" } },
 			]),
@@ -453,8 +453,6 @@ describe.concurrent("task links and lanes", () => {
 			{ id: 0, name: "Backlog" },
 			{ id: 1, name: "Licenses" },
 		]);
-		expect(await deps.fs.read(`${deps.tasks.dir}/lanes`)).not.toContain(
-			"assignee",
-		);
+		expect(await deps.readRecord("tasks/lanes")).not.toContain("assignee");
 	});
 });

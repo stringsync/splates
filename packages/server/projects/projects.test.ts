@@ -186,7 +186,7 @@ describe("Projects", () => {
 		await deps.fs.mkdir(deps.projectsPath.replace(/\/[^/]+$/, ""));
 		await deps.fs.write(
 			deps.projectsPath,
-			JSON.stringify({ format: 2, projects: [] }),
+			JSON.stringify({ format: 3, projects: [] }),
 		);
 
 		await expect(deps.projects.register(deps.root)).toBail("outdated", {

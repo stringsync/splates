@@ -19,6 +19,20 @@ describe("config transfer routes", () => {
 		});
 
 	/** Uploads `text` in parts of `size` characters, as the page does. */
+	const put = (path: string, text: string) => {
+		const at = path.lastIndexOf("/");
+		return deps.storage
+			.collection(at < 0 ? "" : path.slice(0, at))
+			.write(path.slice(at + 1), text);
+	};
+
+	const get = (path: string) => {
+		const at = path.lastIndexOf("/");
+		return deps.storage
+			.collection(at < 0 ? "" : path.slice(0, at))
+			.read(path.slice(at + 1));
+	};
+
 	const upload = async (
 		port: number,
 		id: string,
@@ -36,11 +50,8 @@ describe("config transfer routes", () => {
 	};
 
 	it("downloads an export, leaving conversations out when asked", async () => {
-		await deps.fs.write(`${deps.splatesDir}/hooks.json`, "{}");
-		await deps.fs.mkdir(`${deps.splatesDir}/conversations`, {
-			recursive: true,
-		});
-		await deps.fs.write(`${deps.splatesDir}/conversations/a.jsonl`, "");
+		await put("hooks.json", "{}");
+		await deps.storage.log("conversations/a.jsonl").append({ a: 1 });
 		await serving(deps, async (_snapshot, port) => {
 			const all = await fetch(`http://127.0.0.1:${port}/api/config/export`);
 			expect(all.headers.get("content-disposition")).toContain("attachment");
@@ -56,15 +67,12 @@ describe("config transfer routes", () => {
 	});
 
 	it("imports an upload sent in parts, asking before it overwrites and keeping the conversations here", async () => {
-		await deps.fs.write(`${deps.splatesDir}/hooks.json`, "old");
-		await deps.fs.mkdir(`${deps.splatesDir}/conversations`, {
-			recursive: true,
-		});
-		await deps.fs.write(`${deps.splatesDir}/conversations/a.jsonl`, "here");
+		await put("hooks.json", "old");
+		await deps.storage.log("conversations/a.jsonl").append({ v: "here" });
 		const text = bundle({
 			"hooks.json": "new",
 			"plans/p.md": "plan",
-			"conversations/a.jsonl": "there",
+			"conversations/a.jsonl": '{"v":"there"}\n',
 		});
 		await serving(deps, async (_snapshot, port) => {
 			await upload(port, "upload-one", text, 7);
@@ -73,7 +81,7 @@ describe("config transfer routes", () => {
 			});
 			expect(stopped.status).toBe(409);
 			expect((await stopped.json()).conflicts).toEqual(["project hooks.json"]);
-			expect(await deps.fs.read(`${deps.splatesDir}/hooks.json`)).toBe("old");
+			expect(await get("hooks.json")).toBe("old");
 
 			const forced = await json(port, "/api/config/import", "POST", {
 				upload: "upload-one",
@@ -84,13 +92,11 @@ describe("config transfer routes", () => {
 				kept: ["project conversations/a.jsonl"],
 				asked: [],
 			});
-			expect(await deps.fs.read(`${deps.splatesDir}/hooks.json`)).toBe("new");
-			expect(
-				await deps.fs.read(`${deps.splatesDir}/conversations/a.jsonl`),
-			).toBe("here");
-			expect(
-				await deps.fs.exists(`${deps.splatesDir}/imports/upload-one.json`),
-			).toBe(false);
+			expect(await get("hooks.json")).toBe("new");
+			expect(await get("conversations/a.jsonl")).toBe('{"v":"here"}\n');
+			expect(await deps.fs.exists(`${deps.dir}/imports/upload-one.json`)).toBe(
+				false,
+			);
 		});
 	});
 

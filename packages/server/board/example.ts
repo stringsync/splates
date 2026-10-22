@@ -1,4 +1,3 @@
-import { type Fs, NodeFs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
 import type { TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
@@ -77,17 +76,15 @@ export const SOUND2SCORE_LANES: LaneRecord[] = [
 export async function seed(
 	tasks: Tasks,
 	states: TaskRecord[],
-	fs: Fs = new NodeFs(),
 	lanes: LaneRecord[] = SOUND2SCORE_LANES.filter((record) =>
 		states.some((state) => state.lane === record.id),
 	),
 ): Promise<void> {
-	await fs.mkdir(tasks.dir);
 	for (const state of states) {
 		await tasks.save(state);
 	}
-	await fs.write(
-		`${tasks.dir}/lanes`,
+	await tasks.store.records.write(
+		"lanes",
 		`${JSON.stringify(lanes, null, "\t")}\n`,
 	);
 	// As if each lane had been made the usual way, so none is handed out again.
@@ -95,7 +92,7 @@ export async function seed(
 		...states.map((state) => state.lane ?? 0),
 		...lanes.map((record) => record.id),
 	];
-	await fs.write(`${tasks.dir}/last-lane`, String(Math.max(0, ...ids)));
+	await tasks.store.records.write("last-lane", String(Math.max(0, ...ids)));
 }
 
 const DETAIL: Record<number, string> = {

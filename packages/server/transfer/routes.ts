@@ -4,14 +4,17 @@ import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
 import { splatesHome } from "../models";
 import { body } from "../server/shared";
+import type { Storage } from "../storage";
 import { askAgain, exportBundle, importBundle, parseBundle } from "./transfer";
 
 /** What the routes read and write a project's export through. */
 export interface TransferProject {
 	fs: Fs;
 	ps: Ps;
-	/** The project's `.git/splates`. */
-	splatesDir: string;
+	/** The project's records, which an export reads and an import writes. */
+	storage: Storage;
+	/** The project's directory under the splates home, where an upload waits. */
+	dir: string;
 	/** Its main tree, which names the file an export downloads as. */
 	root: string;
 	/** What its agents asked for, which an export names and an import asks for again. */
@@ -40,11 +43,11 @@ export class TransferRoutes {
 
 	/** The export as a file to download, without conversations for `?conversations=0`. */
 	readonly exportConfig = async (request: Request): Promise<Response> => {
-		const { fs, ps, splatesDir, root, creds } = this.#project;
+		const { fs, ps, storage, root, creds } = this.#project;
 		const conversations =
 			new URL(request.url).searchParams.get("conversations") !== "0";
 		const bundle = await exportBundle(
-			{ fs, splatesDir, home: splatesHome(ps) },
+			{ fs, storage, home: splatesHome(ps) },
 			await creds.requests(),
 			{ conversations },
 		);
@@ -97,7 +100,7 @@ export class TransferRoutes {
 		if (typeof upload !== "string" || typeof force !== "boolean") {
 			fail("usage", "send { upload: string, force?: boolean }", {});
 		}
-		const { fs, ps, splatesDir } = this.#project;
+		const { fs, ps, storage } = this.#project;
 		const path = this.#upload(upload);
 		if (!(await fs.exists(path))) {
 			fail("not_found", "that upload is gone: choose the file again", {});
@@ -105,7 +108,7 @@ export class TransferRoutes {
 		const bundle = parseBundle(await fs.read(path), "the file");
 		try {
 			const done = await importBundle(
-				{ fs, splatesDir, home: splatesHome(ps) },
+				{ fs, storage, home: splatesHome(ps) },
 				bundle,
 				{ force, keep: ["conversations"] },
 			);
@@ -129,7 +132,7 @@ export class TransferRoutes {
 	};
 
 	get #uploads(): string {
-		return `${this.#project.splatesDir}/imports`;
+		return `${this.#project.dir}/imports`;
 	}
 
 	#upload(id: string): string {

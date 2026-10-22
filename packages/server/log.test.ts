@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { join } from "node:path";
 import { Exit } from "./exit";
 import { log } from "./log";
 import { type Facts, Journal } from "./records";
@@ -111,7 +110,9 @@ describe("log", () => {
 		await journal.record("retry", "b", async () => {}, { attempts: 0 });
 		await journal.record("retry", "c", async () => {}, { attempts: 0 });
 
-		expect(await deps.fs.readdir(join(deps.splatesDir, "log"))).toHaveLength(1);
+		expect(
+			await deps.storage.log("log.jsonl", { segments: "log" }).segments(),
+		).toHaveLength(1);
 		expect((await journal.tail(10)).map((event) => event.task)).toEqual([
 			"a",
 			"b",
@@ -188,8 +189,8 @@ describe("log", () => {
 
 	it("leaves out an event recorded before its action had the facts it has now", async () => {
 		// An escalation logged before `escalate` recorded its questions.
-		await deps.fs.append(
-			join(deps.splatesDir, "log.jsonl"),
+		await deps.appendLog(
+			"log.jsonl",
 			`${JSON.stringify({
 				id: "old",
 				at: "2026-10-15T16:48:21.146Z",
@@ -225,8 +226,8 @@ describe("log", () => {
 				conversation: "c1",
 				...facts,
 			})}\n`;
-		await deps.fs.append(
-			join(deps.splatesDir, "log.jsonl"),
+		await deps.appendLog(
+			"log.jsonl",
 			old("note read", {
 				path: "n.md",
 				hash: null,
@@ -255,8 +256,8 @@ describe("log", () => {
 				conversation: null,
 				...facts,
 			})}\n`;
-		await deps.fs.append(
-			join(deps.splatesDir, "log.jsonl"),
+		await deps.appendLog(
+			"log.jsonl",
 			old("todo add", { todo: 3, subject: "s", lane: null, position: 1 }) +
 				old("todo remove", { todos: [{ id: 3, subject: "s" }] }),
 		);

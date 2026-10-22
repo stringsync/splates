@@ -1,7 +1,8 @@
 import { afterAll, expect } from "bun:test";
+import { mkdirSync } from "node:fs";
 import { cp, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
@@ -16,11 +17,11 @@ import { CoordinatorLanding, TaskBranches } from "./merge";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
-import { Format, Journal } from "./records";
+import { Format, Journal, ProjectHome } from "./records";
 import { assets } from "./server";
 import { CoreClaims, HEAVY_HELD } from "./server/shared";
 import { Adherence, Outcomes } from "./stats";
-import { FsStorage } from "./storage";
+import { FsStorage, SqliteStorage } from "./storage";
 import { WorktreeService } from "./tasks";
 import { Shell } from "./terminal";
 
@@ -38,7 +39,17 @@ process.env.GIT_CONFIG_NOSYSTEM = "1";
  */
 export class Testing implements AsyncDisposable {
 	readonly root: string;
+	/**
+	 * Where records were kept before the database, `.git/splates`: what the
+	 * migrations of those files are tested on, and nothing else is kept in.
+	 */
 	readonly splatesDir: string;
+	/** What the registry names the project's records by, so the database is found where `dir` says. */
+	readonly projectId: string;
+	/** The project's directory under `splatesHome`: its database and the files beside it. */
+	readonly dir: string;
+	/** Where the project's records are found, as a command run here finds them. */
+	readonly records: ProjectHome;
 	readonly fs = new NodeFs();
 	/** Spawns for real; its exits and signals are the fake process's to keep. */
 	readonly proc = new FakeProcess();
@@ -66,8 +77,8 @@ export class Testing implements AsyncDisposable {
 	/** The cores a merge under test claims, never the machine's. */
 	readonly cores: CoreClaims;
 	readonly journal: Journal;
-	/** The project's storage, under `splatesDir`. */
-	readonly storage: FsStorage;
+	/** The project's records, in its database under `dir`. */
+	readonly storage: SqliteStorage;
 	/** The machine's storage, under `splatesHome`. */
 	readonly machine: FsStorage;
 	readonly lockPath: string;
@@ -99,7 +110,10 @@ export class Testing implements AsyncDisposable {
 	/** Lands on `config.remote`'s trunk as the server does. */
 	readonly trunk: CoordinatorLanding;
 
-	private constructor(private readonly base: string) {
+	private constructor(
+		private readonly base: string,
+		alongside?: Testing,
+	) {
 		this.root = join(base, "repo");
 		this.splatesDir = join(this.root, ".git", "splates");
 		this.ps = new NodePs({ proc: this.proc });
@@ -131,13 +145,21 @@ export class Testing implements AsyncDisposable {
 			platform: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
-		this.splatesHome = join(base, "home", ".splates");
-		this.storage = new FsStorage(this.splatesDir, this.fs);
+		this.splatesHome = alongside?.splatesHome ?? join(base, "home", ".splates");
+		this.projectId = alongside === undefined ? "test" : basename(base);
+		this.dir = join(this.splatesHome, "projects", this.projectId);
+		mkdirSync(this.dir, { recursive: true });
+		this.storage = SqliteStorage.open(join(this.dir, "state.db"), {
+			fs: this.fs,
+			ps: this.ps,
+			log: this.log,
+			stalenessMs: this.config.leaseStalenessMs,
+		});
 		this.machine = new FsStorage(this.splatesHome, this.fs);
 		this.outcomes = new Outcomes(this.machine);
 		this.adherence = new Adherence(this.machine, null, this.fs);
 		const store = new TaskStore(this.storage);
-		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
+		this.service = new WorktreeService(this.git, this.config, this.dir, {
 			store,
 			fs: this.fs,
 			storage: this.storage,
@@ -165,7 +187,7 @@ export class Testing implements AsyncDisposable {
 		this.journal = new Journal(this.storage, this.config.logCapacity, {
 			ps: this.ps,
 		});
-		this.lockPath = join(this.splatesDir, "merge.lock");
+		this.lockPath = join(this.dir, "merge.lock");
 		this.lock = new FileLock(this.lockPath, {
 			fs: this.fs,
 			ps: this.ps,
@@ -226,6 +248,12 @@ export class Testing implements AsyncDisposable {
 			config: this.config,
 			lease: this.lockPath,
 		});
+		this.records = new ProjectHome(this.root, {
+			fs: this.fs,
+			ps: this.ps,
+			log: this.log,
+			projects: this.projects,
+		});
 		this.format = new Format(this.splatesDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.splatesDir, "format.lock"), {
@@ -234,6 +262,8 @@ export class Testing implements AsyncDisposable {
 				log: this.log,
 			}),
 			log: this.log,
+			database: this.records.stamp(),
+			into: this.records,
 		});
 	}
 
@@ -243,12 +273,31 @@ export class Testing implements AsyncDisposable {
 	 */
 	static async open({
 		init = true,
+		alongside,
 	}: {
 		init?: boolean;
+		/**
+		 * Another test's project, on whose machine this one is: they share
+		 * its splates home and so its registry, as two projects on one machine do.
+		 */
+		alongside?: Testing;
 	} = {}): Promise<Testing> {
 		const base = await realpath(await mkdtemp(join(tmpdir(), "splates-")));
-		const testing = new Testing(base);
+		const testing = new Testing(base, alongside);
 		await cp(await seeded(), testing.root, { recursive: true });
+		// So a command run here finds the very database `storage` is.
+		await testing.fs.mkdir(testing.splatesHome, { recursive: true });
+		const registry = await testing.fs
+			.read(testing.projectsPath)
+			.then((text) => JSON.parse(text))
+			.catch(() => ({ format: 2, projects: [], focused: [], ids: {} }));
+		await testing.fs.write(
+			testing.projectsPath,
+			JSON.stringify({
+				...registry,
+				ids: { ...registry.ids, [testing.root]: testing.projectId },
+			}),
+		);
 		if (init) {
 			await testing.format.create();
 			await testing.service.init();
@@ -312,10 +361,58 @@ export class Testing implements AsyncDisposable {
 		await this.fs.write(path, lines.join("\n"));
 	}
 
-	/** Where the record of started task `task` is, under its number. */
+	/**
+	 * The tasks and service as they read the old files under `splatesDir`,
+	 * which is what a migration of those files is checked against.
+	 */
+	legacyRecords(): { service: WorktreeService; tasks: Tasks } {
+		const storage = new FsStorage(this.splatesDir, this.fs);
+		const store = new TaskStore(storage);
+		return {
+			service: new WorktreeService(this.git, this.config, this.splatesDir, {
+				store,
+				fs: this.fs,
+				storage,
+				ps: this.ps,
+			}),
+			tasks: new Tasks(store, { ids: this.ids }),
+		};
+	}
+
+	/** The record kept at `key` in the project's storage as text, or null for none. */
+	readRecord(key: string): Promise<string | null> {
+		const at = key.lastIndexOf("/");
+		return this.storage
+			.collection(at < 0 ? "" : key.slice(0, at))
+			.read(key.slice(at + 1));
+	}
+
+	/** Keeps `text` as the record at `key` in the project's storage. */
+	writeRecord(key: string, text: string): Promise<void> {
+		const at = key.lastIndexOf("/");
+		return this.storage
+			.collection(at < 0 ? "" : key.slice(0, at))
+			.write(key.slice(at + 1), text);
+	}
+
+	/** Replaces the log at `key` with the JSON lines of `text`, as a file written whole would. */
+	async writeLog(key: string, text: string): Promise<void> {
+		await this.storage.log(key).remove();
+		await this.appendLog(key, text);
+	}
+
+	/** Appends the JSON lines of `text` to the log at `key`, as a store earlier than this one's wrote them. */
+	async appendLog(key: string, text: string): Promise<void> {
+		const lines = text.split("\n").filter((line) => line !== "");
+		await this.storage
+			.log(key)
+			.append(...lines.map((line): unknown => JSON.parse(line)));
+	}
+
+	/** The key of the record of started task `task`, under its number. */
 	async recordOf(task: string): Promise<string> {
 		const { state } = await this.service.find(task);
-		return join(this.splatesDir, "tasks", `${state?.id}.md`);
+		return `tasks/${state?.id}.md`;
 	}
 
 	/** Everything logged so far, one line each, without colour. */
@@ -327,6 +424,7 @@ export class Testing implements AsyncDisposable {
 
 	/** Deletes the repo, its worktrees and the temporary directory holding them. */
 	disposeAsync(): Promise<void> {
+		this.storage.dispose();
 		return rm(this.base, { recursive: true, force: true });
 	}
 

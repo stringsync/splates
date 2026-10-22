@@ -7,7 +7,7 @@ import { decodeTask } from "./task-file";
 /** Task `id` as its record holds it. */
 async function stored(deps: Testing, id: number): Promise<unknown> {
 	return decodeTask(
-		await deps.fs.read(`${deps.splatesDir}/tasks/${id}.md`).catch(() => ""),
+		(await deps.storage.collection("tasks").read(`${id}.md`)) ?? "",
 	);
 }
 

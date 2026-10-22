@@ -2,9 +2,9 @@
 description: `splates config export/import` moves a project's hooks, tasks, plans and conversations plus the person's agent settings as one JSON file, with the creds to ask for again but never their values, and stops on files that differ unless --force
 ---
 
-`packages/server/transfer/` reads an allowlist of files (`PROJECT_STATE` under
-`.git/splates`, `MACHINE_STATE` under the splates home) into one bundle and
-writes them back. `creds.json` and `.lock` paths are refused on both ends, so a
+`packages/server/transfer/` reads an allowlist (`PROJECT_STATE` from the
+project's `Storage`, `MACHINE_STATE` files under the splates home) into one
+bundle and writes them back; a `.jsonl` record goes back in as a log. `creds.json` and `.lock` paths are refused on both ends, so a
 hand-edited bundle cannot plant one. The registry (`projects.json`), journal,
 spend and workers stay behind: they name this machine. Adding a state file to
 the move means adding it to the allowlist, and nothing else.

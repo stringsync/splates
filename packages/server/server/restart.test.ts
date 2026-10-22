@@ -5,6 +5,7 @@ import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
 import { eventually, until } from "../conversations/testing";
 import { CHECKPOINT, RESUME } from "../plans";
+import type { Storage } from "../storage";
 import { Testing } from "../testing";
 import { type DevServer, dev } from "./server";
 import { RESTART, UPDATE } from "./supervise";
@@ -35,14 +36,21 @@ describe("dev restart", () => {
 		await deps.disposeAsync();
 	});
 
-	/** The conversations of the project kept in `splatesDir`, made once. */
-	function converse({ splatesDir }: { splatesDir: string }): Conversations {
+	/** The conversations of the project kept in `dir`, made once. */
+	function converse({
+		dir,
+		storage,
+	}: {
+		dir: string;
+		storage: Storage;
+	}): Conversations {
 		const found =
-			opened.get(splatesDir) ??
-			new Conversations(`${splatesDir}/conversations`, [AGENT], {
+			opened.get(dir) ??
+			new Conversations(`${dir}/conversations`, [AGENT], {
+				storage: storage.within("conversations"),
 				launch: agent.launch,
 			});
-		opened.set(splatesDir, found);
+		opened.set(dir, found);
 		return found;
 	}
 
@@ -156,7 +164,8 @@ describe("dev restart", () => {
 	});
 
 	it("says a restart that resumes is to follow the checkpoint, then opens each other project it stopped agents in at once, for each to carry on", async () => {
-		await using other = await Testing.open();
+		await using other = await Testing.open({ alongside: deps });
+		await deps.projects.forget(other.root);
 		await deps.projects.register(deps.root);
 		await deps.projects.register(other.root);
 		const said: string[] = [];

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { Journal } from "../records";
-import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import type { Conversation } from "./conversation";
 import { Conversations } from "./conversations";
@@ -16,11 +15,10 @@ describe("conversation events", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: new FakeAgent().launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: new FakeAgent().launch,
+		});
 		conversation = await conversations.start("fake", {
 			task: null,
 			cwd: deps.root,
@@ -28,33 +26,13 @@ describe("conversation events", () => {
 		// Logged before the server opened the project.
 		await claimed("alpha", conversation.id);
 		await claimed("external", null);
-		// The OS takes a moment to start a watch, and drops what is written in
-		// that moment, so the test writes nothing it counts until one has fired.
-		let heard = 0;
-		const fs = Object.create(deps.fs) as Testing["fs"];
-		fs.watch = (path, onChange, opts) =>
-			deps.fs.watch(
-				path,
-				(changed) => {
-					heard++;
-					onChange(changed);
-				},
-				opts,
-			);
 		following = await JournalEvents.follow({
-			journal: new Journal(
-				new FsStorage(deps.splatesDir, fs),
-				deps.config.logCapacity,
-				{ ps: deps.ps },
-			),
+			journal: new Journal(deps.storage, deps.config.logCapacity, {
+				ps: deps.ps,
+			}),
 			conversations,
 			log: deps.log,
 		});
-		for (let i = 0; i < 500 && heard === 0; i++) {
-			await claimed("primer", null);
-			await Bun.sleep(10);
-		}
-		expect(heard).toBeGreaterThan(0);
 	});
 
 	afterEach(async () => {

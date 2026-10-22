@@ -77,7 +77,9 @@ describe("recordsFirst", () => {
 		await run();
 
 		expect(ps.getCalls().some((call) => call.endsWith(" migrate"))).toBe(true);
-		expect(await fs.read("/repo/.git/splates/format")).toBe(`${FORMAT}\n`);
+		expect(await fs.read("/repo/.git/splates.moved/format")).toBe(
+			`${FORMAT}\n`,
+		);
 		expect(next).toHaveLength(1);
 	});
 
@@ -111,6 +113,8 @@ describe("recordsFirst", () => {
 		await run();
 
 		expect(asked).toEqual([]);
-		expect(await fs.read("/repo/.git/splates/format")).toBe(`${FORMAT}\n`);
+		expect(await fs.read("/repo/.git/splates.moved/format")).toBe(
+			`${FORMAT}\n`,
+		);
 	});
 });

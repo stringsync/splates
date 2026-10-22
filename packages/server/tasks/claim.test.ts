@@ -86,7 +86,7 @@ describe("claim", () => {
 		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk");
 		await deps.commit(worktree, "README.md", "task side\n", "task");
 		await deps.ps.spawnCapture(["git", "-C", worktree, "rebase", "main"]);
-		await deps.fs.rm(await deps.recordOf("alpha"));
+		await deps.storage.remove(await deps.recordOf("alpha"));
 
 		await claim(deps, "alpha");
 

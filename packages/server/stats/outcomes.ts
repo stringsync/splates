@@ -64,7 +64,7 @@ export class Outcomes {
 	 * task used by its end is priced, not the turns credited to it after.
 	 */
 	async backfill(
-		logOf: (project: string, conversation: string) => Log<Entry>,
+		logOf: (project: string, conversation: string) => Promise<Log<Entry>>,
 	): Promise<void> {
 		const catalog = () => this.prices.catalog();
 		for (const outcome of await this.list()) {
@@ -75,7 +75,7 @@ export class Outcomes {
 			) {
 				continue;
 			}
-			const log = logOf(outcome.project, outcome.conversation);
+			const log = await logOf(outcome.project, outcome.conversation);
 			if (!(await log.exists())) {
 				continue;
 			}

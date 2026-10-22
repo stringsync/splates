@@ -23,7 +23,9 @@ describe("dev projects", () => {
 
 	/** A second repository, registered after the one the server runs in. */
 	const another = async () => {
-		const other = await Testing.open();
+		const other = await Testing.open({ alongside: deps });
+		// Opening it registered it; this one is registered first.
+		await deps.projects.forget(other.root);
 		await deps.projects.register(deps.root);
 		await deps.projects.register(other.root);
 		return other;
@@ -103,7 +105,7 @@ describe("dev projects", () => {
 		);
 		await chmod(join(bin, "bunx"), 0o755);
 		deps.proc.env = { ...deps.proc.env, PATH: `${bin}:${process.env.PATH}` };
-		await using fresh = await Testing.open({ init: false });
+		await using fresh = await Testing.open({ init: false, alongside: deps });
 		await fresh.fs.write(join(fresh.root, "notes.txt"), "mine\n");
 		// Untracked in a directory the skill's link shares: never offered.
 		await fresh.fs.mkdir(join(fresh.root, ".claude"));
@@ -282,8 +284,9 @@ describe("dev projects", () => {
 		const agent = new FakeAgent();
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			conversations: ({ splatesDir }) =>
-				new Conversations(`${splatesDir}/conversations`, [AGENT], {
+			conversations: ({ dir, storage }) =>
+				new Conversations(`${dir}/conversations`, [AGENT], {
+					storage: storage.within("conversations"),
 					launch: agent.launch,
 				}),
 		});
@@ -325,8 +328,9 @@ describe("dev projects", () => {
 		await using _other = await another();
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			conversations: ({ splatesDir }) =>
-				new Conversations(`${splatesDir}/conversations`, [AGENT], {
+			conversations: ({ dir, storage }) =>
+				new Conversations(`${dir}/conversations`, [AGENT], {
+					storage: storage.within("conversations"),
 					launch: new FakeAgent().launch,
 				}),
 		});

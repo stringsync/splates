@@ -43,11 +43,10 @@ describe("routing", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		judge = new FakeJudge({ n0: 0.9, n1: 0.75 });
 		conversations.route = routing(deps, {
 			judge: async () => judge,

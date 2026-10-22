@@ -23,7 +23,11 @@ describe("remove", () => {
 
 		expect(deps.out()).toContain("discarded 1 commit(s)");
 		expect(await deps.fs.exists(worktree)).toBe(false);
-		expect(await deps.fs.exists(record)).toBe(false);
+		expect(
+			await deps.storage
+				.collection("tasks")
+				.read(record.slice("tasks/".length)),
+		).toBeNull();
 		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
 			"",
 		);
@@ -60,9 +64,7 @@ describe("remove", () => {
 		);
 
 		await remove(deps, "alpha");
-		await deps.fs.rm(`${deps.splatesDir}/conversations/c1`, {
-			recursive: true,
-		});
+		await deps.storage.remove("conversations/c1");
 
 		const plan =
 			(

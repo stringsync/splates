@@ -16,7 +16,6 @@ import { Creds, type SecretStores, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
 import { CoordinatorLanding, TaskBranches, type TrunkLanding } from "../merge";
-import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
@@ -31,6 +30,7 @@ import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
 import { Format } from "./format";
+import { ProjectHome } from "./home";
 import { Journal } from "./journal";
 import { LeaseLock } from "./lease-lock";
 import { MIGRATING, Migration } from "./migration";
@@ -53,16 +53,25 @@ export function repository<
 				? undefined
 				: (await Projects.ofMachine(ctx).named(ctx.project)).root;
 		const repo = await openRepository(ctx, { ...opts, at });
-		const elsewhere = await checkReach({ ...ctx, ...repo }, repo, opts.needs);
-		await next({ ...ctx, ...repo, elsewhere });
+		try {
+			const elsewhere = await checkReach({ ...ctx, ...repo }, repo, opts.needs);
+			await next({ ...ctx, ...repo, elsewhere });
+		} finally {
+			repo.dispose();
+		}
 	};
 }
 
 /** What a command works with once there is a repository to work in. */
 export interface Repository {
-	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
-	splatesDir: string;
-	/** The project's records, under `splatesDir`. */
+	/**
+	 * The project's directory under the splates home, `projects/<id>`, shared
+	 * by every worktree: its database and the files beside it.
+	 */
+	dir: string;
+	/** Closes what the command held open: the project's database. */
+	dispose(): void;
+	/** The project's records, in its database. */
 	storage: Storage;
 	/** What every project on this machine shares, under the splates home. */
 	machine: Storage;
@@ -136,7 +145,7 @@ export interface Reached {
  * `cwd` sits in.
  */
 async function checkReach(
-	{ fs, ps, project }: Deps & { fs: Fs; project?: string },
+	{ fs, ps, log, project }: Deps & { fs: Fs; project?: string },
 	{ git, projects, service }: Repository,
 	needs: Needs,
 ): Promise<string | null> {
@@ -144,7 +153,7 @@ async function checkReach(
 		(await service.conversation()) !== undefined
 			? git.root
 			: ((await conversationHome(
-					fs,
+					{ fs, ps, log },
 					ps.env("SPLATES_CONVERSATION"),
 					projects,
 				)) ?? (project === undefined ? git.root : await mainTree(ps)));
@@ -180,7 +189,7 @@ async function checkReach(
  * `id` is, or null for one of none.
  */
 async function conversationHome(
-	fs: Fs,
+	{ fs, ps, log }: Deps & { fs: Fs },
 	id: string | undefined,
 	projects: Projects,
 ): Promise<string | null> {
@@ -188,15 +197,22 @@ async function conversationHome(
 		return null;
 	}
 	for (const each of await projects.list()) {
-		const records = new FsStorage(
-			unmigrated(
-				`${each.root}/.git/splates`,
-				`${each.root}/.git/${LEGACY_DIR}`,
-			),
-			fs,
-		);
-		if (await records.log(`conversations/${id}.jsonl`).exists()) {
-			return each.root;
+		const home = new ProjectHome(each.root, { fs, ps, log, projects });
+		try {
+			const records = (await home.exists())
+				? await home.open()
+				: new FsStorage(
+						unmigrated(
+							`${each.root}/.git/splates`,
+							`${each.root}/.git/${LEGACY_DIR}`,
+						),
+						fs,
+					);
+			if (await records.log(`conversations/${id}.jsonl`).exists()) {
+				return each.root;
+			}
+		} finally {
+			home.dispose();
 		}
 	}
 	return null;
@@ -223,6 +239,8 @@ async function mainTree(ps: Ps): Promise<string | null> {
 export function migrationOf(
 	format: Format,
 	{ fs, ps, log }: Deps & { fs: Fs },
+	/** Where the records end up, whose old files are left aside once moved. */
+	home?: ProjectHome,
 ): Migration {
 	return new Migration(format, {
 		fs,
@@ -230,6 +248,7 @@ export function migrationOf(
 		lock: new FileLock(`${format.splatesDir}-migration.lock`, { fs, ps, log }),
 		release: RUNNING,
 		child: Migration.childOf(ps, dirname(dirname(format.splatesDir))),
+		settle: home && (() => home.leaveAside(format.splatesDir)),
 	});
 }
 
@@ -278,12 +297,20 @@ export async function recordsMigration(
 		log,
 	});
 	const splatesDir = `${gitDir}/splates`;
+	const home = new ProjectHome(dirname(gitDir), {
+		fs,
+		ps,
+		log,
+		projects: Projects.ofMachine({ fs, ps, log }),
+	});
 	const format = new Format(splatesDir, {
 		fs,
-		lock: new FileLock(`${splatesDir}/format.lock`, { fs, ps, log }),
+		lock: new FileLock(`${splatesDir}-format.lock`, { fs, ps, log }),
 		log,
+		database: home.stamp(),
+		into: home,
 	});
-	return migrationOf(format, deps);
+	return migrationOf(format, deps, home);
 }
 
 /**
@@ -323,10 +350,13 @@ export async function openRepository(
 			log,
 		});
 	}
+	// Where the records were kept before the database: still where a checkout
+	// that has not moved them is.
 	const splatesDir = unmigrated(`${gitDir}/splates`, `${gitDir}/${LEGACY_DIR}`);
 	// The registry is the user's, shared by every repository on this machine:
 	// `SPLATES_HOME` moves it, as the tests do to keep theirs out of the user's.
-	const _registry = splatesHome(ps);
+	const projects = Projects.ofMachine({ fs, ps, log });
+	const home = new ProjectHome(dirname(gitDir), { fs, ps, log, projects });
 	const root = dirname(gitDir);
 	const git = new Git(root, { ps, fs });
 	const config = await loadConfig(root, {
@@ -335,10 +365,16 @@ export async function openRepository(
 	});
 	const lockAt = (path: string): Lock =>
 		new FileLock(path, { fs, ps, log, stalenessMs: config.leaseStalenessMs });
+	// The project's directory under the splates home, beside its database,
+	// where the merge lease is kept.
+	const dir =
+		creates || migrates || (await home.exists())
+			? await home.dir()
+			: splatesDir;
 	// The merge lease: one per repository, kept on disk so it outlives a
 	// restart, and beating while held, so a long test run is never judged
 	// stale. One whose holder dies is free once its pid is gone.
-	const mergeLease = `${splatesDir}/merge.lock`;
+	const mergeLease = `${dir}/merge.lock`;
 	const lease = new LeaseLock(mergeLease, {
 		fs,
 		ps,
@@ -349,23 +385,25 @@ export async function openRepository(
 	// Before anything reads or makes a record.
 	const format = new Format(splatesDir, {
 		fs,
-		lock: lockAt(`${splatesDir}/format.lock`),
+		lock: lockAt(`${splatesDir}-format.lock`),
 		log,
+		database: home.stamp(),
+		into: home,
 	});
 	if (creates) {
 		await format.create();
 	}
 	await (migrates
-		? migrationOf(format, { fs, ps, log }).run()
+		? migrationOf(format, { fs, ps, log }, home).run()
 		: format.check());
 	// The user's, shared by every repository on this machine: the registry,
 	// which only `splates init` writes this one into, and how each task ended.
 	// The one place a project's storage is picked, and the machine's.
-	const storage = new FsStorage(splatesDir, fs, { locks: { at: lockAt } });
+	const storage: Storage = await home.open();
 	const machine = FsStorage.ofMachine({ fs, ps, log });
 	const outcomes = new Outcomes(machine);
 	const store = new TaskStore(storage);
-	const service = new WorktreeService(git, config, splatesDir, {
+	const service = new WorktreeService(git, config, dir, {
 		store,
 		fs,
 		storage,
@@ -387,8 +425,6 @@ export async function openRepository(
 		await creds.copyLegacy();
 	}
 
-	const projects = Projects.ofMachine({ fs, ps, log }, config.leaseStalenessMs);
-
 	return {
 		fs,
 		storage,
@@ -404,7 +440,8 @@ export async function openRepository(
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		cores: coreClaimsOfMachine({ fs, ps, log }),
 		creds,
-		splatesDir,
+		dir,
+		dispose: () => home.dispose(),
 		config,
 		format,
 		git,

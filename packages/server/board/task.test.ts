@@ -123,7 +123,7 @@ describe.concurrent("task", () => {
 		]);
 		// Written down, not only counted again on reading.
 		expect(
-			decodeTask(await deps.fs.read(`${deps.tasks.dir}/1.md`)),
+			decodeTask((await deps.readRecord("tasks/1.md")) ?? ""),
 		).toMatchObject({ position: 3 });
 		// Taking one leaves it where it is.
 		await (await deps.tasks.find(3)).take("alpha");
@@ -216,7 +216,7 @@ describe.concurrent("task", () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "old one", null);
 		const { files: _, ...older } = (await deps.tasks.find(1)).state;
-		await deps.fs.write(`${deps.tasks.dir}/1.md`, encodeTask(older));
+		await deps.writeRecord("tasks/1.md", encodeTask(older));
 
 		expect((await deps.tasks.find(1)).state.files).toEqual([]);
 	});
@@ -235,10 +235,7 @@ describe.concurrent("task", () => {
 		const states = (await deps.tasks.all()).map((task) => task.state);
 		const tag = async (id: number, tags: string[]) => {
 			const state = states.find((each) => each.id === id);
-			await deps.fs.write(
-				`${deps.tasks.dir}/${id}.md`,
-				encodeTask({ ...state, tags }),
-			);
+			await deps.writeRecord(`tasks/${id}.md`, encodeTask({ ...state, tags }));
 		};
 		// An empty list, as every task had, is no tag at all.
 		await tag(4, []);
@@ -270,7 +267,7 @@ describe.concurrent("task", () => {
 			[1, 1],
 		]);
 		expect(
-			decodeTask(await deps.fs.read(`${deps.tasks.dir}/2.md`)),
+			decodeTask((await deps.readRecord("tasks/2.md")) ?? ""),
 		).not.toHaveProperty("tags");
 		expect(await deps.tasks.moveTagsToLanes()).toEqual([]);
 	});
@@ -284,8 +281,8 @@ describe.concurrent("task", () => {
 			position: __,
 			...older
 		} = (await deps.tasks.find(1)).state;
-		await deps.fs.write(
-			`${deps.tasks.dir}/1.md`,
+		await deps.writeRecord(
+			"tasks/1.md",
 			encodeTask({ ...older, text: "older\n\nwith more to say" }),
 		);
 

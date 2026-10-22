@@ -21,6 +21,7 @@ export class Migration {
 	private readonly release: string;
 	private readonly child: MigrationOptions["child"];
 	private readonly limit: Duration;
+	private readonly settle: MigrationOptions["settle"];
 	/** Where the failure is kept: beside the records, since a restore replaces them. */
 	readonly failurePath: string;
 	readonly backupPath: string;
@@ -34,8 +35,10 @@ export class Migration {
 			release,
 			child,
 			limit = MIGRATION_LIMIT,
+			settle,
 		}: MigrationOptions,
 	) {
+		this.settle = settle;
 		this.fs = fs;
 		this.log = log;
 		this.lock = lock;
@@ -93,7 +96,8 @@ export class Migration {
 	async run({ retry = false }: { retry?: boolean } = {}): Promise<void> {
 		if (!(await this.format.pending())) {
 			await this.fs.rm(this.failurePath, { force: true });
-			return this.format.check();
+			await this.format.check();
+			return this.settle?.();
 		}
 		const kept = await this.failure();
 		if (kept !== null && kept.release === this.release && !retry) {
@@ -114,6 +118,7 @@ export class Migration {
 			this.refuse(failed);
 		}
 		await this.format.check();
+		await this.settle?.();
 	}
 
 	/** Forgets a kept failure, so the next `run` tries again. */
@@ -235,6 +240,11 @@ export interface MigrationOptions {
 	 */
 	child(signal: AbortSignal): Promise<{ exitCode: number; stderr: string }>;
 	limit?: Duration;
+	/**
+	 * Runs once the records are in this splates's format, whether it moved
+	 * them or found them so: clears what the steps left behind.
+	 */
+	settle?: () => Promise<void>;
 }
 
 /** Copies `from` to `to`, a file or a tree, leaving out locks, which name this machine's processes. */

@@ -102,6 +102,8 @@ export class SqliteDb implements Resource {
 	}
 
 	dispose(): void {
+		this.poll?.dispose();
+		this.poll = null;
 		this.open.dispose();
 	}
 
@@ -117,7 +119,15 @@ export class SqliteDb implements Resource {
 
 	/** Tells the watches of what another process wrote since the last poll. */
 	private pollChanges(): void {
-		const version = this.dataVersion();
+		let version: number;
+		try {
+			version = this.dataVersion();
+		} catch {
+			// The file went from under the open database: nothing more to hear.
+			this.poll?.dispose();
+			this.poll = null;
+			return;
+		}
 		if (version === this.version) {
 			return;
 		}

@@ -2,7 +2,7 @@
 description: What a task is: a numbered record with a stage (backlog, ready, queued, running), blockers that decide readiness, and a worktree name that is a slug, not its number
 ---
 
-A task is `.git/splates/tasks/<N>.md`: JSON front matter splates reads and a
+A task is the record `tasks/<N>.md`: JSON front matter splates reads and a
 markdown body (`TaskRecord` in `packages/server/board/task.ts`). Numbers come
 from `TaskStore.next()`, the larger of `tasks/last` and the highest id
 present plus one, so a number is never reused after a removal; lane numbers

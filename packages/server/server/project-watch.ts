@@ -1,4 +1,4 @@
-import { basename, dirname } from "node:path";
+import { basename } from "node:path";
 import type { Resource } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { LEGACY_PLAN_FILE } from "../config";
@@ -255,30 +255,25 @@ export class ProjectWatch implements StreamWatcher {
 	// refs and each worktree's SPLATES.md, so all three are watched from the
 	// start: what is kept is only as good as the watchers that clear it.
 	private watchRecords(): void {
-		const { fs, splatesDir, service, log } = this.project;
-		const gitDir = dirname(splatesDir);
-		const conversationsDir = `${splatesDir}/conversations`;
-		const logDir = `${splatesDir}/log`;
-		const logFile = `${splatesDir}/log.jsonl`;
+		const { fs, storage, service, log } = this.project;
+		const gitDir = `${service.git.root}/.git`;
 		try {
+			const records = storage.watch("", { recursive: true });
+			records.events.on("changed", (changed) => {
+				// An agent's turn streams into its log: nothing a page shows.
+				const under = (dir: string) =>
+					changed === dir || changed.startsWith(`${dir}/`);
+				if (
+					!LOCK_PATH.test(changed) &&
+					!under("conversations") &&
+					!under("log") &&
+					changed !== "log.jsonl"
+				) {
+					this.changed();
+				}
+			});
 			this.watches = [
-				fs.watch(
-					splatesDir,
-					(path) => {
-						// An agent's turn streams into its log: nothing a page shows.
-						const under = (dir: string) =>
-							path === dir || path.startsWith(`${dir}/`);
-						if (
-							!LOCK_PATH.test(path) &&
-							!under(conversationsDir) &&
-							!under(logDir) &&
-							path !== logFile
-						) {
-							this.changed();
-						}
-					},
-					{ recursive: true },
-				),
+				records,
 				fs.watch(`${gitDir}/refs`, this.moved, { recursive: true }),
 				// Its own entries, of which only `packed-refs` names branches:
 				// `index` moves on every `git status`.

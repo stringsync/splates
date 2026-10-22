@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { basename, join } from "node:path";
+import { basename } from "node:path";
 import { Testing } from "@stringsync/splates-server/testing";
 import { projectArgs, splates } from "./splates";
 
@@ -16,7 +16,7 @@ describe("splates across projects", () => {
 
 	beforeEach(async () => {
 		here = await Testing.open();
-		there = await Testing.open();
+		there = await Testing.open({ alongside: here });
 		await here.projects.register(there.root);
 		const listed = await here.projects.list();
 		const slug = (root: string) =>
@@ -151,11 +151,7 @@ describe("splates across projects", () => {
 
 	it("checks an agent of this project's page that changes into the other", async () => {
 		await here.projects.grant(there.root, here.root, "read");
-		await here.fs.mkdir(join(here.root, ".git/splates/conversations"));
-		await here.fs.write(
-			join(here.root, ".git/splates/conversations/c1.jsonl"),
-			"",
-		);
+		await here.storage.log("conversations/c1.jsonl").append({ kind: "read" });
 		here.proc.env.SPLATES_CONVERSATION = "c1";
 		here.ps.cd(there.root);
 

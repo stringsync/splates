@@ -3,8 +3,12 @@ import type { Fs, Lock, Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
 
-/** The registry's own format, apart from each repository's records. */
-const FORMAT = 1;
+/**
+ * The registry's own format, apart from each repository's records. Format 2
+ * keeps each checkout's `ids`, which name where its records live: a splates
+ * that dropped them on a rewrite would orphan the records.
+ */
+const FORMAT = 2;
 
 /** A repository splates has run in, as the registry keeps it. */
 export interface ProjectRecord {
@@ -35,6 +39,7 @@ interface StoredRegistry {
 	format?: number;
 	projects?: ProjectRecord[];
 	focused?: string[] | string | null;
+	ids?: Record<string, string>;
 }
 
 /** What `Projects` works with. */
@@ -104,6 +109,30 @@ export class Projects {
 				projects: [...file.projects, { root, added: this.now().toISOString() }],
 			};
 		});
+	}
+
+	/**
+	 * The id the records of the checkout at `root` are kept under, or null
+	 * while it has none. Forgetting a project keeps it, so its records are
+	 * found again once it is registered.
+	 */
+	async idOf(root: string): Promise<string | null> {
+		return (await this.read()).ids[root] ?? null;
+	}
+
+	/** `idOf`, giving the checkout at `root` an id first when it has none. */
+	async idFor(root: string): Promise<string> {
+		let id = "";
+		await this.change((file) => {
+			const have = file.ids[root];
+			if (have !== undefined) {
+				id = have;
+				return null;
+			}
+			id = crypto.randomUUID();
+			return { ...file, ids: { ...file.ids, [root]: id } };
+		});
+		return id;
 	}
 
 	/**
@@ -238,6 +267,7 @@ export class Projects {
 			return kept.length === file.projects.length
 				? null
 				: {
+						ids: file.ids,
 						projects: kept,
 						focused: file.focused.filter((each) => each !== root),
 					};
@@ -275,7 +305,7 @@ export class Projects {
 			});
 		}
 		if (parsed === null) {
-			return { projects: [], focused: [] };
+			return { projects: [], focused: [], ids: {} };
 		}
 		if ((parsed.format ?? 1) > FORMAT) {
 			fail(
@@ -294,11 +324,12 @@ export class Projects {
 				typeof parsed.focused === "string"
 					? [parsed.focused]
 					: (parsed.focused ?? []),
+			ids: parsed.ids ?? {},
 		};
 	}
 
-	private async write({ projects, focused }: RegistryFile): Promise<void> {
-		await this.document.write({ format: FORMAT, projects, focused });
+	private async write({ projects, focused, ids }: RegistryFile): Promise<void> {
+		await this.document.write({ format: FORMAT, projects, focused, ids });
 	}
 }
 
@@ -363,4 +394,6 @@ interface RegistryFile {
 	 * one is forgotten.
 	 */
 	focused: string[];
+	/** The id each checkout's records are kept under, by its root. */
+	ids: Record<string, string>;
 }

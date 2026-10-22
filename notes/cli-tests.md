@@ -4,7 +4,7 @@ description: How the CLI is tested: in-process wiring tests through splates.run 
 
 Both layers start from `Testing.open()` in
 `@stringsync/splates-server/testing`, which copies a seeded git repo into a
-fresh temp directory, initializes `.git/splates` and registers the project
+fresh temp directory, initializes its records and registers the project
 under a private `SPLATES_HOME`; the seed is built once per test file and
 copied per test because its git spawns dominated concurrent runs.
 

@@ -2,6 +2,7 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { type CredRequest, type Creds, SCOPES } from "../creds";
 import { fail } from "../exit";
+import type { Storage } from "../storage";
 
 /** What an export file says it is, so an import refuses any other JSON. */
 export const BUNDLE_FORMAT = "splates-config";
@@ -20,9 +21,10 @@ export interface Bundle {
 
 /** Where a bundle's two halves are read from and written to. */
 export interface Places {
+	/** Reads and writes the machine's half, files under `home`. */
 	fs: Fs;
-	/** The project's `.git/splates`. */
-	splatesDir: string;
+	/** The project's records, which its half is read from and written to. */
+	storage: Storage;
 	/** splates's home. */
 	home: string;
 }
@@ -32,16 +34,15 @@ export interface Places {
  * each cred `requests` asked for and the person did not turn down.
  */
 export async function exportBundle(
-	{ fs, splatesDir, home }: Places,
+	{ fs, storage, home }: Places,
 	requests: CredRequest[],
 	{ conversations = true }: ExportOptions = {},
 ): Promise<Bundle> {
 	return {
 		format: BUNDLE_FORMAT,
 		version: BUNDLE_VERSION,
-		project: await collect(
-			fs,
-			splatesDir,
+		project: await collectRecords(
+			storage,
 			conversations
 				? PROJECT_STATE
 				: PROJECT_STATE.filter((name) => name !== "conversations"),
@@ -119,30 +120,32 @@ export async function importBundle(
 	bundle: Bundle,
 	opts: ImportOptions,
 ): Promise<Imported> {
-	const { fs, splatesDir, home } = places;
+	const { fs, storage, home } = places;
 	const kept: string[] = [];
-	const project: [string, string, string][] = [];
+	const project: [string, string][] = [];
 	for (const [path, text] of Object.entries(bundle.project)) {
-		const at = `${splatesDir}/${path}`;
 		if (
 			(opts.keep ?? []).some((dir) => path.startsWith(`${dir}/`)) &&
-			(await fs.exists(at))
+			(await readRecord(storage, path)) !== null
 		) {
 			kept.push(`project ${path}`);
 			continue;
 		}
-		project.push([at, text, `project ${path}`]);
+		project.push([path, text]);
 	}
-	const targets = [
-		...project,
-		...Object.entries(bundle.machine).map(
-			([path, text]) => [`${home}/${path}`, text, `machine ${path}`] as const,
-		),
-	];
+	const machine = Object.entries(bundle.machine).map(
+		([path, text]) => [`${home}/${path}`, text] as const,
+	);
 	const conflicts: string[] = [];
-	for (const [path, text, label] of targets) {
+	for (const [path, text] of project) {
+		const there = await readRecord(storage, path);
+		if (there !== null && there !== text) {
+			conflicts.push(`project ${path}`);
+		}
+	}
+	for (const [path, text] of machine) {
 		if ((await fs.exists(path)) && (await fs.read(path)) !== text) {
-			conflicts.push(label);
+			conflicts.push(`machine ${path.slice(home.length + 1)}`);
 		}
 	}
 	if (conflicts.length > 0 && !opts.force) {
@@ -153,15 +156,60 @@ export async function importBundle(
 		);
 	}
 	const written: string[] = [];
-	for (const [path, text, label] of targets) {
+	for (const [path, text] of project) {
+		if ((await readRecord(storage, path)) === text) {
+			continue;
+		}
+		await writeRecord(storage, path, text);
+		written.push(`project ${path}`);
+	}
+	for (const [path, text] of machine) {
 		if ((await fs.exists(path)) && (await fs.read(path)) === text) {
 			continue;
 		}
 		await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
 		await fs.write(path, text);
-		written.push(label);
+		written.push(`machine ${path.slice(home.length + 1)}`);
 	}
 	return { written, conflicts, kept };
+}
+
+/** The record at `path` in `storage` as text, or null for none: a log as its lines. */
+async function readRecord(
+	storage: Storage,
+	path: string,
+): Promise<string | null> {
+	const at = path.lastIndexOf("/");
+	return storage
+		.collection(at < 0 ? "" : path.slice(0, at))
+		.read(path.slice(at + 1));
+}
+
+/** Writes `text` as the record at `path`, a `.jsonl` one as a log, which is how splates reads it back. */
+async function writeRecord(
+	storage: Storage,
+	path: string,
+	text: string,
+): Promise<void> {
+	if (path.endsWith(".jsonl")) {
+		const log = storage.log(path);
+		await log.remove();
+		await log.append(
+			// A line a crash cut short is left out, as a log is read.
+			...text.split("\n").flatMap((line): unknown[] => {
+				try {
+					return line === "" ? [] : [JSON.parse(line)];
+				} catch {
+					return [];
+				}
+			}),
+		);
+		return;
+	}
+	const at = path.lastIndexOf("/");
+	await storage
+		.collection(at < 0 ? "" : path.slice(0, at))
+		.write(path.slice(at + 1), text);
 }
 
 /** Reads an export file's text as a bundle, refusing anything else. */
@@ -216,6 +264,34 @@ export function parseBundle(text: string, from: string): Bundle {
 	};
 }
 
+/** Each record under `names` in `storage`, trees followed, as text by relative path. */
+async function collectRecords(
+	storage: Storage,
+	names: string[],
+): Promise<Record<string, string>> {
+	const files: Record<string, string> = {};
+	const visit = async (relative: string): Promise<void> => {
+		if (KEPT_BACK.test(relative)) {
+			return;
+		}
+		const text = await readRecord(storage, relative);
+		if (text !== null) {
+			files[relative] = text;
+			return;
+		}
+		for (const each of await storage.collection(relative).list()) {
+			await visit(`${relative}/${each}`);
+		}
+		for (const each of await storage.children(relative)) {
+			await visit(`${relative}/${each}`);
+		}
+	};
+	for (const name of names) {
+		await visit(name);
+	}
+	return files;
+}
+
 /** Each file under `names` in `dir`, trees followed, as text by relative path. */
 async function collect(
 	fs: Fs,
@@ -259,7 +335,7 @@ const NO_PURPOSE =
 	"Used by this project's agents on the machine this setup was exported from.";
 
 /**
- * What moves from a project's `.git/splates`: its hooks, and its tasks,
+ * What moves from a project's records: its hooks, and its tasks,
  * lanes, plans, conversations and the records of tasks it ended. Never `creds.json`, which
  * holds this machine's record of requests (the bundle carries what to ask
  * for again in `creds`), nor the journal, locks or leases,

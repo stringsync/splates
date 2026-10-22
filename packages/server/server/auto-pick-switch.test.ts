@@ -13,11 +13,10 @@ describe("Auto pick's switch for a conversation", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[ROSTERED],
-			{ launch: new FakeAgent().launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [ROSTERED], {
+			storage: deps.storage.within("conversations"),
+			launch: new FakeAgent().launch,
+		});
 		server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,

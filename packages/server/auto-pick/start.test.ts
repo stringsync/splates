@@ -51,9 +51,9 @@ describe("startAutoPick", () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[AGENT, OTHER],
-			{ launch: agent.launch },
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
 		);
 		judge = new FakeJudge(LIGHT_EDIT);
 		await deps.fs.write(

@@ -33,7 +33,9 @@ describe("TASK_STAGES", () => {
 			stage: "running",
 			startedFrom: "backlog",
 		});
-		expect((await deps.service.find("alpha")).state?.status).toBe("merging");
+		expect(
+			(await deps.legacyRecords().service.find("alpha")).state?.status,
+		).toBe("merging");
 	});
 
 	it("comes out the same when run again, as after being cut short", async () => {

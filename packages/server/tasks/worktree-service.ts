@@ -84,7 +84,7 @@ export class WorktreeService {
 			opts.store ?? new TaskStore(this.storage),
 		);
 		this.removed = this.storage.collection("removed");
-		this.conversationsDir = `${splatesDir}/conversations`;
+		this.conversationsDir = this.storage.locate("conversations");
 		this.plans = this.storage.collection("plans");
 		this.finished = new Finished(
 			this.storage,

@@ -13,11 +13,10 @@ describe("dev conversations' parent", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: new FakeAgent().launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: new FakeAgent().launch,
+		});
 		server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,

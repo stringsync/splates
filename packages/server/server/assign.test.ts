@@ -19,9 +19,9 @@ describe("dev assign", () => {
 
 	it("assigns a queued task an agent off the roster, and starts a conversation on a model", async () => {
 		const rostered = new Conversations(
-			`${deps.splatesDir}/conversations`,
+			`${deps.dir}/conversations`,
 			[ROSTERED],
-			{ launch: agent.launch },
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
 		);
 		await deps.tasks.add("first", null);
 		await deps.tasks.addLane("Licensing");

@@ -234,7 +234,12 @@ describe("add", () => {
 	});
 
 	it("hands the task to an agent pending while its hook readies the tree", async () => {
-		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "1.md")} > record.md`;
+		// Reads the record out of the database, as an agent's hook would.
+		const reader =
+			'const { Database } = require("bun:sqlite");' +
+			`const row = new Database(${JSON.stringify(join(deps.dir, "state.db"))}, { readonly: true }).query("SELECT data FROM kv WHERE key = ?").get("tasks/1.md");` +
+			'require("node:fs").writeFileSync("record.md", row.data);';
+		deps.config.postCheckout = `bun -e '${reader}'`;
 
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },

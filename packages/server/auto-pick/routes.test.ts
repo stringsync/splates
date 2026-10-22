@@ -22,11 +22,10 @@ describe("dev Auto pick", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
-		conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{ launch: agent.launch },
-		);
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
 		await deps.fs.write(
 			`${deps.splatesHome}/agents.json`,
 			JSON.stringify({ agents: [ROSTERED] }),
