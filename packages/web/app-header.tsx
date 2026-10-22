@@ -3,7 +3,7 @@ import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
-import { StaleChip } from "./freshness";
+import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
 import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
@@ -49,7 +49,7 @@ export function AppHeader({
 
 /**
  * What every bar says after its title beside a sidebar: whether the page is
- * catching up, which says too when the server cannot be reached, the server's
+ * updating, which says too when the server cannot be reached, the server's
  * state, how a restart goes, and why a checkpoint could not start.
  */
 export function AppStatus({
@@ -144,16 +144,7 @@ function ServerBadges({
 					Build failed
 				</span>
 			)}
-			{offline && !offlineSaid && (
-				<span
-					role="status"
-					title="splates server stopped answering: is it still running?"
-					className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
-				>
-					<span className="size-1.5 rounded-full bg-destructive" />
-					Offline
-				</span>
-			)}
+			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && (
 				<QueueBadge

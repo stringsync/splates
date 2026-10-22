@@ -22,16 +22,15 @@ has answered since the stream last opened: false over a kept copy, after a
 wake, or a dropped or failed stream. `freshness.tsx` joins the two into
 `FreshnessContext`: while `locked` (stale, and not dismissed) the inbox
 (phone and sidebar) keeps its rows, dimmed and `inert`, and the open thread
-is `inert`. `CatchingUp` says so once the page has been stale 300ms (sooner
-would flash on a wake the server answers at once): a phone dims its whole
-screen with "Catching up…" at the centre (`CatchingUp`); a desktop says it
-in a chip after the bar's title (`StaleChip`, in `AppStatus`, which then
-drops its Offline badge), a line sweeping along the bar's foot
-(`StaleLine`), and fades the page, the bar left usable. After
-`offlineAfter` it says "Can't reach splates" with Retry and a dismiss, which
-unlocks the page so what it shows can be read and copied, leaving a pill (a
-phone) or the chip (a desktop) with Retry; the next stale spell locks it
-again.
+is `inert`. `CatchingUp` and `StaleChip` say so once the page has been stale 300ms (sooner
+would flash on a wake the server answers at once), as "Updating…" in muted
+text: a desktop beside the bar's title (`StaleChip`, in `AppStatus`) with a
+line sweeping along the bar's foot (`StaleLine`) and the page faded, the bar
+left usable; a phone at the top of the screen (`CatchingUp`) with the same
+line, and nothing dimmed. After `offlineAfter` the page unlocks, so what it
+shows can be read and copied, and a neutral `OfflinePill` says "Offline", with
+no Retry or dismiss: the streams reopen by themselves, and the next stale
+spell locks it again.
 
 `index.html` starts fetching `/api/snapshot` and `/api/conversations` before the script loads,
 and `EarlyReads` hands those to the first read. WebSockets are used only for

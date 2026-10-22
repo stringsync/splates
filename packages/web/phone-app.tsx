@@ -8,6 +8,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import { OfflinePill, useFreshness } from "./freshness";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
@@ -85,23 +86,19 @@ export function PhoneApp({
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
 	// The drawer's header says more, as why the server is outdated.
-	const status = offline ? (
-		<span
-			role="status"
-			className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
-		>
-			<span className="size-1.5 rounded-full bg-destructive" />
-			Offline
-		</span>
-	) : (
-		<>
-			<QueueBadge
-				queue={pageMenu.machine?.queue ?? []}
-				offer={pageMenu.machine?.workerBudget?.offer}
-			/>
-			<WorkerBudgetBadge budget={pageMenu.machine?.workerBudget} />
-		</>
-	);
+	const { unreachable } = useFreshness();
+	const status =
+		offline || unreachable ? (
+			<OfflinePill />
+		) : (
+			<>
+				<QueueBadge
+					queue={pageMenu.machine?.queue ?? []}
+					offer={pageMenu.machine?.workerBudget?.offer}
+				/>
+				<WorkerBudgetBadge budget={pageMenu.machine?.workerBudget} />
+			</>
+		);
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>
 			<div className="min-h-dvh">

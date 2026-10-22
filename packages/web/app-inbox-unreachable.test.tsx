@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
-	act,
 	cleanup,
 	conversation,
-	fireEvent,
 	reopen,
 	Testing,
 	waitFor,
@@ -30,26 +28,20 @@ describe("App once the server stays away after a wake", () => {
 		testing.dispose();
 	});
 
-	it("says in the bar it cannot reach splates over the dimmed page, and tries again on Retry", async () => {
-		const list = view.getByRole("navigation", { name: "conversations" });
-		const said = await waitFor(() => view.getByRole("alert"));
-		expect(said.textContent).toContain("Can't reach splates");
-		testing.comeBack();
-		await act(async () =>
-			fireEvent.click(within(said).getByRole("button", { name: "Retry" })),
-		);
-		await reopen(testing);
-		await waitFor(() => within(list).getByText("Fix login"));
+	it("says in the bar it is offline and unlocks the page so it can be read", async () => {
+		const input = view.getByRole("textbox", { name: "Message input" });
+		const said = await waitFor(() => view.getByText("Offline"));
+		expect(said.textContent).toBe("Offline");
+		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
+		expect(input.closest("[inert]")).toBeNull();
 	});
 
-	it("unlocks the open thread once its saying it cannot reach splates is dismissed", async () => {
-		const input = view.getByRole("textbox", { name: "Message input" });
-		const said = await waitFor(() => view.getByRole("alert"));
-		expect(input.closest("[inert]")).not.toBeNull();
-		await act(async () =>
-			fireEvent.click(within(said).getByRole("button", { name: "Dismiss" })),
-		);
-		expect(input.closest("[inert]")).toBeNull();
-		within(view.getByRole("alert")).getByRole("button", { name: "Retry" });
+	it("shows the conversations again once the server is back", async () => {
+		const list = view.getByRole("navigation", { name: "conversations" });
+		await waitFor(() => view.getByText("Offline"));
+		testing.comeBack();
+		await reopen(testing);
+		await waitFor(() => within(list).getByText("Fix login"));
+		expect(view.queryByText("Offline")).toBeNull();
 	});
 });
