@@ -180,9 +180,9 @@ function DemoIt({
 	return (
 		<Button
 			size="sm"
-			variant="outline"
+			variant="ghost"
 			onClick={() => void send(demoReference(task, "after"))}
-			className={cn("gap-1.5 bg-background", touchButton, className)}
+			className={cn("gap-1.5", touchButton, className)}
 		>
 			<PlayIcon data-icon="inline-start" />
 			Demo it
