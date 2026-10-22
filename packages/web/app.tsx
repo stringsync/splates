@@ -458,7 +458,7 @@ export function App({
 																					/>
 																					{/* Until the project and its conversations are in, or the page has something else to say. */}
 																					<Splash
-																						shown={
+																						wanted={
 																							missing === null &&
 																							failed === null &&
 																							reachable &&
