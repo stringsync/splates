@@ -4,6 +4,8 @@ export type { FsStorageOptions, Locks } from "./fs";
 export { FsStorage } from "./fs";
 export type { Log, LogOptions, Segment } from "./log";
 export type { Schema } from "./schema";
+export type { SqliteStorageOptions } from "./sqlite";
+export { SqliteStorage } from "./sqlite";
 export type {
 	Storage,
 	StorageChanges,

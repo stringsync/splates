@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { FsStorage, type Storage } from "./index";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FsStorage, SqliteStorage, type Storage } from "./index";
 import { MemoryStorage } from "./testing";
 
 // An agent reads what it is handed as a file, whichever backend keeps it.
@@ -12,6 +12,11 @@ describe.each([
 	{
 		backend: "a fake disk",
 		open: (fs: FakeFs): Storage => new FsStorage("/home/s", fs),
+	},
+	{
+		backend: "sqlite with a cache",
+		open: (fs: FakeFs): Storage =>
+			SqliteStorage.open(":memory:", { fs, ps: new FakePs(), cache: "/cache" }),
 	},
 ])("materialize on $backend", ({ open }) => {
 	it("gives a path a blob and a log read back from", async () => {

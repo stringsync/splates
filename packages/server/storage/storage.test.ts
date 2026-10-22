@@ -2,14 +2,19 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Resource } from "webappwiz/disposable";
 import { NodeFs } from "webappwiz/system";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { z } from "zod";
-import { FsStorage, type Storage } from "./index";
+import { FsStorage, SqliteStorage, type Storage } from "./index";
 import { MemoryStorage, rotated } from "./testing";
 
 const made: string[] = [];
+const opened: Resource[] = [];
 afterAll(async () => {
+	for (const storage of opened) {
+		storage.dispose();
+	}
 	for (const dir of made) {
 		await rm(dir, { recursive: true, force: true });
 	}
@@ -34,6 +39,22 @@ describe.each([
 			);
 			made.push(dir);
 			return new FsStorage(dir, new NodeFs());
+		},
+	},
+	{
+		backend: "sqlite",
+		open: async (): Promise<Storage> => {
+			const dir = await realpath(
+				await mkdtemp(join(tmpdir(), "splates-storage-")),
+			);
+			made.push(dir);
+			const storage = SqliteStorage.open(`${dir}/state.db`, {
+				fs: new NodeFs(),
+				ps: new FakePs(),
+				pollMs: 20,
+			});
+			opened.push(storage);
+			return storage;
 		},
 	},
 ])("storage on $backend", ({ open }) => {
