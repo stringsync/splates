@@ -29,6 +29,7 @@ import {
 	useState,
 } from "react";
 import { linkAttachments } from "#web/attachment-chips.tsx";
+import { Board } from "#web/board.ts";
 import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
@@ -52,12 +53,12 @@ import {
 	soleDirective,
 	unshown,
 } from "#web/directives.tsx";
-import { earlyWarningOf, warningLines } from "#web/early-warning.ts";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { type Chip, listedOf } from "#web/notes-attached.ts";
 import { NotesPopover } from "#web/notes-popover.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
+import { serverToldLines } from "#web/queue-start.ts";
 import {
 	type Sent,
 	SentAttachmentChip,
@@ -145,6 +146,7 @@ export const UserMessage: FC = () => {
 		(s) => s.message.metadata.custom.steered === true,
 	);
 	const stamps = useStamps();
+	const board = useContext(Board);
 	const stamped = useAuiState((s) => {
 		const at = s.message.metadata.custom.at;
 		return typeof at === "string" ? at : null;
@@ -187,9 +189,11 @@ export const UserMessage: FC = () => {
 				repliesToProposal(s.thread.messages, s.message.index)),
 	);
 	const sent = sentOf(attachments);
-	const warning =
-		told === SERVER_TOLD && sent.length === 0 ? earlyWarningOf(text) : null;
-	if (warning !== null) {
+	const lines =
+		told === SERVER_TOLD && sent.length === 0
+			? serverToldLines(text, board.lanes, at)
+			: null;
+	if (lines !== null) {
 		// What the agent heard, said as splates's lines, which carry on the
 		// turn it comes in (see `carriesOn`) as a bare directive's does.
 		return (
@@ -199,7 +203,7 @@ export const UserMessage: FC = () => {
 				className="px-2"
 				data-role="user"
 			>
-				{warningLines(warning, at, text).map((line) => (
+				{lines.map((line) => (
 					<SplatesEvent key={JSON.stringify(line.words)} event={line} />
 				))}
 			</div>

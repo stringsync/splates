@@ -12,6 +12,7 @@ import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
 import { earlyWarningOf } from "./early-warning";
 import { outsideCode } from "./markdown";
+import { queueStartOf } from "./queue-start";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
 import { SplatesEvent, type Words } from "./splates-event";
@@ -230,7 +231,10 @@ export function carriesOn(message: ThreadMessageLike): boolean {
  * warning to the agent, which the page draws as event lines instead.
  */
 export function isEarlyWarning(text: string, told: unknown): boolean {
-	return told === SERVER_TOLD && earlyWarningOf(text) !== null;
+	return (
+		told === SERVER_TOLD &&
+		(earlyWarningOf(text) !== null || queueStartOf(text) !== null)
+	);
 }
 
 /**

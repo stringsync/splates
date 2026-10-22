@@ -514,8 +514,14 @@ export interface HeldConversations {
  * which it builds on, and to groom it first when it is not yet groomed.
  */
 export function queuePrompt(queued: TaskRecord): string {
+	// The page reads a lane's words back as an event line (`queueStartOf` in
+	// the web package's `queue-start.ts`).
+	const lane =
+		queued.queuedBy?.by === "lane"
+			? `, which lane ${queued.queuedBy.lane} queued`
+			: "";
 	return [
-		`splates server started this task for queued task #${queued.id} from the queue: nothing it is blocked by is left open.`,
+		`splates server started this task for queued task #${queued.id} from the queue${lane}: nothing it is blocked by is left open.`,
 		...(queued.blockersLanded ?? []).map(
 			(landed) =>
 				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,

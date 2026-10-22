@@ -17,3 +17,8 @@ queued whole queues each of its tasks as soon as nothing blocks it. The
 worktree name is the task's `slug`, else its subject lowercased, dashed and
 cut at a word to 40 characters, with `-2`, `-3` for clashes
 (`queue/name.ts`). `FakePicker` in `queue/testing.ts` stands in for Auto pick.
+
+A task a queued lane started is told `queuePrompt` with "from the queue,
+which lane N queued", and the page (`web/queue-start.ts`) draws that message
+as an event line, `Started <task> from lane <name>`, as it does an early
+warning; a task the person queued stays a regular message.
