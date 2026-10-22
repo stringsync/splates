@@ -46,6 +46,16 @@ pool saw no runner and sent each job here. That account could not order `c-16`,
 `c-4` only in blr1, lon1 and sfo2. The suite (1285 tests) runs in about 40 s at 8
 in parallel on a 16-core Mac, so a smaller runner than `c-16` may now be enough.
 
+A snapshot installs splates from npm at the server's version, which a
+server run from a checkout may be ahead of (as the measurement above found). So such a server
+hands each runner it makes its own build (`OwnBuild`, `workers/own-build.ts`):
+the CLI bundled into one bun script on first ask, which the runner's user data
+fetches once joined, with a token minted for it, from `GET /api/workers/join`
+(a path the tunnel's Access already lets a worker's service token through),
+and links in place of the snapshot's `splates`; a failed fetch leaves the
+release. A joined runner that still says no `jobs` is named on its Runners
+card.
+
 `POST /api/jobs` (`RunnerJobs` in `workers/job-route.ts`) streams from the
 start: a `queued` event with the position while it waits, then the job's
 events, or `local`. A job whose runner is lost (the box gone, the link lost

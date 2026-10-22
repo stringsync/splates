@@ -55,6 +55,26 @@ describe("App's workers", () => {
 		]);
 	});
 
+	it("says why a joined runner takes no jobs, and nothing of a runner that takes them or is away", async () => {
+		const view = await openWorkers(
+			pool([
+				worker("old", { kind: "provisioned", build: "0.0.54", jobs: false }),
+				worker("new", { kind: "provisioned" }),
+				worker("gone", { jobs: false, health: "away" }),
+			]),
+		);
+
+		const note = (id: string) =>
+			within(view.getByRole("listitem", { name: `worker ${id}` })).queryByRole(
+				"note",
+			);
+		expect(note("old")?.textContent).toContain(
+			"Takes no jobs: its splates 0.0.54 is older than runners taking jobs",
+		);
+		expect(note("new")).toBeNull();
+		expect(note("gone")).toBeNull();
+	});
+
 	it("shows each worker as `splates worker list` does, and which waits on an update", async () => {
 		const view = await openWorkers(
 			pool([
@@ -251,6 +271,7 @@ function worker(
 		platform: "linux",
 		host: null,
 		build: "1.0.0",
+		jobs: true,
 		protocol: "1.0",
 		slots: { used: 0, total: 4 },
 		health: "connected",

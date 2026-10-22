@@ -23,6 +23,11 @@ export interface WorkerListing {
 	/** What the platform runs inside, such as `wsl2`; null on the bare machine. */
 	host: string | null;
 	build: string | null;
+	/**
+	 * Whether it said in its hello that it runs heavy jobs; a runner whose
+	 * build is older than jobs, or that has not said yet, takes none.
+	 */
+	jobs: boolean;
 	/** What its link settled on; null before any handshake. */
 	protocol: string | null;
 	slots: { used: number; total: number | null };
@@ -102,6 +107,7 @@ function listing(
 		platform: typeof info.platform === "string" ? info.platform : null,
 		host: typeof info.host === "string" ? info.host : null,
 		build: typeof info.build === "string" ? info.build : null,
+		jobs: info.jobs === true,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
 			used: tasks.length,
@@ -131,6 +137,7 @@ const Listings = z.object({
 			platform: z.string().nullable(),
 			host: z.string().nullable().default(null),
 			build: z.string().nullable(),
+			jobs: z.boolean().default(false),
 			protocol: z.string().nullable(),
 			slots: z.object({ used: z.number(), total: z.number().nullable() }),
 			health: z.enum(["connected", "away"]),

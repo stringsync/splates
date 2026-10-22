@@ -67,6 +67,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			join: ["splates", "worker", "join"],
 			joinEnv: { SPLATES_WORKER_JOIN: "secret-token" },
 			boot: ["splates", "worker", "run", "--key-file"],
+			build: null,
 		});
 
 		const [droplet] = digitalocean.tagged("splates-worker:s-4vcpu-8gb-abc123");
@@ -116,6 +117,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			join: ["splates", "worker", "join"],
 			joinEnv: {},
 			boot: ["splates", "worker", "run"],
+			build: null,
 		});
 
 		const [droplet] = digitalocean.tagged("splates-worker:s-4vcpu-8gb-abc123");
@@ -127,6 +129,42 @@ describe("CloudWorkers in DigitalOcean", () => {
 		);
 	});
 
+	it("has a worker fetch the server's own build once joined, its token kept out of curl's arguments, and run it as its splates", async () => {
+		digitalocean.stock = { nyc1: ["c-16"] };
+
+		await provider.create({
+			id: "c-16-abc123",
+			type: "c-16",
+			snapshot: "77",
+			recipe: null,
+			join: ["splates", "worker", "join"],
+			joinEnv: {},
+			boot: ["splates", "worker", "run"],
+			build: {
+				url: "https://splates.example.com/api/workers/join",
+				token: "build-token",
+			},
+		});
+
+		const [droplet] = digitalocean.tagged("splates-worker:c-16-abc123");
+		const script = droplet?.user_data ?? "";
+		const fetch = script.indexOf("curl ");
+		expect(fetch).toBeGreaterThan(script.indexOf("'splates' 'worker' 'join'"));
+		expect(fetch).toBeLessThan(script.indexOf("ExecStart="));
+		expect(script).toContain(
+			"printf '%s: %s\\n' 'x-splates-build' 'build-token' > /etc/splates-worker/build-headers",
+		);
+		expect(script).toContain("s/^SPLATES_WORKER_ACCESS_ID=//p");
+		const curl =
+			script.split("\n").find((line) => line.includes("curl ")) ?? "";
+		expect(curl).toContain("-H @/etc/splates-worker/build-headers");
+		expect(curl).toContain("'https://splates.example.com/api/workers/join'");
+		expect(curl).not.toContain("build-token");
+		expect(script).toContain(
+			"ln -sf /usr/local/lib/splates/splates.js /home/splates/.bun/bin/splates",
+		);
+	});
+
 	it("destroys a worker's droplet alone, and says why DigitalOcean refused one", async () => {
 		const spec = {
 			type: "s-4vcpu-8gb",
@@ -135,6 +173,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			join: [],
 			joinEnv: {},
 			boot: [],
+			build: null,
 		};
 		await provider.create({ id: "w", ...spec });
 		await provider.create({ id: "v", ...spec });

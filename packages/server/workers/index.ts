@@ -1,5 +1,10 @@
 export type { AccessClient, ServiceToken, WorkerAccess } from "./access";
-export { accessHeaders, joinAccess } from "./access";
+export {
+	ACCESS_CLIENT_ID_HEADER,
+	ACCESS_CLIENT_SECRET_HEADER,
+	accessHeaders,
+	joinAccess,
+} from "./access";
 export {
 	addWorker,
 	drainWorker,
@@ -41,6 +46,8 @@ export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { CoordinatorState } from "./coordinator-state";
 export {
 	keptAccess,
+	WORKER_ACCESS_ID,
+	WORKER_ACCESS_SECRET,
 	WORKER_JOIN,
 	WORKER_KEY,
 	workerCreds,
@@ -59,6 +66,7 @@ export { Machine, osSensors } from "./load";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
+export { OWN_BUILD_HEADER, OwnBuild } from "./own-build";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
 export type {

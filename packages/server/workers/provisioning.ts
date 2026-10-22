@@ -13,6 +13,7 @@ import type { BudgetHeld, WorkerAlert, WorkerBudget } from "./budget";
 import { BUDGET_EVERY, lookAtBudget } from "./budget-stop";
 import { WORKER_JOIN } from "./creds";
 import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
+import { OWN_BUILD_PATH, type OwnBuild } from "./own-build";
 import { type ProvisionOptions, pickType } from "./pick-type";
 import type {
 	ProvisionedMachine,
@@ -74,6 +75,11 @@ export class WorkerProvisioning
 
 	get budget(): WorkerBudget {
 		return this.opts.budget;
+	}
+
+	/** The server's own build, which each worker made runs; null on a release. */
+	get ownBuild(): OwnBuild | null {
+		return this.opts.ownBuild ?? null;
 	}
 
 	/**
@@ -167,6 +173,13 @@ export class WorkerProvisioning
 						String(type.slots),
 						"--key-file",
 					],
+					build:
+						this.opts.ownBuild == null
+							? null
+							: {
+									url: new URL(OWN_BUILD_PATH, coordinator).href,
+									token: this.opts.ownBuild.grant(),
+								},
 				}),
 			);
 		} catch (error) {
@@ -367,6 +380,8 @@ export interface WorkerProvisioningOptions {
 	coordinator: () => string | null;
 	/** What made workers may cost, which placement makes none past. */
 	budget: WorkerBudget;
+	/** The server's own build, which each worker made runs, when it runs from a checkout; none on a release. */
+	ownBuild?: OwnBuild | null;
 	/** Where each runner's life is kept for good, for the Billing page; nowhere by default. */
 	ledger?: RunnerLedger;
 	/**

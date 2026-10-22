@@ -89,6 +89,15 @@ export interface WorkerSpec {
 	 * it in its environment, so a restart needs no token.
 	 */
 	boot: string[];
+	/**
+	 * The server's own build, when it runs from a checkout, which may be
+	 * ahead of the release the snapshot installed: once `join` has, the
+	 * machine fetches `url` showing `token` in `OWN_BUILD_HEADER`, with the
+	 * service token `join` kept, and runs it as `boot`'s splates. A fetch
+	 * that fails leaves the snapshot's. The token is a secret, as
+	 * `joinEnv` is. None for a server on a release.
+	 */
+	build?: { url: string; token: string } | null;
 }
 
 /** A machine a provider made for splates. */

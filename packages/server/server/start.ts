@@ -36,6 +36,7 @@ import {
 	DevWorkers,
 	LOCAL_SLOTS,
 	LOCAL_WORKER,
+	OwnBuild,
 	Snapshots,
 	WorkerBudget,
 	WorkerRecords,
@@ -271,6 +272,11 @@ export async function serveDev(
 							log: ctx.log,
 						}),
 						coordinator: () => reached,
+						// A checkout's build may be ahead of the release a snapshot installs.
+						ownBuild:
+							(await sourceCommit(ctx.ps)) === null
+								? null
+								: new OwnBuild({ log: ctx.log }),
 						budget: await WorkerBudget.open(
 							settingsStorage.document("worker-budget.json"),
 						),

@@ -53,6 +53,7 @@ function added(pool: WorkerPool): WorkerListing {
 		platform: null,
 		host: null,
 		build: pool.build,
+		jobs: false,
 		protocol: null,
 		slots: { used: 0, total: null },
 		health: "connected",

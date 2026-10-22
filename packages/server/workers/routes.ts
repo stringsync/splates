@@ -591,6 +591,11 @@ export class DevWorkers implements AsyncResource {
 		if (what === "join" && request.method === "POST") {
 			return this.join(request);
 		}
+		// A made worker fetching the server's own build, by the token it was made with.
+		const ownBuild = this.provisioning?.ownBuild ?? null;
+		if (what === "join" && request.method === "GET" && ownBuild !== null) {
+			return ownBuild.serve(request);
+		}
 		if (what === "invite" && request.method === "POST") {
 			return guard(this.invite)(request);
 		}
@@ -642,7 +647,7 @@ function workerId(request: Request): string {
 /** The `workerProvider` the server makes workers with, and what it needs to. */
 export type DevWorkerProvider = Pick<
 	WorkerProvisioningOptions,
-	"provider" | "snapshots" | "coordinator" | "budget" | "wall"
+	"provider" | "snapshots" | "coordinator" | "budget" | "wall" | "ownBuild"
 >;
 
 /** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */

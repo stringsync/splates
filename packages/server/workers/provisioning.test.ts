@@ -5,6 +5,7 @@ import { FakeWallClock } from "webappwiz/time/testing";
 import type { RunnerRow } from "../spend";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
+import { OWN_BUILD_HEADER, OwnBuild } from "./own-build";
 import { WorkerProvisioning } from "./provisioning";
 import { ORPHAN_AFTER } from "./reconcile";
 import { WorkerRecords } from "./records";
@@ -39,6 +40,30 @@ describe("WorkerProvisioning", () => {
 		});
 		expect(await records.join(token, worker.id)).not.toBeNull();
 		expect(records.of(worker.id)?.access).toBe("st-1");
+	});
+
+	it("has a worker it makes fetch the server's own build, by a token of its own, when the server runs from a checkout", async () => {
+		const released = await provisioning();
+		await released.made.provision();
+		const ownBuild = new OwnBuild({ log: new MemoryLogger() });
+		const { provider, made } = await provisioning(
+			"https://splates.example.com",
+			ownBuild,
+		);
+
+		await made.provision();
+		await made.provision();
+
+		expect(released.provider.specs[0]?.build).toBeNull();
+		const [first, second] = provider.specs.map((spec) => spec.build);
+		expect(first?.url).toBe("https://splates.example.com/api/workers/join");
+		expect(first?.token).not.toBe(second?.token);
+		const fetched = await ownBuild.serve(
+			new Request(first?.url ?? "", {
+				headers: { [OWN_BUILD_HEADER]: "not-granted" },
+			}),
+		);
+		expect(fetched.status).toBe(401);
 	});
 
 	it("counts a made worker's spend from when it is made until it is destroyed", async () => {
@@ -264,6 +289,7 @@ const TYPES = [
 /** A `WorkerProvisioning` over `provider`, with what it keeps. */
 async function provisioning(
 	coordinator: string | null = "https://splates.example.com",
+	ownBuild: OwnBuild | null = null,
 ) {
 	const provider = new FakeWorkerProvider([...TYPES]);
 	const wall = new FakeWallClock();
@@ -288,6 +314,7 @@ async function provisioning(
 		registry,
 		access,
 		coordinator: () => coordinator,
+		ownBuild,
 		budget,
 		ledger,
 		log,

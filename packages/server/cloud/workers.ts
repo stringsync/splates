@@ -5,11 +5,16 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import {
+	ACCESS_CLIENT_ID_HEADER,
+	ACCESS_CLIENT_SECRET_HEADER,
+	OWN_BUILD_HEADER,
 	type ProvisionedMachine,
 	SNAPSHOT_SPLATES,
 	SNAPSHOT_USER,
 	type Snapshot,
 	type SnapshotRecipe,
+	WORKER_ACCESS_ID,
+	WORKER_ACCESS_SECRET,
 	type WorkerImage,
 	type WorkerProvider,
 	type WorkerSpec,
@@ -272,7 +277,13 @@ const JOIN_APART = Duration.secs(10);
  * metadata address, which serves all of this, is closed to the snapshot's
  * user first, agents included.
  */
-function bootScript({ join, joinEnv, boot, recipe }: WorkerSpec): string {
+function bootScript({
+	join,
+	joinEnv,
+	boot,
+	recipe,
+	build,
+}: WorkerSpec): string {
 	// The snapshot's splates is a bun script, which root's PATH cannot run.
 	const bin = SNAPSHOT_SPLATES.slice(0, SNAPSHOT_SPLATES.lastIndexOf("/"));
 	return [
@@ -293,6 +304,7 @@ function bootScript({ join, joinEnv, boot, recipe }: WorkerSpec): string {
 		`  [ "$tries" -lt ${JOIN_TRIES} ] || exit 1`,
 		`  sleep ${JOIN_APART.secs}`,
 		"done",
+		...(build == null ? [] : ownBuild(build)),
 		"cat > /etc/systemd/system/splates-worker.service <<'SPLATES_UNIT'",
 		"[Unit]",
 		"Description=splates worker",
@@ -315,6 +327,38 @@ function bootScript({ join, joinEnv, boot, recipe }: WorkerSpec): string {
 		"systemctl enable --now splates-worker.service",
 		"",
 	].join("\n");
+}
+
+/** Where a worker keeps the server's own build, which its `splates` is linked to. */
+const OWN_BUILD_DIR = "/usr/local/lib/splates";
+
+/**
+ * Fetches the server's own build with its token and the service token
+ * `join` kept, both in a file only root reads rather than in curl's
+ * arguments, and links it as the snapshot's `splates`; a fetch that fails
+ * says so and leaves the snapshot's release to run.
+ */
+function ownBuild({ url, token }: { url: string; token: string }): string[] {
+	const headers = `${WORKER_HOME}/build-headers`;
+	const kept = (name: string) =>
+		`"$(sed -n 's/^${name}=//p' ${WORKER_HOME}/worker.env)"`;
+	const file = `${OWN_BUILD_DIR}/splates.js`;
+	return [
+		`printf '%s: %s\\n' ${shellQuoted(OWN_BUILD_HEADER)} ${shellQuoted(token)} > ${headers}`,
+		`access_id=${kept(WORKER_ACCESS_ID)}`,
+		'if [ -n "$access_id" ]; then',
+		`  printf '%s: %s\\n%s: %s\\n' ${ACCESS_CLIENT_ID_HEADER} "$access_id" ${ACCESS_CLIENT_SECRET_HEADER} ${kept(WORKER_ACCESS_SECRET)} >> ${headers}`,
+		"fi",
+		`mkdir -p ${OWN_BUILD_DIR}`,
+		`chmod 755 ${OWN_BUILD_DIR}`,
+		`if curl -fsS --retry 5 --retry-all-errors -H @${headers} -o ${file} ${shellQuoted(url)}; then`,
+		`  chmod 755 ${file}`,
+		`  ln -sf ${file} ${SNAPSHOT_SPLATES}`,
+		"else",
+		`  echo "splates: the server's own build could not be fetched: the snapshot's release runs instead" >&2`,
+		"fi",
+		`rm -f ${headers}`,
+	];
 }
 
 /** Runs the recipe on a machine of the stock image, which must succeed for the worker to start. */
