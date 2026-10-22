@@ -43,6 +43,7 @@ import {
 	workerGit,
 	workerSocketPath,
 } from "../workers";
+import { directSweep } from "./direct-run";
 import { heavyJobsOfMachine } from "./heavy";
 import { newest, RUNNING, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
@@ -272,6 +273,9 @@ export async function serveDev(
 							log: ctx.log,
 						}),
 						coordinator: () => reached,
+						...(here.cloud === null
+							? {}
+							: { direct: directSweep(ctx, here.cloud) }),
 						// A checkout's build may be ahead of the release a snapshot installs.
 						ownBuild:
 							(await sourceCommit(ctx.ps)) === null

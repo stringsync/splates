@@ -7,6 +7,7 @@ import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
 import type { RunnerJobRow } from "../spend";
 import type { WorkerAccess } from "./access";
+import type { DevWorkerProvider } from "./dev-provider";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
 import { type HeldJob, JobPool } from "./job-pool";
@@ -15,10 +16,7 @@ import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
 import type { WorkerImage } from "./provider";
-import {
-	WorkerProvisioning,
-	type WorkerProvisioningOptions,
-} from "./provisioning";
+import { WorkerProvisioning } from "./provisioning";
 import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -633,12 +631,6 @@ function jobRow(job: HeldJob & { until: number | null }): RunnerJobRow {
 function workerId(request: Request): string {
 	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
 }
-
-/** The `workerProvider` the server makes workers with, and what it needs to. */
-export type DevWorkerProvider = Pick<
-	WorkerProvisioningOptions,
-	"provider" | "snapshots" | "coordinator" | "budget" | "wall" | "ownBuild"
->;
 
 /** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */
 export interface DevWorkersOptions {

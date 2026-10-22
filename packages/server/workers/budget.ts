@@ -160,6 +160,13 @@ export class WorkerBudget {
 		return standing === undefined ? null : reached(standing);
 	}
 
+	/** The ids of the workers counted as running now. */
+	running(): string[] {
+		return this.kept.lives
+			.filter((life) => life.until === null)
+			.map((life) => life.id);
+	}
+
 	/** What made workers running now cost an hour together. */
 	rate(): number {
 		return this.kept.lives

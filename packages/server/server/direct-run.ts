@@ -10,7 +10,9 @@ import { Spend } from "../spend";
 import { FsStorage } from "../storage";
 import {
 	DIRECT_IDLE,
+	DIRECT_TAG,
 	DirectRunners,
+	type DirectSweep,
 	JobSnapshot,
 	jobSize,
 	NoRunner,
@@ -111,6 +113,30 @@ export async function withRunners<T>(
 		log: ctx.log,
 	});
 	return await use(runners);
+}
+
+/**
+ * The runners `splates run` made in `cloud`, as the server's sweep reaps
+ * them while it runs, so none is left billing on a laptop that slept; a
+ * machine without the cloud's token reaps none.
+ */
+export function directSweep(
+	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
+	cloud: CloudProvider,
+): DirectSweep {
+	return {
+		reap: () =>
+			withRunners(ctx, cloud, (runners) => runners.reap()).catch((error) => {
+				if (error instanceof NoRunner) {
+					return [];
+				}
+				throw error;
+			}),
+		names: async () =>
+			(await cloud.machines(DIRECT_TAG)).map(
+				(machine) => machine.tags[DIRECT_TAG] ?? machine.name,
+			),
+	};
 }
 
 /** Where the pid of the reaper `splates run` leaves behind is kept, under the splates home. */

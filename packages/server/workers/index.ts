@@ -54,6 +54,7 @@ export {
 	workerJoin,
 } from "./creds";
 export { WorkerDaemon } from "./daemon";
+export type { DevWorkerProvider } from "./dev-provider";
 export type {
 	DirectRun,
 	DirectRunner,
@@ -131,6 +132,7 @@ export type { Provisioned } from "./provisioning";
 export { WorkerProvisioning } from "./provisioning";
 export type { QueueListing } from "./queue";
 export { listQueue, moveQueued, queueListing } from "./queue";
+export type { DirectSweep } from "./reconcile";
 export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
@@ -138,7 +140,7 @@ export { RemoteWorker } from "./remote";
 export { RemoteProcess } from "./remote-process";
 export type { RolloutStanding } from "./rollout";
 export { WorkerRollout } from "./rollout";
-export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
+export type { DevWorkersOptions } from "./routes";
 export {
 	DevWorkers,
 	LOCAL_WORKER,

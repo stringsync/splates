@@ -38,6 +38,9 @@ import { SNAPSHOT_TAG } from "./snapshot";
 /** The tag every runner `splates run` made carries in the cloud, its value the runner's name. */
 export const DIRECT_TAG = "splates-run";
 
+/** What a runner's name starts with. */
+export const DIRECT_PREFIX = "splates-run-";
+
 /** How long a runner may take to boot, or stay unreachable, before it counts as broken and is deleted. */
 export const BOOT_LIMIT = Duration.mins(15);
 
@@ -360,7 +363,7 @@ export class DirectRunners {
 	/** Makes a runner of `type`, counted in the budget and the ledger from now. */
 	private async make(type: CloudSize): Promise<CloudMachine> {
 		const { cloud } = this.deps;
-		const name = `splates-run-${crypto.randomUUID().slice(0, 6)}`;
+		const name = `${DIRECT_PREFIX}${crypto.randomUUID().slice(0, 6)}`;
 		// `runnerSizes` offers only sizes some location stocks.
 		const location = locationOf(type, cloud.defaults) as string;
 		const [snapshot] = await cloud.snapshots(SNAPSHOT_TAG, "linux");

@@ -21,7 +21,7 @@ import type {
 	WorkerProvider,
 	WorkerType,
 } from "./provider";
-import { ProviderReconciler, SWEEP_EVERY } from "./reconcile";
+import { type DirectSweep, ProviderReconciler, SWEEP_EVERY } from "./reconcile";
 import { JOIN_WITHIN, type WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RunnerLedger } from "./runner-ledger";
@@ -377,6 +377,8 @@ export interface WorkerProvisioningOptions {
 	registry: WorkerRegistry;
 	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
 	access?: WorkerAccess | null;
+	/** Reaps the runners `splates run` made in the project's cloud with each sweep; none by default. */
+	direct?: DirectSweep;
 	/**
 	 * The URL a made worker dials its server at, from wherever it runs:
 	 * the page's tunnel host; null when the page has none, so none is made.

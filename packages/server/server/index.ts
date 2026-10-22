@@ -1,6 +1,11 @@
 export { assets } from "./assets";
 export { type CoreClaims, coreClaimsOfMachine } from "./cores";
-export { REAPER_FILE, runOnDirectRunner, withRunners } from "./direct-run";
+export {
+	directSweep,
+	REAPER_FILE,
+	runOnDirectRunner,
+	withRunners,
+} from "./direct-run";
 export { heavyJobsOfMachine } from "./heavy";
 export { runHeavy } from "./heavy-run";
 export { DEFAULT_PORT } from "./ports";

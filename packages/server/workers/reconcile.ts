@@ -2,6 +2,7 @@ import type { Logger } from "webappwiz/log";
 import { Duration, type WallClock } from "webappwiz/time";
 import type { WorkerAccess } from "./access";
 import type { WorkerBudget } from "./budget";
+import { DIRECT_PREFIX } from "./direct";
 import type { WorkerProvider } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -17,6 +18,14 @@ export const SWEEP_EVERY = Duration.mins(5);
  */
 export const ORPHAN_AFTER = Duration.mins(10);
 
+/** The runners `splates run` made in the project's cloud, as the sweep sees them. */
+export interface DirectSweep {
+	/** Deletes those idle too long or never booted, answering what it deleted and why. */
+	reap(): Promise<string[]>;
+	/** The names of those that exist. */
+	names(): Promise<string[]>;
+}
+
 /** What `ProviderReconciler` squares and with what. */
 export interface ProviderReconcilerOptions {
 	provider: WorkerProvider;
@@ -25,6 +34,8 @@ export interface ProviderReconcilerOptions {
 	budget: WorkerBudget;
 	ledger?: RunnerLedger;
 	access?: WorkerAccess | null;
+	/** Reaps the runners `splates run` made; absent where the project names no cloud. */
+	direct?: DirectSweep;
 	log: Logger;
 	wall: WallClock;
 }
@@ -56,16 +67,64 @@ export class ProviderReconciler {
 	 * outside its machines. Answers the workers forgotten.
 	 */
 	async reconcile(): Promise<string[]> {
-		const { provider, log } = this.opts;
+		const { provider, log, direct, budget } = this.opts;
+		// Read before the machines are listed, so a life begun meanwhile is not
+		// taken for one with no machine.
+		const lives = budget.running();
 		const machines = await provider.list();
 		const gone = await this.forgetGone(
 			new Set(machines.map((machine) => machine.id)),
 		);
 		await this.destroyOrphans(machines.map((machine) => machine.id));
+		let runners: string[] | null = null;
+		if (direct !== undefined) {
+			for (const reaped of await direct.reap()) {
+				log.info(`reaped runner ${reaped}`);
+			}
+			runners = await direct.names();
+		}
+		await this.endLost(lives, machines, runners, gone);
 		for (const swept of (await provider.sweep?.()) ?? []) {
 			log.info(`the worker provider deleted ${swept}, left behind`);
 		}
 		return gone;
+	}
+
+	/**
+	 * Ends each of `lives` the budget counts as running with no machine
+	 * behind it: neither a worker's record, a machine the provider lists, nor
+	 * a runner of `runners`, null where they are not looked at, in which case
+	 * a runner's life is left alone; `forgotten` are ended already.
+	 */
+	private async endLost(
+		lives: string[],
+		machines: { id: string }[],
+		runners: string[] | null,
+		forgotten: string[],
+	): Promise<void> {
+		const { records, budget, ledger, wall, log } = this.opts;
+		const exists = new Set([
+			...machines.map((machine) => machine.id),
+			...(runners ?? []),
+			...forgotten,
+		]);
+		for (const id of lives) {
+			if (
+				exists.has(id) ||
+				records.of(id) !== undefined ||
+				this.asked.has(id) ||
+				(runners === null && id.startsWith(DIRECT_PREFIX))
+			) {
+				continue;
+			}
+			await budget.ended(id);
+			await ledger?.note({
+				row: "runner-ended",
+				id,
+				at: new Date(wall.now()).toISOString(),
+			});
+			log.info(`stopped counting ${id}, which has no machine`);
+		}
 	}
 
 	/** Forgets each made worker whose machine is not among `exists`, answering them. */
