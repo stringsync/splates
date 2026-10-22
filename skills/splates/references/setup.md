@@ -109,3 +109,66 @@ separate task from whatever else is under way, and read
 splates's `tunnel/provider.ts` first. A provider that is not ready is
 logged and skipped, so check the `splates server` log, not the page, to see
 whether it came up.
+
+## Server on a Droplet
+
+When the user asks to run `splates server` in the cloud, that is the Server
+on a Droplet setup area (`replica-keys`), with the rest of this section
+done by you on the box. The box is a DigitalOcean Droplet the user makes
+once by hand, and a Spaces bucket beside it in the same account holds the
+server's records as its replica ([notes/replica.md](../../../notes/replica.md)),
+so both go from one dashboard. Ask the user for the Droplet's address and
+how you reach it, and the bucket's name and region; never write them into a
+checked-in file but the project's `splates.config.ts`, where the replica names its
+`endpoint` and `bucket`: `replica: { provider: "s3", endpoint:
+"https://<region>.digitaloceanspaces.com", bucket }`. Secrets are entered
+on the box and never pass through chat or the environment.
+
+1. **The box.** A Debian Droplet; as a user that is not root (agents
+   refuse to run as root), install `git`, `curl`, `unzip` and `ca-certificates`
+   with apt, bun from [bun.sh](https://bun.sh), and `splates` from the release
+   with `bun add -g @stringsync/splates`.
+2. **Where secrets are kept.** The box has no secret service: put
+   `SPLATES_SECRET_STORE=file` in the unit below and in the login
+   environment, so creds are `0600` files under `~/.splates/secrets/`
+   (see [creds.md](creds.md)). Set it for every `splates` run there, or the
+   CLI looks for a keyring.
+3. **The project.** Clone it to a folder of its own, with its remote's
+   credentials as for any machine: the GitHub credential the merge pushes
+   with is the GitHub pushing area's steps, run on the box.
+4. **The bucket's keys.** `splates setup replica-keys` (the Creds page,
+   `--device`): `REPLICA_ACCESS_KEY` and `REPLICA_SECRET_KEY`.
+5. **Restore.** With no server running, `splates replica restore` in the
+   clone rebuilds the records from the replica and adopts its origin, so
+   the server started next copies into it on. If the server ran on the Mac
+   before, check `splates replica status` there says caught up, stop it,
+   and `splates replica retire <name>` it after (see
+   [transfer.md](transfer.md)). The roster and Auto pick rules are not in
+   the replica: set those steps up again.
+6. **Run it.** A systemd unit, `/etc/systemd/system/splates.service`, made
+   as root, with the user and the clone's path filled in:
+
+   ```ini
+   [Unit]
+   Description=splates server
+   After=network-online.target
+   Wants=network-online.target
+
+   [Service]
+   User=<user>
+   WorkingDirectory=<the clone>
+   Environment=SPLATES_SECRET_STORE=file
+   Environment=PATH=/home/<user>/.bun/bin:/usr/local/bin:/usr/bin:/bin
+   ExecStart=/home/<user>/.bun/bin/splates server run
+   Restart=on-failure
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   then `systemctl enable --now splates`, and `journalctl -u splates` for
+   its log. `splates server run` keeps its own crash backoff; systemd only
+   brings it back after the process is gone.
+7. **Reaching it.** As for a Mac, the Remote access area: `splates tunnel
+   setup <host> --email <theirs>` on the box, whose server then comes up
+   tunneled. Never open the page's port on the Droplet's firewall.

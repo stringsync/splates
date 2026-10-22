@@ -19,7 +19,7 @@ trap '[ -z "$pid" ] || { pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev
 as() {
 	home=$1
 	shift
-	env -i HOME="$HOME" PATH="$PATH" SPLATES_HOME="$home" bun "$checkout/packages/splates/index.ts" "$@"
+	env -i HOME="$HOME" PATH="$PATH" SPLATES_SECRET_STORE=file SPLATES_HOME="$home" bun "$checkout/packages/splates/index.ts" "$@"
 }
 
 mkdir -p "$dir/repo"
