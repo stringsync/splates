@@ -28,9 +28,13 @@ export function shellQuoted(text: string): string {
 	return `'${text.replaceAll("'", `'\\''`)}'`;
 }
 
-/** `script` run as `BOX_USER` from a root shell, its stdin passed through. */
+/**
+ * `script` run as `BOX_USER` from a root shell, its stdin passed through, with
+ * bun's directory on the PATH: `su -` reads only the profile, which bun's
+ * installer leaves out, and `splates` starts with `#!/usr/bin/env bun`.
+ */
 function asUser(script: string): string {
-	return `su - ${BOX_USER} -c ${shellQuoted(script)}`;
+	return `su - ${BOX_USER} -c ${shellQuoted(`export PATH=${HOME}/.bun/bin:"$PATH"\n${script}`)}`;
 }
 
 /** Its deploy key's path on the box, by the clone's name, in words a shell takes bare. */
