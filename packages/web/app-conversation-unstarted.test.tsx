@@ -18,11 +18,9 @@ import {
 describe("App's new conversations not started yet", () => {
 	let testing: Testing;
 	let view: ConversationsView;
-	let shot: File;
 
 	beforeEach(async () => {
 		testing = new Testing();
-		shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		view = await testing.openConversations(held, "c1");
 	});
 
@@ -50,27 +48,13 @@ describe("App's new conversations not started yet", () => {
 				code: "KeyN",
 			}),
 		);
-	const rows = () =>
-		within(sidebar(view)).getAllByRole("button", {
-			name: /New conversation/,
-		});
 
-	it("lists a new conversation in the sidebar once ⌥⌘N opens it, and keeps it there when left empty", async () => {
+	it("lists no row in the sidebar for a new conversation, open or left empty", async () => {
+		await pressNew();
+		expect(location.hash).toStartWith("#conversations/new");
 		expect(unstarted(view)).toBeNull();
-
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyN",
-			}),
-		);
-
-		const row = unstarted(view);
-		expect(row?.getAttribute("aria-current")).toBe("page");
-		expect(row?.querySelector(".italic")?.textContent).toBe("New conversation");
 		await openRow(view, "Tidy tests");
-		expect(unstarted(view)?.getAttribute("aria-current")).toBeNull();
+		expect(unstarted(view)).toBeNull();
 	});
 
 	it("opens the new conversation already there on every shortcut and click, keeping its text and files", async () => {
@@ -78,6 +62,7 @@ describe("App's new conversations not started yet", () => {
 			fireEvent.click(view.getByRole("button", { name: "New" })),
 		);
 		const first = location.hash;
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 
 		await typeIn(box(view), "keep this");
 		await act(async () =>
@@ -95,7 +80,6 @@ describe("App's new conversations not started yet", () => {
 		);
 		expect(location.hash).toStartWith(first);
 		expect(location.hash).not.toContain("draft=");
-		expect(rows()).toHaveLength(1);
 	});
 
 	it("opens the empty new conversation again rather than another", async () => {
@@ -104,66 +88,6 @@ describe("App's new conversations not started yet", () => {
 		await pressNew();
 		expect(location.hash).toStartWith("#conversations/new");
 		expect(location.hash).not.toContain("draft=");
-		expect(rows()).toHaveLength(1);
-	});
-
-	it("keeps a new conversation's words and files while away, to go back to from its row", async () => {
-		await newWith(view, "Codex");
-
-		await act(async () =>
-			fireEvent.paste(box(view), { clipboardData: { files: [shot] } }),
-		);
-		await typeIn(box(view), "look at this");
-
-		await openRow(view, "Fix login");
-		const row = unstarted(view);
-		expect(row?.getAttribute("aria-current")).toBeNull();
-		await act(async () => fireEvent.click(row as HTMLElement));
-
-		expect(location.hash).toBe("#conversations/new/codex");
-		await waitFor(() => expect(textIn(box(view))).toBe("look at this"));
-		testing.reply = conversation({
-			id: "c9",
-			agent: "codex",
-			task: null,
-			status: "starting",
-		});
-		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c9/prompt")).toEqual([
-				{ method: "POST", body: { text: "look at this", file: [shot] } },
-			]),
-		);
-		await waitFor(() => expect(unstarted(view)).toBeNull());
-	});
-
-	it("throws a new conversation's draft away from its row", async () => {
-		await newWith(view, "Claude");
-		await typeIn(box(view), "never mind");
-		await openRow(view, "Fix login");
-
-		await act(async () =>
-			fireEvent.click(
-				within(sidebar(view)).getByRole("button", { name: "Discard draft" }),
-			),
-		);
-
-		expect(unstarted(view)).toBeNull();
-		await newWith(view, "Claude");
-		await waitFor(() => expect(textIn(box(view))).toBe(""));
-	});
-
-	it("throws an empty new conversation away from its row", async () => {
-		await newWith(view, "Claude");
-		await openRow(view, "Fix login");
-
-		await act(async () =>
-			fireEvent.click(
-				within(sidebar(view)).getByRole("button", { name: "Discard draft" }),
-			),
-		);
-
-		expect(unstarted(view)).toBeNull();
 	});
 
 	it("picks another agent, or a terminal, from a new conversation's bar beside a sidebar, what was typed carried over", async () => {

@@ -30,8 +30,6 @@ import {
 	rowsOf,
 	shownIn,
 } from "./conversation-rows";
-import { UnstartedRow, useUnstarted } from "./draft-rows";
-import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
 import { StaleRows } from "./freshness";
@@ -85,7 +83,6 @@ const DIGITS = 10;
 export const ConversationList = memo(function ConversationList({
 	feed,
 	terminals,
-	drafts,
 	tasks,
 	todos,
 	here,
@@ -96,8 +93,6 @@ export const ConversationList = memo(function ConversationList({
 	feed: ConversationFeed;
 	/** The page's shells, the main tree's among them. */
 	terminals: Terminals;
-	/** Where a reply copied for an external agent is kept. */
-	drafts: Drafts;
 	tasks: Details[];
 	/** The page's project's queued tasks, to read which lane each task at work is on. */
 	todos: TaskRecord[];
@@ -114,7 +109,6 @@ export const ConversationList = memo(function ConversationList({
 		"changed",
 	]);
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
-	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
 	const { rows, nested, hosting, listed, keptHere, taken, groupsHere } =
 		useMemo(() => {
@@ -341,20 +335,6 @@ export const ConversationList = memo(function ConversationList({
 							}
 						})
 					}
-				/>
-			))}
-			{unstarted.map((each) => (
-				<UnstartedRow
-					key={each.key}
-					unstarted={each}
-					agents={agents}
-					onOpen={() => onOpen(each.open)}
-					onDiscard={() => {
-						drafts.discard(each.key);
-						if (each.current && open !== null) {
-							onOpen(null);
-						}
-					}}
 				/>
 			))}
 			<StaleRows>

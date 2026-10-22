@@ -1,8 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { XIcon } from "lucide-react";
 import { type JSX, useEffect, useSyncExternalStore } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import {
 	agentFor,
@@ -96,66 +93,6 @@ export function useUnstarted(
 			current: key === shown,
 		};
 	});
-}
-
-/**
- * A new conversation not started yet, in the sidebar: its agent's mark and
- * New conversation, muted as an unnamed one is, with its task, and an X that
- * throws its draft away.
- */
-export function UnstartedRow({
-	unstarted,
-	agents,
-	onOpen,
-	onDiscard,
-}: {
-	unstarted: Unstarted;
-	agents: AgentChoice[];
-	onOpen: () => void;
-	onDiscard: () => void;
-}): JSX.Element {
-	const { agent, task, current } = unstarted;
-	return (
-		<div
-			className={cn(
-				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
-				current && "bg-accent hover:bg-accent active:bg-accent",
-			)}
-		>
-			<button
-				type="button"
-				data-row
-				aria-current={current ? "page" : undefined}
-				onClick={onOpen}
-				className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-8 pl-3 text-left"
-			>
-				<AgentIcon
-					agent={agent}
-					name={agentName(agents, agent)}
-					className="size-3.5 text-foreground/70"
-				/>
-				<span className="min-w-0 flex-1 truncate text-muted-foreground text-sm italic">
-					{UNSTARTED}
-				</span>
-				{task !== null && (
-					<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
-						{task}
-					</span>
-				)}
-			</button>
-			<span className="absolute right-1 flex items-center opacity-0 group-focus-within/item:opacity-100 group-hover/item:opacity-100 pointer-coarse:opacity-100">
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					aria-label="Discard draft"
-					title="Discard draft"
-					onClick={onDiscard}
-				>
-					<XIcon />
-				</Button>
-			</span>
-		</div>
-	);
 }
 
 /**

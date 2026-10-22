@@ -141,7 +141,6 @@ export function AppNav({
 						<ConversationList
 							feed={talk}
 							terminals={terminals}
-							drafts={drafts}
 							tasks={snapshot.tasks}
 							todos={snapshot.todos}
 							here={{

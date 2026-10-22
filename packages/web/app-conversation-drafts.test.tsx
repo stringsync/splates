@@ -61,11 +61,7 @@ describe("App's composer drafts", () => {
 		await openRow(view, "Tidy tests");
 		await waitFor(() => expect(textIn(box(view))).toBe("another"));
 		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /New conversation/ }),
-			),
+			fireEvent.click(view.getByRole("button", { name: "New" })),
 		);
 		await waitFor(() => expect(textIn(box(view))).toBe("a fresh start"));
 	});
@@ -95,11 +91,7 @@ describe("App's composer drafts", () => {
 			]),
 		);
 		await act(async () =>
-			fireEvent.click(
-				within(
-					again.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /New conversation/ }),
-			),
+			fireEvent.click(again.getByRole("button", { name: "New" })),
 		);
 		await waitFor(() => expect(textIn(box(again))).toBe("and [File 1] "));
 		testing.reply = conversation({ id: "c9", task: null, status: "starting" });

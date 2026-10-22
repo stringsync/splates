@@ -184,7 +184,6 @@ describe("conversation render subscriptions", () => {
 							<ConversationList
 								feed={feed}
 								terminals={terminals}
-								drafts={drafts}
 								tasks={[]}
 								todos={[]}
 								here={{ root: "/tmp/project", repo: "project", trunk: "main" }}
