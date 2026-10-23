@@ -326,10 +326,10 @@ export function lostLine(task: TaskRecord): string {
  * The tasks a lane may queue on its own once queued whole, beyond those it
  * holds then: room for the follow-ups its agents add, before it asks.
  */
-export const LANE_SLACK = 5;
+export const LANE_SLACK = 20;
 
 /** A queued lane shows its budget, and the button to add to it, at or below this many tasks left. */
 export const BUDGET_LOW = 3;
 
 /** The tasks an approval adds to a queued lane's budget: one size, no choice. */
-export const APPROVAL = 10;
+export const APPROVAL = 20;

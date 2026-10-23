@@ -85,7 +85,7 @@ You never change the queue: splates refuses an agent `splates queue add`,
 `remove` and `move`, and `splates lane queue`, `unqueue` and `approve`. The user
 queues, from the board or from the queue card your reply ends with.
 A queued lane has a budget of tasks it may queue on its own, its tasks
-when queued plus 5: tasks you add to it spend it, and at none it stops
+when queued plus 20: tasks you add to it spend it, and at none it stops
 until the user approves more, so add only the follow-ups the work needs.
 
 When a conversation asks for several tasks, more than one coherent change,

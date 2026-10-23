@@ -7,7 +7,13 @@ import {
 	BACKLOG_LANE,
 	BUDGET_LOW,
 } from "@stringsync/splates-server/board/browser";
-import { HandIcon, ListPlusIcon, LockIcon, OctagonXIcon } from "lucide-react";
+import {
+	HandIcon,
+	ListPlusIcon,
+	LockIcon,
+	OctagonXIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -364,25 +370,34 @@ function LaneApproval({ lane }: { lane: LaneState }): JSX.Element {
 	const { refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
 	const left = lane.budget ?? 0;
+	const stopped = left === 0;
 	return (
-		<div className="flex flex-wrap items-center gap-1 text-xs">
-			{left === 0 ? (
-				<span
-					className={cn(
-						"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium",
-						TONES.failed,
-					)}
-					title="The lane's budget of tasks to queue on its own is spent, so nothing more in it starts until you approve more"
-				>
-					<OctagonXIcon aria-hidden className="size-3 shrink-0" />
-					Budget ran out: lane stopped
-				</span>
-			) : (
-				<span className="text-muted-foreground">{left} left to queue</span>
+		<div
+			className={cn(
+				"flex flex-wrap items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-sm",
+				stopped
+					? "border-red-500 bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100"
+					: "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
 			)}
+			title="The lane's budget of tasks to queue on its own: at none nothing more in it starts until you approve more"
+		>
+			<span className="inline-flex items-center gap-1.5">
+				{stopped ? (
+					<OctagonXIcon aria-hidden className="size-4 shrink-0" />
+				) : (
+					<TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
+				)}
+				{stopped ? (
+					<b>Budget ran out: lane stopped</b>
+				) : (
+					<span>
+						<b>{left}</b> left to queue
+					</span>
+				)}
+			</span>
 			<Button
-				size="xs"
-				variant={left === 0 ? "default" : "outline"}
+				size="sm"
+				variant={stopped ? "destructive" : "default"}
 				onClick={() =>
 					void expect(
 						laneApproved(lane.id, APPROVAL),

@@ -9,8 +9,8 @@ queued ready tasks by itself, and a `[SPLATES QUEUE]` directive, were both
 removed. An agent that wants work queued adds it (`splates task add` or
 `defer`) and ends its reply with a permission card (`## 🔐 Permission: queue
 lane <n>` or `queue #<n>`), which the page turns into a button. A lane queued
-whole gets a budget of the tasks it holds plus five it may add; at zero it
-stops until the person approves five or ten more.
+whole gets a budget of the tasks it holds plus twenty it may add; at zero it
+stops until the person approves twenty more.
 
 Agents start no agents either. `splates handoff`, `splates tell`, `add
 --agent` from an agent, lane orchestrators and parts (a task based on another
