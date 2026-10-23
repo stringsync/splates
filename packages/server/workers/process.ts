@@ -57,7 +57,11 @@ export class WorkerProcess implements AgentProcess {
 			start: (controller) => {
 				stdout = controller;
 			},
-			cancel: () => this.kill(),
+			cancel: () => {
+				// A cancelled stream cannot accept late output or the channel's close.
+				stdout = undefined;
+				this.kill();
+			},
 		});
 		this.input = new WritableStream<Uint8Array>({
 			write: async (bytes) => {
@@ -99,6 +103,7 @@ export class WorkerProcess implements AgentProcess {
 		// as when the worker no longer holds it.
 		channel.events.on("close", () => {
 			stdout?.close();
+			stdout = undefined;
 			this.tail ||= "the worker no longer runs it";
 			exit.resolve(127);
 		});
