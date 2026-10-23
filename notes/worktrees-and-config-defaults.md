@@ -10,7 +10,7 @@ and made timing tests fail the merge gate. The `.metadata_never_index` marker
 is ignored by macOS 26, so it cannot replace the suffix.
 
 `defaults()` in `packages/server/config/load.ts` also sets `notesDir:
-"notes"`, `leaseStalenessMs` 90s, `mergeRetryCount` 3, `logCapacity` 1000,
+"notes"`, `leaseStalenessMs` 90s, `mergeRetryCount` 5, `logCapacity` 1000,
 `attachmentCapacity` 100 MB and `wiz: "bunx @webappwiz/cli"`; a project's
 `splates.config.ts` overrides any of them, and this repo's sets
 `postCheckout` and `postRewrite` to `bun install` and `preMerge` to

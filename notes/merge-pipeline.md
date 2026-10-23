@@ -3,10 +3,15 @@ description: How splates merge lands work: refusals before an attempt is spent, 
 ---
 
 `merge()` in `packages/server/merge/merge.ts` never makes a merge commit.
-Before spending one of the task's attempts (`mergeRetryCount`, 3; `splates
+Before spending one of the task's attempts (`mergeRetryCount`, 5; `splates
 retry` grants more) it refuses a dirty tree, a branch tracking `SPLATES.md`,
 unchecked `## Blocked` questions or `## Next` steps, a lease held by another
-process, and an exhausted budget. `--message` squashes the task to one
+process, and an exhausted budget. Only a conflict or a gate failure pinned on
+the task spends one (flakes, environment failures and timeouts do not), and
+each is the agent's try at a fix, never a blind repeat, so the budget has no
+backoff: the cap is what stops a task retrying forever, and 5 (raised from 3)
+leaves room for real fixes without one task holding the premerge lock for
+hours. `--message` squashes the task to one
 commit first, and a message under five characters is refused, after agents
 landed commits titled "X"; leaving `--message` off keeps each commit. The
 squash replaced a `git reset --soft` recipe the skill used to carry, and the

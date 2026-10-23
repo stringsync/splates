@@ -93,7 +93,7 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,
-		mergeRetryCount: 3,
+		mergeRetryCount: 5,
 		removedCapacity: 50,
 		finishedCapacity: 500,
 		logCapacity: 1000,
