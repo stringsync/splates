@@ -436,6 +436,7 @@ export interface Served extends AsyncResource {
 	removeAutomation: Handler;
 	pauseAutomation: Handler;
 	resumeAutomation: Handler;
+	runAutomation: Handler;
 	listConversations: Handler;
 	showConversation: Handler;
 	refreshLimits: Handler;

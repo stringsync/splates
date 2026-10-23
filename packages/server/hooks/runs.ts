@@ -3,7 +3,7 @@ import type { Document, Storage } from "../storage";
 /** One time an automation ran, as its page lists it. */
 export interface AutomationRun {
 	at: string;
-	/** What set it off: an event and its tasks, as `task.created #3`, or `schedule`. */
+	/** What set it off: an event and its tasks, as `task.created #3`, `schedule`, or `by hand` when the person asked it to run now. */
 	on: string;
 	/** Why it failed, or null when it ran. */
 	error: string | null;
@@ -17,6 +17,8 @@ export type AutomationRuns = Record<
 		runs: AutomationRun[];
 		/** When its schedule last came due, so a restart runs a missed one once. */
 		scheduledAt?: string;
+		/** The automation's latest `requestedAt` it ran for, so each request runs once. */
+		requestedAt?: string;
 	}
 >;
 
@@ -61,6 +63,14 @@ export class RunStore {
 		return this.#change((all) => ({
 			...all,
 			[id]: { ...all[id], runs: all[id]?.runs ?? [], scheduledAt: at },
+		}));
+	}
+
+	/** Keeps that automation `id` ran for the request made at `at`. */
+	requested(id: string, at: string): Promise<void> {
+		return this.#change((all) => ({
+			...all,
+			[id]: { ...all[id], runs: all[id]?.runs ?? [], requestedAt: at },
 		}));
 	}
 

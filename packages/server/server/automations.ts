@@ -50,6 +50,7 @@ export class Automations implements Resource {
 			this.#runs,
 			this.all,
 			() => void this.groomed(),
+			() => this.#scheduler?.look() ?? Promise.resolve(),
 		);
 	}
 
@@ -94,12 +95,14 @@ export class Automations implements Resource {
 			automations: this.all,
 			clock: { now: () => Date.now() },
 		});
-		// Turned on or off from the command line, as `splates hook groomer`.
+		// Turned on or off, or asked to run, from the command line, as `splates hook groomer`.
 		try {
 			const watching = storage.watch("");
 			watching.events.on("changed", (changed) => {
 				if (changed.endsWith("hooks.json")) {
 					void this.groomed();
+					// One asked to run now, as `splates hook run`.
+					void this.#scheduler?.look();
 				}
 			});
 			this.#watching = watching;

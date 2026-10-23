@@ -87,6 +87,11 @@ export async function pauseAutomation(
 	);
 }
 
+/** Runs automation `id` now, answering once it started, its run listed. */
+export async function runAutomation(id: string): Promise<AutomationRow[]> {
+	return rows(await send(`/api/automations/${id}/run`, { method: "POST" }));
+}
+
 function rows(body: unknown): AutomationRow[] {
 	return (body as { automations: AutomationRow[] }).automations;
 }

@@ -5,6 +5,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
+	BY_HAND,
 	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 } from "@stringsync/splates-server/hooks/browser";
@@ -118,6 +119,7 @@ function LastRun({
 	return (
 		<div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
 			Last ran <Stamp at={run.at} />
+			{run.on === BY_HAND && " by hand"}
 			{task === null &&
 				todos.map((id) => (
 					<ReferenceChip
@@ -149,8 +151,11 @@ function LastRun({
 	);
 }
 
-/** The tasks a run's `on` names: `task.created #3 fix-x` is #3 and fix-x; `schedule` none. */
+/** The tasks a run's `on` names: `task.created #3 fix-x` is #3 and fix-x; `schedule` or `by hand` none. */
 export function ranFor(on: string): { todos: number[]; task: string | null } {
+	if (on === BY_HAND) {
+		return { todos: [], task: null };
+	}
 	const [, ...named] = on.split(" ");
 	const todos = named
 		.filter((each) => /^#\d+$/.test(each))

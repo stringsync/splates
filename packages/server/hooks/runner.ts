@@ -5,11 +5,15 @@ import type { TaskStage } from "../board";
 import type { Journal } from "../records";
 import type { Document, Storage } from "../storage";
 import { type TaskEvent, taskEventsOf } from "./events";
+import { BY_HAND } from "./now";
 import type { AutomationRun, RunStore } from "./runs";
 import type { Automation, Hook, TaskFilter } from "./store";
 
-/** What set an automation off: a task event, or its schedule coming due. */
-export type Fired = { event: TaskEvent } | { schedule: string };
+/**
+ * What set an automation off: a task event, or its schedule coming due, or
+ * the person asking it to run now, which runs as its schedule would.
+ */
+export type Fired = { event: TaskEvent } | { schedule: string; byHand?: true };
 
 /** What a hook does, by kind. */
 export interface HookActions {
@@ -27,7 +31,12 @@ export async function fire(
 	fired: Fired,
 	{ actions, runs, log, now }: FireDeps,
 ): Promise<void> {
-	const on = "event" in fired ? said(fired.event) : "schedule";
+	const on =
+		"event" in fired
+			? said(fired.event)
+			: fired.byHand === true
+				? BY_HAND
+				: "schedule";
 	const run: AutomationRun = { at: now(), on, error: null };
 	const { hook } = automation;
 	try {

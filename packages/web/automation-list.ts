@@ -4,6 +4,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
+	BY_HAND,
 	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 	GROOMER_TRIGGER,
@@ -18,6 +19,7 @@ import {
 	pauseAutomation,
 	automations as readAutomations,
 	removeAutomation,
+	runAutomation,
 } from "./automations-api";
 import { refusalOf } from "./refusal";
 
@@ -30,6 +32,7 @@ export interface AutomationsApi {
 	edit: (id: string, trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
 	remove: (id: string) => Promise<AutomationRow[]>;
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
+	run: (id: string) => Promise<AutomationRow[]>;
 	groom: (pick: AgentPick) => Promise<AutomationRow[]>;
 	gardener: (
 		pick: AgentPick,
@@ -46,6 +49,7 @@ const API: AutomationsApi = {
 	edit: editAutomation,
 	remove: removeAutomation,
 	pause: pauseAutomation,
+	run: runAutomation,
 	groom: groomAutomation,
 	gardener: gardenerAutomation,
 };
@@ -110,6 +114,26 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 			(rows) =>
 				rows.map((each) => (each.id === row.id ? { ...each, paused } : each)),
 			() => this.api.pause(row.id, paused),
+		);
+	}
+
+	/** Runs one now, its run listed at once as by hand. */
+	run(row: AutomationRow): Promise<boolean> {
+		return this.#change(
+			"Not run",
+			(rows) =>
+				rows.map((each) =>
+					each.id === row.id
+						? {
+								...each,
+								runs: [
+									...each.runs,
+									{ at: new Date().toISOString(), on: BY_HAND, error: null },
+								],
+							}
+						: each,
+				),
+			() => this.api.run(row.id),
 		);
 	}
 

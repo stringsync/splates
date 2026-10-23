@@ -123,6 +123,17 @@ export async function hookPause(
 	);
 }
 
+/** Asks for the automation numbered `id` to run now, which `splates server` does at once. */
+export async function hookRun(
+	{ hooks, log }: HookDeps,
+	id: string,
+): Promise<void> {
+	const automation = await hooks.request(id);
+	log.info(
+		`${color.green("asked to run")} ${described(automation)}\nsplates server starts it at once, or as it starts when it is not running`,
+	);
+}
+
 /** `automation` in a line: its number, trigger and what it runs. */
 export function described(automation: Automation): string {
 	return `${automation.id}. ${triggerLabel(automation.trigger)}: ${hookLabel(automation.hook)}${automation.paused === true ? " (paused)" : ""}`;

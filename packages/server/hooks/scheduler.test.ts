@@ -117,6 +117,32 @@ describe("Scheduler", () => {
 		expect(ran).toEqual(["garden with claude"]);
 	});
 
+	it("runs one asked for by hand once per request, paused too, its schedule left be", async () => {
+		automations = [
+			{
+				...(automations[0] as Automation),
+				paused: true,
+				requestedAt: new Date(clock.now()).toISOString(),
+			},
+			{
+				id: "groomer",
+				trigger: { event: "task.created" },
+				hook: { kind: "groom", agent: "claude" },
+				createdAt: new Date(clock.now()).toISOString(),
+				source: "builtin",
+				requestedAt: new Date(clock.now()).toISOString(),
+			},
+		];
+		const running = await start();
+		await running.look();
+
+		expect(ran).toEqual(["tidy", "groom"]);
+		expect((await runs.read())["1"]).toMatchObject({
+			runs: [{ on: "by hand" }],
+		});
+		expect((await runs.read())["1"]).not.toHaveProperty("scheduledAt");
+	});
+
 	it("runs nothing paused", async () => {
 		automations = automations.map((each) => ({ ...each, paused: true }));
 		clock.advance(Duration.hrs(5));

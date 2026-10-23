@@ -11,6 +11,13 @@ in the main tree told `[SPLATES EVENT <event> #N]` or `[SPLATES SCHEDULE
 `$SPLATES_TASKS` and `$SPLATES_TASK` set. `splates hook` does not touch an
 agent harness's own hooks.
 
+`splates hook run <n>`, or the Automations page's Run now, runs one at once:
+it stamps `requestedAt` on the automation, and the `Scheduler`, woken by
+the write, fires it once per request (kept as `requestedAt` in
+`hooks-runs.json`), as `[SPLATES SCHEDULE <n>]`, paused or not, its
+schedule left be; its run lists as `by hand`. Only a schedule or the groomer
+can (`runsNow`): any other event hook needs its event's tasks.
+
 They live in `hooks.json` of the project records, per person and never checked in: a
 checked-in agent hook would run on the account of everyone who clones the
 repo. `splates.config.ts`'s `on` holds only shell commands. `HookRunner`

@@ -6,10 +6,12 @@ import type {
 import {
 	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
+	runsNow,
 } from "@stringsync/splates-server/hooks/browser";
 import { useReactive } from "@webappwiz/react";
 import {
 	ChevronRightIcon,
+	CirclePlayIcon,
 	PauseIcon,
 	PencilIcon,
 	PlayIcon,
@@ -99,6 +101,7 @@ export function AutomationsPage({
 						opens={opens}
 						onEdit={(row, trigger, hook) => list.edit(row, trigger, hook)}
 						onPause={(row, paused) => void list.pause(row, paused)}
+						onRun={(row) => void list.run(row)}
 						onRemove={(row) => void list.remove(row)}
 					/>
 					{checkedIn.length > 0 && (
@@ -117,6 +120,7 @@ export function AutomationsPage({
 						onGroom={(pick) => list.groom(pick)}
 						onGardener={(pick, schedule) => list.gardener(pick, schedule)}
 						onPause={(row, paused) => void list.pause(row, paused)}
+						onRun={(row) => void list.run(row)}
 						onRemove={(row) => void list.remove(row)}
 					>
 						{groomer === null && (
@@ -167,6 +171,7 @@ function Group({
 	onGroom,
 	onGardener,
 	onPause,
+	onRun,
 	onRemove,
 	children,
 }: {
@@ -179,6 +184,7 @@ function Group({
 	onGroom?: Groom;
 	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
+	onRun?: (row: AutomationRow) => void;
 	onRemove?: (row: AutomationRow) => void;
 	children?: ReactNode;
 }): JSX.Element {
@@ -201,6 +207,7 @@ function Group({
 							onGroom={onGroom}
 							onGardener={onGardener}
 							onPause={onPause}
+							onRun={onRun}
 							onRemove={onRemove}
 						/>
 					))}
@@ -231,6 +238,7 @@ function Card({
 	onGroom,
 	onGardener,
 	onPause,
+	onRun,
 	onRemove,
 }: {
 	row: AutomationRow;
@@ -239,6 +247,7 @@ function Card({
 	onGroom?: Groom;
 	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
+	onRun?: (row: AutomationRow) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
@@ -333,6 +342,17 @@ function Card({
 						<PencilIcon />
 					</Button>
 				)}
+			{!adding && onRun !== undefined && runsNow(row) && (
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label="Run now"
+					title="Run now"
+					onClick={() => onRun(row)}
+				>
+					<CirclePlayIcon />
+				</Button>
+			)}
 			{!adding && onPause !== undefined && (
 				<Button
 					size="icon-sm"

@@ -19,6 +19,20 @@ describe("AutomationList", () => {
 		await removing;
 	});
 
+	it("lists a run by hand at once, before the server answers", async () => {
+		const { api, settle } = held([TIDY]);
+		const list = new AutomationList(api);
+		await list.read();
+
+		const running = list.run(TIDY);
+		expect(list.own[0]?.runs.map(({ on }) => on)).toEqual(["by hand"]);
+		settle();
+		expect(await running).toBe(true);
+		expect(list.own[0]?.runs.map(({ at }) => at)).toEqual([
+			"2026-10-23T09:00:00.000Z",
+		]);
+	});
+
 	it("shows one being added, then the one the server numbered", async () => {
 		const { api, settle } = held([TIDY]);
 		const list = new AutomationList(api);
@@ -132,6 +146,15 @@ function held(rows: AutomationRow[]) {
 		edit: (_, trigger) => write([{ ...TIDY, trigger, when: "every 2h" }]),
 		remove: () => write([]),
 		pause: () => write([{ ...TIDY, paused: true }]),
+		run: () =>
+			write([
+				{
+					...TIDY,
+					runs: [
+						{ at: "2026-10-23T09:00:00.000Z", on: "by hand", error: null },
+					],
+				},
+			]),
 		groom: (pick) =>
 			write([
 				TIDY,

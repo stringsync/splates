@@ -10,6 +10,7 @@ import {
 	GARDENER_TRIGGER,
 } from "./garden";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
+import { runsNow } from "./now";
 import { scheduleOf } from "./schedule";
 
 /**
@@ -53,12 +54,11 @@ export interface Automation {
 	createdAt: string;
 	/** When its trigger last changed: its schedule counts from then, not from a run before. */
 	editedAt?: string;
+	/** When the person last asked it to run at once, which `splates server` runs it for once. */
+	requestedAt?: string;
 	/** Where it comes from: the person, by default; the project's config, or splates itself. */
 	source?: "config" | "builtin";
 }
-
-/** Each event's hooks, in the order they run: the store's form before automations. */
-export type Hooks = Partial<Record<TaskEventName, Hook[]>>;
 
 /**
  * The automations one person set for one project, in
@@ -270,6 +270,35 @@ export class HookStore {
 		return found;
 	}
 
+	/**
+	 * Asks for the automation `id` to run at once, as `splates server` runs it
+	 * for the request, its schedule left as it was; refuses one there is none
+	 * of, or one that runs only on a task event.
+	 */
+	async request(id: string): Promise<Automation> {
+		let found: Automation | undefined;
+		await this.change((automations) =>
+			automations.map((each) => {
+				if (each.id !== id || !runsNow(each)) {
+					return each;
+				}
+				found = { ...each, requestedAt: new Date().toISOString() };
+				return found;
+			}),
+		);
+		if (found === undefined) {
+			const set = (await this.read()).find((each) => each.id === id);
+			fail(
+				"usage",
+				set === undefined
+					? `no automation ${id}: \`splates hook list\` numbers them`
+					: `automation ${id} runs on ${"event" in set.trigger ? set.trigger.event : "its schedule"}, for that event's tasks, so it cannot run now`,
+				{ id },
+			);
+		}
+		return found;
+	}
+
 	private async change(
 		edit: (automations: Automation[]) => Automation[],
 	): Promise<void> {
@@ -277,6 +306,9 @@ export class HookStore {
 		await this.#file.write({ automations });
 	}
 }
+
+/** Each event's hooks, in the order they run: the store's form before automations. */
+export type Hooks = Partial<Record<TaskEventName, Hook[]>>;
 
 /** The old form's hooks as automations, numbered in event order. */
 export function fromHooks(

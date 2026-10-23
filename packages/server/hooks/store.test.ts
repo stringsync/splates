@@ -126,6 +126,24 @@ describe("HookStore", () => {
 		]);
 	});
 
+	it("asks one on a schedule, or the groomer, to run now, refusing one on another event", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
+		await hooks.add({ event: "task.done" }, { kind: "run", command: "ship" });
+		await hooks.groomer({ agent: "claude" });
+
+		expect(await hooks.request("1")).toMatchObject({
+			requestedAt: expect.any(String),
+		});
+		expect(await hooks.request("groomer")).toMatchObject({
+			requestedAt: expect.any(String),
+		});
+		await expect(hooks.request("2")).rejects.toThrow(
+			"runs on task.done, for that event's tasks",
+		);
+		await expect(hooks.request("7")).rejects.toThrow("no automation 7");
+	});
+
 	it("pauses one and lets it run again", async () => {
 		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });

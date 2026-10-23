@@ -855,6 +855,9 @@ export async function dev(
 						PUT: talk(scoped((project) => project.pauseAutomation)),
 						DELETE: talk(scoped((project) => project.resumeAutomation)),
 					},
+					"/api/automations/:id/run": {
+						POST: talk(scoped((project) => project.runAutomation)),
+					},
 					"/api/lanes/:id": {
 						PUT: scoped((project) => project.updateLane),
 						DELETE: scoped((project) => project.dropLane),

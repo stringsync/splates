@@ -36,6 +36,7 @@ export class AutomationRoutes {
 	readonly #runs: RunStore;
 	readonly #all: () => Promise<Automation[]>;
 	readonly #changed: () => void;
+	readonly #run: () => Promise<void>;
 
 	constructor(
 		store: HookStore,
@@ -44,11 +45,14 @@ export class AutomationRoutes {
 		all: () => Promise<Automation[]>,
 		/** Told once one is added, edited, removed, paused or resumed here. */
 		changed: () => void = () => {},
+		/** Runs each automation asked to run now; settles once they started. */
+		run: () => Promise<void> = async () => {},
 	) {
 		this.#store = store;
 		this.#runs = runs;
 		this.#all = all;
 		this.#changed = changed;
+		this.#run = run;
 	}
 
 	readonly listAutomations = (): Promise<Response> => this.#list();
@@ -101,6 +105,13 @@ export class AutomationRoutes {
 		return this.#list();
 	};
 
+	/** Runs one at once, answering once it started, its run listed. */
+	readonly runAutomation = async (request: Request): Promise<Response> => {
+		await this.#store.request(idIn(request));
+		await this.#run();
+		return this.#list();
+	};
+
 	async #list(): Promise<Response> {
 		const runs = await this.#runs.read();
 		const rows: AutomationRow[] = (await this.#all()).map((each) => ({
@@ -121,9 +132,13 @@ function idIn(request: Request): string {
 		id !== GROOMER_AUTOMATION &&
 		id !== GARDENER_AUTOMATION
 	) {
-		fail("usage", `no automation ${id}: only one of yours changes here`, {
-			id,
-		});
+		fail(
+			"usage",
+			`no automation ${id}: only one of yours changes or runs here`,
+			{
+				id,
+			},
+		);
 	}
 	return id;
 }

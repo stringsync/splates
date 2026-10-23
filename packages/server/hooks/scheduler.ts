@@ -12,7 +12,8 @@ import type { Automation } from "./store";
 /**
  * Runs each scheduled automation as it comes due, looking once a minute.
  * When it came due more than once since its last run, as while
- * `splates server` was down, it runs once, not once per miss.
+ * `splates server` was down, it runs once, not once per miss. One the
+ * person asked to run now runs once for each request, its schedule left be.
  */
 export class Scheduler implements Resource {
 	readonly #ticking: Resource;
@@ -51,7 +52,19 @@ export class Scheduler implements Resource {
 		const now = this.deps.clock.now();
 		const runs = await this.deps.runs.read();
 		for (const automation of await this.deps.automations()) {
-			const { trigger } = automation;
+			const { trigger, requestedAt } = automation;
+			// Asked for by the person, so it runs paused too.
+			if (
+				requestedAt !== undefined &&
+				requestedAt !== runs[automation.id]?.requestedAt
+			) {
+				await this.deps.runs.requested(automation.id, requestedAt);
+				await fire(
+					automation,
+					{ schedule: automation.id, byHand: true },
+					this.deps,
+				);
+			}
 			if (automation.paused === true || "event" in trigger) {
 				continue;
 			}

@@ -10,6 +10,7 @@ import {
 	hookList,
 	hookPause,
 	hookRemove,
+	hookRun,
 	lanesNamed,
 	stagesNamed,
 	TASK_EVENTS,
@@ -199,6 +200,20 @@ splatesHook
 	.arg("id", z.string(), { description: "its number in `splates hook list`" })
 	.action((opts, ctx) =>
 		hookPause({ hooks: storeOf(ctx), log: ctx.log }, opts.id, false),
+	);
+
+splatesHook
+	.command("run")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"run an automation now, as the Automations page's Run now does, its schedule left as it was: one on a schedule, the groomer or the notes gardener, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
+	)
+	.arg("id", z.string(), {
+		description:
+			"its number in `splates hook list`, or `groomer` or `notes-gardener`",
+	})
+	.action((opts, ctx) =>
+		hookRun({ hooks: storeOf(ctx), log: ctx.log }, opts.id),
 	);
 
 splatesHook
