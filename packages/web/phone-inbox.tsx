@@ -230,7 +230,8 @@ export function Inbox({
 			navigation.show(newConversationUrl(folder.project));
 		}
 	};
-	const empty = grouped === null && trees.length === 0;
+	const empty =
+		grouped === null ? trees.length === 0 : grouped.folders.length === 0;
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (

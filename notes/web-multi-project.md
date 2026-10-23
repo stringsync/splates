@@ -11,9 +11,9 @@ and its stream for every project's tasks and conversations, each tagged
 through `scoped(path, slug)` and the stream brings the change back. It
 streams only while something holds it.
 
-The sidebar and inbox keep a folder for every registered project, including
-empty projects. Empty folders say No conversations yet and keep their New
-action. Both lists offer Add a project and Remove project; removal uses the
+The sidebar and inbox show folders only for projects with visible
+conversations, including the focused project only when it has some. Archiving
+the last conversation hides its folder; unarchiving brings it back. Both lists offer Add a project and Remove project; removal uses the
 existing forget API, keeping files and conversation history and refusing while
 conversations are under way.
 

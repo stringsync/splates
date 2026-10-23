@@ -33,7 +33,17 @@ describe("Project controls in conversation lists", () => {
 		testing = new Testing();
 		testing.everywhere = [
 			listed("webappwiz", "/repo"),
-			listed("shop", "/code/shop"),
+			{
+				...listed("shop", "/code/shop"),
+				conversations: [
+					conversation({
+						id: "s1",
+						task: null,
+						title: "Shop chat",
+						status: "stopped",
+					}),
+				],
+			},
 		];
 	});
 	afterEach(() => {
@@ -47,26 +57,19 @@ describe("Project controls in conversation lists", () => {
 		["sidebar", 1024, 768],
 		["inbox", 390, 844],
 	] as const) {
-		it(`keeps empty projects and their New controls in the ${layout}`, async () => {
+		it(`hides empty projects in the ${layout}`, async () => {
 			resize(width, height);
 			const view = await testing.openConversations([], null, { tasks: [] });
 			const list = agentList(view);
 			const shop = await waitFor(() =>
 				within(list).getByRole("region", { name: "shop" }),
 			);
-			expect(within(shop).getByText("No conversations yet.")).toBeTruthy();
-			const here = within(list).getByRole("region", { name: "webappwiz" });
-			expect(within(here).getByText("No conversations yet.")).toBeTruthy();
-			await act(async () =>
-				fireEvent.click(
-					within(shop).getByRole("button", {
-						name: "New conversation in shop",
-					}),
-				),
-			);
 			expect(
-				new URL(String(testing.visited.at(-1))).searchParams.get("project"),
-			).toBe("shop");
+				within(list).queryByRole("region", { name: "webappwiz" }),
+			).toBeNull();
+			expect(
+				within(shop).getByRole("button", { name: /Shop chat/ }),
+			).toBeTruthy();
 		});
 
 		it(`offers adding and removing projects in the ${layout}`, async () => {
@@ -111,7 +114,7 @@ describe("Project controls in conversation lists", () => {
 		});
 	}
 
-	it("keeps the project and shows its empty state after swiping away its last conversation", async () => {
+	it("hides the project after swiping away its last conversation and restores it when unarchived", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations(
 			[
@@ -139,13 +142,29 @@ describe("Project controls in conversation lists", () => {
 			expect(testing.posted("/api/conversations/c1/archived")).toHaveLength(1),
 		);
 		await waitFor(() =>
-			expect(within(here).getByText("No conversations yet.")).toBeTruthy(),
+			expect(
+				within(list).queryByRole("region", { name: "webappwiz" }),
+			).toBeNull(),
 		);
-		expect(
-			within(here).getByRole("button", {
-				name: "New conversation in webappwiz",
-			}),
-		).toBeTruthy();
+		await act(async () =>
+			testing.say(
+				conversation({
+					id: "c1",
+					task: null,
+					title: "Last chat",
+					status: "stopped",
+					archived: false,
+				}),
+			),
+		);
+		await waitFor(() =>
+			expect(
+				within(list).getByRole("region", { name: "webappwiz" }),
+			).toBeTruthy(),
+		);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
 	});
 
 	it("keeps removal open with a reason when the server refuses", async () => {
@@ -174,7 +193,18 @@ describe("Project controls in conversation lists", () => {
 		expect(within(list).getByRole("region", { name: "shop" })).toBeTruthy();
 	});
 	it("moves to the previous project when removing the one shown", async () => {
-		const view = await testing.openConversations([], null, { tasks: [] });
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: null,
+					title: "Here",
+					status: "stopped",
+				}),
+			],
+			null,
+			{ tasks: [] },
+		);
 		const button = await waitFor(() =>
 			within(agentList(view)).getByRole("button", {
 				name: "Remove project webappwiz",
@@ -194,7 +224,7 @@ describe("Project controls in conversation lists", () => {
 			new URL(String(testing.visited.at(-1))).searchParams.get("project"),
 		).toBe("shop");
 	});
-	it("keeps another project's folder when its last conversation is removed by the stream", async () => {
+	it("hides another project's folder when its last conversation is removed by the stream", async () => {
 		resize(390, 844);
 		const chat = conversation({
 			id: "s1",
@@ -218,9 +248,29 @@ describe("Project controls in conversation lists", () => {
 				data: JSON.stringify({ project: "shop", id: "s1" }),
 			}),
 		);
-		expect(within(shop).getByText("No conversations yet.")).toBeTruthy();
 		expect(
-			within(shop).getByRole("button", { name: "New conversation in shop" }),
+			within(agentList(view)).queryByRole("region", { name: "shop" }),
+		).toBeNull();
+	});
+	it("shows the inbox empty state when every project is empty", async () => {
+		resize(390, 844);
+		testing.everywhere = [
+			listed("webappwiz", "/repo"),
+			listed("shop", "/code/shop"),
+		];
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		await waitFor(() =>
+			expect(
+				within(list).getByText("No conversations yet. Start one below."),
+			).toBeTruthy(),
+		);
+		expect(
+			within(list).queryByRole("region", { name: "webappwiz" }),
+		).toBeNull();
+		expect(within(list).queryByRole("region", { name: "shop" })).toBeNull();
+		expect(
+			within(list).getByRole("button", { name: "Add a project" }),
 		).toBeTruthy();
 	});
 });
