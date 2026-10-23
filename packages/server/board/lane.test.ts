@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { merge } from "../merge";
@@ -10,6 +10,11 @@ import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { lanes } from "./lanes";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { taskList, taskShow } from "./task-list";
+
+// These tests run concurrently and the lane-walking one drives real git
+// through two adds and two merges, which a busy machine starves past bun's
+// 5s default. A per-test cap below the gate's 30s would undercut it.
+setDefaultTimeout(30_000);
 
 /** Each lane's task ids, top first, as stored. */
 async function shape(deps: Testing): Promise<number[][]> {
@@ -288,7 +293,7 @@ describe.concurrent("task links and lanes", () => {
 		expect(out).toContain(
 			"blocked by #177 in Licensing, not taken yet: splates task wait 177",
 		);
-	}, 20_000);
+	});
 
 	it("says a lane is done once its last task lands, and the lane goes", async () => {
 		await using deps = await Testing.open();

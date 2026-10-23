@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import type { Child } from "webappwiz/system";
+import { readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { type Child, NodePs } from "webappwiz/system";
 import { Git } from "./git";
-import { processGit } from "./git-process";
+import { nativeGit, processGit } from "./git-process";
 
 class DrainingProcess {
 	readonly output = new TransformStream<Uint8Array>();
@@ -61,5 +63,25 @@ describe("processGit", () => {
 			run: { git: async () => ({ code: 0, stdout: " \n", stderr: "" }) },
 		});
 		await expect(git.commonDir()).rejects.toThrow("empty path");
+	});
+
+	it("runs real git through Bun's own spawn, leaving no output file behind", async () => {
+		const runner = processGit(new NodePs());
+		const version = await runner.git("/", ["--version"]);
+		expect(version.code).toBe(0);
+		expect(version.stdout).toStartWith("git version");
+		expect(version.stderr).toBe("");
+
+		const missing = await nativeGit().git("/nonexistent-splates-dir", [
+			"rev-parse",
+			"HEAD",
+		]);
+		expect(missing.code).not.toBe(0);
+		expect(missing.stderr).toContain("nonexistent-splates-dir");
+
+		const left = (await readdir(tmpdir())).filter((name) =>
+			name.startsWith(`splates-git-${process.pid}-`),
+		);
+		expect(left).toEqual([]);
 	});
 });
