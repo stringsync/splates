@@ -59,6 +59,8 @@ export {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RUN_ALLOWED,
+	RUN_DENIED,
 	scheduleReference,
 	setupReference,
 	sortReference,

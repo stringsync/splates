@@ -1,0 +1,98 @@
+import type { PermissionProposal } from "@stringsync/splates-server/plans";
+import {
+	RUN_ALLOWED,
+	RUN_DENIED,
+} from "@stringsync/splates-server/plans/browser";
+import { BanIcon, CheckIcon, TerminalIcon } from "lucide-react";
+import { type JSX, useState } from "react";
+import { Button } from "#web/components/ui/button.tsx";
+import { useCardReply } from "./card-reply";
+import { CardBody, CardShell } from "./card-shell";
+import { MachineStats, useMachine } from "./machine";
+import { Refusal, useRefusal } from "./refusal";
+
+/**
+ * The card an agent asks to run a heavy command with: the command, why, and
+ * how loaded the machine is now. Allow and Deny answer the agent with a
+ * directive; the choice shows at once and is taken back if the send fails.
+ */
+export function RunCommandCard({
+	proposal,
+}: {
+	proposal: PermissionProposal;
+}): JSX.Element {
+	const { reply, sent } = useCardReply();
+	const reading = useMachine();
+	const { refusal, attempt } = useRefusal();
+	const [chosen, setChosen] = useState<string | null>(null);
+	const choice = sent?.includes(RUN_ALLOWED)
+		? RUN_ALLOWED
+		: sent?.includes(RUN_DENIED)
+			? RUN_DENIED
+			: chosen;
+	const send = reply?.send ?? null;
+	const answer = (directive: string, failed: string): void => {
+		if (send === null) {
+			return;
+		}
+		setChosen(directive);
+		void attempt(
+			send(directive).catch((error: unknown) => {
+				setChosen(null);
+				throw error;
+			}),
+			failed,
+		);
+	};
+	return (
+		<CardShell
+			label="run command"
+			Icon={TerminalIcon}
+			title={proposal.title ?? "Run a command"}
+			tone={choice === RUN_ALLOWED ? "success" : "warning"}
+		>
+			<pre className="mx-4 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
+				<code>{proposal.command}</code>
+			</pre>
+			{proposal.body !== "" && <CardBody text={proposal.body} />}
+			{choice === null && reading !== null && (
+				<MachineStats reading={reading} className="mx-4 mb-3" />
+			)}
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+				{choice !== null ? (
+					<span className="flex items-center gap-1 text-xs">
+						{choice === RUN_ALLOWED ? (
+							<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
+						) : (
+							<BanIcon className="size-3.5" />
+						)}
+						{choice === RUN_ALLOWED ? "Allowed" : "Denied"}
+					</span>
+				) : (
+					<>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={send === null}
+							onClick={() => answer(RUN_DENIED, "Not denied")}
+							className="gap-1.5"
+						>
+							<BanIcon data-icon="inline-start" />
+							Deny
+						</Button>
+						<Button
+							size="sm"
+							disabled={send === null}
+							onClick={() => answer(RUN_ALLOWED, "Not allowed")}
+							className="gap-1.5"
+						>
+							<CheckIcon data-icon="inline-start" />
+							Allow
+						</Button>
+					</>
+				)}
+			</div>
+			<Refusal refusal={refusal} />
+		</CardShell>
+	);
+}

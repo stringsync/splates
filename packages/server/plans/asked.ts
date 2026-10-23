@@ -178,10 +178,10 @@ export interface TodoProposal {
  */
 export interface PermissionProposal {
 	/**
-	 * What it asks: queue work, remove a lane with its tasks, run evals, or
-	 * run the whole test suite outside a merge's gate.
+	 * What it asks: queue work, remove a lane with its tasks, run evals, run
+	 * the whole test suite outside a merge's gate, or run a heavy command.
 	 */
-	action: "queue" | "remove-lane" | "run-evals" | "run-suite";
+	action: "queue" | "remove-lane" | "run-evals" | "run-suite" | "run-command";
 	/** The lane it acts on whole; null for tasks named one by one. */
 	lane: number | null;
 	/** The tasks named one by one; none for a lane. */
@@ -192,6 +192,8 @@ export interface PermissionProposal {
 	body: string;
 	/** For `run-evals`: what to run, from the card's probe list. */
 	evals?: EvalAsk;
+	/** For `run-command`: the command to run, from the first backticked line. */
+	command?: string;
 }
 
 /**
@@ -228,6 +230,9 @@ const EVALS_PERMISSION =
 /** A run-evals card's probe: a list item that is one code span, then maybe a note. */
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
+const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
+/** A run-command card's command: a line that is one code span. */
+const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
 const PERMISSION =
 	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
@@ -272,10 +277,12 @@ function keptAt(
 	const permission = PERMISSION.exec(line);
 	const evals = EVALS_PERMISSION.exec(line);
 	const suite = SUITE_PERMISSION.exec(line);
+	const run = RUN_PERMISSION.exec(line);
 	if (
 		permission === null &&
 		evals === null &&
 		suite === null &&
+		run === null &&
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
@@ -301,6 +308,29 @@ function keptAt(
 					tasks: [],
 					title: suite[1] || null,
 					body,
+				},
+			},
+			end,
+		};
+	}
+	if (run !== null) {
+		const rows = body.split("\n");
+		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
+		const command =
+			at < 0 ? "" : (RUN_COMMAND.exec(rows[at] as string)?.[1] as string);
+		return {
+			stretch: {
+				type: "permission",
+				permission: {
+					action: "run-command",
+					lane: null,
+					tasks: [],
+					title: run[1] || null,
+					body: rows
+						.filter((_, index) => index !== at)
+						.join("\n")
+						.replace(/^\n+|\s+$/g, ""),
+					command,
 				},
 			},
 			end,

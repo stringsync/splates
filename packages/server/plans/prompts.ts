@@ -126,6 +126,14 @@ export const RECONNECT = "[SPLATES RECONNECT]";
 export const MERGE = "[SPLATES MERGE]";
 
 /**
+ * What tells an agent the person allowed the command its run-command card
+ * asked to run, or turned it down, as that card's Allow and Deny send: the
+ * splates skill says what it means.
+ */
+export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
+export const RUN_DENIED = "[SPLATES RUN DENIED]";
+
+/**
  * What approves an agent's proposal as it stands and asks it to go ahead,
  * the answers to any calls it chose nothing for after it, as the Proposed
  * card's Approve button sends: the splates skill says what it means.

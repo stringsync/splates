@@ -7,6 +7,8 @@ import {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RUN_ALLOWED,
+	RUN_DENIED,
 	taskNumberReference,
 	taskReference,
 } from "./prompts";
@@ -22,6 +24,8 @@ describe("the splates skill's Directives table", () => {
 				CHECKPOINT,
 				RESUME,
 				RECONNECT,
+				RUN_ALLOWED,
+				RUN_DENIED,
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
 			].toSorted(),

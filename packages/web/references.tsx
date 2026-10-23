@@ -9,11 +9,14 @@ import {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RUN_ALLOWED,
+	RUN_DENIED,
 	taskNumberReference,
 	taskReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
+	BanIcon,
 	BookmarkIcon,
 	ClockIcon,
 	FolderGit2Icon,
@@ -24,6 +27,7 @@ import {
 	MessageCircleIcon,
 	PlayIcon,
 	PlugIcon,
+	TerminalIcon,
 	UtensilsIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
@@ -212,6 +216,21 @@ export const BARE_DIRECTIVES = [
 		about: "go ahead with the proposal it made",
 		icon: LightbulbIcon,
 		tone: "success",
+	},
+	{
+		directive: RUN_ALLOWED,
+		label: "Run allowed",
+		about: "run the command the last run-command card asked to",
+		icon: TerminalIcon,
+		tone: "success",
+	},
+	{
+		directive: RUN_DENIED,
+		label: "Run denied",
+		about:
+			"carry on without the command the last run-command card asked to run",
+		icon: BanIcon,
+		tone: "neutral",
 	},
 ] as const satisfies {
 	directive: string;

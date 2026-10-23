@@ -164,6 +164,7 @@
 @source "./choice-body.tsx";
 @source "./close-terminal.tsx";
 @source "./review-panel.tsx";
+@source "./run-command-card.tsx";
 @source "./report-cards.tsx";
 @source "./permission-card.tsx";
 @source "./report-header.tsx";
