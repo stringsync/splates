@@ -96,6 +96,12 @@ export class Worktree {
 		return since !== undefined && this.leaseHeld ? since : null;
 	}
 
+	/** The place in line of the merge under way while it waits for the lock, 1 next; null otherwise. */
+	get mergePlace(): number | null {
+		const place = this.snapshot.state?.mergePlace;
+		return place !== undefined && this.leaseHeld ? place : null;
+	}
+
 	get leaseStatus(): "held" | "stale" | "none" {
 		return !this.lease ? "none" : this.leaseHeld ? "held" : "stale";
 	}
@@ -447,6 +453,8 @@ export interface TaskState {
 	gate?: Gate;
 	/** When the merge under way was asked for, its wait for the lock included. Absent otherwise. */
 	mergeSince?: string;
+	/** Its place in line for the lock while it waits, 1 being next. Absent otherwise. */
+	mergePlace?: number;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];

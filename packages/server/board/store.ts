@@ -187,6 +187,7 @@ const STARTED = {
 	gateFailures: true,
 	gate: true,
 	mergeSince: true,
+	mergePlace: true,
 	retries: true,
 	startedAt: true,
 	startedFrom: true,

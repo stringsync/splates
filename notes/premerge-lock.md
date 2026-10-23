@@ -17,6 +17,17 @@ Nothing else waits on it.
 
 ## Time limits
 
+Waiters take the lock first come, first served: `TicketedLock`
+(`packages/server/server/ticketed-lock.ts`) wraps the `FileLock`, each waiter
+leaving a ticket in `~/.splates/premerge.queue/` and only the oldest live
+ticket asking the lock itself, which otherwise goes to whichever waiter polls
+first. A ticket whose process is gone is dropped by the next waiter to look.
+The lock tells each waiter its place as it changes; `MergeGate.reserve`
+passes it to `splates merge`, which keeps it on the task's record as
+`mergePlace` while the merge is queued, so the inbox row says "Waiting to
+merge · next" or "· 2nd in line" and the sidebar the same word beside the
+icon.
+
 A gate runs at most `PREMERGE_TIMEOUT_MS`, 3 minutes. Past it the gate's
 shell is killed and `splates merge` refuses with `timeout`. The refusal
 spends no attempt, so the agent merges again.

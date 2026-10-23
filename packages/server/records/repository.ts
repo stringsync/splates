@@ -19,7 +19,7 @@ import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { RUNNING } from "../server/release";
-import { premergeLockOfMachine } from "../server/shared";
+import { type PlacedLock, premergeLockOfMachine } from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
@@ -91,7 +91,7 @@ export interface Repository {
 	/** The machine's dev slots, which a task gives back as it ends. */
 	slots: Slots;
 	/** Held by a merge's gate, so one premerge runs on the machine at a time. */
-	premerge: Lock;
+	premerge: PlacedLock;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
 	/** What moves trunk on the central remote once a merge has tested its branch. */

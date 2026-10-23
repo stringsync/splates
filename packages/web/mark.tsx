@@ -13,6 +13,7 @@ import type { ComponentProps, JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
+import { placeInLine } from "./merge-place";
 import { type Quiet, quietTitle } from "./quiet";
 
 /**
@@ -163,7 +164,11 @@ export function Mark({
 			<span
 				role="status"
 				aria-label="waiting to merge"
-				title="Waiting to merge"
+				title={
+					need.mergePlace === undefined
+						? "Waiting to merge"
+						: `Waiting to merge, ${placeInLine(need.mergePlace)}`
+				}
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
 				<GitMergeIcon className="size-3.5 text-muted-foreground/50" />

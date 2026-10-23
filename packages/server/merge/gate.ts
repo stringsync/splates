@@ -1,9 +1,10 @@
 import { availableParallelism } from "node:os";
-import type { Fs, Lock } from "webappwiz/system";
+import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import {
+	type PlacedLock,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	RECENT_FAILED_FILES,
@@ -35,7 +36,7 @@ export class MergeGate {
 		private readonly fs: Fs,
 		private readonly config: Config,
 		private readonly timing: MergeTiming,
-		private readonly premerge: Lock,
+		private readonly premerge: PlacedLock,
 		private readonly timeoutMs: number = PREMERGE_TIMEOUT_MS,
 	) {}
 
@@ -45,14 +46,30 @@ export class MergeGate {
 	 * dispose of the result once the gate and its retests are done.
 	 */
 	async reserve(
-		/** Called once when the lock is not had within `QUEUED_AFTER_MS`. */
-		onQueued: () => Promise<void> = async () => {},
+		/**
+		 * Called when the lock is not had within `QUEUED_AFTER_MS`, with this
+		 * merge's place in line (1 is next), and again each time the place
+		 * changes, one call at a time.
+		 */
+		onQueued: (place: number) => Promise<void> = async () => {},
 	): Promise<AsyncDisposable> {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
 		}
 		using _wait = this.timing.track("capacityWaitMs");
-		const acquired = this.premerge.acquire().then(() => true);
+		let place = 1;
+		let queued = false;
+		let telling = Promise.resolve();
+		const tell = (at: number): Promise<void> => {
+			telling = telling.then(() => onQueued(at));
+			return telling;
+		};
+		const acquired = this.premerge
+			.acquire((at) => {
+				place = at;
+				return queued ? tell(at) : undefined;
+			})
+			.then(() => true);
 		// A `Lock` cannot be tried without waiting, so a lock not had soon is taken as held.
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const soon = await Promise.race([
@@ -63,8 +80,10 @@ export class MergeGate {
 		]);
 		clearTimeout(timer);
 		if (!soon) {
-			await onQueued();
+			queued = true;
+			await tell(place);
 			await acquired;
+			await telling;
 		}
 		return { [Symbol.asyncDispose]: () => this.premerge.release() };
 	}

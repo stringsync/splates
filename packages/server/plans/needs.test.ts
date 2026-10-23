@@ -63,6 +63,27 @@ describe("needs", () => {
 			merge: "queued",
 			mergeSince: since,
 		});
+		expect(
+			need(task({ gate: "queued", mergeSince: since, mergePlace: 2 }), running),
+		).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "queued",
+			mergeSince: since,
+			mergePlace: 2,
+		});
+		// The place is for a wait: a merge testing has none.
+		expect(
+			need(
+				task({ gate: "running", mergeSince: since, mergePlace: 1 }),
+				running,
+			),
+		).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "running",
+			mergeSince: since,
+		});
 	});
 
 	it("waits on a review its last reply asks for, once its turn ends", () => {
@@ -140,52 +161,38 @@ describe("needs", () => {
 	});
 
 	it("waits on the questions its last reply asks, task or not, until a reply", () => {
-		const at = "2026-10-11T10:07:00.000Z";
-		const asking = talk({
-			task: null,
-			status: "idle",
-			messages: [
-				{
-					role: "agent",
-					parts: [
-						{
-							type: "text",
-							text: "Where it stands.\n\n1. Which way?\n   - (a) Left (chosen)\n   - (b) Right\n2. How soon?\n",
-						},
-					],
-					plan: null,
-					at,
-					until: at,
-				},
-			],
-		});
-
-		const waiting = need(null, asking);
+		const waiting = need(null, ASKING);
 		expect(waiting).toMatchObject({
 			kind: "waiting",
 			why: "questions",
 			subject: "Which way?",
-			since: at,
+			since: ASKED_AT,
 		});
 		expect(
 			waiting.kind === "waiting" &&
 				waiting.questions.map((asked) => asked.text),
 		).toEqual(["Which way?", "How soon?"]);
-		expect(need(task(), { ...asking, task: "alpha" })).toMatchObject({
+		expect(need(task(), { ...ASKING, task: "alpha" })).toMatchObject({
 			kind: "waiting",
 			why: "questions",
 		});
 		// Answered: the reply starts its turn, then ends it.
-		expect(need(null, { ...asking, status: "running" })).toEqual({
+		expect(need(null, { ...ASKING, status: "running" })).toEqual({
 			kind: "working",
 			subject: null,
 		});
 		expect(
 			need(null, {
-				...asking,
+				...ASKING,
 				messages: [
-					...asking.messages,
-					{ role: "user", parts: [], plan: null, at, until: at },
+					...ASKING.messages,
+					{
+						role: "user",
+						parts: [],
+						plan: null,
+						at: ASKED_AT,
+						until: ASKED_AT,
+					},
 				],
 			}),
 		).toEqual({ kind: "idle" });
@@ -415,6 +422,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		lease: "held",
 		gate: null,
 		mergeSince: null,
+		mergePlace: null,
 		ahead: 1,
 		unmerged: true,
 		added: 1,
@@ -492,6 +500,27 @@ function ask(at: string) {
 		at,
 	};
 }
+
+/** When an agent outside any task ended its turn on two questions, as `ASKING` has it. */
+const ASKED_AT = "2026-10-11T10:07:00.000Z";
+const ASKING = talk({
+	task: null,
+	status: "idle",
+	messages: [
+		{
+			role: "agent",
+			parts: [
+				{
+					type: "text",
+					text: "Where it stands.\n\n1. Which way?\n   - (a) Left (chosen)\n   - (b) Right\n2. How soon?\n",
+				},
+			],
+			plan: null,
+			at: ASKED_AT,
+			until: ASKED_AT,
+		},
+	],
+});
 
 /** A reply asking for a review. */
 const REVIEW = `## 🔍 Ready to merge alpha onto main

@@ -10,11 +10,13 @@ import { Notes } from "../notes";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts, Journal } from "../records";
+import type { PlacedLock } from "../server/shared";
 import type { WorktreeService } from "../tasks";
 import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
+import { clearGate } from "./clear-gate";
 import { MergeGate } from "./gate";
 import { landedLines, landedSince } from "./landed";
 import { landTested } from "./landing";
@@ -67,7 +69,7 @@ export async function merge(
 		fs: Fs;
 		slots: Slots;
 		/** The machine's premerge lock, so one gate runs at a time. */
-		premerge: Lock;
+		premerge: PlacedLock;
 		/** How long the gate may run before it is killed; `PREMERGE_TIMEOUT_MS` for none. */
 		gateTimeoutMs?: number;
 		branches: TaskBranches;
@@ -302,8 +304,13 @@ export async function merge(
 		worktree = await state.requireLease();
 		// Before the wait: a conflict costs the agent none of it.
 		await rebaseOntoBase();
-		await using _capacity = await runner.reserve(async () => {
-			facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
+		let queuedBefore = false;
+		await using _capacity = await runner.reserve(async (place) => {
+			if (!queuedBefore) {
+				queuedBefore = true;
+				facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
+			}
+			worktree = await worktree.save({ mergePlace: place });
 		});
 		// Every step names the first, so the page folds them into one run.
 		const queued = facts.began ?? null;
@@ -312,7 +319,10 @@ export async function merge(
 		});
 		facts.began = queued ?? started ?? null;
 		if (runner.command) {
-			worktree = await worktree.save({ gate: "running" });
+			worktree = await worktree.save({
+				gate: "running",
+				mergePlace: undefined,
+			});
 		}
 		worktree = await state.requireLease();
 		if (message !== "") {
@@ -576,20 +586,4 @@ function indent(text: string): string {
 		.split("\n")
 		.map((line) => `    ${line}`)
 		.join("\n");
-}
-
-/**
- * Takes `gate` and `mergeSince` off the task's record once its merge ends, landed or not, so
- * a later lease on it shows no merge under way. A landed task has no record
- * left to change.
- */
-async function clearGate(
-	service: WorktreeService,
-	task: string,
-): Promise<void> {
-	const worktree = await service.find(task).catch(() => null);
-	const state = worktree?.state;
-	if (state?.gate !== undefined || state?.mergeSince !== undefined) {
-		await worktree?.save({ gate: undefined, mergeSince: undefined });
-	}
 }

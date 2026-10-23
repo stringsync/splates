@@ -10,6 +10,7 @@ import { automated, placeholding } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
+import { placeInLine } from "./merge-place";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { type Quiet, quietText, useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
@@ -184,7 +185,10 @@ export function statusOf(
 		};
 	}
 	if (need.kind === "working" && need.merge === "queued") {
-		return { text: "Waiting to merge", urgent: false };
+		// Its place in line, where the lock has told it: quiet, one phrase.
+		const place =
+			need.mergePlace === undefined ? "" : ` · ${placeInLine(need.mergePlace)}`;
+		return { text: `Waiting to merge${place}`, urgent: false };
 	}
 	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
 		return { text: quietText(quiet), urgent: true };

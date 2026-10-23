@@ -68,6 +68,8 @@ export interface Details {
 	gate: Gate | null;
 	/** When its merge under way was asked for; null with none under way. */
 	mergeSince: string | null;
+	/** Its merge's place in line for the premerge lock while it waits, 1 next; null otherwise. */
+	mergePlace: number | null;
 	ahead: number | null;
 	/**
 	 * Whether removing it would lose work: commits its base does not have, or
@@ -184,6 +186,7 @@ export class TaskDetails {
 			lease: worktree.leaseStatus,
 			gate: worktree.gate,
 			mergeSince: worktree.mergeSince,
+			mergePlace: worktree.mergePlace,
 			ahead,
 			unmerged:
 				// Unknown counts as unmerged, so nothing is discarded unasked.

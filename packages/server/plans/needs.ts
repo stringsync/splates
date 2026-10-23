@@ -88,6 +88,8 @@ export type Need =
 			merge?: "queued" | "running";
 			/** When that merge was asked for, its wait for the lock included. */
 			mergeSince?: string;
+			/** A queued merge's place in line for the lock, 1 being next. */
+			mergePlace?: number;
 	  }
 	| { kind: "idle" };
 
@@ -206,9 +208,11 @@ function working(task: Details | null): Need {
 	if (task?.status === "merging" || task?.gate === "running") {
 		return { kind: "working", subject, merge: "running", ...since };
 	}
-	return task?.gate === "queued"
-		? { kind: "working", subject, merge: "queued", ...since }
-		: { kind: "working", subject };
+	if (task?.gate !== "queued") {
+		return { kind: "working", subject };
+	}
+	const place = task.mergePlace === null ? {} : { mergePlace: task.mergePlace };
+	return { kind: "working", subject, merge: "queued", ...since, ...place };
 }
 
 /**
