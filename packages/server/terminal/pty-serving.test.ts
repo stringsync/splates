@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it } from "bun:test";
-import { mkdtemp, realpath } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { NodePs } from "webappwiz/system";
 import { SERVING } from "../server/shared";
@@ -8,12 +8,14 @@ import { written } from "./testing";
 
 describe("Pty under a server that serves", () => {
 	let shell: Pty;
+	let cwd: string;
 	let out: string;
 
 	beforeEach(async () => {
+		cwd = await realpath(await mkdtemp(`${tmpdir()}/splates-pty-`));
 		shell = new Pty({
 			argv: ["/bin/sh"],
-			cwd: await realpath(await mkdtemp(`${tmpdir()}/splates-pty-`)),
+			cwd,
 			cols: 80,
 			rows: 24,
 			env: { PS1: "$ " },
@@ -29,7 +31,10 @@ describe("Pty under a server that serves", () => {
 		});
 	});
 
-	afterEach(() => shell.disposeAsync());
+	afterEach(async () => {
+		await shell.disposeAsync();
+		await rm(cwd, { recursive: true, force: true });
+	});
 
 	it("leaves out that splates server serves, so one run in it supervises itself", async () => {
 		shell.write(`echo serving:\${${SERVING}-unset}\n`);

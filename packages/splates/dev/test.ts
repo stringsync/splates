@@ -1,4 +1,4 @@
-import { mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fail } from "@stringsync/splates-server/exit";
@@ -135,7 +135,8 @@ export async function test(opts: TestOptions): Promise<void> {
 	const signal = AbortSignal.timeout(deadline.ms);
 	const fs = new NodeFs();
 	await using git = await directGit(ps);
-	const env = git.env;
+	await using scratch = await scratchDir();
+	const env = { ...git.env, TMPDIR: scratch.path };
 	let failed = false;
 	const reports: string[] = [];
 	const printed: string[] = [];
@@ -261,6 +262,41 @@ async function directGit(
 	return {
 		env: { PATH: `${dir}:${path}` },
 		[Symbol.asyncDispose]: () => rm(dir, { recursive: true, force: true }),
+	};
+}
+
+/** What a run's scratch directory, the `TMPDIR` of its tests, is named from. */
+const SCRATCH_PREFIX = "splates-test-run-";
+
+/** How old a scratch directory must be for a later run to take it for a killed run's. */
+const STALE_SCRATCH = Duration.hrs(1);
+
+/**
+ * A directory of the run's own for its tests' `mkdtemp`s, removed with it: a
+ * test that never cleaned up, or a run killed at its deadline, left them in
+ * the machine's `TMPDIR` by the thousand. Starting one also removes the
+ * scratch directories older than an hour, which are a killed run's.
+ */
+async function scratchDir(): Promise<{ path: string } & AsyncDisposable> {
+	const root = tmpdir();
+	const names = await readdir(root).catch(() => []);
+	await Promise.all(
+		names
+			.filter((name) => name.startsWith(SCRATCH_PREFIX))
+			.map(async (name) => {
+				const age = await stat(join(root, name)).then(
+					(info) => Date.now() - info.mtimeMs,
+					() => 0,
+				);
+				if (age > STALE_SCRATCH.ms) {
+					await rm(join(root, name), { recursive: true, force: true });
+				}
+			}),
+	);
+	const path = await mkdtemp(join(root, SCRATCH_PREFIX));
+	return {
+		path,
+		[Symbol.asyncDispose]: () => rm(path, { recursive: true, force: true }),
 	};
 }
 

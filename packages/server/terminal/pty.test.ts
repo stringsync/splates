@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, realpath } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { Pty } from "./pty";
 import { written } from "./testing";
@@ -25,7 +25,10 @@ describe("Pty", () => {
 		});
 	});
 
-	afterEach(() => pty.disposeAsync());
+	afterEach(async () => {
+		await pty.disposeAsync();
+		await rm(cwd, { recursive: true, force: true });
+	});
 
 	/** Waits for the shell to have written `text`, up to a few seconds. */
 	const shows = (text: string) => written(() => screen, text);
