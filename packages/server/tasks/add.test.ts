@@ -130,6 +130,14 @@ describe("add", () => {
 		});
 	});
 
+	it("refuses a name whose branch was left behind and points at remove", async () => {
+		await deps.gitCli(deps.root, "branch", "task/alpha");
+
+		await expect(add(deps, "alpha")).toBail("exists", {
+			message: "splates remove alpha",
+		});
+	});
+
 	it("refuses every add of a name but one when several race", async () => {
 		const results = await Promise.allSettled(
 			[1, 2, 3].map(() => add(deps, "alpha")),

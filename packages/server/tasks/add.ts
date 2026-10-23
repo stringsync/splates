@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
 import type { Fs } from "webappwiz/system";
+import { Duration, sleep } from "webappwiz/time";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
@@ -127,16 +128,9 @@ export async function add(
 		);
 	}
 
-	const found = await service.find(task);
-	if (found.status === "stray") {
-		fail(
-			"exists",
-			`branch ${found.branch} exists without a worktree: run \`splates remove ${task}\` first`,
-			{ task, branch: found.branch },
-		);
-	}
+	const found = await settled(service, task);
 	if (!found.gone) {
-		refuseTaken(found);
+		refuseFound(found);
 	}
 
 	// Taken before anything is created, so a queued task that is gone, or
@@ -168,9 +162,9 @@ export async function add(
 	if (added.code !== 0) {
 		await letGo(tookNow);
 		// Another add of this name got its branch in first, after we looked.
-		const raced = await service.find(task);
+		const raced = await settled(service, task);
 		if (!raced.gone) {
-			refuseTaken(raced);
+			refuseFound(raced);
 		}
 		// git's own "invalid reference" sends people to the branch, when what is
 		// wrong is which branch splates thinks the trunk is.
@@ -274,7 +268,39 @@ export async function add(
 	);
 }
 
-function refuseTaken(found: Worktree): never {
+/**
+ * How long a branch with no tree may be another add's, between `git worktree
+ * add` making the branch and the tree's directory, before it counts as stray.
+ */
+const STRAY_SETTLE = Duration.secs(2);
+const STRAY_POLL = Duration.ms(50);
+
+/**
+ * `task` as `find` gives it, but a stray branch is looked at again until its
+ * tree turns up or `STRAY_SETTLE` passes: an add racing this one has its
+ * branch a moment before its tree, which is no stray to remove.
+ */
+async function settled(
+	service: WorktreeService,
+	task: string,
+): Promise<Worktree> {
+	const deadline = Date.now() + STRAY_SETTLE.ms;
+	let found = await service.find(task);
+	while (found.status === "stray" && Date.now() < deadline) {
+		await sleep(STRAY_POLL);
+		found = await service.find(task);
+	}
+	return found;
+}
+
+function refuseFound(found: Worktree): never {
+	if (found.status === "stray") {
+		fail(
+			"exists",
+			`branch ${found.branch} exists without a worktree: run \`splates remove ${found.task}\` first`,
+			{ task: found.task, branch: found.branch },
+		);
+	}
 	fail(
 		"exists",
 		`task '${found.task}' already exists: run \`splates claim ${found.task}\``,
