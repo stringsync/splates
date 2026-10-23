@@ -156,6 +156,7 @@ describe.concurrent("splates", () => {
 		expect(journal).toMatchObject([
 			{ action: "add", task: "alpha", reason: null },
 			{ action: "claim", task: "alpha", reason: null },
+			{ action: "merge attempt", task: "alpha", reason: null },
 			{ action: "merge", task: "alpha", reason: null },
 			{ action: "remove", task: "alpha", reason: "already_removed" },
 		]);

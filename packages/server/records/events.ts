@@ -219,6 +219,8 @@ export interface Facts {
 		tasks: number[];
 	};
 	"lane join": None;
+	/** A merge begun, logged before it runs so the page shows it at once. */
+	"merge attempt": None;
 	"creds request": {
 		/** The cred asked for, as its environment variable. */
 		name: string;
@@ -370,13 +372,7 @@ interface TasksFacts {
 
 export type Action = keyof Facts;
 
-/**
- * Each action's facts by name, as its event records them now: the journal
- * reads an event only when it carries all of them, and none of an action
- * missing here.
- */
-// Compiles only while it lists every fact in `Facts`, so an action that
-// gains one adds it here too.
+/** The facts each action's event records, by name; add a new fact here too. */
 export const FACTS = {
 	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
 	claim: ["goal"],
@@ -414,6 +410,7 @@ export const FACTS = {
 	"lane update": ["lane", "name", "changed"],
 	"lane remove": ["lane", "name", "tasks"],
 	"lane join": [],
+	"merge attempt": [],
 	"creds request": ["name", "asked"],
 	"creds save": [],
 	"creds remove": [],

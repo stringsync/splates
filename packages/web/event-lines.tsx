@@ -112,6 +112,10 @@ const LINES: {
 					words: ["Merge failed", task(event)],
 					at: event.at,
 				},
+	"merge attempt": (event) => ({
+		words: ["Merging", task(event)],
+		at: event.at,
+	}),
 	claim: (event) =>
 		event.reason === null
 			? { words: ["Claimed", task(event)], at: event.at }
