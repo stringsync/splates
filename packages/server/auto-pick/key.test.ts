@@ -16,6 +16,9 @@ describe("classificationKey", () => {
 it("invalidates old judgments, changed attachments and paths beyond the detail limit", () => {
 	const oldKey = Bun.hash(JSON.stringify(["s", "d"])).toString(36);
 	expect(classificationKey("s", "d")).not.toBe(oldKey);
+	expect(classificationKey("s", "d")).not.toBe(
+		Bun.hash(JSON.stringify([2, "s", "d", [], []])).toString(36),
+	);
 	expect(
 		classificationKey("s", "d", [
 			{ name: "screen.png", mimeType: "image/png" },

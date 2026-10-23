@@ -1,6 +1,13 @@
 import { z } from "zod";
 import type { AgentPick } from "../models";
-import { DEPTH_IDS, type DepthId, KIND_IDS, type KindId } from "./classes";
+import {
+	CLARITY_IDS,
+	type ClarityId,
+	DEPTH_IDS,
+	type DepthId,
+	KIND_IDS,
+	type KindId,
+} from "./classes";
 import { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";
 
 export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel };
@@ -16,8 +23,8 @@ export interface AutoPickRules {
 	/** The file's own format. */
 	format: 2;
 	/**
-	 * How sure the judge has to be, 0 to 1, before its likeliest kind or
-	 * depth counts; below it, the task is that dimension's `*` alone.
+	 * How sure the judge has to be, 0 to 1, before its likeliest kind, depth or
+	 * certainty counts; below it, the task is that dimension's `*` alone.
 	 */
 	threshold: number;
 	/** Tried in order: the first that matches the task decides. The last is `* *`. */
@@ -32,6 +39,8 @@ export interface Rule {
 	kind: KindId | "*";
 	/** The depth it matches, or `*` for any, a task of no sure depth too. */
 	depth: DepthId | "*";
+	/** How settled the behavior is; omitted or * accepts any certainty, including unknown. */
+	clarity?: ClarityId | "*";
 	/**
 	 * Whom it picks, the first first: a pick whose agent's plan is nearly
 	 * used up is passed over for the next. A pick with no model takes the
@@ -84,6 +93,7 @@ const PICK = z.object({
 const RULE = z.object({
 	kind: z.enum([ANY, ...KIND_IDS]),
 	depth: z.enum([ANY, ...DEPTH_IDS]),
+	clarity: z.enum([ANY, ...CLARITY_IDS]).optional(),
 	picks: z
 		.array(PICK)
 		.min(1, "a rule picks at least one agent")
@@ -120,12 +130,17 @@ export const AUTO_PICK_RULES = z
 	})
 	.superRefine((value, ctx) => {
 		const last = value.rules.at(-1);
-		if (last !== undefined && (last.kind !== ANY || last.depth !== ANY)) {
+		if (
+			last !== undefined &&
+			(last.kind !== ANY ||
+				last.depth !== ANY ||
+				(last.clarity !== undefined && last.clarity !== ANY))
+		) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["rules", value.rules.length - 1],
 				message:
-					"the last rule must be kind * and depth *, so every task maps to a pick",
+					"the last rule must be kind * and depth * with any certainty, so every task maps to a pick",
 			});
 		}
 	});

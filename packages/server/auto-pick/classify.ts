@@ -18,8 +18,9 @@ import type { Judge, Noul, Verdict } from "./system-one";
 export interface Classification {
 	kinds: Record<KindId, number>;
 	depth: Record<DepthId, number>;
-	/** Additional evidence, never used for rule matching. Absent on older records. */
+	/** Additional evidence, absent on older records. */
 	breadth?: Record<"spot" | "module" | "system", number>;
+	/** How settled the intended behavior is; independently matched by rules. */
 	clarity?: Record<"settled" | "unresolved", number>;
 	stakes?: Record<"routine" | "sensitive", number>;
 	verification?: Record<"automated" | "visual", number>;

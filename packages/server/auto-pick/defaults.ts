@@ -1,7 +1,7 @@
 import { ANY, DEFAULT_PACE, RULES_FORMAT } from "./rule-names";
 import type { AutoPickRules, Rule } from "./rules";
 
-/** Depth routes the defaults, but for deep bugfixes, which start on Opus; plan and pace still pass over picks in order. */
+/** Depth sets effort; deep work starts on Opus when settled or a bugfix, otherwise Fable. */
 export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
 	threshold: 0.5,
@@ -9,6 +9,7 @@ export const DEFAULT_RULES: AutoPickRules = {
 		rule("shallow", ["sonnet", "gpt-6.1-sol"], "low"),
 		rule("moderate", ["sonnet", "gpt-6.1-sol"], "medium"),
 		deepBugfix(),
+		settledDeep(),
 		deep(),
 		rule(ANY, ["opus", "gpt-6-astra"], "medium"),
 	],
@@ -60,4 +61,9 @@ function deepBugfix(): Rule {
 			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
 		],
 	};
+}
+
+/** Settled deep work keeps high effort, starting on the focused implementation pick. */
+function settledDeep(): Rule {
+	return { ...deepBugfix(), kind: ANY, clarity: "settled" };
 }

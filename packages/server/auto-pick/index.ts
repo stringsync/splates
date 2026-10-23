@@ -1,5 +1,12 @@
-export type { DepthId, KindId, TaskClass } from "./classes";
-export { DEPTH_IDS, DEPTHS, KIND_IDS, KINDS } from "./classes";
+export type { ClarityId, DepthId, KindId, TaskClass } from "./classes";
+export {
+	CLARITIES,
+	CLARITY_IDS,
+	DEPTH_IDS,
+	DEPTHS,
+	KIND_IDS,
+	KINDS,
+} from "./classes";
 export type {
 	AttachmentInfo,
 	Classification,

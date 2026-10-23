@@ -11,7 +11,7 @@ export function classificationKey(
 ): string {
 	return Bun.hash(
 		JSON.stringify([
-			2,
+			3,
 			subject,
 			detail.slice(0, DETAIL_CHARS),
 			namedPaths(`${subject}\n${detail}`),

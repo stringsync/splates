@@ -2,6 +2,7 @@ import type {
 	AutoPickAgent,
 	AutoPickRules,
 	AutoPickRulesView,
+	ClarityId,
 	DepthId,
 	KindId,
 	Pace,
@@ -124,6 +125,10 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 
 	setKind(index: number, kind: KindId | typeof ANY): void {
 		this.editRule(index, (rule) => ({ ...rule, kind }));
+	}
+
+	setClarity(index: number, clarity: ClarityId | typeof ANY): void {
+		this.editRule(index, (rule) => ({ ...rule, clarity }));
 	}
 
 	setDepth(index: number, depth: DepthId | typeof ANY): void {

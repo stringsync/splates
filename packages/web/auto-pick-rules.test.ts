@@ -48,6 +48,7 @@ describe("RulesEditor", () => {
 		await editor.load();
 
 		editor.setKind(0, "open");
+		editor.setClarity(0, "settled");
 		editor.removeRule(0);
 
 		expect(editor.draft).toEqual(VIEW.rules);

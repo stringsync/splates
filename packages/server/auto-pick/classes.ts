@@ -96,16 +96,20 @@ export const BREADTHS = [
 		"Does the task need reading and changing several modules or packages? A mechanical rename can have this breadth and still have shallow reasoning depth.",
 	),
 ] as const;
-export const CLARITIES = [
+export const CLARITY_IDS = ["settled", "unresolved"] as const;
+export type ClarityId = (typeof CLARITY_IDS)[number];
+
+/** How settled the requested behavior is, independent of tone and reasoning depth. */
+export const CLARITIES: readonly TaskClass<ClarityId>[] = [
 	question(
 		"settled",
 		"Calls settled",
-		"Does the request settle the desired behavior and consequential choices, leaving only implementation calls the agent can make?",
+		"Has the user settled the desired behavior or approach and its consequential choices, leaving implementation calls to the agent? Look for explicit decisions and concrete requirements, not an assertive tone, polished wording or message length. A tentative voice can describe a settled solution. Settled behavior can still require deep reasoning to implement safely.",
 	),
 	question(
 		"unresolved",
 		"Calls unresolved",
-		"Does the request leave consequential product or behavior choices for the user to settle? Do not count routine implementation choices.",
+		"Is the user exploring what should happen or asking for help choosing an approach, leaving consequential product or behavior choices open? Confident phrasing alone does not settle these choices. Do not count routine implementation choices or uncertainty about a bug cause when the desired behavior is clear.",
 	),
 ] as const;
 export const STAKES = [
@@ -133,7 +137,7 @@ export const VERIFICATIONS = [
 	),
 ] as const;
 
-/** Additional judgments are recorded and explained; no rule matches them. */
+/** Context judgments are recorded and explained; clarity also participates in rule matching. */
 export const CONTEXT_CLASSES = {
 	breadth: BREADTHS,
 	clarity: CLARITIES,

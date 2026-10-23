@@ -1,5 +1,9 @@
 import type { AutoPickTrial } from "@stringsync/splates-server/auto-pick";
-import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
+import {
+	CLARITIES,
+	DEPTHS,
+	KINDS,
+} from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useState } from "react";
@@ -116,6 +120,14 @@ function TrialResult({ trial }: { trial: AutoPickTrial }): JSX.Element {
 						answers={classification.depth}
 						taken={decision.depth}
 					/>
+					{classification.clarity !== undefined && (
+						<Confidences
+							title="User certainty"
+							classes={CLARITIES}
+							answers={classification.clarity}
+							taken={decision.clarity ?? null}
+						/>
+					)}
 				</div>
 			)}
 			<ul

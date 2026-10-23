@@ -218,6 +218,8 @@ export interface AutoPickSet {
 	/** The kind and depth it was taken for; null when the judge was unsure. */
 	kind: string | null;
 	depth: string | null;
+	/** How settled the behavior was; absent on older picks. */
+	clarity?: string | null;
 	agent: string;
 	/** By the roster's id; null for the agent's own. */
 	model: string | null;

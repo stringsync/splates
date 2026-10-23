@@ -1,6 +1,10 @@
 import { age } from "@stringsync/splates-server/age";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
+import {
+	CLARITIES,
+	DEPTHS,
+	KINDS,
+} from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { ChevronRightIcon, PencilIcon, ZapIcon } from "lucide-react";
@@ -198,6 +202,14 @@ function Judged({ picked }: { picked: AutoPicked }): JSX.Element {
 						answers={classification.depth}
 						taken={picked.depth}
 					/>
+					{classification.clarity !== undefined && (
+						<Confidences
+							title="User certainty"
+							classes={CLARITIES}
+							answers={classification.clarity}
+							taken={picked.clarity ?? null}
+						/>
+					)}
 				</div>
 			)}
 			<ul className="flex flex-col gap-0.5 text-muted-foreground">

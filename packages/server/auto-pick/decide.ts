@@ -3,6 +3,8 @@ import type { Limit, Setting } from "../conversations";
 import type { AgentPick, RosterAgent } from "../models";
 import { type Catalog, inputKey } from "../prices";
 import {
+	CLARITIES,
+	type ClarityId,
 	CONTEXT_CLASSES,
 	DEPTHS,
 	type DepthId,
@@ -13,6 +15,41 @@ import {
 import type { Classification } from "./classify";
 import { ANY, type AutoPickRules, DEFAULT_PACE, ruleLabel } from "./rules";
 
+/**
+ * Turns a classification into a pick: kind, depth and certainty each
+ * when the judge is sure enough, find the first rule matching all three,
+ * and the first of its picks whose agent has plan left, used no faster than
+ * its windows go by, wins.
+ */
+export function decide(input: DecideInput): AutoPickDecision {
+	const { threshold } = input.rules;
+	const kind = likeliest(KINDS, input.classification.kinds, threshold);
+	const depth = likeliest(DEPTHS, input.classification.depth, threshold);
+	const answers = input.classification.clarity;
+	const clarity =
+		answers === undefined ||
+		answers.settled === answers.unresolved ||
+		Math.max(answers.settled, answers.unresolved) <= 0.5
+			? null
+			: likeliest(CLARITIES, answers, threshold).id;
+	const decision = choose(
+		input,
+		kind.id,
+		depth.id,
+		`judged: ${kind.said}, ${depth.said}`,
+		answers === undefined ? undefined : clarity,
+	);
+	for (const [group, classes] of Object.entries(CONTEXT_CLASSES)) {
+		const answers = input.classification[group as keyof typeof CONTEXT_CLASSES];
+		if (answers !== undefined) {
+			decision.reasons.push(
+				`${group}: ${classes.map((each) => `${each.label} ${Math.round(((answers as Record<string, number>)[each.id] ?? 0.5) * 100)}%`).join(", ")}`,
+			);
+		}
+	}
+	return decision;
+}
+
 /** Whom Auto pick starts on a task, and why. */
 export interface AutoPickDecision {
 	pick: AgentPick;
@@ -22,6 +59,8 @@ export interface AutoPickDecision {
 	kind: KindId | null;
 	/** The depth the task was taken for; null when the judge was not sure of any. */
 	depth: DepthId | null;
+	/** How settled the behavior was; absent on older decisions, null when unclear. */
+	clarity?: ClarityId | null;
 	/** Why, in short lines the page can show, the pick first. */
 	reasons: string[];
 }
@@ -63,33 +102,6 @@ export interface DecideWithoutInput extends DecideContext {
 }
 
 /**
- * Turns a classification into a pick: the likeliest kind and depth, each
- * when the judge is sure enough of it, find the first rule that matches both,
- * and the first of its picks whose agent has plan left, used no faster than
- * its windows go by, wins.
- */
-export function decide(input: DecideInput): AutoPickDecision {
-	const { threshold } = input.rules;
-	const kind = likeliest(KINDS, input.classification.kinds, threshold);
-	const depth = likeliest(DEPTHS, input.classification.depth, threshold);
-	const decision = choose(
-		input,
-		kind.id,
-		depth.id,
-		`judged: ${kind.said}, ${depth.said}`,
-	);
-	for (const [group, classes] of Object.entries(CONTEXT_CLASSES)) {
-		const answers = input.classification[group as keyof typeof CONTEXT_CLASSES];
-		if (answers !== undefined) {
-			decision.reasons.push(
-				`${group}: ${classes.map((each) => `${each.label} ${Math.round(((answers as Record<string, number>)[each.id] ?? 0.5) * 100)}%`).join(", ")}`,
-			);
-		}
-	}
-	return decision;
-}
-
-/**
  * A pick for a task the judge could not classify: the first rule that takes
  * any kind and any depth, saying why the judge was not asked.
  */
@@ -105,7 +117,7 @@ export function decideWithout(input: DecideWithoutInput): AutoPickDecision {
  */
 export function decideDeeper(
 	input: DecideContext,
-	set: { kind: string | null; depth: string | null },
+	set: { kind: string | null; depth: string | null; clarity?: string | null },
 	why: string,
 ): AutoPickDecision | null {
 	const at = DEPTHS.findIndex((each) => each.id === set.depth);
@@ -119,6 +131,9 @@ export function decideDeeper(
 		kind,
 		deeper.id,
 		`${why}, so ${deeper.label.toLowerCase()}`,
+		set.clarity === undefined
+			? undefined
+			: (CLARITIES.find((each) => each.id === set.clarity)?.id ?? null),
 	);
 }
 
@@ -128,11 +143,15 @@ function choose(
 	kind: KindId | null,
 	depth: DepthId | null,
 	judged: string,
+	clarity?: ClarityId | null,
 ): AutoPickDecision {
 	const index = input.rules.rules.findIndex(
 		(each) =>
 			(each.kind === ANY || each.kind === kind) &&
-			(each.depth === ANY || each.depth === depth),
+			(each.depth === ANY || each.depth === depth) &&
+			(each.clarity === undefined ||
+				each.clarity === ANY ||
+				each.clarity === clarity),
 	);
 	const matched = input.rules.rules[index];
 	if (matched === undefined) {
@@ -247,7 +266,14 @@ function choose(
 		reasons,
 	);
 	reasons.unshift(headline(pick, chosen.agent));
-	return { pick, rule: index, kind, depth, reasons };
+	return {
+		pick,
+		rule: index,
+		kind,
+		depth,
+		...(clarity === undefined ? {} : { clarity }),
+		reasons,
+	};
 }
 
 /** A pick of a rule with the agent it names and how far into its plan that is. */

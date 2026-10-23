@@ -1,8 +1,39 @@
 import { describe, expect, it } from "bun:test";
 import { DEFAULT_RULES } from "./defaults";
-import { checkRules, ruleLabel } from "./rules";
+import { type AutoPickRules, checkRules, ruleLabel } from "./rules";
 
 describe("checkRules", () => {
+	it("accepts certainty conditions without changing rules that omit them", () => {
+		const rules: AutoPickRules = {
+			...DEFAULT_RULES,
+			rules: [
+				{
+					kind: "*",
+					depth: "deep",
+					clarity: "settled",
+					picks: [{ agent: "claude" }],
+				},
+				{ kind: "*", depth: "*", picks: [{ agent: "codex" }] },
+			],
+		};
+		expect(checkRules(rules)).toEqual({ ok: true, rules });
+		expect(ruleLabel({ kind: "*", depth: "deep", clarity: "settled" })).toBe(
+			"any kind, Deep, Calls settled",
+		);
+		expect(
+			checkRules({
+				...rules,
+				rules: [{ ...rules.rules[0], clarity: "confident" }, rules.rules[1]],
+			}),
+		).toMatchObject({ ok: false });
+		expect(
+			checkRules({
+				...rules,
+				rules: [{ ...rules.rules[1], clarity: "settled" }],
+			}),
+		).toMatchObject({ ok: false });
+	});
+
 	it("passes the defaults, which end on any kind and any depth", () => {
 		expect(checkRules(DEFAULT_RULES)).toEqual({
 			ok: true,
@@ -27,7 +58,7 @@ describe("checkRules", () => {
 		).toEqual({
 			ok: false,
 			problem:
-				"rules.1: the last rule must be kind * and depth *, so every task maps to a pick",
+				"rules.1: the last rule must be kind * and depth * with any certainty, so every task maps to a pick",
 		});
 	});
 

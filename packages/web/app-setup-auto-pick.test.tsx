@@ -88,6 +88,7 @@ describe("App's Auto pick setup", () => {
 
 		await choose(within(rules).getByLabelText("rule 1 kind"), "bugfix");
 		await choose(within(rules).getByLabelText("rule 1 depth"), "deep");
+		await choose(within(rules).getByLabelText("rule 1 certainty"), "settled");
 		await press(
 			within(rules).getByRole("button", { name: "Edit rule 1 pick 1" }),
 		);
@@ -119,6 +120,7 @@ describe("App's Auto pick setup", () => {
 				{
 					kind: "bugfix",
 					depth: "deep",
+					clarity: "settled",
 					picks: [
 						{ agent: "claude", model: "opus", effort: "max" },
 						{ agent: "codex", model: "gpt-6-astra", effort: "medium" },
@@ -237,12 +239,14 @@ describe("App's Auto pick setup", () => {
 					open: 0.2,
 				},
 				depth: { shallow: 0.8, moderate: 0.3, deep: 0.1 },
+				clarity: { settled: 0.95, unresolved: 0.05 },
 			},
 			decision: {
 				pick: { agent: "claude", model: "haiku", effort: "low" },
 				rule: 0,
 				kind: "bugfix",
 				depth: "shallow",
+				clarity: "settled",
 				reasons: [
 					"Haiku, low effort",
 					"judged: Bugfix 90%, Shallow 80%",
@@ -266,6 +270,9 @@ describe("App's Auto pick setup", () => {
 		expect(within(result).getByLabelText("Kind").textContent).toContain(
 			"Bugfix90%",
 		);
+		expect(
+			within(result).getByLabelText("User certainty").textContent,
+		).toContain("Calls settled95%");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 });

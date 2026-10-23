@@ -1,6 +1,7 @@
 import type { Rule } from "@stringsync/splates-server/auto-pick";
 import {
 	ANY,
+	CLARITIES,
 	DEPTHS,
 	KINDS,
 } from "@stringsync/splates-server/auto-pick/browser";
@@ -104,6 +105,7 @@ export function RulesEditorView({
 						index={index}
 						kind={rule.kind}
 						depth={rule.depth}
+						clarity={rule.clarity ?? ANY}
 						picks={rule.picks}
 						made={picks[index] ?? 0}
 						onLog={onLog}
@@ -132,8 +134,9 @@ export function RulesEditorView({
 					/>
 				</div>
 				<FieldDescription>
-					Below it, a task counts as any kind, or any depth, and only rules with
-					* there match it.
+					Below it, only rules accepting any value for that kind, depth or
+					certainty match. Certainty means how settled the requested behavior
+					is, not how confident the user sounds.
 				</FieldDescription>
 			</Field>
 			<Field orientation="horizontal">
@@ -217,6 +220,7 @@ function RuleRow({
 	index,
 	kind,
 	depth,
+	clarity,
 	picks,
 	made,
 	onLog,
@@ -227,6 +231,7 @@ function RuleRow({
 	index: number;
 	kind: string;
 	depth: string;
+	clarity: string;
 	picks: readonly AgentPick[];
 	made: number;
 	onLog?: (rule: number) => void;
@@ -253,7 +258,7 @@ function RuleRow({
 				</span>
 				{last ? (
 					<span className="flex-1 text-sm">
-						Any kind, any depth{" "}
+						Any kind, any depth, any certainty{" "}
 						<span className="text-muted-foreground">
 							· last, so every task maps somewhere
 						</span>
@@ -288,6 +293,24 @@ function RuleRow({
 						>
 							<NativeSelectOption value={ANY}>Any depth</NativeSelectOption>
 							{DEPTHS.map((each) => (
+								<NativeSelectOption key={each.id} value={each.id}>
+									{each.label}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+						<NativeSelect
+							size="sm"
+							aria-label={`${name} certainty`}
+							value={clarity}
+							onChange={(event) =>
+								editor.setClarity(
+									index,
+									event.currentTarget.value as NonNullable<Rule["clarity"]>,
+								)
+							}
+						>
+							<NativeSelectOption value={ANY}>Any certainty</NativeSelectOption>
+							{CLARITIES.map((each) => (
 								<NativeSelectOption key={each.id} value={each.id}>
 									{each.label}
 								</NativeSelectOption>

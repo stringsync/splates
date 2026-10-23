@@ -1,4 +1,4 @@
-import { DEPTHS, KINDS } from "./classes";
+import { CLARITIES, DEPTHS, KINDS } from "./classes";
 import type { Pace, Rule } from "./rules";
 
 /** The rules' own format. */
@@ -11,7 +11,9 @@ export const ANY = "*" as const;
 export const DEFAULT_PACE: Pace = { on: true, slack: 0.1, spent: 0.95 };
 
 /** What a rule matches in words: `Mechanical, any depth`. */
-export function ruleLabel(rule: Pick<Rule, "kind" | "depth">): string {
+export function ruleLabel(
+	rule: Pick<Rule, "kind" | "depth" | "clarity">,
+): string {
 	const kind =
 		rule.kind === ANY
 			? "any kind"
@@ -20,5 +22,9 @@ export function ruleLabel(rule: Pick<Rule, "kind" | "depth">): string {
 		rule.depth === ANY
 			? "any depth"
 			: (DEPTHS.find((each) => each.id === rule.depth)?.label ?? rule.depth);
-	return `${kind}, ${depth}`;
+	const clarity =
+		rule.clarity === undefined || rule.clarity === ANY
+			? ""
+			: `, ${CLARITIES.find((each) => each.id === rule.clarity)?.label ?? rule.clarity}`;
+	return `${kind}, ${depth}${clarity}`;
 }

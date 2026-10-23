@@ -301,11 +301,13 @@ export function setOf({
 	rule,
 	kind,
 	depth,
+	clarity,
 }: AutoPickDecision): AutoPickSet {
 	return {
 		rule,
 		kind,
 		depth,
+		...(clarity === undefined ? {} : { clarity }),
 		agent: pick.agent,
 		model: pick.model ?? null,
 		effort: pick.effort ?? null,
