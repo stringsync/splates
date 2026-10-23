@@ -127,6 +127,7 @@ export async function merge(
 	facts.base = base;
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
 	facts.failedTests = [];
+	facts.began = null;
 	delete facts.failureAttribution;
 	delete facts.output;
 	const dirty = await worktree.uncommitted();
@@ -293,7 +294,15 @@ export async function merge(
 		worktree = await state.requireLease();
 		// Before the wait: a conflict costs the agent none of it.
 		await rebaseOntoBase();
-		await using _capacity = await runner.reserve();
+		await using _capacity = await runner.reserve(async () => {
+			facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
+		});
+		// Every step names the first, so the page folds them into one run.
+		const queued = facts.began ?? null;
+		const started = await journal?.begin("merge start", task, {
+			began: queued,
+		});
+		facts.began = queued ?? started ?? null;
 		if (runner.command) {
 			worktree = await worktree.save({ gate: "running" });
 		}

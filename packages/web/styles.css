@@ -11,6 +11,7 @@
 @source "./app.tsx";
 @source "./auto-pick-line.tsx";
 @source "./merge-failed-line.tsx";
+@source "./merge-lines.tsx";
 @source "./merge-time.tsx";
 @source "./app-pages.tsx";
 @source "./app-setup-page.tsx";

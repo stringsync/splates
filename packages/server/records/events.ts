@@ -64,6 +64,11 @@ export interface Facts {
 		/** The merge attempts it has left. */
 		attemptsLeft: number;
 		/**
+		 * Its first `merge queued` or `merge start` event, or null for a merge
+		 * refused before it reached the premerge lock; absent on older events.
+		 */
+		began?: string | null;
+		/**
 		 * The tests the gate named as failing when refused for `tests_failed`,
 		 * with what each said, so the log shows which ones fail most and why.
 		 * Empty when the runner named none.
@@ -219,8 +224,13 @@ export interface Facts {
 		tasks: number[];
 	};
 	"lane join": None;
-	/** A merge begun, logged before it runs so the page shows it at once. */
-	"merge attempt": None;
+	/** A merge waiting its turn for the machine's premerge lock. */
+	"merge queued": None;
+	/** A merge that has the premerge lock and begins its rebase and tests. */
+	"merge start": {
+		/** Its `merge queued` event, when it waited for the lock; else null. */
+		began: string | null;
+	};
 	"creds request": {
 		/** The cred asked for, as its environment variable. */
 		name: string;
@@ -390,6 +400,7 @@ export const FACTS = {
 		"capacityWaitMs",
 		"retests",
 		"output",
+		"began",
 	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
@@ -410,7 +421,8 @@ export const FACTS = {
 	"lane update": ["lane", "name", "changed"],
 	"lane remove": ["lane", "name", "tasks"],
 	"lane join": [],
-	"merge attempt": [],
+	"merge queued": [],
+	"merge start": ["began"],
 	"creds request": ["name", "asked"],
 	"creds save": [],
 	"creds remove": [],
@@ -501,6 +513,7 @@ export function isCurrent(event: Event): boolean {
 					"capacityWaitMs",
 					"retests",
 					"output",
+					"began",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

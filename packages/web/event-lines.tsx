@@ -8,6 +8,7 @@ import { type Start, useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
 import { MergeFailedLine } from "./merge-failed-line";
+import { isMergeStep, MergeLines } from "./merge-lines";
 import {
 	type Named,
 	SplatesEvent,
@@ -112,10 +113,6 @@ const LINES: {
 					words: ["Merge failed", task(event)],
 					at: event.at,
 				},
-	"merge attempt": (event) => ({
-		words: ["Merging", task(event)],
-		at: event.at,
-	}),
 	claim: (event) =>
 		event.reason === null
 			? { words: ["Claimed", task(event)], at: event.at }
@@ -292,6 +289,23 @@ function EventLine({
 	also?: Event[];
 	/** Whether the turn it came in is still going. */
 	going?: boolean;
+}): JSX.Element | null {
+	return isMergeStep(event) ? (
+		<MergeLines first={event} also={also} going={going} />
+	) : (
+		<OneLine event={event} also={also} going={going} />
+	);
+}
+
+/** The line of any event but a merge's steps. */
+function OneLine({
+	event,
+	also,
+	going,
+}: {
+	event: Event;
+	also: Event[];
+	going: boolean;
 }): JSX.Element | null {
 	// A wait under way checks each second whether it has run past its time.
 	const now = useNow(going && isWait(event) && also.length === 0);

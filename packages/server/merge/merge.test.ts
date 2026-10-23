@@ -7,6 +7,7 @@ import { Spend } from "../spend";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
+import { QUEUED_AFTER_MS } from "./gate";
 import { merge } from "./merge";
 
 // Every test here drives real git in a repo of its own, dozens of processes
@@ -493,6 +494,43 @@ describe.concurrent("merge", () => {
 		await merge(deps, worktree);
 
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(true);
+	});
+
+	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	it("logs its start, and before it that it is queued only when the premerge lock is held", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+
+		await deps.premerge.acquire();
+		const facts: Partial<Facts["merge"]> = {};
+		const merging = merge(deps, worktree, facts);
+		await Bun.sleep(QUEUED_AFTER_MS + 500);
+		await deps.premerge.release();
+		await merging;
+
+		const [queued, started] = await deps.journal.tail(2);
+		expect(queued).toMatchObject({ action: "merge queued", task: "alpha" });
+		expect(started).toMatchObject({ action: "merge start", began: queued?.id });
+		expect(facts.began).toBe(queued?.id ?? "");
+	});
+
+	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	it("logs only its start when the premerge lock is free", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, worktree, facts);
+
+		const [started] = await deps.journal.tail(1);
+		expect(started).toMatchObject({ action: "merge start", began: null });
+		expect(facts.began).toBe(started?.id ?? "");
 	});
 
 	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.

@@ -332,7 +332,6 @@ splates
 		const task = await here(ctx);
 		// Filled by `merge` as it learns each; a refusal keeps what it had.
 		const facts: Partial<Facts["merge"]> = {};
-		await ctx.journal.record("merge attempt", task, async () => {});
 		await ctx.journal.record(
 			"merge",
 			task,

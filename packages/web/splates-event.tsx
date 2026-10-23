@@ -35,7 +35,7 @@ import { LaneIcon, TaskIcon } from "./task-icon";
  * it, when it has one: a red X for a command that failed, a green check for
  * one that landed. An early warning's mark, of a conflict or an overlap, is
  * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
- * once what it waited on came. Where the line runs out of room, the names it
+ * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room, the names it
  * holds give way, each cut short and whole in its title. A burst of todos it
  * names lists each beneath, whole, with no hairlines of their own.
  */
@@ -44,13 +44,17 @@ export function SplatesEvent({
 }: {
 	event: SplatesEventView;
 }): JSX.Element | null {
-	const { deadline = null } = event;
+	const { deadline = null, since = null } = event;
 	const live = deadline !== null && !deadline.met;
-	const now = useNow(live);
+	const now = useNow(live || since !== null);
 	if (deadline?.met) {
 		return null;
 	}
-	const left = live ? Math.max(0, Date.parse(deadline.until) - now) : null;
+	const left = live
+		? Math.max(0, Date.parse(deadline.until) - now)
+		: since !== null
+			? Math.max(0, now - Date.parse(since))
+			: null;
 	const listed = event.words.flatMap((word) =>
 		typeof word !== "string" && word.kind === "todos" ? word.todos : [],
 	);
@@ -142,6 +146,8 @@ export interface SplatesEventView {
 	title?: string;
 	/** A wait it counts down in its action's place, when it has one. */
 	deadline?: Deadline | null;
+	/** When what it says began, as an ISO time, for a line counting up from it while it runs. */
+	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
 }
@@ -185,7 +191,7 @@ function Line({
 	left,
 }: {
 	event: SplatesEventView;
-	/** How long its deadline has left, in ms, while it counts; else null. */
+	/** How long its deadline has left, or since it began, in ms, while it counts; else null. */
 	left: number | null;
 }): JSX.Element {
 	const { mark = null, act = null } = event;

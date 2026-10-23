@@ -29,3 +29,9 @@ What the branch holds after a stop: a `conflict` or `merge_failed` leaves the
 rebase in progress; a `tests_failed` or `timeout` leaves the branch at the
 rebased commit the gate ran on (`testedHead`), not its pre-rebase commit. Every attempt prints
 the notes' descriptions, which gate nothing.
+
+Once it has the premerge lock, a merge logs `merge start`, and before it
+`merge queued` when the lock was not had within a second (`QUEUED_AFTER_MS`;
+a `Lock` cannot be tried without waiting). Each later step names the first in
+`began`, the final `merge` event too, so the page folds them into a queued
+line and a started line that becomes Merged or Merge failed.

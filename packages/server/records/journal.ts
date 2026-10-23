@@ -109,6 +109,18 @@ export class Journal {
 		);
 	}
 
+	/**
+	 * Logs that `action` is under way, before it ends, returning the event's
+	 * id for a later event to name as where it began.
+	 */
+	async begin<A extends "merge queued" | "merge start">(
+		action: A,
+		task: string | null,
+		facts: Facts[A],
+	): Promise<string> {
+		return this.append(action, task, null, facts);
+	}
+
 	async tail(count: number): Promise<Event[]> {
 		if (count <= 0) {
 			return [];

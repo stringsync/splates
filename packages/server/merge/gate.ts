@@ -7,6 +7,8 @@ import { PREMERGE_HELD, PREMERGE_TIMEOUT_MS } from "../server/shared";
 import type { Shell } from "../terminal";
 import type { MergeTiming } from "./timing";
 
+/** How long a merge waits for the premerge lock before its line says it is queued. */
+export const QUEUED_AFTER_MS = 1000;
 /** A hook's output and its fresh JUnit report, kept together for attribution. */
 export interface GateRun {
 	exitCode: number;
@@ -38,12 +40,28 @@ export class MergeGate {
 	 * premerge on the machine: call it before a merge takes a tree lock, and
 	 * dispose of the result once the gate and its retests are done.
 	 */
-	async reserve(): Promise<AsyncDisposable> {
+	async reserve(
+		/** Called once when the lock is not had within `QUEUED_AFTER_MS`. */
+		onQueued: () => Promise<void> = async () => {},
+	): Promise<AsyncDisposable> {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
 		}
 		using _wait = this.timing.track("capacityWaitMs");
-		await this.premerge.acquire();
+		const acquired = this.premerge.acquire().then(() => true);
+		// A `Lock` cannot be tried without waiting, so a lock not had soon is taken as held.
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const soon = await Promise.race([
+			acquired,
+			new Promise<false>((resolve) => {
+				timer = setTimeout(() => resolve(false), QUEUED_AFTER_MS);
+			}),
+		]);
+		clearTimeout(timer);
+		if (!soon) {
+			await onQueued();
+			await acquired;
+		}
 		return { [Symbol.asyncDispose]: () => this.premerge.release() };
 	}
 
