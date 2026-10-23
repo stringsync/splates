@@ -359,8 +359,7 @@ export class Tasks {
 	/**
 	 * @internal Removes one, moving those below it up to close the gap. What
 	 * came after it no longer waits on it, so no task is left naming one that
-	 * is gone, but each keeps what became of it: landed as commit `landed`,
-	 * or, without one, lost.
+	 * is gone. A merged blocker keeps the commit it landed as.
 	 */
 	async delete(id: number, landed?: string): Promise<boolean> {
 		return this.locked(async () => {
@@ -381,9 +380,7 @@ export class Tasks {
 						...state,
 						blockedBy: state.blockedBy.filter((before) => before !== id),
 						...(landed === undefined
-							? {
-									blockersLost: [...(state.blockersLost ?? []), blocker],
-								}
+							? {}
 							: {
 									blockersLanded: [
 										...(state.blockersLanded ?? []),

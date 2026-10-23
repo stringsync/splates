@@ -17,7 +17,7 @@ works it in a worktree). `groomed: true` stays on the record, so a task let
 go from the queue returns to `ready`, not `backlog`. A merged or removed task
 leaves `tasks/`; its last plan is kept in `finished/`.
 
-`blockedBy` decides readiness (`isReady`); a blocker removed without merging
-lands in `blockersLost`, and nothing starts the task until the person
-unlinks it. A running task also has a worktree name, a slug, with branch
+`blockedBy` decides readiness (`isReady`); removing a blocker automatically
+unlinks it from its dependents, without a hold for the person. Older
+`blockersLost` holds can still be unlinked with `--remove-blocked-by`. A running task also has a worktree name, a slug, with branch
 `task/<name>` and a checkout beside the repo, never inside it.

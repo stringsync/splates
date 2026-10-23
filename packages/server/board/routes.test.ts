@@ -210,11 +210,15 @@ describe("dev tasks", () => {
 		});
 	});
 
-	it("keeps a blocker removed without merging while the page's list names it", async () => {
+	it("keeps a legacy lost blocker while the page's list names it", async () => {
 		await deps.tasks.add("first", null);
 		await deps.tasks.add("second", null);
 		await deps.tasks.add("third", null, { blockedBy: [1] });
 		await (await deps.tasks.find(1)).remove();
+		await deps.tasks.revise(3, (state) => ({
+			...state,
+			blockersLost: [{ id: 1, subject: "first" }],
+		}));
 
 		await serving(deps, async (snapshot, port) => {
 			const link = (blockedBy: number[]) =>

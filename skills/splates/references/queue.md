@@ -137,9 +137,10 @@ say so with `--blocked-by` (`splates task add <subject> --blocked-by 12`, or
 `splates task update 14 --blocked-by 12`), rather than in its detail. splates
 then warns whoever takes it early, drops the link when 12 merges or is
 removed, and shows it on the board. Once 12 merges, `splates task show 14`
-names the commit it landed as; once it is removed without merging, 14 waits
-for the user, and nothing starts it until they let 12 go with
-`--remove-blocked-by 12`, which also undoes a link. Several links go in one
+names the commit it landed as; removing it without merging automatically
+clears the dependency too, without waiting for the user.
+`--remove-blocked-by 12` also undoes a link or clears a hold left by older
+versions. Several links go in one
 call, the flag repeated or a comma list: `--blocked-by 12 --blocked-by 13`, or
 `--blocked-by 12,13`.
 Link only for a real order (one needs the other's code or data), never for

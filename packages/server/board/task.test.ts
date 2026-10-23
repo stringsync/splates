@@ -473,28 +473,28 @@ describe.concurrent("task", () => {
 		);
 	});
 
-	it("holds a task whose blocker was removed for the person, until they let it go", async () => {
+	it("unlinks a removed blocker automatically and preserves other dependencies", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
-		await taskAdd(deps, "dark charts", null, { blockedBy: [1] });
+		await taskAdd(deps, "chart data", null);
+		await taskAdd(deps, "dark charts", null, { blockedBy: [1, 2] });
 
 		await taskRemove(deps, 1);
 
-		const held = await deps.tasks.find(2);
-		expect(held.state).toMatchObject({
-			blockedBy: [],
-			blockersLost: [{ id: 1, subject: "support dark mode" }],
-		});
-		expect(isReady(held.state)).toBe(false);
-		deps.log.clear();
-		await taskShow(deps, 2);
-		expect(color.strip(deps.out())).toContain(
-			"splates task update 2 --remove-blocked-by 1",
-		);
+		const waiting = await deps.tasks.find(3);
+		expect(waiting.state.blockedBy).toEqual([2]);
+		expect(waiting.state.blockersLost).toBeUndefined();
+		expect(isReady(waiting.state)).toBe(false);
 
-		const freed = await taskUpdate(deps, 2, { removeBlockedBy: [1] });
+		await taskRemove(deps, 2);
+
+		const freed = await deps.tasks.find(3);
+		expect(freed.state.blockedBy).toEqual([]);
 		expect(freed.state.blockersLost).toBeUndefined();
 		expect(isReady(freed.state)).toBe(true);
+		deps.log.clear();
+		await taskShow(deps, 3);
+		expect(color.strip(deps.out())).not.toContain("waits on you");
 	});
 
 	it("recommends the highest open task, and sets stale ones aside", async () => {

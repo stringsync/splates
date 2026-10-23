@@ -36,13 +36,12 @@ describe.concurrent("a lane queued whole", () => {
 		// Nothing new to queue: none is queued twice.
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 
-		// Removed, not merged, its follower waits for the person to let it go.
+		// Removal clears the link so the lane can queue its follower.
 		await taskRemove(deps, 1);
-		expect(await deps.tasks.queueFromLanes()).toEqual([]);
-		await taskUpdate(deps, 2, { removeBlockedBy: [1] });
+		expect(await deps.tasks.queueFromLanes()).toMatchObject([{ id: 2 }]);
 		await taskAdd(deps, "added later", null, { lane: 1 });
 		const queued = await deps.tasks.queueFromLanes();
-		expect(queued.map((task) => task.id)).toEqual([2, 4]);
+		expect(queued.map((task) => task.id)).toEqual([4]);
 	});
 
 	it("keeps its budget when a failed checkout leaves a running record untaken", async () => {

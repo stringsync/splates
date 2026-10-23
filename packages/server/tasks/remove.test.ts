@@ -88,7 +88,7 @@ describe("remove", () => {
 		expect(await remove(deps, "alpha")).toEqual({ released: [] });
 	});
 
-	it("removes every board task it took and holds tasks that depended on them", async () => {
+	it("removes every board task it took and frees tasks that depended on them", async () => {
 		const lane = await deps.tasks.addLane("Fixes");
 		const first = await deps.tasks.add("Retry on 413", null, { lane: lane.id });
 		const second = await deps.tasks.add("Log retries", null, { lane: lane.id });
@@ -106,8 +106,10 @@ describe("remove", () => {
 		]);
 		expect((await deps.tasks.find(dependent.id)).state).toMatchObject({
 			blockedBy: [],
-			blockersLost: [{ id: first.id }, { id: second.id }],
 		});
+		expect(
+			(await deps.tasks.find(dependent.id)).state.blockersLost,
+		).toBeUndefined();
 		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
 		expect((await deps.service.finished.list())[0]?.took).toEqual([
 			{ id: first.id, subject: first.subject },
