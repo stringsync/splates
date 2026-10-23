@@ -460,7 +460,10 @@ function SettingSelect({
 						? `Auto · ${settingLabel(setting, value)}`
 						: inDialog
 							? settingLabel(setting, value)
-							: settingLabel(setting, value).replace(RECOMMENDED, "")}
+							: setting.category === "mode" && value === "auto"
+								? // Bare, it reads as Auto pick's "Auto · Opus" beside it.
+									`Mode: ${settingLabel(setting, value)}`
+								: settingLabel(setting, value).replace(RECOMMENDED, "")}
 				</SelectValue>
 			</SelectTrigger>
 			<SelectContent

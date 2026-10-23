@@ -155,6 +155,22 @@ describe("composer setting controls", () => {
 		expect(combobox.querySelectorAll("clipPath")).toHaveLength(2);
 		expect(combobox.querySelector('path[fill="#D97757"]')).toBeTruthy();
 	});
+	it("names Claude's auto mode as a mode, apart from Auto pick's Auto beside it", () => {
+		const mode = {
+			...model("auto", ["Default", "Auto"]),
+			id: "mode",
+			name: "Mode",
+			category: "mode",
+		};
+		view.rerender(
+			<SettingControls
+				settings={[mode]}
+				current={(setting) => setting.current}
+				onChange={() => {}}
+			/>,
+		);
+		expect(view.getByRole("combobox").textContent).toContain("Mode: Auto");
+	});
 	it("collapses a crowded row even when its individual labels are short", () => {
 		layout.available = 80;
 		const settings = [
