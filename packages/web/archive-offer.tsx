@@ -13,7 +13,6 @@ import {
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { lineCard, touchButton } from "./board";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
 import { demoed, useLanded } from "./merged-stats";
@@ -113,7 +112,7 @@ export function CardArchive({
 				size="sm"
 				variant="outline"
 				onClick={offer.archive}
-				className={cn("gap-1.5 bg-background", touchButton)}
+				className="gap-1.5 bg-background"
 			>
 				<ArchiveIcon data-icon="inline-start" />
 				Archive
@@ -136,10 +135,7 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	return (
 		<section
 			aria-label="archive"
-			className={cn(
-				"flex items-center gap-2 rounded-lg border bg-card pl-3 text-sm shadow-xs",
-				lineCard,
-			)}
+			className="flex min-h-11 items-center gap-2 rounded-lg border bg-card py-1.5 pr-1.5 pl-3 text-sm shadow-xs"
 		>
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">
@@ -151,7 +147,7 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 					size="sm"
 					variant="outline"
 					onClick={archive}
-					className={cn("h-7 gap-1.5 bg-background", touchButton)}
+					className="gap-1.5 bg-background"
 				>
 					<ArchiveIcon data-icon="inline-start" />
 					Archive
@@ -182,7 +178,7 @@ function DemoIt({
 			size="sm"
 			variant="ghost"
 			onClick={() => void send(demoReference(task, "after"))}
-			className={cn("gap-1.5", touchButton, className)}
+			className={cn("gap-1.5", className)}
 		>
 			<PlayIcon data-icon="inline-start" />
 			Demo it

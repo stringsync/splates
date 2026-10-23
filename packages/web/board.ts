@@ -69,13 +69,6 @@ export const still = {
 export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 
 /**
- * A small button at a finger's height on a touch screen: the size a card's
- * call to action takes there, such as a review's Merge, so every button in
- * the conversation a person taps reads as one size.
- */
-export const touchButton = "pointer-coarse:h-10 pointer-coarse:px-3";
-
-/**
  * The height of a one-line card, set in `--line-card`. Put it on the card,
  * and whatever stands beside it, as a person's message in a phone's thread,
  * can use `--line-card` to match.
