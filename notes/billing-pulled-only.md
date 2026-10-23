@@ -34,3 +34,21 @@ to, counted per job: a runner's idle time in an hour is shared among the
 tasks whose jobs ran on it that hour, as `splitSpend` does. Days and months
 are UTC, as the ledger's and DigitalOcean's are. Runner dollars are US
 dollars whatever the display currency, as the price and the bill are.
+
+Fly.io has no supported API for its bill or usage (checked 2026-10-22: a
+community request of July 2026 for one went unanswered, the GraphQL
+`App.usage` field is undocumented and not enough to cost from, and `flyctl`
+has no billing command), so its source row reads Estimated (state
+`estimated`, `Provider.estimated`) with an Open bill link to the Fly
+dashboard (`Provider.dashboard`), and its months show "not billed yet"
+beside the estimate rather than a zero. A Fly runner stopped and kept
+costs only its root filesystem, so the ledger keeps `runner-stopped` and
+`runner-started` rows beside `runner` and `runner-ended`, and the made row
+carries `stoppedDollarsPerHour`: `runnersReport` cuts each life into
+running and stopped spans, a runner shows as running, stopped and kept, or
+deleted with its running and stopped time and what both cost so far, a
+day's hours count running alone and its dollars both, and stopped time
+goes to no task. The worker budget's day and month limits count the same
+storage (`WorkerBudget.slept`, a life marked `stopped`, left out of
+`running()` and the hourly rate; `counted()` is both, which reconcile
+squares with the machines).

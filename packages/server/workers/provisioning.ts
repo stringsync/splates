@@ -183,6 +183,9 @@ export class WorkerProvisioning
 			dollarsPerHour: type.dollarsPerHour,
 			...(type.cpus === undefined ? {} : { cpus: type.cpus }),
 			...(type.memory === undefined ? {} : { memory: type.memory }),
+			...(type.stoppedDollarsPerHour === undefined
+				? {}
+				: { stoppedDollarsPerHour: type.stoppedDollarsPerHour }),
 		};
 		await records.set(id, {
 			provisioned: {
@@ -310,11 +313,18 @@ export class WorkerProvisioning
 
 	/** A runner's machine stopped: it costs no more by the hour, only its storage. */
 	private async slept(id: string): Promise<void> {
-		await this.opts.budget.ended(id).catch((error: unknown) => {
+		const made = this.opts.records.of(id)?.provisioned;
+		if (!this.opts.budget.running().includes(id)) {
+			return;
+		}
+		try {
+			await this.opts.budget.slept(id, made?.stoppedDollarsPerHour ?? 0);
+			await this.keepTurn(id, "runner-stopped");
+		} catch (error) {
 			this.opts.log.error(
 				`runner ${id} could not be marked stopped: ${String(error)}`,
 			);
-		});
+		}
 	}
 
 	/** A stopped runner is started again: it counts as running from now. */
@@ -323,13 +333,14 @@ export class WorkerProvisioning
 		if (made == null || this.opts.budget.running().includes(id)) {
 			return;
 		}
-		await this.opts.budget
-			.started(id, made.type, made.dollarsPerHour)
-			.catch((error: unknown) => {
-				this.opts.log.error(
-					`runner ${id} could not be counted: ${String(error)}`,
-				);
-			});
+		try {
+			await this.opts.budget.started(id, made.type, made.dollarsPerHour);
+			await this.keepTurn(id, "runner-started");
+		} catch (error) {
+			this.opts.log.error(
+				`runner ${id} could not be counted: ${String(error)}`,
+			);
+		}
 	}
 
 	/** Destroys the machine of worker `id`, one a provider made. */
@@ -355,6 +366,21 @@ export class WorkerProvisioning
 			...(type.memory === undefined ? {} : { memory: type.memory }),
 			provider: this.opts.provider.billing ?? null,
 			dollarsPerHour,
+			...(type.stoppedDollarsPerHour === undefined
+				? {}
+				: { stoppedDollarsPerHour: type.stoppedDollarsPerHour }),
+			at: new Date(this.wall.now()).toISOString(),
+		});
+	}
+
+	/** Keeps that runner `id` stopped, or started again, now in the ledger. */
+	private async keepTurn(
+		id: string,
+		row: "runner-stopped" | "runner-started",
+	): Promise<void> {
+		await this.opts.ledger?.note({
+			row,
+			id,
 			at: new Date(this.wall.now()).toISOString(),
 		});
 	}

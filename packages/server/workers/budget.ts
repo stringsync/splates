@@ -1,9 +1,20 @@
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
-import { z } from "zod";
 import type { Document } from "../storage";
+import {
+	type BudgetHeld,
+	Kept,
+	type KeptFile,
+	type Life,
+	type WorkerRaise,
+} from "./budget-file";
 import { reached } from "./budget-notice";
 import { windowStart } from "./budget-window";
 
+export type {
+	BudgetHeld,
+	WorkerBudgetFile,
+	WorkerRaise,
+} from "./budget-file";
 export { span, windowStart } from "./budget-window";
 
 export {
@@ -273,14 +284,25 @@ export class WorkerBudget {
 	/** The ids of the workers counted as running now. */
 	running(): string[] {
 		return this.kept.lives
-			.filter((life) => life.until === null)
+			.filter((life) => life.until === null && !life.stopped)
 			.map((life) => life.id);
+	}
+
+	/** The ids of the workers counted now, running or stopped and kept. */
+	counted(): string[] {
+		return [
+			...new Set(
+				this.kept.lives
+					.filter((life) => life.until === null)
+					.map((life) => life.id),
+			),
+		];
 	}
 
 	/** What made workers running now cost an hour together. */
 	rate(): number {
 		return this.kept.lives
-			.filter((life) => life.until === null)
+			.filter((life) => life.until === null && !life.stopped)
 			.reduce((sum, life) => sum + life.dollarsPerHour, 0);
 	}
 
@@ -373,7 +395,7 @@ export class WorkerBudget {
 		return found;
 	}
 
-	/** Counts worker `id` as costing `dollarsPerHour` from now on. */
+	/** Counts worker `id` as costing `dollarsPerHour` from now on, its storage while stopped no more. */
 	async started(
 		id: string,
 		type: string,
@@ -383,15 +405,57 @@ export class WorkerBudget {
 		await this.change((kept) => ({
 			...kept,
 			lives: [
-				...this.recent(kept).filter(
-					(life) => !(life.id === id && life.until === null),
-				),
-				{ id, type, dollarsPerHour, from, until: null },
+				...this.recent(kept)
+					.filter(
+						(life) => !(life.id === id && life.until === null && !life.stopped),
+					)
+					.map((life) =>
+						life.id === id && life.until === null
+							? { ...life, until: Math.max(life.from, from) }
+							: life,
+					),
+				{ id, type, dollarsPerHour, from, until: null, stopped: false },
 			],
 		}));
 	}
 
-	/** Stops counting worker `id`, destroyed or stopped now, or at `at`; silent for one not counted. */
+	/**
+	 * Counts worker `id`, stopped now or at `at` and kept to start again, at
+	 * `stoppedDollarsPerHour`, its storage alone, until it starts or is
+	 * destroyed; silent for one not counted as running.
+	 */
+	async slept(
+		id: string,
+		stoppedDollarsPerHour: number,
+		at?: number,
+	): Promise<void> {
+		const life = this.kept.lives.find(
+			(each) => each.id === id && each.until === null && !each.stopped,
+		);
+		if (life === undefined) {
+			return;
+		}
+		await this.ended(id, at);
+		if (stoppedDollarsPerHour > 0) {
+			const from = Math.max(life.from, at ?? this.wall.now());
+			await this.change((kept) => ({
+				...kept,
+				lives: [
+					...kept.lives,
+					{
+						id,
+						type: life.type,
+						dollarsPerHour: stoppedDollarsPerHour,
+						from,
+						until: null,
+						stopped: true,
+					},
+				],
+			}));
+		}
+	}
+
+	/** Stops counting worker `id`, destroyed or stopped now, or at `at`, its storage too; silent for one not counted. */
 	async ended(id: string, at?: number): Promise<void> {
 		const until = at ?? this.wall.now();
 		if (
@@ -402,7 +466,9 @@ export class WorkerBudget {
 		await this.change((kept) => ({
 			...kept,
 			lives: kept.lives.map((life) =>
-				life.id === id && life.until === null ? { ...life, until } : life,
+				life.id === id && life.until === null
+					? { ...life, until: Math.max(life.from, until) }
+					: life,
 			),
 		}));
 	}
@@ -520,78 +586,6 @@ export class WorkerBudget {
 		await this.writing;
 	}
 }
-
-const Life = z.object({
-	/** The worker's id. */
-	id: z.string(),
-	type: z.string(),
-	/** Its provider's list price, which every figure here is an estimate from. */
-	dollarsPerHour: z.number(),
-	/** When it was made, epoch ms. */
-	from: z.number(),
-	/** When it was destroyed, epoch ms; null while it runs. */
-	until: z.number().nullable(),
-});
-
-type Life = z.infer<typeof Life>;
-
-const Held = z.object({
-	/** The root of the project it is in. */
-	project: z.string(),
-	conversation: z.string(),
-});
-
-/** A conversation a hard stop checkpointed, to carry on once the budget allows. */
-export type BudgetHeld = z.infer<typeof Held>;
-
-const Raise = z.object({
-	id: z.number().int(),
-	limit: z.enum(WORKER_LIMITS),
-	dollars: z.number(),
-	from: z.number(),
-	until: z.number(),
-});
-
-/** Dollars added to one limit for a while. */
-export type WorkerRaise = z.infer<typeof Raise>;
-
-const Kept = z.object({
-	/** Whether the user has chosen the limits, rather than left the defaults unseen. */
-	reviewed: z.boolean().default(false),
-	/** The limits set over the defaults. */
-	limits: z
-		.object({
-			hour: z.number().optional(),
-			day: z.number().optional(),
-			month: z.number().optional(),
-		})
-		.default({}),
-	/** The most runners up at once in the account, over the default. */
-	runners: z.number().int().min(0).optional(),
-	/** How long a runner runs after its last job, in seconds, over the default. */
-	idle: z.number().int().min(1).optional(),
-	/** How many stopped runners the server keeps, over the default. */
-	keptStopped: z.number().int().min(0).optional(),
-	raises: z.array(Raise).default([]),
-	/** Each made worker's life, the ledger spend is counted from. */
-	lives: z.array(Life).default([]),
-	/** The conversations a hard stop checkpointed, until the budget allows again. */
-	held: z.array(Held).default([]),
-	/** The highest tier already alerted of each limit, by the window it was in. */
-	alerted: z
-		.array(
-			z.object({
-				limit: z.enum(WORKER_LIMITS),
-				since: z.number(),
-				tier: z.number(),
-			}),
-		)
-		.default([]),
-});
-
-/** What the worker budget keeps in its document. */
-export type WorkerBudgetFile = z.infer<typeof Kept>;
-type KeptFile = WorkerBudgetFile;
 
 /** Where one limit stands. */
 export interface WorkerStanding {

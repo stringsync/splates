@@ -23,7 +23,24 @@ export interface RunnerMadeRow {
 	provider: string | null;
 	/** What it costs an hour, in US dollars, as the provider's API said when it was made. */
 	dollarsPerHour: number;
+	/** What it costs an hour while stopped, its disk alone; absent for a provider that keeps no stopped runner. */
+	stoppedDollarsPerHour?: number;
 	/** When it was asked for, as an ISO timestamp. */
+	at: string;
+}
+
+/** A runner's machine stopped, as one does `idle` after its last job, kept to start again: from here it costs only `stoppedDollarsPerHour`. */
+export interface RunnerStoppedRow {
+	row: "runner-stopped";
+	id: string;
+	/** When it stopped, as near as that is known, as an ISO timestamp. */
+	at: string;
+}
+
+/** A stopped runner's machine started again for a job: it costs `dollarsPerHour` from here. */
+export interface RunnerStartedRow {
+	row: "runner-started";
+	id: string;
 	at: string;
 }
 
@@ -54,7 +71,12 @@ export interface RunnerJobRow {
 }
 
 /** A row of the ledger that is no amount spent: runners and their jobs, which estimates are counted from. */
-export type RunnerRow = RunnerMadeRow | RunnerEndedRow | RunnerJobRow;
+export type RunnerRow =
+	| RunnerMadeRow
+	| RunnerStoppedRow
+	| RunnerStartedRow
+	| RunnerEndedRow
+	| RunnerJobRow;
 
 /** One runner's life, as the Billing page lists it. */
 export interface RunnerLife {
@@ -65,12 +87,18 @@ export interface RunnerLife {
 	size: { cpus: number; memory: number } | null;
 	provider: string | null;
 	dollarsPerHour: number;
-	/** When it was made, and destroyed, as ISO timestamps; `until` is null while it is up. */
+	/** What it costs an hour while stopped; null for a provider that keeps no stopped runner. */
+	stoppedDollarsPerHour: number | null;
+	/** Whether it runs now, is stopped and kept, or is destroyed. */
+	state: "running" | "stopped" | "destroyed";
+	/** When it was made, and destroyed, as ISO timestamps; `until` is null while it is kept. */
 	from: string;
 	until: string | null;
-	/** Hours it was up, to now for one up now. */
+	/** Hours it ran, to now for one running now. */
 	hours: number;
-	/** What it cost, an estimate at `dollarsPerHour`. */
+	/** Hours it was stopped and kept, to now for one stopped now. */
+	stoppedHours: number;
+	/** What it cost, an estimate: its running hours at `dollarsPerHour`, its stopped ones at `stoppedDollarsPerHour`. */
 	dollars: number;
 	/** How many jobs it ran, those running now included. */
 	jobs: number;
@@ -80,7 +108,9 @@ export interface RunnerLife {
 export interface RunnerPeriod {
 	/** Its first day, `2026-10-21`, or the 1st for a month, in UTC as the ledger's days are. */
 	period: string;
+	/** Hours runners ran, stopped ones not counted. */
 	hours: number;
+	/** Their running hours' dollars and their stopped ones' storage together. */
 	dollars: number;
 }
 
@@ -140,8 +170,20 @@ export function runnersReport(
 ): RunnersReport {
 	const { lives, runs, jobs, bills } = readRows(lines, running);
 	const runners: RunnerLife[] = lives
-		.map(({ row, life }) => {
-			const hours = ((life.until ?? now) - life.from) / HOUR;
+		.map(({ row, life, spans }) => {
+			let hours = 0;
+			let stoppedHours = 0;
+			let dollars = 0;
+			for (const span of spans) {
+				const spent = ((span.until ?? now) - span.from) / HOUR;
+				if (span.stopped) {
+					stoppedHours += spent;
+				} else {
+					hours += spent;
+				}
+				dollars += spent * span.dollarsPerHour;
+			}
+			const open = spans.at(-1);
 			return {
 				id: row.id,
 				type: row.type,
@@ -151,10 +193,18 @@ export function runnersReport(
 						: { cpus: row.cpus, memory: row.memory },
 				provider: row.provider,
 				dollarsPerHour: row.dollarsPerHour,
+				stoppedDollarsPerHour: row.stoppedDollarsPerHour ?? null,
+				state:
+					life.until !== null
+						? ("destroyed" as const)
+						: open?.stopped === true
+							? ("stopped" as const)
+							: ("running" as const),
 				from: row.at,
 				until: life.until === null ? null : new Date(life.until).toISOString(),
 				hours,
-				dollars: hours * row.dollarsPerHour,
+				stoppedHours,
+				dollars,
 				jobs: jobs.filter((job) => job.runner === row.id).length,
 			};
 		})
@@ -179,12 +229,12 @@ export function runnersReport(
 	const used = (since: number, until: number): RunnerPeriod => {
 		let hours = 0;
 		let dollars = 0;
-		for (const { life } of lives) {
+		for (const span of lives.flatMap(({ spans }) => spans)) {
 			const ms =
-				Math.min(life.until ?? now, until, now) - Math.max(life.from, since);
+				Math.min(span.until ?? now, until, now) - Math.max(span.from, since);
 			if (ms > 0) {
-				hours += ms / HOUR;
-				dollars += (ms / HOUR) * life.dollarsPerHour;
+				hours += span.stopped ? 0 : ms / HOUR;
+				dollars += (ms / HOUR) * span.dollarsPerHour;
 			}
 		}
 		return { period: dayOf(since), hours, dollars };
@@ -215,7 +265,7 @@ export function runnersReport(
 	const split = (since: number, until: number): RunnerSplit => ({
 		period: dayOf(since),
 		shares: splitSpend(
-			lives.map(({ life }) => life),
+			lives.flatMap(({ spans }) => spans),
 			runs,
 			since,
 			Math.min(until, now),
@@ -244,6 +294,7 @@ function readRows(
 ) {
 	const made = new Map<string, RunnerMadeRow>();
 	const ended = new Map<string, number>();
+	const turns = new Map<string, { stopped: boolean; at: number }[]>();
 	const jobs: RunnerJobRow[] = [...running];
 	const bills: SpendEntry[] = [];
 	for (const line of lines) {
@@ -260,21 +311,25 @@ function readRows(
 		} else if (line.row === "runner-ended") {
 			const at = Date.parse(line.at);
 			ended.set(line.id, Math.min(at, ended.get(line.id) ?? at));
+		} else if (line.row === "runner-stopped" || line.row === "runner-started") {
+			const each = turns.get(line.id) ?? [];
+			each.push({
+				stopped: line.row === "runner-stopped",
+				at: Date.parse(line.at),
+			});
+			turns.set(line.id, each);
 		} else {
 			jobs.push(line);
 		}
 	}
 	const lives = [...made.values()].map((row) => {
 		const from = Date.parse(row.at);
-		const until = ended.get(row.id) ?? null;
+		const ending = ended.get(row.id) ?? null;
+		const until = ending === null ? null : Math.max(from, ending);
 		return {
 			row,
-			life: {
-				id: row.id,
-				dollarsPerHour: row.dollarsPerHour,
-				from,
-				until: until === null ? null : Math.max(from, until),
-			},
+			life: { id: row.id, from, until },
+			spans: spansOf(row, from, until, turns.get(row.id) ?? []),
 		};
 	});
 	const runs = jobs.map((job) => ({
@@ -302,11 +357,63 @@ export function runnerShares(
 ): SpendShare[] {
 	const { lives, runs } = readRows(lines, running);
 	return splitSpend(
-		lives.map(({ life }) => life),
+		lives.flatMap(({ spans }) => spans),
 		runs,
 		since,
 		Math.min(until, now),
 	);
+}
+
+/** A stretch of one runner's life at one price: running, or stopped and kept. */
+interface RunnerSpan {
+	id: string;
+	stopped: boolean;
+	dollarsPerHour: number;
+	from: number;
+	until: number | null;
+}
+
+/**
+ * Runner `row`'s life from `from` to `until` cut where it stopped and
+ * started again, as `turns` say, each stretch at its price: a stop or start
+ * that changes nothing, or falls outside its life, is passed over.
+ */
+function spansOf(
+	row: RunnerMadeRow,
+	from: number,
+	until: number | null,
+	turns: readonly { stopped: boolean; at: number }[],
+): RunnerSpan[] {
+	const spans: RunnerSpan[] = [];
+	let stopped = false;
+	let since = from;
+	const close = (at: number | null) => {
+		if (at === null || at > since) {
+			spans.push({
+				id: row.id,
+				stopped,
+				dollarsPerHour: stopped
+					? (row.stoppedDollarsPerHour ?? 0)
+					: row.dollarsPerHour,
+				from: since,
+				until: at,
+			});
+		}
+	};
+	for (const turn of [...turns].sort((one, other) => one.at - other.at)) {
+		if (
+			turn.stopped === stopped ||
+			turn.at < from ||
+			(until !== null && turn.at >= until)
+		) {
+			continue;
+		}
+		close(turn.at);
+		stopped = turn.stopped;
+		since = turn.at;
+	}
+	close(until);
+	return spans;
 }
 
 const HOUR = 3_600_000;

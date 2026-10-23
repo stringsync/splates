@@ -36,9 +36,12 @@ describe("runnersReport", () => {
 				size: { cpus: 4, memory: 8 },
 				provider: "digitalocean",
 				dollarsPerHour: 0.25,
+				stoppedDollarsPerHour: null,
+				state: "running",
 				from: "2026-10-22T10:00:00.000Z",
 				until: null,
 				hours: 2,
+				stoppedHours: 0,
 				dollars: 0.5,
 				jobs: 1,
 			},
@@ -48,9 +51,12 @@ describe("runnersReport", () => {
 				size: null,
 				provider: "digitalocean",
 				dollarsPerHour: 0.5,
+				stoppedDollarsPerHour: null,
+				state: "destroyed",
 				from: "2026-10-21T10:00:00.000Z",
 				until: "2026-10-21T12:30:00.000Z",
 				hours: 2.5,
+				stoppedHours: 0,
 				dollars: 1.25,
 				jobs: 1,
 			},
@@ -73,6 +79,78 @@ describe("runnersReport", () => {
 			until: "2026-10-22T11:00:00.000Z",
 			dollarsPerHour: 0.2,
 			hours: 1,
+		});
+	});
+
+	test("counts a stopped runner's time at its storage price until it starts again, and a stopped week as its cents", () => {
+		const report = runnersReport(
+			[
+				made("r", "2026-10-14T10:00:00.000Z", 0.5, {}, STORAGE),
+				stopped("r", "2026-10-14T11:00:00.000Z"),
+				// A second stop changes nothing.
+				stopped("r", "2026-10-14T12:00:00.000Z"),
+				started("r", "2026-10-21T11:00:00.000Z"),
+				stopped("r", "2026-10-21T12:00:00.000Z"),
+			],
+			NOW,
+		);
+
+		const [runner] = report.runners;
+		expect(runner).toMatchObject({
+			state: "stopped",
+			until: null,
+			hours: 2,
+			stoppedDollarsPerHour: STORAGE,
+		});
+		expect(runner?.stoppedHours).toBeCloseTo(168 + 24);
+		expect(runner?.dollars).toBeCloseTo(1 + 192 * STORAGE);
+		expect(runner?.dollars).toBeLessThan(1.1);
+		// The day it only sat stopped costs its STORAGE, with no running hours.
+		expect(report.days.find((day) => day.period === "2026-10-17")).toEqual({
+			period: "2026-10-17",
+			hours: 0,
+			dollars: expect.closeTo(24 * STORAGE, 10),
+		});
+		// Its stopped time goes to no task.
+		expect(
+			runnerShares(
+				[
+					made("r", "2026-10-14T10:00:00.000Z", 0.5, {}, STORAGE),
+					stopped("r", "2026-10-14T11:00:00.000Z"),
+				],
+				NOW,
+				[],
+				Date.parse("2026-10-17T00:00:00.000Z"),
+				Date.parse("2026-10-18T00:00:00.000Z"),
+			),
+		).toEqual([
+			{
+				project: null,
+				task: null,
+				dollars: expect.closeTo(24 * STORAGE, 10),
+				slotHours: 0,
+				estimate: true,
+			},
+		]);
+	});
+
+	test("a runner destroyed while stopped costs nothing after", () => {
+		const report = runnersReport(
+			[
+				made("r", "2026-10-22T08:00:00.000Z", 0.5, {}, 0.01),
+				stopped("r", "2026-10-22T09:00:00.000Z"),
+				ended("r", "2026-10-22T10:00:00.000Z"),
+				// A row after its end is passed over.
+				started("r", "2026-10-22T11:00:00.000Z"),
+			],
+			NOW,
+		);
+
+		expect(report.runners[0]).toMatchObject({
+			state: "destroyed",
+			hours: 1,
+			stoppedHours: 1,
+			dollars: 0.51,
 		});
 	});
 
@@ -212,6 +290,7 @@ const made = (
 	at: string,
 	dollarsPerHour = 0.5,
 	size: { cpus?: number; memory?: number } = {},
+	stoppedDollarsPerHour?: number,
 ): RunnerRow => ({
 	row: "runner",
 	id,
@@ -219,6 +298,19 @@ const made = (
 	...size,
 	provider: "digitalocean",
 	dollarsPerHour,
+	...(stoppedDollarsPerHour === undefined ? {} : { stoppedDollarsPerHour }),
+	at,
+});
+
+const stopped = (id: string, at: string): RunnerRow => ({
+	row: "runner-stopped",
+	id,
+	at,
+});
+
+const started = (id: string, at: string): RunnerRow => ({
+	row: "runner-started",
+	id,
 	at,
 });
 
@@ -256,5 +348,8 @@ const bill = (at: string, dollars: number): SpendEntry => ({
 	conversation: null,
 	ref: `digitalocean:${at}`,
 });
+
+/** A 2 GB disk at $0.15 per GB a month, by the hour. */
+const STORAGE = (2 * 0.15) / 730;
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");

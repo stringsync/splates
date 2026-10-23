@@ -4,14 +4,6 @@ import { createContext, useContext } from "react";
 /** The currency the Billing page's amounts are in. */
 export const Currency = createContext("USD");
 
-const money = (amount: number, currency: string, cents: boolean): string =>
-	new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency,
-		minimumFractionDigits: cents || !Number.isInteger(amount) ? 2 : 0,
-		maximumFractionDigits: 2,
-	}).format(amount);
-
 /**
  * Formats an amount in the page's currency; with `cents`, a whole amount
  * keeps its `.00` too, so a column of them lines up.
@@ -148,8 +140,17 @@ const NAMES: Record<string, string> = {
 	opencode: "OpenCode",
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",
+	fly: "Fly.io",
 	typesafe: "TypeSafe",
 };
 
 /** A provider's name as people write it. */
 export const nameOf = (provider: string): string => NAMES[provider] ?? provider;
+
+const money = (amount: number, currency: string, cents: boolean): string =>
+	new Intl.NumberFormat("en-US", {
+		style: "currency",
+		currency,
+		minimumFractionDigits: cents || !Number.isInteger(amount) ? 2 : 0,
+		maximumFractionDigits: 2,
+	}).format(amount);

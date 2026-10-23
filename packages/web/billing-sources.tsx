@@ -72,6 +72,11 @@ const STATES: Record<
 		dot: "bg-success",
 		text: "text-success",
 	},
+	estimated: {
+		label: "Estimated",
+		dot: "bg-warning",
+		text: "text-warning",
+	},
 	untracked: {
 		label: "Not tracked yet",
 		dot: "bg-muted-foreground",
@@ -132,6 +137,17 @@ function SourceRow({
 						className={buttonVariants({ size: "sm" })}
 					>
 						Fix token
+					</a>
+				)}
+				{source.dashboard !== null && (
+					<a
+						href={source.dashboard}
+						target="_blank"
+						rel="noreferrer"
+						aria-label={`Open ${nameOf(source.provider)}'s billing`}
+						className={buttonVariants({ variant: "outline", size: "sm" })}
+					>
+						Open bill
 					</a>
 				)}
 				{source.state === "unreachable" && (

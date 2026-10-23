@@ -80,6 +80,7 @@ export function RunnersSection(): JSX.Element {
 				<>
 					<RunnerList
 						runners={all ? report.runners : report.runners.slice(0, NEWEST)}
+						updated={report.updated}
 						stopping={stopping}
 						refusals={refusals}
 						onStop={(id) =>
@@ -131,14 +132,17 @@ function RunnerImages({ images }: { images: RunnerImage[] }): JSX.Element {
 	);
 }
 
-/** Each runner, the newest first, a running one with Delete. */
+/** Each runner, the newest first, running or stopped and kept with what it cost so far, a kept one with Delete. */
 function RunnerList({
 	runners,
+	updated,
 	stopping,
 	refusals,
 	onStop,
 }: {
 	runners: RunnerLife[];
+	/** When the report was read, which a kept runner's time ticks on from. */
+	updated: string;
 	stopping: ReadonlySet<string>;
 	refusals: ReadonlyMap<string, string>;
 	onStop: (id: string) => void;
@@ -151,9 +155,18 @@ function RunnerList({
 		>
 			{runners.map((runner) => {
 				const up = runner.until === null;
-				const hours = up
-					? Math.max(0, now - Date.parse(runner.from)) / HOUR
-					: runner.hours;
+				const since = Math.max(0, now - Date.parse(updated)) / HOUR;
+				const hours = runner.hours + (runner.state === "running" ? since : 0);
+				const stoppedHours =
+					runner.stoppedHours + (runner.state === "stopped" ? since : 0);
+				const cost =
+					runner.dollars +
+					since *
+						(runner.state === "running"
+							? runner.dollarsPerHour
+							: runner.state === "stopped"
+								? (runner.stoppedDollarsPerHour ?? 0)
+								: 0);
 				return (
 					<li
 						key={runner.id}
@@ -172,22 +185,31 @@ function RunnerList({
 						</span>
 						<span className="flex min-w-44 flex-col text-xs tabular-nums">
 							<span>Started {when(runner.from)}</span>
-							{up ? (
-								<span className="text-primary">
-									{stopping.has(runner.id)
-										? "Deleting…"
-										: `up now, ${span(hours)}`}
+							{stopping.has(runner.id) ? (
+								<span className="text-primary">Deleting…</span>
+							) : runner.state === "running" ? (
+								<span className="text-primary">running now</span>
+							) : runner.state === "stopped" ? (
+								<span className="text-muted-foreground">
+									stopped, kept
+									{runner.stoppedDollarsPerHour !== null &&
+										` at ${dollars(runner.stoppedDollarsPerHour * 730)}/month`}
 								</span>
 							) : (
 								<span className="text-muted-foreground">
-									Stopped {when(runner.until ?? runner.from)}
+									Deleted {when(runner.until ?? runner.from)}
 								</span>
 							)}
 						</span>
-						<span className="tabular-nums">{hours.toFixed(2)} h</span>
-						<span className="font-medium tabular-nums">
-							{dollars(hours * runner.dollarsPerHour)}
+						<span className="flex flex-col text-xs tabular-nums">
+							<span>{span(hours)} running</span>
+							{stoppedHours > 0 && (
+								<span className="text-muted-foreground">
+									{span(stoppedHours)} stopped
+								</span>
+							)}
 						</span>
+						<span className="font-medium tabular-nums">{dollars(cost)}</span>
 						<span className="text-muted-foreground text-xs tabular-nums">
 							{runner.jobs} {runner.jobs === 1 ? "job" : "jobs"}
 							{runner.size === null && ` · ${dollars(runner.dollarsPerHour)}/h`}
@@ -489,6 +511,9 @@ function when(at: string): string {
 /** Hours as `2h 14m`, or `40m` under an hour. */
 function span(hours: number): string {
 	const minutes = Math.floor(hours * 60);
+	if (minutes >= 48 * 60) {
+		return `${Math.floor(minutes / 1440)}d ${Math.floor((minutes % 1440) / 60)}h`;
+	}
 	return minutes < 60
 		? `${minutes}m`
 		: `${Math.floor(minutes / 60)}h ${minutes % 60}m`;

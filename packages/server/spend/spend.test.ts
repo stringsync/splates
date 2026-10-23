@@ -115,6 +115,7 @@ describe("spend", () => {
 			["openai", "ok"],
 			["cloudflare", "unreachable"],
 			["digitalocean", "missing"],
+			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);
 		expect(statuses[1]?.message).toBe("api.cloudflare.com answered 500");
@@ -167,7 +168,7 @@ describe("spend", () => {
 		expect(down.rateError).not.toBeNull();
 	});
 
-	test("before any pull, the sources show TypeSafe counted", async () => {
+	test("before any pull, the sources show TypeSafe counted and Fly.io estimated", async () => {
 		const routes = new BillingRoutes(storage, spend, async () => undefined);
 		const view = (await (await routes.read()).json()) as {
 			providers: { provider: string; state: string }[];
@@ -176,6 +177,7 @@ describe("spend", () => {
 			["openai", "ok"],
 			["cloudflare", "ok"],
 			["digitalocean", "ok"],
+			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);
 	});

@@ -163,6 +163,7 @@ export class DirectRunners {
 		const settled: string[] = [];
 		const budget = await this.deps.budget();
 		const counted = new Set(budget.running());
+		const sizes = await this.sizes();
 		for (const machine of await this.machines()) {
 			const name = nameOf(machine);
 			if (!counted.has(name) || !ASLEEP.includes(machine.state)) {
@@ -173,7 +174,12 @@ export class DirectRunners {
 				this.wall.now(),
 				(used ?? createdAt(machine)) + budget.runnerIdle().ms,
 			);
-			await budget.ended(name, stopped);
+			await budget.slept(
+				name,
+				sizes.get(sizeOf(machine))?.stoppedDollarsPerHour ?? 0,
+				stopped,
+			);
+			await this.keep("runner-stopped", name, stopped);
 			settled.push(name);
 		}
 		return settled;
@@ -354,7 +360,19 @@ export class DirectRunners {
 		const size = (await this.sizes()).get(sizeOf(machine));
 		if (size !== undefined && !budget.running().includes(name)) {
 			await budget.started(name, size.name, size.dollarsPerHour);
+			await this.keep("runner-started", name);
 		}
+	}
+
+	/** Keeps that runner `id` stopped, started again or was deleted, at `at` or now, in the ledger. */
+	private async keep(
+		row: "runner-stopped" | "runner-started" | "runner-ended",
+		id: string,
+		at = this.wall.now(),
+	): Promise<void> {
+		await this.deps.ledger
+			?.note({ row, id, at: new Date(at).toISOString() })
+			.catch(() => {});
 	}
 
 	/** Makes a runner of `type`, counted in the budget and the ledger from now. */
@@ -374,6 +392,7 @@ export class DirectRunners {
 				memory: type.memory,
 				provider: "fly",
 				dollarsPerHour: type.dollarsPerHour,
+				stoppedDollarsPerHour: type.stoppedDollarsPerHour,
 				at: new Date(this.wall.now()).toISOString(),
 			})
 			.catch(() => {});
@@ -385,13 +404,7 @@ export class DirectRunners {
 		await this.claims.forget(machine.id);
 		const name = nameOf(machine);
 		await (await this.deps.budget()).ended(name);
-		await this.deps.ledger
-			?.note({
-				row: "runner-ended",
-				id: name,
-				at: new Date(this.wall.now()).toISOString(),
-			})
-			.catch(() => {});
+		await this.keep("runner-ended", name);
 	}
 
 	private async state(machine: FlyMachine): Promise<string> {

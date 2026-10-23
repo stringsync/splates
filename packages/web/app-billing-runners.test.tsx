@@ -17,11 +17,29 @@ describe("App's billing runners", () => {
 					size: { cpus: 16, memory: 32 },
 					provider: "digitalocean",
 					dollarsPerHour: 0.5,
+					stoppedDollarsPerHour: null,
+					state: "running",
 					from: up,
 					until: null,
-					hours: 2.2,
+					hours: (2 * 60 + 14) / 60,
+					stoppedHours: 0,
 					dollars: 1.1,
 					jobs: 3,
+				},
+				{
+					id: "fly-kept",
+					type: "shared-cpu-4x-8gb",
+					size: { cpus: 4, memory: 8 },
+					provider: "fly",
+					dollarsPerHour: 0.07,
+					stoppedDollarsPerHour: 0.3 / 730,
+					state: "stopped",
+					from: "2026-10-14T10:00:00.000Z",
+					until: null,
+					hours: 1,
+					stoppedHours: 7 * 24,
+					dollars: 0.07 + (7 * 24 * 0.3) / 730,
+					jobs: 2,
 				},
 				{
 					id: "c-16-old",
@@ -29,9 +47,12 @@ describe("App's billing runners", () => {
 					size: null,
 					provider: "digitalocean",
 					dollarsPerHour: 0.5,
+					stoppedDollarsPerHour: null,
+					state: "destroyed",
 					from: "2026-09-30T10:00:00.000Z",
 					until: "2026-09-30T14:00:00.000Z",
 					hours: 4,
+					stoppedHours: 0,
 					dollars: 2,
 					jobs: 7,
 				},
@@ -91,11 +112,12 @@ describe("App's billing runners", () => {
 		const old = view.getByLabelText("c-16-old");
 
 		expect(up.textContent).toContain("16 CPUs, 32 GB, $0.50/h");
-		expect(up.textContent).toContain("up now, 2h 14m");
+		expect(up.textContent).toContain("running now");
+		expect(up.textContent).toContain("2h 14m running");
 		expect(up.textContent).toContain("3 jobs");
 		expect(old.textContent).toContain("c-16");
 		expect(old.textContent).toContain("7 jobs · $0.50/h");
-		expect(old.textContent).toContain("Stopped");
+		expect(old.textContent).toContain("Deleted");
 		expect(old.textContent).toContain("$2.00");
 		expect(within(old).queryByRole("button", { name: /Delete/ })).toBeNull();
 
@@ -109,6 +131,16 @@ describe("App's billing runners", () => {
 				.filter(({ path }) => path.startsWith("/api/workers"))
 				.map(({ path, method }) => [path, method]),
 		).toEqual([["/api/workers/c-16-up", "DELETE"]]);
+	});
+
+	it("lists a stopped runner kept, with its stopped time and what its disk costs", async () => {
+		const view = await open();
+		const kept = view.getByLabelText("fly-kept");
+
+		expect(kept.textContent).toContain("stopped, kept at $0.30/month");
+		expect(kept.textContent).toContain("1h 0m running");
+		expect(kept.textContent).toContain("7d 0h stopped");
+		expect(kept.textContent).toContain("$0.139");
 	});
 
 	it("lists the runner image with its size and monthly cost", async () => {

@@ -36,6 +36,13 @@ export interface Provider {
 	 * pull: what to say on its row.
 	 */
 	counted?: string;
+	/**
+	 * Set for a provider with no bill to pull, whose cost splates estimates
+	 * itself from list prices: what to say on its row.
+	 */
+	estimated?: string;
+	/** Where the provider's own billing page is, for a row to link to. */
+	dashboard?: string;
 	pull?(sources: Sources, token: string): Promise<Charge[]>;
 }
 
@@ -44,6 +51,13 @@ export const PROVIDERS: readonly Provider[] = [
 	openai,
 	cloudflare,
 	digitalocean,
+	{
+		id: "fly",
+		cred: null,
+		estimated:
+			"Fly.io has no API for its bill, so runners are estimated from its list prices: running time, and a stopped runner's disk",
+		dashboard: "https://fly.io/dashboard",
+	},
 	{
 		id: "typesafe",
 		cred: null,

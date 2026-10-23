@@ -87,6 +87,30 @@ describe("WorkerBudget", () => {
 		expect(budget.rate()).toBe(0);
 	});
 
+	it("counts a stopped worker's storage, not as running, until it starts again or is destroyed", async () => {
+		const wall = clock();
+		const budget = WorkerBudget.memory(wall);
+
+		await budget.started("fly-1", "shared-cpu-4x-8gb", 0.1);
+		wall.advance(Duration.hrs(1));
+		await budget.slept("fly-1", 0.01, wall.now() - Duration.mins(30).ms);
+		expect(budget.running()).toEqual([]);
+		expect(budget.counted()).toEqual(["fly-1"]);
+		expect(budget.rate()).toBe(0);
+		wall.advance(Duration.hrs(2));
+		await budget.started("fly-1", "shared-cpu-4x-8gb", 0.1);
+		wall.advance(Duration.hrs(1));
+		await budget.slept("fly-1", 0.01);
+		wall.advance(Duration.hrs(1));
+		await budget.ended("fly-1");
+		wall.advance(Duration.hrs(5));
+
+		const [, day] = budget.standing();
+		// Half an hour running, 2.5 h stopped, 1 h running, 1 h stopped.
+		expect(day?.spent).toBeCloseTo(1.5 * 0.1 + 3.5 * 0.01);
+		expect(budget.counted()).toEqual([]);
+	});
+
 	it("counts only the part of a life within the window", async () => {
 		const wall = clock();
 		wall.set(new Date(2026, 9, 17, 23, 0).getTime());

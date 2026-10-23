@@ -26,6 +26,8 @@ export interface FlySize {
 	memory: number;
 	cpuKind: "shared" | "performance";
 	dollarsPerHour: number;
+	/** What one costs an hour while stopped, its root filesystem alone, an estimate at `RUNNER_ROOTFS_GB`. */
+	stoppedDollarsPerHour: number;
 	billing: "second";
 }
 

@@ -17,6 +17,7 @@ describe("App's billing sources", () => {
 					message: "needs OPENAI_ADMIN_KEY",
 					added: 0,
 					cred: "OPENAI_ADMIN_KEY",
+					dashboard: null,
 				},
 				{
 					provider: "cloudflare",
@@ -24,6 +25,7 @@ describe("App's billing sources", () => {
 					message: "api.cloudflare.com answered 500",
 					added: 0,
 					cred: "CLOUDFLARE_API_TOKEN",
+					dashboard: null,
 				},
 				{
 					provider: "typesafe",
@@ -32,6 +34,16 @@ describe("App's billing sources", () => {
 						"Priced from the tokens each of splates's own Jev calls uses; other apps on the same key are not counted",
 					added: 0,
 					cred: null,
+					dashboard: null,
+				},
+				{
+					provider: "fly",
+					state: "estimated",
+					message:
+						"Fly.io has no API for its bill, so runners are estimated from its list prices",
+					added: 0,
+					cred: null,
+					dashboard: "https://fly.io/dashboard",
 				},
 			],
 		};
@@ -78,6 +90,12 @@ describe("App's billing sources", () => {
 		expect(
 			view.getByText(/other apps on the same key are not counted$/),
 		).toBeTruthy();
+		expect(view.getByText("Estimated")).toBeTruthy();
+		expect(
+			view
+				.getByRole("link", { name: "Open Fly.io's billing" })
+				.getAttribute("href"),
+		).toBe("https://fly.io/dashboard");
 		await waitFor(() => view.getByText(/rate of each day/));
 		expect(view.getByText(/2026-10-20/)).toBeTruthy();
 		expect(view.getAllByText("€3").length).toBeGreaterThan(0);
@@ -100,6 +118,7 @@ describe("App's billing sources", () => {
 					message: "",
 					added: 2,
 					cred: "CLOUDFLARE_API_TOKEN",
+					dashboard: null,
 				},
 			],
 		};

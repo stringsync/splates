@@ -279,6 +279,8 @@ const Record = z.object({
 			/** Its type's CPUs and memory in GB, the room it brings for jobs once joined; absent where unknown. */
 			cpus: z.number().optional(),
 			memory: z.number().optional(),
+			/** What it costs an hour stopped and kept, its disk alone; absent for a provider that keeps none. */
+			stoppedDollarsPerHour: z.number().optional(),
 		})
 		.nullable()
 		.default(null),

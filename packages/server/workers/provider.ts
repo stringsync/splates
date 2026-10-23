@@ -31,6 +31,8 @@ export interface WorkerType {
 	dollarsPerHour: number;
 	/** What one costs per hour on spot, in US dollars, for a provider with a spot market; absent for none. */
 	spotDollarsPerHour?: number;
+	/** What one costs per hour while stopped and kept, its disk alone, in US dollars; absent for a provider that keeps no stopped worker. */
+	stoppedDollarsPerHour?: number;
 	/**
 	 * How the provider bills a worker of this type: `"hour"` for each started
 	 * hour in full from its creation until it is destroyed, so one idle past

@@ -1,5 +1,16 @@
 import type { FlySize } from "./fly-types";
 
+/** What Fly bills a stopped machine's root filesystem, its one cost while stopped: $0.15 per GB a month (https://fly.io/docs/about/pricing/). */
+export const FLY_ROOTFS_DOLLARS_PER_GB_MONTH = 0.15;
+
+/**
+ * The root filesystem a runner is billed for while stopped, in GB, an
+ * estimate: Fly sizes it from the image, the generic Debian runner image
+ * with build tools and mise, plus what `persist_rootfs` keeps of the clone
+ * and its dependencies. Fly's API does not say.
+ */
+export const RUNNER_ROOTFS_GB = 2;
+
 /** Base-region USD list prices from https://fly.io/pricing/ (October 2026); extra RAM is $6/GB per 730 hours. */
 export const FLY_SIZES: readonly FlySize[] = presets();
 
@@ -53,6 +64,8 @@ function presets(): FlySize[] {
 					memory,
 					cpuKind: kind,
 					dollarsPerHour: price + ((memory - baseMemory) * 6) / 730,
+					stoppedDollarsPerHour:
+						(RUNNER_ROOTFS_GB * FLY_ROOTFS_DOLLARS_PER_GB_MONTH) / 730,
 					billing: "second",
 				});
 			}

@@ -147,8 +147,12 @@ refusals become `TypeRefused`; authentication failures remain API errors.
 `FLY_SIZES` is a local table of the shared and performance presets with
 memory choices. Prices use the [October 2026 base-region list](https://fly.io/pricing/),
 including $6/GB/month for extra RAM, converted with 730 hours/month. Regional
-multipliers, rootfs storage and traffic are not included in the compute
-estimate. `runnerSizes` filters by CPUs and memory and sorts by that hourly
+multipliers and traffic are not included in the compute estimate. Each
+size's `stoppedDollarsPerHour` is a stopped machine's rootfs at $0.15 per GB
+a month over 730 hours, for `RUNNER_ROOTFS_GB` (2 GB), an estimate, since
+Fly sizes the rootfs from the image and its API does not say; Billing and
+the budget count it from stop to start or destroy
+(`billing-pulled-only.md`). `runnerSizes` filters by CPUs and memory and sorts by that hourly
 price; the default 4 CPU, 8 GB job picks `shared-cpu-4x-8gb`.
 
 `FakeFlyCloud` is available from `cloud/testing`, both as the lifecycle seam

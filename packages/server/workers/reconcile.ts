@@ -70,7 +70,7 @@ export class ProviderReconciler {
 		const { provider, log, direct, budget } = this.opts;
 		// Read before the machines are listed, so a life begun meanwhile is not
 		// taken for one with no machine.
-		const lives = budget.running();
+		const lives = budget.counted();
 		const machines = await provider.list();
 		const gone = await this.forgetGone(
 			new Set(machines.map((machine) => machine.id)),
@@ -93,7 +93,7 @@ export class ProviderReconciler {
 	}
 
 	/**
-	 * Ends each of `lives` the budget counts as running with no machine
+	 * Ends each of `lives` the budget counts, running or stopped, with no machine
 	 * behind it: neither a worker's record, a machine the provider lists, nor
 	 * a runner of `runners`, null where they are not looked at, in which case
 	 * a runner's life is left alone; `forgotten` are ended already.

@@ -13,9 +13,16 @@ export interface ProviderStatus {
 	provider: string;
 	/**
 	 * `ok` pulled, `missing` has no cred, `unreachable` failed, `untracked`
-	 * not counted yet, `counted` counted by splates as it is used.
+	 * not counted yet, `counted` counted by splates as it is used,
+	 * `estimated` estimated by splates from list prices, with no bill to pull.
 	 */
-	state: "ok" | "missing" | "unreachable" | "untracked" | "counted";
+	state:
+		| "ok"
+		| "missing"
+		| "unreachable"
+		| "untracked"
+		| "counted"
+		| "estimated";
 	/** What to tell the user; empty for `ok`. */
 	message: string;
 	/** How many new charges the pull added. */
@@ -134,6 +141,9 @@ export function unpulledStatus(provider: Provider): ProviderStatus | null {
 	});
 	if (provider.counted !== undefined) {
 		return status("counted", provider.counted);
+	}
+	if (provider.estimated !== undefined) {
+		return status("estimated", provider.estimated);
 	}
 	if (provider.pull === undefined || provider.cred === null) {
 		return status(

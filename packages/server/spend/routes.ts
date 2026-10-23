@@ -21,7 +21,11 @@ export interface BillingView {
 	/** When providers were last pulled, or null before the first pull. */
 	pulledAt: string | null;
 	/** Each provider, with the cred it reads and how its last pull went. */
-	providers: (ProviderStatus & { cred: string | null })[];
+	providers: (ProviderStatus & {
+		cred: string | null;
+		/** Where the provider's own billing page is; null for none. */
+		dashboard: string | null;
+	})[];
 }
 
 /** What runs on runners now, which the ledger keeps a job of once it ends. */
@@ -78,6 +82,7 @@ export class BillingRoutes {
 						added: 0,
 					}),
 				cred: provider.cred,
+				dashboard: provider.dashboard ?? null,
 			})),
 		};
 	}

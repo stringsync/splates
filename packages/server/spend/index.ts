@@ -16,6 +16,8 @@ export type {
 	RunnerPeriod,
 	RunnerRow,
 	RunnerSplit,
+	RunnerStartedRow,
+	RunnerStoppedRow,
 	RunnersReport,
 } from "./runners";
 export { RUNNER_DAYS, runnerShares, runnersReport } from "./runners";

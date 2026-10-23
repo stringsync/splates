@@ -7,6 +7,7 @@ import { FakeWallClock } from "webappwiz/time/testing";
 import { FLY_SIZES, FlyRunners, type FlySize } from "../cloud";
 import { RUNNER_SECRET } from "../cloud/fly-runners";
 import { FakeFlyCloud } from "../cloud/testing";
+import type { RunnerRow } from "../spend";
 import { Testing } from "../testing";
 import { WorkerBudget } from "./budget";
 import { DIRECT_TAG, DirectRunners } from "./direct";
@@ -63,10 +64,11 @@ describe("DirectRunners", () => {
 			hostname: "127.0.0.1",
 		});
 		fake.address = `http://127.0.0.1:${server.port}`;
+		const noted: RunnerRow[] = [];
 		const runners = new DirectRunners({
 			runners: made,
 			budget: async () => budget,
-			ledger: null,
+			ledger: { note: async (...rows) => void noted.push(...rows) },
 			snapshot: new JobSnapshot(deps.git),
 			lock: {
 				acquire: async () => {},
@@ -102,6 +104,12 @@ describe("DirectRunners", () => {
 		await fake.stop(machine.id);
 		expect(await runners.settle()).toEqual(["splates-run-one"]);
 		expect(budget.running()).toEqual([]);
+		// Its disk is still counted, and the ledger has when it ran and stopped.
+		expect(budget.counted()).toEqual(["splates-run-one"]);
+		expect(noted.map((row) => [row.row, row.at])).toEqual([
+			["runner-started", "2026-01-01T00:00:00.000Z"],
+			["runner-stopped", "2026-01-01T00:10:00.000Z"],
+		]);
 		expect(await fake.list()).toHaveLength(1);
 	}, 15000);
 
