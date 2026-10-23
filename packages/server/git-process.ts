@@ -43,7 +43,10 @@ export function processGit(ps: Pick<Ps, "start">): GitRunner {
 				child.exited,
 				new Response(child.stdout).text(),
 				new Response(child.stderr).text(),
-				child.stdin.close(),
+				// Nothing is written to git, so closing stdin only says so. A git
+				// that exits before the close lands rejects it with a premature
+				// close, which is no failure of the command.
+				child.stdin.close().catch(() => undefined),
 			]);
 			return { code: exitCode, stdout, stderr };
 		},

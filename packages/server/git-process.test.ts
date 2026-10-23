@@ -40,6 +40,22 @@ describe("processGit", () => {
 		expect(ps.input.locked).toBe(false);
 	});
 
+	it("returns the output when git exits before its stdin closes", async () => {
+		const ps = new DrainingProcess();
+		const input = new WritableStream<Uint8Array>({
+			close() {
+				throw new Error("Premature close");
+			},
+		});
+		const child = ps.start();
+		const result = processGit({
+			start: () => ({ ...child, stdin: input }),
+		}).git("/repo", ["rev-parse"]);
+		await ps.output.writable.close();
+		await ps.errors.writable.close();
+		expect(await result).toEqual({ code: 0, stdout: "", stderr: "" });
+	});
+
 	it("rejects a successful git response with an empty common directory", async () => {
 		const git = new Git("/repo", {
 			run: { git: async () => ({ code: 0, stdout: " \n", stderr: "" }) },
