@@ -41,7 +41,6 @@ export function AppNav({
 	terminals,
 	drafts,
 	sidebar,
-	dimmed,
 }: {
 	/** Whether `splates server` holds conversations. */
 	available: boolean;
@@ -58,8 +57,6 @@ export function AppNav({
 	terminals: Terminals;
 	drafts: Drafts;
 	sidebar: Sidebar;
-	/** Whether the page is dimmed, as its content is. */
-	dimmed: boolean;
 }): JSX.Element {
 	const held = useHeld();
 	const pages = useNavPages();
@@ -88,8 +85,6 @@ export function AppNav({
 				variant="line"
 				className={cn(
 					"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-(--top-bar-height) group-data-vertical/tabs:h-dvh",
-					"transition-opacity duration-300",
-					dimmed && "opacity-60",
 					!shown && "hidden",
 				)}
 			>

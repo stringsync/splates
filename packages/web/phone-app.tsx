@@ -6,10 +6,9 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 } from "#web/components/ui/dropdown-menu.tsx";
-import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { OfflinePill, useDimmed, useFreshness } from "./freshness";
+import { OfflinePill, useFreshness } from "./freshness";
 import { MergeBadge } from "./merge-badge";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import { orphanCount } from "./orphans";
@@ -88,8 +87,6 @@ export function PhoneApp({
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
 	// The drawer's header says more, as why the server is outdated.
 	const { unreachable } = useFreshness();
-	// An open thread takes no input while locked, and dims once it has been a moment.
-	const dimmed = useDimmed();
 	const status =
 		offline || unreachable ? (
 			<OfflinePill />
@@ -130,10 +127,7 @@ export function PhoneApp({
 					<Screen
 						// A thread reaches across the right padding, so its scrollbar
 						// sits at the screen's edge (`--thread-bleed-end`).
-						className={cn(
-							"px-1 transition-opacity duration-300 [--thread-bleed-end:--spacing(1)]",
-							dimmed && "opacity-60",
-						)}
+						className="px-1 [--thread-bleed-end:--spacing(1)]"
 					>
 						{/* Every conversation's way back counts how many others wait. */}
 						<TopBarFrame

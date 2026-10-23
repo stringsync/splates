@@ -1,5 +1,4 @@
 import { useReactive } from "@webappwiz/react";
-import { LoaderCircleIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -12,7 +11,6 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
-import { Countdown } from "./countdown";
 import type { Feed } from "./feed";
 import { STATUS_PILL } from "./status-pill";
 
@@ -29,18 +27,12 @@ export interface Freshness {
 	unreachable: boolean;
 	/** Stale and reachable: the page takes no input. */
 	locked: boolean;
-	/** While locked, when the page stops waiting and unlocks, in `Date.now()` ms. */
-	givesUpAt: number | null;
-	/** How long the page waits in all, from going stale to giving up, in ms. */
-	waitsMs: number;
 }
 
 const FRESH: Freshness = {
 	stale: false,
 	unreachable: false,
 	locked: false,
-	givesUpAt: null,
-	waitsMs: 0,
 };
 
 /** Fresh unless given, so a part drawn without the page works as it is. */
@@ -66,29 +58,19 @@ export function useFeedsFreshness(
 	const stale = !snapshot.fresh || !listing.fresh;
 	// Counted here as well as by `feed`, which counts only its own failures.
 	const [waited, setWaited] = useState(false);
-	const [since, setSince] = useState<number | null>(null);
 	useEffect(() => {
 		setWaited(false);
 		if (!stale) {
-			setSince(null);
 			return;
 		}
-		setSince(Date.now());
 		const waiting = setTimeout(() => setWaited(true), feed.offlineAfter.ms);
 		return () => clearTimeout(waiting);
 	}, [stale, feed]);
 	const unreachable = stale && (waited || snapshot.offline);
 	const locked = stale && !unreachable;
-	const waitsMs = feed.offlineAfter.ms;
 	return useMemo(
-		() => ({
-			stale,
-			unreachable,
-			locked,
-			givesUpAt: locked && since !== null ? since + waitsMs : null,
-			waitsMs,
-		}),
-		[stale, unreachable, locked, since, waitsMs],
+		() => ({ stale, unreachable, locked }),
+		[stale, unreachable, locked],
 	);
 }
 
@@ -142,31 +124,9 @@ export function InboxLoading({
 
 /**
  * The inbox's rows, kept but `inert` while the page is locked, so nothing is
- * opened or answered on what has moved, and dimmed once it has been a moment.
+ * opened or answered on what has moved.
  */
 export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
-	const { locked } = useFreshness();
-	const dimmed = useDimmed();
-	return (
-		<div
-			inert={locked}
-			aria-busy={locked}
-			// Each row dims, the `contents` box taking no opacity of its own.
-			className={cn(
-				"contents *:transition-opacity *:duration-300",
-				dimmed && "*:opacity-60",
-			)}
-		>
-			{children}
-		</div>
-	);
-}
-
-/**
- * `children`, taking no input while the page is locked, so an answer or an
- * archive is never made on what has moved; the page dims around it to say why.
- */
-export function Locked({ children }: { children: ReactNode }): JSX.Element {
 	const { locked } = useFreshness();
 	return (
 		<div inert={locked} aria-busy={locked} className="contents">
@@ -175,68 +135,16 @@ export function Locked({ children }: { children: ReactNode }): JSX.Element {
 	);
 }
 
-// How long the page may be stale before it says so, so a wake the server
-// answers at once never flashes it.
-const SAY_AFTER_MS = 300;
-
 /**
- * Whether the page says it may be stale: once it has been stale a moment, or
- * at once when the server cannot be reached.
+ * `children`, taking no input while the page is locked, so an answer or an
+ * archive is never made on what has moved.
  */
-export function useSaysStale(): boolean {
-	const { stale, unreachable } = useFreshness();
-	const [waited, setWaited] = useState(false);
-	useEffect(() => {
-		setWaited(false);
-		if (!stale) {
-			return;
-		}
-		const waiting = setTimeout(() => setWaited(true), SAY_AFTER_MS);
-		return () => clearTimeout(waiting);
-	}, [stale]);
-	return stale && (waited || unreachable);
-}
-
-/**
- * Whether what the page shows dims: locked, and stale long enough to say so.
- * Dimming a little is all it says at first, so coming back to the tab after a
- * while is quiet; a wait that runs on gets `GivingUp`'s countdown, and once
- * the server stays unreachable the page unlocks, undimmed, and `OfflinePill`
- * says so instead.
- */
-export function useDimmed(): boolean {
+export function Locked({ children }: { children: ReactNode }): JSX.Element {
 	const { locked } = useFreshness();
-	return useSaysStale() && locked;
-}
-
-/**
- * Once a wait has run on: how long until the page
- * stops waiting on the server, unlocks and says it cannot reach it, so a wait
- * never locks the page for good.
- */
-export function GivingUp({
-	className,
-}: {
-	className?: string;
-}): JSX.Element | null {
-	const { givesUpAt, waitsMs } = useFreshness();
 	return (
-		<Countdown
-			givesUpAt={givesUpAt}
-			waitsMs={waitsMs}
-			spinner={<LoaderCircleIcon aria-hidden className="size-3 animate-spin" />}
-			className={className}
-		/>
-	);
-}
-
-/**
- * Where a phone shows `GivingUp`, having no bar of its own on every screen:
- * a small pill at the top of the screen, only while it counts down.
- */
-export function GivingUpPill(): JSX.Element | null {
-	return (
-		<GivingUp className="-translate-x-1/2 fixed top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-[60] rounded-full border bg-background px-2.5 py-0.5" />
+		<div inert={locked} aria-busy={locked} className="contents">
+			{children}
+		</div>
 	);
 }
 
@@ -259,10 +167,10 @@ export function OfflinePill(): JSX.Element {
 }
 
 /**
- * Says in a desktop's bar, beside the title, how long a wait that runs on has
- * left, then once the server stays unreachable, that it cannot be reached.
+ * Says in a desktop's bar, beside the title, that the server cannot be
+ * reached, once the page has stopped waiting on it. Before that it says nothing.
  */
 export function StaleChip(): JSX.Element | null {
 	const { unreachable } = useFreshness();
-	return unreachable ? <OfflinePill /> : <GivingUp />;
+	return unreachable ? <OfflinePill /> : null;
 }

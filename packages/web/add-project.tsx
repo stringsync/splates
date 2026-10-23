@@ -141,10 +141,9 @@ export function NoProject({ message }: { message: string }): JSX.Element {
 }
 
 /**
- * What the page shows before a project's first snapshot, its bar bare and the
- * page dimmed: the server opens a project on its first read, which takes
- * seconds, so only a screen reader is told so, and `GivingUp` counts down once
- * it runs on. Offline or outdated, the
+ * What the page shows before a project's first snapshot, its bar bare: the
+ * server opens a project on its first read, which takes seconds, so only a
+ * screen reader is told so. Offline or outdated, the
  * header already says why nothing came; with no project to show, the page
  * asks for one.
  */

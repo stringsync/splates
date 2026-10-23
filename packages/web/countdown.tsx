@@ -7,14 +7,12 @@ import { WAITS } from "./api";
 /**
  * How long until a wait that has run on gives up, shown once the first third
  * of it has passed quietly, so a quick answer never flashes it. What waits
- * says the rest: that it gave up, and why. Still, in words, unless given the
- * page's one spinner, which only `GivingUp` carries.
+ * says the rest: that it gave up, and why.
  */
 export function Countdown({
 	givesUpAt,
 	waitsMs,
 	doing = "loading",
-	spinner,
 	className,
 }: {
 	/** When the wait gives up, in `Date.now()` ms, or null while nothing waits. */
@@ -23,8 +21,6 @@ export function Countdown({
 	waitsMs: number;
 	/** What is still under way, as in "Still loading". */
 	doing?: string;
-	/** Drawn before the words. */
-	spinner?: ReactNode;
 	className?: string;
 }): JSX.Element | null {
 	const now = useTicking(givesUpAt !== null);
@@ -39,7 +35,6 @@ export function Countdown({
 				className,
 			)}
 		>
-			{spinner}
 			Still {doing}, gives up in {left(givesUpAt - now)}
 		</span>
 	);

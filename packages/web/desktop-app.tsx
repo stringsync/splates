@@ -8,7 +8,7 @@ import { AppNav } from "./app-nav";
 import { BESIDE_PANE } from "./changes";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { useDimmed, useFreshness } from "./freshness";
+import { useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import { ShownRoot } from "./new-conversation-project";
 import type { PageMenu } from "./page-menu";
@@ -107,9 +107,8 @@ export function DesktopApp({
 			? false
 			: sidebar.toggle(),
 	);
-	// The page takes no input while locked, and dims once it has been a moment.
+	// The page takes no input while locked.
 	const { locked } = useFreshness();
-	const dimmed = useDimmed();
 	// Where each page's bar goes: the row atop the page.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const frame = {
@@ -141,12 +140,7 @@ export function DesktopApp({
 					)}
 					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 				>
-					<SidebarHead
-						name={name}
-						snapshot={snapshot}
-						sidebar={sidebar}
-						dimmed={dimmed}
-					/>
+					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
 					{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 					<header
@@ -168,7 +162,6 @@ export function DesktopApp({
 						terminals={terminals}
 						drafts={drafts}
 						sidebar={sidebar}
-						dimmed={dimmed}
 					/>
 					{bodies === null ? (
 						<>
@@ -186,11 +179,7 @@ export function DesktopApp({
 									value={value}
 									inert={locked}
 									aria-busy={locked}
-									className={cn(
-										DESKTOP_PAGES[value],
-										"transition-opacity duration-300",
-										dimmed && "opacity-60",
-									)}
+									className={DESKTOP_PAGES[value]}
 								>
 									{bodies[value]}
 								</TabsContent>

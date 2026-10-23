@@ -40,9 +40,6 @@ describe("App's reads that never answer", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Try again" })),
 		);
-		await waitFor(() =>
-			expect(view.getByText(/Still loading, gives up in \ds/)).toBeTruthy(),
-		);
 		expect(view.getByText("Reading your setup…")).toBeTruthy();
 		await gaveUp();
 		testing.unhang();

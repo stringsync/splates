@@ -35,7 +35,7 @@ import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import type { Feed } from "./feed";
-import { FreshnessContext, GivingUpPill, useFeedsFreshness } from "./freshness";
+import { FreshnessContext, useFeedsFreshness } from "./freshness";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { MigrationFailed } from "./migration-failed";
 import { useWaiting } from "./next-waiting";
@@ -330,7 +330,7 @@ export function App({
 		openConversation,
 	});
 	// A seeded snapshot draws only the pages it holds; the rest stay empty,
-	// dimmed with the page, until the project's own is in.
+	// until the project's own is in.
 	const bodies = useMemo(
 		() =>
 			pages === null || !seeded
@@ -480,7 +480,6 @@ export function App({
 																						open={setting}
 																						onOpenChange={setSetting}
 																					/>
-																					{!wide && <GivingUpPill />}
 																				</ConversationCheckpoint>
 																			</TooltipProvider>
 																		</ShortcutSettings>
