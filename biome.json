@@ -49,6 +49,29 @@
 	"formatter": { "enabled": true },
 	"overrides": [
 		{
+			"includes": ["packages/web/**/*.test.{ts,tsx}"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"@testing-library/react": "Import from the shared testing-library wrapper instead: it registers the DOM before loading React DOM, preserving onChange across test files."
+								},
+								"patterns": [
+									{
+										"group": ["**/packages/**"],
+										"message": "Import the package's public API (e.g. '@stringsync/splates-server/config') instead of reaching into packages/."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
 			"includes": [
 				"packages/web/components/ui/**",
 				"packages/web/components/assistant-ui/**",

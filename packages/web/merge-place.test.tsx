@@ -1,7 +1,7 @@
 import "./register-dom";
 import { afterEach, describe, expect, it } from "bun:test";
-import { cleanup, render } from "@testing-library/react";
 import { MergePlace, placeInLine } from "./merge-place";
+import { cleanup, render } from "./testing-library";
 
 afterEach(cleanup);
 

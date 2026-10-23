@@ -12,3 +12,9 @@ workspace is imported by its package export
 `.agents` and `.wiz/scry/*/evals` are not checked, and lint is off for the
 vendored shadcn and assistant-ui components and `packages/web/hooks`. `fix`
 runs it with `--write --unsafe`, so unsafe autofixes are applied.
+
+In `packages/web/**/*.test.ts` and `*.test.tsx`, `noRestrictedImports` also
+rejects direct imports from `@testing-library/react`. Use the shared
+`testing-library` wrapper, which registers the DOM before loading React DOM;
+otherwise `onChange` can stop firing in later test files in the same process.
+The wrapper and `test-preload.ts` are outside the test-file restriction.
