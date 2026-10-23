@@ -3,23 +3,47 @@ import type { Fs, Ps } from "webappwiz/system";
 const REGISTRY = "ghcr.io";
 
 /**
- * Fails before a release is cut when the machine cannot finish it: no `gh`
- * login for the binary upload, or no Docker login for the image push. Both
- * come last in a release, after the version is bumped and tagged, so a
- * missing one would otherwise strand a half-made release. A login that
- * exists may still lack write access to the package; only the push shows that.
+ * Makes sure the machine can finish a release before anything is built or
+ * stamped: a `gh` login for the binary upload and a Docker login for the
+ * image push. A missing one is offered its login on a terminal, as `npm login`
+ * is, and stops the release where there is none to ask. A login that exists
+ * may still lack write access to the package; only the push shows that.
  */
 export async function preflight(ps: Ps, fs: Fs): Promise<void> {
-	const gh = await ps.spawnCapture(["gh", "auth", "status"]);
-	if (gh.exitCode !== 0) {
-		throw new Error(
-			"the release uploads to GitHub, but gh is not logged in; run gh auth login, then splates dev ship",
-		);
+	await ensure(
+		ps,
+		async () =>
+			(await ps.spawnCapture(["gh", "auth", "status"])).exitCode === 0,
+		["gh", "auth", "login"],
+		"the release uploads to GitHub, but gh is not logged in",
+	);
+	await ensure(
+		ps,
+		() => dockerLoggedIn(ps, fs),
+		["docker", "login", REGISTRY],
+		`the release pushes the runner image, but Docker has no login for ${REGISTRY}`,
+	);
+}
+
+async function ensure(
+	ps: Ps,
+	loggedIn: () => Promise<boolean>,
+	login: string[],
+	missing: string,
+): Promise<void> {
+	if (await loggedIn()) {
+		return;
 	}
-	if (!(await dockerLoggedIn(ps, fs))) {
+	const command = login.join(" ");
+	// No terminal means nobody to answer the login's prompts.
+	if (ps.columns() === undefined) {
+		throw new Error(`${missing}; run ${command}, then splates dev ship`);
+	}
+	console.log(`${missing}; running ${command}`);
+	const result = await ps.spawn(login);
+	if (result.exitCode !== 0 || !(await loggedIn())) {
 		throw new Error(
-			`the release pushes the runner image, but Docker has no login for ${REGISTRY}; ` +
-				`run docker login ${REGISTRY} with a token that has write:packages, then splates dev ship`,
+			`${command} did not log in; fix that, then splates dev ship`,
 		);
 	}
 }

@@ -3,7 +3,9 @@ import { releases } from "webappwiz/ship";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { fix } from "./fix";
 import { LinuxBinary } from "./linux-binary";
+import { LinuxBinaryBuild } from "./linux-binary-build";
 import { RunnerImage } from "./runner-image";
+import { RunnerImageBuild } from "./runner-image-build";
 import { preflight } from "./ship-preflight";
 
 /**
@@ -40,6 +42,8 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 	const declared = releases.lockstep(
 		await releases.workspace({ fs: opts.fs, ps }),
 		releases.skill(SKILL, { fs: opts.fs }),
+		new LinuxBinaryBuild(ps),
+		new RunnerImageBuild(ps),
 		new LinuxBinary(ps),
 		new RunnerImage(ps),
 	);

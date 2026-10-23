@@ -26,9 +26,12 @@ the release tag. It runs Docker buildx for `linux/amd64` on
 `docker/runner.Dockerfile`, a generic Debian base (git, curl, build-essential,
 mise, a `splates` user) with no bun and no splates: a project's `prepare`
 fills its toolchain, and splates arrives at boot. The machine cutting a release needs Docker buildx and a GHCR login
-with package write access; `splates dev ship` checks for a `gh` login and a
-Docker login for ghcr.io before it bumps anything, so a missing one stops it
-early (a login lacking write access shows only at the push). The GHCR package must be public (set its visibility
+with package write access. `splates dev ship` first checks for a `gh` login and
+a Docker login for ghcr.io, and on a terminal offers `gh auth login` or
+`docker login ghcr.io` when one is missing (no terminal: it stops with the
+command to run). The binary and the image are then built in the `build` stage,
+before anything is published or tagged, and only uploaded and pushed later; a
+login lacking write access shows only at the push. The GHCR package must be public (set its visibility
 to Public in GitHub package settings on first publication), so Fly needs no
 registry credentials. The source label links it to this repository.
 A failed image build or push leaves the existing release checkpoint for

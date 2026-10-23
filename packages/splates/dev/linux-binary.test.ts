@@ -3,6 +3,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { Cut } from "webappwiz/ship";
 import { FakePs } from "webappwiz/system/testing";
 import { LinuxBinary } from "./linux-binary";
+import { LinuxBinaryBuild } from "./linux-binary-build";
 
 describe("the linux binary release", () => {
 	let ps: FakePs;
@@ -15,11 +16,19 @@ describe("the linux binary release", () => {
 		cut = new Cut("0.0.55", [], { root: "/release", log: new MemoryLogger() });
 	});
 
-	it("builds, checksums and attaches the binary to the tag's release", async () => {
-		await binary.publish(cut);
+	it("builds and checksums the binary in the build stage", async () => {
+		const build = new LinuxBinaryBuild(ps);
+		await build.publish(cut);
+		expect(build.stage).toBe("build");
 		expect(ps.getCalls()).toEqual([
 			"bun build --compile --target=bun-linux-x64 packages/splates/index.ts --outfile /release/dist/splates-linux-x64",
 			"sh -c cd dist && sha256sum splates-linux-x64 > splates-linux-x64.sha256",
+		]);
+	});
+
+	it("attaches the binary and checksum to the tag's release", async () => {
+		await binary.publish(cut);
+		expect(ps.getCalls()).toEqual([
 			"gh release upload v0.0.55 /release/dist/splates-linux-x64 /release/dist/splates-linux-x64.sha256 --clobber",
 		]);
 	});
