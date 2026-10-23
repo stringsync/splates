@@ -55,8 +55,18 @@ describe("App's agents, in a folder per project", () => {
 		// The fixture's snapshot is webappwiz's, at /repo.
 		testing.everywhere = [
 			listed("zebra", "/code/zebra", [
-				conversation({ id: "z1", title: "Stripes", status: "running" }),
-				conversation({ id: "z2", title: "Zebra broke", status: "failed" }),
+				conversation({
+					id: "z1",
+					title: "Stripes",
+					status: "running",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "z2",
+					title: "Zebra broke",
+					status: "failed",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
 			]),
 			listed("apple", "/code/apple", []),
 			listed("webappwiz", "/repo", []),
