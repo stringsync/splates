@@ -121,7 +121,7 @@ function MergeRow({
 					{merge.running ? (
 						<GitMergeIcon
 							aria-label="merging"
-							className="size-3.5 animate-pulse text-info motion-reduce:animate-none"
+							className="size-3.5 text-muted-foreground"
 						/>
 					) : (
 						merge.place
