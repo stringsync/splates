@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { color } from "webappwiz/log";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
@@ -9,6 +9,10 @@ import type { TaskRecord } from "./task";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { decodeTask, encodeTask } from "./task-file";
 import { taskList, taskShow } from "./task-list";
+
+// These tests run concurrently and each drives real git, which a busy machine
+// starves past bun's 5s default.
+setDefaultTimeout(30_000);
 
 const DAY = 24 * 60 * 60 * 1000;
 
