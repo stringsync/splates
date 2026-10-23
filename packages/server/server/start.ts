@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
+import { CompositeLogger } from "webappwiz/log";
 import { SystemTimer } from "webappwiz/time";
 import { SharedBrowser, StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
@@ -32,12 +33,14 @@ import {
 	CoordinatorIdentity,
 	CoordinatorState,
 	DevWorkers,
+	FileLogger,
 	LOCAL_SLOTS,
 	LOCAL_WORKER,
 	WorkerRecords,
 	workerGit,
 	workerSocketPath,
 } from "../workers";
+import { LoopWatch } from "./loop-watch";
 import { newest, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
 import { type DevServer, dev, devPorts } from "./server";
@@ -58,6 +61,26 @@ import { awakeCommand, SERVING, supervise, UNBUILT } from "./supervise";
  */
 export async function serveDev(
 	ctx: SplatesDeps,
+	opts: DevFlags,
+): Promise<DevServer | undefined> {
+	const file = new FileLogger(
+		ctx.fs,
+		`${splatesHome(ctx.ps)}/${ctx.ps.env(SERVING) === undefined ? "server-supervisor" : "server"}.log`,
+	);
+	const log = new CompositeLogger([ctx.log, file]);
+	try {
+		return await start({ ...ctx, log }, () => file.flushed(), opts);
+	} catch (error) {
+		log.error(error instanceof Error ? (error.stack ?? error.message) : error);
+		throw error;
+	} finally {
+		await file.flushed();
+	}
+}
+
+async function start(
+	ctx: SplatesDeps,
+	flushed: () => Promise<void>,
 	opts: DevFlags,
 ): Promise<DevServer | undefined> {
 	// It runs itself as a supervised child, so the page can restart it.
@@ -130,16 +153,16 @@ export async function serveDev(
 			String(LOCAL_SLOTS),
 			"--quiet",
 		];
-		ctx.ps.exit(
-			await supervise(ctx.ps, {
-				build,
-				env: slot?.env,
-				worker,
-				checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
-				awake: opts.keepalive,
-				log: ctx.log,
-			}),
-		);
+		const code = await supervise(ctx.ps, {
+			build,
+			env: slot?.env,
+			worker,
+			checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
+			awake: opts.keepalive,
+			log: ctx.log,
+		});
+		await flushed();
+		ctx.ps.exit(code);
 		return;
 	}
 	// The saved tunnel only when no flag says how to reach the page, so a
@@ -319,9 +342,11 @@ export async function serveDev(
 			coordinator,
 		},
 	);
+	const loop = new LoopWatch(ctx.log);
 	return {
 		port: server.port,
 		disposeAsync: async () => {
+			loop.dispose();
 			await server.disposeAsync();
 			await browser.disposeAsync();
 		},

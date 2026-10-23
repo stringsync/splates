@@ -128,6 +128,9 @@ export async function supervise(
 				}
 				throw error;
 			}
+			log?.info(
+				`splates server exited (${exitCode}) after ${clock.now().subtract(began).human()}`,
+			);
 			if (interrupting.signal.aborted) {
 				return exitCode;
 			}

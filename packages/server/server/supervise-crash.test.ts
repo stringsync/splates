@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
+import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
 import { Duration, type Timer } from "webappwiz/time";
 import { FakeClock } from "webappwiz/time/testing";
@@ -40,6 +41,17 @@ describe("supervise, crashed", () => {
 		});
 	};
 
+	it("records requested restarts as well as crashes, including how long the server served", async () => {
+		const log = new MemoryLogger();
+		running([RESTART, 120], [130, 10]);
+
+		expect(await supervise(ps, { timer, clock, log })).toBe(130);
+		expect(log.entries.map((entry) => entry.message)).toEqual([
+			"splates server exited (75) after 2m 00s",
+			"splates server exited (130) after 10.0s",
+		]);
+	});
+
 	it("starts a crashed server again, waiting twice as long each time", async () => {
 		running([139, 0], [137, 0], [139, 0], [130, 0]);
 
@@ -56,18 +68,16 @@ describe("supervise, crashed", () => {
 		expect(pauses).toEqual([2, 4, 8, 16]);
 	});
 
-	it("does not start a server again that refused with a reason no start changes", async () => {
-		for (const code of [1, 23]) {
-			ps = new FakePs();
-			ps.args = ["server"];
-			pauses = [];
+	it.each([1, 23])(
+		"does not restart a server refusing with fatal code %s",
+		async (code) => {
 			running([code, 0], [0, 0]);
 
 			expect(await supervise(ps, { timer, clock })).toBe(code);
 			expect(ps.getCalls()).toHaveLength(1);
 			expect(pauses).toEqual([]);
-		}
-	});
+		},
+	);
 
 	it("starts a new row of crashes after a server that served a while", async () => {
 		running(

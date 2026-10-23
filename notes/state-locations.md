@@ -48,6 +48,13 @@ set. It stays files, through `FsStorage.ofMachine`. Among them:
 - `slots/`
 - `tunnel.json`
 - `worker.sock`
+- `server.log` and `server-supervisor.log`: timestamped server diagnostics and
+  supervisor exit/restart reasons, kept separately so they never rotate the same file
+- `worker.log`: the worker's joins, disconnects and process lifecycle
+
+Each diagnostic log rotates at 1 MiB, retaining the preceding file as `.1`.
+A delayed server event loop is logged once it runs again, so a heartbeat
+timeout can be distinguished from a session or process failure.
 
 ## The Storage interface
 

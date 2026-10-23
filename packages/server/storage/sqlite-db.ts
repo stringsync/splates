@@ -216,6 +216,8 @@ CREATE TABLE IF NOT EXISTS entries (
 );
 CREATE INDEX IF NOT EXISTS entries_by_owner ON entries (log, segment, id);
 CREATE INDEX IF NOT EXISTS entries_by_segment ON entries (segment, id);
+-- Quota checks use the current owner: avoid scanning every conversation log for each folder.
+CREATE INDEX IF NOT EXISTS entries_by_key ON entries (coalesce(segment, log));
 CREATE TABLE IF NOT EXISTS segments (
 	key TEXT PRIMARY KEY,
 	log TEXT NOT NULL,

@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,6 +7,7 @@ import { NodeFs } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
 import { SqliteStorage } from "./index";
+import { rotated } from "./testing";
 
 /** Whose process a storage opens as, and what times its polls. */
 interface Opening {
@@ -138,5 +140,55 @@ describe("SqliteStorage", () => {
 
 		expect(path).toBe(`/cache/log/${segment?.name}`);
 		expect(await fs.read(path)).toBe('{"n":1}\n');
+	});
+
+	it("adds the owner index to an existing database without changing live or rotated log sizes", async () => {
+		const storage = await open();
+		const log = storage.log<{ text: string }>("conversations/one.jsonl", {
+			segments: "conversations/one/segments",
+		});
+		await log.append({ text: "é" });
+		const segment = await rotated(log);
+		await log.append({ text: "live" });
+		await storage.collection("conversations/one/artifacts").write("a", "abc");
+		const path = `${made[0]}/state.db`;
+		const db = new Database(path);
+		try {
+			// Simulate a database created before owner range queries had an index.
+			db.exec("DROP INDEX entries_by_key");
+			const upgraded = await open();
+			expect(
+				db
+					.query("SELECT name FROM sqlite_master WHERE name = 'entries_by_key'")
+					.get(),
+			).not.toBeNull();
+			expect(await upgraded.size("conversations/one/artifacts")).toBe(3);
+			expect(await upgraded.size("conversations/one/segments")).toBe(
+				new TextEncoder().encode('{"text":"é"}\n').length,
+			);
+			expect(
+				await upgraded.within("conversations").collection("").entries(),
+			).toEqual([
+				{
+					name: "one.jsonl",
+					size: new TextEncoder().encode('{"text":"live"}\n').length,
+				},
+			]);
+			expect(
+				await upgraded
+					.log<{ text: string }>("conversations/one.jsonl")
+					.replay(),
+			).toEqual([{ text: "live" }]);
+			expect(segment).not.toBeNull();
+			expect(
+				await upgraded
+					.log<{ text: string }>("conversations/one.jsonl", {
+						segments: "conversations/one/segments",
+					})
+					.replaySegment(segment),
+			).toEqual([{ text: "é" }]);
+		} finally {
+			db.close();
+		}
 	});
 });
