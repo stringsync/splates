@@ -1,6 +1,8 @@
 import { mkdtemp, rm, symlink } from "node:fs/promises";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
+import { fail } from "@stringsync/splates-server/exit";
+import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { JOB_CPUS } from "@stringsync/splates-server/workers";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
@@ -29,6 +31,10 @@ export interface TestOptions {
 	workers?: number;
 	ps?: Ps;
 	log?: Logger;
+	/** The person's approvals of an agent's whole-suite run; the machine's when left out. */
+	grants?: SuiteGrants;
+	/** Whether the caller already checked an agent may run the whole suite, as `dev premerge` does. */
+	allowed?: boolean;
 	/** How long the run may take before it is stopped. */
 	deadline?: Duration;
 }
@@ -53,6 +59,12 @@ export async function test(opts: TestOptions): Promise<void> {
 	const focused = Boolean(
 		opts.changed || opts.since || opts.files?.length || opts.testNamePattern,
 	);
+	if (!focused && !opts.evals && !opts.allowed) {
+		await refuseWholeSuite(
+			ps,
+			opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
+		);
+	}
 	// The page's tests and the rest run apart, one after the other. A DOM test
 	// puts happy-dom on `globalThis` for its whole process, `setTimeout`, `URL`
 	// and the stream types among it, which the server is tested against. Apart,
@@ -153,6 +165,59 @@ export async function test(opts: TestOptions): Promise<void> {
 	if (failed) {
 		throw new Error("Tests failed");
 	}
+}
+
+/**
+ * Refuses an agent the whole suite, which is the merge gate's to run, unless
+ * the person approved this conversation's run from its card. A gate's run,
+ * and the person's own from a terminal, go ahead.
+ */
+export async function refuseWholeSuite(
+	ps: Ps,
+	grants: SuiteGrants,
+): Promise<void> {
+	const conversation = ps.env("SPLATES_CONVERSATION");
+	if (
+		conversation === undefined ||
+		ps.env(PREMERGE_HELD) !== undefined ||
+		(await grants.take(conversation))
+	) {
+		return;
+	}
+	fail(
+		"not_granted",
+		"the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it instead, which needs no approval: `--changed` (tests your uncommitted changes reach), `--since main` (once committed), test file paths, or `--test-name-pattern <regex>`; `--evals` runs the eval harness's tests alone. If only the whole suite will do, end your reply with a `## 🔐 Permission: run the test suite: <why>` card, the why under it, and wait: approving it lets this conversation run `splates dev test` or `splates dev premerge` once",
+		{ conversation },
+	);
+}
+
+/**
+ * Lets `conversation` run the whole suite once, as its card's Approve does
+ * from the page. The person's to give: refused from an agent.
+ */
+export async function approveSuite({
+	conversation,
+	log,
+	ps,
+	grants = new SuiteGrants({ fs: new NodeFs(), ps }),
+}: {
+	conversation: string;
+	log: Logger;
+	ps: Ps;
+	grants?: SuiteGrants;
+}): Promise<void> {
+	const asking = ps.env("SPLATES_CONVERSATION");
+	if (asking !== undefined) {
+		fail(
+			"not_granted",
+			"only the person approves a whole-suite run: end your reply with a `## 🔐 Permission: run the test suite: <why>` card",
+			{ conversation: asking },
+		);
+	}
+	await grants.grant(conversation);
+	log.info(
+		`${conversation} may run the whole suite once: tell its agent to run \`splates dev test\``,
+	);
 }
 
 /**

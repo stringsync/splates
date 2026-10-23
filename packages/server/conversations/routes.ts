@@ -1,3 +1,4 @@
+import { NodeFs } from "webappwiz/system";
 import {
 	addVersion,
 	artifactResponse,
@@ -14,11 +15,16 @@ import {
 	refuse,
 	uploads,
 } from "../server/shared";
+import { SuiteGrants } from "../server/suite-grant";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
 import { ConversationStream, type ConversationsHeard } from "./stream";
 import { type Tree, treeOf } from "./tree";
+
+/** What the agent is told once the person approves its whole-suite run. */
+export const SUITE_APPROVED =
+	"Approved: run the whole test suite once, with `splates dev test` (or `splates dev premerge`). The approval is used up by that run; ask again with a new card for another.";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its
@@ -247,6 +253,18 @@ export class ConversationRoutes {
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
 		});
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * The person approves the agent's ask to run the whole test suite: one
+	 * run of it, outside a merge's gate, which the agent is then told to start.
+	 */
+	readonly approveSuite = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { ps } = this.#project.service;
+		await new SuiteGrants({ fs: new NodeFs(), ps }).grant(conversation.id);
+		await conversation.prompt(SUITE_APPROVED);
 		return Response.json(conversation.state);
 	};
 

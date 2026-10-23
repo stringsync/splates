@@ -21,12 +21,14 @@ import { Dispatching } from "./dispatching";
 import { EvalsCard } from "./evals-card";
 import { useExpectSnapshot } from "./expecting";
 import { QueueWork } from "./queue-work";
+import { SuiteCard } from "./suite-card";
 import { stageOf } from "./todo-queue";
 
 /**
  * Renders a `data-permission` part: something an agent asks the person to
  * allow because splates refuses it an agent: queue work, a lane whole or
- * tasks one by one, or remove a lane with its tasks. Its button is the
+ * tasks one by one, remove a lane with its tasks, run evals or the whole
+ * test suite. Its button is the
  * person's own write to the board, never a reply the agent acts on, as is the
  * command it gives to run in a terminal instead.
  */
@@ -51,6 +53,8 @@ export function PermissionCard({
 			return <RemoveLaneCard proposal={proposal} />;
 		case "run-evals":
 			return <EvalsCard proposal={proposal} />;
+		case "run-suite":
+			return <SuiteCard proposal={proposal} />;
 		case "queue":
 			return <QueueCard proposal={proposal} />;
 	}

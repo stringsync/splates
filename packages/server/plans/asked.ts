@@ -177,8 +177,11 @@ export interface TodoProposal {
  * titles read as the queue ones.
  */
 export interface PermissionProposal {
-	/** What it asks: queue work, remove a lane with its tasks, or run evals. */
-	action: "queue" | "remove-lane" | "run-evals";
+	/**
+	 * What it asks: queue work, remove a lane with its tasks, run evals, or
+	 * run the whole test suite outside a merge's gate.
+	 */
+	action: "queue" | "remove-lane" | "run-evals" | "run-suite";
 	/** The lane it acts on whole; null for tasks named one by one. */
 	lane: number | null;
 	/** The tasks named one by one; none for a lane. */
@@ -217,6 +220,9 @@ const ENDED =
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+/** `## 🔐 Permission: run the test suite: <why>`, for the whole suite outside a gate. */
+const SUITE_PERMISSION =
+	/^## 🔐 Permission: run the (?:whole |full )?test suite(?::[ \t]*(.*?))?[ \t]*$/;
 const EVALS_PERMISSION =
 	/^## 🔐 Permission: run evals (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-evals card's probe: a list item that is one code span, then maybe a note. */
@@ -265,9 +271,11 @@ function keptAt(
 	const proposed = PROPOSAL.exec(line);
 	const permission = PERMISSION.exec(line);
 	const evals = EVALS_PERMISSION.exec(line);
+	const suite = SUITE_PERMISSION.exec(line);
 	if (
 		permission === null &&
 		evals === null &&
+		suite === null &&
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
@@ -283,6 +291,21 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
+	if (suite !== null) {
+		return {
+			stretch: {
+				type: "permission",
+				permission: {
+					action: "run-suite",
+					lane: null,
+					tasks: [],
+					title: suite[1] || null,
+					body,
+				},
+			},
+			end,
+		};
+	}
 	if (evals !== null) {
 		const probes: string[] = [];
 		let baseline: string | null = null;

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { NodeFs, OpenPortProvider } from "webappwiz/system";
 import { FakeAgent, heard, say } from "../agents/testing";
-import { dev } from "../server";
+import { dev, SuiteGrants } from "../server";
 import { eventually, json, readUntil, serving } from "../server/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { Conversations } from "./conversations";
+import { SUITE_APPROVED } from "./routes";
 import type { ConversationState } from "./state";
 
 function get(port: number, path: string): Promise<Response> {
@@ -247,6 +248,25 @@ describe("dev conversations", () => {
 		expect(played.headers.get("content-type")).toBe("video/mp4");
 		expect(await played.text()).toBe("mp4");
 	}, 15_000);
+
+	it("approves the agent one run of the whole suite, and tells it to run it", async () => {
+		const id = await start(port, "alpha");
+
+		const approved = await json(
+			port,
+			`/api/conversations/${id}/suite`,
+			"POST",
+			{},
+		);
+
+		expect(approved.status).toBe(200);
+		expect(
+			await eventually(async () => said.includes(SUITE_APPROVED), 5000),
+		).toBe(true);
+		const grants = new SuiteGrants({ fs: new NodeFs(), ps: deps.service.ps });
+		expect(await grants.take(id)).toBe(true);
+		expect(await grants.take(id)).toBe(false);
+	});
 
 	it("pins one, and stops it when archived", async () => {
 		const id = await start(port, "alpha");

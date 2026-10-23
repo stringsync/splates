@@ -41,7 +41,11 @@ the rest:
    use `splates dev test --changed` before committing, `--since main` after
    committing, or explicit file paths. `--test-name-pattern <regex>` narrows
    cases further; focused runs default to one worker (`--workers <n>`).
-   Leave the whole suite to the merge gate. Run other heavy work with
+   Leave the whole suite to the merge gate: there an unscoped `splates dev
+   test` or `splates dev premerge` is refused an agent (`not_granted`)
+   until the person approves one run from a `## 🔐 Permission: run the
+   test suite: <why>` card ending your reply, the why under it. Scoped runs
+   need no approval. Run other heavy work with
    `splates run -- <command>`: it runs on a runner, in a checkout of your
    worktree as it stands, output streamed back and its exit code yours.
    It uses a runner of `splates server`'s, else, where the project's

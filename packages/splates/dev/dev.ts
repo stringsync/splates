@@ -6,7 +6,7 @@ import { fix } from "./fix";
 import { premerge } from "./premerge";
 import { PROOFS, prove } from "./prove";
 import { ship } from "./ship";
-import { test } from "./test";
+import { approveSuite, test } from "./test";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
 export function mountDev(program: Cli<SplatesDeps>): void {
@@ -16,6 +16,18 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	const dev = program
 		.group("dev")
 		.description("work on the splates repository");
+
+	dev
+		.command("approve-suite")
+		.description(
+			"let an agent's conversation run the whole test suite once outside the merge gate, as its card's Approve button does; refused from an agent",
+		)
+		.arg("conversation", z.string(), {
+			description: "the conversation whose agent asked",
+		})
+		.action(({ conversation }, { log, ps }) =>
+			approveSuite({ conversation, log, ps }),
+		);
 
 	dev
 		.command("eval")

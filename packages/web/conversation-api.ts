@@ -278,6 +278,14 @@ export async function markRead(id: string, read: number): Promise<void> {
 	await sendJson(`/api/conversations/${id}/read`, "PUT", { read });
 }
 
+/**
+ * Approves conversation `id`'s agent running the whole test suite once,
+ * which tells it to.
+ */
+export async function approveSuite(id: string): Promise<void> {
+	await sendJson(`/api/conversations/${id}/suite`, "POST", {});
+}
+
 /** Keeps conversation `id` atop the list, or lets it go back among the rest. */
 export async function pinConversation(
 	id: string,

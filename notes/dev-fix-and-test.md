@@ -1,5 +1,5 @@
 ---
-description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks, the six-minute deadline, DOM separation, and dev fix
+description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks, the approval an agent needs for the whole suite, the six-minute deadline, DOM separation, and dev fix
 ---
 
 `splates dev fix` runs, stopping at the first failure: `biome check --write
@@ -18,6 +18,20 @@ branch or commit. Positional file paths narrow the files further;
 evals. A focused run stays here and
 uses one worker by default; `--workers <n>` sets a positive worker limit.
 Leave the whole suite to the merge gate. No `--local` flag exists.
+
+An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test`
+or `dev premerge` with `not_granted`, its message naming the scoped flags,
+which need no approval (`--evals` counts as scoped). Outside a gate
+(`SPLATES_PREMERGE`) it runs only once the person approves a `## 🔐
+Permission: run the test suite: <why>` card: its Approve button posts
+`/api/conversations/:id/suite`, which writes a one-run grant to
+`~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing an
+hour) and tells the agent to run it; `splates dev approve-suite
+<conversation>` writes the same grant from a terminal. The run takes the
+grant (`refuseWholeSuite` in `packages/splates/dev/test.ts`), so each
+approval is one run. The person's own runs, from no conversation, are
+never asked. The grant is on the server's machine: an agent on a remote
+worker reads its own machine's, which the page's button never writes.
 
 An unfiltered `splates dev test` runs `bun test --parallel=<half the cores> --timeout
 30000` (all but two cores in a merge's gate): a worker per core

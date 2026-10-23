@@ -16,7 +16,11 @@ the project, scry included. Do not run the test suite yourself: the merge
 gate runs it, as `bin/splates dev premerge` (`preMerge` in
 `splates.config.ts`), here on this machine, one gate at a time, so a run of
 your own is the same work twice. Running a test file or two you changed by
-hand (`bun test <path>`) is fine. `splates dev test --evals` tests the eval
+hand (`bun test <path>`) is fine, as is any scoped `splates dev test`
+(`--changed`, `--since main`, file paths, `--test-name-pattern`, `--evals`),
+which needs no approval. An unscoped `splates dev test` or `splates dev
+premerge` is refused an agent until the person approves one run from a
+`## 🔐 Permission: run the test suite: <why>` card. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`. `splates dev prove runner` joins a
 Linux container to the server as a runner and runs a job on it; it needs
 Docker and takes minutes.

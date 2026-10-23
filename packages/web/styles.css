@@ -187,6 +187,7 @@
 @source "./stats-notes.tsx";
 @source "./stats-project-filter.tsx";
 @source "./stats.tsx";
+@source "./suite-card.tsx";
 @source "./cred-how.tsx";
 @source "./cred-paste.tsx";
 @source "./cred-privacy.tsx";

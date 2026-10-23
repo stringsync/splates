@@ -42,7 +42,7 @@ import {
 	useProjects,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
-import { markRead } from "./conversation-api";
+import { approveSuite, markRead } from "./conversation-api";
 import { filable } from "./conversation-archive";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
@@ -67,6 +67,7 @@ import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
+import { SuiteApproval } from "./suite-card";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadHeader, useWhereAction } from "./thread-header";
@@ -176,6 +177,10 @@ function Conversation({
 		edit: editUnsent,
 	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
 	const unsent = useReactive(feed, (feed) => feed.unsent.get(id), ["changed"]);
+	const suite = useMemo(
+		() => ({ conversation: id, approve: () => approveSuite(id) }),
+		[id],
+	);
 	const unsentActions = useMemo(
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],
@@ -332,72 +337,78 @@ function Conversation({
 											<BackgroundUI />
 											<RestedUI />
 											<InterruptedUI />
-											<ArchiveConversation value={archivable ? fileAway : null}>
-												<ArchiveOfferProvider value={offer}>
-													<StartNewContext value={startNew}>
-														<ReplyContext value={reply}>
-															<NamedContext value={named}>
-																<ThreadView
-																	openAt={openAt}
-																	onRead={onRead}
-																	autoFocus={!asking || typed}
-																	stopping={stopping}
-																	going={going}
-																	mentions={mentions ?? undefined}
-																	references={references}
-																	commands={commands ?? undefined}
-																	placeholder={
-																		archived
-																			? "Send a message to unarchive and continue"
-																			: undefined
-																	}
-																	controls={
-																		!archived && (
+											<SuiteApproval value={suite}>
+												<ArchiveConversation
+													value={archivable ? fileAway : null}
+												>
+													<ArchiveOfferProvider value={offer}>
+														<StartNewContext value={startNew}>
+															<ReplyContext value={reply}>
+																<NamedContext value={named}>
+																	<ThreadView
+																		openAt={openAt}
+																		onRead={onRead}
+																		autoFocus={!asking || typed}
+																		stopping={stopping}
+																		going={going}
+																		mentions={mentions ?? undefined}
+																		references={references}
+																		commands={commands ?? undefined}
+																		placeholder={
+																			archived
+																				? "Send a message to unarchive and continue"
+																				: undefined
+																		}
+																		controls={
+																			!archived && (
+																				<>
+																					<ContextMeter
+																						usage={conversation.usage}
+																						compactions={compactionsIn(
+																							conversation.messages,
+																						)}
+																					/>
+																					<SettingControls
+																						agent={conversation.agent}
+																						autoPick={autoPick}
+																						settings={settings}
+																						current={(setting) =>
+																							setting.current
+																						}
+																						onChange={choose}
+																					/>
+																				</>
+																			)
+																		}
+																		above={
 																			<>
-																				<ContextMeter
-																					usage={conversation.usage}
-																					compactions={compactionsIn(
-																						conversation.messages,
-																					)}
-																				/>
-																				<SettingControls
-																					agent={conversation.agent}
-																					autoPick={autoPick}
-																					settings={settings}
-																					current={(setting) => setting.current}
-																					onChange={choose}
-																				/>
-																			</>
-																		)
-																	}
-																	above={
-																		<>
-																			<NeedsYouBar />
+																				<NeedsYouBar />
 
-																			<Refusal
-																				refusal={refusal}
-																				className="px-2"
-																			/>
-																			{offer !== null && barred && (
-																				<ArchiveBar offer={offer} />
-																			)}
-																			{conversation.ask !== null && (
-																				<AskPanel
-																					key={conversation.ask.id}
-																					drafts={drafts}
-																					conversation={conversation}
-																					agent={agent}
-																					ask={conversation.ask}
+																				<Refusal
+																					refusal={refusal}
+																					className="px-2"
 																				/>
-																			)}
-																		</>
-																	}
-																/>
-															</NamedContext>
-														</ReplyContext>
-													</StartNewContext>
-												</ArchiveOfferProvider>
-											</ArchiveConversation>
+																				{offer !== null && barred && (
+																					<ArchiveBar offer={offer} />
+																				)}
+																				{conversation.ask !== null && (
+																					<AskPanel
+																						key={conversation.ask.id}
+																						drafts={drafts}
+																						conversation={conversation}
+																						agent={agent}
+																						ask={conversation.ask}
+																					/>
+																				)}
+																			</>
+																		}
+																	/>
+																</NamedContext>
+															</ReplyContext>
+														</StartNewContext>
+													</ArchiveOfferProvider>
+												</ArchiveConversation>
+											</SuiteApproval>
 										</UnsentContext.Provider>
 									</Composing.Provider>
 								</AssistantRuntimeProvider>

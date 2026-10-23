@@ -15,7 +15,7 @@ reply into stretches of type `text`, `questions`, `review`, `proposal`,
 - Reports `## ✅ Merged <task> onto <base>`, `## 🛑 Removed`, `## ⏸ Deferred`,
   `## ⚠️ Escalated`, `## ⏳ Working`.
 - Permission `## 🔐 Permission: queue lane <n>|queue #<n>|remove lane
-  <n>|run evals <skill>` (older `## 📥 Queue` reads as queue); todo `### 📝
+  <n>|run evals <skill>|run the test suite` (older `## 📥 Queue` reads as queue); todo `### 📝
   <subject> [#<id>]`; demo `### 🎬 Demo: ...`.
 
 A heading `#` to `###` ends a card, `####` stays inside one. `replied()` in
