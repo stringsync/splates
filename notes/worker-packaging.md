@@ -1,48 +1,40 @@
 ---
-description: How a worker is installed on Linux and in Docker
+description: How splates installs on a Linux machine or in Docker, and what a Linux server needs to start; bears on Linux setup and the worker image
 ---
 
-`splates worker recipe` prints the root install script for a fresh Debian or
-Ubuntu machine (`snapshotRecipe` in `packages/server/workers/snapshot.ts`);
-cloud snapshots are built from it. The Windows WSL2 installer went with
-worker waking, and the worker proof (`splates dev prove worker`) with remote
-agents, on 2026-10-22. `splates dev prove coordinator`, which ran
-`splates server` in a Debian container, went the same day: the server runs
-on this machine, with its agents, and a runner (`splates dev test` on one) covers
-what differs on Linux.
+Little packaging is left: `splates worker recipe` prints a Linux install
+script, and `docker/worker.Dockerfile` builds a Linux worker from this
+checkout. Everything else that packaged splates for other machines was
+removed on 2026-10-22 and 2026-10-23.
 
-`docker/worker.Dockerfile` builds a credential-free Linux worker from this
-checkout, which is also the runner `splates dev prove runner` joins
-(`docker/prove-runner.sh`, with `prove-lib.sh` and `forward.ts`, which gives
-the container a loopback to reach this machine's server through). A server on
-Linux needs a working device store: libsecret's, or
-files under `~/.splates/secrets/` with `SPLATES_SECRET_STORE=file`; a server
-with neither stops at once saying so.
+## How it works
 
+- `splates worker recipe` prints the root install script for a fresh
+  Debian or Ubuntu machine, from `snapshotRecipe`.
+- `docker/worker.Dockerfile` builds a credential-free Linux worker from
+  this checkout.
+- `docker/forward.ts` forwards a port, so a worker in a container can
+  reach this machine's server through its own loopback.
+- A server on Linux needs a working device store: libsecret's, or files
+  under `~/.splates/secrets/` with `SPLATES_SECRET_STORE=file`.
+- A server with neither stops at once saying so.
 
-`docker/runner.Dockerfile` is the slim cloud job image, separate from the
-worker proof: a generic Debian base with git, curl, build tools, mise and a
-non-root `splates` user, with no bun and no splates. No Chromium or agent
-runtime is installed.
+## History
 
-Its entrypoint is the runner bootstrap (`cloud/bootstrap.sh.txt`, `cloud-fly.md`,
-Boot), which fetches the release's compiled binary and runs
-`splates runners serve` on port 8080. The hosting
-platform supplies `SPLATES_RUNNER_SECRET`. An HTTP upgrade at `/api/jobs`
-requires `Authorization: Bearer <secret>`. Once upgraded, the client installs
-its `WorkerSession.hello` listener and sends the text frame `ready`; the
-runner then sends its ordinary worker hello (`jobs: true`, zero agent slots).
-Only `job` channels are accepted. Disconnecting kills that connection's jobs;
-clients must not replay a command on another connection as if it resumed.
-The secret is stripped from job child environments.
+- 2026-10-22: the Windows WSL2 installer went with worker waking.
+- 2026-10-22: the worker proof, `splates dev prove worker`, went with
+  remote agents.
+- 2026-10-22: `splates dev prove coordinator`, which ran `splates server`
+  in a Debian container, went too, since the server runs on this machine
+  with its agents.
+- 2026-10-23: the cloud runner image, its bootstrap,
+  `splates runners serve`, the Linux binaries and the rest of
+  `splates dev prove` were removed with the Fly.io integration.
 
-For a checkout's own build, set `SPLATES_BUILD_URL` to the server's
-`GET /api/workers/join` URL and `SPLATES_BUILD_TOKEN` to `OwnBuild.grant()`.
-The bootstrap fetches the bundle with `x-splates-build` and runs it with the
-release binary as bun instead of the release. A failed fetch stops boot, so
-the release cannot silently substitute for a checkout. The URL must be
-reachable without interactive Cloudflare Access. splates's own Fly runners
-do not use it: they are handed the build through the proxy instead
-(`SPLATES_AWAIT_BUILD`, see `heavy-jobs-on-runners.md`). Build tokens are
-unset before the CLI starts. `splates runners serve` says the name in
-`SPLATES_RUNNER_ID` in its hello, the hostname without it.
+## Where
+
+- `packages/server/workers/snapshot.ts`: `snapshotRecipe`, `workerRecipe`
+- `packages/server/creds/stores.ts`: `SPLATES_SECRET_STORE`
+- `packages/server/server/start.ts`: the `no_secret_store` refusal
+- `docker/worker.Dockerfile`
+- `docker/forward.ts`

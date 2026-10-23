@@ -43,9 +43,8 @@ description: Why exports name each module explicitly
 Releases bundle each exported entry, so each module has an explicit entry.
 ```
 
-Keep notes short and edit them in place; git keeps their history. The
-description says what the note is about, so someone can find it without
-knowing the project's file layout. Keep no index file or path metadata.
+Keep notes short and edit them in place; git keeps their history. Keep no
+index file or path metadata.
 
 Change notes through a task: `splates add`, edit, and `splates merge`, just
 as for code. Use your current task when the note belongs to its work.
@@ -66,6 +65,47 @@ Keep sensitive information out: secrets, personal details, and nonpublic
 things a client or third party said. Consider where the repository is
 published, including npm. When unsure, ask the user in the skill's numbered
 questions format and wait for the answer before committing the doubtful note.
+
+## Laying out a note
+
+People read notes on the Notes page as well as agents in a checkout, so
+write for a reader skimming for one answer:
+
+- **The description** says what the note is about and when it bears on
+  work, in about 25 words or fewer, so someone can find it without knowing
+  the project's file layout. It is no table of contents: never list
+  everything the note covers.
+- **Lead with the point**: one to three plain sentences on what is true or
+  what the rule is, enough for a reader who stops there.
+- **Headings for the parts someone looks for apart**, such as `## How it
+  works`, `## Why` and `## Measured`, short paragraphs under them, and
+  bullets for anything listed. A note of a paragraph or two needs none.
+- **One claim a sentence.** Keep the names of code someone would search
+  for, but gather file paths in a closing `## Where` list rather than one
+  in brackets after each clause.
+- **Dated evidence apart from how things are**: a spike, a measurement or
+  the data a value was tuned on goes under its own heading, with its date,
+  or in a note of its own when long.
+- **Split a note** when someone would look for its parts on their own;
+  past about 40 lines it likely says several things.
+
+```markdown
+---
+description: Why the API retries a 503 from the payment provider but never a 500
+---
+
+Calls to the payment provider retry a 503 up to three times and never
+retry a 500.
+
+## Why
+
+A 503 is the provider shedding load before it charges; a 500 may come after
+the charge went through, so a retry could charge twice.
+
+## Where
+
+- `api/payments/client.ts`: `retryable`
+```
 
 ## Keeping a conversation
 

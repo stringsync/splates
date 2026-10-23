@@ -28,6 +28,10 @@ For each listed note, read it, then decide whether it is:
   agent would look for on its own;
 - **contradicting**: it says the opposite of another note, any note in the
   notes directory, listed or not;
+- **hard to read**: it does not follow Laying out a note in
+  [notes.md](notes.md), such as a wall of paragraphs with no point up
+  front, sentences of several claims each, or dated measurements mixed in
+  with how things are;
 - **vaguely described**: its description would not tell an agent reading
   only the descriptions, as `splates notes` lists them, what the note is
   about or when it bears on their work.
@@ -54,6 +58,7 @@ each with one thing to say and a one-line description:
 - split a note that says several things into one file each;
 - settle a contradiction where the code settles it, fixing the note that
   is wrong;
+- lay out a hard-to-read note again, saying the same things;
 - sharpen a vague description to say what the note is about.
 
 A contradiction the code does not settle, such as two decisions each
