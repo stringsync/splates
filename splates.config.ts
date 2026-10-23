@@ -4,8 +4,7 @@ import type { ConfigFile } from "@stringsync/splates-server/config";
 export default {
 	postCheckout: "bun install",
 	postRewrite: "bun install",
-	// No merge gate for now: the runner setup kept every merge from landing.
-	// It comes back running here, one at a time (the "Local premerge" lane).
+	preMerge: "./bin/splates dev premerge",
 	// What a runner does to a fresh checkout before a heavy job, as
 	// `docker/worker.Dockerfile` does: the install's scripts build the page, which
 	// needs the source, so they are skipped and the build run after.

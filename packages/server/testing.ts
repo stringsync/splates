@@ -77,6 +77,8 @@ export class Testing implements AsyncDisposable {
 	readonly heavy: HeavyJobs;
 	/** The cores a merge under test claims, never the machine's. */
 	readonly cores: CoreClaims;
+	/** The premerge lock a merge under test holds, never the machine's. */
+	readonly premerge: FileLock;
 	readonly journal: Journal;
 	/** The project's records, in its database under `dir`. */
 	readonly storage: SqliteStorage;
@@ -185,6 +187,11 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			log: this.log,
 			budget: 4,
+		});
+		this.premerge = new FileLock(join(this.splatesHome, "premerge.lock"), {
+			fs: this.fs,
+			ps: this.ps,
+			log: this.log,
 		});
 		this.journal = new Journal(this.storage, this.config.logCapacity, {
 			ps: this.ps,

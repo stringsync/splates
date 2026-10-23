@@ -1,5 +1,9 @@
+import {
+	HEAVY_HELD,
+	premergeLockOfMachine,
+} from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { fix } from "./fix";
 import { test } from "./test";
 
@@ -14,12 +18,28 @@ export interface PremergeOptions {
 
 /**
  * What the merge gate runs: `dev fix`'s checks without writing fixes, failing
- * fast, then the tests as `dev test --ci` runs them, on a runner when one can
- * be had and else here, so a merge never waits on the cloud. A failed check is
- * named apart from failed tests, for the gate's attribution.
+ * fast, then the tests as `dev test --ci` runs them. A failed check is named
+ * apart from failed tests, for the gate's attribution. Run by hand, it waits
+ * for the machine's premerge lock, so the whole suite runs one at a time;
+ * inside a gate, which holds it already, it runs at once.
  */
 export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
+	const ps = opts.ps ?? new NodePs();
+	if (ps.env(HEAVY_HELD) !== undefined) {
+		return await checkAndTest(opts, log);
+	}
+	const lock = premergeLockOfMachine({ fs: new NodeFs(), ps, log });
+	log.info("premerge: waiting for the machine's premerge lock");
+	await lock.acquire();
+	try {
+		await checkAndTest(opts, log);
+	} finally {
+		await lock.release();
+	}
+}
+
+async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	await fix({ check: true, log, ...(opts.ps ? { ps: opts.ps } : {}) }).catch(
 		(error: unknown) => {
 			log.error("premerge: the checks failed, so no tests ran");
@@ -28,7 +48,6 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 	);
 	await test({
 		ci: true,
-		orHere: true,
 		log,
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),

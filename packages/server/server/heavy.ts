@@ -1,5 +1,5 @@
 import type { Logger } from "webappwiz/log";
-import { type Fs, HeavyJobs, type Ps } from "webappwiz/system";
+import { FileLock, type Fs, HeavyJobs, type Ps } from "webappwiz/system";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 
@@ -47,4 +47,24 @@ export function heavyJobsOfMachine({
 export function capOf(value: string | undefined): number {
 	const cap = Number(value);
 	return Number.isInteger(cap) && cap > 0 ? cap : HEAVY_JOBS_DEFAULT;
+}
+
+/**
+ * The machine's one premerge: every task's merge gate, and a `splates dev
+ * premerge` run by hand, holds it while the whole suite runs, so the full
+ * suite runs one at a time on this machine whatever the heavy-job cap.
+ */
+export function premergeLockOfMachine({
+	fs,
+	ps,
+	log,
+}: {
+	fs: Fs;
+	ps: Ps;
+	log: Logger;
+}): FileLock {
+	return new FileLock(
+		`${ps.env(MACHINE_HOME) ?? splatesHome(ps)}/premerge.lock`,
+		{ fs, ps, log },
+	);
 }

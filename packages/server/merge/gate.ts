@@ -1,10 +1,9 @@
 import type { Logger } from "webappwiz/log";
-import type { Fs, HeavyCap, HeavySlot, Ps } from "webappwiz/system";
+import type { Fs, HeavyCap, HeavySlot, Lock } from "webappwiz/system";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import type { CoreClaim, CoreClaims } from "../server/shared";
 import type { Shell } from "../terminal";
-import { runOnRunner, serverOf } from "../workers";
 import type { MergeTiming } from "./timing";
 
 /** A hook's output and its fresh JUnit report, kept together for attribution. */
@@ -15,19 +14,9 @@ export interface GateRun {
 	xml: string;
 }
 
-/** What the gate reaches a runner through: the `splates server` its agent runs under. */
-export interface GateRunners {
-	ps: Ps;
-	dev?: string;
-	send?: (url: string, init: RequestInit) => Promise<Response>;
-}
-
-/** Where a runner job's JUnit report comes back from, in `SPLATES_JOB_FILES`. */
-const REPORT = "report.xml";
-
 /**
- * Runs merge checks on a runner when one is to be had, else in the machine's
- * heavy-job slots, including isolated retests.
+ * Runs merge checks on this machine, including isolated retests: one merge's
+ * gate at a time, holding the machine's premerge lock, with every core.
  */
 export class MergeGate {
 	private reserved: HeavySlot | null = null;
@@ -40,25 +29,29 @@ export class MergeGate {
 		private readonly config: Config,
 		private readonly log: Logger,
 		private readonly timing: MergeTiming,
-		private readonly runners: GateRunners | null = null,
+		private readonly premerge: Lock,
 	) {}
 
 	/**
-	 * Reserves a heavy slot and cores before a merge takes a tree lock, ahead
-	 * of ordinary claims, since others wait on a merge; the gate and its
-	 * retests run in them, and a `splates dev test` they run claims no more.
+	 * Reserves the machine for a gate run: call it before a merge takes a tree
+	 * lock, and dispose of the result once the gate and its retests are done.
+	 * It waits for any other premerge on the machine, then holds every heavy
+	 * core, ahead of ordinary claims, so the suite runs alone.
 	 */
 	async reserve(task: string): Promise<AsyncDisposable> {
-		// Under a server the gate asks the pool for a runner, ahead of ordinary
-		// jobs, and takes a slot here only for a job sent to run here.
-		if (!this.command || (await this.reachesServer())) {
+		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
 		}
 		using _wait = this.timing.track("capacityWaitMs");
-		const slot = await this.heavy.take({ what: "preMerge", task });
-		// Half the cores heavy jobs share, so the two gates the default slots
-		// let run at once both fit.
-		const want = Math.max(1, Math.floor(this.cores.budget / 2));
+		await this.premerge.acquire();
+		const slot = await this.heavy
+			.take({ what: "preMerge", task })
+			.catch(async (error: unknown) => {
+				await this.premerge.release();
+				throw error;
+			});
+		// One gate runs at a time, so it has the cores heavy jobs share.
+		const want = Math.max(1, this.cores.budget);
 		// Waiting out the claim's timeout only leaves the gate's own test run
 		// to claim its cores, as it did before merges claimed any.
 		const claim = await this.cores
@@ -81,15 +74,9 @@ export class MergeGate {
 				this.reserved = null;
 				await claim?.[Symbol.asyncDispose]();
 				await slot[Symbol.asyncDispose]();
+				await this.premerge.release();
 			},
 		};
-	}
-
-	private async reachesServer(): Promise<boolean> {
-		return (
-			this.runners !== null &&
-			(await serverOf({ ...this.runners, fs: this.fs, log: this.log })) !== null
-		);
 	}
 
 	private async slot(what: string, task: string): Promise<HeavySlot> {
@@ -118,76 +105,10 @@ export class MergeGate {
 			if (files === undefined ? !this.command : false) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 			}
-			const remote =
-				(files !== undefined || Boolean(this.config.preMerge)) &&
-				(await this.reachesServer());
-			const [ran, installed] = remote
-				? await Promise.all([
-						this.onRunner(cwd, task, { files, at }),
-						// The coordinator's worktree needs its own install whatever a runner does.
-						files === undefined && this.config.postRewrite
-							? this.install(cwd, task)
-							: null,
-					])
-				: [null, null];
-			if (ran !== null) {
-				return ran.exitCode === 0 && installed !== null ? installed : ran;
-			}
 			return await this.runHere(cwd, task, { files, at });
 		} catch (error) {
 			return { exitCode: 1, stdout: "", stderr: String(error), xml: "" };
 		}
-	}
-
-	/** On a runner; null when none is to be had, for the caller to run it here. */
-	private async onRunner(
-		cwd: string,
-		task: string,
-		{ files, at }: { files?: string[]; at?: string },
-	): Promise<GateRun | null> {
-		if (this.runners === null) {
-			return null;
-		}
-		const out: Uint8Array[] = [];
-		const ran = await runOnRunner(
-			{ ...this.runners, fs: this.fs, log: this.log },
-			{
-				cwd,
-				// The runner has installed what the job's checkout needs: its
-				// `prepare` runs first.
-				argv:
-					files === undefined
-						? [
-								"sh",
-								"-c",
-								`SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/${REPORT}"; export SPLATES_TEST_REPORT; ${this.config.preMerge}`,
-							]
-						: [
-								"sh",
-								"-c",
-								`exec bun test --timeout 30000 --reporter=junit "--reporter-outfile=$SPLATES_JOB_FILES/${REPORT}" "$@"`,
-								"sh",
-								...files.map((file) => `./${file}`),
-							],
-				env: { SPLATES_TASK: task },
-				files: [REPORT],
-				first: true,
-				...(at === undefined ? {} : { commit: at }),
-				output: (bytes) => void out.push(bytes),
-				...(files === undefined
-					? {}
-					: { signal: AbortSignal.timeout(600_000) }),
-			},
-		);
-		if (ran === null) {
-			return null;
-		}
-		return {
-			exitCode: ran.code,
-			stdout: new TextDecoder().decode(Buffer.concat(out)),
-			stderr: "",
-			xml: new TextDecoder().decode(ran.files.get(REPORT) ?? new Uint8Array()),
-		};
 	}
 
 	/** In a heavy-job slot of this machine's; a retest `at` a commit in a checkout of it made for the run. */
@@ -267,14 +188,6 @@ export class MergeGate {
 			...(files === undefined ? {} : { timeoutMs: 180_000 }),
 		});
 		return { ...run, xml: await this.fs.read(report).catch(() => "") };
-	}
-
-	/** `postRewrite` in `cwd`, outside a slot: an install, not a test run. */
-	private async install(cwd: string, task: string): Promise<GateRun> {
-		const run = await this.shell.run(this.config.postRewrite ?? "", cwd, {
-			env: { SPLATES_TASK: task, SPLATES_WORKTREE: cwd },
-		});
-		return { ...run, xml: "" };
 	}
 
 	/** The baseline needs its own dependencies, never the task's node_modules. */

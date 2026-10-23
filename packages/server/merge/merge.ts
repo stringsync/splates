@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Fs, HeavyCap, Lock, Ps } from "webappwiz/system";
+import type { Fs, HeavyCap, Lock } from "webappwiz/system";
 import { type Clock, SystemClock } from "webappwiz/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
@@ -16,7 +16,7 @@ import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
-import { type GateRunners, MergeGate } from "./gate";
+import { MergeGate } from "./gate";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
@@ -51,10 +51,9 @@ export async function merge(
 		slots,
 		heavy,
 		cores,
+		premerge,
 		branches,
 		trunk,
-		ps,
-		send,
 		clock = new SystemClock(),
 	}: {
 		service: WorktreeService;
@@ -69,11 +68,10 @@ export async function merge(
 		slots: Slots;
 		heavy: HeavyCap;
 		cores: CoreClaims;
+		/** The machine's premerge lock, so one gate runs at a time. */
+		premerge: Lock;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
-		/** Reaches the server a runner is asked through; the gate runs here without it. */
-		ps?: Ps;
-		send?: GateRunners["send"];
 		clock?: Clock;
 	},
 	cwd: string,
@@ -202,7 +200,7 @@ export async function merge(
 		config,
 		log,
 		timing,
-		ps === undefined ? null : { ps, ...(send === undefined ? {} : { send }) },
+		premerge,
 	);
 	await using _capacity = await runner.reserve(task);
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);

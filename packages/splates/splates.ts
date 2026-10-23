@@ -336,7 +336,7 @@ splates
 			"merge",
 			task,
 			() =>
-				merge({ ...ctx, send: ctx.fetch }, ctx.ps.cwd(), facts, {
+				merge(ctx, ctx.ps.cwd(), facts, {
 					message: opts.message,
 				}),
 			facts as Facts["merge"],

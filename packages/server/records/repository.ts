@@ -24,6 +24,7 @@ import {
 	type CoreClaims,
 	coreClaimsOfMachine,
 	heavyJobsOfMachine,
+	premergeLockOfMachine,
 } from "../server/shared";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
@@ -98,6 +99,8 @@ export interface Repository {
 	slots: Slots;
 	/** The machine's slots for test runs and installs, which hooks wait for. */
 	heavy: HeavyCap;
+	/** Held by a merge's gate, so one premerge runs on the machine at a time. */
+	premerge: Lock;
 	/** The machine's cores, which a merge claims around its gate. */
 	cores: CoreClaims;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
@@ -447,6 +450,7 @@ export async function openRepository(
 		}),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
+		premerge: premergeLockOfMachine({ fs, ps, log }),
 		cores: coreClaimsOfMachine({ fs, ps, log }),
 		creds,
 		dir,

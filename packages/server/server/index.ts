@@ -5,7 +5,11 @@ export {
 	runOnDirectRunner,
 	withRunners,
 } from "./direct-run";
-export { heavyJobsOfMachine } from "./heavy";
+export {
+	HEAVY_HELD,
+	heavyJobsOfMachine,
+	premergeLockOfMachine,
+} from "./heavy";
 export { runHeavy } from "./heavy-run";
 export { DEFAULT_PORT } from "./ports";
 export type { Behind, Release } from "./release";

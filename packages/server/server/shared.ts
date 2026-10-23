@@ -1,7 +1,11 @@
 // What the other modules build on, apart from the server itself, so using it
 // never loads the whole process.
 export { type CoreClaim, CoreClaims, coreClaimsOfMachine } from "./cores";
-export { HEAVY_HELD, heavyJobsOfMachine } from "./heavy";
+export {
+	HEAVY_HELD,
+	heavyJobsOfMachine,
+	premergeLockOfMachine,
+} from "./heavy";
 export type { EventSink, StreamWatcher } from "./http";
 export {
 	body,

@@ -12,11 +12,11 @@ may still call it the coordinator, as in `CoordinatorIdentity` or `--coordinator
 where that sets it apart from a worker; it is the same thing.
 
 After making code changes, `splates dev fix` typechecks, formats and checks
-the project, scry included. The merge gate is off for now (no `preMerge` in
-`splates.config.ts`), so nothing runs the suite before a merge lands: before
-merging, run the tests your change reaches, `splates dev test --changed`
-(`--since main` once committed) or the test files you changed, never the
-whole suite. `splates dev test --evals` tests the eval
+the project, scry included. Do not run the test suite yourself: the merge
+gate runs it, as `bin/splates dev premerge` (`preMerge` in
+`splates.config.ts`), here on this machine, one gate at a time, so a run of
+your own is the same work twice. Running a test file or two you changed by
+hand (`bun test <path>`) is fine. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`. `splates dev prove runner` joins a
 Linux container to the server as a runner and runs a job on it; it needs
 Docker and takes minutes.
