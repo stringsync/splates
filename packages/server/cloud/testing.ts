@@ -1,3 +1,4 @@
+export { FakeAwaitingRunner } from "./fake-awaiting-runner";
 export type {
 	FakeDigitalOceanRequest,
 	FakeDroplet,

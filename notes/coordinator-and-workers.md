@@ -24,4 +24,6 @@ runs an agent, a checkout or a terminal: remote agents, their clones, the
 relay, task keys and waking were removed (see `designs/worker-pool.md`).
 They come back as stateless runners for heavy jobs (`heavy-jobs-on-runners.md`),
 made and stopped by the job pool's keeper, and shown on the page's Runners
-page with their jobs now, free room and when they came up.
+page with their jobs now, free room and when they came up. A runner made in
+Fly.io does not dial in at all: the server reaches it through Fly's proxy
+and hands the socket to the registry as though it had (`RunnerDialer`).

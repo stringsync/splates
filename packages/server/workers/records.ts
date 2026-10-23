@@ -14,7 +14,7 @@ export type WorkerRecord = z.output<typeof Record>;
 export type WorkerSettings = Partial<
 	Pick<
 		WorkerRecord,
-		"slots" | "draining" | "removing" | "updating" | "provisioned"
+		"slots" | "draining" | "removing" | "updating" | "provisioned" | "joinedAt"
 	>
 >;
 

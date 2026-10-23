@@ -65,7 +65,7 @@ export class OwnBuild {
 				headers: { "content-type": "text/javascript" },
 			});
 		} catch (error) {
-			this.opts.log.error(
+			this.opts.log?.error(
 				`splates could not bundle its own build for a runner: ${String(error)}`,
 			);
 			return refuse(503, "unavailable", "the build could not be bundled");
@@ -88,7 +88,7 @@ export class OwnBuild {
 	}
 
 	/** The bundle, made once; tried again on the next ask after a failure. */
-	private bundle(): Promise<string> {
+	bundle(): Promise<string> {
 		this.bundling ??= this.make().catch((error: unknown) => {
 			this.bundling = null;
 			throw error;
@@ -116,5 +116,6 @@ export interface OwnBuildOptions {
 	/** The entry bundled; the CLI of the checkout this server runs from by default. */
 	entry?: string;
 	wall?: WallClock;
-	log: Logger;
+	/** Where a failed bundle is told of; nowhere by default. */
+	log?: Logger;
 }

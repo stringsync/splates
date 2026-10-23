@@ -38,9 +38,9 @@ the rest:
    Leave the whole suite to the merge gate. Run other heavy work with
    `splates run -- <command>`: it runs on a runner, in a checkout of your
    worktree as it stands, output streamed back and its exit code yours.
-   It uses a runner joined to `splates server`, else, where the project's
-   `splates.config.ts` names a `cloud`, makes one there itself, server or
-   not. With a cloud configured it never runs here, refusing with
+   It uses a runner of `splates server`'s, else, where the project's
+   `splates.config.ts` names a Fly.io `cloud`, makes one there itself,
+   server or not. With a cloud configured it never runs here, refusing with
    `no_runner` when none can be had: run a few test files by hand or wait
    for a runner. In a project with no cloud it takes a local heavy-job
    slot, so keep the host's load in mind. A runner takes as many commands

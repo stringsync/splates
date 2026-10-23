@@ -13,6 +13,9 @@ export async function runnerServe(opts: RunnerServeOptions): Promise<void> {
 	);
 	const server = new RunnerServer(ps, {
 		secret,
+		...(ps.env("SPLATES_RUNNER_ID") === undefined
+			? {}
+			: { id: ps.env("SPLATES_RUNNER_ID") }),
 		port: opts.port,
 		home: `${splatesHome(ps)}/runner`,
 	});

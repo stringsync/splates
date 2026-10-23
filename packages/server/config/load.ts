@@ -1,10 +1,10 @@
 import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { type Fs, NodeFs } from "webappwiz/system";
+import { type Fs, NodeFs, NodePs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
 import { CloudWorkers, FlyCloud, FlyWorkers } from "../cloud";
 import { Git } from "../git";
-import { jobSize } from "../workers";
+import { jobSize, SplatesRunnerBoot } from "../workers";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 
@@ -51,7 +51,10 @@ export async function loadConfig(
 				...config,
 				workerProvider:
 					config.cloud instanceof FlyCloud
-						? new FlyWorkers(config.cloud, { job: jobSize(config.job) })
+						? new FlyWorkers(config.cloud, {
+								job: jobSize(config.job),
+								boot: new SplatesRunnerBoot(new NodePs()),
+							})
 						: new CloudWorkers(config.cloud, { job: jobSize(config.job) }),
 			}
 		: config;

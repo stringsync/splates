@@ -45,7 +45,7 @@ export interface FlyService {
 export interface FlyMachineConfig {
 	image: string;
 	env: Record<string, string>;
-	init?: { cmd: string[] };
+	init?: { cmd?: string[]; entrypoint?: string[] };
 	metadata: Record<string, string>;
 	auto_destroy: boolean;
 	guest: {
@@ -63,9 +63,11 @@ export interface NewFlyMachine {
 	size: FlySize;
 	region: string;
 	image: string;
-	/** May contain credentials: never log a machine's config or create body. */
+	/** The machine's environment, which holds its secret: kept out of every log. */
 	env: Record<string, string>;
 	cmd?: string[];
+	/** Run in place of the image's entrypoint. */
+	entrypoint?: string[];
 	metadata: Record<string, string>;
 	autoDestroy: boolean;
 	persistRootfs: "never" | "restart" | "always";

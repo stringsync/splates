@@ -1,5 +1,5 @@
 ---
-description: How `splates run` and `splates dev test` make and use runners of their own in the project's cloud with no `splates server` (tagged droplets, SSH, git push), share the worker budget, reap idle ones, and refuse rather than run here
+description: How `splates run` and `splates dev test` make and use runners of their own in the project's Fly app with no `splates server` (tagged machines reached through Fly's proxy, the job channel, local claims), share the worker budget, reap idle ones, and refuse rather than run here
 ---
 
 The person asked (2026-10-22) that `splates run` never depend on the server,
@@ -18,39 +18,38 @@ when it is unreachable or answers `local`, `runOnDirectRunner`
 (`server/direct-run.ts`) with `DirectRunners` (`workers/direct.ts`). The
 merge gate inside the server does not go on to these.
 
-Nothing is kept here about them but the budget and the ledger: each is a
-machine tagged `splates-run:<name>`, listed from the cloud, and the runner
-itself says what it holds. Under `~/direct` on the runner (user `splates`)
-each job writes `jobs/<id>.job`, `cpus memory pid started`, reserved under a
-`mkdir` lock with `-` for a pid until the job takes it up (5 minutes), so a
-runner takes as many jobs as fit in its size's CPUs and memory, as the pool's
-runners do; a dead pid frees its room. `last-used` says when it last ran one.
+Only Fly.io runners are made this way (since 2026-10-22, when SSH went):
+with a DigitalOcean `cloud`, `withRunners` refuses with `no_runner` and
+says to start `splates server`, whose `CloudWorkers` still make
+DigitalOcean's until it is removed. Each runner is a machine in the
+project's app whose metadata says `splates-run: <name>`, listed from the
+Machines API, and reached as the server reaches its own
+(`FlyRunners`, `cloud/fly-runners.ts`; `heavy-jobs-on-runners.md`): through
+`https://<app>.fly.dev/api/jobs` with its id in `fly-force-instance-id` and
+the bearer secret its maker put in its env, which the Machines API gives
+back to whoever holds `FLY_API_TOKEN`. A stopped one is started first. So
+nothing dials in, and no key of this machine's is needed.
 
+What this machine's jobs hold is kept here, in
+`~/.splates/direct-runners/claims.json` (`RunnerClaims`): each job's claim
+of CPUs and memory on the runner it waits for or runs on, by pid, freed when
+the job ends or its process is gone, and when each runner last ended a job.
 Placement, under a `FileLock` in `~/.splates/direct-runners/place.lock` so
-two `splates run`s here never race: reserve on the cheapest runner up with
-room; else wait for one booting whose room, less the claims of jobs here
-already waiting for it (`claims.json`, by pid), holds the job; else make the
-cheapest size that holds it (`runnerSizes`, shared with `CloudWorkers`). Past
-the budget it waits while a runner that could hold it is busy, and refuses
-when none could. A size the cloud refuses (`TypeRefused`) is skipped for the
-next cheapest.
+two `splates run`s here never race: the first runner (started ones first,
+then the cheapest) whose size, less the claims on it, holds the job; else
+make the cheapest size that holds it (`runnerSizes`, as `FlyWorkers` does).
+Past the budget it waits while a runner that could hold it is up, and
+refuses when none could. A size Fly refuses (`TypeRefused`) is skipped for
+the next cheapest. Jobs from `splates run` on another computer are not
+counted, so a runner shared that way may be overfilled; the runner stopping
+itself when idle (#1070) replaces this machine's bookkeeping of idleness.
 
-A runner boots from the worker snapshot when there is one (any version: a job
-needs bun and git, not splates), else the stock image with the recipe, then
-its user data adds the runner key's public half to `splates`'s
-`authorized_keys` and marks it ready. The key is made once with `ssh-keygen`
-and kept in the device's creds (`SPLATES_RUNNER_SSH_KEY` and `_PUBLIC_KEY`),
-written to a 0600 temp file only while a command runs. Host keys are trusted
-on first use and kept per runner name, since the cloud reuses addresses.
-Nothing of the person's creds reaches a runner.
-
-A job is the snapshot commit (`JobSnapshot`) pushed with git over SSH to the
-project's bare clone there (`refs/splates/jobs/<id>`), so only missing objects
-go, then `directJobScript` run in bash over SSH: a detached worktree, the
-`prepare` step and the command in a process group of their own with
-`SPLATES_HEAVY=runner` and `SPLATES_CORES`, killed when SSH's stdin closes (the
-caller hung up) or past the timeout (exit 124). Files the job asks back come
-as base64 lines from a second SSH. Each job is a `job` row in the ledger.
+A job opens the job channel over that socket with a `WorkerRegistry` of the
+CLI's own: the runner says its hello once sent `ready`, the CLI ships the
+snapshot commit as a bundle of what the runner lacks, and output, exit code
+and files come back as they do through the server, with `SPLATES_HEAVY=runner`
+and `SPLATES_CORES` set. Hanging up ends the job on the runner. A checkout's
+splates hands a runner it made its own build first, as the server does.
 
 The runner cap (`splates budget set runners`, 16 by default) is counted from
 the cloud's own list, the server's workers and `splates run`'s runners
@@ -66,13 +65,14 @@ person past the budget can raise it) and `runner` / `runner-ended` rows in the s
 shows it. `splates run` leaves a detached `splates runners reap --watch 11m`
 behind it, one on the machine at a time (its pid in
 `~/.splates/direct-runners/reaper.pid`), which looks every 11 minutes for as
-long as any runner is up and deletes those idle 10 minutes, every idle one
-once the day's or month's limit is spent, and any that never booted or stay
-unreachable past 15 minutes. A machine asleep or off reaps nothing, so a
+long as any runner is up and deletes those no job here holds that last ran
+one 10 minutes ago, every one no job here holds once the day's or month's
+limit is spent, and any this machine never used past 15 minutes from its
+making. A machine asleep or off reaps nothing, so a
 runner can outlive it until the next `splates run` here. `splates runners
 list` shows them.
 
-Measured 2026-10-22 on DigitalOcean `s-4vcpu-8gb`: a cold run (no runner up)
+Measured 2026-10-22 on DigitalOcean `s-4vcpu-8gb`, over SSH before this path moved to Fly: a cold run (no runner up)
 about 3 minutes to output; the next on the same runner about 8 s, most of it
 `prepare`; the whole suite via `splates dev test` about 4 minutes.
 

@@ -19,11 +19,13 @@ import type {
 	ProvisionedMachine,
 	WorkerImage,
 	WorkerProvider,
+	WorkerSpec,
 	WorkerType,
 } from "./provider";
 import { type DirectSweep, ProviderReconciler, SWEEP_EVERY } from "./reconcile";
 import { JOIN_WITHIN, type WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
+import { RunnerDialer } from "./runner-dialer";
 import type { RunnerLedger } from "./runner-ledger";
 import type { HeldSlot, Scheduler } from "./scheduler";
 import { SNAPSHOT_SPLATES, type Snapshots } from "./snapshot";
@@ -66,11 +68,37 @@ export class WorkerProvisioning
 	private readonly reconciler: ProviderReconciler;
 	private scheduler: Scheduler | null = null;
 	private readonly idle: IdleWorkers;
+	/** Keeps the runners the server reaches dialed; null for a provider whose machines dial in. */
+	private readonly dialer: RunnerDialer | null;
 
 	constructor(private readonly opts: WorkerProvisioningOptions) {
 		this.wall = opts.wall ?? new SystemWallClock();
 		this.reconciler = new ProviderReconciler({ ...opts, wall: this.wall });
 		this.idle = new IdleWorkers(opts.records, this.wall);
+		const { provider } = opts;
+		this.dialer =
+			provider.reach === undefined
+				? null
+				: new RunnerDialer({
+						reach: {
+							reach: (id, signal) =>
+								(provider.reach as NonNullable<typeof provider.reach>).call(
+									provider,
+									id,
+									signal,
+								),
+						},
+						registry: opts.registry,
+						records: opts.records,
+						log: opts.log,
+						wall: this.wall,
+					});
+		// Made before a restart: dialed again, since none dials in.
+		for (const record of opts.records.all) {
+			if (record.provisioned !== null && !record.removing) {
+				this.dialer?.dial(record.id);
+			}
+		}
 	}
 
 	get budget(): WorkerBudget {
@@ -132,17 +160,14 @@ export class WorkerProvisioning
 	 * Answers once its machine boots; it joins later, on its own.
 	 */
 	async provision(opts: ProvisionOptions = {}): Promise<Provisioned> {
-		const { provider, snapshots, records, registry } = this.opts;
+		const { provider, records, registry } = this.opts;
 		const type = pickType(await provider.types(), opts);
 		const coordinator = this.opts.coordinator();
-		if (coordinator === null) {
+		if (this.dialer === null && coordinator === null) {
 			throw new Error(
 				"a provisioned worker dials the page at its tunnel host: start `splates server` with a tunnel (`splates tunnel setup`)",
 			);
 		}
-		// A runner never waits for a snapshot to be built: with none ready it
-		// runs the recipe on a stock image, and the build goes on behind it.
-		const snapshot = await snapshots.ready(type.platform);
 		const id = `${type.name}-${randomBytes(3).toString("hex")}`;
 		const provisioned = {
 			type: type.name,
@@ -158,51 +183,16 @@ export class WorkerProvisioning
 			},
 		});
 		registry.expect(id, "provisioned");
-		const { token } = await records.invite(
-			(await this.opts.access?.mint()) ?? null,
-		);
+		// Reached, it needs nothing to dial in with: no join or service token.
+		const spec =
+			this.dialer !== null || coordinator === null
+				? reachedSpec(id, type.name)
+				: await this.dialingSpec(id, type, coordinator);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
 		await this.keepMade(id, type, type.dollarsPerHour);
 		let made: ProvisionedMachine;
 		try {
-			made = await this.reconciler.creating(id, () =>
-				provider.create({
-					id,
-					type: type.name,
-					snapshot: snapshot?.id ?? null,
-					recipe: snapshot === null ? snapshots.recipe(type.platform) : null,
-					join: [
-						SNAPSHOT_SPLATES,
-						"worker",
-						"join",
-						"--coordinator",
-						coordinator,
-						"--id",
-						id,
-						"--key-file",
-					],
-					joinEnv: { [WORKER_JOIN]: token },
-					boot: [
-						SNAPSHOT_SPLATES,
-						"worker",
-						"run",
-						"--coordinator",
-						coordinator,
-						"--id",
-						id,
-						"--slots",
-						String(type.slots),
-						"--key-file",
-					],
-					build:
-						this.opts.ownBuild == null
-							? null
-							: {
-									url: new URL(OWN_BUILD_PATH, coordinator).href,
-									token: this.opts.ownBuild.grant(),
-								},
-				}),
-			);
+			made = await this.reconciler.creating(id, () => provider.create(spec));
 		} catch (error) {
 			registry.forget(id);
 			await records.remove(id);
@@ -226,14 +216,71 @@ export class WorkerProvisioning
 			await this.opts.budget.started(id, type.name, rate);
 			await this.keepMade(id, type, rate);
 		}
+		this.dialer?.dial(id);
 		this.opts.log.info(
 			`provisioned ${id}, a ${type.name} at $${rate.toFixed(2)}/hour${made.spot === true ? " on spot" : ""}`,
 		);
 		return { id, ...provisioned, dollarsPerHour: rate };
 	}
 
+	/**
+	 * What a worker that dials in is made with: a join token, with a service
+	 * token where the tunnel's Access asks one, and the commands that join
+	 * and run it against `coordinator`.
+	 */
+	private async dialingSpec(
+		id: string,
+		type: WorkerType,
+		coordinator: string,
+	): Promise<WorkerSpec> {
+		const { snapshots, records } = this.opts;
+		// A runner never waits for a snapshot to be built: with none ready it
+		// runs the recipe on a stock image, and the build goes on behind it.
+		const snapshot = await snapshots.ready(type.platform);
+		const { token } = await records.invite(
+			(await this.opts.access?.mint()) ?? null,
+		);
+		return {
+			id,
+			type: type.name,
+			snapshot: snapshot?.id ?? null,
+			recipe: snapshot === null ? snapshots.recipe(type.platform) : null,
+			join: [
+				SNAPSHOT_SPLATES,
+				"worker",
+				"join",
+				"--coordinator",
+				coordinator,
+				"--id",
+				id,
+				"--key-file",
+			],
+			joinEnv: { [WORKER_JOIN]: token },
+			boot: [
+				SNAPSHOT_SPLATES,
+				"worker",
+				"run",
+				"--coordinator",
+				coordinator,
+				"--id",
+				id,
+				"--slots",
+				String(type.slots),
+				"--key-file",
+			],
+			build:
+				this.opts.ownBuild == null
+					? null
+					: {
+							url: new URL(OWN_BUILD_PATH, coordinator).href,
+							token: this.opts.ownBuild.grant(),
+						},
+		};
+	}
+
 	/** Destroys the machine of worker `id`, one a provider made. */
 	async destroy(id: string): Promise<void> {
+		this.dialer?.forget(id);
 		this.idle.forget(id);
 		await this.opts.provider.destroy(id);
 		await this.opts.budget.ended(id);
@@ -373,6 +420,7 @@ export class WorkerProvisioning
 	}
 
 	dispose(): void {
+		this.dialer?.dispose();
 		this.watching?.();
 		this.watching = null;
 		this.tick?.dispose();
@@ -380,6 +428,20 @@ export class WorkerProvisioning
 		this.sweeping?.dispose();
 		this.sweeping = null;
 	}
+}
+
+/** What a worker the server reaches is made with: nothing to join or run, since its image serves jobs. */
+function reachedSpec(id: string, type: string): WorkerSpec {
+	return {
+		id,
+		type,
+		snapshot: null,
+		recipe: null,
+		join: [],
+		joinEnv: {},
+		boot: [],
+		build: null,
+	};
 }
 
 /** What `WorkerProvisioning` makes workers with. */

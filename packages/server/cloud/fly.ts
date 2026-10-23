@@ -69,7 +69,16 @@ export class FlyCloud implements FlyMachines {
 					image: spec.image,
 					env: spec.env,
 					metadata: spec.metadata,
-					...(spec.cmd === undefined ? {} : { init: { cmd: spec.cmd } }),
+					...(spec.cmd === undefined && spec.entrypoint === undefined
+						? {}
+						: {
+								init: {
+									...(spec.cmd === undefined ? {} : { cmd: spec.cmd }),
+									...(spec.entrypoint === undefined
+										? {}
+										: { entrypoint: spec.entrypoint }),
+								},
+							}),
 					auto_destroy: spec.autoDestroy,
 					guest: {
 						cpu_kind: spec.size.cpuKind,
@@ -155,6 +164,11 @@ export class FlyCloud implements FlyMachines {
 				`/wait?state=${encodeURIComponent(state)}&timeout=60`,
 			),
 		);
+	}
+
+	/** Where Fly's proxy answers for the app, which routes to one machine by `fly-force-instance-id`. */
+	async origin(): Promise<string> {
+		return `https://${await this.appName()}.fly.dev`;
 	}
 
 	async appName(): Promise<string> {

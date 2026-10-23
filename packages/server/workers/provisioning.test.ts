@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
+import { eventually } from "../server/testing";
 import type { RunnerRow } from "../spend";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
@@ -12,7 +13,11 @@ import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import { Scheduler } from "./scheduler";
 import { Snapshots } from "./snapshot";
-import { FakeWorkerAccess, FakeWorkerProvider } from "./testing";
+import {
+	FakeReachedProvider,
+	FakeWorkerAccess,
+	FakeWorkerProvider,
+} from "./testing";
 
 describe("WorkerProvisioning", () => {
 	it("makes the cheapest type it can boot, joining with a token of its own", async () => {
@@ -42,6 +47,24 @@ describe("WorkerProvisioning", () => {
 		expect(records.of(worker.id)?.access).toBe("st-1");
 	});
 
+	it("makes a runner the server reaches with no tunnel, join token or service token, and dials it", async () => {
+		const provider = new FakeReachedProvider([...TYPES]);
+		const { access, registry, made } = await provisioning(null, null, provider);
+
+		const worker = await made.provision();
+
+		expect(provider.specs[0]).toMatchObject({ join: [], joinEnv: {} });
+		expect(access.live.size).toBe(0);
+		expect(
+			await eventually(
+				async () => registry.worker(worker.id)?.connected === true,
+				2000,
+			),
+		).toBe(true);
+		made.dispose();
+	});
+
+	// scry-ignore simple-test-setup: compares a server on a release with one from a checkout, each its own provisioning
 	it("has a worker it makes fetch the server's own build, by a token of its own, when the server runs from a checkout", async () => {
 		const released = await provisioning();
 		await released.made.provision();
@@ -272,8 +295,8 @@ const TYPES = [
 async function provisioning(
 	coordinator: string | null = "https://splates.example.com",
 	ownBuild: OwnBuild | null = null,
+	provider = new FakeWorkerProvider([...TYPES]),
 ) {
-	const provider = new FakeWorkerProvider([...TYPES]);
 	const wall = new FakeWallClock();
 	const budget = WorkerBudget.memory(wall);
 	const records = WorkerRecords.memory();

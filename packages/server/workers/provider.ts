@@ -1,4 +1,5 @@
 import type { Duration } from "webappwiz/time";
+import type { WorkerSocket } from "./socket";
 
 /** The provider would not make a worker of `type`, though another type may do. */
 export class TypeRefused extends Error {
@@ -177,6 +178,14 @@ export interface WorkerProvider {
 	 * length when absent.
 	 */
 	running?(): Promise<number>;
+	/**
+	 * For a provider whose machines the server reaches rather than one that
+	 * dials in: opens worker `id`'s job socket, starting its machine as
+	 * needed, and throws `RunnerGone` once it is no more. Such a worker is
+	 * made with no join token, service token or tunnel: `create` is given
+	 * no `join` or `boot` to run.
+	 */
+	reach?(id: string, signal?: AbortSignal): Promise<WorkerSocket>;
 	/**
 	 * Deletes what it left behind besides workers' machines, such as a
 	 * snapshot's builder a build that died kept running, answering a name

@@ -70,6 +70,7 @@ export type {
 export {
 	BOOT_LIMIT,
 	DIRECT_IDLE,
+	DIRECT_PREFIX,
 	DIRECT_TAG,
 	DirectRunners,
 	WORKER_TAG,
@@ -83,18 +84,6 @@ export {
 	DirectJobReport,
 	DirectRunnerReport,
 } from "./direct-runner-report";
-export type {
-	Captured,
-	RunnerHost,
-	RunnerKey,
-	RunnerShell,
-} from "./direct-ssh";
-export {
-	RUNNER_SSH_KEY,
-	RUNNER_SSH_PUBLIC_KEY,
-	runnerKey,
-	SshShell,
-} from "./direct-ssh";
 export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
 export type { RemoteJob, RemoteJobResult } from "./job-client";
@@ -164,6 +153,7 @@ export {
 	WORKER_SOCKET_PATH,
 } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
+export { SplatesRunnerBoot } from "./runner-boot";
 export { RunnerImages } from "./runner-images";
 export { runnerServe } from "./runner-serve";
 export { RunnerServer } from "./runner-server";
@@ -185,6 +175,7 @@ export {
 	snapshotRecipe,
 	workerRecipe,
 } from "./snapshot";
+export type { WorkerSocket } from "./socket";
 export type { SpendShare } from "./spend";
 export { statusLine } from "./status-line";
 export { UnixWorkerListener } from "./unix-listener";

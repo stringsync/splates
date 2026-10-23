@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
-import { type CloudProvider, FlyCloud } from "../cloud";
+import { type CloudProvider, FlyCloud, FlyRunners } from "../cloud";
 import { loadConfig } from "../config";
 import { Git } from "../git";
 import { splatesHome } from "../models";
@@ -18,17 +18,14 @@ import {
 	NoRunner,
 	type RemoteJob,
 	type RemoteJobResult,
-	runnerKey,
-	SshShell,
-	snapshotRecipe,
+	SplatesRunnerBoot,
 	WorkerBudget,
 } from "../workers";
 import { TerminalStatus } from "./direct-status";
-import { RUNNING } from "./release";
 
 /**
  * Runs `job` on a runner `splates run` makes for itself in the project's
- * cloud, with no `splates server`, as `DirectRunners` does. Null where the
+ * Fly app, with no `splates server`, as `DirectRunners` does. Null where the
  * project names no cloud, for the caller to run it here; throws `NoRunner`
  * where it names one but no runner can be had, as without the cloud's token
  * or past the budget, so a job meant for a runner never runs here unasked.
@@ -51,18 +48,12 @@ export async function runOnDirectRunner(
 	}
 	const config = await loadConfig(toplevel, { fs: ctx.fs });
 	const { cloud } = config;
-	if (cloud instanceof FlyCloud) {
-		throw new NoRunner(
-			"Fly direct runners need the proxy transport; use the running splates server meanwhile",
-		);
-	}
 	if (cloud === null) {
 		return null;
 	}
+	const git = new Git("/", { ps: ctx.ps });
 	return await withRunners(ctx, cloud, async (runners) => {
-		const commit =
-			job.commit ??
-			(await new JobSnapshot(new Git("/", { ps: ctx.ps })).take(toplevel));
+		const commit = job.commit ?? (await new JobSnapshot(git).take(toplevel));
 		const ran = await runners.run({
 			project,
 			cwd: toplevel,
@@ -84,17 +75,18 @@ export async function runOnDirectRunner(
 
 /**
  * Opens the runners `splates run` makes in `cloud` for `use`, with the
- * machine's budget and ledger and the runner key, made on first use.
- * Throws `NoRunner` without the cloud's token.
+ * machine's budget and ledger. Throws `NoRunner` without the cloud's token,
+ * and for a cloud other than Fly.io, whose runners only `splates server`
+ * makes.
  */
 export async function withRunners<T>(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
 	cloud: CloudProvider | FlyCloud,
 	use: (runners: DirectRunners) => Promise<T>,
 ): Promise<T> {
-	if (cloud instanceof FlyCloud) {
+	if (!(cloud instanceof FlyCloud)) {
 		throw new NoRunner(
-			"Fly direct runners need the proxy transport; use the running splates server meanwhile",
+			`no runner: \`splates run\` with no \`splates server\` makes runners only in Fly.io, and the project's are made in ${cloud.name}. Start \`splates server\`, or name \`new FlyCloud()\` as the \`cloud\` in splates.config.ts`,
 		);
 	}
 	const store = ctx.store ?? SystemSecretStore.device();
@@ -105,16 +97,12 @@ export async function withRunners<T>(
 	}
 	const home = splatesHome(ctx.ps);
 	const machine = FsStorage.ofMachine(ctx);
-	const key = await runnerKey(store, ctx.ps);
-	await using shell = await SshShell.open(ctx.ps, key, home);
 	await using status = await TerminalStatus.open(ctx);
 	const runners = new DirectRunners({
-		cloud,
+		runners: new FlyRunners(cloud, { boot: new SplatesRunnerBoot(ctx.ps) }),
 		budget: () => WorkerBudget.open(machine.document("worker-budget.json")),
 		ledger: new Spend(machine),
-		shell,
-		publicKey: key.publicKey,
-		recipe: snapshotRecipe("linux", RUNNING)?.script ?? null,
+		snapshot: new JobSnapshot(new Git("/", { ps: ctx.ps })),
 		lock: new FileLock(join(home, "direct-runners", "place.lock"), {
 			fs: ctx.fs,
 			ps: ctx.ps,
@@ -137,7 +125,7 @@ export function directSweep(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
 	cloud: CloudProvider | FlyCloud,
 ): DirectSweep {
-	if (cloud instanceof FlyCloud) {
+	if (!(cloud instanceof FlyCloud)) {
 		return { reap: async () => [], names: async () => [] };
 	}
 	return {
@@ -149,9 +137,9 @@ export function directSweep(
 				throw error;
 			}),
 		names: async () =>
-			(await cloud.machines(DIRECT_TAG)).map(
-				(machine) => machine.tags[DIRECT_TAG] ?? machine.name,
-			),
+			(await cloud.list())
+				.map((machine) => machine.config.metadata[DIRECT_TAG])
+				.filter((name): name is string => name !== undefined),
 	};
 }
 

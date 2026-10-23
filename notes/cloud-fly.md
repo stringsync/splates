@@ -125,11 +125,16 @@ can hold transitions pending with `autoAdvance = false`, destroys on stop
 when `autoDestroy` is set, and clears its `files` map on stop unless rootfs
 persistence was requested. Persistent files are only a cache, as above.
 
-Until the proxy transport task lands, `FlyWorkers` lets the server make a
-Fly runner from Ubuntu with the existing Linux install recipe, joining
-through the tunnel with secrets in env. Snapshot support on `WorkerProvider`
-is optional; Fly builds none. The repository still selects DigitalOcean
-until the image and proxy transport are ready. Standalone direct execution
-with Fly is refused until that transport replaces SSH; it never silently
-runs a job on this Mac. The DigitalOcean classes and its box seam remain
-only for the old path, to be removed in the lane's cleanup task.
+`FlyWorkers` makes a server's runners from the release image with a
+per-machine secret, `autoDestroy: false` and `persist_rootfs: "restart"`,
+and a proxy service on 443 to port 8080 with autostart and autostop off; the
+server reaches each through the proxy (`FlyRunners.reach`), starting a
+stopped one first, and `splates run` with no server makes and reaches its
+own the same way (`runners-without-server.md`). The machine's env carries
+`SPLATES_RUNNER_SECRET` and `SPLATES_RUNNER_ID`, its hello's name; whoever
+holds the Fly token can read both back, as it could exec into the machine
+anyway. A checkout's build is pushed to a fresh machine through the proxy
+(`heavy-jobs-on-runners.md`), so the `SPLATES_BUILD_URL` boot fetch is left
+for hosting outside splates. The repository still selects DigitalOcean
+until it is removed (#1071); its classes remain for the server's path
+alone.

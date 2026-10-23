@@ -40,5 +40,8 @@ For a checkout's own build, set `SPLATES_BUILD_URL` to the server's
 The boot wrapper fetches with `x-splates-build`, atomically installs the
 bundle, and runs that CLI instead. A failed fetch stops boot, so the release
 cannot silently substitute for a checkout. The URL must be reachable without
-interactive Cloudflare Access; the transport integration must arrange that
-before handing it to Fly. Build tokens are unset before the CLI starts.
+interactive Cloudflare Access. splates's own Fly runners do not use it:
+they are handed the build through the proxy instead (`AWAIT_BUILD` in
+`cloud/fly-runners.ts`, see `heavy-jobs-on-runners.md`). Build tokens are
+unset before the CLI starts. `splates runners serve` says the name in
+`SPLATES_RUNNER_ID` in its hello, the hostname without it.

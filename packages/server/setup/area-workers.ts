@@ -1,4 +1,5 @@
 import { MemoryLogger } from "webappwiz/log";
+import { NodePs } from "webappwiz/system";
 import { z } from "zod";
 import { CloudWorkers, FlyWorkers } from "../cloud";
 import { FsStorage } from "../storage";
@@ -12,6 +13,7 @@ import {
 import {
 	DEFAULT_JOB_SIZE,
 	LOCAL_WORKER,
+	SplatesRunnerBoot,
 	sizeLabel,
 	type WorkerType,
 } from "../workers";
@@ -65,7 +67,7 @@ function workersArea(): SetupArea {
 	const permissionStep: SetupStep = {
 		id: "worker-access",
 		title: "Let the API token mint worker service tokens",
-		why: "A worker on another network joins through Cloudflare Access with a service token of its own, which `splates worker add` mints with your API token. A token made before workers needs a new one.",
+		why: "A computer of yours on another network, joined as a runner with `splates worker add`, comes in through Cloudflare Access with a service token of its own, which your API token mints. Runners made in Fly.io need none: splates reaches them through Fly's proxy. A token made before workers needs a new one.",
 		user: "Replace the Cloudflare API token with one that also holds **Account · Access: Service Tokens · Edit**, then press Next.",
 		agent: `Run \`splates creds request ${API_TOKEN} --device --replace\`, with the permissions \`splates tunnel setup\` lists, and \`splates creds wait ${API_TOKEN}\`.`,
 		optional: true,
@@ -115,7 +117,7 @@ function workersArea(): SetupArea {
 	const tokenStep: SetupStep = {
 		id: "cloud-token",
 		title: "Paste your cloud provider's API token",
-		why: "Runners are machines in your own cloud account, made only while heavy jobs wait for one and deleted when they are done.",
+		why: "Runners are machines in your own cloud account, made only while heavy jobs wait for one and deleted when they are done. splates reaches them through the cloud's proxy, never over SSH: if an older splates left `SPLATES_RUNNER_SSH_KEY` and `SPLATES_RUNNER_SSH_PUBLIC_KEY` in this machine's keyring, nothing reads them now, and you can delete both.",
 		user: "Make an API token in your cloud provider's account and paste it.",
 		agent:
 			"Request the cred the step names with `splates creds request <cred> --device`, with how to get it, and `splates creds wait <cred>`. Never ask for it in chat.",
@@ -235,7 +237,7 @@ async function runnerTypes(machine: SetupMachine): Promise<WorkerType[]> {
 		const own = (await machine.project?.config())?.workerProvider;
 		return await (own instanceof CloudWorkers || own instanceof FlyWorkers
 			? own
-			: new FlyWorkers(cloud)
+			: new FlyWorkers(cloud, { boot: new SplatesRunnerBoot(new NodePs()) })
 		).types();
 	} catch {
 		return [];

@@ -6,6 +6,19 @@ A runner is a joined worker (not this machine's own `local`) that says
 `jobs: true` in its hello and holds no state but a bare warm clone per project
 under `<splates home>/runner/<hash of the project>/repo.git`.
 
+A runner either dials in or is reached. One the server makes in Fly.io is
+reached (`FlyWorkers.reach`, `cloud/fly-runners.ts`): the server opens
+`wss://<app>.fly.dev/api/jobs` with the machine's id in
+`fly-force-instance-id` and the bearer secret put in the machine's env when
+it was made (read back from the Machines API), sends `ready`, and hands the
+socket to the registry as the made worker's (`RunnerDialer`,
+`workers/runner-dialer.ts`), dialing again whenever the link drops while its
+record stands. It is made with no join token, no Access service token and no
+tunnel, so a server with no tunnel makes them too. A computer of the
+person's joined with `jobs: true` (#1054) still dials in through the tunnel,
+as do DigitalOcean's runners until that cloud goes. The pool, its placement
+and the keeper see both alike.
+
 `JobPool` (`workers/job-pool.ts`) is the pool-wide queue, over every project:
 each job asks for CPUs and memory (`workers/job-size.ts`), and a runner takes as
 many at once as fit in what it said it has in its hello (`cpus`, and `memory`
@@ -75,7 +88,15 @@ pool saw no runner and sent each job here. That account could not order `c-16`,
 `c-4` only in blr1, lon1 and sfo2. The suite (1285 tests) runs in about 40 s at 8
 in parallel on a 16-core Mac, so a smaller runner than `c-16` may now be enough.
 
-A snapshot installs splates from npm at the server's version, which a
+A Fly runner boots the release image (`RunnerImages`, `worker-packaging.md`).
+Run from a checkout, the server or `splates run` makes it with an inline
+bootstrap as its entrypoint (`AWAIT_BUILD`), which answers 409 with
+`x-splates-runner: build` until whoever reaches it first `PUT`s the
+checkout's bundle to `/api/build`, then runs that as `splates runners serve`;
+a build from an earlier boot is removed first. So the build is pushed
+through the proxy, needing no path through the tunnel's Access.
+
+For a DigitalOcean runner, a snapshot installs splates from npm at the server's version, which a
 server run from a checkout may be ahead of (as the measurement above found). So such a server
 hands each runner it makes its own build (`OwnBuild`, `workers/own-build.ts`):
 the CLI bundled into one bun script on first ask, which the runner's user data

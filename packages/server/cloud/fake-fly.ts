@@ -14,7 +14,8 @@ export class FakeFlyCloud implements FlyMachines {
 	readonly files = new Map<string, Map<string, string>>();
 	readonly history: { id: string; state: FlyState }[] = [];
 	readonly refused = new Set<string>();
-	/** Leave transitions pending so a keeper can observe starting and stopping. */
+	readonly regions: readonly string[] = ["ewr"];
+	/** Set false to hold starts and stops pending until `advance`, to see a machine starting or stopping. */
 	autoAdvance = true;
 	private nextId = 0;
 
@@ -93,6 +94,7 @@ export class FakeFlyCloud implements FlyMachines {
 							image: config.image,
 							env: config.env,
 							cmd: config.init?.cmd,
+							entrypoint: config.init?.entrypoint,
 							metadata: config.metadata,
 							autoDestroy: config.auto_destroy,
 							persistRootfs: config.guest.persist_rootfs,
@@ -138,6 +140,17 @@ export class FakeFlyCloud implements FlyMachines {
 		return Response.json(await this.machine(id));
 	}) as typeof globalThis.fetch;
 
+	/** Where every machine answers, as a test serves one; nowhere by default. */
+	address = "http://127.0.0.1:9";
+
+	async origin(): Promise<string> {
+		return this.address;
+	}
+
+	async appName(): Promise<string> {
+		return "splates-test-runners";
+	}
+
 	async sizes(): Promise<FlySize[]> {
 		return FLY_SIZES.map((size) => ({ ...size }));
 	}
@@ -164,7 +177,16 @@ export class FakeFlyCloud implements FlyMachines {
 					memory_mb: spec.size.memory * 1024,
 					persist_rootfs: spec.persistRootfs,
 				},
-				...(spec.cmd === undefined ? {} : { init: { cmd: [...spec.cmd] } }),
+				...(spec.cmd === undefined && spec.entrypoint === undefined
+					? {}
+					: {
+							init: {
+								...(spec.cmd === undefined ? {} : { cmd: [...spec.cmd] }),
+								...(spec.entrypoint === undefined
+									? {}
+									: { entrypoint: [...spec.entrypoint] }),
+							},
+						}),
 				services: structuredClone(spec.services),
 				restart: { policy: "no" },
 			},

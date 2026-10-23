@@ -5,6 +5,7 @@ import { FakeWallClock } from "webappwiz/time/testing";
 import type { WorkerSpec } from "../workers";
 import { TypeRefused } from "../workers";
 import { FLY_API_TOKEN, FlyCloud, FlyWorkers } from "./index";
+import { RunnerGone } from "./runner-gone";
 import { FakeFlyCloud } from "./testing";
 
 describe("FlyWorkers", () => {
@@ -19,7 +20,14 @@ describe("FlyWorkers", () => {
 		wall = new FakeWallClock();
 		workers = new FlyWorkers(
 			new FlyCloud({ app: "test-runners", fetch: fake.fetch, store }),
-			{ wall },
+			{
+				wall,
+				boot: {
+					ownBuild: async () => false,
+					image: async () => "ghcr.io/stringsync/splates-runner:1.0.0",
+					bundle: async () => new Uint8Array(),
+				},
+			},
 		);
 		spec = {
 			id: "worker-one",
@@ -42,19 +50,13 @@ describe("FlyWorkers", () => {
 		expect(fake.requests).toEqual([]);
 	});
 
-	it("boots a dial-in worker with credentials in env and runnable JavaScript", async () => {
+	it("makes a runner from the image with no join token, once, and destroys it", async () => {
 		await workers.create(spec);
 		const [machine] = await fake.list();
-		expect(machine?.config.env.SPLATES_JOIN_TOKEN).toBe("private-value");
-		const script = machine?.config.init?.cmd[2] ?? "";
-		expect(script).not.toContain("private-value");
-		const boot = script.slice(
-			script.lastIndexOf("exec bun -e '") + "exec bun -e '".length,
-			-1,
+		expect(machine?.config.image).toBe(
+			"ghcr.io/stringsync/splates-runner:1.0.0",
 		);
-		expect(() =>
-			new Bun.Transpiler({ loader: "js" }).transformSync(boot),
-		).not.toThrow();
+		expect(JSON.stringify(machine?.config)).not.toContain("private-value");
 		expect(await workers.list()).toEqual([
 			{ id: "worker-one", type: spec.type },
 		]);
@@ -62,6 +64,12 @@ describe("FlyWorkers", () => {
 		expect(await fake.list()).toHaveLength(1);
 		await workers.destroy(spec.id);
 		expect(await workers.list()).toEqual([]);
+	});
+
+	it("says a runner whose machine is gone is gone", async () => {
+		await expect(workers.reach("worker-none")).rejects.toBeInstanceOf(
+			RunnerGone,
+		);
 	});
 
 	it("leaves refused sizes out for an hour and then tries them again", async () => {

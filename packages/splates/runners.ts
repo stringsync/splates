@@ -27,7 +27,7 @@ export const splatesRunners = cli<SplatesDeps>("runners").description(
 splatesRunners
 	.command("list")
 	.description(
-		"list them: name, size and price, address, and busy, idle or booting",
+		"list them: name, size and price, the address Fly's proxy reaches them at, and busy, idle, or the machine's state",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action(async (opts, ctx) => {

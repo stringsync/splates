@@ -113,7 +113,7 @@ export class RunnerServer implements AsyncResource {
 		}
 		connection.ready = true;
 		void connection.session.connect(connection.socket, {
-			id: this.ps.hostname,
+			id: this.opts.id ?? this.ps.hostname,
 			info: {
 				jobs: true,
 				slots: 0,
@@ -139,6 +139,8 @@ export class RunnerServer implements AsyncResource {
 /** Where the hosting proxy reaches this runner, and where its warm clones live. */
 export interface RunnerServerOptions {
 	secret: string;
+	/** The name it says in its hello, as its maker knows it; the hostname by default. */
+	id?: string;
 	home: string;
 	port: number;
 	hostname?: string;
