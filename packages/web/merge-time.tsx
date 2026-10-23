@@ -5,17 +5,19 @@ import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 
 /**
- * Past these a merge reads as slow, then as stuck. A gate is killed at 3
- * minutes, so a merge or two queued ahead stays under the first.
+ * Past these a merge reads as slow, then as stuck. Under MERGE_SHOWN
+ * nothing shows; a gate is killed at 3 minutes, so a merge or two queued
+ * ahead stays quiet.
  */
+export const MERGE_SHOWN = Duration.mins(3);
 export const MERGE_SLOW = Duration.mins(5);
-export const MERGE_STUCK = Duration.mins(15);
+export const MERGE_STUCK = Duration.mins(10);
 
 /**
  * How long a task's merge has taken since it was asked for, its wait for the
- * premerge lock included, in whole minutes: muted while it is usual, amber
+ * premerge lock included, in whole minutes up to ten, then `>10m`: muted while it is usual, amber
  * once slow and red once it looks stuck. Nothing for an agent not merging,
- * nor in its first minute, to keep the list calm.
+ * nor in its first three minutes, to keep the list calm.
  */
 export function MergeTime({
 	need,
@@ -33,7 +35,7 @@ export function MergeTime({
 		return null;
 	}
 	const elapsed = now - Date.parse(since);
-	if (elapsed < Duration.mins(1).ms) {
+	if (elapsed < MERGE_SHOWN.ms) {
 		return null;
 	}
 	return (
@@ -49,7 +51,9 @@ export function MergeTime({
 				className,
 			)}
 		>
-			{minutes(elapsed)}
+			{elapsed > MERGE_STUCK.ms
+				? `>${MERGE_STUCK.ms / Duration.mins(1).ms}m`
+				: minutes(elapsed)}
 		</span>
 	);
 }
