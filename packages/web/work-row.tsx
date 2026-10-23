@@ -285,7 +285,9 @@ function Headline({
 						"min-w-0 flex-1 text-sm leading-5 [&>*]:my-0! [&>*:not(:first-child)]:mt-[0.5lh]!",
 						open
 							? "text-foreground"
-							: "line-clamp-1 [&_*]:inline [&>*:not(:first-child)]:hidden!",
+							: // The blocks after the first are hidden, so a first that fits the
+								// line says there is more with an ellipsis, not a bare stop.
+								"line-clamp-1 [&_*]:inline [&>*:not(:first-child)]:hidden! [&>*:first-child:not(:last-child)]:after:content-['…']",
 						!open && live && "shimmer motion-reduce:animate-none",
 					)}
 				/>
