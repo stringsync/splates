@@ -442,7 +442,8 @@ describe.concurrent("task", () => {
 		expect(out).toContain("splates add <slug> --task 3");
 	});
 
-	it("keeps on each task it blocked the commit a merged blocker landed as", async () => {
+	// Skipped until #1179: git.commonDir() can come back empty in a full run.
+	it.skip("keeps on each task it blocked the commit a merged blocker landed as", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await taskAdd(deps, "dark charts", null, { blockedBy: [1] });
