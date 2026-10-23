@@ -16,6 +16,7 @@ import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
 import { MergeGate } from "./gate";
+import { landedLines, landedSince } from "./landed";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
@@ -212,6 +213,7 @@ export async function merge(
 	// gate and again after, so a conflict with what landed meanwhile stops the
 	// merge before the wait, and the gate tests what lands. Either way a
 	// conflict is one refusal and one charged attempt, since it ends the merge.
+	let lastBase: string | null | undefined;
 	const rebaseOntoBase = async (): Promise<string> => {
 		// Trunk as the remote has it, which only the server moves: the
 		// commit the gate tests on, and the one the server checks trunk is
@@ -239,6 +241,11 @@ export async function merge(
 			}
 		}
 		const rebasedOnto = onto ?? (await git.out(git.root, "rev-parse", base));
+		// The base the branch sat on before this merge first rebased it, so a
+		// failure can name what landed since.
+		lastBase ??= await git
+			.out(worktree.path, "merge-base", "HEAD", rebasedOnto)
+			.catch(() => null);
 		await state.requireLease();
 		const rebase = await git.rebase(worktree.path, rebasedOnto);
 		await state.requireLease();
@@ -321,6 +328,7 @@ export async function merge(
 			worktree = await state.requireLease();
 			delete facts.failureAttribution;
 			delete facts.output;
+			delete facts.landed;
 			facts.failedTests = [];
 
 			const rebasedOnto = await rebaseOntoBase();
@@ -413,6 +421,19 @@ export async function merge(
 				if (named.length === 0) {
 					facts.output = MergeState.said(output);
 				}
+				const landed = await landedSince(
+					{ git, finished: service.finished },
+					{
+						cwd: worktree.path,
+						from: lastBase ?? null,
+						to: rebasedOnto,
+						head: testedHead,
+						failing: failingCases(gated.xml),
+					},
+				);
+				if (landed !== null) {
+					facts.landed = landed;
+				}
 				// The failing tests and what to do come last, after the gate's own
 				// output: an agent that reads only the end of this, as through `tail`,
 				// would otherwise see the runner's summary alone, and merge again just
@@ -438,6 +459,7 @@ export async function merge(
 									"",
 								]
 							: []),
+						...landedLines(base, landed),
 						"Fix what broke, or run a test you think flaky on its own to check, then merge again. Never merge only to read this again: a merge whose gate passes lands, with the message it was given.",
 					].join("\n"),
 					{

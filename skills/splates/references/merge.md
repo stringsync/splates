@@ -43,8 +43,12 @@ this: it cannot check a note, so the check is yours.
 ## When a merge fails
 
 A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit
-the gate ran on, so first reproduce the failure there (`bun test <paths>` on
-the failing files), then fix, commit and merge again.
+the gate ran on. When the base moved since your last rebase, a `tests_failed`
+lists the commits that landed, each with the task it came from, those touching
+the failing tests, what they import or your files first: read those before the
+test, since a change that just landed is the likeliest cause. Then reproduce
+the failure there (`bun test <paths>` on the failing files), fix, commit and
+merge again.
 
 A gate that runs past 3 minutes is killed, and merge stops as `timeout`
 without spending an attempt: merge again. An existing Git `index.lock`

@@ -28,6 +28,13 @@ runs first: `task`, `trunk`,
 `flake` or `environment`. Only `task` spends an attempt; a `flake` reruns the
 whole gate once; in every case the branch stays on the rebased commit the gate tested
 (only what the gate wrote is dropped), so the agent can reproduce the failure.
+A `tests_failed` also names what landed on the base since the branch's last
+base (the merge-base before the rebase): `landedSince` (`merge/landed.ts`)
+filters `git log <old>..<new>` to the failing test files, the files they
+import by relative path (one level), and the task's changed files, falling
+back to the whole range under ten commits or a count. Each commit's task comes
+from `service.finished` by its landed commit. The same lines are kept as the
+merge event's `landed` fact.
 Each failing test also becomes a backlog task `Tests failed: <name>`
 (`merge/queue-failures.ts`) unless one with that subject is listed. An
 existing `index.lock` holds the merge as `blocked` without charging.

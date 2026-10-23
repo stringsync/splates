@@ -82,6 +82,11 @@ export interface Facts {
 		 * characters. Absent on older events and on other refusals.
 		 */
 		output?: string;
+		/**
+		 * For `tests_failed`, what landed on the base since the task last
+		 * rebased, when it had moved. Absent on older events and other refusals.
+		 */
+		landed?: LandedSince;
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
@@ -327,7 +332,7 @@ export interface JudgedNote {
 	probability: number;
 	/** What was attached: a directive to read it, an optional pointer, or nothing. */
 	tier: "now" | "optional" | null;
-	/** Read earlier in the conversation, unchanged and not compacted away since, so not attached again. */
+	/** Whether the conversation still holds it as it reads now, so it was not attached again. */
 	inContext: boolean;
 	/** Read earlier, but edited since, so attached again as updated. */
 	updated: boolean;
@@ -382,8 +387,33 @@ interface TasksFacts {
 
 export type Action = keyof Facts;
 
-/** The facts each action's event records, by name; add a new fact here too. */
+/** A commit that landed on a base, by its short sha. */
+export interface LandedCommit {
+	commit: string;
+	/** The task it landed from, or null when no finished task names it. */
+	task: string | null;
+	subject: string;
+}
+
+/** What landed on a base between the task's last base and the one it was tested on. */
+export interface LandedSince {
+	/** The base before, the merge-base of the branch as it was and the new base. */
+	from: string;
+	/** The base it was rebased onto and tested against. */
+	to: string;
+	/** How many commits lie between them. */
+	total: number;
+	/**
+	 * Whether `commits` are those touching the failing tests, what they
+	 * import, or the task's files; otherwise the whole range, when short, or none.
+	 */
+	filtered: boolean;
+	commits: LandedCommit[];
+}
+
+/** The facts each action's event records, by name, which `isCurrent` checks an event holds. */
 export const FACTS = {
+	// A fact an action gains is listed here too.
 	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
 	claim: ["goal"],
 	tell: ["to"],
@@ -401,6 +431,7 @@ export const FACTS = {
 		"retests",
 		"output",
 		"began",
+		"landed",
 	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
@@ -514,6 +545,7 @@ export function isCurrent(event: Event): boolean {
 					"retests",
 					"output",
 					"began",
+					"landed",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

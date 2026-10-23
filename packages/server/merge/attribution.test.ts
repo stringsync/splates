@@ -205,4 +205,44 @@ describe("merge failure attribution", () => {
 		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
 	});
+
+	it("names the commits that landed since the task last rebased, with the task each came from", async () => {
+		await deps.commit(
+			deps.root,
+			"lib.ts",
+			'export const greeting = "hi";\n',
+			"add lib",
+		);
+		await deps.commit(
+			tree,
+			"alpha.test.ts",
+			'import { expect, test } from "bun:test";\nimport { greeting } from "./lib";\ntest("greets", () => expect(greeting).toBe("hi"));\n',
+			"test the greeting",
+		);
+		await add(deps, "beta");
+		const beta = (await deps.service.find("beta")).path;
+		await deps.commit(
+			beta,
+			"lib.ts",
+			'export const greeting = "hello";\n',
+			"say hello",
+		);
+		await deps.finish(beta);
+		await merge(deps, beta);
+		await deps.commit(deps.root, "other.txt", "other\n", "add other");
+		const facts: Partial<Facts["merge"]> = {};
+
+		await expect(merge(deps, tree, facts)).toBail("tests_failed", {
+			message: ["moved to", "files you changed:", "beta say hello"],
+		});
+
+		expect(facts.landed).toMatchObject({
+			total: 3,
+			filtered: true,
+			commits: [
+				{ task: "beta", subject: "say hello" },
+				{ task: null, subject: "add lib" },
+			],
+		});
+	});
 });

@@ -4,6 +4,8 @@ export type {
 	Event,
 	Facts,
 	JudgedNote,
+	LandedCommit,
+	LandedSince,
 	Lifted,
 	NoteApplied,
 } from "./events";
