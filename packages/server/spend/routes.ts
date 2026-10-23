@@ -6,7 +6,6 @@ import { type ProviderStatus, pullBilling, unpulledStatus } from "./billing";
 import { PROVIDERS } from "./providers";
 import { Rates } from "./rates";
 import { type SpendReport, spendReport } from "./report";
-import { type RunnerImage, type RunnerJobRow, runnersReport } from "./runners";
 import type { Spend } from "./spend";
 
 /** The currencies the Billing page offers, the European Central Bank's most traded. */
@@ -28,17 +27,9 @@ export interface BillingView {
 	})[];
 }
 
-/** What runs on runners now, which the ledger keeps a job of once it ends. */
-export interface RunningJobs {
-	runningJobs(): RunnerJobRow[];
-	/** What the snapshots runners boot from cost to keep. */
-	images(): Promise<RunnerImage[]>;
-}
-
-/** What a `BillingRoutes` reads beyond the ledger; the real fetch and no runners by default. */
+/** What a `BillingRoutes` reads beyond the ledger. */
 export interface BillingRoutesOptions {
 	fetcher?: typeof fetch;
-	jobs?: RunningJobs;
 }
 
 /**
@@ -50,7 +41,6 @@ export class BillingRoutes {
 	#pulled: { at: string; statuses: ProviderStatus[] } | null = null;
 	#pulling: Promise<void> | null = null;
 	private readonly fetcher: typeof fetch;
-	private readonly jobs: RunningJobs | null;
 
 	constructor(
 		storage: Storage,
@@ -59,7 +49,6 @@ export class BillingRoutes {
 		opts: BillingRoutesOptions = {},
 	) {
 		this.fetcher = opts.fetcher ?? fetch;
-		this.jobs = opts.jobs ?? null;
 		this.#settings = storage.document("billing.json", { schema: SETTINGS });
 	}
 
@@ -130,15 +119,4 @@ export class BillingRoutes {
 		});
 		return Response.json(report);
 	};
-
-	/** Every runner ever made, what each cost, and their days and months beside the bill. */
-	readonly runners = async (): Promise<Response> =>
-		Response.json(
-			runnersReport(
-				await this.ledger.lines(),
-				Date.now(),
-				this.jobs?.runningJobs() ?? [],
-				(await this.jobs?.images()) ?? [],
-			),
-		);
 }

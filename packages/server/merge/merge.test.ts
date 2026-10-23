@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { PLAN_FILE } from "../plans";
 import type { Facts } from "../records";
-import { Spend } from "../spend";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
@@ -573,44 +572,6 @@ describe.concurrent("merge", () => {
 			kind: "slow_tests",
 			tests: [{ name: "crawls", file: "a.test.ts", seconds: 26.5 }],
 		});
-	});
-
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the cases above do.
-	it("keeps what made workers cost the task from the spend ledger", async () => {
-		await using deps = await Testing.open();
-		const at = new Date(Date.now() - 3_600_000).toISOString();
-		await new Spend(deps.machine).note(
-			{
-				row: "runner",
-				id: "made",
-				type: "small",
-				provider: null,
-				dollarsPerHour: 1,
-				at,
-			},
-			{
-				row: "job",
-				id: "c",
-				runner: "made",
-				project: deps.git.root,
-				task: "alpha",
-				what: "bun test",
-				at,
-				until: null,
-			},
-		);
-
-		await add(deps, "alpha");
-		const worktree = (await deps.service.find("alpha")).path;
-		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
-		await deps.finish(worktree);
-		await merge(deps, worktree);
-
-		const outcome = (await deps.outcomes.list()).find(
-			(each) => each.task === "alpha",
-		);
-		expect(outcome?.workerSpend?.dollars).toBeGreaterThan(0);
-		expect(outcome?.workerSpend?.estimate).toBe(true);
 	});
 
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {

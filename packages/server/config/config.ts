@@ -1,4 +1,3 @@
-import type { CloudProvider, FlyCloud } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
@@ -109,12 +108,6 @@ export interface Config {
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */
 	tunnel: TunnelProvider | null;
-	/**
-	 * The cloud account runners are made in, as `new FlyCloud({ app: "my-runners" })` from
-	 * `@stringsync/splates-server/cloud`; null makes none. Naming it makes
-	 * `workerProvider` one that makes runners there, unless that is named too.
-	 */
-	cloud: CloudProvider | FlyCloud | null;
 	/**
 	 * What makes worker machines when agents queue for want of a slot, and
 	 * for `splates worker add --provider`: a provider of your own; null makes

@@ -9,7 +9,6 @@ import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { ranWith } from "../models";
 import { decisions, goalLine, outcomeOf, Plans, picks } from "../plans";
-import { runnerShares, type Spend } from "../spend";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import { type Collection, FsStorage, type Log, type Storage } from "../storage";
@@ -54,7 +53,6 @@ export class WorktreeService {
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
-	private readonly spend: Spend | null;
 	private readonly worktrees: WorktreeCheckouts;
 	readonly ps: Ps;
 
@@ -71,7 +69,6 @@ export class WorktreeService {
 			opts.store?.storage ?? opts.storage ?? new FsStorage(splatesDir, this.fs);
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
-		this.spend = opts.spend ?? null;
 		this.worktrees = new WorktreeCheckouts(git, this.fs);
 		this.records = new StartedRecords(
 			opts.store ?? new TaskStore(this.storage),
@@ -408,18 +405,6 @@ export class WorktreeService {
 				: ((await this.adherence.list()).find(
 						(each) => each.conversation === conversation,
 					) ?? null);
-		const workerSpend =
-			this.spend === null
-				? null
-				: (runnerShares(
-						await this.spend.lines(),
-						Date.now(),
-						[],
-						Date.parse(state.createdAt),
-						Date.parse(endedAt),
-					).find(
-						(share) => share.project === this.git.root && share.task === task,
-					) ?? null);
 		await outcomes.record({
 			project: this.git.root,
 			task,
@@ -478,15 +463,6 @@ export class WorktreeService {
 						usage: worked.usage,
 						workedMs: worked.workedMs,
 						turns: worked.turns,
-					}),
-			...(workerSpend === null
-				? {}
-				: {
-						workerSpend: {
-							dollars: workerSpend.dollars,
-							slotHours: workerSpend.slotHours,
-							estimate: workerSpend.estimate,
-						},
 					}),
 			...(ending.size === null ? {} : { size: ending.size }),
 			...(opts.merge === undefined ? {} : { merge: opts.merge }),
@@ -562,8 +538,6 @@ export interface WorktreeServiceOptions {
 	outcomes?: Outcomes;
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
-	/** The spend ledger, which an ending reads what runners cost it from. */
-	spend?: Spend;
 	/**
 	 * The numbered records, shared with the list of tasks so both write under
 	 * one lock; one of its own, locked in this process alone, by default.

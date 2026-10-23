@@ -20,7 +20,6 @@ import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { RUNNING } from "../server/release";
 import { premergeLockOfMachine } from "../server/shared";
-import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
@@ -412,7 +411,6 @@ export async function openRepository(
 		ps,
 		outcomes,
 		adherence: new Adherence(machine, null, fs),
-		spend: new Spend(machine),
 	});
 	await service.init();
 	if (migrates) {

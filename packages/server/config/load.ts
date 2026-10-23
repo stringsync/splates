@@ -2,7 +2,6 @@ import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
-import { FlyCloud } from "../cloud";
 import { Git } from "../git";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
@@ -40,11 +39,7 @@ export async function loadConfig(
 		found.trunk ??
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
-	const _git = opts.git ?? new Git(root);
 	const config = { ...defaults(root, trunk), ...found };
-	if (config.cloud instanceof FlyCloud) {
-		config.cloud = config.cloud.inProject(root);
-	}
 	return config;
 }
 
@@ -87,7 +82,6 @@ function defaults(root: string, trunk: string): Config {
 		artifactProjectCapacity: ARTIFACT_LIMITS.project,
 		wiz: "bunx @webappwiz/cli",
 		tunnel: null,
-		cloud: null,
 		workerProvider: null,
 		platform: null,
 		replica: null,

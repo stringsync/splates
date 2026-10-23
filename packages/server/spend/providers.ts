@@ -51,13 +51,6 @@ export const PROVIDERS: readonly Provider[] = [
 	openai,
 	cloudflare,
 	{
-		id: "fly",
-		cred: null,
-		estimated:
-			"Fly.io has no API for its bill, so runners are estimated from its list prices: running time, and a stopped runner's disk",
-		dashboard: "https://fly.io/dashboard",
-	},
-	{
 		id: "typesafe",
 		cred: null,
 		counted:

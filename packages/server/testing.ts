@@ -20,7 +20,6 @@ import { Projects } from "./projects";
 import { Format, Journal, ProjectHome } from "./records";
 import { assets } from "./server";
 import { PREMERGE_HELD } from "./server/shared";
-import { Spend } from "./spend";
 import { Adherence, Outcomes } from "./stats";
 import { FsStorage, SqliteStorage } from "./storage";
 import { WorktreeService } from "./tasks";
@@ -138,7 +137,6 @@ export class Testing implements AsyncDisposable {
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
-			cloud: null,
 			workerProvider: null,
 			platform: null,
 			replica: null,
@@ -165,7 +163,6 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
-			spend: new Spend(this.machine),
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.premerge = new FileLock(join(this.splatesHome, "premerge.lock"), {

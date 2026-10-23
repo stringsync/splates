@@ -69,6 +69,20 @@ describe("spend", () => {
 		]);
 	});
 
+	test("historical runner rows stay stored and do not count as spend", async () => {
+		const log = storage.log<unknown>("spend.jsonl");
+		await log.append(
+			{ row: "runner", id: "old-runner", dollarsPerHour: 1 },
+			{ row: "job", id: "old-job", runner: "old-runner" },
+		);
+		await spend.record(entry());
+		expect(await spend.entries()).toEqual([entry()]);
+		expect(await spend.totals()).toEqual([
+			{ provider: null, service: null, period: null, billed: 0, equivalent: 1 },
+		]);
+		expect(await log.replay()).toHaveLength(3);
+	});
+
 	const used = (over: Partial<Parameters<typeof turnSpend>[2]>) => ({
 		input: 0,
 		cached: 0,
@@ -114,7 +128,6 @@ describe("spend", () => {
 		expect(statuses.map((each) => [each.provider, each.state])).toEqual([
 			["openai", "ok"],
 			["cloudflare", "unreachable"],
-			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);
 		expect(statuses[1]?.message).toBe("api.cloudflare.com answered 500");
@@ -167,7 +180,7 @@ describe("spend", () => {
 		expect(down.rateError).not.toBeNull();
 	});
 
-	test("before any pull, the sources show TypeSafe counted and Fly.io estimated", async () => {
+	test("before any pull, the sources show TypeSafe counted", async () => {
 		const routes = new BillingRoutes(storage, spend, async () => undefined);
 		const view = (await (await routes.read()).json()) as {
 			providers: { provider: string; state: string }[];
@@ -175,7 +188,6 @@ describe("spend", () => {
 		expect(view.providers.map((each) => [each.provider, each.state])).toEqual([
 			["openai", "ok"],
 			["cloudflare", "ok"],
-			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);
 	});

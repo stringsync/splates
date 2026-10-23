@@ -55,18 +55,6 @@ export {
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
-export type { JobSetting, JobSize } from "./job-size";
-export {
-	DEFAULT_JOB_SIZE,
-	fits,
-	JOB_CPUS,
-	jobSize,
-	locationOf,
-	MAX_RUNNER_CPUS,
-	parseMemory,
-	runnerSizes,
-	sizeLabel,
-} from "./job-size";
 export { SUPERVISOR } from "./lifecycle";
 export type {
 	WorkerListing,

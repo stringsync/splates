@@ -1,7 +1,6 @@
 /** What the page reads of the workers, from browser-safe files alone. */
 
 export { dollars } from "./budget-notice";
-export { sizeLabel } from "./job-size";
 export { joinCommand } from "./join-command";
 export {
 	DEFAULT_RUNNER_CAP,

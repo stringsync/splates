@@ -54,33 +54,6 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
-	it("does not make a runner provider from the cloud setting", async () => {
-		const cloud = `{ name: "Some Cloud", defaults: { workerLocations: [] } }`;
-		await fs.write(
-			join(root, "splates.config.ts"),
-			`export default { cloud: ${cloud} };\n`,
-		);
-		expect((await loadConfig(root, { fs, git })).workerProvider).toBeNull();
-
-		await fs.write(
-			join(root, "splates.config.ts"),
-			`export default { cloud: ${cloud}, workerProvider: { own: true } };\n`,
-		);
-		expect((await loadConfig(root, { fs, git })).workerProvider).toEqual({
-			own: true,
-		} as never);
-	});
-
-	it("accepts FlyCloud in project settings without the box-shaped cloud seam", async () => {
-		const module = new URL("../cloud/index.ts", import.meta.url).pathname;
-		await fs.write(
-			join(root, "splates.config.ts"),
-			`import { FlyCloud } from ${JSON.stringify(module)}; export default { cloud: new FlyCloud({ app: "project-runners" }) };`,
-		);
-		const config = await loadConfig(root, { fs, git });
-		expect(config.workerProvider).toBeNull();
-	});
-
 	it("makes no workers without a provider", async () => {
 		const config = await loadConfig(root, { fs, git });
 
