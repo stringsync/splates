@@ -22,7 +22,7 @@ import { type Quiet, quietTitle } from "./quiet";
  * assuming or not, a blue dot when it answered and you have not looked since,
  * and, over the blue dot, a green check once its task merged, a red cross once
  * it was removed and a yellow pause once it was deferred.
- * While its task's merge tests and lands, the spinner gives way to a green
+ * While its task's merge tests and lands, the spinner gives way to a blue
  * merge icon, and while the merge waits its turn, to a faint gray one.
  * An idle agent with a command left running in the background shows a
  * muted spinner. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
@@ -155,7 +155,7 @@ export function Mark({
 				title="Merging"
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
-				<GitMergeIcon className="size-3.5 animate-pulse text-success motion-reduce:animate-none" />
+				<GitMergeIcon className="size-3.5 animate-pulse text-info motion-reduce:animate-none" />
 			</span>
 		);
 	}

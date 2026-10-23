@@ -62,10 +62,10 @@ export function MergeBadge({
 					<section
 						key={batch[0]?.task}
 						aria-label="Testing together"
-						className="rounded-md border border-success/25 bg-success/5 py-1"
+						className="rounded-md border border-info/25 bg-info/5 py-1"
 					>
-						<p className="flex items-center gap-1.5 px-2 py-1 font-medium text-success text-xs">
-							<span aria-hidden className="size-1.5 rounded-full bg-success" />
+						<p className="flex items-center gap-1.5 px-2 py-1 font-medium text-info text-xs">
+							<span aria-hidden className="size-1.5 rounded-full bg-info" />
 							Testing together · {batch.length} tasks
 						</p>
 						<ol aria-label="Tasks testing together" className="flex flex-col">
@@ -121,7 +121,7 @@ function MergeRow({
 					{merge.running ? (
 						<GitMergeIcon
 							aria-label="merging"
-							className="size-3.5 animate-pulse text-success motion-reduce:animate-none"
+							className="size-3.5 animate-pulse text-info motion-reduce:animate-none"
 						/>
 					) : (
 						merge.place
