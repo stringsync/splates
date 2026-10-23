@@ -494,7 +494,7 @@ const UserCopy: FC = () => (
  * button below it.
  */
 const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:pe-4 max-sm:leading-relaxed wrap-break-word";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:pe-4 max-sm:leading-relaxed min-w-0 max-w-full wrap-anywhere";
 /**
  * Room at the box's start for the mic a dictated message shows, in the top
  * corner by its first line.
