@@ -487,7 +487,16 @@ declare module "bun:test" {
 // imports `Testing`, and `expect.extend` has to have run before the first one.
 expect.extend({
 	async toBail(work, reason, expected = {}) {
-		const exit = await refusal(work);
+		let exit: Exit | null;
+		try {
+			exit = await refusal(work);
+		} catch (error) {
+			return {
+				pass: false,
+				message: () =>
+					`expected a ${reason} refusal, but it rejected with ${this.utils.printReceived(error)}`,
+			};
+		}
 		if (exit === null) {
 			return {
 				pass: false,
