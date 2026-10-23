@@ -12,6 +12,18 @@ describe("the ship preflight", () => {
 		ps.setEnv({ HOME: "/home/me" });
 	});
 
+	// Spawn number `count` (counting from 1) leaves a ghcr.io login behind, as a
+	// docker login does; the spawns before it leave none.
+	function logsInAtSpawn(count: number): void {
+		let spawns = 0;
+		ps.simulate(async () => {
+			spawns += 1;
+			const auths = spawns >= count ? { "ghcr.io": {} } : {};
+			await fs.write("/home/me/.docker/config.json", JSON.stringify({ auths }));
+			return 0;
+		});
+	}
+
 	it("passes with a gh login and an inline ghcr.io login", async () => {
 		await fs.write(
 			"/home/me/.docker/config.json",
@@ -48,24 +60,18 @@ describe("the ship preflight", () => {
 		expect(ps.getCalls()).toEqual(["gh auth status"]);
 	});
 
-	it("offers the Docker login on a terminal and goes on once it has run", async () => {
+	it("logs Docker in through gh on a terminal, the token on stdin", async () => {
 		ps.setColumns(80);
-		await fs.write(
-			"/home/me/.docker/config.json",
-			JSON.stringify({ auths: {} }),
-		);
-		// The gh check is the first spawn and the login the second.
-		const configs = [
-			JSON.stringify({ auths: {} }),
-			JSON.stringify({ auths: { "ghcr.io": {} } }),
-		];
-		let spawns = 0;
-		ps.simulate(async () => {
-			await fs.write("/home/me/.docker/config.json", configs[spawns++] ?? "");
-			return 0;
-		});
+		ps.setCaptureOutput("me\n", "");
+		logsInAtSpawn(5);
 		await preflight(ps, fs);
-		expect(ps.getCalls()).toEqual(["gh auth status", "docker login ghcr.io"]);
+		expect(ps.getCalls()).toEqual([
+			"gh auth status",
+			"gh auth refresh --hostname github.com --scopes write:packages",
+			"gh api user --jq .login",
+			"gh auth token",
+			"docker login ghcr.io --username me --password-stdin",
+		]);
 	});
 
 	it("stops when the offered login leaves Docker logged out", async () => {

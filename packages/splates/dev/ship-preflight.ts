@@ -14,13 +14,15 @@ export async function preflight(ps: Ps, fs: Fs): Promise<void> {
 		ps,
 		async () =>
 			(await ps.spawnCapture(["gh", "auth", "status"])).exitCode === 0,
-		["gh", "auth", "login"],
+		"gh auth login",
+		async () => (await ps.spawn(["gh", "auth", "login"])).exitCode === 0,
 		"the release uploads to GitHub, but gh is not logged in",
 	);
 	await ensure(
 		ps,
 		() => dockerLoggedIn(ps, fs),
-		["docker", "login", REGISTRY],
+		`docker login ${REGISTRY}`,
+		() => dockerLoginViaGh(ps),
 		`the release pushes the runner image, but Docker has no login for ${REGISTRY}`,
 	);
 }
@@ -28,24 +30,62 @@ export async function preflight(ps: Ps, fs: Fs): Promise<void> {
 async function ensure(
 	ps: Ps,
 	loggedIn: () => Promise<boolean>,
-	login: string[],
+	command: string,
+	login: () => Promise<boolean>,
 	missing: string,
 ): Promise<void> {
 	if (await loggedIn()) {
 		return;
 	}
-	const command = login.join(" ");
 	// No terminal means nobody to answer the login's prompts.
 	if (ps.columns() === undefined) {
 		throw new Error(`${missing}; run ${command}, then splates dev ship`);
 	}
-	console.log(`${missing}; running ${command}`);
-	const result = await ps.spawn(login);
-	if (result.exitCode !== 0 || !(await loggedIn())) {
+	console.log(`${missing}; logging in`);
+	if (!(await login()) || !(await loggedIn())) {
 		throw new Error(
 			`${command} did not log in; fix that, then splates dev ship`,
 		);
 	}
+}
+
+/**
+ * Logs Docker in to ghcr.io with gh's own token, so the person signs in
+ * through gh's browser flow (a password manager works there) rather than
+ * typing a username and a token. The token goes to docker on its stdin, never
+ * its arguments.
+ */
+async function dockerLoginViaGh(ps: Ps): Promise<boolean> {
+	// GHCR pushes need write:packages, which gh's default login lacks.
+	const refresh = await ps.spawn([
+		"gh",
+		"auth",
+		"refresh",
+		"--hostname",
+		"github.com",
+		"--scopes",
+		"write:packages",
+	]);
+	if (refresh.exitCode !== 0) {
+		return false;
+	}
+	const user = await ps.spawnCapture(["gh", "api", "user", "--jq", ".login"]);
+	const token = await ps.spawnCapture(["gh", "auth", "token"]);
+	if (user.exitCode !== 0 || token.exitCode !== 0) {
+		return false;
+	}
+	const login = await ps.spawnCapture(
+		[
+			"docker",
+			"login",
+			REGISTRY,
+			"--username",
+			user.stdout.trim(),
+			"--password-stdin",
+		],
+		{ stdin: token.stdout.trim() },
+	);
+	return login.exitCode === 0;
 }
 
 async function dockerLoggedIn(ps: Ps, fs: Fs): Promise<boolean> {
