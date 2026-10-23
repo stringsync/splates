@@ -51,7 +51,7 @@ export class CloudWorkers implements WorkerProvider {
 		this.wall = opts.wall ?? new SystemWallClock();
 		this.wait = opts.wait ?? sleep;
 		this.job = opts.job ?? DEFAULT_JOB_SIZE;
-		this.idleAfter = opts.idleAfter;
+		this.idleAfter = opts.idleAfter ?? Duration.mins(15);
 	}
 
 	/** The cloud its bill is pulled as, as `CloudProvider.billing` says. */

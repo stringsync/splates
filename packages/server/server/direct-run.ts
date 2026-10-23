@@ -9,7 +9,6 @@ import { splatesHome } from "../models";
 import { Spend } from "../spend";
 import { FsStorage } from "../storage";
 import {
-	DIRECT_IDLE,
 	DIRECT_TAG,
 	DirectRunners,
 	type DirectSweep,
@@ -68,7 +67,6 @@ export async function runOnDirectRunner(
 			output: job.output,
 			...(job.signal === undefined ? {} : { signal: job.signal }),
 		});
-		await reapLater(ctx.ps, ctx.fs, toplevel);
 		return ran;
 	});
 }
@@ -117,20 +115,20 @@ export async function withRunners<T>(
 }
 
 /**
- * The runners `splates run` made in `cloud`, as the server's sweep reaps
- * them while it runs, so none is left billing on a laptop that slept; a
- * machine without the cloud's token reaps none.
+ * The runners `splates run` made in `cloud`, as the server's sweep settles
+ * them while it runs, so a laptop that slept leaves no spend counted for
+ * a machine that stopped; a machine without the cloud's token settles none.
  */
 export function directSweep(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
 	cloud: CloudProvider | FlyCloud,
 ): DirectSweep {
 	if (!(cloud instanceof FlyCloud)) {
-		return { reap: async () => [], names: async () => [] };
+		return { settle: async () => [], names: async () => [] };
 	}
 	return {
-		reap: () =>
-			withRunners(ctx, cloud, (runners) => runners.reap()).catch((error) => {
+		settle: () =>
+			withRunners(ctx, cloud, (runners) => runners.settle()).catch((error) => {
 				if (error instanceof NoRunner) {
 					return [];
 				}
@@ -141,45 +139,6 @@ export function directSweep(
 				.map((machine) => machine.config.metadata[DIRECT_TAG])
 				.filter((name): name is string => name !== undefined),
 	};
-}
-
-/** Where the pid of the reaper `splates run` leaves behind is kept, under the splates home. */
-export const REAPER_FILE = join("direct-runners", "reaper.pid");
-
-/**
- * Leaves a process behind, apart from this one, that reaps the runners once
- * they have stood idle `DIRECT_IDLE`, and again for as long as any is up, so
- * none is left running, and billed, with no `splates run` to come; none when
- * one already watches.
- */
-async function reapLater(ps: Ps, fs: Fs, cwd: string): Promise<void> {
-	const [bun, script] = process.argv;
-	if (bun === undefined || script === undefined) {
-		return;
-	}
-	const held = Number(
-		(await fs.read(join(splatesHome(ps), REAPER_FILE)).catch(() => "")).trim(),
-	);
-	if (Number.isInteger(held) && held > 0 && ps.alive(held)) {
-		return;
-	}
-	void ps
-		.spawn(
-			[
-				"sh",
-				"-c",
-				'nohup "$@" >/dev/null 2>&1 &',
-				"sh",
-				bun,
-				script,
-				"runners",
-				"reap",
-				"--watch",
-				`${DIRECT_IDLE.mins + 1}m`,
-			],
-			{ cwd },
-		)
-		.catch(() => {});
 }
 
 async function gitOut(

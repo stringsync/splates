@@ -24,6 +24,7 @@ describe("the runner keeper", () => {
 	let scheduler: Scheduler;
 	let keeper: RunnerKeeper;
 	let pool: JobPool;
+	let provisioning: WorkerProvisioning;
 
 	const made = () =>
 		provider.getCalls().filter((call) => call.startsWith("create"));
@@ -56,7 +57,7 @@ describe("the runner keeper", () => {
 			},
 			wall,
 		);
-		const provisioning = new WorkerProvisioning({
+		provisioning = new WorkerProvisioning({
 			provider,
 			snapshots: await Snapshots.open(provider, {
 				version: "1.0.0",
@@ -82,19 +83,44 @@ describe("the runner keeper", () => {
 		keeper.watch(pool);
 	});
 
-	it("makes none while no agent is live and no job waits", async () => {
+	it("makes none while no job waits", async () => {
 		await keeper.look();
 
 		expect(made()).toEqual([]);
 	});
 
-	it("makes one runner when the first agent starts, and no second for it", async () => {
+	it("keeps no runner for a live agent: a runner stops itself and the next job starts it", async () => {
 		await scheduler.take({ id: "c1", project: "/a", task: null, agent: "x" });
 		await keeper.look();
+
+		expect(made()).toEqual([]);
+	});
+
+	it("starts a stopped runner for a waiting job rather than making another", async () => {
+		const woken: string[] = [];
+		await records.set("r1", {
+			provisioned: {
+				type: "c-16",
+				dollarsPerHour: 0.5,
+				cpus: 12,
+				memory: 24,
+				billing: "second",
+				createdAt: wall.now(),
+			},
+			joinedAt: new Date(wall.now()).toISOString(),
+		});
+		provisioning.sleeping = () =>
+			woken.length > 0 ? [] : [{ id: "r1", cpus: 12, memory: 24 }];
+		provisioning.wake = (id) => {
+			woken.push(id);
+			return true;
+		};
+		void job("j1");
+		await Bun.sleep(0);
 		await keeper.look();
 
-		expect(made()).toHaveLength(1);
-		expect(keeper.busy()).toEqual(records.all.map((each) => each.id));
+		expect(woken).toEqual(["r1"]);
+		expect(made()).toEqual([]);
 	});
 
 	it("makes a runner for a waiting job, then a second only while more wait than room on the way", async () => {

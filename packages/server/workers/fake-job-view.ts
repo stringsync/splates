@@ -10,6 +10,8 @@ export class FakeJobView implements JobPoolView {
 	making = false;
 	/** How many runners are made but yet to join. */
 	coming = 0;
+	/** The sizes of the stopped runners a job would start. */
+	asleep: JobSize[] = [];
 	/** The size of each runner made, on its way or to be. */
 	size: JobSize = DEFAULT_JOB_SIZE;
 
@@ -27,6 +29,10 @@ export class FakeJobView implements JobPoolView {
 
 	booting(): JobSize[] {
 		return Array.from({ length: this.coming }, () => this.size);
+	}
+
+	sleeping(): JobSize[] {
+		return [...this.asleep];
 	}
 
 	canMake(): boolean {

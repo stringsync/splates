@@ -1,5 +1,5 @@
 ---
-description: How `splates run` and `splates dev test` make and use runners of their own in the project's Fly app with no `splates server` (tagged machines reached through Fly's proxy, the job channel, local claims), share the worker budget, reap idle ones, and refuse rather than run here
+description: How `splates run` and `splates dev test` make and use runners of their own in the project's Fly app with no `splates server` (tagged machines reached through Fly's proxy, the job channel, local claims), share the worker budget, leave idle ones to stop themselves, and refuse rather than run here
 ---
 
 The person asked (2026-10-22) that `splates run` never depend on the server,
@@ -42,7 +42,9 @@ Past the budget it waits while a runner that could hold it is up, and
 refuses when none could. A size Fly refuses (`TypeRefused`) is skipped for
 the next cheapest. Jobs from `splates run` on another computer are not
 counted, so a runner shared that way may be overfilled; the runner stopping
-itself when idle (#1070) replaces this machine's bookkeeping of idleness.
+itself when idle (#1070) means nothing here deletes a runner by time: a
+stopped one is a candidate like any other and a job starts it. The claims
+file still says what this machine's jobs hold.
 
 A job opens the job channel over that socket with a `WorkerRegistry` of the
 CLI's own: the runner says its hello once sent `ready`, the CLI ships the
@@ -62,14 +64,12 @@ itself again before each change, so the server and `splates run` keep each
 other's; `splates budget show|set|raise|end` read and write that document
 directly when no server answers, through the same `WorkerBudgetRoutes`, so a
 person past the budget can raise it) and `runner` / `runner-ended` rows in the spend ledger, so Billing
-shows it. `splates run` leaves a detached `splates runners reap --watch 11m`
-behind it, one on the machine at a time (its pid in
-`~/.splates/direct-runners/reaper.pid`), which looks every 11 minutes for as
-long as any runner is up and deletes those no job here holds that last ran
-one 10 minutes ago, every one no job here holds once the day's or month's
-limit is spent, and any this machine never used past 15 minutes from its
-making. A machine asleep or off reaps nothing, so a
-runner can outlive it until the next `splates run` here. `splates runners
+shows it. A runner stops itself `idle` (10 minutes, `splates budget set idle`)
+after its last job, and the machine, made with `auto_destroy: false`, is kept
+stopped; the next job starts it. `DirectRunners.settle` ends a stopped
+runner's life in the budget at its last job plus the tail, from the server's
+sweep and before each placement, so a laptop asleep leaves no spend counted.
+Nothing deletes a runner by time: `splates runners delete <name>` does. `splates runners
 list` shows them.
 
 Measured 2026-10-22 on DigitalOcean `s-4vcpu-8gb`, over SSH before this path moved to Fly: a cold run (no runner up)

@@ -61,11 +61,11 @@ a booting runner's room by its type's `cpus` and `memory`. It makes none while
 the account holds the runner cap (`splates budget set runners`, 16 by default,
 `WorkerBudget.runnersRefusal`), counted from the cloud's own list by
 `WorkerProvider.running` so runners `splates run` made count too; it logs the
-wait once and looks again as one frees. Its `busy` keeps from `WorkerProvisioning`'s idle sweep each
-runner running a job, all while jobs wait, and the first made while an agent
-is live; any other is destroyed after 15 idle minutes (at once when its type
-bills by the second, which is why a DigitalOcean runner's idle time need not
-be rounded up). The day, month and rate limits in `workers/budget.ts` hold
+wait once and looks again as one frees. No live agent keeps a runner: a
+runner stops itself after `idle` (10 minutes by default, `splates budget set
+idle`) with no job, and when jobs wait with no room the keeper starts a
+stopped runner (`RunnerDialer.wake`) before it makes one. The server's idle
+sweep remains only for a provider that sets `idleAfter`, as DigitalOcean's does. The day, month and rate limits in `workers/budget.ts` hold
 over runners as over any made worker, with their 80, 90 and 100% warnings. A
 runner that could not be made is not tried again for a minute.
 

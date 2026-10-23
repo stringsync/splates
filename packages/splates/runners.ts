@@ -1,27 +1,22 @@
-import { join } from "node:path";
 import { loadConfig } from "@stringsync/splates-server/config";
 import { fail } from "@stringsync/splates-server/exit";
-import { splatesHome } from "@stringsync/splates-server/models";
 import {
-	REAPER_FILE,
 	type SplatesDeps,
 	withRunners,
 } from "@stringsync/splates-server/server";
 import {
-	DIRECT_IDLE,
+	DEFAULT_RUNNER_IDLE,
 	type DirectRunner,
 	NoRunner,
-	parseTimeout,
 	runnerServe,
 	sizeLabel,
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
-import { type Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 
 /** `splates runners`, which the root cli mounts beside `splates worker`. */
 export const splatesRunners = cli<SplatesDeps>("runners").description(
-	`the runners \`splates run\` makes for itself in the project's cloud (\`cloud\` in splates.config.ts) when \`splates server\` has none for it: each takes as many commands at once as fit in its CPUs and memory, another is made when none has room, within \`splates budget\`, and each is deleted once idle ${DIRECT_IDLE.mins} minutes`,
+	`the runners \`splates run\` makes for itself in the project's cloud (\`cloud\` in splates.config.ts) when \`splates server\` has none for it: each takes as many commands at once as fit in its CPUs and memory, another is made when none has room, within \`splates budget\`, and each stops itself ${DEFAULT_RUNNER_IDLE.mins} minutes after its last job (\`splates budget set idle\`), the next job starting it again`,
 );
 
 splatesRunners
@@ -44,64 +39,21 @@ splatesRunners
 	});
 
 splatesRunners
-	.command("reap")
+	.command("delete")
 	.description(
-		`delete each runner idle ${DIRECT_IDLE.mins} minutes or more, every idle one once the budget's day or month is spent, and any that never booted; with --watch, again every so often for as long as any is up, which \`splates run\` leaves running behind it, one on this machine at a time, so none is left running unused`,
+		"delete a runner and its disk: a stopped one keeps its clone and cache for the next job, and nothing but this, the budget's kept cap or a release deletes it",
 	)
-	.option("watch", z.string(), {
-		default: "",
-		description:
-			"how long to wait before each look, as 10m or 90s, looking again for as long as any runner is up",
+	.arg("name", z.string(), {
+		description: "the runner's name, as `splates runners list` prints it",
 	})
-	.option("idle", z.string(), {
-		default: "",
-		description: `how long a runner must have stood idle, as 10m or 0s; ${DIRECT_IDLE.mins}m by default`,
-	})
-	.action(async (opts, ctx) => {
-		const idle = opts.idle === "" ? DIRECT_IDLE : lengthOf(opts.idle);
-		if (opts.watch === "") {
-			const reaped = await opened(ctx, (each) => each.reap(idle));
-			ctx.log.info(
-				reaped.length === 0
-					? "nothing to reap"
-					: reaped.map((line) => `deleted ${line}`).join("\n"),
-			);
-			return;
-		}
-		if (!(await watching(ctx))) {
-			return;
-		}
-		const every = lengthOf(opts.watch);
-		for (;;) {
-			await sleep(every);
-			const left = await opened(ctx, async (each) => {
-				await each.reap(idle);
-				return (await each.list()).length;
-			});
-			if (left === 0) {
-				return;
-			}
-		}
+	.action(async ({ name }, ctx) => {
+		const deleted = await opened(ctx, (each) => each.destroy(name));
+		ctx.log.info(
+			deleted.length === 0
+				? `no runner named ${name}`
+				: deleted.map((each) => `deleted ${each}`).join("\n"),
+		);
 	});
-
-/**
- * Takes the reaper's place on this machine, answering false when another
- * reaper holds it, for this one to leave it that.
- */
-async function watching(ctx: SplatesDeps): Promise<boolean> {
-	const file = reaperFile(ctx);
-	const held = Number((await ctx.fs.read(file).catch(() => "")).trim());
-	if (
-		Number.isInteger(held) &&
-		held > 0 &&
-		held !== process.pid &&
-		ctx.ps.alive(held)
-	) {
-		return false;
-	}
-	await ctx.fs.write(file, String(process.pid));
-	return true;
-}
 
 async function opened<T>(
 	ctx: SplatesDeps,
@@ -133,13 +85,6 @@ async function opened<T>(
 	}
 }
 
-function lengthOf(text: string): Duration {
-	return (
-		parseTimeout(text) ??
-		fail("usage", `${text} is no length of time: name one as 10m or 90s`, {})
-	);
-}
-
 function runnerLine(runner: DirectRunner): string {
 	const size =
 		runner.size === null
@@ -149,10 +94,6 @@ function runnerLine(runner: DirectRunner): string {
 					...(runner.dollarsPerHour === null ? [] : [runner.dollarsPerHour]),
 				);
 	return `${runner.id}  ${size}  ${runner.address ?? "no address yet"}  ${runner.state}`;
-}
-
-function reaperFile(ctx: SplatesDeps): string {
-	return join(splatesHome(ctx.ps), REAPER_FILE);
 }
 
 // A container gets its bearer secret from the hosting platform, never a flag.

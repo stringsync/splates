@@ -111,6 +111,7 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 				.filter((runner) => runner.ready)
 				.map((runner) => runner.size),
 			...this.view.booting(),
+			...this.view.sleeping(),
 			...(this.view.canMake() ? [this.view.made()] : []),
 		];
 		return biggest(sizes);
@@ -200,7 +201,9 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 		}
 		const coming =
 			usable.some((runner) => runner.ready && fits(ask.size, runner.size)) ||
-			this.view.booting().some((size) => fits(ask.size, size));
+			[...this.view.booting(), ...this.view.sleeping()].some((size) =>
+				fits(ask.size, size),
+			);
 		const made = this.view.canMake() && fits(ask.size, this.view.made());
 		return coming || made ? undefined : null;
 	}
@@ -330,6 +333,8 @@ export interface JobPoolView {
 	runners(): PoolRunner[];
 	/** The size of each runner made but yet to join, whose room is on its way. */
 	booting(): JobSize[];
+	/** The stopped runners a job would start, whose sizes it could use. */
+	sleeping(): JobSize[];
 	/** Whether another runner may be made now: a provider, within the budget, and not just failed. */
 	canMake(): boolean;
 	/** The size of the runner that would be made now. */

@@ -57,7 +57,12 @@ export class FlyWorkers implements WorkerProvider {
 			throw new TypeRefused(spec.type, "unknown Fly size");
 		}
 		try {
-			await this.runners.make(spec.id, size, { [WORKER_METADATA]: spec.id });
+			await this.runners.make(
+				spec.id,
+				size,
+				{ [WORKER_METADATA]: spec.id },
+				spec.idle,
+			);
 		} catch (error) {
 			if (error instanceof TypeRefused) {
 				this.refused.set(spec.type, this.wall.now() + Duration.hrs(1).ms);
@@ -73,6 +78,14 @@ export class FlyWorkers implements WorkerProvider {
 			throw new RunnerGone(id);
 		}
 		return await this.runners.reach(machine.id, signal);
+	}
+
+	async asleep(id: string): Promise<boolean> {
+		const [machine] = await this.cloud.list({ [WORKER_METADATA]: id });
+		return (
+			machine !== undefined &&
+			["stopped", "stopping", "suspended"].includes(machine.state)
+		);
 	}
 
 	async destroy(id: string): Promise<void> {

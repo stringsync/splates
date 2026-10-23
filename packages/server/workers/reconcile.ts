@@ -20,8 +20,8 @@ export const ORPHAN_AFTER = Duration.mins(10);
 
 /** The runners `splates run` made in the project's cloud, as the sweep sees them. */
 export interface DirectSweep {
-	/** Deletes those idle too long or never booted, answering what it deleted and why. */
-	reap(): Promise<string[]>;
+	/** Stops counting those whose machine stopped itself, answering them. */
+	settle(): Promise<string[]>;
 	/** The names of those that exist. */
 	names(): Promise<string[]>;
 }
@@ -34,7 +34,7 @@ export interface ProviderReconcilerOptions {
 	budget: WorkerBudget;
 	ledger?: RunnerLedger;
 	access?: WorkerAccess | null;
-	/** Reaps the runners `splates run` made; absent where the project names no cloud. */
+	/** Settles the runners `splates run` made; absent where the project names no cloud. */
 	direct?: DirectSweep;
 	log: Logger;
 	wall: WallClock;
@@ -78,8 +78,10 @@ export class ProviderReconciler {
 		await this.destroyOrphans(machines.map((machine) => machine.id));
 		let runners: string[] | null = null;
 		if (direct !== undefined) {
-			for (const reaped of await direct.reap()) {
-				log.info(`reaped runner ${reaped}`);
+			for (const settled of await direct.settle()) {
+				log.info(
+					`runner ${settled} stopped itself: counting its storage alone`,
+				);
 			}
 			runners = await direct.names();
 		}

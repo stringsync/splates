@@ -22,7 +22,7 @@ describe("ProviderReconciler", () => {
 		runners = [];
 		reconciler = new ProviderReconciler({
 			direct: {
-				reap: async () => reaped,
+				settle: async () => reaped,
 				names: async () => runners,
 			},
 			provider: new FakeWorkerProvider([]),
@@ -57,8 +57,8 @@ describe("ProviderReconciler", () => {
 		expect(await reconciler.reconcile()).toEqual(["made"]);
 	});
 
-	it("reaps the runners splates run made and stops counting a life with no machine", async () => {
-		reaped = ["splates-run-aaaaaa: idle 10m"];
+	it("settles the runners splates run made and stops counting a life with no machine", async () => {
+		reaped = ["splates-run-aaaaaa"];
 		runners = ["splates-run-alive1"];
 		await budget.started("splates-run-alive1", "s-4vcpu-8gb", 0.07);
 		await budget.started("splates-run-gone01", "s-4vcpu-8gb", 0.07);

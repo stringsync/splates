@@ -5,6 +5,7 @@ import { reached } from "./budget-notice";
 
 export {
 	DEFAULT_RUNNER_CAP,
+	DEFAULT_RUNNER_IDLE,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -12,6 +13,7 @@ export {
 
 import {
 	DEFAULT_RUNNER_CAP,
+	DEFAULT_RUNNER_IDLE,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -103,6 +105,37 @@ export class WorkerBudget {
 	/** How many runners may be up at once in the account: the set cap, else the default. */
 	runnerCap(): number {
 		return this.kept.runners ?? DEFAULT_RUNNER_CAP;
+	}
+
+	/** How long a runner made now runs after its last job before it stops itself: the set tail, else the default. */
+	runnerIdle(): Duration {
+		return this.kept.idle === undefined
+			? DEFAULT_RUNNER_IDLE
+			: Duration.secs(this.kept.idle);
+	}
+
+	/** Whether the idle tail was set, over its default. */
+	runnerIdleSet(): boolean {
+		return this.kept.idle !== undefined;
+	}
+
+	/**
+	 * Sets the idle tail of runners made from now on to `idle`, a whole
+	 * number of seconds at least one; null gives it back to its default.
+	 */
+	async setRunnerIdle(idle: Duration | null): Promise<void> {
+		const secs = idle === null ? null : Math.round(idle.ms / 1000);
+		if (secs !== null && secs < 1) {
+			throw new Error("a runner's idle tail is at least a second");
+		}
+		await this.change((kept) => {
+			const { idle: _, ...rest } = kept;
+			return {
+				...rest,
+				...(secs === null ? {} : { idle: secs }),
+				reviewed: true,
+			};
+		});
 	}
 
 	/** Where the runner cap stands with `up` runners in the account now; `up` is null when not known. */
@@ -269,7 +302,7 @@ export class WorkerBudget {
 	 */
 	async unreview(): Promise<void> {
 		await this.change((kept) => {
-			const { runners: _, ...rest } = kept;
+			const { runners: _, idle: __, ...rest } = kept;
 			return { ...rest, limits: {}, reviewed: false };
 		});
 	}
@@ -326,9 +359,9 @@ export class WorkerBudget {
 		}));
 	}
 
-	/** Stops counting worker `id`, destroyed now; silent for one not counted. */
-	async ended(id: string): Promise<void> {
-		const until = this.wall.now();
+	/** Stops counting worker `id`, destroyed or stopped now, or at `at`; silent for one not counted. */
+	async ended(id: string, at?: number): Promise<void> {
+		const until = at ?? this.wall.now();
 		if (
 			!this.kept.lives.some((life) => life.id === id && life.until === null)
 		) {
@@ -503,6 +536,8 @@ const Kept = z.object({
 		.default({}),
 	/** The most runners up at once in the account, over the default. */
 	runners: z.number().int().min(0).optional(),
+	/** How long a runner runs after its last job, in seconds, over the default. */
+	idle: z.number().int().min(1).optional(),
 	raises: z.array(Raise).default([]),
 	/** Each made worker's life, the ledger spend is counted from. */
 	lives: z.array(Life).default([]),

@@ -5,6 +5,8 @@ import {
 	sleep,
 	type WallClock,
 } from "webappwiz/time";
+import { DEFAULT_RUNNER_IDLE } from "../workers/limits";
+import { RUNNER_IDLE } from "../workers/runner-serve";
 import type { WorkerSocket } from "../workers/socket";
 import { WebSocketWorkerSocket } from "../workers/websocket-socket";
 import type { FlyCloud } from "./fly";
@@ -54,11 +56,12 @@ export class FlyRunners {
 		this.wait = opts.wait ?? sleep;
 	}
 
-	/** Makes runner `name` of `size`, with a fresh secret, answering once Fly has it. */
+	/** Makes runner `name` of `size`, which stops itself `idle` after its last job, with a fresh secret, answering once Fly has it. */
 	async make(
 		name: string,
 		size: FlySize,
 		metadata: Record<string, string>,
+		idle: Duration = DEFAULT_RUNNER_IDLE,
 	): Promise<FlyMachine> {
 		const region = this.cloud.regions[0];
 		if (region === undefined) {
@@ -72,6 +75,7 @@ export class FlyRunners {
 			env: {
 				[RUNNER_SECRET]: randomBytes(32).toString("base64url"),
 				[RUNNER_ID]: name,
+				[RUNNER_IDLE]: String(idle.ms),
 			},
 			...((await this.opts.boot.ownBuild()) ? { entrypoint: AWAIT_BUILD } : {}),
 			metadata: { ...metadata, "splates-size": size.name },
@@ -93,7 +97,7 @@ export class FlyRunners {
 
 	/**
 	 * Opens the job channel's socket to machine `id`: starts it when
-	 * stopped, uploads the build to one that waits for it, and dials once
+	 * stopped (waiting out one that is stopping), uploads the build to one that waits for it, and dials once
 	 * its job server answers. Throws `RunnerGone` when the machine is no
 	 * more, and an error once `REACH_WITHIN` passes without an answer.
 	 */
@@ -148,6 +152,10 @@ export class FlyRunners {
 			machine = await this.cloud.machine(id);
 			if (machine === null) {
 				throw new RunnerGone(id);
+			}
+			// One that was stopping when asked is started once it has stopped.
+			if (["stopped", "suspended"].includes(machine.state)) {
+				await this.cloud.start(id);
 			}
 		}
 	}

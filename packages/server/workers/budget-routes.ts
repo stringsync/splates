@@ -9,6 +9,7 @@ import {
 	type WorkerStanding,
 	windowStart,
 } from "./budget";
+import { parseTimeout } from "./job-timeout";
 import type { SpendShare } from "./spend";
 
 /** Where the worker budget stands, as `/api/worker-budget` answers and `splates budget` prints. */
@@ -27,6 +28,8 @@ export interface WorkerBudgetReport {
 	reviewed: boolean;
 	/** The cap on runners up at once in the account, and how many are. */
 	runners: RunnersStanding;
+	/** How long a runner runs after its last job before it stops itself, in seconds. */
+	idle: { seconds: number; set: boolean };
 }
 
 /** How many runners are up in the account now, from the cloud's own list; null when it cannot be asked. */
@@ -43,6 +46,9 @@ const SetLimit = z.object({ dollars: z.number().min(0).nullable() });
 
 /** What `PUT /api/worker-budget/runners` is sent: a whole number, or null for the default. */
 const SetRunners = z.object({ runners: z.number().int().min(0).nullable() });
+
+/** What `PUT /api/worker-budget/idle` is sent: a length like `10m`, or null for the default. */
+const SetIdle = z.object({ idle: z.string().nullable() });
 
 /** What `POST /api/worker-budget/raises` is sent. */
 const AddRaise = z.object({
@@ -81,6 +87,21 @@ export class WorkerBudgetRoutes {
 				);
 			}
 			return this.answer((budget) => budget.setRunners(runners.data.runners));
+		}
+		if (new URL(request.url).pathname.split("/")[3] === "idle") {
+			const idle = SetIdle.safeParse(await body(request));
+			const length =
+				idle.success && idle.data.idle !== null
+					? parseTimeout(idle.data.idle)
+					: null;
+			if (!idle.success || (idle.data.idle !== null && length === null)) {
+				return refuse(
+					400,
+					"usage",
+					'set idle to a length, like { idle: "10m" }, or null for its default',
+				);
+			}
+			return this.answer((budget) => budget.setRunnerIdle(length));
 		}
 		const limit = z
 			.enum(WORKER_LIMITS)
@@ -178,5 +199,9 @@ export async function workerBudgetReport(
 		stopped: budget.stopped(),
 		reviewed: budget.reviewed,
 		runners: budget.runnersStanding(await up()),
+		idle: {
+			seconds: budget.runnerIdle().ms / 1000,
+			set: budget.runnerIdleSet(),
+		},
 	};
 }

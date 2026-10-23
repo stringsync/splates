@@ -11,6 +11,12 @@ import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { WorkerSocket } from "./socket";
 
+/** How long a runner whose link dropped is watched for stopping itself before it is dialed again. */
+const SETTLE_FOR = Duration.secs(30);
+
+/** How often it is looked at in that time. */
+const SETTLE_EVERY = Duration.secs(2);
+
 /** The longest a runner that will not answer waits before it is dialed again. */
 const MOST_BETWEEN = Duration.secs(30);
 
@@ -20,9 +26,15 @@ const MOST_BETWEEN = Duration.secs(30);
  * made worker's, and dials again whenever the link drops, for as long as
  * the runner's record stands and its machine exists. A runner's jobs end
  * with its link, so nothing is replayed across a redial.
+ *
+ * A runner stops its machine itself once it has stood idle, which is not a
+ * link to redial: it sleeps until `wake`, which a job waiting for room
+ * calls, so nothing starts a machine nobody has work for.
  */
 export class RunnerDialer implements Resource {
 	private readonly dialing = new Map<string, AbortController>();
+	/** The runners stopped and left so, each with what wakes it. */
+	private readonly sleepers = new Map<string, () => void>();
 	private readonly wall: WallClock;
 	private readonly wait: (duration: Duration) => Promise<void>;
 
@@ -45,6 +57,21 @@ export class RunnerDialer implements Resource {
 		});
 	}
 
+	/** The runners asleep: stopped, and dialed again only once woken. */
+	sleeping(): string[] {
+		return [...this.sleepers.keys()];
+	}
+
+	/** Wakes runner `id`, which dials it, starting its machine; false when it does not sleep. */
+	wake(id: string): boolean {
+		const wake = this.sleepers.get(id);
+		if (wake === undefined) {
+			return false;
+		}
+		wake();
+		return true;
+	}
+
 	/** Stops dialing runner `id`, hanging up on it. */
 	forget(id: string): void {
 		this.dialing.get(id)?.abort();
@@ -52,6 +79,9 @@ export class RunnerDialer implements Resource {
 	}
 
 	dispose(): void {
+		for (const wake of [...this.sleepers.values()]) {
+			wake();
+		}
 		for (const abort of this.dialing.values()) {
 			abort.abort();
 		}
@@ -67,8 +97,16 @@ export class RunnerDialer implements Resource {
 		let failures = 0;
 		while (!signal.aborted && this.wanted(id)) {
 			try {
+				if (await this.asleep(id)) {
+					this.opts.slept?.(id);
+					await this.sleep(id, signal);
+				}
+				if (signal.aborted) {
+					return;
+				}
 				await this.once(id, signal);
 				failures = 0;
+				await this.settle(id, signal);
 			} catch (error) {
 				if (error instanceof RunnerGone || signal.aborted) {
 					return;
@@ -83,6 +121,33 @@ export class RunnerDialer implements Resource {
 					Duration.ms(Math.min(MOST_BETWEEN.ms, 1000 * 2 ** failures)),
 				);
 			}
+		}
+	}
+
+	private async asleep(id: string): Promise<boolean> {
+		return (await this.opts.reach.asleep?.(id)) ?? false;
+	}
+
+	/** Parks runner `id` until it is woken, or its dialing stops. */
+	private async sleep(id: string, signal: AbortSignal): Promise<void> {
+		await new Promise<void>((resolve) => {
+			this.sleepers.set(id, resolve);
+			signal.addEventListener("abort", () => resolve(), { once: true });
+		});
+		this.sleepers.delete(id);
+		if (!signal.aborted) {
+			this.opts.woke?.(id);
+		}
+	}
+
+	/** Gives a runner whose link just dropped time to be seen stopped, so the next look parks it rather than starting it again. */
+	private async settle(id: string, signal: AbortSignal): Promise<void> {
+		const until = this.wall.now() + SETTLE_FOR.ms;
+		while (!signal.aborted && this.wall.now() < until) {
+			if (await this.asleep(id).catch(() => false)) {
+				return;
+			}
+			await this.wait(SETTLE_EVERY);
 		}
 	}
 
@@ -121,6 +186,8 @@ export class RunnerDialer implements Resource {
 export interface RunnerReach {
 	/** Opens worker `id`'s job socket, starting its machine as needed; throws `RunnerGone` once it is no more. */
 	reach(id: string, signal?: AbortSignal): Promise<WorkerSocket>;
+	/** Whether worker `id`'s machine is stopped or stopping, which no one is to start but a job waiting for room. */
+	asleep?(id: string): Promise<boolean>;
 }
 
 /** What a `RunnerDialer` dials with and hands its links to. */
@@ -129,6 +196,10 @@ export interface RunnerDialerOptions {
 	registry: WorkerRegistry;
 	records: WorkerRecords;
 	log: Logger;
+	/** Told when a runner is found stopped, for it to stop counting as running. */
+	slept?: (id: string) => void;
+	/** Told when a sleeping runner is woken, before its machine is started. */
+	woke?: (id: string) => void;
 	wall?: WallClock;
 	wait?: (duration: Duration) => Promise<void>;
 }

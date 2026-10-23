@@ -114,6 +114,8 @@ export interface WorkerSpec {
 	 * `joinEnv` is. None for a server on a release.
 	 */
 	build?: { url: string; token: string } | null;
+	/** How long a runner it reaches runs after its last job before it stops itself; its default when absent. */
+	idle?: Duration;
 }
 
 /** A machine a provider made for splates. */
@@ -143,7 +145,8 @@ export interface WorkerProvider {
 	/**
 	 * How long a worker it made may sit idle, no agent on it and none queued
 	 * that it could take, before it is destroyed, at the end of its paid hour
-	 * when it bills by the hour; `DEFAULT_IDLE_AFTER` (15 minutes) when unset.
+	 * when it bills by the hour; unset for a provider whose machines stop
+	 * themselves, as Fly's runners do, which are never destroyed for it.
 	 */
 	readonly idleAfter?: Duration;
 	/**
@@ -186,6 +189,12 @@ export interface WorkerProvider {
 	 * no `join` or `boot` to run.
 	 */
 	reach?(id: string, signal?: AbortSignal): Promise<WorkerSocket>;
+	/**
+	 * With `reach`: whether worker `id`'s machine is stopped or stopping, as
+	 * a runner stops itself once idle. Such a machine is started only when a
+	 * job waits for room, never by being dialed again.
+	 */
+	asleep?(id: string): Promise<boolean>;
 	/**
 	 * Deletes what it left behind besides workers' machines, such as a
 	 * snapshot's builder a build that died kept running, answering a name

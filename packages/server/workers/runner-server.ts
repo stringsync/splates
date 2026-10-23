@@ -1,7 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { availableParallelism, totalmem } from "node:os";
-import type { AsyncResource } from "webappwiz/disposable";
+import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Ps } from "webappwiz/system";
+import { type Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { RUNNING } from "../server/shared";
 import { JOBS } from "./job";
 import { WorkerJobHost } from "./job-host";
@@ -9,7 +10,13 @@ import { WorkerProtocol } from "./protocol";
 import { RunnerSocket } from "./runner-socket";
 import { WorkerSession } from "./session";
 
-/** A reachable runner serves jobs alone; no agents, calls or terminal channels. */
+/**
+ * A reachable runner serves jobs alone; no agents, calls or terminal
+ * channels. It runs while a job does and for `idle` after the last one, then
+ * says so through `onIdle`, for whoever hosts it to exit and let the machine
+ * stop: nothing else decides when it ends, so a server that is down or a
+ * laptop that slept leaves nothing running.
+ */
 export class RunnerServer implements AsyncResource {
 	private readonly server: Bun.Server<unknown>;
 	private readonly connections = new Map<
@@ -17,6 +24,8 @@ export class RunnerServer implements AsyncResource {
 		{ socket: RunnerSocket; session: WorkerSession; ready: boolean }
 	>();
 	private readonly hosts = new Set<WorkerJobHost>();
+	private readonly timer: Timer;
+	private ticking: Resource | null = null;
 
 	constructor(
 		private readonly ps: Ps,
@@ -25,6 +34,7 @@ export class RunnerServer implements AsyncResource {
 		if (opts.secret.length === 0) {
 			throw new Error("a runner needs SPLATES_RUNNER_SECRET");
 		}
+		this.timer = opts.timer ?? new SystemTimer();
 		this.server = Bun.serve({
 			port: opts.port,
 			hostname: opts.hostname ?? "0.0.0.0",
@@ -52,6 +62,17 @@ export class RunnerServer implements AsyncResource {
 				close: (ws) => this.close(ws),
 			},
 		});
+		this.waitForJob();
+	}
+
+	/** Starts the idle clock, at boot and each time the last job ends. */
+	private waitForJob(): void {
+		this.ticking?.dispose();
+		this.ticking = null;
+		const { idle, onIdle } = this.opts;
+		if (idle !== undefined && onIdle !== undefined) {
+			this.ticking = this.timer.setTimeout(onIdle, idle);
+		}
 	}
 
 	get port(): number {
@@ -59,6 +80,8 @@ export class RunnerServer implements AsyncResource {
 	}
 
 	async disposeAsync(): Promise<void> {
+		this.ticking?.dispose();
+		this.ticking = null;
 		for (const ws of this.connections.keys()) {
 			this.close(ws);
 		}
@@ -84,8 +107,15 @@ export class RunnerServer implements AsyncResource {
 					session.timer,
 				);
 				this.hosts.add(host);
+				this.ticking?.dispose();
+				this.ticking = null;
 				channel.events.on("close", () => {
-					void host.disposeAsync().finally(() => this.hosts.delete(host));
+					void host.disposeAsync().finally(() => {
+						this.hosts.delete(host);
+						if (this.hosts.size === 0) {
+							this.waitForJob();
+						}
+					});
 				});
 			} catch {
 				channel.dispose();
@@ -144,4 +174,8 @@ export interface RunnerServerOptions {
 	home: string;
 	port: number;
 	hostname?: string;
+	/** How long it may stand with no job before `onIdle`; never when absent. */
+	idle?: Duration;
+	onIdle?: () => void;
+	timer?: Timer;
 }

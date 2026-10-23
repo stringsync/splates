@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Logger } from "webappwiz/log";
 import {
+	type Duration,
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
@@ -12,7 +13,7 @@ import type { WorkerAccess } from "./access";
 import type { BudgetHeld, WorkerAlert, WorkerBudget } from "./budget";
 import { BUDGET_EVERY, lookAtBudget } from "./budget-stop";
 import { WORKER_JOIN } from "./creds";
-import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
+import { IdleWorkers } from "./idle";
 import { OWN_BUILD_PATH, type OwnBuild } from "./own-build";
 import { type ProvisionOptions, pickType } from "./pick-type";
 import type {
@@ -87,11 +88,19 @@ export class WorkerProvisioning
 									id,
 									signal,
 								),
+							...(provider.asleep === undefined
+								? {}
+								: {
+										asleep: (id) =>
+											provider.asleep?.(id) ?? Promise.resolve(false),
+									}),
 						},
 						registry: opts.registry,
 						records: opts.records,
 						log: opts.log,
 						wall: this.wall,
+						slept: (id) => void this.slept(id),
+						woke: (id) => void this.woke(id),
 					});
 		// Made before a restart: dialed again, since none dials in.
 		for (const record of opts.records.all) {
@@ -186,7 +195,7 @@ export class WorkerProvisioning
 		// Reached, it needs nothing to dial in with: no join or service token.
 		const spec =
 			this.dialer !== null || coordinator === null
-				? reachedSpec(id, type.name)
+				? reachedSpec(id, type.name, this.opts.budget.runnerIdle())
 				: await this.dialingSpec(id, type, coordinator);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
 		await this.keepMade(id, type, type.dollarsPerHour);
@@ -276,6 +285,51 @@ export class WorkerProvisioning
 							token: this.opts.ownBuild.grant(),
 						},
 		};
+	}
+
+	/** The runners stopped, which only a job waiting for room starts. */
+	sleeping(): { id: string; cpus?: number; memory?: number }[] {
+		return (this.dialer?.sleeping() ?? []).flatMap((id) => {
+			const made = this.opts.records.of(id)?.provisioned;
+			return made == null
+				? []
+				: [
+						{
+							id,
+							...(made.cpus === undefined ? {} : { cpus: made.cpus }),
+							...(made.memory === undefined ? {} : { memory: made.memory }),
+						},
+					];
+		});
+	}
+
+	/** Wakes the stopped runner `id`, which starts its machine for a job; false when it does not sleep. */
+	wake(id: string): boolean {
+		return this.dialer?.wake(id) ?? false;
+	}
+
+	/** A runner's machine stopped: it costs no more by the hour, only its storage. */
+	private async slept(id: string): Promise<void> {
+		await this.opts.budget.ended(id).catch((error: unknown) => {
+			this.opts.log.error(
+				`runner ${id} could not be marked stopped: ${String(error)}`,
+			);
+		});
+	}
+
+	/** A stopped runner is started again: it counts as running from now. */
+	private async woke(id: string): Promise<void> {
+		const made = this.opts.records.of(id)?.provisioned;
+		if (made == null || this.opts.budget.running().includes(id)) {
+			return;
+		}
+		await this.opts.budget
+			.started(id, made.type, made.dollarsPerHour)
+			.catch((error: unknown) => {
+				this.opts.log.error(
+					`runner ${id} could not be counted: ${String(error)}`,
+				);
+			});
 	}
 
 	/** Destroys the machine of worker `id`, one a provider made. */
@@ -393,9 +447,12 @@ export class WorkerProvisioning
 				`made workers ${unjoined.join(", ")} did not join within ${JOIN_WITHIN.mins} minutes, so their join tokens ran out: destroying them`,
 			);
 		}
-		const idle = this.idle
-			.due(provider.idleAfter ?? DEFAULT_IDLE_AFTER)
-			.filter((id) => !unjoined.includes(id));
+		const idle =
+			provider.idleAfter === undefined
+				? []
+				: this.idle
+						.due(provider.idleAfter)
+						.filter((id) => !unjoined.includes(id));
 		if (idle.length > 0) {
 			log.info(`idle made workers ${idle.join(", ")}: destroying them`);
 		}
@@ -431,7 +488,7 @@ export class WorkerProvisioning
 }
 
 /** What a worker the server reaches is made with: nothing to join or run, since its image serves jobs. */
-function reachedSpec(id: string, type: string): WorkerSpec {
+function reachedSpec(id: string, type: string, idle: Duration): WorkerSpec {
 	return {
 		id,
 		type,
@@ -441,6 +498,7 @@ function reachedSpec(id: string, type: string): WorkerSpec {
 		joinEnv: {},
 		boot: [],
 		build: null,
+		idle,
 	};
 }
 
@@ -452,7 +510,7 @@ export interface WorkerProvisioningOptions {
 	registry: WorkerRegistry;
 	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
 	access?: WorkerAccess | null;
-	/** Reaps the runners `splates run` made in the project's cloud with each sweep; none by default. */
+	/** Settles the runners `splates run` made in the project's cloud with each sweep; none by default. */
 	direct?: DirectSweep;
 	/**
 	 * The URL a made worker dials its server at, from wherever it runs:

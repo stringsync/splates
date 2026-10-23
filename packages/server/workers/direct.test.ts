@@ -91,9 +91,14 @@ describe("DirectRunners", () => {
 		expect(ran.code).toBe(0);
 		expect(Buffer.concat(output).toString()).toBe("direct-ok");
 		expect(await fake.list()).toHaveLength(1);
+		// Nothing deletes it by time; it stops itself, and then costs no more by the hour.
+		expect(budget.running()).toEqual(["splates-run-one"]);
 		wall.advance(Duration.mins(11));
-		expect(await runners.reap()).toEqual(["splates-run-one: idle 11m 00s"]);
-		expect(await fake.list()).toEqual([]);
+		expect(await runners.settle()).toEqual([]);
+		await fake.stop(machine.id);
+		expect(await runners.settle()).toEqual(["splates-run-one"]);
+		expect(budget.running()).toEqual([]);
+		expect(await fake.list()).toHaveLength(1);
 	}, 15000);
 
 	it("refuses a job when the budget allows no runner and none is up", async () => {

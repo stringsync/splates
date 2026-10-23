@@ -2,9 +2,6 @@ import { Duration, type WallClock } from "webappwiz/time";
 import type { WorkerRecords } from "./records";
 import type { Scheduler } from "./scheduler";
 
-/** How long a made worker may be idle before it is destroyed, unless its provider says otherwise. */
-export const DEFAULT_IDLE_AFTER = Duration.mins(15);
-
 /**
  * How much of a paid hour is left when an idle worker billed by the hour is
  * destroyed: enough for the destroy to finish before the next hour starts,

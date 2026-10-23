@@ -138,38 +138,52 @@ export class DirectRunners {
 	}
 
 	/**
-	 * Deletes each runner no job here holds that has stood idle `idle` or
-	 * longer, every idle one once the budget's day or month is spent, and
-	 * each never used past `BOOT_LIMIT`; answers what it deleted, and why.
+	 * Stops counting each runner whose machine has stopped itself, as one
+	 * does `idle` after its last job: from when it stopped, as near as that
+	 * is known, so a laptop that slept leaves no spend running. Nothing is
+	 * deleted by time. Answers the runners it settled.
 	 */
-	async reap(idle: Duration = DIRECT_IDLE): Promise<string[]> {
-		const reaped: string[] = [];
-		const stopped = (await this.deps.budget()).stopped();
+	async settle(): Promise<string[]> {
+		return await this.locked(() => this.settleLocked());
+	}
+
+	/** `settle`, for a caller that holds the lock. */
+	private async settleLocked(): Promise<string[]> {
+		const settled: string[] = [];
+		const budget = await this.deps.budget();
+		const counted = new Set(budget.running());
+		for (const machine of await this.machines()) {
+			const name = nameOf(machine);
+			if (!counted.has(name) || !ASLEEP.includes(machine.state)) {
+				continue;
+			}
+			const used = await this.claims.used(machine.id);
+			const stopped = Math.min(
+				this.wall.now(),
+				(used ?? createdAt(machine)) + budget.runnerIdle().ms,
+			);
+			await budget.ended(name, stopped);
+			settled.push(name);
+		}
+		return settled;
+	}
+
+	/** Deletes runner `name`, or every runner when it is null, answering what it deleted. */
+	async destroy(name: string | null): Promise<string[]> {
+		const deleted: string[] = [];
 		await this.locked(async () => {
 			for (const machine of await this.machines()) {
-				if ((await this.claims.holding(machine.id)) > 0) {
+				if (name !== null && nameOf(machine) !== name) {
 					continue;
 				}
-				const used = await this.claims.used(machine.id);
-				const since = this.wall.now() - (used ?? createdAt(machine));
-				const why =
-					stopped !== null
-						? stopped
-						: used === null && since >= BOOT_LIMIT.ms
-							? `unused past ${BOOT_LIMIT.mins} minutes`
-							: used !== null && since >= idle.ms
-								? `idle ${Duration.ms(since).human()}`
-								: null;
-				if (why !== null) {
-					await this.delete(machine);
-					reaped.push(`${nameOf(machine)}: ${why}`);
-					this.status.runners([
-						{ ...runnerReport(machine, new Map()), state: "deleted" },
-					]);
-				}
+				await this.delete(machine);
+				deleted.push(nameOf(machine));
+				this.status.runners([
+					{ ...runnerReport(machine, new Map()), state: "deleted" },
+				]);
 			}
 		});
-		return reaped;
+		return deleted;
 	}
 
 	/** Opens the job's channel to `machine` and runs it there. */
@@ -180,6 +194,7 @@ export class DirectRunners {
 	): Promise<{ code: number; files: Map<string, Uint8Array> }> {
 		const name = nameOf(machine);
 		tell("booting", `reaching ${name}`, { runner: name });
+		await this.counting(machine);
 		const socket = await this.deps.runners.reach(machine.id, job.signal);
 		const registry = new WorkerRegistry(new MemoryLogger());
 		try {
@@ -248,6 +263,7 @@ export class DirectRunners {
 		tell: Tell,
 	): Promise<FlyMachine | null> {
 		const { cloud } = this.deps.runners;
+		await this.settleLocked();
 		const sizes = await this.sizes();
 		const machines = (await this.machines()).sort(
 			(one, other) =>
@@ -317,6 +333,16 @@ export class DirectRunners {
 			}
 			refused.add(error.type);
 			return null;
+		}
+	}
+
+	/** Counts a runner started again as running from now, which `settle` stopped counting. */
+	private async counting(machine: FlyMachine): Promise<void> {
+		const name = nameOf(machine);
+		const budget = await this.deps.budget();
+		const size = (await this.sizes()).get(sizeOf(machine));
+		if (size !== undefined && !budget.running().includes(name)) {
+			await budget.started(name, size.name, size.dollarsPerHour);
 		}
 	}
 
@@ -412,14 +438,11 @@ export const WORKER_TAG = "splates-worker";
 /** What a runner's name starts with. */
 export const DIRECT_PREFIX = "splates-run-";
 
-/** How long a runner may stay unreached before it counts as broken and is deleted. */
-export const BOOT_LIMIT = Duration.mins(15);
-
-/** How long a runner stands idle before `reap` deletes it. */
-export const DIRECT_IDLE = Duration.mins(10);
-
 /** How often a job waiting for room looks again. */
 const POLL = Duration.secs(5);
+
+/** The states of a machine that has stopped itself, or is about to. */
+const ASLEEP = ["stopping", "stopped", "suspended"];
 
 /** The states of a machine that is up, billing for its CPUs. */
 const UP = ["created", "starting", "started", "stopping"];
@@ -465,7 +488,7 @@ export interface DirectRunnersDeps {
 	ledger: RunnerLedger | null;
 	/** Makes the bundle a runner lacks of a job's commit. */
 	snapshot: JobSnapshot;
-	/** Held while a job looks for room or a runner is reaped, so two here never race. */
+	/** Held while a job looks for room or a runner is settled or deleted, so two here never race. */
 	lock: Lock;
 	/** The file what this machine's jobs hold of the runners is kept in. */
 	claims: string;

@@ -31,5 +31,6 @@ export function workerBudgetFixture(
 		stopped: null,
 		reviewed: false,
 		runners: { cap: 16, set: false, up: 0, left: 16, tier: 0 },
+		idle: { seconds: 600, set: false },
 	};
 }

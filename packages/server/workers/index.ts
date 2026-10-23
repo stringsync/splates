@@ -24,6 +24,7 @@ export type {
 export {
 	ALERT_TIERS,
 	DEFAULT_RUNNER_CAP,
+	DEFAULT_RUNNER_IDLE,
 	DEFAULT_WORKER_LIMITS,
 	RAISE_FOR,
 	span,
@@ -68,8 +69,6 @@ export type {
 	DirectStatus,
 } from "./direct";
 export {
-	BOOT_LIMIT,
-	DIRECT_IDLE,
 	DIRECT_PREFIX,
 	DIRECT_TAG,
 	DirectRunners,

@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import type { Logger } from "webappwiz/log";
 import { type Fs, NodeFs, type Ps } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { fail } from "../exit";
 import { runnerShares, Spend } from "../spend";
@@ -8,12 +9,14 @@ import { FsStorage } from "../storage";
 import { table } from "../table";
 import {
 	DEFAULT_RUNNER_CAP,
+	DEFAULT_RUNNER_IDLE,
 	WORKER_LIMITS,
 	WorkerBudget,
 	type WorkerLimit,
 } from "./budget";
 import { dollars } from "./budget-notice";
 import { type WorkerBudgetReport, WorkerBudgetRoutes } from "./budget-routes";
+import { parseTimeout } from "./job-timeout";
 import { serverOf } from "./server-of";
 
 /** What `splates budget` is run with. */
@@ -38,7 +41,7 @@ export async function showBudget(opts: BudgetCommandOptions): Promise<void> {
  */
 export async function setBudget(
 	opts: BudgetCommandOptions & {
-		limit: WorkerLimit | "runners";
+		limit: WorkerLimit | "runners" | "idle";
 		dollars: string;
 	},
 ): Promise<void> {
@@ -51,7 +54,9 @@ export async function setBudget(
 				body: JSON.stringify(
 					opts.limit === "runners"
 						? { runners: given === null ? null : count(given) }
-						: { dollars: given === null ? null : amount(given) },
+						: opts.limit === "idle"
+							? { idle: given === null ? null : lengthOf(given) }
+							: { dollars: given === null ? null : amount(given) },
 				),
 			},
 			opts,
@@ -173,6 +178,16 @@ function amount(text: string): number {
 	return value;
 }
 
+/** `text` as a length of time like `10m`, or fails saying what was expected. */
+function lengthOf(text: string): string {
+	if (parseTimeout(text) === null) {
+		fail("usage", `expected a length of time, like 10m, got "${text}"`, {
+			idle: text,
+		});
+	}
+	return text;
+}
+
 /** `text` as a number of runners, or fails saying what was expected. */
 function count(text: string): number {
 	const value = Number(text.trim());
@@ -261,6 +276,7 @@ function print(
 			}),
 		),
 		`Runners: ${report.runners.up === null ? "?" : report.runners.up} up of ${report.runners.cap} allowed (${report.runners.set ? "set" : "default"}), whoever made them.`,
+		`Runners stop themselves ${Duration.secs(report.idle.seconds).human()} after their last job (${report.idle.set ? "set" : "default"}); the next job starts a stopped one.`,
 		`Projected this month: ${dollars(report.projected)}, if those running now run to its end.`,
 		"Spent is an estimate, at each worker type's list price.",
 	];
@@ -332,6 +348,10 @@ const Report = z.object({
 	stopped: z.string().nullable(),
 	reviewed: z.boolean(),
 	// An older `splates server` sends none.
+	// An older `splates server` sends none.
+	idle: z
+		.object({ seconds: z.number(), set: z.boolean() })
+		.default({ seconds: DEFAULT_RUNNER_IDLE.ms / 1000, set: false }),
 	runners: z
 		.object({
 			cap: z.number(),

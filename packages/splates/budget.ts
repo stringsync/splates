@@ -18,7 +18,7 @@ const JSON_OPTION = { default: false, description: "emit JSON" };
 
 const LIMIT = z.enum(["hour", "day", "month"]);
 
-const SET_LIMIT = z.enum(["hour", "day", "month", "runners"]);
+const SET_LIMIT = z.enum(["hour", "day", "month", "runners", "idle"]);
 
 const LIMIT_ARG = {
 	description:
@@ -27,7 +27,7 @@ const LIMIT_ARG = {
 
 /** `splates budget`, which the root cli mounts beside `splates worker`. */
 export const splatesBudget = cli<SplatesDeps>("budget").description(
-	"what the workers a `workerProvider` makes may cost, in dollars: a rate cap per hour on those running at once ($1/h by default), and limits on a day ($15) and a month ($200). Past the rate cap, or once a day's or month's limit is spent, no worker is made and the queue says why; reaching the day's or month's stops made workers, whose agents stop at their checkpoint. Each warns at 80%, 90% and 100% by Web Push and on the page's header. No more than 16 runners are up at once by default, those the server made and `splates run` made together, counted from the cloud's own list; past that the queue waits for one to free. Spend is an estimate at each type's list price. Agents' own API spend is not counted here",
+	"what the workers a `workerProvider` makes may cost, in dollars: a rate cap per hour on those running at once ($1/h by default), and limits on a day ($15) and a month ($200). Past the rate cap, or once a day's or month's limit is spent, no worker is made and the queue says why; reaching the day's or month's stops made workers, whose agents stop at their checkpoint. Each warns at 80%, 90% and 100% by Web Push and on the page's header. A runner runs while a job runs and 10 minutes after it, then stops itself (`set idle`) and the next job starts it again; stopped, it bills its disk alone. No more than 16 runners are up at once by default, those the server made and `splates run` made together, counted from the cloud's own list; past that the queue waits for one to free. Spend is an estimate at each type's list price. Agents' own API spend is not counted here",
 );
 
 splatesBudget
@@ -54,11 +54,11 @@ splatesBudget
 		"set a limit, in dollars (dollars an hour for hour, a count for runners), then show the budget",
 	)
 	.arg("limit", SET_LIMIT, {
-		description: `${LIMIT_ARG.description}; or runners, the most runners up at once in the account, whoever made them (16 by default)`,
+		description: `${LIMIT_ARG.description}; or runners, the most runners up at once in the account, whoever made them (16 by default); or idle, how long a runner runs after its last job before it stops itself, like 10m (10m by default)`,
 	})
 	.arg("dollars", z.string(), {
 		description:
-			"like 5 or 0.25 (a whole number for runners, like 16), or `default` to give it back to its default",
+			"like 5 or 0.25 (a whole number for runners, like 16; a length for idle, like 10m), or `default` to give it back to its default",
 	})
 	.option("dev", z.string(), DEV)
 	.option("json", z.boolean(), JSON_OPTION)

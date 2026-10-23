@@ -20,11 +20,10 @@ import type { Scheduler } from "./scheduler";
 export const MAKE_BACKOFF = Duration.mins(1);
 
 /**
- * Makes the runners the job pool needs and says which keep from being
- * stopped as idle: one while any agent is live, made when the first starts,
- * and a second only while more jobs wait than the runners up or on their way
- * have room for. Destroying them once idle is `WorkerProvisioning`'s, which
- * asks `busy` which are not.
+ * Makes the runners the job pool needs: when jobs wait with no room on the
+ * runners up or on their way, a stopped one is started if there is one, else
+ * one is made. No live agent keeps a runner, since a runner stops itself
+ * once idle and the next job starts it in a second or two.
  */
 export class RunnerKeeper implements JobPoolView, Resource {
 	private pool: JobPool | null = null;
@@ -41,6 +40,8 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	private up: number | null = null;
 	/** The cap refusal last logged, so a wait is said once. */
 	private noted: string | null = null;
+	/** The stopped runners started for the pool that have yet to connect. */
+	private readonly waking = new Set<string>();
 	private readonly disposer = new Disposer();
 	private readonly wall: WallClock;
 
@@ -83,13 +84,29 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	}
 
 	booting(): JobSize[] {
+		const connected = new Set(this.runners().map((runner) => runner.id));
+		for (const id of this.waking) {
+			if (connected.has(id) || this.opts.records.of(id) === undefined) {
+				this.waking.delete(id);
+			}
+		}
 		return this.live()
-			.filter((record) => record.joinedAt === null)
+			.filter(
+				(record) => record.joinedAt === null || this.waking.has(record.id),
+			)
 			.map(({ provisioned }) =>
 				provisioned?.cpus !== undefined && provisioned.memory !== undefined
 					? { cpus: provisioned.cpus, memory: provisioned.memory }
 					: DEFAULT_JOB_SIZE,
 			);
+	}
+
+	sleeping(): JobSize[] {
+		return (this.opts.provisioning?.sleeping() ?? []).map((each) =>
+			each.cpus !== undefined && each.memory !== undefined
+				? { cpus: each.cpus, memory: each.memory }
+				: DEFAULT_JOB_SIZE,
+		);
 	}
 
 	made(): JobSize {
@@ -100,18 +117,11 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		return this.makable() && this.room();
 	}
 
-	/**
-	 * The runners kept from being stopped as idle: those running a job, all
-	 * while jobs wait, and the first made while any agent is live.
-	 */
+	/** The runners kept from being destroyed as idle by a provider that destroys them: those running a job, all while jobs wait. */
 	busy(): string[] {
 		const live = this.live().map((record) => record.id);
 		const jobs = this.pool?.held().map((each) => each.runner) ?? [];
-		if ((this.pool?.queue().length ?? 0) > 0) {
-			return live;
-		}
-		const [warm] = live;
-		return this.agentsLive() && warm !== undefined ? [...jobs, warm] : jobs;
+		return (this.pool?.queue().length ?? 0) > 0 ? live : jobs;
 	}
 
 	/**
@@ -157,10 +167,16 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		}
 		this.up = (await provisioning.runnersUp()) ?? null;
 		const live = this.live().length;
-		const wanted =
-			live === 0
-				? this.agentsLive() || pool.queue().length > 0
-				: pool.short() > 0;
+		const wanted = pool.short() > 0;
+		const [sleeper] = wanted ? provisioning.sleeping() : [];
+		if (sleeper !== undefined && provisioning.wake(sleeper.id)) {
+			this.waking.add(sleeper.id);
+			log.info(
+				`runner ${sleeper.id} started for ${pool.queue().length} waiting jobs`,
+			);
+			this.again = true;
+			return;
+		}
 		if (wanted && !this.room()) {
 			const { budget } = provisioning;
 			const why = budget.runnersRefusal(this.up ?? live);
@@ -176,7 +192,7 @@ export class RunnerKeeper implements JobPoolView, Resource {
 			try {
 				const made = await provisioning.provision();
 				log.info(
-					`runner ${made.id} made for ${pool.queue().length} waiting jobs${this.agentsLive() ? " and live agents" : ""}`,
+					`runner ${made.id} made for ${pool.queue().length} waiting jobs`,
 				);
 			} catch (error) {
 				if (error instanceof TypeRefused) {
@@ -244,11 +260,6 @@ export class RunnerKeeper implements JobPoolView, Resource {
 					(one.provisioned?.createdAt ?? 0) -
 					(other.provisioned?.createdAt ?? 0),
 			);
-	}
-
-	/** Whether any agent is live: one holds a slot on a worker. */
-	private agentsLive(): boolean {
-		return this.opts.scheduler.held().length > 0;
 	}
 }
 

@@ -2,7 +2,6 @@ export { assets } from "./assets";
 export { type CoreClaims, coreClaimsOfMachine } from "./cores";
 export {
 	directSweep,
-	REAPER_FILE,
 	runOnDirectRunner,
 	withRunners,
 } from "./direct-run";

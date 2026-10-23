@@ -64,10 +64,11 @@ boot).
   `fly-force-instance-id` and a per-machine bearer secret in its env, so
   runners never dial in and need no Cloudflare Access service token; SSH, the
   runner key and the `direct*` scripts go.
-- Idle runners exit, and `auto_destroy` takes them; a warm runner is a
-  machine made without `auto_destroy` and `persist_rootfs: "restart"`,
-  stopped between uses (a stopped machine bills only its rootfs) and started
-  in 1.5 s, destroyed by the keeper past its warm window.
+- Runners are made without `auto_destroy` and with `persist_rootfs:
+  "restart"`, and exit after `idle` with no job (`SPLATES_RUNNER_IDLE_MS`,
+  from `splates budget set idle`, 10 minutes), so the machine stops (a
+  stopped machine bills only its rootfs) and a job starts it in 1.5 s. Nothing
+  destroys one by time.
 - Sizes are a table (`shared-cpu-Nx`, `performance-Nx`, memory in GB) with
   Fly's list prices; `shared-cpu-4x` 8 GB is the default job's size.
 - A Fly deploy token scoped to the runners' app is all splates needs, so the

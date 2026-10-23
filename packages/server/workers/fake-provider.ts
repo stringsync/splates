@@ -1,4 +1,4 @@
-import { SystemWallClock, type WallClock } from "webappwiz/time";
+import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import type {
 	ProvisionedMachine,
 	Snapshot,
@@ -20,6 +20,8 @@ export class FakeWorkerProvider implements WorkerProvider {
 	/** What its next `sweep` says it deleted. */
 	readonly leftovers: string[] = [];
 	private built = 0;
+	/** How long a worker may be idle before it is destroyed, as a provider that destroys idle ones says. */
+	idleAfter: Duration | undefined = Duration.mins(15);
 	/** The provider its bill is pulled as; none unless set. */
 	billing?: string;
 
