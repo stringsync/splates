@@ -217,7 +217,7 @@ export class AgentConnection {
 							(each) => each.root === root,
 						)?.slug;
 			// Reset the log cursor so a replacement process can acknowledge its own frames.
-			host.log.heard(0);
+			host.log.relaunched();
 			process = (launch ?? this.deps.launcher.launch)(agent.argv, cwd, {
 				SPLATES_CONVERSATION: id,
 				...(startedBy === null ? {} : { SPLATES_STARTED_BY: startedBy }),

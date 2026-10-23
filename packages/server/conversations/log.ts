@@ -70,6 +70,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	private seq = 0;
 	/** The seq of the last entry the log holds. */
 	private lastSaved = 0;
+	/** Raised at each new process, so a save of the last one's entries moves no seq of this one's. */
+	private process = 0;
 
 	constructor(
 		readonly log: Log<Entry>,
@@ -90,6 +92,23 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	/** Stamps what is written from now on with frame `seq`. */
 	heard(seq: number): void {
 		this.seq = seq;
+	}
+
+	/**
+	 * Call as a new process starts in the conversation, before its first
+	 * frame: `savedThrough` then counts only that process's frames.
+	 */
+	relaunched(): void {
+		// A new process numbers its frames from 1. Left at the last one's,
+		// `savedThrough` would ack the worker frames the log never wrote,
+		// and a restart would take the process back at a seq short of
+		// where the worker's replay starts, hanging up at every reconnect.
+		this.seq = 0;
+		this.lastSaved = 0;
+		this.process += 1;
+		for (const each of this.unsaved) {
+			each.seq = 0;
+		}
 	}
 
 	/**
@@ -388,10 +407,13 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		this.saves.call(() => {
 			const taken = this.unsaved.splice(0);
 			const last = taken.at(-1)?.seq ?? this.lastSaved;
+			const { process } = this;
 			this.saving = this.saving
 				.then(() => this.log.append(...taken.map((each) => each.entry)))
 				.then(() => {
-					this.lastSaved = Math.max(this.lastSaved, last);
+					if (process === this.process) {
+						this.lastSaved = Math.max(this.lastSaved, last);
+					}
 					this.dispatcher.dispatch("saved");
 				})
 				.catch(() => {});
