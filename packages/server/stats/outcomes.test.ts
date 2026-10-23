@@ -31,6 +31,8 @@ describe.concurrent("outcomes", () => {
 		await deps.finish(worktree);
 
 		deps.config.preMerge = CHECK_GATE;
+		// The first failure spends nothing; the same failure again spends the one.
+		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await retry(deps, "alpha");
 		await claim(deps, "alpha");
@@ -244,6 +246,7 @@ describe.concurrent("outcomes", () => {
 		const worktree = await committed(deps, "one\ntwo\n");
 		deps.config.preMerge = CHECK_GATE;
 		await expect(merge(deps, worktree)).toBail("tests_failed");
+		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
 		await retry(deps, "alpha");
@@ -254,6 +257,13 @@ describe.concurrent("outcomes", () => {
 		const [outcome] = await deps.outcomes.list();
 		expect(outcome?.size).toEqual({ files: 1, added: 2, removed: 0 });
 		expect(outcome?.findings).toMatchObject([
+			{
+				kind: "gate",
+				reason: "tests_failed",
+				at: expect.any(String),
+				tests: ["adds up"],
+				failures: [{ name: "adds up", message: expect.any(String) }],
+			},
 			{
 				kind: "gate",
 				reason: "tests_failed",

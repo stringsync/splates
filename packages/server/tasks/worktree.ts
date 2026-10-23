@@ -418,6 +418,10 @@ export interface GateFailure {
 	failures?: FailedTest[];
 	/** What git said, for `merge_failed`. */
 	error?: string;
+	/** The base commit the gate ran on, for `tests_failed`. Absent in old records. */
+	rebasedOnto?: string;
+	/** Whether the failure spent a merge attempt, for `tests_failed`. Absent in old records. */
+	charged?: boolean;
 }
 
 export interface TaskState {

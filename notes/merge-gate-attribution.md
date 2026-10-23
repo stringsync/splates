@@ -17,7 +17,9 @@ report, else the result is `environment`. It retests
 only the failing files at the exact base commit and then in the task tree,
 in a detached scratch worktree at the base commit where `postRewrite`
 runs first: `task`, `trunk`,
-`flake` or `environment`. Only `task` spends an attempt; a `flake` reruns the
+`flake` or `environment`. Only `task` spends an attempt, and then only when it repeats the task's last
+`tests_failed` (same base commit, or the same failing tests on any base:
+`merge/charge.ts`); a `flake` reruns the
 whole gate once; in every case the branch stays on the rebased commit the gate tested
 (only what the gate wrote is dropped), so the agent can reproduce the failure.
 A `tests_failed` also names what landed on the base since the branch's last

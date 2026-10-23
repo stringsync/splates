@@ -16,6 +16,7 @@ import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
+import { chargeLine } from "./charge";
 import { clearGate } from "./clear-gate";
 import { MergeGate } from "./gate";
 import { landedLines, landedSince } from "./landed";
@@ -421,15 +422,14 @@ export async function merge(
 				await git.resetHard(worktree.path, testedHead);
 				const output = `${gated.stdout}\n${gated.stderr}`;
 				const failed = failedTests(output);
-				const charged = facts.failureAttribution === "task";
-				if (charged) {
-					await state.bump("tests_failed", {
-						tests: facts.failedTests?.map((each) => each.name),
-						failures: facts.failedTests,
-					});
-					facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-				} else {
-				}
+				const taskFailed = facts.failureAttribution === "task";
+				const spent = await state.recordTestsFailed(
+					taskFailed,
+					rebasedOnto,
+					facts.failedTests ?? [],
+				);
+				facts.attemptsLeft =
+					(facts.attemptsLeft ?? 1) - (spent.charged ? 1 : 0);
 				const named = facts.failedTests?.length ? facts.failedTests : failed;
 				if (named.length === 0) {
 					facts.output = MergeState.said(output);
@@ -458,9 +458,13 @@ export async function merge(
 						"",
 						`\`${runner.command}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
 						`${base} is untouched and ${branch} is now rebased onto ${base}@${rebasedOnto.slice(0, 8)}, the commit it was tested against; run the failing files there (\`bun test <paths>\`) before changing anything.`,
-						charged
-							? "The failure was reproduced with the task after passing on the base; one merge attempt was spent."
-							: `Failure attribution: ${facts.failureAttribution}. The merge is held; no merge attempt was spent.`,
+						chargeLine({
+							...spent,
+							taskFailed,
+							base,
+							onto: rebasedOnto,
+							attribution: facts.failureAttribution,
+						}),
 						"",
 						...(named.length > 0
 							? [

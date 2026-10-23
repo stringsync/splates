@@ -1,5 +1,6 @@
 import { fail } from "../exit";
-import type { GateFailure, MergeFailure, Worktree } from "../tasks";
+import type { FailedTest, GateFailure, MergeFailure, Worktree } from "../tasks";
+import { repeatsFailure } from "./charge";
 
 /** Guards merge mutations and records refusals on the task that owns them. */
 export class MergeState {
@@ -47,6 +48,58 @@ export class MergeState {
 			],
 		});
 	}
+
+	/**
+	 * Records a failure that spends no attempt, so the next one can tell
+	 * whether it repeats this.
+	 */
+	async note(
+		reason: MergeFailure,
+		named: Omit<GateFailure, "reason" | "at">,
+	): Promise<void> {
+		const worktree = await this.requireLease();
+		await worktree.take({
+			status: "working",
+			gateFailures: [
+				...(worktree.state?.gateFailures ?? []),
+				{ reason, at: new Date().toISOString(), ...named },
+			],
+		});
+	}
+
+	/**
+	 * Records a `tests_failed` with the base it ran on. It spends an attempt
+	 * only when the task failed and repeats its last such failure.
+	 */
+	async recordTestsFailed(
+		taskFailed: boolean,
+		rebasedOnto: string,
+		failed: FailedTest[],
+	): Promise<{
+		charged: boolean;
+		repeat: "base" | "tests" | null;
+		first: boolean;
+	}> {
+		const worktree = await this.requireLease();
+		const last = worktree.state?.gateFailures
+			?.filter((each) => each.reason === "tests_failed")
+			.at(-1);
+		const repeat = repeatsFailure(last, rebasedOnto, failed);
+		const charged = taskFailed && repeat !== null;
+		const record = {
+			tests: failed.map((each) => each.name),
+			failures: failed,
+			rebasedOnto,
+			charged,
+		};
+		if (charged) {
+			await this.bump("tests_failed", record);
+		} else if (taskFailed) {
+			await this.note("tests_failed", record);
+		}
+		return { charged, repeat, first: last === undefined };
+	}
+
 	/**
 	 * The end of what git or the gate printed, bounded for the merge event,
 	 * which the page opens to say why a merge was refused.

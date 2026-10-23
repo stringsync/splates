@@ -68,7 +68,9 @@ held by a live operation. A failed rebase with no unmerged paths is
 
 Each `conflict` or `merge_failed` spends one of the task's merge attempts.
 A `tests_failed` spends one only when the failing test files passed on the
-exact base commit and failed again with the task. Trunk-red and environment
+exact base commit and failed again with the task, and the failure repeats the
+last: the same base commit, or the same failing tests on any base. A failure
+against a base you were never gated on is new information and spends none. Trunk-red and environment
 failures hold the merge without charging; fix what the output names before
 retrying. Bun JUnit reports enable selective attribution; missing reports,
 unsupported runners, and inconclusive retests hold without charging. A flake

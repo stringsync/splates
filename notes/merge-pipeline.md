@@ -40,3 +40,9 @@ Once it has the premerge lock, a merge logs `merge start`, and before it
 a `Lock` cannot be tried without waiting). Each later step names the first in
 `began`, the final `merge` event too, so the page folds them into a queued
 line and a started line that becomes Merged or Merge failed.
+
+A `tests_failed` attributed to the task spends an attempt only when it repeats
+the task's last one: the same `rebasedOnto` base commit, or the same failing
+test names on any base. Each such failure is recorded in `gateFailures` with
+its `rebasedOnto` and whether it was `charged`, so the next can compare; a
+first failure, or one on a base that moved, is free.

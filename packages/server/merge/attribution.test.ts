@@ -70,16 +70,23 @@ describe("merge failure attribution", () => {
 		await expect(merge({ ...deps, clock, shell }, tree, facts)).toBail(
 			"tests_failed",
 			{
-				message: "one merge attempt was spent",
+				message: "no attempt spent: this is the first time it failed",
+			},
+		);
+		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
+		// The same tests on the same base are the agent merging without a fix.
+		const again: Partial<Facts["merge"]> = {};
+		await expect(merge({ ...deps, clock, shell }, tree, again)).toBail(
+			"tests_failed",
+			{
+				message:
+					"one merge attempt was spent: the same tests failed on the same base as last time",
 			},
 		);
 
-		expect(facts).toMatchObject({
+		expect(again).toMatchObject({
 			failureAttribution: "task",
 			attemptsLeft: 1,
-			durationMs: 40,
-			gateMs: 40,
-			capacityWaitMs: 0,
 			retests: 0,
 		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
@@ -88,6 +95,16 @@ describe("merge failure attribution", () => {
 			await deps.gitCli(deps.root, "worktree", "list", "--porcelain"),
 		).not.toContain("splates-attribution");
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+
+	it("charges the same failing tests on a base that moved", async () => {
+		await deps.commit(tree, "mode.txt", "bad", "break mode");
+		await expect(merge(deps, tree)).toBail("tests_failed");
+		await deps.commit(deps.root, "other.txt", "x", "trunk moves");
+		await expect(merge(deps, tree)).toBail("tests_failed", {
+			message: "the same tests failed as last time",
+		});
+		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
 	});
 
 	it("holds trunk-red without charging and deduplicates its follow-up across retries", async () => {
