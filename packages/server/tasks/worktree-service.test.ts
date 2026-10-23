@@ -8,18 +8,19 @@ import type {
 	StatResult,
 	WatchOptions,
 } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeFs } from "webappwiz/system/testing";
 import type { Config } from "../config";
 import { Git } from "../git";
+import { FakeGitPs } from "../git-testing";
 import { WorktreeService } from "./worktree-service";
 
 describe("WorktreeService", () => {
 	const SPLATES_DIR = "/repo/.git/splates";
-	let ps: FakePs;
+	let ps: FakeGitPs;
 	let config: Config;
 
 	beforeEach(() => {
-		ps = new FakePs();
+		ps = new FakeGitPs();
 		config = {
 			trunk: "main",
 			remote: null,

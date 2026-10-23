@@ -614,13 +614,17 @@ export class Git {
 	}
 
 	/** The one `.git` every worktree of this repo shares. */
-	commonDir(): Promise<string> {
-		return this.out(
+	async commonDir(): Promise<string> {
+		const path = await this.out(
 			this.root,
 			"rev-parse",
 			"--path-format=absolute",
 			"--git-common-dir",
 		);
+		if (!path) {
+			throw new Error("git rev-parse --git-common-dir returned an empty path");
+		}
+		return path;
 	}
 
 	/**

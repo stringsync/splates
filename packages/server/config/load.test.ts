@@ -3,9 +3,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
 import { CloudWorkers, FlyWorkers } from "../cloud";
 import { Git } from "../git";
+import { FakeGitPs } from "../git-testing";
 import { Testing } from "../testing";
 import { loadConfig } from "./load";
 
@@ -16,7 +16,7 @@ describe("loadConfig", () => {
 
 	beforeEach(async () => {
 		root = await mkdtemp(join(tmpdir(), "splates-config-"));
-		const ps = new FakePs();
+		const ps = new FakeGitPs();
 		// Stands in for a repo with no `origin/HEAD` to read.
 		ps.simulate(() => Promise.resolve(1));
 		git = new Git(root, { ps });

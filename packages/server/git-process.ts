@@ -30,13 +30,21 @@ export function gitBinary(): string {
 }
 
 /** `GitRunner` as a process through `ps`. */
-export function processGit(ps: Ps): GitRunner {
+export function processGit(ps: Pick<Ps, "start">): GitRunner {
 	return {
 		git: async (cwd, args, env) => {
-			const { exitCode, stdout, stderr } = await ps.spawnCapture(
+			// TODO: webappwiz/system once spawnCapture waits for both output pipes
+			// to close: its exit fallback can resolve before their data arrives.
+			const child = ps.start(
 				[gitBinary(), "-C", cwd, ...args],
 				env === undefined ? undefined : { env },
 			);
+			const [exitCode, stdout, stderr] = await Promise.all([
+				child.exited,
+				new Response(child.stdout).text(),
+				new Response(child.stderr).text(),
+				child.stdin.close(),
+			]);
 			return { code: exitCode, stdout, stderr };
 		},
 	};
