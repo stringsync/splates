@@ -18,10 +18,9 @@ when it is unreachable or answers `local`, `runOnDirectRunner`
 (`server/direct-run.ts`) with `DirectRunners` (`workers/direct.ts`). The
 merge gate inside the server does not go on to these.
 
-Only Fly.io runners are made this way (since 2026-10-22, when SSH went):
-with a DigitalOcean `cloud`, `withRunners` refuses with `no_runner` and
-says to start `splates server`, whose `CloudWorkers` still make
-DigitalOcean's until it is removed. Each runner is a machine in the
+Only Fly.io runners are made this way (since 2026-10-22, when SSH went),
+the one cloud splates makes runners in since DigitalOcean went
+(2026-10-23). Each runner is a machine in the
 project's app whose metadata says `splates-run: <name>`, listed from the
 Machines API, and reached as the server reaches its own
 (`FlyRunners`, `cloud/fly-runners.ts`; `heavy-jobs-on-runners.md`): through

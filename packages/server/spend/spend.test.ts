@@ -114,7 +114,6 @@ describe("spend", () => {
 		expect(statuses.map((each) => [each.provider, each.state])).toEqual([
 			["openai", "ok"],
 			["cloudflare", "unreachable"],
-			["digitalocean", "missing"],
 			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);
@@ -176,7 +175,6 @@ describe("spend", () => {
 		expect(view.providers.map((each) => [each.provider, each.state])).toEqual([
 			["openai", "ok"],
 			["cloudflare", "ok"],
-			["digitalocean", "ok"],
 			["fly", "estimated"],
 			["typesafe", "counted"],
 		]);

@@ -258,7 +258,7 @@ describe("the runner keeper", () => {
 
 	it("sends jobs to run here when the runner types could not be read, as without the cloud's token", async () => {
 		provider.types = async () => {
-			throw new Error("no DigitalOcean API token");
+			throw new Error("no Fly.io API token");
 		};
 		const waiting = job("j1");
 		await keeper.look();

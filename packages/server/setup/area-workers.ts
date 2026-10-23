@@ -117,7 +117,7 @@ function workersArea(): SetupArea {
 	const tokenStep: SetupStep = {
 		id: "cloud-token",
 		title: "Paste your cloud provider's API token",
-		why: "Runners are machines in your own cloud account, made only while heavy jobs wait for one and deleted when they are done. splates reaches them through the cloud's proxy, never over SSH: if an older splates left `SPLATES_RUNNER_SSH_KEY` and `SPLATES_RUNNER_SSH_PUBLIC_KEY` in this machine's keyring, nothing reads them now, and you can delete both.",
+		why: "Runners are machines in your own cloud account, made only while heavy jobs wait for one and deleted when they are done. splates reaches them through the cloud's proxy, never over SSH: if an older splates left `SPLATES_RUNNER_SSH_KEY` and `SPLATES_RUNNER_SSH_PUBLIC_KEY` in this machine's keyring, nothing reads them now, and you can delete both. Runners were once made in DigitalOcean: splates reads `DIGITALOCEAN_TOKEN` no more, so you can delete it from this machine's keyring, and the token and the `splates-runners` SSH key from your DigitalOcean account.",
 		user: "Make an API token in your cloud provider's account and paste it.",
 		agent:
 			"Request the cred the step names with `splates creds request <cred> --device`, with how to get it, and `splates creds wait <cred>`. Never ask for it in chat.",

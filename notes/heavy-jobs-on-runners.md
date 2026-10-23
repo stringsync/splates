@@ -16,7 +16,7 @@ socket to the registry as the made worker's (`RunnerDialer`,
 record stands. It is made with no join token, no Access service token and no
 tunnel, so a server with no tunnel makes them too. A computer of the
 person's joined with `jobs: true` (#1054) still dials in through the tunnel,
-as do DigitalOcean's runners until that cloud goes. The pool, its placement
+The pool, its placement
 and the keeper see both alike.
 
 `JobPool` (`workers/job-pool.ts`) is the pool-wide queue, over every project:
@@ -25,7 +25,7 @@ many at once as fit in what it said it has in its hello (`cpus`, and `memory`
 rounded to the GB, since a box sold as 8 GB tells the kernel a little less; a
 runner from before says neither and is taken as 4 and 8). A job asks what its
 project's `job` in `splates.config.ts` says, `{ cpus: 4, memory: "8GB" }` when
-unset (see `cloud-digitalocean.md` for the runner size), or what `splates run --cpus
+unset (see `cloud-fly.md` for the runner size), or what `splates run --cpus
 --memory` says for one command; `splates dev test` and the merge gate send the
 project's. A job goes to a runner with room for it, one that already holds the
 project's clone first, then the one with the most free CPUs, then memory, and
@@ -83,7 +83,7 @@ those it made stopped (4 by default, `splates budget set kept`): past that,
 each provisioning sweep destroys the biggest first, a burst machine being
 seldom wanted again while the default size is, then the one stopped longest
 (`WorkerProvisioning.surplus`). Runners `splates run` made are left alone. The server's idle
-sweep remains only for a provider that sets `idleAfter`, as DigitalOcean's does. The day, month and rate limits in `workers/budget.ts` hold
+sweep remains only for a provider that sets `idleAfter`, which no cloud splates makes runners in does now. The day, month and rate limits in `workers/budget.ts` hold
 over runners as over any made worker, with their 80, 90 and 100% warnings. A
 runner that could not be made is not tried again for a minute.
 
@@ -95,7 +95,7 @@ made from the stock image and runs the recipe in its user data before joining
 (`WorkerSpec.recipe`), while the image is built in the background for the next
 one; a failed build is not tried again for 10 minutes.
 
-Measured 2026-10-22 on a real DigitalOcean account, from the droplet's create to
+Measured 2026-10-22 on a real DigitalOcean account, before that cloud was removed (2026-10-23), from the droplet's create to
 the runner joined (`splates worker list` connected, polled every 3-5 s): from the
 stock image plus recipe about 2.5 minutes (`c-4` in sfo2 and `s-4vcpu-8gb` in nyc3
 alike), from the image about 80 s (`s-4vcpu-8gb`, nyc3); the image's build took
@@ -116,7 +116,7 @@ answers 409 with `x-splates-runner: build` until whoever reaches it first
 the build is pushed through the proxy, needing no path through the tunnel's
 Access.
 
-For a DigitalOcean runner, a snapshot installs splates from npm at the server's version, which a
+For a runner booted from a snapshot, as DigitalOcean's were, the snapshot installs splates from npm at the server's version, which a
 server run from a checkout may be ahead of (as the measurement above found). So such a server
 hands each runner it makes its own build (`OwnBuild`, `workers/own-build.ts`):
 the CLI bundled into one bun script on first ask, which the runner's user data

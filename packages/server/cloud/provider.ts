@@ -8,11 +8,11 @@ export { TypeRefused } from "../workers";
  * splates finds what it made: it keeps no state of its own about them.
  */
 export interface CloudProvider {
-	/** What the user knows it as, as "DigitalOcean". */
+	/** What the user knows it as, as "Fly.io". */
 	readonly name: string;
 	/**
 	 * How a `splates.config.ts` names it as its `cloud`, as
-	 * `new DigitalOceanCloud()`, imported from `@stringsync/splates-server/cloud`.
+	 * `new FlyCloud()`, imported from `@stringsync/splates-server/cloud`.
 	 */
 	readonly configSource: string;
 	/** The API token it reads from the device's creds, and how the user gets one. */
@@ -23,7 +23,7 @@ export interface CloudProvider {
 	accepted(): Promise<boolean>;
 	/**
 	 * The billing provider its bill is pulled into the spend ledger as, as
-	 * `digitalocean`, which each runner's estimate is set beside.
+	 * `fly`, which each runner's estimate is set beside.
 	 */
 	readonly billing: string;
 	/** Each size it sells that can be ordered now somewhere, with where and what it costs. */
@@ -71,7 +71,7 @@ export interface CloudSize {
 
 /** The API token a cloud reads, and how the setup page asks for it. */
 export interface CloudToken {
-	/** The device cred it is kept as, as `DIGITALOCEAN_TOKEN`. */
+	/** The device cred it is kept as, as `FLY_API_TOKEN`. */
 	cred: string;
 	/** What the setup page labels it. */
 	label: string;

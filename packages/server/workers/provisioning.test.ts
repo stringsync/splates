@@ -101,7 +101,7 @@ describe("WorkerProvisioning", () => {
 
 	it("keeps each runner's life in the ledger, at the price it was made at, until destroyed or found gone", async () => {
 		const { provider, records, made, ledger, wall } = await provisioning();
-		provider.billing = "digitalocean";
+		provider.billing = "acme";
 		const destroyed = await made.provision();
 		wall.advance(Duration.mins(30));
 		await made.destroy(destroyed.id);
@@ -115,7 +115,7 @@ describe("WorkerProvisioning", () => {
 				row: "runner",
 				id: destroyed.id,
 				type: "small",
-				provider: "digitalocean",
+				provider: "acme",
 				dollarsPerHour: 0.05,
 				at: expect.any(String),
 			},

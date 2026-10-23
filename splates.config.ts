@@ -1,4 +1,4 @@
-import { DigitalOceanCloud } from "@stringsync/splates-server/cloud";
+import { FlyCloud } from "@stringsync/splates-server/cloud";
 import type { ConfigFile } from "@stringsync/splates-server/config";
 
 export default {
@@ -13,6 +13,6 @@ export default {
 		"command -v bun >/dev/null || curl -fsSL https://bun.sh/install | bash -s bun-v1.4.2; " +
 		"bun install --frozen-lockfile --ignore-scripts && bun run --cwd packages/web build",
 	remote: null,
-	// Runners for heavy jobs, made with the device cred DIGITALOCEAN_TOKEN.
-	cloud: new DigitalOceanCloud(),
+	// Runners for heavy jobs, made on Fly.io with the device cred FLY_API_TOKEN.
+	cloud: new FlyCloud(),
 } satisfies ConfigFile;

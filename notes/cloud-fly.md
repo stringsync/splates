@@ -1,10 +1,15 @@
 ---
-description: What a spike on 2026-10-22 measured of Fly Machines as runners (boot, image, suite and stop/start times, rootfs and auto_destroy behavior) and what it points to for the move off DigitalOcean
+description: What a spike on 2026-10-22 measured of Fly Machines as runners (boot, image, suite and stop/start times, rootfs and auto_destroy behavior) and how Fly became the one cloud runners are made in
 ---
 
 The person asked (2026-10-22) to try Fly.io for runners in place of
-DigitalOcean (`cloud-digitalocean.md`), and to remove DigitalOcean rather
-than keep both. Before any code moved, a spike measured Fly Machines by hand
+DigitalOcean, and to remove DigitalOcean rather than keep both; it went on
+2026-10-23 (#1071). Clouds went Hetzner (2026-10-17), DigitalOcean beside it
+(10-19), AWS alone with Pulumi (10-21), DigitalOcean alone (10-22), then Fly
+alone: DigitalOcean's droplets took 80 s to 2.5 minutes to join, needed an
+account SSH key so no root password was mailed, and a new account could
+order nothing over 4 vCPU. No orchestrator in any of them: splates calls the
+cloud's API itself, since it scales runners on its own. Before any code moved, a spike measured Fly Machines by hand
 from this Mac with a throwaway app, through the Machines API
 (`https://api.machines.dev/v1`) and Fly's GraphQL API for the app's IPs, the
 token read from the device cred `FLY_API_TOKEN`. Every machine and the app
@@ -173,9 +178,8 @@ own the same way (`runners-without-server.md`). The machine's env carries
 holds the Fly token can read both back, as it could exec into the machine
 anyway. A checkout's build is pushed to a fresh machine through the proxy
 (`heavy-jobs-on-runners.md`), so the `SPLATES_BUILD_URL` boot fetch is left
-for hosting outside splates. The repository still selects DigitalOcean
-until it is removed (#1071); its classes remain for the server's path
-alone.
+for hosting outside splates. This repository's `splates.config.ts` names
+`new FlyCloud()`.
 
 Each release (0.0.55 the first) attaches `splates-linux-x64` and its `.sha256` to its GitHub
 release (`LinuxBinary`, `bun build --compile --target=bun-linux-x64`), at

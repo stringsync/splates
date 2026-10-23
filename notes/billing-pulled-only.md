@@ -16,7 +16,7 @@ Pull failed or Not tracked yet, with Add key, Fix token (opens the Creds
 page at that key and shows the error in plain words) or Retry. Plan-billed
 use such as a Claude subscription shows both its API-equivalent value and
 real money out of pocket. Model list prices come from `models.dev`, cached a
-day (`prices/`). DigitalOcean and Hetzner are no longer sources.
+day (`prices/`). DigitalOcean (whose invoices it pulled until 2026-10-23) and Hetzner are no longer sources.
 
 Runners are the one cost splates estimates itself, and the person wanted
 what each costs somewhere obvious, per machine, with its history, so the
@@ -28,11 +28,11 @@ forever and never counted as spend (`Spend.entries` leaves them out;
 exists and a runner's estimate is never added to the bill it estimates.
 `/api/billing/runners` answers every runner, the last 90 days and every
 month of runner-hours and dollars, each month beside what the runners'
-provider billed for it (DigitalOcean's invoice, by its period) with the
+provider billed for it (a pulled invoice, by its period; Fly.io has none to pull, so its runners show as Estimated) with the
 gap in percent, amber past 20%, and who each day's and month's cost went
 to, counted per job: a runner's idle time in an hour is shared among the
 tasks whose jobs ran on it that hour, as `splitSpend` does. Days and months
-are UTC, as the ledger's and DigitalOcean's are. Runner dollars are US
+are UTC, as the ledger's are. Runner dollars are US
 dollars whatever the display currency, as the price and the bill are.
 
 Fly.io has no supported API for its bill or usage (checked 2026-10-22: a

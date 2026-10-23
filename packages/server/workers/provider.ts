@@ -153,7 +153,7 @@ export interface WorkerProvider {
 	readonly idleAfter?: Duration;
 	/**
 	 * The provider its bill is pulled into the spend ledger as, as
-	 * `digitalocean`, which the Billing page sets each month's estimate of
+	 * `fly`, which the Billing page sets each month's estimate of
 	 * its runners beside; absent when no bill is pulled for it.
 	 */
 	readonly billing?: string;

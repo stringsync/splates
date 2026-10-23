@@ -19,7 +19,7 @@ export interface RunnerMadeRow {
 	/** Its CPUs and memory in GB; absent in a row from before they were kept, or from a provider that does not say. */
 	cpus?: number;
 	memory?: number;
-	/** The provider whose bill it is on, as `digitalocean`; null when no bill is pulled for it. */
+	/** The provider whose bill it is on, as `fly`; null when no bill is pulled for it. */
 	provider: string | null;
 	/** What it costs an hour, in US dollars, as the provider's API said when it was made. */
 	dollarsPerHour: number;

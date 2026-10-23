@@ -34,7 +34,7 @@ describe("runnersReport", () => {
 				id: "up",
 				type: "c-16",
 				size: { cpus: 4, memory: 8 },
-				provider: "digitalocean",
+				provider: "acme",
 				dollarsPerHour: 0.25,
 				stoppedDollarsPerHour: null,
 				state: "running",
@@ -49,7 +49,7 @@ describe("runnersReport", () => {
 				id: "old",
 				type: "c-16",
 				size: null,
-				provider: "digitalocean",
+				provider: "acme",
 				dollarsPerHour: 0.5,
 				stoppedDollarsPerHour: null,
 				state: "destroyed",
@@ -296,7 +296,7 @@ const made = (
 	id,
 	type: "c-16",
 	...size,
-	provider: "digitalocean",
+	provider: "acme",
 	dollarsPerHour,
 	...(stoppedDollarsPerHour === undefined ? {} : { stoppedDollarsPerHour }),
 	at,
@@ -339,14 +339,14 @@ const job = (
 
 const bill = (at: string, dollars: number): SpendEntry => ({
 	at,
-	provider: "digitalocean",
-	service: "droplets",
+	provider: "acme",
+	service: "machines",
 	kind: "billed",
 	dollars,
 	project: null,
 	task: null,
 	conversation: null,
-	ref: `digitalocean:${at}`,
+	ref: `acme:${at}`,
 });
 
 /** A 2 GB disk at $0.15 per GB a month, by the hour. */
