@@ -140,7 +140,6 @@ const NAMES: Record<string, string> = {
 	opencode: "OpenCode",
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",
-	fly: "Fly.io",
 	typesafe: "TypeSafe",
 };
 

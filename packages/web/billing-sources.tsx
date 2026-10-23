@@ -39,14 +39,16 @@ export function Sources({
 			)}
 			{(sources?.providers.length ?? 0) > 0 && (
 				<ul className="divide-y rounded-lg border bg-card">
-					{sources?.providers.map((each) => (
-						<SourceRow
-							key={each.provider}
-							source={each}
-							pulling={pulling}
-							onPull={onPull}
-						/>
-					))}
+					{sources?.providers
+						.filter((each) => each.provider !== "fly")
+						.map((each) => (
+							<SourceRow
+								key={each.provider}
+								source={each}
+								pulling={pulling}
+								onPull={onPull}
+							/>
+						))}
 				</ul>
 			)}
 		</section>

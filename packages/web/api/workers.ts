@@ -2,7 +2,6 @@ import type { PortLink } from "@stringsync/splates-server/ports";
 import type {
 	MachineReading,
 	QueueListing,
-	WorkerBudgetReport,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
@@ -37,8 +36,6 @@ export async function taskPorts(): Promise<PortLink[]> {
  */
 export type MachineStatus = MachineReading & {
 	queue: QueueListing[];
-	/** Where the worker budget stands; null without a `workerProvider`. */
-	workerBudget?: WorkerBudgetReport | null;
 };
 
 /** Moves the agent of conversation `id` to `position` in the queue for a worker slot, from 1. */

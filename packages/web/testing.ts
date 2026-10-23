@@ -1,7 +1,6 @@
 // scry-ignore-file compact-files: the page tests' one fake server; its routes belong together
 import type {
 	BillingView,
-	RunnersReport,
 	SpendReport,
 } from "@stringsync/splates-server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
@@ -27,10 +26,7 @@ import type {
 	Snapshot,
 } from "@stringsync/splates-server/tasks";
 import type { Held } from "@stringsync/splates-server/terminal";
-import type {
-	WorkerBudgetReport,
-	WorkerPool,
-} from "@stringsync/splates-server/workers";
+import type { WorkerPool } from "@stringsync/splates-server/workers";
 import { createElement } from "react";
 import { aborts } from "webappwiz/abort";
 import type { Resource } from "webappwiz/disposable";
@@ -140,15 +136,6 @@ export class Testing implements Resource {
 		services: [],
 		days: [],
 	};
-	/** What `/api/billing/runners` says of every runner made. */
-	runnersReport: RunnersReport = {
-		updated: "2026-10-21T12:00:00.000Z",
-		runners: [],
-		images: [],
-		days: [],
-		months: [],
-		split: { days: [], months: [] },
-	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();
 	/** What the page reads; a test sets it before the page fetches again. */
@@ -232,8 +219,6 @@ export class Testing implements Resource {
 	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
 	machine: MachineStatus | null = null;
-	/** What `/api/worker-budget` reads, or null for no budget, as without a `workerProvider`. */
-	workerBudget: WorkerBudgetReport | null = null;
 	/** What `/api/workers` lists, or null for it to fail. */
 	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
@@ -336,9 +321,6 @@ export class Testing implements Resource {
 			if (route === "/api/spend") {
 				return Response.json(this.spendReport);
 			}
-			if (route === "/api/billing/runners") {
-				return Response.json(this.runnersReport);
-			}
 			if (route === "/api/budgets") {
 				await this.readingBudgets;
 				return Response.json(this.budgets);
@@ -374,14 +356,6 @@ export class Testing implements Resource {
 				return this.workers === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
-			}
-			if (route === "/api/worker-budget") {
-				return this.workerBudget === null
-					? Response.json(
-							{ reason: "usage", message: "no worker budget" },
-							{ status: 400 },
-						)
-					: Response.json(this.workerBudget);
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

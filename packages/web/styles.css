@@ -28,8 +28,6 @@
 @source "./dictate-button.tsx";
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";
-@source "./worker-budget-badge.tsx";
-@source "./worker-budget-card.tsx";
 @source "./app-nav.tsx";
 @source "./desktop-app.tsx";
 @source "./sidebar-head.tsx";
@@ -143,7 +141,6 @@
 @source "./mark.tsx";
 @source "./demo-cards.tsx";
 @source "./directives.tsx";
-@source "./direct-runners.tsx";
 @source "./reference-chip.tsx";
 @source "./agent-icons.tsx";
 @source "./agent-picker.tsx";
@@ -208,7 +205,6 @@
 @source "./project-chip.tsx";
 @source "./project-folder-list.tsx";
 @source "./billing.tsx";
-@source "./billing-runners.tsx";
 @source "./billing-sources.tsx";
 @source "./billing-spend.tsx";
 @source "./billing-trend.tsx";

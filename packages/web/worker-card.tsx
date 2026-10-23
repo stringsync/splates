@@ -57,7 +57,7 @@ export function WorkerCard({
 							<Button
 								variant="ghost"
 								size="sm"
-								title="Takes new jobs again"
+								title="Takes new work again"
 								onClick={() => onDrain(false)}
 							>
 								<PlayIcon /> Resume
@@ -66,7 +66,7 @@ export function WorkerCard({
 							<Button
 								variant="ghost"
 								size="sm"
-								title="Takes no new jobs; those on it run to their end"
+								title="Takes no new work; what runs on it runs to its end"
 								onClick={() => onDrain(true)}
 							>
 								<PauseIcon /> Drain
@@ -77,7 +77,7 @@ export function WorkerCard({
 							variant="ghost"
 							size="sm"
 							className="text-destructive hover:text-destructive"
-							title={`Ends the ${used} jobs running on it now`}
+							title={`Ends the ${used} running on it now`}
 							onClick={() => onRemove(true)}
 						>
 							<TriangleAlertIcon /> Stop now
@@ -89,7 +89,7 @@ export function WorkerCard({
 							className="text-muted-foreground hover:text-destructive"
 							title={
 								used > 0
-									? "Takes no new jobs, and stops once those on it end"
+									? "Takes no new work, and stops once what runs on it ends"
 									: "Stops it and revokes its key"
 							}
 							onClick={() => onRemove(false)}
@@ -158,7 +158,6 @@ export function WorkerShell({
 			{worker !== null && (
 				<>
 					<Facts worker={worker} updating={updating} frame={frame} />
-					<NoJobs worker={worker} />
 					{worker.kind === "local" && (
 						<footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-4 py-2">
 							<SlotsField worker={worker} onSet={onSlots} />
@@ -168,30 +167,6 @@ export function WorkerShell({
 			)}
 			<Refusal refusal={refusal} className="px-4 pb-2" />
 		</li>
-	);
-}
-
-/**
- * Why a joined runner takes no jobs, which its card would otherwise show as
- * merely idle while every job runs on this Mac.
- */
-function NoJobs({ worker }: { worker: WorkerListing }): JSX.Element | null {
-	if (worker.kind === "local" || worker.health !== "connected" || worker.jobs) {
-		return null;
-	}
-	return (
-		<p
-			role="note"
-			className="flex items-start gap-2 border-t px-4 py-2 text-amber-700 text-xs dark:text-amber-400"
-		>
-			<TriangleAlertIcon aria-hidden className="mt-px size-3.5 shrink-0" />
-			<span>
-				Takes no jobs: its splates{" "}
-				{worker.build === null ? "build" : worker.build} is older than runners
-				taking jobs, so they run on this Mac. Remove it: a runner made now runs
-				this server's own build.
-			</span>
-		</p>
 	);
 }
 
@@ -257,7 +232,7 @@ function Facts({
 			</Fact>
 			{!local && (
 				<>
-					<Fact name="jobs now">
+					<Fact name="running now">
 						{worker.tasks.length === 0 ? (
 							<Quiet>none</Quiet>
 						) : (

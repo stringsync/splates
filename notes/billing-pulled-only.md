@@ -1,5 +1,5 @@
 ---
-description: The Billing page shows dollars by provider from pulled sources and a machine-wide spend ledger, and every runner made with its estimate beside the pulled bill; costs are never entered by hand, and an unreachable provider is never recorded as zero
+description: The Billing page shows dollars by provider from pulled sources and a machine-wide spend ledger; costs are never entered by hand, and an unreachable provider is never recorded as zero
 ---
 
 The Budget page became Billing (`#billing`, `#budget` still opens it). It
@@ -7,7 +7,8 @@ shows billed and estimated dollars by provider and service from the
 machine-wide ledger `~/.splates/spend.jsonl` (`packages/server/spend/`),
 which every project adds to and which billing pulls provider charges into
 once per charge; a provider it cannot reach is never recorded as zero. The
-scry and worker budgets and plan limits sit below, restyled to match.
+scry budgets and plan limits sit below, restyled to match. The page no longer
+shows runners, the worker budget card or badge, or Fly.io as a billing source.
 
 Costs are never entered by hand: the person said they would not use hand
 entry, so a provider with no pull source shows "Not tracked yet" (state
@@ -18,9 +19,8 @@ use such as a Claude subscription shows both its API-equivalent value and
 real money out of pocket. Model list prices come from `models.dev`, cached a
 day (`prices/`). DigitalOcean (whose invoices it pulled until 2026-10-23) and Hetzner are no longer sources.
 
-Runners are the one cost splates estimates itself, and the person wanted
-what each costs somewhere obvious, per machine, with its history, so the
-Runners section sits above the budget bars. Each runner's life (type, the
+The server still keeps runner estimates and its billing API until the
+server-side runner removal lands; the page no longer calls that API. Each runner's life (type, the
 hourly price the cloud's API gave as it was made, made and destroyed) and
 each job it ran are rows of their own in the same `spend.jsonl`, kept
 forever and never counted as spend (`Spend.entries` leaves them out;

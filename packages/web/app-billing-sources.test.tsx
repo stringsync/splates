@@ -90,12 +90,12 @@ describe("App's billing sources", () => {
 		expect(
 			view.getByText(/other apps on the same key are not counted$/),
 		).toBeTruthy();
-		expect(view.getByText("Estimated")).toBeTruthy();
+		expect(view.queryByText("Estimated")).toBeNull();
 		expect(
-			view
-				.getByRole("link", { name: "Open Fly.io's billing" })
-				.getAttribute("href"),
-		).toBe("https://fly.io/dashboard");
+			view.queryByRole("link", { name: "Open Fly.io's billing" }),
+		).toBeNull();
+		expect(view.queryByText("Runners")).toBeNull();
+		expect(view.queryByRole("region", { name: "worker budget" })).toBeNull();
 		await waitFor(() => view.getByText(/rate of each day/));
 		expect(view.getByText(/2026-10-20/)).toBeTruthy();
 		expect(view.getAllByText("€3").length).toBeGreaterThan(0);

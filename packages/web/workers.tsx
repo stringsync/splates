@@ -1,5 +1,4 @@
 import type {
-	JobSize,
 	WorkerListing,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
@@ -8,12 +7,9 @@ import type { JSX, ReactNode } from "react";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ReadingNow } from "./countdown";
-import { DirectRunners } from "./direct-runners";
-import { useMinute } from "./hooks/use-minute";
 import { localWorker, localWorkerOn } from "./local-worker";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
-import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
 import { TopBar } from "./top-bar";
 import {
@@ -26,7 +22,7 @@ import {
 import { behind, WorkerPoolView } from "./worker-pool";
 
 /**
- * The Runners page: this Mac as a worker, which it turns on and off, the
+ * The Workers page: this Mac as a worker, which it turns on and off, the
  * pool as `splates worker list` shows it, with the same actions as the CLI,
  * and the workers waiting on an update.
  */
@@ -54,23 +50,21 @@ export function WorkersPage({
 	const frame: WorkerCardFrame = { tasks, onOpenTask };
 	return (
 		<section aria-label="workers" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Runners" />
+			<TopBar title="Workers" />
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}
 				</p>
 			)}
 			{pool === null && error === null && (
-				<ReadingNow label="Reading runners…" />
+				<ReadingNow label="Reading workers…" />
 			)}
 			{pool !== null && (
 				<>
-					<TooBig pool={pool} />
 					<Updates pool={pool} />
 					<div className="flex flex-col gap-3">
 						<Heading title="Pool">
-							This Mac, which runs the agents, then each runner heavy jobs run
-							on.
+							This Mac, which runs the agents, then each worker that joined.
 						</Heading>
 						<ul aria-label="pool" className="flex flex-col gap-4">
 							<ThisMac
@@ -115,7 +109,6 @@ export function WorkersPage({
 						</ul>
 						<TurnedAway pool={pool} />
 					</div>
-					<DirectRunners pool={pool} />
 				</>
 			)}
 		</section>
@@ -217,63 +210,6 @@ function ThisMac({
 			}
 		/>
 	);
-}
-
-/**
- * Heavy jobs too big for any runner, which run on this Mac instead: a
- * warning while this project's `job` setting asks more than the biggest
- * runner has, and the last jobs sent here for it.
- */
-function TooBig({ pool }: { pool: WorkerPool }): JSX.Element | null {
-	const { asked, largest, tooBig } = pool.jobs;
-	const now = useMinute();
-	const over =
-		asked !== null &&
-		largest !== null &&
-		(asked.cpus > largest.cpus || asked.memory > largest.memory);
-	if (!over && tooBig.length === 0) {
-		return null;
-	}
-	return (
-		<div className="flex flex-col gap-3">
-			{over && (
-				<p
-					role="alert"
-					className="rounded-md border border-destructive/50 px-3 py-2 text-destructive text-sm"
-				>
-					This project's jobs ask for {sizeText(asked)}, more than the biggest
-					runner's {sizeText(largest)}, so they run on this Mac. Ask for less
-					with <code className="font-mono text-[13px]">job</code> in
-					splates.config.ts, or have the provider allow bigger machines.
-				</p>
-			)}
-			{tooBig.length > 0 && (
-				<>
-					<Heading title="Too big for any runner">
-						The last jobs that asked more than any runner has, run on this Mac
-						instead.
-					</Heading>
-					<ul aria-label="too big" className="flex flex-col gap-1">
-						{tooBig.map((job) => (
-							<li key={`${job.id} ${job.at}`} className="text-sm">
-								<code className="font-mono text-[13px]">{job.what}</code>{" "}
-								<span className="text-muted-foreground">
-									{job.task === null ? "" : `in ${job.task}, `}asked{" "}
-									{sizeText(job.size)}, the biggest had {sizeText(job.largest)},{" "}
-									{ago(job.at, now)}
-								</span>
-							</li>
-						))}
-					</ul>
-				</>
-			)}
-		</div>
-	);
-}
-
-/** `size` as a person reads it: 4 CPUs and 8 GB. */
-function sizeText(size: JobSize): string {
-	return `${size.cpus} ${size.cpus === 1 ? "CPU" : "CPUs"} and ${size.memory} GB`;
 }
 
 /**
