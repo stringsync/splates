@@ -25,8 +25,10 @@ again, by hand or by a lane, clears `unqueuedFor` (`enqueued`).
 
 The queue is worked out on every read, never stored: a task comes after
 every task it depends on, otherwise in the position the person set. A lane
-queued whole queues each of its tasks as soon as nothing blocks it. The
-worktree name is the task's `slug`, else its subject lowercased, dashed and
+queued whole queues each waiting task as soon as nothing blocks it. A failed
+checkout keeps its worktree and running record even after releasing its
+board owner; a lane leaves that record alone, so repeated checks spend no
+more of its budget. The worktree name is the task's `slug`, else its subject lowercased, dashed and
 cut at a word to 40 characters, with `-2`, `-3` for clashes
 (`queue/name.ts`). `FakePicker` in `queue/testing.ts` stands in for Auto pick.
 

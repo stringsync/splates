@@ -45,6 +45,31 @@ describe.concurrent("a lane queued whole", () => {
 		expect(queued.map((task) => task.id)).toEqual([2, 4]);
 	});
 
+	it("keeps its budget when a failed checkout leaves a running record untaken", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Quiet events");
+		await taskAdd(deps, "first", null, { lane: 1, ready: true });
+		await taskAdd(deps, "follower", null, { lane: 1, blockedBy: [1] });
+		await laneUpdate(deps, 1, { queued: true });
+		await deps.tasks.queueFromLanes();
+		const budget = (await deps.tasks.lanes())[1]?.budget;
+		deps.config.postCheckout = "exit 3";
+
+		await expect(add(deps, "first", { tasks: [1] })).toBail("hook_failed");
+		expect((await deps.tasks.find(1)).state).toMatchObject({
+			stage: "running",
+			takenBy: null,
+		});
+		const sweeps = [
+			await deps.tasks.queueFromLanes(),
+			await deps.tasks.queueFromLanes(),
+			await deps.tasks.queueFromLanes(),
+		];
+		expect(sweeps).toEqual([[], [], []]);
+		expect((await deps.tasks.lanes())[1]?.budget).toBe(budget);
+		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
+	});
+
 	it("leaves out a task taken out of the queue by hand, until it is queued again", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
