@@ -7,7 +7,8 @@ which may not be running: in a project whose `splates.config.ts` names a
 `cloud`, it runs on a runner, making one when none has room, within the
 budget, and fails loudly (`no_runner`, exit 31) rather than quietly running
 here when it can have none; its refusal tells agents they may run a test
-file or two directly (`bun test <path>`) or wait for a runner, leaving the
+file or two directly (`bun test --changed` or explicit file paths), use a
+focused `splates dev test --changed` in this repo, or wait for a runner, leaving the
 whole suite to the merge gate; there is no flag to run it here (the person had
 `--local` taken out). A project that names
 no cloud runs here as before.
@@ -74,3 +75,8 @@ list` shows them.
 Measured 2026-10-22 on DigitalOcean `s-4vcpu-8gb`: a cold run (no runner up)
 about 3 minutes to output; the next on the same runner about 8 s, most of it
 `prepare`; the whole suite via `splates dev test` about 4 minutes.
+
+Focused `splates dev test` runs are a development exception: `--changed`,
+`--since <ref>`, file paths and `--test-name-pattern` select a portion to run
+here against the actual worktree, using one worker by default. There is no
+location flag. Unfiltered suites still use runners or the merge gate.

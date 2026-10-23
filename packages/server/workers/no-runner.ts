@@ -2,7 +2,7 @@
 export class NoRunner extends Error {
 	constructor(message: string) {
 		super(
-			`${message}. Run a test file or two directly (\`bun test <path>\`), or wait for a runner; leave the whole suite to the merge gate.`,
+			`${message}. Run a small selection directly (\`bun test --changed\` or test-file paths), or wait for a runner; leave the whole suite to the merge gate.`,
 		);
 	}
 }

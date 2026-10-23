@@ -29,9 +29,13 @@ the rest:
    ending at its `?`, as in Formats below.
 3. **Be careful on the host machine**, which the person works on. Never run
    a whole test suite, an install or a build here. A **fraction** of the
-   tests, a test file or two (`bun test <path>`), is fine to run directly
-   and often quicker than a runner; pick that strategically. Leave the
-   whole suite to the merge gate. Run other heavy work with
+   tests, a test file or two, is fine to run directly and often quicker
+   than a runner. Prefer `bun test --changed` or explicit test-file paths;
+   combine them when the change reaches many tests. In splates's own repo,
+   use `splates dev test --changed` before committing, `--since main` after
+   committing, or explicit file paths. `--test-name-pattern <regex>` narrows
+   cases further; focused runs default to one worker (`--workers <n>`).
+   Leave the whole suite to the merge gate. Run other heavy work with
    `splates run -- <command>`: it runs on a runner, in a checkout of your
    worktree as it stands, output streamed back and its exit code yours.
    It uses a runner joined to `splates server`, else, where the project's
@@ -280,8 +284,10 @@ the message; a `Maybe relevant:` one only when it fits.
    may need to settle, which you treat as your own. Subagents at work at
    once share the tree, so give each its own files. Be careful on the host
    machine the person works on: never run a whole suite, an install or a
-   build here. A test file or two (`bun test <path>`) may run directly;
-   leave the whole suite to the merge gate. Use `splates run -- <command>`
+   build here. Test a small portion with `bun test --changed` or explicit
+   test-file paths; in splates's own repo prefer `splates dev test --changed`,
+   `--since main`, or file paths, optionally with `--test-name-pattern`.
+   Leave the whole suite to the merge gate. Use `splates run -- <command>`
    for other heavy work (step 3 of The short version), and tell a subagent
    to do the same. Files it writes on a runner stay there.
 5. **Land.** Once every step under `## Next` (including any user review) and

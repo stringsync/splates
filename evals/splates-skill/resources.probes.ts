@@ -112,4 +112,34 @@ probes.push({
 	],
 });
 
+probes.push({
+	...focused,
+	id: "resources/changed-tests",
+	requirement: {
+		id: "host-changed-tests",
+		text: "Prefer Bun's changed-test selection for focused development checks.",
+		source: `${skill}#The short version`,
+	},
+	input: {
+		kind: "message",
+		origin: "user",
+		text: "Run only tests affected by the uncommitted changes using bun test --changed if the skill permits it, then report the result. No code changes are needed.",
+	},
+	assertions: [
+		{
+			id: "changed-tests-ran",
+			kind: "count",
+			match: {
+				actor: "agent",
+				kind: "command",
+				name: "bun",
+				args: ["test", "--changed"],
+				exitCode: 0,
+			},
+			min: 1,
+		},
+		focused.assertions[1] as Probe["assertions"][number],
+	],
+});
+
 export default { probes, seeds: [seed] } satisfies ProbeModule;

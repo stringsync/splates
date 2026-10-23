@@ -28,7 +28,7 @@ its output; 241 MB. A job needs bun and git, not splates or Chromium.
 - **Clone and `prepare`** (`bun install --frozen-lockfile --ignore-scripts`
   and the page build) on a fresh machine: 46 s on `shared-cpu-4x`, 21 s on
   `performance-4x`; a second `bun install` 16 ms.
-- **The suite** (`splates dev test --local`, 1284 tests): bun's own time
+- **The suite** (`splates dev test` inside the runner job, 1284 tests): bun's own time
   **88 s on `shared-cpu-4x` 8 GB** (2m10 wall) and 112 s on `performance-4x`
   8 GB (2m37 wall), run twice each with the same ordering. Shared was faster
   both times, so it is the size to default to; a DigitalOcean `s-4vcpu-8gb`

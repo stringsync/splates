@@ -123,7 +123,7 @@ kept its runner busy, so never idle-stopped, until a budget limit. `splates
 dev test` and the merge gate send none: `dev test` has its own deadline. Nothing of the person's creds reaches a
 runner. `prepare` is a `splates.config.ts` setting (here `bun install` and the
 page build, as `docker/worker.Dockerfile` does), run on every job; bun's cache
-is what keeps it quick. `splates dev test` runs `./bin/splates dev test --local`
+is what keeps it quick. `splates dev test` runs `./bin/splates dev test` inside its existing slot
 on the runner and gets its JUnit report back as a file.
 
 The server sets `SPLATES_CORES` to the job's `cpus` and `SPLATES_HEAVY` in
@@ -155,6 +155,9 @@ and worker-path applications named for the slot's tunnel, `splates-<word>`
 The person's host is for their work: agents may run a few test files by hand
 with `bun test <path>`, but never a whole suite, an install or a build here.
 The whole suite belongs to the merge gate. With a cloud configured,
-`splates run` and `splates dev test` refuse rather than run here;
-`dev test --local` requires the slot or core claim already held by a runner
-or the merge gate. Local heavy-job slots default to one.
+`splates run` and unfiltered `splates dev test` refuse rather than run here.
+Focused development runs (`dev test --changed`, `--since main`, file paths
+or `--test-name-pattern`) run here with one worker by default and still take
+a slot and cores. No `--local` flag exists; runners and the merge gate are
+recognized by the slot or core claim they already hold.
+Local heavy-job slots default to one.

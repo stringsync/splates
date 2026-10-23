@@ -1,17 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
-import { joinedReports, test as runTests } from "./test";
+import { joinedReports } from "./test";
 
 const report = (suite: string) =>
 	`<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="1">\n  <testsuite name="${suite}"></testsuite>\n</testsuites>\n`;
 
 describe("joinedReports", () => {
-	it("refuses --local outside a runner or the merge gate before starting tests", async () => {
-		await expect(runTests({ local: true, ps: new FakePs() })).rejects.toThrow(
-			"--local is only for a runner or the merge gate",
-		);
-	});
-
 	it("puts every run's suites under the first one's root", () => {
 		expect(joinedReports([report("server"), report("web")])).toBe(
 			`<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="1">\n  <testsuite name="server"></testsuite>\n\n  <testsuite name="web"></testsuite>\n</testsuites>\n`,

@@ -1,5 +1,5 @@
 ---
-description: What splates dev fix and splates dev test run, why the test run is capped at half the cores with a six-minute deadline, and why the page's tests run apart without isolation
+description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks; full-suite runners, the six-minute deadline, DOM separation, and dev fix
 ---
 
 `splates dev fix` runs, stopping at the first failure: `biome check --write
@@ -9,7 +9,17 @@ description: What splates dev fix and splates dev test run, why the test run is 
 `--code-only` disables scry's `som` and `llm` models so no cred is read.
 `ship` gates on `fix --check` with scry skipped.
 
-`splates dev test` runs `bun test --parallel=<half the cores> --timeout
+For development, prefer `splates dev test --changed`: Bun uses the dirty
+worktree and its import graph to select affected tests (staged, unstaged and
+untracked changes). After committing use `--since main` to compare against a
+branch or commit. Positional file paths narrow the files further;
+`--test-name-pattern <regex>` narrows cases. These selectors combine. Use
+`--evals` for free eval harness tests or `--all` to include both packages and
+evals. A focused run stays here, takes the machine's heavy-job slot, and
+uses one worker by default; `--workers <n>` sets a positive worker limit.
+Leave the whole suite to the merge gate. No `--local` flag exists.
+
+An unfiltered `splates dev test` runs `bun test --parallel=<half the cores> --timeout
 30000`, waiting up to five minutes to claim those cores: a worker per core
 starved the git-spawning suites, and 16 workers failed 20 to 30 tests a run
 where 8 failed 0 to 2. The whole run is killed at six minutes, after one
@@ -33,13 +43,12 @@ Xcode's git ahead of `/usr/bin/git`, an `xcrun` stub that cost the server
 tests a third of their CPU. Measured 2026-10-22 on a 4-CPU Linux container:
 118s → 67s wall, 252s → 140s CPU.
 
-`splates dev test` runs on a runner when one has joined the server and it is
-not already inside a heavy slot (`SPLATES_HEAVY`, `SPLATES_CORES`): see
-`heavy-jobs-on-runners.md`. The job's command is `./bin/splates dev test
---local` with the same filters, run in the runner's checkout of a snapshot of
-the worktree, and its JUnit report comes back as a returned file to where
-`SPLATES_TEST_REPORT` names. `--local` runs it here as above. `--linux` went
-with this: every runner is Linux. Before it, on 2026-10-21, the suite's first
+Unfiltered `splates dev test` runs on a runner unless already inside a
+heavy slot (`SPLATES_HEAVY`, `SPLATES_CORES`): see
+`heavy-jobs-on-runners.md`. The runner executes `./bin/splates dev test`
+inside its existing slot, with no location flag, and its JUnit report comes
+back to where `SPLATES_TEST_REPORT` names. The merge gate still has its host
+fallback. `--linux` went away: every runner is Linux. Before it, on 2026-10-21, the suite's first
 Linux run passed every test (3443, 554 files, 34s) on aarch64; as `linux/amd64`
 under Rosetta three tests failed, the ones that expect "cannot start <argv>"
 on a missing executable, which the emulation exits 127 without raising.

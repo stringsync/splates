@@ -64,7 +64,9 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 
 	dev
 		.command("test")
-		.description("run the package's tests; eval harness tests are separate")
+		.description(
+			"test a small portion while developing: --changed, --since main, file paths or --test-name-pattern; focused runs use one worker here by default, the full suite runs on a runner for the merge gate",
+		)
 		.option("evals", z.boolean(), {
 			default: false,
 			description: "run only free eval harness tests (no model calls)",
@@ -73,10 +75,24 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			default: false,
 			description: "run the package's and the eval harness's tests together",
 		})
-		.option("local", z.boolean(), {
+		.option("changed", z.boolean(), {
 			default: false,
 			description:
-				"internal: run inside the slot already held by a runner or the merge gate",
+				"run only tests affected by uncommitted changes (bun test --changed)",
+		})
+		.option("since", z.string(), {
+			default: "",
+			description:
+				"run only tests affected by changes since a git ref, e.g. --since main; implies --changed",
+		})
+		.option("test-name-pattern", z.string(), {
+			default: "",
+			description:
+				"run only tests whose name matches this regex; combine with file paths or --changed to narrow further",
+		})
+		.option("workers", z.coerce.number().int().positive().optional(), {
+			description:
+				"maximum test workers; focused checks default to 1, full runs use their core allocation",
 		})
 		.option("ci", z.boolean(), {
 			default: false,
@@ -86,5 +102,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.rest("files", z.string(), {
 			description: "run only the test files whose path has one of these",
 		})
-		.action((opts, { log, ps }) => test({ ...opts, log, ps }));
+		.action(({ "test-name-pattern": testNamePattern, ...opts }, { log, ps }) =>
+			test({ ...opts, testNamePattern, log, ps }),
+		);
 }

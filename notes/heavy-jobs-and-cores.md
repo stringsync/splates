@@ -20,14 +20,17 @@ itself. A merge's claim goes first, ahead of waiters under two minutes old.
 `Testing` gives each test its own slots and strips those variables.
 
 These slots and cores are the machine's own, taken by a job that runs here:
-`splates run -- <cmd>` and `splates dev test` first wait on the scheduler's
+`splates run -- <cmd>` and unfiltered `splates dev test` first wait on the scheduler's
 pool-wide queue for a runner, then a runner they make themselves in the
 project's cloud (`runners-without-server.md`), and run here as above only in
 a project that names no cloud. See
 `heavy-jobs-on-runners.md`.
 
-Agents may run a fraction of the tests directly, a test file or two with
-`bun test <path>`, when that is quicker than a runner. Never a whole suite,
-an install or a build on the person's host; the whole suite is the merge
-gate's. `splates dev test --local` is internal to runners and the gate,
-which already hold a heavy slot or core claim.
+Agents should test a small portion while developing: prefer
+`splates dev test --changed`, `--since main` after committing, or explicit
+file paths, optionally narrowed by `--test-name-pattern <regex>`. Focused
+checks run here against the real worktree, default to one worker, and still
+take a slot and cores. For other projects, `bun test --changed` or a test
+file or two directly is fine. Never a whole suite, an install or a build on
+the person's host; the whole suite is the merge gate's. Runners and the gate
+are detected by the slot or core claim they already hold; no `--local` flag.

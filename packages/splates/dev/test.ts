@@ -18,8 +18,12 @@ export interface TestOptions {
 	evals?: boolean;
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
-	/** Internal: run on the runner or in the merge gate that already holds a slot. */
-	local?: boolean;
+	/** Run tests affected by uncommitted changes, using Bun's import graph. */
+	changed?: boolean;
+	/** Compare changes against this git reference instead; implies changed. */
+	since?: string;
+	/** Run only tests whose name matches this regular expression. */
+	testNamePattern?: string;
 	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
 	ci?: boolean;
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
@@ -35,7 +39,7 @@ export interface TestOptions {
 	/** The machine's heavy-job slots, one of which the run waits for. */
 	heavy?: HeavyCap;
 	/** The machine's cores, which the run claims its workers from. */
-	cores?: CoreClaims;
+	cores?: Pick<CoreClaims, "claim">;
 	/** How long the run may take before it is stopped. */
 	deadline?: Duration;
 }
@@ -63,12 +67,12 @@ export async function test(opts: TestOptions): Promise<void> {
 	const inSlot =
 		ps.env("SPLATES_HEAVY") !== undefined ||
 		ps.env("SPLATES_CORES") !== undefined;
-	if (opts.local && !inSlot) {
-		throw new Error(
-			"--local is only for a runner or the merge gate; run a test file or two with `bun test <path>`, or wait for a runner",
-		);
-	}
-	if (!opts.local && !inSlot && (await ranOnRunner(opts, ps, log))) {
+	const focused = Boolean(
+		opts.changed || opts.since || opts.files?.length || opts.testNamePattern,
+	);
+	// Focused development checks run here against the actual dirty worktree;
+	// a snapshot on a runner would lose Bun's uncommitted-change selection.
+	if (!focused && !inSlot && (await ranOnRunner(ps, log, opts))) {
 		return;
 	}
 	// The page's tests and the rest run apart, one after the other. A DOM test
@@ -82,7 +86,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	// clears it after each test.
 	const evals = opts.all ? [] : ["--path-ignore-patterns=evals/**"];
 	const runs = opts.evals
-		? [["evals/"]]
+		? [["--path-ignore-patterns=packages/**"]]
 		: [
 				[...evals, "--path-ignore-patterns=packages/web/**"],
 				[
@@ -103,7 +107,11 @@ export async function test(opts: TestOptions): Promise<void> {
 	// Even so, those suites run many times slower under load than alone, so
 	// each test gets 30s rather than 5s.
 	const want =
-		opts.workers ?? Math.max(1, Math.floor(availableParallelism() / 2));
+		opts.workers ??
+		(focused
+			? 1
+			: Number(ps.env("SPLATES_CORES")) ||
+				Math.max(1, Math.floor(availableParallelism() / 2)));
 	// one of the machine's few heavy-job slots, as splates's `preMerge` takes,
 	// so agents testing at once queue rather than run out of memory; run from
 	// a `preMerge` hook, it runs in the slot the merge already holds
@@ -124,7 +132,7 @@ export async function test(opts: TestOptions): Promise<void> {
 		want,
 		min: opts.workers === undefined ? Math.max(1, Math.floor(want / 2)) : want,
 	});
-	const workers = claim.cores;
+	const workers = Math.min(claim.cores, want);
 	const bunTest = (args: string[], at: number) => [
 		"bun",
 		"test",
@@ -134,6 +142,14 @@ export async function test(opts: TestOptions): Promise<void> {
 		"--timeout",
 		"30000",
 		...(opts.ci ? ["--only-failures"] : []),
+		...(opts.since
+			? [`--changed=${opts.since}`]
+			: opts.changed
+				? ["--changed"]
+				: []),
+		...(opts.testNamePattern
+			? ["--test-name-pattern", opts.testNamePattern]
+			: []),
 		...args,
 		...(report
 			? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
@@ -184,22 +200,22 @@ export async function test(opts: TestOptions): Promise<void> {
  * Runs the tests on a runner, one of `splates server`'s or else one made in
  * the project's cloud (see `runOnDirectRunner`): a snapshot
  * of this worktree, checked out and prepared there, running this same command
- * with `--local`, its output streamed here and its JUnit report brought back to
- * where `SPLATES_TEST_REPORT` names. Whether it did; false, having run
+ * inside the runner's existing slot, its output streamed here and its JUnit
+ * report brought back to where `SPLATES_TEST_REPORT` names. Whether it did; false, having run
  * nothing, where the project names no cloud and the server has no runner.
  * Throws when the tests failed, or when the cloud can make no runner.
  */
 async function ranOnRunner(
-	opts: TestOptions,
 	ps: Ps,
 	log: Logger,
+	opts: TestOptions,
 ): Promise<boolean> {
 	const report = ps.env("SPLATES_TEST_REPORT");
 	const flags = [
 		...(opts.evals ? ["--evals"] : []),
 		...(opts.all ? ["--all"] : []),
 		...(opts.ci ? ["--ci"] : []),
-		...(opts.files ?? []),
+		...(opts.workers === undefined ? [] : ["--workers", String(opts.workers)]),
 	];
 	const ctx = { ps, fs: new NodeFs(), log };
 	const job = {
@@ -208,7 +224,7 @@ async function ranOnRunner(
 		argv: [
 			"sh",
 			"-c",
-			'SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/report.xml" exec ./bin/splates dev test --local "$@"',
+			'SPLATES_TEST_REPORT="$SPLATES_JOB_FILES/report.xml" exec ./bin/splates dev test "$@"',
 			"sh",
 			...flags,
 		],
