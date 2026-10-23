@@ -1,9 +1,10 @@
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { releases } from "webappwiz/ship";
-import { type Fs, NodePs, type Ps } from "webappwiz/system";
+import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { fix } from "./fix";
 import { LinuxBinary } from "./linux-binary";
 import { RunnerImage } from "./runner-image";
+import { preflight } from "./ship-preflight";
 
 /**
  * The agent skill this repository ships. Projects install it from the
@@ -29,6 +30,8 @@ export interface ShipOptions {
 export async function ship(opts: ShipOptions = {}): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const ps = opts.ps ?? new NodePs();
+	const fs = opts.fs ?? new NodeFs();
+	await preflight(ps, fs);
 	// The build compiles without checking types, so a typecheck is the only
 	// gate there is: run it before anything is stamped or pushed. The suite is
 	// not run here; whoever ships is expected to have run it already.
