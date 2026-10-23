@@ -1,3 +1,4 @@
+import { availableParallelism, loadavg } from "node:os";
 import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
@@ -9,6 +10,7 @@ import {
 	RECENT_FAILED_FILES,
 } from "../server/shared";
 import type { Shell } from "../terminal";
+import { gateCores } from "./cores";
 import type { MergeTiming } from "./timing";
 
 /** How long a merge waits for the premerge lock before its line says it is queued. */
@@ -235,6 +237,9 @@ export class MergeGate {
 				SPLATES_WORKTREE: cwd,
 				SPLATES_TEST_REPORT: report,
 				[PREMERGE_HELD]: "1",
+				SPLATES_CORES: String(
+					gateCores(availableParallelism(), loadavg()[0] ?? 0),
+				),
 				...(files === undefined && recent.length
 					? { [RECENT_FAILED_FILES]: recent.join("\n") }
 					: {}),

@@ -103,10 +103,16 @@ export async function test(opts: TestOptions): Promise<void> {
 	// is about 1.5s slower. Gates at 14 workers with the load at 32 took
 	// 148 to 170s and timed out; at 8 they took 63 to 78s and none did.
 	// Even so, those suites run many times slower under load than alone, so
-	// each test gets 30s rather than 5s.
+	// each test gets 30s rather than 5s. A merge's gate names its own share
+	// in `SPLATES_CORES`, more on a quiet machine (`gateCores`).
+	const gate = Number(ps.env("SPLATES_CORES"));
 	const workers =
 		opts.workers ??
-		(focused ? 1 : Math.max(1, Math.floor(availableParallelism() / 2)));
+		(focused
+			? 1
+			: gate > 0
+				? gate
+				: Math.max(1, Math.floor(availableParallelism() / 2)));
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
 	const report = ps.env("SPLATES_TEST_REPORT");

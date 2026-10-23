@@ -49,11 +49,14 @@ Batches. A waiter that a batch lands gives its wait up through the
 
 - `SPLATES_PREMERGE`, so the `dev premerge` it runs goes ahead without
   waiting on the lock the gate holds.
-- `Testing` strips it.
+- `SPLATES_CORES`, the test workers its `dev test` runs: the cores the last
+  minute's load left idle, between half the cores and all but two
+  (`gateCores`, `merge/cores.ts`). Elsewhere `dev test` runs half the cores.
+- `Testing` strips both.
 
-`dev test` in a gate runs half the cores as workers, as it does for anyone:
 14 workers with the load at 32 took 148 to 170s and timed out, 8 took 63 to
-78s and none did (2026-10-23).
+78s and none did; on a quiet machine 8 took 58.8s, 11 50.6s and 14 48.5s
+(2026-10-23), hence a share sized by the load.
 
 ## The gate keeps the CPU
 
@@ -89,7 +92,8 @@ time, so they only made short work wait behind it, and were removed.
 
 - `packages/server/server/premerge.ts`: `premergeLockOfMachine`,
   `PREMERGE_TIMEOUT_MS`, `PREMERGE_HOLD_MS`, `TimedLock`
-- `packages/server/merge/gate.ts`: `MergeGate`
+- `packages/server/merge/gate.ts`: `MergeGate`, setting `SPLATES_CORES`
+- `packages/server/merge/cores.ts`: `gateCores`
 - `packages/server/merge/merge.ts`: the `timeout` refusal
 - `packages/server/merge/recent-failures.ts`: `recentFailedFiles`
 - `packages/splates/dev/premerge.ts`

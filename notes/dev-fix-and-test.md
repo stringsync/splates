@@ -56,8 +56,9 @@ run-command permission card for anything else heavy, running it only on
 
 ## The whole run
 
-- An unfiltered run is `bun test --parallel=<half the cores> --timeout 30000`,
-  in a merge's gate too. Trailing arguments filter files by path, as `bun
+- An unfiltered run is `bun test --parallel=<half the cores> --timeout 30000`;
+  in a merge's gate, `--parallel=$SPLATES_CORES`, the cores the load left
+  idle (`gateCores`, `premerge-lock.md`). Trailing arguments filter files by path, as `bun
   test` does.
 - The whole run is killed at six minutes; inside `dev premerge`, at what is
   left of the gate's 3 minutes.
