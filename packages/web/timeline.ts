@@ -1,4 +1,5 @@
 import type { Decision, Tool } from "@stringsync/splates-server/conversations";
+import type { Event } from "@stringsync/splates-server/records";
 import { EDITS, label, type Work } from "./work";
 
 /** One row of a turn's timeline. */
@@ -8,6 +9,7 @@ export type Item =
 	| { type: "edit"; tool: Tool }
 	| { type: "subagent"; tool: Tool; calls: Tool[] }
 	| { type: "tool"; tool: Tool }
+	| { type: "event"; event: Event; also: Event[] }
 	/** How the person answered the agent asking permission for the call `label`. */
 	| { type: "decision"; label: string; decision: Decision }
 	/** Words the agent said between its calls, on the way to its reply. */
@@ -22,8 +24,36 @@ export function timeline(work: Work): Item[] {
 		),
 	);
 	const items: Item[] = [];
-	parts.forEach((part, _index) => {
+	const events = [...(work.events ?? [])].sort((left, right) =>
+		left.at.localeCompare(right.at),
+	);
+	const entries: (Work["parts"][number] | { type: "event"; event: Event })[] =
+		[];
+	for (const part of parts) {
+		const at = "at" in part ? part.at : null;
+		while (events[0] !== undefined && at != null && events[0].at <= at) {
+			entries.push({ type: "event", event: events.shift() as Event });
+		}
+		entries.push(part);
+	}
+	entries.push(...events.map((event) => ({ type: "event" as const, event })));
+	entries.forEach((part) => {
 		const last = items.at(-1);
+		if (part.type === "event") {
+			const event = part.event;
+			if (
+				last?.type === "event" &&
+				last.event.action === event.action &&
+				last.event.reason === null &&
+				event.reason === null &&
+				(event.action === "task update" || event.action === "note read")
+			) {
+				last.also.push(event);
+			} else {
+				items.push({ type: "event", event, also: [] });
+			}
+			return;
+		}
 		// Only the person sends files, and this is the agent's turn.
 		if (part.type === "image" || part.type === "file") {
 			return;

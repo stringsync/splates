@@ -241,7 +241,7 @@ function todoLine(
  * todo updates is one line naming them all, and for a wait, the end it came
  * to, if it has yet.
  */
-function lineOfRun(
+export function lineOfRun(
 	event: Event,
 	also: Event[],
 	going: boolean,

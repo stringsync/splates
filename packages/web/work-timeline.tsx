@@ -12,10 +12,12 @@ import {
 	paper,
 } from "#web/components/assistant-ui/elements/surfaces.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { NoteChip } from "./note-chip";
+import { NamedChip } from "./splates-event";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
@@ -25,7 +27,7 @@ export function TimelineItem({
 }: {
 	item: Item;
 	short: (path: string) => string;
-}): JSX.Element {
+}): JSX.Element | null {
 	switch (item.type) {
 		case "command": {
 			const tool = item.runs.at(-1) as Tool;
@@ -126,6 +128,28 @@ export function TimelineItem({
 					)}
 				</Call>
 			);
+		case "event": {
+			const view = lineOfRun(item.event, item.also, false, 0);
+			return view === null ? null : (
+				<div
+					data-slot="quiet-event"
+					className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
+				>
+					<span aria-hidden className="shrink-0">
+						•
+					</span>
+					{view.words.map((word, index) =>
+						typeof word === "string" ? (
+							// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+							<span key={index}>{word}</span>
+						) : (
+							// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+							<NamedChip key={index} named={word} />
+						),
+					)}
+				</div>
+			);
+		}
 		case "said":
 			return (
 				<Markdown

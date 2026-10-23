@@ -12,7 +12,9 @@ description: Which splates events draw a line in a conversation (loud) and which
 - **Quiet** has no line. `stretchesOf` (`work.ts`) never makes it a `Stretch`;
   `joined` puts it on `Work.events` of the row it fell in (the last row begun
   by its time), and `work-row.tsx` shows `QuietCounts` (`quiet-events.tsx`,
-  counts from `quiet-counts.ts`) in the summary, opening a dialog that draws
+  counts from `quiet-counts.ts`) in the summary. The open timeline interleaves
+  quiet events with calls by time as muted dot lines using the event words and
+  chips; consecutive task updates or notes read fold together. Counts open a dialog that draws
   each event separately with its time and visible details. Remove / Undo on
   an added task and Auto pick's Undo live there. Notes read, Auto pick and
   adds handed to another agent have no count; a row with only those says
