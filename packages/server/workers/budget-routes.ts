@@ -30,6 +30,8 @@ export interface WorkerBudgetReport {
 	runners: RunnersStanding;
 	/** How long a runner runs after its last job before it stops itself, in seconds. */
 	idle: { seconds: number; set: boolean };
+	/** How many stopped runners the server keeps before it destroys the one stopped longest. */
+	kept: { count: number; set: boolean };
 }
 
 /** How many runners are up in the account now, from the cloud's own list; null when it cannot be asked. */
@@ -40,23 +42,6 @@ export type RunnerShares = (
 	since: number,
 	until: number,
 ) => Promise<SpendShare[]>;
-
-/** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
-const SetLimit = z.object({ dollars: z.number().min(0).nullable() });
-
-/** What `PUT /api/worker-budget/runners` is sent: a whole number, or null for the default. */
-const SetRunners = z.object({ runners: z.number().int().min(0).nullable() });
-
-/** What `PUT /api/worker-budget/idle` is sent: a length like `10m`, or null for the default. */
-const SetIdle = z.object({ idle: z.string().nullable() });
-
-/** What `POST /api/worker-budget/raises` is sent. */
-const AddRaise = z.object({
-	limit: z.enum(WORKER_LIMITS),
-	dollars: z.number().min(0),
-	/** Like `1d`; a day when unset. */
-	for: z.string().optional(),
-});
 
 /**
  * The routes the worker budget is read and changed through, by the page
@@ -87,6 +72,17 @@ export class WorkerBudgetRoutes {
 				);
 			}
 			return this.answer((budget) => budget.setRunners(runners.data.runners));
+		}
+		if (new URL(request.url).pathname.split("/")[3] === "kept") {
+			const kept = SetKept.safeParse(await body(request));
+			if (!kept.success) {
+				return refuse(
+					400,
+					"usage",
+					"set kept to a whole number of runners, like { kept: 4 }, or null for its default",
+				);
+			}
+			return this.answer((budget) => budget.setRunnersKept(kept.data.kept));
 		}
 		if (new URL(request.url).pathname.split("/")[3] === "idle") {
 			const idle = SetIdle.safeParse(await body(request));
@@ -203,5 +199,26 @@ export async function workerBudgetReport(
 			seconds: budget.runnerIdle().ms / 1000,
 			set: budget.runnerIdleSet(),
 		},
+		kept: { count: budget.runnersKept(), set: budget.runnersKeptSet() },
 	};
 }
+
+/** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
+const SetLimit = z.object({ dollars: z.number().min(0).nullable() });
+
+/** What `PUT /api/worker-budget/runners` is sent: a whole number, or null for the default. */
+const SetRunners = z.object({ runners: z.number().int().min(0).nullable() });
+
+/** What `PUT /api/worker-budget/idle` is sent: a length like `10m`, or null for the default. */
+const SetIdle = z.object({ idle: z.string().nullable() });
+
+/** What `PUT /api/worker-budget/kept` is sent: a whole number, or null for the default. */
+const SetKept = z.object({ kept: z.number().int().min(0).nullable() });
+
+/** What `POST /api/worker-budget/raises` is sent. */
+const AddRaise = z.object({
+	limit: z.enum(WORKER_LIMITS),
+	dollars: z.number().min(0),
+	/** Like `1d`; a day when unset. */
+	for: z.string().optional(),
+});

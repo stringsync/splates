@@ -57,7 +57,7 @@ export class RunnerDialer implements Resource {
 		});
 	}
 
-	/** The runners asleep: stopped, and dialed again only once woken. */
+	/** The runners asleep, stopped and dialed again only once woken, in the order they stopped. */
 	sleeping(): string[] {
 		return [...this.sleepers.keys()];
 	}

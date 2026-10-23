@@ -55,6 +55,22 @@ describe("WorkerBudget", () => {
 		expect(budget.runnerCap()).toBe(16);
 	});
 
+	it("keeps 4 stopped runners by default, a set count or its default again, and kept", async () => {
+		const fs = new FakeFs();
+		const budget = await WorkerBudget.open(budgetAt(fs), clock());
+		expect(budget.runnersKept()).toBe(4);
+
+		await budget.setRunnersKept(0);
+		expect(budget.runnersKeptSet()).toBe(true);
+		expect((await WorkerBudget.open(budgetAt(fs), clock())).runnersKept()).toBe(
+			0,
+		);
+		await expect(budget.setRunnersKept(-1)).rejects.toThrow("whole number");
+
+		await budget.setRunnersKept(null);
+		expect(budget.runnersKept()).toBe(4);
+	});
+
 	it("counts what each made worker costs while it runs, at its list price", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);

@@ -2,10 +2,14 @@ import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
 import type { Document } from "../storage";
 import { reached } from "./budget-notice";
+import { windowStart } from "./budget-window";
+
+export { span, windowStart } from "./budget-window";
 
 export {
 	DEFAULT_RUNNER_CAP,
 	DEFAULT_RUNNER_IDLE,
+	DEFAULT_RUNNERS_KEPT,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -14,6 +18,7 @@ export {
 import {
 	DEFAULT_RUNNER_CAP,
 	DEFAULT_RUNNER_IDLE,
+	DEFAULT_RUNNERS_KEPT,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -133,6 +138,33 @@ export class WorkerBudget {
 			return {
 				...rest,
 				...(secs === null ? {} : { idle: secs }),
+				reviewed: true,
+			};
+		});
+	}
+
+	/** How many stopped runners the server keeps: the set count, else the default. */
+	runnersKept(): number {
+		return this.kept.keptStopped ?? DEFAULT_RUNNERS_KEPT;
+	}
+
+	/** Whether the kept count was set, over its default. */
+	runnersKeptSet(): boolean {
+		return this.kept.keptStopped !== undefined;
+	}
+
+	/** Sets how many stopped runners the server keeps to `count`, a whole number; null gives it back to its default. */
+	async setRunnersKept(count: number | null): Promise<void> {
+		if (count !== null && !(Number.isInteger(count) && count >= 0)) {
+			throw new Error(
+				`expected a whole number of runners to keep, like 4, got ${count}`,
+			);
+		}
+		await this.change((kept) => {
+			const { keptStopped: _, ...rest } = kept;
+			return {
+				...rest,
+				...(count === null ? {} : { keptStopped: count }),
 				reviewed: true,
 			};
 		});
@@ -302,7 +334,7 @@ export class WorkerBudget {
 	 */
 	async unreview(): Promise<void> {
 		await this.change((kept) => {
-			const { runners: _, idle: __, ...rest } = kept;
+			const { runners: _, idle: __, keptStopped: ___, ...rest } = kept;
 			return { ...rest, limits: {}, reviewed: false };
 		});
 	}
@@ -538,6 +570,8 @@ const Kept = z.object({
 	runners: z.number().int().min(0).optional(),
 	/** How long a runner runs after its last job, in seconds, over the default. */
 	idle: z.number().int().min(1).optional(),
+	/** How many stopped runners the server keeps, over the default. */
+	keptStopped: z.number().int().min(0).optional(),
 	raises: z.array(Raise).default([]),
 	/** Each made worker's life, the ledger spend is counted from. */
 	lives: z.array(Life).default([]),
@@ -610,37 +644,6 @@ export interface RaiseOffer {
 export interface WorkerAlert {
 	standing: WorkerStanding;
 	tier: Exclude<AlertTier, 0>;
-}
-
-/**
- * When `limit`'s window began, in local time: the hour, the day, or the
- * month, as scry's `windowStart` counts a day and a month.
- */
-export function windowStart(limit: WorkerLimit, now: number): number {
-	const date = new Date(now);
-	if (limit === "hour") {
-		date.setMinutes(0, 0, 0);
-		return date.getTime();
-	}
-	date.setHours(0, 0, 0, 0);
-	if (limit === "month") {
-		date.setDate(1);
-	}
-	return date.getTime();
-}
-
-/** A span, like `1d`, `24h` or `2w`, as a duration, as scry's `within` reads one. */
-export function span(text: string): Duration {
-	const match = /^(\d+)([hdw])$/.exec(text);
-	if (match === null) {
-		throw new Error(
-			`expected hours, days or weeks, like "24h", "7d" or "2w", got "${text}"`,
-		);
-	}
-	const count = Number(match[1]);
-	return match[2] === "h"
-		? Duration.hrs(count)
-		: Duration.days(match[2] === "d" ? count : count * 7);
 }
 
 const HOUR = Duration.hrs(1).ms;

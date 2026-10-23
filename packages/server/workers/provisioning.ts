@@ -287,7 +287,7 @@ export class WorkerProvisioning
 		};
 	}
 
-	/** The runners stopped, which only a job waiting for room starts. */
+	/** The runners stopped, which only a job waiting for room starts, the one stopped longest first. */
 	sleeping(): { id: string; cpus?: number; memory?: number }[] {
 		return (this.dialer?.sleeping() ?? []).flatMap((id) => {
 			const made = this.opts.records.of(id)?.provisioned;
@@ -432,8 +432,9 @@ export class WorkerProvisioning
 
 	/**
 	 * Destroys each made worker that has not joined by the time its join
-	 * token ran out, and each idle
-	 * past its provider's `idleAfter`, as `IdleWorkers.due` says.
+	 * token ran out, each idle past its provider's `idleAfter`, as
+	 * `IdleWorkers.due` says, and the stopped runners past the budget's
+	 * kept count (`surplus`).
 	 */
 	private async retire(scheduler: Scheduler): Promise<void> {
 		const { provider, retire, log } = this.opts;
@@ -456,10 +457,42 @@ export class WorkerProvisioning
 		if (idle.length > 0) {
 			log.info(`idle made workers ${idle.join(", ")}: destroying them`);
 		}
-		const due = [...unjoined, ...idle];
+		const surplus = this.surplus().filter(
+			(id) => !unjoined.includes(id) && !idle.includes(id),
+		);
+		if (surplus.length > 0) {
+			log.info(
+				`stopped runners ${surplus.join(", ")} past the ${this.opts.budget.runnersKept()} kept: destroying them`,
+			);
+		}
+		const due = [...unjoined, ...idle, ...surplus];
 		if (due.length > 0) {
 			await retire(due);
 		}
+	}
+
+	/**
+	 * The stopped runners past the budget's kept count, each stopped one
+	 * billing its disk: the biggest go first, as a burst made for a queue
+	 * is seldom wanted again while the default size is, then the one
+	 * stopped longest.
+	 */
+	private surplus(): string[] {
+		const sleeping = this.sleeping();
+		const excess = sleeping.length - this.opts.budget.runnersKept();
+		if (excess <= 0) {
+			return [];
+		}
+		// `sleeping` lists them in the order they stopped, which a stable
+		// sort keeps among those of one size.
+		return sleeping
+			.sort(
+				(one, other) =>
+					(other.cpus ?? 0) - (one.cpus ?? 0) ||
+					(other.memory ?? 0) - (one.memory ?? 0),
+			)
+			.slice(0, excess)
+			.map((runner) => runner.id);
 	}
 
 	/** The made workers asked for `JOIN_WITHIN` ago or more that have yet to join, which now never can. */

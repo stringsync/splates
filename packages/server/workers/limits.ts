@@ -16,6 +16,9 @@ export const DEFAULT_RUNNER_CAP = 16;
 /** How long a runner runs after its last job, until the user sets it, before it stops itself. */
 export const DEFAULT_RUNNER_IDLE = Duration.mins(10);
 
+/** How many stopped runners the server keeps, until the user sets it, before it destroys the one stopped longest. */
+export const DEFAULT_RUNNERS_KEPT = 4;
+
 /** What each limit is until the user sets it. */
 export const DEFAULT_WORKER_LIMITS: Readonly<Record<WorkerLimit, number>> = {
 	hour: 1,

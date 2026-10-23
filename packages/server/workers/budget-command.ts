@@ -10,6 +10,7 @@ import { table } from "../table";
 import {
 	DEFAULT_RUNNER_CAP,
 	DEFAULT_RUNNER_IDLE,
+	DEFAULT_RUNNERS_KEPT,
 	WORKER_LIMITS,
 	WorkerBudget,
 	type WorkerLimit,
@@ -36,12 +37,13 @@ export async function showBudget(opts: BudgetCommandOptions): Promise<void> {
 }
 
 /**
- * `splates budget set`: sets a limit to `dollars`, like `5`, or `runners` to a
- * count, like `16`, or either with `default` to its default.
+ * `splates budget set`: sets a limit to `dollars`, like `5`, `runners` or
+ * `kept` to a count, like `16`, or `idle` to a length, like `10m`, or any
+ * with `default` to its default.
  */
 export async function setBudget(
 	opts: BudgetCommandOptions & {
-		limit: WorkerLimit | "runners" | "idle";
+		limit: WorkerLimit | "runners" | "idle" | "kept";
 		dollars: string;
 	},
 ): Promise<void> {
@@ -54,9 +56,11 @@ export async function setBudget(
 				body: JSON.stringify(
 					opts.limit === "runners"
 						? { runners: given === null ? null : count(given) }
-						: opts.limit === "idle"
-							? { idle: given === null ? null : lengthOf(given) }
-							: { dollars: given === null ? null : amount(given) },
+						: opts.limit === "kept"
+							? { kept: given === null ? null : count(given) }
+							: opts.limit === "idle"
+								? { idle: given === null ? null : lengthOf(given) }
+								: { dollars: given === null ? null : amount(given) },
 				),
 			},
 			opts,
@@ -277,6 +281,7 @@ function print(
 		),
 		`Runners: ${report.runners.up === null ? "?" : report.runners.up} up of ${report.runners.cap} allowed (${report.runners.set ? "set" : "default"}), whoever made them.`,
 		`Runners stop themselves ${Duration.secs(report.idle.seconds).human()} after their last job (${report.idle.set ? "set" : "default"}); the next job starts a stopped one.`,
+		`Stopped runners kept: ${report.kept.count} (${report.kept.set ? "set" : "default"}); past that the biggest, then the one stopped longest, is destroyed.`,
 		`Projected this month: ${dollars(report.projected)}, if those running now run to its end.`,
 		"Spent is an estimate, at each worker type's list price.",
 	];
@@ -348,10 +353,13 @@ const Report = z.object({
 	stopped: z.string().nullable(),
 	reviewed: z.boolean(),
 	// An older `splates server` sends none.
-	// An older `splates server` sends none.
 	idle: z
 		.object({ seconds: z.number(), set: z.boolean() })
 		.default({ seconds: DEFAULT_RUNNER_IDLE.ms / 1000, set: false }),
+	// An older `splates server` sends none.
+	kept: z
+		.object({ count: z.number(), set: z.boolean() })
+		.default({ count: DEFAULT_RUNNERS_KEPT, set: false }),
 	runners: z
 		.object({
 			cap: z.number(),
