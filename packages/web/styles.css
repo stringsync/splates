@@ -12,6 +12,7 @@
 @source not "./*.test.tsx";
 @source "./phone-rows.ts";
 @source "./board.ts";
+@source "./status-pill.ts";
 @source "./components/ui";
 @source "./components/assistant-ui";
 
