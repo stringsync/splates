@@ -6,7 +6,6 @@ import type { Facts } from "../records";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
-import { QUEUED_AFTER_MS } from "./gate";
 import { merge } from "./merge";
 
 // Every test here drives real git in a repo of its own, dozens of processes
@@ -505,9 +504,28 @@ describe.concurrent("merge", () => {
 
 		await deps.premerge.acquire();
 		const facts: Partial<Facts["merge"]> = {};
+		const queuedEvent = Promise.withResolvers<void>();
+		const watching = deps.journal.watch();
+		watching.events.on("changed", () => {
+			void deps.journal
+				.tail(1)
+				.then(([event]) => {
+					// scry-ignore matchers-over-test-logic: the watch also hears unrelated writes; only the queued event releases the held lock.
+					if (event?.action === "merge queued" && event.task === "alpha") {
+						queuedEvent.resolve();
+					}
+				})
+				.catch(queuedEvent.reject);
+		});
 		const merging = merge(deps, worktree, facts);
-		await Bun.sleep(QUEUED_AFTER_MS + 500);
-		await deps.premerge.release();
+		try {
+			// Git preparation can outlast the queue delay on a busy machine.
+			// Hold the lock until the merge has actually logged its wait.
+			await Promise.race([queuedEvent.promise, merging]);
+		} finally {
+			watching.dispose();
+			await deps.premerge.release();
+		}
 		await merging;
 
 		const [queued, started] = await deps.journal.tail(2);
