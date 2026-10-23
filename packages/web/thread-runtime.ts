@@ -112,6 +112,7 @@ export function useThreadRuntime(
 	);
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
+		isLoading: conversation.summary === true,
 		messages,
 		hasEarlier,
 		onLoadEarlier: loadEarlier,

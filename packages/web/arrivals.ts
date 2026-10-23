@@ -53,17 +53,23 @@ export function arriveAt(open: string): void {
  * Runs `go` once ⌥⌘M opens agent `open`: as its view shows, or at once
  * when it already does, with the address it came from.
  */
-export function useArrived(open: string, go: (from: string) => void): void {
+export function useArrived(
+	open: string,
+	go: (from: string) => void,
+	ready = true,
+): void {
 	const arrive = useEffectEvent(() => {
-		if (opening?.open === open) {
+		if (ready && opening?.open === open) {
 			const { from } = opening;
 			opening = null;
 			go(from);
 		}
 	});
 	useEffect(() => {
+		void ready;
+		void open;
 		arrive();
 		arrivals.addEventListener("arrive", arrive);
 		return () => arrivals.removeEventListener("arrive", arrive);
-	}, []);
+	}, [open, ready]);
 }

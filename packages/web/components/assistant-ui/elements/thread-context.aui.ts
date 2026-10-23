@@ -36,6 +36,8 @@ export type ThreadComponents = {
 	TaskGroup?: ComponentType<{ group: ThreadGroupPart }> | undefined;
 };
 export type ThreadProps = {
+	/** A failed history read, with its retry control, without replacing the composer. */
+	historyFailure?: ReactNode;
 	components?: ThreadComponents | undefined;
 	autoFocus?: boolean | undefined;
 	/** The stop request is pending while the agent finishes its turn. */

@@ -10,7 +10,6 @@ import {
 	memo,
 	useCallback,
 	useContext,
-	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -72,6 +71,7 @@ import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadHeader, useWhereAction } from "./thread-header";
+import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
@@ -95,13 +95,18 @@ import {
 export const Thread = memo(function Thread(
 	props: Parameters<typeof Conversation>[0],
 ): JSX.Element {
-	const { conversation } = props;
+	const history = useThreadHistory(props.conversation, props.feed);
+	const { conversation } = history;
 	return (
 		<ArtifactViewer
 			conversation={conversation.id}
 			artifacts={conversation.artifacts}
 		>
-			<Conversation {...props} />
+			<Conversation
+				{...props}
+				conversation={conversation}
+				historyFailure={history.failure}
+			/>
 		</ArtifactViewer>
 	);
 });
@@ -120,6 +125,7 @@ function Conversation({
 	onLeft,
 	onOpen,
 	onBack,
+	historyFailure,
 }: {
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
@@ -150,13 +156,9 @@ function Conversation({
 	onOpen: (id: string) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
+	historyFailure?: React.ReactNode;
 }): JSX.Element {
 	const { id, settings, archived, summary } = conversation;
-	useEffect(() => {
-		if (summary) {
-			void feed.whole(id);
-		}
-	}, [feed, id, summary]);
 	const refused = useCallback(
 		(title: string, error: unknown) => refuseIn(id, title, error),
 		[refuseIn, id],
@@ -209,7 +211,11 @@ function Conversation({
 	// The newest card it waits on you through, which also focuses it. A phone
 	// opens its questions and review in a sheet instead, and shows a live ask
 	// at the foot of the thread it opens at, keeping the keyboard down.
-	useArrived(id, () => onBack === null && toWaiting(section.current));
+	useArrived(
+		onBack === null ? id : "",
+		() => toWaiting(section.current),
+		summary !== true,
+	);
 	const projects = useProjects();
 	const references = useReferences(tasks, actions, projects ?? undefined);
 	const root = useContext(TreesContext)?.root ?? null;
@@ -344,8 +350,12 @@ function Conversation({
 															<ReplyContext value={reply}>
 																<NamedContext value={named}>
 																	<ThreadView
+																		docked
+																		historyFailure={historyFailure}
 																		onRead={onRead}
-																		autoFocus={!asking || typed}
+																		autoFocus={
+																			summary !== true && (!asking || typed)
+																		}
 																		stopping={stopping}
 																		going={going}
 																		mentions={mentions ?? undefined}

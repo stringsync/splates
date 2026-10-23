@@ -18,6 +18,7 @@ import {
 } from "webappwiz/time";
 import type { AgentChoice } from "./agent-choice";
 import { answered, scoped } from "./api";
+import { ConversationHistory } from "./conversation-history";
 import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
@@ -92,8 +93,8 @@ export class ConversationFeed
 	private reads = 0;
 	/** Whether a listing has come from the server, which the kept one gives way to. */
 	private heard = false;
-	/** The conversations `whole` is reading, by id. */
-	private readonly reading = new Set<string>();
+	/** Complete histories and recoverable reads, scoped to this project. */
+	readonly history: ConversationHistory;
 	private stream: LiveStream | null = null;
 	/** Whether what it shows is what `seed` gave, the server not yet having said. */
 	private seeded = false;
@@ -117,6 +118,7 @@ export class ConversationFeed
 	) {
 		this.copy = opts.copy ?? null;
 		this.project = opts.project ?? null;
+		this.history = new ConversationHistory(this, this.project);
 		this.conversationIds = opts.conversationIds ?? new UuidProvider();
 	}
 
@@ -169,6 +171,7 @@ export class ConversationFeed
 	}
 
 	dispose(): void {
+		this.history.dispose();
 		this.copy?.dispose();
 		this.stream?.dispose();
 		this.stream = null;
@@ -236,30 +239,18 @@ export class ConversationFeed
 	 * Reads conversation `id` whole when the page holds only its summary, as
 	 * listings send, so its thread shows its tool calls and event details.
 	 */
-	async whole(id: string): Promise<void> {
-		const held = this.recorded.find((each) => each.id === id);
-		if (held?.summary !== true || this.reading.has(id)) {
-			return;
-		}
-		this.reading.add(id);
-		try {
-			const since = this.changes;
-			const response = await answered(
-				scoped(`/api/conversations/${encodeURIComponent(id)}`, this.project),
-			).catch(() => null);
-			if (response?.ok) {
-				const state = (await response.json()) as ConversationState;
-				if ((this.changedAt.get(id) ?? -1) < since) {
-					this.put(state);
-				} else if (this.recorded.find((each) => each.id === id)?.summary) {
-					// A newer summary won the race. Retry so an open thread still fills in.
-					this.reading.delete(id);
-					await this.whole(id);
-				}
-			}
-		} finally {
-			this.reading.delete(id);
-		}
+	whole(id: string): Promise<void> {
+		return this.history.read(id);
+	}
+
+	/** The server's last copy of `id`, before optimistic changes. */
+	current(id: string): ConversationState | undefined {
+		return this.recorded.find((each) => each.id === id);
+	}
+
+	/** The last accepted change of `id`, including its deletion. */
+	revision(id: string): number {
+		return this.changedAt.get(id) ?? -1;
 	}
 
 	/** Drops conversation `id`, deleted as an older archived one. */
@@ -483,6 +474,7 @@ export class ConversationFeed
 				this.withSending(each),
 			),
 		);
+		this.history.remember(recorded);
 		this.dispatcher.dispatch("changed");
 	}
 
@@ -638,14 +630,25 @@ export class ConversationFeed
 				this.settle(id, read);
 			}
 		}
-		this.show([
+		const next = [
 			...this.recorded.filter((each) => moved(each.id) && !listed.has(each.id)),
 			...conversations.flatMap((each) =>
 				moved(each.id)
 					? this.recorded.filter((kept) => kept.id === each.id)
 					: [this.recorded.find((kept) => repeats(kept, each)) ?? each],
 			),
-		]);
+		];
+		for (const each of next) {
+			if (this.current(each.id) !== each) {
+				this.changedAt.set(each.id, this.changes++);
+			}
+		}
+		for (const each of this.recorded) {
+			if (!next.some((state) => state.id === each.id)) {
+				this.changedAt.set(each.id, this.changes++);
+			}
+		}
+		this.show(next);
 		this.kept();
 		return true;
 	}

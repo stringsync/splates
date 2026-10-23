@@ -12,6 +12,7 @@ import {
 import { ArrowDownIcon } from "lucide-react";
 import {
 	type FC,
+	type ReactNode,
 	useContext,
 	useEffect,
 	useLayoutEffect,
@@ -59,6 +60,7 @@ export const Thread: FC<ThreadProps> = ({
 	composer,
 	onRead,
 	docked = false,
+	historyFailure,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
@@ -79,6 +81,7 @@ export const Thread: FC<ThreadProps> = ({
 				}}
 			>
 				<ThreadRoot
+					historyFailure={historyFailure}
 					isEmpty={isEmpty}
 					autoFocus={autoFocus}
 					onRead={onRead}
@@ -90,12 +93,13 @@ export const Thread: FC<ThreadProps> = ({
 	);
 };
 const ThreadRoot: FC<{
+	historyFailure?: ReactNode;
 	isEmpty: boolean;
 	autoFocus: boolean;
 	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
 	going: boolean;
-}> = ({ isEmpty, autoFocus, onRead, docked, going }) => {
+}> = ({ isEmpty, autoFocus, onRead, docked, going, historyFailure }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const running = useAuiState((s) => s.thread.isRunning);
@@ -179,7 +183,10 @@ const ThreadRoot: FC<{
 						)}
 					</AuiIf>
 					<AuiIf condition={isHistoryLoadingView}>
-						<ThreadHistorySkeleton />
+						{historyFailure ?? <ThreadHistorySkeleton />}
+					</AuiIf>
+					<AuiIf condition={(s) => !isHistoryLoadingView(s)}>
+						{historyFailure}
 					</AuiIf>
 
 					<ThreadLoadEarlier viewport={viewport} />

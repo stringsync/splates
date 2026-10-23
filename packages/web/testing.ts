@@ -179,7 +179,8 @@ export class Testing implements Resource {
 		conversations: ConversationState[];
 	} | null = null;
 	/** What `/api/conversations/<id>` reads whole, for a listed summary, by id. */
-	wholes: Record<string, ConversationState> = {};
+	wholes: Record<string, ConversationState | number> = {};
+	private readonly histories = new Map<string, Promise<void>>();
 	/** The sessions `/api/conversations/sessions` lists for any task. */
 	sessions: Session[] = [];
 	/** What `/api/migration` says of a project whose records failed to migrate. */
@@ -416,6 +417,13 @@ export class Testing implements Resource {
 			const whole = /^\/api\/conversations\/([^/]+)$/.exec(route ?? "");
 			const read = this.wholes[decodeURIComponent(whole?.[1] ?? "")];
 			if (read !== undefined) {
+				await waiting(
+					this.histories.get(decodeURIComponent(whole?.[1] ?? "")) ??
+						Promise.resolve(),
+				);
+				if (typeof read === "number") {
+					return new Response(null, { status: read });
+				}
 				return Response.json(read);
 			}
 			if (route === "/api/conversations") {
@@ -464,6 +472,18 @@ export class Testing implements Resource {
 		await act(async () =>
 			this.talkStream?.named?.get("removed")?.({ data: id }),
 		);
+	}
+
+	/** Keeps this conversation's full history from arriving until released. */
+	holdHistory(id: string): () => void {
+		let release = () => {};
+		this.histories.set(
+			id,
+			new Promise<void>((resolve) => {
+				release = resolve;
+			}),
+		);
+		return release;
 	}
 
 	/** Keeps every snapshot from arriving until `release`. */

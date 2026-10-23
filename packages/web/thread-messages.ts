@@ -74,6 +74,10 @@ export function useThreadMessages(
 	}, [due, feed]);
 	const built = useMemo(() => {
 		void shown;
+		// Listing text omits work and thoughts, so it cannot anchor the initial history.
+		if (conversation.summary) {
+			return { all: [], last: undefined };
+		}
 		const now = feed.wall.now();
 		const starting = conversation.status === "starting";
 		// Held for a queued task, its agent waits for the task to start: what
@@ -214,6 +218,7 @@ export function useThreadMessages(
 		];
 		return { all, last: waiting.length === 0 ? all.at(-1) : ended.at(-1) };
 	}, [
+		conversation.summary,
 		conversation.messages,
 		conversation.status,
 		conversation.queued,
