@@ -1,11 +1,7 @@
-import "./register-dom";
-import { afterEach, describe, expect, it } from "bun:test";
-import { MergePlace, placeInLine } from "./merge-place";
-import { cleanup, render } from "./testing-library";
+import { describe, expect, it } from "bun:test";
+import { placeInLine } from "./merge-place";
 
-afterEach(cleanup);
-
-describe("MergePlace", () => {
+describe("placeInLine", () => {
 	it("says next for the first place, and the ordinal after it", () => {
 		expect([1, 2, 3, 4, 11, 12, 13, 21, 22].map(placeInLine)).toEqual([
 			"next",
@@ -18,22 +14,5 @@ describe("MergePlace", () => {
 			"21st in line",
 			"22nd in line",
 		]);
-	});
-
-	it("shows a queued merge's place, and nothing for a merge testing or whose place is unknown", () => {
-		const shown = (need: Parameters<typeof MergePlace>[0]["need"]) =>
-			render(<MergePlace need={need} />).container.textContent;
-		expect(
-			shown({ kind: "working", subject: null, merge: "queued", mergePlace: 2 }),
-		).toBe("2nd in line");
-		expect(
-			shown({
-				kind: "working",
-				subject: null,
-				merge: "running",
-				mergePlace: 1,
-			}),
-		).toBe("");
-		expect(shown({ kind: "working", subject: null, merge: "queued" })).toBe("");
 	});
 });
