@@ -89,14 +89,10 @@ Access: that host then reaches only the tasks.
 ## Workers
 
 When the user asks to run more agents at once on this Mac, that is the
-Workers setup area: `local-worker` (`splates worker add --local <slots>`)
-and `worker-access` (through a tunnel, whether the API token may mint a
-made worker's Access service token, **Account · Access: Service Tokens ·
-Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
-for one that may not). Agents run only on this Mac: another machine runs
-none, so there is no step to register one for agents. Walk them through it
-as the steps at the top say. Each checks `GET /api/workers` of the
-`splates server` in `SPLATES_DEV`.
+Workers setup area: `local-worker`. Run `splates worker drain local --undo`,
+then `splates worker slots local <slots>`. Agents run only on this machine;
+remote workers cannot join. Check `GET /api/workers` of the `splates server`
+in `SPLATES_DEV` as the steps at the top say.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

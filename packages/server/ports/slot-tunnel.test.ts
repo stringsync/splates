@@ -7,7 +7,6 @@ import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN, tunnelSetup } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
-import { CloudflareWorkerAccess } from "../workers";
 import { slotTunnelSetup } from "./slot-tunnel";
 
 describe("slotTunnelSetup", () => {
@@ -66,51 +65,6 @@ describe("slotTunnelSetup", () => {
 
 		await setup("fox");
 		expect(cloudflare.changes).toEqual([]);
-	});
-
-	it("lets a slot's server mint its workers' tokens, through applications of the slot's own", async () => {
-		const { cloudflare, store, setup } = await account();
-		await setup("fox");
-		await setup("owl");
-		const access = (word: string) =>
-			new CloudflareWorkerAccess({
-				host: `${word}.example.com`,
-				apiToken: () => store.get(API_TOKEN),
-				log: new MemoryLogger(),
-				fetch: cloudflare.fetch,
-			});
-
-		const fox = await access("fox").mint();
-		const owl = await access("owl").mint();
-
-		const policy = (word: string) =>
-			cloudflare.policies.find(
-				({ name }) => name === `splates-${word} workers`,
-			);
-		expect(policy("fox")?.include).toEqual([
-			{ service_token: { token_id: fox?.id ?? "" } },
-		]);
-		expect(policy("owl")?.include).toEqual([
-			{ service_token: { token_id: owl?.id ?? "" } },
-		]);
-		const workerApps = (word: string) =>
-			cloudflare.apps
-				.filter(({ domain }) => domain.startsWith(`${word}.example.com/`))
-				.map(({ policies }) => policies);
-		expect(workerApps("fox")).toEqual([
-			[{ id: policy("fox")?.id ?? "", precedence: 1 }],
-			[{ id: policy("fox")?.id ?? "", precedence: 1 }],
-		]);
-		// The wildcard application keeps the people's policy alone.
-		expect(
-			cloudflare.apps.find(({ domain }) => domain === "*.example.com")
-				?.policies,
-		).toEqual([{ id: cloudflare.policies[0]?.id ?? "", precedence: 1 }]);
-
-		await access("fox").revoke(fox?.id ?? "");
-		expect(policy("fox")).toBeUndefined();
-		expect(workerApps("fox")).toEqual([]);
-		expect(workerApps("owl")).toHaveLength(2);
 	});
 });
 

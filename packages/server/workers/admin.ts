@@ -2,7 +2,6 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
-import { joinCommand } from "./join-command";
 import { LOCAL_WORKER } from "./routes";
 import { serverOf } from "./server-of";
 
@@ -62,51 +61,11 @@ export async function callServer(
 	return response.json();
 }
 
-const Invited = z.object({ token: z.string(), expiresAt: z.number() });
-
 const Removed = z.object({
 	id: z.string(),
 	removed: z.boolean(),
 	running: z.array(z.string()),
 });
-
-/** What `splates worker add` is run with. */
-export interface AddWorkerOptions extends ServerCallOptions {
-	/** Slots to make this machine's own worker run, or 0 to mint a join token for another. */
-	local: number;
-}
-
-/**
- * `splates worker add`: a join token another machine joins with, printed
- * with the command to run there; with `--local N`, this machine's own
- * worker runs N agents at once and takes new ones again, added back if it
- * was removed.
- */
-export async function addWorker(opts: AddWorkerOptions): Promise<void> {
-	const { log } = opts;
-	if (opts.local > 0) {
-		await callServer(`/api/workers/${LOCAL_WORKER}`, {
-			...opts,
-			method: "PUT",
-			body: { slots: opts.local, draining: false },
-		});
-		log.info(`this machine's worker runs ${opts.local} agents at once`);
-		return;
-	}
-	const { token, expiresAt } = Invited.parse(
-		await callServer("/api/workers/invite", { ...opts, method: "POST" }),
-	);
-	const url = "<this server's URL>";
-	log.info(
-		[
-			`join token, single use, good until ${new Date(expiresAt).toLocaleTimeString()}:`,
-			"",
-			`  ${joinCommand(url, token)}`,
-			"",
-			"Run it on the machine to join, which keeps the key it is given in its system store.",
-		].join("\n"),
-	);
-}
 
 /** `splates worker drain <id>`: takes no new agents on it, or takes them again with `undo`. */
 export async function drainWorker(
@@ -139,7 +98,7 @@ export async function setWorkerSlots(
 /**
  * `splates worker remove <id>`: revokes its key and forgets it, once the
  * agents on it end, or at once with `force`, ending them. This machine's
- * own only stops taking agents, until `splates worker add --local`.
+ * own only stops taking agents, until `splates worker drain local --undo`.
  */
 export async function removeWorker(
 	opts: ServerCallOptions & { id: string; force: boolean },
@@ -153,7 +112,7 @@ export async function removeWorker(
 	if (id === LOCAL_WORKER) {
 		opts.log.info(
 			removed
-				? "removed this machine's worker: it only coordinates, until `splates worker add --local <slots>`"
+				? "removed this machine's worker: it only coordinates, until `splates worker drain local --undo`"
 				: `this machine's worker drains, and is removed once ${running.join(", ")} end`,
 		);
 		return;

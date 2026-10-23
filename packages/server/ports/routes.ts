@@ -3,7 +3,7 @@ import { type Clock, Duration, SystemClock } from "webappwiz/time";
 import type { Connection, Served } from "../server/shared";
 import { hostname, LOOPBACK, refuse } from "../server/shared";
 import { ACCESS_COOKIE, ACCESS_HEADER, type Access } from "../tunnel";
-import type { RemoteWorker } from "../workers";
+import type { ConnectedWorker } from "../workers";
 import { PortSocket } from "./socket";
 import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
 
@@ -54,7 +54,7 @@ export class DevTaskPorts implements Claimer {
 	constructor(
 		private readonly deps: {
 			/** This machine's worker, which the tasks' agents run on. */
-			worker: () => RemoteWorker;
+			worker: () => ConnectedWorker;
 			/** Each served project's worktrees and agents. */
 			owners: () => Promise<PortOwners>;
 			/** `<task>-<port>.<base>` is a task port's; null for none. */

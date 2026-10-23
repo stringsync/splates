@@ -7,8 +7,8 @@ import { RemotePty } from "../terminal";
 import { CallAnswer, type CallRequest, READ_PART } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { WorkerMachine, WorkerRead } from "./machine";
+import { WorkerProcess } from "./process";
 import type { Json } from "./protocol";
-import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
 
 /** Where and how big a shell on a worker starts, as `Pty` takes it. */
@@ -53,7 +53,7 @@ export type WorkerKind = "local" | "registered";
  * hello, and the work it can be given. Its session outlives any one
  * connection, so a call or process started before a drop finishes after it.
  */
-export class RemoteWorker implements WorkerMachine {
+export class ConnectedWorker implements WorkerMachine {
 	private calls: WorkerChannel | undefined;
 	private nextCall = 1;
 	/** The pieces of a git call's output heard so far, by call. */
@@ -95,8 +95,8 @@ export class RemoteWorker implements WorkerMachine {
 		argv: string[],
 		cwd: string,
 		env: Record<string, string> = {},
-	): RemoteProcess {
-		return new RemoteProcess(
+	): WorkerProcess {
+		return new WorkerProcess(
 			// Which worker it is, so what it runs knows it runs on one.
 			this.session.open("process", {
 				argv,
@@ -114,13 +114,13 @@ export class RemoteWorker implements WorkerMachine {
 	 * the last frame the server wrote down, or from wherever the worker's
 	 * replay starts for null.
 	 */
-	resume(handle: ProcessHandle, held: number | null): RemoteProcess {
+	resume(handle: ProcessHandle, held: number | null): WorkerProcess {
 		if (handle.worker !== this.id) {
 			throw new Error(
 				`the process runs on worker ${handle.worker}, not ${this.id}`,
 			);
 		}
-		return new RemoteProcess(
+		return new WorkerProcess(
 			this.session.resume(handle.channel, "process", null, held),
 			this.session,
 			this.id,

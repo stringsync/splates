@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { FsStorage } from "../storage";
-import { API_TOKEN, SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
 import { Setup, type SetupMachine, type SetupWorker } from "./setup";
@@ -108,25 +106,5 @@ describe("WORKERS_AREA", () => {
 		expect(await undoOf("local-worker")?.refused?.(machine)).toContain(
 			"No `splates server` to remove workers from",
 		);
-	});
-
-	it("waits for the tunnel, then checks the API token may manage service tokens", async () => {
-		expect((await steps())["worker-access"]?.status).toBe("waiting");
-
-		await SavedTunnel.in(
-			new FsStorage(`${HOME}`, machine.fs),
-			machine.device,
-		).save({
-			host: "splates.example.com",
-			team: "crew",
-			aud: "a",
-			tunnel: "i",
-		});
-		await machine.device.set("SPLATES_TUNNEL_TOKEN", "t");
-		await machine.device.set(API_TOKEN, "api");
-		expect((await steps())["worker-access"]?.status).toBe("done");
-
-		status = 403;
-		expect((await steps())["worker-access"]?.status).toBe("ready");
 	});
 });

@@ -23,14 +23,12 @@ import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
 import {
-	API_TOKEN,
 	accessConfig,
 	portsHostFlag,
 	savedTunnelConfig,
 	tunnelConfig,
 } from "../tunnel";
 import {
-	CloudflareWorkerAccess,
 	CoordinatorIdentity,
 	CoordinatorState,
 	DevWorkers,
@@ -240,12 +238,10 @@ export async function serveDev(
 	const coordinator = await CoordinatorState.open(
 		settingsStorage.document("coordinator.json"),
 	);
-	// The workers that joined, kept so a restart lets each back in.
+	// Keep the local worker’s settings across server restarts.
 	const records = await WorkerRecords.open(
 		settingsStorage.document("workers.json"),
 	);
-	// Through a tunnel, each worker passes Access with a service token of its
-	// own, minted with the API token `splates tunnel setup` keeps.
 	const device = (ctx.secrets ?? SYSTEM_STORES).device;
 	// Signs what workers challenge it with, so one tells it from whoever
 	// answers for its host with a stolen tunnel token. A machine whose store
@@ -258,14 +254,6 @@ export async function serveDev(
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		records,
-		access:
-			tunnel === null
-				? null
-				: new CloudflareWorkerAccess({
-						host: tunnel.host,
-						apiToken: () => device.get(API_TOKEN),
-						log: ctx.log,
-					}),
 	});
 	const worker = workers.local;
 	const { slots } = workers;

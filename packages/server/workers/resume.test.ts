@@ -4,23 +4,23 @@ import { FakeClock, FakeTimer } from "webappwiz/time/testing";
 import type { AgentFrame } from "../agents";
 import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
-import { RemoteWorker } from "./remote";
-import { ANSWER_WITHIN, type RemoteProcess } from "./remote-process";
+import { ANSWER_WITHIN, type WorkerProcess } from "./process";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
+import { ConnectedWorker } from "./worker";
 
 // The daemon's default `orphanBound`.
 const ORPHAN_BOUND_SECS = 600;
 
-describe("RemoteWorker after the coordinator restarts", () => {
+describe("ConnectedWorker after the coordinator restarts", () => {
 	let timer: FakeTimer;
 	let clock: FakeClock;
 	let ps: FakePs;
 	let coordinator: WorkerSession;
-	let remote: RemoteWorker;
+	let remote: ConnectedWorker;
 	let pair: WorkerSocketPair;
 	/** A process started before the restart, and the worker's child for it. */
-	let before: RemoteProcess;
+	let before: WorkerProcess;
 	let child: FakeChild | undefined;
 
 	beforeEach(async () => {
@@ -42,7 +42,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		);
 		void daemon.run();
 		coordinator = session();
-		remote = new RemoteWorker("local", {}, coordinator);
+		remote = new ConnectedWorker("local", {}, coordinator);
 		await accept();
 		before = remote.start(["claude"], "/repo");
 		await Bun.sleep(0);
@@ -71,7 +71,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		coordinator.detach();
 		pair.drop();
 		coordinator = session();
-		remote = new RemoteWorker("local", {}, coordinator);
+		remote = new ConnectedWorker("local", {}, coordinator);
 		pair = new WorkerSocketPair();
 		await Bun.sleep(0);
 		// The worker's redial backoff, not the bound on a server that never returns.

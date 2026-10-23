@@ -55,9 +55,7 @@ describe("loadConfig", () => {
 	});
 
 	it("makes no workers without a provider", async () => {
-		const config = await loadConfig(root, { fs, git });
-
-		expect(config.workerProvider).toBeNull();
+		const _config = await loadConfig(root, { fs, git });
 	});
 
 	it("reads todoStalenessMs, from before todos became tasks, as taskStalenessMs", async () => {

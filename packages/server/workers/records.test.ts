@@ -1,136 +1,26 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeWallClock } from "webappwiz/time/testing";
-import { FsStorage } from "../storage";
-import { joinAccess } from "./access";
-import { JOIN_WITHIN, WorkerRecords } from "./records";
-
-const PATH = "/home/.splates/workers.json";
-
-function storage(fs: FakeFs): FsStorage {
-	return new FsStorage("/home/.splates", fs);
-}
+import { MemoryStorage } from "../storage/testing";
+import { WorkerRecords } from "./records";
 
 describe("WorkerRecords", () => {
-	it("lets a worker join with a token, once, and knows it by the key it is answered", async () => {
-		const records = WorkerRecords.memory();
-		const { token } = await records.invite();
-
-		const key = await records.join(token, "box");
-
-		expect(key).not.toBeNull();
-		expect(records.verify("box", key ?? "")).toBe(true);
-		expect(records.verify("box", "another")).toBe(false);
-		expect(records.verify("other", key ?? "")).toBe(false);
-		expect(await records.join(token, "again")).toBeNull();
-	});
-
-	it("refuses a token past its 15 minutes", async () => {
-		const wall = new FakeWallClock(0);
-		const records = WorkerRecords.memory(wall);
-		const { token } = await records.invite();
-		wall.advance(JOIN_WITHIN.add(Duration.secs(1)));
-
-		expect(await records.join(token, "box")).toBeNull();
-	});
-
-	it("revokes the old key when a worker joins again under its id", async () => {
-		const records = WorkerRecords.memory();
-		const old = await records.join((await records.invite()).token, "box");
-		const fresh = await records.join((await records.invite()).token, "box");
-
-		expect(records.verify("box", old ?? "")).toBe(false);
-		expect(records.verify("box", fresh ?? "")).toBe(true);
-	});
-
-	it("keeps workers, settings and unspent tokens, never a key or token, across a reopen", async () => {
-		const fs = new FakeFs();
-		const records = await WorkerRecords.open(
-			storage(fs).document("workers.json"),
-		);
-		const key = await records.join((await records.invite()).token, "box");
-		await records.set("box", { slots: 3, draining: true });
-		const { token } = await records.invite();
-
-		const reopened = await WorkerRecords.open(
-			storage(fs).document("workers.json"),
-		);
-		const file = await fs.read(PATH);
-
-		expect(reopened.verify("box", key ?? "")).toBe(true);
-		expect(reopened.of("box")).toMatchObject({ slots: 3, draining: true });
-		expect(await reopened.join(token, "next")).not.toBeNull();
-		expect(file).not.toContain(key ?? "");
-		expect(file).not.toContain(token);
-	});
-
-	it("keeps this machine's own worker off across a reopen, until it is turned on", async () => {
-		const fs = new FakeFs();
-		const records = await WorkerRecords.open(
-			storage(fs).document("workers.json"),
-		);
-		expect(records.localOn).toBe(true);
-		await records.turnLocal(false);
-
-		const reopened = await WorkerRecords.open(
-			storage(fs).document("workers.json"),
-		);
-		expect(reopened.localOn).toBe(false);
-		await reopened.turnLocal(true);
-		expect(
-			(await WorkerRecords.open(storage(fs).document("workers.json"))).localOn,
-		).toBe(true);
-	});
-
-	it("revokes a removed worker's key", async () => {
-		const records = WorkerRecords.memory();
-		const key = await records.join((await records.invite()).token, "box");
-
-		expect(await records.remove("box")).toMatchObject({ id: "box" });
-		expect(records.verify("box", key ?? "")).toBe(false);
-	});
-
-	it("hands a service token on in the join token, and keeps its id with the worker that spends it", async () => {
-		const records = WorkerRecords.memory();
-		const access = {
-			id: "st-1",
-			clientId: "client.access",
-			clientSecret: "secret",
-		};
-		const { token } = await records.invite(access);
-
-		expect(joinAccess(token)).toEqual({
-			clientId: "client.access",
-			clientSecret: "secret",
+	it("keeps local settings across restarts and ignores legacy remote registrations", async () => {
+		const storage = new MemoryStorage();
+		await storage.document("workers.json").write({
+			workers: [
+				{ id: "local", slots: 7, draining: true },
+				{ id: "box", key: "old", slots: 2 },
+			],
+			joins: [{ hash: "old" }],
+			local: false,
 		});
-		expect(await records.join(token, "box")).not.toBeNull();
-		expect(records.of("box")?.access).toBe("st-1");
-	});
-
-	it("answers the service tokens of join tokens run out unused, once", async () => {
-		const wall = new FakeWallClock(0);
-		const records = WorkerRecords.memory(wall);
-		await records.invite({ id: "st-1", clientId: "c", clientSecret: "s" });
-		await records.invite();
-		wall.advance(JOIN_WITHIN.add(Duration.secs(1)));
-		await records.invite();
-
-		expect(await records.sweep()).toEqual(["st-1"]);
-		expect(await records.sweep()).toEqual([]);
-	});
-
-	it("withdraws a join token unspent, answering its service token once", async () => {
-		const records = WorkerRecords.memory();
-		const { token } = await records.invite({
-			id: "st-1",
-			clientId: "c",
-			clientSecret: "s",
-		});
-
-		expect(await records.withdraw(token)).toBe("st-1");
-		expect(await records.withdraw(token)).toBeNull();
-		expect(await records.join(token, "box")).toBeNull();
-		expect(await records.sweep()).toEqual([]);
+		const records = await WorkerRecords.open(storage.document("workers.json"));
+		expect(records.all.map((each) => each.id)).toEqual(["local"]);
+		expect(records.of("local")).toMatchObject({ slots: 7, draining: true });
+		expect(records.localOn).toBe(false);
+		await records.turnLocal(true);
+		await records.set("local", { draining: false });
+		const again = await WorkerRecords.open(storage.document("workers.json"));
+		expect(again.localOn).toBe(true);
+		expect(again.of("local")).toMatchObject({ slots: 7, draining: false });
 	});
 });

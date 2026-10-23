@@ -9,16 +9,16 @@ import { printed } from "../agents/testing";
 import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
 import { WorkerRegistry } from "./registry";
-import type { RemoteWorker } from "./remote";
 import { UnixWorkerListener } from "./unix-listener";
 import { UnixWorkerSocket } from "./unix-socket";
+import type { ConnectedWorker } from "./worker";
 
 describe("WorkerDaemon", () => {
 	let dir: string;
 	let registry: WorkerRegistry;
 	let listener: UnixWorkerListener;
 	let daemon: WorkerDaemon;
-	let worker: RemoteWorker;
+	let worker: ConnectedWorker;
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
@@ -26,7 +26,7 @@ describe("WorkerDaemon", () => {
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
 		listener.events.on("socket", (socket) => void registry.accept(socket));
-		const joined = new Promise<RemoteWorker>((resolve) =>
+		const joined = new Promise<ConnectedWorker>((resolve) =>
 			registry.events.on("joined", resolve, { once: true }),
 		);
 		daemon = new WorkerDaemon(

@@ -37,7 +37,6 @@ import {
 	Machine,
 	OsSensors,
 	queueListing,
-	WORKER_SOCKET_PATH,
 	type WorkerPool,
 } from "../workers";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
@@ -882,10 +881,7 @@ export async function dev(
 					return dictations.open(request, server);
 				}
 				if (pathname === "/api/workers") {
-					return workers.route(request, server, guarded);
-				}
-				if (pathname === WORKER_SOCKET_PATH) {
-					return workers.open(request, server);
+					return guarded(workers.list)(request);
 				}
 				if (pathname.startsWith("/api/workers/")) {
 					return workers.manage(request, (handle) => talk(guarded(handle)));

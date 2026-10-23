@@ -11,9 +11,8 @@ import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
-import type { RemoteWorker, WorkerKind } from "./remote";
-import type { RolloutStanding } from "./rollout";
 import { slotsOf } from "./slots";
+import type { ConnectedWorker, WorkerKind } from "./worker";
 
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
 export interface WorkerListing {
@@ -81,11 +80,10 @@ export interface WorkerListings {
  */
 export interface WorkerPool extends WorkerListings {
 	build: string;
-	rollout: RolloutStanding;
 }
 
 function listing(
-	worker: RemoteWorker,
+	worker: ConnectedWorker,
 	tasks: string[],
 	record: WorkerRecord | undefined,
 ): WorkerListing {

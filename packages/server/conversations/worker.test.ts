@@ -3,7 +3,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { FakeAgent, FakeAgentPs, say } from "../agents/testing";
-import { RemoteWorker, WorkerProcessHost, WorkerSession } from "../workers";
+import { ConnectedWorker, WorkerProcessHost, WorkerSession } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
 import { Conversations } from "./index";
 import { until } from "./testing";
@@ -40,7 +40,7 @@ describe("A conversation on a worker", () => {
 			await WorkerSession.hello(pair.coordinator),
 		);
 		await connecting;
-		const remote = new RemoteWorker("local", {}, coordinator);
+		const remote = new ConnectedWorker("local", {}, coordinator);
 		conversations = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],

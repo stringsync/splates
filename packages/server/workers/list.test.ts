@@ -11,8 +11,7 @@ import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
 import { DevWorkers } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
-import { WebSocketWorkerSocket } from "./websocket-socket";
-import { workerAuthorization } from "./worker-key";
+import type { WebSocketWorkerSocket } from "./websocket-socket";
 
 describe("splates worker list", () => {
 	let dir: string;
@@ -29,11 +28,7 @@ describe("splates worker list", () => {
 			port: 0,
 			hostname: "127.0.0.1",
 			websocket: CONNECTIONS,
-			fetch: (request, server) =>
-				request.headers.get("upgrade") === null
-					? workers.list()
-					: (workers.open(request, server) ??
-						new Response("not found", { status: 404 })),
+			fetch: () => workers.list(),
 		});
 		url = `http://127.0.0.1:${server.port}`;
 		daemons = [];
@@ -82,19 +77,9 @@ describe("splates worker list", () => {
 	}
 
 	// scry-ignore simple-test-setup: it alone dials both a socket and a WebSocket
-	it("lists a worker over the socket as local and one over /api/workers as registered", async () => {
+	it("lists this machine’s worker over its Unix socket", async () => {
 		await join_("local", 8, () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
-		);
-		const key = await workers.records.join(
-			(await workers.records.invite()).token,
-			"away",
-		);
-		await join_("away", 2, () =>
-			WebSocketWorkerSocket.connect(
-				`ws://127.0.0.1:${server.port}/api/workers`,
-				{ authorization: workerAuthorization("away", key ?? "") },
-			),
 		);
 
 		const listed = JSON.parse(await ls(true));
@@ -108,10 +93,7 @@ describe("splates worker list", () => {
 					worker.slots,
 				],
 			),
-		).toEqual([
-			["local", "local", { used: 0, total: 8 }],
-			["away", "registered", { used: 0, total: 2 }],
-		]);
+		).toEqual([["local", "local", { used: 0, total: 8 }]]);
 		expect(listed.workers[0]).toMatchObject({
 			health: "connected",
 			tasks: [],

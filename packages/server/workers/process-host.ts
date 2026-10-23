@@ -5,7 +5,6 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
-import type { AgentSandbox } from "./sandbox";
 import type { WorkerSession } from "./session";
 
 /** What a server opens a `process` channel with. */
@@ -48,9 +47,9 @@ export class WorkerProcessHost implements Resource {
 		private readonly ps: Ps,
 		opts: WorkerProcessHostOptions = {},
 	) {
-		const { timer = null, sandbox = null } = opts;
+		const { timer = null } = opts;
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
-		this.child = ps.start(sandbox?.wrap(argv, cwd) ?? argv, {
+		this.child = ps.start(argv, {
 			cwd,
 			env,
 			unset: [SERVING],
@@ -202,7 +201,6 @@ export interface WorkerProcessHostOptions {
 	/** What notes the child's descendants while it runs; absent to note none. */
 	timer?: Timer | null;
 	/** Where it runs its process, kept from its siblings; absent to run it as this worker's user alone. */
-	sandbox?: Pick<AgentSandbox, "wrap"> | null;
 }
 
 /** Every process under `pid` in `table`, children first. */

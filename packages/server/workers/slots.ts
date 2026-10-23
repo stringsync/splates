@@ -11,13 +11,13 @@ import { RUNNING } from "../server/shared";
 import { GoneWorkers } from "./gone";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
-import type { RemoteWorker } from "./remote";
 import {
 	type Pool,
 	type PoolWorker,
 	type QueueEntry,
 	Scheduler,
 } from "./scheduler";
+import type { ConnectedWorker } from "./worker";
 
 /** How many agents a worker runs at once until its hello says. */
 export const DEFAULT_SLOTS = 8;
@@ -171,7 +171,7 @@ function spotOf(entry: QueueEntry, of: number) {
  * what its hello says.
  */
 export function slotsOf(
-	worker: RemoteWorker,
+	worker: ConnectedWorker,
 	record: WorkerRecord | undefined,
 ): number {
 	return (
@@ -187,7 +187,7 @@ export function slotsOf(
  * `build`, it waits on an update.
  */
 function poolWorker(
-	worker: RemoteWorker,
+	worker: ConnectedWorker,
 	build: string,
 	record: WorkerRecord | undefined,
 ): PoolWorker {

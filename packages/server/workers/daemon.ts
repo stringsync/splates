@@ -18,7 +18,6 @@ import { OrphanBound } from "./orphan";
 import { WorkerProcessHost } from "./process-host";
 import { UPDATE, WorkerProtocol } from "./protocol";
 import { WorkerPtyHost } from "./pty-host";
-import type { AgentSandbox } from "./sandbox";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
 
@@ -301,7 +300,6 @@ export class WorkerDaemon implements AsyncResource {
 				case "process":
 					host = new WorkerProcessHost(channel, this.session, ps, {
 						timer: this.timer,
-						sandbox: this.opts.sandbox ?? null,
 					});
 					break;
 				case "pty":
@@ -393,5 +391,4 @@ export interface WorkerDaemonOptions {
 	timer?: Timer;
 	clock?: Clock;
 	/** Where it runs each agent, kept from the others; none, running each as this worker's user, by default. */
-	sandbox?: AgentSandbox | null;
 }

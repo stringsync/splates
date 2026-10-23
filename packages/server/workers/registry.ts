@@ -15,14 +15,14 @@ import type { WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import type { CoordinatorIdentity } from "./identity";
 import { LEAVING } from "./protocol";
+import { WorkerSession, type WorkerSessionOptions } from "./session";
+import type { WorkerSocket } from "./socket";
 import {
 	CALL_BOUNDS,
 	type CallBounds,
-	RemoteWorker,
+	ConnectedWorker,
 	type WorkerKind,
-} from "./remote";
-import { WorkerSession, type WorkerSessionOptions } from "./session";
-import type { WorkerSocket } from "./socket";
+} from "./worker";
 
 /** How long a restart waits for a worker to ack what it was sent. */
 const ACK_WAIT = Duration.secs(5);
@@ -37,7 +37,7 @@ export interface RefusedWorker {
 /** What a `WorkerRegistry` hears. */
 export interface WorkerRegistryEvents extends Record<string, unknown> {
 	/** A worker connected, for the first time or again. */
-	joined: RemoteWorker;
+	joined: ConnectedWorker;
 	refused: RefusedWorker;
 	/** A worker said its machine is about to be taken away. */
 	leaving: { id: string; reason: string };
@@ -72,7 +72,7 @@ export class WorkerRegistry
 {
 	private readonly dispatcher = new Dispatcher<WorkerRegistryEvents>();
 	readonly events = this.dispatcher.events;
-	private readonly byId = new Map<string, RemoteWorker>();
+	private readonly byId = new Map<string, ConnectedWorker>();
 	private readonly refusals = new Map<string, RefusedWorker>();
 	private readonly timer: Timer;
 	private readonly clock: Clock;
@@ -97,7 +97,7 @@ export class WorkerRegistry
 		this.wall = opts.wall ?? new SystemWallClock();
 	}
 
-	get workers(): RemoteWorker[] {
+	get workers(): ConnectedWorker[] {
 		return [...this.byId.values()];
 	}
 
@@ -106,7 +106,7 @@ export class WorkerRegistry
 		return [...this.refusals.values()];
 	}
 
-	worker(id: string): RemoteWorker | undefined {
+	worker(id: string): ConnectedWorker | undefined {
 		return this.byId.get(id);
 	}
 
@@ -115,12 +115,12 @@ export class WorkerRegistry
 	 * given it before it does: its session keeps what it is sent until then.
 	 * `kind` is how it will connect.
 	 */
-	expect(id: string, kind: WorkerKind = "registered"): RemoteWorker {
+	expect(id: string, kind: WorkerKind = "registered"): ConnectedWorker {
 		const known = this.byId.get(id);
 		if (known !== undefined) {
 			return known;
 		}
-		const worker = new RemoteWorker(
+		const worker = new ConnectedWorker(
 			id,
 			{},
 			this.session(),
@@ -212,7 +212,7 @@ export class WorkerRegistry
 		this.refusals.delete(said.id);
 		const worker =
 			known ??
-			new RemoteWorker(said.id, said.info, session, kind, this.bounds());
+			new ConnectedWorker(said.id, said.info, session, kind, this.bounds());
 		worker.info = said.info;
 		// Proved by a key sent only after this server proved itself; a
 		// key in the upgrade went to whoever answered, and cannot be told.

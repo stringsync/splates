@@ -3,7 +3,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { FakeAgent, FakeAgentPs, say } from "../agents/testing";
-import { RemoteWorker, WorkerProcessHost, WorkerSession } from "../workers";
+import { ConnectedWorker, WorkerProcessHost, WorkerSession } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
 import type { Conversation } from "./conversation";
 import { Conversations } from "./index";
@@ -69,7 +69,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 
 	/** The conversations of a server running `session`, over the one log directory. */
 	const talk = (session: WorkerSession) => {
-		const remote = new RemoteWorker("local", {}, session);
+		const remote = new ConnectedWorker("local", {}, session);
 		return new Conversations(DIR, [AGENT, { ...AGENT, id: "opencode" }], {
 			fs,
 			timer,

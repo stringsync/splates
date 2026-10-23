@@ -9,7 +9,7 @@ import { Duration } from "webappwiz/time";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { ACCESS_HEADER } from "../tunnel";
 import { FakeAccess } from "../tunnel/testing";
-import type { RemoteWorker } from "../workers";
+import type { ConnectedWorker } from "../workers";
 import {
 	UnixWorkerListener,
 	UnixWorkerSocket,
@@ -38,7 +38,7 @@ describe("DevTaskPorts", () => {
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
 		listener.events.on("socket", (socket) => void registry.accept(socket));
-		const joined = new Promise<RemoteWorker>((resolve) =>
+		const joined = new Promise<ConnectedWorker>((resolve) =>
 			registry.events.on("joined", resolve, { once: true }),
 		);
 		daemon = new WorkerDaemon(

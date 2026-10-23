@@ -27,66 +27,6 @@ describe("App's workers", () => {
 		return view;
 	};
 
-	it("shows where the rollout stands with each worker waiting on an update", async () => {
-		const view = await openWorkers({
-			...pool([
-				worker("made", { build: "0.9.0", kind: "registered", tasks: ["a"] }),
-				worker("box", { build: "0.9.0" }),
-				worker("den", { build: "0.9.0" }),
-				worker("old", { build: "0.8.0" }),
-			]),
-			rollout: {
-				updating: { id: "made", stage: "moving", agents: 1 },
-				next: ["box", "den"],
-				byHand: ["old"],
-			},
-		});
-
-		const lines = within(
-			view.getByRole("list", { name: "waiting on an update" }),
-		)
-			.getAllByRole("listitem")
-			.map((line) => line.textContent);
-		expect(lines).toEqual([
-			"made runs 0.9.0, moving its agent off it",
-			"box runs 0.9.0, next",
-			"den runs 0.9.0, waiting its turn",
-			"old runs 0.8.0, update it by hand",
-		]);
-	});
-
-	it("shows each worker as `splates worker list` does, and which waits on an update", async () => {
-		const view = await openWorkers(
-			pool([
-				worker("local", { kind: "local", tasks: ["fix-login"] }),
-				worker("box", { build: "0.9.0", draining: true }),
-			]),
-		);
-
-		const box = view.getByRole("listitem", { name: "worker box" });
-		expect(box.textContent).toContain("linux");
-		expect(box.textContent).toContain("free room4 of 4");
-		expect(box.textContent).toContain("draining");
-		expect(box.textContent).toContain("update waiting");
-		expect(
-			view.getByRole("list", { name: "waiting on an update" }).textContent,
-		).toBe("box runs 0.9.0");
-		expect(view.getByText(/This server runs 1\.0\.0/).textContent).toBe(
-			"This server runs 1.0.0, and 1 of 2 workers do. They update one at a time.",
-		);
-		expect(
-			view.getByRole("listitem", { name: "worker local" }).textContent,
-		).toContain("fix-login");
-	});
-
-	it("shows a worker under WSL as linux (wsl2)", async () => {
-		const view = await openWorkers(pool([worker("home", { host: "wsl2" })]));
-
-		expect(
-			view.getByRole("listitem", { name: "worker home" }).textContent,
-		).toContain("linux (wsl2)");
-	});
-
 	it("keeps this Mac enabled with its slots while an update drains it", async () => {
 		const view = await openWorkers(
 			pool([
@@ -196,37 +136,6 @@ describe("App's workers", () => {
 			body: JSON.stringify({ slots: 6 }),
 		});
 	});
-
-	it("drains a worker, and stops one with work on it once it ends", async () => {
-		const view = await openWorkers(
-			pool([worker("box", { slots: { used: 1, total: 4 }, tasks: ["a"] })]),
-		);
-		const box = view.getByRole("listitem", { name: "worker box" });
-		testing.holdWrites();
-
-		await act(async () =>
-			fireEvent.click(within(box).getByRole("button", { name: "Drain" })),
-		);
-		expect(within(box).getByRole("button", { name: "Resume" })).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(within(box).getByRole("button", { name: "Stop" })),
-		);
-
-		expect(box.textContent).toContain("removing");
-		expect(testing.posts.map(({ path, method }) => [path, method])).toEqual([
-			["/api/workers/box", "PUT"],
-			["/api/workers/box", "DELETE"],
-		]);
-		await act(async () =>
-			fireEvent.click(within(box).getByRole("button", { name: "Stop now" })),
-		);
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/workers/box?force",
-			method: "DELETE",
-		});
-		expect(view.queryByRole("listitem", { name: "worker box" })).toBeNull();
-		await act(async () => testing.release());
-	});
 });
 
 /** A pool of `workers`, its server on 1.0.0. */
@@ -235,7 +144,6 @@ function pool(workers: WorkerListing[]): WorkerPool {
 		workers,
 		refused: [],
 		build: "1.0.0",
-		rollout: { updating: null, next: [], byHand: [] },
 	};
 }
 

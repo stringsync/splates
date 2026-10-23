@@ -82,7 +82,6 @@ function defaults(root: string, trunk: string): Config {
 		artifactProjectCapacity: ARTIFACT_LIMITS.project,
 		wiz: "bunx @webappwiz/cli",
 		tunnel: null,
-		workerProvider: null,
 		platform: null,
 		replica: null,
 	};

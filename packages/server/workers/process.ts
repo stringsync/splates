@@ -25,7 +25,7 @@ const STDERR_CHARS = 2_000;
  * down. Its pid is null until the worker says it started; one taken back
  * after a restart asks again, since the word came before.
  */
-export class RemoteProcess implements AgentProcess {
+export class WorkerProcess implements AgentProcess {
 	readonly input: WritableStream<Uint8Array>;
 	readonly output: ReadableStream<AgentFrame>;
 	readonly exited: Promise<number>;

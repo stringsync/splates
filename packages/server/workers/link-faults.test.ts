@@ -19,10 +19,10 @@ import { WorkerDaemon } from "./daemon";
 import { FrameTooLarge } from "./frame-too-large";
 import { WorkerProtocol } from "./protocol";
 import { WorkerRegistry } from "./registry";
-import type { RemoteWorker } from "./remote";
 import { ServerWorkerSocket } from "./server-socket";
 import { FaultProxy } from "./testing";
 import { WebSocketWorkerSocket } from "./websocket-socket";
+import type { ConnectedWorker } from "./worker";
 
 setDefaultTimeout(20_000);
 
@@ -55,7 +55,7 @@ describe("the worker link through a faulty network", () => {
 	let server: Bun.Server<Connection>;
 	let proxy: FaultProxy;
 	let daemon: WorkerDaemon;
-	let worker: RemoteWorker;
+	let worker: ConnectedWorker;
 	let joins: number;
 
 	const serve = (port: number) =>
@@ -82,7 +82,7 @@ describe("the worker link through a faulty network", () => {
 		server = serve(0);
 		proxy = FaultProxy.listen(server.port as number);
 		const url = `ws://127.0.0.1:${proxy.port}/api/workers`;
-		const joined = new Promise<RemoteWorker>((resolve) =>
+		const joined = new Promise<ConnectedWorker>((resolve) =>
 			registry.events.on("joined", resolve, { once: true }),
 		);
 		daemon = new WorkerDaemon(
@@ -239,7 +239,7 @@ describe("the worker link through a faulty network", () => {
 			session: { ...PACE, id },
 		});
 		server = serve(proxy.upstreamPort);
-		const rejoined = new Promise<RemoteWorker>((resolve) =>
+		const rejoined = new Promise<ConnectedWorker>((resolve) =>
 			registry.events.on("joined", resolve, { once: true }),
 		);
 

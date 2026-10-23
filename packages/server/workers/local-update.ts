@@ -3,26 +3,10 @@ import type { Logger } from "webappwiz/log";
 import { UPDATE } from "./protocol";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
-import type { RemoteWorker, WorkerKind } from "./remote";
+import type { ConnectedWorker } from "./worker";
 
-/** Where a rollout stands, as `GET /api/workers` answers it. */
-export interface RolloutStanding {
-	/** The worker being updated now; null when none is. */
-	updating: {
-		id: string;
-		/** `moving` while agents are still on it, `replacing` once it is empty and being restarted. */
-		stage: "moving" | "replacing";
-		/** The agents still on it. */
-		agents: number;
-	} | null;
-	/** Those on another build waiting their turn, the next first. */
-	next: string[];
-	/** Those on another build that cannot update from here, for the person to update by hand. */
-	byHand: string[];
-}
-
-/** What a `WorkerRollout` updates workers over. */
-export interface WorkerRolloutOptions {
+/** What a `LocalWorkerUpdate` updates workers over. */
+export interface LocalWorkerUpdateOptions {
 	registry: WorkerRegistry;
 	records: WorkerRecords;
 	/** The build the server runs, which every worker is brought to. */
@@ -36,22 +20,8 @@ export interface WorkerRolloutOptions {
 	log: Logger;
 }
 
-/** Which kind of worker a rollout takes first: this machine's last, for its page's shells. */
-const ORDER: Record<WorkerKind, number> = {
-	registered: 0,
-	local: 1,
-};
-
-/**
- * Brings every worker to the server's build, one at a time, so the
- * pool keeps the rest of its slots meanwhile: the worker drains, marked
- * `updating` in its record so a restart carries on; its agents move off at
- * their next pause from their saved task (`Grant.replaces`); and once it is
- * empty it is asked to restart on the build, which it does once it offers
- * `update`. One that cannot be asked is left to the
- * person, and placed on last meanwhile.
- */
-export class WorkerRollout implements Resource {
+/** Drains and restarts the local worker on the server's build, preserving its agents until they finish. */
+export class LocalWorkerUpdate implements Resource {
 	/**
 	 * Those whose update the person took back, by `splates worker drain
 	 * --undo`, or that came back on the old build; tried again next run.
@@ -63,7 +33,7 @@ export class WorkerRollout implements Resource {
 	private again = false;
 	private readonly unlisten: () => void;
 
-	constructor(private readonly opts: WorkerRolloutOptions) {
+	constructor(private readonly opts: LocalWorkerUpdateOptions) {
 		this.unlisten = opts.registry.events.on("joined", (worker) => {
 			// Back on the old build: restarting it again would only loop.
 			if (this.asked.delete(worker.id) && worker.info.build !== opts.build) {
@@ -77,7 +47,7 @@ export class WorkerRollout implements Resource {
 	}
 
 	/**
-	 * Carries the rollout on: finishes the worker under way once it is back
+	 * Carries the local update on: finishes the worker under way once it is back
 	 * on the build, replaces it once it is empty, and starts on the next once
 	 * none is under way. Looks once at a time, and once more after for what
 	 * changed meanwhile.
@@ -94,7 +64,9 @@ export class WorkerRollout implements Resource {
 					await this.step();
 				} while (this.again);
 			} catch (error) {
-				this.opts.log.error(`the worker rollout stopped: ${String(error)}`);
+				this.opts.log.error(
+					`the worker local update stopped: ${String(error)}`,
+				);
 			} finally {
 				this.looking = null;
 			}
@@ -104,33 +76,6 @@ export class WorkerRollout implements Resource {
 
 	dispose(): void {
 		this.unlisten();
-	}
-
-	/** Where the rollout stands now. */
-	standing(): RolloutStanding {
-		const used = this.opts.used();
-		const under = this.underWay();
-		const behind = this.behind().filter(
-			(worker) => this.opts.records.of(worker.id)?.updating !== true,
-		);
-		return {
-			updating:
-				under === undefined
-					? null
-					: {
-							id: under.id,
-							stage:
-								(used.get(under.id) ?? []).length > 0 ? "moving" : "replacing",
-							agents: (used.get(under.id) ?? []).length,
-						},
-			next: behind
-				.filter((worker) => this.updatable(worker))
-				.sort(this.order(used))
-				.map((worker) => worker.id),
-			byHand: behind
-				.filter((worker) => !this.updatable(worker))
-				.map((worker) => worker.id),
-		};
 	}
 
 	private async step(): Promise<void> {
@@ -164,14 +109,12 @@ export class WorkerRollout implements Resource {
 			}
 			return;
 		}
-		const [next] = this.behind()
-			.filter(
-				(worker) =>
-					worker.connected &&
-					this.updatable(worker) &&
-					records.of(worker.id)?.updating !== true,
-			)
-			.sort(this.order(used()));
+		const [next] = this.behind().filter(
+			(worker) =>
+				worker.connected &&
+				this.updatable(worker) &&
+				records.of(worker.id)?.updating !== true,
+		);
 		if (next === undefined) {
 			return;
 		}
@@ -183,11 +126,11 @@ export class WorkerRollout implements Resource {
 	}
 
 	/**
-	 * The worker a rollout is updating, if any: one asked to restart that
+	 * The worker a local update is updating, if any: one asked to restart that
 	 * has yet to come back holds up none, so one that never does leaves the
 	 * rest to carry on, drained meanwhile.
 	 */
-	private underWay(): RemoteWorker | undefined {
+	private underWay(): ConnectedWorker | undefined {
 		return this.pool().find(
 			(worker) =>
 				this.opts.records.of(worker.id)?.updating === true &&
@@ -199,7 +142,7 @@ export class WorkerRollout implements Resource {
 	 * Those in the pool on another build, but for any the person drains or
 	 * removes, or took back from this run.
 	 */
-	private behind(): RemoteWorker[] {
+	private behind(): ConnectedWorker[] {
 		const { records, build } = this.opts;
 		return this.pool().filter((worker) => {
 			const record = records.of(worker.id);
@@ -213,25 +156,15 @@ export class WorkerRollout implements Resource {
 		});
 	}
 
-	private pool(): RemoteWorker[] {
-		return this.opts.registry.workers.filter((worker) =>
-			this.opts.pooled(worker.id),
+	private pool(): ConnectedWorker[] {
+		return this.opts.registry.workers.filter(
+			(worker) => worker.id === "local" && this.opts.pooled(worker.id),
 		);
 	}
 
 	/** Whether `worker` can be brought to the build from here: asked to restart. */
-	private updatable(worker: RemoteWorker): boolean {
+	private updatable(worker: ConnectedWorker): boolean {
 		const negotiated = worker.session.negotiated;
 		return negotiated?.ok === true && negotiated.capabilities.includes(UPDATE);
-	}
-
-	/** Kind by kind, as `ORDER` says, and the one with fewest agents first within each. */
-	private order(
-		used: Map<string, string[]>,
-	): (one: RemoteWorker, other: RemoteWorker) => number {
-		const kind = (worker: RemoteWorker) => ORDER[worker.kind];
-		const agents = (worker: RemoteWorker) => (used.get(worker.id) ?? []).length;
-		return (one, other) =>
-			kind(one) - kind(other) || agents(one) - agents(other);
 	}
 }

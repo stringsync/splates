@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeClock, FakeTimer } from "webappwiz/time/testing";
-import { RemoteWorker } from "./remote";
-import { ANSWER_WITHIN, type RemoteProcess } from "./remote-process";
+import { ANSWER_WITHIN, type WorkerProcess } from "./process";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
+import { ConnectedWorker } from "./worker";
 
 describe("A process taken back that its rejoined worker never answers for", () => {
 	let timer: FakeTimer;
-	let after: RemoteProcess;
+	let after: WorkerProcess;
 
 	beforeEach(async () => {
 		timer = new FakeTimer();
@@ -33,7 +33,7 @@ describe("A process taken back that its rejoined worker never answers for", () =
 		const first = coordinator();
 		const pair = new WorkerSocketPair();
 		await link(first, pair);
-		const before = new RemoteWorker("local", {}, first).start(
+		const before = new ConnectedWorker("local", {}, first).start(
 			["claude"],
 			"/repo",
 		);
@@ -42,7 +42,7 @@ describe("A process taken back that its rejoined worker never answers for", () =
 		pair.drop();
 		await Bun.sleep(0);
 		const next = coordinator();
-		after = new RemoteWorker("local", {}, next).resume(before.handle, null);
+		after = new ConnectedWorker("local", {}, next).resume(before.handle, null);
 		await link(next, new WorkerSocketPair());
 		await Bun.sleep(0);
 	});

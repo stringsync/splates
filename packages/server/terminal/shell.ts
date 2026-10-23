@@ -40,7 +40,7 @@ export type TerminalShell = RemotePty;
 /** What a terminal needs of the worker it runs on. */
 export interface ShellHost {
 	pty(options: RemotePtyOptions): TerminalShell;
-	/** Takes back a shell the worker kept through a restart; see `RemoteWorker.resumePty`. */
+	/** Takes back a shell the worker kept through a restart; see `ConnectedWorker.resumePty`. */
 	resumePty(handle: ProcessHandle): TerminalShell;
 	processes(): Promise<ProcessEntry[]>;
 }

@@ -1,7 +1,6 @@
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
-import type { WorkerProvider } from "../workers";
 
 export interface Config {
 	/**
@@ -108,13 +107,6 @@ export interface Config {
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */
 	tunnel: TunnelProvider | null;
-	/**
-	 * What makes worker machines when agents queue for want of a slot, and
-	 * for `splates worker add --provider`: a provider of your own; null makes
-	 * none. Read, as `tunnel` is, from the
-	 * repo `splates server` is started in.
-	 */
-	workerProvider: WorkerProvider | null;
 	/**
 	 * The platform the project's agents must run on, for a project that
 	 * builds only there: its tasks wait for a worker on it rather than run

@@ -3,7 +3,6 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
-import { tokensOf } from "../workers/cloudflare-access";
 import type { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
 import {
@@ -17,7 +16,6 @@ import {
 	CloudflareTunnels,
 	Policy,
 	SLOTS_APP,
-	WORKER_PATHS,
 	workersPolicy,
 } from "./setup";
 
@@ -231,9 +229,7 @@ async function removeAccess(
 			log.info(`${color.green("deleted")} worker service token ${id}`);
 		}
 		if (tokensOf(workers.include).length > 0) {
-			log.info(
-				"workers joined through the tunnel have lost their access: add them again with `splates worker add` once `splates tunnel setup` is run",
-			);
+			log.info("removed service tokens left by older remote workers");
 		}
 		policies.set(workers.id, workers.name);
 	}
@@ -242,3 +238,15 @@ async function removeAccess(
 		log.info(`${color.green("deleted")} Access policy ${name}`);
 	}
 }
+
+/** Tokens left in a worker policy made by an older release, for tunnel cleanup. */
+function tokensOf(include: { service_token?: unknown }[]): string[] {
+	return include.flatMap((each) => {
+		const id = (each.service_token as { token_id?: unknown } | undefined)
+			?.token_id;
+		return typeof id === "string" ? [id] : [];
+	});
+}
+
+/** Access applications left by releases that supported remote workers. */
+const WORKER_PATHS = ["/api/workers/join", "/api/workers/socket"];

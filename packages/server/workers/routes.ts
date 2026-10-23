@@ -2,22 +2,17 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
-import type { WorkerAccess } from "./access";
 import { CoordinatorIdentity } from "./identity";
-import { WorkerInvites } from "./invites";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
+import { LocalWorkerUpdate } from "./local-update";
 import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
-import type { RemoteWorker } from "./remote";
-import { WorkerRollout } from "./rollout";
-import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
 import { UnixWorkerListener } from "./unix-listener";
-import { keyedWorker, WORKER_KEY_HEADER } from "./worker-key";
+import type { ConnectedWorker } from "./worker";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
@@ -25,29 +20,13 @@ export const LOCAL_WORKER = "local";
 /** What `PUT /api/queue/:id/position` is sent. */
 const QueueMove = z.object({ position: z.number().int() });
 
-/** What `POST /api/workers/join` is sent: a join token, and the id the worker goes by. */
-const Join = z.object({ token: z.string(), id: z.string().min(1) });
-
 /** What `PUT /api/workers/:id` is sent: what to set on a worker. */
 const Settings = z.object({
 	slots: z.number().int().min(1).nullable().optional(),
 	draining: z.boolean().optional(),
 });
 
-/**
- * Where a worker's WebSocket opens: its own path, for Cloudflare Access to
- * carry the workers' policy at, since `/api/workers` is also the page's list.
- * The tunnel's `WORKER_PATHS` names it.
- */
-export const WORKER_SOCKET_PATH = "/api/workers/socket";
-
-/**
- * Where `splates server` takes its workers in, as their coordinator: the local
- * worker through a Unix socket only this user may open, and others through
- * `/api/workers`, each showing the key it was answered when it joined with a
- * join token, and every agent another agent starts waits in `slots` for
- * room on one.
- */
+/** Accepts this machine's worker over its private Unix socket and manages its slots. */
 export class DevWorkers implements AsyncResource {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
@@ -59,12 +38,10 @@ export class DevWorkers implements AsyncResource {
 	 * This machine's worker, which the page's shells and task ports run on,
 	 * and agents too while it is on; work waits for it to join.
 	 */
-	readonly local: RemoteWorker;
-	/** What brings every worker to this server's build, one at a time. */
-	readonly rollout: WorkerRollout;
+	readonly local: ConnectedWorker;
+	/** What brings this machine's worker to the server's build. */
+	readonly updater: LocalWorkerUpdate;
 	private listener: UnixWorkerListener | null = null;
-	/** Join tokens, and the service tokens minted for them. */
-	private readonly invites: WorkerInvites;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
 	private ready = true;
 
@@ -75,18 +52,14 @@ export class DevWorkers implements AsyncResource {
 			protocol,
 			records = WorkerRecords.memory(),
 			identity,
-			access = null,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
 		this.identity = identity ?? CoordinatorIdentity.generate();
-		records.signedBy(this.identity.publicKey);
-		this.invites = new WorkerInvites(records, access, log);
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
 			identity: this.identity,
-			verify: (id, key) => records.verify(id, key),
 			session: {
 				...(session === undefined ? {} : { id: session }),
 				...(protocol === undefined ? {} : { resumedProtocol: protocol }),
@@ -94,19 +67,13 @@ export class DevWorkers implements AsyncResource {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
-		// Listed while away, so one can be drained or removed before it dials.
-		for (const record of records.all) {
-			if (record.key !== null) {
-				this.registry.expect(record.id);
-			}
-		}
 		this.slots = new WorkerSlots(this.registry, {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
-		this.rollout = new WorkerRollout({
+		this.updater = new LocalWorkerUpdate({
 			registry: this.registry,
 			records,
 			build: RUNNING,
@@ -115,7 +82,7 @@ export class DevWorkers implements AsyncResource {
 			poke: () => this.slots.scheduler.poke(),
 			log,
 		});
-		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
+		this.slots.scheduler.events.on("changed", () => void this.updater.look());
 	}
 
 	/** What runs on each worker: the tasks its agents run, a conversation's id for one in no task. */
@@ -123,9 +90,9 @@ export class DevWorkers implements AsyncResource {
 		return this.slots.used();
 	}
 
-	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
+	/** Whether this machine's worker takes agents. */
 	private pooled(id: string): boolean {
-		return id !== LOCAL_WORKER || this.records.localOn;
+		return id === LOCAL_WORKER && this.records.localOn;
 	}
 
 	/**
@@ -155,53 +122,18 @@ export class DevWorkers implements AsyncResource {
 	async listen(path: string, fs: Fs): Promise<void> {
 		try {
 			const listener = await UnixWorkerListener.listen(path, fs);
-			listener.events.on(
-				"socket",
-				(socket) => void this.registry.accept(socket, "local"),
-			);
+			listener.events.on("socket", (socket) => {
+				if (!this.ready) {
+					socket.dispose();
+					return;
+				}
+				void this.registry.accept(socket, "local", LOCAL_WORKER);
+			});
 			this.listener = listener;
 		} catch (error) {
 			this.log.error(`no local worker socket: ${String(error)}`);
 		}
 	}
-
-	// A worker runs whatever its server asks, so only one showing the key
-	// it joined with may connect, from wherever, and never a page: a browser
-	// always sends an Origin, a worker never does. One without the key in its
-	// upgrade is hung up on unless its hello shows it (`WorkerRegistry.accept`).
-	readonly open = (
-		request: Request,
-		server: Bun.Server<Connection>,
-	): Response | undefined => {
-		if (!this.ready) {
-			return refuse(
-				503,
-				"unavailable",
-				"splates server is still taking back what its last run left: dial again",
-			);
-		}
-		if (request.headers.get("origin") !== null) {
-			return refuse(403, "forbidden", "a page cannot connect a worker");
-		}
-		// A worker that keeps this server's public key sends no key here:
-		// whoever answers the dial would have it. It sends it in its hello,
-		// once it has had this server sign its nonce.
-		const id = request.headers.has(WORKER_KEY_HEADER)
-			? keyedWorker(request, this.records)
-			: null;
-		if (id === null && request.headers.has(WORKER_KEY_HEADER)) {
-			return refuse(
-				401,
-				"unauthorized",
-				"a worker connects with the key it joined with: join it with `splates worker add`, then `splates worker run --join <token>`",
-			);
-		}
-		return server.upgrade(request, {
-			data: new ServerWorkerSocket(this.registry, id),
-		})
-			? undefined
-			: refuse(400, "usage", "a worker connects with a WebSocket");
-	};
 
 	/**
 	 * `GET /api/workers`: each worker and each refusal, as `splates worker
@@ -216,52 +148,7 @@ export class DevWorkers implements AsyncResource {
 				(id) => this.pooled(id),
 			),
 			build: RUNNING,
-			rollout: this.rollout.standing(),
 		} satisfies WorkerPool);
-
-	/** `POST /api/workers/invite`, as `WorkerInvites.invite`. */
-	readonly invite = (): Promise<Response> => this.invites.invite();
-
-	/** `DELETE /api/workers/invite`, as `WorkerInvites.withdraw`. */
-	readonly withdraw = (request: Request): Promise<Response> =>
-		this.invites.withdraw(request);
-
-	/**
-	 * `POST /api/workers/join`: spends a join token, answering the key the
-	 * worker connects with from now on. Asks for nothing else, since the
-	 * token is the person's say-so.
-	 */
-	readonly join = async (request: Request): Promise<Response> => {
-		const body = Join.safeParse(await request.json().catch(() => null));
-		if (!body.success) {
-			return refuse(400, "usage", "send the join token and the worker's id");
-		}
-		const { token, id } = body.data;
-		if (id === LOCAL_WORKER) {
-			return refuse(
-				400,
-				"usage",
-				`${LOCAL_WORKER} is this machine's own worker: give another --id`,
-			);
-		}
-		const was = this.records.of(id)?.access ?? null;
-		const key = await this.records.join(token, id);
-		if (key === null) {
-			return refuse(
-				401,
-				"unauthorized",
-				"that join token is unknown, used, or more than 15 minutes old: make another with `splates worker add`",
-			);
-		}
-		// A worker joining again under its id hangs up its old connection.
-		this.registry.forget(id);
-		this.registry.expect(id, "registered");
-		this.log.info(`worker ${id} joined`);
-		if (was !== null && was !== this.records.of(id)?.access) {
-			await this.invites.revoke([was]);
-		}
-		return Response.json({ id, key });
-	};
 
 	/**
 	 * `PUT /api/workers/:id`: sets how many agents worker `id` runs at once
@@ -285,7 +172,7 @@ export class DevWorkers implements AsyncResource {
 				return refuse(
 					404,
 					"not_found",
-					`no worker ${id}: add it back with \`splates worker add --local <slots>\``,
+					`no worker ${id}: add it back with \`splates worker drain local --undo\``,
 				);
 			}
 			await this.records.turnLocal(true);
@@ -354,13 +241,6 @@ export class DevWorkers implements AsyncResource {
 			this.log.info(`worker ${id} removed: this machine only coordinates`);
 			return;
 		}
-		const was = await this.records.remove(id);
-		this.registry.forget(id);
-		this.slots.scheduler.release(id);
-		this.log.info(`worker ${id} removed`);
-		if (was?.access) {
-			await this.invites.revoke([was.access]);
-		}
 	}
 
 	/**
@@ -388,23 +268,7 @@ export class DevWorkers implements AsyncResource {
 		return this.queue();
 	};
 
-	/** A worker upgrades; anyone else is asking who has joined, and `guard` decides who may. */
-	readonly route = (
-		request: Request,
-		server: Bun.Server<Connection>,
-		guard: (
-			handle: (request: Request) => Promise<Response>,
-		) => (request: Request) => Promise<Response>,
-	): Response | undefined | Promise<Response> =>
-		request.headers.get("upgrade") === null
-			? guard(this.list)(request)
-			: this.open(request, server);
-
-	/**
-	 * `/api/workers/<what>`: joining with a token, which a worker does
-	 * before it has a key, or the person changing the pool, which `guard`
-	 * decides who may.
-	 */
+	/** Local worker settings, guarded like the page's other writes. */
 	readonly manage = (
 		request: Request,
 		guard: (
@@ -412,14 +276,10 @@ export class DevWorkers implements AsyncResource {
 		) => (request: Request) => Promise<Response>,
 	): Promise<Response> => {
 		const [, , , what] = new URL(request.url).pathname.split("/");
-		if (what === "join" && request.method === "POST") {
-			return this.join(request);
-		}
-		if (what === "invite" && request.method === "POST") {
-			return guard(this.invite)(request);
-		}
-		if (what === "invite" && request.method === "DELETE") {
-			return guard(this.withdraw)(request);
+		if (what !== LOCAL_WORKER) {
+			return Promise.resolve(
+				refuse(404, "not_found", "only this machine's worker is available"),
+			);
 		}
 		if (request.method === "PUT") {
 			return guard(this.update)(request);
@@ -431,7 +291,7 @@ export class DevWorkers implements AsyncResource {
 	};
 
 	async disposeAsync(): Promise<void> {
-		this.rollout.dispose();
+		this.updater.dispose();
 		this.slots.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
@@ -443,7 +303,7 @@ function workerId(request: Request): string {
 	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
 }
 
-/** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */
+/** Keep the local worker’s session and settings across server restarts. */
 export interface DevWorkersOptions {
 	/**
 	 * The session id every worker hears in its welcome: the same across
@@ -453,14 +313,8 @@ export interface DevWorkersOptions {
 	session?: string;
 	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
 	protocol?: string;
-	/** The workers that joined and what was set on each; kept in memory alone by default. */
+	/** The local worker’s settings; kept in memory alone by default. */
 	records?: WorkerRecords;
 	/** What signs a worker's challenge, so it knows this server from one answering for its host; new, and kept nowhere, by default. */
 	identity?: CoordinatorIdentity;
-	/**
-	 * Where each invited worker gets a service token to pass the Cloudflare
-	 * Access in front of the server with; null, the default, where none
-	 * stands in front.
-	 */
-	access?: WorkerAccess | null;
 }
