@@ -186,4 +186,77 @@ describe("App's merge events", () => {
 		);
 		expect(within(dialog).queryByRole("region")).toBeNull();
 	});
+
+	it.each([true, false])(
+		"shows landed commit identities below failed tests (filtered: %s)",
+		async (filtered) => {
+			const dialog = await why({
+				id: "landed",
+				action: "merge",
+				at: second(3.5),
+				task: "alpha",
+				conversation: "c1",
+				base: "main",
+				reason: "tests_failed",
+				failedTests: [{ name: "a > b", message: "Expected: 1" }],
+				landed: {
+					from: "11111111",
+					to: "22222222",
+					total: 3,
+					filtered,
+					commits: [
+						{ commit: "abc1234", task: "fix-header", subject: "Fix header" },
+						{ commit: "def5678", task: null, subject: "Update docs" },
+					],
+				},
+			});
+			const landed = within(dialog).getByRole("region", {
+				name: "Landed since your last base",
+			});
+			expect(landed.textContent).toContain("3 commits landed on main");
+			expect(
+				within(landed)
+					.getAllByRole("listitem")
+					.map((li) => li.textContent),
+			).toEqual(["abc1234 fix-header Fix header", "def5678 - Update docs"]);
+			expect(landed.textContent).toContain(
+				filtered
+					? "Commits touching the failing test files"
+					: "None touched the failing test files",
+			);
+			const sections = within(dialog).getAllByRole("region");
+			expect(sections.indexOf(landed)).toBe(
+				sections.findIndex(
+					(section) =>
+						section.getAttribute("aria-label") === "Failed tests (1)",
+				) + 1,
+			);
+		},
+	);
+
+	it("shows only the count when the unfiltered landed range has no commit list", async () => {
+		const dialog = await why({
+			id: "landed",
+			action: "merge",
+			at: second(3.5),
+			task: "alpha",
+			conversation: "c1",
+			base: "main",
+			reason: "tests_failed",
+			landed: {
+				from: "11111111",
+				to: "22222222",
+				total: 42,
+				filtered: false,
+				commits: [],
+			},
+		});
+		const landed = within(dialog).getByRole("region", {
+			name: "Landed since your last base",
+		});
+		expect(landed.textContent).toBe(
+			"Landed since your last base42 commits landed on main since your last base.",
+		);
+		expect(within(landed).queryByRole("list")).toBeNull();
+	});
 });

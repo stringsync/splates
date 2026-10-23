@@ -49,6 +49,7 @@ export function MergeFailedLine({
 function Why({ event }: { event: MergeEvent }): JSX.Element {
 	const files = event.files ?? [];
 	const tests = event.failedTests ?? [];
+	const landed = event.landed;
 	const blamed = event.failureAttribution;
 	const output = event.output ?? "";
 	return (
@@ -74,6 +75,31 @@ function Why({ event }: { event: MergeEvent }): JSX.Element {
 							</li>
 						))}
 					</ul>
+				</Part>
+			)}
+			{landed !== undefined && (
+				<Part title="Landed since your last base">
+					<p>
+						{landed.total} {landed.total === 1 ? "commit" : "commits"} landed on{" "}
+						{event.base ?? "the base"} since your last base.
+					</p>
+					{landed.commits.length > 0 && (
+						<>
+							<p className="text-muted-foreground">
+								{landed.filtered
+									? "Commits touching the failing test files, what they import, or files you changed:"
+									: "None touched the failing test files, what they import, or files you changed; all landed commits:"}
+							</p>
+							<ul className="flex flex-col gap-1">
+								{landed.commits.map((commit) => (
+									<li key={commit.commit} className="break-words">
+										<code>{commit.commit}</code> {commit.task ?? "-"}{" "}
+										{commit.subject}
+									</li>
+								))}
+							</ul>
+						</>
+					)}
 				</Part>
 			)}
 			{blamed !== undefined && (
