@@ -298,32 +298,21 @@ describe("summarize", () => {
 		expect(stats.projects[0]).toMatchObject({ workerCost: 0.75 });
 	});
 
-	it("counts every call the person made, older outcomes too, in the bar its task ended in", () => {
+	it("sums how long landing merges queued and ran, over the merges that were timed", () => {
 		const stats = summarize(
 			[
-				ended({
-					decisions: [
-						{ number: "1", text: "A?", size: "large", ended: "overturned" },
-						// Kept when agents also made calls without asking, which count for none.
-						{
-							number: "2",
-							text: "B?",
-							size: null,
-							ended: "kept",
-							...({ how: "assumed" } as object),
-						},
-						{ number: "3", text: "C?", size: null, ended: "kept" },
-						{ number: "4", text: "D?", size: null, ended: null },
-					],
-				}),
-				// Written before decisions were kept: every question put to them.
-				ended({ questionsAsked: 4, picksAsked: 2, picksAmended: 1 }),
+				ended({ merge: { queuedMs: 60_000, ranMs: 120_000 } }),
+				ended({ merge: { queuedMs: 0, ranMs: 90_000 } }),
+				// Older, or removed: neither has a landing merge to time.
+				ended({}),
+				ended({ ended: "removed" }),
 			],
 			{ now },
 		);
-		expect(stats.buckets.filter((each) => each.decidedByYou > 0)).toHaveLength(
-			1,
-		);
-		expect(combine(stats.buckets)).toMatchObject({ decidedByYou: 7 });
+		expect(combine(stats.buckets)).toMatchObject({
+			mergeTimed: 2,
+			mergeQueuedMs: 60_000,
+			mergeRanMs: 210_000,
+		});
 	});
 });

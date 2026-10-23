@@ -29,11 +29,13 @@ describe("StatsPage", () => {
 				{
 					start: "2026-10-14T00:00:00.000Z",
 					...busy,
-					decidedByYou: 3,
 					costed: 2,
 					cost: 3,
+					mergeTimed: 2,
+					mergeQueuedMs: 60_000,
+					mergeRanMs: 300_000,
 				},
-				{ start: "2026-10-14T06:00:00.000Z", ...busy, decidedByYou: 1 },
+				{ start: "2026-10-14T06:00:00.000Z", ...busy },
 				{ start: "2026-10-14T12:00:00.000Z", ...busy, questionRounds: 3 },
 			],
 			previous: { ...tally, merged: 10, questionRounds: 30 },
@@ -65,9 +67,14 @@ describe("StatsPage", () => {
 		const cost = page.getByRole("region", { name: "Cost per task" });
 		expect(cost.textContent).toContain("$1.50");
 		expect(cost.textContent).toContain("Over 2 tasks in the last 7 days");
-		// The person's calls show without unfolding anything.
-		const decisions = page.getByRole("region", { name: "Decisions" });
-		expect(decisions.textContent).toContain("4 in the last 7 days");
+		// How fast tasks close and merges take show without unfolding anything.
+		const closing = page.getByRole("region", { name: "Closing" });
+		expect(closing.textContent).toContain("18 in the last 7 days");
+		const merges = page.getByRole("region", { name: "Merges" });
+		expect(merges.textContent).toContain("30s");
+		expect(merges.textContent).toContain("2m 30s");
+		expect(merges.textContent).toContain("Over 2 merges in the last 7 days");
+		expect(page.queryByRole("region", { name: "Decisions" })).toBeNull();
 		expect(page.queryByRole("toolbar", { name: "Sizes" })).toBeNull();
 
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));

@@ -1,4 +1,3 @@
-import { madeByYou } from "../plans";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
@@ -58,14 +57,18 @@ export interface Tally {
 	picksOverturned: number;
 	/** Of `picksAsked`, those answered with the agent's choice and words added. */
 	picksAmended: number;
-	/** Calls the person made: questions put to them. */
-	decidedByYou: number;
 	/** Tasks whose time waiting on a person was kept; older ones were not. */
 	timed: number;
 	/** Of the `timed` tasks, how long they waited on a person, in milliseconds. */
 	waitedMs: number;
 	/** Of the `timed` tasks, how long they took from add to end, in milliseconds. */
 	spentMs: number;
+	/** Merged tasks whose landing merge was timed; older ones were not. */
+	mergeTimed: number;
+	/** Of the `mergeTimed` tasks, how long their merges waited for the premerge lock. */
+	mergeQueuedMs: number;
+	/** Of the `mergeTimed` tasks, how long their merges ran once it was theirs. */
+	mergeRanMs: number;
 	/** Tasks whose own usage was kept; older ones and external agents' were not. */
 	used: number;
 	/** Of the `used` tasks, tokens read, those from cache among them, and written. */
@@ -232,6 +235,7 @@ export function summarize(
 function tally(outcomes: Outcome[]): Tally {
 	const merged = outcomes.filter((each) => each.ended === "merged");
 	const timed = outcomes.filter((each) => each.waitedMs !== undefined);
+	const mergeTimed = merged.filter((each) => each.merge !== undefined);
 	const used = outcomes.filter((each) => each.usage !== undefined);
 	const costed = used.filter((each) => each.usage?.cost != null);
 	const sized = outcomes.filter((each) => each.size !== undefined);
@@ -260,13 +264,15 @@ function tally(outcomes: Outcome[]): Tally {
 		picksAsked: sum(outcomes, (each) => each.picksAsked ?? 0),
 		picksOverturned: sum(outcomes, (each) => each.picksOverturned ?? 0),
 		picksAmended: sum(outcomes, (each) => each.picksAmended ?? 0),
-		decidedByYou: sum(outcomes, madeByYou),
 		timed: timed.length,
 		waitedMs: sum(timed, (each) => each.waitedMs ?? 0),
 		spentMs: sum(
 			timed,
 			(each) => Date.parse(each.endedAt) - Date.parse(each.startedAt),
 		),
+		mergeTimed: mergeTimed.length,
+		mergeQueuedMs: sum(mergeTimed, (each) => each.merge?.queuedMs ?? 0),
+		mergeRanMs: sum(mergeTimed, (each) => each.merge?.ranMs ?? 0),
 		used: used.length,
 		inputTokens: sum(used, (each) => each.usage?.input ?? 0),
 		outputTokens: sum(used, (each) => each.usage?.output ?? 0),
@@ -319,10 +325,12 @@ const SUMMED = [
 	"picksAsked",
 	"picksOverturned",
 	"picksAmended",
-	"decidedByYou",
 	"timed",
 	"waitedMs",
 	"spentMs",
+	"mergeTimed",
+	"mergeQueuedMs",
+	"mergeRanMs",
 	"used",
 	"inputTokens",
 	"outputTokens",

@@ -182,7 +182,7 @@
 @source "./sidebar.tsx";
 @source "./slot-queue.tsx";
 @source "./stamp.tsx";
-@source "./stats-decisions.tsx";
+@source "./stats-flow.tsx";
 @source "./stats-cost.tsx";
 @source "./stats-notes.tsx";
 @source "./stats-project-filter.tsx";

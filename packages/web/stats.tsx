@@ -18,7 +18,7 @@ import { ReadFailed, ReadingNow } from "./countdown";
 import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
-import { Decisions } from "./stats-decisions";
+import { Closing, Merges } from "./stats-flow";
 import { NoteSection } from "./stats-notes";
 import { projectFilter } from "./stats-project-filter";
 import {
@@ -48,7 +48,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		lead,
 		rest,
 		cost,
-		decisions,
+		flow,
 		models,
 		devices,
 		projects,
@@ -66,7 +66,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			lead: report.lead,
 			rest: report.rest,
 			cost: report.cost,
-			decisions: report.decisions,
+			flow: report.flow,
 			models: report.models,
 			devices: report.devices,
 			projects: report.projects,
@@ -138,13 +138,20 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							))
 						)}
 					</section>
-					{/* Whether agents are taking calls off the person. */}
-					{decisions !== null && (
-						<Decisions
-							rates={decisions}
-							period={period}
-							weekly={period.id === "all"}
-						/>
+					{/* How fast work goes through, and where merges spend their time. */}
+					{flow !== null && (
+						<>
+							<Closing
+								rates={flow}
+								period={period}
+								weekly={period.id === "all"}
+							/>
+							<Merges
+								rates={flow}
+								period={period}
+								weekly={period.id === "all"}
+							/>
+						</>
 					)}
 					{/* Whether pointers to notes help, against the holdout. */}
 					{notes !== null && <NoteSection notes={notes} />}

@@ -467,6 +467,23 @@ describe.concurrent("merge", () => {
 	});
 
 	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.
+	it("keeps on the outcome how long the landing merge queued for the premerge lock and ran", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, worktree, facts);
+
+		const outcome = (await deps.outcomes.list()).find(
+			(each) => each.task === "alpha",
+		);
+		expect(outcome?.merge?.queuedMs).toBe(facts.capacityWaitMs ?? -1);
+		expect(outcome?.merge?.ranMs).toBeGreaterThanOrEqual(facts.gateMs ?? -1);
+	});
+
 	it("keeps the slow tests of the JUnit report the gate wrote at $SPLATES_TEST_REPORT", async () => {
 		await using deps = await Testing.open();
 		const report = join(deps.splatesHome, "report.xml");

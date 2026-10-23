@@ -27,6 +27,7 @@ export type {
 	FailedTest,
 	GateFailure,
 	MergeFailure,
+	MergeTimes,
 	RemoveReason,
 	TaskState,
 	Worktree,

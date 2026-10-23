@@ -8,7 +8,7 @@ import {
 } from "@stringsync/splates-server/stats/browser";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type CostRates, costRates } from "./cost-rates";
-import { type DecisionRates, decisionRates } from "./decision-rates";
+import { type FlowRates, flowRates } from "./flow-rates";
 import {
 	type Advice,
 	type AdviceId,
@@ -214,11 +214,11 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		return this.stats === null ? null : costRates(this.stats, this.buckets);
 	}
 
-	/** How many calls the person made against how many agents took off them; null until loaded. */
-	get decisions(): DecisionRates | null {
+	/** How fast tasks close and merges land; null until loaded. */
+	get flow(): FlowRates | null {
 		return this.stats === null
 			? null
-			: decisionRates(this.stats, this.period, this.buckets);
+			: flowRates(this.stats, this.period, this.buckets);
 	}
 
 	get models(): Row[] {

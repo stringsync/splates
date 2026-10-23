@@ -2,7 +2,12 @@ import type { Device, Entry } from "../conversations";
 import type { Decision } from "../plans";
 import { Prices } from "../prices";
 import type { Log, Storage } from "../storage";
-import type { DiffSize, MergeFailure, RemoveReason } from "../tasks";
+import type {
+	DiffSize,
+	MergeFailure,
+	MergeTimes,
+	RemoveReason,
+} from "../tasks";
 import type { Finding } from "./findings";
 import { type TaskUsage, taskLog } from "./task-log";
 
@@ -292,6 +297,8 @@ export interface Outcome {
 	workerSpend?: WorkerSpend;
 	/** What it landed, or for a removed task, what its branch held. Absent from older lines. */
 	size?: DiffSize;
+	/** For a merge, how long the merge that landed it queued and ran. Absent from older lines. */
+	merge?: MergeTimes;
 	/** What went worse than it could have. Absent from older lines, never read as none. */
 	findings?: Finding[];
 	/** The `splates server` conversation that ended it; null for an external agent. */

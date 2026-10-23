@@ -461,6 +461,7 @@ export async function merge(
 				commits,
 				size,
 				testTimes,
+				merge: timing.times,
 			});
 			if (discarded.code !== 0) {
 				fail(

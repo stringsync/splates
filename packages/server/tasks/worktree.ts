@@ -309,6 +309,17 @@ export interface DiscardOptions {
 	size?: DiffSize;
 	/** Each test the merge's passing gate run timed, from its JUnit report. */
 	testTimes?: TimedTest[];
+	/** How long the merge that lands it queued and ran, up to landing. */
+	merge?: MergeTimes;
+}
+
+/**
+ * How long a landing merge took: waiting its turn for the machine's premerge
+ * lock, then the rest of it, the gate, its retests and landing.
+ */
+export interface MergeTimes {
+	queuedMs: number;
+	ranMs: number;
 }
 
 /** How big a change is, as its diff counts it. */
