@@ -3,6 +3,22 @@
 A record of a design that was built and then mostly taken back: what it was,
 what stays of it, and what replaced the rest.
 
+## Built and superseded (2026-10-23)
+
+The later decision went further than the original plan below. Runners are
+removed entirely, including from `splates dev`: no job pool, direct runner,
+Fly integration, cloud config, runner image, compiled Linux binary or
+runner proof remains. Billing has no Fly source and ignores historical
+runner and job spend rows. Old credentials and cloud state on disk are
+left untouched.
+
+Remote workers, joining, provisioning, budgets, snapshots, recipes and the
+Linux sandbox are also removed. Only this machine's `local` worker and its
+replayed Unix-socket protocol remain. The merge gate runs on the host, one
+premerge at a time. Agents keep checks scoped and ask for other heavy work
+with the run-command permission card (the lane "Ask before heavy commands").
+The following sections record the earlier decisions, not current behavior.
+
 ## What it was
 
 From 2026-10 `splates server` was split into a **coordinator** (the page, the

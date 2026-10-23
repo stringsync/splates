@@ -36,8 +36,7 @@ hour) and tells the agent to run it; `splates dev approve-suite
 <conversation>` writes the same grant from a terminal. The run takes the
 grant (`refuseWholeSuite` in `packages/splates/dev/test.ts`), so each
 approval is one run. The person's own runs, from no conversation, are
-never asked. The grant is on the server's machine: an agent on a remote
-worker reads its own machine's, which the page's button never writes.
+never asked. The grant is on this machine, where every agent runs.
 
 An unfiltered `splates dev test` runs `bun test --parallel=<half the cores> --timeout
 30000` (all but two cores in a merge's gate): a worker per core
@@ -64,7 +63,5 @@ tests a third of their CPU. Measured 2026-10-22 on a 4-CPU Linux container:
 118s → 67s wall, 252s → 140s CPU.
 
 `splates dev test` always runs here, never on a runner (2026-10-23); this
-repo's `splates.config.ts` names no cloud. `--linux` went away: every runner is Linux. Before it, on 2026-10-21, the suite's first
-Linux run passed every test (3443, 554 files, 34s) on aarch64; as `linux/amd64`
-under Rosetta three tests failed, the ones that expect "cannot start <argv>"
-on a missing executable, which the emulation exits 127 without raising.
+repo's `splates.config.ts` names no cloud. The `--linux` selector went with
+remote runners; no Linux image or runner proof remains.

@@ -5,7 +5,7 @@ description: Where agents run, the splates server or this machine's own worker, 
 The coordinator, the `splates server` process, holds the records and the
 page, and agents never run inside it. Every agent runs on this machine's
 own worker, which dials the server over a replayed channel protocol.
-Other workers run no agents.
+Only this machine's `local` worker is accepted.
 
 ## How it works
 
@@ -31,10 +31,12 @@ A worker that loses its coordinator for ten minutes ends what it held.
 The hello carries `protocol: major.minor` and capabilities. A different
 minor negotiates; a different major is drained.
 
-## Other workers
+## Only this machine
 
-Other machines still join with a single-use token and then show a key.
-None runs an agent, a checkout or a terminal.
+Since 2026-10-23 only `local`, connecting over this machine's Unix socket,
+is accepted. Remote joining, tokens, keys, provisioning, budgets, snapshots
+and the Linux sandbox are gone. Processes run as the person in their own
+worktrees. There are no job runners.
 
 ## History
 

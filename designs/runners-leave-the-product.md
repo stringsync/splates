@@ -6,6 +6,22 @@ the job pool, the keeper, budgets, the release binary and bootstrap). It
 records what was settled and what is open; the lane that carries it out is
 named at the end, and this file gains dated "built" paragraphs as it lands.
 
+## Built and superseded (2026-10-23)
+
+The later decision went further than the original plan below. Runners are
+removed entirely, including from `splates dev`: no job pool, direct runner,
+Fly integration, cloud config, runner image, compiled Linux binary or
+runner proof remains. Billing has no Fly source and ignores historical
+runner and job spend rows. Old credentials and cloud state on disk are
+left untouched.
+
+Remote workers, joining, provisioning, budgets, snapshots, recipes and the
+Linux sandbox are also removed. Only this machine's `local` worker and its
+replayed Unix-socket protocol remain. The merge gate runs on the host, one
+premerge at a time. Agents keep checks scoped and ask for other heavy work
+with the run-command permission card (the lane "Ask before heavy commands").
+The following sections record the earlier decisions, not current behavior.
+
 ## The decision (settled)
 
 **Runners and cloud provisioning leave the product.** What splates promises
