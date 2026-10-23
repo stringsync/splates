@@ -8,8 +8,8 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { EventLine } from "./event-lines";
 import { type CountKind, countsOf } from "./quiet-counts";
+import { QuietEventDetail } from "./quiet-event-detail";
 import { Stamp } from "./stamp";
 import { LaneIcon } from "./task-icon";
 
@@ -26,8 +26,7 @@ const ICONS: Partial<Record<CountKind, typeof FilesIcon>> = {
 /**
  * The quiet events of a work row as muted plain counts, `3 tasks added ·
  * Uploads lane · 2 moved`, that open a dialog of them in full. Notes read and
- * Auto pick have no count, so a row with only those says how many events
- * instead, to leave a way in.
+ * Auto pick have no count; Details leaves a way into rows with only those.
  */
 export function QuietCounts({
 	events,
@@ -41,7 +40,7 @@ export function QuietCounts({
 		return null;
 	}
 	const { counts, refused } = countsOf(events);
-	const shown = counts.slice(0, SHOWN);
+	const shown = counts.slice(0, SHOWN - (refused > 0 ? 1 : 0));
 	const more = counts.length - shown.length;
 	const parts: { key: string; node: ReactNode }[] = shown.map(
 		({ kind, label }) => {
@@ -74,7 +73,7 @@ export function QuietCounts({
 	if (parts.length === 0) {
 		parts.push({
 			key: "events",
-			node: `${events.length} ${events.length === 1 ? "event" : "events"}`,
+			node: "Details",
 		});
 	}
 	return (
@@ -113,17 +112,15 @@ export function QuietCounts({
 	);
 }
 
-/** The groups the dialog sorts events into, and whether each folds into one line. */
+/** The groups the dialog sorts individual events into. */
 const GROUPS: {
 	title: string;
 	has: (event: Event) => boolean;
-	run?: true;
 }[] = [
 	{ title: "Tasks added", has: (event) => event.action === "task add" },
 	{
 		title: "Tasks updated",
 		has: (event) => event.action === "task update",
-		run: true,
 	},
 	{
 		title: "Tasks taken and removed",
@@ -153,37 +150,29 @@ const GROUPS: {
 	{
 		title: "Notes read",
 		has: (event) => event.action === "note read",
-		run: true,
 	},
 	{ title: "Auto pick", has: (event) => event.action === "auto" },
 	{ title: "Handed to another agent", has: (event) => event.action === "add" },
 ];
 
-/**
- * The events by group, each group's lines as the thread draws them: an added
- * task keeps its Remove and Undo, and an Auto pick its Undo, since they live
- * in those lines. Refused ones come last, with why.
- */
+/** Each successful event stays separate; refused commands follow with their reasons. */
 function Groups({ events }: { events: readonly Event[] }): JSX.Element {
 	const done = events.filter((event) => event.reason === null);
 	const refused = events.filter((event) => event.reason !== null);
 	return (
 		<div className="flex flex-col gap-4">
-			{GROUPS.map(({ title, has, run }) => {
+			{GROUPS.map(({ title, has }) => {
 				const each = done.filter(has);
-				const [first, ...rest] = each;
+				const [first] = each;
 				return first === undefined ? null : (
 					<section key={title} aria-label={title} className="flex flex-col">
 						<h3 className="font-medium text-muted-foreground text-xs">
 							{title}
 						</h3>
-						{/* The lines are the thread's, hairlines and all; here they sit close. */}
-						<div className="[&_[role=note]]:my-2">
-							{run ? (
-								<EventLine event={first} also={rest} />
-							) : (
-								each.map((event) => <EventLine key={event.id} event={event} />)
-							)}
+						<div className="flex min-w-0 flex-col gap-3">
+							{each.map((event) => (
+								<QuietEventDetail key={event.id} event={event} />
+							))}
 						</div>
 					</section>
 				);
@@ -193,7 +182,10 @@ function Groups({ events }: { events: readonly Event[] }): JSX.Element {
 					<h3 className="font-medium text-muted-foreground text-xs">Refused</h3>
 					<ul className="flex flex-col gap-1 text-xs">
 						{refused.map((event) => (
-							<li key={event.id} className="flex items-baseline gap-2">
+							<li
+								key={event.id}
+								className="flex min-w-0 flex-wrap items-baseline gap-2 wrap-anywhere"
+							>
 								<XIcon
 									aria-hidden
 									className="size-3 shrink-0 translate-y-0.5 text-destructive"

@@ -19,7 +19,13 @@ type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
  * none, which open a popover of everything it found, and for a move up, an
  * Undo. On a phone those findings fold into an icon, so the pick has the room.
  */
-export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
+export function AutoPickLine({
+	event,
+	details = false,
+}: {
+	event: AutoEvent;
+	details?: boolean;
+}): JSX.Element {
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
 	const verb =
@@ -35,6 +41,24 @@ export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 			.join(" · ") ||
 		(params.notes[0] ?? "no judge to ask");
 	const undo = useUndo(event, lifted);
+	if (details) {
+		return (
+			<div
+				role="note"
+				aria-label="splates"
+				className="flex min-w-0 flex-col gap-2 text-xs wrap-anywhere"
+			>
+				<div className="flex flex-wrap items-center gap-2">
+					<span>
+						{verb} {params.picked}
+					</span>
+					{undo.control}
+				</div>
+				<Findings params={params} lifted={lifted} />
+				<Refusal refusal={undo.refusal} />
+			</div>
+		);
+	}
 	return (
 		<div
 			role="note"

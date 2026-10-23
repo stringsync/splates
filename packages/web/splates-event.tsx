@@ -280,7 +280,7 @@ const GIVES_WAY_FIRST = "min-w-12 shrink-[4]";
  * "Lane 27" before it as elsewhere, so its line stays short and quiet. The
  * tooltip says what it is.
  */
-function NamedChip({
+export function NamedChip({
 	named,
 	whole = false,
 }: {

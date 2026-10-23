@@ -19,6 +19,9 @@ export function tierOf(event: Event): Tier | null {
 	if (action === "creds request") {
 		return event.reason !== null ? "quiet" : event.asked ? "loud" : null;
 	}
+	if (action === "add" && event.reason === null && event.agent !== null) {
+		return "quiet";
+	}
 	if (ALWAYS_LOUD.has(action)) {
 		return "loud";
 	}

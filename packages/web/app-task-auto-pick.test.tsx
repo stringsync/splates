@@ -145,17 +145,15 @@ describe("App's Auto pick", () => {
 		return await quietLine(view);
 	};
 
-	it("logs the pick in the conversation, led by its mark, with what the judge found in a popover", async () => {
+	it("logs the pick in the conversation, led by its mark, with the judge findings visible", async () => {
 		const line = await lineFor(
 			["Bugfix 90%", "Shallow 80%"],
 			"judged: Bugfix 90%, Shallow 80%",
 		);
-		expect(line.textContent).toBe(
-			"Auto picked Haiku, low effort·Bugfix · Shallow",
-		);
-		expect(line.querySelector("svg")).not.toBeNull();
+		expect(line.textContent).toContain("Auto picked Haiku, low effort");
+		expect(line.textContent).toContain("KindBugfix90%");
 
-		const found = await findings(line, "Bugfix · Shallow");
+		const found = line;
 		expect(found.textContent).toContain("KindBugfix90%");
 		expect(found.textContent).toContain("DepthShallow80%");
 		expect(found.textContent).toContain("Rule 2: Bugfix, Shallow");
@@ -176,10 +174,8 @@ describe("App's Auto pick", () => {
 			},
 		]);
 		const line = await quietLine(view);
-		expect(line.textContent).toBe("Auto moved up to Big·Open · DeepUndo");
-		expect((await findings(line, "Open · Deep")).textContent).toContain(
-			"From Haiku, low effort",
-		);
+		expect(line.textContent).toContain("Auto moved up to BigUndo");
+		expect(line.textContent).toContain("From Haiku, low effort");
 
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "Undo" })),
@@ -193,9 +189,7 @@ describe("App's Auto pick", () => {
 
 	it("says why the judge found nothing when it did not answer", async () => {
 		const line = await lineFor(null, "the judge took over 5s");
-		expect(line.textContent).toBe(
-			"Auto picked Haiku, low effort·the judge took over 5s",
-		);
+		expect(line.textContent).toContain("The judge took over 5s");
 	});
 });
 
@@ -209,19 +203,6 @@ async function quietLine(view: {
 	return await waitFor(() =>
 		within(document.body).getByRole("note", { name: "splates" }),
 	);
-}
-
-/** The popover of what the judge found, opened from `line` by its `trigger`. */
-async function findings(line: HTMLElement, trigger: string) {
-	await act(async () =>
-		fireEvent.click(within(line).getByRole("button", { name: trigger })),
-	);
-	return await waitFor(() => {
-		// The popover opens over the quiet events' dialog, so it is the last.
-		const found = within(document.body).getAllByRole("dialog").at(-1);
-		expect(found).toBeDefined();
-		return found as HTMLElement;
-	});
 }
 
 /** Auto pick's decision for the conversation, the judge having found `signs`. */

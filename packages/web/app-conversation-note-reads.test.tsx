@@ -20,7 +20,7 @@ describe("App's note reads", () => {
 		testing.dispose();
 	});
 
-	it("draws a turn's note reads in the dialog as one line that lists each note once", async () => {
+	it("draws a turn's note reads in the dialog as separate entries with their own times", async () => {
 		testing = new Testing();
 		const read = (
 			id: string,
@@ -64,25 +64,20 @@ describe("App's note reads", () => {
 		const counts = await waitFor(() =>
 			within(thread).getByRole("button", { name: "quiet events" }),
 		);
-		// Notes read have no count of their own, so the row says how many events.
-		expect(counts.textContent).toBe("3 events");
+		// Notes read leave a way in without adding a count.
+		expect(counts.textContent).toBe("Details");
 		await act(async () => fireEvent.click(counts));
-		const line = await waitFor(() => {
-			const found = within(document.body).getAllByRole("note", {
-				name: "splates",
-			});
-			expect(found).toHaveLength(1);
-			return found[0] as HTMLElement;
-		});
-		expect(line.textContent).toBe("Read2 notes");
-		await act(async () => fireEvent.click(within(line).getByRole("button")));
-		const list = await waitFor(() =>
-			view.getByRole("list", { name: "Read this turn" }),
+		const dialog = await waitFor(() =>
+			within(document.body).getByRole("dialog"),
 		);
+		const lines = within(dialog).getAllByRole("note", { name: "splates" });
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Read notes/retries.md",
+			"Read notes/retries.md by a subagent",
+			"Read notes/queue.md by a subagent",
+		]);
 		expect(
-			within(list)
-				.getAllByRole("button")
-				.map((row) => row.textContent),
-		).toEqual(["retries.md", "queue.mdby a subagent"]);
+			[...dialog.querySelectorAll("time")].map((time) => time.dateTime),
+		).toEqual([second(2.5), second(4), second(4.5)]);
 	});
 });

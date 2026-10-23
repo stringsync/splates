@@ -1,6 +1,6 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { type JSX, useContext, useState } from "react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
 import { Board } from "./board";
 import { todoRemoved, todoRestored } from "./board-expectations";
@@ -17,9 +17,11 @@ import { type Act, SplatesEvent, type SplatesEventView } from "./splates-event";
 export function AddedLine({
 	view,
 	id,
+	render = (event) => <SplatesEvent event={event} />,
 }: {
 	view: SplatesEventView;
 	id: number;
+	render?: (event: SplatesEventView) => ReactNode;
 }): JSX.Element {
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -58,15 +60,13 @@ export function AddedLine({
 				: null;
 	return (
 		<div>
-			<SplatesEvent
-				event={{
-					...view,
-					...(removed !== null && {
-						words: ["Removed", ...view.words.slice(1)],
-					}),
-					act,
-				}}
-			/>
+			{render({
+				...view,
+				...(removed !== null && {
+					words: ["Removed", ...view.words.slice(1)],
+				}),
+				act,
+			})}
 			<Refusal refusal={refusal} className="-mt-4 mb-6 text-center" />
 		</div>
 	);

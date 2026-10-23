@@ -253,17 +253,19 @@ describe("App's work row", () => {
 		});
 		const notes = await waitFor(() => {
 			const found = within(thread).getAllByRole("note", { name: "splates" });
-			expect(found).toHaveLength(2);
+			expect(found).toHaveLength(1);
 			return found;
 		});
 		expect(notes.map((note) => note.textContent)).toEqual([
 			"Claimedupload-limit",
-			"Addedsibling",
 		]);
+		expect(
+			within(thread).getByRole("button", { name: "quiet events" }).textContent,
+		).toBe("Details");
 		const viewport = thread.querySelector(
 			'[data-slot="aui_thread-viewport"]',
 		) as HTMLElement;
-		// happy-dom lays nothing out, so the heights stand in for both lines scrolled up out of sight.
+		// happy-dom lays nothing out, so the height stands in for the claimed task scrolled out of sight.
 		const lines = notes.map((note) =>
 			Object.defineProperty(note.parentElement as HTMLElement, "offsetHeight", {
 				value: 40,

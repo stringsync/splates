@@ -6,16 +6,18 @@ description: Which splates events draw a line in a conversation (loud) and which
 
 - **Loud** keeps a hairline line (`EventUI`, `event-lines.tsx`) placed among
   the work, cutting its row. These change what the conversation is about or
-  need the person: add (done), claim, merge and its steps, remove, handoff,
+  need the person: add (kept by this conversation), claim, merge and its steps, remove, handoff,
   retry, escalate, waits, cred requests, and the failure of the ones that
   change what happens next.
 - **Quiet** has no line. `stretchesOf` (`work.ts`) never makes it a `Stretch`;
   `joined` puts it on `Work.events` of the row it fell in (the last row begun
   by its time), and `work-row.tsx` shows `QuietCounts` (`quiet-events.tsx`,
   counts from `quiet-counts.ts`) in the summary, opening a dialog that draws
-  each event with the same `EventLine`, so Remove / Undo on an added todo and
-  Auto pick's Undo live there. Notes read and Auto pick have no count; a row
-  with only those says `N events`. Any refused command not loud is quiet.
+  each event separately with its time and visible details. Remove / Undo on
+  an added task and Auto pick's Undo live there. Notes read, Auto pick and
+  adds handed to another agent have no count; a row with only those says
+  `Details`. Refusals take one of the three visible count kinds, with any
+  remaining kinds folded into `+N more`. Any refused command not loud is quiet.
 - `null` means shown nowhere (bare `attach`, actions with no line yet).
 
 A new action goes in the tier by whether the person must see or act on it;
