@@ -2,6 +2,7 @@ import { dlopen, FFIType, ptr } from "bun:ffi";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { threadId } from "node:worker_threads";
 import { NodePs, type Ps } from "webappwiz/system";
 import type { GitRunner } from "./git";
 
@@ -77,7 +78,8 @@ export function nativeGit(): GitRunner {
 	return {
 		git: async (cwd, args, env) => {
 			sequence += 1;
-			const stamp = `${process.pid}-${sequence}`;
+			// Bun test workers share a pid but have separate module counters.
+			const stamp = `${process.pid}-${threadId}-${sequence}`;
 			const outPath = join(tmpdir(), `splates-git-${stamp}.out`);
 			const errPath = join(tmpdir(), `splates-git-${stamp}.err`);
 			try {

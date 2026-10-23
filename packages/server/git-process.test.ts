@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { threadId, Worker } from "node:worker_threads";
 import { type Child, NodePs } from "webappwiz/system";
 import { Git } from "./git";
 import { nativeGit, processGit } from "./git-process";
@@ -65,6 +66,44 @@ describe("processGit", () => {
 		await expect(git.commonDir()).rejects.toThrow("empty path");
 	});
 
+	it("keeps concurrent workers' git output separate even though they share a pid", async () => {
+		const module = new URL("./git-process.ts", import.meta.url).href;
+		const code = `
+			const { parentPort, workerData } = require("node:worker_threads");
+			(async () => {
+				const { nativeGit } = await import(workerData.module);
+				parentPort.postMessage("ready");
+				parentPort.once("message", async () => {
+					try {
+						parentPort.postMessage(await nativeGit().git("/", [
+							"-c", "alias.marker=!echo " + workerData.marker + "; sleep 0.1", "marker"
+						]));
+					} catch (error) {
+						parentPort.postMessage({ error: String(error) });
+					} finally {
+						parentPort.close();
+					}
+				});
+			})();`;
+		const workers = ["alpha", "beta"].map(
+			(marker) =>
+				new Worker(code, { eval: true, workerData: { module, marker } }),
+		);
+		try {
+			await Promise.all(workers.map(nextMessage));
+			const results = workers.map(nextMessage);
+			workers.forEach((worker) => {
+				worker.postMessage("go");
+			});
+			expect(await Promise.all(results)).toEqual([
+				{ code: 0, stdout: "alpha\n", stderr: "" },
+				{ code: 0, stdout: "beta\n", stderr: "" },
+			]);
+		} finally {
+			await Promise.all(workers.map((worker) => worker.terminate()));
+		}
+	});
+
 	it("runs real git through Bun's own spawn, leaving no output file behind", async () => {
 		const runner = processGit(new NodePs());
 		const version = await runner.git("/", ["--version"]);
@@ -80,8 +119,16 @@ describe("processGit", () => {
 		expect(missing.stderr).toContain("nonexistent-splates-dir");
 
 		const left = (await readdir(tmpdir())).filter((name) =>
-			name.startsWith(`splates-git-${process.pid}-`),
+			name.startsWith(`splates-git-${process.pid}-${threadId}-`),
 		);
 		expect(left).toEqual([]);
 	});
 });
+
+/** One worker response, surfacing a worker crash rather than waiting forever. */
+function nextMessage(worker: Worker): Promise<unknown> {
+	return new Promise((resolve, reject) => {
+		worker.once("message", resolve);
+		worker.once("error", reject);
+	});
+}
