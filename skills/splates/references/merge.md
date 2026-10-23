@@ -32,6 +32,16 @@ every reply that ends your turn ends with the whole review report again,
 brought up to date: the page shows its Ready to merge card only for a whole
 report.
 
+## Run merge in the foreground
+
+Run `splates merge` as a plain foreground command, waiting on it until it
+exits: never with your harness's background option, `&`, `nohup` or a
+detached shell. The server sees a merge through the command your turn is
+running, so one sent to the background looks like an agent that has gone idle
+and the page cannot show the task as merging. A merge can take minutes while
+the gate runs; wait it out, and use a long enough timeout rather than
+backgrounding it.
+
 ## Project notes at merge
 
 When the project has notes, `splates merge` prints their index before anything

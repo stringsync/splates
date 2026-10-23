@@ -44,7 +44,8 @@ the rest:
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
-6. **Land with `splates merge --message "<what the base gains>"`**, then `cd`
+6. **Land with `splates merge --message "<what the base gains>"`**, run in
+   the foreground, never in the background, then `cd`
    to the main tree it prints. When it fails, do what its stderr says.
 7. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
