@@ -116,11 +116,12 @@ export type {
 } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
-export { Machine, osSensors } from "./load";
+export { Machine } from "./load";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
 export { NoRunner } from "./no-runner";
+export { OsSensors } from "./os-sensors";
 export { OWN_BUILD_HEADER, OwnBuild } from "./own-build";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";

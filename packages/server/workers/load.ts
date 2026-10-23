@@ -1,7 +1,3 @@
-import os from "node:os";
-import type { Fs } from "webappwiz/system";
-import { darwinTemperature } from "./darwin-temperature";
-
 /** How hard the machine `splates server` runs on is working right now. */
 export interface MachineReading {
 	/** What the page calls the machine: "Mac" on macOS, else "machine". */
@@ -34,6 +30,8 @@ export interface MachineSensors {
 export class Machine {
 	readonly #sensors: MachineSensors;
 	#last: { busy: number; total: number };
+	/** The share last read, given again to a read too soon to count anything. */
+	#cpu = 0;
 
 	constructor(sensors: MachineSensors) {
 		this.#sensors = sensors;
@@ -44,15 +42,16 @@ export class Machine {
 		const sensors = this.#sensors;
 		const now = this.#times();
 		const total = now.total - this.#last.total;
-		const cpu = total > 0 ? (now.busy - this.#last.busy) / total : 0;
-		// Too close to the last to have counted anything: it still stands.
+		// Too close to the last to have counted anything: it still stands, as
+		// when several pages ask each second.
 		if (total > 0) {
+			this.#cpu = clamp((now.busy - this.#last.busy) / total);
 			this.#last = now;
 		}
 		const totalmem = sensors.totalmem();
 		return {
 			kind: sensors.platform === "darwin" ? "Mac" : "machine",
-			cpu: clamp(cpu),
+			cpu: this.#cpu,
 			memory: totalmem > 0 ? clamp(1 - sensors.freemem() / totalmem) : 0,
 			load: sensors.loadavg()[0] ?? 0,
 			cores: sensors.cpus().length,
@@ -70,52 +69,6 @@ export class Machine {
 		}
 		return { busy, total };
 	}
-}
-
-/**
- * The machine this process runs on. Temperature is read from Linux's thermal
- * zones, and from the CPU die sensors on Apple Silicon; null elsewhere.
- */
-export function osSensors(fs: Fs): MachineSensors {
-	return {
-		platform: process.platform,
-		cpus: () => os.cpus(),
-		loadavg: () => os.loadavg(),
-		freemem: () => os.freemem(),
-		totalmem: () => os.totalmem(),
-		temperature: async () =>
-			process.platform === "linux"
-				? thermalZones(fs, THERMAL)
-				: process.platform === "darwin"
-					? darwinTemperature()
-					: null,
-	};
-}
-
-const THERMAL = "/sys/class/thermal";
-
-/** The hottest of Linux's thermal zones under `root`, in °C, or null for none. */
-export async function thermalZones(
-	fs: Fs,
-	root: string,
-): Promise<number | null> {
-	if (!(await fs.exists(root))) {
-		return null;
-	}
-	let hottest: number | null = null;
-	for (const zone of await fs.readdir(root)) {
-		if (!zone.startsWith("thermal_zone")) {
-			continue;
-		}
-		// In thousandths of a degree.
-		const milli = Number(
-			(await fs.read(`${root}/${zone}/temp`).catch(() => "")).trim(),
-		);
-		if (Number.isFinite(milli) && milli > 0) {
-			hottest = Math.max(hottest ?? 0, milli / 1000);
-		}
-	}
-	return hottest;
 }
 
 function clamp(share: number): number {

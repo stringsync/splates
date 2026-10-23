@@ -4,7 +4,8 @@ import { FakeFs } from "webappwiz/system/testing";
 import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
-import { Machine, type MachineSensors, thermalZones } from "./load";
+import { Machine, type MachineSensors } from "./load";
+import { OsSensors } from "./os-sensors";
 
 describe("machine", () => {
 	it("reads the CPU share busy since the reading before", async () => {
@@ -17,6 +18,15 @@ describe("machine", () => {
 		sensors.busy = 120;
 		sensors.idle = 80;
 		expect((await machine.read()).cpu).toBe(0.9);
+	});
+
+	it("gives the last CPU share again to a read too soon after it to count any time", async () => {
+		const sensors = new FakeSensors();
+		const machine = new Machine(sensors);
+		sensors.busy = 30;
+		sensors.idle = 70;
+		await machine.read();
+		expect((await machine.read()).cpu).toBe(0.3);
 	});
 
 	it("reads memory in use, the load, the cores and the temperature", async () => {
@@ -52,11 +62,13 @@ describe("machine", () => {
 		await fs.write("/thermal/thermal_zone0/temp", "48000\n");
 		await fs.write("/thermal/thermal_zone1/temp", "61500\n");
 		await fs.write("/thermal/cooling_device0/temp", "99000\n");
-		expect(await thermalZones(fs, "/thermal")).toBe(61.5);
+		expect(await new OsSensors(fs, "/thermal").thermalZones()).toBe(61.5);
 	});
 
 	it("reads none without thermal zones", async () => {
-		expect(await thermalZones(new FakeFs(), "/thermal")).toBeNull();
+		expect(
+			await new OsSensors(new FakeFs(), "/thermal").thermalZones(),
+		).toBeNull();
 	});
 
 	it.if(process.platform === "darwin" && process.arch === "arm64")(

@@ -43,7 +43,7 @@ import {
 	jobSize,
 	LocalWorkerMachine,
 	Machine,
-	osSensors,
+	OsSensors,
 	queueListing,
 	type RunnerShares,
 	WORKER_SOCKET_PATH,
@@ -494,7 +494,7 @@ export async function dev(
 	});
 
 	// Not any project's: every page on this server shares one machine.
-	const machine = new Machine(sensors ?? osSensors(fs));
+	const machine = new Machine(sensors ?? new OsSensors(fs));
 	const opencode = new OpenCodeSetupRoutes(
 		new OpenCodeSetup({
 			fs,

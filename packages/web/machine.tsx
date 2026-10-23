@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Duration, SystemTimer } from "webappwiz/time";
 import {
@@ -12,6 +12,12 @@ import { type MachineStatus, machine } from "./api";
 /** How often the page asks how the machine is doing, while in front. */
 const EVERY = Duration.secs(5);
 
+/** How often a run card waiting on its answer asks, to be decided on live. */
+const LIVE = Duration.secs(1);
+
+/** How old a live reading may be and still be shown as live. */
+const FRESH = Duration.secs(3);
+
 /** CPU and memory shares, and degrees, past which each is yellow, then red. */
 const SHARE = { warning: 0.8, destructive: 0.9 };
 const DEGREES = { warning: 80, destructive: 95 };
@@ -22,23 +28,60 @@ const DEGREES = { warning: 80, destructive: 95 };
  */
 export function useMachine(): MachineStatus | null {
 	const [reading, setReading] = useState<MachineStatus | null>(null);
+	useAsking(EVERY, setReading);
+	return reading;
+}
+
+/** A reading, and when it came, as epoch ms. */
+export type TimedReading = { reading: MachineStatus; at: number };
+
+/**
+ * The machine's reading, asked every second while `live` and the page is
+ * in front, and not at all otherwise. A failed ask keeps the last, whose `at`
+ * then shows its age; null before the first.
+ */
+export function useLiveMachine(live: boolean): TimedReading | null {
+	const [last, setLast] = useState<TimedReading | null>(null);
+	useAsking(live ? LIVE : null, (reading) => {
+		if (reading !== null) {
+			setLast({ reading, at: Date.now() });
+		}
+	});
+	return last;
+}
+
+/**
+ * Asks for the machine's reading `every` while in front, answering null on
+ * failure; never while `every` is null.
+ */
+function useAsking(
+	every: Duration | null,
+	answer: (reading: MachineStatus | null) => void,
+): void {
+	const answered = useRef(answer);
+	answered.current = answer;
 	useEffect(() => {
+		if (every === null) {
+			return;
+		}
 		const observer = new WindowBackgroundObserver();
 		const ask = () => {
 			if (!observer.isBackgrounded()) {
-				machine().then(setReading, () => setReading(null));
+				machine().then(
+					(reading) => answered.current(reading),
+					() => answered.current(null),
+				);
 			}
 		};
 		ask();
 		// Back in front, at once, rather than up to a tick late.
 		observer.events.on("change", ask);
-		const tick = new SystemTimer().setInterval(ask, EVERY);
+		const tick = new SystemTimer().setInterval(ask, every);
 		return () => {
 			tick.dispose();
 			observer.dispose();
 		};
-	}, []);
-	return reading;
+	}, [every?.ms, every]);
 }
 
 /**
@@ -56,49 +99,82 @@ export function strained(reading: MachineStatus): boolean {
 
 /**
  * The machine's CPU, memory and, where it can be read, temperature, as bars
- * the way Plan limits draws them: yellow from 80%, red from 90%.
+ * the way Plan limits draws them: yellow from 80%, red from 90%. With no
+ * reading, dashes. Given `at` and `now`, a reading older than a few seconds
+ * says how old, so a stale number never passes for live.
  */
 export function MachineStats({
 	reading,
+	at,
+	now,
 	className,
 }: {
-	reading: MachineStatus;
+	reading: MachineStatus | null;
+	at?: number;
+	now?: number;
 	className?: string;
 }): JSX.Element {
-	const { cpu, memory, temperature } = reading;
+	const kind = reading?.kind ?? "machine";
+	const age =
+		at === undefined || now === undefined ? null : Math.max(0, now - at);
 	return (
 		<section
-			aria-label={`This ${reading.kind}`}
+			aria-label={`This ${kind}`}
 			className={cn("flex flex-col gap-1.5 text-sm tabular-nums", className)}
 		>
-			<h3 className="font-medium text-muted-foreground text-xs">
-				This {reading.kind}
+			<h3 className="flex justify-between font-medium text-muted-foreground text-xs">
+				This {kind}
+				{age !== null && age >= FRESH.ms && (
+					<span className="font-normal">{secondsAgo(age)}</span>
+				)}
 			</h3>
 			<ul className="grid grid-cols-[4rem_1fr_2.5rem] gap-x-2 gap-y-1.5">
-				<Meter
-					name="CPU"
-					share={cpu}
-					tone={toneOf(cpu, SHARE)}
-					shown={`${Math.round(cpu * 100)}%`}
-				/>
-				<Meter
-					name="Memory"
-					share={memory}
-					tone={toneOf(memory, SHARE)}
-					shown={`${Math.round(memory * 100)}%`}
-				/>
-				{temperature !== null && (
-					<Meter
-						name="Temp"
-						// Of the hottest a CPU runs before throttling hard.
-						share={temperature / 105}
-						tone={toneOf(temperature, DEGREES)}
-						shown={`${Math.round(temperature)}°`}
-					/>
+				{reading === null ? (
+					<>
+						<Meter name="CPU" share={0} tone={null} shown="-" />
+						<Meter name="Memory" share={0} tone={null} shown="-" />
+					</>
+				) : (
+					<Readings reading={reading} />
 				)}
 			</ul>
 		</section>
 	);
+}
+
+function Readings({ reading }: { reading: MachineStatus }): JSX.Element {
+	const { cpu, memory, temperature } = reading;
+	return (
+		<>
+			<Meter
+				name="CPU"
+				share={cpu}
+				tone={toneOf(cpu, SHARE)}
+				shown={`${Math.round(cpu * 100)}%`}
+			/>
+			<Meter
+				name="Memory"
+				share={memory}
+				tone={toneOf(memory, SHARE)}
+				shown={`${Math.round(memory * 100)}%`}
+			/>
+			{temperature !== null && (
+				<Meter
+					name="Temp"
+					// Of the hottest a CPU runs before throttling hard.
+					share={temperature / 105}
+					tone={toneOf(temperature, DEGREES)}
+					shown={`${Math.round(temperature)}°`}
+				/>
+			)}
+		</>
+	);
+}
+
+/** How old a reading is: `4s ago`, `3m ago`. */
+function secondsAgo(ms: number): string {
+	const seconds = Math.floor(ms / 1000);
+	return seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`;
 }
 
 function Meter({

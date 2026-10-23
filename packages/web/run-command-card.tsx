@@ -8,12 +8,13 @@ import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useCardReply } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
-import { MachineStats, useMachine } from "./machine";
+import { useNow } from "./hooks/use-now";
+import { MachineStats, useLiveMachine } from "./machine";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
  * The card an agent asks to run a heavy command with: the command, why, and
- * how loaded the machine is now. Allow and Deny answer the agent with a
+ * how loaded the machine is now, read each second while it waits. Allow and Deny answer the agent with a
  * directive; the choice shows at once and is taken back if the send fails.
  */
 export function RunCommandCard({
@@ -22,7 +23,6 @@ export function RunCommandCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
-	const reading = useMachine();
 	const { refusal, attempt } = useRefusal();
 	const [chosen, setChosen] = useState<string | null>(null);
 	const choice = sent?.includes(RUN_ALLOWED)
@@ -30,6 +30,8 @@ export function RunCommandCard({
 		: sent?.includes(RUN_DENIED)
 			? RUN_DENIED
 			: chosen;
+	const live = useLiveMachine(choice === null);
+	const now = useNow(choice === null);
 	const send = reply?.send ?? null;
 	const answer = (directive: string, failed: string): void => {
 		if (send === null) {
@@ -55,8 +57,13 @@ export function RunCommandCard({
 				<code>{proposal.command}</code>
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{choice === null && reading !== null && (
-				<MachineStats reading={reading} className="mx-4 mb-3" />
+			{choice === null && (
+				<MachineStats
+					reading={live?.reading ?? null}
+					at={live?.at}
+					now={now}
+					className="mx-4 mb-3"
+				/>
 			)}
 			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
 				{choice !== null ? (
