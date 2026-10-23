@@ -1,7 +1,13 @@
 import { type AsyncResource, Disposer } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { type Conversations, SERVER_TOLD } from "../conversations";
-import { ConflictChecks, overlapWarnings, TaskOverlaps } from "../tasks";
+import {
+	ConflictChecks,
+	landingNotice,
+	landingsOverlapping,
+	overlapWarnings,
+	TaskOverlaps,
+} from "../tasks";
 import { conflictWarning, earlyWarning } from "./early-warning";
 import type { Project } from "./project";
 
@@ -81,6 +87,22 @@ export class ConflictWatch implements AsyncResource {
 							}
 						}
 					}
+					const landings = await landingsOverlapping(worktree);
+					for (const key of this.told.keys()) {
+						if (
+							key.startsWith(`${worktree.task}:landed:`) &&
+							!landings.some((each) => key.includes(`:${each.commit}:`))
+						) {
+							this.told.delete(key);
+						}
+					}
+					for (const landing of landings) {
+						await this.tell(
+							worktree.task,
+							`landed:${landing.commit}`,
+							landingNotice(landing, worktree.base),
+						);
+					}
 					if (!this.overlaps.has(worktree.task)) {
 						const files =
 							peers.find((each) => each.task === worktree.task)?.files ?? [];
@@ -100,7 +122,7 @@ export class ConflictWatch implements AsyncResource {
 
 	private async tell(
 		task: string,
-		kind: "conflict" | "overlap",
+		kind: "conflict" | "overlap" | `landed:${string}`,
 		words: string,
 	): Promise<void> {
 		for (const conversation of (await this.conversations?.list()) ?? []) {

@@ -10,6 +10,8 @@ export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
 export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, SERVER_WAIT_MS, serveProject } from "./follow";
+export type { Landing } from "./landings";
+export { landingNotice, landingsOverlapping } from "./landings";
 export { list } from "./list";
 export { overlapWarnings, TaskOverlaps } from "./overlaps";
 export { path } from "./path";

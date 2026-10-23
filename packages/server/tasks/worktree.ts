@@ -3,6 +3,7 @@ import type { Git, GitResult } from "../git";
 import type { TimedTest } from "../merge";
 import { type ComingConflict, ConflictChecks } from "./conflicts";
 import { type FileDiff, parseDiff } from "./diff";
+import type { FinishedTask } from "./finished";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -20,6 +21,11 @@ export class Worktree {
 	/** Latest background prediction, independent of the task's lease. */
 	comingConflict(): Promise<ComingConflict | null> {
 		return new ConflictChecks(this.service.storage).read(this.task);
+	}
+
+	/** Tasks that finished on this repo, newest first. */
+	landed(): Promise<FinishedTask[]> {
+		return this.service.finished.list();
 	}
 
 	get task(): string {

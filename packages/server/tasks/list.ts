@@ -3,6 +3,7 @@ import type { Fs } from "webappwiz/system";
 import { age } from "../age";
 import { goalLine, Plans } from "../plans";
 import { table } from "../table";
+import { landingNotices } from "./landings";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -11,6 +12,8 @@ interface Row {
 	number: number | null;
 	task: string;
 	comingConflict: string[];
+	/** Landings that changed files the task also changed, as notices. */
+	landed: string[];
 	status: string;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
@@ -63,6 +66,7 @@ async function row(worktree: Worktree): Promise<Row> {
 		number: state?.id ?? null,
 		task: worktree.task,
 		comingConflict: (await worktree.comingConflict())?.files ?? [],
+		landed: await landingNotices(worktree),
 		// One unreadable record shows as `unknown` instead of taking down the
 		// whole listing.
 		status: worktree.status,
@@ -113,6 +117,9 @@ function listing(rows: Row[]): string {
 					`${row.task}: coming conflict (committed tips): ${row.comingConflict.join(", ")}`,
 				),
 			);
+		}
+		for (const notice of row.landed) {
+			out.push(color.yellow(`${row.task}: ${notice}`));
 		}
 		if (row.changed !== undefined) {
 			out.push("", ...files(row));

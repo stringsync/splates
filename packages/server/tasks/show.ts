@@ -5,6 +5,7 @@ import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
 import type { FinishedPlan } from "./finished";
+import { landingNotices } from "./landings";
 import type { DiffSize, Gate, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -50,6 +51,7 @@ export interface Details {
 	task: string;
 	/** Files predicted to conflict at the last checked committed tips. */
 	comingConflict?: string[];
+	landed?: string[];
 	status: string;
 	branch: string;
 	base: string;
@@ -172,6 +174,7 @@ export class TaskDetails {
 		return {
 			task: worktree.task,
 			comingConflict: (await worktree.comingConflict())?.files ?? [],
+			landed: await landingNotices(worktree),
 			status: worktree.status,
 			branch: worktree.branch,
 			base: worktree.base,
@@ -349,6 +352,9 @@ function report(details: Details): string {
 				`  coming conflict (committed tips): ${details.comingConflict.join(", ")}`,
 			),
 		);
+	}
+	for (const notice of details.landed ?? []) {
+		lines.push(color.yellow(`  ${notice}`));
 	}
 	if (details.plan !== null) {
 		lines.push("", color.bold(PLAN_FILE), details.plan.trimEnd());
