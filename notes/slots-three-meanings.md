@@ -10,7 +10,8 @@ A slot is refused on a project's main tree, and its word is held until the
 task merges or is removed.
 
 Worker slots are how many tasks a worker runs at once (`splates worker run
---slots`; default one per core or per 4 GB, whichever is fewer). Agents the
-queue starts each hold one; an agent the person starts takes none. Those
+--slots`; default one per core or per 4 GB, whichever is fewer). Agents that
+agents, automations, hooks or the groomer start each hold one; an agent the
+person starts or the queue starts takes none. Those
 waiting for room stand in `splates worker queue` (`waiting.ts`), first come
 first served, never failed for waiting.

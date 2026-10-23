@@ -32,12 +32,6 @@ export interface QueueStart {
 	held?: string;
 }
 
-/** A queued task that could start but finds no slot, and who would work it. */
-export interface QueueWaiting {
-	queued: TaskRecord;
-	pick: AgentPick;
-}
-
 /**
  * Adds the task for `start`, handed to its agent, which `splates server`
  * starts as for any `splates add --agent`. Throws when the add is refused.
@@ -45,16 +39,15 @@ export interface QueueWaiting {
 export type QueueStarter = (start: QueueStart) => Promise<void>;
 
 /**
- * Works the queue down: whenever a worker has a slot free, the first queued
- * task in queue order that nothing open blocks goes out as a task of its
+ * Works the queue down: every queued task that nothing open blocks goes out, in queue order, as a task of its
  * own, on the agent and model it names, or for one that names none, what
- * the `picker`, Auto pick, decides as it starts. As many go at once as there
- * is room, so none waits for a slot with its worktree made.
+ * the `picker`, Auto pick, decides as it starts. Queue starts take no slot, so all
+ * go at once.
  *
  * A lane the person queued whole has each of its tasks queued as soon as
  * nothing blocks it, first thing in each check, until no task is left in it.
  *
- * Checked as tasks change, as workers' slots free, and every `QUEUE_SWEEP`.
+ * Checked as tasks change and every `QUEUE_SWEEP`.
  * A queued task whose start was refused is tried again at once when it
  * changes or the person asks (`retry`), and otherwise after a wait that
  * doubles with each refusal, up to `RETRY_SWEEPS_MAX` sweeps, so a passing
@@ -104,7 +97,7 @@ export class QueueRunner implements Resource {
 		return runner;
 	}
 
-	/** Starts every queued task there is room for now. */
+	/** Starts every queued task nothing blocks now. */
 	sweep(): Promise<void> {
 		const next = this.#checking.then(() => this.#check());
 		this.#checking = next.catch((error: unknown) =>
@@ -144,25 +137,12 @@ export class QueueRunner implements Resource {
 				this.#refused.get(queued.id)?.due !== false &&
 				canStart(queued, all),
 		);
-		const room = Math.max(0, this.deps.room() - this.#starting.size);
-		const next = startable.slice(0, room);
+		const next = startable;
 		const picks = await this.#picks(all, next);
 		const held =
 			this.deps.held === undefined
 				? new Map<number, string>()
 				: await this.#hold(this.deps.held, all, picks.of, next);
-		if (startable.length === 0) {
-			this.deps.want([]);
-			return;
-		}
-		// The rest wait for a slot, standing in the workers' line so one is
-		// woken or made for them.
-		this.deps.want(
-			startable.slice(room).map((queued) => ({
-				queued,
-				pick: picks.of(queued),
-			})),
-		);
 		if (next.length === 0) {
 			return;
 		}
@@ -278,7 +258,7 @@ export class QueueRunner implements Resource {
 		all: readonly TaskRecord[],
 		/** Who works each, as `#picks` says. */
 		pickOf: (queued: TaskRecord) => AgentPick,
-		next: readonly TaskRecord[],
+		_next: readonly TaskRecord[],
 	): Promise<Map<number, string>> {
 		const queue = queueOrder(all);
 		const listed = await conversations.list();
@@ -334,7 +314,6 @@ export class QueueRunner implements Resource {
 			const reason = waitsFor(
 				queued,
 				all,
-				next.includes(queued),
 				this.#refused.get(queued.id)?.due === false
 					? this.#refused.get(queued.id)?.why
 					: undefined,
@@ -361,13 +340,11 @@ export class QueueRunner implements Resource {
 
 /**
  * Why queued task `queued` has yet to start, among `all`: its start
- * `refused`, what it waits on, or a free slot, unless it is `next`, starting
- * now.
+ * `refused`, what it waits on, or else starting now.
  */
 function waitsFor(
 	queued: TaskRecord,
 	all: readonly TaskRecord[],
-	next: boolean,
 	refused: string | undefined,
 ): string {
 	if (refused !== undefined) {
@@ -380,7 +357,7 @@ function waitsFor(
 	if (open.length > 0) {
 		return `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
 	}
-	return next ? "starting" : "no free slot";
+	return "starting";
 }
 
 /** A queued task's start the queue was refused, as `QueueRunner` keeps it. */
@@ -428,13 +405,6 @@ export interface QueueRunnerDeps {
 	lanes?: () => Promise<unknown>;
 	/** The name of every task out, so a new one takes another. */
 	tasks: () => Promise<string[]>;
-	/** How many more agents the workers could start now without waiting. */
-	room: () => number;
-	/**
-	 * The queued tasks that could start but find no room, in queue order, to
-	 * wait in the workers' line: each sweep says them all, none when none.
-	 */
-	want: (waiting: QueueWaiting[]) => void;
 	/** Who works a queued task that names no agent: Auto pick. */
 	picker: QueuePicker;
 	start: QueueStarter;

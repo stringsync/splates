@@ -35,7 +35,7 @@ import type { NoteSource } from "../stats";
 import { BudgetRoutes, NoteEventsRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
-import { LOCAL_WORKER, type SlotRequest } from "../workers";
+import { LOCAL_WORKER } from "../workers";
 import type { Assets } from "./assets";
 import { Automations } from "./automations";
 import { ConflictWatch } from "./conflict-watch";
@@ -86,18 +86,6 @@ export async function serveProject(
 				}
 			},
 			tasks: async () => (await service.list()).map(({ task }) => task),
-			room: () => context.workerRoom(),
-			want: (waiting) =>
-				context.wantWorkers(
-					service.git.root,
-					waiting.map(({ queued, pick }) => ({
-						id: `#${queued.id}`,
-						project: service.git.root,
-						task: `#${queued.id} ${queued.subject}`,
-						platform: service.config.platform,
-						agent: pick.agent,
-					})),
-				),
 			picker: new QueueAutoPick(project, conversations, { slug }),
 			start: ({ task, queued, pick, prompt, held }) =>
 				startQueuedTask(project, context.url, {
@@ -361,12 +349,8 @@ export interface DevContext {
 	conversationsFor(project: Project): Conversations | null;
 	/** Every served project's conversations, where a caller of one may be. */
 	readonly everywhere: Everywhere;
-	/** How many more agents the workers could start now without waiting. */
-	workerRoom(): number;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
-	/** Sets the slots the queued tasks of the project at `root` wait for. */
-	wantWorkers(root: string, requests: SlotRequest[]): void;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
 }

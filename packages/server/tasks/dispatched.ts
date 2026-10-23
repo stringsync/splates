@@ -76,7 +76,6 @@ async function startOne(
 			// Answers to the person; the lane's orchestrator that started it
 			// only hears when it stops.
 			startedBy: worktree.caller,
-			capped: true,
 		}));
 	const { pending: _, ...settled } = dispatch;
 	await worktree.save({

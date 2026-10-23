@@ -46,7 +46,6 @@ describe("QueueAutoPick", () => {
 	let id: number;
 	let started: QueueStart[];
 	let runner: QueueRunner;
-	let room: number;
 	let held: ReturnType<typeof heldList>;
 
 	const queued = async () => {
@@ -55,6 +54,15 @@ describe("QueueAutoPick", () => {
 			throw new Error(`no task #${id}`);
 		}
 		return record;
+	};
+
+	let blocker: number;
+	/** Keeps the task from starting, so only its judgment is seen. */
+	const block = async (): Promise<void> => {
+		({ id: blocker } = await deps.tasks.add("Blocker", null, {
+			assignee: { agent: "fake" },
+		}));
+		await taskUpdate(deps, id, { blockedBy: [blocker] });
 	};
 
 	beforeEach(async () => {
@@ -99,13 +107,10 @@ describe("QueueAutoPick", () => {
 			text: "In src/names.ts only.",
 		}));
 		started = [];
-		room = 5;
 		held = heldList();
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
 			tasks: async () => [],
-			room: () => room,
-			want: () => {},
 			picker,
 			start: async (each) => {
 				started.push(each);
@@ -255,7 +260,7 @@ describe("QueueAutoPick", () => {
 	});
 
 	it("judges a task as it is queued, once, keeping its pick on it", async () => {
-		room = 0;
+		await block();
 		await queueAdd(deps, [id]);
 
 		await runner.sweep();
@@ -271,7 +276,7 @@ describe("QueueAutoPick", () => {
 	});
 
 	it("judges it again when its words change, not when it is queued again as it was", async () => {
-		room = 0;
+		await block();
 		await queueAdd(deps, [id]);
 		await runner.sweep();
 		await picker.settled();
@@ -293,7 +298,7 @@ describe("QueueAutoPick", () => {
 	});
 
 	it("holds its conversation on the judged pick, so its start swaps nothing", async () => {
-		room = 0;
+		await block();
 		// The judgment waits on the test, so no sweep can see it land early.
 		const gate = Promise.withResolvers<void>();
 		judge = {
@@ -313,7 +318,7 @@ describe("QueueAutoPick", () => {
 			{ id: "h1", agent: "other" },
 		]);
 
-		room = 1;
+		await taskUpdate(deps, id, { removeBlockedBy: [blocker] });
 		await runner.sweep();
 		await eventually(async () => started.length === 1);
 
