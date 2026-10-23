@@ -2,13 +2,20 @@
 description: Why DigitalOcean is the cloud runners are made in, behind the CloudProvider seam, how a runner's size is picked from CPUs and memory, sizes an account may not order, and how DigitalOcean bills it
 ---
 
+This describes the legacy DigitalOcean runner path, still selected by this
+repository until the Fly transport lands. `notes/cloud-fly.md` covers the
+replacement. Setup's `cloud-token` step now requests `FLY_API_TOKEN`; existing
+DigitalOcean runners continue reading the already-kept `DIGITALOCEAN_TOKEN`.
+The box-shaped `CloudProvider` is only for that legacy path, not a seam Fly
+implements.
+
 Clouds went Hetzner (2026-10-17), DigitalOcean beside it (10-19), AWS alone
 (10-21), then back to DigitalOcean alone (2026-10-22): a box is one API call
 to make and one to delete with nothing attached that can get stuck, which
 is what AWS and Pulumi did. No Pulumi or other orchestrator: splates calls
 the API itself, since it scales runners up and down on its own.
 
-`CloudProvider` (`packages/server/cloud/provider.ts`) stays the seam with
+`CloudProvider` (`packages/server/cloud/provider.ts`) is the legacy seam with
 `DigitalOceanCloud` its only implementation, and `CloudWorkers` makes it a
 `WorkerProvider`. A provider finds what it made by tags (bare names in
 DigitalOcean, so a tag `key:value` is kept as `key` and `key:value`) and
@@ -18,7 +25,7 @@ firewalls or spot. Every droplet is made with one account SSH key,
 ed25519 pair whose private half is dropped: a droplet with no key has its
 root password emailed to the user. Any later provider should attach a key
 for the same reason (Hetzner mails a password too). The token is the device cred `DIGITALOCEAN_TOKEN`
-(setup step `cloud-token`); the same cred pulls invoices into the spend
+(previously setup step `cloud-token`); the same cred pulls invoices into the spend
 ledger (`spend/adapters.ts`).
 
 A runner's size is never named in splates: `CloudProvider.sizes` lists
@@ -66,10 +73,3 @@ Runners section of Billing lists it with the `size_gigabytes` that
 `CloudProvider.snapshotCosts`). It is shown, never counted into a runner's
 estimate.
 
-No vendor lock-in: no DigitalOcean size slug appears outside
-`cloud/digitalocean*.ts`, and only those files, `machineCloud` (the one
-place that picks the cloud) and the spend adapter name DigitalOcean. Setup,
-`CloudWorkers`, the scheduler and provisioning go through `CloudProvider`
-and `WorkerProvider`, and read the token's cred, label and help from
-`CloudProvider.token`; another cloud is a new `CloudProvider` and a billing
-adapter, or a `workerProvider` of your own in `splates.config.ts`.

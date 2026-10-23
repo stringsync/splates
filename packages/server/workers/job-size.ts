@@ -1,4 +1,4 @@
-import type { CloudDefaults, CloudSize } from "../cloud";
+import type { CloudDefaults, CloudSize, FlySize } from "../cloud";
 
 /** What a heavy job needs of a runner, or what a runner has: CPUs, and memory in GB. */
 export interface JobSize {
@@ -112,20 +112,44 @@ export const MAX_RUNNER_CPUS = 16;
  * some location stocks, leaving out those `refused` names.
  */
 export function runnerSizes(
+	sizes: readonly FlySize[],
+	job: JobSize,
+	refused?: (name: string) => boolean,
+): FlySize[];
+export function runnerSizes(
 	sizes: readonly CloudSize[],
 	defaults: CloudDefaults,
 	job: JobSize,
+	refused?: (name: string) => boolean,
+): CloudSize[];
+export function runnerSizes(
+	sizes: readonly (CloudSize | FlySize)[],
+	defaults: CloudDefaults | JobSize,
+	job: JobSize | ((name: string) => boolean) = DEFAULT_JOB_SIZE,
 	refused: (name: string) => boolean = () => false,
-): CloudSize[] {
-	const builders = sizes.filter((size) =>
+): (CloudSize | FlySize)[] {
+	if (!("builderTypes" in defaults)) {
+		const excluded = typeof job === "function" ? job : () => false;
+		return sizes
+			.filter(
+				(size) =>
+					size.cpus <= MAX_RUNNER_CPUS &&
+					fits(defaults, size) &&
+					!excluded(size.name),
+			)
+			.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
+	}
+	const legacy = sizes as readonly CloudSize[];
+	const need = typeof job === "function" ? DEFAULT_JOB_SIZE : job;
+	const builders = legacy.filter((size) =>
 		defaults.builderTypes.includes(size.name),
 	);
 	const disk = Math.min(...builders.map((size) => size.disk), Infinity);
-	return sizes
+	return legacy
 		.filter(
 			(size) =>
 				size.cpus <= MAX_RUNNER_CPUS &&
-				fits(job, size) &&
+				fits(need, size) &&
 				(builders.length === 0 || size.disk >= disk) &&
 				!refused(size.name) &&
 				locationOf(size, defaults) !== null,

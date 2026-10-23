@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
-import type { CloudProvider } from "../cloud";
+import { type CloudProvider, FlyCloud } from "../cloud";
 import { loadConfig } from "../config";
 import { Git } from "../git";
 import { splatesHome } from "../models";
@@ -51,6 +51,11 @@ export async function runOnDirectRunner(
 	}
 	const config = await loadConfig(toplevel, { fs: ctx.fs });
 	const { cloud } = config;
+	if (cloud instanceof FlyCloud) {
+		throw new NoRunner(
+			"Fly direct runners need the proxy transport; use the running splates server meanwhile",
+		);
+	}
 	if (cloud === null) {
 		return null;
 	}
@@ -84,9 +89,14 @@ export async function runOnDirectRunner(
  */
 export async function withRunners<T>(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
-	cloud: CloudProvider,
+	cloud: CloudProvider | FlyCloud,
 	use: (runners: DirectRunners) => Promise<T>,
 ): Promise<T> {
+	if (cloud instanceof FlyCloud) {
+		throw new NoRunner(
+			"Fly direct runners need the proxy transport; use the running splates server meanwhile",
+		);
+	}
 	const store = ctx.store ?? SystemSecretStore.device();
 	if ((await store.get(cloud.token.cred)) === undefined) {
 		throw new NoRunner(
@@ -125,8 +135,11 @@ export async function withRunners<T>(
  */
 export function directSweep(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
-	cloud: CloudProvider,
+	cloud: CloudProvider | FlyCloud,
 ): DirectSweep {
+	if (cloud instanceof FlyCloud) {
+		return { reap: async () => [], names: async () => [] };
+	}
 	return {
 		reap: () =>
 			withRunners(ctx, cloud, (runners) => runners.reap()).catch((error) => {

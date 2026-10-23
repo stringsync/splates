@@ -86,3 +86,50 @@ machine's env, and `wss://<app>.fly.dev/api/jobs` with the machine-id routing
 header and bearer secret. `notes/worker-packaging.md` specifies the `ready`
 frame, job protocol, and own-build environment. A runner is reached rather
 than joining; own-build downloads remain a separate authenticated boot fetch.
+
+## Machines client
+
+`FlyCloud` is exported from `@stringsync/splates-server/cloud`; configure it
+with `cloud: new FlyCloud({ app: "my-runners", org: "my-org" })`. Both options
+are optional: the app defaults to `splates-<project-name>-runners`, resolved
+against the configured project's root (including from a task worktree), and
+new apps go in `personal` unless `org` is set. App names are globally unique;
+set `app` when the derived name is already owned elsewhere.
+
+The device credential is `FLY_API_TOKEN`, read through
+`SystemSecretStore.device()`, never the environment. Setup's `cloud-token`
+step asks for it and checks `GET /apps`. An organization deploy token can
+create the app on first use; an app-scoped deploy token needs an existing
+app. First creation checks the app's IPs through GraphQL and allocates missing
+`shared_v4` and `v6` addresses, including for a pre-existing app. No machine
+is made until both allocation calls have succeeded.
+
+`create` takes a `FlySize` (preset plus memory), region, registry image, env,
+optional cmd, metadata, `autoDestroy`, `persistRootfs`, and services. Its
+result uses Fly's `state` and `config`, not box IPs or cloud-init. `machine`,
+`list(metadata)`, `start`, `stop`, `destroy` and `wait` use the Machines API;
+each wait request is capped at 60 seconds, so a caller owns any longer
+deadline. Destroy tolerates an already-gone machine. Capacity and CPU/RAM
+refusals become `TypeRefused`; authentication failures remain API errors.
+
+`FLY_SIZES` is a local table of the shared and performance presets with
+memory choices. Prices use the [October 2026 base-region list](https://fly.io/pricing/),
+including $6/GB/month for extra RAM, converted with 730 hours/month. Regional
+multipliers, rootfs storage and traffic are not included in the compute
+estimate. `runnerSizes` filters by CPUs and memory and sorts by that hourly
+price; the default 4 CPU, 8 GB job picks `shared-cpu-4x-8gb`.
+
+`FakeFlyCloud` is available from `cloud/testing`, both as the lifecycle seam
+and with `fetch` for the real client's tests. It records intermediate states,
+can hold transitions pending with `autoAdvance = false`, destroys on stop
+when `autoDestroy` is set, and clears its `files` map on stop unless rootfs
+persistence was requested. Persistent files are only a cache, as above.
+
+Until the proxy transport task lands, `FlyWorkers` lets the server make a
+Fly runner from Ubuntu with the existing Linux install recipe, joining
+through the tunnel with secrets in env. Snapshot support on `WorkerProvider`
+is optional; Fly builds none. The repository still selects DigitalOcean
+until the image and proxy transport are ready. Standalone direct execution
+with Fly is refused until that transport replaces SSH; it never silently
+runs a job on this Mac. The DigitalOcean classes and its box seam remain
+only for the old path, to be removed in the lane's cleanup task.

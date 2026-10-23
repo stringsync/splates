@@ -113,6 +113,9 @@ export class Snapshots {
 	 * need not wait minutes for it: it runs the recipe on a stock image.
 	 */
 	async ready(platform: Platform): Promise<Snapshot | null> {
+		if (this.provider.snapshot === undefined) {
+			return null;
+		}
 		if (this.opts.document !== null) {
 			this.kept = await readKept(this.opts);
 		}
@@ -177,6 +180,11 @@ export class Snapshots {
 		const recipe = snapshotRecipe(platform, this.opts.version);
 		if (recipe === null) {
 			throw new Error(`splates has no snapshot recipe for ${platform} yet`);
+		}
+		if (this.provider.snapshot === undefined) {
+			throw new Error(
+				"this provider boots registry images and does not build snapshots",
+			);
 		}
 		const built = await this.provider.snapshot(recipe);
 		this.kept = { ...this.kept, [platform]: built };

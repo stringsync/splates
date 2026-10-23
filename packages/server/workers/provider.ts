@@ -154,11 +154,11 @@ export interface WorkerProvider {
 	/** The types it makes, with what each costs per hour, as near what it bills as it can tell. */
 	types(): Promise<WorkerType[]>;
 	/**
-	 * Builds a snapshot from `recipe`, answering it once workers can boot
+	 * Optional for providers that boot registry images. Builds a snapshot from `recipe`, answering it once workers can boot
 	 * from it. Building one again replaces the last: a provider need keep
 	 * only the newest.
 	 */
-	snapshot(recipe: SnapshotRecipe): Promise<Snapshot>;
+	snapshot?(recipe: SnapshotRecipe): Promise<Snapshot>;
 	/** The snapshots it keeps and what each costs to keep, for the Billing page; absent when it bills nothing for them. */
 	images?(): Promise<WorkerImage[]>;
 	/**

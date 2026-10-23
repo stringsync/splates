@@ -1,6 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
-import { CloudWorkers } from "../cloud";
+import { CloudWorkers, FlyWorkers } from "../cloud";
 import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
@@ -233,9 +233,9 @@ async function runnerTypes(machine: SetupMachine): Promise<WorkerType[]> {
 			return [];
 		}
 		const own = (await machine.project?.config())?.workerProvider;
-		return await (own instanceof CloudWorkers
+		return await (own instanceof CloudWorkers || own instanceof FlyWorkers
 			? own
-			: new CloudWorkers(cloud)
+			: new FlyWorkers(cloud)
 		).types();
 	} catch {
 		return [];

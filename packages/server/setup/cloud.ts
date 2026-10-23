@@ -1,13 +1,13 @@
-import { type CloudProvider, machineCloud } from "../cloud";
+import { FlyCloud } from "../cloud";
 import type { StepField } from "./fields";
 import type { SetupMachine } from "./setup";
 
 /** What a step that reads or makes machines in the cloud `uses`: its token. */
-export const CLOUD_USES: readonly string[] = [machineCloud().token.cred];
+export const CLOUD_USES: readonly string[] = [new FlyCloud().token.cred];
 
-/** The cloud splates makes runners in on this machine, the one place setup names which (`machineCloud`), reading its token from the machine's device creds. */
-export function cloudOf(machine: SetupMachine): CloudProvider {
-	return machineCloud({
+/** The cloud splates makes runners in on this machine, named for Fly during the runner migration, reading its token from the machine's device creds. */
+export function cloudOf(machine: SetupMachine): FlyCloud {
+	return new FlyCloud({
 		store: machine.device,
 		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
 	});

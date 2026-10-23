@@ -2,7 +2,7 @@ import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
-import { CloudWorkers } from "../cloud";
+import { CloudWorkers, FlyCloud, FlyWorkers } from "../cloud";
 import { Git } from "../git";
 import { jobSize } from "../workers";
 import type { Config } from "./config";
@@ -43,12 +43,16 @@ export async function loadConfig(
 		"main";
 	const _git = opts.git ?? new Git(root);
 	const config = { ...defaults(root, trunk), ...found };
+	if (config.cloud instanceof FlyCloud) {
+		config.cloud = config.cloud.inProject(root);
+	}
 	return config.workerProvider === null && config.cloud !== null
 		? {
 				...config,
-				workerProvider: new CloudWorkers(config.cloud, {
-					job: jobSize(config.job),
-				}),
+				workerProvider:
+					config.cloud instanceof FlyCloud
+						? new FlyWorkers(config.cloud, { job: jobSize(config.job) })
+						: new CloudWorkers(config.cloud, { job: jobSize(config.job) }),
 			}
 		: config;
 }
@@ -139,9 +143,8 @@ export class ConfigFiles {
 	}
 
 	/**
-	 * What the TypeScript file `file` at `root` exports as its default, unchecked,
-	 * or nothing when there is no such file. Read afresh whenever the file has
-	 * changed, so a long-running `splates server` sees an edit without a restart.
+	 * Reads a settings file's default export, or an empty record when absent.
+	 * Edits take effect in a running server without restarting it.
 	 */
 	async importDefault(
 		root: string,

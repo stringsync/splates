@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
-import { CloudWorkers } from "../cloud";
+import { CloudWorkers, FlyWorkers } from "../cloud";
 import { Git } from "../git";
 import { Testing } from "../testing";
 import { loadConfig } from "./load";
@@ -72,6 +72,21 @@ describe("loadConfig", () => {
 		expect((await loadConfig(root, { fs, git })).workerProvider).toEqual({
 			own: true,
 		} as never);
+	});
+
+	it("accepts FlyCloud in project settings without the box-shaped cloud seam", async () => {
+		const module = new URL("../cloud/index.ts", import.meta.url).pathname;
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`import { FlyCloud } from ${JSON.stringify(module)}; export default { cloud: new FlyCloud({ app: "project-runners" }) };`,
+		);
+		const config = await loadConfig(root, { fs, git });
+		expect(config.workerProvider).toBeInstanceOf(FlyWorkers);
+		expect((await config.workerProvider?.types())?.[0]).toMatchObject({
+			name: "shared-cpu-4x-8gb",
+			cpus: 4,
+			memory: 8,
+		});
 	});
 
 	it("makes no workers without a provider", async () => {
