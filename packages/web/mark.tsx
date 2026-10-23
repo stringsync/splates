@@ -105,7 +105,7 @@ export function Mark({
 				title="Merging"
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
-				<GitMergeIcon className="size-3.5 text-success" />
+				<GitMergeIcon className="size-3.5 animate-pulse text-success motion-reduce:animate-none" />
 			</span>
 		);
 	}
