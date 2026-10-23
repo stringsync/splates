@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
-import { unfoldCards, workTimeline, workTimelines } from "./drivers";
+import { headlines, unfoldCards, workTimeline, workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -72,19 +72,20 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1),
 		);
-		// A folded row builds its timeline only once opened.
-		expect(within(thread).queryByRole("list", { name: "timeline" })).toBeNull();
-		const list = workTimeline(thread);
-		expect((list.closest("details") as HTMLDetailsElement).open).toBe(false);
-		expect(lines(list)).toEqual([
-			"Let me run them.",
-			"Reada.ts",
-			"Failed to runbun test28s",
-			"One fails: fixing it.",
-			"Editeda.ts",
-			"Ranbun test29s",
+		// The agent's words head the calls after them, outside the row.
+		const rows = headlines(thread);
+		expect(
+			rows.map((row) => row.querySelector("summary")?.textContent),
+		).toEqual(["Let me run them.", "One fails: fixing it."]);
+		expect(
+			rows.map((row) =>
+				lines(within(row).getByRole("list", { name: "calls" })),
+			),
+		).toEqual([
+			["Reada.ts", "Failed to runbun test28s"],
+			["Editeda.ts", "Ranbun test29s"],
 		]);
-		expect(list.textContent).not.toContain("All tests pass.");
+		expect(thread.textContent?.match(/All tests pass\./g)).toHaveLength(1);
 		expect(thread.textContent).toContain("All tests pass.");
 		expect(thread.textContent).not.toContain("Which tests?");
 		expect(thread.textContent).not.toContain("The parser.");
@@ -310,9 +311,11 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(thread.textContent).toContain("No, I'm not waiting on you."),
 		);
+		expect(headlines(thread).map((each) => each.textContent)).toEqual([
+			expect.stringContaining("Let me look."),
+		]);
 		const all = workTimelines(thread);
 		expect(all.map((each) => each.textContent)).toEqual([
-			"Let me look.Reada.ts",
 			expect.stringContaining("bun test"),
 		]);
 		expect(thread.textContent).toMatch(

@@ -23,12 +23,13 @@ import { InMessage, useCardReply } from "./card-reply";
 import { useNow } from "./hooks/use-now";
 import { Markdown } from "./markdown";
 import { ThreadAction } from "./thread-action";
-import { timeline } from "./timeline";
+import { type Item, timeline } from "./timeline";
 import { tokens } from "./usage";
 import {
 	flagged,
 	label,
 	relative,
+	span,
 	type Trees,
 	type Work,
 	warning,
@@ -87,6 +88,13 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const waiting = work.waits?.some((wait) => wait.to === null) ?? false;
 	const now = useNow(work.working && since !== null && !waiting);
 	const items = timeline(work);
+	// What the agent said along the way heads the calls after it, outside
+	// the Working line, so the thread reads as a list of intentions.
+	const steps = items.filter((item) => item.type !== "decision");
+	const first = steps.findIndex((item) => item.type === "said");
+	const lead = first === -1 ? steps : steps.slice(0, first);
+	const groups = first === -1 ? [] : headlined(steps.slice(first));
+	const ends = work.until ?? (work.working ? now : null);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
 	// Folded until the person opens it, while the agent works too, and open
@@ -116,8 +124,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
 					)}
 				>
-					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
+					<summary
+						className={cn(
+							"flex list-none items-center gap-1.5 text-muted-foreground [&::-webkit-details-marker]:hidden",
+							(lead.length > 0 || groups.length === 0) &&
+								"cursor-pointer hover:text-foreground",
+						)}
+					>
+						<ChevronRightIcon
+							className={cn(
+								"size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none",
+								lead.length === 0 && groups.length > 0 && "invisible",
+							)}
+						/>
 						<span
 							className={cn(
 								"min-w-0 truncate",
@@ -131,20 +150,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
 					</summary>
-					{opened && (
-						<ol
-							aria-label="timeline"
-							// Under the line's words, clear of its chevron.
-							className="mt-2 flex flex-col gap-1.5 pl-5"
-						>
-							{!work.going && work.plan !== null && (
-								<li>
-									<Plan steps={work.plan} />
-								</li>
-							)}
-							{items
-								.filter((item) => item.type !== "decision")
-								.map((item, index) => (
+					{opened &&
+						(lead.length > 0 || (!work.going && work.plan !== null)) && (
+							<ol
+								aria-label="timeline"
+								// Under the line's words, clear of its chevron.
+								className="mt-2 flex flex-col gap-1.5 pl-5"
+							>
+								{!work.going && work.plan !== null && (
+									<li>
+										<Plan steps={work.plan} />
+									</li>
+								)}
+								{lead.map((item, index) => (
 									<li
 										// The timeline only grows at its end, so an index is stable.
 										// biome-ignore lint/suspicious/noArrayIndexKey: as above
@@ -155,9 +173,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 										<TimelineItem item={item} short={short} />
 									</li>
 								))}
-						</ol>
-					)}
+							</ol>
+						)}
 				</details>
+				{groups.map((group, index) => (
+					<Headline
+						// biome-ignore lint/suspicious/noArrayIndexKey: groups only grow at the end
+						key={index}
+						said={group.said}
+						calls={group.calls}
+						took={took(group, groups[index + 1]?.said.at ?? ends)}
+						short={short}
+					/>
+				))}
 				{items
 					.filter((item) => item.type === "decision")
 					.map((item, index) => (
@@ -175,6 +203,99 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				<Flags tools={flagged(work)} short={short} />
 			</div>
 		</Going>
+	);
+}
+
+/** What the agent said, with the calls it made after, up to what it said next. */
+interface Group {
+	said: Extract<Item, { type: "said" }>;
+	calls: Item[];
+}
+
+/** The rows from the first thing the agent said on, each said row heading the calls after it. */
+function headlined(rows: Item[]): Group[] {
+	const groups: Group[] = [];
+	for (const row of rows) {
+		if (row.type === "said") {
+			groups.push({ said: row, calls: [] });
+		} else {
+			groups.at(-1)?.calls.push(row);
+		}
+	}
+	return groups;
+}
+
+/** How long a group took: from its words to the next group's, or to where the turn is. */
+function took(group: Group, next: string | number | null): string | null {
+	const { at } = group.said;
+	return at === null || next === null ? null : span(at, next);
+}
+
+/**
+ * The agent's words as a line that opens to the calls it made after, with
+ * how long they took on its right.
+ */
+function Headline({
+	said,
+	calls,
+	took,
+	short,
+}: {
+	said: Group["said"];
+	calls: Item[];
+	took: string | null;
+	short: (path: string) => string;
+}): JSX.Element {
+	const [open, setOpen] = useState(false);
+	// Its calls are built on the first open and kept after, as the row's are.
+	const [opened, setOpened] = useState(false);
+	const words = (
+		<Markdown
+			text={said.text}
+			className="min-w-0 flex-1 text-foreground text-sm [&>*>*]:my-0!"
+		/>
+	);
+	const time = took !== null && (
+		<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+			{took}
+		</span>
+	);
+	if (calls.length === 0) {
+		return (
+			<div data-slot="headline" className="flex items-start gap-1.5 pl-5">
+				{words}
+				{time}
+			</div>
+		);
+	}
+	return (
+		<details
+			data-slot="headline"
+			open={open}
+			onToggle={(event) => {
+				setOpen(event.currentTarget.open);
+				if (event.currentTarget.open) {
+					setOpened(true);
+				}
+			}}
+			className="group/headline"
+		>
+			<summary className="flex cursor-pointer list-none items-start gap-1.5 hover:text-foreground [&::-webkit-details-marker]:hidden">
+				<ChevronRightIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
+				{words}
+				{time}
+			</summary>
+			{opened && (
+				<ol aria-label="calls" className="mt-2 flex flex-col gap-1.5 pl-5">
+					{calls.map((item, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: calls only grow at the end
+						<li key={index}>
+							<TimelineItem item={item} short={short} />
+						</li>
+					))}
+				</ol>
+			)}
+		</details>
 	);
 }
 

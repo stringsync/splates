@@ -258,6 +258,23 @@ export function unfoldCards(timeline: HTMLElement): void {
 	}
 }
 
+/**
+ * The thread's headlines, the agent's words each folding the calls after
+ * it, in order, with their calls built if still folded.
+ */
+export function headlines(thread: HTMLElement): HTMLElement[] {
+	const rows = [
+		...thread.querySelectorAll<HTMLElement>("[data-slot=headline]"),
+	];
+	for (const row of rows) {
+		if (row instanceof HTMLDetailsElement && !row.open) {
+			toggle(row, true);
+			toggle(row, false);
+		}
+	}
+	return rows;
+}
+
 /** The thread's work timelines, built if still folded, in order. */
 export function workTimelines(thread: HTMLElement): HTMLElement[] {
 	unfold(thread);

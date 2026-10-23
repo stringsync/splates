@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { Duration } from "webappwiz/time";
-import { workTimeline, workTimelines } from "./drivers";
+import { headlines, workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -124,16 +124,14 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const timeline = await waitFor(() => workTimeline(thread));
-		expect(timeline.textContent).toContain("Now the fix.");
+		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
+		expect(headlines(thread)[0]?.textContent).toContain("Now the fix.");
 		expect(line(thread)).toMatch(/^Working /);
 		act(() => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeouts();
 		});
-		await waitFor(() =>
-			expect(workTimeline(thread).textContent).not.toContain("Now the fix."),
-		);
+		await waitFor(() => expect(headlines(thread)).toHaveLength(0));
 		expect(thread.textContent).toContain("Now the fix.");
 	});
 
@@ -177,11 +175,8 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const timeline = await waitFor(() => workTimeline(thread));
-		expect(timeline.textContent).toContain("Let me look.");
-		expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
-			false,
-		);
+		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
+		expect(headlines(thread)[0]?.textContent).toContain("Let me look.");
 		expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
 		expect(thread.textContent).not.toContain("Which tests?");
 	});
@@ -211,11 +206,11 @@ describe("App's work row while working", () => {
 				{ status: "running" },
 			),
 		);
-		await waitFor(() =>
-			expect(timelines()[0]?.textContent).toContain("Checking."),
-		);
+		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
+		expect(headlines(thread)[0]?.textContent).toContain("Checking.");
+		expect(headlines(thread)[0]?.textContent).toContain("bun run demo");
 		expect(timelines()).toHaveLength(1);
-		expect(timelines()[0]?.textContent).toContain("bun run demo");
+		expect(timelines()[0]?.textContent).toContain("bun test");
 		expect(line(thread)).toMatch(/^Working/);
 		expect(details(thread).open).toBe(true);
 	});

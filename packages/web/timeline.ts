@@ -11,7 +11,7 @@ export type Item =
 	/** How the person answered the agent asking permission for the call `label`. */
 	| { type: "decision"; label: string; decision: Decision }
 	/** Words the agent said between its calls, on the way to its reply. */
-	| { type: "said"; text: string };
+	| { type: "said"; text: string; at: string | null };
 
 /** The turn as rows, a subagent's calls under it rather than among them. */
 export function timeline(work: Work): Item[] {
@@ -29,7 +29,11 @@ export function timeline(work: Work): Item[] {
 			return;
 		}
 		if (part.type === "text") {
-			items.push({ type: "said", text: part.text.trim() });
+			items.push({
+				type: "said",
+				text: part.text.trim(),
+				at: part.at ?? null,
+			});
 			return;
 		}
 		// Shown as a line of its own, between the work before and after.
