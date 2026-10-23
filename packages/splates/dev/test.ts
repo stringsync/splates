@@ -2,14 +2,18 @@ import { mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fail } from "@stringsync/splates-server/exit";
+import { Git } from "@stringsync/splates-server/git";
 import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
+import { type ScopeCount, TestScope } from "./test-scope";
 
 export interface TestOptions {
+	/** Preflight file selection, without executing tests. */
+	scope?: Pick<TestScope, "count">;
 	/** Run only the free eval harness tests. */
 	evals?: boolean;
 	/** Run the package's and the eval harness's tests together. */
@@ -69,6 +73,27 @@ export async function test(opts: TestOptions): Promise<void> {
 			ps,
 			opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
 		);
+	}
+	if (
+		focused &&
+		!opts.evals &&
+		!opts.allowed &&
+		ps.env("SPLATES_CONVERSATION") !== undefined &&
+		ps.env(PREMERGE_HELD) === undefined
+	) {
+		const count = await (
+			opts.scope ?? new TestScope(new Git(ROOT, { ps }))
+		).count(opts);
+		_log.info(
+			`Test scope: up to ${count.selected} of ${count.total} test files (before filtering test names).`,
+		);
+		if (count.total > 0 && count.selected * 2 >= count.total) {
+			await refuseWholeSuite(
+				ps,
+				opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
+				count,
+			);
+		}
 	}
 	// An agent's run beside a merge gate makes way for it; its workers inherit the nice.
 	(opts.priority ?? new AgentPriority(ps)).lower();
@@ -201,6 +226,7 @@ export async function test(opts: TestOptions): Promise<void> {
 export async function refuseWholeSuite(
 	ps: Ps,
 	grants: SuiteGrants,
+	count?: ScopeCount,
 ): Promise<void> {
 	const conversation = ps.env("SPLATES_CONVERSATION");
 	if (
@@ -212,8 +238,8 @@ export async function refuseWholeSuite(
 	}
 	fail(
 		"not_granted",
-		"the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it instead, which needs no approval: `--changed` (tests your uncommitted changes reach), `--since main` (once committed), test file paths, or `--test-name-pattern <regex>`; `--evals` runs the eval harness's tests alone. If only the whole suite will do, end your reply with a `## 🔐 Permission: run command: <why>` card, the command alone on a line in backticks (`` `bin/splates dev test` ``) and the why under it, and wait: its Allow lets this conversation run `splates dev test` or `splates dev premerge` once",
-		{ conversation },
+		`${count ? `This scope may reach ${count.selected} of ${count.total} test files, at least half the suite. ` : ""}the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it below half the test files: \`--changed\` (tests your uncommitted changes reach), \`--since main\` (once committed), test file paths, or \`--test-name-pattern <regex>\`; \`--evals\` runs the eval harness's tests alone. For a run reaching at least half the files, end your reply with a \`## 🔐 Permission: run command: <why>\` card, the exact refused command alone on a line in backticks (for example, \`\` \`bin/splates dev test --since main\` \`\`) and the why under it, and wait: its Allow lets this conversation run the approved \`splates dev test\` or \`splates dev premerge\` once`,
+		{ conversation, ...count },
 	);
 }
 

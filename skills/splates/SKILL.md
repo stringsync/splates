@@ -35,7 +35,10 @@ the rest:
    the change reaches many tests. In splates's own repo, use `splates dev
    test --changed` before committing, `--since main` after committing, or
    explicit file paths; `--test-name-pattern <regex>` narrows cases further,
-   and focused runs use one worker (`--workers <n>`). Run `splates dev fix`
+   and focused runs use one worker (`--workers <n>`). Scoped runs reaching
+   at least half the test files report their estimated count and require the
+   same one-run permission card, naming the exact scoped command. Test-name
+   patterns do not reduce this file count. Run `splates dev fix`
    once per step, not after every edit, with `--code-only` to skip scry's
    model calls. An unscoped `splates dev test` or `splates dev premerge` is
    refused an agent (`not_granted`) until the person allows one run from a

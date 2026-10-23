@@ -41,10 +41,16 @@ run-command permission card for anything else heavy, running it only on
 
 - An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test` or
   `dev premerge` with `not_granted`; the message names the scoped flags, which
-  need no approval.
+  need no approval below half the test files. Scoped runs reaching at least
+  half report the estimated count and require the same one-run approval.
+  The count follows imports without executing tests; unknown imports
+  conservatively count their dependent tests, while configuration changes
+  count all path-matching files.
+  Test-name patterns narrow cases, not the preflight file count.
 - Outside a gate (`SPLATES_PREMERGE`) it runs only once the person allows a
-  `## 🔐 Permission: run command: <why>` card whose command is a whole-suite
-  run (`isWholeSuite`).
+  `## 🔐 Permission: run command: <why>` card whose command is a `dev test`
+  or `dev premerge` run without `--evals` (`isWholeSuite`), including scoped
+  runs.
 - Allow first posts `/api/conversations/:id/suite`, which writes a one-run
   grant to `~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing
   an hour), then sends `[SPLATES RUN ALLOWED]` as for any command.

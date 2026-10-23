@@ -18,8 +18,11 @@ gate runs it, as `bin/splates dev premerge` (`preMerge` in
 your own is the same work twice. Running a test file or two you changed by
 hand (`bun test <path>`) is fine, as is any scoped `splates dev test`
 (`--changed`, `--since main`, file paths, `--test-name-pattern`, `--evals`),
-which needs no approval. An unscoped `splates dev test` or `splates dev
-premerge` is refused an agent until the person allows one run from a
+which needs no approval when it reaches fewer than half the test files. A
+scoped run reaching at least half reports its estimated file count and requires
+the same one-run permission card, naming the exact scoped command. Test-name
+patterns do not reduce this file count. An unscoped `splates dev test` or
+`splates dev premerge` is refused an agent until the person allows one run from a
 `## 🔐 Permission: run command: <why>` card naming `` `bin/splates dev test` ``. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`.
 

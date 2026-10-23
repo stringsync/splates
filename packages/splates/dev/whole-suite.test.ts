@@ -35,4 +35,42 @@ describe("refuseWholeSuite", () => {
 		const gate = machine({ SPLATES_CONVERSATION: "c1", SPLATES_PREMERGE: "1" });
 		await refuseWholeSuite(gate.ps, gate.grants);
 	});
+	it("refuses exactly half before starting tests, reporting both counts", async () => {
+		const { ps, grants } = machine({ SPLATES_CONVERSATION: "c1" });
+		await expect(
+			test({
+				ps,
+				grants,
+				since: "main",
+				scope: { count: async () => ({ selected: 5, total: 10 }) },
+			}),
+		).rejects.toThrow("5 of 10 test files");
+		expect(ps.getCalls()).toEqual([]);
+	});
+
+	it("runs below half without spending a grant, and consumes one for a broad scope", async () => {
+		const { ps, grants } = machine({ SPLATES_CONVERSATION: "c1" });
+		ps.platform = "linux";
+		await grants.grant("c1");
+		await test({
+			ps,
+			grants,
+			files: ["example.test.ts"],
+			scope: { count: async () => ({ selected: 4, total: 10 }) },
+		});
+		await test({
+			ps,
+			grants,
+			changed: true,
+			scope: { count: async () => ({ selected: 5, total: 10 }) },
+		});
+		await expect(
+			test({
+				ps,
+				grants,
+				changed: true,
+				scope: { count: async () => ({ selected: 5, total: 10 }) },
+			}),
+		).rejects.toThrow("at least half");
+	});
 });

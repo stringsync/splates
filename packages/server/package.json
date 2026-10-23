@@ -51,6 +51,7 @@
 		"./creds": "./creds/index.ts",
 		"./push": "./push/index.ts",
 		"./exit": "./exit.ts",
+		"./git": "./git.ts",
 		"./fixtures": "./fixtures.ts",
 		"./terminal": "./terminal/index.ts",
 		"./log": "./log.ts",

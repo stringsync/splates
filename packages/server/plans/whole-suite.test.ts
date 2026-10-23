@@ -14,7 +14,7 @@ describe("isWholeSuite", () => {
 		).toEqual([true, true, true, true, true]);
 	});
 
-	it("passes over scoped runs and other commands", () => {
+	it("grants scoped test runs too, but passes over evals and other commands", () => {
 		expect(
 			[
 				"splates dev test --changed",
@@ -27,6 +27,6 @@ describe("isWholeSuite", () => {
 				"bin/splates dev fix",
 				"bun test",
 			].map(isWholeSuite),
-		).toEqual([false, false, false, false, false, false, false, false, false]);
+		).toEqual([true, true, true, true, true, false, false, false, false]);
 	});
 });
