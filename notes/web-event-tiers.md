@@ -1,0 +1,25 @@
+---
+description: Which splates events draw a line in a conversation (loud) and which fold into counts on their work row (quiet), and where to put a new action
+---
+
+`packages/web/event-tier.ts` (`tierOf`) sorts every event of a conversation:
+
+- **Loud** keeps a hairline line (`EventUI`, `event-lines.tsx`) placed among
+  the work, cutting its row. These change what the conversation is about or
+  need the person: add (done), claim, merge and its steps, remove, handoff,
+  retry, escalate, waits, cred requests, and the failure of the ones that
+  change what happens next.
+- **Quiet** has no line. `stretchesOf` (`work.ts`) never makes it a `Stretch`;
+  `joined` puts it on `Work.events` of the row it fell in (the last row begun
+  by its time), and `work-row.tsx` shows `QuietCounts` (`quiet-events.tsx`,
+  counts from `quiet-counts.ts`) in the summary, opening a dialog that draws
+  each event with the same `EventLine`, so Remove / Undo on an added todo and
+  Auto pick's Undo live there. Notes read and Auto pick have no count; a row
+  with only those says `N events`. Any refused command not loud is quiet.
+- `null` means shown nowhere (bare `attach`, actions with no line yet).
+
+A new action goes in the tier by whether the person must see or act on it;
+if quiet, also give it a group in `quiet-events.tsx` and a count in
+`quiet-counts.ts`. Anything deciding whether events came since the person
+spoke (`thread.tsx`) must test `tierOf(event) === "loud"`, since quiet events
+are not parts of the thread.

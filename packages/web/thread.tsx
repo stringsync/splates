@@ -50,7 +50,8 @@ import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
-import { EventUI, lineOf } from "./event-lines";
+import { EventUI } from "./event-lines";
+import { tierOf } from "./event-tier";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
@@ -459,7 +460,7 @@ function ended(conversation: ConversationState): TaskReport | null {
 		typeof said === "string" &&
 		conversation.events.some(
 			(event) =>
-				event.at > said && (isEscalation(event) || lineOf(event) !== null),
+				event.at > said && (isEscalation(event) || tierOf(event) === "loud"),
 		);
 	return movedOn ? null : report;
 }

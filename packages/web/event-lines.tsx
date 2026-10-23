@@ -280,7 +280,7 @@ function readLine(event: Event, also: Event[] = []): SplatesEventView | null {
 			};
 }
 
-function EventLine({
+export function EventLine({
 	event,
 	also = [],
 	going = false,

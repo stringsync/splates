@@ -148,7 +148,7 @@ describe("App's Auto pick", () => {
 		const view = await testing.openConversations([
 			{ ...turn(["On it."]), events: [picked(signs, judged)] },
 		]);
-		return await waitFor(() => view.getByRole("note", { name: "splates" }));
+		return await quietLine(view);
 	};
 
 	it("logs the pick in the conversation, led by its mark, with what the judge found in a popover", async () => {
@@ -181,9 +181,7 @@ describe("App's Auto pick", () => {
 				],
 			},
 		]);
-		const line = await waitFor(() =>
-			view.getByRole("note", { name: "splates" }),
-		);
+		const line = await quietLine(view);
 		expect(line.textContent).toBe("Auto moved up to Big·Open · DeepUndo");
 		expect((await findings(line, "Open · Deep")).textContent).toContain(
 			"From Haiku, low effort",
@@ -207,12 +205,29 @@ describe("App's Auto pick", () => {
 	});
 });
 
+/** Auto pick's line, in the dialog its row's quiet events open to. */
+async function quietLine(view: {
+	getByRole: (role: string, options: { name: string }) => HTMLElement;
+}): Promise<HTMLElement> {
+	fireEvent.click(
+		await waitFor(() => view.getByRole("button", { name: "quiet events" })),
+	);
+	return await waitFor(() =>
+		within(document.body).getByRole("note", { name: "splates" }),
+	);
+}
+
 /** The popover of what the judge found, opened from `line` by its `trigger`. */
 async function findings(line: HTMLElement, trigger: string) {
 	await act(async () =>
 		fireEvent.click(within(line).getByRole("button", { name: trigger })),
 	);
-	return await waitFor(() => within(document.body).getByRole("dialog"));
+	return await waitFor(() => {
+		// The popover opens over the quiet events' dialog, so it is the last.
+		const found = within(document.body).getAllByRole("dialog").at(-1);
+		expect(found).toBeDefined();
+		return found as HTMLElement;
+	});
 }
 
 /** Auto pick's decision for the conversation, the judge having found `signs`. */

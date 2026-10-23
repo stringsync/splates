@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
 	cleanup,
+	fireEvent,
 	second,
 	Testing,
 	todo,
@@ -48,8 +49,11 @@ describe("App's todo add events for a todo a task has taken", () => {
 					lanes: [],
 				},
 			);
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "quiet events" })),
+			);
 			const line = await waitFor(() =>
-				view.getByRole("note", { name: "splates" }),
+				within(document.body).getByRole("note", { name: "splates" }),
 			);
 
 			expect(within(line).queryByRole("button", { name: "Remove" })).toBeNull();

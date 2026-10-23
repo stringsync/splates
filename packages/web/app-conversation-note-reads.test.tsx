@@ -20,7 +20,7 @@ describe("App's note reads", () => {
 		testing.dispose();
 	});
 
-	it("draws a turn's note reads as one line that lists each note once", async () => {
+	it("draws a turn's note reads in the dialog as one line that lists each note once", async () => {
 		testing = new Testing();
 		const read = (
 			id: string,
@@ -61,8 +61,16 @@ describe("App's note reads", () => {
 		const thread = await waitFor(() =>
 			view.getByRole("region", { name: "Tests" }),
 		);
+		const counts = await waitFor(() =>
+			within(thread).getByRole("button", { name: "quiet events" }),
+		);
+		// Notes read have no count of their own, so the row says how many events.
+		expect(counts.textContent).toBe("3 events");
+		await act(async () => fireEvent.click(counts));
 		const line = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "splates" });
+			const found = within(document.body).getAllByRole("note", {
+				name: "splates",
+			});
 			expect(found).toHaveLength(1);
 			return found[0] as HTMLElement;
 		});

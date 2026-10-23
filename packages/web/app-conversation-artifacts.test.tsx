@@ -63,8 +63,15 @@ describe("App's artifacts", () => {
 			],
 		);
 
+		fireEvent.click(
+			await waitFor(() =>
+				within(thread).getByRole("button", { name: "quiet events" }),
+			),
+		);
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "splates" });
+			const found = within(document.body).getAllByRole("note", {
+				name: "splates",
+			});
 			expect(found).toHaveLength(3);
 			return found;
 		});
@@ -298,8 +305,13 @@ describe("App's artifacts", () => {
 			[artifact("shot.png", [version(1, 10, "image/png")])],
 			[added(1, "shot.png", 1)],
 		);
+		fireEvent.click(
+			await waitFor(() =>
+				within(thread).getByRole("button", { name: "quiet events" }),
+			),
+		);
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "splates" }),
+			within(document.body).getByRole("note", { name: "splates" }),
 		);
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "shot.png" })),

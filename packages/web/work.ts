@@ -8,6 +8,7 @@ import type {
 } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
 import { Duration } from "webappwiz/time";
+import { tierOf } from "./event-tier";
 import { workingSpan } from "./work-time";
 
 /**
@@ -31,6 +32,8 @@ export interface Work {
 	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
+	/** The quiet events that fell in it, which the row sums up as counts and opens to. */
+	events?: Event[];
 }
 
 /**
@@ -104,20 +107,15 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
-	// Notes read are one quiet line above the turn, not placed by time: a line
-	// among the work would cut its row in two at every read.
-	const reads = events.filter(isRead);
+	// Only loud events are placed among the work; a quiet one never cuts a
+	// row, and joins the row it fell in once the rows are made.
 	const ordered = folded(
 		placed(
 			pieces,
-			events.filter((event) => !isRead(event)),
+			events.filter((event) => tierOf(event) === "loud"),
 			message.at,
 		),
 	);
-	const [first, ...rest] = reads;
-	if (first !== undefined) {
-		ordered.unshift({ type: "event", event: first, also: rest });
-	}
 	// Keep live work below an event, or a command left in the background,
 	// even before the agent sends another part.
 	const tail = ordered.at(-1);
@@ -153,7 +151,7 @@ export function stretchesOf(
 	const works = kept.filter((run) => Array.isArray(run));
 	const end = kept.length - 1;
 	const final = works.at(-1);
-	return kept.map((run, index): Stretch => {
+	const rows = kept.map((run, index): Stretch => {
 		if (!Array.isArray(run)) {
 			return run;
 		}
@@ -218,6 +216,51 @@ export function stretchesOf(
 			},
 		};
 	});
+	return joined(
+		rows,
+		events.filter((event) => tierOf(event) === "quiet"),
+		going,
+	);
+}
+
+/**
+ * `stretches` with each quiet event on the work row it fell in: the last to
+ * begin by its time, or the first, for one before them all. A turn with no
+ * row, whose work was all thoughts, gets an empty one before the rest to hold them.
+ */
+function joined(
+	stretches: Stretch[],
+	quiet: readonly Event[],
+	going: boolean,
+): Stretch[] {
+	if (quiet.length === 0) {
+		return stretches;
+	}
+	const rows = stretches.flatMap((stretch) =>
+		stretch.type === "work" ? [stretch.work] : [],
+	);
+	if (rows.length === 0) {
+		const work: Work = {
+			parts: [],
+			plan: null,
+			at: null,
+			until: null,
+			running: false,
+			working: false,
+			going,
+		};
+		rows.push(work);
+		stretches = [{ type: "work", work }, ...stretches];
+	}
+	for (const event of quiet) {
+		const row =
+			rows.findLast((each) => each.at !== null && each.at <= event.at) ??
+			rows[0];
+		if (row !== undefined) {
+			row.events = [...(row.events ?? []), event];
+		}
+	}
+	return stretches;
 }
 
 /**
@@ -263,37 +306,15 @@ function placed(
 	return [...out, ...left.map((event): Piece => ({ type: "event", event }))];
 }
 
-/**
- * `pieces` with each run of successful `todo update` events, with nothing
- * between, folded into the first, so a groom reads as one line, each wait's
- * end folded into its beginning, so it is one line that changes, and every
- * note read in the turn folded into its first, so reads make one quiet line.
- */
+/** `pieces` with each wait's end folded into its beginning, so it is one line that changes. */
 function folded(pieces: Piece[]): Piece[] {
 	const out: Piece[] = [];
-	let read: Extract<Piece, { type: "event" }> | undefined;
 	for (const piece of pieces) {
-		const last = out.at(-1);
 		const event =
 			!Array.isArray(piece) && piece.type === "event" ? piece.event : null;
 		const began = event === null ? undefined : beganWith(out, event);
 		if (event !== null && began !== undefined) {
 			began.also = [...(began.also ?? []), event];
-		} else if (event !== null && isRead(event) && read !== undefined) {
-			read.also = [...(read.also ?? []), event];
-		} else if (
-			!Array.isArray(piece) &&
-			piece.type === "event" &&
-			isUpdate(piece.event) &&
-			last !== undefined &&
-			!Array.isArray(last) &&
-			last.type === "event" &&
-			isUpdate(last.event)
-		) {
-			last.also = [...(last.also ?? []), piece.event];
-		} else if (event !== null && isRead(event)) {
-			read = { type: "event", event };
-			out.push(read);
 		} else {
 			out.push(
 				!Array.isArray(piece) && piece.type === "event" ? { ...piece } : piece,
@@ -318,14 +339,6 @@ function beganWith(
 			piece.type === "event" &&
 			piece.event.id === began,
 	);
-}
-
-function isRead(event: Event): boolean {
-	return event.action === "note read" && event.reason === null;
-}
-
-function isUpdate(event: Event): boolean {
-	return event.action === "task update" && event.reason === null;
 }
 
 /** When the last of `parts` to say so ended, or began. */

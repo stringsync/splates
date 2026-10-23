@@ -22,6 +22,7 @@ import { cn } from "#web/lib/utils.ts";
 import { InMessage, useCardReply } from "./card-reply";
 import { useNow } from "./hooks/use-now";
 import { Markdown } from "./markdown";
+import { QuietCounts } from "./quiet-events";
 import { ThreadAction } from "./thread-action";
 import { type Item, timeline } from "./timeline";
 import { tokens } from "./usage";
@@ -102,6 +103,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 		lead.length > 0 ||
 		(!work.going && work.plan !== null);
 	const before = groups[0]?.said.at ?? null;
+	const quiet = work.events ?? [];
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
 	// Folded until the person opens it, while the agent works too, and open
@@ -132,7 +134,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
 					)}
 				>
-					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+					<summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-1.5 text-muted-foreground hover:text-foreground md:flex-nowrap [&::-webkit-details-marker]:hidden">
 						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
 						<span
 							className={cn(
@@ -152,6 +154,18 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 										? "Working"
 										: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
+						{shown && quiet.length > 0 && (
+							<>
+								<span aria-hidden className="max-md:hidden">
+									·
+								</span>
+								{/* On a phone they wrap under Worked, past the chevron. */}
+								<QuietCounts
+									events={quiet}
+									className="max-md:basis-full max-md:pl-5"
+								/>
+							</>
+						)}
 					</summary>
 					{opened &&
 						(lead.length > 0 || (!work.going && work.plan !== null)) && (
@@ -179,6 +193,8 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							</ol>
 						)}
 				</details>
+				{/* The summary is hidden when headlines head the row; the counts stand alone. */}
+				{!shown && <QuietCounts events={quiet} className="pl-5" />}
 				{groups.map((group, index) => (
 					<Headline
 						// biome-ignore lint/suspicious/noArrayIndexKey: groups only grow at the end
