@@ -4,7 +4,7 @@ import { FakeTimer } from "webappwiz/time/testing";
 import { laneAdd, laneUpdate, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
-import { queueAdd, queueRemove } from "./commands";
+import { letGo, queueAdd, queueRemove } from "./commands";
 import {
 	type HeldConversation,
 	type HeldConversations,
@@ -50,6 +50,7 @@ describe("QueueRunner", () => {
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
 			lanes: () => deps.tasks.queueFromLanes(),
+			unqueue: (going) => letGo(deps.tasks, going),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			picker,
 			start: (each) => {
@@ -220,7 +221,7 @@ describe("QueueRunner", () => {
 		expect(started).toHaveLength(2);
 	});
 
-	it("holds a conversation for each queued task from the start, placed in queue order with what it waits on", async () => {
+	it("holds a conversation only for a queued task that can start, none for one waiting on another", async () => {
 		await taskAdd(deps, "Breakdowns", null);
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Someday", null);
@@ -233,11 +234,55 @@ describe("QueueRunner", () => {
 		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
 		expect(held.placed()).toEqual([
 			{ queued: 2, position: 1, reason: "starting" },
-			{ queued: 1, position: 2, reason: "waits on #2" },
 		]);
 
 		await runner.sweep();
-		expect(held.held).toHaveLength(2);
+		expect(held.held).toHaveLength(1);
+		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
+	});
+
+	it("lets go to ready a queued task waiting on one neither queued nor running, noting it, until queued again", async () => {
+		await taskAdd(deps, "Breakdowns", null, { ready: true });
+		await taskAdd(deps, "Totals first", null);
+		await taskUpdate(deps, 1, { blockedBy: [2] });
+		await queueAdd(deps, [1]);
+
+		await runner.sweep();
+
+		expect(started).toEqual([]);
+		expect(held.held).toEqual([]);
+		expect((await deps.tasks.find(1)).state).toMatchObject({
+			stage: "ready",
+			unqueuedFor: [2],
+		});
+
+		starting = () => new Promise(() => {});
+		await queueAdd(deps, [2, 1]);
+		await runner.sweep();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
+		const waiting = (await deps.tasks.find(1)).state;
+		expect(waiting.stage).toBe("queued");
+		expect(waiting.unqueuedFor).toBeUndefined();
+	});
+
+	it("lets a chain go whole when the task at its root is not queued", async () => {
+		await taskAdd(deps, "Charts", null);
+		await taskAdd(deps, "Breakdowns", null);
+		await taskAdd(deps, "Totals first", null);
+		await taskUpdate(deps, 1, { blockedBy: [2] });
+		await taskUpdate(deps, 2, { blockedBy: [3] });
+		await queueAdd(deps, [1, 2]);
+
+		await runner.sweep();
+
+		expect(started).toEqual([]);
+		const [one, two] = await Promise.all([
+			deps.tasks.find(1),
+			deps.tasks.find(2),
+		]);
+		expect([one.state.unqueuedFor, two.state.unqueuedFor]).toEqual([[2], [3]]);
+		expect([one.state.stage, two.state.stage]).toEqual(["backlog", "backlog"]);
 	});
 
 	it("hands a queued task's held conversation to its start, keeping it until it takes the task", async () => {
@@ -257,32 +302,42 @@ describe("QueueRunner", () => {
 		expect(held.held).toEqual([]);
 	});
 
-	it("drops a held conversation once its task is unqueued or taken another way", async () => {
+	it("drops a held conversation once its task is unqueued, taken another way, or blocked again", async () => {
 		await taskAdd(deps, "Unqueued", null);
 		await taskAdd(deps, "Taken", null);
+		await taskAdd(deps, "Blocked", null);
 		await taskAdd(deps, "Blocker", null);
-		await taskUpdate(deps, 1, { blockedBy: [3] });
-		await taskUpdate(deps, 2, { blockedBy: [3] });
-		await queueAdd(deps, [1, 2]);
+		await queueAdd(deps, [1, 2, 3]);
+		starting = async () => {
+			throw new Error("hook_failed");
+		};
 		await runner.sweep();
+		await settled();
+		expect(held.held).toHaveLength(3);
 
 		await queueRemove(deps, [1]);
 		await (await deps.tasks.find(2)).take("by-hand");
+		await (await deps.tasks.find(4)).take("blocker");
+		await taskUpdate(deps, 3, { blockedBy: [4] });
 		await runner.sweep();
 
-		expect(held.dropped).toEqual(["h1", "h2"]);
+		expect(held.dropped).toEqual(["h1", "h2", "h3"]);
 		expect(held.held).toEqual([]);
 	});
 
 	it("holds another on the agent its task names once that changes", async () => {
 		await taskAdd(deps, "Totals first", null);
-		await taskAdd(deps, "Blocker", null);
-		await taskUpdate(deps, 1, { blockedBy: [2] });
 		await queueAdd(deps, [1]);
+		starting = async () => {
+			throw new Error("hook_failed");
+		};
 		await runner.sweep();
+		await settled();
+		expect(held.held.map((each) => each.agent)).toEqual(["claude"]);
 
 		await taskUpdate(deps, 1, { assignee: { agent: "codex" } });
 		await runner.sweep();
+		await settled();
 
 		expect(held.dropped).toEqual(["h1"]);
 		expect(held.held.map((each) => each.agent)).toEqual(["codex"]);
@@ -290,25 +345,18 @@ describe("QueueRunner", () => {
 
 	it("starts a task that names no agent on what Auto pick decides as it starts, held and told there", async () => {
 		await taskAdd(deps, "Totals first", null);
-		await taskAdd(deps, "Blocker", null);
-		await taskUpdate(deps, 1, { blockedBy: [2] });
 		await queueAdd(deps, [1]);
 		picker.decides = { agent: "codex", model: "o3", effort: "high" };
-		await runner.sweep();
-		await runner.sweep();
-		expect(picker.decided).toEqual([]);
-		expect(held.held.map((each) => each.agent)).toEqual(["claude"]);
 
-		await taskUpdate(deps, 1, { removeBlockedBy: [2] });
 		await runner.sweep();
 		await settled();
 
 		expect(picker.decided).toEqual([1]);
 		expect(started.map(({ pick, held }) => ({ pick, held }))).toEqual([
-			{ pick: { agent: "codex", model: "o3", effort: "high" }, held: "h2" },
+			{ pick: { agent: "codex", model: "o3", effort: "high" }, held: "h1" },
 		]);
-		expect(held.dropped).toEqual(["h1"]);
-		expect(picker.told).toEqual([{ queued: 1, conversation: "h2" }]);
+		expect(held.dropped).toEqual([]);
+		expect(picker.told).toEqual([{ queued: 1, conversation: "h1" }]);
 	});
 
 	it("has Auto pick judge a backlog task that names no agent as it is added, not a ready one", async () => {
@@ -346,20 +394,20 @@ describe("QueueRunner", () => {
 
 	it("leaves to a person's conversation the queued task it took, as a `[SPLATES TASK #N]` start does", async () => {
 		await taskAdd(deps, "Totals first", null);
-		await taskAdd(deps, "Blocker", null);
+		await taskAdd(deps, "Blocker", null, { assignee: { agent: "claude" } });
 		await taskUpdate(deps, 1, { blockedBy: [2] });
-		await queueAdd(deps, [1]);
+		await queueAdd(deps, [1, 2]);
+		starting = () => new Promise(() => {});
 		await runner.sweep();
 
 		// The person's own agent claims it with `splates add --task 1`.
 		await (await deps.tasks.find(1)).take("totals-by-hand");
 		await taskUpdate(deps, 1, { removeBlockedBy: [2] });
 		await runner.sweep();
-		await settled();
 
-		expect(started).toEqual([]);
+		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
 		expect(picker.decided).toEqual([]);
-		expect(held.dropped).toEqual(["h1"]);
+		expect(held.held.map(({ queued }) => queued)).toEqual([2]);
 	});
 
 	it("tries a refused start again only once its task changes, not for what Auto pick kept on it", async () => {

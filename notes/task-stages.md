@@ -10,7 +10,9 @@ are not reused either.
 
 `stage` is one of `backlog` (not groomed), `ready` (groomed: duplicates
 looked for, blockers linked, a lane and model chosen), `queued` (the person
-put it in the queue, or a lane queued whole did) and `running` (an agent
+put it in the queue, or a lane queued whole did, and it stays while each
+blocker is queued or running: otherwise the queue lets it go, see the
+queue-runner note) and `running` (an agent
 works it in a worktree). `groomed: true` stays on the record, so a task let
 go from the queue returns to `ready`, not `backlog`. A merged or removed task
 leaves `tasks/`; its last plan is kept in `finished/`.

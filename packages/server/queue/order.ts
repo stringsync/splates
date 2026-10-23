@@ -49,3 +49,41 @@ export function canStart(
 	const { open, lost } = holdsBack(task, all);
 	return task.takenBy === null && open.length === 0 && lost.length === 0;
 }
+
+/**
+ * The queued tasks the queue lets go, by id, each with the tasks it is
+ * blocked by that will never start from the queue: neither queued nor
+ * running, or removed without merging. One blocked only by another let go
+ * goes too, so a chain leaves whole rather than a link a sweep.
+ */
+export function stalled(all: readonly TaskRecord[]): Map<number, number[]> {
+	const going = new Map<number, number[]>();
+	const queued = all.filter(
+		(task) => task.stage === "queued" && task.takenBy === null,
+	);
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const task of queued) {
+			if (going.has(task.id)) {
+				continue;
+			}
+			const { open, lost } = holdsBack(task, all);
+			const idle = [
+				...open
+					.filter(
+						(other) =>
+							other.takenBy === null &&
+							(other.stage !== "queued" || going.has(other.id)),
+					)
+					.map((other) => other.id),
+				...lost,
+			];
+			if (idle.length > 0) {
+				going.set(task.id, idle);
+				changed = true;
+			}
+		}
+	}
+	return going;
+}

@@ -8,7 +8,7 @@ import {
 	named,
 	settle,
 } from "./lanes";
-import { type Task, type TaskRecord, unqueued } from "./task";
+import { enqueued, type Task, type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
@@ -274,12 +274,9 @@ export class TaskLanes {
 					) {
 						queued.push(
 							(
-								await this.tasks.save({
-									...state,
-									stage: "queued",
-									queuedBy: { by: "lane", lane: record.id },
-									queuedAt: new Date().toISOString(),
-								})
+								await this.tasks.save(
+									enqueued(state, { by: "lane", lane: record.id }),
+								)
 							).state,
 						);
 						spent.set(record.id, (spent.get(record.id) ?? 0) + 1);

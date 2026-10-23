@@ -54,7 +54,8 @@ export function Card({
 	className,
 }: CardProps): JSX.Element {
 	const board = useContext(Board);
-	// Queued, it has a conversation waiting for an agent, as one at work has.
+	// Queued, it has a conversation waiting for an agent once it can start,
+	// as one at work has.
 	const held = todo.takenBy === null && todo.stage === "queued";
 	const stale =
 		todo.takenBy === null &&
@@ -65,6 +66,11 @@ export function Card({
 			todo.blockedBy.includes(other.id) &&
 			(todo.lane === null || other.lane !== todo.lane),
 	);
+	// The blockers the queue let it go for that still block it, to queue first.
+	const leftFor =
+		todo.stage === "queued"
+			? []
+			: (todo.unqueuedFor ?? []).filter((id) => todo.blockedBy.includes(id));
 	return (
 		<div
 			{...pointer}
@@ -146,6 +152,17 @@ export function Card({
 							<span className="text-warning">needs you</span>
 						</Badge>
 					)}
+					{leftFor.length > 0 && (
+						<Badge
+							Icon={CircleAlertIcon}
+							label="the queue let it go: what it waits on is not queued"
+						>
+							<span className="text-warning">
+								left the queue: queue {leftFor.map((id) => `#${id}`).join(", ")}{" "}
+								first
+							</span>
+						</Badge>
+					)}
 					{todo.files.length > 0 && (
 						<Badge Icon={PaperclipIcon} label="files">
 							{todo.files.length}
@@ -182,7 +199,7 @@ export function Card({
 			</button>
 			{/* An agent at work spins in the top right, on every card the same
 			    place, in the grip's column so the subject keeps its width; a
-			    queued card waits there for one. */}
+			    queued card free to start waits there for one. */}
 			{(todo.takenBy || held) && (
 				<OnIt
 					task={todo.takenBy}

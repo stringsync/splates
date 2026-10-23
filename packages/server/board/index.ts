@@ -37,6 +37,7 @@ export type {
 } from "./task";
 export {
 	checkSlug,
+	enqueued,
 	recordUpdate,
 	tasksNamed,
 	unqueued,

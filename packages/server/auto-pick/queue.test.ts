@@ -9,6 +9,7 @@ import { eventually } from "../conversations/testing";
 import {
 	type HeldConversation,
 	type HeldConversations,
+	letGo,
 	QueueRunner,
 	type QueueStart,
 	queueAdd,
@@ -57,11 +58,15 @@ describe("QueueAutoPick", () => {
 	};
 
 	let blocker: number;
-	/** Keeps the task from starting, so only its judgment is seen. */
+	/**
+	 * Keeps the task from starting, so only its judgment is seen: blocked by
+	 * one under way, which the queue waits on rather than letting it go.
+	 */
 	const block = async (): Promise<void> => {
 		({ id: blocker } = await deps.tasks.add("Blocker", null, {
 			assignee: { agent: "fake" },
 		}));
+		await (await deps.tasks.find(blocker)).take("blocker");
 		await taskUpdate(deps, id, { blockedBy: [blocker] });
 	};
 
@@ -110,6 +115,7 @@ describe("QueueAutoPick", () => {
 		held = heldList();
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
+			unqueue: (going) => letGo(deps.tasks, going),
 			tasks: async () => [],
 			picker,
 			start: async (each) => {
@@ -314,9 +320,8 @@ describe("QueueAutoPick", () => {
 		gate.resolve();
 		await picker.settled();
 		await runner.sweep();
-		expect(held.held.map(({ id, agent }) => ({ id, agent }))).toEqual([
-			{ id: "h1", agent: "other" },
-		]);
+		// Blocked, it waits with no conversation held until it can start.
+		expect(held.held).toEqual([]);
 
 		await taskUpdate(deps, id, { removeBlockedBy: [blocker] });
 		await runner.sweep();

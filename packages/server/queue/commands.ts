@@ -1,6 +1,12 @@
 import { color, type Logger } from "webappwiz/log";
 import { age } from "../age";
-import { type Task, type TaskRecord, type Tasks, unqueued } from "../board";
+import {
+	enqueued,
+	type Task,
+	type TaskRecord,
+	type Tasks,
+	unqueued,
+} from "../board";
 import { fail } from "../exit";
 import { pickLabel } from "../models";
 import { table } from "../table";
@@ -69,12 +75,7 @@ export async function queueAdd(
 	const queued: Task[] = [];
 	for (const task of found) {
 		queued.push(
-			await tasks.revise(task.id, (state) => ({
-				...state,
-				stage: "queued",
-				queuedBy: { by: "person" },
-				queuedAt: new Date().toISOString(),
-			})),
+			await tasks.revise(task.id, (state) => enqueued(state, { by: "person" })),
 		);
 	}
 	// Queued again by hand, a queued lane counts it in once more.
@@ -124,6 +125,29 @@ export async function queueRemove(
 			.join("\n"),
 	);
 	return removed;
+}
+
+/**
+ * Takes each task in `going` out of the queue, as `stalled` finds them,
+ * noting the blockers it was let go for; passes over one taken or
+ * unqueued meanwhile. A queued lane queues it again once nothing blocks it.
+ */
+export async function letGo(
+	tasks: Tasks,
+	going: ReadonlyMap<number, readonly number[]>,
+): Promise<Task[]> {
+	const gone: Task[] = [];
+	for (const [id, blockers] of going) {
+		let went = false;
+		const task = await tasks.revise(id, (state) => {
+			went = state.stage === "queued" && state.takenBy === null;
+			return went ? { ...unqueued(state), unqueuedFor: [...blockers] } : state;
+		});
+		if (went) {
+			gone.push(task);
+		}
+	}
+	return gone;
 }
 
 /**

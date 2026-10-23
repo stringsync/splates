@@ -298,6 +298,26 @@ export interface TaskRecord {
 	queuedBy?: QueuedBy;
 	/** When it was last queued, kept while it is queued or running; absent for one never queued. */
 	queuedAt?: string;
+	/**
+	 * The tasks it was blocked by that were neither queued nor running when
+	 * the queue let it go, so the page says what to queue first; cleared
+	 * when it is queued again. Absent for none.
+	 */
+	unqueuedFor?: number[];
+}
+
+/**
+ * `state` put in the queue by `by`, now, with why the queue last let it go
+ * forgotten.
+ */
+export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
+	const { unqueuedFor: _, ...rest } = state;
+	return {
+		...rest,
+		stage: "queued",
+		queuedBy: by,
+		queuedAt: new Date().toISOString(),
+	} as T;
 }
 
 /** Who put a task in the queue: the person, or a lane the person queued whole. */
@@ -305,7 +325,7 @@ export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 
 /**
  * `state` taken out of the queue: back in ready when it was groomed, else
- * the backlog.
+ * the backlog. The queue lets one go itself, saying why in `unqueuedFor`.
  */
 export function unqueued<T extends TaskRecord>(
 	state: T,
@@ -317,8 +337,8 @@ export function unqueued<T extends TaskRecord>(
 }
 
 /**
- * `state` as it is saved, `running` when it has started: only the person
- * takes one out of the queue, and ready means groomed, whether it names an
+ * `state` as it is saved, `running` when it has started: a running task
+ * stays out of the queue, and ready means groomed, whether it names an
  * agent or not, which it stays once it moves on.
  */
 export function staged(state: TaskRecord, running: boolean): TaskRecord {

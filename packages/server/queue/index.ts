@@ -1,5 +1,6 @@
 export type { QueueDeps } from "./commands";
 export {
+	letGo,
 	moveInQueue,
 	queueAdd,
 	queueList,
@@ -8,7 +9,7 @@ export {
 	refuseAgentQueue,
 } from "./commands";
 export { taskName } from "./name";
-export { canStart, holdsBack, queueOrder } from "./order";
+export { canStart, holdsBack, queueOrder, stalled } from "./order";
 export type {
 	HeldConversation,
 	HeldConversations,

@@ -5,7 +5,7 @@ import type { TaskRecord } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
-import { canStart, holdsBack, queueOrder } from "./order";
+import { canStart, queueOrder, stalled } from "./order";
 
 /**
  * How often the queue is checked again, for a slot freed or a task gone with
@@ -46,6 +46,12 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
  *
  * A lane the person queued whole has each of its tasks queued as soon as
  * nothing blocks it, first thing in each check, until no task is left in it.
+ *
+ * A queued task waits on its blockers only while each is queued or running:
+ * one blocked by a task neither is, or by one removed without merging,
+ * would wait for good, so the queue lets it go back to ready, noting which
+ * blockers to queue first. A task gets a held conversation only once it
+ * can start, so none waits at an agent on another task.
  *
  * Checked as tasks change and every `QUEUE_SWEEP`.
  * A queued task whose start was refused is tried again at once when it
@@ -124,7 +130,12 @@ export class QueueRunner implements Resource {
 
 	async #check(): Promise<void> {
 		await this.deps.lanes?.();
-		const all = await this.deps.queued();
+		let all = await this.deps.queued();
+		const going = stalled(all);
+		if (going.size > 0) {
+			await this.deps.unqueue(going);
+			all = await this.deps.queued();
+		}
 		for (const [id, { was }] of this.#refused) {
 			const now = all.find((queued) => queued.id === id);
 			if (now === undefined || asWas(now) !== was) {
@@ -249,9 +260,10 @@ export class QueueRunner implements Resource {
 	}
 
 	/**
-	 * Gives each queued task a held conversation, places each in the queue,
-	 * and drops those whose task left it, was taken another way, or now names
-	 * another agent or model; answers the held one of each, by queued task.
+	 * Gives each queued task that can start a held conversation, places each
+	 * in the queue, and drops those whose task left it, was taken another
+	 * way, waits on a blocker again, or now names another agent or model;
+	 * answers the held one of each, by queued task.
 	 */
 	async #hold(
 		conversations: HeldConversations,
@@ -271,7 +283,7 @@ export class QueueRunner implements Resource {
 			const gone =
 				task === undefined ||
 				task.stage !== "queued" ||
-				(task.takenBy !== null && !busy) ||
+				(!busy && !canStart(task, all)) ||
 				(!busy &&
 					pick !== null &&
 					(pick.agent !== each.agent ||
@@ -284,7 +296,7 @@ export class QueueRunner implements Resource {
 				kept.set(each.queued, each);
 			}
 		}
-		for (const queued of queue) {
+		for (const queued of queue.filter((each) => canStart(each, all))) {
 			// One being judged is held once that lands on its record, which
 			// checks the queue again, so it never waits on the wrong agent.
 			if (
@@ -311,13 +323,9 @@ export class QueueRunner implements Resource {
 				this.#heldOn.set(each.id, JSON.stringify(pickOf(queued)));
 			}
 			held.set(each.queued, each.id);
-			const reason = waitsFor(
-				queued,
-				all,
-				this.#refused.get(queued.id)?.due === false
-					? this.#refused.get(queued.id)?.why
-					: undefined,
-			);
+			const refused = this.#refused.get(queued.id);
+			const reason =
+				refused?.due === false ? `could not start: ${refused.why}` : "starting";
 			if (reason !== "starting") {
 				this.#startingSince.delete(queued.id);
 			} else if (!this.#startingSince.has(queued.id)) {
@@ -336,28 +344,6 @@ export class QueueRunner implements Resource {
 	dispose(): void {
 		this.#disposer.dispose();
 	}
-}
-
-/**
- * Why queued task `queued` has yet to start, among `all`: its start
- * `refused`, what it waits on, or else starting now.
- */
-function waitsFor(
-	queued: TaskRecord,
-	all: readonly TaskRecord[],
-	refused: string | undefined,
-): string {
-	if (refused !== undefined) {
-		return `could not start: ${refused}`;
-	}
-	const { open, lost } = holdsBack(queued, all);
-	if (lost.length > 0) {
-		return `needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`;
-	}
-	if (open.length > 0) {
-		return `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
-	}
-	return "starting";
 }
 
 /** A queued task's start the queue was refused, as `QueueRunner` keeps it. */
@@ -408,6 +394,11 @@ export interface QueueRunnerDeps {
 	/** Who works a queued task that names no agent: Auto pick. */
 	picker: QueuePicker;
 	start: QueueStarter;
+	/**
+	 * Takes each queued task `stalled` found out of the queue, noting the
+	 * blockers it was let go for, as `letGo` does.
+	 */
+	unqueue: (going: ReadonlyMap<number, readonly number[]>) => Promise<unknown>;
 	/** The conversations held for queued tasks; absent, none is held. */
 	held?: HeldConversations;
 	log: Logger;

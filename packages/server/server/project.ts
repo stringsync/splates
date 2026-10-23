@@ -12,7 +12,7 @@ import {
 	QueueAutoPick,
 } from "../auto-pick";
 import type { LaneRecord } from "../board";
-import { BoardRoutes } from "../board";
+import { BoardRoutes, tasksNamed } from "../board";
 import type {
 	ConversationState,
 	Conversations,
@@ -28,7 +28,7 @@ import { NotesRoutes, routing, weighing } from "../notes";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
-import { QUEUE_SWEEP, QueueRunner } from "../queue";
+import { letGo, QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
 import type { NoteSource } from "../stats";
@@ -85,6 +85,13 @@ export async function serveProject(
 					);
 				}
 			},
+			unqueue: (going) =>
+				journal.record(
+					"queue remove",
+					null,
+					() => letGo(project.tasks, going),
+					(gone) => ({ tasks: tasksNamed(gone) }),
+				),
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			picker: new QueueAutoPick(project, conversations, { slug }),
 			start: ({ task, queued, pick, prompt, held }) =>
