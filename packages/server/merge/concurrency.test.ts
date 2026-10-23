@@ -85,7 +85,6 @@ describe("merge concurrency", () => {
 			expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 			expect((await deps.service.find("alpha")).status).toBe("working");
 			expect((await deps.service.find("beta")).status).toBe("working");
-			expect((await deps.heavy.read()).running).toHaveLength(1);
 			alphaRelease.resolve();
 			await first;
 			await betaStarted.promise;

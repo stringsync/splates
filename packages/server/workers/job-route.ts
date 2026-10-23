@@ -2,12 +2,10 @@ import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { Git } from "../git";
-import { CORES_HELD } from "../server/cores";
-import { HEAVY_HELD } from "../server/heavy";
 import { refuse } from "../server/shared";
 import { JobParams } from "./job";
 import type { JobPool } from "./job-pool";
-import { DEFAULT_JOB_SIZE } from "./job-size";
+import { DEFAULT_JOB_SIZE, JOB_CPUS } from "./job-size";
 import { JobSnapshot } from "./job-snapshot";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
@@ -204,12 +202,8 @@ export class RunnerJobs {
 				argv: job.argv,
 				env: {
 					...job.env,
-					// The pool placed it where the CPUs it asked for are its own,
-					// so it runs in a slot and core claim already held: `splates
-					// dev test` runs as many workers as it asked for, rather than
-					// half the box, and waits on no slot of the runner's.
-					[HEAVY_HELD]: "runner",
-					[CORES_HELD]: String(Math.max(1, Math.floor(job.cpus))),
+					// The pool placed it where the CPUs it asked for are its own.
+					[JOB_CPUS]: String(Math.max(1, Math.floor(job.cpus))),
 				},
 				files: job.files,
 				timeoutMs: job.timeoutMs,

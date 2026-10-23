@@ -1,20 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { type HeavyCap, NodeFs, NodePs } from "webappwiz/system";
+import { NodeFs, NodePs } from "webappwiz/system";
 import { runHeavy } from "./heavy-run";
 
-/** Slots always free, so only the command's own time counts. */
-const free: HeavyCap = {
-	take: async () => ({ env: {}, [Symbol.asyncDispose]: async () => {} }),
-	read: async () => ({ cap: 1, running: [], waiting: [] }),
-};
-
-describe("a heavy command run here", () => {
+describe("a command run here", () => {
 	it("is killed once it runs past its timeout, exiting 124 and saying why", async () => {
 		const log = new MemoryLogger();
 		const ctx = { fs: new NodeFs(), ps: new NodePs(), log };
 
-		const code = await runHeavy(ctx, ["sleep", "30"], free, {
+		const code = await runHeavy(ctx, ["sleep", "30"], {
 			runner: async () => null,
 			timeout: "0.3s",
 		});
@@ -29,7 +23,7 @@ describe("a heavy command run here", () => {
 		const ctx = { fs: new NodeFs(), ps: new NodePs(), log: new MemoryLogger() };
 
 		expect(
-			await runHeavy(ctx, ["sh", "-c", "exit 3"], free, {
+			await runHeavy(ctx, ["sh", "-c", "exit 3"], {
 				runner: async () => null,
 			}),
 		).toBe(3);

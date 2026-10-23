@@ -141,7 +141,7 @@ splates
 splates
 	.command("run")
 	.description(
-		"run a command that needs a machine of its own (a full test run, an install) on a runner, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours: one that has joined `splates server` when it has one, else, in a project whose splates.config.ts names a `cloud`, one `splates run` makes there itself, server or no server (`splates runners`), refusing with `no_runner` rather than run here when none can be had, as without the cloud's token or past `splates budget`. A project that names no cloud runs it here, in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `SPLATES_HEAVY_JOBS` sets how many run at once, 1 by default. Run on a runner, it changes nothing here: files it writes stay there",
+		"run a command that needs a machine of its own (a full test run, an install) on a runner, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours: one that has joined `splates server` when it has one, else, in a project whose splates.config.ts names a `cloud`, one `splates run` makes there itself, server or no server (`splates runners`), refusing with `no_runner` rather than run here when none can be had, as without the cloud's token or past `splates budget`. A project that names no cloud runs it here. Run on a runner, it changes nothing here: files it writes stay there",
 	)
 	.option("cpus", z.coerce.number().positive().optional(), {
 		description:
@@ -155,13 +155,13 @@ splates
 	.option("timeout", z.string(), {
 		default: "",
 		description:
-			"how long it may run, as 30m, 90s or 2h, before it is killed and exits 124, so a hung command holds no runner or slot; the project's `job.timeout` in splates.config.ts, else 30m, by default",
+			"how long it may run, as 30m, 90s or 2h, before it is killed and exits 124, so a hung command holds no runner; the project's `job.timeout` in splates.config.ts, else 30m, by default",
 	})
 	.rest("command", z.string(), {
 		description: "the command and its arguments, after `--`",
 	})
 	.action(async (opts, ctx) => {
-		const code = await runHeavy(ctx, opts.command, undefined, {
+		const code = await runHeavy(ctx, opts.command, {
 			...(opts.cpus === undefined ? {} : { cpus: opts.cpus }),
 			memory: opts.memory,
 			timeout: opts.timeout,

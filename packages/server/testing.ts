@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
-import { FileLock, HeavyJobs, NodeFs, NodePs } from "webappwiz/system";
+import { FileLock, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
 import { TaskStore, Tasks } from "./board";
 import type { Config } from "./config";
@@ -19,7 +19,7 @@ import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
 import { Format, Journal, ProjectHome } from "./records";
 import { assets } from "./server";
-import { CoreClaims, HEAVY_HELD } from "./server/shared";
+import { PREMERGE_HELD } from "./server/shared";
 import { Spend } from "./spend";
 import { Adherence, Outcomes } from "./stats";
 import { FsStorage, SqliteStorage } from "./storage";
@@ -73,10 +73,6 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
-	/** The heavy-job slots the commands under test take; a test never waits on a real job. */
-	readonly heavy: HeavyJobs;
-	/** The cores a merge under test claims, never the machine's. */
-	readonly cores: CoreClaims;
 	/** The premerge lock a merge under test holds, never the machine's. */
 	readonly premerge: FileLock;
 	readonly journal: Journal;
@@ -90,7 +86,7 @@ export class Testing implements AsyncDisposable {
 	readonly format: Format;
 	/** Where splates keeps what is the user's, under the test's own directory. */
 	readonly splatesHome: string;
-	/** Kept in `splatesHome`, never the user's home. */
+	/** The project registry a test registers its repositories in, under `splatesHome`. */
 	readonly projects: Projects;
 	/** Where the registry is kept on disk. */
 	readonly projectsPath: string;
@@ -175,19 +171,6 @@ export class Testing implements AsyncDisposable {
 			spend: new Spend(this.machine),
 		});
 		this.shell = new Shell({ ps: this.ps });
-		this.heavy = HeavyJobs.under(this.splatesHome, {
-			fs: this.fs,
-			ps: this.ps,
-			log: this.log,
-			cap: 2,
-			held: HEAVY_HELD,
-		});
-		this.cores = CoreClaims.under(this.splatesHome, {
-			fs: this.fs,
-			ps: this.ps,
-			log: this.log,
-			budget: 4,
-		});
 		this.premerge = new FileLock(join(this.splatesHome, "premerge.lock"), {
 			fs: this.fs,
 			ps: this.ps,
@@ -212,7 +195,7 @@ export class Testing implements AsyncDisposable {
 		// Run from a slot's server, it leaves out the machine's home too, so no
 		// task ending here gives back a slot of the user's.
 		// Run on a worker, it leaves out that too, so a test is no worker until it says so.
-		// Nor does it wait on, or pass through, a heavy-job slot of the machine's.
+		// Nor does it pass through the premerge lock a gate it runs in holds.
 		const {
 			SPLATES_CONVERSATION,
 			SPLATES_STARTED_BY,
@@ -221,7 +204,7 @@ export class Testing implements AsyncDisposable {
 			SPLATES_WORKER,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
-			SPLATES_HEAVY,
+			[PREMERGE_HELD]: _premerge,
 			SPLATES_CORES,
 			...inherited
 		} = process.env;

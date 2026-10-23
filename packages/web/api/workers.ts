@@ -5,7 +5,6 @@ import type {
 	WorkerBudgetReport,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
-import type { HeavyJobsReading } from "webappwiz/system";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**
@@ -33,11 +32,10 @@ export async function taskPorts(): Promise<PortLink[]> {
 }
 
 /**
- * What the page shows of the machine: its reading, its heavy jobs, and the
+ * What the page shows of the machine: its reading, and the
  * agents waiting for a slot on a worker, first in line first.
  */
 export type MachineStatus = MachineReading & {
-	heavy: HeavyJobsReading;
 	queue: QueueListing[];
 	/** Where the worker budget stands; null without a `workerProvider`. */
 	workerBudget?: WorkerBudgetReport | null;

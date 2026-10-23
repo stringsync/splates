@@ -48,8 +48,8 @@ the rest:
    `splates.config.ts` names a Fly.io `cloud`, makes one there itself,
    server or not. With a cloud configured it never runs here, refusing with
    `no_runner` when none can be had: run a few test files by hand or wait
-   for a runner. In a project with no cloud it takes a local heavy-job
-   slot, so keep the host's load in mind. A runner takes as many commands
+   for a runner. In a project with no cloud it runs here, so keep the
+   host's load in mind. A runner takes as many commands
    at once as fit in its CPUs and memory, each asking what the project's
    `job` setting says; `--cpus <n> --memory <size>` (as `8GB`) asks
    otherwise. It is killed, exiting 124, past 30 minutes or the `job`

@@ -93,6 +93,7 @@ export type { JobSetting, JobSize } from "./job-size";
 export {
 	DEFAULT_JOB_SIZE,
 	fits,
+	JOB_CPUS,
 	jobSize,
 	locationOf,
 	MAX_RUNNER_CPUS,

@@ -1,5 +1,5 @@
 import type { Pusher, VapidKeys } from "webappwiz/push";
-import type { HeavyCap, PortProvider } from "webappwiz/system";
+import type { PortProvider } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import type { Config } from "../config";
 import type { Conversations } from "../conversations";
@@ -143,8 +143,6 @@ export interface DevOptions {
 	deadlineMs?: number;
 	/** Where the page's machine stats come from; this machine's OS for none. */
 	sensors?: MachineSensors | null;
-	/** Whose test runs and installs the page shows; this machine's for none. */
-	heavy?: Pick<HeavyCap, "read"> | null;
 	/** What pushes notices to the devices that subscribed; the Web Push services by default. */
 	pusher?: (keys: VapidKeys) => Pusher;
 }

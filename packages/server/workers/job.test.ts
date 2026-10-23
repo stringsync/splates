@@ -267,15 +267,15 @@ describe("heavy jobs on a runner", () => {
 		]);
 	});
 
-	it("runs a job request on the CPUs it asked for, in a slot and claim of its own", async () => {
+	it("runs a job request on the CPUs it asked for", async () => {
 		const response = await post(jobsOf(registry), { cpus: 1, memory: 0.5 }, [
 			"sh",
 			"-c",
-			"echo $SPLATES_CORES $SPLATES_HEAVY",
+			"echo $SPLATES_CORES",
 		]);
 
 		expect(await events(response)).toEqual([
-			{ type: "out", data: Buffer.from("1 runner\n").toString("base64") },
+			{ type: "out", data: Buffer.from("1\n").toString("base64") },
 			{ type: "exit", code: 0 },
 		]);
 	});

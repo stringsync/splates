@@ -1,59 +1,20 @@
 import type { Logger } from "webappwiz/log";
-import {
-	FileLock,
-	type Fs,
-	HeavyJobs,
-	type Lock,
-	type Ps,
-} from "webappwiz/system";
+import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 
 /**
- * How many heavy jobs run at once on a machine when `SPLATES_HEAVY_JOBS` says
- * nothing. Two test runs heat the host too much while the person works,
- * so the merge gate fallback and other local heavy work run one at a time.
+ * Set for what a merge's gate runs, which holds the premerge lock already:
+ * a `splates dev premerge` it runs goes ahead without waiting for it.
  */
-export const HEAVY_JOBS_DEFAULT = 1;
-
-/** Sets the cap for the machine, read by every splates that takes a slot. */
-export const HEAVY_JOBS = "SPLATES_HEAVY_JOBS";
+export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
 /**
- * What runs in a slot finds this in its environment: a heavy job it starts,
- * such as the test run of a `preMerge` hook, runs in that slot too.
+ * How long a merge's gate may run before it is killed. The whole suite takes
+ * well under a minute alone, so a gate this long has hung, and the agent
+ * merges again.
  */
-export const HEAVY_HELD = "SPLATES_HEAVY";
-
-/**
- * This machine's heavy-job slots, under the home `splates server --slot` names its
- * servers' machine by, else `SPLATES_HOME`, so every server on one machine
- * shares one cap; capped by `SPLATES_HEAVY_JOBS`. `splates dev test` takes one
- * here too.
- */
-export function heavyJobsOfMachine({
-	fs,
-	ps,
-	log,
-}: {
-	fs: Fs;
-	ps: Ps;
-	log: Logger;
-}): HeavyJobs {
-	return HeavyJobs.under(ps.env(MACHINE_HOME) ?? splatesHome(ps), {
-		fs,
-		ps,
-		log,
-		cap: capOf(ps.env(HEAVY_JOBS)),
-		held: HEAVY_HELD,
-	});
-}
-
-/** The cap `SPLATES_HEAVY_JOBS` names, or the default for none or nonsense. */
-export function capOf(value: string | undefined): number {
-	const cap = Number(value);
-	return Number.isInteger(cap) && cap > 0 ? cap : HEAVY_JOBS_DEFAULT;
-}
+export const PREMERGE_TIMEOUT_MS = 3 * 60 * 1000;
 
 /**
  * How long one holder may keep the premerge lock before it is let go of: a
@@ -110,8 +71,8 @@ export class TimedLock implements Lock {
 /**
  * The machine's one premerge: every task's merge gate, and a `splates dev
  * premerge` run by hand, holds it while the whole suite runs, so the full
- * suite runs one at a time on this machine whatever the heavy-job cap. A
- * holder keeps it at most `PREMERGE_HOLD_MS`.
+ * suite runs one at a time on this machine. A holder keeps it at most
+ * `PREMERGE_HOLD_MS`.
  */
 export function premergeLockOfMachine({
 	fs,

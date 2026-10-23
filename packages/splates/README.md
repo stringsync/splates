@@ -59,11 +59,10 @@ in `splates.config.ts` to move the directory, relative to the checkout root
 or to an absolute path. Notes change through tasks, just as code does.
 Keep sensitive information out of them.
 
-**Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one
-of the machine's heavy-job slots, two by default (`SPLATES_HEAVY_JOBS` sets
-how many), so several agents testing at once queue rather than run the
-machine out of memory. `splates run -- <command>` runs anything else as
-heavy, such as a test suite an agent runs mid-task, in a slot too.
+**One premerge at a time.** Each merge's gate (`postRewrite` and
+`preMerge`) holds the machine's premerge lock, so merges from several agents
+test one after another rather than run the machine out of memory. A gate
+that runs past 3 minutes is killed, and the agent merges again.
 
 **Pushing.** With `remote: "origin"` in `splates.config.ts`, each task's
 branch goes to that remote as `splates/<task>`: after every commit an agent

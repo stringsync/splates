@@ -1,11 +1,6 @@
 // What the other modules build on, apart from the server itself, so using it
 // never loads the whole process.
-export { type CoreClaim, CoreClaims, coreClaimsOfMachine } from "./cores";
-export {
-	HEAVY_HELD,
-	heavyJobsOfMachine,
-	premergeLockOfMachine,
-} from "./heavy";
+
 export type { EventSink, StreamWatcher } from "./http";
 export {
 	body,
@@ -20,6 +15,11 @@ export {
 	uploads,
 } from "./http";
 export { DEFAULT_PORT } from "./ports";
+export {
+	PREMERGE_HELD,
+	PREMERGE_TIMEOUT_MS,
+	premergeLockOfMachine,
+} from "./premerge";
 export type { DevMachine, Handler, Project, Served } from "./project";
 export type { ProjectWatch } from "./project-watch";
 export type { Behind, Release } from "./release";

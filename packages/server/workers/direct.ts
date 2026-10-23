@@ -10,8 +10,6 @@ import {
 } from "webappwiz/time";
 import type { FlyRunners } from "../cloud/fly-runners";
 import type { FlyMachine, FlySize } from "../cloud/fly-types";
-import { CORES_HELD } from "../server/cores";
-import { HEAVY_HELD } from "../server/heavy";
 import type { WorkerBudget } from "./budget";
 import { RunnerClaims } from "./direct-claims";
 import type {
@@ -19,7 +17,13 @@ import type {
 	DirectPhase,
 	DirectRunnerReport,
 } from "./direct-runner-report";
-import { fits, type JobSize, runnerSizes, sizeLabel } from "./job-size";
+import {
+	fits,
+	JOB_CPUS,
+	type JobSize,
+	runnerSizes,
+	sizeLabel,
+} from "./job-size";
 import type { JobSnapshot } from "./job-snapshot";
 import { NoRunner } from "./no-runner";
 import { TypeRefused } from "./provider";
@@ -232,10 +236,8 @@ export class DirectRunners {
 					argv: job.argv,
 					env: {
 						...job.env,
-						// What it asked is its own on the runner: it runs in the slot
-						// and core claim the placement already holds.
-						[HEAVY_HELD]: "runner",
-						[CORES_HELD]: String(Math.max(1, Math.floor(job.size.cpus))),
+						// What it asked is its own on the runner.
+						[JOB_CPUS]: String(Math.max(1, Math.floor(job.size.cpus))),
 					},
 					files: job.files,
 					timeoutMs: job.timeout === null ? null : job.timeout.ms,

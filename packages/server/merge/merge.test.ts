@@ -416,23 +416,25 @@ describe.concurrent("merge", () => {
 		});
 	});
 
-	it("runs the gate in a heavy-job slot of the machine's, and gives it back", async () => {
+	it("kills a gate that runs past its timeout, refusing without spending an attempt", async () => {
 		await using deps = await Testing.open();
-		const seen = join(deps.splatesHome, "seen.json");
-		deps.config.preMerge = `cp ${join(deps.splatesHome, "heavy.json")} ${seen}`;
+		deps.config.preMerge = "sleep 10";
+		const facts: Partial<Facts["merge"]> = {};
 
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
-		await merge(deps, worktree);
 
-		const during = JSON.parse(await deps.fs.read(seen));
-		expect(during.running).toMatchObject([{ what: "preMerge", task: "alpha" }]);
-		expect((await deps.heavy.read()).running).toEqual([]);
+		await expect(
+			merge({ ...deps, gateTimeoutMs: 100 }, worktree, facts),
+		).toBail("timeout");
+		expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
+		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(false);
+		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the heavy-slot case beside it does.
+	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
 	it("holds the machine's premerge lock while the gate runs, and lets it go", async () => {
 		await using deps = await Testing.open();
 		deps.config.preMerge = `test -d ${deps.premerge.path}`;
@@ -447,23 +449,20 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the heavy-slot case beside it does.
-	it("claims cores first in line around the gate, passing them down to it", async () => {
+	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	it("tells the gate it holds the premerge lock, and the cores it may use", async () => {
 		await using deps = await Testing.open();
-		const seen = join(deps.splatesHome, "seen.json");
-		deps.config.preMerge = `cp ${join(deps.splatesHome, "cores.json")} ${seen} && test -n "$SPLATES_CORES"`;
+		deps.config.preMerge =
+			'test -n "$SPLATES_PREMERGE" && test "$SPLATES_CORES" -gt 0';
 
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
+		// The gate's `test`s fail the merge unless both are set.
 		await merge(deps, worktree);
 
-		const during = JSON.parse(await deps.fs.read(seen));
-		expect(during.running).toMatchObject([
-			{ what: "preMerge in alpha", first: true },
-		]);
-		expect((await deps.cores.read()).running).toEqual([]);
+		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(true);
 	});
 
 	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.

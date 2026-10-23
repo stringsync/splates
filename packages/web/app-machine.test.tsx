@@ -65,36 +65,6 @@ describe("App's machine stats", () => {
 		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 
-	it("says the Mac is busy while a heavy job waits, naming what runs and what waits, a merge's as a merge", async () => {
-		testing.machine = reading({
-			heavy: {
-				cap: 2,
-				running: [
-					job("preMerge", "alpha", 11),
-					job("splates dev test", "beta", 12),
-				],
-				waiting: [
-					job("postCheckout", "gamma", 13),
-					job("preMerge", "delta", 14),
-				],
-			},
-		});
-		const view = await testing.open();
-
-		await clickShown(() => view.getByText("Mac busy"));
-
-		const jobs = await waitFor(() =>
-			view.getByRole("region", { name: "Heavy jobs" }),
-		);
-		expect(jobs.textContent).toContain("2 of 2");
-		expect(
-			within(jobs).getByRole("list", { name: "Running" }).textContent,
-		).toBe("alpha · mergebeta · splates dev test");
-		expect(
-			within(jobs).getByRole("list", { name: "Waiting" }).textContent,
-		).toBe("gamma · postCheckoutdelta · merge");
-	});
-
 	it("says how many agents and queued tasks wait for a slot in the header, each agent a tap away to move up", async () => {
 		const since = new Date(Date.now() - 4 * 60_000).toISOString();
 		testing.machine = reading({
@@ -184,13 +154,7 @@ function reading(over: Partial<MachineStatus> = {}): MachineStatus {
 		load: 3.2,
 		cores: 16,
 		temperature: null,
-		heavy: { cap: 2, running: [], waiting: [] },
 		queue: [],
 		...over,
 	};
-}
-
-/** A heavy job of `task`'s, running or waiting since ten this morning. */
-function job(what: string, task: string | null, pid: number) {
-	return { what, task, pid, since: "2026-10-16T10:00:00.000Z" };
 }

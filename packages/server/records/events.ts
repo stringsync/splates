@@ -48,7 +48,7 @@ export interface Facts {
 		durationMs?: number;
 		/** Cumulative gate milliseconds, including attribution setup and retests; absent on older events. */
 		gateMs?: number;
-		/** Milliseconds reserving a heavy slot and cores; absent on older events. */
+		/** Milliseconds waiting for the machine's premerge lock; absent on older events. */
 		capacityWaitMs?: number;
 		/** Rebase-and-retest rounds caused by trunk moving after a gate; absent on older events. */
 		retests?: number;

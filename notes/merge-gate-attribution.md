@@ -5,9 +5,9 @@ description: What the merge gate runs, on a runner or here, and how a failing te
 The gate is `config.postRewrite && config.preMerge` as one shell
 (`MergeGate` in `packages/server/merge/gate.ts`), with no gate when neither
 is set, run with `SPLATES_TASK`, `SPLATES_WORKTREE` and `SPLATES_TEST_REPORT`
-(a JUnit path under the git dir). Before taking the merge-tree lock it
-reserves a heavy-job slot and half the machine's core budget, ahead of
-ordinary waiters, so a landing is not starved by other agents' tests.
+(a JUnit path under the git dir) and `SPLATES_PREMERGE`. Before taking the
+merge-tree lock it waits for the machine's premerge lock, and the gate is
+killed past 3 minutes (`premerge-lock.md`).
 
 Under a `splates server` the gate goes to a runner instead (`runOnRunner`,
 `heavy-jobs-on-runners.md`) with `first` set, so the pool queues it ahead of

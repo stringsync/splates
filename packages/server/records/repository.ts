@@ -1,6 +1,5 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
-import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { TaskStore, Tasks } from "../board";
@@ -20,12 +19,7 @@ import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { RUNNING } from "../server/release";
-import {
-	type CoreClaims,
-	coreClaimsOfMachine,
-	heavyJobsOfMachine,
-	premergeLockOfMachine,
-} from "../server/shared";
+import { premergeLockOfMachine } from "../server/shared";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
@@ -97,12 +91,8 @@ export interface Repository {
 	creds: Creds;
 	/** The machine's dev slots, which a task gives back as it ends. */
 	slots: Slots;
-	/** The machine's slots for test runs and installs, which hooks wait for. */
-	heavy: HeavyCap;
 	/** Held by a merge's gate, so one premerge runs on the machine at a time. */
 	premerge: Lock;
-	/** The machine's cores, which a merge claims around its gate. */
-	cores: CoreClaims;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
 	/** What moves trunk on the central remote once a merge has tested its branch. */
@@ -449,9 +439,7 @@ export async function openRepository(
 			plans: new PlanStore(fs, storage),
 		}),
 		slots: Slots.ofMachine({ fs, ps, log }),
-		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		premerge: premergeLockOfMachine({ fs, ps, log }),
-		cores: coreClaimsOfMachine({ fs, ps, log }),
 		creds,
 		dir,
 		dispose: () => home.dispose(),

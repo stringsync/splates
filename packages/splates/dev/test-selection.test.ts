@@ -1,45 +1,21 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import type { HeavyCap } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { test as runTests, type TestOptions } from "./test";
 
 describe("focused development tests", () => {
 	let ps: FakePs;
 	let opts: TestOptions;
-	let claims: { what: string; want: number; min?: number }[];
-	let slots: number;
 
 	beforeEach(() => {
 		ps = new FakePs();
 		ps.platform = "linux";
-		claims = [];
-		slots = 0;
-		const heavy: HeavyCap = {
-			take: async () => {
-				slots++;
-				return { env: {}, [Symbol.asyncDispose]: async () => {} };
-			},
-			read: async () => ({ cap: 1, running: [], waiting: [] }),
-		};
-		opts = {
-			ps,
-			log: new MemoryLogger(),
-			heavy,
-			cores: {
-				claim: async (ask) => {
-					claims.push(ask);
-					return { cores: 8, env: {}, [Symbol.asyncDispose]: async () => {} };
-				},
-			},
-		};
+		opts = { ps, log: new MemoryLogger() };
 	});
 
-	it("runs changed tests here with one worker, still holding a slot and cores", async () => {
+	it("runs changed tests here with one worker", async () => {
 		await runTests({ ...opts, changed: true });
 
-		expect(slots).toBe(1);
-		expect(claims).toEqual([{ what: "splates dev test", want: 1, min: 1 }]);
 		expect(ps.getCalls()).toEqual([
 			expect.stringMatching(
 				/^bun test --pass-with-no-tests --parallel=1 .* --changed --path-ignore-patterns=evals\/\*\* --path-ignore-patterns=packages\/web\/\*\*$/,
@@ -96,16 +72,15 @@ describe("focused development tests", () => {
 	it("can filter only by test name and still limits the worker count", async () => {
 		await runTests({ ...opts, testNamePattern: "one case" });
 
-		expect(claims[0]?.want).toBe(1);
+		expect(ps.getCalls()[0]).toContain("--parallel=1");
 		expect(ps.getCalls()[0]).toContain("--test-name-pattern one case");
 	});
 
-	it("runs a full suite inside a runner's existing claim without a location flag", async () => {
-		ps.setEnv({ SPLATES_HEAVY: "runner", SPLATES_CORES: "8" });
+	it("runs a full suite on a runner here, on the CPUs its job was given", async () => {
+		ps.setEnv({ SPLATES_CORES: "8" });
 		await runTests(opts);
 
 		expect(ps.getCalls()).toHaveLength(2);
-		expect(claims[0]?.want).toBe(8);
 		expect(ps.getCalls()[0]).toContain("--parallel=8");
 	});
 

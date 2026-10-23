@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { ConsoleLogger } from "webappwiz/log";
-import { TimedLock } from "./heavy";
+import { TimedLock } from "./premerge";
 
 describe("TimedLock", () => {
 	let calls: string[];

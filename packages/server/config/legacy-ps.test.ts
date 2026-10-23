@@ -21,11 +21,11 @@ describe("LegacyNamesPs", () => {
 		const inner = new FakePs();
 
 		await new LegacyNamesPs(inner).spawn(["wiz"], {
-			env: { SPLATES_HEAVY: "1", OTHER: "x" },
+			env: { SPLATES_TASK: "1", OTHER: "x" },
 		});
 
 		expect(inner.getCallEnvs()).toEqual([
-			{ SPLATES_HEAVY: "1", OTHER: "x", ARBOR_HEAVY: "1" },
+			{ SPLATES_TASK: "1", OTHER: "x", ARBOR_TASK: "1" },
 		]);
 	});
 });

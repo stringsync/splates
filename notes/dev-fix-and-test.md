@@ -1,5 +1,5 @@
 ---
-description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks; full-suite runners, the six-minute deadline, DOM separation, and dev fix
+description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks, the six-minute deadline, DOM separation, and dev fix
 ---
 
 `splates dev fix` runs, stopping at the first failure: `biome check --write
@@ -15,19 +15,19 @@ untracked changes). After committing use `--since main` to compare against a
 branch or commit. Positional file paths narrow the files further;
 `--test-name-pattern <regex>` narrows cases. These selectors combine. Use
 `--evals` for free eval harness tests or `--all` to include both packages and
-evals. A focused run stays here, takes the machine's heavy-job slot, and
+evals. A focused run stays here and
 uses one worker by default; `--workers <n>` sets a positive worker limit.
 Leave the whole suite to the merge gate. No `--local` flag exists.
 
 An unfiltered `splates dev test` runs `bun test --parallel=<half the cores> --timeout
-30000`, waiting up to five minutes to claim those cores: a worker per core
+30000` (all but two cores in a merge's gate): a worker per core
 starved the git-spawning suites, and 16 workers failed 20 to 30 tests a run
 where 8 failed 0 to 2. The whole run is killed at six minutes, after one
-test spinning in a synchronous loop held a heavy slot for ten hours. It
-takes a heavy-job slot itself. `evals/**` is excluded unless `--evals` (only
+test spinning in a synchronous loop held the machine for ten hours; inside
+`dev premerge`, at what is left of the gate's 3 minutes. `evals/**` is excluded unless `--evals` (only
 evals) or `--all`. Under the merge gate `SPLATES_TEST_REPORT` adds a JUnit
 reporter, which is how a failure is blamed and a failing test becomes a task.
-The repo sets `preMerge: "./bin/splates dev premerge"`: `dev fix --check`'s checks, then `dev test --ci`, which on no runner at all runs here and says why on stderr (dropped in ab003c58 while tests were too heavy, restored once the gate ran on runners), so a merge runs the suite on the rebased code. Trailing arguments
+The repo sets `preMerge: "./bin/splates dev premerge"`: `dev fix --check`'s checks, then `dev test --ci`, here, so a merge runs the suite on the rebased code. Trailing arguments
 filter the test files by path, as `bun test` does.
 
 It runs as two `bun test` runs, one after the other: the page's
@@ -43,12 +43,8 @@ Xcode's git ahead of `/usr/bin/git`, an `xcrun` stub that cost the server
 tests a third of their CPU. Measured 2026-10-22 on a 4-CPU Linux container:
 118s → 67s wall, 252s → 140s CPU.
 
-Unfiltered `splates dev test` runs on a runner unless already inside a
-heavy slot (`SPLATES_HEAVY`, `SPLATES_CORES`): see
-`heavy-jobs-on-runners.md`. The runner executes `./bin/splates dev test`
-inside its existing slot, with no location flag, and its JUnit report comes
-back to where `SPLATES_TEST_REPORT` names. The merge gate still has its host
-fallback. `--linux` went away: every runner is Linux. Before it, on 2026-10-21, the suite's first
+`splates dev test` always runs here, never on a runner (2026-10-23); this
+repo's `splates.config.ts` names no cloud. `--linux` went away: every runner is Linux. Before it, on 2026-10-21, the suite's first
 Linux run passed every test (3443, 554 files, 34s) on aarch64; as `linux/amd64`
 under Rosetta three tests failed, the ones that expect "cannot start <argv>"
 on a missing executable, which the emulation exits 127 without raising.

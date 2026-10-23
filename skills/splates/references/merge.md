@@ -42,8 +42,9 @@ this: it cannot check a note, so the check is yours.
 
 ## When a merge fails
 
-An existing Git `index.lock` stops merge as `blocked` without spending an
-attempt. Wait for its owner to finish and merge again; never delete a lock
+A gate that runs past 3 minutes is killed, and merge stops as `timeout`
+without spending an attempt: merge again. An existing Git `index.lock`
+stops merge as `blocked` without spending an attempt. Wait for its owner to finish and merge again; never delete a lock
 held by a live operation. A failed rebase with no unmerged paths is
 `merge_failed`, not a content `conflict`.
 

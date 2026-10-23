@@ -1,9 +1,6 @@
 ---
-description: The three unrelated things splates calls a slot: heavy-job slots, the animal-word dev server slots, and a worker's agent slots
+description: The two unrelated things splates calls a slot: the animal-word dev server slots, and a worker's agent slots
 ---
-
-Heavy-job slots cap test runs and installs machine-wide (`SPLATES_HEAVY_JOBS`,
-default 2; `packages/server/server/heavy.ts`).
 
 Server slots are the short animal words (`fox`) that `splates server --slot`
 claims for a worktree so a task can serve its own splates with its own home

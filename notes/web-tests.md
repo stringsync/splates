@@ -22,5 +22,4 @@ needs `resize(390, 844)`, with `resize(1024, 768)` put back in `afterEach`.
 Shared helpers are in `drivers.ts` (`agentList`, `openRow`, `typeIn`,
 `menuItem`) and `fixtures.ts` (`conversation`, `details`, `snapshot`).
 
-Run `splates dev fix` then `splates dev test` after changes; the second takes
-a heavy-job slot itself.
+Run `splates dev fix` then a focused `splates dev test` after changes.

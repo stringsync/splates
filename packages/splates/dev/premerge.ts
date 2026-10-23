@@ -1,9 +1,11 @@
 import {
-	HEAVY_HELD,
+	PREMERGE_HELD,
+	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
 } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { fix } from "./fix";
 import { test } from "./test";
 
@@ -21,12 +23,13 @@ export interface PremergeOptions {
  * fast, then the tests as `dev test --ci` runs them. A failed check is named
  * apart from failed tests, for the gate's attribution. Run by hand, it waits
  * for the machine's premerge lock, so the whole suite runs one at a time;
- * inside a gate, which holds it already, it runs at once.
+ * inside a gate, which holds it already, it runs at once. Its tests are
+ * stopped once it has run `PREMERGE_TIMEOUT_MS`, as the gate kills it then.
  */
 export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const ps = opts.ps ?? new NodePs();
-	if (ps.env(HEAVY_HELD) !== undefined) {
+	if (ps.env(PREMERGE_HELD) !== undefined) {
 		return await checkAndTest(opts, log);
 	}
 	const lock = premergeLockOfMachine({ fs: new NodeFs(), ps, log });
@@ -40,6 +43,7 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 }
 
 async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
+	const started = performance.now();
 	await fix({ check: true, log, ...(opts.ps ? { ps: opts.ps } : {}) }).catch(
 		(error: unknown) => {
 			log.error("premerge: the checks failed, so no tests ran");
@@ -52,5 +56,8 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),
+		deadline: Duration.ms(
+			Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
+		),
 	});
 }

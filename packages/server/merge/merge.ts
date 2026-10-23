@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Fs, HeavyCap, Lock } from "webappwiz/system";
+import type { Fs, Lock } from "webappwiz/system";
 import { type Clock, SystemClock } from "webappwiz/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
@@ -10,7 +10,6 @@ import { Notes } from "../notes";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts, Journal } from "../records";
-import type { CoreClaims } from "../server/shared";
 import type { WorktreeService } from "../tasks";
 import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
@@ -49,9 +48,8 @@ export async function merge(
 		journal,
 		fs,
 		slots,
-		heavy,
-		cores,
 		premerge,
+		gateTimeoutMs,
 		branches,
 		trunk,
 		clock = new SystemClock(),
@@ -66,10 +64,10 @@ export async function merge(
 		journal?: Journal;
 		fs: Fs;
 		slots: Slots;
-		heavy: HeavyCap;
-		cores: CoreClaims;
 		/** The machine's premerge lock, so one gate runs at a time. */
 		premerge: Lock;
+		/** How long the gate may run before it is killed; `PREMERGE_TIMEOUT_MS` for none. */
+		gateTimeoutMs?: number;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
 		clock?: Clock;
@@ -195,14 +193,12 @@ export async function merge(
 		git,
 		shell,
 		fs,
-		heavy,
-		cores,
 		config,
-		log,
 		timing,
 		premerge,
+		gateTimeoutMs,
 	);
-	await using _capacity = await runner.reserve(task);
+	await using _capacity = await runner.reserve();
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
 	await treeLock.acquire();
 	try {
@@ -311,6 +307,23 @@ export async function merge(
 			const testedHead = await git.head(worktree.path);
 			let gated = await runner.run(worktree.path, task);
 			await state.requireLease();
+			if (gated.timedOut) {
+				// A gate this long has hung rather than failed: nothing to attribute,
+				// and no attempt spent.
+				await git.resetHard(worktree.path, before);
+				fail(
+					"timeout",
+					[
+						tail(`${gated.stdout}\n${gated.stderr}`),
+						"",
+						`\`${runner.command}\` ran past ${runner.timeout.human()} and was killed.`,
+						`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}. No merge attempt was spent.`,
+						"",
+						"Merge again.",
+					].join("\n"),
+					{ task },
+				);
+			}
 			if (gated.exitCode !== 0) {
 				const attribution = await attributeFailure({ gate: runner }, gated, {
 					cwd: worktree.path,

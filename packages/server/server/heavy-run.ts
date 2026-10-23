@@ -1,5 +1,5 @@
 import type { Logger } from "webappwiz/log";
-import type { Fs, HeavyCap, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { type Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { loadConfig } from "../config";
 import { fail } from "../exit";
@@ -16,19 +16,16 @@ import {
 	type ServerSend,
 } from "../workers";
 import { runOnDirectRunner } from "./direct-run";
-import { heavyJobsOfMachine } from "./heavy";
 
 /**
- * Runs `argv` in one of the machine's heavy-job slots, waiting for one to
- * come free first, and says how it exited. What an agent runs itself (a full
- * test run, an install) passes through splates no other way. A command that
- * runs past its timeout, the project's `job.timeout` or 30 minutes, is
- * killed and exits 124, so a hung one cannot hold a runner or a slot.
+ * Runs `argv` on a runner, or here where the project names no cloud, and
+ * says how it exited. A command that runs past its timeout, the project's
+ * `job.timeout` or 30 minutes, is killed and exits 124, so a hung one cannot
+ * hold a runner.
  */
 export async function runHeavy(
 	ctx: { fs: Fs; ps: Ps; log: Logger; dev?: string; send?: ServerSend },
 	argv: string[],
-	heavy: HeavyCap = heavyJobsOfMachine(ctx),
 	opts: RunHeavyOptions = {},
 ): Promise<number> {
 	if (argv.length === 0) {
@@ -47,8 +44,8 @@ export async function runHeavy(
 			: timeoutOf(opts.timeout),
 	);
 	// On a runner of `splates server`'s when it has one, else on one this
-	// makes in the project's cloud, its output streamed back; here, in a slot
-	// of this machine's, only when the project names no cloud.
+	// makes in the project's cloud, its output streamed back; here only when
+	// the project names no cloud.
 	const ran = await (opts.runner ?? onRunner)(ctx, {
 		cwd: ctx.ps.cwd(),
 		argv,
@@ -60,10 +57,6 @@ export async function runHeavy(
 	if (ran !== null) {
 		return ran.code;
 	}
-	await using slot = await heavy.take({
-		what: argv.join(" "),
-		task: await taskOf(ctx.ps),
-	});
 	const expired = new AbortController();
 	const deadline = (opts.timer ?? new SystemTimer()).setTimeout(
 		() => expired.abort(),
@@ -72,7 +65,6 @@ export async function runHeavy(
 	try {
 		const { exitCode } = await ctx.ps.spawn(argv, {
 			cwd: ctx.ps.cwd(),
-			env: slot.env,
 			signal: expired.signal,
 		});
 		return exitCode;
@@ -154,20 +146,4 @@ async function onRunner(
 		}
 		throw error;
 	}
-}
-
-/** The task whose tree this runs in, for the page to name it by. */
-async function taskOf(ps: Ps): Promise<string | null> {
-	const named = ps.env("SPLATES_TASK");
-	if (named !== undefined) {
-		return named;
-	}
-	const { exitCode, stdout } = await ps.spawnCapture(
-		["git", "rev-parse", "--abbrev-ref", "HEAD"],
-		{ cwd: ps.cwd() },
-	);
-	const branch = stdout.trim();
-	return exitCode === 0 && branch.startsWith("task/")
-		? branch.slice("task/".length)
-		: null;
 }

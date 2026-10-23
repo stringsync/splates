@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
-import type { Fs, HeavyCap } from "webappwiz/system";
+import type { Fs } from "webappwiz/system";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
@@ -51,7 +51,6 @@ export async function add(
 		log,
 		fs,
 		tasks: queue,
-		heavy,
 	}: {
 		service: WorktreeService;
 		shell: Shell;
@@ -59,7 +58,6 @@ export async function add(
 		log: Logger;
 		fs: Fs;
 		tasks: Tasks;
-		heavy: HeavyCap;
 	},
 	task: string,
 	{
@@ -215,19 +213,13 @@ export async function add(
 	// no .env. That is what the hook is for.
 	const hook = config.postCheckout;
 	if (hook) {
-		const { exitCode } = await (async () => {
-			// An install on a cold cache takes cores enough to wait its turn.
-			await using slot = await heavy.take({ what: "postCheckout", task });
-			// Awaited, or the slot goes back before the hook ends.
-			return await shell.stream(hook, worktree.path, {
-				env: {
-					SPLATES_TASK: task,
-					SPLATES_WORKTREE: worktree.path,
-					SPLATES_TRUNK: config.trunk,
-					...slot.env,
-				},
-			});
-		})();
+		const { exitCode } = await shell.stream(hook, worktree.path, {
+			env: {
+				SPLATES_TASK: task,
+				SPLATES_WORKTREE: worktree.path,
+				SPLATES_TRUNK: config.trunk,
+			},
+		});
 		if (exitCode !== 0) {
 			// No agent starts in a tree its hook left broken.
 			if (handOff !== undefined) {

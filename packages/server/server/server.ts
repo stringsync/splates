@@ -51,7 +51,6 @@ import {
 	type WorkerPool,
 	workerBudgetReport,
 } from "../workers";
-import { heavyJobsOfMachine } from "./heavy";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
 import { Migrations } from "./migrations";
 import type { DevOptions } from "./options";
@@ -111,7 +110,6 @@ export async function dev(
 		exit = null,
 		deadlineMs,
 		sensors = null,
-		heavy = null,
 		workerSocket = null,
 		workers: givenWorkers = null,
 		worker = null,
@@ -501,7 +499,6 @@ export async function dev(
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
-	const jobs = heavy ?? heavyJobsOfMachine({ fs, ps, log });
 	const opencode = new OpenCodeSetupRoutes(
 		new OpenCodeSetup({
 			fs,
@@ -686,7 +683,6 @@ export async function dev(
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),
-							heavy: await jobs.read(),
 							queue: queueListing(workers.slots.scheduler.queue()),
 							workerBudget:
 								workers.provisioning === null

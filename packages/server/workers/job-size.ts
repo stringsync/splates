@@ -14,6 +14,12 @@ export interface JobSize {
 export const DEFAULT_JOB_SIZE: JobSize = { cpus: 4, memory: 8 };
 
 /**
+ * What a job on a runner finds its CPUs in: `splates dev test` there runs as
+ * many workers as its job asked for, rather than half the box.
+ */
+export const JOB_CPUS = "SPLATES_CORES";
+
+/**
  * What a project's `splates.config.ts` sets as `job`: memory as GB or a size
  * such as `"8GB"`, and `timeout` as minutes or a length such as `"90s"`.
  */
