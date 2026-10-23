@@ -8,7 +8,7 @@ machine-wide ledger `~/.splates/spend.jsonl` (`packages/server/spend/`),
 which every project adds to and which billing pulls provider charges into
 once per charge; a provider it cannot reach is never recorded as zero. The
 scry budgets and plan limits sit below, restyled to match. The page no longer
-shows runners, the worker budget card or badge, or Fly.io as a billing source.
+shows runners or the worker budget card or badge.
 
 Costs are never entered by hand: the person said they would not use hand
 entry, so a provider with no pull source shows "Not tracked yet" (state
@@ -19,7 +19,7 @@ use such as a Claude subscription shows both its API-equivalent value and
 real money out of pocket. Model list prices come from `models.dev`, cached a
 day (`prices/`). DigitalOcean (whose invoices it pulled until 2026-10-23) and Hetzner are no longer sources.
 
-The Fly.io integration and runner billing API are removed. Historical runner
+The runner billing API is removed. Historical runner
 and job rows remain in `spend.jsonl`, but `Spend.entries` skips them, so
 stored history never becomes an amount spent. Credentials and old cloud
 state files are left on disk untouched.

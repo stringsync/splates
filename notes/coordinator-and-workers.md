@@ -42,9 +42,8 @@ worktrees. There are no job runners.
 
 - 2026-10-22: remote agents, their clones, the relay, task keys and
   waking were removed (see `designs/worker-pool.md`).
-- 2026-10-23: the stateless runners that took heavy jobs instead, made in
-  Fly.io, were removed, with their jobs, server provisioning and runner
-  billing.
+- 2026-10-23: the stateless runners that took heavy jobs instead were
+  removed, with their jobs, server provisioning and runner billing.
 
 ## Where
 

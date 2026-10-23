@@ -19,7 +19,7 @@ its "agents never start agents" is now enforced. `opencode-acp.md`: the opt-in
 OpenCode plan, partly historical, its evidence synthetic.
 `runners-leave-the-product.md`: the 2026-10-22 decision to remove product
 runners, followed by the 2026-10-23 decision to remove them from `splates dev`
-too. Fly provisioning and billing, remote workers, images and proofs are
+too. Runner provisioning and billing, remote workers, images and proofs are
 gone. Heavy work needs a permission card; the merge gate runs here.
 
 A design is updated as its lane lands (dated "built" paragraphs), so read the

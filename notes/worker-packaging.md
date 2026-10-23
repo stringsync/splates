@@ -24,7 +24,7 @@ Unix socket. No separate machine, join token or root recipe is needed.
   with its agents.
 - 2026-10-23: the cloud runner image, its bootstrap,
   `splates runners serve`, the Linux binaries and the rest of
-  `splates dev prove` were removed with the Fly.io integration.
+  `splates dev prove` were removed.
 
 - 2026-10-23: remote workers, `splates worker recipe`, snapshots and the
   worker Dockerfile were removed too.
