@@ -231,7 +231,6 @@ export async function merge(
 			delete facts.output;
 			facts.failedTests = [];
 
-			const before = await git.head(worktree.path);
 			// Trunk as the remote has it, which only the server moves: the
 			// commit the gate tests on, and the one the server checks trunk is
 			// still at before it lands.
@@ -322,14 +321,16 @@ export async function merge(
 			if (gated.timedOut) {
 				// A gate this long has hung rather than failed: nothing to attribute,
 				// and no attempt spent.
-				await git.resetHard(worktree.path, before);
+				// Back to the tested commit, dropping what the gate wrote: the branch
+				// stays rebased, so the agent can run the files there.
+				await git.resetHard(worktree.path, testedHead);
 				fail(
 					"timeout",
 					[
 						tail(`${gated.stdout}\n${gated.stderr}`),
 						"",
 						`\`${runner.command}\` ran past ${runner.timeout.human()} and was killed.`,
-						`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}. No merge attempt was spent.`,
+						`${base} is untouched and ${branch} is now rebased onto ${base}@${rebasedOnto.slice(0, 8)}, the commit it was tested against. No merge attempt was spent.`,
 						"",
 						"Merge again.",
 					].join("\n"),
@@ -375,10 +376,10 @@ export async function merge(
 			}
 			await state.requireLease();
 			if (gated.exitCode !== 0) {
-				// The rebase already finished, so there is nothing for `rebase --abort`
-				// to undo: resetting to the pre-rebase commit is what returns the branch
-				// to its previous state.
-				await git.resetHard(worktree.path, before);
+				// The rebase already finished: keep the branch on it, so the failure
+				// can be reproduced in the tree the gate saw. The reset only drops
+				// what the gate wrote.
+				await git.resetHard(worktree.path, testedHead);
 				const output = `${gated.stdout}\n${gated.stderr}`;
 				const failed = failedTests(output);
 				const charged = facts.failureAttribution === "task";
@@ -404,7 +405,7 @@ export async function merge(
 						tail(output),
 						"",
 						`\`${runner.command}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
-						`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
+						`${base} is untouched and ${branch} is now rebased onto ${base}@${rebasedOnto.slice(0, 8)}, the commit it was tested against; run the failing files there (\`bun test <paths>\`) before changing anything.`,
 						charged
 							? "The failure was reproduced with the task after passing on the base; one merge attempt was spent."
 							: `Failure attribution: ${facts.failureAttribution}. The merge is held; no merge attempt was spent.`,

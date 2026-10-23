@@ -19,5 +19,9 @@ holding the base is updated with `read-tree -m -u`; if the base moved
 meanwhile the loop rebases and gates again without charging. On success it
 `cd`s to the main tree first (it usually runs from the tree it deletes),
 discards the worktree, frees the dev slot, deletes any pushed branch and
-takes the queued tasks the task had taken off the list. Every attempt prints
+takes the queued tasks the task had taken off the list.
+
+What the branch holds after a stop: a `conflict` or `merge_failed` leaves the
+rebase in progress; a `tests_failed` or `timeout` leaves the branch at the
+rebased commit the gate ran on (`testedHead`), not its pre-rebase commit. Every attempt prints
 the notes' descriptions, which gate nothing.

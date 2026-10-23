@@ -302,7 +302,8 @@ the message; a `Maybe relevant:` one only when it fits.
    `defer` each follow-up you would otherwise offer or ask about once it
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
 "<message>"` (see Committing), or ask for a review first (see
-   [merge.md](references/merge.md)). On failure, do what stderr says and merge again, with the
+   [merge.md](references/merge.md)). On failure, do what stderr says (after a failed gate the worktree holds the
+   tested tree: reproduce the failure there first) and merge again, with the
    real message, since a merge whose gate passes this time lands. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else. When merge stops on anything but success, read

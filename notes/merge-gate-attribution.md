@@ -26,7 +26,8 @@ each a runner job (`MergeGate.run` with `at`, a job on that commit), or, run
 here, in a detached scratch worktree at the base commit where `postRewrite`
 runs first: `task`, `trunk`,
 `flake` or `environment`. Only `task` spends an attempt; a `flake` reruns the
-whole gate once; in every case the branch is reset to its pre-rebase commit.
+whole gate once; in every case the branch stays on the rebased commit the gate tested
+(only what the gate wrote is dropped), so the agent can reproduce the failure.
 Each failing test also becomes a backlog task `Tests failed: <name>`
 (`merge/queue-failures.ts`) unless one with that subject is listed. An
 existing `index.lock` holds the merge as `blocked` without charging.

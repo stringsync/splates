@@ -342,7 +342,7 @@ describe.concurrent("merge", () => {
 		expect(facts.output).toContain("refused-by-hook");
 	});
 
-	it("rolls the branch back and leaves trunk alone when the gate fails", async () => {
+	it("leaves the branch rebased on the tested trunk and trunk alone when the gate fails", async () => {
 		await using deps = await Testing.open();
 
 		deps.config.preMerge = "echo boom-from-tests; exit 1";
@@ -350,17 +350,22 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
-		const before = await deps.gitCli(worktree, "rev-parse", "HEAD");
 		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 
 		await deps.finish(worktree);
 		const facts: Partial<Facts["merge"]> = {};
 		await expect(merge(deps, worktree, facts)).toBail("tests_failed", {
-			message: "boom-from-tests",
+			message: [
+				"boom-from-tests",
+				`now rebased onto main@${trunkBefore.slice(0, 8)}`,
+			],
 		});
 		// It named no test, so what the gate printed is all there is to show.
 		expect(facts.output).toBe("boom-from-tests");
-		expect(await deps.gitCli(worktree, "rev-parse", "HEAD")).toBe(before);
+		expect(await deps.gitCli(worktree, "rev-parse", "HEAD~1")).toBe(
+			trunkBefore,
+		);
+		expect(await deps.fs.exists(join(worktree, "trunk.txt"))).toBe(true);
 		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
@@ -424,11 +429,18 @@ describe.concurrent("merge", () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 		await deps.finish(worktree);
 
 		await expect(
 			merge({ ...deps, gateTimeoutMs: 100 }, worktree, facts),
-		).toBail("timeout");
+		).toBail("timeout", {
+			message: `now rebased onto main@${trunkBefore.slice(0, 8)}`,
+		});
+		expect(await deps.gitCli(worktree, "rev-parse", "HEAD~1")).toBe(
+			trunkBefore,
+		);
 		expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
 		expect((await deps.service.find("alpha")).state?.gate).toBeUndefined();
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(false);
