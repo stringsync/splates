@@ -474,6 +474,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		picking: false,
 		autoPick: null,
 		notesHoldout: null,
+		notesExperiment: null,
 		capped: false,
 		queued: null,
 		unread: false,

@@ -1,6 +1,7 @@
 import { APPLIED } from "../notes";
 import type { Event } from "../records";
 import type { Judged } from "./adherence";
+import { type ExperimentReport, NoteExperiment } from "./note-experiment";
 import type { Outcome } from "./outcomes";
 
 /**
@@ -16,8 +17,26 @@ export function noteStats(
 	outcomes: Outcome[],
 	judged: Judged[],
 ): NoteStats {
+	const experiment = new NoteExperiment(sources, outcomes).read();
+	// Versioned enrollments have their own prospective report, never pooled with history.
+	sources = sources.map((source) => {
+		const assigned = new Set(
+			source.events
+				.filter((event) => event.action === "notes assigned")
+				.map((event) => event.conversation),
+		);
+		return {
+			...source,
+			events: source.events.filter(
+				(event) =>
+					!assigned.has(event.conversation) &&
+					!(event.action === "notes attached" && event.version !== undefined),
+			),
+		};
+	});
 	const projects = new Set(sources.map((each) => each.project));
 	const arms = new Map<string, "pointed" | "holdout">();
+	const assignedAt = new Map<string, string>();
 	const times: number[] = [];
 	const rows = new Map<string, NoteRow>();
 	const row = (project: string, path: string): NoteRow => {
@@ -52,10 +71,11 @@ export function noteStats(
 			if (event.reason !== null || event.conversation === null) {
 				continue;
 			}
-			const conversation = event.conversation;
+			const conversation = `${project}\n${event.conversation}`;
 			if (event.action === "notes attached") {
 				if (!arms.has(conversation)) {
 					arms.set(conversation, event.holdout ? "holdout" : "pointed");
+					assignedAt.set(conversation, event.at);
 				}
 				const which = arms.get(conversation) ?? "pointed";
 				if (event.corrects !== undefined) {
@@ -148,14 +168,17 @@ export function noteStats(
 				projects.has(each.project) &&
 				!each.base.startsWith("task/") &&
 				each.conversation !== null &&
-				own.has(each.conversation),
+				own.has(`${each.project}\n${each.conversation}`) &&
+				each.endedAt >=
+					(assignedAt.get(`${each.project}\n${each.conversation}`) ??
+						each.endedAt),
 		);
 		const merged = ended.filter((each) => each.ended === "merged");
 		const removed = ended.filter((each) => each.ended === "removed");
 		const used = merged.filter((each) => each.usage !== undefined);
 		const turned = merged.filter((each) => each.turns !== undefined);
 		const checks = judged
-			.filter((each) => own.has(each.conversation))
+			.filter((each) => own.has(`${each.project}\n${each.conversation}`))
 			.flatMap((each) => Object.values(each.scores));
 		const passed = checks.reduce((sum, each) => sum + each.passed, 0);
 		return {
@@ -190,6 +213,7 @@ export function noteStats(
 					Math.min(sorted.length - 1, Math.ceil(share * sorted.length) - 1)
 				] ?? null);
 	return {
+		experiment,
 		projects: [...projects],
 		pointed: arm("pointed"),
 		holdout: arm("holdout"),
@@ -287,6 +311,8 @@ export interface NoteRow {
 
 /** What the Stats page's Notes section shows. */
 export interface NoteStats {
+	/** The prospective 50/50 phase, separate from the historical figures below. */
+	experiment?: ExperimentReport;
 	/** The main trees of the projects read. */
 	projects: string[];
 	/** Conversations with pointers, against those held out. */

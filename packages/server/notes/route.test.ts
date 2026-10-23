@@ -212,4 +212,79 @@ describe("routing", () => {
 		expect(lastPrompt()).toEqual(["Add an export"]);
 		expect(await attached()).toEqual([]);
 	});
+
+	it("enrolls before a failed judgment, draws a balanced holdout once, and keeps it on retry", async () => {
+		judge = null;
+		conversations.route = routing(deps, {
+			judge: async () => judge,
+			random: () => 0.3,
+		});
+		const conversation = await start();
+		await say(conversation, "Add an export");
+		expect(conversation.state.notesHoldout).toBe(true);
+		expect(conversation.state.notesExperiment?.version).toBe("notes-v2");
+		expect(
+			(await deps.journal.tail(50)).filter(
+				(event) => event.action === "notes assigned",
+			),
+		).toHaveLength(1);
+		expect(
+			(await deps.journal.tail(50)).filter(
+				(event) => event.action === "notes routing failed",
+			),
+		).toHaveLength(1);
+		judge = new FakeJudge({ n0: 0.9 });
+		conversations.route = routing(deps, {
+			judge: async () => judge,
+			random: () => 0.9,
+		});
+		await say(conversation, "Try again");
+		expect(lastPrompt()).toEqual(["Try again"]);
+		expect(conversation.state.notesHoldout).toBe(true);
+		expect((await attached())[0]?.version).toBe("notes-v2");
+	});
+
+	it("keeps an existing assignment in the original phase", async () => {
+		const conversation = await start();
+		conversation.set({ notesHoldout: false });
+		await say(conversation, "Add an export");
+		expect(conversation.state.notesExperiment).toBeNull();
+		expect((await attached())[0]?.version).toBeUndefined();
+		expect(
+			(await deps.journal.tail(50)).filter(
+				(event) => event.action === "notes assigned",
+			),
+		).toEqual([]);
+	});
+
+	it("records a failed judge without delivering pointers or losing enrollment", async () => {
+		judge = new FailedJudge();
+		const conversation = await start();
+		await say(conversation, "Add an export");
+		expect(lastPrompt()).toEqual(["Add an export"]);
+		expect(conversation.state.notesExperiment?.version).toBe("notes-v2");
+		expect(
+			(await deps.journal.tail(50)).filter(
+				(event) => event.action === "notes routing failed",
+			),
+		).toEqual([
+			expect.objectContaining({ failure: "judge failed", version: "notes-v2" }),
+		]);
+	});
+
+	it("leaves a conversation with prior agent work in the historical phase even if not assigned yet", async () => {
+		const conversation = await start();
+		conversation.state.messages.push(
+			message("agent", { type: "text", text: "Earlier work" }),
+		);
+		await say(conversation, "Add an export");
+		expect(conversation.state.notesExperiment).toBeNull();
+		expect((await attached())[0]?.version).toBeUndefined();
+	});
 });
+
+class FailedJudge extends FakeJudge {
+	override async judge(): Promise<never> {
+		throw new Error("judge unavailable");
+	}
+}

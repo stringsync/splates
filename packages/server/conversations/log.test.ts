@@ -5,6 +5,16 @@ import { FsStorage } from "../storage";
 import { ConversationLog, type Entry } from "./log";
 
 describe("ConversationLog", () => {
+	it("replays a versioned notes assignment and accepts the older holdout format", async () => {
+		const experiment = { version: "notes-v2", at: "2026-10-23T00:00:00.000Z" };
+		expect(
+			(await replay({ kind: "notes-holdout", holdout: true, experiment }))
+				?.state,
+		).toMatchObject({ notesHoldout: true, notesExperiment: experiment });
+		expect(
+			(await replay({ kind: "notes-holdout", holdout: false }))?.state,
+		).toMatchObject({ notesHoldout: false, notesExperiment: null });
+	});
 	it("reads back a failed process's error while nothing has run since", async () => {
 		const replayed = await replay({ kind: "end", error: "it fell over" });
 

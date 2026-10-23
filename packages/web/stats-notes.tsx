@@ -16,6 +16,10 @@ export function NoteSection({ notes }: { notes: NoteStats }): JSX.Element {
 		>
 			<h3 className="font-medium text-xs">Notes</h3>
 			<p className="text-muted-foreground text-xs">{readingProjects(notes)}</p>
+			{notes.experiment && <Experiment experiment={notes.experiment} />}
+			<h4 className="font-medium text-sm">
+				Historical experiment (80/20; descriptive only)
+			</h4>
 			<div className="overflow-x-auto">
 				<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
 					<thead className="text-muted-foreground text-xs">
@@ -175,4 +179,164 @@ function readingProjects(notes: NoteStats): string {
 	return notes.projects.length === 1
 		? `Reading ${basename(notes.projects[0] ?? "")}.`
 		: `Reading ${notes.projects.length} projects.`;
+}
+
+/** The current phase is shown separately so historical work cannot change its result. */
+function Experiment({
+	experiment,
+}: {
+	experiment: NonNullable<NoteStats["experiment"]>;
+}): JSX.Element {
+	const { pointed, holdout } = experiment;
+	const rows = [
+		["Assigned conversations", pointed.assigned, holdout.assigned],
+		["Prospective task conversations", pointed.tasks, holdout.tasks],
+		["Completed seven-day follow-up", pointed.mature, holdout.mature],
+		["Awaiting follow-up", pointed.pending, holdout.pending],
+		["Conversations needing correction", pointed.corrected, holdout.corrected],
+		["Unknown correction outcome", pointed.missing, holdout.missing],
+		["Successful routing judgments", pointed.judgments, holdout.judgments],
+		["Routing failures / no judge", pointed.failures, holdout.failures],
+		["Recorded judge spend", money(pointed.spend), money(holdout.spend)],
+		[
+			"Successful routing p95",
+			pointed.p95 === null ? NONE : `${pointed.p95}ms`,
+			holdout.p95 === null ? NONE : `${holdout.p95}ms`,
+		],
+		["Agent note reads", pointed.reads, holdout.reads],
+		["Notes judged applied", pointed.applied, holdout.applied],
+		[
+			"Pre-existing task outcomes excluded",
+			pointed.inProgress,
+			holdout.inProgress,
+		],
+		[
+			"First-try merges",
+			`${pointed.firstTry}/${pointed.merged}`,
+			`${holdout.firstTry}/${holdout.merged}`,
+		],
+		[
+			"Tokens per measured merge",
+			measuredTokens(pointed),
+			measuredTokens(holdout),
+		],
+		[
+			"Turns per measured merge",
+			measuredTurns(pointed),
+			measuredTurns(holdout),
+		],
+	];
+	return (
+		<>
+			<h4 className="font-medium text-sm">
+				Current experiment: {experiment.version} · 50/50
+			</h4>
+			<p className="text-muted-foreground text-xs">
+				Primary measure: conversations needing a user correction within seven
+				days of assignment. The first prompt is excluded. Review the first{" "}
+				{experiment.targetPerArm} assigned conversations per group after their
+				full follow-up. A worthwhile benefit is at least{" "}
+				{percent(experiment.worthwhile)} fewer conversations needing correction.
+			</p>
+			<div className="overflow-x-auto">
+				<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
+					<thead>
+						<tr className="border-b text-right">
+							<th className="text-left font-normal">Measure</th>
+							<th className="font-normal">With pointers</th>
+							<th className="font-normal">Holdout</th>
+						</tr>
+					</thead>
+					<tbody>
+						{rows.map(([title, pointedValue, holdoutValue]) => (
+							<tr key={title} className="border-b text-right last:border-0">
+								<td className="py-1 text-left">{title}</td>
+								<td>{pointedValue}</td>
+								<td>{holdoutValue}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<p className="text-muted-foreground text-xs">
+				{experiment.decision === "collecting"
+					? "Collecting data; no decision yet."
+					: `Statistical screen: ${experiment.decision}.`}
+				{experiment.difference === null
+					? " No correction-rate interval yet."
+					: ` Conservative 95% interval for pointers minus holdout: ${points(experiment.difference[0])} to ${points(experiment.difference[1])} percentage points; negative favors pointers.`}
+				Missing correction outcomes widen this interval. Audit a blinded sample
+				of correction labels before deciding. Both groups run the router, so
+				this comparison does not measure the latency savings from disabling it.
+			</p>
+			{experiment.models.length > 0 && (
+				<div className="overflow-x-auto">
+					<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
+						<caption className="text-left text-muted-foreground text-xs">
+							Supporting outcomes by agent/model; counts may be small and model
+							changes are not randomized.
+						</caption>
+						<thead>
+							<tr className="border-b text-right">
+								<th className="text-left font-normal">Agent / model</th>
+								<th className="font-normal">Pointers: first try / merged</th>
+								<th className="font-normal">Holdout: first try / merged</th>
+								<th className="font-normal">
+									Pointers: tokens / measured merges
+								</th>
+								<th className="font-normal">
+									Holdout: tokens / measured merges
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{experiment.models.map((model) => (
+								<tr
+									key={JSON.stringify([model.agent, model.model])}
+									className="border-b text-right last:border-0"
+								>
+									<td className="py-1 text-left">
+										{model.agent ?? "Unknown agent"} /{" "}
+										{model.model ?? "Unknown model"}
+									</td>
+									<td>
+										{model.pointed.firstTry}/{model.pointed.merged}
+									</td>
+									<td>
+										{model.holdout.firstTry}/{model.holdout.merged}
+									</td>
+									<td>{measuredTokens(model.pointed)}</td>
+									<td>{measuredTokens(model.holdout)}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
+		</>
+	);
+}
+
+function measuredTokens(arm: {
+	used: number;
+	tokens: number;
+	merged: number;
+}): string {
+	return arm.used === 0
+		? `No usage (${arm.merged} merges)`
+		: `${Math.round(arm.tokens / arm.used).toLocaleString()} (${arm.used}/${arm.merged} merges)`;
+}
+
+function measuredTurns(arm: {
+	turned: number;
+	turns: number;
+	merged: number;
+}): string {
+	return arm.turned === 0
+		? `No turns (${arm.merged} merges)`
+		: `${(arm.turns / arm.turned).toFixed(2)} (${arm.turned}/${arm.merged} merges)`;
+}
+
+function points(value: number): string {
+	return `${value > 0 ? "+" : ""}${(value * 100).toFixed(1)}`;
 }

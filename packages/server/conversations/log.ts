@@ -211,6 +211,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.autoPick = { ...entry.pick, overridden: false };
 			} else if (entry.kind === "notes-holdout") {
 				state.notesHoldout = entry.holdout;
+				state.notesExperiment = entry.experiment ?? null;
 			} else if (entry.kind === "auto-pick-switch") {
 				state.autoPick = switched(state, entry.on);
 			} else if (entry.kind === "override") {
@@ -535,7 +536,11 @@ type Said =
 	/** The person switched Auto pick on or off for the conversation. */
 	| { kind: "auto-pick-switch"; on: boolean; at: string }
 	/** Whether note pointers are held back from it, chosen as its first message was routed. */
-	| { kind: "notes-holdout"; holdout: boolean }
+	| {
+			kind: "notes-holdout";
+			holdout: boolean;
+			experiment?: { version: string; at: string };
+	  }
 	/** Settings to set once the session opens, by id, as Auto pick chose them. */
 	| { kind: "picks-request"; picks: Record<string, string> }
 	/** Auto picked another agent than the one it started on, before any session opened. */

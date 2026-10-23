@@ -135,6 +135,8 @@ export interface ConversationState {
 	 * first message is routed, its agent never told; null until then.
 	 */
 	notesHoldout: boolean | null;
+	/** The prospectively assigned notes phase; null for the original experiment. */
+	notesExperiment: { version: string; at: string } | null;
 	/**
 	 * Started by the server's queue or a hook, so its agent holds one of the
 	 * workers' slots; the person's own conversations take none.
@@ -649,6 +651,7 @@ export function blank(
 		picking: false,
 		autoPick: null,
 		notesHoldout: null,
+		notesExperiment: null,
 		capped: false,
 		queued: null,
 		unread: false,

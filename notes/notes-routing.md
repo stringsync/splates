@@ -28,10 +28,14 @@ beside Auto pick's `jev-latest`.
 
 ## The Stats page's Notes section
 
+The prospective `notes-v2` phase assigns new conversations 50/50 and keeps
+older conversations in a historical comparison. Its fixed review rule and
+coverage are in [notes-experiment.md](notes-experiment.md).
+
 It reads those events from the project's journal, served per project at
 `/api/stats/notes`, beside the machine's outcomes and adherence. It shows:
 
-- conversations with pointers against the holdout, a conversation's arm
+- historical conversations with pointers against the holdout, a conversation's arm
   being what its first `notes attached` said;
 - per note, the reads after its pointers, the applied rate and unprompted
   reads;

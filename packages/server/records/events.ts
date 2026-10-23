@@ -282,7 +282,22 @@ export interface Facts {
 	 * said, before its agent read it: splates's own, shown as no line, for
 	 * the message's chips and the Stats page to read.
 	 */
+	"notes assigned": {
+		/** Frozen phase identifier and assignment, recorded before asking the judge. */
+		version: string;
+		assignedAt: string;
+		holdout: boolean;
+	};
+	"notes routing failed": {
+		/** Failure coverage is kept independently of successful judgments. */
+		version: string | null;
+		failure: "no judge" | "judge failed" | "routing failed";
+	};
 	"notes attached": {
+		/** Absent for conversations enrolled before versioned assignments. */
+		version?: string;
+		/** Whether an agent reply preceded this prompt, so its correction label can measure treatment. */
+		afterReply?: boolean;
 		/** Every note judged, likeliest first, with its raw probability so tiers can be retuned. */
 		notes: JudgedNote[];
 		/** Whether the conversation is held back from pointers, so none was attached. */
@@ -468,7 +483,17 @@ export const FACTS = {
 	"tunnel setup": [],
 	"tunnel remove": [],
 	"note read": ["path", "hash", "tool", "subagent", "bytes", "context"],
-	"notes attached": ["notes", "holdout", "ms", "corrects", "dollars"],
+	"notes assigned": ["version", "assignedAt", "holdout"],
+	"notes routing failed": ["version", "failure"],
+	"notes attached": [
+		"notes",
+		"holdout",
+		"ms",
+		"corrects",
+		"dollars",
+		"version",
+		"afterReply",
+	],
 	"note applied": ["path", "probability", "tier", "dollars"],
 	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
@@ -525,7 +550,7 @@ function asTask(event: Event): Event {
 /** The facts of note events that came after their first, which older events lack. */
 const LATER_NOTE_FACTS: Partial<Record<Action, readonly string[]>> = {
 	"note read": ["bytes", "context"],
-	"notes attached": ["corrects", "dollars"],
+	"notes attached": ["corrects", "dollars", "version", "afterReply"],
 	"note applied": ["dollars"],
 };
 

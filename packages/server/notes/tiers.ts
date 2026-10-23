@@ -12,6 +12,8 @@ export const ROUTING = {
 	optional: { at: 0.7, most: 1 },
 	/** The share of conversations held back from pointers, for the Stats page to compare. */
 	holdout: 0.2,
+	/** New conversations enter a separate, balanced phase; older assignments stay put. */
+	experiment: { version: "notes-v2", holdout: 0.5 },
 	/** How long a message waits on the judge before going without pointers. */
 	timeout: Duration.secs(2),
 } as const;

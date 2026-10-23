@@ -59,109 +59,148 @@ export function routing(
 		if (words === "") {
 			return null;
 		}
-		const root = project.git.root;
-		const config = await new ConfigFiles(project.fs).read(root);
-		const listed = await new Notes(project.fs).list(root, config);
-		if (listed.length === 0) {
-			return null;
-		}
-		const asker = await judge({
-			task: state.task,
-			conversation: state.id,
-			purpose: "notes",
-		});
-		if (asker === null) {
-			return null;
-		}
-		const holdout = heldOut(conversation, random);
-		const tree = conversation.cwd ?? root;
-		const notes = await Promise.all(
-			listed.map(async (note) => {
-				const path = relative(root, note.path);
-				const text = await readEither(project, resolve(tree, path), note.path);
-				return {
-					path,
-					description: note.description,
-					body:
-						text === null
-							? ""
-							: Markdown.parse(text.replace(/\r\n/g, "\n")).body,
-					hash: text === null ? null : hashOf(text),
-				};
-			}),
-		);
-		const [goal, read] = await Promise.all([
-			goalIn(project, state, conversation.cwd),
-			readsIn(project, state),
-		]);
-		const signal = AbortSignal.timeout(ROUTING.timeout.ms);
-		const started = clock();
-		const verdict = await aborts
-			.race(
-				signal,
-				asker.judge(
-					{
-						state: {
-							message: words.slice(0, MESSAGE_CHARS),
-							goal: goal.slice(0, GOAL_CHARS) || null,
-							reply: replyOf(state).slice(-REPLY_CHARS) || null,
-							notes: Object.fromEntries(
-								notes.map((note, index) => [
-									`n${index}`,
-									{
-										path: note.path,
-										description: note.description,
-										body: note.body.slice(0, BODY_CHARS),
-									},
-								]),
-							),
-						},
-						questions: {
-							...Object.fromEntries(
-								notes.map((_, index) => [`n${index}`, question(`n${index}`)]),
-							),
-							[CORRECTS]: CORRECTION,
-						},
-					},
-					{ signal },
-				),
-			)
-			.catch((error: unknown) => {
-				project.log.error(
-					`notes: no pointers for conversation ${state.id}: ${error instanceof Error ? error.message : String(error)}`,
-				);
+		const failed = async (
+			failure: "no judge" | "judge failed" | "routing failed",
+		) => {
+			await project.journal
+				.in(state.id)
+				.record("notes routing failed", state.task, async () => {}, {
+					version: state.notesExperiment?.version ?? null,
+					failure,
+				});
+		};
+		try {
+			const root = project.git.root;
+			const config = await new ConfigFiles(project.fs).read(root);
+			const listed = await new Notes(project.fs).list(root, config);
+			if (listed.length === 0) {
+				if (state.notesExperiment !== null) {
+					await failed("routing failed");
+				}
 				return null;
+			}
+			const holdout = await heldOut(project, conversation, random);
+			const asker = await judge({
+				task: state.task,
+				conversation: state.id,
+				purpose: "notes",
+			}).catch(async () => {
+				await failed("judge failed");
+				return undefined;
 			});
-		const ms = Math.round(clock() - started);
-		if (verdict === null) {
+			if (asker === undefined) {
+				return null;
+			}
+			if (asker === null) {
+				await failed("no judge");
+				return null;
+			}
+			const tree = conversation.cwd ?? root;
+			const notes = await Promise.all(
+				listed.map(async (note) => {
+					const path = relative(root, note.path);
+					const text = await readEither(
+						project,
+						resolve(tree, path),
+						note.path,
+					);
+					return {
+						path,
+						description: note.description,
+						body:
+							text === null
+								? ""
+								: Markdown.parse(text.replace(/\r\n/g, "\n")).body,
+						hash: text === null ? null : hashOf(text),
+					};
+				}),
+			);
+			const [goal, read] = await Promise.all([
+				goalIn(project, state, conversation.cwd),
+				readsIn(project, state),
+			]);
+			const signal = AbortSignal.timeout(ROUTING.timeout.ms);
+			const started = clock();
+			const verdict = await aborts
+				.race(
+					signal,
+					asker.judge(
+						{
+							state: {
+								message: words.slice(0, MESSAGE_CHARS),
+								goal: goal.slice(0, GOAL_CHARS) || null,
+								reply: replyOf(state).slice(-REPLY_CHARS) || null,
+								notes: Object.fromEntries(
+									notes.map((note, index) => [
+										`n${index}`,
+										{
+											path: note.path,
+											description: note.description,
+											body: note.body.slice(0, BODY_CHARS),
+										},
+									]),
+								),
+							},
+							questions: {
+								...Object.fromEntries(
+									notes.map((_, index) => [`n${index}`, question(`n${index}`)]),
+								),
+								[CORRECTS]: CORRECTION,
+							},
+						},
+						{ signal },
+					),
+				)
+				.catch((error: unknown) => {
+					project.log.error(
+						`notes: no pointers for conversation ${state.id}: ${error instanceof Error ? error.message : String(error)}`,
+					);
+					return null;
+				});
+			const ms = Math.round(clock() - started);
+			if (verdict === null) {
+				await failed("judge failed");
+				return null;
+			}
+			project.log.info(`notes: judged in ${ms}ms (${spread(took, ms)})`);
+			const tiered = tiers(
+				notes.map((note, index) => {
+					const before = read.get(note.path);
+					const inContext = before !== undefined && before === note.hash;
+					return {
+						path: note.path,
+						description: note.description,
+						probability: verdict.answers.get(`n${index}`) ?? 0,
+						inContext,
+						updated: before !== undefined && !inContext,
+					};
+				}),
+			);
+			const corrects = verdict.answers.get(CORRECTS);
+			await project.journal
+				.in(state.id)
+				.record("notes attached", state.task, async () => {}, {
+					notes: tiered.map(({ description: _, ...note }) => note),
+					holdout,
+					afterReply: state.messages.some(
+						(message) => message.role === "agent",
+					),
+					...(state.notesExperiment === null
+						? {}
+						: { version: state.notesExperiment.version }),
+					ms,
+					...(corrects === undefined ? {} : { corrects }),
+					dollars: verdict.dollars ?? null,
+				})
+				.catch((error: unknown) => project.log.error(String(error)));
+			return holdout ? null : pointersOf(tiered);
+		} catch (error) {
+			project.log.error(
+				`notes: routing failed for ${state.id}: ${String(error)}`,
+			);
+			await failed("routing failed");
 			return null;
 		}
-		project.log.info(`notes: judged in ${ms}ms (${spread(took, ms)})`);
-		const tiered = tiers(
-			notes.map((note, index) => {
-				const before = read.get(note.path);
-				const inContext = before !== undefined && before === note.hash;
-				return {
-					path: note.path,
-					description: note.description,
-					probability: verdict.answers.get(`n${index}`) ?? 0,
-					inContext,
-					updated: before !== undefined && !inContext,
-				};
-			}),
-		);
-		const corrects = verdict.answers.get(CORRECTS);
-		await project.journal
-			.in(state.id)
-			.record("notes attached", state.task, async () => {}, {
-				notes: tiered.map(({ description: _, ...note }) => note),
-				holdout,
-				ms,
-				...(corrects === undefined ? {} : { corrects }),
-				dollars: verdict.dollars ?? null,
-			})
-			.catch((error: unknown) => project.log.error(String(error)));
-		return holdout ? null : pointersOf(tiered);
 	};
 }
 
@@ -205,17 +244,38 @@ function question(id: string) {
  * Whether `conversation` is held back from pointers: drawn at random the
  * first time, and kept in its log.
  */
-function heldOut(
+async function heldOut(
+	project: Project,
 	conversation: ConversationHost,
 	random: () => number,
-): boolean {
+): Promise<boolean> {
 	const kept = conversation.state.notesHoldout;
 	if (kept !== null) {
 		return kept;
 	}
-	const holdout = random() < ROUTING.holdout;
-	conversation.log.write({ kind: "notes-holdout", holdout });
-	conversation.set({ notesHoldout: holdout });
+	const fresh = !conversation.state.messages.some(
+		(message) => message.role === "agent",
+	);
+	const experiment = fresh
+		? { version: ROUTING.experiment.version, at: conversation.now() }
+		: null;
+	const holdout =
+		random() < (fresh ? ROUTING.experiment.holdout : ROUTING.holdout);
+	conversation.log.write({
+		kind: "notes-holdout",
+		holdout,
+		...(experiment === null ? {} : { experiment }),
+	});
+	conversation.set({ notesHoldout: holdout, notesExperiment: experiment });
+	if (experiment !== null) {
+		await project.journal
+			.in(conversation.state.id)
+			.record("notes assigned", conversation.state.task, async () => {}, {
+				version: experiment.version,
+				assignedAt: experiment.at,
+				holdout,
+			});
+	}
 	return holdout;
 }
 

@@ -1,9 +1,52 @@
 import { describe, expect, it } from "bun:test";
-import type { Arm, NoteStats } from "@stringsync/splates-server/stats/browser";
+import type {
+	Arm,
+	ExperimentArm,
+	NoteStats,
+} from "@stringsync/splates-server/stats/browser";
 import { NoteSection } from "./stats-notes";
 import { render } from "./testing-library";
 
 describe("NoteSection", () => {
+	it("separates the new phase, shows missingness and keeps the review collecting until follow-up matures", () => {
+		const page = render(
+			<NoteSection
+				notes={{
+					...notes,
+					experiment: {
+						version: "notes-v2",
+						followUpDays: 7,
+						targetPerArm: 400,
+						worthwhile: 0.05,
+						pointed: phaseArm,
+						holdout: phaseArm,
+						difference: [-0.1, 0.2],
+						decision: "collecting",
+						models: [
+							{
+								agent: "codex",
+								model: "model-a",
+								pointed: phaseArm,
+								holdout: phaseArm,
+							},
+						],
+					},
+				}}
+			/>,
+		);
+		const section = page.getByRole("region", { name: "Notes" });
+		expect(section.textContent).toContain("notes-v2 · 50/50");
+		expect(section.textContent).toContain("first 400 assigned conversations");
+		expect(section.textContent).toContain("Collecting data; no decision yet.");
+		expect(section.textContent).toContain("-10.0 to +20.0 percentage points");
+		expect(section.textContent).toContain("Historical experiment");
+		expect(
+			page.getByRole("row", { name: /Unknown correction outcome/ }).textContent,
+		).toContain("2");
+		expect(
+			page.getByRole("row", { name: /codex \/ model-a/ }).textContent,
+		).toContain("1/2 merges");
+	});
 	it("shows pointers against the holdout with each figure's count, and each note's read-through and applied rate", () => {
 		const page = render(<NoteSection notes={notes} />);
 
@@ -29,6 +72,29 @@ describe("NoteSection", () => {
 		expect(row.textContent).toContain("75% of 4");
 	});
 });
+
+const phaseArm: ExperimentArm = {
+	assigned: 5,
+	tasks: 3,
+	mature: 3,
+	pending: 2,
+	corrected: 1,
+	missing: 2,
+	judgments: 5,
+	failures: 2,
+	spend: 0.01,
+	p95: 500,
+	reads: 4,
+	applied: 2,
+	inProgress: 1,
+	merged: 2,
+	removed: 0,
+	firstTry: 2,
+	used: 1,
+	tokens: 100,
+	turned: 1,
+	turns: 3,
+};
 
 const arm: Arm = {
 	conversations: 4,

@@ -5,6 +5,17 @@ import { noteStats } from "./notes";
 import type { Outcome } from "./outcomes";
 
 describe("noteStats", () => {
+	it("does not credit work finished before the first routing judgment", () => {
+		const stats = noteStats(
+			from([attached("a", false, [])]),
+			[
+				ended({ conversation: "a", endedAt: "2026-10-13T00:00:00.000Z" }),
+				ended({ conversation: "a" }),
+			],
+			[],
+		);
+		expect(stats.pointed.merged).toBe(1);
+	});
 	it("sets conversations with pointers against the holdout, and counts how each note was pointed at, read and applied", () => {
 		const stats = noteStats(
 			from([
