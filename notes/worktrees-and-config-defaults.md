@@ -24,5 +24,6 @@ scripts or binaries costs `xprotectd` nothing.
 "notes"`, `leaseStalenessMs` 90s, `mergeRetryCount` 5, `logCapacity` 1000,
 `attachmentCapacity` 100 MB and `wiz: "bunx @webappwiz/cli"`; a project's
 `splates.config.ts` overrides any of them, and this repo's sets
-`postCheckout` and `postRewrite` to `bun install` and `preMerge` to
+`postCheckout` to `./bin/splates dev postcheckout`, `postRewrite` to
+`./bin/splates dev postrewrite` (each a `bun install`) and `preMerge` to
 `./bin/splates dev test`, so the suite gates a merge. Older keys (`todoStalenessMs`) are renamed on load.

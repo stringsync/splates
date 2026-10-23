@@ -3,6 +3,7 @@ import type { Cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
+import { postCheckout, postRewrite } from "./install";
 import { premerge } from "./premerge";
 import { ship } from "./ship";
 import { approveSuite, test } from "./test";
@@ -54,6 +55,20 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.action(({ "code-only": codeOnly, ...opts }, { log, ps }) =>
 			fix({ ...opts, codeOnly, log, ps }),
 		);
+
+	dev
+		.command("postcheckout")
+		.description(
+			"what `postCheckout` runs in a new worktree: install its dependencies",
+		)
+		.action((_opts, { log, ps }) => postCheckout({ log, ps }));
+
+	dev
+		.command("postrewrite")
+		.description(
+			"what `postRewrite` runs after a merge's rebase: install the dependencies the rebase may have brought",
+		)
+		.action((_opts, { log, ps }) => postRewrite({ log, ps }));
 
 	dev
 		.command("premerge")
