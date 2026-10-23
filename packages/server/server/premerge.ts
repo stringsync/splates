@@ -11,6 +11,18 @@ import { type PlacedLock, TicketedLock } from "./ticketed-lock";
 export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
 /**
+ * The nice an agent's own runs take beside a merge gate, so the gate keeps
+ * the CPU on a busy machine and its git-spawning tests stop timing out:
+ * pass it to `nice -n` or `os.setPriority` for anything an agent runs that
+ * is not the gate.
+ */
+// The gate runs in the agent's own `splates merge`, so it cannot be raised;
+// what runs beside it is lowered instead. Measured on a Mac with the cores
+// oversubscribed, nice 10 gets about half the share of nice 0 and nice 19
+// hardly less, while on Linux nice 19 would all but stop the agent's run.
+export const BESIDE_GATE_NICE = 10;
+
+/**
  * Set for a merge's gate to the test files that failed recent gates, one
  * path a line, which `dev premerge` runs before the whole suite.
  */

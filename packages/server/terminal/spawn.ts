@@ -11,6 +11,12 @@ export interface ShellOptions {
 	ps?: Ps;
 }
 
+/** How a command runs, beyond what a spawn takes. */
+export interface ShellRunOptions extends SpawnOptions {
+	/** Runs it under `nice -n <nice>`, as a hook beside a merge gate does. */
+	nice?: number;
+}
+
 /**
  * Runs the commands a repo configures (the lifecycle hooks) as shell strings
  * rather than argv, since that is how a repo writes them.
@@ -28,17 +34,22 @@ export class Shell {
 	run(
 		command: string,
 		cwd: string,
-		opts: SpawnOptions = {},
+		{ nice, ...opts }: ShellRunOptions = {},
 	): Promise<SpawnCaptureResult> {
-		return this.ps.spawnCapture(["sh", "-c", command], { ...opts, cwd });
+		return this.ps.spawnCapture(argv(command, nice), { ...opts, cwd });
 	}
 
 	/** Inherits stdio, for commands the agent should watch as they run. */
 	stream(
 		command: string,
 		cwd: string,
-		opts: SpawnOptions = {},
+		{ nice, ...opts }: ShellRunOptions = {},
 	): Promise<SpawnResult> {
-		return this.ps.spawn(["sh", "-c", command], { ...opts, cwd });
+		return this.ps.spawn(argv(command, nice), { ...opts, cwd });
 	}
+}
+
+function argv(command: string, nice: number | undefined): string[] {
+	const sh = ["sh", "-c", command];
+	return nice === undefined ? sh : ["nice", "-n", String(nice), ...sh];
 }

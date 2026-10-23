@@ -42,9 +42,23 @@ A holder keeps the lock at most `PREMERGE_HOLD_MS`, also 3 minutes
 
 - `SPLATES_PREMERGE`, so the `dev premerge` it runs goes ahead without
   waiting on the lock the gate holds.
-- `SPLATES_CORES`, all but two cores, which `dev test` runs that many
-  workers on.
-- `Testing` strips both.
+- `Testing` strips it.
+
+`dev test` in a gate runs half the cores as workers, as it does for anyone:
+14 workers with the load at 32 took 148 to 170s and timed out, 8 took 63 to
+78s and none did (2026-10-23).
+
+## The gate keeps the CPU
+
+The gate runs inside the agent's own `splates merge`, so it cannot raise its
+priority; what splates runs beside it lowers its own instead, to
+`BESIDE_GATE_NICE` (10, `server/premerge.ts`): a `dev test` or `dev fix`
+run from a conversation (`AgentPriority` in `packages/splates/dev/priority.ts`,
+which a gate's own run and a `dev premerge` by hand skip) and the postCheckout
+hook's install (`Shell`'s `nice` option). Measured here with the cores
+oversubscribed, nice 10 gets about half the share of nice 0, and nice 19
+hardly less, where on Linux it would all but stop the run. The person's
+own runs are never niced.
 
 ## Recent failures first
 
@@ -68,7 +82,7 @@ time, so they only made short work wait behind it, and were removed.
 
 - `packages/server/server/premerge.ts`: `premergeLockOfMachine`,
   `PREMERGE_TIMEOUT_MS`, `PREMERGE_HOLD_MS`, `TimedLock`
-- `packages/server/merge/gate.ts`: `SPLATES_CORES`
+- `packages/server/merge/gate.ts`: `MergeGate`
 - `packages/server/merge/merge.ts`: the `timeout` refusal
 - `packages/server/merge/recent-failures.ts`: `recentFailedFiles`
 - `packages/splates/dev/premerge.ts`

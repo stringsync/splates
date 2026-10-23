@@ -6,6 +6,7 @@ import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 
 export interface TestOptions {
@@ -33,6 +34,8 @@ export interface TestOptions {
 	grants?: SuiteGrants;
 	/** Whether the caller already checked an agent may run the whole suite, as `dev premerge` does. */
 	allowed?: boolean;
+	/** What puts an agent's run behind a merge gate; this run's own by default. */
+	priority?: AgentPriority;
 	/** How long the run may take before it is stopped. */
 	deadline?: Duration;
 	/** Stop each run at its first failing test, as `bun test --bail`. */
@@ -67,6 +70,8 @@ export async function test(opts: TestOptions): Promise<void> {
 			opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
 		);
 	}
+	// An agent's run beside a merge gate makes way for it; its workers inherit the nice.
+	(opts.priority ?? new AgentPriority(ps)).lower();
 	// The page's tests and the rest run apart, one after the other. A DOM test
 	// puts happy-dom on `globalThis` for its whole process, `setTimeout`, `URL`
 	// and the stream types among it, which the server is tested against. Apart,
@@ -91,11 +96,12 @@ export async function test(opts: TestOptions): Promise<void> {
 
 	// a worker runs a file at a time; suites opt into within-file concurrency
 	// themselves, since most still share a fixture built in beforeEach. Half
-	// the cores, not bun's one per core: several agents test at once, and a
-	// worker per core
-	// each starves their git-spawning suites past the 5s timeout. Three
-	// overlapping runs on 16 cores failed 20 to 30 tests each at 16 workers and
-	// 0 to 2 at 8, finishing sooner too; one run alone is about 1.5s slower.
+	// the cores, not bun's one per core, in a merge's gate too: a worker per
+	// core starves the git-spawning suites past the timeout once anything
+	// else runs. Three overlapping runs on 16 cores failed 20 to 30 tests
+	// each at 16 workers and 0 to 2 at 8, finishing sooner too; one run alone
+	// is about 1.5s slower. Gates at 14 workers with the load at 32 took
+	// 148 to 170s and timed out; at 8 they took 63 to 78s and none did.
 	// Even so, those suites run many times slower under load than alone, so
 	// each test gets 30s rather than 5s.
 	const workers =

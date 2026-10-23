@@ -1,6 +1,7 @@
 export { assets } from "./assets";
 export { DEFAULT_PORT } from "./ports";
 export {
+	BESIDE_GATE_NICE,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,

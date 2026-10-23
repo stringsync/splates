@@ -9,6 +9,7 @@ import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
 import { Notes } from "../notes";
 import { PLAN_FILE, Plans } from "../plans";
+import { BESIDE_GATE_NICE } from "../server/shared";
 import type { Shell } from "../terminal";
 import { TaskOverlaps } from "./overlaps";
 import type { Dispatched, Worktree } from "./worktree";
@@ -204,10 +205,12 @@ export async function add(
 	);
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
-	// no .env. That is what the hook is for.
+	// no .env. That is what the hook is for. Its install runs niced, so a
+	// merge gate on the machine keeps the CPU.
 	const hook = config.postCheckout;
 	if (hook) {
 		const { exitCode } = await shell.stream(hook, worktree.path, {
+			nice: BESIDE_GATE_NICE,
 			env: {
 				SPLATES_TASK: task,
 				SPLATES_WORKTREE: worktree.path,

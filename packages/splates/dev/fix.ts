@@ -1,5 +1,6 @@
 import { ConsoleLogger, color, type Logger } from "webappwiz/log";
 import { NodePs, type Ps } from "webappwiz/system";
+import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 
 export interface FixOptions {
@@ -11,6 +12,8 @@ export interface FixOptions {
 	skipScry?: boolean;
 	log?: Logger;
 	ps?: Ps;
+	/** What puts an agent's run behind a merge gate; this run's own by default. */
+	priority?: AgentPriority;
 }
 
 /**
@@ -31,6 +34,8 @@ export async function fix(opts: FixOptions): Promise<void> {
 		}
 	};
 
+	// An agent's run beside a merge gate makes way for it; biome, tsc and scry inherit the nice.
+	(opts.priority ?? new AgentPriority(ps)).lower();
 	const flags = opts.check ? [] : ["--write", "--unsafe"];
 	const biome = await ps.spawn(["bunx", "biome", "check", ...flags, "."], {
 		cwd: ROOT,

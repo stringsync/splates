@@ -105,7 +105,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		})
 		.option("workers", z.coerce.number().int().positive().optional(), {
 			description:
-				"maximum test workers; focused checks default to 1, full runs use their core allocation",
+				"maximum test workers; focused checks default to 1, full runs half the cores",
 		})
 		.option("ci", z.boolean(), {
 			default: false,

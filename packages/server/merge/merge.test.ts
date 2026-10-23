@@ -480,16 +480,15 @@ describe.concurrent("merge", () => {
 	});
 
 	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
-	it("tells the gate it holds the premerge lock, and the cores it may use", async () => {
+	it("tells the gate it holds the premerge lock", async () => {
 		await using deps = await Testing.open();
-		deps.config.preMerge =
-			'test -n "$SPLATES_PREMERGE" && test "$SPLATES_CORES" -gt 0';
+		deps.config.preMerge = 'test -n "$SPLATES_PREMERGE"';
 
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
-		// The gate's `test`s fail the merge unless both are set.
+		// The gate's `test` fails the merge unless it is set.
 		await merge(deps, worktree);
 
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(true);

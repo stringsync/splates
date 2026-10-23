@@ -57,8 +57,8 @@ run-command permission card for anything else heavy, running it only on
 ## The whole run
 
 - An unfiltered run is `bun test --parallel=<half the cores> --timeout 30000`,
-  all but two cores in a merge's gate. Trailing arguments filter files by
-  path, as `bun test` does.
+  in a merge's gate too. Trailing arguments filter files by path, as `bun
+  test` does.
 - The whole run is killed at six minutes; inside `dev premerge`, at what is
   left of the gate's 3 minutes.
 - `evals/**` is excluded unless `--evals` or `--all`.
@@ -68,6 +68,13 @@ run-command permission card for anything else heavy, running it only on
   checks, then `dev test --ci`, here, on the rebased code.
 - It always runs here, never on a runner (2026-10-23); `splates.config.ts`
   names no cloud, and the `--linux` selector went with remote runners.
+
+## Making way for the gate
+
+- A `dev test` or `dev fix` run from a conversation lowers its own priority
+  to nice 10 (`AgentPriority`), so a merge gate beside it keeps the CPU.
+- A gate's own run, a `dev premerge` by hand and the person's runs keep
+  theirs (`premerge-lock.md`).
 
 ## DOM split
 
@@ -97,6 +104,7 @@ run-command permission card for anything else heavy, running it only on
 ## Where
 
 - `packages/splates/dev/test.ts`: `refuseWholeSuite`
+- `packages/splates/dev/priority.ts`: `AgentPriority`
 - `packages/server/plans/run-command.ts`: `isWholeSuite`
 - `packages/web/test-preload.ts`
 - `splates.config.ts`: `preMerge`

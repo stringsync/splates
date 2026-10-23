@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { getPriority } from "node:os";
 import { join } from "node:path";
 
 import { decodeTask } from "../board";
@@ -234,6 +235,17 @@ describe("add", () => {
 		expect(await deps.fs.read(join(state?.worktree ?? "", "trunk.txt"))).toBe(
 			"master\n",
 		);
+	});
+
+	it("runs the postCheckout hook niced, so a merge gate keeps the CPU", async () => {
+		deps.config.postCheckout = "ps -o nice= -p $$ | tr -d ' ' > nice.txt";
+
+		await add(deps, "alpha", { base: "main" });
+
+		const state = (await deps.service.find("alpha")).state;
+		// Ten below this test's own, which an agent's run has lowered already.
+		const nice = await deps.fs.read(join(state?.worktree ?? "", "nice.txt"));
+		expect(Number(nice)).toBe(Math.min(20, getPriority() + 10));
 	});
 
 	it("runs onTree once the worktree exists, before the task is listed", async () => {

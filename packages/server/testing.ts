@@ -198,7 +198,6 @@ export class Testing implements AsyncDisposable {
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
 			[PREMERGE_HELD]: _premerge,
-			SPLATES_CORES,
 			...inherited
 		} = process.env;
 		// The same under their old `ARBOR_*` names, which splates still reads.

@@ -1,4 +1,3 @@
-import { availableParallelism } from "node:os";
 import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
@@ -202,8 +201,6 @@ export class MergeGate {
 				...(files === undefined && recent.length
 					? { [RECENT_FAILED_FILES]: recent.join("\n") }
 					: {}),
-				// It runs alone on the machine, so it may use all but two cores.
-				SPLATES_CORES: String(Math.max(1, availableParallelism() - 2)),
 			},
 			timeoutMs,
 		});

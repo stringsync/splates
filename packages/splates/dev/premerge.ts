@@ -11,6 +11,7 @@ import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { fix } from "./fix";
+import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { refuseWholeSuite, test } from "./test";
 
@@ -68,12 +69,12 @@ async function existing(files: string[]): Promise<string[]> {
 async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const started = performance.now();
-	await fix({ check: true, log, ...(opts.ps ? { ps: opts.ps } : {}) }).catch(
-		(error: unknown) => {
-			log.error("premerge: the checks failed, so no tests ran");
-			throw error;
-		},
-	);
+	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
+	const priority = new AgentPriority(ps, { premerge: true });
+	await fix({ check: true, log, priority, ps }).catch((error: unknown) => {
+		log.error("premerge: the checks failed, so no tests ran");
+		throw error;
+	});
 	// Files that failed recent gates run first, and stop the gate when they
 	// fail again; nothing is skipped, as the whole suite follows.
 	const recent = await existing(
@@ -88,6 +89,7 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 			files: recent,
 			workers: 1,
 			log,
+			priority,
 			...(opts.all === undefined ? {} : { all: opts.all }),
 			ps,
 			deadline: Duration.ms(
@@ -99,6 +101,7 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		ci: true,
 		allowed: true,
 		log,
+		priority,
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),
