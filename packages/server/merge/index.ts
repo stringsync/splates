@@ -12,6 +12,7 @@ export type { GateRun } from "./gate";
 export { MergeGate } from "./gate";
 export type { GitHubRepo, InstallationToken } from "./github-app";
 export { APP_ID, APP_KEY, GitHubApp, githubRepo } from "./github-app";
+export { BatchGroups } from "./groups";
 export { landTested } from "./landing";
 export { landLocally } from "./local-landing";
 export { merge } from "./merge";

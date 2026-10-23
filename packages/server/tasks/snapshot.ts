@@ -3,6 +3,7 @@ import type { Fs } from "webappwiz/system";
 import type { LaneRecord, TaskRecord, Tasks } from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
+import { BatchGroups } from "../merge";
 import type { Slot } from "../ports";
 import type { Behind, Release } from "../server/shared";
 import { type Details, TaskDetails } from "./show";
@@ -34,6 +35,8 @@ export interface Snapshot {
 	 */
 	laneNames: LaneRecord[];
 	tasks: Details[];
+	/** Confirmed running batches, leader first. Absent from older servers. */
+	mergeBatches?: string[][];
 	/** Every cred agents requested, open or not, the latest first; never a value. */
 	creds: CredRequest[];
 	/** The branch tasks land on, which the main tree has checked out. */
@@ -97,6 +100,9 @@ export async function snapshot({
 		lanes: await queue.lanes(),
 		laneNames: await queue.laneNames(),
 		tasks,
+		mergeBatches: await new BatchGroups(service.storage).active(
+			tasks.filter((task) => task.gate === "running").map((task) => task.task),
+		),
 		creds: await creds.requests(),
 		trunk: service.config.trunk,
 		release,
@@ -130,6 +136,7 @@ export function fingerprint({
 	lanes,
 	laneNames,
 	tasks,
+	mergeBatches,
 	creds,
 	release,
 	behind,
@@ -143,9 +150,13 @@ export function fingerprint({
 		lanes,
 		laneNames,
 		creds,
+		mergeBatches ?? [],
 		tasks.map((task) => [
 			task.task,
 			task.status,
+			task.gate,
+			task.mergeSince,
+			task.mergePlace,
 			task.comingConflict,
 			task.ahead,
 			task.unmerged,

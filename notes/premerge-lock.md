@@ -41,7 +41,12 @@ renews the hold (`PlacedLock.renew`), since each is bounded on its own and
 a batch's rounds and retests add up past one hold.
 
 Merges waiting at once gate as one batch under the holder's lock, so the
-line is usually shorter than the merges asking: see `merge-pipeline.md`,
+line is usually shorter than the merges asking. The merge status popover
+groups confirmed running members under “Testing together”, leaving tasks
+still waiting below; invitations without a successfully stacked branch do
+not count as membership. A batch stays visible even with nobody waiting
+outside it. The page reads coordination records and follows dissolved and
+reformed groups. See `merge-pipeline.md`,
 Batches. A waiter that a batch lands gives its wait up through the
 `AbortSignal` `TicketedLock.acquire` takes, leaving no ticket.
 

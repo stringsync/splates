@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, dirname } from "node:path";
 import { Testing } from "../testing";
-import { snapshot } from "./snapshot";
+import { add } from "./add";
+import { fingerprint, snapshot } from "./snapshot";
 
 describe("snapshot", () => {
 	let deps: Testing;
@@ -45,5 +46,40 @@ describe("snapshot", () => {
 
 		expect(path).toBe(deps.root);
 		expect((await snapshot({ project: "repo", ...deps })).path).toBe(deps.root);
+	});
+	it("exposes confirmed running batches and fingerprints their membership and merge progress", async () => {
+		await add(deps, "alpha");
+		await add(deps, "beta");
+		await (await deps.service.find("alpha")).save({
+			gate: "running",
+			mergeSince: new Date().toISOString(),
+		});
+		await (await deps.service.find("beta")).save({
+			gate: "running",
+			mergeSince: new Date().toISOString(),
+		});
+		const records = deps.storage.collection("merge-batch");
+		await records.write(
+			"invite:beta",
+			JSON.stringify({ leader: "alpha", onto: "tip" }),
+		);
+		await records.write(
+			"stacked:beta",
+			JSON.stringify({ onto: "tip", head: "beta" }),
+		);
+		const read = await snapshot({ ...deps, project: "repo" });
+		expect(read.mergeBatches).toEqual([["alpha", "beta"]]);
+		expect(fingerprint(read)).not.toBe(
+			fingerprint({ ...read, mergeBatches: [] }),
+		);
+		const queued = {
+			...read,
+			tasks: read.tasks.map((task) => ({ ...task, gate: "queued" as const })),
+		};
+		expect(fingerprint(read)).not.toBe(fingerprint(queued));
+		await records.write("result:beta", JSON.stringify({ kind: "dissolved" }));
+		expect((await snapshot({ ...deps, project: "repo" })).mergeBatches).toEqual(
+			[],
+		);
 	});
 });
