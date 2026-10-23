@@ -20,6 +20,7 @@ import { cn } from "#web/lib/utils.ts";
 import { ApiError, moveQueued, retryQueuedStart } from "./api";
 import { Board } from "./board";
 import { useNow } from "./hooks/use-now";
+import { STATUS_PILL } from "./status-pill";
 
 /** `place` as a place in line: 1st, 2nd, 3rd, 4th. */
 export function ordinal(place: number): string {
@@ -338,9 +339,9 @@ export function QueueBadge({
 			<PopoverTrigger
 				role="status"
 				title="Agents waiting for a slot on a worker"
-				className="flex shrink-0 items-center gap-1.5 rounded-full border bg-muted px-2 py-0.5 font-medium text-[11px] text-muted-foreground leading-none"
+				className={`${STATUS_PILL} bg-muted text-muted-foreground`}
 			>
-				<HourglassIcon className="size-3" />
+				<HourglassIcon />
 				{queue.length} queued
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80">

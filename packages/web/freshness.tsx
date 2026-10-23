@@ -14,6 +14,7 @@ import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import { Countdown } from "./countdown";
 import type { Feed } from "./feed";
+import { STATUS_PILL } from "./status-pill";
 
 /**
  * Whether what the page shows of the project may be stale: drawn from a kept
@@ -249,7 +250,7 @@ export function OfflinePill(): JSX.Element {
 		<span
 			role="alert"
 			title="splates server stopped answering: is it still running? The page keeps trying."
-			className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-destructive/40 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
+			className={`${STATUS_PILL} border-destructive/40 text-destructive`}
 		>
 			<span className="size-1.5 rounded-full bg-destructive" />
 			Can't reach the server

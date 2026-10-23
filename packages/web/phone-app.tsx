@@ -10,6 +10,7 @@ import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { OfflinePill, useDimmed, useFreshness } from "./freshness";
+import { MergeBadge } from "./merge-badge";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
@@ -93,7 +94,10 @@ export function PhoneApp({
 		offline || unreachable ? (
 			<OfflinePill />
 		) : (
-			<QueueBadge queue={pageMenu.machine?.queue ?? []} />
+			<>
+				<MergeBadge snapshot={snapshot} />
+				<QueueBadge queue={pageMenu.machine?.queue ?? []} />
+			</>
 		);
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>

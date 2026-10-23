@@ -5,8 +5,10 @@ import type { MachineStatus } from "./api";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
+import { MergeBadge } from "./merge-badge";
 import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
+import { STATUS_PILL } from "./status-pill";
 
 /**
  * Heads a phone's drawer, as tall as the bar beside it, its border in line
@@ -145,13 +147,13 @@ function ServerBadges({
 			)}
 			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
+			{!offline && <MergeBadge snapshot={snapshot} />}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
 		</>
 	);
 }
 
-const WARNING =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400";
+const WARNING = `${STATUS_PILL} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400`;
 
 /** How a restart goes, and why a checkpoint could not start, while they show. */
 function Restarting({

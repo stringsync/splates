@@ -8,6 +8,7 @@ import {
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { type MachineStatus, machine } from "./api";
+import { STATUS_PILL } from "./status-pill";
 
 /** How often the page asks how the machine is doing, while in front. */
 const EVERY = Duration.secs(5);
@@ -236,7 +237,7 @@ export function MachineBadge({
 		<Popover>
 			<PopoverTrigger
 				role="status"
-				className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+				className={`${STATUS_PILL} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400`}
 			>
 				<span className="size-1.5 rounded-full bg-amber-500" />
 				{reading.kind} busy
