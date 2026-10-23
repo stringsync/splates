@@ -182,7 +182,7 @@ export async function test(opts: TestOptions): Promise<void> {
 
 /**
  * Refuses an agent the whole suite, which is the merge gate's to run, unless
- * the person approved this conversation's run from its card. A gate's run,
+ * the person allowed this conversation's run from its run-command card. A gate's run,
  * and the person's own from a terminal, go ahead.
  */
 export async function refuseWholeSuite(
@@ -199,14 +199,14 @@ export async function refuseWholeSuite(
 	}
 	fail(
 		"not_granted",
-		"the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it instead, which needs no approval: `--changed` (tests your uncommitted changes reach), `--since main` (once committed), test file paths, or `--test-name-pattern <regex>`; `--evals` runs the eval harness's tests alone. If only the whole suite will do, end your reply with a `## 🔐 Permission: run the test suite: <why>` card, the why under it, and wait: approving it lets this conversation run `splates dev test` or `splates dev premerge` once",
+		"the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it instead, which needs no approval: `--changed` (tests your uncommitted changes reach), `--since main` (once committed), test file paths, or `--test-name-pattern <regex>`; `--evals` runs the eval harness's tests alone. If only the whole suite will do, end your reply with a `## 🔐 Permission: run command: <why>` card, the command alone on a line in backticks (`` `bin/splates dev test` ``) and the why under it, and wait: its Allow lets this conversation run `splates dev test` or `splates dev premerge` once",
 		{ conversation },
 	);
 }
 
 /**
- * Lets `conversation` run the whole suite once, as its card's Approve does
- * from the page. The person's to give: refused from an agent.
+ * Lets `conversation` run the whole suite once, as Allow on its run-command
+ * card does from the page. The person's to give: refused from an agent.
  */
 export async function approveSuite({
 	conversation,
@@ -223,7 +223,7 @@ export async function approveSuite({
 	if (asking !== undefined) {
 		fail(
 			"not_granted",
-			"only the person approves a whole-suite run: end your reply with a `## 🔐 Permission: run the test suite: <why>` card",
+			"only the person approves a whole-suite run: end your reply with a `## 🔐 Permission: run command: <why>` card for `bin/splates dev test`",
 			{ conversation: asking },
 		);
 	}

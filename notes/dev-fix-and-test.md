@@ -28,11 +28,12 @@ install, docker, a benchmark), running it only on `[SPLATES RUN ALLOWED]`.
 An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test`
 or `dev premerge` with `not_granted`, its message naming the scoped flags,
 which need no approval (`--evals` counts as scoped). Outside a gate
-(`SPLATES_PREMERGE`) it runs only once the person approves a `## 🔐
-Permission: run the test suite: <why>` card: its Approve button posts
-`/api/conversations/:id/suite`, which writes a one-run grant to
+(`SPLATES_PREMERGE`) it runs only once the person allows a `## 🔐
+Permission: run command: <why>` card whose command is a whole-suite run
+(`isWholeSuite` in `packages/server/plans/run-command.ts`): its Allow first
+posts `/api/conversations/:id/suite`, which writes a one-run grant to
 `~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing an
-hour) and tells the agent to run it; `splates dev approve-suite
+hour), then sends `[SPLATES RUN ALLOWED]` as for any command; `splates dev approve-suite
 <conversation>` writes the same grant from a terminal. The run takes the
 grant (`refuseWholeSuite` in `packages/splates/dev/test.ts`), so each
 approval is one run. The person's own runs, from no conversation, are

@@ -19,8 +19,8 @@ your own is the same work twice. Running a test file or two you changed by
 hand (`bun test <path>`) is fine, as is any scoped `splates dev test`
 (`--changed`, `--since main`, file paths, `--test-name-pattern`, `--evals`),
 which needs no approval. An unscoped `splates dev test` or `splates dev
-premerge` is refused an agent until the person approves one run from a
-`## 🔐 Permission: run the test suite: <why>` card. `splates dev test --evals` tests the eval
+premerge` is refused an agent until the person allows one run from a
+`## 🔐 Permission: run command: <why>` card naming `` `bin/splates dev test` ``. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`.
 
 Everything runs on the person's machine, beside their work and every other

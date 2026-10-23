@@ -65,9 +65,9 @@ import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
+import { SuiteGrant } from "./run-command-card";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
-import { SuiteApproval } from "./suite-card";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadHeader, useWhereAction } from "./thread-header";
@@ -177,10 +177,7 @@ function Conversation({
 		edit: editUnsent,
 	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
 	const unsent = useReactive(feed, (feed) => feed.unsent.get(id), ["changed"]);
-	const suite = useMemo(
-		() => ({ conversation: id, approve: () => approveSuite(id) }),
-		[id],
-	);
+	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const unsentActions = useMemo(
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],
@@ -337,7 +334,7 @@ function Conversation({
 											<BackgroundUI />
 											<RestedUI />
 											<InterruptedUI />
-											<SuiteApproval value={suite}>
+											<SuiteGrant value={suite}>
 												<ArchiveConversation
 													value={archivable ? fileAway : null}
 												>
@@ -408,7 +405,7 @@ function Conversation({
 														</StartNewContext>
 													</ArchiveOfferProvider>
 												</ArchiveConversation>
-											</SuiteApproval>
+											</SuiteGrant>
 										</UnsentContext.Provider>
 									</Composing.Provider>
 								</AssistantRuntimeProvider>

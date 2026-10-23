@@ -22,10 +22,6 @@ import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
 import { ConversationStream, type ConversationsHeard } from "./stream";
 import { type Tree, treeOf } from "./tree";
 
-/** What the agent is told once the person approves its whole-suite run. */
-export const SUITE_APPROVED =
-	"Approved: run the whole test suite once, with `splates dev test` (or `splates dev premerge`). The approval is used up by that run; ask again with a new card for another.";
-
 /**
  * How a project's page talks to agents: starting, prompting and steering its
  * conversations, and hearing each change to them as it streams. Each handler
@@ -257,14 +253,14 @@ export class ConversationRoutes {
 	};
 
 	/**
-	 * The person approves the agent's ask to run the whole test suite: one
-	 * run of it, outside a merge's gate, which the agent is then told to start.
+	 * The person allows the agent's run-command card that runs the whole test
+	 * suite: one run of it, outside a merge's gate. The card's Allow then
+	 * tells the agent, as for any command.
 	 */
 	readonly approveSuite = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { ps } = this.#project.service;
 		await new SuiteGrants({ fs: new NodeFs(), ps }).grant(conversation.id);
-		await conversation.prompt(SUITE_APPROVED);
 		return Response.json(conversation.state);
 	};
 

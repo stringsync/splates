@@ -19,7 +19,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("approve-suite")
 		.description(
-			"let an agent's conversation run the whole test suite once outside the merge gate, as its card's Approve button does; refused from an agent",
+			"let an agent's conversation run the whole test suite once outside the merge gate, as Allow on its run-command card does; refused from an agent",
 		)
 		.arg("conversation", z.string(), {
 			description: "the conversation whose agent asked",

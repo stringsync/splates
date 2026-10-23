@@ -16,7 +16,7 @@ describe("refuseWholeSuite", () => {
 		await expect(refused).rejects.toThrow("merge gate's to run");
 		await expect(refuseWholeSuite(ps, grants)).rejects.toThrow("`--changed`");
 		await expect(refuseWholeSuite(ps, grants)).rejects.toThrow(
-			"## 🔐 Permission: run the test suite",
+			"## 🔐 Permission: run command",
 		);
 	});
 

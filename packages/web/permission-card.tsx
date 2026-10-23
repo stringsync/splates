@@ -22,7 +22,6 @@ import { EvalsCard } from "./evals-card";
 import { useExpectSnapshot } from "./expecting";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
-import { SuiteCard } from "./suite-card";
 import { stageOf } from "./todo-queue";
 
 /**
@@ -54,8 +53,6 @@ export function PermissionCard({
 			return <RemoveLaneCard proposal={proposal} />;
 		case "run-evals":
 			return <EvalsCard proposal={proposal} />;
-		case "run-suite":
-			return <SuiteCard proposal={proposal} />;
 		case "run-command":
 			return <RunCommandCard proposal={proposal} />;
 		case "queue":

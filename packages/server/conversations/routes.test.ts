@@ -6,7 +6,6 @@ import { eventually, json, readUntil, serving } from "../server/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { Conversations } from "./conversations";
-import { SUITE_APPROVED } from "./routes";
 import type { ConversationState } from "./state";
 
 function get(port: number, path: string): Promise<Response> {
@@ -249,7 +248,7 @@ describe("dev conversations", () => {
 		expect(await played.text()).toBe("mp4");
 	}, 15_000);
 
-	it("approves the agent one run of the whole suite, and tells it to run it", async () => {
+	it("approves the agent one run of the whole suite", async () => {
 		const id = await start(port, "alpha");
 
 		const approved = await json(
@@ -260,9 +259,6 @@ describe("dev conversations", () => {
 		);
 
 		expect(approved.status).toBe(200);
-		expect(
-			await eventually(async () => said.includes(SUITE_APPROVED), 5000),
-		).toBe(true);
 		const grants = new SuiteGrants({ fs: new NodeFs(), ps: deps.service.ps });
 		expect(await grants.take(id)).toBe(true);
 		expect(await grants.take(id)).toBe(false);
@@ -310,6 +306,7 @@ describe("dev conversations", () => {
 		expect(groomer.state.archived).toBe(false);
 	});
 
+	// scry-ignore simple-test-setup: only this test's turn runs a tool, which the summary drops
 	it.each([false, true])(
 		"lists a summary with archived=%s, and serves it whole",
 		async (archived) => {

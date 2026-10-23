@@ -33,11 +33,12 @@ the rest:
    and focused runs use one worker (`--workers <n>`). Run `splates dev fix`
    once per step, not after every edit, with `--code-only` to skip scry's
    model calls. An unscoped `splates dev test` or `splates dev premerge` is
-   refused an agent (`not_granted`) until the person approves one run from a
-   `## 🔐 Permission: run the test suite: <why>` card ending your reply, the
-   why under it. Anything else heavy (an install, a build, docker, a
-   benchmark, anything long or CPU-hungry): ask with the run-command card in
-   Formats, end your turn, and run it only on `[SPLATES RUN ALLOWED]`. The
+   refused an agent (`not_granted`) until the person allows one run from a
+   run-command card ending your reply: `## 🔐 Permission: run command:
+   <why>`, then the command alone on a line in backticks, as `` `splates dev
+   test` ``, and the why under it. Anything else heavy (an install, a build,
+   docker, a benchmark, anything long or CPU-hungry): ask with the same
+   card, end your turn, and run it only on `[SPLATES RUN ALLOWED]`. The
    person may run as many agents as they like and nothing caps them, so the
    machine's load is yours to mind.
 4. **Commit as you go**, in plain messages with no attribution.

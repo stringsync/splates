@@ -279,8 +279,8 @@ export async function markRead(id: string, read: number): Promise<void> {
 }
 
 /**
- * Approves conversation `id`'s agent running the whole test suite once,
- * which tells it to.
+ * Lets conversation `id`'s agent run the whole test suite once, as its
+ * run-command card's Allow does before telling it to.
  */
 export async function approveSuite(id: string): Promise<void> {
 	await sendJson(`/api/conversations/${id}/suite`, "POST", {});

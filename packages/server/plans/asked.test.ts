@@ -372,29 +372,6 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a permission to run the test suite with why it is needed", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: run the test suite: the move touches every import",
-				"",
-				"`--changed` picks 400 files, most of the suite.",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "permission",
-				permission: {
-					action: "run-suite",
-					lane: null,
-					tasks: [],
-					title: "the move touches every import",
-					body: "`--changed` picks 400 files, most of the suite.",
-				},
-			},
-		]);
-	});
-
 	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

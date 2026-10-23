@@ -46,3 +46,4 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
+export { isWholeSuite } from "./run-command";
