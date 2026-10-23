@@ -6,8 +6,9 @@ Several agents testing at once on one machine ran it out of memory, so heavy
 work takes one of the machine's heavy-job slots: `HeavyJobs` from
 `webappwiz/system`, set up in `packages/server/server/heavy.ts`, kept under
 the machine home so every server and worktree on the machine shares one cap.
-`SPLATES_HEAVY_JOBS` sets it, 2 by default, because one `splates dev test`
-takes about 7 cores and 7.3 GB. `splates run -- <cmd>`, `splates dev
+`SPLATES_HEAVY_JOBS` sets it, 1 by default: two test runs heat the host too much while the
+person works. This is the backstop for the merge gate fallback and projects
+with no cloud. `splates run -- <cmd>`, `splates dev
 test`, the `postCheckout`, `postRewrite` and `preMerge` hooks and the shared
 browser's start all take a slot.
 
@@ -24,3 +25,9 @@ pool-wide queue for a runner, then a runner they make themselves in the
 project's cloud (`runners-without-server.md`), and run here as above only in
 a project that names no cloud. See
 `heavy-jobs-on-runners.md`.
+
+Agents may run a fraction of the tests directly, a test file or two with
+`bun test <path>`, when that is quicker than a runner. Never a whole suite,
+an install or a build on the person's host; the whole suite is the merge
+gate's. `splates dev test --local` is internal to runners and the gate,
+which already hold a heavy slot or core claim.

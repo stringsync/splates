@@ -5,10 +5,10 @@ import { MACHINE_HOME } from "../ports";
 
 /**
  * How many heavy jobs run at once on a machine when `SPLATES_HEAVY_JOBS` says
- * nothing. One `splates dev test` takes about 7 cores and 7.3 GB, so two
- * bound the spike near 15 GB on a 64 GB Mac running two dozen sessions.
+ * nothing. Two test runs heat the host too much while the person works,
+ * so the merge gate fallback and other local heavy work run one at a time.
  */
-export const HEAVY_JOBS_DEFAULT = 2;
+export const HEAVY_JOBS_DEFAULT = 1;
 
 /** Sets the cap for the machine, read by every splates that takes a slot. */
 export const HEAVY_JOBS = "SPLATES_HEAVY_JOBS";

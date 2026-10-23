@@ -76,7 +76,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.option("local", z.boolean(), {
 			default: false,
 			description:
-				"run them here in a heavy-job slot, even when a runner has joined `splates server`, which otherwise runs them on a snapshot of this worktree and streams the output back",
+				"internal: run inside the slot already held by a runner or the merge gate",
 		})
 		.option("ci", z.boolean(), {
 			default: false,

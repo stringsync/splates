@@ -34,7 +34,7 @@ none can be had (`runners-without-server.md`).
 A job told `local` because it asks more than the biggest runner there is (up,
 booting, or the type that would be made now) carries `tooBig` with what it
 asked and that biggest size, and the caller (`runOnRunner`) says so on stderr
-before running it here; the pool keeps the last 10 such jobs
+before the caller chooses its next runner or the gate falls back here; the pool keeps the last 10 such jobs
 (`JobPool.tooBig`). `GET /api/workers` gives them as `jobs.tooBig`, beside
 `jobs.asked`, the `job` size of the project the request names, and
 `jobs.largest`, the biggest runner joined or the type the provider makes
@@ -148,3 +148,10 @@ slot's host has no Access application of its own, only the slots' wildcard
 and worker-path applications named for the slot's tunnel, `splates-<word>`
 (`CloudflareWorkerAccess.app`). Its runner stops once idle like any other
 (15 minutes); stop the slot's server after that.
+
+The person's host is for their work: agents may run a few test files by hand
+with `bun test <path>`, but never a whole suite, an install or a build here.
+The whole suite belongs to the merge gate. With a cloud configured,
+`splates run` and `splates dev test` refuse rather than run here;
+`dev test --local` requires the slot or core claim already held by a runner
+or the merge gate. Local heavy-job slots default to one.

@@ -18,11 +18,7 @@ export interface TestOptions {
 	evals?: boolean;
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
-	/**
-	 * Run the tests here in a heavy-job slot, even when a runner has joined
-	 * `splates server`, which otherwise runs them on a snapshot of this
-	 * worktree and streams the output back.
-	 */
+	/** Internal: run on the runner or in the merge gate that already holds a slot. */
 	local?: boolean;
 	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
 	ci?: boolean;
@@ -67,6 +63,11 @@ export async function test(opts: TestOptions): Promise<void> {
 	const inSlot =
 		ps.env("SPLATES_HEAVY") !== undefined ||
 		ps.env("SPLATES_CORES") !== undefined;
+	if (opts.local && !inSlot) {
+		throw new Error(
+			"--local is only for a runner or the merge gate; run a test file or two with `bun test <path>`, or wait for a runner",
+		);
+	}
 	if (!opts.local && !inSlot && (await ranOnRunner(opts, ps, log))) {
 		return;
 	}

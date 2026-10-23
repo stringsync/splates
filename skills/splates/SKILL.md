@@ -23,22 +23,25 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Run tests, installs and builds with `splates run -- <command>`**,
-   never bare: a whole test suite, `bun install`, a build, anything that
-   takes a machine's cores or memory for a while. It runs on a runner, in a
-   checkout of your worktree as it stands, output streamed back and its exit
-   code yours: one that has joined `splates server`, else, where the
-   project's `splates.config.ts` names a `cloud`, one `splates run` makes
-   there itself, server or not, refusing with `no_runner` when it can have
-   none (tell the user what its stderr says). In a project with no cloud it runs here once one of the
-   machine's few heavy-job slots is free, so agents at once never run it
-   out of memory. A runner takes as many commands at once as fit in its
-   CPUs and memory, each asking what the project's `job` setting says;
-   `--cpus <n> --memory <size>` (as `8GB`) asks otherwise for one that needs
-   more or less. It is killed, exiting 124, past 30 minutes or the `job`
+3. **Be careful on the host machine**, which the person works on. Never run
+   a whole test suite, an install or a build here. A **fraction** of the
+   tests, a test file or two (`bun test <path>`), is fine to run directly
+   and often quicker than a runner; pick that strategically. Leave the
+   whole suite to the merge gate. Run other heavy work with
+   `splates run -- <command>`: it runs on a runner, in a checkout of your
+   worktree as it stands, output streamed back and its exit code yours.
+   It uses a runner joined to `splates server`, else, where the project's
+   `splates.config.ts` names a `cloud`, makes one there itself, server or
+   not. With a cloud configured it never runs here, refusing with
+   `no_runner` when none can be had: run a few test files by hand or wait
+   for a runner. In a project with no cloud it takes a local heavy-job
+   slot, so keep the host's load in mind. A runner takes as many commands
+   at once as fit in its CPUs and memory, each asking what the project's
+   `job` setting says; `--cpus <n> --memory <size>` (as `8GB`) asks
+   otherwise. It is killed, exiting 124, past 30 minutes or the `job`
    setting's `timeout`; `--timeout <length>` (as `90m`) gives one that
-   needs longer. Skip it only where the project's instructions say a
-   script takes a slot itself.
+   needs longer. Skip the wrapper only where the project's instructions
+   say a script takes a slot itself.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
@@ -271,10 +274,12 @@ the message; a `Maybe relevant:` one only when it fits.
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
-   once share the tree, so give each its own files. Run a whole test suite,
-   an install, a build, or anything as heavy as `splates run -- <command>`
-   (step 3 of The short version), and tell a subagent to as well. Files it
-   writes on a runner stay there.
+   once share the tree, so give each its own files. Be careful on the host
+   machine the person works on: never run a whole suite, an install or a
+   build here. A test file or two (`bun test <path>`) may run directly;
+   leave the whole suite to the merge gate. Use `splates run -- <command>`
+   for other heavy work (step 3 of The short version), and tell a subagent
+   to do the same. Files it writes on a runner stay there.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or
