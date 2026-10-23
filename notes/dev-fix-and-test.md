@@ -1,68 +1,102 @@
 ---
-description: How splates dev test selects changed tests, file paths and test names for focused one-worker development checks, the approval an agent needs for the whole suite, the six-minute deadline, DOM separation, and dev fix
+description: How splates dev fix and dev test run, which scoped runs agents may do, the whole-suite approval, and the suite's timeouts and DOM split; read before running or changing either
 ---
 
-`splates dev fix` runs, stopping at the first failure: `biome check --write
---unsafe .` (no write under `--check`), `tsc --noEmit`, then `wiz scry check
---since main --disable-over-budget`, so scry reads only what changed since
-`main` and a spent model budget narrows the check rather than failing it.
-`--code-only` disables scry's `som` and `llm` models so no cred is read.
-`ship` gates on `fix --check` with scry skipped.
+`splates dev fix` typechecks, formats and scry-checks; `splates dev test`
+runs the suite, but an agent runs only a scoped part of it. The whole suite
+runs in the merge gate, and an agent needs the person's one-run approval for
+it elsewhere.
 
-For development, prefer `splates dev test --changed`: Bun uses the dirty
-worktree and its import graph to select affected tests (staged, unstaged and
-untracked changes). After committing use `--since main` to compare against a
-branch or commit. Positional file paths narrow the files further;
-`--test-name-pattern <regex>` narrows cases. These selectors combine. Use
-`--evals` for free eval harness tests or `--all` to include both packages and
-evals. A focused run stays here and
-uses one worker by default; `--workers <n>` sets a positive worker limit.
-Leave the whole suite to the merge gate. No `--local` flag exists.
+## dev fix
 
-The person runs as many agents as they like on one machine and nothing caps
-them, so AGENTS.md and the splates skill teach agents to keep runs narrow: run
-`dev fix` once per step (`--code-only` to skip scry's model calls), and ask
-with the run-command permission card for anything else heavy (a build, an
-install, docker, a benchmark), running it only on `[SPLATES RUN ALLOWED]`.
+- It stops at the first failure and runs `biome check --write --unsafe .` (no
+  write under `--check`), `tsc --noEmit`, then `wiz scry check --since main
+  --disable-over-budget`.
+- Scry reads only what changed since `main`, and a spent model budget narrows
+  the check rather than failing it.
+- `--code-only` disables scry's `som` and `llm` models so no cred is read.
+- `ship` gates on `fix --check` with scry skipped.
 
-An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test`
-or `dev premerge` with `not_granted`, its message naming the scoped flags,
-which need no approval (`--evals` counts as scoped). Outside a gate
-(`SPLATES_PREMERGE`) it runs only once the person allows a `## 🔐
-Permission: run command: <why>` card whose command is a whole-suite run
-(`isWholeSuite` in `packages/server/plans/run-command.ts`): its Allow first
-posts `/api/conversations/:id/suite`, which writes a one-run grant to
-`~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing an
-hour), then sends `[SPLATES RUN ALLOWED]` as for any command; `splates dev approve-suite
-<conversation>` writes the same grant from a terminal. The run takes the
-grant (`refuseWholeSuite` in `packages/splates/dev/test.ts`), so each
-approval is one run. The person's own runs, from no conversation, are
-never asked. The grant is on this machine, where every agent runs.
+## Scoped dev test
 
-An unfiltered `splates dev test` runs `bun test --parallel=<half the cores> --timeout
-30000` (all but two cores in a merge's gate): a worker per core
-starved the git-spawning suites, and 16 workers failed 20 to 30 tests a run
-where 8 failed 0 to 2. The whole run is killed at six minutes, after one
-test spinning in a synchronous loop held the machine for ten hours; inside
-`dev premerge`, at what is left of the gate's 3 minutes. `evals/**` is excluded unless `--evals` (only
-evals) or `--all`. Under the merge gate `SPLATES_TEST_REPORT` adds a JUnit
-reporter, which is how a failure is blamed and a failing test becomes a task.
-The repo sets `preMerge: "./bin/splates dev premerge"`: `dev fix --check`'s checks, then `dev test --ci`, here, so a merge runs the suite on the rebased code. Trailing arguments
-filter the test files by path, as `bun test` does.
+- `--changed` uses the dirty worktree and Bun's import graph to select
+  affected tests (staged, unstaged and untracked).
+- `--since main` compares against a branch or commit, for after committing.
+- Positional file paths narrow the files; `--test-name-pattern <regex>`
+  narrows cases. These selectors combine.
+- `--evals` runs the free eval harness tests; `--all` includes packages and
+  evals.
+- A focused run stays here on one worker; `--workers <n>` sets a positive
+  limit. No `--local` flag exists.
 
-It runs as two `bun test` runs, one after the other: the page's
-(`packages/web`) and the rest, since happy-dom replaces `setTimeout`, `URL`
-and other globals the server is tested against. Each runs `--no-isolate`, a
-worker keeping one module registry across its files: per-file isolation
-reloaded the DOM, React and the page for each of 200 page files, a quarter
-of the suite's CPU. The page's run preloads `packages/web/test-preload.ts`,
-which cleans up after every test, so a page test must not lean on module
-state an earlier file set (`knowFocused` in `markdown.test.tsx`). The two
-JUnit reports are joined into `SPLATES_TEST_REPORT`. On macOS it puts
-Xcode's git ahead of `/usr/bin/git`, an `xcrun` stub that cost the server
-tests a third of their CPU. Measured 2026-10-22 on a 4-CPU Linux container:
-118s → 67s wall, 252s → 140s CPU.
+## Keeping runs small
 
-`splates dev test` always runs here, never on a runner (2026-10-23); this
-repo's `splates.config.ts` names no cloud. The `--linux` selector went with
-remote runners; no Linux image or runner proof remains.
+The person runs as many agents as they like on one machine, and nothing caps
+them. AGENTS.md and the splates skill teach agents to run `dev fix` once per
+step (`--code-only` to skip scry's model calls) and to ask with the
+run-command permission card for anything else heavy, running it only on
+`[SPLATES RUN ALLOWED]`.
+
+## Whole-suite approval
+
+- An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test` or
+  `dev premerge` with `not_granted`; the message names the scoped flags, which
+  need no approval.
+- Outside a gate (`SPLATES_PREMERGE`) it runs only once the person allows a
+  `## 🔐 Permission: run command: <why>` card whose command is a whole-suite
+  run (`isWholeSuite`).
+- Allow first posts `/api/conversations/:id/suite`, which writes a one-run
+  grant to `~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing
+  an hour), then sends `[SPLATES RUN ALLOWED]` as for any command.
+- `splates dev approve-suite <conversation>` writes the same grant from a
+  terminal.
+- The run takes the grant (`refuseWholeSuite`), so each approval is one run.
+- The person's own runs, from no conversation, are never asked.
+- The grant is on this machine, where every agent runs.
+
+## The whole run
+
+- An unfiltered run is `bun test --parallel=<half the cores> --timeout 30000`,
+  all but two cores in a merge's gate. Trailing arguments filter files by
+  path, as `bun test` does.
+- The whole run is killed at six minutes; inside `dev premerge`, at what is
+  left of the gate's 3 minutes.
+- `evals/**` is excluded unless `--evals` or `--all`.
+- Under the merge gate `SPLATES_TEST_REPORT` adds a JUnit reporter, which is
+  how a failure is blamed and a failing test becomes a task.
+- The repo sets `preMerge: "./bin/splates dev premerge"`: `dev fix --check`'s
+  checks, then `dev test --ci`, here, on the rebased code.
+- It always runs here, never on a runner (2026-10-23); `splates.config.ts`
+  names no cloud, and the `--linux` selector went with remote runners.
+
+## DOM split
+
+- It runs as two `bun test` runs in turn: the page's (`packages/web`) and the
+  rest, since happy-dom replaces `setTimeout`, `URL` and other globals the
+  server is tested against.
+- Each runs `--no-isolate`, a worker keeping one module registry across its
+  files.
+- The page's run preloads `packages/web/test-preload.ts`, which cleans up
+  after every test, so a page test must not lean on module state an earlier
+  file set (`knowFocused` in `markdown.test.tsx`).
+- The two JUnit reports are joined into `SPLATES_TEST_REPORT`.
+- On macOS it puts Xcode's git ahead of `/usr/bin/git`, an `xcrun` stub.
+
+## Measured
+
+- Worker count: a worker per core starved the git-spawning suites, and 16
+  workers failed 20 to 30 tests a run where 8 failed 0 to 2.
+- Six-minute kill: one test spinning in a synchronous loop held the machine
+  for ten hours.
+- `--no-isolate`: per-file isolation reloaded the DOM, React and the page for
+  each of 200 page files, a quarter of the suite's CPU.
+- Xcode's git: the `xcrun` stub cost the server tests a third of their CPU.
+- Together, on a 4-CPU Linux container, 2026-10-22: 118s → 67s wall, 252s →
+  140s CPU.
+
+## Where
+
+- `packages/splates/dev/test.ts`: `refuseWholeSuite`
+- `packages/server/plans/run-command.ts`: `isWholeSuite`
+- `packages/web/test-preload.ts`
+- `splates.config.ts`: `preMerge`
