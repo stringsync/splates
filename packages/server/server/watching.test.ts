@@ -26,19 +26,35 @@ describe("dev", () => {
 			return reader;
 		};
 
-		// Skipped until #1159: a merge gate missed the SPLATES.md edit.
-		it.skip("hears of an SPLATES.md, a commit and a task as they change, without polling", async () => {
+		it("hears of an SPLATES.md, a commit and a task as they change, without polling", async () => {
 			await add(deps, "alpha");
 			const tree = (await deps.service.find("alpha")).path;
 
-			await serving(deps, async (_, port) => {
+			await serving(deps, async (snapshot, port) => {
 				const reader = await listen(port);
+				// Connected means SSE is open, not that the native file watcher
+				// is ready. Establish that before checking a single later edit.
+				let ready = false;
+				const heard = within(reader, "data: changed", 5_000).then((changed) => {
+					ready = changed;
+					return changed;
+				});
+				// scry-ignore matchers-over-test-logic: native watchers have no ready signal, so repeat the handshake until a change is heard
+				for (let attempt = 0; !ready && attempt < 40; attempt++) {
+					await deps.fs.write(
+						`${tree}/SPLATES.md`,
+						`# alpha\n\n## Goal\n\nready ${attempt}\n`,
+					);
+					await Bun.sleep(100);
+				}
+				expect(await heard).toBe(true);
 
 				await deps.fs.write(
 					`${tree}/SPLATES.md`,
 					"# alpha\n\n## Goal\n\nmoved\n",
 				);
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
+				expect((await snapshot()).tasks[0]?.plan).toContain("moved");
 				await deps.commit(tree, "a.txt", "a\n", "add a");
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await deps.tasks.add("later", null);
