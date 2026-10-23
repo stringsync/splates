@@ -8,6 +8,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
 	Testing,
 	textIn,
 	todo,
@@ -63,19 +64,12 @@ describe("App's controls that put agents to work", () => {
 		return view;
 	};
 
-	/** Opens task alpha's dialog from the Tasks page. */
+	/** Opens task alpha's dialog from the Queue page. */
 	const taskDialog = async (view: Awaited<ReturnType<typeof board>>) => {
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("region", { name: "tasks" })).getByRole(
-					"button",
-					{ name: /alpha/ },
-				),
-			),
-		);
+		await openQueueRow(view, "alpha");
 		return waitFor(() => view.getByRole("dialog"));
 	};
 

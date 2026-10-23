@@ -8,11 +8,17 @@ describe("Scheduler", () => {
 	let scheduler: Scheduler;
 	/** Who got a slot from `take`, in the order they got one. */
 	let placed: string[];
+	/** Whether the pool is paused, as the server's records say. */
+	let paused: boolean;
 
 	beforeEach(() => {
 		clock = new FakeWallClock(1_000);
 		workers = [worker("local")];
-		scheduler = new Scheduler({ workers: () => workers }, clock);
+		paused = false;
+		scheduler = new Scheduler(
+			{ workers: () => workers, paused: () => paused },
+			clock,
+		);
 		placed = [];
 	});
 
@@ -33,6 +39,7 @@ describe("Scheduler", () => {
 				task: "a",
 				worker: "local",
 				uncapped: false,
+				since: 1_000,
 			},
 		]);
 	});
@@ -56,6 +63,25 @@ describe("Scheduler", () => {
 		]);
 		first.dispose();
 		expect((await second).worker).toBe("local");
+		expect(scheduler.queue()).toEqual([]);
+	});
+
+	it("holds back a capped agent while paused, still placing the person's own, and places it on resume", async () => {
+		workers = [worker("local", { slots: 2 })];
+		paused = true;
+		const capped = take("a");
+		const mine = await take("b", { uncapped: true });
+		await settle();
+
+		expect(mine.worker).toBe("local");
+		expect(placed).toEqual(["b"]);
+		expect(scheduler.queue()).toEqual([
+			expect.objectContaining({ id: "a", reason: "paused" }),
+		]);
+
+		paused = false;
+		scheduler.poke();
+		expect((await capped).worker).toBe("local");
 		expect(scheduler.queue()).toEqual([]);
 	});
 

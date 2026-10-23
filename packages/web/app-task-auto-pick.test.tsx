@@ -9,6 +9,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
 	second,
 	Testing,
 	todo,
@@ -29,7 +30,7 @@ describe("App's Auto pick", () => {
 		testing.dispose();
 	});
 
-	/** Opens task alpha's dialog from the Tasks page, alpha as `task` says. */
+	/** Opens task alpha's dialog from the Queue page, alpha as `task` says. */
 	const taskDialog = async (task: Partial<Details> = {}) => {
 		testing.talk = { agents: AGENTS, conversations: [] };
 		const view = await testing.open({
@@ -39,16 +40,9 @@ describe("App's Auto pick", () => {
 			view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("region", { name: "tasks" })).getByRole(
-					"button",
-					{ name: /alpha/ },
-				),
-			),
-		);
+		await openQueueRow(view, "alpha");
 		return { view, dialog: await waitFor(() => view.getByRole("dialog")) };
 	};
 

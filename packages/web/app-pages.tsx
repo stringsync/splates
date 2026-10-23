@@ -13,7 +13,6 @@ import {
 	SetupPage,
 	StatsPage,
 	Todos,
-	WorkersPage,
 } from "./lazy-pages";
 import type { Page, PageRoute } from "./page-route";
 import type { StatsReport } from "./stats-report";
@@ -76,10 +75,6 @@ export function useAppPages({
 	) => void;
 }): Record<Page, ReactNode> | null {
 	// What each page shows, laid out by the sidebar's tabs or the phone's own.
-	const workerTasks = useMemo(
-		() => new Set((snapshot?.tasks ?? []).map((each) => each.task)),
-		[snapshot?.tasks],
-	);
 	return useMemo<Record<Page, ReactNode> | null>(
 		() =>
 			snapshot === null
@@ -103,6 +98,7 @@ export function useAppPages({
 									go("todos");
 									todoView.open(id);
 								}}
+								onOpenLane={openLane}
 							/>
 						),
 						notes: (
@@ -121,7 +117,6 @@ export function useAppPages({
 							/>
 						),
 						billing: <BillingPage talk={talk} />,
-						workers: <WorkersPage tasks={workerTasks} onOpenTask={openTask} />,
 						automations: (
 							<AutomationsPage
 								opens={opens}
@@ -182,7 +177,6 @@ export function useAppPages({
 			report,
 			cred,
 			talk,
-			workerTasks,
 			opens,
 			rule,
 			evals,

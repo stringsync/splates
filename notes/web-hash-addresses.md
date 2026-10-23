@@ -3,11 +3,12 @@ description: The page's addresses are URL hashes (#tasks, #conversations/<id>, #
 ---
 
 `PageAddress` (`packages/web/page-address.ts`) is the router, wrapped for
-React by `usePageRoute()` in `page-route.tsx`. Addresses: `#tasks[/<name>]`,
+React by `usePageRoute()` in `page-route.tsx`. Addresses: `#tasks[/<name>]`
+(the Queue page; `#queue` and `#workers` open it too),
 `#conversations[/<id>]`, `#conversations/archived`, `#conversations/new...`,
 `#conversations/<id>/terminal`, `#lanes/<id>`, `#todos/<N>`, `#stats`,
 `#evals[/<batch>[/<run>]]`, `#creds[/<name>]`, `#billing` (`#budget` still
-opens it), `#workers`, `#automations`, `#automations/auto-pick[/<n>]`,
+opens it), `#automations`, `#automations/auto-pick[/<n>]`,
 `#notes`, `#setup[/<journey>[/<step>]]`; an empty hash is the board. Old forms
 (`#conversations/task/<name>`, `#auto-pick/<n>`) still parse.
 

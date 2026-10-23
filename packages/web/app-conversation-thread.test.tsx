@@ -570,7 +570,7 @@ describe("App's conversation thread", () => {
 		expect(JSON.parse(String(moved?.body))).toEqual({ position: 1 });
 	});
 
-	it("says a wait past a minute is longer than usual, with the Workers page to try", async () => {
+	it("says a wait past a minute is longer than usual, with the Queue page to try", async () => {
 		const since = new Date(Date.now() - 5 * 60_000).toISOString();
 		const view = await testing.openConversations([
 			conversation({
@@ -582,10 +582,12 @@ describe("App's conversation thread", () => {
 		const late = view.container.ownerDocument.querySelector(
 			'[data-slot="queue-late"]',
 		);
-		expect(late?.textContent).toContain("Taking longer than usual.");
+		expect(late?.textContent).toContain(
+			"Taking longer than usual. The Queue page shows what holds each slot.",
+		);
 		expect(
-			view.getByRole("link", { name: "Open Workers" }).getAttribute("href"),
-		).toBe("#workers");
+			view.getByRole("link", { name: "Open Queue" }).getAttribute("href"),
+		).toBe("#tasks");
 	});
 
 	it("says nothing is late of a wait under a minute", async () => {

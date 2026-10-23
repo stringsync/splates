@@ -121,7 +121,7 @@ describe("App", () => {
 		).toBeTruthy();
 		expect(view.queryByText("alpha")).toBeNull();
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 		);
 		await waitFor(() => expect(view.getByText("alpha")).toBeTruthy());
 		expect(view.queryByText("later")).toBeNull();
@@ -159,7 +159,7 @@ describe("App", () => {
 				phone.getByRole("dialog", { name: "Pages" }),
 			);
 			await act(async () =>
-				fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+				fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
 			);
 			expect(location.hash).toBe("#tasks");
 			cleanup();

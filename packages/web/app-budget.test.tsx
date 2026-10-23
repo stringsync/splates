@@ -46,7 +46,7 @@ describe("App's budget", () => {
 		const view = await openBudget();
 		await card(view, "som");
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 		);
 		const asked = testing.asked.filter((path) =>
 			path.endsWith("/api/budgets"),

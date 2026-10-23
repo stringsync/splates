@@ -9,11 +9,17 @@ describe("Scheduler room", () => {
 	let scheduler: Scheduler;
 	/** How often the scheduler said its queue changed. */
 	let changes: number;
+	/** Whether the pool is paused, as the server's records say. */
+	let paused: boolean;
 
 	beforeEach(() => {
 		workers = [worker("local")];
 		clock = new FakeWallClock(1_000);
-		scheduler = new Scheduler({ workers: () => workers }, clock);
+		paused = false;
+		scheduler = new Scheduler(
+			{ workers: () => workers, paused: () => paused },
+			clock,
+		);
 		changes = 0;
 		scheduler.events.on("changed", () => {
 			changes += 1;
@@ -36,6 +42,21 @@ describe("Scheduler room", () => {
 		void scheduler.take(request("d"));
 		await Bun.sleep(0);
 		expect(scheduler.room()).toBe(0);
+	});
+
+	it("has no room while paused, and says so once at each pause and resume", () => {
+		paused = true;
+		scheduler.poke();
+		expect(changes).toBe(1);
+		expect(scheduler.room()).toBe(0);
+
+		scheduler.poke();
+		expect(changes).toBe(1);
+
+		paused = false;
+		scheduler.poke();
+		expect(changes).toBe(2);
+		expect(scheduler.room()).toBe(1);
 	});
 
 	it("tells the queue when a worker joins while queued tasks want a slot", () => {

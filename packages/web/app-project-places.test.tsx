@@ -4,6 +4,8 @@ import {
 	cleanup,
 	details,
 	fireEvent,
+	openQueueRow,
+	queueRow,
 	Testing,
 	waitFor,
 	within,
@@ -90,12 +92,8 @@ describe("App coming back to a project", () => {
 			},
 		];
 		const view = await testing.openTasks();
-		const shop = await waitFor(() =>
-			view.getByRole("list", { name: "shop tasks" }),
-		);
-		await act(async () =>
-			fireEvent.click(within(shop).getByRole("button", { name: /checkout/ })),
-		);
+		await waitFor(() => queueRow(view, "checkout"));
+		await openQueueRow(view, "checkout");
 		await waitFor(() => expect(location.hash).toBe("#tasks/checkout"));
 
 		await pick(within(document.body), "/code/webappwiz");

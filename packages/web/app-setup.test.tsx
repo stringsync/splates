@@ -180,7 +180,7 @@ describe("App's setup", () => {
 		await step(view, "Choose the agents splates starts");
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks$/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue$/ })),
 		);
 		expect(location.hash).toBe("#tasks");
 		await act(async () =>

@@ -112,6 +112,9 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
 	if (reason.startsWith(REFUSED)) {
 		return `Its task could not start: ${reason.slice(REFUSED.length)}. Fix what that says, then retry.`;
 	}
+	if (reason === "paused") {
+		return `The queue is paused, so what splates starts on its own waits. It has waited ${span}, and starts once you resume it on the Queue page.`;
+	}
 	if (reason === "worker draining") {
 		return `This machine's worker is draining, so it takes no new agents (as when it is being updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
 	}
@@ -136,8 +139,9 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
 	}
 	return held === null ||
 		reason === "no free slot" ||
-		reason === "worker draining"
-		? "Taking longer than usual. The Workers page shows what holds each slot."
+		reason === "worker draining" ||
+		reason === "paused"
+		? "Taking longer than usual. The Queue page shows what holds each slot."
 		: null;
 }
 
@@ -147,7 +151,7 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
  * pane's padding to its edges: where it is in line, how long it has waited
  * and why, so the person does not take the wait for a hang. Past
  * `QUEUE_LATE`, or at once when only the person can move it, it says what to
- * try and offers it: the Workers page, the task in the way, or a retry.
+ * try and offers it: the Queue page, the task in the way, or a retry.
  */
 export function QueueBanner({
 	id,
@@ -250,14 +254,14 @@ export function QueueBanner({
 					<span className="min-w-0 flex-1 text-foreground">{late}</span>
 					{reason !== "starting" && (
 						<a
-							href="#workers"
+							href="#tasks"
 							className={cn(
 								buttonVariants({ variant: "outline", size: "sm" }),
 								"shrink-0",
 							)}
 						>
 							<ServerIcon />
-							Open Workers
+							Open Queue
 						</a>
 					)}
 				</div>

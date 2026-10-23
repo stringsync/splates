@@ -90,7 +90,8 @@ Access: that host then reaches only the tasks.
 
 When the user asks to run more agents at once on this Mac, that is the
 Workers setup area: `local-worker`. Run `splates worker drain local --undo`,
-then `splates worker slots local <slots>`. Agents run only on this machine;
+then `splates worker slots local <slots>`; the person can also set it, and
+pause what splates starts on its own, at the top of the page's Queue tab. Agents run only on this machine;
 remote workers cannot join. Check `GET /api/workers` of the `splates server`
 in `SPLATES_DEV` as the steps at the top say.
 

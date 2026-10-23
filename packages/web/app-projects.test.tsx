@@ -7,6 +7,7 @@ import {
 	clickShown,
 	details,
 	fireEvent,
+	queueRow,
 	snapshot,
 	Testing,
 	todo,
@@ -124,7 +125,7 @@ describe("App's projects", () => {
 			listed("shop", "/code/shop", [details({ task: "checkout" })]),
 		];
 		const view = await testing.openTasks({ repo: "webappwiz" });
-		await waitFor(() => view.getByRole("list", { name: "shop tasks" }));
+		await waitFor(() => queueRow(view, "checkout"));
 		const arrive = testing.holdSnapshots();
 
 		await pick(view, "/code/shop");
@@ -135,12 +136,7 @@ describe("App's projects", () => {
 		expect(
 			screen.getAllByText("🍽️").map((each) => each.getAttribute("aria-hidden")),
 		).not.toContain("true");
-		expect(
-			within(screen.getByRole("list", { name: "shop tasks" })).getByRole(
-				"button",
-				{ name: /checkout/ },
-			),
-		).toBeTruthy();
+		expect(queueRow(screen, "checkout")).toBeTruthy();
 		arrive();
 	});
 

@@ -23,4 +23,14 @@ describe("WorkerRecords", () => {
 		expect(again.localOn).toBe(true);
 		expect(again.of("local")).toMatchObject({ slots: 7, draining: false });
 	});
+
+	it("keeps whether it is paused across restarts, unpaused at first", async () => {
+		const storage = new MemoryStorage();
+		const records = await WorkerRecords.open(storage.document("workers.json"));
+		expect(records.paused).toBe(false);
+
+		await records.pause(true);
+		const again = await WorkerRecords.open(storage.document("workers.json"));
+		expect(again.paused).toBe(true);
+	});
 });

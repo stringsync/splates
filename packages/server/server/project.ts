@@ -103,6 +103,7 @@ export async function serveProject(
 					held,
 				}),
 			held: heldFor(conversations, service, log),
+			paused: () => context.paused(),
 			log,
 		});
 		const queue = queueRunner;
@@ -358,6 +359,8 @@ export interface DevContext {
 	readonly everywhere: Everywhere;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
+	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
+	paused(): boolean;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
 }

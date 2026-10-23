@@ -51,7 +51,14 @@ import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
 import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
-import { act, fireEvent, ProjectApp, render, waitFor } from "./testing-dom";
+import {
+	act,
+	fireEvent,
+	ProjectApp,
+	render,
+	waitFor,
+	within,
+} from "./testing-dom";
 
 export * from "./drivers";
 export type { Stream } from "./fake-stream";
@@ -586,7 +593,7 @@ export class Testing implements Resource {
 	async openTasks(overrides: Partial<Snapshot> = {}) {
 		const view = await this.open(overrides);
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 		);
 		return view;
 	}
@@ -677,4 +684,35 @@ function fields(form: FormData): Record<string, unknown> {
 		),
 		...(files.length === 0 ? {} : { file: files }),
 	};
+}
+
+/**
+ * The Queue page's row named `name` in its list `list`, as Started by you's
+ * "task list" or Up next's "queued tasks".
+ */
+export function queueRow(
+	view: Pick<ReturnType<typeof within>, "getByRole">,
+	name: string,
+	list = "task list",
+): HTMLElement {
+	const row = within(view.getByRole("list", { name: list }))
+		.getByText(name)
+		.closest("li");
+	if (row === null) {
+		throw new Error(`no row ${name} in ${list}`);
+	}
+	return row;
+}
+
+/** Opens the Queue page's row named `name` in its list `list`, by its Open. */
+export async function openQueueRow(
+	view: Pick<ReturnType<typeof within>, "getByRole">,
+	name: string,
+	list = "task list",
+): Promise<void> {
+	await act(async () =>
+		fireEvent.click(
+			within(queueRow(view, name, list)).getByRole("button", { name: "Open" }),
+		),
+	);
 }

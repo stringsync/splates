@@ -3,20 +3,31 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
-import { removeTodo, restoreTodo } from "./api";
-import { todoRemoved, todoRestored } from "./board-expectations";
+import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
+import {
+	manualTodo,
+	moveInQueue,
+	queueTodo,
+	removeTodo,
+	restoreTodo,
+} from "./api";
+import {
+	manualOf,
+	queued,
+	queueMoved,
+	todoRemoved,
+	todoRestored,
+} from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
-import { PHONE_NAME, PHONE_ROW } from "./phone-rows";
-import { QueueRowMenu } from "./queue-row-menu";
+import { QueueEmpty, QueueRow, QueueSection, SortableRows } from "./queue-rows";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
  * What the queue has yet to start, as `splates queue list` has it: the
- * queued tasks no agent has taken, in the order workers start them, each
- * with how long it has waited, shown even with none so it is plain that
- * nothing waits. Each opens its card on the board; its menu moves it, takes
- * it out of the queue, or leaves it for the person alone to queue.
+ * queued tasks no agent has taken, in the order they start, dragged into
+ * another, each with what it waits on and how long it has. Each opens its
+ * card on the board; its menu has only the person queue it, takes it out
+ * of the queue, or removes it.
  */
 export function UpNext({
 	todos,
@@ -30,6 +41,8 @@ export function UpNext({
 	const { refusal, refuse } = useRefusal();
 	// The task last removed from here, kept for Undo to put back.
 	const [removed, setRemoved] = useState<TaskRecord | null>(null);
+	const attempt = (title: string, write: Promise<unknown>) =>
+		void write.catch((error: unknown) => refuse(title, error));
 	const remove = (todo: TaskRecord) => {
 		setRemoved(todo);
 		void expect(todoRemoved(todo.id), removeTodo(todo.id)).catch(
@@ -48,10 +61,16 @@ export function UpNext({
 			},
 		);
 	};
+	// A place in the queue counts from 1.
+	const move = (id: string, to: number) =>
+		attempt(
+			"Not moved",
+			expect(queueMoved(Number(id), to + 1), moveInQueue(Number(id), to + 1)),
+		);
 	return (
-		<>
+		<QueueSection title="Up next" count={queue.length}>
 			{removed !== null && (
-				<p className="flex items-center gap-2 py-1 text-muted-foreground text-sm">
+				<p className="flex h-10 items-center gap-2 px-4 text-muted-foreground text-sm">
 					<span className="min-w-0 flex-1 truncate">
 						Removed #{removed.id} {removed.subject}
 					</span>
@@ -62,81 +81,83 @@ export function UpNext({
 			)}
 			<Refusal refusal={refusal} />
 			{queue.length === 0 ? (
-				<p className="py-2 text-muted-foreground text-sm">Nothing queued</p>
+				<QueueEmpty>Nothing queued</QueueEmpty>
 			) : (
-				[
-					{
-						label: "queued tasks",
-						rows: queue.filter((todo) => todo.manual !== true),
-					},
-					{
-						label: "queued by hand",
-						rows: queue.filter((todo) => todo.manual === true),
-					},
-				].map(
-					({ label, rows }) =>
-						rows.length > 0 && (
-							<section key={label} className="flex flex-col">
-								{label === "queued by hand" && (
-									<h4 className="pt-2 pb-1 font-medium text-muted-foreground text-xs">
-										By hand
-									</h4>
-								)}
-								<ol aria-label={label} className="flex flex-col">
-									{rows.map((todo) => {
-										const place = queue.indexOf(todo);
-										return (
-											<li
-												key={todo.id}
-												className="-mx-2 flex items-center gap-1 px-2"
-											>
-												<button
-													type="button"
-													onClick={() => onOpen(todo.id)}
-													className={cn(
-														"-ml-2 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
-														PHONE_ROW,
-													)}
-												>
-													<span className="w-5 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-														{place + 1}
-													</span>
-													<span
-														className={cn(
-															"min-w-0 flex-1 truncate text-sm",
-															PHONE_NAME,
-														)}
-													>
-														{todo.subject}
-													</span>
-													{todo.queuedAt !== undefined && (
-														<span
-															className="shrink-0 text-muted-foreground text-xs tabular-nums"
-															title="How long it has waited in the queue"
-														>
-															<span className="sr-only">Waiting: </span>
-															{age(todo.queuedAt)}
-														</span>
-													)}
-													<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-														#{todo.id}
-													</span>
-												</button>
-												<QueueRowMenu
-													todo={todo}
-													place={place}
-													last={queue.length - 1}
-													refuse={refuse}
-													onRemove={remove}
-												/>
-											</li>
-										);
-									})}
-								</ol>
-							</section>
-						),
-				)
+				<SortableRows
+					items={queue}
+					idOf={(todo) => String(todo.id)}
+					label="queued tasks"
+					onMove={move}
+					row={(todo, { grip, dragging }) => {
+						const manual = todo.manual === true;
+						return (
+							<QueueRow
+								grip={grip}
+								dragging={dragging}
+								name={todo.subject}
+								by={
+									waitsOn(todo, todos) ??
+									(manual ? "only you queue" : undefined)
+								}
+								age={
+									todo.queuedAt === undefined ? undefined : (
+										<span title="How long it has waited in the queue">
+											<span className="sr-only">Waiting: </span>
+											{age(todo.queuedAt)}
+										</span>
+									)
+								}
+								id={`#${todo.id}`}
+								main={{ label: "Open", onClick: () => onOpen(todo.id) }}
+								menu={
+									<>
+										<DropdownMenuItem
+											onClick={() =>
+												attempt(
+													manual ? "Not made auto" : "Not made manual",
+													expect(
+														manualOf(todo.id, !manual),
+														manualTodo(todo.id, !manual),
+													),
+												)
+											}
+										>
+											{manual ? "Let lanes queue it" : "Only I queue it"}
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={() =>
+												attempt(
+													"Not taken out",
+													expect(
+														queued(todo.id, false),
+														queueTodo(todo.id, false),
+													),
+												)
+											}
+										>
+											Take out of queue
+										</DropdownMenuItem>
+										<DropdownMenuItem onClick={() => remove(todo)}>
+											Remove
+										</DropdownMenuItem>
+									</>
+								}
+							/>
+						);
+					}}
+				/>
 			)}
-		</>
+		</QueueSection>
 	);
+}
+
+/** What queued task `todo` waits on to land, as `waits on #3, #4`, or null for nothing. */
+function waitsOn(
+	todo: TaskRecord,
+	todos: readonly TaskRecord[],
+): string | null {
+	const open = todos.filter((other) => todo.blockedBy.includes(other.id));
+	return open.length === 0
+		? null
+		: `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
 }

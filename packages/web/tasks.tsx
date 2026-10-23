@@ -1,56 +1,48 @@
 import { age } from "@stringsync/splates-server/age";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
-import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
-import { ChevronRightIcon } from "lucide-react";
-import {
-	type CSSProperties,
-	type JSX,
-	type ReactNode,
-	useContext,
-} from "react";
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { type JSX, useContext } from "react";
 import { Duration } from "webappwiz/time";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
 import { Dialog } from "#web/components/ui/dialog.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { Badge } from "./components/ui/badge";
 import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { FinishedTasks } from "./finished-tasks";
-import { useFolded } from "./folded";
 import { useNow } from "./hooks/use-now";
 import { Orphaned } from "./list-rows";
+import { localWorker } from "./local-worker";
+import { useMachine } from "./machine";
 import { Mark } from "./mark";
 import { NavigationContext } from "./navigation";
-import { isPartOf, type Nested, nest } from "./parts";
-import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
+import { useReading } from "./page-readings";
+import { QueueControls } from "./queue-controls";
+import { QueuedLanes } from "./queue-lanes";
+import { QueueEmpty, QueueRow, QueueSection } from "./queue-rows";
+import { Running, useKnown, Waiting } from "./queue-running";
 import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
-import { TaskIcon } from "./task-icon";
 import { UpNext } from "./task-queue";
-import { TasksCard } from "./tasks-card";
 import { TopBar } from "./top-bar";
+import { WorkerPoolView } from "./worker-pool";
 
 /**
- * The queue, one card of all it holds: under Working, every project's
- * tasks at work, a line each, grouped by project, with the marks of the
- * conversations on them; under Up next, what waits to start. Where a task
- * stands in splates (its status, its plan) waits behind a tap; another
- * project's opens on that project's page, where everything in its dialog is
- * that project's. Finished's card follows.
+ * The Queue page: atop it, Pause and how many agents run at once; then one
+ * card of all the queue holds, the agents holding a slot (Running), those
+ * waiting for one, the queued tasks yet to start (Up next), the lanes queued
+ * whole, and every other task at work (Started by you), a line each, from
+ * every project. Where a task stands in splates waits behind a tap; another
+ * project's opens on that project's page. Finished's card follows.
  */
 export function Tasks({
 	project,
 	open,
 	onOpen,
 	onOpenTodo,
+	onOpenLane,
 }: {
 	/** This project, as its snapshot has it, to find among every project the feed lists. */
 	project: Here;
@@ -59,40 +51,75 @@ export function Tasks({
 	onOpen: (task: string | null) => void;
 	/** Opens queued task `id` on the board. */
 	onOpenTodo: (id: number) => void;
+	/** Opens lane `id` on the board. */
+	onOpenLane: (id: number) => void;
 }): JSX.Element {
 	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
-	const groups = useGroups(project);
-	const working =
+	const view = useReading("workers", () => new WorkerPoolView());
+	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
+	const { pool } = useReactive(view, ({ pool }) => ({ pool }), ["changed"]);
+	const machine = useMachine();
+	const known = useKnown(project.root);
+	const held = pool?.held ?? [];
+	const queue = machine?.queue ?? [];
+	// A task whose agent holds a slot shows under Running, not again below.
+	const slotted = new Set(
+		held.flatMap((each) =>
+			each.capped && each.task !== null
+				? [`${each.project}\n${each.task}`]
+				: [],
+		),
+	);
+	const groups = useGroups(project, slotted);
+	const yours =
 		groups === null
-			? tasks.length
+			? tasks.filter((task) => !slotted.has(`${project.root}\n${task.task}`))
+					.length
 			: groups.reduce((sum, group) => sum + group.tasks.length, 0);
-	const waiting = queueOrder(project.todos);
-	useNow(working + waiting.length > 0, Duration.mins(1));
+	useNow(yours + held.length > 0, Duration.mins(1));
 
 	return (
-		<section aria-label="tasks" className="flex flex-col gap-4">
-			<TopBar title="Tasks" />
-			<TasksCard label="queue" title="Queue" count={working + waiting.length}>
-				<QueuePart title="Working" count={working}>
+		<section aria-label="queue" className="flex flex-col gap-4">
+			<TopBar title="Queue" />
+			{pool !== null && (
+				<QueueControls
+					view={view}
+					pool={pool}
+					waiting={queue.filter((entry) => entry.queued !== true).length}
+				/>
+			)}
+			<section
+				aria-label="queue card"
+				className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs"
+			>
+				<Running
+					held={held}
+					total={
+						pool === null ? null : (localWorker(pool)?.slots.total ?? null)
+					}
+					known={known}
+				/>
+				<Waiting queue={queue} known={known} />
+				<UpNext todos={project.todos} onOpen={onOpenTodo} />
+				<QueuedLanes
+					lanes={project.lanes}
+					todos={project.todos}
+					onOpen={onOpenLane}
+				/>
+				<QueueSection title="Started by you" count={yours}>
 					{groups === null ? (
-						tasks.length === 0 ? (
-							<NoTasks />
-						) : (
-							<TaskRows
-								label="task list"
-								rows={nested(tasks)}
-								onOpen={onOpen}
-							/>
-						)
+						<TaskRows
+							rows={tasks.filter(
+								(task) => !slotted.has(`${project.root}\n${task.task}`),
+							)}
+							onOpen={onOpen}
+						/>
 					) : (
-						<ProjectGroups groups={groups} onOpen={onOpen} />
+						<ProjectRows groups={groups} onOpen={onOpen} />
 					)}
-				</QueuePart>
-				<QueuePart title="Up next" count={waiting.length}>
-					<UpNext todos={project.todos} onOpen={onOpenTodo} />
-				</QueuePart>
-			</TasksCard>
+				</QueueSection>
+			</section>
 			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
 			<Dialog
 				open={opened !== null}
@@ -108,32 +135,8 @@ export function Tasks({
 	);
 }
 
-/** A part of the queue's card, headed by its title and how many it holds. */
-function QueuePart({
-	title,
-	count,
-	children,
-}: {
-	title: string;
-	count: number;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<section
-			aria-label={title}
-			className="flex flex-col border-t py-3 first:border-t-0 first:pt-1"
-		>
-			<h3 className="flex items-center gap-1.5 pb-2 font-semibold text-foreground text-sm">
-				{title}
-				<span className="tabular-nums">{count}</span>
-			</h3>
-			{children}
-		</section>
-	);
-}
-
 /** What the Tasks page reads of this project's snapshot. */
-type Here = Pick<Snapshot, "tasks" | "todos" | "root" | "repo">;
+type Here = Pick<Snapshot, "tasks" | "todos" | "lanes" | "root" | "repo">;
 
 /** One project's tasks on the Tasks page. */
 interface Group {
@@ -141,6 +144,8 @@ interface Group {
 	project: string | null;
 	/** Its repository's name, as its page heads itself. */
 	name: string;
+	/** Its main tree. */
+	root: string;
 	/** Whether it is the project this page shows. */
 	here: boolean;
 	tasks: Details[];
@@ -156,7 +161,7 @@ interface Group {
  * of every project is not to be had, loading or refused, when the page lists
  * this one's alone.
  */
-function useGroups(here: Here): Group[] | null {
+function useGroups(here: Here, slotted: ReadonlySet<string>): Group[] | null {
 	const feed = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -166,7 +171,14 @@ function useGroups(here: Here): Group[] | null {
 		}),
 	);
 	return feed.available
-		? groupsOf(feed.projects, feed.tasks, feed.conversations, here)
+		? groupsOf(feed.projects, feed.tasks, feed.conversations, here).map(
+				(group) => ({
+					...group,
+					tasks: group.tasks.filter(
+						(task) => !slotted.has(`${group.root}\n${task.task}`),
+					),
+				}),
+			)
 		: null;
 }
 
@@ -186,6 +198,7 @@ function groupsOf(
 			return {
 				project: project.project,
 				name: here.repo,
+				root: here.root,
 				here: true,
 				tasks: here.tasks,
 				needing: null,
@@ -198,6 +211,7 @@ function groupsOf(
 		return {
 			project: project.project,
 			name: project.repo,
+			root: project.root,
 			here: false,
 			tasks,
 			needing: needs({ tasks, conversations: its }),
@@ -207,6 +221,7 @@ function groupsOf(
 		listed.push({
 			project: null,
 			name: here.repo,
+			root: here.root,
 			here: true,
 			tasks: here.tasks,
 			needing: null,
@@ -221,19 +236,11 @@ function groupsOf(
 		);
 }
 
-function nested(tasks: Details[]): Nested<Details>[] {
-	return nest(tasks, (host, part) => isPartOf(part.base, host.task));
-}
-
-/** Where the Tasks page keeps the projects folded away, by slug. */
-const COLLAPSED = "splates.tasks.collapsed";
-
 /**
- * Each project's tasks under its name, which folds them away, as this
- * browser remembers. Another project's task opens on its project's page,
- * at the task.
+ * Every project's tasks at work, a row each, another project's named on its
+ * row and opened on its project's page, at the task.
  */
-function ProjectGroups({
+function ProjectRows({
 	groups,
 	onOpen,
 }: {
@@ -241,54 +248,36 @@ function ProjectGroups({
 	onOpen: (task: string) => void;
 }): JSX.Element {
 	const navigation = useContext(NavigationContext);
-	const { folded, fold } = useFolded(COLLAPSED);
+	const rows = groups.flatMap((group) =>
+		group.tasks.map((task) => ({ group, task })),
+	);
+	if (rows.length === 0) {
+		return <QueueEmpty>No tasks at work</QueueEmpty>;
+	}
 	return (
-		<div className="flex flex-col gap-2">
-			{groups.map((group) => {
-				const key = group.project ?? "";
+		<ul
+			aria-label="task list"
+			className="flex flex-col divide-y divide-border/50"
+		>
+			{rows.map(({ group, task }) => {
 				const { project } = group;
 				return (
-					<Collapsible
-						key={key}
-						open={!folded.has(key)}
-						onOpenChange={(open) => fold(key, open)}
-						render={<section aria-label={group.name} />}
-						className="group/project flex flex-col"
-					>
-						<CollapsibleTrigger className="-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 max-md:min-h-11">
-							<ChevronRightIcon
-								aria-hidden
-								className="size-3.5 transition-transform duration-150 group-data-[open]/project:rotate-90"
-							/>
-							{group.name}
-							<span className="tabular-nums">{group.tasks.length}</span>
-						</CollapsibleTrigger>
-						<CollapsibleContent>
-							{group.tasks.length === 0 ? (
-								<NoTasks />
-							) : (
-								<TaskRows
-									label={`${group.name} tasks`}
-									rows={nested(group.tasks)}
-									needing={group.needing}
-									onOpen={
-										group.here || project === null
-											? onOpen
-											: (task) => navigation.show(taskUrl(project, task))
-									}
-								/>
-							)}
-						</CollapsibleContent>
-					</Collapsible>
+					<li key={`${group.root} ${task.task}`}>
+						<TaskRow
+							task={task}
+							project={group.here ? null : group.name}
+							needing={group.needing}
+							onOpen={() =>
+								group.here || project === null
+									? onOpen(task.task)
+									: navigation.show(taskUrl(project, task.task))
+							}
+						/>
+					</li>
 				);
 			})}
-		</div>
+		</ul>
 	);
-}
-
-/** Where this project's tasks go while it has none. */
-function NoTasks(): JSX.Element {
-	return <p className="py-2 text-muted-foreground text-sm">No tasks yet</p>;
 }
 
 /** Project `project`'s page, opened on its task `task`. */
@@ -299,96 +288,91 @@ function taskUrl(project: string, task: string): string {
 	return url.toString();
 }
 
-/**
- * Tasks a line each, each part handed out from one in a list of its own
- * under it, indented. On a phone, a row is the inbox's, its name led by a
- * tile; where it stands still waits behind a tap.
- */
+/** This project's tasks at work, a row each, while the other projects' are not to be had. */
 function TaskRows({
-	label,
 	rows,
 	onOpen,
-	needing = null,
-	depth = 0,
 }: {
-	label: string;
-	rows: Nested<Details>[];
+	rows: Details[];
 	onOpen: (task: string) => void;
+}): JSX.Element {
+	if (rows.length === 0) {
+		return <QueueEmpty>No tasks at work</QueueEmpty>;
+	}
+	return (
+		<ul
+			aria-label="task list"
+			className="flex flex-col divide-y divide-border/50"
+		>
+			{rows.map((task) => (
+				<li key={task.task}>
+					<TaskRow
+						task={task}
+						project={null}
+						needing={null}
+						onOpen={() => onOpen(task.task)}
+					/>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
+ * A task at work: its name with the marks of the conversations on it, a
+ * coming conflict, its project when another's, how long it has been at work,
+ * and Open, which opens where it stands in splates.
+ */
+function TaskRow({
+	task,
+	project,
+	needing,
+	onOpen,
+}: {
+	task: Details;
+	/** Its project's name, for another project's; null for this one's. */
+	project: string | null;
 	/**
 	 * What the conversations on another project's tasks need, which this
 	 * page's `Dispatching` does not hold; null for this project's own.
 	 */
-	needing?: Needing[] | null;
-	/** How many tasks it is a part of; 0 for one on its base. */
-	depth?: number;
+	needing: Needing[] | null;
+	onOpen: () => void;
 }): JSX.Element {
 	return (
-		<ul
-			aria-label={label}
-			className={cn(
-				"flex flex-col",
-				// A phone indents each row instead, so it still spans the screen.
-				depth > 0 &&
-					"ml-2 border-foreground/10 border-l pl-3 max-md:ml-0 max-md:border-l-0 max-md:pl-0",
-			)}
-		>
-			{rows.map(({ row: task, parts }) => (
-				<li key={task.task}>
-					<button
-						type="button"
-						onClick={() => onOpen(task.task)}
-						style={{ "--depth": depth } as CSSProperties}
-						className={cn(
-							"-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
-							PHONE_ROW,
-							"max-md:pl-[calc(1rem+3.25rem*var(--depth))]",
-						)}
-					>
-						<span aria-hidden className={PHONE_TILE}>
-							<TaskIcon />
-						</span>
-						<span className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}>
-							{task.task}
-						</span>
-						{task.comingConflict && task.comingConflict.length > 0 && (
-							<Badge
-								variant="destructive"
-								title={`Committed tips conflict in: ${task.comingConflict.join(", ")}`}
-							>
-								Coming conflict
-							</Badge>
-						)}
-						{(task.createdAt !== null || task.age !== null) && (
-							<span
-								className="shrink-0 text-muted-foreground text-xs tabular-nums"
-								title="Elapsed time since this task started, including waits"
-							>
-								<span className="sr-only">Elapsed: </span>
-								{task.createdAt === null ? task.age : age(task.createdAt)}
-							</span>
-						)}
-						{/* Only marks, since the row is a button: its dialog opens them. */}
-						{needing === null ? (
-							<>
-								<OrphanedMark task={task.task} />
-								<OnIt task={task.task} variant="marks" />
-							</>
-						) : (
-							<ElsewhereMarks rows={needing} task={task.task} />
-						)}
-					</button>
-					{parts.length > 0 && (
-						<TaskRows
-							label={`parts of ${task.task}`}
-							rows={parts}
-							onOpen={onOpen}
-							needing={needing}
-							depth={depth + 1}
-						/>
+		<QueueRow
+			name={task.task}
+			marks={
+				<>
+					{task.comingConflict && task.comingConflict.length > 0 && (
+						<Badge
+							variant="destructive"
+							title={`Committed tips conflict in: ${task.comingConflict.join(", ")}`}
+						>
+							Coming conflict
+						</Badge>
 					)}
-				</li>
-			))}
-		</ul>
+					{needing === null ? (
+						<>
+							<OrphanedMark task={task.task} />
+							<OnIt task={task.task} variant="marks" />
+						</>
+					) : (
+						<ElsewhereMarks rows={needing} task={task.task} />
+					)}
+				</>
+			}
+			by={project ?? undefined}
+			age={
+				task.createdAt !== null || task.age !== null ? (
+					<span title="Elapsed time since this task started, including waits">
+						<span className="sr-only">Elapsed: </span>
+						{task.createdAt === null ? task.age : age(task.createdAt)}
+					</span>
+				) : undefined
+			}
+			main={{ label: "Open", onClick: onOpen }}
+		/>
 	);
 }
 

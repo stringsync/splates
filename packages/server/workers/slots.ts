@@ -50,6 +50,7 @@ export class WorkerSlots implements Resource {
 			pooled = () => true,
 			build = RUNNING,
 			log = null,
+			paused = () => false,
 		}: {
 			wall?: WallClock;
 			/** What was set on worker `id` by hand: its slots, and whether it drains. */
@@ -60,9 +61,12 @@ export class WorkerSlots implements Resource {
 			build?: string;
 			/** Where it says a worker away too long lets go of its agents; with none, they wait for it. */
 			log?: Logger | null;
+			/** Whether everything splates starts on its own waits, the person's own agents alone placed. */
+			paused?: () => boolean;
 		},
 	) {
 		this.pool = {
+			paused,
 			workers: () =>
 				registry.workers
 					// Agents run on this machine's own worker alone.

@@ -10,6 +10,7 @@ export { workerGit } from "./git";
 export { CoordinatorIdentity } from "./identity";
 export { SUPERVISOR } from "./lifecycle";
 export type {
+	HeldListing,
 	WorkerListing,
 	WorkerListings,
 	WorkerPool,

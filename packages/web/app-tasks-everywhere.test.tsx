@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
-	act,
 	cleanup,
 	conversation,
 	details,
-	fireEvent,
+	openQueueRow,
+	queueRow,
 	Testing,
 	waitFor,
 	within,
@@ -32,7 +32,7 @@ function listed(
 	};
 }
 
-describe("App's tasks, every project's", () => {
+describe("App's Queue page, every project's tasks", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -58,35 +58,29 @@ describe("App's tasks, every project's", () => {
 		history.replaceState(null, "", location.pathname);
 	});
 
-	it("groups each project's tasks under its name, alphabetically, leaving out those with none", async () => {
+	/** The names of the tasks Started by you lists, in its order. */
+	const names = (view: Awaited<ReturnType<Testing["openTasks"]>>) =>
+		within(view.getByRole("list", { name: "task list" }))
+			.getAllByRole("listitem")
+			.map((row) => row.querySelector(".truncate")?.textContent);
+
+	it("lists every project's tasks in one list, by project, naming another project's on its row", async () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "mine" })],
 		});
 
-		const groups = await waitFor(() => {
-			const found = view.getAllByRole("region", { name: /^(?!tasks$)/ });
-			expect(found.length).toBeGreaterThan(1);
-			return found;
-		});
+		await waitFor(() => queueRow(view, "stripes"));
+		// A part is a row of its own; this project's are its snapshot's, which
+		// its dialog reads too.
+		expect(names(view)).toEqual(["core", "core-part", "mine", "stripes"]);
 		expect(
-			groups
-				.map((group) => group.getAttribute("aria-label"))
-				.filter((name) =>
-					["apple", "empty", "webappwiz", "zebra"].includes(name ?? ""),
-				),
-		).toEqual(["apple", "webappwiz", "zebra"]);
-		// This project's are its snapshot's, which its dialog reads too.
-		const mine = view.getByRole("list", { name: "webappwiz tasks" });
-		expect(within(mine).getByRole("button", { name: /mine/ })).toBeTruthy();
+			within(queueRow(view, "core")).getAllByText("apple"),
+		).not.toHaveLength(0);
 		expect(
-			within(mine).queryByRole("button", { name: /stale-listing/ }),
-		).toBeNull();
-		expect(
-			within(view.getByRole("list", { name: "apple tasks" })).getByRole(
-				"list",
-				{ name: "parts of core" },
-			),
-		).toBeTruthy();
+			within(queueRow(view, "stripes")).getAllByText("zebra"),
+		).not.toHaveLength(0);
+		expect(queueRow(view, "mine").textContent).not.toContain("webappwiz");
+		expect(view.queryByRole("region", { name: "apple" })).toBeNull();
 	});
 
 	it("marks the conversations on another project's tasks", async () => {
@@ -102,11 +96,8 @@ describe("App's tasks, every project's", () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "mine" })],
 		});
-		const zebra = await waitFor(() =>
-			view.getByRole("list", { name: "zebra tasks" }),
-		);
 
-		const row = within(zebra).getByRole("button", { name: /stripes/ });
+		const row = await waitFor(() => queueRow(view, "stripes"));
 		await waitFor(() =>
 			expect(within(row).getAllByRole("status")).toHaveLength(1),
 		);
@@ -118,13 +109,9 @@ describe("App's tasks, every project's", () => {
 				details({ task: "mine", plan: "# mine\n\n## Goal\n\nship it\n" }),
 			],
 		});
-		const mine = await waitFor(() =>
-			view.getByRole("list", { name: "webappwiz tasks" }),
-		);
+		await waitFor(() => queueRow(view, "stripes"));
 
-		await act(async () =>
-			fireEvent.click(within(mine).getByRole("button", { name: /mine/ })),
-		);
+		await openQueueRow(view, "mine");
 
 		expect(
 			(await waitFor(() => view.getByRole("dialog"))).textContent,
@@ -136,62 +123,31 @@ describe("App's tasks, every project's", () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "mine" })],
 		});
-		const zebra = await waitFor(() =>
-			view.getByRole("list", { name: "zebra tasks" }),
-		);
+		await waitFor(() => queueRow(view, "stripes"));
 
-		await act(async () =>
-			fireEvent.click(within(zebra).getByRole("button", { name: /stripes/ })),
-		);
+		await openQueueRow(view, "stripes");
 
 		const there = new URL(String(testing.visited[0]));
 		expect(there.searchParams.get("project")).toBe("zebra");
 		expect(there.hash).toBe("#tasks/stripes");
 	});
 
-	it("folds a project's tasks away, and remembers it", async () => {
-		const view = await testing.openTasks({
-			tasks: [details({ task: "mine" })],
-		});
-		const apple = await waitFor(() =>
-			view.getByRole("region", { name: "apple" }),
-		);
-
-		await act(async () =>
-			fireEvent.click(within(apple).getByRole("button", { name: /apple/ })),
-		);
-
-		await waitFor(() =>
-			expect(view.queryByRole("list", { name: "apple tasks" })).toBeNull(),
-		);
-		expect(view.getByRole("list", { name: "zebra tasks" })).toBeTruthy();
-		cleanup();
-
-		const again = await testing.openTasks({
-			tasks: [details({ task: "mine" })],
-		});
-		await waitFor(() => again.getByRole("list", { name: "zebra tasks" }));
-		expect(again.queryByRole("list", { name: "apple tasks" })).toBeNull();
-	});
-
-	it("lists this project's group, empty, when no project has tasks", async () => {
+	it("says no task is at work when no project has one", async () => {
 		testing.everywhere = [listed("empty", "empty", "/code/empty", [])];
 		const view = await testing.openTasks({ tasks: [] });
 
-		const mine = await waitFor(() =>
-			view.getByRole("region", { name: "webappwiz" }),
+		const yours = view.getByRole("region", { name: "Started by you" });
+		await waitFor(() =>
+			expect(within(yours).getByText("No tasks at work")).toBeTruthy(),
 		);
-		expect(within(mine).getByText("No tasks yet")).toBeTruthy();
 		expect(view.queryByRole("region", { name: "empty" })).toBeNull();
 	});
 
-	it("keeps this project's group, empty, beside other projects' tasks", async () => {
+	it("lists other projects' tasks while this one has none", async () => {
 		const view = await testing.openTasks({ tasks: [] });
 
-		const mine = await waitFor(() =>
-			view.getByRole("region", { name: "webappwiz" }),
-		);
-		expect(within(mine).getByText("No tasks yet")).toBeTruthy();
-		expect(view.getByRole("list", { name: "zebra tasks" })).toBeTruthy();
+		await waitFor(() => queueRow(view, "stripes"));
+		expect(names(view)).toEqual(["core", "core-part", "stripes"]);
+		expect(view.queryByText("No tasks at work")).toBeNull();
 	});
 });

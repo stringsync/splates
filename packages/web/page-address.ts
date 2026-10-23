@@ -245,7 +245,13 @@ function entry(): Entry | null {
 }
 
 function pageIn(hash: string): Page {
-	if (hash === "#tasks" || taskIn(hash) !== null) {
+	// The Queue page, `#queue` and the Workers page it took in too.
+	if (
+		hash === "#tasks" ||
+		hash === "#queue" ||
+		hash === "#workers" ||
+		taskIn(hash) !== null
+	) {
 		return "tasks";
 	}
 
@@ -263,9 +269,6 @@ function pageIn(hash: string): Page {
 	}
 	if (hash === "#billing" || hash === "#budget") {
 		return "billing";
-	}
-	if (hash === "#workers") {
-		return "workers";
 	}
 	if (hash === "#automations") {
 		return "automations";

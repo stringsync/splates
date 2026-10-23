@@ -8,7 +8,6 @@ import {
 	KeyRoundIcon,
 	ListChecksIcon,
 	type LucideIcon,
-	ServerIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useState } from "react";
@@ -87,7 +86,7 @@ export function usePageRoute(): PageRoute {
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
  * for it with todo N open, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
- * `#creds`, `#billing` (`#budget` too), `#workers`, `#automations`,
+ * `#creds`, `#billing` (`#budget` too), `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
  */
@@ -99,7 +98,6 @@ export type Page =
 	| "evals"
 	| "creds"
 	| "billing"
-	| "workers"
 	| "automations"
 	| "auto-pick"
 	| "setup"
@@ -121,12 +119,11 @@ export const PAGES: {
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
 	},
-	{ value: "tasks", label: "Tasks", Icon: TaskIcon },
+	{ value: "tasks", label: "Queue", Icon: TaskIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "evals", label: "Evals", Icon: FlaskConicalIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "billing", label: "Billing", Icon: GaugeIcon },
-	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
 	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
@@ -151,7 +148,6 @@ export const PHONE_PAGES: Record<Page, string> = {
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	billing: "min-w-0 px-4 py-6",
-	workers: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",
 	notes: "min-w-0 px-4 py-6",

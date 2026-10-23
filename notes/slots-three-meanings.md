@@ -14,4 +14,7 @@ Worker slots are how many tasks a worker runs at once (`splates worker run
 agents, automations, hooks or the groomer start each hold one; an agent the
 person starts or the queue starts takes none. Those
 waiting for room stand in `splates worker queue` (`waiting.ts`), first come
-first served, never failed for waiting.
+first served, never failed for waiting. The page's Queue tab sets how many,
+and pauses: while paused (`paused` in `workers.json`, `PUT
+/api/workers/local`), no capped agent is placed and each waits with the
+reason `paused`; the person's own agents still start.

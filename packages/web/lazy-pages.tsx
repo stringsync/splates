@@ -89,9 +89,6 @@ export const StatsPage = onDemand(async () => ({
 export const EvalsPage = onDemand(async () => ({
 	default: (await import("./evals-page")).EvalsPage,
 }));
-export const WorkersPage = onDemand(async () => ({
-	default: (await import("./workers")).WorkersPage,
-}));
 
 export const BackgroundPane = onDemand(async () => ({
 	default: (await import("./background-pane")).BackgroundPane,

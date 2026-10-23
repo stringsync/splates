@@ -66,10 +66,15 @@ export async function workerPool(): Promise<WorkerPool> {
 	return (await response.json()) as WorkerPool;
 }
 
-/** What can be set on a worker: its slots, null to go by its hello, and whether it drains. */
+/**
+ * What can be set on a worker: its slots, null to go by its hello, whether
+ * it drains, and, on this machine's own, whether what splates starts on its
+ * own is paused.
+ */
 export interface WorkerChange {
 	slots?: number | null;
 	draining?: boolean;
+	paused?: boolean;
 }
 
 /** Sets `change` on worker `id`, answering the pool as it then stands. */

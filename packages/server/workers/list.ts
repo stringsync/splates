@@ -80,6 +80,23 @@ export interface WorkerListings {
  */
 export interface WorkerPool extends WorkerListings {
 	build: string;
+	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
+	paused: boolean;
+	/** Every agent holding a slot, on whichever worker, the person's own included. */
+	held: HeldListing[];
+}
+
+/** One agent holding a slot, as `GET /api/workers` lists it. */
+export interface HeldListing {
+	/** The conversation's id. */
+	id: string;
+	/** The project's main tree. */
+	project: string;
+	task: string | null;
+	/** Whether it counts against the slot limit: one an automation, a hook or the groomer started. */
+	capped: boolean;
+	/** When the slot was granted, an ISO time. */
+	since: string;
 }
 
 function listing(
@@ -135,6 +152,19 @@ const Listings = z.object({
 	refused: z.array(
 		z.object({ id: z.string(), protocol: z.string(), reason: z.string() }),
 	),
+	// Defaulted, so a server from before pausing still parses.
+	paused: z.boolean().default(false),
+	held: z
+		.array(
+			z.object({
+				id: z.string(),
+				project: z.string(),
+				task: z.string().nullable(),
+				capped: z.boolean(),
+				since: z.string(),
+			}),
+		)
+		.default([]),
 });
 
 /** What `splates worker list` is run with. */
@@ -164,7 +194,9 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 		log.info(JSON.stringify(listed, null, "\t"));
 		return;
 	}
-	const lines: string[] = [];
+	const lines: string[] = listed.paused
+		? ["paused: what splates starts on its own waits until it is resumed"]
+		: [];
 	if (listed.workers.length > 0) {
 		lines.push(
 			table(

@@ -6,13 +6,8 @@ import { WindowBackgroundObserver } from "webappwiz/browser";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, SystemTimer } from "webappwiz/time";
-import {
-	removeWorker,
-	updateWorker,
-	type WorkerChange,
-	workerPool,
-} from "./api";
-import { localTurned, turnLocalWorker } from "./local-worker";
+import { updateWorker, type WorkerChange, workerPool } from "./api";
+import { LOCAL } from "./local-worker";
 
 export type WorkerPoolViewEvents = { changed: undefined };
 
@@ -20,7 +15,7 @@ export type WorkerPoolViewEvents = { changed: undefined };
 const EVERY = Duration.secs(5);
 
 /**
- * The Workers page's pool: read every few seconds while the page is in
+ * The Queue page's pool: read every few seconds while the page is in
  * front, and changed by a method per action, each shown at once and read
  * again once its write is done, so a refused one goes back to what the
  * server says. Each action rejects as its write does, for the page to say
@@ -73,13 +68,15 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 		);
 	}
 
-	/** Turns this machine on or off as a worker. */
-	turnLocal(on: boolean): Promise<void> {
-		const { pool } = this;
-		if (pool === null) {
-			return Promise.resolve();
-		}
-		return this.write((shown) => localTurned(shown, on), turnLocalWorker(on));
+	/**
+	 * Pauses what splates starts on its own (automations, hooks, the groomer
+	 * and the queue), or resumes it; the person's own agents start either way.
+	 */
+	pause(paused: boolean): Promise<void> {
+		return this.write(
+			(pool) => ({ ...pool, paused }),
+			updateWorker(LOCAL, { paused }),
+		);
 	}
 
 	/** Sets `change` on worker `id`: its slots, or whether it drains. */
@@ -87,22 +84,6 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 		return this.write(
 			(pool) => changed(pool, id, (worker) => set(worker, change)),
 			updateWorker(id, change),
-		);
-	}
-
-	/**
-	 * Removes `worker`, at once if nothing runs on it or `force`; otherwise
-	 * it drains and goes once what runs on it ends.
-	 */
-	remove(worker: WorkerListing, force: boolean): Promise<void> {
-		return this.write(
-			(pool) =>
-				changed(pool, worker.id, (shown) =>
-					force || shown.slots.used === 0
-						? null
-						: { ...shown, draining: true, removing: true },
-				),
-			removeWorker(worker.id, force),
 		);
 	}
 
@@ -123,13 +104,6 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 			this.read();
 		}
 	}
-}
-
-/** The workers whose build is not the one this server runs. */
-export function behind(pool: WorkerPool): WorkerListing[] {
-	return pool.workers.filter(
-		(worker) => worker.build !== null && worker.build !== pool.build,
-	);
 }
 
 /** `pool` with worker `id` as `change` makes it, or gone for null. */

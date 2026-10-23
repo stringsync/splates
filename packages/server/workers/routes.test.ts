@@ -40,6 +40,51 @@ describe("DevWorkers", () => {
 		expect((await placed).worker).toBe("local");
 	});
 
+	it("pauses what splates starts on its own, the person's own agents still placed, and places it on resume", async () => {
+		let changes = 0;
+		workers.slots.scheduler.events.on("changed", () => {
+			changes += 1;
+		});
+		expect((await workers.update(put("local", { paused: true }))).status).toBe(
+			200,
+		);
+		expect(changes).toBe(1);
+		const capped = workers.slots.scheduler.take(request("theirs"));
+		await workers.slots.scheduler.take({ ...request("mine"), uncapped: true });
+		await Bun.sleep(10);
+		expect(workers.slots.scheduler.spot("theirs")?.reason).toBe("paused");
+
+		const listed = await (await workers.list()).json();
+		expect(listed).toMatchObject({
+			paused: true,
+			held: [
+				{
+					id: "mine",
+					project: "/repo",
+					task: "mine-task",
+					capped: false,
+					since: expect.any(String),
+				},
+			],
+		});
+
+		changes = 0;
+		await workers.update(put("local", { paused: false }));
+		expect((await capped).worker).toBe("local");
+		expect(changes).toBeGreaterThan(0);
+		expect((await (await workers.list()).json()).held).toMatchObject([
+			{ id: "mine", capped: false },
+			{ id: "theirs", capped: true },
+		]);
+	});
+
+	it("refuses to pause any worker but this machine's own", async () => {
+		const response = await workers.update(put("box", { paused: true }));
+
+		expect(response.status).toBe(400);
+		expect(workers.records.paused).toBe(false);
+	});
+
 	it("lists the build it runs beside the workers, as each set by hand", async () => {
 		await workers.update(put("local", { slots: 3, draining: true }));
 		const listed = await (await workers.list()).json();

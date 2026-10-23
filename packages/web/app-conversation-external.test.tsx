@@ -7,6 +7,8 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
+	queueRow,
 	Testing,
 	waitFor,
 	within,
@@ -106,7 +108,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/task/beta");
 	});
 
-	it("marks none of an external agent's questions on the Tasks page, and says only what the page knows of its agent", async () => {
+	it("marks none of an external agent's questions on the Queue page, and says only what the page knows of its agent", async () => {
 		testing.talk = { agents: AGENTS, conversations: [] };
 		const view = await testing.openTasks({
 			tasks: [
@@ -118,15 +120,12 @@ Cap upload retries
 				}),
 			],
 		});
-		const rowOf = (name: string) =>
-			within(view.getByRole("tabpanel")).getByRole("button", {
-				name: new RegExp(name),
-			});
-
 		expect(
-			within(rowOf("gamma")).queryByRole("status", { name: "waiting on you" }),
+			within(queueRow(view, "gamma")).queryByRole("status", {
+				name: "waiting on you",
+			}),
 		).toBeNull();
-		await act(async () => fireEvent.click(rowOf("beta")));
+		await openQueueRow(view, "beta");
 		const dialog = await tab(view, "Details");
 		expect(dialog.textContent).toContain(
 			"Outside the page, running a splates command now",

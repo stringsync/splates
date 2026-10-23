@@ -9,6 +9,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
 	Testing,
 	waitFor,
 	within,
@@ -47,7 +48,7 @@ describe("App's task demos", () => {
 		testing.dispose();
 	});
 
-	/** Opens the Tasks page with conversations on, holding `held`. */
+	/** Opens the Queue page with conversations on, holding `held`. */
 	const tasksPage = async (
 		held: ConversationState[],
 		tasks = [details({ task: "alpha", plan: PLAN, takenBy: "c1" })],
@@ -62,14 +63,7 @@ describe("App's task demos", () => {
 
 	/** Opens live task alpha's dialog. */
 	const liveDialog = async (view: Awaited<ReturnType<typeof tasksPage>>) => {
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("list", { name: "task list" })).getByRole(
-					"button",
-					{ name: /alpha/ },
-				),
-			),
-		);
+		await openQueueRow(view, "alpha");
 		return waitFor(() => view.getByRole("dialog"));
 	};
 

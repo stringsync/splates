@@ -148,12 +148,15 @@ export class QueueRunner implements Resource {
 				this.#refused.get(queued.id)?.due !== false &&
 				canStart(queued, all),
 		);
-		const next = startable;
+		// Paused, nothing starts, though each held conversation still says why
+		// it waits; the scheduler's change on resume sweeps again.
+		const paused = this.deps.paused?.() === true;
+		const next = paused ? [] : startable;
 		const picks = await this.#picks(all, next);
 		const held =
 			this.deps.held === undefined
 				? new Map<number, string>()
-				: await this.#hold(this.deps.held, all, picks.of, next);
+				: await this.#hold(this.deps.held, all, picks.of, paused);
 		if (next.length === 0) {
 			return;
 		}
@@ -270,7 +273,8 @@ export class QueueRunner implements Resource {
 		all: readonly TaskRecord[],
 		/** Who works each, as `#picks` says. */
 		pickOf: (queued: TaskRecord) => AgentPick,
-		_next: readonly TaskRecord[],
+		/** Whether the queue is paused, so what would start waits instead. */
+		paused: boolean,
 	): Promise<Map<number, string>> {
 		const queue = queueOrder(all);
 		const listed = await conversations.list();
@@ -325,7 +329,11 @@ export class QueueRunner implements Resource {
 			held.set(each.queued, each.id);
 			const refused = this.#refused.get(queued.id);
 			const reason =
-				refused?.due === false ? `could not start: ${refused.why}` : "starting";
+				refused?.due === false
+					? `could not start: ${refused.why}`
+					: paused
+						? "paused"
+						: "starting";
 			if (reason !== "starting") {
 				this.#startingSince.delete(queued.id);
 			} else if (!this.#startingSince.has(queued.id)) {
@@ -401,6 +409,11 @@ export interface QueueRunnerDeps {
 	unqueue: (going: ReadonlyMap<number, readonly number[]>) => Promise<unknown>;
 	/** The conversations held for queued tasks; absent, none is held. */
 	held?: HeldConversations;
+	/**
+	 * Whether everything splates starts on its own waits, so no queued task
+	 * starts; absent, never paused.
+	 */
+	paused?: () => boolean;
 	log: Logger;
 }
 

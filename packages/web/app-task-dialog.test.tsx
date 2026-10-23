@@ -6,6 +6,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
 	Testing,
 	waitFor,
 	within,
@@ -45,14 +46,7 @@ see the header
 	const asking = details({ task: "beta", plan: BLOCKED });
 
 	const openBeta = async (view: Awaited<ReturnType<Testing["open"]>>) => {
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("list", { name: "task list" })).getByRole(
-					"button",
-					{ name: /beta/ },
-				),
-			),
-		);
+		await openQueueRow(view, "beta");
 		return await waitFor(() => view.getByRole("dialog"));
 	};
 

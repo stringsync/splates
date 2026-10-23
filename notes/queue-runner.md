@@ -7,7 +7,9 @@ queued task in `queueOrder` that no open task blocks starts as a task of its
 own at once (no cap, since 2026-10-23: queue starts and their held
 conversations are not `capped`, like the person's agents), on the agent and model it names,
 else on what Auto pick decides at start. It looks again when tasks change,
-and every minute. A refused start is retried at once when
+and every minute. While the person pauses the queue from the Queue page it
+starts nothing, and a held conversation that would be starting says `paused`;
+resuming fires the scheduler's `changed`, which sweeps. A refused start is retried at once when
 the task changes or the person retries it, otherwise after a number of
 sweeps that doubles per refusal up to 30. A queued task gets a held
 conversation, which the page shows as its place in line, only once it can

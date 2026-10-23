@@ -4,7 +4,7 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { RUNNING, refuse } from "../server/shared";
 import { CoordinatorIdentity } from "./identity";
-import type { WorkerPool } from "./list";
+import type { HeldListing, WorkerPool } from "./list";
 import { workerList } from "./list";
 import { LocalWorkerUpdate } from "./local-update";
 import { queueListing } from "./queue";
@@ -24,6 +24,8 @@ const QueueMove = z.object({ position: z.number().int() });
 const Settings = z.object({
 	slots: z.number().int().min(1).nullable().optional(),
 	draining: z.boolean().optional(),
+	/** Whether everything splates starts on its own waits; this machine's own alone. */
+	paused: z.boolean().optional(),
 });
 
 /** Accepts this machine's worker over its private Unix socket and manages its slots. */
@@ -71,6 +73,7 @@ export class DevWorkers implements AsyncResource {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
 			log,
+			paused: () => records.paused,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 		this.updater = new LocalWorkerUpdate({
@@ -137,7 +140,8 @@ export class DevWorkers implements AsyncResource {
 
 	/**
 	 * `GET /api/workers`: each worker and each refusal, as `splates worker
-	 * list` shows them, and the build this server runs.
+	 * list` shows them, the build this server runs, whether it is paused,
+	 * and every agent holding a slot.
 	 */
 	readonly list = async (): Promise<Response> =>
 		Response.json({
@@ -148,25 +152,55 @@ export class DevWorkers implements AsyncResource {
 				(id) => this.pooled(id),
 			),
 			build: RUNNING,
+			paused: this.records.paused,
+			held: this.slots.scheduler.held().map(
+				(held): HeldListing => ({
+					id: held.id,
+					project: held.project,
+					task: held.task,
+					capped: !held.uncapped,
+					since: new Date(held.since).toISOString(),
+				}),
+			),
 		} satisfies WorkerPool);
 
 	/**
 	 * `PUT /api/workers/:id`: sets how many agents worker `id` runs at once
 	 * (null to go by its hello) and whether it drains, taking no new ones.
 	 * Taking new agents again turns this machine's own back on, removed or
-	 * being removed.
+	 * being removed. `paused`, on this machine's own alone, holds back
+	 * everything splates starts on its own, the person's agents still
+	 * starting; it is set whether or not the worker is in the pool, since it
+	 * stands for the server rather than the worker.
 	 */
 	readonly update = async (request: Request): Promise<Response> => {
 		const id = workerId(request);
 		const body = Settings.safeParse(await request.json().catch(() => null));
 		if (!body.success) {
-			return refuse(400, "usage", "say the slots or whether it drains");
+			return refuse(
+				400,
+				"usage",
+				"say the slots, whether it drains or whether it is paused",
+			);
+		}
+		const { slots, draining, paused } = body.data;
+		const local = id === LOCAL_WORKER;
+		if (paused !== undefined && !local) {
+			return refuse(400, "usage", "only this machine's worker is paused");
 		}
 		if (this.registry.worker(id) === undefined) {
 			return refuse(404, "not_found", `no worker ${id}`);
 		}
-		const { slots, draining } = body.data;
-		const local = id === LOCAL_WORKER;
+		if (paused !== undefined) {
+			await this.records.pause(paused);
+			this.log.info(paused ? "paused" : "resumed");
+			if (slots === undefined && draining === undefined) {
+				// Poked so a resume places those waiting at once and the task
+				// queue, which sweeps on the scheduler's change, starts its own.
+				this.slots.scheduler.poke();
+				return this.list();
+			}
+		}
 		if (local && !this.records.localOn) {
 			if (draining !== false) {
 				return refuse(

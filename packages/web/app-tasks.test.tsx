@@ -6,12 +6,14 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
+	queueRow,
 	Testing,
 	waitFor,
 	within,
 } from "./testing";
 
-describe("App's tasks", () => {
+describe("App's Queue page", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -23,11 +25,11 @@ describe("App's tasks", () => {
 		testing.dispose();
 	});
 
-	it("heads the tasks with a title, with tasks or without", async () => {
+	it("heads the queue with a title, with tasks or without", async () => {
 		const view = await testing.openTasks({ tasks: [] });
 
-		expect(view.getByRole("heading", { name: "Tasks" })).toBeTruthy();
-		expect(view.getByText(/No tasks/)).toBeTruthy();
+		expect(view.getByRole("heading", { name: "Queue" })).toBeTruthy();
+		expect(view.getByText("No tasks at work")).toBeTruthy();
 	});
 
 	it("opens a task's plan, and where it stands", async () => {
@@ -41,9 +43,7 @@ describe("App's tasks", () => {
 			],
 		});
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
-		);
+		await openQueueRow(view, "beta");
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(dialog.textContent).toContain("ship the thing");
@@ -55,9 +55,7 @@ describe("App's tasks", () => {
 			tasks: [details({ task: "alpha", comingConflict: ["src/shared.ts"] })],
 		});
 		expect(view.getByText("Coming conflict")).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
-		);
+		await openQueueRow(view, "alpha");
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByRole("alert").textContent).toContain(
 			"src/shared.ts",
@@ -65,7 +63,7 @@ describe("App's tasks", () => {
 		expect(within(dialog).getByText("Coming conflict with main")).toBeTruthy();
 	});
 
-	it("nests each part under the task it was handed out from", async () => {
+	it("lists a part as a row of its own, beside the task it was handed out from", async () => {
 		const view = await testing.openTasks({
 			tasks: [
 				details({ task: "alpha-api", base: "task/alpha" }),
@@ -74,16 +72,12 @@ describe("App's tasks", () => {
 			],
 		});
 
-		const parts = view.getByRole("list", { name: "parts of alpha" });
+		expect(view.queryByRole("list", { name: "parts of alpha" })).toBeNull();
 		expect(
-			within(parts).getByRole("button", { name: /alpha-api/ }),
-		).toBeTruthy();
-		expect(
-			[...view.getByRole("list", { name: "task list" }).children].map(
-				(item) =>
-					item.firstElementChild?.querySelector(".truncate")?.textContent,
-			),
-		).toEqual(["alpha", "beta"]);
+			within(view.getByRole("list", { name: "task list" }))
+				.getAllByRole("listitem")
+				.map((item) => item.querySelector(".truncate")?.textContent),
+		).toEqual(["alpha-api", "alpha", "beta"]);
 	});
 
 	it("opens a task's changes in a pane beside the page, a file to a line, opening all at once", async () => {
@@ -121,9 +115,7 @@ describe("App's tasks", () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "alpha" })],
 		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
-		);
+		await openQueueRow(view, "alpha");
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(dialog.textContent).not.toContain("src/a.ts");
@@ -170,9 +162,7 @@ describe("App's tasks", () => {
 		});
 
 		// With attempts left, a task has no use for more.
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
-		);
+		await openQueueRow(view, "beta");
 		const other = await waitFor(() => view.getByRole("dialog"));
 		expect(other.textContent).toContain("1 of 3 merges tried");
 		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
@@ -180,9 +170,7 @@ describe("App's tasks", () => {
 			fireEvent.click(view.getByRole("button", { name: "Close" })),
 		);
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
-		);
+		await openQueueRow(view, "alpha");
 		await clickShown(() => view.getByRole("button", { name: "Retry" }));
 
 		await waitFor(() =>
@@ -213,9 +201,7 @@ describe("App's tasks", () => {
 		const view = await testing.openTasks({
 			tasks: [details({ mergeAttempts: 3 })],
 		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
-		);
+		await openQueueRow(view, "alpha");
 		testing.holdWrites();
 		await clickShown(() => view.getByRole("button", { name: "Retry" }));
 
@@ -240,7 +226,7 @@ describe("App's tasks", () => {
 			],
 		});
 
-		const row = view.getByRole("button", { name: /alpha/ });
+		const row = queueRow(view, "alpha");
 		expect(row.textContent).toContain("alpha");
 		expect(row.textContent).toContain("Elapsed:");
 		expect(view.queryByRole("progressbar")).toBeNull();
@@ -268,10 +254,7 @@ describe("App's tasks", () => {
 			tasks: [details({ task: "alpha" })],
 		});
 
-		const row = within(view.getByRole("list", { name: "task list" })).getByRole(
-			"button",
-			{ name: /alpha/ },
-		);
+		const row = queueRow(view, "alpha");
 		await waitFor(() =>
 			within(row).getByRole("status", { name: "waiting on you" }),
 		);

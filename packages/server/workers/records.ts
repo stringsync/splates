@@ -12,6 +12,8 @@ const Record = z.object({
 const Kept = z.object({
 	workers: z.array(Record).default([]),
 	local: z.boolean().default(true),
+	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
+	paused: z.boolean().default(false),
 });
 type KeptFile = z.output<typeof Kept>;
 export type WorkerRecord = z.output<typeof Record>;
@@ -25,7 +27,7 @@ export class WorkerRecords {
 		private kept: KeptFile,
 	) {}
 	static async open(document: Document<KeptFile>): Promise<WorkerRecords> {
-		let kept: KeptFile = { workers: [], local: true };
+		let kept: KeptFile = { workers: [], local: true, paused: false };
 		try {
 			const read = await document.read();
 			if (read !== null) {
@@ -38,7 +40,11 @@ export class WorkerRecords {
 		return new WorkerRecords(document, kept);
 	}
 	static memory(): WorkerRecords {
-		return new WorkerRecords(null, { workers: [], local: true });
+		return new WorkerRecords(null, {
+			workers: [],
+			local: true,
+			paused: false,
+		});
 	}
 	get all(): WorkerRecord[] {
 		return [...this.kept.workers];
@@ -51,6 +57,13 @@ export class WorkerRecords {
 	}
 	async turnLocal(on: boolean): Promise<void> {
 		await this.change({ ...this.kept, local: on });
+	}
+	/** Whether everything splates starts on its own waits, as `pause` set. */
+	get paused(): boolean {
+		return this.kept.paused;
+	}
+	async pause(on: boolean): Promise<void> {
+		await this.change({ ...this.kept, paused: on });
 	}
 	async set(id: string, settings: WorkerSettings): Promise<WorkerRecord> {
 		const record = { ...Record.parse({ id }), ...this.of(id), ...settings };

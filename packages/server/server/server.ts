@@ -166,6 +166,7 @@ export async function dev(
 		everywhere: Everywhere.served(served, projects),
 		onWorkerRoom: (listener) =>
 			workers.slots.scheduler.events.on("changed", listener),
+		paused: () => workers.records.paused,
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);

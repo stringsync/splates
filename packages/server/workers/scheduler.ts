@@ -19,6 +19,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	private readonly wanted = new Map<string, Wanted[]>();
 	/** The workers last seen draining, so each new drain is told once. */
 	private drained = new Set<string>();
+	/** Whether the pool was paused when last poked, so a pause or a resume alone is told. */
+	private wasPaused = false;
 
 	constructor(
 		private readonly pool: Pool,
@@ -103,6 +105,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 */
 	queue(): QueueEntry[] {
 		const workers = this.pool.workers();
+		const paused = this.paused();
 		const line: { request: SlotRequest; since: number; queued?: true }[] = [
 			...this.waiting.map(({ request, since }) => ({ request, since })),
 			...[...this.wanted.values()].flat().map(({ request, since }) => ({
@@ -118,7 +121,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			agent: request.agent,
 			position: at + 1,
 			since,
-			reason: reasonFor(workers),
+			reason:
+				paused && request.uncapped !== true ? "paused" : reasonFor(workers),
 			...(queued === undefined ? {} : { queued }),
 		}));
 	}
@@ -131,9 +135,12 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	/**
 	 * How many more agents could start now without waiting: the free slots
 	 * of every worker up and taking work, less those already waiting that
-	 * could take one.
+	 * could take one; none while the pool is paused.
 	 */
 	room(): number {
+		if (this.paused()) {
+			return 0;
+		}
 		const used = new Map<string, number>();
 		for (const { worker, uncapped } of this.held()) {
 			if (!uncapped) {
@@ -220,9 +227,14 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		for (const worker of started) {
 			this.dispatcher.dispatch("drain", worker);
 		}
+		// A pause or a resume alone changes what may start, so those watching
+		// for room, as the task queue does, hear of it even with nobody placed.
+		const paused = this.paused();
+		const flipped = paused !== this.wasPaused;
+		this.wasPaused = paused;
 		// Queued tasks wanting a slot are never placed here, so the task queue
 		// hears of a worker joining or growing to start them itself.
-		if (this.place() || this.wanted.size > 0) {
+		if (this.place() || this.wanted.size > 0 || flipped) {
 			this.changed();
 		}
 	}
@@ -274,9 +286,13 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * the server's build before every one waiting on an update, which a
 	 * rollout is to take down. An uncapped request needs no free slot, and
 	 * takes none from those that do, but still prefers a worker with one
-	 * free, the least loaded among equals.
+	 * free, the least loaded among equals. While the pool is paused only an
+	 * uncapped request is placed: the person's own agents still start.
 	 */
 	private pick(request: SlotRequest): string | null {
+		if (request.uncapped !== true && this.paused()) {
+			return null;
+		}
 		const used = new Map<string, number>();
 		const capped = new Map<string, number>();
 		for (const { worker, uncapped } of this.held()) {
@@ -318,6 +334,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			task: request.task,
 			worker,
 			uncapped: request.uncapped === true,
+			since: this.clock.now(),
 		};
 		const losing = new AbortController();
 		this.holding.set(request.id, { held, losing });
@@ -342,6 +359,10 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		};
 	}
 
+	private paused(): boolean {
+		return this.pool.paused?.() === true;
+	}
+
 	private changed(): void {
 		this.dispatcher.dispatch("changed");
 	}
@@ -350,6 +371,11 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 /** The workers agents can be placed on, as they stand now. */
 export interface Pool {
 	workers(): PoolWorker[];
+	/**
+	 * Whether everything splates starts on its own waits, the person's own
+	 * agents alone being placed; absent for a pool never paused.
+	 */
+	paused?(): boolean;
 }
 
 /** One worker as placement sees it. */
@@ -393,7 +419,11 @@ export interface SlotRequest {
 }
 
 /** Why a queued agent waits. */
-export type QueueReason = "no free slot" | "no worker up" | "worker draining";
+export type QueueReason =
+	| "no free slot"
+	| "no worker up"
+	| "worker draining"
+	| "paused";
 
 /** One agent waiting for a slot, first in line first. */
 export interface QueueEntry {
@@ -422,6 +452,8 @@ export interface HeldSlot {
 	worker: string;
 	/** Counts against no slot: an agent the person started. */
 	uncapped: boolean;
+	/** When the slot was granted, epoch milliseconds. */
+	since: number;
 }
 
 /** A slot an agent holds until it is disposed, which frees it. */

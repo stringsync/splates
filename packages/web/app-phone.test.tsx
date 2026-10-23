@@ -45,7 +45,7 @@ describe("App on a phone", () => {
 		});
 	};
 
-	/** Opens task `name's dialog on the Tasks page, as a link to it does. */
+	/** Opens task `name's dialog on the Queue page, as a link to it does. */
 	const openTaskAt = async (name: string) => {
 		await act(async () => {
 			location.hash = `#tasks/${name}`;
@@ -496,7 +496,7 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		await act(async () =>
-			fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+			fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
 		);
 		expect(location.hash).toBe("#tasks");
 		// The inbox's pen starts one; a page's bar keeps it in the kebab.
@@ -531,7 +531,7 @@ describe("App on a phone", () => {
 				fireEvent.click(within(drawer).getByRole("button", { name })),
 			);
 		};
-		await pick(/Tasks/);
+		await pick(/Queue/);
 		await pick(/Stats/);
 		await pick(/Creds/);
 
@@ -1027,7 +1027,7 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		await act(async () =>
-			fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+			fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
 		);
 		expect(location.hash).toBe("#tasks");
 

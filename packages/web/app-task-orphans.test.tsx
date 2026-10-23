@@ -7,6 +7,8 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openQueueRow,
+	queueRow,
 	Testing,
 	waitFor,
 	within,
@@ -31,20 +33,11 @@ describe("App's orphaned tasks", () => {
 		error: "exited 1",
 	});
 
-	/** The row of task `name` on the Tasks page, not the sidebar's conversation. */
-	const rowOf = (
-		view: Awaited<ReturnType<Testing["openTasks"]>>,
-		name: string,
-	) =>
-		within(view.getByRole("tabpanel")).getByRole("button", {
-			name: new RegExp(name),
-		});
-
 	const openTask = async () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "beta" })],
 		});
-		await act(async () => fireEvent.click(rowOf(view, "beta")));
+		await openQueueRow(view, "beta");
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		return {
 			view,
@@ -52,15 +45,15 @@ describe("App's orphaned tasks", () => {
 		};
 	};
 
-	it("dots the Tasks tab and marks the row of a task whose agent failed, and only then", async () => {
+	it("dots the Queue tab and marks the row of a task whose agent failed, and only then", async () => {
 		testing.talk = { agents: AGENTS, conversations: [failed] };
 		let view = await testing.openTasks({ tasks: [details({ task: "beta" })] });
 
-		const tab = view.getByRole("tab", { name: /Tasks/ });
+		const tab = view.getByRole("tab", { name: /Queue/ });
 		expect(
 			within(tab).getByRole("img", { name: "orphaned tasks" }),
 		).toBeTruthy();
-		const row = rowOf(view, "beta");
+		const row = queueRow(view, "beta");
 		expect(within(row).getByRole("status", { name: "orphaned" })).toBeTruthy();
 
 		cleanup();
@@ -72,7 +65,7 @@ describe("App's orphaned tasks", () => {
 		};
 		view = await testing.openTasks({ tasks: [details({ task: "beta" })] });
 		expect(
-			within(view.getByRole("tab", { name: /Tasks/ })).queryByRole("img", {
+			within(view.getByRole("tab", { name: /Queue/ })).queryByRole("img", {
 				name: "orphaned tasks",
 			}),
 		).toBeNull();

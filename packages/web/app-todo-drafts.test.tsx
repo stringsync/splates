@@ -19,7 +19,7 @@ function value(view: View, name: string): string {
 /** Goes to the tasks and back to the todos. */
 async function away(view: View): Promise<void> {
 	await act(async () =>
-		fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+		fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
 	);
 	await act(async () =>
 		fireEvent.click(view.getByRole("tab", { name: /Board/ })),

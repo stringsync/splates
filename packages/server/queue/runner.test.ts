@@ -27,6 +27,8 @@ describe("QueueRunner", () => {
 	let held: FakeHeld;
 	let picker: FakePicker;
 	let timer: FakeTimer;
+	/** Whether the runner is paused, as the server's records say. */
+	let paused: boolean;
 
 	/** Waits out every start under way, and the runner's note that it ended. */
 	const settled = async (): Promise<void> => {
@@ -41,6 +43,7 @@ describe("QueueRunner", () => {
 		held = new FakeHeld();
 		picker = new FakePicker();
 		timer = new FakeTimer();
+		paused = false;
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
 			if (each.held !== undefined) {
@@ -60,6 +63,7 @@ describe("QueueRunner", () => {
 				return start;
 			},
 			held,
+			paused: () => paused,
 			log: new MemoryLogger(),
 			timer,
 		});
@@ -130,6 +134,25 @@ describe("QueueRunner", () => {
 		);
 		expect(prompts.get(1)).toContain("Groom it first");
 		expect(prompts.get(2)).not.toContain("Groom it first");
+	});
+
+	it("starts nothing while paused, saying so on each held conversation, and starts them on the sweep after a resume", async () => {
+		await taskAdd(deps, "One", null);
+		await taskAdd(deps, "Two", null, { blockedBy: [1] });
+		await queueAdd(deps, [1, 2]);
+		paused = true;
+
+		await runner.sweep();
+		await settled();
+		expect(started).toEqual([]);
+		expect(held.placed()).toEqual([
+			{ queued: 1, position: 1, reason: "paused" },
+		]);
+
+		paused = false;
+		await runner.sweep();
+		await settled();
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
 	});
 
 	it("starts every queued task nothing blocks at once, taking no slot", async () => {
