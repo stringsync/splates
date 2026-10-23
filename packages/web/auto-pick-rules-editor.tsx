@@ -13,7 +13,7 @@ import {
 	RotateCcwIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useEffect } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Field,
@@ -125,18 +125,10 @@ export function RulesEditorView({
 					How sure the judge has to be, in percent
 				</FieldLabel>
 				<div>
-					<Input
+					<PercentInput
 						id="auto-pick-threshold"
-						type="number"
-						inputMode="numeric"
-						min={0}
-						max={100}
-						step={5}
-						className="w-24"
 						value={percent}
-						onChange={(event) =>
-							editor.setPercent(event.currentTarget.valueAsNumber)
-						}
+						onCommit={(value) => editor.setPercent(value)}
 					/>
 				</div>
 				<FieldDescription>
@@ -159,19 +151,11 @@ export function RulesEditorView({
 					How far ahead of its window a plan may run, in percent
 				</FieldLabel>
 				<div>
-					<Input
+					<PercentInput
 						id="auto-pick-slack"
-						type="number"
-						inputMode="numeric"
-						min={0}
-						max={100}
-						step={5}
-						className="w-24"
 						disabled={!pace.on}
 						value={Math.round(pace.slack * 100)}
-						onChange={(event) =>
-							editor.setSlackPercent(event.currentTarget.valueAsNumber)
-						}
+						onCommit={(value) => editor.setSlackPercent(value)}
 					/>
 				</div>
 				<FieldDescription>
@@ -185,18 +169,10 @@ export function RulesEditorView({
 					How much of a plan a pick may use at all, in percent
 				</FieldLabel>
 				<div>
-					<Input
+					<PercentInput
 						id="auto-pick-spent"
-						type="number"
-						inputMode="numeric"
-						min={0}
-						max={100}
-						step={5}
-						className="w-24"
 						value={Math.round(pace.spent * 100)}
-						onChange={(event) =>
-							editor.setSpentPercent(event.currentTarget.valueAsNumber)
-						}
+						onCommit={(value) => editor.setSpentPercent(value)}
 					/>
 				</div>
 				<FieldDescription>
@@ -362,5 +338,45 @@ function RuleRow({
 				</button>
 			)}
 		</li>
+	);
+}
+
+/**
+ * A percent field that keeps what is typed, empty included, until it loses
+ * focus; each whole number in it is passed on as it is typed, and the
+ * field shows the value in force again once it is left.
+ */
+function PercentInput({
+	id,
+	value,
+	disabled,
+	onCommit,
+}: {
+	id: string;
+	value: number;
+	disabled?: boolean;
+	onCommit: (value: number) => void;
+}): JSX.Element {
+	const [typed, setTyped] = useState<string | null>(null);
+	return (
+		<Input
+			id={id}
+			type="number"
+			inputMode="numeric"
+			min={0}
+			max={100}
+			step={5}
+			className="w-24"
+			disabled={disabled}
+			value={typed ?? value}
+			onChange={(event) => {
+				const text = event.currentTarget.value;
+				setTyped(text);
+				if (text !== "") {
+					onCommit(event.currentTarget.valueAsNumber);
+				}
+			}}
+			onBlur={() => setTyped(null)}
+		/>
 	);
 }
