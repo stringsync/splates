@@ -88,6 +88,43 @@ describe("remove", () => {
 		expect(await remove(deps, "alpha")).toEqual({ released: [] });
 	});
 
+	it("removes every board task it took and holds tasks that depended on them", async () => {
+		const lane = await deps.tasks.addLane("Fixes");
+		const first = await deps.tasks.add("Retry on 413", null, { lane: lane.id });
+		const second = await deps.tasks.add("Log retries", null, { lane: lane.id });
+		const dependent = await deps.tasks.add("Ship retries", null);
+		await deps.tasks.link(dependent.id, { add: [first.id, second.id] });
+		await add(deps, "alpha", { tasks: [first.id] });
+		await (await deps.tasks.find(second.id)).take("alpha");
+
+		expect(await remove(deps, "alpha", { reason: "moot" })).toEqual({
+			released: [],
+		});
+
+		expect((await deps.tasks.all()).map(({ id }) => id)).toEqual([
+			dependent.id,
+		]);
+		expect((await deps.tasks.find(dependent.id)).state).toMatchObject({
+			blockedBy: [],
+			blockersLost: [{ id: first.id }, { id: second.id }],
+		});
+		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
+		expect((await deps.service.finished.list())[0]?.took).toEqual([
+			{ id: first.id, subject: first.subject },
+			{ id: second.id, subject: second.subject },
+		]);
+	});
+
+	it("removes the board task when no removal reason is given", async () => {
+		const task = await deps.tasks.add("Retry on 413", null);
+		await add(deps, "alpha", { tasks: [task.id] });
+
+		await remove(deps, "alpha");
+
+		expect(await deps.tasks.all()).toEqual([]);
+		expect((await deps.service.find("alpha")).status).toBe("removed");
+	});
+
 	it("takes what it took out of the queue, so the runner does not start it again", async () => {
 		const started = await deps.tasks.add("Retry on 413", null);
 		const taken = await deps.tasks.add("Log the retries", null);
@@ -95,7 +132,7 @@ describe("remove", () => {
 		await add(deps, "alpha", { tasks: [started.id] });
 		await (await deps.tasks.find(taken.id)).take("alpha");
 
-		await remove(deps, "alpha", { reason: "redo" });
+		await remove(deps, "alpha", { reason: "blocked" });
 
 		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
 			{ id: started.id, stage: "backlog", takenBy: null },
@@ -115,7 +152,7 @@ describe("remove", () => {
 		]);
 		await add(deps, "alpha", { tasks: [started.id] });
 
-		await remove(deps, "alpha", { reason: "moot" });
+		await remove(deps, "alpha", { reason: "blocked" });
 
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 		expect((await deps.tasks.find(started.id)).state.stage).toBe("ready");

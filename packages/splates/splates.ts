@@ -321,7 +321,7 @@ splates
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
+		"discard a task: worktree, branch and board tasks; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("force", z.boolean(), {

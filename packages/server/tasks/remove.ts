@@ -22,10 +22,9 @@ export interface RemoveOptions {
  * Throwing a task away and redoing it against current trunk is usually cheaper
  * than a hard rebase, so this is meant to be used freely.
  *
- * What it took goes back to ready, or the backlog, never the queue, and a
- * queued lane leaves it out until the person queues it again: queued, the
- * runner would start it again at once, and an agent that removes each start
- * of it, finding it done or moot, would work it forever.
+ * What it took leaves the board too, unless blocked work is being deferred.
+ * Deferred work goes back to ready or the backlog, outside the queue and
+ * any queued lane until the person queues it again.
  */
 export async function remove(
 	{
@@ -89,10 +88,19 @@ export async function remove(
 	const freed = await slots.release(worktree.path);
 	const deleted = pushedLine(await branches.delete(task), "deleted");
 
-	// The work was thrown away, not done, so what it took up is open again.
-	const released = await queue.takenBy(task);
-	for (const each of released) {
-		await each.release({ unqueue: true });
+	const taken = await queue.takenBy(task);
+	const released = reason === "blocked" ? taken : [];
+	for (const each of taken) {
+		if (reason === "blocked") {
+			await each.release({ unqueue: true });
+		} else {
+			await each.remove();
+		}
+	}
+	if (reason !== "blocked") {
+		await queue.endLanes(
+			taken.flatMap(({ lane }) => (lane === null ? [] : [lane])),
+		);
 	}
 	await queue.skipInLanes(
 		released.map(({ id }) => id),

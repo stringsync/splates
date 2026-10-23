@@ -52,12 +52,12 @@ describe.concurrent("TaskStore", () => {
 		expect((await deps.service.find("alpha")).status).toBe("removed");
 	});
 
-	it("queues a removed task's queued task again, as it was", async () => {
+	it("queues a deferred task's queued task again, as it was", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null, { lane: "new" });
 		await add(deps, "dark", { tasks: [1] });
 
-		await remove(deps, "dark");
+		await remove(deps, "dark", { reason: "blocked" });
 
 		const record = await stored(deps, 1);
 		expect(record).toMatchObject({

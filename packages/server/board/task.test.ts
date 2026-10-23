@@ -416,12 +416,12 @@ describe.concurrent("task", () => {
 		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
 	});
 
-	it("puts a removed task's queued task back on the list", async () => {
+	it("puts a deferred task's queued task back on the list", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await add(deps, "dark", { tasks: [1] });
 
-		await remove(deps, "dark");
+		await remove(deps, "dark", { reason: "blocked" });
 
 		expect((await deps.tasks.find(1)).takenBy).toBeNull();
 		expect(deps.out()).toContain("task 1 is open again");

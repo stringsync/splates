@@ -11,8 +11,7 @@ waits on>`, shown as a yellow Deferred card, because a red Removed card read
 as the work being deleted when it was only put back on the list. The Stats
 page counts the reasons apart.
 
-Removing a task that had taken a queued task puts the queued one back on
-the list, out of the queue and any queued lane, until the person queues it
-again: otherwise a queued lane would restart work its agent found done or
-moot. Archiving a conversation also removes its task, asking first only when
-the task has unmerged changes.
+Removing a task also removes the board tasks it took. Only `--reason blocked`
+puts them back on the list, out of the queue and any queued lane, until the
+person queues them again. Archiving a conversation also removes its task,
+asking first only when the task has unmerged changes.

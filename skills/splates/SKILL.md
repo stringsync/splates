@@ -315,11 +315,12 @@ the message; a `Maybe relevant:` one only when it fits.
 **Clean up every task you start.** A task ends in a merge or a remove, never
 left behind; one waiting on the user's answers is not done, so leave it for
 `splates claim`. When investigating shows there is nothing to change, the
-work is moot, or it is better redone against current trunk, `splates task
-remove` each queued task it took that is done or moot, `splates task update` the rest
-with what you learned, then `cd "$(splates path)"` and `splates remove <task>
---reason <why>`, which puts them back on the list, out of the queue and
-any queued lane until the user queues them again. The reason is `nothing`
+work is moot, or it is better redone against current trunk,
+`cd "$(splates path)"` and `splates remove <task> --reason <why>`, which
+removes the board tasks it took too. Only `--reason blocked` puts them back
+on the list, out of the queue and any queued lane until the user queues
+them again. Before removing work to redo, add replacement tasks with what
+you learned. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way), `redo`
 (better redone against current trunk) or `blocked` (set aside until other work
 lands: report it as Deferred); the Stats page counts them.

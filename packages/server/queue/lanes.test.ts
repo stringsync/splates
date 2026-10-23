@@ -91,7 +91,7 @@ describe.concurrent("a lane queued whole", () => {
 		expect((await deps.tasks.find(1)).state.manual).toBeUndefined();
 	});
 
-	it("never queues again a task whose start was removed, until the person queues it", async () => {
+	it("never queues again a task whose start was deferred, until the person queues it", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "store licenses", null, { lane: 1 });
@@ -99,8 +99,8 @@ describe.concurrent("a lane queued whole", () => {
 		await deps.tasks.queueFromLanes();
 		await add(deps, "store-licenses", { tasks: [1] });
 
-		// An agent finds it moot and removes its task, as a lane's agents can, each time.
-		await remove(deps, "store-licenses", { reason: "moot" });
+		// Deferred work stays open without starting again from its queued lane.
+		await remove(deps, "store-licenses", { reason: "blocked" });
 
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 		expect((await deps.tasks.find(1)).state).toMatchObject({
@@ -143,7 +143,7 @@ describe.concurrent("a lane queued whole", () => {
 		await add(deps, "alpha", { tasks: [1] });
 
 		await laneUpdate(deps, 1, { queued: false });
-		await remove(deps, "alpha", { reason: "redo" });
+		await remove(deps, "alpha", { reason: "blocked" });
 
 		expect((await deps.tasks.find(1)).state.stage).toBe("backlog");
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
