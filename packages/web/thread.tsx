@@ -164,7 +164,7 @@ function Conversation({
 	const choose = useChooseSetting(id, refused);
 	const autoPick = useAutoPick(conversation, refused);
 	const thread = useThreadMessages(conversation, feed);
-	const { queued, openAt, asking, going } = thread;
+	const { queued, asking, going } = thread;
 	// Nothing to tell anyone: the next scroll tries again.
 	const onRead = useCallback(
 		(read: number) => void markRead(id, read).catch(() => {}),
@@ -344,7 +344,6 @@ function Conversation({
 															<ReplyContext value={reply}>
 																<NamedContext value={named}>
 																	<ThreadView
-																		openAt={openAt}
 																		onRead={onRead}
 																		autoFocus={!asking || typed}
 																		stopping={stopping}

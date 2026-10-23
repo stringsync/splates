@@ -232,17 +232,7 @@ export function useThreadMessages(
 		status,
 		id,
 	]);
-	// Where the person left off, as it opens: the first message whose foot
-	// they have yet to reach, read on from there, else the bottom. Reading
-	// moves it on, so this holds what it was before.
 	const { all: messages, last } = built;
-	const [openAt] = useState(() => {
-		const count = conversation.messages.filter((each) => !each.queued).length;
-		if (conversation.read !== null) {
-			return conversation.read < count ? String(conversation.read) : undefined;
-		}
-		return conversation.unread ? String(conversation.seen) : undefined;
-	});
 	// Its last word asks questions, escalates, or asks for a review, or it
 	// asks as it works: the card takes the focus, not the composer, unless it
 	// holds a draft. What is queued after it asks nothing.
@@ -261,17 +251,17 @@ export function useThreadMessages(
 							"escalated"),
 			));
 	const [first, setFirst] = useState<string | null>(
-		() => messages[windowStart(messages, null, openAt)]?.id ?? null,
+		() => messages[windowStart(messages, null)]?.id ?? null,
 	);
-	const start = windowStart(messages, first, openAt);
+	const start = windowStart(messages, first);
 	useEffect(() => {
 		if (first === null && messages.length > 0) {
 			setFirst(messages[start]?.id ?? null);
 		}
 	}, [first, messages, start]);
 	const loadEarlier = useCallback(async () => {
-		setFirst(messages[windowStart(messages, first, openAt, 20)]?.id ?? null);
-	}, [messages, first, openAt]);
+		setFirst(messages[windowStart(messages, first, 20)]?.id ?? null);
+	}, [messages, first]);
 	const visible = useMemo(() => messages.slice(start), [messages, start]);
 	return {
 		running,
@@ -279,7 +269,6 @@ export function useThreadMessages(
 		writing,
 		queued,
 		messages: visible,
-		openAt,
 		asking,
 		hasEarlier: start > 0,
 		loadEarlier,
@@ -299,8 +288,6 @@ export interface ThreadMessages {
 	/** What waits for the turn's end, shown in the thread after it. */
 	queued: Message[];
 	messages: ThreadMessageLike[];
-	/** The message to open at, the first unseen, or undefined for the bottom. */
-	openAt: string | undefined;
 	/** Whether a card asks the person something, to take the focus. */
 	asking: boolean;
 }
@@ -309,7 +296,6 @@ export interface ThreadMessages {
 export function windowStart(
 	messages: readonly ThreadMessageLike[],
 	first: string | null,
-	openAt?: string,
 	earlier = 0,
 ): number {
 	const turns = messages.flatMap((message, index) =>
@@ -318,14 +304,10 @@ export function windowStart(
 			: [],
 	);
 	let start = turns[Math.max(0, turns.length - 20)] ?? 0;
-	for (const id of [first, openAt]) {
-		const index = messages.findIndex((message) => message.id === id);
-		if (index >= 0) {
-			const turn = turns.findLast((at) => at <= index) ?? 0;
-			// The turn before the one opened at, which the open shows a peek of.
-			const before = id === openAt ? turns.indexOf(turn) - 1 : -1;
-			start = Math.min(start, before >= 0 ? (turns[before] ?? 0) : turn);
-		}
+	const index = messages.findIndex((message) => message.id === first);
+	if (index >= 0) {
+		const turn = turns.findLast((at) => at <= index) ?? 0;
+		start = Math.min(start, turn);
 	}
 	return turns[Math.max(0, turns.indexOf(start) - earlier)] ?? 0;
 }

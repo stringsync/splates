@@ -17,11 +17,8 @@ describe("thread history window", () => {
 	]).flat();
 	it("starts with twenty whole turns and reveals twenty more at a time", () => {
 		expect(windowStart(messages, null)).toBe(50);
-		expect(windowStart(messages, null, undefined, 20)).toBe(10);
-		expect(windowStart(messages, "10", undefined, 20)).toBe(0);
-	});
-	it("includes the prompt preceding an older unread reply, and the turn before it", () => {
-		expect(windowStart(messages, null, "21")).toBe(18);
+		expect(windowStart(messages, null, 20)).toBe(10);
+		expect(windowStart(messages, "10", 20)).toBe(0);
 	});
 	it("keeps revealed history as more turns arrive", () => {
 		expect(
@@ -39,7 +36,6 @@ describe("thread history window", () => {
 			...messages.slice(60),
 		];
 		expect(windowStart(withLine, null)).toBe(50);
-		expect(windowStart(withLine, null, "checkpoint")).toBe(50);
 	});
 	it("handles empty and short threads", () => {
 		expect(windowStart([], null)).toBe(0);

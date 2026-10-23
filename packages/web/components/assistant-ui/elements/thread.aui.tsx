@@ -33,7 +33,6 @@ import {
 	useClearOf,
 	useFollowWork,
 	useHoldPlace,
-	useOpenAt,
 	useTrackRead,
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -58,7 +57,6 @@ export const Thread: FC<ThreadProps> = ({
 	commands,
 	placeholder,
 	composer,
-	openAt,
 	onRead,
 	docked = false,
 }) => {
@@ -83,7 +81,6 @@ export const Thread: FC<ThreadProps> = ({
 				<ThreadRoot
 					isEmpty={isEmpty}
 					autoFocus={autoFocus}
-					openAt={openAt}
 					onRead={onRead}
 					docked={docked}
 					going={going}
@@ -95,11 +92,10 @@ export const Thread: FC<ThreadProps> = ({
 const ThreadRoot: FC<{
 	isEmpty: boolean;
 	autoFocus: boolean;
-	openAt: string | undefined;
 	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
 	going: boolean;
-}> = ({ isEmpty, autoFocus, openAt, onRead, docked, going }) => {
+}> = ({ isEmpty, autoFocus, onRead, docked, going }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -131,7 +127,6 @@ const ThreadRoot: FC<{
 			delete (element as Partial<HTMLDivElement>).scrollTo;
 		};
 	}, []);
-	useOpenAt(viewport, openAt);
 	useTrackRead(viewport, onRead);
 	useAnchorAtOnce(viewport, going);
 	useFollowWork(viewport);
@@ -154,8 +149,6 @@ const ThreadRoot: FC<{
 				ref={viewport}
 				turnAnchor="top"
 				topAnchorMessageClamp={UNCLAMPED}
-				// `useOpenAt` places the thread as it opens instead.
-				scrollToBottomOnInitialize={false}
 				data-slot="aui_thread-viewport"
 				// Clear of what sits over its right, such as docked widgets, which
 				// set `--thread-inset-end`, so the messages center beside them; and

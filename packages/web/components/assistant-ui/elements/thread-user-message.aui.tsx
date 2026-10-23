@@ -32,10 +32,7 @@ import { linkAttachments } from "#web/attachment-chips.tsx";
 import { Board } from "#web/board.ts";
 import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
-import {
-	useAnchorAtOnce,
-	useOpenAt,
-} from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
+import { useAnchorAtOnce } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
 	DropdownMenu,
@@ -327,8 +324,7 @@ export const UserMessage: FC = () => {
 		<MessagePrimitive.Root
 			ref={unstuckTop}
 			data-slot="aui_user-message-root"
-			// What `useAnchorAtOnce` finds a new turn's start by, and `useOpenAt`
-			// the first unseen message.
+			// What `useAnchorAtOnce` finds a new turn's start by.
 			data-message-id={id}
 			className={cn(
 				// No entrance: the thread jumps to it as it comes, with nothing

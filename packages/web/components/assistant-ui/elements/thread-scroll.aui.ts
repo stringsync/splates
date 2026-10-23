@@ -1,7 +1,5 @@
 import { type AssistantState, useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
-import { WIDE } from "#web/app-nav.tsx";
-import { toCardTop } from "#web/card-shell.tsx";
 import { carriesOn } from "#web/directives.tsx";
 
 /**
@@ -78,96 +76,6 @@ function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
 		}
 		room.style.height = height;
 	}
-}
-/** How much of what comes before the place a thread opens at shows above it. */
-const PEEK = 56;
-/**
- * Opens `viewport` at the top of message `at`, the first the person has yet
- * to see, so they read on from where they left off, or else, when the task has
- * ended, at the top of its closing card, or else at the top of the
- * card that took the focus as it came up, or else at the bottom, as
- * assistant-ui would. It holds there while what is above settles, as markdown
- * and cards render, until the person scrolls, clicks or types, or a reply
- * starts and `useAnchorAtOnce` takes over.
- */
-export function useOpenAt(
-	viewport: RefObject<HTMLDivElement | null>,
-	at: string | undefined,
-): void {
-	const loaded = useAuiState((s) => s.thread.messages.length > 0);
-	const running = useAuiState((s) => s.thread.isRunning);
-	const release = useRef(() => {});
-	useLayoutEffect(() => {
-		const scroller = viewport.current;
-		const content = scroller?.firstElementChild;
-		if (!loaded || scroller == null || content == null) {
-			return;
-		}
-		const place = () => {
-			const message =
-				at === undefined
-					? null
-					: scroller.querySelector<HTMLElement>(
-							`[data-message-id="${CSS.escape(at)}"]`,
-						);
-			const turn = message?.closest<HTMLElement>('[data-slot="aui_turn"]');
-			// A card that took the focus as it came up, as questions do.
-			const arrived =
-				document.activeElement?.closest<HTMLElement>("[data-card]");
-			// The card that ends the task, when it is the conversation's last
-			// word: what the person scrolls to, so it opens there, unread or not.
-			const lastMessage = [
-				...scroller.querySelectorAll<HTMLElement>("[data-message-id]"),
-			].at(-1);
-			const ends = lastMessage?.querySelector<HTMLElement>("[data-ends]");
-			if (ends != null) {
-				toCardTop(ends);
-			} else if (
-				(message == null || turn == null) &&
-				arrived != null &&
-				scroller.contains(arrived)
-			) {
-				toCardTop(arrived);
-			} else if (message == null || turn == null) {
-				scroller.scrollTop = scroller.scrollHeight;
-			} else if (message === turn.firstElementChild) {
-				// The person's message that opens a turn reads from the turn's top.
-				scroller.scrollTop = Math.max(0, layoutTop(turn, scroller) - PEEK);
-			} else {
-				toCardTop(message);
-				// Beside a user message stuck atop its turn, that is the context;
-				// on a phone nothing sticks, so some of what came before shows.
-				if (!matchMedia(WIDE).matches) {
-					scroller.scrollTop = Math.max(0, scroller.scrollTop - PEEK);
-				}
-			}
-		};
-		place();
-		// Again once the parts assistant-ui renders through a renderer, as a
-		// card is, have come: it registers them a commit late.
-		const frame = requestAnimationFrame(place);
-		const watching = new ResizeObserver(place);
-		watching.observe(scroller);
-		watching.observe(content);
-		const gestures = ["pointerdown", "wheel", "touchstart", "keydown"];
-		const stop = () => {
-			cancelAnimationFrame(frame);
-			watching.disconnect();
-			for (const gesture of gestures) {
-				scroller.removeEventListener(gesture, stop);
-			}
-		};
-		for (const gesture of gestures) {
-			scroller.addEventListener(gesture, stop, { passive: true });
-		}
-		release.current = stop;
-		return stop;
-	}, [loaded, at, viewport]);
-	useEffect(() => {
-		if (running) {
-			release.current();
-		}
-	}, [running]);
 }
 /** The timeline of work still going on, opened by the person. */
 const FOLLOWED = '[data-slot="work"] details[open][data-working]';

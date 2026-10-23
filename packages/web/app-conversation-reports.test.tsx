@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
@@ -147,119 +147,57 @@ describe("App's report cards", () => {
 		expect(within(view).queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
-	/** Records each element scrolled into view while `run` runs, in `scrolled`. */
-	const scrollingIntoView = async (
-		run: (scrolled: Element[]) => Promise<void>,
-	) => {
-		const scrolled: Element[] = [];
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
-		const scroll = spyOn(
+	it.each([
+		["unread", { unread: true, seen: 1 }],
+		["partly read", { unread: false, read: 1 }],
+		["read", { unread: false, read: 4 }],
+		[
+			"merged",
+			{
+				messages: [
+					message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
+				],
+			},
+		],
+		[
+			"asking",
+			{
+				messages: [message("agent", "1. Which pages need it?\n   - [a] Todos")],
+			},
+		],
+	])("opens the %s conversation at the bottom", async (_name, overrides) => {
+		// happy-dom has no layout, so give the viewport a scrollable height.
+		const height = Object.getOwnPropertyDescriptor(
 			HTMLElement.prototype,
-			"scrollIntoView",
-		).mockImplementation(function (this: HTMLElement) {
-			scrolled.push(this);
+			"scrollHeight",
+		);
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			configurable: true,
+			get: () => 1600,
 		});
 		try {
-			await run(scrolled);
-		} finally {
-			scroll.mockRestore();
-		}
-		return scrolled;
-	};
-
-	const talk = [
-		message("user", "fix the footer"),
-		message("agent", "It moved."),
-		message("user", "fix the header"),
-		message("agent", "It wraps."),
-	];
-
-	it("opens an unread conversation at the first message its person has yet to see, clear of their message", async () => {
-		let reply: Element | null = null;
-		const scrolled = await scrollingIntoView(async (seen) => {
-			await testing.openConversations([
-				conversation({ messages: talk, unread: true, seen: 3 }),
-			]);
-			reply = await waitFor(() => {
-				const found = document.querySelector(
-					'[data-role="assistant"][data-message-id="3"]',
-				);
-				expect(found).not.toBeNull();
-				return found;
-			});
-			await waitFor(() => expect(seen.at(-1)).toBe(reply as Element));
-		});
-
-		expect(new Set<Element | null>(scrolled)).toEqual(new Set([reply]));
-		expect((reply as HTMLElement | null)?.style.scrollMarginTop).toMatch(
-			/^\d+(\.\d+)?px$/,
-		);
-	});
-
-	it("opens a conversation read to its end at the bottom", async () => {
-		const scrolled = await scrollingIntoView(async () => {
-			await testing.openConversations([
-				conversation({ messages: talk, unread: false, seen: 1 }),
-			]);
-			await waitFor(() =>
-				expect(within(document.body).getByText("It wraps.")).toBeTruthy(),
-			);
-			await act(() => new Promise((done) => requestAnimationFrame(done)));
-		});
-
-		expect(scrolled).toEqual([]);
-	});
-
-	// scry-ignore simple-test-setup: older than this task, which only added a test beside it
-	it("opens a conversation that ends on questions at their card's top, where the focus is", async () => {
-		// Resizes the page has no layout to make, as the cards above render.
-		const watchers = new Set<() => void>();
-		const real = globalThis.ResizeObserver;
-		globalThis.ResizeObserver = class {
-			private readonly fire: () => void;
-			constructor(changed: ResizeObserverCallback) {
-				this.fire = () => changed([], this as unknown as ResizeObserver);
-			}
-			observe() {
-				watchers.add(this.fire);
-			}
-			unobserve() {}
-			disconnect() {
-				watchers.delete(this.fire);
-			}
-		} as unknown as typeof ResizeObserver;
-		let card: Element | null = null;
-		const scrolled = await scrollingIntoView(async (seen) => {
-			await testing.openConversations([
+			const view = await testing.openConversations([
 				conversation({
 					messages: [
+						message("user", "fix the footer"),
+						message("agent", "It moved."),
 						message("user", "fix the header"),
-						message("agent", "1. Which pages need it?\n   - [a] Todos"),
+						message("agent", "It wraps."),
 					],
-					unread: false,
-					seen: 1,
+					...overrides,
 				}),
 			]);
-			card = await waitFor(() => {
-				const found = document.activeElement?.closest("[data-card]");
-				expect(found).toBeTruthy();
-				return found as Element;
-			});
-			// The thread places itself again as what is above settles, keeping
-			// to the card rather than going on to the bottom.
-			seen.length = 0;
-			await act(async () => {
-				// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
-				for (const fire of watchers) {
-					fire();
-				}
-			});
-		}).finally(() => {
-			globalThis.ResizeObserver = real;
-		});
-
-		expect(scrolled).not.toEqual([]);
-		expect(new Set<Element | null>(scrolled)).toEqual(new Set([card]));
+			const thread = view.container.querySelector(
+				'[data-slot="aui_thread-viewport"]',
+			) as HTMLElement;
+			await waitFor(() => expect(thread.scrollTop).toBe(1600));
+		} finally {
+			Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+			Object.defineProperties(
+				HTMLElement.prototype,
+				height ? { scrollHeight: height } : {},
+			);
+		}
 	});
 
 	it("keeps the thread clear of the composer only while the focus is elsewhere, so typing never scrolls it", async () => {

@@ -60,8 +60,6 @@ export type ThreadProps = {
 	placeholder?: string | undefined;
 	/** Shown in place of the composer, as where the page sends nothing. */
 	composer?: ReactNode | undefined;
-	/** The id of the message to open at, rather than the bottom. */
-	openAt?: string | undefined;
 	/** Told how many messages the person has read, as they scroll to their foot. */
 	onRead?: ((read: number) => void) | undefined;
 	/**

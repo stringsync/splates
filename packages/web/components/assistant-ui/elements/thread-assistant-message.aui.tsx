@@ -20,7 +20,6 @@ import {
 	ThreadComponentsContext,
 	type ThreadGroupPart,
 } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
-import { useOpenAt } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { ToolFallback } from "#web/components/assistant-ui/elements/tool-fallback.aui.tsx";
 import {
 	ToolGroupContent,
@@ -89,7 +88,7 @@ export const AssistantMessage: FC = () => {
 		<MessagePrimitive.Root
 			data-slot="aui_assistant-message-root"
 			data-role="assistant"
-			// What `useOpenAt` finds the first unseen message by.
+			// Read tracking and scroll anchoring identify messages by this id.
 			data-message-id={id}
 			// Always laid out, never `content-visibility: auto`: a reply it skips
 			// stands in at a guessed height for a frame, whenever it mounts or

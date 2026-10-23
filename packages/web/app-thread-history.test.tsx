@@ -58,7 +58,7 @@ describe("App's thread history window", () => {
 		).toBeNull();
 	});
 
-	it("includes an older unread reply and its whole turn when opening", async () => {
+	it("opens unread conversations at recent history too", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -73,12 +73,9 @@ describe("App's thread history window", () => {
 		);
 		const thread = view.getByRole("region", { name: "Unread history" });
 		await waitFor(() =>
-			expect(within(thread).queryByText("Answer number 10")).not.toBeNull(),
+			expect(within(thread).queryByText("Answer number 44")).not.toBeNull(),
 		);
-		expect(within(thread).queryByText("Question number 10")).not.toBeNull();
-		// The turn before it too, for the peek above where it opens.
-		expect(within(thread).queryByText("Question number 9")).not.toBeNull();
-		expect(within(thread).queryByText("Question number 8")).toBeNull();
-		expect(thread.querySelectorAll('[data-slot="aui_turn"]').length).toBe(36);
+		expect(within(thread).queryByText("Question number 10")).toBeNull();
+		expect(thread.querySelectorAll('[data-slot="aui_turn"]').length).toBe(20);
 	});
 });
