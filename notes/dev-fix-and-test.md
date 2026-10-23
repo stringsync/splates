@@ -19,6 +19,12 @@ evals. A focused run stays here and
 uses one worker by default; `--workers <n>` sets a positive worker limit.
 Leave the whole suite to the merge gate. No `--local` flag exists.
 
+The person runs as many agents as they like on one machine and nothing caps
+them, so AGENTS.md and the splates skill teach agents to keep runs narrow: run
+`dev fix` once per step (`--code-only` to skip scry's model calls), and ask
+with the run-command permission card for anything else heavy (a build, an
+install, docker, a benchmark), running it only on `[SPLATES RUN ALLOWED]`.
+
 An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test`
 or `dev premerge` with `not_granted`, its message naming the scoped flags,
 which need no approval (`--evals` counts as scoped). Outside a gate

@@ -23,6 +23,14 @@ premerge` is refused an agent until the person approves one run from a
 `## 🔐 Permission: run the test suite: <why>` card. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`.
 
+Everything runs on the person's machine, beside their work and every other
+agent's, and nothing caps how many agents they run, so keep runs small. Run
+`splates dev fix` once per step, not after every edit; `--code-only` skips
+scry's model calls when you only need its code rules. Anything else heavy (a
+build, an install, a whole suite, docker, a benchmark, anything long or
+CPU-hungry) you ask for with the run-command permission card the splates skill
+shows, end your turn, and run only on `[SPLATES RUN ALLOWED]`.
+
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as
 `bunx @webappwiz/cli <command>`.
