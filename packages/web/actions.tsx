@@ -214,7 +214,9 @@ export function Widgets({
 							]
 						: roomy
 							? [
-									"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
+									// Capped to the thread, so tall widgets scroll here rather than
+									// stretching the page.
+									"absolute top-0 right-4 z-10 flex max-h-full w-60 flex-col gap-3 overflow-y-auto overscroll-contain",
 									!open && "hidden",
 								]
 							: [
