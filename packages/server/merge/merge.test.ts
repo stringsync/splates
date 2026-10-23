@@ -271,6 +271,23 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it("stops on a conflict before waiting for a premerge lock another merge holds", async () => {
+		await using deps = await Testing.open();
+		deps.config.preMerge = "true";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "README.md", "task side\n", "task edit");
+		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk edit");
+		await deps.finish(worktree);
+		await Bun.spawn(["mkdir", "-p", deps.premerge.path]).exited;
+
+		await expect(merge(deps, worktree)).toBail("conflict", {
+			message: "README.md",
+		});
+		expect((await deps.service.find("alpha")).state?.mergeAttempts).toBe(1);
+		expect(await deps.fs.exists(deps.premerge.path)).toBe(true);
+	});
+
 	// scry-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
 	it.each(["task", "base"])(
 		"preserves a %s index lock without spending an attempt",

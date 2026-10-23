@@ -12,8 +12,12 @@ landed commits titled "X"; leaving `--message` off keeps each commit. The
 squash replaced a `git reset --soft` recipe the skill used to carry, and the
 same change dropped `## Done` from plans, since the git log records steps.
 
-It rebases onto the base, leaving a conflicted rebase in progress so the
-agent has the markers, then runs the gate on the rebased tree. Landing is
+It rebases onto the base before waiting for the premerge lock, so a conflict
+stops the merge before the wait; once it holds the lock it rebases again onto
+whatever landed meanwhile (a no-op when nothing did). A conflicted rebase is
+left in progress so the agent has the markers, and the gate runs on the
+rebased tree. The loop's rebase is that second one, so a conflict is one
+refusal and one charged attempt. Landing is
 `update-ref <base> <head> <onto>`, a compare-and-swap, and the checkout
 holding the base is updated with `read-tree -m -u`; if the base moved
 meanwhile the loop rebases and gates again without charging. On success it
