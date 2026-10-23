@@ -116,6 +116,37 @@ Cap upload retries
 		expect(runs?.innerHTML).not.toContain('aria-label="merging"');
 	});
 
+	it("marks an agent whose merge tests as merging, and one whose merge waits its turn faintly", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Tests",
+					status: "running",
+				}),
+				conversation({
+					id: "c2",
+					task: "beta",
+					title: "Waits",
+					status: "running",
+				}),
+			]),
+			null,
+			{
+				tasks: [
+					details({ task: "alpha", gate: "running" }),
+					details({ task: "beta", gate: "queued" }),
+				],
+			},
+		);
+
+		expect(rows(view)).toEqual([
+			["alpha", "merging"],
+			["beta", "waiting to merge"],
+		]);
+	});
+
 	it("marks an agent quiet long enough to be stuck, and stops its turn from its menu", async () => {
 		const quiet = {
 			...message("agent", "Looking."),

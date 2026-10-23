@@ -41,8 +41,8 @@ export type Need =
 			kind: "working";
 			/** The next step under `## Next`, else the Goal's first line. */
 			subject: string | null;
-			/** Whether its task is landing, under `splates merge`. */
-			merging?: true;
+			/** Its task's merge: waiting its turn for the premerge lock, or testing and landing. */
+			merge?: "queued" | "running";
 	  }
 	| { kind: "idle" };
 
@@ -200,8 +200,11 @@ export const ASKED_QUIET = Duration.mins(3);
 /** What an agent at work on `task` needs: nothing yet, while merging or not. */
 function working(task: Details | null): Need {
 	const subject = task?.plan ? doing(task.plan) : null;
-	return task?.status === "merging"
-		? { kind: "working", subject, merging: true }
+	if (task?.status === "merging" || task?.gate === "running") {
+		return { kind: "working", subject, merge: "running" };
+	}
+	return task?.gate === "queued"
+		? { kind: "working", subject, merge: "queued" }
 		: { kind: "working", subject };
 }
 

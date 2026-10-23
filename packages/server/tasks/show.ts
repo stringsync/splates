@@ -5,7 +5,7 @@ import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
 import type { FinishedPlan } from "./finished";
-import type { DiffSize, Worktree } from "./worktree";
+import type { DiffSize, Gate, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -62,6 +62,8 @@ export interface Details {
 	takenBy: string | null;
 	worktree: string;
 	lease: "held" | "stale" | "none";
+	/** Where its merge stands before landing: waiting its turn, or testing; null with none under way. */
+	gate: Gate | null;
 	ahead: number | null;
 	/**
 	 * Whether removing it would lose work: commits its base does not have, or
@@ -175,6 +177,7 @@ export class TaskDetails {
 			takenBy: worktree.takenBy,
 			worktree: worktree.path,
 			lease: worktree.leaseStatus,
+			gate: worktree.gate,
 			ahead,
 			unmerged:
 				// Unknown counts as unmerged, so nothing is discarded unasked.

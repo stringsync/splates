@@ -430,6 +430,7 @@ describe.concurrent("merge", () => {
 			merge({ ...deps, gateTimeoutMs: 100 }, worktree, facts),
 		).toBail("timeout");
 		expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
+		expect((await deps.service.find("alpha")).state?.gate).toBeUndefined();
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(false);
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});

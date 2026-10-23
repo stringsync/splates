@@ -170,11 +170,14 @@ export function statusOf(
 	trunk: string | null,
 	quiet: Quiet | null = null,
 ): { text: string; urgent: boolean } {
-	if (need.kind === "working" && need.merging) {
+	if (need.kind === "working" && need.merge === "running") {
 		return {
 			text: `Merging onto ${task?.base ?? trunk ?? "trunk"}`,
 			urgent: false,
 		};
+	}
+	if (need.kind === "working" && need.merge === "queued") {
+		return { text: "Waiting to merge", urgent: false };
 	}
 	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
 		return { text: quietText(quiet), urgent: true };

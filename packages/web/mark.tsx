@@ -10,7 +10,8 @@ import { type Quiet, quietTitle } from "./quiet";
  * for, a spinner while it or an agent it handed a task to works, assuming or
  * not, a blue dot when it answered and you have not looked since, and a
  * green or red dot once its task merged or was removed, over the blue one.
- * While its task lands, the spinner gives way to a green merge icon.
+ * While its task's merge tests and lands, the spinner gives way to a green
+ * merge icon, and while the merge waits its turn, to a faint gray one.
  * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. A spinner gone quiet long enough that the agent
@@ -96,7 +97,7 @@ export function Mark({
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
 	}
-	if (need.kind === "working" && need.merging) {
+	if (need.kind === "working" && need.merge === "running") {
 		return (
 			<span
 				role="status"
@@ -105,6 +106,18 @@ export function Mark({
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
 				<GitMergeIcon className="size-3.5 text-success" />
+			</span>
+		);
+	}
+	if (need.kind === "working" && need.merge === "queued") {
+		return (
+			<span
+				role="status"
+				aria-label="waiting to merge"
+				title="Waiting to merge"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<GitMergeIcon className="size-3.5 text-muted-foreground/50" />
 			</span>
 		);
 	}

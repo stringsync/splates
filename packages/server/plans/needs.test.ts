@@ -33,14 +33,29 @@ describe("needs", () => {
 		expect(need(task({ status: "merging" }), running)).toEqual({
 			kind: "working",
 			subject: null,
-			merging: true,
+			merge: "running",
 		});
 		expect(need(task({ status: "merging" }), null)).toEqual({
 			kind: "working",
 			subject: null,
-			merging: true,
+			merge: "running",
 		});
 		expect(need(task(), running)).toEqual({ kind: "working", subject: null });
+	});
+
+	it("says a merge is under way while its gate tests, and waiting its turn before", () => {
+		const running = talk({ status: "running" });
+
+		expect(need(task({ gate: "running" }), running)).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "running",
+		});
+		expect(need(task({ gate: "queued" }), running)).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "queued",
+		});
 	});
 
 	it("waits on a review its last reply asks for, once its turn ends", () => {
@@ -391,6 +406,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		takenBy: null,
 		worktree: "/tmp/alpha",
 		lease: "held",
+		gate: null,
 		ahead: 1,
 		unmerged: true,
 		added: 1,

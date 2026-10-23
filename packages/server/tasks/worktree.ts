@@ -75,6 +75,15 @@ export class Worktree {
 		return Date.now() - Date.parse(lease.heartbeatAt) < config.leaseStalenessMs;
 	}
 
+	/**
+	 * Where its merge stands before landing, while the merge that wrote it
+	 * still runs; null otherwise.
+	 */
+	get gate(): Gate | null {
+		const gate = this.snapshot.state?.gate;
+		return gate !== undefined && this.leaseHeld ? gate : null;
+	}
+
 	get leaseStatus(): "held" | "stale" | "none" {
 		return !this.lease ? "none" : this.leaseHeld ? "held" : "stale";
 	}
@@ -318,6 +327,9 @@ export type RemoveReason = (typeof REMOVE_REASONS)[number];
 /** The status a task's own record carries. */
 export type RecordStatus = "working" | "merging";
 
+/** Where a merge stands before it lands, as `TaskState.gate` keeps it. */
+export type Gate = "queued" | "running";
+
 /** What a task's record stores about who is driving it. */
 export interface LeaseState {
 	pid: number;
@@ -403,6 +415,11 @@ export interface TaskState {
 	gateFailures?: GateFailure[];
 	/** How many times `splates retry` granted it more attempts. Absent in old records. */
 	retries?: number;
+	/**
+	 * Where a merge under way stands before it lands: waiting its turn for the
+	 * machine's premerge lock, or holding it to test. Absent otherwise.
+	 */
+	gate?: Gate;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
@@ -449,11 +466,9 @@ export interface Dispatched {
 	 * which takes the task rather than a new one; absent for none.
 	 */
 	held?: string;
-	/**
-	 * Whether the postCheckout hook is still readying the tree: `splates
-	 * server` starts the agent once it is not. Recorded from the start, so
-	 * the task reads as handed over rather than an external agent's.
-	 */
+	/** Whether the postCheckout hook is still readying the tree; `splates server` starts the agent once it is not. */
+	// Recorded from the start, so the task reads as handed over rather than
+	// an external agent's.
 	pending?: true;
 }
 
