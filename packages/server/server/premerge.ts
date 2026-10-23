@@ -44,9 +44,10 @@ export const PREMERGE_HOLD_MS = 3 * 60 * 1000;
 
 /**
  * A lock that lets itself go after `holdMs`, logging it, so a live holder
- * that never finishes cannot keep it forever. The holder's own `release`
- * after that does nothing. The wait for the lock passes through to `inner`,
- * the place in line it tells included.
+ * that never finishes cannot keep it forever; a holder that `renew`s it, as
+ * a merge does at each gate run, has `holdMs` again from then. The holder's
+ * own `release` after that does nothing. The wait for the lock passes
+ * through to `inner`, the place in line it tells and the signal included.
  */
 export class TimedLock implements PlacedLock {
 	#timer: ReturnType<typeof setTimeout> | null = null;
@@ -59,8 +60,20 @@ export class TimedLock implements PlacedLock {
 
 	async acquire(
 		onPlace?: (place: number) => void | Promise<void>,
+		signal?: AbortSignal,
 	): Promise<void> {
-		await this.inner.acquire(onPlace);
+		await this.inner.acquire(onPlace, signal);
+		this.#hold();
+	}
+
+	renew(): void {
+		if (this.#timer !== null) {
+			this.#stop();
+			this.#hold();
+		}
+	}
+
+	#hold(): void {
 		this.#timer = setTimeout(() => {
 			this.#timer = null;
 			this.log.error(

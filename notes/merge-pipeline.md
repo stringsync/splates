@@ -70,3 +70,39 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
 
 - `packages/server/merge/merge.ts`: `merge()`
 - `packages/server/merge/charge.ts`: the repeat rule
+
+## Batches
+
+Merges waiting for the premerge lock at once gate as one batch, a merge
+train (`packages/server/merge/batch.ts`, `follow.ts`, `split.ts`,
+`blame.ts`). Each gated merge landing locally (never with a central remote)
+posts an offer in the project's `merge-batch` collection while it waits and
+answers invitations meanwhile (`follow`); the squash happens before the wait,
+so a batch stacks the squashed commit. The merge that takes the lock leads:
+`MergeBatch.form` invites the live offers for its base oldest first, up to
+`MERGE_BATCH_CAP` (4, the leader included), each onto the tip the one before
+made; a follower stacks by `reset --hard` to its own head and `rebase <tip>`,
+or declines on a conflict and is not asked again. The leader gates the tip
+once in a detached `splates-batch` checkout (`MergeGate.checkout`, where
+`postRewrite` installs), then `landTested` moves the base to the tip with one
+compare-and-swap and each follower is told `landed`; every process ends its
+own task (`finishLanding`), so a follower's merge event has its own wait,
+`commit` and files, and `batch` names the tasks gated together, leader first.
+Only the tip is gated, as merge trains do: every landed commit is inside a
+tree the whole suite passed on, never gated alone.
+
+A failing batch is settled by attribution against the stack (`splitBatch`):
+`task` walks the stack bottom up running the failing files at each member's
+head (`blame`), and the first they fail with is refused `tests_failed` with
+`rebasedOnto` the stack under it (so it charges only a same-tests repeat), its
+branch back on its own head and the stack commit named to reproduce on; the
+batch re-forms without it and gates again. A leader found culprit is refused
+as a lone merge is and the followers go on alone. `trunk` refuses every
+member, held and free. `flake` reruns the gate on the stack. An inconclusive
+result, a timeout or a base that moved dissolves the batch: the followers wait
+on, back on their own heads, and the leader gates alone. A follower's branch
+sits on a stack only while that batch is live, so a later plain rebase onto
+the base never replays another task's commits. A follower learns its result
+from the collection and gives its lock wait up through an `AbortSignal`
+(`TicketedLock.acquire`); the `TimedLock` hold starts over at each gate run
+(`renew`), so a batch's rounds fit it.

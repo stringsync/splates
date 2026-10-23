@@ -13,6 +13,11 @@ import type { MergeTiming } from "./timing";
 
 /** How long a merge waits for the premerge lock before its line says it is queued. */
 export const QUEUED_AFTER_MS = 1000;
+/** A scratch checkout of one commit, gone once disposed of. */
+export interface Checkout extends AsyncDisposable {
+	path: string;
+}
+
 /** A hook's output and its fresh JUnit report, kept together for attribution. */
 export interface GateRun {
 	exitCode: number;
@@ -51,6 +56,8 @@ export class MergeGate {
 		 * changes, one call at a time.
 		 */
 		onQueued: (place: number) => Promise<void> = async () => {},
+		/** Aborted by a merge that stops wanting the lock, as a batch's follower does once it is landed. */
+		signal?: AbortSignal,
 	): Promise<AsyncDisposable> {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
@@ -67,7 +74,7 @@ export class MergeGate {
 			.acquire((at) => {
 				place = at;
 				return queued ? tell(at) : undefined;
-			})
+			}, signal)
 			.then(() => true);
 		// A `Lock` cannot be tried without waiting, so a lock not had soon is taken as held.
 		let timer: ReturnType<typeof setTimeout> | undefined;
@@ -113,6 +120,9 @@ export class MergeGate {
 		}: { files?: string[]; at?: string; recent?: string[] } = {},
 	): Promise<GateRun> {
 		using _time = this.timing.track("gateMs");
+		// Each run is bounded on its own, so the hold starts over with it: a
+		// batch's rounds and retests add up past one hold without any hanging.
+		this.premerge.renew?.();
 		try {
 			if (files === undefined ? !this.command : false) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
@@ -130,30 +140,24 @@ export class MergeGate {
 		{ files, at, recent }: { files?: string[]; at?: string; recent?: string[] },
 	): Promise<GateRun> {
 		if (at !== undefined) {
-			const scratch = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/splates-attribution`;
-			const added = await this.git.run(
-				cwd,
-				"worktree",
-				"add",
-				"--detach",
-				scratch,
-				at,
-			);
-			if (added.code !== 0) {
+			let scratch: Checkout;
+			try {
+				scratch = await this.checkout(cwd, at, "splates-attribution");
+			} catch (error) {
 				return {
 					exitCode: 1,
 					stdout: "",
-					stderr: `Could not create the baseline checkout: ${added.stderr || added.stdout}`,
+					stderr: `Could not create the baseline checkout: ${error instanceof Error ? error.message : String(error)}`,
 					xml: "",
 				};
 			}
 			let result: GateRun;
 			try {
 				// The baseline needs its own dependencies, never the task's node_modules.
-				const prepared = await this.prepare(scratch, task);
+				const prepared = await this.prepare(scratch.path, task);
 				result =
 					prepared.exitCode === 0
-						? await this.runIn(scratch, task, files, recent)
+						? await this.runIn(scratch.path, task, files, recent)
 						: {
 								...prepared,
 								stderr: `Baseline setup failed: ${prepared.stdout}\n${prepared.stderr}`,
@@ -161,17 +165,50 @@ export class MergeGate {
 			} catch (error) {
 				result = { exitCode: 1, stdout: "", stderr: String(error), xml: "" };
 			}
-			const removed = await this.git.removeWorktree(scratch);
-			return removed.code === 0
-				? result
-				: {
-						exitCode: 1,
-						stdout: "",
-						stderr: `Could not remove attribution checkout ${scratch}: ${removed.stderr || removed.stdout}`,
-						xml: "",
-					};
+			try {
+				await scratch[Symbol.asyncDispose]();
+			} catch (error) {
+				return {
+					exitCode: 1,
+					stdout: "",
+					stderr: `Could not remove attribution checkout ${scratch.path}: ${error instanceof Error ? error.message : String(error)}`,
+					xml: "",
+				};
+			}
+			return result;
 		}
 		return this.runIn(cwd, task, files, recent);
+	}
+
+	/**
+	 * A detached checkout of `at` named `name` in the repository's git
+	 * directory, as a batch gates its stacked tip in, removed when disposed
+	 * of; throws when git cannot make or remove it. Run the whole gate there
+	 * with `run`, which installs its dependencies as the command's
+	 * `postRewrite` does.
+	 */
+	async checkout(cwd: string, at: string, name: string): Promise<Checkout> {
+		const path = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/${name}`;
+		const added = await this.git.run(
+			cwd,
+			"worktree",
+			"add",
+			"--detach",
+			path,
+			at,
+		);
+		if (added.code !== 0) {
+			throw new Error(added.stderr || added.stdout);
+		}
+		return {
+			path,
+			[Symbol.asyncDispose]: async () => {
+				const removed = await this.git.removeWorktree(path);
+				if (removed.code !== 0) {
+					throw new Error(removed.stderr || removed.stdout);
+				}
+			},
+		};
 	}
 
 	private async runIn(

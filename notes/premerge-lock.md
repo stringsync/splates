@@ -36,7 +36,14 @@ spends no attempt, so the agent merges again.
 the gate's `sh` leaves its children running.
 
 A holder keeps the lock at most `PREMERGE_HOLD_MS`, also 3 minutes
-(`TimedLock`), so a hung holder cannot wedge every merge.
+(`TimedLock`), so a hung holder cannot wedge every merge; each gate run
+renews the hold (`PlacedLock.renew`), since each is bounded on its own and
+a batch's rounds and retests add up past one hold.
+
+Merges waiting at once gate as one batch under the holder's lock, so the
+line is usually shorter than the merges asking: see `merge-pipeline.md`,
+Batches. A waiter that a batch lands gives its wait up through the
+`AbortSignal` `TicketedLock.acquire` takes, leaving no ticket.
 
 ## What the gate sets
 

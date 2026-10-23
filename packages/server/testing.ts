@@ -13,7 +13,7 @@ import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
 import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
-import { CoordinatorLanding, TaskBranches } from "./merge";
+import { CoordinatorLanding, MergeBatch, TaskBranches } from "./merge";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
@@ -74,6 +74,8 @@ export class Testing implements AsyncDisposable {
 	readonly shell: Shell;
 	/** The premerge lock a merge under test holds, never the machine's. */
 	readonly premerge: FileLock;
+	/** Where merges under test form batches, polled fast. */
+	readonly batch: MergeBatch;
 	readonly journal: Journal;
 	/** The project's records, in its database under `dir`. */
 	readonly storage: SqliteStorage;
@@ -168,6 +170,10 @@ export class Testing implements AsyncDisposable {
 			fs: this.fs,
 			ps: this.ps,
 			log: this.log,
+		});
+		this.batch = new MergeBatch(this.storage, this.ps, this.log, {
+			pollMs: 20,
+			replyMs: 5000,
 		});
 		this.journal = new Journal(this.storage, this.config.logCapacity, {
 			ps: this.ps,

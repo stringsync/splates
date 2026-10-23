@@ -1,5 +1,7 @@
 export type { AttributedFailure, FailureAttribution } from "./attribution";
 export { attributeFailure } from "./attribution";
+export type { BatchResult, Member } from "./batch";
+export { MERGE_BATCH_CAP, MergeBatch } from "./batch";
 export type { AppSource, Pushed, TokenMinter } from "./branches";
 export {
 	PUSHED_PREFIX,

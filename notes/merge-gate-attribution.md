@@ -32,6 +32,10 @@ spends an attempt. Each failing test also becomes a backlog task.
 - In every case the branch stays on the rebased commit the gate tested, with
   only what the gate wrote dropped, so the agent can reproduce the failure.
 - An existing `index.lock` holds the merge as `blocked` without charging.
+- In a batch, attribution runs against the stack's tip with the base as
+  baseline, and a `task` result is narrowed to one member by `blame`,
+  which runs the failing files at each member's head bottom up
+  (`merge-pipeline.md`, Batches).
 
 ## What the failure reports
 

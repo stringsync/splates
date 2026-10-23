@@ -87,6 +87,11 @@ export interface Facts {
 		 * rebased, when it had moved. Absent on older events and other refusals.
 		 */
 		landed?: LandedSince;
+		/**
+		 * The tasks gated together in one batch, leader first, when the merge
+		 * was one of a batch. Absent on a merge gated alone and older events.
+		 */
+		batch?: string[];
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
@@ -432,6 +437,7 @@ export const FACTS = {
 		"output",
 		"began",
 		"landed",
+		"batch",
 	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
@@ -546,6 +552,7 @@ export function isCurrent(event: Event): boolean {
 					"output",
 					"began",
 					"landed",
+					"batch",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

@@ -12,6 +12,8 @@ import type { TrunkLanding } from "./trunk";
  * Lands the exact tip certified by a gate, or returns null when its base
  * moved and it needs another rebase and gate. No heavy work holds this lock.
  * Callers hold the task's merge-tree lock until they finish with its checkout.
+ * A batch's leader lands the stack's `tip`, which its own `testedHead` is
+ * under, as one move of the base.
  */
 export async function landTested(
 	{
@@ -32,7 +34,8 @@ export async function landTested(
 		remote,
 		onto,
 		testedHead,
-	}: { remote: string | null; onto: string; testedHead: string },
+		tip = testedHead,
+	}: { remote: string | null; onto: string; testedHead: string; tip?: string },
 	facts: Partial<Facts["merge"]>,
 ) {
 	const { task, branch, base } = worktree;
@@ -98,7 +101,7 @@ export async function landTested(
 					? await trunk.land({
 							task: current.task,
 							onto,
-							head: testedHead,
+							head: tip,
 							holder: {
 								pid: service.ps.pid,
 								hostname: service.ps.hostname,
@@ -130,7 +133,7 @@ export async function landTested(
 							git,
 							base,
 							onto,
-							head: testedHead,
+							head: tip,
 							landing: holder,
 						});
 			if ("moved" in merged && merged.moved) {

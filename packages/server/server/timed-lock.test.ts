@@ -29,4 +29,22 @@ describe("TimedLock", () => {
 		await Bun.sleep(40);
 		expect(calls).toEqual(["acquire", "release"]);
 	});
+
+	it("has its time again from a renewal", async () => {
+		await lock.acquire();
+		await Bun.sleep(6);
+		lock.renew();
+		await Bun.sleep(6);
+		expect(calls).toEqual(["acquire"]);
+		await Bun.sleep(40);
+		expect(calls).toEqual(["acquire", "release"]);
+	});
+
+	it("renews nothing it no longer holds", async () => {
+		await lock.acquire();
+		await lock.release();
+		lock.renew();
+		await Bun.sleep(40);
+		expect(calls).toEqual(["acquire", "release"]);
+	});
 });

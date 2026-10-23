@@ -1,14 +1,25 @@
+import { aborts } from "webappwiz/abort";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock, Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 
 /**
  * A lock whose waiters are told their place in line as they wait: 1 is next
- * for the lock once its holder lets go.
+ * for the lock once its holder lets go. A waiter that stops wanting it
+ * aborts `signal`, and its `acquire` rejects with the signal's reason unless
+ * it already holds the lock.
  */
 export interface PlacedLock extends Lock {
 	// scry-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
-	acquire(onPlace?: (place: number) => void | Promise<void>): Promise<void>;
+	acquire(
+		onPlace?: (place: number) => void | Promise<void>,
+		signal?: AbortSignal,
+	): Promise<void>;
+	/**
+	 * Starts over the time a holder may keep the lock, where the lock caps
+	 * it: a holder that begins another bounded step of work calls it.
+	 */
+	renew?(): void;
 }
 
 /**
@@ -48,16 +59,20 @@ export class TicketedLock implements PlacedLock {
 	 * Waits for every ticket ahead to go, telling `onPlace` this waiter's
 	 * place each time it changes, then takes `inner`. The ticket stays while
 	 * `inner` is taken, so a later waiter keeps its place behind this one,
-	 * and goes once the lock is had.
+	 * and goes once the lock is had. Aborting `signal` gives the place up:
+	 * the ticket goes and the call rejects with the signal's reason, unless
+	 * the lock was had already.
 	 */
 	// scry-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
 	async acquire(
 		onPlace?: (place: number) => void | Promise<void>,
+		signal?: AbortSignal,
 	): Promise<void> {
 		const ticket = await this.issue();
 		try {
 			let place: number | null = null;
 			for (;;) {
+				signal?.throwIfAborted();
 				const ahead = await this.ahead(ticket);
 				if (ahead + 1 !== place) {
 					place = ahead + 1;
@@ -68,7 +83,23 @@ export class TicketedLock implements PlacedLock {
 				}
 				await sleep(Duration.ms(this.pollMs));
 			}
-			await this.inner.acquire();
+			signal?.throwIfAborted();
+			const taking = this.inner.acquire();
+			if (signal === undefined) {
+				await taking;
+				return;
+			}
+			try {
+				await aborts.race(signal, taking);
+			} catch (error) {
+				// `inner` cannot be told to stop asking: a lock it gets after this
+				// goes straight back, so the next waiter has it a poll later.
+				void taking.then(
+					() => this.inner.release(),
+					() => {},
+				);
+				throw error;
+			}
 		} finally {
 			await this.fs.rm(`${this.dir}/${ticket}`, { force: true });
 		}

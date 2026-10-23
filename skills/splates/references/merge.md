@@ -60,6 +60,15 @@ test, since a change that just landed is the likeliest cause. Then reproduce
 the failure there (`bun test <paths>` on the failing files), fix, commit and
 merge again.
 
+Merges waiting for the gate at once are gated as one batch: the first to
+go stacks the others' branches on its own, runs the gate once and lands
+them all, so a merge that queued may land without a gate of its own. A
+`tests_failed` from a batch says which tasks it was gated with and leaves
+your branch rebased on the base alone; it is yours only when the failing
+tests first fail with your commits in the stack, and the refusal then names
+the stack commit to reproduce on when the files pass alone. The rest of a
+failing batch is gated again without the culprit, charged nothing.
+
 A gate that runs past 3 minutes is killed, and merge stops as `timeout`
 without spending an attempt: merge again. An existing Git `index.lock`
 stops merge as `blocked` without spending an attempt. Wait for its owner to finish and merge again; never delete a lock

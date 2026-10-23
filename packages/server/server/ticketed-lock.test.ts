@@ -97,4 +97,37 @@ describe("TicketedLock", () => {
 
 		expect(seen).toEqual([2, 1]);
 	});
+
+	it("gives up its place when its signal aborts, leaving no ticket and the lock to the next", async () => {
+		await waiter(0);
+		const gone = new AbortController();
+		const second = lock.acquire(undefined, gone.signal);
+		await Bun.sleep(20);
+		const third = waiter(2);
+		await Bun.sleep(20);
+		expect(places[2]).toEqual([2]);
+
+		gone.abort(new Error("landed in a batch"));
+		await expect(second).rejects.toThrow("landed in a batch");
+		await Bun.sleep(20);
+		expect(places[2]).toEqual([2, 1]);
+		expect(await fs.readdir("/home/premerge.queue")).toHaveLength(1);
+
+		await lock.release();
+		await third;
+		await lock.release();
+	});
+
+	it("keeps a lock it had before its signal aborted", async () => {
+		const gone = new AbortController();
+		await lock.acquire(undefined, gone.signal);
+		gone.abort();
+
+		const second = waiter(1);
+		await Bun.sleep(20);
+		expect(places[1]).toEqual([1]);
+		await lock.release();
+		await second;
+		await lock.release();
+	});
 });
