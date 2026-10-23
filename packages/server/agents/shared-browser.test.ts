@@ -5,7 +5,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
 import { GUARD } from "../tunnel";
 import { IDLE, PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
-import { FREE, served } from "./testing";
+import { served } from "./testing";
 
 const INSTALL = `bunx ${PLAYWRIGHT_MCP} install-browser chromium-headless-shell`;
 const SERVE = `sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port 0`;
@@ -19,7 +19,7 @@ describe("SharedBrowser", () => {
 		ps = new FakePs();
 		fs = new FakeFs();
 		browser = new SharedBrowser(
-			{ ps, fs, timer: new FakeTimer(), log: new MemoryLogger(), heavy: FREE },
+			{ ps, fs, timer: new FakeTimer(), log: new MemoryLogger() },
 			"/home/.splates",
 		);
 		const asked = browser.servers();

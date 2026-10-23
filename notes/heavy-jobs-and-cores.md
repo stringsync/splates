@@ -9,8 +9,9 @@ the machine home so every server and worktree on the machine shares one cap.
 `SPLATES_HEAVY_JOBS` sets it, 1 by default: two test runs heat the host too much while the
 person works. This is the backstop for the merge gate fallback and projects
 with no cloud. `splates run -- <cmd>`, `splates dev
-test`, the `postCheckout`, `postRewrite` and `preMerge` hooks and the shared
-browser's start all take a slot.
+test` and the `postCheckout`, `postRewrite` and `preMerge` hooks all take a
+slot. The shared browser's start does not: it is a spawn, and a session
+waits on it before its agent starts.
 
 Cores are claimed separately (`server/cores.ts`): `SPLATES_HEAVY_CORES`, else
 all but two, kept for the server, agents and git. A process running inside a

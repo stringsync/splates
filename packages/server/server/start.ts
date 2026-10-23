@@ -44,7 +44,6 @@ import {
 	workerSocketPath,
 } from "../workers";
 import { directSweep } from "./direct-run";
-import { heavyJobsOfMachine } from "./heavy";
 import { newest, RUNNING, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
 import { type DevServer, dev, devPorts } from "./server";
@@ -223,7 +222,6 @@ export async function serveDev(
 			fs: ctx.fs,
 			timer: new SystemTimer(),
 			log: ctx.log,
-			heavy: heavyJobsOfMachine(ctx),
 		},
 		splatesHome(ctx.ps),
 	);
