@@ -81,7 +81,7 @@ export function ReportCard({
 	const archivable = useArchivable(report);
 	const landed = useLanded(report.ending === "merged" ? report.task : null);
 	return (
-		<div ref={ended}>
+		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
 				label={`${report.ending} ${report.task}`}
 				Icon={Icon}

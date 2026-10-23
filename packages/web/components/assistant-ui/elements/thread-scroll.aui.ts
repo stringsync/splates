@@ -83,7 +83,8 @@ function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
 const PEEK = 56;
 /**
  * Opens `viewport` at the top of message `at`, the first the person has yet
- * to see, so they read on from where they left off, or else at the top of the
+ * to see, so they read on from where they left off, or else, when the task has
+ * ended, at the top of its closing card, or else at the top of the
  * card that took the focus as it came up, or else at the bottom, as
  * assistant-ui would. It holds there while what is above settles, as markdown
  * and cards render, until the person scrolls, clicks or types, or a reply
@@ -113,7 +114,15 @@ export function useOpenAt(
 			// A card that took the focus as it came up, as questions do.
 			const arrived =
 				document.activeElement?.closest<HTMLElement>("[data-card]");
-			if (
+			// The card that ends the task, when it is the conversation's last
+			// word: what the person scrolls to, so it opens there, unread or not.
+			const lastMessage = [
+				...scroller.querySelectorAll<HTMLElement>("[data-message-id]"),
+			].at(-1);
+			const ends = lastMessage?.querySelector<HTMLElement>("[data-ends]");
+			if (ends != null) {
+				toCardTop(ends);
+			} else if (
 				(message == null || turn == null) &&
 				arrived != null &&
 				scroller.contains(arrived)
