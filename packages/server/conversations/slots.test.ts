@@ -3,12 +3,14 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type PoolWorker, Scheduler } from "../workers";
 import type { ConversationSlots } from "./host";
 import { Conversations } from "./index";
 import { IDLE_STOP } from "./state";
 import { eventually, once, until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversations waiting for a slot", () => {
 	let timer: FakeTimer;

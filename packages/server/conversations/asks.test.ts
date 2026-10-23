@@ -3,9 +3,11 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { once, until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation asks", () => {
 	let fs: FakeFs;

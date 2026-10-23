@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Conversations } from "../conversations";
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev artifacts", () => {
 	let deps: Testing;

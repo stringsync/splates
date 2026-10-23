@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Limits } from "../models";
 import { FsStorage } from "../storage";
 import { Conversations } from "./index";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversations.refreshLimits", () => {
 	const window = {

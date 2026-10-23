@@ -3,7 +3,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type ArtifactLimits, Artifacts } from "../artifacts";
 import type { Exit } from "../exit";
 import { FsStorage } from "../storage";
@@ -12,6 +12,8 @@ import { Conversations } from "./index";
 import { until } from "./testing";
 
 const DIR = "/repo/.git/splates/conversations";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation artifacts", () => {
 	let fs: FakeFs;

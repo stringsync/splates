@@ -3,7 +3,7 @@ import { chmod, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Conversations } from "../conversations";
 import type { Stats } from "../stats";
 import type { Snapshot } from "../tasks";
@@ -11,6 +11,8 @@ import { add } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
 import { eventually, serving } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev projects", () => {
 	let deps: Testing;

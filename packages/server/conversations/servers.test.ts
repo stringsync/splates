@@ -3,7 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { until } from "./testing";
 
@@ -13,6 +13,8 @@ const BROWSER: acp.McpServer = {
 	url: "http://localhost:51234/mcp",
 	headers: [],
 };
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation servers", () => {
 	let fs: FakeFs;

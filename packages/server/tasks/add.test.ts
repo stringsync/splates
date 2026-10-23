@@ -1,9 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { ROSTERED } from "../agents/testing";
+
 import { decodeTask } from "../board";
 import { Testing } from "../testing";
 import { add } from "./add";
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("add", () => {
 	let deps: Testing;

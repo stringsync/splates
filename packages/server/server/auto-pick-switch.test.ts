@@ -1,10 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Conversations } from "../conversations";
 import { Testing } from "../testing";
 import { dev } from "./server";
 import { json } from "./testing";
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("Auto pick's switch for a conversation", () => {
 	let deps: Testing;

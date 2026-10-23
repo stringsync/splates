@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
 import type { Agent } from "../agents";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { taskAdd, taskUpdate } from "../board";
 import { Conversations } from "../conversations";
 import { eventually } from "../conversations/testing";
@@ -352,3 +352,15 @@ function heldList() {
 	};
 	return { held, dropped, conversations };
 }
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { AGENT, FakeAgent, FakeAgentPs } from "../agents/testing";
+import { FakeAgent, FakeAgentPs } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
 import { eventually } from "../conversations/testing";
@@ -20,6 +20,8 @@ import {
 import { type DevServer, dev } from "./server";
 import { RESTART } from "./supervise";
 import { atWork, json } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev restart with agents on the worker", () => {
 	let deps: Testing;

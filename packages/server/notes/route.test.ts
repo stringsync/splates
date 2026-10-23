@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
-import { AGENT, FakeAgent, say as saying } from "../agents/testing";
+import { FakeAgent, say as saying } from "../agents/testing";
 import type { Judge } from "../auto-pick";
 import { FakeJudge } from "../auto-pick/testing";
 import { type Conversation, Conversations } from "../conversations";
@@ -9,6 +9,8 @@ import { message } from "../fixtures";
 import type { Event } from "../records";
 import { Testing } from "../testing";
 import { routing } from "./index";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("routing", () => {
 	let deps: Testing;

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Agent } from "../agents";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "../conversations";
 import { eventually, until } from "../conversations/testing";
 import { add } from "../tasks";
@@ -17,6 +17,18 @@ const LIGHT_EDIT = {
 	"kind:open": 0.1,
 	"depth:shallow": 0.8,
 	"depth:deep": 0.1,
+};
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
 };
 
 describe("startAutoPick", () => {

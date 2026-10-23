@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import type { StoredTask } from "../board";
 import { Conversations } from "../conversations";
 import { eventually } from "../conversations/testing";
@@ -10,6 +10,18 @@ import { Testing } from "../testing";
 import { classificationKey } from "./key";
 import type { AutoPicked } from "./record";
 import type { AutoPickTrial } from "./trial";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("dev Auto pick", () => {
 	let deps: Testing;

@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { ARCHIVED_KEPT, Conversations } from "./index";
 import { until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversations.prune", () => {
 	let fs: FakeFs;
@@ -83,9 +85,11 @@ describe("Conversations.prune", () => {
 		new Date(Date.parse("2026-10-01T00:00:00Z") + i * 60_000).toISOString();
 
 	it("deletes the archived ones past the newest kept as they are read back, by when each was archived", async () => {
-		for (let i = 0; i < ARCHIVED_KEPT; i++) {
-			await logged(`kept${i}`, minute(0), { at: minute(i + 10) });
-		}
+		await Promise.all(
+			Array.from({ length: ARCHIVED_KEPT }, (_, i) =>
+				logged(`kept${i}`, minute(0), { at: minute(i + 10) }),
+			),
+		);
 		// Started last, but archived before any of the kept ones.
 		await logged("archived-first", minute(9), { at: minute(1) });
 		// Archived before archiving was timed: as of when it started.
@@ -107,9 +111,11 @@ describe("Conversations.prune", () => {
 	});
 
 	it("deletes the one archived longest ago once one more is archived, and says so", async () => {
-		for (let i = 0; i < ARCHIVED_KEPT; i++) {
-			await logged(`kept${i}`, minute(0), { at: minute(i) });
-		}
+		await Promise.all(
+			Array.from({ length: ARCHIVED_KEPT }, (_, i) =>
+				logged(`kept${i}`, minute(0), { at: minute(i) }),
+			),
+		);
 		const conversation = await started();
 		const removed: string[] = [];
 		conversations.events.on("removed", (id) => removed.push(id));

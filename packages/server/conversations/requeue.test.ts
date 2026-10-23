@@ -3,12 +3,14 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { taskReference } from "../plans";
 import { type PoolWorker, Scheduler } from "../workers";
 import type { ConversationSlots } from "./host";
 import { type Conversation, Conversations } from "./index";
 import { eventually, type Held, until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("A conversation whose worker is removed under it", () => {
 	let agent: FakeAgent;

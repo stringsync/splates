@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations, SERVER_TOLD } from "./index";
 import { until } from "./testing";
 
 const DIR = "/repo/.git/splates/conversations";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Restarting a conversation's agent, or handing its task off", () => {
 	let fs: FakeFs;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Limits, Offered } from "../models";
 import type { Outcome } from "../stats";
 import { Adherence, Outcomes } from "../stats";
@@ -15,6 +15,8 @@ import { eventually, until } from "./testing";
 const ASK_IN_SPLATES = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
 };
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversations", () => {
 	let fs: FakeFs;

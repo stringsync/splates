@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Conversations } from "../conversations";
 import { add, ConflictChecks } from "../tasks";
 import { Testing } from "../testing";
 import { ConflictWatch } from "./conflict-watch";
 import { eventually } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("server conflict notices", () => {
 	// scry-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations } from "../conversations";
 import { HookStore } from "../hooks";
 import { Testing } from "../testing";
 import { dev } from "./server";
 import { eventually } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev groomer", () => {
 	// scry-ignore simple-test-setup: the groomer turned on in hooks.json, a server started over it and a task deferred while it runs are the wiring exercised here.

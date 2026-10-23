@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { AGENT, FakeAgent, say } from "../agents/testing";
+import { FakeAgent, say } from "../agents/testing";
 import type { Attribution, Judge } from "../auto-pick";
 import { FakeJudge } from "../auto-pick/testing";
 import { type ConversationState, Conversations } from "../conversations";
@@ -8,6 +8,8 @@ import { conversation, message, second, tool } from "../fixtures";
 import type { Event } from "../records";
 import { Testing } from "../testing";
 import { weighing } from "./index";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("weighing", () => {
 	let deps: Testing;
@@ -144,6 +146,7 @@ describe("weighing", () => {
 		expect(await applied()).toEqual([]);
 	});
 
+	// scry-ignore simple-test-setup: only this case drives a real conversation turn to verify when weighing runs.
 	it("is asked once each turn ends, with when it began, no later than the reply", async () => {
 		const agent = new FakeAgent();
 		agent.turn = async (client, sessionId) => {

@@ -1,7 +1,17 @@
 import { describe, expect, it } from "bun:test";
-import { ROSTERED } from "../agents/testing";
+
 import type { RosterAgent } from "../models";
 import { higher } from "./rank";
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("higher", () => {
 	const agents = [RANKED];

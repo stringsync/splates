@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "../conversations";
 import { until } from "../conversations/testing";
 import type { RosterAgent } from "../models";
@@ -7,6 +7,18 @@ import { Testing } from "../testing";
 import { startAutoPick } from "./index";
 import { lifting } from "./lift";
 import { FakeJudge } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("lifting", () => {
 	let deps: Testing;

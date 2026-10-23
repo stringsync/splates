@@ -6,7 +6,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { Watch } from "../agents";
-import { AGENT, FakeAgent, say } from "../agents/testing";
+import { FakeAgent, say } from "../agents/testing";
 import { Testing } from "../testing";
 import { type Conversation, Conversations } from "./index";
 import { IDLE_STOP } from "./state";
@@ -16,6 +16,8 @@ import { eventually, once, until } from "./testing";
 const ASK_IN_SPLATES = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
 };
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation lifecycle", () => {
 	let fs: FakeFs;

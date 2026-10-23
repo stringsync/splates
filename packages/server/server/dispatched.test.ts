@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations } from "../conversations";
 import { Offered } from "../models";
@@ -10,6 +10,18 @@ import { FsStorage } from "../storage";
 import { add, startDispatched } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("dev dispatched", () => {
 	let deps: Testing;

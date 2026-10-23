@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { Journal } from "../records";
 import { Testing } from "../testing";
 import type { Conversation } from "./conversation";
 import { Conversations } from "./conversations";
 import { JournalEvents } from "./events";
 import { eventually } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("conversation events", () => {
 	let deps: Testing;

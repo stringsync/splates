@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent, heard, ROSTERED, say } from "../agents/testing";
+import { FakeAgent, heard, say } from "../agents/testing";
 import { dev } from "../server";
 import { eventually, json, readUntil, serving } from "../server/testing";
 import { add } from "../tasks";
@@ -11,6 +11,18 @@ import type { ConversationState } from "./state";
 function get(port: number, path: string): Promise<Response> {
 	return fetch(`http://127.0.0.1:${port}${path}`);
 }
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("dev conversations", () => {
 	let deps: Testing;

@@ -2,11 +2,13 @@ import { afterEach, beforeEach, expect, it } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT, FakeAgent } from "@stringsync/splates-server/agents/testing";
+import { FakeAgent } from "@stringsync/splates-server/agents/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { acpAdapter } from "./probe-adapters";
 import { fastCli, loadModules, storedRuns } from "./probe-cli";
 import { runProbes } from "./runner";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 let directory: string;
 beforeEach(async () => {

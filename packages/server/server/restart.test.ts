@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
 import { eventually, until } from "../conversations/testing";
@@ -10,6 +10,8 @@ import { Testing } from "../testing";
 import { type DevServer, dev } from "./server";
 import { RESTART, UPDATE } from "./supervise";
 import { atWork, json } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev restart", () => {
 	let deps: Testing;

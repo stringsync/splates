@@ -5,11 +5,13 @@ import { join } from "node:path";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import { projectLine } from "../projects";
 import { MemoryStorage } from "../storage/testing";
 import { Conversations } from "./index";
 import { until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation files", () => {
 	let fs: FakeFs;

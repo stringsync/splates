@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent, FakeAgentPs, say } from "../agents/testing";
+import { FakeAgent, FakeAgentPs, say } from "../agents/testing";
 import { RemoteWorker, WorkerProcessHost, WorkerSession } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
 import { Conversations } from "./index";
 import { until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("A conversation on a worker", () => {
 	let agent: FakeAgent;

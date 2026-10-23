@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { ROSTERED } from "../agents/testing";
+
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";
@@ -122,3 +122,13 @@ describe("dev's Auto pick rules", () => {
 		}
 	}, 15_000);
 });
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};

@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { utimes } from "node:fs/promises";
-import { ROSTERED } from "../agents/testing";
+
 import { Testing } from "../testing";
 import { add } from "./add";
 import { claim } from "./claim";
 import { remove } from "./remove";
 import { show } from "./show";
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 describe("show", () => {
 	let deps: Testing;

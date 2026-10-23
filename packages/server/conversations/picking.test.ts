@@ -3,13 +3,15 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import type { Agent } from "../agents";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { FakeAgent } from "../agents/testing";
 import type { Picked } from "./conversation";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 
 /** A second agent for Auto pick to choose over the one it starts on. */
 const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("A conversation Auto pick is deciding for", () => {
 	let fs: FakeFs;

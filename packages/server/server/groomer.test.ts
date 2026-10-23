@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { AGENT, FakeAgent, say } from "../agents/testing";
+import { FakeAgent, say } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations, GROOMER_ROLE } from "../conversations";
 import { once } from "../conversations/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { Groomer } from "./groomer";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Groomer", () => {
 	let deps: Testing;

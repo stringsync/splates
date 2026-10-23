@@ -4,7 +4,6 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
-	AGENT,
 	backgroundEnded,
 	backgroundStarted,
 	backgroundWrites,
@@ -12,6 +11,8 @@ import {
 } from "../agents/testing";
 import { type ConversationState, Conversations } from "./index";
 import { eventually, until } from "./testing";
+
+const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("Conversation background", () => {
 	let fs: FakeFs;
