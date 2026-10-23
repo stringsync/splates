@@ -6,7 +6,9 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { ArchiveConversation } from "./archive-offer";
+import { touchButton } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, type Tone } from "./card-shell";
 import { Refusal, useRefusal } from "./refusal";
@@ -95,7 +97,7 @@ export function ActionCard({
 								size="sm"
 								variant="outline"
 								onClick={archive}
-								className="gap-1.5"
+								className={cn("gap-1.5", touchButton)}
 							>
 								<ArchiveIcon data-icon="inline-start" />
 								Archive
