@@ -56,6 +56,13 @@ describe("needs", () => {
 			subject: null,
 			merge: "queued",
 		});
+		const since = "2026-10-23T12:00:00.000Z";
+		expect(need(task({ gate: "queued", mergeSince: since }), running)).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "queued",
+			mergeSince: since,
+		});
 	});
 
 	it("waits on a review its last reply asks for, once its turn ends", () => {
@@ -407,6 +414,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		worktree: "/tmp/alpha",
 		lease: "held",
 		gate: null,
+		mergeSince: null,
 		ahead: 1,
 		unmerged: true,
 		added: 1,

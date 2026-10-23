@@ -196,9 +196,11 @@ export async function merge(
 	);
 	// Working until landing holds the lock: waiting and testing must not
 	// leave a dead merge's `merging` status showing another landing. The
-	// page reads `gate` meanwhile, for as long as this merge holds the lease.
+	// page reads `gate` and `mergeSince` meanwhile, for as long as this merge
+	// holds the lease.
 	worktree = await worktree.take({
 		status: "working",
+		mergeSince: new Date().toISOString(),
 		...(runner.command ? { gate: "queued" as const } : {}),
 	});
 	await using _gate = {
@@ -532,7 +534,7 @@ function indent(text: string): string {
 }
 
 /**
- * Takes `gate` off the task's record once its merge ends, landed or not, so
+ * Takes `gate` and `mergeSince` off the task's record once its merge ends, landed or not, so
  * a later lease on it shows no merge under way. A landed task has no record
  * left to change.
  */
@@ -541,7 +543,8 @@ async function clearGate(
 	task: string,
 ): Promise<void> {
 	const worktree = await service.find(task).catch(() => null);
-	if (worktree?.state?.gate !== undefined) {
-		await worktree.save({ gate: undefined });
+	const state = worktree?.state;
+	if (state?.gate !== undefined || state?.mergeSince !== undefined) {
+		await worktree?.save({ gate: undefined, mergeSince: undefined });
 	}
 }

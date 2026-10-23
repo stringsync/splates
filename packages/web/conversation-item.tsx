@@ -41,6 +41,7 @@ import { placeholding } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
 import { Mark } from "./mark";
+import { MergeTime } from "./merge-time";
 import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
@@ -192,6 +193,7 @@ export function Item({
 						{whereOf(conversation, trunk)}
 					</span>
 				)}
+				<MergeTime need={need} />
 				{ago !== null && (
 					<span className="shrink-0 text-muted-foreground text-xs">{ago}</span>
 				)}

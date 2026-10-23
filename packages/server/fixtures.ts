@@ -36,6 +36,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		worktree: "/tmp/repo-splates/alpha",
 		lease: "none",
 		gate: null,
+		mergeSince: null,
 		ahead: 1,
 		unmerged: true,
 		added: 2,

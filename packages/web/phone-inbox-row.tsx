@@ -10,6 +10,7 @@ import { placeholding } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
+import { MergeTime } from "./merge-time";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { type Quiet, quietText, useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
@@ -137,6 +138,7 @@ export function Row({
 					>
 						{text}
 					</span>
+					<MergeTime need={need} />
 					<Mark
 						need={need}
 						reported={reported}

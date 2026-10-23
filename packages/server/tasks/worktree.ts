@@ -84,6 +84,12 @@ export class Worktree {
 		return gate !== undefined && this.leaseHeld ? gate : null;
 	}
 
+	/** When the merge under way was asked for, while it still runs; null otherwise. */
+	get mergeSince(): string | null {
+		const since = this.snapshot.state?.mergeSince;
+		return since !== undefined && this.leaseHeld ? since : null;
+	}
+
 	get leaseStatus(): "held" | "stale" | "none" {
 		return !this.lease ? "none" : this.leaseHeld ? "held" : "stale";
 	}
@@ -420,6 +426,8 @@ export interface TaskState {
 	 * machine's premerge lock, or holding it to test. Absent otherwise.
 	 */
 	gate?: Gate;
+	/** When the merge under way was asked for, its wait for the lock included. Absent otherwise. */
+	mergeSince?: string;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
@@ -439,10 +447,7 @@ export interface TaskState {
 	machine?: string;
 	stranded?: unknown[];
 	rescued?: unknown[];
-	/**
-	 * The last Auto pick for it, as its record keeps it beside what it was
-	 * queued as: read with the rest, never written back through it.
-	 */
+	/** The last Auto pick for it, beside what it was queued as. Read it; never write it back through here. */
 	autoPick?: AutoPicked;
 }
 
@@ -466,9 +471,9 @@ export interface Dispatched {
 	 * which takes the task rather than a new one; absent for none.
 	 */
 	held?: string;
+	// Set from dispatch, so the task reads as handed over rather than an
+	// external agent's.
 	/** Whether the postCheckout hook is still readying the tree; `splates server` starts the agent once it is not. */
-	// Recorded from the start, so the task reads as handed over rather than
-	// an external agent's.
 	pending?: true;
 }
 

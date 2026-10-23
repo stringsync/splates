@@ -5,47 +5,6 @@ import type { Details } from "../tasks";
 import { stretches } from "./asked";
 import { goalLine, openQuestions, type Question, STUB_STEPS } from "./plan";
 
-/**
- * What an agent needs from the person, by how much it costs to leave it:
- * `waiting` has stopped on them, `assuming` goes ahead on a guess an answer
- * may overturn, `working` needs nothing yet, and `idle` is not doing anything.
- */
-export type Need =
-	| {
-			kind: "waiting";
-			why: Why;
-			/**
-			 * What to act on: the ask, the review's summary, the first open
-			 * question, or the failure.
-			 */
-			subject: string;
-			/** When it stopped, where that is known. */
-			since: string | null;
-			/**
-			 * The task's open questions, else those the agent's last reply
-			 * asks; none for other waits of a task-less conversation.
-			 */
-			questions: Question[];
-			/** The agent handed out by this one it waits for, lifted onto it. */
-			via?: string;
-	  }
-	| {
-			kind: "assuming";
-			/** The first open question. */
-			subject: string;
-			questions: Question[];
-			/** The agent handed out by this one whose questions it relays. */
-			via?: string;
-	  }
-	| {
-			kind: "working";
-			/** The next step under `## Next`, else the Goal's first line. */
-			subject: string | null;
-			/** Its task's merge: waiting its turn for the premerge lock, or testing and landing. */
-			merge?: "queued" | "running";
-	  }
-	| { kind: "idle" };
-
 /** One agent the page shows: a conversation, its task, or both. */
 export interface Needing {
 	conversation: ConversationState | null;
@@ -88,6 +47,49 @@ export function needs({
 			pressing(one.need, other.need),
 	);
 }
+
+/**
+ * What an agent needs from the person, by how much it costs to leave it:
+ * `waiting` has stopped on them, `assuming` goes ahead on a guess an answer
+ * may overturn, `working` needs nothing yet, and `idle` is not doing anything.
+ */
+export type Need =
+	| {
+			kind: "waiting";
+			why: Why;
+			/**
+			 * What to act on: the ask, the review's summary, the first open
+			 * question, or the failure.
+			 */
+			subject: string;
+			/** When it stopped, where that is known. */
+			since: string | null;
+			/**
+			 * The task's open questions, else those the agent's last reply
+			 * asks; none for other waits of a task-less conversation.
+			 */
+			questions: Question[];
+			/** The agent handed out by this one it waits for, lifted onto it. */
+			via?: string;
+	  }
+	| {
+			kind: "assuming";
+			/** The first open question. */
+			subject: string;
+			questions: Question[];
+			/** The agent handed out by this one whose questions it relays. */
+			via?: string;
+	  }
+	| {
+			kind: "working";
+			/** The next step under `## Next`, else the Goal's first line. */
+			subject: string | null;
+			/** Its task's merge: waiting its turn for the premerge lock, or testing and landing. */
+			merge?: "queued" | "running";
+			/** When that merge was asked for, its wait for the lock included. */
+			mergeSince?: string;
+	  }
+	| { kind: "idle" };
 
 /**
  * Why an agent waits: a live ACP ask (a permission or a form), a review its
@@ -200,11 +202,12 @@ export const ASKED_QUIET = Duration.mins(3);
 /** What an agent at work on `task` needs: nothing yet, while merging or not. */
 function working(task: Details | null): Need {
 	const subject = task?.plan ? doing(task.plan) : null;
+	const since = task?.mergeSince ? { mergeSince: task.mergeSince } : {};
 	if (task?.status === "merging" || task?.gate === "running") {
-		return { kind: "working", subject, merge: "running" };
+		return { kind: "working", subject, merge: "running", ...since };
 	}
 	return task?.gate === "queued"
-		? { kind: "working", subject, merge: "queued" }
+		? { kind: "working", subject, merge: "queued", ...since }
 		: { kind: "working", subject };
 }
 
