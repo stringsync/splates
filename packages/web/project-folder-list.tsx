@@ -1,5 +1,5 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import {
 	Collapsible,
@@ -76,10 +76,10 @@ export function FolderList({
 								/>
 								<span className="min-w-0 truncate">{folder.name}</span>
 								{!open && folder.waiting.length > 0 && (
-									<span
+									<TriangleAlertIcon
 										role="img"
 										aria-label="waiting on you"
-										className="size-1.5 shrink-0 rounded-full bg-warning"
+										className="size-3 shrink-0 text-warning"
 									/>
 								)}
 							</CollapsibleTrigger>

@@ -1,15 +1,26 @@
 import type { Ending, Need } from "@stringsync/splates-server/plans";
-import { GitMergeIcon, HourglassIcon, Loader2Icon } from "lucide-react";
-import type { JSX } from "react";
+import {
+	CircleCheckIcon,
+	CirclePauseIcon,
+	CircleXIcon,
+	GitMergeIcon,
+	HourglassIcon,
+	Loader2Icon,
+	type LucideIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
+import type { ComponentProps, JSX } from "react";
+import { cn } from "#web/lib/utils.ts";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
 import { type Quiet, quietTitle } from "./quiet";
 
 /**
- * What a list shows of an agent: a yellow dot when it waits on you, whatever
- * for, a spinner while it or an agent it handed a task to works, assuming or
- * not, a blue dot when it answered and you have not looked since, and a
- * green or red dot once its task merged or was removed, over the blue one.
+ * What a list shows of an agent: a yellow triangle when it waits on you,
+ * whatever for, a spinner while it or an agent it handed a task to works,
+ * assuming or not, a blue dot when it answered and you have not looked since,
+ * and, over the blue dot, a green check once its task merged, a red cross once
+ * it was removed and a yellow pause once it was deferred.
  * While its task's merge tests and lands, the spinner gives way to a green
  * merge icon, and while the merge waits its turn, to a faint gray one.
  * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
@@ -72,24 +83,46 @@ export function Mark({
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
 	if (reported === "merged" && shows) {
-		return <Dot role="img" aria-label={reported} color="bg-success" />;
+		return (
+			<Glyph
+				icon={CircleCheckIcon}
+				role="img"
+				aria-label={reported}
+				color="text-success"
+			/>
+		);
 	}
 	if (reported === "removed" && shows) {
-		return <Dot role="img" aria-label="removed" color="bg-destructive" />;
+		return (
+			<Glyph
+				icon={CircleXIcon}
+				role="img"
+				aria-label="removed"
+				color="text-destructive"
+			/>
+		);
 	}
 	if (reported === "deferred" && shows) {
-		return <Dot role="img" aria-label="deferred" color="bg-warning" />;
+		return (
+			<Glyph
+				icon={CirclePauseIcon}
+				role="img"
+				aria-label="deferred"
+				color="text-warning"
+			/>
+		);
 	}
 	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
 		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}
 	if (need.kind === "waiting" || (waitsOn(reported) && shows)) {
 		return (
-			<Dot
+			<Glyph
+				icon={TriangleAlertIcon}
 				role="status"
 				aria-label="waiting on you"
 				title={need.kind === "waiting" ? need.subject : undefined}
-				color="bg-warning"
+				color="text-warning"
 			/>
 		);
 	}
@@ -140,6 +173,28 @@ export function Mark({
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
 			<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
+		</span>
+	);
+}
+
+/**
+ * An icon in a mark's box, as `Dot` is a dot: `color` is its text class; the
+ * rest goes on the box.
+ */
+function Glyph({
+	icon: Icon,
+	color,
+	...box
+}: { icon: LucideIcon; color: string } & Omit<
+	ComponentProps<"span">,
+	"className"
+>): JSX.Element {
+	return (
+		<span
+			{...box}
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<Icon className={cn("size-3.5", color)} />
 		</span>
 	);
 }

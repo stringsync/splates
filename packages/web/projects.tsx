@@ -8,6 +8,7 @@ import {
 	HouseIcon,
 	PlusIcon,
 	SearchIcon,
+	TriangleAlertIcon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -35,7 +36,6 @@ import {
 import { useShortcut, useShortcutLabel } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
 import { AddProject } from "./add-project";
-import { Dot } from "./dot";
 import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
 import { forgetUsed } from "./new-conversation-project";
@@ -341,7 +341,10 @@ export function ProjectSwitcher({
 												title={`${each.waiting} waiting on you`}
 												className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
 											>
-												<Dot aria-hidden color="bg-warning" />
+												<TriangleAlertIcon
+													aria-hidden
+													className="size-3 text-warning"
+												/>
 												{each.waiting}
 											</span>
 										)}
