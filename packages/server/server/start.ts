@@ -18,7 +18,7 @@ import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
 import { NoteReads, NoteUses } from "../notes";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
-import { ProjectHome } from "../records";
+import { Journal, ProjectHome } from "../records";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -183,28 +183,40 @@ export async function serveDev(
 	// resumed together start one at a time.
 	const starting = StartLock.ofMachine(ctx);
 	const projects = Projects.ofMachine(ctx);
-	// Tasks that ended before Codex and OpenCode were priced get their cost now.
+	// Tasks that ended before Codex and OpenCode were priced get their cost
+	// now, and merged tasks from before outcomes kept merge times get theirs.
 	const backfilling = new Map<string, ProjectHome>();
+	const recordsOf = async (project: string) => {
+		let home = backfilling.get(project);
+		if (home === undefined) {
+			home = new ProjectHome(project, { ...ctx, projects });
+			backfilling.set(project, home);
+		}
+		return (await home.exists())
+			? await home.open()
+			: new FsStorage(
+					unmigrated(
+						`${project}/.git/splates`,
+						`${project}/.git/${LEGACY_DIR}`,
+					),
+					ctx.fs,
+				);
+	};
 	void outcomes
-		.backfill(async (project, conversation) => {
-			let home = backfilling.get(project);
-			if (home === undefined) {
-				home = new ProjectHome(project, { ...ctx, projects });
-				backfilling.set(project, home);
-			}
-			const records = (await home.exists())
-				? await home.open()
-				: new FsStorage(
-						unmigrated(
-							`${project}/.git/splates`,
-							`${project}/.git/${LEGACY_DIR}`,
-						),
-						ctx.fs,
-					);
-			return records.log(`conversations/${conversation}.jsonl`);
-		})
+		.backfill(async (project, conversation) =>
+			(await recordsOf(project)).log(`conversations/${conversation}.jsonl`),
+		)
 		.catch((error: unknown) => {
 			ctx.log.error(`the price backfill failed: ${String(error)}`);
+		})
+		.then(() =>
+			outcomes.backfillMerges(async (project) =>
+				// Read only, so the capacity it would rotate at is never reached.
+				new Journal(await recordsOf(project), Number.POSITIVE_INFINITY).all(),
+			),
+		)
+		.catch((error: unknown) => {
+			ctx.log.error(`the merge times backfill failed: ${String(error)}`);
 		})
 		.finally(() => {
 			for (const home of backfilling.values()) {

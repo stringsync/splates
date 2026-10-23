@@ -136,6 +136,15 @@ export class Journal {
 		return events.slice(-count);
 	}
 
+	/** Every event still kept, the segments' and the log's, oldest first. */
+	async all(): Promise<Event[]> {
+		const events: Event[] = [];
+		for (const segment of await this.log.segments()) {
+			events.push(...current(await this.log.replaySegment(segment)));
+		}
+		return [...events, ...current(await this.log.replay())];
+	}
+
 	/**
 	 * The events in the log and in the file moved aside last: every event
 	 * written since a reader last looked, so long as it looks before the log

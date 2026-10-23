@@ -1,6 +1,7 @@
 import type { Device, Entry } from "../conversations";
 import type { Decision } from "../plans";
 import { Prices } from "../prices";
+import type { Event } from "../records";
 import type { Log, Storage } from "../storage";
 import type {
 	DiffSize,
@@ -25,6 +26,11 @@ export class Outcomes {
 	// Apart from `log`, so splates versions that read only that never mistake
 	// one for a task.
 	readonly turns: Log<TurnUsage>;
+	/**
+	 * The merge times of tasks that landed before outcomes kept them, read
+	 * back from the journal; `list` adds each to its task.
+	 */
+	readonly merges: Log<MergeTimed>;
 	/** The API list prices that agents saying no cost of their own are priced at. */
 	readonly prices: Prices;
 
@@ -35,6 +41,7 @@ export class Outcomes {
 	) {
 		this.log = storage.log("outcomes.jsonl");
 		this.turns = storage.log("outcome-usage.jsonl");
+		this.merges = storage.log("outcome-merges.jsonl");
 		this.prices = prices;
 	}
 
@@ -46,18 +53,60 @@ export class Outcomes {
 
 	async list(): Promise<Outcome[]> {
 		const turns = await this.turns.replay();
-		return (await this.log.replay()).map((outcome) =>
-			known(
+		const merges = await this.merges.replay();
+		return (await this.log.replay()).map((outcome) => {
+			const merge =
+				outcome.merge ??
+				merges.find((each) => sameOutcome(each, outcome))?.merge;
+			return known(
 				turns
-					.filter(
-						(turn) =>
-							turn.project === outcome.project &&
-							turn.task === outcome.task &&
-							turn.endedAt === outcome.endedAt,
-					)
-					.reduce(credited, outcome),
-			),
+					.filter((turn) => sameOutcome(turn, outcome))
+					.reduce(
+						credited,
+						merge === undefined ? outcome : { ...outcome, merge },
+					),
+			);
+		});
+	}
+
+	/**
+	 * Gives the merged tasks that landed before outcomes kept merge times the
+	 * times of the `merge` event `eventsOf(project)` logged as each landed,
+	 * written beside the outcomes, as `backfill` writes costs. The event comes
+	 * just after the outcome, once the worktree is gone, so its run time takes
+	 * in that cleanup too. A task with no such event, or one from before
+	 * events kept times, stays untimed; one timed is skipped on a second run.
+	 */
+	async backfillMerges(
+		eventsOf: (project: string) => Promise<Event[]>,
+	): Promise<void> {
+		const untimed = (await this.list()).filter(
+			(outcome) => outcome.ended === "merged" && outcome.merge === undefined,
 		);
+		const projects = new Map<string, Event[]>();
+		for (const outcome of untimed) {
+			let events = projects.get(outcome.project);
+			if (events === undefined) {
+				events = await eventsOf(outcome.project);
+				projects.set(outcome.project, events);
+			}
+			const event = landedBy(events, outcome);
+			if (
+				event?.durationMs === undefined ||
+				event.capacityWaitMs === undefined
+			) {
+				continue;
+			}
+			await this.merges.append({
+				project: outcome.project,
+				task: outcome.task,
+				endedAt: outcome.endedAt,
+				merge: {
+					queuedMs: event.capacityWaitMs,
+					ranMs: Math.max(0, event.durationMs - event.capacityWaitMs),
+				},
+			});
+		}
 	}
 
 	/**
@@ -162,6 +211,54 @@ export interface TurnUsage {
 	task: string;
 	endedAt: string;
 	usage: TaskUsage;
+}
+
+/**
+ * The merge times of an outcome that landed before outcomes kept them, a
+ * line of `~/.splates/outcome-merges.jsonl`, naming its outcome by when it
+ * ended.
+ */
+export interface MergeTimed {
+	project: string;
+	task: string;
+	endedAt: string;
+	merge: MergeTimes;
+}
+
+/** Whether `line`, written beside the outcomes, belongs to `outcome`. */
+function sameOutcome(
+	line: { project: string; task: string; endedAt: string },
+	outcome: Outcome,
+): boolean {
+	return (
+		line.project === outcome.project &&
+		line.task === outcome.task &&
+		line.endedAt === outcome.endedAt
+	);
+}
+
+/** How long after a task's outcome the `merge` event that landed it may come. */
+const LANDED_WITHIN_MS = 10 * 60 * 1000;
+
+/**
+ * The successful `merge` event of `events` that landed `outcome`: the first
+ * for its task and base once it ended, which `splates merge` logs as it
+ * returns, after writing the outcome.
+ */
+function landedBy(
+	events: Event[],
+	outcome: Outcome,
+): Extract<Event, { action: "merge" }> | undefined {
+	const ended = Date.parse(outcome.endedAt);
+	return events.find(
+		(event): event is Extract<Event, { action: "merge" }> =>
+			event.action === "merge" &&
+			event.reason === null &&
+			event.task === outcome.task &&
+			event.base === outcome.base &&
+			Date.parse(event.at) >= ended &&
+			Date.parse(event.at) - ended <= LANDED_WITHIN_MS,
+	);
 }
 
 /** `outcome` with `turn`'s usage added to its own. */

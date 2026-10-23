@@ -2,6 +2,7 @@ import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
+import type { Facts } from "../records";
 import { add, claim, remove, retry } from "../tasks";
 import { Testing } from "../testing";
 import type { Outcome } from "./index";
@@ -367,6 +368,7 @@ describe.concurrent("outcomes", () => {
 		});
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only added the merge times backfill beside it
 	it("backfills the API list price of a Codex task that ended before it was priced, once, leaving one with no log unpriced", async () => {
 		await using deps = await Testing.open();
 		const priced = await listPriced(deps, "claude", (at) => [
@@ -397,6 +399,45 @@ describe.concurrent("outcomes", () => {
 		expect(priced?.cost?.listPrice).toBe(true);
 		expect(done?.usage?.cost).toEqual(priced?.cost);
 		expect(left?.usage?.cost).toBeNull();
+	});
+
+	it("backfills the merge times of a task that landed before outcomes kept them from its merge event, once, leaving one whose event kept none untimed", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+		const path = join(deps.splatesHome, "outcomes.jsonl");
+		const [line] = (await deps.fs.read(path)).trim().split("\n");
+		const { merge: _, ...old } = JSON.parse(line ?? "{}");
+		const legacy = { ...old, task: "legacy" };
+		await deps.fs.write(
+			path,
+			`${JSON.stringify(old)}\n${JSON.stringify(legacy)}\n`,
+		);
+		const facts: Facts["merge"] = {
+			base: old.base,
+			commit: "abc123",
+			files: [],
+			attemptsLeft: 4,
+			failedTests: [],
+		};
+		await deps.journal.record("merge", "legacy", async () => {}, facts);
+		await deps.journal.record("merge", "alpha", async () => {}, {
+			...facts,
+			durationMs: 150,
+			capacityWaitMs: 20,
+		});
+		const events = () => deps.journal.all();
+
+		await deps.outcomes.backfillMerges(events);
+		await deps.outcomes.backfillMerges(events);
+
+		const [done, left] = await deps.outcomes.list();
+		expect(done?.merge).toEqual({ queuedMs: 20, ranMs: 130 });
+		expect(left?.merge).toBeUndefined();
+		expect(await deps.outcomes.merges.replay()).toHaveLength(1);
 	});
 
 	it("reads usage with no tokens out as never kept, since no turn the task ran ever counted", async () => {
