@@ -157,6 +157,7 @@ export class DevWorkers implements AsyncResource {
 			provisioning: this.provisioning,
 			scheduler: this.slots.scheduler,
 			log,
+			...(ledger === undefined ? {} : { ledger }),
 		});
 		this.jobs = new RunnerJobs(
 			this.registry,

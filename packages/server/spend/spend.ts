@@ -1,5 +1,5 @@
 import type { Storage } from "../storage";
-import { isRunnerRow, type RunnerRow } from "./runners";
+import { isRunnerRow, type RunnerJobRow, type RunnerRow } from "./runners";
 import { type SpendEntry, type SpendQuery, totals } from "./totals";
 
 /**
@@ -36,6 +36,13 @@ export class Spend {
 	async entries(): Promise<SpendEntry[]> {
 		return (await this.lines()).filter(
 			(line): line is SpendEntry => !isRunnerRow(line),
+		);
+	}
+
+	/** The jobs runners ran, oldest first. */
+	async jobs(): Promise<RunnerJobRow[]> {
+		return (await this.lines()).filter(
+			(line): line is RunnerJobRow => isRunnerRow(line) && line.row === "job",
 		);
 	}
 

@@ -123,24 +123,33 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 	 * made for.
 	 */
 	short(): number {
+		return this.wanting().length;
+	}
+
+	/**
+	 * The sizes of the jobs `short` counts, first in line first, as though
+	 * the running jobs `freed` says of had given their places up: what a
+	 * runner made now would be for, when those end before it could serve.
+	 */
+	wanting(freed: (job: HeldJob) => boolean = () => false): JobSize[] {
 		const rooms = [
 			...this.view
 				.runners()
 				.filter((runner) => runner.ready)
-				.map((runner) => this.free(runner)),
+				.map((runner) => this.free(runner, freed)),
 			...this.view.booting().map((size) => ({ ...size })),
 		];
-		let short = 0;
+		const wanting: JobSize[] = [];
 		for (const { ask } of this.waiting) {
 			const room = rooms.find((each) => fits(ask.size, each));
 			if (room === undefined) {
-				short++;
+				wanting.push(ask.size);
 				continue;
 			}
 			room.cpus -= ask.size.cpus;
 			room.memory -= ask.size.memory;
 		}
-		return short;
+		return wanting;
 	}
 
 	dispose(): void {
@@ -238,9 +247,14 @@ export class JobPool implements Eventful<JobPoolEvents>, Resource {
 			.filter((runner) => !(ask.avoid ?? []).includes(runner.id));
 	}
 
-	/** What `runner` has left once the jobs on it now take theirs. */
-	private free(runner: PoolRunner): JobSize {
-		const jobs = this.held().filter((each) => each.runner === runner.id);
+	/** What `runner` has left once the jobs on it now, but those `freed` says of, take theirs. */
+	private free(
+		runner: PoolRunner,
+		freed: (job: HeldJob) => boolean = () => false,
+	): JobSize {
+		const jobs = this.held().filter(
+			(each) => each.runner === runner.id && !freed(each),
+		);
 		return {
 			cpus: runner.size.cpus - sum(jobs, (job) => job.size.cpus),
 			memory: runner.size.memory - sum(jobs, (job) => job.size.memory),

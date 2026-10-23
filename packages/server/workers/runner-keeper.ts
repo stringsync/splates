@@ -8,22 +8,40 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { BUDGET_EVERY } from "./budget-stop";
-import type { JobPool, JobPoolView, PoolRunner } from "./job-pool";
-import { DEFAULT_JOB_SIZE, type JobSize, runnerSize } from "./job-size";
-import { TypeRefused } from "./provider";
+import {
+	biggest,
+	type JobPool,
+	type JobPoolView,
+	type PoolRunner,
+} from "./job-pool";
+import { DEFAULT_JOB_SIZE, fits, type JobSize, runnerSize } from "./job-size";
+import { JobTimes } from "./job-times";
+import { TypeRefused, type WorkerType } from "./provider";
 import type { WorkerProvisioning } from "./provisioning";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
+import type { RunnerLedger } from "./runner-ledger";
 import type { Scheduler } from "./scheduler";
+import { snapshotRecipe } from "./snapshot";
 
 /** How long after a runner could not be made another is not tried, so a failing provider is not hammered. */
 export const MAKE_BACKOFF = Duration.mins(1);
 
 /**
- * Makes the runners the job pool needs: when jobs wait with no room on the
- * runners up or on their way, a stopped one is started if there is one, else
- * one is made. No live agent keeps a runner, since a runner stops itself
- * once idle and the next job starts it in a second or two.
+ * About how long a runner made now takes to its first job: 13 to 24 s to
+ * boot and 21 to 46 s to clone and prepare, as measured of Fly machines.
+ * A job a busy runner frees room for sooner waits for it instead.
+ */
+export const MAKE_LEAD = Duration.mins(1);
+
+/**
+ * Makes the runners the job pool needs. When jobs wait with no room on the
+ * runners up or on their way, those that room freed within `MAKE_LEAD` by
+ * jobs expected to end (as long as their command took before) would take
+ * wait for it; for the rest, a stopped runner they fit in is started if
+ * there is one, else one is made, the cheapest size that holds them all.
+ * No live agent keeps a runner, since a runner stops itself once idle and
+ * the next job starts it in a second or two.
  */
 export class RunnerKeeper implements JobPoolView, Resource {
 	private pool: JobPool | null = null;
@@ -32,14 +50,16 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	private again = false;
 	/** When a runner last could not be made, epoch milliseconds. */
 	private failedAt: number | null = null;
-	/** What the cheapest runner costs an hour, once known. */
-	private price: number | null = null;
-	/** The cheapest runner's size, once known, which is what is made. */
-	private size: JobSize | null = null;
+	/** The sizes runners are made of, the cheapest first, once known. */
+	private types: WorkerType[] | null = null;
+	/** How long jobs take, for when a busy runner frees. */
+	private readonly times = new JobTimes();
 	/** Runners up in the account at the last look, those `splates run` made too; null until counted or when it could not be. */
 	private up: number | null = null;
 	/** The cap refusal last logged, so a wait is said once. */
 	private noted: string | null = null;
+	/** How many jobs were last logged waiting on busy runners, so a wait is said once. */
+	private waited = 0;
 	/** The stopped runners started for the pool that have yet to connect. */
 	private readonly waking = new Set<string>();
 	private readonly disposer = new Disposer();
@@ -53,6 +73,17 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	watch(pool: JobPool): void {
 		this.pool = pool;
 		const look = () => void this.look();
+		this.disposer.use({
+			dispose: pool.events.on("ended", (job) => this.times.ended(job)),
+		});
+		void this.opts.ledger
+			?.jobs?.()
+			.then((rows) => this.times.learn(rows))
+			.catch((error: unknown) => {
+				this.opts.log.error(
+					`past job times could not be read: ${String(error)}`,
+				);
+			});
 		this.disposer.use({ dispose: pool.events.on("changed", look) });
 		this.disposer.use({
 			dispose: this.opts.scheduler.events.on("changed", look),
@@ -109,8 +140,9 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		);
 	}
 
+	/** The biggest runner that could be made now, as the budget allows its price. */
 	made(): JobSize {
-		return this.size ?? DEFAULT_JOB_SIZE;
+		return biggest(this.affordable().map(sizeOf)) ?? DEFAULT_JOB_SIZE;
 	}
 
 	canMake(): boolean {
@@ -151,24 +183,48 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		if (pool === null || provisioning === null) {
 			return;
 		}
-		if (this.price === null) {
+		if (this.types === null) {
 			try {
-				const [cheapest] = (await provisioning.types()).sort(
+				this.types = (await provisioning.types()).sort(
 					(one, other) => one.dollarsPerHour - other.dollarsPerHour,
 				);
-				this.price = cheapest?.dollarsPerHour ?? null;
-				this.size =
-					cheapest?.cpus !== undefined && cheapest.memory !== undefined
-						? { cpus: cheapest.cpus, memory: cheapest.memory }
-						: null;
 			} catch (error) {
 				log.error(`the runner types could not be read: ${String(error)}`);
 			}
 		}
 		this.up = (await provisioning.runnersUp()) ?? null;
 		const live = this.live().length;
-		const wanted = pool.short() > 0;
-		const [sleeper] = wanted ? provisioning.sleeping() : [];
+		const short = pool.short();
+		const now = this.wall.now();
+		// Room a busy runner frees before a new one could serve is waited for.
+		const wanting =
+			short > 0
+				? pool.wanting((job) => {
+						const end = this.times.end(job);
+						return end !== null && end > now && end <= now + MAKE_LEAD.ms;
+					})
+				: [];
+		const waiting = short - wanting.length;
+		if (waiting > 0 && waiting !== this.waited) {
+			log.info(
+				`${waiting} waiting jobs wait for runners expected to free within ${MAKE_LEAD.secs} s`,
+			);
+		}
+		this.waited = waiting;
+		const [first] = wanting;
+		const wanted = first !== undefined;
+		const sleeper = wanted
+			? provisioning
+					.sleeping()
+					.find((each) =>
+						fits(
+							first,
+							each.cpus !== undefined && each.memory !== undefined
+								? { cpus: each.cpus, memory: each.memory }
+								: DEFAULT_JOB_SIZE,
+						),
+					)
+			: undefined;
 		if (sleeper !== undefined && provisioning.wake(sleeper.id)) {
 			this.waking.add(sleeper.id);
 			log.info(
@@ -187,19 +243,21 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		} else {
 			this.noted = null;
 		}
-		if (wanted && this.canMake()) {
+		const type = wanted ? this.typeFor(wanting) : undefined;
+		if (type !== undefined && this.canMake()) {
 			this.making = true;
 			try {
-				const made = await provisioning.provision();
+				const made = await provisioning.provision({ type: type.name });
 				log.info(
 					`runner ${made.id} made for ${pool.queue().length} waiting jobs`,
 				);
+				// Jobs it has no room for are made another for at once.
+				this.again = true;
 			} catch (error) {
 				if (error instanceof TypeRefused) {
 					// The provider leaves that type out now, so the next cheapest is
 					// read and made at once.
-					this.price = null;
-					this.size = null;
+					this.types = null;
 					this.again = true;
 					log.info(
 						`a ${error.type} runner was refused, so another type is made: ${error.message}`,
@@ -219,6 +277,43 @@ export class RunnerKeeper implements JobPoolView, Resource {
 
 	dispose(): void {
 		this.disposer.dispose();
+	}
+
+	/**
+	 * The cheapest type the budget allows that holds as many of `jobs`, first
+	 * in line first, as the biggest one does; undefined when none holds the
+	 * first, which then runs here.
+	 */
+	private typeFor(jobs: JobSize[]): WorkerType | undefined {
+		const types = this.affordable();
+		const most = biggest(types.map(sizeOf));
+		if (most === null) {
+			return undefined;
+		}
+		const need = { cpus: 0, memory: 0 };
+		for (const job of jobs) {
+			const more = {
+				cpus: need.cpus + job.cpus,
+				memory: need.memory + job.memory,
+			};
+			if (!fits(more, most)) {
+				break;
+			}
+			Object.assign(need, more);
+		}
+		return need.cpus === 0
+			? undefined
+			: types.find((type) => fits(need, sizeOf(type)));
+	}
+
+	/** The types runners are made of whose price the budget allows now, the cheapest first. */
+	private affordable(): WorkerType[] {
+		const { provisioning } = this.opts;
+		return (this.types ?? []).filter(
+			(type) =>
+				snapshotRecipe(type.platform, "") !== null &&
+				(provisioning?.budget.refusal(type.dollarsPerHour) ?? null) === null,
+		);
 	}
 
 	/** Whether the account has room under the runner cap for another: counted over every project, else by the runners this server made. */
@@ -247,7 +342,7 @@ export class RunnerKeeper implements JobPoolView, Resource {
 		}
 		return (
 			provisioning.budget.stopped() === null &&
-			provisioning.budget.refusal(this.price ?? 0) === null
+			provisioning.budget.refusal(this.types?.[0]?.dollarsPerHour ?? 0) === null
 		);
 	}
 
@@ -273,6 +368,13 @@ export interface RunnerKeeperOptions {
 	provisioning: WorkerProvisioning | null;
 	scheduler: Scheduler;
 	log: Logger;
+	/** Where past jobs are kept, which how long the next will take is learned from; none by default. */
+	ledger?: RunnerLedger;
 	wall?: WallClock;
 	timer?: Timer;
 }
+
+const sizeOf = (type: WorkerType): JobSize => ({
+	cpus: type.cpus ?? DEFAULT_JOB_SIZE.cpus,
+	memory: type.memory ?? DEFAULT_JOB_SIZE.memory,
+});

@@ -154,6 +154,82 @@ describe("the runner keeper", () => {
 		expect(made()).toHaveLength(2);
 	});
 
+	it("waits for a busy runner whose jobs are expected to end within a minute, and makes one once they overrun", async () => {
+		keeper.runners = () => [
+			{ id: "r1", ready: true, size: { cpus: 12, memory: 24 } },
+		];
+		// One run of `bun test` takes two minutes, which the next are expected to.
+		const first = await job("j1");
+		wall.advance(Duration.mins(2));
+		first.dispose();
+		await Promise.all([job("j2"), job("j3"), job("j4")]);
+		wall.advance(Duration.secs(90));
+		void job("j5");
+		await keeper.look();
+
+		expect(made()).toEqual([]);
+
+		wall.advance(Duration.mins(1));
+		await keeper.look();
+
+		expect(made()).toHaveLength(1);
+	});
+
+	it("makes one at once when the busy runners free later than a new one would serve", async () => {
+		keeper.runners = () => [
+			{ id: "r1", ready: true, size: { cpus: 12, memory: 24 } },
+		];
+		await Promise.all([job("j1"), job("j2"), job("j3")]);
+		void job("j4");
+		await keeper.look();
+
+		expect(made()).toHaveLength(1);
+	});
+
+	it("makes the cheapest type that holds every job waiting, and another for those the biggest cannot", async () => {
+		const type = (name: string, cpus: number, dollarsPerHour: number) => ({
+			name,
+			platform: "linux" as const,
+			slots: 1,
+			cpus,
+			memory: cpus * 2,
+			dollarsPerHour,
+			billing: "second" as const,
+		});
+		provider.types = async () => [
+			type("small", 4, 0.07),
+			type("large", 16, 0.5),
+			type("medium", 8, 0.14),
+		];
+		void job("j1");
+		void job("j2");
+		await keeper.look();
+
+		expect(made()).toEqual([expect.stringMatching(/^create medium-/)]);
+
+		void Promise.all(["j3", "j4", "j5", "j6", "j7"].map(job));
+		await keeper.look();
+
+		expect(made().slice(1)).toEqual([
+			expect.stringMatching(/^create large-/),
+			expect.stringMatching(/^create small-/),
+		]);
+	});
+
+	it("starts only a stopped runner the waiting job fits in", async () => {
+		const woken: string[] = [];
+		provisioning.sleeping = () => [{ id: "tiny", cpus: 2, memory: 4 }];
+		provisioning.wake = (id) => {
+			woken.push(id);
+			return true;
+		};
+		void job("j1");
+		await keeper.look();
+
+		expect(woken).toEqual([]);
+		expect(made()).toHaveLength(1);
+	});
+
 	it("sends jobs to run here at the budget's hard stop rather than let them wait", async () => {
 		await budget.set("day", 0.01);
 		await budget.started("old", "c-16", 0.5);

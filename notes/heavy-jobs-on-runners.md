@@ -54,17 +54,30 @@ before the caller chooses its next runner or the gate falls back here; the pool 
 whatever the budget allows. The Runners page warns while `asked` is bigger
 than `largest` and lists the too-big jobs.
 
-`RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants:
-one while any agent is live (made when the first starts), and a second only
-while jobs wait that fit in no room left on the runners up or booting, counting
-a booting runner's room by its type's `cpus` and `memory`. It makes none while
+`RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants,
+only while jobs wait that fit in no room left on the runners up or booting,
+counting a booting runner's room by its type's `cpus` and `memory`
+(`JobPool.wanting`). Of those, a job that room freed within `MAKE_LEAD` (a
+minute, about what a new Fly machine takes to boot, clone and prepare)
+would take waits for it: a running job is expected to end after the median
+of the last 20 runs of its command in its project, else of any job of its
+project (`JobTimes`, learned from the spend ledger's job rows at start and
+from each job that ends), and one with no history or past its expected end
+is not counted on. For the rest the keeper starts a stopped runner the
+first fits in (`RunnerDialer.wake`), else makes one: the cheapest type the
+budget's rate allows that holds as many of them, first in line first, as
+the biggest type does, and another at once for any left over. Types are the
+provider's, up to 16 CPUs and leaving out sizes the account was refused, so
+on Fly a shared-CPU machine, the cheapest, is the usual pick. `made()`, the
+biggest a job could have made, is the biggest such type, so a job asking
+more than the project's default waits for a runner made for it rather than
+running here. It makes none while
 the account holds the runner cap (`splates budget set runners`, 16 by default,
 `WorkerBudget.runnersRefusal`), counted from the cloud's own list by
 `WorkerProvider.running` so runners `splates run` made count too; it logs the
-wait once and looks again as one frees. No live agent keeps a runner: a
-runner stops itself after `idle` (10 minutes by default, `splates budget set
-idle`) with no job, and when jobs wait with no room the keeper starts a
-stopped runner (`RunnerDialer.wake`) before it makes one. A stopped
+wait once and looks again as one frees, and every minute. No live agent
+keeps a runner: a runner, a burst's included, stops itself after `idle`
+(10 minutes by default, `splates budget set idle`) with no job. A stopped
 runner still bills its disk, so the server keeps no more than `kept` of
 those it made stopped (4 by default, `splates budget set kept`): past that,
 each provisioning sweep destroys the biggest first, a burst machine being

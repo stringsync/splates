@@ -70,7 +70,9 @@ boot).
   stopped machine bills only its rootfs) and a job starts it in 1.5 s. Nothing
   destroys one by time.
 - Sizes are a table (`shared-cpu-Nx`, `performance-Nx`, memory in GB) with
-  Fly's list prices; `shared-cpu-4x` 8 GB is the default job's size.
+  Fly's list prices; `shared-cpu-4x` 8 GB is the default job's size, and
+  a burst of jobs gets the cheapest size that holds them all
+  (`heavy-jobs-on-runners.md`).
 - A Fly deploy token scoped to the runners' app is all splates needs, so the
   delete-only token question of the DigitalOcean watchdog does not arise.
 
