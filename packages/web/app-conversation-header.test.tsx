@@ -541,17 +541,25 @@ describe("App's conversation header", () => {
 
 		const lines = view.getAllByRole("note", { name: "background command" });
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Running in the backgroundbun dev",
-			"Failed in the backgroundbun testexit 1",
-			"Ran in the backgroundbun run lintexit 0",
+			"Running in the backgroundShow command",
+			"Failed in the backgroundShow commandexit 1",
+			"Ran in the backgroundShow commandexit 0",
 		]);
-		// Only one the agent still lists opens what it printed.
-		expect(within(lines[1] as HTMLElement).queryByRole("button")).toBeNull();
+		// Commands no longer listed can still be revealed without a preview.
+		const failed = within(lines[1] as HTMLElement);
+		await act(async () =>
+			fireEvent.click(failed.getByRole("button", { name: "Show command" })),
+		);
+		expect(failed.getByText("bun test").tagName).toBe("CODE");
+		await act(async () =>
+			fireEvent.click(failed.getByRole("button", { name: "Hide command" })),
+		);
+		expect(failed.queryByText("bun test")).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(
 				within(lines[0] as HTMLElement).getByRole("button", {
-					name: "bun dev",
+					name: "Show command",
 				}),
 			),
 		);

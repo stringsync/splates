@@ -148,6 +148,7 @@ const ENDED: Record<BackgroundState, string> = {
 function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 	const watch = useContext(WatchBackground);
 	const listed = useContext(ListedBackground);
+	const [expanded, setExpanded] = useState(false);
 	const { background } = tool;
 	if (background === undefined) {
 		return null;
@@ -156,7 +157,7 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 	const command = tool.command ?? tool.title;
 	const shown = listed?.background.find((each) => each.id === id);
 	const chip = cn(
-		"min-w-0 max-w-80 truncate rounded-md border bg-background px-1.5 py-0.5 font-mono text-foreground",
+		"shrink-0 rounded-md border bg-background px-1.5 py-0.5 text-foreground transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
 	);
 	return (
 		<div
@@ -170,23 +171,20 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 				<p className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
 					{state === "running" ? <RunningMark /> : <StateMark state={state} />}
 					<span>{ENDED[state]}</span>
-					{watch !== null && listed !== null && shown !== undefined ? (
-						<button
-							type="button"
-							title={shown.name}
-							onClick={() => watch(listed.conversation, id)}
-							className={cn(
-								chip,
-								"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
-							)}
-						>
-							{command}
-						</button>
-					) : (
-						<code title={command} className={chip}>
-							{command}
-						</code>
-					)}
+					<button
+						type="button"
+						aria-expanded={shown === undefined ? expanded : undefined}
+						onClick={() => {
+							if (watch !== null && listed !== null && shown !== undefined) {
+								watch(listed.conversation, id);
+							} else {
+								setExpanded((was) => !was);
+							}
+						}}
+						className={chip}
+					>
+						{expanded ? "Hide command" : "Show command"}
+					</button>
 					{exitCode !== null && (
 						<span
 							className={cn(
@@ -200,6 +198,11 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 				</p>
 				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
 			</div>
+			{expanded && (
+				<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-md border bg-background p-2 text-foreground">
+					<code>{command}</code>
+				</pre>
+			)}
 		</div>
 	);
 }
