@@ -9,6 +9,7 @@ import {
 } from "@stringsync/splates-server/queue";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { setQueuePaused } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { here } from "./flags";
@@ -80,3 +81,30 @@ splatesQueue
 		refuseAgentQueue(ctx.service, "queue move");
 		return queueMove(ctx, opts.id, opts.position);
 	});
+
+for (const command of ["pause", "resume"] as const) {
+	splatesQueue
+		.command(command)
+		.use(repository({ needs: "tasks" }))
+		.description(
+			command === "pause"
+				? "pause automatic starts across the server, leaving running agents to finish and the person's own agents able to start; only the person may pause"
+				: "resume automatic starts across the server; only the person may resume",
+		)
+		.option("dev", z.string(), {
+			default: "",
+			description:
+				"the `splates server` to ask, a URL such as http://localhost:4310; by default the one from SPLATES_DEV",
+		})
+		.action(async (opts, ctx) => {
+			refuseAgentQueue(ctx.service, `queue ${command}`);
+			await setQueuePaused({
+				dev: opts.dev,
+				paused: command === "pause",
+				log: ctx.log,
+				fs: ctx.fs,
+				ps: ctx.ps,
+				send: ctx.fetch,
+			});
+		});
+}

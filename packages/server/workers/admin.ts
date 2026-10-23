@@ -123,3 +123,17 @@ export async function removeWorker(
 			: `${id} drains, and is removed once ${running.join(", ")} end; --force ends them now and carries their tasks on elsewhere`,
 	);
 }
+
+/** Pauses or resumes automatic starts, as the Queue page's Pause control does. */
+export async function setQueuePaused(
+	opts: ServerCallOptions & { paused: boolean },
+): Promise<void> {
+	await callServer(`/api/workers/${LOCAL_WORKER}`, {
+		...opts,
+		method: "PUT",
+		body: { paused: opts.paused },
+	});
+	opts.log.info(
+		opts.paused ? "paused automatic starts" : "resumed automatic starts",
+	);
+}

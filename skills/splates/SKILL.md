@@ -159,6 +159,11 @@ open or not: a design talk, or a question answered from the main tree, asks,
 proposes and reports as a task does. A task adds only its record in
 `SPLATES.md`.
 
+Only the person runs `splates queue pause` or `splates queue resume`, which
+pause or resume automatic starts across the server, as Pause on the Queue
+page does. Running agents finish, and the person can still start their own.
+Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
+
 You never change the queue, which splates refuses an agent: when a
 conversation asks for several tasks, add them as a lane, and when the user
 asks you to queue work, add it; either way, end your reply with its queue

@@ -1,6 +1,7 @@
 export {
 	drainWorker,
 	removeWorker,
+	setQueuePaused,
 	setWorkerSlots,
 } from "./admin";
 export { WorkerChannel } from "./channel";
