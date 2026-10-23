@@ -104,7 +104,20 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
-	const ordered = folded(placed(pieces, events, message.at));
+	// Notes read are one quiet line above the turn, not placed by time: a line
+	// among the work would cut its row in two at every read.
+	const reads = events.filter(isRead);
+	const ordered = folded(
+		placed(
+			pieces,
+			events.filter((event) => !isRead(event)),
+			message.at,
+		),
+	);
+	const [first, ...rest] = reads;
+	if (first !== undefined) {
+		ordered.unshift({ type: "event", event: first, also: rest });
+	}
 	// Keep live work below an event, or a command left in the background,
 	// even before the agent sends another part.
 	const tail = ordered.at(-1);
