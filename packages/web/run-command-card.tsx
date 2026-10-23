@@ -92,7 +92,7 @@ export function RunCommandCard({
 			title={proposal.title ?? "Run a command"}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
-			<pre className="mx-4 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
+			<pre className="mx-4 mt-3 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
 				<code>{proposal.command}</code>
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
