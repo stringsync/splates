@@ -13,6 +13,11 @@ only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
 repository itself.
 
+In the splates repository, `bin/splates dev up` creates or attaches to the
+`splates` tmux session running the main checkout's server with `--keepalive`.
+It needs tmux (`brew install tmux`); detach with Ctrl+B, then D. SSH
+disconnection leaves it running; after a reboot, run it again.
+
 ## The short version
 
 Most of what follows fills in these steps. Hold to them even when you skip
