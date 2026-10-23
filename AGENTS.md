@@ -1,25 +1,24 @@
 Use the splates skill for any work that may change code: start a task with
 `splates add` before investigating, and land it with `splates merge`.
 
+In your worktree, run `bin/splates`, never the `splates` on your PATH or
+`bunx @stringsync/splates`: those are other builds, while `bin/splates` runs the
+code you are editing. Every `splates ...` command in this file means
+`bin/splates ...` for you.
+
 When the user says "the server", they mean the splates server, `splates server`:
 it serves the splates web app and coordinates agents and their workers. Code
 may still call it the coordinator, as in `CoordinatorIdentity` or `--coordinator`,
 where that sets it apart from a worker; it is the same thing.
 
-After making code changes:
-
-- `splates dev fix` typecheck, format, and check the project, scry included.
-- `splates dev test` test the package. It takes a heavy-job slot itself, so
-  it needs no `splates run`. `splates dev test --evals` tests the eval
-  harness, for changes under `evals/`. It runs on a Linux runner: one
-  joined to the server, else one it makes in DigitalOcean itself, server or
-  not (`splates runners list` shows them): a snapshot of the worktree, edits
-  included, output streamed back; `--local` runs it here. Run it before
-  touching processes, sockets, files or git, which is where macOS and Linux
-  differ. `splates dev prove runner` joins a Linux container to the server as
-  a runner and runs a job on it; it needs Docker and takes minutes.
-  Pass `--ci` to print only the failing tests and the summaries, rather
-  than piping its output through `tail`, `grep` or a file to cut it down.
+After making code changes, `splates dev fix` typechecks, formats and checks
+the project, scry included. Do not run the test suite yourself: the merge
+gate runs it on a runner (`preMerge` in `splates.config.ts`), so a run of
+your own is the same work twice. Running a test file or two you changed by
+hand (`bun test <path>`) is fine. `splates dev test --evals` tests the eval
+harness, for changes under `evals/`. `splates dev prove runner` joins a
+Linux container to the server as a runner and runs a job on it; it needs
+Docker and takes minutes.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as
@@ -35,11 +34,6 @@ release tag with `bunx skills add`.
 `splates` runs whichever checkout you are standing in, so working on it from a
 worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
-
-In your worktree, run `bin/splates`, never the `splates` on your PATH or
-`bunx @stringsync/splates`: those are other builds, while `bin/splates` runs the
-code you are editing. Every `splates ...` command in this file means
-`bin/splates ...` for you.
 
 ## Module directories
 
