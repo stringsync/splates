@@ -94,6 +94,16 @@ export class FlyWorkers implements WorkerProvider {
 			}));
 	}
 
+	/** Every Fly machine up in the app that is a runner, a stopped one billing storage alone not counting. */
+	async running(): Promise<number> {
+		return (await this.cloud.list()).filter(
+			(machine) =>
+				(machine.config.metadata["splates-worker"] !== undefined ||
+					machine.config.metadata["splates-run"] !== undefined) &&
+				["created", "starting", "started", "stopping"].includes(machine.state),
+		).length;
+	}
+
 	private boot(spec: WorkerSpec): string {
 		if (!spec.recipe) {
 			throw new Error(

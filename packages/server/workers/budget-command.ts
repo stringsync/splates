@@ -6,7 +6,12 @@ import { fail } from "../exit";
 import { runnerShares, Spend } from "../spend";
 import { FsStorage } from "../storage";
 import { table } from "../table";
-import { WORKER_LIMITS, WorkerBudget, type WorkerLimit } from "./budget";
+import {
+	DEFAULT_RUNNER_CAP,
+	WORKER_LIMITS,
+	WorkerBudget,
+	type WorkerLimit,
+} from "./budget";
 import { dollars } from "./budget-notice";
 import { type WorkerBudgetReport, WorkerBudgetRoutes } from "./budget-routes";
 import { serverOf } from "./server-of";
@@ -27,18 +32,27 @@ export async function showBudget(opts: BudgetCommandOptions): Promise<void> {
 	print(await ask("/api/worker-budget", {}, opts), opts);
 }
 
-/** `splates budget set`: sets a limit to `dollars`, like `5`, or with `default` to its default. */
+/**
+ * `splates budget set`: sets a limit to `dollars`, like `5`, or `runners` to a
+ * count, like `16`, or either with `default` to its default.
+ */
 export async function setBudget(
-	opts: BudgetCommandOptions & { limit: WorkerLimit; dollars: string },
+	opts: BudgetCommandOptions & {
+		limit: WorkerLimit | "runners";
+		dollars: string;
+	},
 ): Promise<void> {
+	const given = opts.dollars === "default" ? null : opts.dollars;
 	print(
 		await ask(
 			`/api/worker-budget/${opts.limit}`,
 			{
 				method: "PUT",
-				body: JSON.stringify({
-					dollars: opts.dollars === "default" ? null : amount(opts.dollars),
-				}),
+				body: JSON.stringify(
+					opts.limit === "runners"
+						? { runners: given === null ? null : count(given) }
+						: { dollars: given === null ? null : amount(given) },
+				),
 			},
 			opts,
 		),
@@ -159,6 +173,21 @@ function amount(text: string): number {
 	return value;
 }
 
+/** `text` as a number of runners, or fails saying what was expected. */
+function count(text: string): number {
+	const value = Number(text.trim());
+	if (text.trim() === "" || !Number.isInteger(value) || value < 0) {
+		fail(
+			"usage",
+			`expected a whole number of runners, like 16, got "${text}"`,
+			{
+				runners: text,
+			},
+		);
+	}
+	return value;
+}
+
 async function ask(
 	path: string,
 	init: RequestInit,
@@ -231,6 +260,7 @@ function print(
 				];
 			}),
 		),
+		`Runners: ${report.runners.up === null ? "?" : report.runners.up} up of ${report.runners.cap} allowed (${report.runners.set ? "set" : "default"}), whoever made them.`,
 		`Projected this month: ${dollars(report.projected)}, if those running now run to its end.`,
 		"Spent is an estimate, at each worker type's list price.",
 	];
@@ -301,4 +331,20 @@ const Report = z.object({
 		.default({ day: [], month: [] }),
 	stopped: z.string().nullable(),
 	reviewed: z.boolean(),
+	// An older `splates server` sends none.
+	runners: z
+		.object({
+			cap: z.number(),
+			set: z.boolean(),
+			up: z.number().nullable(),
+			left: z.number(),
+			tier: z.number(),
+		})
+		.default({
+			cap: DEFAULT_RUNNER_CAP,
+			set: false,
+			up: null,
+			left: DEFAULT_RUNNER_CAP,
+			tier: 0,
+		}),
 });

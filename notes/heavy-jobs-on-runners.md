@@ -44,8 +44,11 @@ than `largest` and lists the too-big jobs.
 `RunnerKeeper` (`workers/runner-keeper.ts`) makes the runners the pool wants:
 one while any agent is live (made when the first starts), and a second only
 while jobs wait that fit in no room left on the runners up or booting, counting
-a booting runner's room by its type's `cpus` and `memory` (at most
-`MAX_RUNNERS`, 2). Its `busy` keeps from `WorkerProvisioning`'s idle sweep each
+a booting runner's room by its type's `cpus` and `memory`. It makes none while
+the account holds the runner cap (`splates budget set runners`, 16 by default,
+`WorkerBudget.runnersRefusal`), counted from the cloud's own list by
+`WorkerProvider.running` so runners `splates run` made count too; it logs the
+wait once and looks again as one frees. Its `busy` keeps from `WorkerProvisioning`'s idle sweep each
 runner running a job, all while jobs wait, and the first made while an agent
 is live; any other is destroyed after 15 idle minutes (at once when its type
 bills by the second, which is why a DigitalOcean runner's idle time need not

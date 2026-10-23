@@ -8,6 +8,7 @@ import {
 	ACCESS_CLIENT_ID_HEADER,
 	ACCESS_CLIENT_SECRET_HEADER,
 	DEFAULT_JOB_SIZE,
+	DIRECT_TAG,
 	type JobSize,
 	locationOf,
 	OWN_BUILD_HEADER,
@@ -21,6 +22,7 @@ import {
 	TypeRefused,
 	WORKER_ACCESS_ID,
 	WORKER_ACCESS_SECRET,
+	WORKER_TAG,
 	type WorkerImage,
 	type WorkerProvider,
 	type WorkerSpec,
@@ -191,6 +193,17 @@ export class CloudWorkers implements WorkerProvider {
 		}));
 	}
 
+	/**
+	 * Every runner up in the account: the workers the server made and the
+	 * runners `splates run` made, whichever project made them.
+	 */
+	async running(): Promise<number> {
+		return (
+			(await this.cloud.machines(WORKER_TAG)).length +
+			(await this.cloud.machines(DIRECT_TAG)).length
+		);
+	}
+
 	/** Deletes each snapshot builder older than any build runs, which a build that died left. */
 	async sweep(): Promise<string[]> {
 		const swept: string[] = [];
@@ -230,9 +243,6 @@ export class CloudWorkers implements WorkerProvider {
  * again, as once a new account may order bigger sizes.
  */
 const REFUSED_FOR = Duration.hrs(1);
-
-/** The tag every worker splates made carries, its value the worker's id. */
-const WORKER_TAG = "splates-worker";
 
 /** The tag of a snapshot's builder, its value its platform, as `SNAPSHOT_TAG` is the snapshot's. */
 const BUILDER_TAG = "splates-snapshot-builder";

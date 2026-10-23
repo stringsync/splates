@@ -155,7 +155,7 @@ function WorkerCard({
 						raised.
 					</p>
 				)}
-				<Limits standing={report.standing} />
+				<Limits standing={report.standing} runners={report.runners} />
 				{report.raises.length > 0 && (
 					<ul aria-label="raises" className="flex flex-col gap-1">
 						{report.raises.map((raise) => (
@@ -248,7 +248,16 @@ function Figure({ name, value }: { name: string; value: string }) {
 }
 
 /** A bar per worker limit, toned at 80% and 90% and red once reached. */
-function Limits({ standing }: { standing: WorkerStanding[] }): JSX.Element {
+function Limits({
+	standing,
+	runners,
+}: {
+	standing: WorkerStanding[];
+	runners: WorkerBudgetReport["runners"];
+}): JSX.Element {
+	const runnersUsed =
+		runners.up === null ? 0 : runners.cap === 0 ? 1 : runners.up / runners.cap;
+	const runnersTone = toneOf(runnersUsed);
 	return (
 		<ul
 			className={cn(
@@ -293,6 +302,25 @@ function Limits({ standing }: { standing: WorkerStanding[] }): JSX.Element {
 					</li>
 				);
 			})}
+			<li
+				aria-label="runners up"
+				className="col-span-full grid grid-cols-subgrid items-center text-sm max-md:gap-y-2 tabular-nums"
+			>
+				<span className="whitespace-nowrap">Runners up</span>
+				<Meter
+					used={runnersUsed}
+					className="max-md:col-span-full max-md:row-start-2"
+				/>
+				<span
+					className={cn(
+						"text-right max-md:col-start-2 max-md:row-start-1",
+						runnersTone === "warning" && "text-warning",
+						runnersTone === "destructive" && "text-destructive",
+					)}
+				>
+					{runners.up ?? "?"} of {runners.cap}
+				</span>
+			</li>
 		</ul>
 	);
 }

@@ -27,6 +27,34 @@ describe("WorkerBudget", () => {
 		]);
 	});
 
+	it("holds runners up to 16 by default, a set cap or its default again, and kept", async () => {
+		const fs = new FakeFs();
+		const budget = await WorkerBudget.open(budgetAt(fs), clock());
+		expect(budget.runnersStanding(4)).toMatchObject({
+			cap: 16,
+			set: false,
+			up: 4,
+			left: 12,
+			tier: 0,
+		});
+		expect(budget.runnersRefusal(15)).toBeNull();
+		expect(budget.runnersRefusal(16)).toBe("runner limit 16 reached");
+
+		await budget.setRunners(10);
+		expect(budget.runnersStanding(8)).toMatchObject({
+			cap: 10,
+			set: true,
+			tier: 80,
+		});
+		expect((await WorkerBudget.open(budgetAt(fs), clock())).runnerCap()).toBe(
+			10,
+		);
+		await expect(budget.setRunners(1.5)).rejects.toThrow("whole number");
+
+		await budget.setRunners(null);
+		expect(budget.runnerCap()).toBe(16);
+	});
+
 	it("counts what each made worker costs while it runs, at its list price", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);

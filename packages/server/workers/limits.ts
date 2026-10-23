@@ -8,6 +8,9 @@ export const WORKER_LIMITS = ["hour", "day", "month"] as const;
  */
 export type WorkerLimit = (typeof WORKER_LIMITS)[number];
 
+/** How many runners may be up at once in the account until the user sets it, whoever made them. */
+export const DEFAULT_RUNNER_CAP = 16;
+
 /** What each limit is until the user sets it. */
 export const DEFAULT_WORKER_LIMITS: Readonly<Record<WorkerLimit, number>> = {
 	hour: 1,

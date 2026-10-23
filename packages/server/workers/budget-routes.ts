@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { body, refuse } from "../server/shared";
 import {
+	type RunnersStanding,
 	span,
 	WORKER_LIMITS,
 	type WorkerBudget,
@@ -24,7 +25,12 @@ export interface WorkerBudgetReport {
 	stopped: string | null;
 	/** Whether the user has set a limit, or confirmed the defaults. */
 	reviewed: boolean;
+	/** The cap on runners up at once in the account, and how many are. */
+	runners: RunnersStanding;
 }
+
+/** How many runners are up in the account now, from the cloud's own list; null when it cannot be asked. */
+export type RunnersUp = () => Promise<number | null>;
 
 /** Who the runners' cost from `since` to `until`, epoch ms, went to, from the spend ledger. */
 export type RunnerShares = (
@@ -34,6 +40,9 @@ export type RunnerShares = (
 
 /** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
 const SetLimit = z.object({ dollars: z.number().min(0).nullable() });
+
+/** What `PUT /api/worker-budget/runners` is sent: a whole number, or null for the default. */
+const SetRunners = z.object({ runners: z.number().int().min(0).nullable() });
 
 /** What `POST /api/worker-budget/raises` is sent. */
 const AddRaise = z.object({
@@ -53,6 +62,7 @@ export class WorkerBudgetRoutes {
 		private readonly budget: WorkerBudget | null,
 		private readonly provisioning: { refill(): Promise<void> } | null = null,
 		private readonly shares: RunnerShares = () => Promise.resolve([]),
+		private readonly up: RunnersUp = () => Promise.resolve(null),
 	) {}
 
 	/** `GET /api/worker-budget`. */
@@ -61,6 +71,17 @@ export class WorkerBudgetRoutes {
 
 	/** `PUT /api/worker-budget/:limit`: sets a limit, or with null gives it back to its default. */
 	readonly set = async (request: Request): Promise<Response> => {
+		if (new URL(request.url).pathname.split("/")[3] === "runners") {
+			const runners = SetRunners.safeParse(await body(request));
+			if (!runners.success) {
+				return refuse(
+					400,
+					"usage",
+					"set runners to a whole number, like { runners: 16 }, or null for its default",
+				);
+			}
+			return this.answer((budget) => budget.setRunners(runners.data.runners));
+		}
 		const limit = z
 			.enum(WORKER_LIMITS)
 			.safeParse(new URL(request.url).pathname.split("/")[3]);
@@ -132,7 +153,9 @@ export class WorkerBudgetRoutes {
 		} catch (error) {
 			return refuse(400, "usage", (error as Error).message);
 		}
-		return Response.json(await workerBudgetReport(budget, this.shares));
+		return Response.json(
+			await workerBudgetReport(budget, this.shares, this.up),
+		);
 	}
 }
 
@@ -140,6 +163,7 @@ export class WorkerBudgetRoutes {
 export async function workerBudgetReport(
 	budget: WorkerBudget,
 	shares: RunnerShares,
+	up: RunnersUp = () => Promise.resolve(null),
 ): Promise<WorkerBudgetReport> {
 	const now = Date.now();
 	return {
@@ -153,5 +177,6 @@ export async function workerBudgetReport(
 		},
 		stopped: budget.stopped(),
 		reviewed: budget.reviewed,
+		runners: budget.runnersStanding(await up()),
 	};
 }

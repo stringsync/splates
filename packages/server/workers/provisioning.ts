@@ -92,6 +92,25 @@ export class WorkerProvisioning
 		}
 	}
 
+	/**
+	 * How many runners are up in the provider's account, whoever made them;
+	 * null when it cannot be asked. A runner's record with no machine behind
+	 * it does not count.
+	 */
+	async runnersUp(): Promise<number | null> {
+		const { provider } = this.opts;
+		try {
+			return provider.running
+				? await provider.running()
+				: (await provider.list()).length;
+		} catch (error) {
+			this.opts.log.error(
+				`the runners up could not be counted: ${String(error)}`,
+			);
+			return null;
+		}
+	}
+
 	/** The types of worker the provider makes. */
 	types(): Promise<WorkerType[]> {
 		return this.opts.provider.types();

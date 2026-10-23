@@ -15,6 +15,7 @@ export type {
 	AlertTier,
 	BudgetHeld,
 	BudgetReason,
+	RunnersStanding,
 	WorkerAlert,
 	WorkerLimit,
 	WorkerRaise,
@@ -22,6 +23,7 @@ export type {
 } from "./budget";
 export {
 	ALERT_TIERS,
+	DEFAULT_RUNNER_CAP,
 	DEFAULT_WORKER_LIMITS,
 	RAISE_FOR,
 	span,
@@ -70,6 +72,7 @@ export {
 	DIRECT_IDLE,
 	DIRECT_TAG,
 	DirectRunners,
+	WORKER_TAG,
 } from "./direct";
 export { DirectBoard } from "./direct-board";
 export type { DirectBoardView } from "./direct-report";

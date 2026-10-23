@@ -51,6 +51,12 @@ go, then `directJobScript` run in bash over SSH: a detached worktree, the
 caller hung up) or past the timeout (exit 124). Files the job asks back come
 as base64 lines from a second SSH. Each job is a `job` row in the ledger.
 
+The runner cap (`splates budget set runners`, 16 by default) is counted from
+the cloud's own list, the server's workers and `splates run`'s runners
+together; past it a job waits as past the day limit, saying so, and is refused
+when none that could hold it is up. With no server `budget show` cannot count
+and prints `?` runners up.
+
 Cost: each runner is a life in the shared `worker-budget.json` (which now reads
 itself again before each change, so the server and `splates run` keep each
 other's; `splates budget show|set|raise|end` read and write that document

@@ -452,6 +452,7 @@ export async function dev(
 		workers.provisioning?.budget ?? null,
 		workers.provisioning,
 		runnerShares,
+		() => workers.provisioning?.runnersUp() ?? Promise.resolve(null),
 	);
 	// Loud, whatever a device asks to hear: a limit nearing costs money.
 	workers.provisioning?.events.on("alert", (alert) => {

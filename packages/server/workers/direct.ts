@@ -39,6 +39,9 @@ import { SNAPSHOT_TAG } from "./snapshot";
 /** The tag every runner `splates run` made carries in the cloud, its value the runner's name. */
 export const DIRECT_TAG = "splates-run";
 
+/** The tag of a machine the server made as a worker, which counts with `DIRECT_TAG` machines against the runner cap. */
+export const WORKER_TAG = "splates-worker";
+
 /** What a runner's name starts with. */
 export const DIRECT_PREFIX = "splates-run-";
 
@@ -346,7 +349,9 @@ export class DirectRunners {
 			);
 		}
 		const budget = await this.deps.budget();
-		const refusal = budget.refusal(type.dollarsPerHour);
+		const refusal =
+			budget.refusal(type.dollarsPerHour) ??
+			budget.runnersRefusal(await this.runnersUp());
 		if (refusal !== null) {
 			if (holds) {
 				tell(
@@ -356,7 +361,7 @@ export class DirectRunners {
 				return null;
 			}
 			throw new NoRunner(
-				`no runner made: a ${sizeLabel(capacityOf(type), type.dollarsPerHour)} runner is past the budget, ${refusal}. Raise it with \`splates budget raise\``,
+				`no runner made: a ${sizeLabel(capacityOf(type), type.dollarsPerHour)} runner is past the budget, ${refusal}. Raise it with \`splates budget ${refusal.startsWith("runner limit") ? "set runners" : "raise"}\``,
 			);
 		}
 		try {
@@ -375,6 +380,15 @@ export class DirectRunners {
 			refused.add(error.type);
 		}
 		return null;
+	}
+
+	/** How many runners are up in the cloud's account, the server's and `splates run`'s alike, from its own list. */
+	private async runnersUp(): Promise<number> {
+		const { cloud } = this.deps;
+		return (
+			(await cloud.machines(DIRECT_TAG)).length +
+			(await cloud.machines(WORKER_TAG)).length
+		);
 	}
 
 	/** Makes a runner of `type`, counted in the budget and the ledger from now. */

@@ -172,6 +172,12 @@ export interface WorkerProvider {
 	/** Every machine it made for splates that still exists. */
 	list(): Promise<ProvisionedMachine[]>;
 	/**
+	 * How many runners are up in its account now, counted from the cloud's own
+	 * list over every project, those `splates run` made included; `list`'s
+	 * length when absent.
+	 */
+	running?(): Promise<number>;
+	/**
 	 * Deletes what it left behind besides workers' machines, such as a
 	 * snapshot's builder a build that died kept running, answering a name
 	 * for each; asked every few minutes.

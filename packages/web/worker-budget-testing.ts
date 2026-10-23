@@ -30,5 +30,6 @@ export function workerBudgetFixture(
 		split: { day: [], month: [] },
 		stopped: null,
 		reviewed: false,
+		runners: { cap: 16, set: false, up: 0, left: 16, tier: 0 },
 	};
 }

@@ -16,9 +16,6 @@ import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { Scheduler } from "./scheduler";
 
-/** The most runners made at once: the one kept warm and a second for a queue. */
-export const MAX_RUNNERS = 2;
-
 /** How long after a runner could not be made another is not tried, so a failing provider is not hammered. */
 export const MAKE_BACKOFF = Duration.mins(1);
 
@@ -40,6 +37,10 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	private price: number | null = null;
 	/** The cheapest runner's size, once known, which is what is made. */
 	private size: JobSize | null = null;
+	/** Runners up in the account at the last look, those `splates run` made too; null until counted or when it could not be. */
+	private up: number | null = null;
+	/** The cap refusal last logged, so a wait is said once. */
+	private noted: string | null = null;
 	private readonly disposer = new Disposer();
 	private readonly wall: WallClock;
 
@@ -96,7 +97,7 @@ export class RunnerKeeper implements JobPoolView, Resource {
 	}
 
 	canMake(): boolean {
-		return this.makable() && this.live().length < MAX_RUNNERS;
+		return this.makable() && this.room();
 	}
 
 	/**
@@ -154,11 +155,22 @@ export class RunnerKeeper implements JobPoolView, Resource {
 				log.error(`the runner types could not be read: ${String(error)}`);
 			}
 		}
+		this.up = (await provisioning.runnersUp()) ?? null;
 		const live = this.live().length;
 		const wanted =
 			live === 0
 				? this.agentsLive() || pool.queue().length > 0
 				: pool.short() > 0;
+		if (wanted && !this.room()) {
+			const { budget } = provisioning;
+			const why = budget.runnersRefusal(this.up ?? live);
+			if (why !== null && this.noted !== why) {
+				this.noted = why;
+				log.info(`${why}: waiting for a runner to free before making another`);
+			}
+		} else {
+			this.noted = null;
+		}
 		if (wanted && this.canMake()) {
 			this.making = true;
 			try {
@@ -191,6 +203,15 @@ export class RunnerKeeper implements JobPoolView, Resource {
 
 	dispose(): void {
 		this.disposer.dispose();
+	}
+
+	/** Whether the account has room under the runner cap for another: counted over every project, else by the runners this server made. */
+	private room(): boolean {
+		const { provisioning } = this.opts;
+		return (
+			provisioning === null ||
+			provisioning.budget.runnersRefusal(this.up ?? this.live().length) === null
+		);
 	}
 
 	/** Whether a runner may be made now, whatever how many there are. */

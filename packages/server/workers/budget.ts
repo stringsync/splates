@@ -4,12 +4,14 @@ import type { Document } from "../storage";
 import { reached } from "./budget-notice";
 
 export {
+	DEFAULT_RUNNER_CAP,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
 } from "./limits";
 
 import {
+	DEFAULT_RUNNER_CAP,
 	DEFAULT_WORKER_LIMITS,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -94,6 +96,52 @@ export class WorkerBudget {
 				left: Math.max(0, dollars - spent),
 				tier: tierOf(spent, dollars),
 				estimate: true,
+			};
+		});
+	}
+
+	/** How many runners may be up at once in the account: the set cap, else the default. */
+	runnerCap(): number {
+		return this.kept.runners ?? DEFAULT_RUNNER_CAP;
+	}
+
+	/** Where the runner cap stands with `up` runners in the account now; `up` is null when not known. */
+	runnersStanding(up: number | null): RunnersStanding {
+		const cap = this.runnerCap();
+		return {
+			cap,
+			set: this.kept.runners !== undefined,
+			up,
+			left: up === null ? cap : Math.max(0, cap - up),
+			tier: up === null ? 0 : tierOf(up, cap),
+		};
+	}
+
+	/**
+	 * Why no runner may be made with `up` in the account now; null while the
+	 * cap leaves room. Unlike the dollar limits it stops none already up.
+	 */
+	runnersRefusal(up: number): BudgetReason | null {
+		const cap = this.runnerCap();
+		return up >= cap ? `runner limit ${cap} reached` : null;
+	}
+
+	/**
+	 * Sets the runner cap to `runners`; null gives it back to its default.
+	 * Either way the user has chosen, so the budget counts as reviewed.
+	 */
+	async setRunners(runners: number | null): Promise<void> {
+		if (runners !== null && !(Number.isInteger(runners) && runners >= 0)) {
+			throw new Error(
+				`expected a whole number of runners, like 16, got ${runners}`,
+			);
+		}
+		await this.change((kept) => {
+			const { runners: _, ...rest } = kept;
+			return {
+				...rest,
+				...(runners === null ? {} : { runners }),
+				reviewed: true,
 			};
 		});
 	}
@@ -220,7 +268,10 @@ export class WorkerBudget {
 	 * as undoing setup does; raises and spend stay.
 	 */
 	async unreview(): Promise<void> {
-		await this.change((kept) => ({ ...kept, limits: {}, reviewed: false }));
+		await this.change((kept) => {
+			const { runners: _, ...rest } = kept;
+			return { ...rest, limits: {}, reviewed: false };
+		});
 	}
 
 	/** Adds `dollars` to `limit` for `span`, answering the raise. */
@@ -450,6 +501,8 @@ const Kept = z.object({
 			month: z.number().optional(),
 		})
 		.default({}),
+	/** The most runners up at once in the account, over the default. */
+	runners: z.number().int().min(0).optional(),
 	raises: z.array(Raise).default([]),
 	/** Each made worker's life, the ledger spend is counted from. */
 	lives: z.array(Life).default([]),
@@ -490,6 +543,17 @@ export interface WorkerStanding {
 	tier: AlertTier;
 	/** Always true for now: spent is counted at the provider's list price, not its bill. */
 	estimate: boolean;
+}
+
+/** Where the cap on runners up at once stands. */
+export interface RunnersStanding {
+	cap: number;
+	/** Whether the user set it, over the default. */
+	set: boolean;
+	/** Runners up in the account now, by the cloud's own list; null when it could not be asked. */
+	up: number | null;
+	left: number;
+	tier: AlertTier;
 }
 
 /** What one click on a held queue raises, and what that buys. */
