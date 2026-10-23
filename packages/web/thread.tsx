@@ -31,7 +31,7 @@ import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { useAutoPick } from "./auto-pick-switch";
-import { BackgroundCard, BackgroundUI, ListedBackground } from "./background";
+import { BackgroundCard, BackgroundUI } from "./background";
 import { ReplyContext } from "./card-reply";
 import { useChooseSetting } from "./choose-setting";
 import { useReply, useTyped } from "./composer-drafts";
@@ -216,10 +216,6 @@ function Conversation({
 		task?.worktree ?? (conversation.task === null ? root : null),
 		root,
 	);
-	const listed = useMemo(
-		() => ({ conversation: id, background: conversation.background }),
-		[id, conversation.background],
-	);
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.
 	const archivable = !archived && filable(conversation);
@@ -341,66 +337,62 @@ function Conversation({
 													<StartNewContext value={startNew}>
 														<ReplyContext value={reply}>
 															<NamedContext value={named}>
-																<ListedBackground value={listed}>
-																	<ThreadView
-																		openAt={openAt}
-																		onRead={onRead}
-																		autoFocus={!asking || typed}
-																		stopping={stopping}
-																		going={going}
-																		mentions={mentions ?? undefined}
-																		references={references}
-																		commands={commands ?? undefined}
-																		placeholder={
-																			archived
-																				? "Send a message to unarchive and continue"
-																				: undefined
-																		}
-																		controls={
-																			!archived && (
-																				<>
-																					<ContextMeter
-																						usage={conversation.usage}
-																						compactions={compactionsIn(
-																							conversation.messages,
-																						)}
-																					/>
-																					<SettingControls
-																						agent={conversation.agent}
-																						autoPick={autoPick}
-																						settings={settings}
-																						current={(setting) =>
-																							setting.current
-																						}
-																						onChange={choose}
-																					/>
-																				</>
-																			)
-																		}
-																		above={
+																<ThreadView
+																	openAt={openAt}
+																	onRead={onRead}
+																	autoFocus={!asking || typed}
+																	stopping={stopping}
+																	going={going}
+																	mentions={mentions ?? undefined}
+																	references={references}
+																	commands={commands ?? undefined}
+																	placeholder={
+																		archived
+																			? "Send a message to unarchive and continue"
+																			: undefined
+																	}
+																	controls={
+																		!archived && (
 																			<>
-																				<NeedsYouBar />
-
-																				<Refusal
-																					refusal={refusal}
-																					className="px-2"
+																				<ContextMeter
+																					usage={conversation.usage}
+																					compactions={compactionsIn(
+																						conversation.messages,
+																					)}
 																				/>
-																				{offer !== null && barred && (
-																					<ArchiveBar offer={offer} />
-																				)}
-																				{conversation.ask !== null && (
-																					<AskPanel
-																						key={conversation.ask.id}
-																						drafts={drafts}
-																						conversation={conversation}
-																						agent={agent}
-																						ask={conversation.ask}
-																					/>
-																				)}
+																				<SettingControls
+																					agent={conversation.agent}
+																					autoPick={autoPick}
+																					settings={settings}
+																					current={(setting) => setting.current}
+																					onChange={choose}
+																				/>
 																			</>
-																		}
-																	/>
-																</ListedBackground>
+																		)
+																	}
+																	above={
+																		<>
+																			<NeedsYouBar />
+
+																			<Refusal
+																				refusal={refusal}
+																				className="px-2"
+																			/>
+																			{offer !== null && barred && (
+																				<ArchiveBar offer={offer} />
+																			)}
+																			{conversation.ask !== null && (
+																				<AskPanel
+																					key={conversation.ask.id}
+																					drafts={drafts}
+																					conversation={conversation}
+																					agent={agent}
+																					ask={conversation.ask}
+																				/>
+																			)}
+																		</>
+																	}
+																/>
 															</NamedContext>
 														</ReplyContext>
 													</StartNewContext>

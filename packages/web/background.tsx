@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { SplatesEvent } from "./splates-event";
 
 /**
  * Opens what a conversation's background command printed in the pane beside
@@ -119,15 +120,6 @@ export function BackgroundCard({
 }
 
 /**
- * The conversation a thread shows and the commands its agent lists in the
- * background, so a line for one opens what it printed while it still can.
- */
-export const ListedBackground = createContext<{
-	conversation: string;
-	background: Background[];
-} | null>(null);
-
-/**
  * Renders a `data-background` part: the line in the thread where the agent
  * left a command running in the background, one per command, saying how it
  * ended once it has.
@@ -146,60 +138,31 @@ const ENDED: Record<BackgroundState, string> = {
 };
 
 function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
-	const watch = useContext(WatchBackground);
-	const listed = useContext(ListedBackground);
 	const [expanded, setExpanded] = useState(false);
 	const { background } = tool;
 	if (background === undefined) {
 		return null;
 	}
-	const { id, state, exitCode } = background;
+	const { state, exitCode } = background;
 	const command = tool.command ?? tool.title;
-	const shown = listed?.background.find((each) => each.id === id);
-	const chip = cn(
-		"shrink-0 rounded-md border bg-background px-1.5 py-0.5 text-foreground transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
-	);
 	return (
-		<div
-			role="note"
-			aria-label="background command"
-			data-slot="background"
-			className="my-6 text-muted-foreground text-xs"
-		>
-			<div className="flex items-center gap-3">
-				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
-				<p className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-					{state === "running" ? <RunningMark /> : <StateMark state={state} />}
-					<span>{ENDED[state]}</span>
-					<button
-						type="button"
-						aria-expanded={shown === undefined ? expanded : undefined}
-						onClick={() => {
-							if (watch !== null && listed !== null && shown !== undefined) {
-								watch(listed.conversation, id);
-							} else {
-								setExpanded((was) => !was);
-							}
-						}}
-						className={chip}
-					>
-						{expanded ? "Hide command" : "Show command"}
-					</button>
-					{exitCode !== null && (
-						<span
-							className={cn(
-								"tabular-nums",
-								exitCode !== 0 && "text-destructive",
-							)}
-						>
-							exit {exitCode}
-						</span>
-					)}
-				</p>
-				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
-			</div>
+		<div role="note" aria-label="background command" data-slot="background">
+			<SplatesEvent
+				event={{
+					mark: state === "failed" ? "failed" : null,
+					words: [
+						exitCode === null
+							? ENDED[state]
+							: `${ENDED[state]}, exit ${exitCode}`,
+					],
+					act: {
+						label: expanded ? "Hide" : "Show",
+						run: () => setExpanded((was) => !was),
+					},
+				}}
+			/>
 			{expanded && (
-				<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-md border bg-background p-2 text-foreground">
+				<pre className="-mt-4 mb-6 overflow-x-auto whitespace-pre-wrap break-words rounded-md border bg-background p-2 text-foreground text-xs">
 					<code>{command}</code>
 				</pre>
 			)}

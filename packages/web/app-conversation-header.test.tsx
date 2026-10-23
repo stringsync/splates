@@ -541,34 +541,19 @@ describe("App's conversation header", () => {
 
 		const lines = view.getAllByRole("note", { name: "background command" });
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Running in the backgroundShow command",
-			"Failed in the backgroundShow commandexit 1",
-			"Ran in the backgroundShow commandexit 0",
+			"Running in the backgroundShow",
+			"Failed in the background, exit 1Show",
+			"Ran in the background, exit 0Show",
 		]);
-		// Commands no longer listed can still be revealed without a preview.
 		const failed = within(lines[1] as HTMLElement);
 		await act(async () =>
-			fireEvent.click(failed.getByRole("button", { name: "Show command" })),
+			fireEvent.click(failed.getByRole("button", { name: "Show" })),
 		);
 		expect(failed.getByText("bun test").tagName).toBe("CODE");
 		await act(async () =>
-			fireEvent.click(failed.getByRole("button", { name: "Hide command" })),
+			fireEvent.click(failed.getByRole("button", { name: "Hide" })),
 		);
 		expect(failed.queryByText("bun test")).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(
-				within(lines[0] as HTMLElement).getByRole("button", {
-					name: "Show command",
-				}),
-			),
-		);
-		const pane = await waitFor(() =>
-			view.getByRole("complementary", { name: "background command" }),
-		);
-		expect(within(pane).getByRole("heading").textContent).toBe(
-			"Start the dev server",
-		);
 	});
 
 	it("nests each command it left running under it in the sidebar, opening its output from there", async () => {
