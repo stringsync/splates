@@ -85,7 +85,7 @@ describe("App's billing runners", () => {
 		return view;
 	};
 
-	it("lists each runner by its size, or its type where the ledger kept none, with what it cost, one up now with its time and Stop", async () => {
+	it("lists each runner by its size, or its type where the ledger kept none, with what it cost, one up now with its time and Delete", async () => {
 		const view = await open();
 		const up = view.getByLabelText("c-16-up");
 		const old = view.getByLabelText("c-16-old");
@@ -97,13 +97,13 @@ describe("App's billing runners", () => {
 		expect(old.textContent).toContain("7 jobs · $0.50/h");
 		expect(old.textContent).toContain("Stopped");
 		expect(old.textContent).toContain("$2.00");
-		expect(within(old).queryByRole("button", { name: /Stop/ })).toBeNull();
+		expect(within(old).queryByRole("button", { name: /Delete/ })).toBeNull();
 
 		testing.holdWrites();
 		await act(async () =>
-			fireEvent.click(within(up).getByRole("button", { name: /Stop/ })),
+			fireEvent.click(within(up).getByRole("button", { name: /Delete/ })),
 		);
-		expect(up.textContent).toContain("Stopping…");
+		expect(up.textContent).toContain("Deleting…");
 		expect(
 			testing.posts
 				.filter(({ path }) => path.startsWith("/api/workers"))

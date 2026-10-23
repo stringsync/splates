@@ -41,7 +41,7 @@ const NEWEST = 8;
 
 /**
  * Every runner made, from every project: each with what it cost, a running
- * one with its cost ticking and Stop; then runner-hours and dollars by day
+ * one with its cost ticking and Delete; then runner-hours and dollars by day
  * or month, a bar picked opening who its cost went to; then each month's
  * estimate beside what the cloud billed for it. Every dollar here is an
  * estimate at the price the cloud's API gave when the runner was made.
@@ -131,7 +131,7 @@ function RunnerImages({ images }: { images: RunnerImage[] }): JSX.Element {
 	);
 }
 
-/** Each runner, the newest first, a running one with Stop. */
+/** Each runner, the newest first, a running one with Delete. */
 function RunnerList({
 	runners,
 	stopping,
@@ -175,7 +175,7 @@ function RunnerList({
 							{up ? (
 								<span className="text-primary">
 									{stopping.has(runner.id)
-										? "Stopping…"
+										? "Deleting…"
 										: `up now, ${span(hours)}`}
 								</span>
 							) : (
@@ -197,11 +197,11 @@ function RunnerList({
 								variant="ghost"
 								size="sm"
 								className="ml-auto text-muted-foreground hover:text-destructive"
-								title="Takes no new jobs, and stops once those on it end"
+								title="Takes no new jobs, and is deleted once those on it end"
 								disabled={stopping.has(runner.id)}
 								onClick={() => onStop(runner.id)}
 							>
-								<Trash2Icon /> Stop
+								<Trash2Icon /> Delete
 							</Button>
 						)}
 						<Refusal refusal={refusals.get(runner.id)} className="w-full" />
