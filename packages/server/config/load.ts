@@ -53,7 +53,9 @@ export async function loadConfig(
 					config.cloud instanceof FlyCloud
 						? new FlyWorkers(config.cloud, {
 								job: jobSize(config.job),
-								boot: new SplatesRunnerBoot(new NodePs()),
+								boot: new SplatesRunnerBoot(new NodePs(), {
+									image: config.runner.image ?? null,
+								}),
 							})
 						: new CloudWorkers(config.cloud, { job: jobSize(config.job) }),
 			}
@@ -87,6 +89,7 @@ function defaults(root: string, trunk: string): Config {
 		postRewrite: null,
 		prepare: null,
 		job: {},
+		runner: {},
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,

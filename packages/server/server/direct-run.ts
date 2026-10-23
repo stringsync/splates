@@ -51,24 +51,29 @@ export async function runOnDirectRunner(
 		return null;
 	}
 	const git = new Git("/", { ps: ctx.ps });
-	return await withRunners(ctx, cloud, async (runners) => {
-		const commit = job.commit ?? (await new JobSnapshot(git).take(toplevel));
-		const ran = await runners.run({
-			project,
-			cwd: toplevel,
-			commit,
-			size: jobSize(config.job, job.size),
-			argv: job.argv,
-			env: job.env ?? {},
-			prepare: config.prepare,
-			timeout: job.timeout ?? null,
-			files: job.files ?? [],
-			task: ctx.ps.env("SPLATES_TASK") ?? null,
-			output: job.output,
-			...(job.signal === undefined ? {} : { signal: job.signal }),
-		});
-		return ran;
-	});
+	return await withRunners(
+		ctx,
+		cloud,
+		async (runners) => {
+			const commit = job.commit ?? (await new JobSnapshot(git).take(toplevel));
+			const ran = await runners.run({
+				project,
+				cwd: toplevel,
+				commit,
+				size: jobSize(config.job, job.size),
+				argv: job.argv,
+				env: job.env ?? {},
+				prepare: config.prepare,
+				timeout: job.timeout ?? null,
+				files: job.files ?? [],
+				task: ctx.ps.env("SPLATES_TASK") ?? null,
+				output: job.output,
+				...(job.signal === undefined ? {} : { signal: job.signal }),
+			});
+			return ran;
+		},
+		config.runner.image ?? null,
+	);
 }
 
 /**
@@ -81,6 +86,7 @@ export async function withRunners<T>(
 	ctx: { ps: Ps; fs: Fs; log: Logger; store?: SecretStore },
 	cloud: CloudProvider | FlyCloud,
 	use: (runners: DirectRunners) => Promise<T>,
+	image: string | null = null,
 ): Promise<T> {
 	if (!(cloud instanceof FlyCloud)) {
 		throw new NoRunner(
@@ -97,7 +103,9 @@ export async function withRunners<T>(
 	const machine = FsStorage.ofMachine(ctx);
 	await using status = await TerminalStatus.open(ctx);
 	const runners = new DirectRunners({
-		runners: new FlyRunners(cloud, { boot: new SplatesRunnerBoot(ctx.ps) }),
+		runners: new FlyRunners(cloud, {
+			boot: new SplatesRunnerBoot(ctx.ps, { image }),
+		}),
 		budget: () => WorkerBudget.open(machine.document("worker-budget.json")),
 		ledger: new Spend(machine),
 		snapshot: new JobSnapshot(new Git("/", { ps: ctx.ps })),

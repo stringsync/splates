@@ -17,6 +17,12 @@ The runner image starts `splates runners serve`: an authenticated, job-only HTTP
 service for cloud runners, not a worker that runs agents. It reads its bearer
 secret from the hosting environment; people use `splates run` to send jobs.
 
+A project whose CI image already has what its jobs need names it as
+`runner: { image: "ghcr.io/me/ci" }` in `splates.config.ts`; Fly runners then boot
+it instead of the runner image. It needs `sh` and `curl` or `wget` (the runner
+fetches splates on boot) and must be public: a private registry is not
+supported yet.
+
 ## The short version
 
 Most of what follows fills in these steps. Hold to them even when you skip

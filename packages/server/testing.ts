@@ -73,7 +73,7 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
-	/** The heavy-job slots the commands under test take, never the machine's, so a test never waits on a real job. */
+	/** The heavy-job slots the commands under test take; a test never waits on a real job. */
 	readonly heavy: HeavyJobs;
 	/** The cores a merge under test claims, never the machine's. */
 	readonly cores: CoreClaims;
@@ -127,6 +127,7 @@ export class Testing implements AsyncDisposable {
 			postRewrite: null,
 			prepare: null,
 			job: {},
+			runner: {},
 			// Keeps merge's gate green unless a test asks otherwise.
 			preMerge: "true",
 			on: {},

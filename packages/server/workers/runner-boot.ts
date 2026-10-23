@@ -6,7 +6,8 @@ import { RunnerBinaries } from "./runner-binaries";
 import { RunnerImages } from "./runner-images";
 
 /**
- * What runners boot for this splates: the release image of its version, the
+ * What runners boot for this splates: the project's own image when it names
+ * one (`runner.image`), else the release image of its version, the
  * release's compiled binary their bootstrap fetches, and, when it runs from a
  * checkout, which may be ahead of that release, its own build bundled, which
  * the runner is handed before it serves a job.
@@ -17,11 +18,18 @@ export class SplatesRunnerBoot implements RunnerBoot {
 	private fetched: Promise<RunnerBinary> | null = null;
 	private readonly build = new OwnBuild({});
 
+	private readonly images: RunnerImages;
+	private readonly binaries: RunnerBinaries;
+	private readonly own: string | null;
+
 	constructor(
 		private readonly ps: Ps,
-		private readonly images = new RunnerImages(),
-		private readonly binaries = new RunnerBinaries(),
-	) {}
+		opts: SplatesRunnerBootOptions = {},
+	) {
+		this.images = opts.images ?? new RunnerImages();
+		this.binaries = opts.binaries ?? new RunnerBinaries();
+		this.own = opts.image ?? null;
+	}
 
 	ownBuild(): Promise<boolean> {
 		this.checkout ??= sourceCommit(this.ps).then((commit) => commit !== null);
@@ -29,6 +37,9 @@ export class SplatesRunnerBoot implements RunnerBoot {
 	}
 
 	image(): Promise<string> {
+		if (this.own !== null) {
+			return Promise.resolve(this.own);
+		}
 		this.resolved ??= this.ownBuild()
 			.then((ownBuild) => this.images.resolve(RUNNING, { ownBuild }))
 			.catch((error: unknown) => {
@@ -51,4 +62,12 @@ export class SplatesRunnerBoot implements RunnerBoot {
 	async bundle(): Promise<Uint8Array<ArrayBuffer>> {
 		return new TextEncoder().encode(await this.build.bundle());
 	}
+}
+
+/** What `SplatesRunnerBoot` takes beside the process runner. */
+export interface SplatesRunnerBootOptions {
+	images?: RunnerImages;
+	binaries?: RunnerBinaries;
+	/** The project's own `runner.image`, booted instead of the release image. */
+	image?: string | null;
 }

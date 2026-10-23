@@ -4,6 +4,11 @@ import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
 import type { JobSetting, WorkerProvider } from "../workers";
 
+/** The `runner` setting of `splates.config.ts`. */
+export interface RunnerSetting {
+	image?: string;
+}
+
 export interface Config {
 	/**
 	 * The integration branch name. `merge` rebases a task onto this branch and
@@ -63,6 +68,15 @@ export interface Config {
 	 * `splates run` command may run before it is killed, 30 minutes unset.
 	 */
 	job: JobSetting;
+	/**
+	 * How the project's Fly runners are made. `image` is the registry image
+	 * they boot, as `{ image: "ghcr.io/me/ci" }`, for a project whose CI
+	 * image already has what its jobs need; unset, they boot splates's own
+	 * runner image. Any image with `sh` and `curl` or `wget` works, since
+	 * runners fetch splates's binary on boot. Fly pulls only public images
+	 * for now: a private registry is not supported yet.
+	 */
+	runner: RunnerSetting;
 	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
