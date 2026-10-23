@@ -466,6 +466,7 @@ export class WorktreeService {
 					}),
 			...(ending.size === null ? {} : { size: ending.size }),
 			...(opts.merge === undefined ? {} : { merge: opts.merge }),
+			...(opts.batch === undefined ? {} : { batch: opts.batch }),
 			findings: findings({
 				gateFailures: state.gateFailures ?? [],
 				retries: state.retries ?? 0,

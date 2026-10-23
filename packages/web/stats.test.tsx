@@ -31,6 +31,8 @@ describe("StatsPage", () => {
 					costed: 2,
 					cost: 3,
 					mergeTimed: 2,
+					batchedMerges: 3,
+					batchGates: 1,
 					mergeQueuedMs: 60_000,
 					mergeRanMs: 300_000,
 				},
@@ -70,6 +72,9 @@ describe("StatsPage", () => {
 		const closing = page.getByRole("region", { name: "Closing" });
 		expect(closing.textContent).toContain("18 in the last 7 days");
 		const merges = page.getByRole("region", { name: "Merges" });
+		expect(merges.textContent).toContain(
+			"3 merges shared 1 landing gate · 2 separate gates saved",
+		);
 		expect(merges.textContent).toContain("30s");
 		expect(merges.textContent).toContain("2m 30s");
 		expect(merges.textContent).toContain("Over 2 merges in the last 7 days");

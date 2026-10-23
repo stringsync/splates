@@ -88,6 +88,12 @@ once in a detached `splates-batch` checkout (`MergeGate.checkout`, where
 compare-and-swap and each follower is told `landed`; every process ends its
 own task (`finishLanding`), so a follower's merge event has its own wait,
 `commit` and files, and `batch` names the tasks gated together, leader first.
+Outcomes keep that batch membership too, recovering older ones from the
+journal when available. Merged cards and merge log lines name the other
+tasks. Stats counts batched tasks and successful shared landing gates,
+counting each gate on its leader; their difference is the separate gates
+saved, excluding failed attempts.
+
 Only the tip is gated, as merge trains do: every landed commit is inside a
 tree the whole suite passed on, never gated alone.
 

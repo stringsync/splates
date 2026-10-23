@@ -98,6 +98,12 @@ describe("merge batches", () => {
 		);
 		expect(alphaFacts.batch).toEqual(["alpha", "beta"]);
 		expect(betaFacts.batch).toEqual(["alpha", "beta"]);
+		expect(await deps.outcomes.list()).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ task: "alpha", batch: ["alpha", "beta"] }),
+				expect.objectContaining({ task: "beta", batch: ["alpha", "beta"] }),
+			]),
+		);
 		expect(betaFacts.commit).toEqual(expect.any(String));
 		expect(betaFacts.files).toEqual(["beta.txt"]);
 		expect(

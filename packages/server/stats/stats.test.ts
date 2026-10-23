@@ -25,6 +25,34 @@ function ended(changes: Partial<Outcome>): Outcome {
 const now = new Date("2026-10-14T12:00:00.000Z");
 
 describe("summarize", () => {
+	it("counts batch members and their single successful landing gate across bars", () => {
+		const batch = ["alpha", "beta", "gamma"];
+		const stats = summarize(
+			[
+				ended({
+					task: "alpha",
+					batch,
+					failedMerges: 1,
+					endedAt: "2026-10-14T05:59:59.000Z",
+				}),
+				ended({ task: "beta", batch }),
+				ended({ task: "gamma", batch }),
+				ended({ task: "solo" }),
+				ended({ task: "removed", ended: "removed", batch }),
+			],
+			{ now, period: "7d" },
+		);
+		expect(combine(stats.buckets)).toMatchObject({
+			merged: 4,
+			batchedMerges: 3,
+			batchGates: 1,
+		});
+		expect(stats.projects[0]).toMatchObject({
+			batchedMerges: 3,
+			batchGates: 1,
+		});
+	});
+
 	it("sums each bar, those with nothing ended included, oldest first", () => {
 		const stats = summarize(
 			[

@@ -34,6 +34,7 @@ export function flowRates(
 	const timed = total("timed");
 	const merges = total("mergeTimed");
 	return {
+		batch: { merges: total("batchedMerges"), gates: total("batchGates") },
 		unit,
 		closed: {
 			count: closed,
@@ -82,6 +83,8 @@ export function flowRates(
  * premerge lock and then runs.
  */
 export interface FlowRates {
+	/** Tasks sharing landing gates, and those gates counted on their leader. */
+	batch: { merges: number; gates: number };
 	/** What `closed` is per: an hour over a day or less, a day over longer. */
 	unit: "hour" | "day";
 	/** Tasks merged or removed, per `unit`. */

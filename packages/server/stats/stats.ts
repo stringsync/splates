@@ -43,6 +43,10 @@ export interface Stats {
 
 /** How a group of ended tasks went, summed. */
 export interface Tally {
+	/** Merged tasks sharing a landing gate with at least one other task. */
+	batchedMerges: number;
+	/** Shared landing gates, counted when their leading task lands. Failed attempts are excluded. */
+	batchGates: number;
 	merged: number;
 	removed: number;
 	/** Of `merged`, those that landed without a person answering a question. */
@@ -256,6 +260,11 @@ function tally(outcomes: Outcome[]): Tally {
 	}
 	return {
 		merged: merged.length,
+		batchedMerges: merged.filter((each) => (each.batch?.length ?? 0) > 1)
+			.length,
+		batchGates: merged.filter(
+			(each) => (each.batch?.length ?? 0) > 1 && each.batch?.[0] === each.task,
+		).length,
 		removed: outcomes.length - merged.length,
 		clean: merged.filter((each) => each.questionRounds === 0).length,
 		questionRounds: sum(outcomes, (each) => each.questionRounds),
@@ -316,6 +325,8 @@ export function combine(tallies: Tally[]): Tally {
 
 /** Every count in a tally that adds up as a plain number. */
 const SUMMED = [
+	"batchedMerges",
+	"batchGates",
 	"merged",
 	"removed",
 	"clean",

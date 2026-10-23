@@ -75,6 +75,7 @@ export async function finishLanding(
 		size,
 		testTimes,
 		merge: timing.times,
+		batch: facts.batch,
 	});
 	if (discarded.code !== 0) {
 		fail(

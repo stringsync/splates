@@ -42,6 +42,24 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
+	it("names the companions of a shared landing gate", async () => {
+		testing.landed.header = {
+			outcome: { ...header(), batch: ["sidebar", "header", "footer"] },
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
+			}),
+		]);
+		const card = view.getByRole("region", { name: "merged header" });
+		await waitFor(() =>
+			expect(
+				within(card).getByText("Gated with sidebar, footer"),
+			).not.toBeNull(),
+		);
+	});
+
 	it("says how many calls the person made", async () => {
 		testing.landed.header = {
 			outcome: {

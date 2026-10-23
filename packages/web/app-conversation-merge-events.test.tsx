@@ -62,6 +62,19 @@ describe("App's merge events", () => {
 		return waitFor(() => view.getByRole("dialog"));
 	}
 
+	it("names batch companions on successful merge event lines only", async () => {
+		const batched = events.map((event) => ({
+			...event,
+			batch: ["alpha", "beta", "gamma"],
+		}));
+		const view = await testing.openConversations([
+			{ ...turn(["Merged."]), events: batched },
+		]);
+		await waitFor(() =>
+			expect(view.getAllByText("· gated with beta, gamma")).toHaveLength(1),
+		);
+	});
+
 	it("draws a merge as landed and a refused one as failed", async () => {
 		const view = await testing.openConversations([
 			{

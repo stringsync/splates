@@ -27,8 +27,7 @@ export class Outcomes {
 	// one for a task.
 	readonly turns: Log<TurnUsage>;
 	/**
-	 * The merge times of tasks that landed before outcomes kept them, read
-	 * back from the journal; `list` adds each to its task.
+	 * The merge times and batch membership recovered from the journal; `list` adds each to its task.
 	 */
 	readonly merges: Log<MergeTimed>;
 	/** The API list prices that agents saying no cost of their own are priced at. */
@@ -55,36 +54,39 @@ export class Outcomes {
 		const turns = await this.turns.replay();
 		const merges = await this.merges.replay();
 		return (await this.log.replay()).map((outcome) => {
-			const merge =
-				outcome.merge ??
-				merges.find((each) => sameOutcome(each, outcome))?.merge;
+			const saved = merges.findLast((each) => sameOutcome(each, outcome));
+			const merge = outcome.merge ?? saved?.merge;
+			const batch = outcome.batch ?? saved?.batch;
 			return known(
 				turns
 					.filter((turn) => sameOutcome(turn, outcome))
-					.reduce(
-						credited,
-						merge === undefined ? outcome : { ...outcome, merge },
-					),
+					.reduce(credited, {
+						...outcome,
+						...(merge === undefined ? {} : { merge }),
+						...(batch === undefined ? {} : { batch }),
+					}),
 			);
 		});
 	}
 
 	/**
-	 * Gives the merged tasks that landed before outcomes kept merge times the
+	 * Gives merged tasks missing merge times or batch membership the
 	 * times of the `merge` event `eventsOf(project)` logged as each landed,
 	 * written beside the outcomes, as `backfill` writes costs. The event comes
 	 * just after the outcome, once the worktree is gone, so its run time takes
 	 * in that cleanup too. A task with no such event, or one from before
-	 * events kept times, stays untimed; one timed is skipped on a second run.
+	 * events kept times, stays untimed; a batch already recovered is skipped on a second run.
 	 */
 	async backfillMerges(
 		eventsOf: (project: string) => Promise<Event[]>,
 	): Promise<void> {
-		const untimed = (await this.list()).filter(
-			(outcome) => outcome.ended === "merged" && outcome.merge === undefined,
+		const missing = (await this.list()).filter(
+			(outcome) =>
+				outcome.ended === "merged" &&
+				(outcome.merge === undefined || outcome.batch === undefined),
 		);
 		const projects = new Map<string, Event[]>();
-		for (const outcome of untimed) {
+		for (const outcome of missing) {
 			let events = projects.get(outcome.project);
 			if (events === undefined) {
 				events = await eventsOf(outcome.project);
@@ -92,7 +94,9 @@ export class Outcomes {
 			}
 			const event = landedBy(events, outcome);
 			if (
-				event?.durationMs === undefined ||
+				event === undefined ||
+				(outcome.merge !== undefined && event.batch === undefined) ||
+				event.durationMs === undefined ||
 				event.capacityWaitMs === undefined
 			) {
 				continue;
@@ -101,7 +105,8 @@ export class Outcomes {
 				project: outcome.project,
 				task: outcome.task,
 				endedAt: outcome.endedAt,
-				merge: {
+				...(event.batch === undefined ? {} : { batch: event.batch }),
+				merge: outcome.merge ?? {
 					queuedMs: event.capacityWaitMs,
 					ranMs: Math.max(0, event.durationMs - event.capacityWaitMs),
 				},
@@ -219,6 +224,8 @@ export interface TurnUsage {
  * ended.
  */
 export interface MergeTimed {
+	/** Batch membership recovered from the successful merge event. */
+	batch?: string[];
 	project: string;
 	task: string;
 	endedAt: string;
@@ -323,6 +330,8 @@ function known(outcome: Outcome): Outcome {
  * what is left to tell whether tasks are getting easier to land over time.
  */
 export interface Outcome {
+	/** The tasks sharing its successful landing gate, leader first; absent on solo and older merges. */
+	batch?: string[];
 	/** The main tree of the repository the task was in. */
 	project: string;
 	task: string;

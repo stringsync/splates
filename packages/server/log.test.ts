@@ -42,6 +42,19 @@ describe("log", () => {
 		]);
 	});
 
+	it("names companions in the table for batched landings", async () => {
+		await deps.journal.record("merge", "beta", async () => {}, {
+			base: "main",
+			commit: "abc123",
+			files: [],
+			attemptsLeft: 4,
+			failedTests: [],
+			batch: ["alpha", "beta", "gamma"],
+		});
+		await log(deps);
+		expect(deps.out()).toContain("gated with alpha, gamma");
+	});
+
 	it("keeps historical merges and exposes timing facts in JSON, including refusals", async () => {
 		const legacy: Facts["merge"] = {
 			base: "main",

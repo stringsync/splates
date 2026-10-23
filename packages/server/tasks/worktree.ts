@@ -299,6 +299,8 @@ export class Worktree {
 }
 
 export interface DiscardOptions {
+	/** The tasks sharing the landing gate, leader first; absent for a solo merge. */
+	batch?: string[];
 	/**
 	 * The `splates server` conversation working on it, when ended from the page
 	 * rather than by the agent, whose env names it.

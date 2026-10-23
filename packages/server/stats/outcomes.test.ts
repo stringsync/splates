@@ -422,9 +422,10 @@ describe.concurrent("outcomes", () => {
 		const [line] = (await deps.fs.read(path)).trim().split("\n");
 		const { merge: _, ...old } = JSON.parse(line ?? "{}");
 		const legacy = { ...old, task: "legacy" };
+		const timed = { ...old, task: "timed", merge: { queuedMs: 5, ranMs: 25 } };
 		await deps.fs.write(
 			path,
-			`${JSON.stringify(old)}\n${JSON.stringify(legacy)}\n`,
+			`${JSON.stringify(old)}\n${JSON.stringify(legacy)}\n${JSON.stringify(timed)}\n`,
 		);
 		const facts: Facts["merge"] = {
 			base: old.base,
@@ -438,16 +439,26 @@ describe.concurrent("outcomes", () => {
 			...facts,
 			durationMs: 150,
 			capacityWaitMs: 20,
+			batch: ["other", "alpha"],
+		});
+		await deps.journal.record("merge", "timed", async () => {}, {
+			...facts,
+			durationMs: 150,
+			capacityWaitMs: 20,
+			batch: ["other", "timed"],
 		});
 		const events = () => deps.journal.all();
 
 		await deps.outcomes.backfillMerges(events);
 		await deps.outcomes.backfillMerges(events);
 
-		const [done, left] = await deps.outcomes.list();
+		const [done, left, recovered] = await deps.outcomes.list();
+		expect(recovered?.batch).toEqual(["other", "timed"]);
+		expect(recovered?.merge).toEqual(timed.merge);
 		expect(done?.merge).toEqual({ queuedMs: 20, ranMs: 130 });
+		expect(done?.batch).toEqual(["other", "alpha"]);
 		expect(left?.merge).toBeUndefined();
-		expect(await deps.outcomes.merges.replay()).toHaveLength(1);
+		expect(await deps.outcomes.merges.replay()).toHaveLength(2);
 	});
 
 	it("reads usage with no tokens out as never kept, since no turn the task ran ever counted", async () => {

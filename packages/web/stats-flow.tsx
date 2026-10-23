@@ -100,6 +100,15 @@ export function Merges({
 			className="flex min-w-0 flex-col gap-4 text-foreground"
 		>
 			<h3 className="font-medium text-xs">Merges</h3>
+			{rates.batch.merges > 0 && (
+				<p className="text-muted-foreground text-xs">
+					{plural(rates.batch.merges, "merge")} shared{" "}
+					{plural(rates.batch.gates, "landing gate")} ·{" "}
+					{plural(rates.batch.merges - rates.batch.gates, "separate gate")}{" "}
+					saved. Counts successful landings; shared gates count when their
+					leader lands.
+				</p>
+			)}
 			<figure
 				aria-label="Merge times over the period"
 				className="flex flex-col gap-3 rounded-lg border p-3"

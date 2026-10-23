@@ -107,7 +107,19 @@ const LINES: {
 			: null,
 	merge: (event) =>
 		event.reason === null
-			? { mark: "landed", words: ["Merged", task(event)], at: event.at }
+			? {
+					mark: "landed",
+					words: [
+						"Merged",
+						task(event),
+						...((event.batch?.length ?? 0) > 1
+							? [
+									`· gated with ${event.batch?.filter((each) => each !== event.task).join(", ")}`,
+								]
+							: []),
+					],
+					at: event.at,
+				}
 			: {
 					mark: "failed",
 					words: ["Merge failed", task(event)],

@@ -35,6 +35,11 @@ function row(entry: Event): string[] {
 		age(entry.at),
 		entry.action,
 		entry.task ?? "-",
-		entry.reason === null ? color.green("ok") : color.red(entry.reason),
+		entry.reason === null
+			? color.green("ok") +
+				(entry.action === "merge" && (entry.batch?.length ?? 0) > 1
+					? ` · gated with ${entry.batch?.filter((task) => task !== entry.task).join(", ")}`
+					: "")
+			: color.red(entry.reason),
 	];
 }

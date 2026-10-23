@@ -95,6 +95,14 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 				))}
 			</dl>
 
+			{(landed.outcome.batch?.length ?? 0) > 1 && (
+				<p className="text-muted-foreground">
+					Gated with{" "}
+					{landed.outcome.batch
+						?.filter((task) => task !== landed.outcome.task)
+						.join(", ")}
+				</p>
+			)}
 			{facts.gate === null ? (
 				<p className="flex items-center gap-1.5 text-success">
 					<CircleCheckIcon aria-hidden className="size-3.5" />
