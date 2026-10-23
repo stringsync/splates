@@ -94,8 +94,8 @@ what it comes to. The page lists the tasks it queues or removes and gives the
 user Now. The queue card ends your reply with work you added (see
 [queue.md](queue.md), Asking the user to queue), after any report, a merge or
 remove report too. Removing a lane takes its tasks with it, kept to restore,
-and `splates lane remove` is refused an agent, so ask with the card, naming
-the lane and how many tasks go. The old `## 📥 Queue ...` titles still read
+and an agent may remove only an empty lane. For a lane containing tasks,
+ask with the card, naming the lane and how many tasks go. The old `## 📥 Queue ...` titles still read
 as queue cards.
 
 Ask every question to the user as an item of a list numbered from 1 at the

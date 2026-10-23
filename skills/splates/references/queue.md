@@ -199,3 +199,7 @@ To move one that exists ("bump 12", "push the upload one down", "do 7 before
 4"), read `splates task list` to turn the ask into a number, `splates task update
 <id> --position <n>`, then read the list again to check the order is the one
 asked for.
+
+Agents may create empty lanes with `splates lane add` and remove empty lanes
+with `splates lane remove`. Removing a lane containing tasks needs the
+person's remove-lane permission card. Backlog remains permanent.

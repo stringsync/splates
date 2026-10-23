@@ -344,7 +344,13 @@ export async function recordLaneRemove(
 export async function laneRemove(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
+	opts: { emptyOnly?: boolean } = {},
 ): Promise<void> {
+	if (opts.emptyOnly) {
+		await tasks.dropLane(id, opts);
+		log.info(`${color.green("removed")} empty lane ${id}`);
+		return;
+	}
 	let removed = 0;
 	for (const task of await tasks.all()) {
 		if (task.state.lane === id) {

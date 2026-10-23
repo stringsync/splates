@@ -315,8 +315,8 @@ export class Tasks {
 	}
 
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
-	dropLane(id: number): Promise<void> {
-		return this.laneFiles.dropLane(id);
+	dropLane(id: number, opts: { emptyOnly?: boolean } = {}): Promise<void> {
+		return this.laneFiles.dropLane(id, opts);
 	}
 
 	/** @internal Removes each lane in `ids` that no task is in any more. */

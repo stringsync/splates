@@ -10,7 +10,8 @@ same day lanes gained "queue whole": each task is queued as soon as nothing
 blocks it, until the lane is empty, which is the running glint on its
 header. A task marked By hand sits under the lane outside the glint and is
 skipped when a queued lane starts work. A lane ends when its last task merges
-or is removed; one emptied by hand stays.
+or is removed; one emptied by hand stays. Agents may add empty lanes and
+remove empty lanes; removing a lane containing tasks is the person's call.
 
 Untriaged holds tasks from other projects and deferred work for the groomer
 to place; it cannot be queued whole. Backlog (lane 0) is permanent, holds

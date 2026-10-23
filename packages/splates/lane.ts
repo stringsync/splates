@@ -159,14 +159,16 @@ splatesLane
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"remove a lane and its tasks, kept to restore; a lane whose last task merges goes on its own; refused from an agent, which asks with a permission card",
+		"remove a lane and its tasks, kept to restore; a lane whose last task merges goes on its own; agents may remove an empty lane; for one containing tasks, ask with a permission card",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action((opts, ctx) => {
-		refuseAgentQueue(ctx.service, "lane remove");
+		const emptyOnly =
+			ctx.service.ps.env("SPLATES_CONVERSATION") !== undefined ||
+			ctx.service.ps.env("SPLATES_STARTED_BY") !== undefined;
 		return recordLaneRemove(ctx.journal, ctx.tasks, opts.lane, () =>
-			laneRemove(ctx, opts.lane),
+			laneRemove(ctx, opts.lane, { emptyOnly }),
 		);
 	});

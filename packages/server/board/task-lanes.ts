@@ -298,12 +298,26 @@ export class TaskLanes {
 	}
 
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
-	async dropLane(id: number): Promise<void> {
+	async dropLane(
+		id: number,
+		opts: { emptyOnly?: boolean } = {},
+	): Promise<void> {
 		protectBacklog(id);
 		await this.tasks.locked(async () => {
+			if (opts.emptyOnly) {
+				// A failed listing must not make an occupied lane appear empty.
+				await this.tasks.store.records.list();
+			}
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			lacking(records, id);
+			if (opts.emptyOnly && states.some((state) => state.lane === id)) {
+				fail(
+					"usage",
+					`lane ${id} contains tasks: an agent can remove only an empty lane; ask the person with a remove-lane permission card`,
+					{ lane: id },
+				);
+			}
 			for (const state of states.filter((state) => state.lane === id)) {
 				await this.tasks.save({ ...state, lane: null });
 			}
