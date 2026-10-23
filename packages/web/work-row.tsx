@@ -95,6 +95,13 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const lead = first === -1 ? steps : steps.slice(0, first);
 	const groups = first === -1 ? [] : headlined(steps.slice(first));
 	const ends = work.until ?? (work.working ? now : null);
+	// Once a headline follows, the line above it holds only what came before
+	// it, done, and goes when nothing did: the last headline is what works.
+	const shown =
+		groups.length === 0 ||
+		lead.length > 0 ||
+		(!work.going && work.plan !== null);
+	const before = groups[0]?.said.at ?? null;
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
 	// Folded until the person opens it, while the agent works too, and open
@@ -107,6 +114,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 		<Going value={work.going}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
 				<details
+					hidden={!shown}
 					open={open}
 					// The thread follows it as it grows while it is open.
 					data-working={work.working || undefined}
@@ -124,30 +132,25 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
 					)}
 				>
-					<summary
-						className={cn(
-							"flex list-none items-center gap-1.5 text-muted-foreground [&::-webkit-details-marker]:hidden",
-							(lead.length > 0 || groups.length === 0) &&
-								"cursor-pointer hover:text-foreground",
-						)}
-					>
-						<ChevronRightIcon
-							className={cn(
-								"size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none",
-								lead.length === 0 && groups.length > 0 && "invisible",
-							)}
-						/>
+					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
 						<span
 							className={cn(
 								"min-w-0 truncate",
-								work.working && "shimmer motion-reduce:animate-none",
+								work.working &&
+									groups.length === 0 &&
+									"shimmer motion-reduce:animate-none",
 							)}
 						>
-							{!work.working
-								? worked(work)
-								: since === null
-									? "Working"
-									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
+							{groups.length > 0
+								? work.at === null || before === null
+									? "Worked"
+									: `Worked ${span(work.at, before)}`
+								: !work.working
+									? worked(work)
+									: since === null
+										? "Working"
+										: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
 					</summary>
 					{opened &&
@@ -183,6 +186,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						said={group.said}
 						calls={group.calls}
 						took={took(group, groups[index + 1]?.said.at ?? ends)}
+						live={work.working && index === groups.length - 1}
 						short={short}
 					/>
 				))}
@@ -232,43 +236,26 @@ function took(group: Group, next: string | number | null): string | null {
 }
 
 /**
- * The agent's words as a line that opens to the calls it made after, with
+ * The agent's words as one faint line, shimmering while they are what it
+ * works on, that opens to them in full and the calls it made after, with
  * how long they took on its right.
  */
 function Headline({
 	said,
 	calls,
 	took,
+	live,
 	short,
 }: {
 	said: Group["said"];
 	calls: Item[];
 	took: string | null;
+	live: boolean;
 	short: (path: string) => string;
 }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	// Its calls are built on the first open and kept after, as the row's are.
 	const [opened, setOpened] = useState(false);
-	const words = (
-		<Markdown
-			text={said.text}
-			// Its paragraphs sit flush, so its first line meets the chevron and the time.
-			className="min-w-0 flex-1 text-foreground text-sm leading-5 [&>*]:my-0! [&>*:not(:first-child)]:mt-[0.5lh]!"
-		/>
-	);
-	const time = took !== null && (
-		<span className="flex h-5 shrink-0 items-center text-muted-foreground text-xs tabular-nums">
-			{took}
-		</span>
-	);
-	if (calls.length === 0) {
-		return (
-			<div data-slot="headline" className="flex items-start gap-1.5 pl-5">
-				{words}
-				{time}
-			</div>
-		);
-	}
 	return (
 		<details
 			data-slot="headline"
@@ -281,14 +268,29 @@ function Headline({
 			}}
 			className="group/headline"
 		>
-			<summary className="flex cursor-pointer list-none items-start gap-1.5 hover:text-foreground [&::-webkit-details-marker]:hidden">
+			<summary className="flex cursor-pointer list-none items-start gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
 				<span className="flex h-5 shrink-0 items-center">
-					<ChevronRightIcon className="size-3.5 text-muted-foreground transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
+					<ChevronRightIcon className="size-3.5 transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
 				</span>
-				{words}
-				{time}
+				<Markdown
+					text={said.text}
+					// Its paragraphs sit flush, so its first line meets the chevron
+					// and the time; folded, that line is all of it.
+					className={cn(
+						"min-w-0 flex-1 text-sm leading-5 [&>*]:my-0! [&>*:not(:first-child)]:mt-[0.5lh]!",
+						open
+							? "text-foreground"
+							: "line-clamp-1 [&_*]:inline [&>*:not(:first-child)]:hidden!",
+						!open && live && "shimmer motion-reduce:animate-none",
+					)}
+				/>
+				{took !== null && (
+					<span className="flex h-5 shrink-0 items-center text-xs tabular-nums">
+						{took}
+					</span>
+				)}
 			</summary>
-			{opened && (
+			{opened && calls.length > 0 && (
 				<ol aria-label="calls" className="mt-2 flex flex-col gap-1.5 pl-5">
 					{calls.map((item, index) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: calls only grow at the end

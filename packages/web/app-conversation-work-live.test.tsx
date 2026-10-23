@@ -126,7 +126,9 @@ describe("App's work row while working", () => {
 
 		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
 		expect(headlines(thread)[0]?.textContent).toContain("Now the fix.");
-		expect(line(thread)).toMatch(/^Working /);
+		// The line above the headline holds what came before it, done; the headline is what works.
+		expect(line(thread)).toMatch(/^Worked/);
+		expect(headlines(thread)[0]?.querySelector(".shimmer")).not.toBeNull();
 		act(() => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeouts();
@@ -211,7 +213,9 @@ describe("App's work row while working", () => {
 		expect(headlines(thread)[0]?.textContent).toContain("bun run demo");
 		expect(timelines()).toHaveLength(1);
 		expect(timelines()[0]?.textContent).toContain("bun test");
-		expect(line(thread)).toMatch(/^Working/);
+		// The line above the headline holds what came before it, done; the headline is what works.
+		expect(line(thread)).toMatch(/^Worked/);
+		expect(headlines(thread)[0]?.querySelector(".shimmer")).not.toBeNull();
 		expect(details(thread).open).toBe(true);
 	});
 	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {
