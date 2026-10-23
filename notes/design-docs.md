@@ -1,5 +1,5 @@
 ---
-description: What the files under designs/ record (the move from arbor, the worker pool, one task one queue, OpenCode) and how current each is
+description: What the files under designs/ record (the move from arbor, the worker pool, one task one queue, OpenCode, runners leaving the product) and how current each is
 ---
 
 `designs/` holds design records whose settled decisions were made with the
@@ -16,6 +16,11 @@ todos, lane orchestrators and handoffs replaced by tasks moving through
 stages, a dependency-ordered queue workers take from, and hooks on events;
 its "agents never start agents" is now enforced. `opencode-acp.md`: the opt-in
 OpenCode plan, partly historical, its evidence synthetic.
+`runners-leave-the-product.md`: the 2026-10-22 decision that runners and
+cloud provisioning leave the product (`preMerge` on the host is the whole
+story; a heavy suite is the user's to run elsewhere), Fly becoming `splates
+dev`'s own test runner, unexported and off every page, with Billing keeping
+Fly as a cost source; names the lane that carries it out.
 
 A design is updated as its lane lands (dated "built" paragraphs), so read the
 dates: a settled paragraph may have been superseded by a later one.
