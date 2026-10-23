@@ -394,6 +394,8 @@ export type MergeFailure = "conflict" | "tests_failed" | "merge_failed";
 export interface FailedTest {
 	name: string;
 	message: string;
+	/** The test file, when the runner located it. */
+	file?: string;
 }
 
 /** One time `merge` turned a task away, and what it said of why. */
@@ -464,7 +466,7 @@ export interface TaskState {
 	machine?: string;
 	stranded?: unknown[];
 	rescued?: unknown[];
-	/** The last Auto pick for it, beside what it was queued as. Read it; never write it back through here. */
+	/** The last Auto pick for it, beside what it was queued as; for reading only. */
 	autoPick?: AutoPicked;
 }
 

@@ -4,6 +4,7 @@ export {
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
+	RECENT_FAILED_FILES,
 } from "./premerge";
 export type { Behind, Release } from "./release";
 export { newest, RUNNING } from "./release";

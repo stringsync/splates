@@ -3,7 +3,11 @@ import type { Fs, Lock } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
 import type { Git } from "../git";
-import { PREMERGE_HELD, PREMERGE_TIMEOUT_MS } from "../server/shared";
+import {
+	PREMERGE_HELD,
+	PREMERGE_TIMEOUT_MS,
+	RECENT_FAILED_FILES,
+} from "../server/shared";
 import type { Shell } from "../terminal";
 import type { MergeTiming } from "./timing";
 
@@ -78,19 +82,24 @@ export class MergeGate {
 
 	/**
 	 * Runs the gate in `cwd`, or just the test `files` of a retest, which with
-	 * `at` run on that commit of the repository instead.
+	 * `at` run on that commit of the repository instead. The whole gate runs
+	 * the `recent` test files that failed earlier gates before the rest.
 	 */
 	async run(
 		cwd: string,
 		task: string,
-		{ files, at }: { files?: string[]; at?: string } = {},
+		{
+			files,
+			at,
+			recent,
+		}: { files?: string[]; at?: string; recent?: string[] } = {},
 	): Promise<GateRun> {
 		using _time = this.timing.track("gateMs");
 		try {
 			if (files === undefined ? !this.command : false) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 			}
-			return await this.runHere(cwd, task, { files, at });
+			return await this.runHere(cwd, task, { files, at, recent });
 		} catch (error) {
 			return { exitCode: 1, stdout: "", stderr: String(error), xml: "" };
 		}
@@ -100,7 +109,7 @@ export class MergeGate {
 	private async runHere(
 		cwd: string,
 		task: string,
-		{ files, at }: { files?: string[]; at?: string },
+		{ files, at, recent }: { files?: string[]; at?: string; recent?: string[] },
 	): Promise<GateRun> {
 		if (at !== undefined) {
 			const scratch = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/splates-attribution`;
@@ -126,7 +135,7 @@ export class MergeGate {
 				const prepared = await this.prepare(scratch, task);
 				result =
 					prepared.exitCode === 0
-						? await this.runIn(scratch, task, files)
+						? await this.runIn(scratch, task, files, recent)
 						: {
 								...prepared,
 								stderr: `Baseline setup failed: ${prepared.stdout}\n${prepared.stderr}`,
@@ -144,13 +153,14 @@ export class MergeGate {
 						xml: "",
 					};
 		}
-		return this.runIn(cwd, task, files);
+		return this.runIn(cwd, task, files, recent);
 	}
 
 	private async runIn(
 		cwd: string,
 		task: string,
 		files: string[] | undefined,
+		recent: string[] = [],
 	): Promise<GateRun> {
 		const report = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/splates-test-report.xml`;
 		await this.fs.rm(report, { force: true });
@@ -170,6 +180,9 @@ export class MergeGate {
 				SPLATES_WORKTREE: cwd,
 				SPLATES_TEST_REPORT: report,
 				[PREMERGE_HELD]: "1",
+				...(files === undefined && recent.length
+					? { [RECENT_FAILED_FILES]: recent.join("\n") }
+					: {}),
 				// It runs alone on the machine, so it may use all but two cores.
 				SPLATES_CORES: String(Math.max(1, availableParallelism() - 2)),
 			},

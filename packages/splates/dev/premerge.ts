@@ -1,13 +1,17 @@
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 import {
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
+	RECENT_FAILED_FILES,
 	SuiteGrants,
 } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { fix } from "./fix";
+import { ROOT } from "./root";
 import { refuseWholeSuite, test } from "./test";
 
 export interface PremergeOptions {
@@ -48,7 +52,21 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 	}
 }
 
+/** The files still in the tree. */
+async function existing(files: string[]): Promise<string[]> {
+	const found = await Promise.all(
+		files.map((file) =>
+			access(join(ROOT, file)).then(
+				() => file,
+				() => null,
+			),
+		),
+	);
+	return found.filter((file) => file !== null);
+}
+
 async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
+	const ps = opts.ps ?? new NodePs();
 	const started = performance.now();
 	await fix({ check: true, log, ...(opts.ps ? { ps: opts.ps } : {}) }).catch(
 		(error: unknown) => {
@@ -56,6 +74,27 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 			throw error;
 		},
 	);
+	// Files that failed recent gates run first, and stop the gate when they
+	// fail again; nothing is skipped, as the whole suite follows.
+	const recent = await existing(
+		(ps.env(RECENT_FAILED_FILES) ?? "").split("\n").filter(Boolean),
+	);
+	if (recent.length) {
+		await test({
+			ci: true,
+			allowed: true,
+			bail: true,
+			quiet: true,
+			files: recent,
+			workers: 1,
+			log,
+			...(opts.all === undefined ? {} : { all: opts.all }),
+			ps,
+			deadline: Duration.ms(
+				Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
+			),
+		});
+	}
 	await test({
 		ci: true,
 		allowed: true,

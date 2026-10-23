@@ -21,6 +21,13 @@ The gate sets `SPLATES_PREMERGE`, so the `dev premerge` it runs goes ahead
 without waiting on the lock it holds, and `SPLATES_CORES` to all but two
 cores, which `dev test` runs that many workers on. `Testing` strips both.
 
+Inside a gate, `dev premerge` first runs, quietly and with `--bail`, the
+test files named by `failedTests` of `merge` log entries from the last 3
+hours (`recentFailedFiles`, passed in `SPLATES_RECENT_FAILED_FILES`), those
+still in the tree. If they fail again the gate stops there with that
+report, which attribution retests as usual; if they pass, the full suite
+runs as before, so no test is skipped.
+
 Until 2026-10-23, heavy-job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and a
 core budget (`SPLATES_HEAVY_CORES`) made hooks, test runs and installs queue
 behind each other. The premerge lock already ran the suite one at a time,

@@ -20,6 +20,7 @@ import { landedLines, landedSince } from "./landed";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
+import { recentFailedFiles } from "./recent-failures";
 import { failedTests, failingCases, timedTests } from "./test-report";
 import { MergeTiming } from "./timing";
 import type { TrunkLanding } from "./trunk";
@@ -342,7 +343,9 @@ export async function merge(
 			// is the same either way, and one gate reports one failure however far down
 			// it got.
 			const testedHead = await git.head(worktree.path);
-			let gated = await runner.run(worktree.path, task);
+			let gated = await runner.run(worktree.path, task, {
+				recent: await recentFailedFiles(journal),
+			});
 			await state.requireLease();
 			if (gated.timedOut) {
 				// A gate this long has hung rather than failed: nothing to attribute,

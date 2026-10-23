@@ -35,6 +35,10 @@ export interface TestOptions {
 	allowed?: boolean;
 	/** How long the run may take before it is stopped. */
 	deadline?: Duration;
+	/** Stop each run at its first failing test, as `bun test --bail`. */
+	bail?: boolean;
+	/** Print nothing unless the tests fail, then all they printed. */
+	quiet?: boolean;
 }
 
 /**
@@ -109,6 +113,7 @@ export async function test(opts: TestOptions): Promise<void> {
 		"--timeout",
 		"30000",
 		...(opts.ci ? ["--only-failures"] : []),
+		...(opts.bail ? ["--bail"] : []),
 		...(opts.since
 			? [`--changed=${opts.since}`]
 			: opts.changed
@@ -133,17 +138,27 @@ export async function test(opts: TestOptions): Promise<void> {
 	const env = git.env;
 	let failed = false;
 	const reports: string[] = [];
+	const printed: string[] = [];
 	for (const [at, args] of runs.entries()) {
-		const { exitCode } = await ps
-			.spawn(bunTest(args, at), { cwd: ROOT, env, signal })
-			.catch((error: unknown) => {
-				if (signal.aborted) {
-					throw new Error(
-						`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
-					);
-				}
-				throw error;
+		const { exitCode } = await (async () => {
+			if (!opts.quiet) {
+				return await ps.spawn(bunTest(args, at), { cwd: ROOT, env, signal });
+			}
+			const done = await ps.spawnCapture(bunTest(args, at), {
+				cwd: ROOT,
+				env,
+				signal,
 			});
+			printed.push(done.stdout, done.stderr);
+			return done;
+		})().catch((error: unknown) => {
+			if (signal.aborted) {
+				throw new Error(
+					`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
+				);
+			}
+			throw error;
+		});
 		failed ||= exitCode !== 0;
 		if (report) {
 			const xml = await fs.read(`${report}.${at}`).catch(() => null);
@@ -158,6 +173,9 @@ export async function test(opts: TestOptions): Promise<void> {
 		await fs.write(report, joinedReports(reports));
 	}
 	if (failed) {
+		for (const text of printed) {
+			process.stderr.write(text);
+		}
 		throw new Error("Tests failed");
 	}
 }

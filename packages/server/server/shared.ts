@@ -19,6 +19,7 @@ export {
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
+	RECENT_FAILED_FILES,
 } from "./premerge";
 export type { DevMachine, Handler, Project, Served } from "./project";
 export type { ProjectWatch } from "./project-watch";

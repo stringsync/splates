@@ -10,6 +10,12 @@ import { MACHINE_HOME } from "../ports";
 export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
 /**
+ * Set for a merge's gate to the test files that failed recent gates, one
+ * path a line, which `dev premerge` runs before the whole suite.
+ */
+export const RECENT_FAILED_FILES = "SPLATES_RECENT_FAILED_FILES";
+
+/**
  * How long a merge's gate may run before it is killed. The whole suite takes
  * well under a minute alone, so a gate this long has hung, and the agent
  * merges again.
