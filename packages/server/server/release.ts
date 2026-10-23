@@ -38,8 +38,21 @@ export const SOURCE = [
 	dirname(import.meta.dirname),
 	`${dirname(dirname(import.meta.dirname))}/splates`,
 	`${dirname(dirname(import.meta.dirname))}/web`,
-	dirname(dirname(Bun.fileURLToPath(import.meta.resolve("webappwiz/time")))),
+	...webappwizSource(),
 ];
+
+/** webappwiz's directory, or none in a compiled binary, which has no files to resolve. */
+function webappwizSource(): string[] {
+	try {
+		return [
+			dirname(
+				dirname(Bun.fileURLToPath(import.meta.resolve("webappwiz/time"))),
+			),
+		];
+	} catch {
+		return [];
+	}
+}
 
 /**
  * The last commit to `source`, or null when splates does not run from a

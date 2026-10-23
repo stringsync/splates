@@ -2,6 +2,7 @@ import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { releases } from "webappwiz/ship";
 import { type Fs, NodePs, type Ps } from "webappwiz/system";
 import { fix } from "./fix";
+import { LinuxBinary } from "./linux-binary";
 import { RunnerImage } from "./runner-image";
 
 /**
@@ -36,6 +37,7 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 	const declared = releases.lockstep(
 		await releases.workspace({ fs: opts.fs, ps }),
 		releases.skill(SKILL, { fs: opts.fs }),
+		new LinuxBinary(ps),
 		new RunnerImage(ps),
 	);
 	await declared.release({

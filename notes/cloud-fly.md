@@ -138,3 +138,11 @@ anyway. A checkout's build is pushed to a fresh machine through the proxy
 for hosting outside splates. The repository still selects DigitalOcean
 until it is removed (#1071); its classes remain for the server's path
 alone.
+
+Each release attaches `splates-linux-x64` and its `.sha256` to its GitHub
+release (`LinuxBinary`, `bun build --compile --target=bun-linux-x64`), at
+`https://github.com/stringsync/splates/releases/download/v<version>/splates-linux-x64`
+and `.../releases/latest/download/splates-linux-x64`. It is a bun runtime
+bundled in, so a runner image needs no bun. Size: 109 MB (bun 1.4.2). On plain debian:stable-slim with no bun, `--help`
+answers in about 0.9 s under amd64 emulation on a Mac, and `runners serve`
+listens on 8080.
