@@ -8,6 +8,7 @@ import {
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	TerminalIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, use, useContext } from "react";
@@ -114,6 +115,8 @@ export type Named =
 			version: number;
 	  }
 	| { kind: "cred"; name: string }
+	/** A shell command, as a run-command card asked to run it. */
+	| { kind: "command"; command: string }
 	/** A project note, by its path from the project root. */
 	| { kind: "note"; path: string }
 	/** Project notes, by their paths from the project root, as one pill. */
@@ -412,6 +415,16 @@ function NamedChip({
 				</Chip>
 			);
 		}
+		case "command":
+			return (
+				<Chip
+					Icon={TerminalIcon}
+					title={named.command}
+					className={cn("font-mono", GIVES_WAY_FIRST)}
+				>
+					{named.command}
+				</Chip>
+			);
 		case "cred":
 			return (
 				<Chip

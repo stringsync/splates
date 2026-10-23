@@ -4,6 +4,8 @@ import {
 	APPROVE,
 	DIRECTIVES,
 	MERGE,
+	RUN_ALLOWED,
+	RUN_DENIED,
 	UNTRIAGED,
 } from "@stringsync/splates-server/plans/browser";
 import { UtensilsIcon } from "lucide-react";
@@ -288,6 +290,10 @@ function wordsOf(
 	board: BoardContext,
 	nameAgent: (agent: { agent: string; model?: string }) => string | undefined,
 ): Words | null {
+	if (directive === RUN_ALLOWED || directive === RUN_DENIED) {
+		// The run-command card it answers folds to an event line saying it.
+		return null;
+	}
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
 	if (bare !== undefined) {
 		return [bare.label];

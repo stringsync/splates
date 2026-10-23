@@ -11,11 +11,15 @@ import { CardBody, CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
 import { Refusal, useRefusal } from "./refusal";
+import { SplatesEvent } from "./splates-event";
 
 /**
  * The card an agent asks to run a heavy command with: the command, why, and
  * how loaded the machine is now, read each second while it waits. Allow and Deny answer the agent with a
  * directive; the choice shows at once and is taken back if the send fails.
+ * Once answered it folds to an event line, "Allowed <command>" or "Denied
+ * <command>", that opens the card; the answer is drawn here only, not again
+ * as the directive's own line.
  */
 export function RunCommandCard({
 	proposal,
@@ -25,6 +29,7 @@ export function RunCommandCard({
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
 	const [chosen, setChosen] = useState<string | null>(null);
+	const [opened, setOpened] = useState(false);
 	const choice = sent?.includes(RUN_ALLOWED)
 		? RUN_ALLOWED
 		: sent?.includes(RUN_DENIED)
@@ -46,6 +51,24 @@ export function RunCommandCard({
 			failed,
 		);
 	};
+	if (choice !== null && !opened) {
+		return (
+			<>
+				<SplatesEvent
+					event={{
+						mark: choice === RUN_ALLOWED ? "landed" : "failed",
+						words: [
+							choice === RUN_ALLOWED ? "Allowed" : "Denied",
+							{ kind: "command", command: proposal.command ?? "" },
+						],
+						title: choice,
+						act: { label: "Open", run: () => setOpened(true) },
+					}}
+				/>
+				<Refusal refusal={refusal} />
+			</>
+		);
+	}
 	return (
 		<CardShell
 			label="run command"
