@@ -18,7 +18,12 @@ export type Fired = { event: TaskEvent } | { schedule: string; byHand?: true };
 /** What a hook does, by kind. */
 export interface HookActions {
 	run(command: string, fired: Fired): Promise<void>;
-	agent(hook: Extract<Hook, { kind: "agent" }>, fired: Fired): Promise<void>;
+	/** Starts an agent for automation `id` as `hook` says. */
+	agent(
+		hook: Extract<Hook, { kind: "agent" }>,
+		fired: Fired,
+		id: string,
+	): Promise<void>;
 	/** Wakes the project's groomer, which the state, not `fired`, tells what to groom. */
 	groom(hook: Extract<Hook, { kind: "groom" }>): Promise<void>;
 	/** Starts an agent tending the project notes no open task names yet. */
@@ -43,7 +48,7 @@ export async function fire(
 		if (hook.kind === "run") {
 			await actions.run(hook.command, fired);
 		} else if (hook.kind === "agent") {
-			await actions.agent(hook, fired);
+			await actions.agent(hook, fired, automation.id);
 		} else if (hook.kind === "groom") {
 			await actions.groom(hook);
 		} else if (hook.kind === "garden") {

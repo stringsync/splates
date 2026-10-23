@@ -22,6 +22,7 @@ import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
 import { Item } from "./conversation-item";
 import {
+	automated,
 	flatten,
 	goOn,
 	hintOf,
@@ -119,7 +120,8 @@ export const ConversationList = memo(function ConversationList({
 			// persistent agents kept atop, apart, as a folder keeps them.
 			const listed = shownIn(nested);
 			const keptHere = listed.filter(
-				(tree) => tree.row.conversation?.persistent !== undefined,
+				(tree) =>
+					tree.row.conversation !== null && automated(tree.row.conversation),
 			);
 			const taken = lanesTaken(todos);
 			const groupsHere = byLane(

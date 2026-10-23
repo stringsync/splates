@@ -11,6 +11,7 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
+	automated,
 	flatten,
 	hostsAtWork,
 	nestRows,
@@ -169,7 +170,8 @@ export function groupsOf(
 	const waiting = apart ? trees.filter(waits) : [];
 	const rest = trees.filter((tree) => !waiting.includes(tree));
 	const kept = rest.filter(
-		(tree) => tree.row.conversation?.persistent !== undefined,
+		(tree) =>
+			tree.row.conversation !== null && automated(tree.row.conversation),
 	);
 	const pinned = rest.filter(
 		(tree) => !kept.includes(tree) && tree.row.conversation?.pinned === true,

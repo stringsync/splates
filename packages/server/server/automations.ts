@@ -175,7 +175,7 @@ export class Automations implements Resource {
 		const begin = async (
 			pick: AgentPick,
 			prompt: string,
-			persistent?: string,
+			{ persistent, automation }: { persistent?: string; automation?: string },
 		): Promise<void> => {
 			const offered = (await conversations.settings())[pick.agent] ?? [];
 			const conversation = await conversations.start(pick.agent, {
@@ -186,6 +186,7 @@ export class Automations implements Resource {
 				assigned: true,
 				capped: true,
 				...(persistent === undefined ? {} : { persistent }),
+				...(automation === undefined ? {} : { automation }),
 			});
 			void conversation
 				.prompt(prompt, [], undefined, { told: SERVER_TOLD })
@@ -214,8 +215,10 @@ export class Automations implements Resource {
 						);
 					}
 				},
-				agent: (hook, fired) =>
-					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`),
+				agent: (hook, fired, id) =>
+					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`, {
+						automation: id,
+					}),
 				// No agent, and none of the person's tokens, while the last
 				// run's fixes wait for review, or every note has a task open
 				// for it already, or there are none.
@@ -241,7 +244,9 @@ export class Automations implements Resource {
 								await this.#restAfterTurn(conversations, open);
 							}
 						}
-						await begin(pickOf(hook), gardenPrompt(paths), GARDENER_ROLE);
+						await begin(pickOf(hook), gardenPrompt(paths), {
+							persistent: GARDENER_ROLE,
+						});
 					}
 				},
 				// Not awaited: the groomer works down the backlog turn by turn,

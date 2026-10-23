@@ -329,6 +329,7 @@ export class Conversation
 			queued,
 			title = null,
 			persistent,
+			automation,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
@@ -355,6 +356,9 @@ export class Conversation
 		if (persistent !== undefined) {
 			state.persistent = persistent;
 		}
+		if (automation !== undefined) {
+			state.automation = automation;
+		}
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -371,6 +375,7 @@ export class Conversation
 			...(skill === null ? {} : { skill }),
 			...(queued === undefined ? {} : { queued }),
 			...(persistent === undefined ? {} : { persistent }),
+			...(automation === undefined ? {} : { automation }),
 		});
 		if (title !== null) {
 			const update: acp.SessionUpdate = {
@@ -1328,6 +1333,8 @@ interface Opening {
 	title?: string | null;
 	/** The persistent agent's role it is started for, as `"groomer"`. */
 	persistent?: string;
+	/** The automation that starts it, by its id. */
+	automation?: string;
 }
 
 /** What Auto pick decided for a conversation to open on, its agent as `A` names it. */

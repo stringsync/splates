@@ -6,7 +6,7 @@ import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationTag, RowIcon } from "./agent-icons";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
-import { placeholding } from "./conversation-rows";
+import { automated, placeholding } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
@@ -78,7 +78,9 @@ export function Row({
 			<span
 				className={cn(
 					"flex shrink-0 items-center justify-center rounded-full bg-muted",
-					conversation?.persistent !== undefined && "bg-violet-500/15",
+					conversation !== null &&
+						automated(conversation) &&
+						"bg-violet-500/15",
 					depth === 0 ? "size-10" : "size-8",
 				)}
 			>

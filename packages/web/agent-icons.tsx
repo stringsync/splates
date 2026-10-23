@@ -3,6 +3,7 @@ import { BotIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
+import { automated } from "./conversation-rows";
 
 /**
  * Each agent's mark, by its id on the roster. Paths from Simple Icons (CC0);
@@ -18,8 +19,8 @@ const MARKS: Record<string, { path: string }> = {
 };
 
 /**
- * A conversation's agent mark, or for a persistent agent's, as the
- * groomer's, the Automations page's mark in violet in its place,
+ * A conversation's agent mark, or for an automation's (see `automated`), as
+ * the groomer's, the Automations page's mark in violet in its place,
  * so it reads as an automation at a glance; named by the agent either way.
  */
 export function RowIcon({
@@ -31,7 +32,7 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
-	return conversation.persistent === undefined ? (
+	return !automated(conversation) ? (
 		<AgentIcon agent={conversation.agent} name={name} className={className} />
 	) : (
 		<ZapIcon
@@ -46,13 +47,13 @@ export function RowIcon({
 	);
 }
 
-/** After a persistent agent's name, a tag saying it is an automation; nothing for any other. */
+/** After an automation's name (see `automated`), a tag saying so; nothing for any other. */
 export function AutomationTag({
 	conversation,
 }: {
 	conversation: ConversationState;
 }): JSX.Element | null {
-	return conversation.persistent === undefined ? null : (
+	return !automated(conversation) ? null : (
 		<span className="shrink-0 rounded-sm bg-violet-500/15 px-1.5 py-px font-medium text-[10px] text-violet-700 uppercase dark:text-violet-300 leading-4 tracking-wide">
 			Automation
 		</span>

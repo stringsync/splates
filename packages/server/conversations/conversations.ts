@@ -308,6 +308,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			queued,
 			title,
 			persistent,
+			automation,
 			picking,
 		}: {
 			/**
@@ -336,6 +337,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			title?: string;
 			/** The persistent agent's role it is started for, as `"groomer"`. */
 			persistent?: string;
+			/** The automation that starts it, by its id. */
+			automation?: string;
 			/**
 			 * What Auto pick decides, once it has, to open on in place of
 			 * `agent`, `model` and `settings`, which it shows meanwhile.
@@ -362,6 +365,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				queued,
 				title,
 				persistent,
+				automation,
 				picking: picking?.then((picked) => ({
 					...picked,
 					agent: this.agentOf(picked.agent),

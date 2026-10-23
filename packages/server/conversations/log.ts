@@ -121,6 +121,9 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		if (start.persistent !== undefined) {
 			state.persistent = start.persistent;
 		}
+		if (start.automation !== undefined) {
+			state.automation = start.automation;
+		}
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -489,6 +492,8 @@ type Said =
 			queued?: number;
 			/** The persistent agent's role it was started for; missing for an ordinary one. */
 			persistent?: string;
+			/** The automation that started it, by its id; missing for one none did. */
+			automation?: string;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }

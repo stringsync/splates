@@ -199,6 +199,12 @@ export interface ConversationState {
 	 * Absent for an ordinary conversation.
 	 */
 	persistent?: string;
+	/**
+	 * The person's automation that started it, by its id, as an agent hook
+	 * on a task event or a schedule, run by hand or not, so the page lists it
+	 * with the persistent agents. Absent for any other.
+	 */
+	automation?: string;
 }
 
 /**

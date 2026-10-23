@@ -12,7 +12,9 @@ through `scoped(path, slug)` and the stream brings the change back. It
 streams only while something holds it.
 
 The sidebar's folders (`project-folders.ts`) are these per-project groups:
-persistent agents (automations such as the groomer, above a rule) first,
+automations (persistent agents such as the groomer, and each run of an
+agent hook, marked by its conversation's `automation`; see `automated` in
+`conversation-rows.ts`), above a rule, first,
 then pinned, then working, then the rest. The phone inbox pulls waiting-on-
 you rows from every project into one Needs you group; desktop has no inbox,
 showing the new-conversation home with no conversation open and one line

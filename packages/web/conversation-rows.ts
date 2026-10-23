@@ -120,9 +120,21 @@ export function placeholding(conversation: ConversationState): boolean {
 	);
 }
 
-/** Whether a row's conversation is a persistent agent's, as the groomer's. */
+/** Whether a row's conversation is an automation's, as the groomer's. */
 function kept(row: Needing): boolean {
-	return row.conversation?.persistent !== undefined;
+	return row.conversation !== null && automated(row.conversation);
+}
+
+/**
+ * Whether `conversation` is an automation's: a persistent agent's, as the
+ * groomer's, or one an agent hook of the person's started, run by hand or
+ * not. The sidebar and the inbox keep these atop, apart, marked with a bolt.
+ */
+export function automated(conversation: ConversationState): boolean {
+	return (
+		conversation.persistent !== undefined ||
+		conversation.automation !== undefined
+	);
 }
 
 /** Whether a row's conversation is pinned atop the list. */

@@ -6,6 +6,7 @@ import {
 	questions,
 } from "@stringsync/splates-server/plans/browser";
 import {
+	automated,
 	isHostOf,
 	nestRows,
 	nextWaiting,
@@ -32,6 +33,27 @@ describe("conversation rows", () => {
 	const host = row("c1");
 	const external = row(null, "beta");
 	const part = row("c2");
+
+	it("lists an automation's run atop with the groomer, started by hand or not", () => {
+		const groomer = conversation({
+			id: "g",
+			persistent: "groomer",
+			createdAt: "2026-10-23T09:00:00.000Z",
+		});
+		const hooked = conversation({
+			id: "h",
+			automation: "3",
+			createdAt: "2026-10-23T10:00:00.000Z",
+		});
+		const mine = conversation({
+			id: "m",
+			createdAt: "2026-10-23T11:00:00.000Z",
+		});
+		expect([groomer, hooked, mine].map(automated)).toEqual([true, true, false]);
+		expect(
+			rowsOf([], [mine, groomer, hooked]).map((each) => each.conversation?.id),
+		).toEqual(["h", "g", "m"]);
+	});
 
 	it("waits on you for no task an agent outside the page asks on, which asks in its own session", () => {
 		expect(waitsOnYou({ ...external, need: asking })).toBe(false);
