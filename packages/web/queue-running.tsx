@@ -111,6 +111,9 @@ export function Running({
 				capped.map((slot) => {
 					const conversation = known.of(slot.id);
 					const here = known.here(slot.project);
+					const project = here
+						? undefined
+						: (known.project(slot.project)?.slug ?? slot.project);
 					return (
 						<QueueRow
 							key={slot.id}
@@ -121,41 +124,38 @@ export function Running({
 							by={startedBy(conversation)}
 							age={age(slot.since)}
 							id={here ? undefined : known.project(slot.project)?.name}
-							quiet={
-								here
-									? {
-											label: "Stop",
-											onClick: () =>
-												attempt("Not stopped", cancelConversation(slot.id)),
-										}
-									: undefined
-							}
+							quiet={{
+								label: "Stop",
+								onClick: () =>
+									attempt("Not stopped", cancelConversation(slot.id, project)),
+							}}
 							main={{
 								label: "Open",
 								onClick: () => known.open(slot.project, slot.id),
 							}}
 							menu={
-								here ? (
-									<>
-										<DropdownMenuItem
-											onClick={() =>
-												attempt("Not restarted", restartConversation(slot.id))
-											}
-										>
-											Restart
-										</DropdownMenuItem>
-										<DropdownMenuItem
-											onClick={() =>
-												attempt(
-													"Not archived",
-													archiveConversation(slot.id, true),
-												)
-											}
-										>
-											Archive
-										</DropdownMenuItem>
-									</>
-								) : undefined
+								<>
+									<DropdownMenuItem
+										onClick={() =>
+											attempt(
+												"Not restarted",
+												restartConversation(slot.id, project),
+											)
+										}
+									>
+										Restart
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() =>
+											attempt(
+												"Not archived",
+												archiveConversation(slot.id, true, project),
+											)
+										}
+									>
+										Archive
+									</DropdownMenuItem>
+								</>
 							}
 						/>
 					);
@@ -197,6 +197,9 @@ export function Waiting({
 					row={(entry, { grip, dragging }) => {
 						const conversation = known.of(entry.id);
 						const here = known.here(entry.project);
+						const project = here
+							? undefined
+							: (known.project(entry.project)?.slug ?? entry.project);
 						return (
 							<QueueRow
 								grip={grip}
@@ -222,17 +225,15 @@ export function Waiting({
 										>
 											Move to front
 										</DropdownMenuItem>
-										{here && (
-											<DropdownMenuItem
-												onClick={() =>
-													void archiveConversation(entry.id, true).catch(
-														(error: unknown) => refuse("Not cancelled", error),
-													)
-												}
-											>
-												Cancel
-											</DropdownMenuItem>
-										)}
+										<DropdownMenuItem
+											onClick={() =>
+												void archiveConversation(entry.id, true, project).catch(
+													(error: unknown) => refuse("Not cancelled", error),
+												)
+											}
+										>
+											Cancel
+										</DropdownMenuItem>
 									</>
 								}
 							/>

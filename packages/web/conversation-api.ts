@@ -156,8 +156,11 @@ export async function answerConversation(
 }
 
 /** Stops the agent's turn in conversation `id`, keeping the conversation. */
-export async function cancelConversation(id: string): Promise<void> {
-	await send(`/api/conversations/${id}/cancel`, {});
+export async function cancelConversation(
+	id: string,
+	project?: string,
+): Promise<void> {
+	await send(scoped(`/api/conversations/${id}/cancel`, project), {});
 }
 
 /**
@@ -172,8 +175,11 @@ export async function pauseConversation(id: string): Promise<void> {
  * Starts the agent of conversation `id` again in a new session on its task,
  * told to claim it, for one stuck or dead there.
  */
-export async function restartConversation(id: string): Promise<void> {
-	await send(`/api/conversations/${id}/restart`, {});
+export async function restartConversation(
+	id: string,
+	project?: string,
+): Promise<void> {
+	await send(scoped(`/api/conversations/${id}/restart`, project), {});
 }
 
 /**
@@ -309,8 +315,11 @@ export async function reparentConversation(
 export async function archiveConversation(
 	id: string,
 	archived: boolean,
+	project?: string,
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/archived`, "PUT", { archived });
+	await sendJson(scoped(`/api/conversations/${id}/archived`, project), "PUT", {
+		archived,
+	});
 }
 
 /** Where the page reads `version` of the artifact `name` of conversation `id`. */
