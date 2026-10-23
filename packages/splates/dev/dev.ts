@@ -4,7 +4,6 @@ import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
 import { premerge } from "./premerge";
-import { PROOFS, prove } from "./prove";
 import { ship } from "./ship";
 import { approveSuite, test } from "./test";
 
@@ -70,20 +69,6 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			description: "run the package's and the eval harness's tests together",
 		})
 		.action((opts, { log, ps }) => premerge({ ...opts, log, ps }));
-
-	dev
-		.command("prove")
-		.description(
-			"prove splates on Linux with Docker, nothing of yours used: `runner` joins a Linux container to a throwaway server on this machine as a runner, and runs `splates run` on it from a project with an uncommitted edit. Read docker/prove-<which>.sh for what it checks",
-		)
-		.arg("proof", z.enum(PROOFS), {
-			description: "runner",
-		})
-		.rest("args", z.string(), {
-			description: "handed to the script: a port",
-		})
-		.allowUnknownOption()
-		.action(({ proof, args }, { log, ps }) => prove({ proof, args, log, ps }));
 
 	dev
 		.command("ship")

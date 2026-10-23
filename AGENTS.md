@@ -21,9 +21,7 @@ hand (`bun test <path>`) is fine, as is any scoped `splates dev test`
 which needs no approval. An unscoped `splates dev test` or `splates dev
 premerge` is refused an agent until the person approves one run from a
 `## 🔐 Permission: run the test suite: <why>` card. `splates dev test --evals` tests the eval
-harness, for changes under `evals/`. `splates dev prove runner` joins a
-Linux container to the server as a runner and runs a job on it; it needs
-Docker and takes minutes.
+harness, for changes under `evals/`.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

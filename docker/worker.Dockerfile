@@ -2,8 +2,7 @@
 # `docker build -f docker/worker.Dockerfile -t splates-worker .`
 # from the repo root. It holds no credentials: the worker joins with a token
 # at `docker run` and keeps its key in memory, since the image has no
-# secret service. The system packages follow `snapshotRecipe` in
-# `packages/server/workers/snapshot.ts`, which installs a released splates.
+# secret service.
 FROM oven/bun:1.4.2-debian
 
 ENV DEBIAN_FRONTEND=noninteractive

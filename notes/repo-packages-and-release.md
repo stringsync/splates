@@ -20,25 +20,8 @@ release a project's copy came from. Here `.agents/skills/splates` links to
 `skills/splates`; `skills-lock.json` pins only third-party skills.
 
 
-The release also publishes `ghcr.io/stringsync/splates-runner:<version>` and
-`:latest` through the `RunnerImage` artifact, after npm publishing and before
-the release tag. It runs Docker buildx for `linux/amd64` on
-`docker/runner.Dockerfile`, a generic Debian base (git, curl, build-essential,
-mise, a `splates` user) with no bun and no splates: a project's `prepare`
-fills its toolchain, and splates arrives at boot. The machine cutting a release needs Docker buildx and a GHCR login
-with package write access. `splates dev ship` first checks for a `gh` login and
-a Docker login for ghcr.io, and on a terminal offers `gh auth login` or
-a Docker login to ghcr.io when one is missing, through gh's browser sign-in
-(`gh auth refresh -s write:packages`, its token piped to `docker login`) (no terminal: it stops with the
-command to run). The binary and the image are then built in the `build` stage,
-before anything is published or tagged, and only uploaded and pushed later; a
-login lacking write access shows only at the push. The GHCR package must be public (set its visibility
-to Public in GitHub package settings on first publication), so Fly needs no
-registry credentials. The source label links it to this repository.
-A failed image build or push leaves the existing release checkpoint for
-`splates dev ship` to finish, rather than bumping another version.
-
-No image is built or pushed for a test run. `RunnerImages.resolve` checks the
-public registry for the running version; only a checkout supplying its own
-build may fall back to `:latest` when that version has no image. Runtime users
-need neither Docker nor flyctl.
+The release publishes the npm packages and creates a GitHub release; it no
+longer builds or publishes a Linux binary or runner image. `splates dev ship`
+checks the `gh` login before building or stamping. On a terminal it offers
+`gh auth login` when needed; without a terminal it stops with that command.
+Docker, buildx and a GHCR login are not needed to release.
