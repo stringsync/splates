@@ -3,15 +3,15 @@ import { useReactive } from "@webappwiz/react";
 import { type ReactNode, useContext } from "react";
 import { useCloseTerminal } from "./close-terminal";
 import { terminalAddress } from "./conversation-address";
-import { CommandRow, TerminalRow } from "./list-rows";
+import { TerminalRow } from "./list-rows";
 import { NestedPanesContext } from "./side-panes";
 import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
 
 /**
  * What the sidebar nests under a conversation's row, muted as a subagent
- * is: its terminal while its shell is up, and each command its agent left
- * running, each opening in the pane beside the page. With them, the main
+ * is: its terminal while its shell is up, opening in the pane beside the
+ * page. With it, the main
  * tree's own terminals, and the close that asks first while one runs a job.
  */
 export function useBeneath(
@@ -68,22 +68,6 @@ export function useBeneath(
 					/>
 				</li>
 			),
-			...conversation.background
-				.filter((each) => each.state === "running")
-				.map((each) => (
-					<li key={`background ${each.id}`}>
-						<CommandRow
-							background={each}
-							current={
-								shown?.kind === "background" && shown.background === each.id
-							}
-							onOpen={() => {
-								onOpen(id);
-								panes.watch(id, each.id);
-							}}
-						/>
-					</li>
-				)),
 		].filter(Boolean);
 	};
 	return { mains, beneath, closing };

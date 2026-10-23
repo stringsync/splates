@@ -23,7 +23,8 @@ import { type Quiet, quietTitle } from "./quiet";
  * it was removed and a yellow pause once it was deferred.
  * While its task's merge tests and lands, the spinner gives way to a green
  * merge icon, and while the merge waits its turn, to a faint gray one.
- * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
+ * An idle agent with a command left running in the background shows a
+ * muted spinner. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. A spinner gone quiet long enough that the agent
  * may be stuck stops, in amber, saying how long in its tooltip. Each sits centered in a box of one size, so
@@ -40,6 +41,7 @@ export function Mark({
 	starting = false,
 	picking = false,
 	quiet = null,
+	background = false,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
@@ -54,6 +56,8 @@ export function Mark({
 	subagent?: boolean;
 	/** How long it has been quiet, once it may be stuck; null while it is not. */
 	quiet?: Quiet | null;
+	/** Whether it has left a command running in the background. */
+	background?: boolean;
 }): JSX.Element {
 	if (starting) {
 		const waiting = picking
@@ -124,6 +128,18 @@ export function Mark({
 				title={need.kind === "waiting" ? need.subject : undefined}
 				color="text-warning"
 			/>
+		);
+	}
+	if (need.kind === "idle" && !hosting && background) {
+		return (
+			<span
+				role="status"
+				aria-label="background commands running"
+				title="Background commands running"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
+			</span>
 		);
 	}
 	if (need.kind === "idle" && !hosting) {

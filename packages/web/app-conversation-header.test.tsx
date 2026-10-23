@@ -556,7 +556,7 @@ describe("App's conversation header", () => {
 		expect(failed.queryByText("bun test")).toBeNull();
 	});
 
-	it("nests each command it left running under it in the sidebar, opening its output from there", async () => {
+	it("marks a conversation with a spinner in the sidebar while it has a command running, without listing the command", async () => {
 		const running = {
 			id: "b1",
 			name: "Start the dev server",
@@ -569,44 +569,30 @@ describe("App's conversation header", () => {
 			conversation({
 				id: "c1",
 				title: "Serve it",
-				// At work, so the sidebar lists it.
-				status: "running",
-				background: [
-					running,
-					{ ...running, id: "b2", name: "Run the tests", state: "failed" },
-				],
+				background: [running],
 			}),
 		]);
 		const sidebar = view.getByRole("navigation", { name: "conversations" });
-		const row = within(sidebar).getByRole("button", {
-			name: /Start the dev server/,
-		});
-		expect(row.title).toBe("bun dev");
-		expect(within(row).getByRole("img", { name: "running" })).toBeTruthy();
 		expect(
-			within(sidebar).queryByRole("button", { name: /Run the tests/ }),
+			within(sidebar).getByRole("status", {
+				name: "background commands running",
+			}),
+		).toBeTruthy();
+		expect(
+			within(sidebar).queryByRole("button", { name: /Start the dev server/ }),
 		).toBeNull();
-
-		await act(async () => fireEvent.click(row));
-		// The pane is a chunk fetched as it first opens.
-		const pane = await waitFor(() =>
-			view.getByRole("complementary", { name: "background command" }),
-		);
-		expect(within(pane).getByRole("heading").textContent).toBe(
-			"Start the dev server",
-		);
-		expect(row.getAttribute("aria-current")).toBe("page");
 
 		await testing.say(
 			conversation({
 				id: "c1",
 				title: "Serve it",
-				status: "running",
 				background: [{ ...running, state: "completed" }],
 			}),
 		);
 		expect(
-			within(sidebar).queryByRole("button", { name: /Start the dev server/ }),
+			within(sidebar).queryByRole("status", {
+				name: "background commands running",
+			}),
 		).toBeNull();
 	});
 
@@ -654,9 +640,10 @@ describe("App's conversation header", () => {
 			view.getByRole("region", { name: "background commands" }),
 		).getByRole("button", { name: /Start the dev server/ });
 		await act(async () => fireEvent.click(row));
-		const pane = view.getByRole("complementary", {
-			name: "background command",
-		});
+		// The pane is a chunk fetched as it first opens.
+		const pane = await waitFor(() =>
+			view.getByRole("complementary", { name: "background command" }),
+		);
 		expect(within(pane).getByRole("heading").textContent).toBe(
 			"Start the dev server",
 		);

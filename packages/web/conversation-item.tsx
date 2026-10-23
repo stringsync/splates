@@ -222,6 +222,9 @@ export function Item({
 						unread={conversation.unread}
 						hosting={hosting}
 						quiet={quiet}
+						background={conversation.background.some(
+							(each) => each.state === "running",
+						)}
 					/>
 				)}
 			</span>

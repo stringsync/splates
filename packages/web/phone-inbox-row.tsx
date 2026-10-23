@@ -146,6 +146,11 @@ export function Row({
 						hosting={hosting}
 						subagent={subagent}
 						quiet={quiet}
+						background={
+							conversation?.background.some(
+								(each) => each.state === "running",
+							) ?? false
+						}
 					/>
 				</span>
 			</span>

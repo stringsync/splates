@@ -1289,7 +1289,7 @@ describe("App on a phone", () => {
 	});
 
 	// scry-ignore simple-test-setup: the background commands it lists are what it checks, and no other test opens with them
-	it("nests a conversation's running commands and its shell under it in the inbox, opening each from there", async () => {
+	it("nests a conversation's shell under it in the inbox, and marks it while a command runs", async () => {
 		const running = {
 			id: "b1",
 			name: "Start the dev server",
@@ -1331,16 +1331,13 @@ describe("App on a phone", () => {
 			within(recent)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual([
-			expect.stringContaining("Serve it"),
-			"TerminalShell up",
-			"Start the dev serverbun dev",
-		]);
+		).toEqual([expect.stringContaining("Serve it"), "TerminalShell up"]);
 		expect(recent.textContent).not.toContain("Old build");
-		// A spinner, not a green dot that reads as done.
-		expect(within(recent).getByRole("img", { name: "running" }).tagName).toBe(
-			"svg",
-		);
+		expect(
+			within(recent).getByRole("status", {
+				name: "background commands running",
+			}),
+		).toBeTruthy();
 
 		await act(async () =>
 			fireEvent.click(
@@ -1353,23 +1350,6 @@ describe("App on a phone", () => {
 				view.getByRole("button", { name: "Back to conversations" }),
 			),
 		);
-
-		await act(async () =>
-			fireEvent.click(
-				within(
-					within(view.getByRole("region", { name: "inbox" })).getByRole(
-						"region",
-						{ name: "Recent" },
-					),
-				).getByRole("button", { name: /^Start the dev server/ }),
-			),
-		);
-		expect(location.hash).toBe("#conversations/c1");
-		expect(
-			within(
-				await view.findByRole("complementary", { name: "background command" }),
-			).getByRole("heading").textContent,
-		).toBe("Start the dev server");
 	});
 });
 

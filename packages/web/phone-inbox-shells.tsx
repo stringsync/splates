@@ -1,13 +1,7 @@
 import type { Needing } from "@stringsync/splates-server/plans";
 import { useReactive } from "@webappwiz/react";
-import {
-	PencilIcon,
-	SquareTerminalIcon,
-	TerminalIcon,
-	XIcon,
-} from "lucide-react";
+import { PencilIcon, SquareTerminalIcon, XIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
-import { RunningMark } from "./background";
 import { useCloseTerminal } from "./close-terminal";
 import { RenameBox } from "./list-rows";
 import { NestedPanesContext } from "./side-panes";
@@ -17,9 +11,7 @@ import { BarButton } from "./top-bar";
 
 /**
  * The inbox's shells: the main tree's own terminals, and what sits under a
- * conversation's row, as in the sidebar: its terminal while its shell is up
- * and each command its agent left running, each opening the conversation with
- * it on the screen.
+ * conversation's row, as in the sidebar: its terminal while its shell is up.
  */
 export function useShells(
 	terminals: Terminals,
@@ -75,23 +67,6 @@ export function useShells(
 					</BarButton>
 				</li>
 			),
-			...conversation.background
-				.filter((each) => each.state === "running")
-				.map((each) => (
-					<li key={`background ${each.id}`} className="flex items-center pr-4">
-						<NestedRow
-							icon={<TerminalIcon />}
-							name={each.name}
-							text={each.command ?? "Running"}
-							depth={depth}
-							onOpen={() => {
-								onOpen(id);
-								panes.watch(id, each.id);
-							}}
-						/>
-						<RunningMark />
-					</li>
-				)),
 		].filter(Boolean);
 	};
 	return {

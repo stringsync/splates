@@ -1,16 +1,13 @@
-import type { Background } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans/browser";
 import {
 	PencilIcon,
 	SquareTerminalIcon,
-	TerminalIcon,
 	UnplugIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { RunningMark } from "./background";
 import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
 import type { Nested } from "./parts";
@@ -218,40 +215,6 @@ export function RenameBox({
 			}}
 			className="mx-1 h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		/>
-	);
-}
-
-/**
- * A command a conversation's agent left running, nested under it, muted as a
- * subagent is, with a spinner: it shows only while it runs.
- */
-export function CommandRow({
-	background,
-	current,
-	onOpen,
-}: {
-	background: Background;
-	current: boolean;
-	onOpen: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			data-row
-			aria-current={current ? "page" : undefined}
-			title={background.command ?? background.name}
-			onClick={onOpen}
-			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
-				current && "bg-accent hover:bg-accent active:bg-accent",
-			)}
-		>
-			<TerminalIcon className="size-3.5 text-foreground/70" />
-			<span className="min-w-0 flex-1 truncate text-muted-foreground text-sm italic">
-				{background.name}
-			</span>
-			<RunningMark />
-		</button>
 	);
 }
 
