@@ -15,3 +15,8 @@ Permission cards (`permission-card.tsx`, on `ActionCard`) exist because
 splates refuses those actions to agents: the person's button makes the write
 directly through `expect`, queueing a lane for instance, and a copy button
 gives the equivalent `splates ...` command for a terminal.
+
+Run-command permission cards send their Allow or Deny directive with an optional
+note under the same quoted `> **Anything else?**` heading. Allowing a test
+suite still grants its one run before sending the message. Reopening the
+answered card shows the note alongside the decision.

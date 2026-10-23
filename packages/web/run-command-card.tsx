@@ -5,9 +5,10 @@ import {
 	RUN_DENIED,
 } from "@stringsync/splates-server/plans/browser";
 import { BanIcon, CheckIcon, TerminalIcon } from "lucide-react";
-import { createContext, type JSX, useContext, useState } from "react";
+import { createContext, type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { useCardReply } from "./card-reply";
+import { CardBox, useCardDictationTurn } from "./card-box";
+import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
@@ -38,6 +39,19 @@ export function RunCommandCard({
 	const { refusal, attempt } = useRefusal();
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [opened, setOpened] = useState(false);
+	const kept = useKept(
+		`run-command:${proposal.command}:${proposal.title}`,
+		sent,
+	);
+	const [more, setMore] = useState(kept.read);
+	const written = useRef(more);
+	const panel = useRef<HTMLDivElement>(null);
+	const turn = useCardDictationTurn(panel);
+	const note =
+		sent
+			?.split("\n\n> **Anything else?**\n\n")
+			.slice(1)
+			.join("\n\n> **Anything else?**\n\n") ?? more;
 	const grant = useContext(SuiteGrant);
 	const suite = isWholeSuite(proposal.command ?? "");
 	const choice = sent?.includes(RUN_ALLOWED)
@@ -59,7 +73,13 @@ export function RunCommandCard({
 				: Promise.resolve();
 		void attempt(
 			granted
-				.then(() => send(directive))
+				.then(() =>
+					send(
+						written.current.trim() === ""
+							? directive
+							: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
+					),
+				)
 				.catch((error: unknown) => {
 					setChosen(null);
 					throw error;
@@ -104,6 +124,24 @@ export function RunCommandCard({
 					className="mx-4 mb-3"
 				/>
 			)}
+			{choice === null && send !== null ? (
+				<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
+					<p className="font-medium text-sm leading-snug">Anything else?</p>
+					<CardBox
+						aria-label="Anything else"
+						value={more}
+						placeholder="Your answer (optional)"
+						files={null}
+						onValue={(text) => {
+							written.current = text;
+							setMore(text);
+							kept.write(text);
+						}}
+					/>
+				</div>
+			) : choice !== null && note.trim() !== "" ? (
+				<CardBody text={`> **Anything else?**\n\n${note}`} />
+			) : null}
 			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
 				{choice !== null ? (
 					<span className="flex items-center gap-1 text-xs">
@@ -120,7 +158,7 @@ export function RunCommandCard({
 							size="sm"
 							variant="outline"
 							disabled={send === null}
-							onClick={() => answer(RUN_DENIED, "Not denied")}
+							onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
 							className="gap-1.5"
 						>
 							<BanIcon data-icon="inline-start" />
@@ -129,7 +167,7 @@ export function RunCommandCard({
 						<Button
 							size="sm"
 							disabled={send === null}
-							onClick={() => answer(RUN_ALLOWED, "Not allowed")}
+							onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
 							className="gap-1.5"
 						>
 							<CheckIcon data-icon="inline-start" />

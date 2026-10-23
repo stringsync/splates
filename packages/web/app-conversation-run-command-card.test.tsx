@@ -14,6 +14,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -49,6 +50,64 @@ describe("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
 		]);
+		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
+	});
+
+	it("sends Anything else with Allow and keeps it in the reopened card", async () => {
+		const view = await testing.openConversations([asking()]);
+		await typeIn(
+			view.getByRole("textbox", { name: "Anything else" }),
+			"Please keep the output.\nI need it for review.",
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Allow" })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: `[SPLATES RUN ALLOWED]\n\n> **Anything else?**\n\nPlease keep the output.\nI need it for review.`,
+					},
+				},
+			]),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open" })),
+		);
+		expect(view.getAllByText(/Please keep the output/).length).toBeGreaterThan(
+			0,
+		);
+		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
+		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
+	});
+
+	it("sends Anything else with Deny and keeps it in the reopened card", async () => {
+		const view = await testing.openConversations([asking()]);
+		await typeIn(
+			view.getByRole("textbox", { name: "Anything else" }),
+			"Please keep the output.\nI need it for review.",
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Deny" })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: `[SPLATES RUN DENIED]\n\n> **Anything else?**\n\nPlease keep the output.\nI need it for review.`,
+					},
+				},
+			]),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open" })),
+		);
+		expect(view.getAllByText(/Please keep the output/).length).toBeGreaterThan(
+			0,
+		);
+		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
 		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
