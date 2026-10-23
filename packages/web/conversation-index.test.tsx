@@ -204,6 +204,7 @@ describe("conversation render subscriptions", () => {
 								open="two"
 								onOpen={open}
 								onTodos={open}
+								onLane={open}
 								phone={false}
 							/>
 						</Profiler>

@@ -80,6 +80,7 @@ export const Conversations = memo(function Conversations({
 	open,
 	onOpen,
 	onTodos,
+	onLane,
 	phone,
 }: {
 	feed: ConversationFeed;
@@ -101,6 +102,7 @@ export const Conversations = memo(function Conversations({
 	onOpen: (id: string | null, how?: Move) => void;
 	/** Opens the todo board showing only the todos in `ids`. */
 	onTodos: (ids: readonly number[]) => void;
+	onLane: (id: number) => void;
 	/** Whether there is no sidebar to hold the list. */
 	phone: boolean;
 }): JSX.Element {
@@ -146,6 +148,7 @@ export const Conversations = memo(function Conversations({
 			},
 			openTask: setOpenedTask,
 			openTodos: onTodos,
+			openLane: onLane,
 			tasks: tasks.map((each) => each.task),
 			moveLane: () => {},
 			refusedTodos,
@@ -154,7 +157,7 @@ export const Conversations = memo(function Conversations({
 			refuseLane: () => {},
 			drafts,
 		}),
-		[todos, lanes, drafts, tasks, onTodos, refusedTodos, refuseTodo],
+		[todos, lanes, drafts, tasks, onTodos, onLane, refusedTodos, refuseTodo],
 	);
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);

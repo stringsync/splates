@@ -16,6 +16,7 @@ export function ReferenceChip({
 	title,
 	open,
 	inline = false,
+	missing = false,
 }: {
 	Icon: LucideIcon;
 	kind: string;
@@ -23,6 +24,8 @@ export function ReferenceChip({
 	title: string;
 	open?: (() => void) | undefined;
 	inline?: boolean;
+	/** Whether what it names is gone, so it is struck through and dimmed. */
+	missing?: boolean;
 }): JSX.Element {
 	const inside = (
 		<>
@@ -36,6 +39,7 @@ export function ReferenceChip({
 	const look = cn(
 		"max-w-80 min-w-0 shrink-0 items-center gap-1 rounded-md border px-1.5 text-foreground/90 text-xs",
 		inline ? "inline-flex h-6 align-middle" : "flex h-7",
+		missing && "line-through opacity-60",
 	);
 	if (open !== undefined) {
 		return (

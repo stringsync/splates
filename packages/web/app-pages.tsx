@@ -28,6 +28,7 @@ export function useAppPages({
 	drafts,
 	todoView,
 	lane,
+	openLane,
 	task,
 	openTask,
 	go,
@@ -48,6 +49,7 @@ export function useAppPages({
 }: Pick<
 	PageRoute,
 	| "lane"
+	| "openLane"
 	| "task"
 	| "openTask"
 	| "go"
@@ -89,6 +91,7 @@ export function useAppPages({
 								drafts={drafts}
 								view={todoView}
 								lane={lane}
+								onLane={openLane}
 							/>
 						),
 						tasks: (
@@ -155,6 +158,9 @@ export function useAppPages({
 									trunk={snapshot.trunk}
 									open={open}
 									onOpen={openConversation}
+									onLane={(id) => {
+										openLane(id);
+									}}
 									onTodos={(ids) => {
 										go("todos");
 										todoView.filter(ids);
@@ -169,6 +175,7 @@ export function useAppPages({
 			drafts,
 			todoView,
 			lane,
+			openLane,
 			task,
 			openTask,
 			go,

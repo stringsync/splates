@@ -41,6 +41,7 @@ export function Todos({
 	drafts,
 	view,
 	lane = null,
+	onLane,
 }: {
 	snapshot: Snapshot;
 	drafts: Drafts;
@@ -48,6 +49,8 @@ export function Todos({
 	view: TodoView;
 	/** The lane the board was opened on, shown and scrolled to, or null. */
 	lane?: number | null;
+	/** Opens the board on a lane, as a chip naming one asks. */
+	onLane: (id: number) => void;
 }): JSX.Element {
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
@@ -108,6 +111,7 @@ export function Todos({
 			},
 			openTask: (name: string) => view.openTask(snapshot, name),
 			openTodos: (ids: readonly number[]) => view.filter(ids),
+			openLane: onLane,
 			tasks: snapshot.tasks.map((each) => each.task),
 			moveLane: (id: number, position: number) =>
 				void board
@@ -124,6 +128,7 @@ export function Todos({
 			all,
 			records,
 			view,
+			onLane,
 			board,
 			snapshot,
 			refusedTodos,

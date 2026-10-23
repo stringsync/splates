@@ -70,6 +70,7 @@ function about(
 	kind: string;
 	name: string;
 	open?: (() => void) | undefined;
+	missing?: boolean;
 } {
 	const [, kind = "", argument = ""] =
 		/^\[(?:SPLATES|ARBOR) ([A-Z]+)(?: ([^\]]+))?\]$/.exec(directive) ?? [];
@@ -96,9 +97,12 @@ function about(
 				return { kind: "Untriaged", name: "" };
 			}
 			const id = Number(argument);
+			const lane = board.lanes.find((each) => each.id === id);
 			return {
 				kind: `Lane ${argument}`,
-				name: board.lanes.find((each) => each.id === id)?.name ?? "",
+				name: lane?.name ?? "",
+				open: lane === undefined ? undefined : () => board.openLane(id),
+				missing: board.linked && lane === undefined,
 			};
 		}
 		// A report names the task that stopped.
@@ -136,13 +140,14 @@ export function DirectiveChip({
 	inline?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { kind, name, open } = about(directive, board);
+	const { kind, name, open, missing } = about(directive, board);
 	return (
 		<ReferenceChip
 			Icon={UtensilsIcon}
 			kind={kind}
 			name={name}
 			title={directive}
+			missing={missing}
 			open={opens && board.linked ? open : undefined}
 			inline={inline}
 		/>

@@ -14,6 +14,8 @@ export interface BoardContext {
 	lanes: LaneRecord[];
 	open: (id: number) => void;
 	openTask: (task: string) => void;
+	/** Opens the board on lane `id`, scrolled to its column. */
+	openLane: (id: number) => void;
 	/** Opens the todo board showing only the todos in `ids`. */
 	openTodos: (ids: readonly number[]) => void;
 	/** Every live task, by name: those a chip naming one opens. */
@@ -38,6 +40,7 @@ export const NO_BOARD: BoardContext = {
 	lanes: [],
 	open: () => {},
 	openTask: () => {},
+	openLane: () => {},
 	openTodos: () => {},
 	tasks: [],
 	moveLane: () => {},
@@ -51,8 +54,8 @@ export const NO_BOARD: BoardContext = {
 export const Board = createContext<BoardContext>(NO_BOARD);
 
 /**
- * Keeps a press on a button inside a card from starting a drag of the card,
- * so a tap on it does what the button says.
+ * Spread onto a button inside a draggable card so pressing it never starts
+ * a drag of the card, and a tap does what the button says.
  */
 export const still = {
 	onMouseDown: (event: { stopPropagation(): void }) => event.stopPropagation(),
@@ -73,10 +76,9 @@ export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 export const touchButton = "pointer-coarse:h-10 pointer-coarse:px-3";
 
 /**
- * How tall a card that spans one line stands, kept in `--line-card` so what
- * stands beside one, as a person's message in a phone's thread, matches it:
- * its call to action (`touchButton`), `lineCard`'s inset above and below
- * it, and the card's border.
+ * The height of a one-line card, set in `--line-card`. Put it on the card,
+ * and whatever stands beside it, as a person's message in a phone's thread,
+ * can use `--line-card` to match.
  */
 export const lineCardHeight =
 	"[--line-card:calc(1.75rem+0.75rem+2px)] pointer-coarse:[--line-card:calc(2.5rem+1.25rem+2px)]";

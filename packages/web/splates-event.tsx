@@ -336,16 +336,24 @@ function NamedChip({
 				</Chip>
 			);
 		}
-		case "lane":
+		case "lane": {
+			const exists = board.lanes.some((lane) => lane.id === named.id);
 			return (
 				<Chip
 					Icon={LaneIcon}
-					title={`Lane ${named.id}: ${named.name}`}
+					title={
+						exists
+							? `Lane ${named.id}: ${named.name}`
+							: `Lane ${named.id}: ${named.name} (no longer exists)`
+					}
+					open={exists ? () => board.openLane(named.id) : undefined}
+					missing={board.linked && !exists}
 					className={GIVES_WAY}
 				>
 					{named.name}
 				</Chip>
 			);
+		}
 		case "branch":
 			return (
 				<Chip
@@ -422,6 +430,7 @@ function Chip({
 	open,
 	href,
 	whole = false,
+	missing = false,
 	className,
 	children,
 }: {
@@ -431,6 +440,8 @@ function Chip({
 	href?: string;
 	/** Whether it shows all its name, wrapping, rather than cut short. */
 	whole?: boolean;
+	/** Whether what it names is gone, so it is struck through and dimmed. */
+	missing?: boolean;
 	className?: string;
 	children: ReactNode;
 }): JSX.Element {
@@ -439,6 +450,7 @@ function Chip({
 		whole ? "min-h-6 max-w-full py-0.5 text-left" : "h-6 max-w-80",
 		(open !== undefined || href !== undefined) &&
 			"cursor-pointer hover:bg-muted",
+		missing && "line-through opacity-60",
 		className,
 	);
 	const inside = (

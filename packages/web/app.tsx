@@ -310,6 +310,7 @@ export function App({
 		drafts,
 		todoView,
 		lane,
+		openLane,
 		task,
 		openTask,
 		go,
