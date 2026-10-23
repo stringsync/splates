@@ -2,6 +2,7 @@ import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { releases } from "webappwiz/ship";
 import { type Fs, NodePs, type Ps } from "webappwiz/system";
 import { fix } from "./fix";
+import { RunnerImage } from "./runner-image";
 
 /**
  * The agent skill this repository ships. Projects install it from the
@@ -35,6 +36,7 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 	const declared = releases.lockstep(
 		await releases.workspace({ fs: opts.fs, ps }),
 		releases.skill(SKILL, { fs: opts.fs }),
+		new RunnerImage(ps),
 	);
 	await declared.release({
 		bump: "patch",

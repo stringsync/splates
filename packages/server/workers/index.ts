@@ -161,6 +161,9 @@ export {
 	WORKER_SOCKET_PATH,
 } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
+export { RunnerImages } from "./runner-images";
+export { runnerServe } from "./runner-serve";
+export { RunnerServer } from "./runner-server";
 export type { Grant, HeldSlot, PoolWorker, QueueEntry } from "./scheduler";
 export { Scheduler, type SlotRequest } from "./scheduler";
 export type { ServerOf, ServerSend } from "./server-of";

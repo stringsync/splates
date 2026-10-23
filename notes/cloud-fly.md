@@ -72,3 +72,17 @@ its output; 241 MB. A job needs bun and git, not splates or Chromium.
   Fly's list prices; `shared-cpu-4x` 8 GB is the default job's size.
 - A Fly deploy token scoped to the runners' app is all splates needs, so the
   delete-only token question of the DigitalOcean watchdog does not arise.
+
+
+## Release image and boot contract
+
+The release image is `ghcr.io/stringsync/splates-runner:<version>`, public,
+with `:latest` for a checkout whose version has no image and which supplies
+its own build. `RunnerImages.resolve(version, { ownBuild })` resolves that
+choice without Docker; it refuses registry errors rather than treating them
+as a missing tag. Fly creation and the client integration belong to the
+transport task. Use internal port 8080, `SPLATES_RUNNER_SECRET` in the
+machine's env, and `wss://<app>.fly.dev/api/jobs` with the machine-id routing
+header and bearer secret. `notes/worker-packaging.md` specifies the `ready`
+frame, job protocol, and own-build environment. A runner is reached rather
+than joining; own-build downloads remain a separate authenticated boot fetch.

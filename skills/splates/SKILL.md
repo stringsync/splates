@@ -13,6 +13,10 @@ only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
 repository itself.
 
+The runner image starts `splates runners serve`: an authenticated, job-only HTTP
+service for cloud runners, not a worker that runs agents. It reads its bearer
+secret from the hosting environment; people use `splates run` to send jobs.
+
 ## The short version
 
 Most of what follows fills in these steps. Hold to them even when you skip

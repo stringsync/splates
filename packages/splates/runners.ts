@@ -12,6 +12,7 @@ import {
 	type DirectRunner,
 	NoRunner,
 	parseTimeout,
+	runnerServe,
 	sizeLabel,
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
@@ -153,3 +154,15 @@ function runnerLine(runner: DirectRunner): string {
 function reaperFile(ctx: SplatesDeps): string {
 	return join(splatesHome(ctx.ps), REAPER_FILE);
 }
+
+// A container gets its bearer secret from the hosting platform, never a flag.
+splatesRunners
+	.command("serve")
+	.description(
+		"serve only job channels at /api/jobs over authenticated WebSockets; for the runner image, with SPLATES_RUNNER_SECRET from its hosting environment",
+	)
+	.option("port", z.coerce.number().int().min(0).max(65535), {
+		default: 8080,
+		description: "HTTP port behind the hosting proxy",
+	})
+	.action(({ port }, { ps }) => runnerServe({ port, ps }));

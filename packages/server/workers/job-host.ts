@@ -209,7 +209,16 @@ export class WorkerJobHost implements Resource, AsyncResource {
 		argv: string[],
 		env: Record<string, string>,
 	): Promise<number> {
-		const child = this.ps.start(argv, { cwd: this.tree, env });
+		const child = this.ps.start(argv, {
+			cwd: this.tree,
+			env,
+			// Hosting credentials belong to the runner, never its jobs.
+			unset: [
+				"SPLATES_RUNNER_SECRET",
+				"SPLATES_BUILD_URL",
+				"SPLATES_BUILD_TOKEN",
+			],
+		});
 		this.child = child;
 		const pump = async (stream: ReadableStream<Uint8Array>) => {
 			try {
