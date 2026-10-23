@@ -1,7 +1,7 @@
 import type { Artifact, Cut } from "webappwiz/ship";
 import type { Ps } from "webappwiz/system";
 
-/** Publishes the runner after npm, so the image installs this release's CLI. */
+/** Publishes the generic runner base image under this release's version tag. */
 export class RunnerImage implements Artifact {
 	readonly packages: readonly string[] = [];
 	readonly stage = "publish";
@@ -19,8 +19,6 @@ export class RunnerImage implements Artifact {
 				"linux/amd64",
 				"--file",
 				"docker/runner.Dockerfile",
-				"--build-arg",
-				`SPLATES_VERSION=${cut.version}`,
 				"--tag",
 				image,
 				"--tag",

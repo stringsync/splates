@@ -22,9 +22,10 @@ release a project's copy came from. Here `.agents/skills/splates` links to
 
 The release also publishes `ghcr.io/stringsync/splates-runner:<version>` and
 `:latest` through the `RunnerImage` artifact, after npm publishing and before
-the release tag. It runs Docker buildx for `linux/amd64`, passing the same
-release version to `docker/runner.Dockerfile`; the image installs that version
-from npm. The machine cutting a release needs Docker buildx and a GHCR login
+the release tag. It runs Docker buildx for `linux/amd64` on
+`docker/runner.Dockerfile`, a generic Debian base (git, curl, build-essential,
+mise, a `splates` user) with no bun and no splates: a project's `prepare`
+fills its toolchain, and splates arrives at boot. The machine cutting a release needs Docker buildx and a GHCR login
 with package write access. The GHCR package must be public (set its visibility
 to Public in GitHub package settings on first publication), so Fly needs no
 registry credentials. The source label links it to this repository.

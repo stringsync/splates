@@ -12,10 +12,10 @@ were destroyed after.
 
 ## What was measured
 
-The runner image was a slim one, not `docker/worker.Dockerfile`: `oven/bun`
-Debian, git, curl, a `splates` user, bun's cache warmed from this checkout's
-lockfile, and a small bun HTTP server on 8080 that runs a command and streams
-its output; 241 MB. A job needs bun and git, not splates or Chromium.
+The runner image is a generic one, not `docker/worker.Dockerfile`: Debian,
+git, curl, build-essential, mise and a `splates` user, with no bun and no
+splates (the project's `prepare` installs its toolchain; splates arrives at
+boot).
 
 - **Image**: `docker buildx build --platform linux/amd64` on this arm64 Mac
   took about 60 s cold and 18 s with layers cached; `docker push` to

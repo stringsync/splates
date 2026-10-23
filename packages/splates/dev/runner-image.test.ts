@@ -19,7 +19,7 @@ describe("the runner image release", () => {
 		await image.publish(cut);
 		expect(image.stage).toBe("publish");
 		expect(ps.getCalls()).toEqual([
-			"docker buildx build --platform linux/amd64 --file docker/runner.Dockerfile --build-arg SPLATES_VERSION=0.0.55 --tag ghcr.io/stringsync/splates-runner:0.0.55 --tag ghcr.io/stringsync/splates-runner:latest --push .",
+			"docker buildx build --platform linux/amd64 --file docker/runner.Dockerfile --tag ghcr.io/stringsync/splates-runner:0.0.55 --tag ghcr.io/stringsync/splates-runner:latest --push .",
 		]);
 		expect(ps.getCallDirs()).toEqual(["/release"]);
 	});
