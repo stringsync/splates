@@ -6,11 +6,21 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodePs } from "webappwiz/system";
 import { WorkerRegistry } from "../workers/registry";
 import { RunnerServer } from "../workers/runner-server";
-import { FlyRunners, RUNNER_ID, RUNNER_SECRET } from "./fly-runners";
+import {
+	BOOTSTRAP_PATH,
+	FlyRunners,
+	RUNNER_ID,
+	RUNNER_SECRET,
+} from "./fly-runners";
 import { FLY_SIZES } from "./fly-sizes";
 import type { FlySize } from "./fly-types";
 import { RunnerGone } from "./runner-gone";
 import { FakeAwaitingRunner, FakeFlyCloud } from "./testing";
+
+const BINARY = {
+	url: "https://github.com/stringsync/splates/releases/download/v1.0.0/splates-linux-x64",
+	sha256: "a".repeat(64),
+};
 
 const SIZE = FLY_SIZES.find(
 	(size) => size.name === "shared-cpu-4x-8gb",
@@ -32,6 +42,7 @@ describe("FlyRunners", () => {
 			boot: {
 				ownBuild: async () => false,
 				image: async () => "ghcr.io/stringsync/splates-runner:1.0.0",
+				binary: async () => BINARY,
 				bundle: async () => new Uint8Array(),
 			},
 		});
@@ -39,6 +50,7 @@ describe("FlyRunners", () => {
 			boot: {
 				ownBuild: async () => true,
 				image: async () => "ghcr.io/stringsync/splates-runner:latest",
+				binary: async () => BINARY,
 				bundle: async () => new TextEncoder().encode("#!/usr/bin/env bun"),
 			},
 		});
@@ -63,7 +75,21 @@ describe("FlyRunners", () => {
 		});
 		expect(made.config.env[RUNNER_ID]).toBe("splates-run-one");
 		expect(made.config.env[RUNNER_SECRET]?.length).toBeGreaterThan(30);
-		expect(made.config.init).toBeUndefined();
+	});
+
+	it("boots a release runner into the bootstrap with the binary and its checksum", async () => {
+		const made = await released.make("splates-run-boot", SIZE, {});
+		expect(made.config.init?.entrypoint).toEqual(["/bin/sh", BOOTSTRAP_PATH]);
+		const [file] = made.config.files ?? [];
+		expect(file?.guest_path).toBe(BOOTSTRAP_PATH);
+		expect(Buffer.from(file?.raw_value ?? "", "base64").toString()).toStartWith(
+			"#!/bin/sh",
+		);
+		expect(made.config.env).toMatchObject({
+			SPLATES_BINARY_URL: BINARY.url,
+			SPLATES_BINARY_SHA256: BINARY.sha256,
+		});
+		expect(made.config.env.SPLATES_AWAIT_BUILD).toBeUndefined();
 	});
 
 	// scry-ignore simple-test-setup: the runner's job server needs the secret of the machine this test makes
@@ -95,17 +121,12 @@ describe("FlyRunners", () => {
 		stops.push(() => runner.disposeAsync());
 		fake.address = runner.address;
 		(await checkout.reach(made.id)).dispose();
-		expect(new TextDecoder().decode(runner.builds[0])).toBe(
-			"#!/usr/bin/env bun",
-		);
-	});
-
-	it("boots a runner made for a checkout into a bootstrap that parses", async () => {
-		const made = await checkout.make("splates-run-four", SIZE, {});
-		const program = made.config.init?.entrypoint?.[2] ?? "";
-		expect(() =>
-			new Bun.Transpiler({ loader: "js" }).transformSync(program),
-		).not.toThrow();
+		expect(made.config.env.SPLATES_AWAIT_BUILD).toBe("1");
+		expect(
+			new TextDecoder().decode(
+				Bun.gunzipSync(runner.builds[0] ?? new Uint8Array()),
+			),
+		).toBe("#!/usr/bin/env bun");
 	});
 
 	it("refuses to reach a runner whose machine is gone", async () => {

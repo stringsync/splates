@@ -9,6 +9,7 @@ import { DEFAULT_RUNNER_IDLE } from "../workers/limits";
 import { RUNNER_IDLE } from "../workers/runner-serve";
 import type { WorkerSocket } from "../workers/socket";
 import { WebSocketWorkerSocket } from "../workers/websocket-socket";
+import bootstrap from "./bootstrap.sh.txt" with { type: "text" };
 import type { FlyCloud } from "./fly";
 import type { FlyMachine, FlyMachines, FlySize } from "./fly-types";
 import { RunnerGone } from "./runner-gone";
@@ -28,6 +29,9 @@ export const RUNNER_WAITS_HEADER = "x-splates-runner";
 /** Where the runner's job server listens inside the machine. */
 const PORT = 8080;
 
+/** Where Fly writes the bootstrap a runner boots into, on whatever image. */
+export const BOOTSTRAP_PATH = "/etc/splates/bootstrap.sh";
+
 /** How long a machine has to start and answer before reaching it fails. */
 export const REACH_WITHIN = Duration.mins(3);
 
@@ -38,10 +42,12 @@ const RETRY = Duration.secs(1);
  * The runners of a Fly app, reached through Fly's proxy at
  * `https://<app>.fly.dev` with the machine's id in `fly-force-instance-id`
  * and its bearer secret, by the server and `splates run` alike: nothing
- * dials in, so a runner needs no tunnel or Access token. A runner made for a
- * checkout boots a small server that waits for the checkout's build, which
- * whoever reaches it first uploads, so the release image never stands in
- * for a build it may not speak the protocol of.
+ * dials in, so a runner needs no tunnel or Access token. Each boots
+ * `bootstrap.sh.txt`, handed over in the machine's `files`, which fetches the
+ * release's compiled binary, so the image needs only sh and curl or wget. A
+ * runner made for a checkout waits for the checkout's build, which whoever
+ * reaches it first uploads, so the release never stands in for a build it
+ * may not speak the protocol of.
  */
 export class FlyRunners {
 	private readonly wall: WallClock;
@@ -67,6 +73,7 @@ export class FlyRunners {
 		if (region === undefined) {
 			throw new Error("Fly runners need at least one region");
 		}
+		const binary = await this.opts.boot.binary();
 		return await this.cloud.create({
 			name,
 			size,
@@ -76,8 +83,19 @@ export class FlyRunners {
 				[RUNNER_SECRET]: randomBytes(32).toString("base64url"),
 				[RUNNER_ID]: name,
 				[RUNNER_IDLE]: String(idle.ms),
+				SPLATES_BINARY_URL: binary.url,
+				SPLATES_BINARY_SHA256: binary.sha256,
+				...((await this.opts.boot.ownBuild())
+					? { SPLATES_AWAIT_BUILD: "1" }
+					: {}),
 			},
-			...((await this.opts.boot.ownBuild()) ? { entrypoint: AWAIT_BUILD } : {}),
+			entrypoint: ["/bin/sh", BOOTSTRAP_PATH],
+			files: [
+				{
+					guest_path: BOOTSTRAP_PATH,
+					raw_value: Buffer.from(bootstrap).toString("base64"),
+				},
+			],
 			metadata: { ...metadata, "splates-size": size.name },
 			// Kept when stopped, so it starts again in a second and a half;
 			// whoever made it destroys it.
@@ -173,7 +191,8 @@ export class FlyRunners {
 		const answer = await fetch(url.replace(/\/api\/jobs$/, "/api/build"), {
 			method: "PUT",
 			headers,
-			body: await this.opts.boot.bundle(),
+			// Gzipped, a fifth of its size: the bootstrap unzips it.
+			body: Bun.gzipSync(await this.opts.boot.bundle()),
 			...(signal === undefined ? {} : { signal }),
 		});
 		if (!answer.ok) {
@@ -182,13 +201,15 @@ export class FlyRunners {
 	}
 }
 
-/** What a runner boots: the image, and the build it is handed when this splates runs from a checkout. */
+/** What a runner boots: the image, the binary its bootstrap fetches, and the build it is handed when this splates runs from a checkout. */
 export interface RunnerBoot {
 	/** Whether this splates runs from a checkout, whose build a runner must be handed. */
 	ownBuild(): Promise<boolean>;
 	/** The registry image a runner boots, for this splates's version. */
 	image(): Promise<string>;
-	/** This splates's own build, bundled into one bun script; asked only with `ownBuild`. */
+	/** The release binary the bootstrap fetches, and its sha256; for a checkout, run only as bun. */
+	binary(): Promise<RunnerBinary>;
+	/** This splates's own build, bundled into one bun script, which the binary runs as bun; asked only with `ownBuild`. */
 	bundle(): Promise<Uint8Array<ArrayBuffer>>;
 }
 
@@ -199,47 +220,8 @@ export interface FlyRunnersOptions {
 	wait?: (duration: Duration) => Promise<void>;
 }
 
-/**
- * What a runner made for a checkout runs in place of the image's
- * entrypoint: a server on the job port that takes the build, with the
- * runner's secret, then runs it as the job server. A build from an earlier
- * boot is never run, since the checkout may have moved on.
- */
-const AWAIT_BUILD = [
-	"bun",
-	"-e",
-	`
-const { chmodSync, mkdirSync, renameSync, rmSync } = require("node:fs");
-const { timingSafeEqual } = require("node:crypto");
-const build = "/home/splates/.local/bin/splates-own";
-rmSync(build, { force: true });
-mkdirSync("/home/splates/.local/bin", { recursive: true });
-const expected = Buffer.from("Bearer " + (process.env.${RUNNER_SECRET} ?? ""));
-let installed;
-const done = new Promise((resolve) => { installed = resolve; });
-const server = Bun.serve({
-	port: ${PORT},
-	hostname: "0.0.0.0",
-	maxRequestBodySize: 1024 * 1024 * 1024,
-	async fetch(request) {
-		const shown = Buffer.from(request.headers.get("authorization") ?? "");
-		if (expected.length <= 7 || shown.length !== expected.length || !timingSafeEqual(shown, expected)) {
-			return new Response("unauthorized", { status: 401 });
-		}
-		if (request.method === "PUT" && new URL(request.url).pathname === "/api/build") {
-			await Bun.write(build + ".tmp", await request.arrayBuffer());
-			chmodSync(build + ".tmp", 0o755);
-			renameSync(build + ".tmp", build);
-			installed();
-			return new Response("installed");
-		}
-		return new Response("waiting for its build", { status: 409, headers: { "${RUNNER_WAITS_HEADER}": "build" } });
-	},
-});
-await done;
-await server.stop();
-const serve = Bun.spawn(["bun", build, "runners", "serve"], { stdio: ["inherit", "inherit", "inherit"] });
-for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => serve.kill(signal));
-process.exit(await serve.exited);
-`,
-];
+/** Where a runner's bootstrap fetches splates and what it must hash to. */
+export interface RunnerBinary {
+	url: string;
+	sha256: string;
+}

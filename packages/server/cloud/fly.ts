@@ -87,6 +87,7 @@ export class FlyCloud implements FlyMachines {
 						persist_rootfs: spec.persistRootfs,
 					},
 					services: spec.services,
+					...(spec.files === undefined ? {} : { files: spec.files }),
 					restart: { policy: "no" },
 				},
 			});

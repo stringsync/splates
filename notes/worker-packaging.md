@@ -21,12 +21,13 @@ with neither stops at once saying so.
 
 
 `docker/runner.Dockerfile` is the slim cloud job image, separate from the
-worker proof. It has bun, git, curl, procps, a non-root `splates` user, the
-released CLI at `SPLATES_VERSION`, and bun's cache warmed from the release
-checkout with scripts skipped. A separate build stage keeps that checkout
-out of the final image. No Chromium or agent runtime is installed.
+worker proof: a generic Debian base with git, curl, build tools, mise and a
+non-root `splates` user, with no bun and no splates. No Chromium or agent
+runtime is installed.
 
-Its entrypoint runs `splates runners serve` on port 8080. The hosting
+Its entrypoint is the runner bootstrap (`cloud/bootstrap.sh.txt`, `cloud-fly.md`,
+Boot), which fetches the release's compiled binary and runs
+`splates runners serve` on port 8080. The hosting
 platform supplies `SPLATES_RUNNER_SECRET`. An HTTP upgrade at `/api/jobs`
 requires `Authorization: Bearer <secret>`. Once upgraded, the client installs
 its `WorkerSession.hello` listener and sends the text frame `ready`; the
@@ -37,11 +38,11 @@ The secret is stripped from job child environments.
 
 For a checkout's own build, set `SPLATES_BUILD_URL` to the server's
 `GET /api/workers/join` URL and `SPLATES_BUILD_TOKEN` to `OwnBuild.grant()`.
-The boot wrapper fetches with `x-splates-build`, atomically installs the
-bundle, and runs that CLI instead. A failed fetch stops boot, so the release
-cannot silently substitute for a checkout. The URL must be reachable without
-interactive Cloudflare Access. splates's own Fly runners do not use it:
-they are handed the build through the proxy instead (`AWAIT_BUILD` in
-`cloud/fly-runners.ts`, see `heavy-jobs-on-runners.md`). Build tokens are
+The bootstrap fetches the bundle with `x-splates-build` and runs it with the
+release binary as bun instead of the release. A failed fetch stops boot, so
+the release cannot silently substitute for a checkout. The URL must be
+reachable without interactive Cloudflare Access. splates's own Fly runners
+do not use it: they are handed the build through the proxy instead
+(`SPLATES_AWAIT_BUILD`, see `heavy-jobs-on-runners.md`). Build tokens are
 unset before the CLI starts. `splates runners serve` says the name in
 `SPLATES_RUNNER_ID` in its hello, the hostname without it.

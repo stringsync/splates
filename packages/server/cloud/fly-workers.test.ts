@@ -26,6 +26,10 @@ describe("FlyWorkers", () => {
 					ownBuild: async () => false,
 					image: async () => "ghcr.io/stringsync/splates-runner:1.0.0",
 					bundle: async () => new Uint8Array(),
+					binary: async () => ({
+						url: "https://example.test/splates-linux-x64",
+						sha256: "a".repeat(64),
+					}),
 				},
 			},
 		);

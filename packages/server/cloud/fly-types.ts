@@ -55,7 +55,14 @@ export interface FlyMachineConfig {
 		persist_rootfs?: "never" | "restart" | "always";
 	};
 	services: FlyService[];
+	files?: FlyFile[];
 	restart?: { policy: "no" | "always" | "on-failure" };
+}
+
+/** A file Fly writes into the machine as it boots, its content base64. */
+export interface FlyFile {
+	guest_path: string;
+	raw_value: string;
 }
 
 export interface NewFlyMachine {
@@ -72,6 +79,8 @@ export interface NewFlyMachine {
 	autoDestroy: boolean;
 	persistRootfs: "never" | "restart" | "always";
 	services: FlyService[];
+	/** Written into the machine at boot, each by its path; the request caps them near 1 MB together. */
+	files?: FlyFile[];
 }
 
 /** The Fly lifecycle used by runners, with no snapshot or public-IP abstraction. */

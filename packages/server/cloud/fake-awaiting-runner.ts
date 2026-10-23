@@ -7,7 +7,7 @@ import { RUNNER_WAITS_HEADER } from "./fly-runners";
  * build it is handed.
  */
 export class FakeAwaitingRunner implements AsyncResource {
-	readonly builds: Uint8Array[] = [];
+	readonly builds: Uint8Array<ArrayBuffer>[] = [];
 	private readonly server: Bun.Server<undefined>;
 
 	constructor(secret: string) {

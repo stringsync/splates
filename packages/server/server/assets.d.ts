@@ -7,3 +7,9 @@ declare module "*.txt" {
 	const text: string;
 	export default text;
 }
+
+// A runner's sh bootstrap (`cloud/bootstrap.sh`), handed to a Fly machine as a file.
+declare module "*.sh" {
+	const text: string;
+	export default text;
+}

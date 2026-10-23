@@ -93,13 +93,15 @@ pool saw no runner and sent each job here. That account could not order `c-16`,
 `c-4` only in blr1, lon1 and sfo2. The suite (1285 tests) runs in about 40 s at 8
 in parallel on a 16-core Mac, so a smaller runner than `c-16` may now be enough.
 
-A Fly runner boots the release image (`RunnerImages`, `worker-packaging.md`).
-Run from a checkout, the server or `splates run` makes it with an inline
-bootstrap as its entrypoint (`AWAIT_BUILD`), which answers 409 with
-`x-splates-runner: build` until whoever reaches it first `PUT`s the
-checkout's bundle to `/api/build`, then runs that as `splates runners serve`;
-a build from an earlier boot is removed first. So the build is pushed
-through the proxy, needing no path through the tunnel's Access.
+A Fly runner boots `cloud/bootstrap.sh.txt`, which Fly writes into the machine
+from its `files` (`cloud-fly.md`, Boot), so any image with sh and curl or wget
+serves. Run from a checkout, the server or `splates run` makes it with
+`SPLATES_AWAIT_BUILD=1`: the bootstrap, with the release binary as bun,
+answers 409 with `x-splates-runner: build` until whoever reaches it first
+`PUT`s the checkout's bundle, gzipped, to `/api/build`, then runs that as
+`splates runners serve`; a build from an earlier boot is removed first. So
+the build is pushed through the proxy, needing no path through the tunnel's
+Access.
 
 For a DigitalOcean runner, a snapshot installs splates from npm at the server's version, which a
 server run from a checkout may be ahead of (as the measurement above found). So such a server

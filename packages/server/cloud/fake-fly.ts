@@ -99,6 +99,7 @@ export class FakeFlyCloud implements FlyMachines {
 							autoDestroy: config.auto_destroy,
 							persistRootfs: config.guest.persist_rootfs,
 							services: config.services,
+							...(config.files === undefined ? {} : { files: config.files }),
 						}),
 					);
 				} catch (error) {
@@ -188,6 +189,9 @@ export class FakeFlyCloud implements FlyMachines {
 							},
 						}),
 				services: structuredClone(spec.services),
+				...(spec.files === undefined
+					? {}
+					: { files: structuredClone(spec.files) }),
 				restart: { policy: "no" },
 			},
 		};

@@ -217,6 +217,9 @@ export class WorkerJobHost implements Resource, AsyncResource {
 				"SPLATES_RUNNER_SECRET",
 				"SPLATES_BUILD_URL",
 				"SPLATES_BUILD_TOKEN",
+				// A checkout's build runs on the release binary as bun; a job's
+				// own compiled bun programs must not.
+				"BUN_BE_BUN",
 			],
 		});
 		this.child = child;

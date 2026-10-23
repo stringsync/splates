@@ -57,7 +57,7 @@ boot).
 
 - Boot from a registry image (the released worker image, slim, built in a
   release step; a server from a checkout layers its own build at boot as
-  `OwnBuild` does), no snapshot builder, no cloud-init: `userData` becomes the
+  `OwnBuild` does; since superseded by Boot below), no snapshot builder, no cloud-init: `userData` becomes the
   machine's `env` and `init`.
 - The runner serves the pool's job channel over HTTPS behind Fly's proxy,
   reached by the server and by `splates run` alike with the machine's id in
@@ -78,15 +78,46 @@ boot).
 ## Release image and boot contract
 
 The release image is `ghcr.io/stringsync/splates-runner:<version>`, public,
-with `:latest` for a checkout whose version has no image and which supplies
-its own build. `RunnerImages.resolve(version, { ownBuild })` resolves that
-choice without Docker; it refuses registry errors rather than treating them
-as a missing tag. Fly creation and the client integration belong to the
-transport task. Use internal port 8080, `SPLATES_RUNNER_SECRET` in the
-machine's env, and `wss://<app>.fly.dev/api/jobs` with the machine-id routing
-header and bearer secret. `notes/worker-packaging.md` specifies the `ready`
-frame, job protocol, and own-build environment. A runner is reached rather
-than joining; own-build downloads remain a separate authenticated boot fetch.
+with `:latest` for a checkout whose version has no image.
+`RunnerImages.resolve(version, { ownBuild })` resolves that choice without
+Docker; it refuses registry errors rather than treating them as a missing
+tag. The image holds no splates: see Boot below. Use internal port 8080,
+`SPLATES_RUNNER_SECRET` in the machine's env, and `wss://<app>.fly.dev/api/jobs`
+with the machine-id routing header and bearer secret.
+`notes/worker-packaging.md` specifies the `ready` frame and job protocol.
+
+## Boot
+
+Every runner boots `packages/server/cloud/bootstrap.sh.txt`, sent in the create
+request's `files` (`{ guest_path, raw_value }`, base64) to
+`/etc/splates/bootstrap.sh` and run as `init.entrypoint ["/bin/sh", ...]`,
+so the image needs only sh and curl or wget, and a project may name its own.
+The release image also runs it as its `ENTRYPOINT`. It fetches the binary at
+`SPLATES_BINARY_URL`, checks it against `SPLATES_BINARY_SHA256` (else the
+`.sha256` beside it), keeps it under `~/.cache/splates/splates-<sha256>` so a
+restart with the rootfs kept skips the download, and execs
+`splates runners serve`. `RunnerBinaries` (`workers/runner-binaries.ts`)
+picks the binary as the runner is made: the running version's release, else,
+for a checkout only, the latest release's, pinned to its tag, so a release
+with no binary is refused at once rather than by a machine that never
+answers.
+
+A checkout is not compiled: with `SPLATES_AWAIT_BUILD=1` the bootstrap runs
+the release binary as bun (`BUN_BE_BUN=1`, which bun's compiled executables
+honor) to wait on the job port for the checkout's bundle, then runs the
+bundle with it (`heavy-jobs-on-runners.md`). The bundle is 18.7 MB, 4.3 MB
+gzipped as it is sent, against 109 MB for a compiled binary, and it is sent
+on every boot. Jobs never see `BUN_BE_BUN`. `SPLATES_BUILD_URL` with
+`SPLATES_BUILD_TOKEN` fetches the bundle instead, for hosting outside splates
+(`worker-packaging.md`).
+
+A spike on 2026-10-22 made machines from `debian:bookworm-slim` with only a
+script in `files` as their entrypoint: they booted into it with no image
+change, written whole at mode 0755, owned by root. A 256 KB file was taken;
+1 MB and 4 MB were refused with `http: request body too large`, so the
+request body caps near 1 MB with the base64. Whether Fly rewrites `files` on
+a restart and runs a non-root image `USER` as that user was not measured;
+the bootstrap needs neither, keeping its cache under `$HOME` or `/tmp`.
 
 ## Machines client
 
@@ -140,7 +171,7 @@ for hosting outside splates. The repository still selects DigitalOcean
 until it is removed (#1071); its classes remain for the server's path
 alone.
 
-Each release attaches `splates-linux-x64` and its `.sha256` to its GitHub
+Each release (0.0.55 the first) attaches `splates-linux-x64` and its `.sha256` to its GitHub
 release (`LinuxBinary`, `bun build --compile --target=bun-linux-x64`), at
 `https://github.com/stringsync/splates/releases/download/v<version>/splates-linux-x64`
 and `.../releases/latest/download/splates-linux-x64`. It is a bun runtime

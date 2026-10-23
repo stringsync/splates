@@ -1,0 +1,144 @@
+#!/bin/sh
+# A runner's boot, on any image with sh and curl or wget: fetches splates's
+# compiled linux binary, checks it against its sha256, and serves jobs with
+# it. Fly hands it to a machine in `files`, so nothing is baked into the
+# image; the release image also runs it as its entrypoint. Named .txt for
+# bun's text import, which types only the extensions it reads as text.
+#
+# SPLATES_BINARY_URL      the binary; the latest release's by default
+# SPLATES_BINARY_SHA256   its sha256; read from `<url>.sha256` when unset
+# SPLATES_AWAIT_BUILD     set: wait on the job port for a checkout's build,
+#                         `PUT /api/build` with the runner's secret, and run
+#                         that with the binary as bun
+# SPLATES_BUILD_URL       fetch a checkout's build from here instead, with
+#                         SPLATES_BUILD_TOKEN in `x-splates-build` (needs curl)
+# SPLATES_RUNNER_PORT     the job port, 8080 by default
+set -eu
+
+url="${SPLATES_BINARY_URL:-https://github.com/stringsync/splates/releases/latest/download/splates-linux-x64}"
+port="${SPLATES_RUNNER_PORT:-8080}"
+cache="${HOME:-/tmp}/.cache/splates"
+mkdir -p "$cache" 2>/dev/null || {
+	cache=/tmp/splates
+	mkdir -p "$cache"
+}
+
+fetch() {
+	if command -v curl >/dev/null 2>&1; then
+		curl --fail --silent --show-error --location --retry 3 \
+			--connect-timeout 15 --max-time 600 -o "$2" "$1"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -q -O "$2" "$1"
+	else
+		echo "splates bootstrap: the image needs curl or wget" >&2
+		exit 1
+	fi
+}
+
+sha256() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | cut -d ' ' -f 1
+	else
+		shasum -a 256 "$1" | cut -d ' ' -f 1
+	fi
+}
+
+expected="${SPLATES_BINARY_SHA256:-}"
+if [ -z "$expected" ]; then
+	fetch "$url.sha256" "$cache/sha256.tmp"
+	expected="$(cut -d ' ' -f 1 "$cache/sha256.tmp")"
+	rm -f "$cache/sha256.tmp"
+fi
+
+# Named for its checksum and moved there only once it matches, so a binary
+# kept from an earlier boot is the one asked for.
+bin="$cache/splates-$expected"
+if [ ! -x "$bin" ]; then
+	rm -f "$cache"/splates-*
+	fetch "$url" "$bin.tmp"
+	got="$(sha256 "$bin.tmp")"
+	if [ "$got" != "$expected" ]; then
+		rm -f "$bin.tmp"
+		echo "splates bootstrap: $url has sha256 $got, not $expected" >&2
+		exit 1
+	fi
+	chmod 755 "$bin.tmp"
+	mv "$bin.tmp" "$bin"
+fi
+
+# A build from an earlier boot is never run: the checkout may have moved on.
+own="$cache/own.js"
+rm -f "$own"
+await="${SPLATES_AWAIT_BUILD:-}"
+build_url="${SPLATES_BUILD_URL:-}"
+build_token="${SPLATES_BUILD_TOKEN:-}"
+unset SPLATES_BINARY_URL SPLATES_BINARY_SHA256 SPLATES_AWAIT_BUILD \
+	SPLATES_BUILD_URL SPLATES_BUILD_TOKEN
+
+if [ -n "$build_url" ]; then
+	# A checkout's build is mandatory when supplied: running the release after
+	# a failed download could silently speak a different job protocol.
+	: "${build_token:?a build URL needs its token}"
+	# curl reads the token on stdin, keeping it out of process arguments.
+	printf 'header = "x-splates-build: %s"\n' "$build_token" |
+		curl --config - --fail --silent --show-error --retry 3 \
+			--connect-timeout 15 --max-time 180 "$build_url" -o "$own.tmp"
+	mv "$own.tmp" "$own"
+	BUN_BE_BUN=1 exec "$bin" "$own" runners serve --port "$port" "$@"
+fi
+
+if [ -z "$await" ]; then
+	exec "$bin" runners serve --port "$port" "$@"
+fi
+
+# The binary is bun with BUN_BE_BUN set: it serves the job port until the
+# build is put, a bun script gzipped or not, then runs it as the job server.
+cat >"$cache/await-build.js" <<'EOF'
+const { renameSync, writeFileSync } = require("node:fs");
+const { timingSafeEqual } = require("node:crypto");
+const [own, port] = process.argv.slice(2);
+const expected = Buffer.from(`Bearer ${process.env.SPLATES_RUNNER_SECRET ?? ""}`);
+let installed;
+const done = new Promise((resolve) => {
+	installed = resolve;
+});
+const server = Bun.serve({
+	port: Number(port),
+	hostname: "0.0.0.0",
+	maxRequestBodySize: 1024 * 1024 * 1024,
+	async fetch(request) {
+		const shown = Buffer.from(request.headers.get("authorization") ?? "");
+		if (
+			expected.length <= 7 ||
+			shown.length !== expected.length ||
+			!timingSafeEqual(shown, expected)
+		) {
+			return new Response("unauthorized", { status: 401 });
+		}
+		if (request.method === "PUT" && new URL(request.url).pathname === "/api/build") {
+			let body = new Uint8Array(await request.arrayBuffer());
+			if (body[0] === 0x1f && body[1] === 0x8b) {
+				body = Bun.gunzipSync(body);
+			}
+			writeFileSync(`${own}.tmp`, body);
+			renameSync(`${own}.tmp`, own);
+			installed();
+			return new Response("installed");
+		}
+		return new Response("waiting for its build", {
+			status: 409,
+			headers: { "x-splates-runner": "build" },
+		});
+	},
+});
+await done;
+await server.stop();
+const serve = Bun.spawn([process.execPath, own, "runners", "serve", "--port", port], {
+	stdio: ["inherit", "inherit", "inherit"],
+});
+for (const signal of ["SIGTERM", "SIGINT"]) {
+	process.on(signal, () => serve.kill(signal));
+}
+process.exit(await serve.exited);
+EOF
+BUN_BE_BUN=1 exec "$bin" "$cache/await-build.js" "$own" "$port"
