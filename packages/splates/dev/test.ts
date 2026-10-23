@@ -7,7 +7,7 @@ import {
 	heavyJobsOfMachine,
 	runOnDirectRunner,
 } from "@stringsync/splates-server/server";
-import { runOnRunner } from "@stringsync/splates-server/workers";
+import { NoRunner, runOnRunner } from "@stringsync/splates-server/workers";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -24,6 +24,8 @@ export interface TestOptions {
 	since?: string;
 	/** Run only tests whose name matches this regular expression. */
 	testNamePattern?: string;
+	/** Run here, saying why, where no runner can be had, instead of refusing. */
+	orHere?: boolean;
 	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
 	ci?: boolean;
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
@@ -72,8 +74,17 @@ export async function test(opts: TestOptions): Promise<void> {
 	);
 	// Focused development checks run here against the actual dirty worktree;
 	// a snapshot on a runner would lose Bun's uncommitted-change selection.
-	if (!focused && !inSlot && (await ranOnRunner(ps, log, opts))) {
-		return;
+	if (!focused && !inSlot) {
+		try {
+			if (await ranOnRunner(ps, log, opts)) {
+				return;
+			}
+		} catch (error) {
+			if (!opts.orHere || !(error instanceof NoRunner)) {
+				throw error;
+			}
+			log.error(`${error.message}; running the tests here`);
+		}
 	}
 	// The page's tests and the rest run apart, one after the other. A DOM test
 	// puts happy-dom on `globalThis` for its whole process, `setTimeout`, `URL`

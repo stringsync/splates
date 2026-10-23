@@ -3,6 +3,7 @@ import type { Cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
+import { premerge } from "./premerge";
 import { PROOFS, prove } from "./prove";
 import { ship } from "./ship";
 import { test } from "./test";
@@ -42,6 +43,21 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.action(({ "code-only": codeOnly, ...opts }, { log, ps }) =>
 			fix({ ...opts, codeOnly, log, ps }),
 		);
+
+	dev
+		.command("premerge")
+		.description(
+			"what the merge gate runs: the checks of `dev fix` without writing, then the full suite on a runner, else here",
+		)
+		.option("evals", z.boolean(), {
+			default: false,
+			description: "run only free eval harness tests (no model calls)",
+		})
+		.option("all", z.boolean(), {
+			default: false,
+			description: "run the package's and the eval harness's tests together",
+		})
+		.action((opts, { log, ps }) => premerge({ ...opts, log, ps }));
 
 	dev
 		.command("prove")

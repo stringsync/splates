@@ -13,7 +13,8 @@ where that sets it apart from a worker; it is the same thing.
 
 After making code changes, `splates dev fix` typechecks, formats and checks
 the project, scry included. Do not run the test suite yourself: the merge
-gate runs it on a runner (`preMerge` in `splates.config.ts`), so a run of
+gate runs it, as `bin/splates dev premerge` (`preMerge` in
+`splates.config.ts`), on a runner when one can be had, so a run of
 your own is the same work twice. Running a test file or two you changed by
 hand (`bun test <path>`) is fine. `splates dev test --evals` tests the eval
 harness, for changes under `evals/`. `splates dev prove runner` joins a

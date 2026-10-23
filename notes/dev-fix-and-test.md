@@ -27,7 +27,7 @@ test spinning in a synchronous loop held a heavy slot for ten hours. It
 takes a heavy-job slot itself. `evals/**` is excluded unless `--evals` (only
 evals) or `--all`. Under the merge gate `SPLATES_TEST_REPORT` adds a JUnit
 reporter, which is how a failure is blamed and a failing test becomes a task.
-The repo sets `preMerge: "./bin/splates dev test"` (dropped in ab003c58 while tests were too heavy, restored once the gate ran on runners), so a merge runs the suite on the rebased code. Trailing arguments
+The repo sets `preMerge: "./bin/splates dev premerge"`: `dev fix --check`'s checks, then `dev test --ci`, which on no runner at all runs here and says why on stderr (dropped in ab003c58 while tests were too heavy, restored once the gate ran on runners), so a merge runs the suite on the rebased code. Trailing arguments
 filter the test files by path, as `bun test` does.
 
 It runs as two `bun test` runs, one after the other: the page's
