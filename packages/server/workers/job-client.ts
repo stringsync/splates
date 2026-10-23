@@ -79,8 +79,11 @@ export async function runOnRunner(
 				...(job.commit === undefined ? {} : { commit: job.commit }),
 				...(job.timeout === undefined ? {} : { timeoutMs: job.timeout.ms }),
 			}),
+			// Bun's fetch drops a response silent for 360 s, as the stream is
+			// while the job waits in line or its command prints nothing.
+			timeout: false,
 			...(job.signal === undefined ? {} : { signal: job.signal }),
-		});
+		} as RequestInit);
 	} catch (error) {
 		ctx.log.info(`cannot reach splates server for a runner: ${String(error)}`);
 		return null;

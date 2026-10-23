@@ -256,6 +256,22 @@ describe("the runner keeper", () => {
 		expect(keeper.canMake()).toBe(true);
 	});
 
+	it("sends jobs to run here when the runner types could not be read, as without the cloud's token", async () => {
+		provider.types = async () => {
+			throw new Error("no DigitalOcean API token");
+		};
+		const waiting = job("j1");
+		await keeper.look();
+
+		expect((await waiting).runner).toBeNull();
+		expect(keeper.canMake()).toBe(false);
+		expect(made()).toEqual([]);
+
+		wall.advance(Duration.secs(61));
+
+		expect(keeper.canMake()).toBe(true);
+	});
+
 	it("makes the next type at once when the provider refuses one, with no backoff", async () => {
 		const types: WorkerType[] = [
 			{

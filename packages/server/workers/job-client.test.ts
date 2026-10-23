@@ -8,12 +8,14 @@ import { runOnRunner } from "./job-client";
 describe("a job sent to run on a runner", () => {
 	let deps: Testing;
 	let sent: Record<string, unknown>[];
+	let inits: RequestInit[];
 	let log: MemoryLogger;
 	/** What the server answers each job, one JSON object a line. */
 	let answer: unknown;
 
 	const send = async (_url: string | URL | Request, init?: RequestInit) => {
 		sent.push(JSON.parse(String(init?.body)));
+		inits.push(init ?? {});
 		return new Response(`${JSON.stringify(answer)}\n`);
 	};
 
@@ -38,6 +40,7 @@ describe("a job sent to run on a runner", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		sent = [];
+		inits = [];
 		log = new MemoryLogger();
 		answer = { type: "exit", code: 0 };
 	});
@@ -58,6 +61,12 @@ describe("a job sent to run on a runner", () => {
 
 		expect(sent[0]).not.toHaveProperty("timeoutMs");
 		expect(sent[1]).toMatchObject({ timeoutMs: Duration.mins(30).ms });
+	});
+
+	it("keeps its stream open however long it waits in line or runs silent", async () => {
+		await run();
+
+		expect(inits[0]).toMatchObject({ timeout: false });
 	});
 
 	it("says on stderr when no runner has room for it, and leaves it to run here", async () => {

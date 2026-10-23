@@ -189,6 +189,9 @@ export class RunnerKeeper implements JobPoolView, Resource {
 					(one, other) => one.dollarsPerHour - other.dollarsPerHour,
 				);
 			} catch (error) {
+				// None can be made without them, so those waiting run here
+				// rather than wait on a runner that never comes.
+				this.failedAt = this.wall.now();
 				log.error(`the runner types could not be read: ${String(error)}`);
 			}
 		}
