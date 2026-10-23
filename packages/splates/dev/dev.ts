@@ -7,7 +7,6 @@ import { postCheckout, postRewrite } from "./install";
 import { premerge } from "./premerge";
 import { ship } from "./ship";
 import { approveSuite, test } from "./test";
-import { up } from "./up";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
 export function mountDev(program: Cli<SplatesDeps>): void {
@@ -17,13 +16,6 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	const dev = program
 		.group("dev")
 		.description("work on the splates repository");
-
-	dev
-		.command("up")
-		.description(
-			"create or attach to the splates tmux session running the main checkout's bin/splates server --keepalive; survives SSH disconnection, not reboot. Requires tmux (brew install tmux). Detach with Ctrl+B, then D",
-		)
-		.action((_opts, ctx) => up(ctx));
 
 	dev
 		.command("approve-suite")
