@@ -115,7 +115,6 @@ describe("splates worker list", () => {
 		expect(listed.workers[0]).toMatchObject({
 			health: "connected",
 			tasks: [],
-			dollarsPerHour: 0,
 			protocol: expect.any(String),
 		});
 		expect(listed.workers[0].lastHeard).toBeNumber();

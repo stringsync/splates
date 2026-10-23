@@ -17,8 +17,6 @@ describe("WorkerRollout", () => {
 	let records: WorkerRecords;
 	/** The agents on each worker, by its id. */
 	let used: Map<string, string[]>;
-	let made: Set<string>;
-	let replaced: string[];
 	/** The builds each worker was asked to restart on, by its id. */
 	let told: Map<string, string[]>;
 	let rollout: WorkerRollout | undefined;
@@ -31,8 +29,6 @@ describe("WorkerRollout", () => {
 		registry = new WorkerRegistry(log, { timer, clock });
 		records = WorkerRecords.memory();
 		used = new Map();
-		made = new Set();
-		replaced = [];
 		told = new Map();
 	});
 
@@ -44,12 +40,6 @@ describe("WorkerRollout", () => {
 			build: "2.0.0",
 			used: () => used,
 			pooled: () => true,
-			made: (id) => made.has(id),
-			replace: async (id) => {
-				replaced.push(id);
-				registry.forget(id);
-				await records.remove(id);
-			},
 			poke: () => {},
 			log,
 		});
@@ -96,44 +86,24 @@ describe("WorkerRollout", () => {
 	const updating = () =>
 		records.all.filter((each) => each.updating).map((each) => each.id);
 
-	it("drains one worker at a time, made ones first, then the one with fewest agents", async () => {
+	it("drains one worker at a time, the one with fewest agents first and this machine's last", async () => {
 		await join("local", "1.0.0", { kind: "local" });
 		await join("busy", "1.0.0");
-		await join("idle", "1.0.0");
-		await join("made", "1.0.0", { kind: "provisioned" });
+		await join("few", "1.0.0");
 		await join("new", "2.0.0");
-		made.add("made");
-		used.set("made", ["a"]);
-		used.set("busy", ["b"]);
+		used.set("busy", ["b", "c"]);
+		used.set("few", ["a"]);
 
 		const rollout = start();
 		await rollout.look();
 
-		expect(updating()).toEqual(["made"]);
-		expect(records.of("made")?.draining).toBe(true);
+		expect(updating()).toEqual(["few"]);
+		expect(records.of("few")?.draining).toBe(true);
 		expect(rollout.standing()).toEqual({
-			updating: { id: "made", stage: "moving", agents: 1 },
-			next: ["idle", "busy", "local"],
+			updating: { id: "few", stage: "moving", agents: 1 },
+			next: ["busy", "local"],
 			byHand: [],
 		});
-	});
-
-	it("replaces a made worker once its agents have moved off, then takes the next", async () => {
-		await join("made", "1.0.0", { kind: "provisioned" });
-		await join("box", "1.0.0");
-		made.add("made");
-		used.set("made", ["a"]);
-		const rollout = start();
-		await rollout.look();
-
-		await rollout.look();
-		expect(replaced).toEqual([]);
-
-		used.delete("made");
-		await rollout.look();
-
-		expect(replaced).toEqual(["made"]);
-		expect(updating()).toEqual(["box"]);
 	});
 
 	it("asks an empty worker to restart on the build once, and lets it take agents again once it is back on it", async () => {

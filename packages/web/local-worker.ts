@@ -53,19 +53,15 @@ function added(pool: WorkerPool): WorkerListing {
 		platform: null,
 		host: null,
 		build: pool.build,
-		jobs: false,
 		protocol: null,
 		slots: { used: 0, total: null },
 		health: "connected",
 		draining: false,
 		removing: false,
-		spot: false,
 		updating: false,
 		verified: null,
 		lastHeard: null,
 		tasks: [],
-		dollarsPerHour: 0,
-		upSince: null,
 	};
 }
 

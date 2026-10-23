@@ -6,10 +6,8 @@ import type { GitResult } from "../git";
 import { RemotePty } from "../terminal";
 import { CallAnswer, type CallRequest, READ_PART } from "./call-host";
 import type { WorkerChannel } from "./channel";
-import type { JobParams } from "./job";
 import type { WorkerMachine, WorkerRead } from "./machine";
 import type { Json } from "./protocol";
-import { type JobResult, type JobRun, runRemoteJob } from "./remote-job";
 import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
 
@@ -46,10 +44,9 @@ export const CALL_BOUNDS: CallBounds = {
 };
 
 /**
- * How a worker joined: over this machine's socket, by its own say-so, or
- * made by the `WorkerProvider` when work waited for it.
+ * How a worker joined: over this machine's socket, or by its own say-so.
  */
-export type WorkerKind = "local" | "registered" | "provisioned";
+export type WorkerKind = "local" | "registered";
 
 /**
  * The server's handle on one worker: what it said of itself in its
@@ -129,11 +126,6 @@ export class RemoteWorker implements WorkerMachine {
 			this.id,
 			{ resumed: true },
 		);
-	}
-
-	/** Runs a heavy job on the worker, which must be a runner (`JOBS`); see `runRemoteJob`. */
-	job(params: JobParams, run: JobRun): Promise<JobResult> {
-		return runRemoteJob(this.session.open("job", params), this.session, run);
 	}
 
 	/** Starts a shell on a pseudo-terminal of the worker's. */

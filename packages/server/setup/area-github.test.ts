@@ -55,7 +55,6 @@ describe("GITHUB_AREA", () => {
 				config: async () => ({
 					trunk: "main",
 					remote,
-					workerProvider: null,
 					replica: null,
 				}),
 				remoteUrl: async (name) => (name === "origin" ? url : null),

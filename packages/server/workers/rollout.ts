@@ -10,7 +10,7 @@ export interface RolloutStanding {
 	/** The worker being updated now; null when none is. */
 	updating: {
 		id: string;
-		/** `moving` while agents are still on it, `replacing` once it is empty and being made again or restarted. */
+		/** `moving` while agents are still on it, `replacing` once it is empty and being restarted. */
 		stage: "moving" | "replacing";
 		/** The agents still on it. */
 		agents: number;
@@ -31,20 +31,15 @@ export interface WorkerRolloutOptions {
 	used: () => Map<string, string[]>;
 	/** Whether worker `id` takes agents at all: not this machine's own once it is removed. */
 	pooled: (id: string) => boolean;
-	/** Whether a provider made worker `id`, so it is replaced rather than restarted. */
-	made: (id: string) => boolean;
-	/** Destroys made worker `id`, now empty: the queue makes another from the new snapshot. */
-	replace: (id: string) => Promise<void>;
 	/** Tells the scheduler a worker started or stopped draining. */
 	poke: () => void;
 	log: Logger;
 }
 
-/** Which kind of worker a rollout takes first: those it can make again, then the rest, this machine's last for its page's shells. */
+/** Which kind of worker a rollout takes first: this machine's last, for its page's shells. */
 const ORDER: Record<WorkerKind, number> = {
-	provisioned: 0,
-	registered: 1,
-	local: 2,
+	registered: 0,
+	local: 1,
 };
 
 /**
@@ -52,9 +47,8 @@ const ORDER: Record<WorkerKind, number> = {
  * pool keeps the rest of its slots meanwhile: the worker drains, marked
  * `updating` in its record so a restart carries on; its agents move off at
  * their next pause from their saved task (`Grant.replaces`); and once it is
- * empty it is destroyed, for one a provider made, which the queue makes
- * again from the new snapshot, or asked to restart on the build, which it
- * does once it offers `update`. One that cannot be asked is left to the
+ * empty it is asked to restart on the build, which it does once it offers
+ * `update`. One that cannot be asked is left to the
  * person, and placed on last meanwhile.
  */
 export class WorkerRollout implements Resource {
@@ -140,7 +134,7 @@ export class WorkerRollout implements Resource {
 	}
 
 	private async step(): Promise<void> {
-		const { records, build, used, made, replace, poke, log } = this.opts;
+		const { records, build, used, poke, log } = this.opts;
 		for (const worker of this.pool()) {
 			const record = records.of(worker.id);
 			if (record?.updating !== true) {
@@ -164,15 +158,11 @@ export class WorkerRollout implements Resource {
 			if ((used().get(under.id) ?? []).length > 0) {
 				return;
 			}
-			if (!made(under.id)) {
-				if (!this.asked.has(under.id) && under.session.update(build)) {
-					this.asked.add(under.id);
-					log.info(`worker ${under.id} is empty: restarting it on ${build}`);
-				}
-				return;
+			if (!this.asked.has(under.id) && under.session.update(build)) {
+				this.asked.add(under.id);
+				log.info(`worker ${under.id} is empty: restarting it on ${build}`);
 			}
-			log.info(`worker ${under.id} is empty: replacing it on ${build}`);
-			await replace(under.id);
+			return;
 		}
 		const [next] = this.behind()
 			.filter(
@@ -229,11 +219,8 @@ export class WorkerRollout implements Resource {
 		);
 	}
 
-	/** Whether `worker` can be brought to the build from here: made again, or asked to restart. */
+	/** Whether `worker` can be brought to the build from here: asked to restart. */
 	private updatable(worker: RemoteWorker): boolean {
-		if (this.opts.made(worker.id)) {
-			return true;
-		}
 		const negotiated = worker.session.negotiated;
 		return negotiated?.ok === true && negotiated.capabilities.includes(UPDATE);
 	}
@@ -242,8 +229,7 @@ export class WorkerRollout implements Resource {
 	private order(
 		used: Map<string, string[]>,
 	): (one: RemoteWorker, other: RemoteWorker) => number {
-		const kind = (worker: RemoteWorker) =>
-			this.opts.made(worker.id) ? ORDER.provisioned : ORDER[worker.kind];
+		const kind = (worker: RemoteWorker) => ORDER[worker.kind];
 		const agents = (worker: RemoteWorker) => (used.get(worker.id) ?? []).length;
 		return (one, other) =>
 			kind(one) - kind(other) || agents(one) - agents(other);

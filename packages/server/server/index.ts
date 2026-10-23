@@ -1,10 +1,4 @@
 export { assets } from "./assets";
-export {
-	directSweep,
-	runOnDirectRunner,
-	withRunners,
-} from "./direct-run";
-export { runHeavy } from "./heavy-run";
 export { DEFAULT_PORT } from "./ports";
 export {
 	PREMERGE_HELD,

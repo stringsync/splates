@@ -3,9 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
-import { NodePs } from "webappwiz/system";
 import { WorkerRegistry } from "../workers/registry";
-import { RunnerServer } from "../workers/runner-server";
 import {
 	BOOTSTRAP_PATH,
 	FlyRunners,
@@ -90,29 +88,6 @@ describe("FlyRunners", () => {
 			SPLATES_BINARY_SHA256: BINARY.sha256,
 		});
 		expect(made.config.env.SPLATES_AWAIT_BUILD).toBeUndefined();
-	});
-
-	// scry-ignore simple-test-setup: the runner's job server needs the secret of the machine this test makes
-	it("starts a stopped runner and opens its job channel with its secret", async () => {
-		const made = await released.make("splates-run-two", SIZE, {});
-		await fake.stop(made.id);
-		const runner = new RunnerServer(new NodePs(), {
-			secret: made.config.env[RUNNER_SECRET] ?? "",
-			id: "splates-run-two",
-			home,
-			port: 0,
-			hostname: "127.0.0.1",
-		});
-		stops.push(() => runner.disposeAsync());
-		fake.address = `http://127.0.0.1:${runner.port}`;
-		const socket = await released.reach(made.id);
-		const accepted = registry.accept(socket, "provisioned", "splates-run-two");
-		socket.send("ready");
-		await accepted;
-		expect((await fake.machine(made.id))?.state).toBe("started");
-		expect(registry.worker("splates-run-two")?.info).toMatchObject({
-			jobs: true,
-		});
 	});
 
 	it("hands a runner made for a checkout its build before dialing it", async () => {

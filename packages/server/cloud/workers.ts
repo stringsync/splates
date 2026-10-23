@@ -8,10 +8,8 @@ import {
 	ACCESS_CLIENT_ID_HEADER,
 	ACCESS_CLIENT_SECRET_HEADER,
 	DEFAULT_JOB_SIZE,
-	DIRECT_TAG,
 	type JobSize,
 	locationOf,
-	OWN_BUILD_HEADER,
 	type ProvisionedMachine,
 	runnerSizes,
 	SNAPSHOT_SPLATES,
@@ -22,7 +20,6 @@ import {
 	TypeRefused,
 	WORKER_ACCESS_ID,
 	WORKER_ACCESS_SECRET,
-	WORKER_TAG,
 	type WorkerImage,
 	type WorkerProvider,
 	type WorkerSpec,
@@ -418,3 +415,8 @@ function systemdQuoted(word: string): string {
 		.replaceAll("$", "$$$$");
 	return `"${escaped}"`;
 }
+
+const DIRECT_TAG = "splates-run";
+const WORKER_TAG = "splates-worker";
+
+const OWN_BUILD_HEADER = "x-splates-build";

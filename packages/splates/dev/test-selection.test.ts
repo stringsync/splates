@@ -46,7 +46,7 @@ describe("focused development tests", () => {
 		]);
 	});
 
-	it("runs an explicit file here without asking a runner", async () => {
+	it("runs an explicit file here", async () => {
 		await runTests({ ...opts, files: ["packages/splates/dev/test.test.ts"] });
 
 		expect(ps.getCalls()).toHaveLength(2);
@@ -76,9 +76,8 @@ describe("focused development tests", () => {
 		expect(ps.getCalls()[0]).toContain("--test-name-pattern one case");
 	});
 
-	it("runs a full suite on a runner here, on the CPUs its job was given", async () => {
-		ps.setEnv({ SPLATES_CORES: "8" });
-		await runTests(opts);
+	it("runs a full suite here with the requested worker count", async () => {
+		await runTests({ ...opts, workers: 8 });
 
 		expect(ps.getCalls()).toHaveLength(2);
 		expect(ps.getCalls()[0]).toContain("--parallel=8");

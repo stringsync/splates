@@ -5,11 +5,7 @@ import type { Config } from "../config";
 import { fail } from "../exit";
 import type { ReplicaStatus } from "../replica";
 import { type Document, FsStorage } from "../storage";
-import type {
-	WorkerBudgetReport,
-	WorkerLimit,
-	WorkerListing,
-} from "../workers";
+import type { WorkerListing } from "../workers";
 import { checked, listed } from "./checks";
 import {
 	type FieldProgress,
@@ -326,8 +322,6 @@ export interface SetupMachine {
 	project?: SetupProject;
 	/** The workers `splates server` lists, for the steps that read the pool; none with no server to ask. */
 	workers?(): Promise<readonly SetupWorker[]>;
-	/** The worker budget of the `splates server`, for the steps that read it; none with no server to ask. */
-	workerBudget?: SetupWorkerBudget;
 	/**
 	 * Removes worker `id` from the pool, revoking its key, as `splates worker
 	 * remove` does; one with agents on it drains first. None with no server.
@@ -341,15 +335,6 @@ export interface SetupMachine {
 	removeTunnel?(): Promise<void>;
 }
 
-/** The worker budget as a step reads and sets it. */
-export interface SetupWorkerBudget {
-	report(): Promise<Pick<WorkerBudgetReport, "standing" | "reviewed">>;
-	/** Sets `limit` to `dollars`; null gives it back to its default. */
-	set(limit: WorkerLimit, dollars: number | null): Promise<void>;
-	/** Gives every limit back to its default, and the budget back to unseen; none outside `splates server`. */
-	unreview?(): Promise<void>;
-}
-
 /** A worker as a step reads it, from `GET /api/workers`. */
 export type SetupWorker = Pick<
 	WorkerListing,
@@ -360,9 +345,7 @@ export type SetupWorker = Pick<
 export interface SetupProject {
 	readonly root: string;
 	/** Its `splates.config.ts`, as it stands now. */
-	config(): Promise<
-		Pick<Config, "trunk" | "remote" | "workerProvider" | "replica">
-	>;
+	config(): Promise<Pick<Config, "trunk" | "remote" | "replica">>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;
 	/**

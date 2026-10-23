@@ -2,12 +2,7 @@ import type { CloudProvider, FlyCloud } from "../cloud";
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
 import type { TunnelProvider } from "../tunnel";
-import type { JobSetting, WorkerProvider } from "../workers";
-
-/** The `runner` setting of `splates.config.ts`. */
-export interface RunnerSetting {
-	image?: string;
-}
+import type { WorkerProvider } from "../workers";
 
 export interface Config {
 	/**
@@ -53,30 +48,6 @@ export interface Config {
 	 * Missing reports and inconclusive retests hold the merge without charging.
 	 */
 	preMerge: string | null;
-	/**
-	 * Command a runner runs, via `sh -c` in its throwaway checkout of a task's
-	 * snapshot, before a heavy job's own command: the install and build the
-	 * job needs and a fresh checkout lacks (`"bun install"`). Null runs none.
-	 */
-	prepare: string | null;
-	/**
-	 * What each of the project's heavy jobs asks of a runner, as
-	 * `{ cpus: 4, memory: "8GB" }`: a runner takes as many jobs at once as
-	 * fit in its CPUs and memory. Unset, 4 CPUs and 8 GB, one test run being
-	 * about 7 cores and 7 GB; `splates run --cpus --memory` overrides it
-	 * for one command. `timeout`, as minutes or `"90s"`, is how long a
-	 * `splates run` command may run before it is killed, 30 minutes unset.
-	 */
-	job: JobSetting;
-	/**
-	 * How the project's Fly runners are made. `image` is the registry image
-	 * they boot, as `{ image: "ghcr.io/me/ci" }`, for a project whose CI
-	 * image already has what its jobs need; unset, they boot splates's own
-	 * runner image. Any image with `sh` and `curl` or `wget` works, since
-	 * runners fetch splates's binary on boot. Fly pulls only public images
-	 * for now: a private registry is not supported yet.
-	 */
-	runner: RunnerSetting;
 	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma

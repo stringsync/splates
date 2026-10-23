@@ -21,7 +21,6 @@ import {
 	newest,
 	recordsFirst,
 	rosterOf,
-	runHeavy,
 	seeded,
 	update,
 } from "@stringsync/splates-server/server";
@@ -46,7 +45,6 @@ import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
-import { splatesBudget } from "./budget";
 import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
@@ -55,7 +53,6 @@ import { notes } from "./notes";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
-import { splatesRunners } from "./runners";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
 import { splatesSlots } from "./slots";
@@ -132,39 +129,6 @@ splates
 			ps: ctx.ps,
 			log: ctx.log,
 			newest: () => newest(),
-		});
-		if (code !== 0) {
-			ctx.ps.exit(code);
-		}
-	});
-
-splates
-	.command("run")
-	.description(
-		"run a command that needs a machine of its own (a full test run, an install) on a runner, in a checkout of this worktree as it stands, uncommitted edits included, its output streamed back and its exit code yours: one that has joined `splates server` when it has one, else, in a project whose splates.config.ts names a `cloud`, one `splates run` makes there itself, server or no server (`splates runners`), refusing with `no_runner` rather than run here when none can be had, as without the cloud's token or past `splates budget`. A project that names no cloud runs it here. Run on a runner, it changes nothing here: files it writes stay there",
-	)
-	.option("cpus", z.coerce.number().positive().optional(), {
-		description:
-			"the CPUs it asks of a runner, which takes as many commands at once as fit; the project's `job` in splates.config.ts, else 4, by default",
-	})
-	.option("memory", z.string(), {
-		default: "",
-		description:
-			"the memory it asks of a runner, as 8GB or 512MB; the project's `job` in splates.config.ts, else 8GB, by default",
-	})
-	.option("timeout", z.string(), {
-		default: "",
-		description:
-			"how long it may run, as 30m, 90s or 2h, before it is killed and exits 124, so a hung command holds no runner; the project's `job.timeout` in splates.config.ts, else 30m, by default",
-	})
-	.rest("command", z.string(), {
-		description: "the command and its arguments, after `--`",
-	})
-	.action(async (opts, ctx) => {
-		const code = await runHeavy(ctx, opts.command, {
-			...(opts.cpus === undefined ? {} : { cpus: opts.cpus }),
-			memory: opts.memory,
-			timeout: opts.timeout,
 		});
 		if (code !== 0) {
 			ctx.ps.exit(code);
@@ -584,8 +548,6 @@ splates
 	.mount("tunnel", splatesTunnel)
 	.mount("slots", splatesSlots)
 	.mount("worker", splatesWorker)
-	.mount("runners", splatesRunners)
 	.mount("queue", splatesQueue)
 	.mount("hook", splatesHook)
-	.mount("budget", splatesBudget)
 	.mount("replica", splatesReplica);

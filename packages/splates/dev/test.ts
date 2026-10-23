@@ -3,7 +3,6 @@ import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fail } from "@stringsync/splates-server/exit";
 import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
-import { JOB_CPUS } from "@stringsync/splates-server/workers";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -25,8 +24,7 @@ export interface TestOptions {
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
 	files?: string[];
 	/**
-	 * Test files run at once; half the cores when left out, or in a merge's
-	 * gate the cores it was given (`SPLATES_CORES`).
+	 * Test files run at once; half the cores when left out, one for a focused run.
 	 */
 	workers?: number;
 	ps?: Ps;
@@ -98,10 +96,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	// each test gets 30s rather than 5s.
 	const workers =
 		opts.workers ??
-		(focused
-			? 1
-			: Number(ps.env(JOB_CPUS)) ||
-				Math.max(1, Math.floor(availableParallelism() / 2)));
+		(focused ? 1 : Math.max(1, Math.floor(availableParallelism() / 2)));
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
 	const report = ps.env("SPLATES_TEST_REPORT");

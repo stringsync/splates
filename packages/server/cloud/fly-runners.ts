@@ -6,7 +6,6 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { DEFAULT_RUNNER_IDLE } from "../workers/limits";
-import { RUNNER_IDLE } from "../workers/runner-serve";
 import type { WorkerSocket } from "../workers/socket";
 import { WebSocketWorkerSocket } from "../workers/websocket-socket";
 import bootstrap from "./bootstrap.sh.txt" with { type: "text" };
@@ -15,6 +14,8 @@ import type { FlyMachine, FlyMachines, FlySize } from "./fly-types";
 import { RunnerGone } from "./runner-gone";
 
 /** The env a runner's job server reads its bearer secret from, which the Machines API gives back to whoever holds the Fly token. */
+const RUNNER_IDLE = "SPLATES_RUNNER_IDLE";
+
 export const RUNNER_SECRET = "SPLATES_RUNNER_SECRET";
 
 /** The env a runner says its name in, in its hello. */

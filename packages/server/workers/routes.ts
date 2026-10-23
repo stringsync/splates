@@ -1,31 +1,19 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import { type Fs, NodePs, type Ps } from "webappwiz/system";
-import { SystemWallClock } from "webappwiz/time";
+import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
-import type { RunnerJobRow } from "../spend";
 import type { WorkerAccess } from "./access";
-import type { DevWorkerProvider } from "./dev-provider";
-import { DirectBoard } from "./direct-board";
 import { CoordinatorIdentity } from "./identity";
 import { WorkerInvites } from "./invites";
-import { type HeldJob, JobPool } from "./job-pool";
-import { JobRooms } from "./job-room";
-import { RunnerJobs } from "./job-route";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
-import type { WorkerImage } from "./provider";
-import { WorkerProvisioning } from "./provisioning";
 import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { WorkerRollout } from "./rollout";
-import { RunnerKeeper } from "./runner-keeper";
-import type { RunnerLedger } from "./runner-ledger";
-import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
 import { UnixWorkerListener } from "./unix-listener";
@@ -45,9 +33,6 @@ const Settings = z.object({
 	slots: z.number().int().min(1).nullable().optional(),
 	draining: z.boolean().optional(),
 });
-
-/** What `POST /api/workers/provision` is sent: the provider's type to make, by default its cheapest. */
-const Provision = z.object({ type: z.string().min(1).optional() });
 
 /**
  * Where a worker's WebSocket opens: its own path, for Cloudflare Access to
@@ -75,16 +60,6 @@ export class DevWorkers implements AsyncResource {
 	 * and agents too while it is on; work waits for it to join.
 	 */
 	readonly local: RemoteWorker;
-	/** Heavy jobs on the runners that joined. */
-	readonly jobs: RunnerJobs;
-	/** What `splates run` reports of the runners it makes for itself, with no server needed. */
-	readonly direct = new DirectBoard();
-	/** What makes the runners the jobs need, and keeps the one the agents do. */
-	private readonly keeper: RunnerKeeper;
-	/** Whether the project's jobs fit a runner, for the Runners page. */
-	readonly room: JobRooms;
-	/** What makes workers through the `workerProvider`; null without one. */
-	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
 	readonly rollout: WorkerRollout;
 	private listener: UnixWorkerListener | null = null;
@@ -100,10 +75,7 @@ export class DevWorkers implements AsyncResource {
 			protocol,
 			records = WorkerRecords.memory(),
 			identity,
-			provider,
 			access = null,
-			ledger,
-			ps,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
@@ -124,9 +96,7 @@ export class DevWorkers implements AsyncResource {
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
 		// Listed while away, so one can be drained or removed before it dials.
 		for (const record of records.all) {
-			if (record.provisioned !== null) {
-				this.registry.expect(record.id, "provisioned");
-			} else if (record.key !== null) {
+			if (record.key !== null) {
 				this.registry.expect(record.id);
 			}
 		}
@@ -136,88 +106,21 @@ export class DevWorkers implements AsyncResource {
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
-		this.provisioning =
-			provider === undefined
-				? null
-				: new WorkerProvisioning({
-						...provider,
-						records,
-						access,
-						...(ledger === undefined ? {} : { ledger }),
-						registry: this.registry,
-						log,
-						stop: (ids) => this.stopMade(ids),
-						retire: (ids) => this.retireMade(ids),
-						busy: () => this.keeper.busy(),
-					});
-		this.keeper = new RunnerKeeper({
-			registry: this.registry,
-			records,
-			local: LOCAL_WORKER,
-			provisioning: this.provisioning,
-			scheduler: this.slots.scheduler,
-			log,
-			...(ledger === undefined ? {} : { ledger }),
-		});
-		this.jobs = new RunnerJobs(
-			this.registry,
-			new JobPool(this.keeper, new SystemWallClock()),
-			ps ?? new NodePs(),
-			log,
-		);
-		this.keeper.watch(this.jobs.pool);
-		this.room = new JobRooms(
-			this.jobs.pool,
-			this.keeper,
-			this.provisioning !== null,
-		);
-		this.jobs.pool.events.on("ended", (job) => {
-			void ledger?.note(jobRow(job)).catch((error: unknown) => {
-				log.error(`a runner's job could not be kept: ${String(error)}`);
-			});
-		});
-		this.jobs.pool.events.on("changed", () => void this.removeIdle());
-		this.provisioning?.watch(this.slots.scheduler);
-		// A spot machine told it is to be reclaimed: its agents move off now, and a replacement is made.
-		this.registry.events.on("leaving", ({ id }) => {
-			if (this.provisioning?.made(id)) {
-				void this.forget(id).then(() => this.provisioning?.refill());
-			}
-		});
 		this.rollout = new WorkerRollout({
 			registry: this.registry,
 			records,
 			build: RUNNING,
 			used: () => this.used(),
 			pooled: (id) => this.pooled(id),
-			made: (id) => this.provisioning?.made(id) ?? false,
-			replace: (id) => this.forget(id),
 			poke: () => this.slots.scheduler.poke(),
 			log,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
 	}
 
-	/** The jobs running on runners now, as the ledger keeps one once it ends. */
-	runningJobs(): RunnerJobRow[] {
-		return this.jobs.pool.held().map((job) => jobRow({ ...job, until: null }));
-	}
-
-	/** The runner snapshots kept and what each costs a month; none when it cannot be read. */
-	async images(): Promise<WorkerImage[]> {
-		return (await this.provisioning?.images().catch(() => [])) ?? [];
-	}
-
-	/** What runs on each worker: the tasks its agents run and the jobs on it, a conversation's or job's id for one in no task. */
+	/** What runs on each worker: the tasks its agents run, a conversation's id for one in no task. */
 	private used(): Map<string, string[]> {
-		const used = this.slots.used();
-		for (const job of this.jobs.pool.held()) {
-			used.set(job.runner, [
-				...(used.get(job.runner) ?? []),
-				job.task ?? job.id,
-			]);
-		}
-		return used;
+		return this.slots.used();
 	}
 
 	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
@@ -304,7 +207,7 @@ export class DevWorkers implements AsyncResource {
 	 * `GET /api/workers`: each worker and each refusal, as `splates worker
 	 * list` shows them, and the build this server runs.
 	 */
-	readonly list = async (request?: Request): Promise<Response> =>
+	readonly list = async (): Promise<Response> =>
 		Response.json({
 			...workerList(
 				this.registry,
@@ -314,8 +217,6 @@ export class DevWorkers implements AsyncResource {
 			),
 			build: RUNNING,
 			rollout: this.rollout.standing(),
-			jobs: await this.room.of(request),
-			direct: this.direct.view(),
 		} satisfies WorkerPool);
 
 	/** `POST /api/workers/invite`, as `WorkerInvites.invite`. */
@@ -354,47 +255,12 @@ export class DevWorkers implements AsyncResource {
 		}
 		// A worker joining again under its id hangs up its old connection.
 		this.registry.forget(id);
-		this.registry.expect(
-			id,
-			this.provisioning?.made(id) ? "provisioned" : "registered",
-		);
+		this.registry.expect(id, "registered");
 		this.log.info(`worker ${id} joined`);
 		if (was !== null && was !== this.records.of(id)?.access) {
 			await this.invites.revoke([was]);
 		}
 		return Response.json({ id, key });
-	};
-
-	/**
-	 * `POST /api/workers/provision`: has the `workerProvider` make a worker,
-	 * of the type asked for or its cheapest, answering it once its machine
-	 * boots; it joins on its own.
-	 */
-	readonly provision = async (request: Request): Promise<Response> => {
-		const body = Provision.safeParse(await request.json().catch(() => ({})));
-		if (!body.success) {
-			return refuse(400, "usage", "say the type to make, or nothing");
-		}
-		if (this.provisioning === null) {
-			return refuse(
-				400,
-				"usage",
-				"no worker provider: name one as `workerProvider` in the splates.config.ts of the repo `splates server` starts in",
-			);
-		}
-		try {
-			return Response.json(
-				await this.provisioning.provision(
-					body.data.type === undefined ? {} : { type: body.data.type },
-				),
-			);
-		} catch (error) {
-			return refuse(
-				502,
-				"provider",
-				error instanceof Error ? error.message : String(error),
-			);
-		}
 	};
 
 	/**
@@ -431,7 +297,7 @@ export class DevWorkers implements AsyncResource {
 			...(local ? { removing: false } : {}),
 		});
 		this.slots.scheduler.poke();
-		return this.list(request);
+		return this.list();
 	};
 
 	/**
@@ -464,34 +330,6 @@ export class DevWorkers implements AsyncResource {
 		return Response.json({ id, removed: true, running });
 	};
 
-	/**
-	 * Stops the made workers `ids`, as a reached limit does: each takes no
-	 * new agent and is destroyed once its last ends, answering the agents
-	 * still on them.
-	 */
-	private async stopMade(ids: string[]): Promise<HeldSlot[]> {
-		for (const id of ids) {
-			await this.records.set(id, { draining: true, removing: true });
-		}
-		this.slots.scheduler.poke();
-		await this.removeIdle();
-		return this.slots.scheduler
-			.held()
-			.filter((each) => ids.includes(each.worker));
-	}
-
-	/**
-	 * Retires the made workers `ids` found idle: each takes no new agent and
-	 * is destroyed once any that arrived since ends.
-	 */
-	private async retireMade(ids: string[]): Promise<void> {
-		for (const id of ids) {
-			await this.records.set(id, { draining: true, removing: true });
-		}
-		this.slots.scheduler.poke();
-		await this.removeIdle();
-	}
-
 	/** Removes each worker waiting to be once its last agent has ended. */
 	private async removeIdle(): Promise<void> {
 		const used = this.used();
@@ -504,7 +342,7 @@ export class DevWorkers implements AsyncResource {
 
 	/**
 	 * Revokes worker `id`'s key and service token, hangs up on it, and frees
-	 * what its agents held, destroying its machine when a provider made it.
+	 * what its agents held.
 	 * This machine's own is turned off instead, keeping its slots for when
 	 * it is back.
 	 */
@@ -515,13 +353,6 @@ export class DevWorkers implements AsyncResource {
 			this.slots.scheduler.poke();
 			this.log.info(`worker ${id} removed: this machine only coordinates`);
 			return;
-		}
-		if (this.provisioning?.made(id)) {
-			await this.provisioning.destroy(id).catch((error: unknown) => {
-				this.log.error(
-					`worker ${id}'s machine could not be destroyed, so it may still cost: ${String(error)}`,
-				);
-			});
 		}
 		const was = await this.records.remove(id);
 		this.registry.forget(id);
@@ -584,19 +415,11 @@ export class DevWorkers implements AsyncResource {
 		if (what === "join" && request.method === "POST") {
 			return this.join(request);
 		}
-		// A made worker fetching the server's own build, by the token it was made with.
-		const ownBuild = this.provisioning?.ownBuild ?? null;
-		if (what === "join" && request.method === "GET" && ownBuild !== null) {
-			return ownBuild.serve(request);
-		}
 		if (what === "invite" && request.method === "POST") {
 			return guard(this.invite)(request);
 		}
 		if (what === "invite" && request.method === "DELETE") {
 			return guard(this.withdraw)(request);
-		}
-		if (what === "provision" && request.method === "POST") {
-			return guard(this.provision)(request);
 		}
 		if (request.method === "PUT") {
 			return guard(this.update)(request);
@@ -609,27 +432,10 @@ export class DevWorkers implements AsyncResource {
 
 	async disposeAsync(): Promise<void> {
 		this.rollout.dispose();
-		this.keeper.dispose();
-		this.jobs.pool.dispose();
-		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
 	}
-}
-
-/** `job` as the spend ledger keeps it. */
-function jobRow(job: HeldJob & { until: number | null }): RunnerJobRow {
-	return {
-		row: "job",
-		id: job.id,
-		runner: job.runner,
-		project: job.project,
-		task: job.task,
-		what: job.what,
-		at: new Date(job.since).toISOString(),
-		until: job.until === null ? null : new Date(job.until).toISOString(),
-	};
 }
 
 /** The worker `/api/workers/:id` names. */
@@ -651,16 +457,10 @@ export interface DevWorkersOptions {
 	records?: WorkerRecords;
 	/** What signs a worker's challenge, so it knows this server from one answering for its host; new, and kept nowhere, by default. */
 	identity?: CoordinatorIdentity;
-	/** What makes workers when agents queue; none are made without it. */
-	provider?: DevWorkerProvider;
 	/**
 	 * Where each invited worker gets a service token to pass the Cloudflare
 	 * Access in front of the server with; null, the default, where none
 	 * stands in front.
 	 */
 	access?: WorkerAccess | null;
-	/** Where runners' lives and their jobs are kept for the Billing page; nowhere by default. */
-	ledger?: RunnerLedger;
-	/** How it runs git to snapshot a worktree for a job; the real one by default. */
-	ps?: Ps;
 }

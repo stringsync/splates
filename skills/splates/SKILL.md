@@ -13,16 +13,6 @@ only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
 repository itself.
 
-The runner image starts `splates runners serve`: an authenticated, job-only HTTP
-service for cloud runners, not a worker that runs agents. It reads its bearer
-secret from the hosting environment; people use `splates run` to send jobs.
-
-A project whose CI image already has what its jobs need names it as
-`runner: { image: "ghcr.io/me/ci" }` in `splates.config.ts`; Fly runners then boot
-it instead of the runner image. It needs `sh` and `curl` or `wget` (the runner
-fetches splates on boot) and must be public: a private registry is not
-supported yet.
-
 ## The short version
 
 Most of what follows fills in these steps. Hold to them even when you skip
@@ -36,7 +26,7 @@ the rest:
 3. **Be careful on the host machine**, which the person works on. Never run
    a whole test suite, an install or a build here. A **fraction** of the
    tests, a test file or two, is fine to run directly and often quicker
-   than a runner. Prefer `bun test --changed` or explicit test-file paths;
+   than a full run. Prefer `bun test --changed` or explicit test-file paths;
    combine them when the change reaches many tests. In splates's own repo,
    use `splates dev test --changed` before committing, `--since main` after
    committing, or explicit file paths. `--test-name-pattern <regex>` narrows
@@ -45,21 +35,7 @@ the rest:
    test` or `splates dev premerge` is refused an agent (`not_granted`)
    until the person approves one run from a `## 🔐 Permission: run the
    test suite: <why>` card ending your reply, the why under it. Scoped runs
-   need no approval. Run other heavy work with
-   `splates run -- <command>`: it runs on a runner, in a checkout of your
-   worktree as it stands, output streamed back and its exit code yours.
-   It uses a runner of `splates server`'s, else, where the project's
-   `splates.config.ts` names a Fly.io `cloud`, makes one there itself,
-   server or not. With a cloud configured it never runs here, refusing with
-   `no_runner` when none can be had: run a few test files by hand or wait
-   for a runner. In a project with no cloud it runs here, so keep the
-   host's load in mind. A runner takes as many commands
-   at once as fit in its CPUs and memory, each asking what the project's
-   `job` setting says; `--cpus <n> --memory <size>` (as `8GB`) asks
-   otherwise. It is killed, exiting 124, past 30 minutes or the `job`
-   setting's `timeout`; `--timeout <length>` (as `90m`) gives one that
-   needs longer. Skip the wrapper only where the project's instructions
-   say a script takes a slot itself.
+   need no approval.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
@@ -299,9 +275,7 @@ the message; a `Maybe relevant:` one only when it fits.
    build here. Test a small portion with `bun test --changed` or explicit
    test-file paths; in splates's own repo prefer `splates dev test --changed`,
    `--since main`, or file paths, optionally with `--test-name-pattern`.
-   Leave the whole suite to the merge gate. Use `splates run -- <command>`
-   for other heavy work (step 3 of The short version), and tell a subagent
-   to do the same. Files it writes on a runner stay there.
+   Leave the whole suite to the merge gate.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or

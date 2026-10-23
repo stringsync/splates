@@ -217,8 +217,7 @@ export class WorkerRegistry
 		// Proved by a key sent only after this server proved itself; a
 		// key in the upgrade went to whoever answered, and cannot be told.
 		worker.verified = identity === null || kind === "local";
-		// One splates made dials as any other, and stays what it was made as.
-		worker.kind = worker.kind === "provisioned" ? worker.kind : kind;
+		worker.kind = kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
 	}

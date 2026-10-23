@@ -70,28 +70,17 @@ const Removed = z.object({
 	running: z.array(z.string()),
 });
 
-const Provisioned = z.object({
-	id: z.string(),
-	type: z.string(),
-	dollarsPerHour: z.number(),
-});
-
 /** What `splates worker add` is run with. */
 export interface AddWorkerOptions extends ServerCallOptions {
 	/** Slots to make this machine's own worker run, or 0 to mint a join token for another. */
 	local: number;
-	/** Has the server's `workerProvider` make the worker instead. */
-	provider?: boolean;
-	/** The provider's type to make; empty for its cheapest. */
-	type?: string;
 }
 
 /**
  * `splates worker add`: a join token another machine joins with, printed
  * with the command to run there; with `--local N`, this machine's own
  * worker runs N agents at once and takes new ones again, added back if it
- * was removed; with `--provider`,
- * the server's `workerProvider` makes one, which joins on its own.
+ * was removed.
  */
 export async function addWorker(opts: AddWorkerOptions): Promise<void> {
 	const { log } = opts;
@@ -102,19 +91,6 @@ export async function addWorker(opts: AddWorkerOptions): Promise<void> {
 			body: { slots: opts.local, draining: false },
 		});
 		log.info(`this machine's worker runs ${opts.local} agents at once`);
-		return;
-	}
-	if (opts.provider || opts.type) {
-		const { id, type, dollarsPerHour } = Provisioned.parse(
-			await callServer("/api/workers/provision", {
-				...opts,
-				method: "POST",
-				body: opts.type ? { type: opts.type } : {},
-			}),
-		);
-		log.info(
-			`provisioning ${id}, a ${type} at $${dollarsPerHour.toFixed(2)}/hour: it joins once it boots, as \`splates worker list\` shows`,
-		);
 		return;
 	}
 	const { token, expiresAt } = Invited.parse(

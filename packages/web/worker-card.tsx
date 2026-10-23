@@ -223,13 +223,6 @@ function Facts({
 					</span>
 				)}
 			</Fact>
-			<Fact name="cost">
-				{worker.dollarsPerHour === 0 ? (
-					<Quiet>none</Quiet>
-				) : (
-					`$${worker.dollarsPerHour.toFixed(2)}/hour`
-				)}
-			</Fact>
 			{!local && (
 				<>
 					<Fact name="running now">
@@ -244,11 +237,6 @@ function Facts({
 							? "?"
 							: `${Math.max(0, worker.slots.total - worker.slots.used)} of ${worker.slots.total}`}
 					</Fact>
-					{worker.upSince !== null && (
-						<Fact name="up since">
-							{new Date(worker.upSince).toLocaleString()}
-						</Fact>
-					)}
 				</>
 			)}
 			{local && (

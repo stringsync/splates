@@ -1,10 +1,9 @@
 import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { type Fs, NodeFs, NodePs } from "webappwiz/system";
+import { type Fs, NodeFs } from "webappwiz/system";
 import type { ArtifactLimits } from "../artifacts";
-import { CloudWorkers, FlyCloud, FlyWorkers } from "../cloud";
+import { FlyCloud } from "../cloud";
 import { Git } from "../git";
-import { jobSize, SplatesRunnerBoot } from "../workers";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 
@@ -46,20 +45,7 @@ export async function loadConfig(
 	if (config.cloud instanceof FlyCloud) {
 		config.cloud = config.cloud.inProject(root);
 	}
-	return config.workerProvider === null && config.cloud !== null
-		? {
-				...config,
-				workerProvider:
-					config.cloud instanceof FlyCloud
-						? new FlyWorkers(config.cloud, {
-								job: jobSize(config.job),
-								boot: new SplatesRunnerBoot(new NodePs(), {
-									image: config.runner.image ?? null,
-								}),
-							})
-						: new CloudWorkers(config.cloud, { job: jobSize(config.job) }),
-			}
-		: config;
+	return config;
 }
 
 /**
@@ -87,9 +73,6 @@ function defaults(root: string, trunk: string): Config {
 		notesDir: "notes",
 		postCheckout: null,
 		postRewrite: null,
-		prepare: null,
-		job: {},
-		runner: {},
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,

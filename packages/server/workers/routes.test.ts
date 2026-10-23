@@ -174,66 +174,6 @@ describe("DevWorkers", () => {
 		});
 	});
 
-	it("lists the runners and jobs splates run reported, and refuses a report that is none", async () => {
-		const runner = {
-			id: "splates-run-ab12cd",
-			type: "s-4vcpu-8gb",
-			cpus: 4,
-			memory: 8,
-			dollarsPerHour: 0.07,
-			address: "10.0.0.1",
-			state: "up",
-			createdAt: 1,
-		};
-		const job = {
-			id: "job1",
-			runner: runner.id,
-			project: "/repo/.git",
-			task: "fix",
-			what: "bun test",
-			phase: "running",
-			code: null,
-			reason: null,
-			since: 2,
-		};
-		const report = (body: unknown) =>
-			workers.direct.post(
-				new Request("http://127.0.0.1/api/runner-reports", {
-					method: "POST",
-					body: JSON.stringify(body),
-				}),
-			);
-
-		expect((await report({ runners: [runner] })).status).toBe(204);
-		expect((await report({ job })).status).toBe(204);
-		expect((await report({ job: { id: 1 } })).status).toBe(400);
-
-		expect((await (await workers.list()).json()).direct).toEqual({
-			runners: [{ ...runner, jobs: [job] }],
-			unplaced: [],
-		});
-	});
-
-	it("lists the job size of the project a request names, beside no runner to fit it without a provider", async () => {
-		workers.room.sizeJobsBy(async (asked) =>
-			new URL(asked.url).searchParams.get("project") === "big"
-				? { cpus: 16, memory: 32 }
-				: null,
-		);
-
-		const listed = await (
-			await workers.list(
-				new Request("http://localhost/api/workers?project=big"),
-			)
-		).json();
-
-		expect(listed.jobs).toEqual({
-			asked: { cpus: 16, memory: 32 },
-			largest: null,
-			tooBig: [],
-		});
-	});
-
 	it("removes this machine's own worker from the pool for good, keeping its process", async () => {
 		await workers.update(put("local", { slots: 3 }));
 		const removed = await (await workers.remove(del("local"))).json();

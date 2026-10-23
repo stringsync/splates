@@ -59,7 +59,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("premerge")
 		.description(
-			"what the merge gate runs: the checks of `dev fix` without writing, then the full suite on a runner, else here",
+			"what the merge gate runs: the checks of `dev fix` without writing, then the full suite here, one run at a time on the machine",
 		)
 		.option("evals", z.boolean(), {
 			default: false,
@@ -93,7 +93,7 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("test")
 		.description(
-			"test a small portion while developing: --changed, --since main, file paths or --test-name-pattern; focused runs use one worker here by default, the full suite runs on a runner for the merge gate",
+			"test a small portion while developing: --changed, --since main, file paths or --test-name-pattern; focused runs use one worker by default; the full suite is for the merge gate, which runs it here one at a time",
 		)
 		.option("evals", z.boolean(), {
 			default: false,

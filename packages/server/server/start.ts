@@ -36,15 +36,11 @@ import {
 	DevWorkers,
 	LOCAL_SLOTS,
 	LOCAL_WORKER,
-	OwnBuild,
-	Snapshots,
-	WorkerBudget,
 	WorkerRecords,
 	workerGit,
 	workerSocketPath,
 } from "../workers";
-import { directSweep } from "./direct-run";
-import { newest, RUNNING, sourceCommit } from "./release";
+import { newest, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
 import { type DevServer, dev, devPorts } from "./server";
 import { devServers } from "./servers";
@@ -245,13 +241,8 @@ export async function serveDev(
 	const identity = await CoordinatorIdentity.open(device).catch(
 		(error: unknown) => fail("no_secret_store", cannotReach(device, error)),
 	);
-	// Made workers dial the page where the tunnel publishes it.
-	const provider = here?.workerProvider ?? null;
-	const reached = tunnel === null ? null : `https://${tunnel.host}`;
 	const workers = new DevWorkers(ctx.log, {
 		identity,
-		// Each runner's life and its jobs, kept for good for the Billing page.
-		ledger: spend,
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		records,
@@ -263,35 +254,6 @@ export async function serveDev(
 						apiToken: () => device.get(API_TOKEN),
 						log: ctx.log,
 					}),
-		...(provider === null || here === null
-			? {}
-			: {
-					provider: {
-						provider,
-						snapshots: await Snapshots.open(provider, {
-							version: RUNNING,
-							document: settingsStorage.document("snapshots.json"),
-							log: ctx.log,
-						}),
-						coordinator: () => reached,
-						...(here.cloud === null
-							? {}
-							: { direct: directSweep(ctx, here.cloud) }),
-						// A checkout's build may be ahead of the release a snapshot installs.
-						ownBuild:
-							(await sourceCommit(ctx.ps)) === null
-								? null
-								: new OwnBuild({ log: ctx.log }),
-						budget: await WorkerBudget.open(
-							settingsStorage.document("worker-budget.json"),
-						),
-					},
-				}),
-	});
-	void workers.provisioning?.reconcile().catch((error: unknown) => {
-		ctx.log.error(
-			`the worker provider could not list its machines: ${String(error)}`,
-		);
 	});
 	const worker = workers.local;
 	const { slots } = workers;
@@ -368,7 +330,7 @@ export async function serveDev(
 
 /**
  * The config of the repository `splates server` was started in, if it was
- * started in one, for the providers it names: the one thing it reads from
+ * started in one, for the tunnel it names: the one thing it reads from
  * where it runs. Null outside a repository. A slot, which serves a task's
  * own code, reads its worktree's; any other, the main tree's.
  */

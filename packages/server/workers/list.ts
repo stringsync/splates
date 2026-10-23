@@ -9,9 +9,6 @@ import {
 import { z } from "zod";
 import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
-import type { DirectBoardView } from "./direct-report";
-import type { TooBigJob } from "./job-pool";
-import type { JobSize } from "./job-size";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
@@ -26,11 +23,6 @@ export interface WorkerListing {
 	/** What the platform runs inside, such as `wsl2`; null on the bare machine. */
 	host: string | null;
 	build: string | null;
-	/**
-	 * Whether it said in its hello that it runs heavy jobs; a runner whose
-	 * build is older than jobs, or that has not said yet, takes none.
-	 */
-	jobs: boolean;
 	/** What its link settled on; null before any handshake. */
 	protocol: string | null;
 	slots: { used: number; total: number | null };
@@ -40,8 +32,6 @@ export interface WorkerListing {
 	draining: boolean;
 	/** Is removed once its last agent ends. */
 	removing: boolean;
-	/** Runs on a spot machine the cloud may take back. */
-	spot: boolean;
 	/**
 	 * Whether the worker checked this server's signing key before it
 	 * sent its own key; false for one that joined before join tokens carried
@@ -54,9 +44,6 @@ export interface WorkerListing {
 	lastHeard: number | null;
 	/** The tasks its agents run, a conversation's id for one in no task. */
 	tasks: string[];
-	dollarsPerHour: number;
-	/** When a runner a provider made was asked for, epoch milliseconds; null for any other. */
-	upSince: number | null;
 }
 
 /**
@@ -95,19 +82,6 @@ export interface WorkerListings {
 export interface WorkerPool extends WorkerListings {
 	build: string;
 	rollout: RolloutStanding;
-	jobs: JobRoom;
-	/** The runners `splates run` made for itself, and their jobs, as it reported them. */
-	direct: DirectBoardView;
-}
-
-/** Whether the project's heavy jobs fit on a runner, and those that did not. */
-export interface JobRoom {
-	/** What each of the project's jobs asks, as its `job` setting says; null where it cannot be read. */
-	asked: JobSize | null;
-	/** The biggest runner there is or the provider makes; null for none. */
-	largest: JobSize | null;
-	/** The last jobs, of any project, sent to run here for asking more than any runner had, newest first. */
-	tooBig: TooBigJob[];
 }
 
 function listing(
@@ -123,7 +97,6 @@ function listing(
 		platform: typeof info.platform === "string" ? info.platform : null,
 		host: typeof info.host === "string" ? info.host : null,
 		build: typeof info.build === "string" ? info.build : null,
-		jobs: info.jobs === true,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
 			used: tasks.length,
@@ -135,13 +108,10 @@ function listing(
 		health: worker.connected ? "connected" : "away",
 		draining: record?.draining === true,
 		removing: record?.removing === true,
-		spot: record?.provisioned?.spot === true,
 		updating: record?.updating === true,
 		verified: worker.connected ? worker.verified : null,
 		lastHeard: session.lastHeard,
 		tasks,
-		dollarsPerHour: record?.provisioned?.dollarsPerHour ?? 0,
-		upSince: record?.provisioned?.createdAt ?? null,
 	};
 }
 
@@ -149,23 +119,19 @@ const Listings = z.object({
 	workers: z.array(
 		z.object({
 			id: z.string(),
-			kind: z.enum(["local", "registered", "provisioned"]),
+			kind: z.enum(["local", "registered"]),
 			platform: z.string().nullable(),
 			host: z.string().nullable().default(null),
 			build: z.string().nullable(),
-			jobs: z.boolean().default(false),
 			protocol: z.string().nullable(),
 			slots: z.object({ used: z.number(), total: z.number().nullable() }),
 			health: z.enum(["connected", "away"]),
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
-			spot: z.boolean().default(false),
 			updating: z.boolean().default(false),
 			verified: z.boolean().nullable().default(null),
 			lastHeard: z.number().nullable(),
 			tasks: z.array(z.string()),
-			dollarsPerHour: z.number(),
-			upSince: z.number().nullable().default(null),
 		}),
 	),
 	refused: z.array(
@@ -213,7 +179,6 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 					"slots",
 					"health",
 					"tasks",
-					"$/hour",
 				],
 				listed.workers.map((worker) => [
 					worker.id,
@@ -224,7 +189,6 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 					`${worker.slots.used}/${worker.slots.total ?? "?"}`,
 					health(worker, wall),
 					worker.tasks.join(",") || "-",
-					worker.dollarsPerHour.toFixed(2),
 				]),
 			),
 		);
@@ -248,11 +212,10 @@ function health(
 			: worker.draining
 				? `${worker.health}, draining`
 				: worker.health;
-	const base = worker.spot ? `${state}, spot` : state;
 	const shown =
 		worker.verified === false
-			? `${base}, unverified: join it again to check the coordinator`
-			: base;
+			? `${state}, unverified: join it again to check the coordinator`
+			: state;
 	if (worker.lastHeard === null) {
 		return shown;
 	}

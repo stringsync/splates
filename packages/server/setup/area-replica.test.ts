@@ -41,7 +41,6 @@ describe("REPLICA_AREA", () => {
 				config: async () => ({
 					trunk: "main",
 					remote: null,
-					workerProvider: null,
 					replica: place,
 				}),
 				remoteUrl: async () => null,

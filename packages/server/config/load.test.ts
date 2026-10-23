@@ -3,7 +3,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
-import { CloudWorkers, FlyWorkers } from "../cloud";
 import { Git } from "../git";
 import { FakeGitPs } from "../git-testing";
 import { Testing } from "../testing";
@@ -55,15 +54,13 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
-	it("makes runners in the cloud splates.config.ts names, unless it names a provider too", async () => {
+	it("does not make a runner provider from the cloud setting", async () => {
 		const cloud = `{ name: "Some Cloud", defaults: { workerLocations: [] } }`;
 		await fs.write(
 			join(root, "splates.config.ts"),
 			`export default { cloud: ${cloud} };\n`,
 		);
-		expect((await loadConfig(root, { fs, git })).workerProvider).toBeInstanceOf(
-			CloudWorkers,
-		);
+		expect((await loadConfig(root, { fs, git })).workerProvider).toBeNull();
 
 		await fs.write(
 			join(root, "splates.config.ts"),
@@ -81,12 +78,7 @@ describe("loadConfig", () => {
 			`import { FlyCloud } from ${JSON.stringify(module)}; export default { cloud: new FlyCloud({ app: "project-runners" }) };`,
 		);
 		const config = await loadConfig(root, { fs, git });
-		expect(config.workerProvider).toBeInstanceOf(FlyWorkers);
-		expect((await config.workerProvider?.types())?.[0]).toMatchObject({
-			name: "shared-cpu-4x-8gb",
-			cpus: 4,
-			memory: 8,
-		});
+		expect(config.workerProvider).toBeNull();
 	});
 
 	it("makes no workers without a provider", async () => {

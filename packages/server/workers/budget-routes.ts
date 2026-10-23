@@ -9,7 +9,7 @@ import {
 	type WorkerStanding,
 	windowStart,
 } from "./budget";
-import { parseTimeout } from "./job-timeout";
+import { parseTimeout } from "./budget-duration";
 import type { SpendShare } from "./spend";
 
 /** Where the worker budget stands, as `/api/worker-budget` answers and `splates budget` prints. */

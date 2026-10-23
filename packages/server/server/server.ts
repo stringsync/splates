@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
-import { loadConfig } from "../config";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import {
@@ -15,7 +14,6 @@ import {
 } from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
-import { RESUME } from "../plans";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
@@ -28,28 +26,19 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import {
-	BillingRoutes,
-	Spend,
-	runnerShares as spendRunnerShares,
-} from "../spend";
+import { BillingRoutes, Spend } from "../spend";
 import { DevOutcomes, NoteStatsRoutes } from "../stats";
 import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
-	alertNotice,
 	DevWorkers,
-	jobSize,
 	LocalWorkerMachine,
 	Machine,
 	OsSensors,
 	queueListing,
-	type RunnerShares,
 	WORKER_SOCKET_PATH,
-	WorkerBudgetRoutes,
 	type WorkerPool,
-	workerBudgetReport,
 } from "../workers";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
 import { Migrations } from "./migrations";
@@ -291,9 +280,6 @@ export async function dev(
 			})(request);
 
 	const workers = givenWorkers ?? new DevWorkers(log);
-	workers.room.sizeJobsBy(async (request) =>
-		jobSize((await loadConfig((await projectFor(request)).root, { fs })).job),
-	);
 	const open =
 		givenOpen ??
 		(async (root: string) => {
@@ -429,69 +415,8 @@ export async function dev(
 		machineStorage,
 		ledger,
 		(name) => (deps.secrets ?? SYSTEM_STORES).device.get(name),
-		{
-			...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
-			jobs: workers,
-		},
+		deps.fetch === undefined ? {} : { fetcher: deps.fetch },
 	);
-	const runnerShares: RunnerShares = async (since, until) =>
-		spendRunnerShares(
-			await ledger.lines(),
-			Date.now(),
-			workers.runningJobs(),
-			since,
-			until,
-		);
-	const budget = new WorkerBudgetRoutes(
-		workers.provisioning?.budget ?? null,
-		workers.provisioning,
-		runnerShares,
-		() => workers.provisioning?.runnersUp() ?? Promise.resolve(null),
-	);
-	// Loud, whatever a device asks to hear: a limit nearing costs money.
-	workers.provisioning?.events.on("alert", (alert) => {
-		void pushes.announce({ ...alertNotice(alert), url: "#billing" });
-	});
-	// A reached limit stops the agents on made workers at their checkpoint.
-	workers.provisioning?.events.on("stopping", ({ reason, held }) => {
-		void (async () => {
-			for (const root of new Set(held.map((each) => each.project))) {
-				const project = await servedAt(root).catch(() => null);
-				await project?.checkpoint(
-					held.filter((each) => each.project === root).map((each) => each.id),
-					reason,
-				);
-			}
-			log.info(`${reason}: asked the agents on made workers to checkpoint`);
-		})();
-	});
-	// Once it allows again, each carries on where it stopped, queued for a
-	// slot as any agent is, unless the person has said something since.
-	workers.provisioning?.events.on("carrying", ({ held }) => {
-		for (const { project: root, conversation: id } of held) {
-			void (async () => {
-				const project = await servedAt(root).catch(() => null);
-				const conversation = await project?.conversations
-					?.find(id)
-					.catch(() => null);
-				if (conversation == null) {
-					return;
-				}
-				await conversation.answered();
-				const { budgetStop, checkpoint } = conversation.state;
-				if (budgetStop === null) {
-					return;
-				}
-				if (checkpoint === "done") {
-					await conversation
-						.prompt(RESUME)
-						.catch(() => conversation.dismissCheckpoint());
-				} else {
-					conversation.dismissCheckpoint();
-				}
-			})();
-		}
-	});
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? new OsSensors(fs));
@@ -519,7 +444,6 @@ export async function dev(
 			slug === ""
 				? await projects.focused()
 				: (await projects.list()).find((each) => each.slug === slug);
-		const budget = workers.provisioning?.budget;
 		return new Setup(
 			{
 				fs,
@@ -534,17 +458,6 @@ export async function dev(
 							.list()
 							.then((response) => response.json())) as WorkerPool
 					).workers,
-				workerBudget:
-					budget === undefined
-						? undefined
-						: {
-								report: async () => ({
-									standing: budget.standing(),
-									reviewed: budget.reviewed,
-								}),
-								set: (limit, amount) => budget.set(limit, amount),
-								unreview: () => budget.unreview(),
-							},
 				removeWorker: async (id) => {
 					const response = await workers.remove(
 						new Request(
@@ -674,27 +587,13 @@ export async function dev(
 					"/api/spend": guarded(billing.spend),
 					"/api/billing": guarded(billing.read),
 					"/api/billing/pull": { POST: guarded(billing.pull) },
-					"/api/billing/runners": guarded(billing.runners),
 					"/api/billing/currency": { PUT: guarded(billing.setCurrency) },
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),
 							queue: queueListing(workers.slots.scheduler.queue()),
-							workerBudget:
-								workers.provisioning === null
-									? null
-									: await workerBudgetReport(
-											workers.provisioning.budget,
-											runnerShares,
-										),
 						}),
 					),
-					"/api/worker-budget": guarded(budget.show),
-					"/api/worker-budget/raises": { POST: talk(guarded(budget.raise)) },
-					"/api/worker-budget/raises/:id": {
-						DELETE: talk(guarded(budget.endRaise)),
-					},
-					"/api/worker-budget/:limit": { PUT: talk(guarded(budget.set)) },
 					// Through a tunnel only once Access verified who is asking, as a
 					// conversation is: what an agent said goes to the device.
 					"/api/push": talk(guarded(pushes.key)),
@@ -961,10 +860,6 @@ export async function dev(
 					},
 					"/api/ports": guarded(taskPorts.list),
 					"/api/queue": guarded(workers.queue),
-					"/api/jobs": { POST: talk(guarded(workers.jobs.run)) },
-					"/api/runner-reports": {
-						POST: talk(guarded(workers.direct.post)),
-					},
 					"/api/queue/:id/position": {
 						PUT: talk(guarded(workers.moveQueued)),
 					},

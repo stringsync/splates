@@ -30,7 +30,7 @@ describe("App's workers", () => {
 	it("shows where the rollout stands with each worker waiting on an update", async () => {
 		const view = await openWorkers({
 			...pool([
-				worker("made", { build: "0.9.0", kind: "provisioned", tasks: ["a"] }),
+				worker("made", { build: "0.9.0", kind: "registered", tasks: ["a"] }),
 				worker("box", { build: "0.9.0" }),
 				worker("den", { build: "0.9.0" }),
 				worker("old", { build: "0.8.0" }),
@@ -236,8 +236,6 @@ function pool(workers: WorkerListing[]): WorkerPool {
 		refused: [],
 		build: "1.0.0",
 		rollout: { updating: null, next: [], byHand: [] },
-		jobs: { asked: null, largest: null, tooBig: [] },
-		direct: { runners: [], unplaced: [] },
 	};
 }
 
@@ -248,12 +246,10 @@ function worker(
 ): WorkerListing {
 	return {
 		id,
-		spot: false,
 		kind: "registered",
 		platform: "linux",
 		host: null,
 		build: "1.0.0",
-		jobs: true,
 		protocol: "1.0",
 		slots: { used: 0, total: 4 },
 		health: "connected",
@@ -263,8 +259,6 @@ function worker(
 		verified: null,
 		lastHeard: null,
 		tasks: [],
-		dollarsPerHour: 0,
-		upSince: null,
 		...overrides,
 	};
 }
