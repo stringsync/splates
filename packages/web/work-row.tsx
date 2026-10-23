@@ -252,11 +252,12 @@ function Headline({
 	const words = (
 		<Markdown
 			text={said.text}
-			className="min-w-0 flex-1 text-foreground text-sm [&>*>*]:my-0!"
+			// Its paragraphs sit flush, so its first line meets the chevron and the time.
+			className="min-w-0 flex-1 text-foreground text-sm leading-5 [&>*]:my-0! [&>*:not(:first-child)]:mt-[0.5lh]!"
 		/>
 	);
 	const time = took !== null && (
-		<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+		<span className="flex h-5 shrink-0 items-center text-muted-foreground text-xs tabular-nums">
 			{took}
 		</span>
 	);
@@ -281,7 +282,9 @@ function Headline({
 			className="group/headline"
 		>
 			<summary className="flex cursor-pointer list-none items-start gap-1.5 hover:text-foreground [&::-webkit-details-marker]:hidden">
-				<ChevronRightIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
+				<span className="flex h-5 shrink-0 items-center">
+					<ChevronRightIcon className="size-3.5 text-muted-foreground transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
+				</span>
 				{words}
 				{time}
 			</summary>
