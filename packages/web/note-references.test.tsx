@@ -1,10 +1,9 @@
-import "./register-dom";
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { Tool } from "@stringsync/splates-server/conversations";
-import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { linkNotes, noteIn } from "./note-references";
+import { fireEvent, render, waitFor } from "./testing-library";
 import { TimelineItem } from "./work-timeline";
 
 describe("note references", () => {

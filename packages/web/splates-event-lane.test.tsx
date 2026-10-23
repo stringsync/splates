@@ -1,8 +1,7 @@
-import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import { Board, NO_BOARD } from "./board";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
+import { cleanup, fireEvent, render } from "./testing-library";
 
 afterEach(cleanup);
 

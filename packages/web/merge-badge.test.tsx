@@ -1,10 +1,9 @@
-import "./register-dom";
 import { afterEach, describe, expect, it } from "bun:test";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import { details, snapshot } from "./fixtures";
 import { MergeBadge } from "./merge-badge";
 import { NavigationContext } from "./navigation";
+import { cleanup, fireEvent, render } from "./testing-library";
 
 afterEach(cleanup);
 

@@ -1,6 +1,5 @@
-import "./register-dom";
 import { describe, expect, it } from "bun:test";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render } from "./testing-library";
 import { MAX, UNZOOMED, within, ZoomableImage, zoomAt } from "./zoom";
 
 describe("ZoomableImage", () => {

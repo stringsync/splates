@@ -1,12 +1,11 @@
-import "./register-dom";
 import { afterEach, describe, expect, it } from "bun:test";
-import { cleanup, render } from "@testing-library/react";
 import {
 	type Freshness,
 	FreshnessContext,
 	StaleChip,
 	StaleRows,
 } from "./freshness";
+import { cleanup, render } from "./testing-library";
 
 describe("Saying the page may be stale", () => {
 	afterEach(cleanup);

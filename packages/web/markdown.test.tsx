@@ -1,6 +1,4 @@
-import "./register-dom";
 import { beforeEach, describe, expect, it } from "bun:test";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
@@ -8,6 +6,7 @@ import { Board, NO_BOARD } from "./board";
 import { linkElsewhere, linkTasks, Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { knowFocused } from "./project-places";
+import { act, fireEvent, render, waitFor } from "./testing-library";
 
 describe("Markdown", () => {
 	// An App test run before this one in the same worker may have focused another

@@ -1,4 +1,3 @@
-import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import {
 	combine,
@@ -6,9 +5,9 @@ import {
 	rates,
 	type Stats,
 } from "@stringsync/splates-server/stats/browser";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
+import { act, fireEvent, render, waitFor } from "./testing-library";
 
 const tally = {
 	...combine([]),

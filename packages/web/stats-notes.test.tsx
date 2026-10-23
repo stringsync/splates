@@ -1,59 +1,10 @@
-import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import type { Arm, NoteStats } from "@stringsync/splates-server/stats/browser";
-import { render } from "@testing-library/react";
 import { NoteSection } from "./stats-notes";
-
-const arm: Arm = {
-	conversations: 4,
-	merged: 4,
-	removed: 1,
-	firstTry: 3,
-	redone: 1,
-	used: 2,
-	tokens: 3000,
-	turned: 2,
-	turns: 9,
-	said: 10,
-	corrected: 2,
-	checksPassed: 9,
-	checksApplied: 10,
-};
+import { render } from "./testing-library";
 
 describe("NoteSection", () => {
 	it("shows pointers against the holdout with each figure's count, and each note's read-through and applied rate", () => {
-		const notes: NoteStats = {
-			projects: ["/repo"],
-			pointed: arm,
-			holdout: {
-				...arm,
-				conversations: 0,
-				merged: 0,
-				removed: 0,
-				used: 0,
-				checksApplied: 0,
-			},
-			messages: 8,
-			attached: 2,
-			p50: 900,
-			p95: 2100,
-			spend: { routing: 0.0024, routed: 8, weighing: 0.0006, weighed: 4 },
-			context: { conversations: 2, tokens: 3000, share: 0.05 },
-			notes: [
-				{
-					project: "/repo",
-					path: "notes/x.md",
-					now: 2,
-					optional: 0,
-					nowRead: 1,
-					optionalRead: 0,
-					unprompted: 3,
-					judged: 4,
-					applied: 3,
-				},
-			],
-		};
-
 		const page = render(<NoteSection notes={notes} />);
 
 		const section = page.getByRole("region", { name: "Notes" });
@@ -78,3 +29,51 @@ describe("NoteSection", () => {
 		expect(row.textContent).toContain("75% of 4");
 	});
 });
+
+const arm: Arm = {
+	conversations: 4,
+	merged: 4,
+	removed: 1,
+	firstTry: 3,
+	redone: 1,
+	used: 2,
+	tokens: 3000,
+	turned: 2,
+	turns: 9,
+	said: 10,
+	corrected: 2,
+	checksPassed: 9,
+	checksApplied: 10,
+};
+
+const notes: NoteStats = {
+	projects: ["/repo"],
+	pointed: arm,
+	holdout: {
+		...arm,
+		conversations: 0,
+		merged: 0,
+		removed: 0,
+		used: 0,
+		checksApplied: 0,
+	},
+	messages: 8,
+	attached: 2,
+	p50: 900,
+	p95: 2100,
+	spend: { routing: 0.0024, routed: 8, weighing: 0.0006, weighed: 4 },
+	context: { conversations: 2, tokens: 3000, share: 0.05 },
+	notes: [
+		{
+			project: "/repo",
+			path: "notes/x.md",
+			now: 2,
+			optional: 0,
+			nowRead: 1,
+			optionalRead: 0,
+			unprompted: 3,
+			judged: 4,
+			applied: 3,
+		},
+	],
+};
