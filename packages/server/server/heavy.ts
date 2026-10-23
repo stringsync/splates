@@ -60,7 +60,7 @@ export function capOf(value: string | undefined): number {
  * gate that hangs, or a suite that never ends, must not wedge every other
  * merge. Far above a normal suite run.
  */
-export const PREMERGE_HOLD_MS = 5 * 60 * 1000;
+export const PREMERGE_HOLD_MS = 3 * 60 * 1000;
 
 /**
  * A lock that lets itself go after `holdMs`, logging it, so a live holder
