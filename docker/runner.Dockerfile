@@ -8,6 +8,8 @@ RUN apt-get update \
 USER splates
 WORKDIR /home/splates
 ENV BUN_INSTALL=/home/splates/.bun
+# The base image points global bins at root-owned /usr/local/bin.
+ENV BUN_INSTALL_BIN=/home/splates/.bun/bin
 ENV PATH=/home/splates/.bun/bin:$PATH
 # Only the warmed cache crosses into the final image, never the checkout.
 FROM base AS warm
