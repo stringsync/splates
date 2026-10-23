@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
-import { headlines, unfoldCards, workTimeline, workTimelines } from "./drivers";
+import { unfoldCards, workTimeline, workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -72,24 +72,21 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1),
 		);
-		// The agent's words head the calls after them, outside the row.
-		const rows = headlines(thread);
-		expect(
-			rows.map((row) => row.querySelector("summary")?.textContent),
-		).toEqual(["Let me run them.", "One fails: fixing it."]);
-		expect(
-			rows.map((row) =>
-				lines(within(row).getByRole("list", { name: "calls" })),
-			),
-		).toEqual([
-			["Reada.ts", "Failed to runbun test28s"],
-			["Editeda.ts", "Ranbun test29s"],
+		expect(thread.textContent).not.toContain("Let me run them.");
+		expect(thread.textContent).not.toContain("One fails: fixing it.");
+		const timeline = workTimeline(thread);
+		expect(lines(timeline)).toEqual([
+			"Let me run them.",
+			"Reada.ts",
+			"Failed to runbun test28s",
+			"One fails: fixing it.",
+			"Editeda.ts",
+			"Ranbun test29s",
 		]);
 		expect(thread.textContent?.match(/All tests pass\./g)).toHaveLength(1);
 		expect(thread.textContent).toContain("All tests pass.");
 		expect(thread.textContent).not.toContain("Which tests?");
 		expect(thread.textContent).not.toContain("The parser.");
-		expect(thread.textContent).not.toContain("Thought");
 	});
 
 	it("shows the task the agent added along the way as splates's line between its work, its Goal on the task", async () => {
@@ -313,11 +310,9 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(thread.textContent).toContain("No, I'm not waiting on you."),
 		);
-		expect(headlines(thread).map((each) => each.textContent)).toEqual([
-			expect.stringContaining("Let me look."),
-		]);
 		const all = workTimelines(thread);
 		expect(all.map((each) => each.textContent)).toEqual([
+			expect.stringContaining("Let me look."),
 			expect.stringContaining("bun test"),
 		]);
 		expect(thread.textContent).toMatch(

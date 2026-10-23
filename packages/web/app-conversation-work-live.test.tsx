@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { Duration } from "webappwiz/time";
-import { headlines, workTimelines } from "./drivers";
+import { workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -124,16 +124,14 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
-		expect(headlines(thread)[0]?.textContent).toContain("Now the fix.");
-		// The line above the headline holds what came before it, done; the headline is what works.
-		expect(line(thread)).toMatch(/^Worked/);
-		expect(headlines(thread)[0]?.querySelector(".shimmer")).not.toBeNull();
+		await waitFor(() => expect(line(thread)).toMatch(/^Working/));
+		expect(thread.textContent).not.toContain("Now the fix.");
+		expect(thread.querySelector('[data-slot="work"] .shimmer')).not.toBeNull();
 		act(() => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeouts();
 		});
-		await waitFor(() => expect(headlines(thread)).toHaveLength(0));
+		await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
 		expect(thread.textContent).toContain("Now the fix.");
 	});
 
@@ -177,8 +175,10 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
-		expect(headlines(thread)[0]?.textContent).toContain("Let me look.");
+		await waitFor(() => expect(line(thread)).toMatch(/^Working/));
+		expect(thread.textContent).not.toContain("Let me look.");
+		const timeline = workTimelines(thread)[0];
+		expect(timeline?.textContent).toContain("Let me look.");
 		expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
 		expect(thread.textContent).not.toContain("Which tests?");
 	});
@@ -208,14 +208,14 @@ describe("App's work row while working", () => {
 				{ status: "running" },
 			),
 		);
-		await waitFor(() => expect(headlines(thread)).toHaveLength(1));
-		expect(headlines(thread)[0]?.textContent).toContain("Checking.");
-		expect(headlines(thread)[0]?.textContent).toContain("bun run demo");
+		await waitFor(() =>
+			expect(timelines()[0]?.textContent).toContain("Checking."),
+		);
+		expect(timelines()[0]?.textContent).toContain("bun run demo");
 		expect(timelines()).toHaveLength(1);
 		expect(timelines()[0]?.textContent).toContain("bun test");
-		// The line above the headline holds what came before it, done; the headline is what works.
-		expect(line(thread)).toMatch(/^Worked/);
-		expect(headlines(thread)[0]?.querySelector(".shimmer")).not.toBeNull();
+		expect(line(thread)).toMatch(/^Working/);
+		expect(thread.querySelector('[data-slot="work"] .shimmer')).not.toBeNull();
 		expect(details(thread).open).toBe(true);
 	});
 	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {

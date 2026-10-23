@@ -22,6 +22,10 @@ description: Which splates events draw a line in a conversation (loud) and which
   remaining kinds folded into `+N more`. Any refused command not loud is quiet.
 - `null` means shown nowhere (bare `attach`, actions with no line yet).
 
+The work row stays one folded Working/Worked line, including while the turn runs.
+Intermediate agent words appear only in its open timeline, among the calls; the
+final reply stays in the thread.
+
 A new action goes in the tier by whether the person must see or act on it;
 if quiet, also give it a group in `quiet-events.tsx` and a count in
 `quiet-counts.ts`. Anything deciding whether events came since the person

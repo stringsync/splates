@@ -24,13 +24,12 @@ import { useNow } from "./hooks/use-now";
 import { Markdown } from "./markdown";
 import { QuietCounts } from "./quiet-events";
 import { ThreadAction } from "./thread-action";
-import { type Item, timeline } from "./timeline";
+import { timeline } from "./timeline";
 import { tokens } from "./usage";
 import {
 	flagged,
 	label,
 	relative,
-	span,
 	type Trees,
 	type Work,
 	warning,
@@ -89,20 +88,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const waiting = work.waits?.some((wait) => wait.to === null) ?? false;
 	const now = useNow(work.working && since !== null && !waiting);
 	const items = timeline(work);
-	// What the agent said along the way heads the calls after it, outside
-	// the Working line, so the thread reads as a list of intentions.
 	const steps = items.filter((item) => item.type !== "decision");
-	const first = steps.findIndex((item) => item.type === "said");
-	const lead = first === -1 ? steps : steps.slice(0, first);
-	const groups = first === -1 ? [] : headlined(steps.slice(first));
-	const ends = work.until ?? (work.working ? now : null);
-	// Once a headline follows, the line above it holds only what came before
-	// it, done, and goes when nothing did: the last headline is what works.
-	const shown =
-		groups.length === 0 ||
-		lead.length > 0 ||
-		(!work.going && work.plan !== null);
-	const before = groups[0]?.said.at ?? null;
 	const quiet = work.events ?? [];
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -116,7 +102,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 		<Going value={work.going}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
 				<details
-					hidden={!shown}
 					open={open}
 					// The thread follows it as it grows while it is open.
 					data-working={work.working || undefined}
@@ -139,22 +124,16 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						<span
 							className={cn(
 								"min-w-0 truncate",
-								work.working &&
-									groups.length === 0 &&
-									"shimmer motion-reduce:animate-none",
+								work.working && "shimmer motion-reduce:animate-none",
 							)}
 						>
-							{groups.length > 0
-								? work.at === null || before === null
-									? "Worked"
-									: `Worked ${span(work.at, before)}`
-								: !work.working
-									? worked(work)
-									: since === null
-										? "Working"
-										: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
+							{!work.working
+								? worked(work)
+								: since === null
+									? "Working"
+									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
-						{shown && quiet.length > 0 && (
+						{quiet.length > 0 && (
 							<>
 								<span aria-hidden className="max-md:hidden">
 									·
@@ -168,7 +147,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						)}
 					</summary>
 					{opened &&
-						(lead.length > 0 || (!work.going && work.plan !== null)) && (
+						(steps.length > 0 || (!work.going && work.plan !== null)) && (
 							<ol
 								aria-label="timeline"
 								// Under the line's words, clear of its chevron.
@@ -179,7 +158,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 										<Plan steps={work.plan} />
 									</li>
 								)}
-								{lead.map((item, index) => (
+								{steps.map((item, index) => (
 									<li
 										// The timeline only grows at its end, so an index is stable.
 										// biome-ignore lint/suspicious/noArrayIndexKey: as above
@@ -193,22 +172,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							</ol>
 						)}
 				</details>
-				{/* The summary is hidden when headlines head the row; the counts stand alone. */}
-				{!shown && <QuietCounts events={quiet} className="pl-5" />}
-				{groups.map((group, index) => (
-					<Headline
-						// biome-ignore lint/suspicious/noArrayIndexKey: groups only grow at the end
-						key={index}
-						said={group.said}
-						calls={group.calls}
-						took={took(group, groups[index + 1]?.said.at ?? ends)}
-						live={work.working && index === groups.length - 1}
-						short={short}
-						// Each stands apart from the one above, so a stack of them reads
-						// as separate steps; the first heads the row when the line goes.
-						spaced={index > 0 || shown}
-					/>
-				))}
 				{items
 					.filter((item) => item.type === "decision")
 					.map((item, index) => (
@@ -226,104 +189,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				<Flags tools={flagged(work)} short={short} />
 			</div>
 		</Going>
-	);
-}
-
-/** What the agent said, with the calls it made after, up to what it said next. */
-interface Group {
-	said: Extract<Item, { type: "said" }>;
-	calls: Item[];
-}
-
-/** The rows from the first thing the agent said on, each said row heading the calls after it. */
-function headlined(rows: Item[]): Group[] {
-	const groups: Group[] = [];
-	for (const row of rows) {
-		if (row.type === "said") {
-			groups.push({ said: row, calls: [] });
-		} else {
-			groups.at(-1)?.calls.push(row);
-		}
-	}
-	return groups;
-}
-
-/** How long a group took: from its words to the next group's, or to where the turn is. */
-function took(group: Group, next: string | number | null): string | null {
-	const { at } = group.said;
-	return at === null || next === null ? null : span(at, next);
-}
-
-/**
- * The agent's words as one faint line, shimmering while they are what it
- * works on, that opens to them in full and the calls it made after, with
- * how long they took on its right.
- */
-function Headline({
-	said,
-	calls,
-	took,
-	live,
-	short,
-	spaced,
-}: {
-	said: Group["said"];
-	calls: Item[];
-	took: string | null;
-	live: boolean;
-	short: (path: string) => string;
-	spaced: boolean;
-}): JSX.Element {
-	const [open, setOpen] = useState(false);
-	// Its calls are built on the first open and kept after, as the row's are.
-	const [opened, setOpened] = useState(false);
-	return (
-		<details
-			data-slot="headline"
-			open={open}
-			onToggle={(event) => {
-				setOpen(event.currentTarget.open);
-				if (event.currentTarget.open) {
-					setOpened(true);
-				}
-			}}
-			className={cn("group/headline", spaced && "mt-2")}
-		>
-			<summary className="flex cursor-pointer list-none items-start gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-				<span className="flex h-5 shrink-0 items-center">
-					<ChevronRightIcon className="size-3.5 transition-transform duration-200 group-open/headline:rotate-90 motion-reduce:transition-none" />
-				</span>
-				<Markdown
-					text={said.text}
-					// Its paragraphs sit flush, so its first line meets the chevron
-					// and the time; folded, that line is all of it.
-					className={cn(
-						"min-w-0 flex-1 text-sm leading-5 [&>*]:my-0! [&>*:not(:first-child)]:mt-[0.5lh]!",
-						open
-							? "text-foreground"
-							: // The blocks after the first are hidden, so a first that fits the
-								// line says there is more with an ellipsis, not a bare stop.
-								"line-clamp-1 [&_*]:inline [&>*:not(:first-child)]:hidden! [&>*:first-child:not(:last-child)]:after:content-['…']",
-						!open && live && "shimmer motion-reduce:animate-none",
-					)}
-				/>
-				{took !== null && (
-					<span className="flex h-5 shrink-0 items-center text-xs tabular-nums">
-						{took}
-					</span>
-				)}
-			</summary>
-			{opened && calls.length > 0 && (
-				<ol aria-label="calls" className="mt-2 flex flex-col gap-1.5 pl-5">
-					{calls.map((item, index) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: calls only grow at the end
-						<li key={index}>
-							<TimelineItem item={item} short={short} />
-						</li>
-					))}
-				</ol>
-			)}
-		</details>
 	);
 }
 
