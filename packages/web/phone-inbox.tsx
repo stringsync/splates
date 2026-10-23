@@ -54,6 +54,7 @@ import type { Nested } from "./parts";
 import { FolderSection, Group } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { clearUndo, useUndoOffer } from "./phone-undo";
+import { AddProjectButton } from "./project-controls";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -229,10 +230,7 @@ export function Inbox({
 			navigation.show(newConversationUrl(folder.project));
 		}
 	};
-	const empty =
-		grouped === null
-			? trees.length === 0
-			: grouped.folders.every((each) => each.trees.length === 0);
+	const empty = grouped === null && trees.length === 0;
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (
@@ -351,6 +349,9 @@ export function Inbox({
 							/>
 						</Placing>
 					)}
+					<div className="mx-4 mt-4 self-start">
+						<AddProjectButton />
+					</div>
 					{wide && available && (
 						<button
 							type="button"

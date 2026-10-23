@@ -90,12 +90,12 @@ describe("App's agents, in a folder per project", () => {
 	it("leaves every project's waiting agents in place in a folder per project, marked waiting, the waiting line counting them all", async () => {
 		const { view, nav } = await inbox();
 
-		// By name, leaving out a project with no agent, and no Needs you above them.
+		// By name, including empty projects, and no Needs you above them.
 		expect(
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "zebra"]);
+		).toEqual(["apple", "webappwiz", "zebra"]);
 		const webappwiz = within(nav).getByRole("region", { name: "webappwiz" });
 		const mine = within(webappwiz)
 			.getAllByRole("listitem")

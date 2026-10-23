@@ -14,6 +14,7 @@ import { hostsAtWork } from "./conversation-rows";
 import { byLane } from "./lane-groups";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
+import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
 import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
 
@@ -152,8 +153,10 @@ export function FolderSection({
 						<PlusIcon className="size-4" />
 					</button>
 				)}
+				<RemoveProjectButton folder={folder} />
 			</div>
 			<CollapsibleContent>
+				{folder.trees.length === 0 && <ProjectEmpty />}
 				{kept.length > 0 && (
 					<>
 						<Lines

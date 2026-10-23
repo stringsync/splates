@@ -57,13 +57,11 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, null, true));
 	}
-	const folders = listed
-		.filter((each) => each.here || each.trees.length > 0)
-		.sort(
-			(one, other) =>
-				one.name.localeCompare(other.name) ||
-				(one.project ?? "").localeCompare(other.project ?? ""),
-		);
+	const folders = listed.sort(
+		(one, other) =>
+			one.name.localeCompare(other.name) ||
+			(one.project ?? "").localeCompare(other.project ?? ""),
+	);
 	return {
 		needsYou: folders.flatMap((each) =>
 			each.waiting.map((tree) => ({ folder: each, tree })),
@@ -127,8 +125,7 @@ export interface Folders {
 	/** Every folder's waiting trees, folder by folder. */
 	needsYou: Placed[];
 	/**
-	 * By name, each project with an agent listed, and the page's own
-	 * whatever it has.
+	 * By name, every registered project, including those with no conversations.
 	 */
 	folders: Folder[];
 }

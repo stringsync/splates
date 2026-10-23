@@ -11,6 +11,12 @@ and its stream for every project's tasks and conversations, each tagged
 through `scoped(path, slug)` and the stream brings the change back. It
 streams only while something holds it.
 
+The sidebar and inbox keep a folder for every registered project, including
+empty projects. Empty folders say No conversations yet and keep their New
+action. Both lists offer Add a project and Remove project; removal uses the
+existing forget API, keeping files and conversation history and refusing while
+conversations are under way.
+
 The sidebar's folders (`project-folders.ts`) are these per-project groups:
 automations (persistent agents such as the groomer, and each run of an
 agent hook, marked by its conversation's `automation`; see `automated` in

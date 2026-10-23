@@ -15,6 +15,11 @@ import type { LaneGroup } from "./lane-groups";
 import { LaneRows } from "./lane-rows";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
+import {
+	AddProjectButton,
+	ProjectEmpty,
+	RemoveProjectButton,
+} from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
@@ -92,8 +97,10 @@ export function FolderList({
 							>
 								<PlusIcon className="size-3.5" />
 							</button>
+							<RemoveProjectButton folder={folder} />
 						</div>
 						<CollapsibleContent>
+							{kept.length === 0 && rows.length === 0 && <ProjectEmpty />}
 							{kept.length > 0 && (
 								<InLanes folder={folder}>
 									<Rows
@@ -122,6 +129,7 @@ export function FolderList({
 					</Collapsible>
 				);
 			})}
+			<AddProjectButton />
 		</div>
 	);
 }
