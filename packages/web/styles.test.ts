@@ -1,25 +1,33 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import { basename } from "node:path";
+import { Scanner } from "@tailwindcss/oxide";
+import { compile } from "tailwindcss";
+
+/** The names of the files Tailwind reads class names out of, as `build.ts` hands them to the scanner. */
+async function scanned(): Promise<string[]> {
+	const dir = import.meta.dir;
+	const compiler = await compile(await Bun.file(`${dir}/styles.css`).text(), {
+		base: dir,
+		loadStylesheet: async () => ({ path: "", base: dir, content: "" }),
+	});
+	return new Scanner({ sources: compiler.sources }).files.map((file) =>
+		basename(file),
+	);
+}
 
 describe("styles.css", () => {
-	let listed: string[];
-	let pages: string[];
-
-	beforeEach(async () => {
-		const dir = import.meta.dir;
-		const styles = await Bun.file(`${dir}/styles.css`).text();
-		listed = [...styles.matchAll(/^@source "\.\/(.+\.tsx)";$/gm)].map(
-			([, file]) => file ?? "",
-		);
-		pages = [...new Bun.Glob("*.tsx").scanSync(dir)].filter(
+	it("reads every file of the page as a source for Tailwind", async () => {
+		// A file left out compiles to a page missing its classes, with no error.
+		const read = await scanned();
+		const pages = [...new Bun.Glob("*.tsx").scanSync(import.meta.dir)].filter(
 			(file) => !file.includes(".test."),
 		);
+		expect(pages.filter((file) => !read.includes(file))).toEqual([]);
 	});
 
-	it("names every file of the page as a source for Tailwind", () => {
-		// A file left off compiles to a page missing its classes, with no error.
-		// `main.tsx` only mounts the app, and has no classes to find.
-		expect(listed.sort()).toEqual(
-			pages.filter((file) => file !== "main.tsx").sort(),
+	it("leaves test files out", async () => {
+		expect((await scanned()).filter((file) => file.includes(".test."))).toEqual(
+			[],
 		);
 	});
 });
