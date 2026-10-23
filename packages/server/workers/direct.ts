@@ -75,10 +75,21 @@ export class DirectRunners {
 			code: null,
 			reason: null,
 			since: this.wall.now(),
+			phaseSince: this.wall.now(),
+			detail: null,
 		};
 		const said = new Set<string>();
 		const tell: Tell = (phase, line, patch = {}) => {
+			if (phase !== report.phase || report.phaseSince === undefined) {
+				report.phaseSince = this.wall.now();
+			}
 			Object.assign(report, { phase, ...patch });
+			// What a wait is for is the line that began it; later phases clear it.
+			if (line !== null && WAITING.includes(phase)) {
+				report.detail = line;
+			} else if (!WAITING.includes(phase)) {
+				report.detail = null;
+			}
 			const fresh = line !== null && !said.has(line);
 			if (line !== null) {
 				said.add(line);
@@ -558,3 +569,13 @@ function capacityOf(size: FlySize): JobSize {
 function shortened(text: string): string {
 	return text.length > 80 ? `${text.slice(0, 77)}...` : text;
 }
+
+/** The phases a job waits in, whose line says what for. */
+const WAITING: readonly DirectPhase[] = [
+	"placing",
+	"making",
+	"booting",
+	"waiting",
+	"sending",
+	"preparing",
+];

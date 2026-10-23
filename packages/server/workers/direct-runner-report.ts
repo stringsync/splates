@@ -48,5 +48,9 @@ export const DirectJobReport = z.object({
 	reason: z.string().nullable(),
 	/** When it started, epoch ms. */
 	since: z.number(),
+	/** When it entered its phase, epoch ms, for the timer of a wait. */
+	phaseSince: z.number().optional(),
+	/** What it waits for, in words, while it waits; null once running. */
+	detail: z.string().nullable().optional(),
 });
 export type DirectJobReport = z.infer<typeof DirectJobReport>;

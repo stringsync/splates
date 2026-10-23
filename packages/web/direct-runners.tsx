@@ -7,6 +7,7 @@ import type { JSX } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useMinute } from "./hooks/use-minute";
+import { useNow } from "./hooks/use-now";
 import { PHONE_HEADING } from "./phone-rows";
 import { ago } from "./plan-limits";
 
@@ -88,6 +89,7 @@ function Jobs({
 	jobs: DirectJobReport[];
 	now: number;
 }): JSX.Element {
+	const seconds = useNow(jobs.some(waiting));
 	if (jobs.length === 0) {
 		return (
 			<p className="border-t px-4 py-2 text-muted-foreground text-xs">
@@ -108,6 +110,14 @@ function Jobs({
 					<span className={cn("text-xs", phaseTone(job))}>
 						{phaseText(job)}
 					</span>
+					{waiting(job) && (
+						<span className="text-muted-foreground text-xs">
+							{job.detail ?? ""}
+							{job.phaseSince === undefined
+								? ""
+								: ` · ${waited(seconds - job.phaseSince)}`}
+						</span>
+					)}
 					<span className="text-muted-foreground text-xs">
 						{job.task === null ? "" : `${job.task}, `}started{" "}
 						{ago(job.since, now)}
@@ -116,6 +126,16 @@ function Jobs({
 			))}
 		</ul>
 	);
+}
+
+function waiting(job: DirectJobReport): boolean {
+	return !["running", "done", "failed"].includes(job.phase);
+}
+
+/** A wait of `ms`, as `0:45`. */
+export function waited(ms: number): string {
+	const secs = Math.max(0, Math.floor(ms / 1000));
+	return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }
 
 /** Where a job stands, in words. */
