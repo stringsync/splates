@@ -107,6 +107,7 @@ export function DesktopApp({
 			? false
 			: sidebar.toggle(),
 	);
+	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
 	// The page takes no input while locked.
 	const { locked } = useFreshness();
 	// Where each page's bar goes: the row atop the page.

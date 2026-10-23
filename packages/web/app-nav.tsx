@@ -1,5 +1,6 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -10,7 +11,7 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useNavPages } from "./evals-available";
 import { useHeld } from "./hooks/use-held";
-import { useHeldKey } from "./hooks/use-shortcut";
+import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
@@ -27,7 +28,8 @@ export const WIDE = "(min-width: 768px)";
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
  * shortcut while ⌥⌘ is held, the agents under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
- * unless it is hidden. A phone has
+ * unless it is hidden. A button on the border between the tabs and the
+ * agents folds the tabs away, for more room for the agents. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
 export function AppNav({
@@ -60,9 +62,9 @@ export function AppNav({
 }): JSX.Element {
 	const held = useHeld();
 	const pages = useNavPages();
-	const { shown } = useReactive(
+	const { shown, pagesShown } = useReactive(
 		sidebar,
-		(sidebar) => ({ shown: sidebar.shown }),
+		(sidebar) => ({ shown: sidebar.shown, pagesShown: sidebar.pagesShown }),
 		["changed"],
 	);
 	// Creds counts nothing: a dot says a request waits on the person.
@@ -99,6 +101,8 @@ export function AppNav({
 					<TabsTrigger
 						key={value}
 						value={value}
+						// Folded, a tab stays mounted, so it still answers to its shortcut.
+						hidden={!pagesShown}
 						className={cn(
 							"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary",
 							// Marked too while a page under it is open.
@@ -125,7 +129,10 @@ export function AppNav({
 				))}
 				{/* Under their tab, so one is a click away from any page. */}
 				{available && snapshot !== null && (
-					<div className="-mx-3 mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t px-3 pt-4 pb-4">
+					<PagesFold sidebar={sidebar} shown={pagesShown} />
+				)}
+				{available && snapshot !== null && (
+					<div className="-mx-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-4 pb-4">
 						<NextWaiting
 							feed={talk}
 							tasks={snapshot.tasks}
@@ -178,6 +185,41 @@ export function useWide(): boolean {
 			return () => query.removeEventListener("change", changed);
 		},
 		() => matchMedia(WIDE).matches,
+	);
+}
+
+/**
+ * The border between the sidebar's tabs and its agents, with a button on it
+ * that folds the tabs away and unfolds them again.
+ */
+function PagesFold({
+	sidebar,
+	shown,
+}: {
+	sidebar: Sidebar;
+	/** Whether the tabs show, unfolded. */
+	shown: boolean;
+}): JSX.Element {
+	const key = useShortcutLabel("shortcuts.sidebarPages");
+	const label = shown ? "Fold pages" : "Show pages";
+	return (
+		<div
+			className={cn(
+				"relative -mx-3 h-px shrink-0 bg-border",
+				shown ? "mt-4" : "mt-3",
+			)}
+		>
+			<button
+				type="button"
+				aria-label={label}
+				aria-expanded={shown}
+				title={key === null ? label : `${label} (${key})`}
+				onClick={() => sidebar.togglePages()}
+				className="absolute top-1/2 left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-sidebar text-muted-foreground shadow-xs outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3"
+			>
+				{shown ? <ChevronUpIcon /> : <ChevronDownIcon />}
+			</button>
+		</div>
 	);
 }
 

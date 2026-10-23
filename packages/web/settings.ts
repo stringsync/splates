@@ -214,6 +214,11 @@ export const SETTINGS = {
 		"Alt+Mod+KeyV",
 	),
 	"shortcuts.sidebar": shortcut("Sidebar", "Show or hide the sidebar.", NONE),
+	"shortcuts.sidebarPages": shortcut(
+		"Sidebar pages",
+		"Fold or unfold the pages above the sidebar's conversations.",
+		NONE,
+	),
 	"shortcuts.widgets": shortcut(
 		"Widgets",
 		"Show or hide the open conversation's widgets.",

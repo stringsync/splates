@@ -7,6 +7,8 @@ export type SidebarEvents = { changed: undefined };
 const WIDTH = "splates.sidebarWidth";
 /** Where a hidden sidebar is kept hidden between visits. */
 const HIDDEN = "splates.sidebarHidden";
+/** Where folded pages are kept folded between visits. */
+const PAGES_FOLDED = "splates.sidebarPagesFolded";
 
 /** In pixels: the width it starts at, `w-56`, and how far it can go. */
 export const DEFAULT_WIDTH = 224;
@@ -17,9 +19,10 @@ export const MAX_WIDTH = 480;
 const STEP = 16;
 
 /**
- * Whether the sidebar shows, and how wide it is, in pixels, always within
- * `MIN_WIDTH` and `MAX_WIDTH`. `storage` keeps both for the next visit, when
- * given.
+ * Whether the sidebar shows, how wide it is, in pixels, always within
+ * `MIN_WIDTH` and `MAX_WIDTH`, and whether its pages show above the
+ * conversations or are folded away. `storage` keeps all three for the next
+ * visit, when given.
  */
 export class Sidebar implements Eventful<SidebarEvents> {
 	private readonly dispatcher = new Dispatcher<SidebarEvents>();
@@ -27,11 +30,13 @@ export class Sidebar implements Eventful<SidebarEvents> {
 
 	width: number;
 	shown: boolean;
+	pagesShown: boolean;
 
 	constructor(private readonly storage?: Storage) {
 		const kept = Number(storage?.getItem(WIDTH) ?? Number.NaN);
 		this.width = Number.isFinite(kept) ? clamp(kept) : DEFAULT_WIDTH;
 		this.shown = (storage?.getItem(HIDDEN) ?? null) === null;
+		this.pagesShown = (storage?.getItem(PAGES_FOLDED) ?? null) === null;
 	}
 
 	/** Hides it when shown and shows it when hidden, as its shortcut does. */
@@ -41,6 +46,17 @@ export class Sidebar implements Eventful<SidebarEvents> {
 			this.storage?.removeItem(HIDDEN);
 		} else {
 			this.storage?.setItem(HIDDEN, "1");
+		}
+		this.dispatcher.dispatch("changed");
+	}
+
+	/** Folds the pages away when they show and unfolds them when folded. */
+	togglePages(): void {
+		this.pagesShown = !this.pagesShown;
+		if (this.pagesShown) {
+			this.storage?.removeItem(PAGES_FOLDED);
+		} else {
+			this.storage?.setItem(PAGES_FOLDED, "1");
 		}
 		this.dispatcher.dispatch("changed");
 	}

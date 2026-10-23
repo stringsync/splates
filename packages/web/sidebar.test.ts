@@ -57,6 +57,16 @@ describe("Sidebar", () => {
 		expect(new Sidebar(localStorage).shown).toBe(true);
 		expect(new Sidebar().shown).toBe(true);
 	});
+	it("folds its pages and unfolds them, keeping folded ones folded", () => {
+		expect(sidebar.pagesShown).toBe(true);
+
+		sidebar.togglePages();
+		expect(sidebar.pagesShown).toBe(false);
+		expect(new Sidebar(localStorage).pagesShown).toBe(false);
+		sidebar.togglePages();
+		expect(new Sidebar(localStorage).pagesShown).toBe(true);
+		expect(new Sidebar().pagesShown).toBe(true);
+	});
 	// scry-ignore simple-test-setup: only the drag case mounts a handle and counts pointer-driven changes; Sidebar is shared in beforeEach
 	it("updates the DOM during a drag and commits the clamped width only on release", () => {
 		let changes = 0;

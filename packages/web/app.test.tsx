@@ -65,6 +65,24 @@ describe("App", () => {
 		);
 	});
 
+	it("folds the pages away from the border above the agents, and keeps them folded", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open();
+
+		const board = view.getByRole("tab", { name: /Board/ });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^Fold pages/ })),
+		);
+		expect(board.hidden).toBe(true);
+		expect(board.getAttribute("aria-selected")).toBe("true");
+		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBe("1");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^Show pages/ })),
+		);
+		expect(board.hidden).toBe(false);
+		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBeNull();
+	});
+
 	it("says in the page menu who Cloudflare Access signed in, with Sign out, and nothing on this machine", async () => {
 		const local = await testing.open();
 		await act(async () =>
