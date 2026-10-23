@@ -188,6 +188,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						took={took(group, groups[index + 1]?.said.at ?? ends)}
 						live={work.working && index === groups.length - 1}
 						short={short}
+						// Each stands apart from the one above, so a stack of them reads
+						// as separate steps; the first heads the row when the line goes.
+						spaced={index > 0 || shown}
 					/>
 				))}
 				{items
@@ -246,12 +249,14 @@ function Headline({
 	took,
 	live,
 	short,
+	spaced,
 }: {
 	said: Group["said"];
 	calls: Item[];
 	took: string | null;
 	live: boolean;
 	short: (path: string) => string;
+	spaced: boolean;
 }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	// Its calls are built on the first open and kept after, as the row's are.
@@ -266,7 +271,7 @@ function Headline({
 					setOpened(true);
 				}
 			}}
-			className="group/headline"
+			className={cn("group/headline", spaced && "mt-2")}
 		>
 			<summary className="flex cursor-pointer list-none items-start gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
 				<span className="flex h-5 shrink-0 items-center">
