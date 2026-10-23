@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
+import type { ConversationState } from "../conversations";
 import { conversation, message, tool } from "../fixtures";
 import { Journal } from "../records";
 import { MemoryStorage } from "../storage/testing";
@@ -15,6 +16,7 @@ describe("NoteReads", () => {
 	let journal: Journal;
 	let uses: NoteUses;
 	let reads: NoteReads;
+	let state: ConversationState;
 	beforeEach(async () => {
 		ROOT = await mkdtemp(join(tmpdir(), "splates-note-reads-"));
 		const fs = new NodeFs();
@@ -29,14 +31,7 @@ describe("NoteReads", () => {
 		journal = new Journal(storage, 1000);
 		uses = new NoteUses(storage);
 		reads = new NoteReads({ fs, journal, uses, root: ROOT });
-	});
-	afterEach(() => rm(ROOT, { recursive: true, force: true }));
-
-	/** Waits out the lookups `hear` started. */
-	const settled = () => new Promise((done) => setTimeout(done, 50));
-
-	it("writes a note read as its tool call comes, once per call, with its size and the context then, and none for what came before", async () => {
-		const state = conversation({
+		state = conversation({
 			id: "one",
 			task: "fix",
 			messages: [
@@ -46,8 +41,26 @@ describe("NoteReads", () => {
 				),
 			],
 		});
-		state.usage.context = { used: 1200, size: 200_000 };
 		reads.follow(state);
+	});
+	afterEach(() => rm(ROOT, { recursive: true, force: true }));
+
+	/** Gives the lookups `hear` started a moment, however far they got. */
+	const settled = () => new Promise((done) => setTimeout(done, 50));
+	/** The journal once it holds an event, waiting out lookups however slow. */
+	const recorded = async () => {
+		for (let tries = 0; tries < 60; tries++) {
+			const events = await journal.tail(10);
+			if (events.length > 0) {
+				return events;
+			}
+			await settled();
+		}
+		return journal.tail(10);
+	};
+
+	it("writes a note read as its tool call comes, once per call, with its size and the context then, and none for what came before", async () => {
+		state.usage.context = { used: 1200, size: 200_000 };
 		const reading = tool({
 			id: "t2",
 			status: "in_progress",
@@ -61,6 +74,7 @@ describe("NoteReads", () => {
 		await settled();
 		reading.status = "completed";
 		reads.hear(state, ROOT);
+		await recorded();
 		await settled();
 		const events = await journal.tail(10);
 		expect(events).toEqual([
@@ -82,8 +96,6 @@ describe("NoteReads", () => {
 	});
 
 	it("looks again at a call as it fills in", async () => {
-		const state = conversation({ id: "one", messages: [] });
-		reads.follow(state);
 		const reading = tool({
 			id: "t1",
 			kind: "read",
@@ -95,8 +107,7 @@ describe("NoteReads", () => {
 		await settled();
 		reading.paths = [`${ROOT}/notes/b.md`];
 		reads.hear(state, ROOT);
-		await settled();
-		expect(await journal.tail(10)).toEqual([
+		expect(await recorded()).toEqual([
 			expect.objectContaining({ path: "notes/b.md", subagent: true }),
 		]);
 	});
