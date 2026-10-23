@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
+import { FakeWallClock } from "webappwiz/time/testing";
 import { eventually } from "../server/testing";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -16,12 +17,19 @@ describe("RunnerDialer", () => {
 		provider = new FakeReachedProvider();
 		records = WorkerRecords.memory();
 		registry = new WorkerRegistry(new MemoryLogger());
+		const wall = new FakeWallClock();
 		dialer = new RunnerDialer({
 			reach: provider,
 			registry,
 			records,
 			log: new MemoryLogger(),
-			wait: async () => {},
+			wall,
+			// Each wait moves the clock past it, and yields to the timers, so
+			// the settle after a dropped link takes no real time.
+			wait: async (duration) => {
+				wall.advance(duration);
+				await Bun.sleep(0);
+			},
 		});
 		await records.set("runner-1", {
 			provisioned: {
