@@ -98,6 +98,7 @@ const ThreadRoot: FC<{
 }> = ({ isEmpty, autoFocus, onRead, docked, going }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
+	const running = useAuiState((s) => s.thread.isRunning);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
 	// keyboard over half the page.
@@ -147,6 +148,9 @@ const ThreadRoot: FC<{
 		>
 			<ThreadPrimitive.Viewport
 				ref={viewport}
+				// Late media and cards must keep the bottom in view after opening;
+				// top anchoring otherwise disables this once the first scroll lands.
+				autoScroll={!running && !going}
 				turnAnchor="top"
 				topAnchorMessageClamp={UNCLAMPED}
 				data-slot="aui_thread-viewport"
