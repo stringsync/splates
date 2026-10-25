@@ -141,17 +141,80 @@ describe("Project controls in conversation lists", () => {
 		).toBeTruthy();
 	});
 
-	it("offers removing projects in the inbox", async () => {
+	it("offers adding a project in the phone's drawer", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const drawer = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(drawer).getByRole("button", { name: "Add a project" }),
+			),
+		);
+		const add = await waitFor(() =>
+			view.getByRole("dialog", { name: "Add a project" }),
+		);
+		expect(
+			within(add).getByRole("textbox", { name: "project path" }),
+		).toBeTruthy();
+		expect(view.queryByRole("dialog", { name: "Pages" })).toBeNull();
+	});
+
+	it("opens a folder's menu on a long press of its name, leaving it unfolded", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		const shop = await waitFor(() =>
+			within(list).getByRole("region", { name: "shop" }),
+		);
+		// As Android holds a row: the finger down, then the context menu.
+		const head = within(shop).getByRole("button", { name: "shop" });
+		await act(async () => {
+			fireEvent.pointerDown(head);
+			fireEvent.contextMenu(head);
+			fireEvent.click(head);
+		});
+		const menu = view.getByRole("dialog", { name: "shop" });
+		expect(
+			within(menu).getByRole("button", { name: "New conversation" }),
+		).toBeTruthy();
+		expect(
+			within(menu).getByRole("button", { name: "Remove project…" }),
+		).toBeTruthy();
+		await act(async () => fireEvent.keyDown(menu, { key: "Escape" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(
+			within(shop).getByRole("button", { name: /Shop chat/ }),
+		).toBeTruthy();
+	});
+
+	it("offers removing projects from a folder's menu in the inbox", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
 		await waitFor(() => within(list).getByRole("region", { name: "shop" }));
+		expect(
+			within(list).queryByRole("button", { name: "Remove project shop" }),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(
-				within(list).getByRole("button", { name: "Remove project shop" }),
+				within(list).getByRole("button", { name: "Menu for shop" }),
 			),
 		);
-		const remove = view.getByRole("dialog", { name: "Remove project shop?" });
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name: "shop" })).getByRole("button", {
+					name: "Remove project…",
+				}),
+			),
+		);
+		const remove = await waitFor(() =>
+			view.getByRole("dialog", { name: "Remove project shop?" }),
+		);
 		expect(
 			within(remove).getByText(/files and conversation history are kept/),
 		).toBeTruthy();

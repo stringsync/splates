@@ -1,6 +1,12 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import { ChevronRightIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
-import { Fragment, type JSX, type ReactNode, use } from "react";
+import {
+	ChevronRightIcon,
+	EllipsisIcon,
+	PlusIcon,
+	TrashIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
+import { Fragment, type JSX, type ReactNode, use, useState } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -14,7 +20,8 @@ import { hostsAtWork } from "./conversation-rows";
 import { byLane } from "./lane-groups";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
-import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
+import { Action, Sheet, useLongPress } from "./phone-row-menu";
+import { ProjectEmpty, useRemoveProject } from "./project-controls";
 import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
 
@@ -92,7 +99,8 @@ export function Group({
 
 /**
  * A project's folder: its name, a dot while folded with an agent of its
- * waiting, and a + to start a conversation in it, then its persistent
+ * waiting, a + to start a conversation in it and a ⋯ for its menu, which a
+ * long press on its name opens too, none of them waiting on a hover; then its persistent
  * agents, set apart by a rule, then its agents at work and the rest, those
  * on one lane's tasks under the lane's title. Another project's rows have no menu.
  */
@@ -120,6 +128,9 @@ export function FolderSection({
 		tree,
 		folder,
 	}));
+	const [menu, setMenu] = useState(false);
+	const press = useLongPress(() => setMenu(true));
+	const removal = useRemoveProject(folder);
 	return (
 		<Collapsible
 			open={open}
@@ -128,7 +139,11 @@ export function FolderSection({
 			className="group/folder flex flex-col pt-4"
 		>
 			<div className="group/head flex items-center pr-2">
-				<CollapsibleTrigger className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none">
+				<CollapsibleTrigger
+					{...press}
+					// No callout or selection to fight the long press.
+					className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none [-webkit-touch-callout:none] select-none"
+				>
 					<ChevronRightIcon
 						aria-hidden
 						className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/folder:rotate-90"
@@ -147,13 +162,47 @@ export function FolderSection({
 						type="button"
 						aria-label={`New conversation in ${folder.name}`}
 						onClick={onNew}
-						className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
+						className={HEAD_BUTTON}
 					>
 						<PlusIcon className="size-4" />
 					</button>
 				)}
-				<RemoveProjectButton folder={folder} phone />
+				{(onNew !== null || removal !== null) && (
+					<button
+						type="button"
+						aria-label={`Menu for ${folder.name}`}
+						onClick={() => setMenu(true)}
+						className={HEAD_BUTTON}
+					>
+						<EllipsisIcon className="size-4" />
+					</button>
+				)}
 			</div>
+			<Sheet open={menu} onOpenChange={setMenu} title={folder.name}>
+				{onNew !== null && (
+					<Action
+						icon={<PlusIcon />}
+						onClick={() => {
+							setMenu(false);
+							onNew();
+						}}
+					>
+						New conversation
+					</Action>
+				)}
+				{removal !== null && (
+					<Action
+						icon={<TrashIcon />}
+						onClick={() => {
+							setMenu(false);
+							removal.ask();
+						}}
+					>
+						Remove project…
+					</Action>
+				)}
+			</Sheet>
+			{removal?.dialog}
 			<CollapsibleContent>
 				{folder.trees.length === 0 && <ProjectEmpty />}
 				{items.length > 0 && (
@@ -170,6 +219,10 @@ export function FolderSection({
 		</Collapsible>
 	);
 }
+
+/** A folder header's button, a finger's size and always shown. */
+const HEAD_BUTTON =
+	"flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40";
 
 /**
  * The rows of `items`, each tree's subagents under it, those at work on one

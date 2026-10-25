@@ -212,137 +212,160 @@ function RowMenu({
 					refuse={refuse}
 				/>
 			)}
-			<DialogPrimitive.Root
+			<Sheet
 				open={open}
 				onOpenChange={(open) => (open ? onOpenChange(true) : close())}
+				title={nameOf(conversation)}
+				titleHidden={renaming}
 			>
-				<DialogPrimitive.Portal>
-					<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-					<DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-1 rounded-t-2xl bg-popover px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-popover-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full">
-						<span
-							aria-hidden
-							className="mx-auto mb-1 h-1 w-10 rounded-full bg-muted-foreground/30"
+				{renaming ? (
+					<form
+						className="flex items-center gap-2 px-1 pb-1"
+						onSubmit={(event) => {
+							event.preventDefault();
+							save();
+						}}
+					>
+						<input
+							ref={box}
+							aria-label={`Rename ${nameOf(conversation)}`}
+							value={value}
+							onChange={(event) => setValue(event.target.value)}
+							enterKeyHint="done"
+							className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						/>
-						<DialogPrimitive.Title
-							className={cn(
-								"truncate px-3 pb-1 text-center text-muted-foreground text-sm",
-								renaming && "sr-only",
-							)}
+						<button
+							type="submit"
+							className="h-11 shrink-0 rounded-lg bg-primary px-4 font-medium text-base text-primary-foreground active:opacity-80"
 						>
-							{nameOf(conversation)}
-						</DialogPrimitive.Title>
-						{renaming ? (
-							<form
-								className="flex items-center gap-2 px-1 pb-1"
-								onSubmit={(event) => {
-									event.preventDefault();
-									save();
+							Save
+						</button>
+					</form>
+				) : (
+					<>
+						<Action icon={<PencilIcon />} onClick={rename}>
+							Rename
+						</Action>
+						{!conversation.unread && !archived && (
+							<Action
+								icon={<CircleDotIcon />}
+								onClick={() => {
+									close();
+									void expect(id, { unread: true }, markUnread(id, true)).catch(
+										(error: unknown) => refuse("Not marked unread", error),
+									);
 								}}
 							>
-								<input
-									ref={box}
-									aria-label={`Rename ${nameOf(conversation)}`}
-									value={value}
-									onChange={(event) => setValue(event.target.value)}
-									enterKeyHint="done"
-									className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								/>
-								<button
-									type="submit"
-									className="h-11 shrink-0 rounded-lg bg-primary px-4 font-medium text-base text-primary-foreground active:opacity-80"
-								>
-									Save
-								</button>
-							</form>
-						) : (
-							<>
-								<Action icon={<PencilIcon />} onClick={rename}>
-									Rename
-								</Action>
-								{!conversation.unread && !archived && (
-									<Action
-										icon={<CircleDotIcon />}
-										onClick={() => {
-											close();
-											void expect(
-												id,
-												{ unread: true },
-												markUnread(id, true),
-											).catch((error: unknown) =>
-												refuse("Not marked unread", error),
-											);
-										}}
-									>
-										Mark as unread
-									</Action>
-								)}
-								{places !== null && !archived && (
-									<Action
-										icon={<ListTreeIcon />}
-										onClick={() => {
-											close();
-											setMoving(true);
-										}}
-									>
-										Move under…
-									</Action>
-								)}
-								{pins && (
-									<Action
-										icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
-										onClick={() => {
-											close();
-											void expect(
-												id,
-												{ pinned: !conversation.pinned },
-												pinConversation(id, !conversation.pinned),
-											).catch((error: unknown) =>
-												refuse(
-													conversation.pinned ? "Not unpinned" : "Not pinned",
-													error,
-												),
-											);
-										}}
-									>
-										{conversation.pinned ? "Unpin" : "Pin"}
-									</Action>
-								)}
-								{quiet !== null && (
-									<Action
-										icon={<SquareIcon />}
-										onClick={() => {
-											close();
-											stopTurn(conversation, expect, refuse);
-										}}
-									>
-										Stop turn
-									</Action>
-								)}
-								{archive !== null && (
-									<Action
-										icon={<ArchiveIcon />}
-										onClick={() => {
-											close();
-											archive();
-										}}
-									>
-										Archive
-									</Action>
-								)}
-							</>
+								Mark as unread
+							</Action>
 						)}
-						<DialogPrimitive.Close className="mt-1 h-12 rounded-xl bg-muted font-medium text-base active:opacity-80">
-							Cancel
-						</DialogPrimitive.Close>
-					</DialogPrimitive.Popup>
-				</DialogPrimitive.Portal>
-			</DialogPrimitive.Root>
+						{places !== null && !archived && (
+							<Action
+								icon={<ListTreeIcon />}
+								onClick={() => {
+									close();
+									setMoving(true);
+								}}
+							>
+								Move under…
+							</Action>
+						)}
+						{pins && (
+							<Action
+								icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
+								onClick={() => {
+									close();
+									void expect(
+										id,
+										{ pinned: !conversation.pinned },
+										pinConversation(id, !conversation.pinned),
+									).catch((error: unknown) =>
+										refuse(
+											conversation.pinned ? "Not unpinned" : "Not pinned",
+											error,
+										),
+									);
+								}}
+							>
+								{conversation.pinned ? "Unpin" : "Pin"}
+							</Action>
+						)}
+						{quiet !== null && (
+							<Action
+								icon={<SquareIcon />}
+								onClick={() => {
+									close();
+									stopTurn(conversation, expect, refuse);
+								}}
+							>
+								Stop turn
+							</Action>
+						)}
+						{archive !== null && (
+							<Action
+								icon={<ArchiveIcon />}
+								onClick={() => {
+									close();
+									archive();
+								}}
+							>
+								Archive
+							</Action>
+						)}
+					</>
+				)}
+			</Sheet>
 		</>
 	);
 }
 
+/**
+ * A sheet up from the bottom, as iOS's apps offer one on a long press: its
+ * title, hidden but still read out when `titleHidden`, its actions, then
+ * Cancel.
+ */
+export function Sheet({
+	open,
+	onOpenChange,
+	title,
+	titleHidden = false,
+	children,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	title: string;
+	titleHidden?: boolean;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+			<DialogPrimitive.Portal>
+				<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+				<DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-1 rounded-t-2xl bg-popover px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-popover-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full">
+					<span
+						aria-hidden
+						className="mx-auto mb-1 h-1 w-10 rounded-full bg-muted-foreground/30"
+					/>
+					<DialogPrimitive.Title
+						className={cn(
+							"truncate px-3 pb-1 text-center text-muted-foreground text-sm",
+							titleHidden && "sr-only",
+						)}
+					>
+						{title}
+					</DialogPrimitive.Title>
+					{children}
+					<DialogPrimitive.Close className="mt-1 h-12 rounded-xl bg-muted font-medium text-base active:opacity-80">
+						Cancel
+					</DialogPrimitive.Close>
+				</DialogPrimitive.Popup>
+			</DialogPrimitive.Portal>
+		</DialogPrimitive.Root>
+	);
+}
+
 /** One of the sheet's actions, a finger's height. */
-function Action({
+export function Action({
 	icon,
 	onClick,
 	children,

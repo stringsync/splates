@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { ArchiveIcon, InboxIcon } from "lucide-react";
-import type { JSX, ReactNode } from "react";
+import { ArchiveIcon, FolderPlusIcon, InboxIcon } from "lucide-react";
+import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
@@ -9,6 +9,7 @@ import { useNavPages } from "./evals-available";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { navPage, type Page } from "./page-route";
+import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { RestartButton } from "./restart-button";
 import { SetupDot } from "./setup-state";
@@ -16,7 +17,7 @@ import { SetupDot } from "./setup-state";
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
  * ChatGPT apps: the project's header up top, the inbox first, then the other
- * pages, and the archived conversations last. The
+ * pages, then Add a project, and the archived conversations last. The
  * pages it opens take each other's place in history above the inbox, even while it loads, so back from any of them goes home, as Android's
  * top-level destinations do.
  */
@@ -69,68 +70,81 @@ export function Drawer({
 	};
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
+	const [adding, setAdding] = useState(false);
 	return (
-		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-			<DialogPrimitive.Portal>
-				<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-				<DialogPrimitive.Popup className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sidebar-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
-					<DialogPrimitive.Title className="sr-only">
-						Pages
-					</DialogPrimitive.Title>
-					{header}
-					<nav className="flex flex-col gap-0.5 p-2">
-						<Entry
-							current={page === "conversations" && conversation === null}
-							onClick={() => go("conversations")}
-							icon={<InboxIcon />}
-							label="Inbox"
-							count={waiting}
-							urgent
-						/>
-						{pages.map(({ value, label, Icon }) => (
+		<>
+			<AddProjectDialog open={adding} onOpenChange={setAdding} />
+			<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+				<DialogPrimitive.Portal>
+					<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+					<DialogPrimitive.Popup className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sidebar-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
+						<DialogPrimitive.Title className="sr-only">
+							Pages
+						</DialogPrimitive.Title>
+						{header}
+						<nav className="flex flex-col gap-0.5 p-2">
 							<Entry
-								key={value}
-								current={navPage(page) === value}
-								onClick={() => go(value)}
-								icon={
-									<span className="relative flex">
-										<Icon />
-										{value === "creds" && requested && (
-											<span role="img" aria-label="creds requested">
-												<UpdateDot ring="ring-sidebar" />
-											</span>
-										)}
-										{value === "tasks" && orphans > 0 && (
-											<OrphansDot ring="ring-sidebar" />
-										)}
-										{value === "setup" && <SetupDot ring="ring-sidebar" />}
-									</span>
-								}
-								label={label}
+								current={page === "conversations" && conversation === null}
+								onClick={() => go("conversations")}
+								icon={<InboxIcon />}
+								label="Inbox"
+								count={waiting}
+								urgent
 							/>
-						))}
-					</nav>
-					{/* Update and Archived stay at the foot. */}
-					<div className="mt-auto">
-						{/* Update, from any screen, while one waits or runs. */}
-						<div className="flex flex-col border-t p-2 empty:hidden [&>button]:w-full">
-							<RestartButton wide={false} update={update} />
-						</div>
-						{available && (
-							<div className="border-t p-2">
+							{pages.map(({ value, label, Icon }) => (
 								<Entry
-									current={conversation === ARCHIVED}
-									onClick={() => go("conversations", ARCHIVED)}
-									icon={<ArchiveIcon />}
-									label="Archived"
-									count={archived}
+									key={value}
+									current={navPage(page) === value}
+									onClick={() => go(value)}
+									icon={
+										<span className="relative flex">
+											<Icon />
+											{value === "creds" && requested && (
+												<span role="img" aria-label="creds requested">
+													<UpdateDot ring="ring-sidebar" />
+												</span>
+											)}
+											{value === "tasks" && orphans > 0 && (
+												<OrphansDot ring="ring-sidebar" />
+											)}
+											{value === "setup" && <SetupDot ring="ring-sidebar" />}
+										</span>
+									}
+									label={label}
 								/>
+							))}
+							<Entry
+								current={false}
+								onClick={() => {
+									onOpenChange(false);
+									setAdding(true);
+								}}
+								icon={<FolderPlusIcon />}
+								label="Add a project"
+							/>
+						</nav>
+						{/* Update and Archived stay at the foot. */}
+						<div className="mt-auto">
+							{/* Update, from any screen, while one waits or runs. */}
+							<div className="flex flex-col border-t p-2 empty:hidden [&>button]:w-full">
+								<RestartButton wide={false} update={update} />
 							</div>
-						)}
-					</div>
-				</DialogPrimitive.Popup>
-			</DialogPrimitive.Portal>
-		</DialogPrimitive.Root>
+							{available && (
+								<div className="border-t p-2">
+									<Entry
+										current={conversation === ARCHIVED}
+										onClick={() => go("conversations", ARCHIVED)}
+										icon={<ArchiveIcon />}
+										label="Archived"
+										count={archived}
+									/>
+								</div>
+							)}
+						</div>
+					</DialogPrimitive.Popup>
+				</DialogPrimitive.Portal>
+			</DialogPrimitive.Root>
+		</>
 	);
 }
 
