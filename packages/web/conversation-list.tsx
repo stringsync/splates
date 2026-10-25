@@ -22,7 +22,6 @@ import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
 import { Item } from "./conversation-item";
 import {
-	automated,
 	flatten,
 	goOn,
 	hintOf,
@@ -39,7 +38,7 @@ import { useShortcut } from "./hooks/use-shortcut";
 import { byLane, inOrder } from "./lane-groups";
 import { LaneRows } from "./lane-rows";
 import { useBeneath } from "./list-beneath";
-import { Rows, TerminalRow } from "./list-rows";
+import { TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { laneUrl, newConversationUrl } from "./new-conversation-project";
 import { FolderList, ForeignItem, type RenderRow } from "./project-folder-list";
@@ -111,25 +110,16 @@ export const ConversationList = memo(function ConversationList({
 	]);
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 
-	const { rows, nested, hosting, listed, keptHere, taken, groupsHere } =
-		useMemo(() => {
-			const rows = rowsOf(tasks, conversations);
-			const nested = nestRows(tasks, rows);
-			const hosting = hostsAtWork(nested);
-			// What it lists of them, without the feed of every project: its
-			// persistent agents kept atop, apart, as a folder keeps them.
-			const listed = shownIn(nested);
-			const keptHere = listed.filter(
-				(tree) =>
-					tree.row.conversation !== null && automated(tree.row.conversation),
-			);
-			const taken = lanesTaken(todos);
-			const groupsHere = byLane(
-				listed.filter((tree) => !keptHere.includes(tree)),
-				taken,
-			);
-			return { rows, nested, hosting, listed, keptHere, taken, groupsHere };
-		}, [tasks, conversations, todos]);
+	const { rows, nested, hosting, listed, taken, groupsHere } = useMemo(() => {
+		const rows = rowsOf(tasks, conversations);
+		const nested = nestRows(tasks, rows);
+		const hosting = hostsAtWork(nested);
+		// What it lists of them, without the feed of every project.
+		const listed = shownIn(nested);
+		const taken = lanesTaken(todos);
+		const groupsHere = byLane(listed, taken);
+		return { rows, nested, hosting, listed, taken, groupsHere };
+	}, [tasks, conversations, todos]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
 		projects: feed.projects,
@@ -167,7 +157,7 @@ export const ConversationList = memo(function ConversationList({
 	const entries = useMemo<Entry[]>(
 		() =>
 			grouped === null
-				? flatten([...keptHere, ...inOrder(groupsHere)]).map((row) => ({
+				? flatten(inOrder(groupsHere)).map((row) => ({
 						folder: null,
 						row,
 					}))
@@ -175,16 +165,13 @@ export const ConversationList = memo(function ConversationList({
 						...grouped.folders
 							.filter((folder) => !folded.has(folderKey(folder)))
 							.flatMap((folder) =>
-								flatten([
-									...folder.inPlace.kept,
-									...inOrder(groupsOf(folder)),
-								]).map((row) => ({
+								flatten(inOrder(groupsOf(folder))).map((row) => ({
 									folder,
 									row,
 								})),
 							),
 					],
-		[grouped, keptHere, groupsHere, folded, groupsOf],
+		[grouped, groupsHere, folded, groupsOf],
 	);
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
@@ -364,28 +351,13 @@ export const ConversationList = memo(function ConversationList({
 				) : /* None, and no list either: an empty one would still take a gap. */
 				listed.length === 0 ? null : (
 					<Placing value={placing}>
-						<div className="flex flex-col">
-							{keptHere.length > 0 && (
-								<Rows
-									label="persistent agents"
-									rows={keptHere}
-									render={(row, nested) => renderHere(row, nested)}
-									beneath={beneath}
-								/>
-							)}
-							{keptHere.length > 0 && groupsHere.length > 0 && (
-								<hr className="mx-3 my-1 border-foreground/10" />
-							)}
-							{groupsHere.length > 0 && (
-								<LaneRows
-									label="conversation list"
-									groups={groupsHere}
-									beneath={beneath}
-									render={(row, nested) => renderHere(row, nested)}
-									onLane={onLane}
-								/>
-							)}
-						</div>
+						<LaneRows
+							label="conversation list"
+							groups={groupsHere}
+							beneath={beneath}
+							render={(row, nested) => renderHere(row, nested)}
+							onLane={onLane}
+						/>
 					</Placing>
 				)}
 			</StaleRows>

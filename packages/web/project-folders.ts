@@ -1,7 +1,6 @@
 /**
  * Every project's agents as the sidebar and the phone's inbox group them:
- * a folder per project, its persistent agents kept apart atop it, then its
- * pinned agents, then those at work, then the rest. The inbox lifts those
+ * a folder per project, its pinned agents, then those at work, then the rest. The inbox lifts those
  * waiting on you out into one Needs you across every project; the sidebar
  * leaves them in place. Only the grouping: each list draws its own rows.
  */
@@ -11,7 +10,6 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
-	automated,
 	flatten,
 	hostsAtWork,
 	nestRows,
@@ -100,11 +98,6 @@ export interface Folder {
 	/** The trees with an agent waiting on you, which Needs you lists in its place. */
 	waiting: Nested<Needing>[];
 	/**
-	 * Its persistent agents' trees with none waiting, as the groomer's: kept
-	 * atop the folder, apart from the agents it lists.
-	 */
-	kept: Nested<Needing>[];
-	/**
 	 * The other trees with none waiting, as the folder lists them: the pinned
 	 * ones, then those with an agent at work, then the rest, each newest first.
 	 */
@@ -114,7 +107,7 @@ export interface Folder {
 	 * place, among the agents at work, so a row never jumps as its agent
 	 * stops to ask.
 	 */
-	inPlace: { kept: Nested<Needing>[]; listed: Nested<Needing>[] };
+	inPlace: { listed: Nested<Needing>[] };
 }
 
 /** A tree in Needs you, with the folder it comes from. */
@@ -153,31 +146,21 @@ export function folderKey(folder: Folder): string {
 
 /**
  * `trees` by what is most pressing in each: one waiting on you, then the
- * rest a persistent agent's, pinned, at work, or none of those, each in the
+ * rest pinned, at work, or none of those, each in the
  * order given. Not `apart`, none is waiting: one that waits on you goes
  * where it would otherwise, among those at work when no other holds it.
  */
 export function groupsOf(
 	trees: Nested<Needing>[],
 	apart = true,
-): Record<
-	"waiting" | "kept" | "pinned" | "working" | "recent",
-	Nested<Needing>[]
-> {
+): Record<"waiting" | "pinned" | "working" | "recent", Nested<Needing>[]> {
 	const waits = (tree: Nested<Needing>) =>
 		flatten([tree]).some((row) => waitsOnYou(row));
 	const waiting = apart ? trees.filter(waits) : [];
 	const rest = trees.filter((tree) => !waiting.includes(tree));
-	const kept = rest.filter(
-		(tree) =>
-			tree.row.conversation !== null && automated(tree.row.conversation),
-	);
-	const pinned = rest.filter(
-		(tree) => !kept.includes(tree) && tree.row.conversation?.pinned === true,
-	);
+	const pinned = rest.filter((tree) => tree.row.conversation?.pinned === true);
 	const working = rest.filter(
 		(tree) =>
-			!kept.includes(tree) &&
 			!pinned.includes(tree) &&
 			(waits(tree) ||
 				flatten([tree]).some(
@@ -185,10 +168,9 @@ export function groupsOf(
 				)),
 	);
 	const recent = rest.filter(
-		(tree) =>
-			!kept.includes(tree) && !pinned.includes(tree) && !working.includes(tree),
+		(tree) => !pinned.includes(tree) && !working.includes(tree),
 	);
-	return { waiting, kept, pinned, working, recent };
+	return { waiting, pinned, working, recent };
 }
 
 function folder(
@@ -201,7 +183,7 @@ function folder(
 	const trees = nestRows(tasks, rowsOf(tasks, conversations));
 	// Grouped with every row, so a subagent at work outside the page still
 	// puts its host with those at work, then only what the list shows.
-	const { waiting, kept, pinned, working, recent } = groupsOf(trees);
+	const { waiting, pinned, working, recent } = groupsOf(trees);
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
 	const steady = groupsOf(trees, false);
 	return {
@@ -216,10 +198,8 @@ function folder(
 		trees: shown(trees),
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),
-		kept: shown(kept),
 		listed: shown([...pinned, ...working, ...recent]),
 		inPlace: {
-			kept: shown(steady.kept),
 			listed: shown([...steady.pinned, ...steady.working, ...steady.recent]),
 		},
 	};

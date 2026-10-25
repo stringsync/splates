@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { cleanup, Testing, tool, turn, waitFor, within } from "./testing";
+import { act, cleanup, Testing, tool, turn, waitFor, within } from "./testing";
 
 describe("App's persistent agent runs", () => {
 	let testing: Testing;
@@ -21,16 +21,25 @@ describe("App's persistent agent runs", () => {
 
 	afterEach(() => {
 		cleanup();
+		history.replaceState(null, "", location.pathname);
 		testing.dispose();
 	});
 
+	/**
+	 * The thread of `run`, opened by its address: put away, a run is listed
+	 * nowhere but Archived.
+	 */
+	const opened = async (run: ConversationState) => {
+		const view = await testing.openConversations([run], null);
+		await act(async () => {
+			location.hash = `#conversations/${run.id}`;
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		return waitFor(() => view.getByRole("region", { name: run.title ?? "" }));
+	};
+
 	it("ends a run put away with a line saying its context closed", async () => {
-		const view = await testing.openConversations([
-			{ ...state, archived: true, resting: true },
-		]);
-		const thread = await waitFor(() =>
-			view.getByRole("region", { name: state.title ?? "" }),
-		);
+		const thread = await opened({ ...state, archived: true, resting: true });
 
 		const line = within(thread).getByRole("note", { name: "run ended" });
 		expect(line.textContent).toBe("Run ended, context closed");
@@ -42,10 +51,7 @@ describe("App's persistent agent runs", () => {
 	});
 
 	it("draws no such line while the run is on", async () => {
-		const view = await testing.openConversations([state]);
-		const thread = await waitFor(() =>
-			view.getByRole("region", { name: state.title ?? "" }),
-		);
+		const thread = await opened(state);
 
 		expect(thread.querySelector('[data-slot="work"]')).not.toBeNull();
 		expect(

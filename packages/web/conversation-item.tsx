@@ -27,7 +27,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutomationTag, RowIcon } from "./agent-icons";
+import { RowIcon } from "./agent-icons";
 import { AutoIcon } from "./auto-brand";
 import { copiedLabel, useCopy } from "./card";
 import {
@@ -37,7 +37,6 @@ import {
 } from "./conversation-api";
 import { filable, useArchive } from "./conversation-archive";
 import { reportedAs, unnamed, useNameOf } from "./conversation-names";
-import { placeholding } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
 import { Mark } from "./mark";
@@ -144,7 +143,6 @@ export function Item({
 					// A touch screen has no hover, so its buttons always show.
 					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-20 group-hover/item:pr-20 pointer-coarse:pr-28",
 					renaming && "hidden",
-					placeholding(conversation) && "opacity-50",
 					menu
 						? "pr-20"
 						: need.kind === "idle" &&
@@ -169,13 +167,11 @@ export function Item({
 					<span
 						className={cn(
 							"min-w-0 truncate text-sm",
-							(unnamed(conversation) || placeholding(conversation)) &&
-								"text-muted-foreground italic",
+							unnamed(conversation) && "text-muted-foreground italic",
 						)}
 					>
 						{nameOf(conversation)}
 					</span>
-					<AutomationTag conversation={conversation} />
 				</span>
 				{pinned && (
 					<PinIcon

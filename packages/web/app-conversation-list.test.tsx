@@ -47,7 +47,7 @@ describe("App's conversation list", () => {
 		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
 	});
 
-	it("keeps a persistent agent atop the list, apart by a rule, before the feed of every project comes", async () => {
+	it("lists a persistent agent among the rest by recency, before the feed of every project comes", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -66,14 +66,12 @@ describe("App's conversation list", () => {
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		const kept = within(nav).getByRole("list", { name: "persistent agents" });
-		expect(within(kept).getByText("Groomer")).toBeTruthy();
-		expect(kept.nextElementSibling?.tagName).toBe("HR");
 		expect(
-			within(
-				within(nav).getByRole("list", { name: "conversation list" }),
-			).queryByText("Groomer"),
-		).toBeNull();
+			within(within(nav).getByRole("list", { name: "conversation list" }))
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Fix login", "Groomer"]);
+		expect(within(nav).queryByRole("separator")).toBeNull();
 	});
 
 	it("lists conversations at work newest first, each by name with its task on hover, and archived ones apart", async () => {

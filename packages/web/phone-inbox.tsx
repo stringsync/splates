@@ -150,8 +150,7 @@ export function Inbox({
 		const trees = shown(nested);
 		const hosting = hostsAtWork(nested);
 		const waiting = shown(groups.waiting);
-		// Without folders, persistent agents are pinned, ahead of those pinned.
-		const pinned = shown([...groups.kept, ...groups.pinned]);
+		const pinned = shown(groups.pinned);
 		const working = shown(groups.working);
 		const recent = shown(groups.recent);
 		return {

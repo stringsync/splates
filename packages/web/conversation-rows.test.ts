@@ -34,7 +34,7 @@ describe("conversation rows", () => {
 	const external = row(null, "beta");
 	const part = row("c2");
 
-	it("lists an automation's run atop with the groomer, started by hand or not", () => {
+	it("lists an automation's run among the rest by recency, the groomer's too, started by hand or not", () => {
 		const groomer = conversation({
 			id: "g",
 			persistent: "groomer",
@@ -52,7 +52,7 @@ describe("conversation rows", () => {
 		expect([groomer, hooked, mine].map(automated)).toEqual([true, true, false]);
 		expect(
 			rowsOf([], [mine, groomer, hooked]).map((each) => each.conversation?.id),
-		).toEqual(["h", "g", "m"]);
+		).toEqual(["m", "h", "g"]);
 	});
 
 	it("waits on you for no task an agent outside the page asks on, which asks in its own session", () => {

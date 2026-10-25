@@ -120,7 +120,6 @@ export function FolderSection({
 		tree,
 		folder,
 	}));
-	const kept = folder.kept.map((tree) => ({ tree, folder }));
 	return (
 		<Collapsible
 			open={open}
@@ -157,20 +156,6 @@ export function FolderSection({
 			</div>
 			<CollapsibleContent>
 				{folder.trees.length === 0 && <ProjectEmpty />}
-				{kept.length > 0 && (
-					<>
-						<Lines
-							items={kept}
-							agents={agents}
-							named={false}
-							beneath={folder.here ? beneath : () => []}
-							onOpen={onOpen}
-						/>
-						{items.length > 0 && (
-							<hr className="mx-4 my-1 border-foreground/10" />
-						)}
-					</>
-				)}
 				{items.length > 0 && (
 					<Lines
 						items={items}

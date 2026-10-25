@@ -8,12 +8,10 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutomationTag, RowIcon } from "./agent-icons";
+import { RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
-import { placeholding } from "./conversation-rows";
 import type { LaneGroup } from "./lane-groups";
 import { LaneRows } from "./lane-rows";
-import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
@@ -27,8 +25,7 @@ export type RenderRow = (
 ) => ReactNode;
 
 /**
- * A folder per project, by name, its persistent agents kept atop it, set
- * apart by a rule, then its agents at work, then the rest, those on one
+ * A folder per project, by name, its pinned agents, then its agents at work, then the rest, those on one
  * lane's tasks together under its title, those waiting on
  * you left in place, their marks turned yellow. Each folds away, as this browser
  * keeps it, showing a dot while folded with an agent of its waiting, and its
@@ -60,7 +57,7 @@ export function FolderList({
 			{folders.map((folder) => {
 				const key = folderKey(folder);
 				const open = !folded.has(key);
-				const { kept, listed: rows } = folder.inPlace;
+				const rows = folder.inPlace.listed;
 				return (
 					<Collapsible
 						key={key}
@@ -96,20 +93,7 @@ export function FolderList({
 							<RemoveProjectButton folder={folder} />
 						</div>
 						<CollapsibleContent>
-							{kept.length === 0 && rows.length === 0 && <ProjectEmpty />}
-							{kept.length > 0 && (
-								<InLanes folder={folder}>
-									<Rows
-										label={`${folder.name} persistent agents`}
-										rows={kept}
-										render={(row, nested) => render(folder, row, nested)}
-										beneath={(row) => beneath(folder, row)}
-									/>
-									{rows.length > 0 && (
-										<hr className="mx-3 my-1 border-foreground/10" />
-									)}
-								</InLanes>
-							)}
+							{rows.length === 0 && <ProjectEmpty />}
 							{rows.length > 0 && (
 								<InLanes folder={folder}>
 									<LaneRows
@@ -157,10 +141,7 @@ export function ForeignItem({
 			data-row
 			onClick={onOpen}
 			title={conversation?.task ?? undefined}
-			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
-				conversation !== null && placeholding(conversation) && "opacity-50",
-			)}
+			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]"
 		>
 			{conversation !== null && agent !== null ? (
 				<RowIcon
@@ -175,15 +156,12 @@ export function ForeignItem({
 				<span
 					className={cn(
 						"min-w-0 truncate text-sm",
-						(nested ||
-							(conversation !== null &&
-								(unnamed(conversation) || placeholding(conversation)))) &&
+						(nested || (conversation !== null && unnamed(conversation))) &&
 							"text-muted-foreground italic",
 					)}
 				>
 					{name}
 				</span>
-				{conversation !== null && <AutomationTag conversation={conversation} />}
 			</span>
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>

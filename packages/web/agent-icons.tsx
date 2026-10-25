@@ -47,19 +47,6 @@ export function RowIcon({
 	);
 }
 
-/** After an automation's name (see `automated`), a tag saying so; nothing for any other. */
-export function AutomationTag({
-	conversation,
-}: {
-	conversation: ConversationState;
-}): JSX.Element | null {
-	return !automated(conversation) ? null : (
-		<span className="shrink-0 rounded-sm bg-violet-500/15 px-1.5 py-px font-medium text-[10px] text-violet-700 uppercase dark:text-violet-300 leading-4 tracking-wide">
-			Automation
-		</span>
-	);
-}
-
 /** The agent's mark, named for screen readers by the agent's name. */
 export function AgentIcon({
 	agent,

@@ -175,17 +175,22 @@ describe("App's agents, in a folder per project", () => {
 		).toEqual(["Mane", "Stripes"]);
 	});
 
-	it("keeps a folder's persistent agents atop it, apart from the rest, with no Archive", async () => {
-		const groomer = conversation({
-			id: "g1",
-			title: "Groomer",
-			persistent: "groomer",
-			createdAt: "2026-10-11T09:00:00.000Z",
-		});
+	it("lists a folder's automations among its conversations by recency, untagged, with no Archive for a persistent agent", async () => {
 		const view = await testing.openConversations(
 			[
 				...mine,
-				groomer,
+				conversation({
+					id: "g1",
+					title: "Groomer",
+					persistent: "groomer",
+					createdAt: "2026-10-11T10:01:30.000Z",
+				}),
+				conversation({
+					id: "h1",
+					title: "Review merged",
+					automation: "a1",
+					createdAt: "2026-10-11T09:00:00.000Z",
+				}),
 				conversation({
 					id: "c3",
 					title: "Pinned",
@@ -202,22 +207,13 @@ describe("App's agents, in a folder per project", () => {
 
 		expect(
 			within(
-				within(here).getByRole("list", {
-					name: "webappwiz persistent agents",
-				}),
-			)
-				.getAllByRole("listitem")
-				.map((item) => item.textContent),
-		).toEqual(["GroomerAutomation"]);
-		expect(within(here).getAllByText("Automation")).toHaveLength(1);
-		expect(
-			within(
 				within(here).getByRole("list", { name: "webappwiz conversations" }),
 			)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Pinned", "Mine broke", "Mine"]);
-		expect(within(here).getByRole("separator")).toBeTruthy();
+		).toEqual(["Pinned", "Mine broke", "Mine", "Groomer", "Review merged"]);
+		expect(within(here).queryByText("Automation")).toBeNull();
+		expect(within(here).queryByRole("separator")).toBeNull();
 		expect(
 			within(here).queryByRole("button", { name: "Archive Groomer" }),
 		).toBeNull();
@@ -226,49 +222,29 @@ describe("App's agents, in a folder per project", () => {
 		).toBeTruthy();
 	});
 
-	const groomerRun = (id: string, createdAt: string, resting: boolean) =>
-		conversation({
-			id,
-			title: "Groomer",
-			persistent: "groomer",
-			createdAt,
-			archived: true,
-			resting,
-		});
-	const keptList = async (conversations: ConversationState[]) => {
+	it("drops a persistent agent's row between runs", async () => {
 		const view = await testing.openConversations(
-			[...mine, ...conversations],
+			[
+				...mine,
+				conversation({
+					id: "g1",
+					title: "Groomer",
+					persistent: "groomer",
+					createdAt: "2026-10-11T09:30:00.000Z",
+					archived: true,
+					resting: true,
+				}),
+			],
 			null,
 		);
 		const here = await waitFor(() =>
 			within(agentList(view)).getByRole("region", { name: "webappwiz" }),
 		);
-		return within(here).queryByRole("list", {
-			name: "webappwiz persistent agents",
-		});
-	};
 
-	it("holds a persistent agent's row between runs with its newest run, faint and italic", async () => {
-		const list = await keptList([
-			groomerRun("g1", "2026-10-11T09:00:00.000Z", true),
-			groomerRun("g2", "2026-10-11T09:30:00.000Z", true),
-		]);
-
-		const rows = [...(list?.querySelectorAll("[data-row]") ?? [])];
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.className).toContain("opacity-50");
-		expect(
-			within(rows[0] as HTMLElement).getByText("Groomer").className,
-		).toContain("italic");
+		expect(within(here).queryByText("Groomer")).toBeNull();
 	});
 
-	it("drops a persistent agent's row once it is turned off", async () => {
-		expect(
-			await keptList([groomerRun("g2", "2026-10-11T09:30:00.000Z", false)]),
-		).toBeNull();
-	});
-
-	it("keeps a folder's persistent agents atop it in a phone's inbox, apart from the rest", async () => {
+	it("lists a folder's automations among its conversations in a phone's inbox", async () => {
 		resize(390, 844);
 		try {
 			const view = await testing.openConversations(
@@ -295,10 +271,10 @@ describe("App's agents, in a folder per project", () => {
 					.getAllByRole("listitem")
 					.map((item) => item.textContent),
 			).toEqual([
-				expect.stringContaining("Groomer"),
 				expect.stringContaining("Mine"),
+				expect.stringContaining("Groomer"),
 			]);
-			expect(within(here).getByRole("separator")).toBeTruthy();
+			expect(within(here).queryByRole("separator")).toBeNull();
 		} finally {
 			resize(1024, 768);
 		}

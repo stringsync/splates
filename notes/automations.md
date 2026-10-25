@@ -16,8 +16,8 @@ it stamps `requestedAt` on the automation, and the `Scheduler`, woken by
 the write, fires it once per request (kept as `requestedAt` in
 `hooks-runs.json`), as `[SPLATES SCHEDULE <n>]`, paused or not, its
 schedule left be; its run lists as `by hand`. An agent hook's conversation keeps
-the automation's id as `automation`, so the page lists it, by hand or not,
-with the groomer, a bolt for its mark and an Automation tag; unlike the
+the automation's id as `automation`, so the page marks it, by hand or not,
+as it does the groomer's, with a bolt among its project's conversations; unlike the
 groomer's, it is no persistent agent, and archives like any other. Only a schedule or the groomer
 can be run by hand (`runsNow`); any other event hook needs its event's
 tasks, so it has no Run now.

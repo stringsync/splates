@@ -18,10 +18,12 @@ existing forget API, keeping files and conversation history and refusing while
 conversations are under way.
 
 The sidebar's folders (`project-folders.ts`) are these per-project groups.
-Each lists automations first (persistent agents such as the groomer, and
-each run of an agent hook, marked by its conversation's `automation`; see
-`automated` in `conversation-rows.ts`), then a rule, then pinned, working,
-and the rest. The phone inbox pulls waiting-on-
+Each lists pinned, working, and the rest, each newest first. Automations
+(persistent agents such as the groomer, and each run of an agent hook,
+marked by its conversation's `automation`; see `automated` in
+`conversation-rows.ts`) sit among them, set apart only by a bolt for their
+mark, and leave the list once archived: a persistent agent's run archives
+itself as it ends, so the groomer shows only while a run is open. The phone inbox pulls waiting-on-
 you rows from every project into one Needs you group; desktop has no inbox,
 showing the new-conversation home with no conversation open and one line
 atop the agents counting those waiting on you.
