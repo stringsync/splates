@@ -53,66 +53,123 @@ describe("Project controls in conversation lists", () => {
 		localStorage.clear();
 	});
 
-	for (const [layout, width, height] of [
-		["sidebar", 1024, 768],
-		["inbox", 390, 844],
-	] as const) {
-		it(`hides empty projects in the ${layout}`, async () => {
-			resize(width, height);
-			const view = await testing.openConversations([], null, { tasks: [] });
-			const list = agentList(view);
-			const shop = await waitFor(() =>
-				within(list).getByRole("region", { name: "shop" }),
-			);
-			expect(
-				within(list).queryByRole("region", { name: "webappwiz" }),
-			).toBeNull();
-			expect(
-				within(shop).getByRole("button", { name: /Shop chat/ }),
-			).toBeTruthy();
-		});
+	it("leaves adding a project out of the sidebar", async () => {
+		resize(1024, 768);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		await waitFor(() => within(list).getByRole("region", { name: "shop" }));
+		expect(
+			within(list).queryByRole("button", { name: "Add a project" }),
+		).toBeNull();
+	});
 
-		it(`offers adding and removing projects in the ${layout}`, async () => {
-			resize(width, height);
-			const view = await testing.openConversations([], null, { tasks: [] });
-			const list = agentList(view);
-			await waitFor(() => within(list).getByRole("region", { name: "shop" }));
-			await act(async () =>
-				fireEvent.click(
-					within(list).getByRole("button", { name: "Add a project" }),
-				),
-			);
-			const add = view.getByRole("dialog", { name: "Add a project" });
-			expect(
-				within(add).getByRole("textbox", { name: "project path" }),
-			).toBeTruthy();
-			await act(async () => fireEvent.keyDown(add, { key: "Escape" }));
-			await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-			await act(async () =>
-				fireEvent.click(
-					within(list).getByRole("button", { name: "Remove project shop" }),
-				),
-			);
-			const remove = view.getByRole("dialog", { name: "Remove project shop?" });
-			expect(
-				within(remove).getByText(/files and conversation history are kept/),
-			).toBeTruthy();
-			expect(testing.posts).toHaveLength(0);
-			testing.reply = { next: { slug: "webappwiz" } };
-			await act(async () =>
-				fireEvent.click(
-					within(remove).getByRole("button", { name: "Remove project" }),
-				),
-			);
-			expect(testing.posts).toContainEqual(
-				expect.objectContaining({
-					path: "/api/projects/shop",
-					method: "DELETE",
-				}),
-			);
-			expect(testing.visited).toHaveLength(0);
-		});
-	}
+	it("offers adding a project in the inbox", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		await waitFor(() => within(list).getByRole("region", { name: "shop" }));
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Add a project" }),
+			),
+		);
+		const add = view.getByRole("dialog", { name: "Add a project" });
+		expect(
+			within(add).getByRole("textbox", { name: "project path" }),
+		).toBeTruthy();
+		await act(async () => fireEvent.keyDown(add, { key: "Escape" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+	});
+
+	it("hides empty projects in the sidebar", async () => {
+		resize(1024, 768);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		const shop = await waitFor(() =>
+			within(list).getByRole("region", { name: "shop" }),
+		);
+		expect(
+			within(list).queryByRole("region", { name: "webappwiz" }),
+		).toBeNull();
+		expect(
+			within(shop).getByRole("button", { name: /Shop chat/ }),
+		).toBeTruthy();
+	});
+
+	it("offers removing projects in the sidebar", async () => {
+		resize(1024, 768);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		await waitFor(() => within(list).getByRole("region", { name: "shop" }));
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Remove project shop" }),
+			),
+		);
+		const remove = view.getByRole("dialog", { name: "Remove project shop?" });
+		expect(
+			within(remove).getByText(/files and conversation history are kept/),
+		).toBeTruthy();
+		expect(testing.posts).toHaveLength(0);
+		testing.reply = { next: { slug: "webappwiz" } };
+		await act(async () =>
+			fireEvent.click(
+				within(remove).getByRole("button", { name: "Remove project" }),
+			),
+		);
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({
+				path: "/api/projects/shop",
+				method: "DELETE",
+			}),
+		);
+		expect(testing.visited).toHaveLength(0);
+	});
+
+	it("hides empty projects in the inbox", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		const shop = await waitFor(() =>
+			within(list).getByRole("region", { name: "shop" }),
+		);
+		expect(
+			within(list).queryByRole("region", { name: "webappwiz" }),
+		).toBeNull();
+		expect(
+			within(shop).getByRole("button", { name: /Shop chat/ }),
+		).toBeTruthy();
+	});
+
+	it("offers removing projects in the inbox", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([], null, { tasks: [] });
+		const list = agentList(view);
+		await waitFor(() => within(list).getByRole("region", { name: "shop" }));
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Remove project shop" }),
+			),
+		);
+		const remove = view.getByRole("dialog", { name: "Remove project shop?" });
+		expect(
+			within(remove).getByText(/files and conversation history are kept/),
+		).toBeTruthy();
+		expect(testing.posts).toHaveLength(0);
+		testing.reply = { next: { slug: "webappwiz" } };
+		await act(async () =>
+			fireEvent.click(
+				within(remove).getByRole("button", { name: "Remove project" }),
+			),
+		);
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({
+				path: "/api/projects/shop",
+				method: "DELETE",
+			}),
+		);
+		expect(testing.visited).toHaveLength(0);
+	});
 
 	it("hides the project after swiping away its last conversation and restores it when unarchived", async () => {
 		resize(390, 844);
