@@ -49,6 +49,8 @@ export const HTTP_EVAL_RUN: EvalRunServer = {
 export interface EvalRunOptions {
 	server?: EvalRunServer;
 	timer?: Timer;
+	/** The conversation the card is in, told by the server once the run is done. */
+	conversation?: string | null;
 }
 
 export type EvalRunEvents = { changed: undefined };
@@ -91,6 +93,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 	private readonly server: EvalRunServer;
 	private readonly timer: Timer;
+	private readonly conversation: string | null;
 
 	constructor(
 		readonly ask: EvalAsk,
@@ -99,6 +102,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	) {
 		this.server = opts.server ?? HTTP_EVAL_RUN;
 		this.timer = opts.timer ?? new SystemTimer();
+		this.conversation = opts.conversation ?? null;
 	}
 
 	static of(proposal: PermissionProposal, opts?: EvalRunOptions): EvalRun {
@@ -165,7 +169,10 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	/** The person's Run: starts the paid run, then follows it. */
 	async run(): Promise<void> {
 		try {
-			this.launch = await this.server.start(this.key, this.request());
+			this.launch = await this.server.start(this.key, {
+				...this.request(),
+				conversation: this.conversation,
+			});
 			this.refusal = null;
 		} catch (error) {
 			this.refusal = refusalOf("Not started", error);

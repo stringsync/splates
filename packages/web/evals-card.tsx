@@ -1,12 +1,22 @@
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { useReactive } from "@webappwiz/react";
 import { FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { CardBody, CardShell } from "./card-shell";
+import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { ORDER, spent } from "./eval-status";
 import { Refusal } from "./refusal";
+
+/** The conversation the card is in, which the server tells once its run is done; null outside one. */
+export const EvalsConversation = createContext<string | null>(null);
 
 /**
  * The card an agent asks to run evals with: the probes it picked, the saved
@@ -14,13 +24,15 @@ import { Refusal } from "./refusal";
  * would reserve. Only its Run button spends anything. Once it runs, the card
  * is the run's progress, cells landed of those planned, the tally and the
  * cost so far, linked to the report on the Evals page; a Stop button ends it.
+ * Once done, it shows the report condensed, and the agent is told, with it.
  */
 export function EvalsCard({
 	proposal,
 }: {
 	proposal: PermissionProposal;
 }): JSX.Element {
-	const [run] = useState(() => EvalRun.of(proposal));
+	const conversation = useContext(EvalsConversation);
+	const [run] = useState(() => EvalRun.of(proposal, { conversation }));
 	useEffect(() => {
 		void run.load();
 		return () => run.dispose();
@@ -132,6 +144,7 @@ export function EvalsCard({
 									? ` of ${state.plan.tokens.toLocaleString()} tokens · $${state.plan.usd.toFixed(2)} reserved`
 									: ""}
 							</div>
+							{!state.running && <EvalSummary grid={grid} />}
 							<a
 								href={`#evals/${encodeURIComponent(grid.id)}`}
 								className="text-info text-xs underline"

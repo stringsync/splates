@@ -49,6 +49,7 @@ export {
 	DICTATED,
 	DIRECTIVES,
 	directive,
+	evalsDoneReference,
 	eventReference,
 	GARDEN,
 	groomReference,

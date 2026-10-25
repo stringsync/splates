@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Resource } from "webappwiz/disposable";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Child, Ps } from "webappwiz/system";
 import type { AgentPick } from "../models";
 
@@ -13,6 +14,8 @@ export interface EvalLaunchSpec {
 	agents: AgentPick[];
 	/** The revision the skill's change is judged against; the runner's own default when null. */
 	baseline: string | null;
+	/** The conversation whose card it is, told once it is done; null for none. */
+	conversation?: string | null;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -65,14 +68,19 @@ interface EvalLaunchesOptions {
 }
 
 /**
- * The paid runs the Evals card starts, each the existing runner as a child
- * (`splates dev eval fast ... --yes`), so its change gate, shared budgets and
- * admission stay the harness's. Held in memory: a restart forgets which
- * launch was whose, though the batch it wrote stays on the Evals page.
+ * Starts, follows and stops the paid runs the Evals card asks for, and says
+ * `finished` when one started from a conversation's card is done, for that
+ * conversation to be told. A restart forgets which launch was whose, though
+ * the batch it wrote stays on the Evals page.
  */
-export class EvalLaunches implements Resource {
+export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
+	private readonly dispatcher = new Dispatcher<EvalLaunchesEvents>();
+	readonly events = this.dispatcher.events;
 	private readonly launches = new Map<string, Launched>();
 
+	// Each run is the existing runner as a child (`splates dev eval fast ...
+	// --yes`), so its change gate, shared budgets and admission stay the
+	// harness's; launches are held in memory.
 	constructor(private readonly opts: EvalLaunchesOptions) {}
 
 	/** Every probe the harness registers. */
@@ -129,6 +137,7 @@ export class EvalLaunches implements Resource {
 			child,
 			known,
 			stopping: false,
+			conversation: spec.conversation ?? null,
 		};
 		this.launches.set(spec.key, launch);
 		void this.watch(launch);
@@ -207,6 +216,16 @@ export class EvalLaunches implements Resource {
 				: launch.batch === null
 					? "refused"
 					: "done";
+		if (
+			launch.status === "done" &&
+			launch.batch !== null &&
+			launch.conversation !== null
+		) {
+			this.dispatcher.dispatch("finished", {
+				launch: viewOf(launch),
+				conversation: launch.conversation,
+			});
+		}
 	}
 
 	/** The launch, its batch found if the runner has made one since it started. */
@@ -217,20 +236,33 @@ export class EvalLaunches implements Resource {
 			);
 			launch.batch = made.sort().at(-1) ?? null;
 		}
-		return {
-			id: launch.id,
-			key: launch.key,
-			status: launch.status,
-			batch: launch.batch,
-			output: launch.output,
-		};
+		return viewOf(launch);
 	}
 }
+
+function viewOf(launch: Launched): EvalLaunch {
+	return {
+		id: launch.id,
+		key: launch.key,
+		status: launch.status,
+		batch: launch.batch,
+		output: launch.output,
+	};
+}
+
+/** A run that finished with its batch written, for the conversation whose card started it. */
+export interface EvalFinished {
+	launch: EvalLaunch;
+	conversation: string;
+}
+
+export type EvalLaunchesEvents = { finished: EvalFinished };
 
 interface Launched extends EvalLaunch {
 	child: Child;
 	known: Set<string>;
 	stopping: boolean;
+	conversation: string | null;
 }
 
 async function* decoded(

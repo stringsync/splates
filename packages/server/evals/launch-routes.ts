@@ -24,11 +24,20 @@ export class EvalLaunchRoutes {
 		// A request's body reads once, so the spec and its key share one read.
 		const sent = await body(request);
 		const spec = this.spec(sent);
-		const key = sent.key;
+		const { key, conversation } = sent;
 		if (typeof key !== "string" || key === "") {
 			fail("usage", "a run names its card by `key`", {});
 		}
-		return Response.json(await this.ready().start({ ...spec, key }));
+		if (conversation != null && typeof conversation !== "string") {
+			fail("usage", "a run's conversation is its id", {});
+		}
+		return Response.json(
+			await this.ready().start({
+				...spec,
+				key,
+				conversation: conversation ?? null,
+			}),
+		);
 	};
 
 	/** `?key=` names the card; null when it has no run here. */

@@ -1,4 +1,5 @@
 import { earlyWarningOf, warningLines } from "./early-warning";
+import { evalsDoneLine, evalsDoneOf } from "./evals-done";
 import type { SplatesEventView } from "./splates-event";
 
 /**
@@ -57,6 +58,10 @@ export function serverToldLines(
 	const warning = earlyWarningOf(text);
 	if (warning !== null) {
 		return warningLines(warning, at, text);
+	}
+	const done = evalsDoneOf(text);
+	if (done !== null) {
+		return [evalsDoneLine(done, at, text)];
 	}
 	const start = queueStartOf(text);
 	return start === null ? null : [startLine(start, lanes, at, text)];

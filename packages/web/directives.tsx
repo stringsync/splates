@@ -13,6 +13,7 @@ import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
 import { earlyWarningOf } from "./early-warning";
+import { evalsDoneOf } from "./evals-done";
 import { outsideCode } from "./markdown";
 import { queueStartOf } from "./queue-start";
 import { ReferenceChip } from "./reference-chip";
@@ -235,12 +236,15 @@ export function carriesOn(message: ThreadMessageLike): boolean {
 
 /**
  * Whether a message of `text` alone, from `told`, is splates server's early
- * warning to the agent, which the page draws as event lines instead.
+ * warning to the agent, a queued lane's start or an eval run's end, which the
+ * page draws as event lines instead.
  */
 export function isEarlyWarning(text: string, told: unknown): boolean {
 	return (
 		told === SERVER_TOLD &&
-		(earlyWarningOf(text) !== null || queueStartOf(text) !== null)
+		(earlyWarningOf(text) !== null ||
+			queueStartOf(text) !== null ||
+			evalsDoneOf(text) !== null)
 	);
 }
 

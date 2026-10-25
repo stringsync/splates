@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
+import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import {
@@ -397,6 +398,27 @@ export async function dev(
 				});
 	if (evalLaunches !== null) {
 		disposer.defer(async () => evalLaunches.dispose());
+		// The agent whose card started a run hears it is done, with its report,
+		// to take the person through what to do next.
+		const unwatch = evalLaunches.events.on(
+			"finished",
+			({ launch, conversation }) => {
+				void (async () => {
+					const text = await evals.donePrompt(launch.batch ?? "");
+					let owner = await holding(conversation);
+					if (owner === null) {
+						await everywhere.openAll();
+						owner = await holding(conversation);
+					}
+					if (text === null || owner?.conversations == null) {
+						return;
+					}
+					const told = await owner.conversations.find(conversation);
+					await told.prompt(text, [], undefined, { told: SERVER_TOLD });
+				})().catch((error: unknown) => log.error(String(error)));
+			},
+		);
+		disposer.defer(async () => unwatch());
 	}
 	const evalLaunchRoutes = new EvalLaunchRoutes(evalLaunches);
 

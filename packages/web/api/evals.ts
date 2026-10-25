@@ -115,4 +115,6 @@ export interface EvalRunAsk {
 	probes: string[];
 	agents: EvalAgentsView["agents"];
 	baseline: string | null;
+	/** The conversation whose card asks, told once the run is done. */
+	conversation?: string | null;
 }

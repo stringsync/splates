@@ -34,6 +34,20 @@ describe("EvalLaunchRoutes", () => {
 		const response = await routes.start(launch(sent));
 
 		expect(response.status).toBe(200);
-		expect(started).toEqual([sent]);
+		expect(started).toEqual([{ ...sent, conversation: null }]);
+	});
+
+	it("passes on the conversation whose card it is, to tell it when the run is done", async () => {
+		await routes.start(
+			launch({
+				skill: "splates",
+				probes: ["resources/install"],
+				agents: [{ agent: "claude" }],
+				key: "card-1",
+				conversation: "c-1",
+			}),
+		);
+
+		expect(started[0]?.conversation).toBe("c-1");
 	});
 });

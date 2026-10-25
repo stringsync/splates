@@ -133,6 +133,62 @@ export function EvalReport({
 	);
 }
 
+/**
+ * A batch condensed for the card that started it: each probe's outcome on
+ * each agent, a chip per repetition opening its run on the Evals page.
+ */
+export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
+	const probes = useMemo(
+		() => [...new Set(grid.grid.map((cell) => cell.probe))],
+		[grid.grid],
+	);
+	const open = (run: string): void => {
+		location.hash = `#evals/${encodeURIComponent(grid.id)}/${encodeURIComponent(run)}`;
+	};
+	return (
+		<div className="overflow-x-auto">
+			<table
+				aria-label="eval summary"
+				className="w-full border-collapse text-xs"
+			>
+				<thead>
+					<tr>
+						<th className="sr-only">Probe</th>
+						{grid.targets.map((target) => (
+							<th
+								key={target.key}
+								className="px-1.5 pb-1 text-left font-normal text-muted-foreground whitespace-nowrap"
+							>
+								{targetLabel(target)}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{probes.map((probe) => (
+						<tr key={probe}>
+							<td className="py-0.5 pr-2">
+								<code>{probe}</code>
+							</td>
+							{grid.targets.map((target) => (
+								<td key={target.key} className="px-1.5 py-0.5">
+									<Cells
+										cells={grid.grid.filter(
+											(cell) =>
+												cell.probe === probe && cell.target === target.key,
+										)}
+										onOpen={open}
+									/>
+								</td>
+							))}
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
+
 /** One probe on one agent: a chip for each repetition, each opening its run. */
 function Cells({
 	cells,

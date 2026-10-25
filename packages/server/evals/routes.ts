@@ -3,6 +3,7 @@ import type { Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import type { Handler } from "../server/shared";
+import { evalsDonePrompt } from "./done";
 import { EvalStore, type ReadRun } from "./store";
 
 /**
@@ -54,6 +55,28 @@ export class EvalRoutes {
 				.catch(() => fail("not_found", `no eval run ${id}`, { id })),
 		);
 	};
+
+	/**
+	 * What tells the agent whose card started batch `id` that it is done, with
+	 * its report condensed; null when the batch is not there.
+	 */
+	async donePrompt(id: string): Promise<string | null> {
+		const store = await this.opened();
+		const grid = await store.grid(id);
+		if (grid === null) {
+			return null;
+		}
+		const missed = grid.grid.flatMap((cell) =>
+			cell.run === null || cell.run.status === "pass" ? [] : [cell.run.id],
+		);
+		const details = await Promise.all(
+			missed.map((run) => store.run(run).catch(() => null)),
+		);
+		return evalsDonePrompt(
+			grid,
+			details.filter((each) => each !== null),
+		);
+	}
 
 	private async opened(): Promise<EvalStore> {
 		const { checkout } = this.opts;

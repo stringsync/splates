@@ -22,3 +22,14 @@ reservation; only the person's Run button launches it (`EvalLaunchSpec`).
 Model runs also need a changed skill against `--baseline`, confirmation or
 `--yes`, and the declared budget (`10m/check, 50m/day`, kept raised for the
 UI's full sets).
+
+The card sends its conversation with Run. When the run is done with a batch
+written, `EvalLaunches` says `finished` and the server tells that
+conversation, as splates server, `[SPLATES EVALS DONE <batch>]` and the
+report condensed (`evalsDonePrompt` in `evals/done.ts`: the tally, each
+probe on each agent, each check that did not pass with its reply and
+trace). The skill has the agent reply with next steps as a proposal. The
+page draws that message as an "Evals done" line opening the report
+(`evals-done.ts`), and the card, once done, a condensed grid
+(`EvalSummary`). A restart mid-run forgets the conversation, so no one is
+told.

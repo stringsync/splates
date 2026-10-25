@@ -168,6 +168,13 @@ Checks the new wording of the ask-first rule.
 Baseline: `main`
 ```
 
+Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
+and the report condensed: each probe's outcome on each agent, and each check
+that did not pass with the reply it read. Reply with what it shows and the
+next steps you recommend, as a proposal (see
+[proposing.md](references/proposing.md)): the skill or probe change it
+points to, and a run card to check that change once it is ready.
+
 ## In every conversation
 
 These ways hold in every conversation in a splates repository, with a task
@@ -197,7 +204,8 @@ asks you to read it as Reference files says. A few directives have no row
 because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](references/setup.md)),
 `[SPLATES DEFER]` ([queue.md](references/queue.md), Deferring), `[SPLATES KEEP]`
 ([notes.md](references/notes.md)), `[SPLATES GARDEN]` ([garden.md](references/garden.md)),
-`[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)), and hook
+`[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)),
+`[SPLATES EVALS DONE <batch>]` (Formats above, after the run card), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
 the prompt after it asks and end with the Done report in Formats above,
 unless your last reply is already a Merged, Removed or Deferred report. Read

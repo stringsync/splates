@@ -48,6 +48,7 @@ import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
+import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
 import { IdleBanner } from "./idle-banner";
@@ -340,81 +341,83 @@ function Conversation({
 											<BackgroundUI />
 											<RestedUI />
 											<InterruptedUI />
-											<SuiteGrant value={suite}>
-												<ArchiveConversation
-													value={archivable ? fileAway : null}
-												>
-													<ArchiveOfferProvider value={offer}>
-														<StartNewContext value={startNew}>
-															<ReplyContext value={reply}>
-																<NamedContext value={named}>
-																	<ThreadView
-																		docked
-																		historyFailure={historyFailure}
-																		onRead={onRead}
-																		autoFocus={
-																			summary !== true && (!asking || typed)
-																		}
-																		stopping={stopping}
-																		going={going}
-																		mentions={mentions ?? undefined}
-																		references={references}
-																		commands={commands ?? undefined}
-																		placeholder={
-																			archived
-																				? "Send a message to unarchive and continue"
-																				: undefined
-																		}
-																		controls={
-																			!archived && (
+											<EvalsConversation value={id}>
+												<SuiteGrant value={suite}>
+													<ArchiveConversation
+														value={archivable ? fileAway : null}
+													>
+														<ArchiveOfferProvider value={offer}>
+															<StartNewContext value={startNew}>
+																<ReplyContext value={reply}>
+																	<NamedContext value={named}>
+																		<ThreadView
+																			docked
+																			historyFailure={historyFailure}
+																			onRead={onRead}
+																			autoFocus={
+																				summary !== true && (!asking || typed)
+																			}
+																			stopping={stopping}
+																			going={going}
+																			mentions={mentions ?? undefined}
+																			references={references}
+																			commands={commands ?? undefined}
+																			placeholder={
+																				archived
+																					? "Send a message to unarchive and continue"
+																					: undefined
+																			}
+																			controls={
+																				!archived && (
+																					<>
+																						<ContextMeter
+																							usage={conversation.usage}
+																							compactions={compactionsIn(
+																								conversation.messages,
+																							)}
+																						/>
+																						<SettingControls
+																							agent={conversation.agent}
+																							autoPick={autoPick}
+																							settings={settings}
+																							current={(setting) =>
+																								setting.current
+																							}
+																							onChange={choose}
+																						/>
+																					</>
+																				)
+																			}
+																			above={
 																				<>
-																					<ContextMeter
-																						usage={conversation.usage}
-																						compactions={compactionsIn(
-																							conversation.messages,
-																						)}
-																					/>
-																					<SettingControls
-																						agent={conversation.agent}
-																						autoPick={autoPick}
-																						settings={settings}
-																						current={(setting) =>
-																							setting.current
-																						}
-																						onChange={choose}
-																					/>
-																				</>
-																			)
-																		}
-																		above={
-																			<>
-																				<NeedsYouBar />
+																					<NeedsYouBar />
 
-																				<Refusal
-																					refusal={refusal}
-																					className="px-2"
-																				/>
-																				{offer !== null && barred && (
-																					<ArchiveBar offer={offer} />
-																				)}
-																				{conversation.ask !== null && (
-																					<AskPanel
-																						key={conversation.ask.id}
-																						drafts={drafts}
-																						conversation={conversation}
-																						agent={agent}
-																						ask={conversation.ask}
+																					<Refusal
+																						refusal={refusal}
+																						className="px-2"
 																					/>
-																				)}
-																			</>
-																		}
-																	/>
-																</NamedContext>
-															</ReplyContext>
-														</StartNewContext>
-													</ArchiveOfferProvider>
-												</ArchiveConversation>
-											</SuiteGrant>
+																					{offer !== null && barred && (
+																						<ArchiveBar offer={offer} />
+																					)}
+																					{conversation.ask !== null && (
+																						<AskPanel
+																							key={conversation.ask.id}
+																							drafts={drafts}
+																							conversation={conversation}
+																							agent={agent}
+																							ask={conversation.ask}
+																						/>
+																					)}
+																				</>
+																			}
+																		/>
+																	</NamedContext>
+																</ReplyContext>
+															</StartNewContext>
+														</ArchiveOfferProvider>
+													</ArchiveConversation>
+												</SuiteGrant>
+											</EvalsConversation>
 										</UnsentContext.Provider>
 									</Composing.Provider>
 								</AssistantRuntimeProvider>

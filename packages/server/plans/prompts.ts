@@ -101,6 +101,15 @@ export function isUpdate(text: string): boolean {
 }
 
 /**
+ * What tells an agent a run its run evals card asked for is done, the batch
+ * it wrote named, before its condensed report: the splates skill says what it
+ * means.
+ */
+export function evalsDoneReference(batch: string): string {
+	return `[SPLATES EVALS DONE ${batch}]`;
+}
+
+/**
  * What asks an agent to bring its `SPLATES.md` up to date and stop, as before a
  * restart: the splates skill says what it means.
  */

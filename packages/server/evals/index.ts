@@ -2,7 +2,13 @@ export type { EvalAgents } from "./agents";
 export { EvalAgentsStore } from "./agents";
 export type { EvalAgentsView } from "./agents-routes";
 export { EvalAgentsRoutes } from "./agents-routes";
-export type { EvalLaunch, EvalPlan, EvalProbe } from "./launch";
+export { evalsDonePrompt } from "./done";
+export type {
+	EvalFinished,
+	EvalLaunch,
+	EvalPlan,
+	EvalProbe,
+} from "./launch";
 export { EvalLaunches } from "./launch";
 export { EvalLaunchRoutes } from "./launch-routes";
 export { EvalRoutes } from "./routes";

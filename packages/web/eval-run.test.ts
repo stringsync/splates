@@ -1,10 +1,67 @@
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import type {
 	EvalGrid,
 	EvalLaunch,
 } from "@stringsync/splates-server/evals/browser";
 import { FakeTimer } from "webappwiz/time/testing";
 import { EvalRun, type EvalRunServer } from "./eval-run";
+
+describe("EvalRun", () => {
+	const proposal = () => ({
+		action: "run-evals" as const,
+		lane: null,
+		tasks: [],
+		title: null,
+		body: "",
+		evals: ASK,
+	});
+	let server: FakeEvalServer;
+	let timer: FakeTimer;
+
+	beforeEach(() => {
+		server = new FakeEvalServer();
+		timer = new FakeTimer();
+	});
+
+	it("groups the probes and plans on the saved agents without starting", async () => {
+		const run = EvalRun.of(proposal(), { server, timer });
+
+		await run.load();
+
+		expect(run.groups.map((each) => each.aspect)).toEqual([
+			"decisions",
+			"lifecycle",
+		]);
+		expect(run.plan?.tokens).toBe(4000000);
+		expect(server.started).toEqual([]);
+	});
+
+	it("starts only on run, with the agents left in and its conversation, and follows until it ends", async () => {
+		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
+		await run.load();
+		await run.toggle(1);
+
+		await run.run();
+		expect(server.started).toEqual([
+			{
+				...ASK,
+				agents: [{ agent: "claude", model: "opus" }],
+				conversation: "c-1",
+			},
+		]);
+		expect(run.grid?.tally.pending).toBe(2);
+
+		server.pending = 0;
+		server.launched = { ...(server.launched as EvalLaunch), status: "done" };
+		timer.fireIntervals();
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(run.running).toBe(false);
+		expect(run.grid?.tally.pass).toBe(4);
+	});
+});
 
 const ASK = {
 	skill: "splates",
@@ -73,52 +130,3 @@ class FakeEvalServer implements EvalRunServer {
 		};
 	}
 }
-
-describe("EvalRun", () => {
-	const proposal = () => ({
-		action: "run-evals" as const,
-		lane: null,
-		tasks: [],
-		title: null,
-		body: "",
-		evals: ASK,
-	});
-
-	it("groups the probes and plans on the saved agents without starting", async () => {
-		const server = new FakeEvalServer();
-		const run = EvalRun.of(proposal(), { server, timer: new FakeTimer() });
-
-		await run.load();
-
-		expect(run.groups.map((each) => each.aspect)).toEqual([
-			"decisions",
-			"lifecycle",
-		]);
-		expect(run.plan?.tokens).toBe(4000000);
-		expect(server.started).toEqual([]);
-	});
-
-	it("starts only on run, with the agents left in, and follows until it ends", async () => {
-		const server = new FakeEvalServer();
-		const timer = new FakeTimer();
-		const run = EvalRun.of(proposal(), { server, timer });
-		await run.load();
-		await run.toggle(1);
-
-		await run.run();
-		expect(server.started).toEqual([
-			{ ...ASK, agents: [{ agent: "claude", model: "opus" }] },
-		]);
-		expect(run.grid?.tally.pending).toBe(2);
-
-		server.pending = 0;
-		server.launched = { ...(server.launched as EvalLaunch), status: "done" };
-		timer.fireIntervals();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-
-		expect(run.running).toBe(false);
-		expect(run.grid?.tally.pass).toBe(4);
-	});
-});
