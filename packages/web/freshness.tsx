@@ -85,7 +85,7 @@ const INBOX_ROWS = [
 /**
  * What the inbox shows in place of its rows before its first read: rows shaped
  * like the real ones, an avatar, a name with its project and age, and a line
- * of preview, so they hold the same height and nothing jumps when they load.
+ * of preview. Their count cannot predict the loaded inbox's groups and folders.
  */
 export function InboxLoading({
 	className,

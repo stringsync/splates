@@ -315,10 +315,10 @@ const ComposerAction: FC = () => {
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
-		<div className="aui-composer-action-wrapper relative flex min-h-10 min-w-0 basis-full items-center justify-between gap-2">
+		<div className="aui-composer-action-wrapper relative flex min-h-10 min-w-0 basis-full flex-wrap items-center justify-between gap-2">
 			<div
 				className={cn(
-					"flex min-w-0 items-center gap-0 overflow-hidden",
+					"flex min-w-0 max-w-full items-center gap-0 overflow-hidden",
 					dictating && "flex-1",
 				)}
 			>
@@ -331,7 +331,7 @@ const ComposerAction: FC = () => {
 				</AuiIf>
 				{dictating ? <DictationStatus expanded className="pr-0" /> : controls}
 			</div>
-			<div className="flex shrink-0 items-center gap-1.5">
+			<div className="ml-auto flex shrink-0 items-center gap-1.5">
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
 					<DictateButton />
 				</AuiIf>

@@ -52,7 +52,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /**
  * A thin ring filled as far as the context is, as in Zed, quiet until it
  * nears full; on hover, the context, the tokens read and written, and what
- * the session cost, as far as the agent says. Nothing until it says.
+ * the session cost, as far as the agent says. Before it reports context,
+ * the same control explains that it has not been reported yet, keeping
+ * the neighboring settings in place when the first measurement arrives.
  */
 export function ContextMeter({
 	usage,
@@ -61,24 +63,25 @@ export function ContextMeter({
 	usage: Usage;
 	/** The conversation's compactions so far, oldest first. */
 	compactions?: readonly Compaction[];
-}): JSX.Element | null {
+}): JSX.Element {
 	const { context, input, cached, output, cost } = usage;
 	const now = useNow(compactions.length > 0);
 	if (usage.opencode !== undefined) {
 		return <OpenCodeMeter usage={usage} />;
 	}
-	if (context === null || context.size <= 0) {
-		return null;
-	}
-	const share = Math.min(context.used / context.size, 1);
+	const known = context !== null && context.size > 0;
+	const share = known ? Math.min(context.used / context.size, 1) : 0;
 	const percent = Math.round(share * 100);
+	const label = known
+		? `${percent}% of context used`
+		: "Context usage not reported";
 	const last = compactions.at(-1) ?? null;
 	return (
 		<Popover>
 			<PopoverTrigger
 				openOnHover
 				delay={150}
-				aria-label={`${percent}% of context used`}
+				aria-label={label}
 				className={cn(
 					"inline-flex size-6 pointer-coarse:size-11 shrink-0 cursor-default items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 					share >= NEARLY_FULL && "text-warning hover:text-warning",
@@ -89,7 +92,7 @@ export function ContextMeter({
 					viewBox="0 0 16 16"
 					className="-rotate-90 size-4 pointer-coarse:size-5"
 				>
-					<title>{`${percent}% of context used`}</title>
+					<title>{label}</title>
 					<circle
 						cx="8"
 						cy="8"
@@ -121,10 +124,16 @@ export function ContextMeter({
 				className="w-auto min-w-48 gap-0 p-0"
 			>
 				<Section title="Context">
-					{percent}%<Dot />
-					{tokens(context.used)}
-					<span className="text-muted-foreground"> / </span>
-					{tokens(context.size)}
+					{known ? (
+						<>
+							{percent}%<Dot />
+							{tokens(context.used)}
+							<span className="text-muted-foreground"> / </span>
+							{tokens(context.size)}
+						</>
+					) : (
+						"Not reported by the agent"
+					)}
 				</Section>
 				{(input > 0 || output > 0) && (
 					<Section

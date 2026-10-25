@@ -6,7 +6,43 @@ import { ContextMeter, OpenCodeReport } from "./usage";
 
 afterEach(cleanup);
 
-describe("OpenCode usage display", () => {
+describe("Context usage display", () => {
+	it.each([null, { size: 0, used: 0 }])(
+		"keeps usage reachable while context is %j and updates the open control in place",
+		async (context) => {
+			const state = blank("c", "claude", null, "2026-10-17T12:00:00Z");
+			state.usage.context = context;
+			const view = render(<ContextMeter usage={state.usage} />);
+			const control = view.getByRole("button", {
+				name: "Context usage not reported",
+			});
+			fireEvent.click(control);
+			await waitFor(() =>
+				expect(
+					view.getByRole("region", { name: "Context" }).textContent,
+				).toContain("Not reported by the agent"),
+			);
+			view.rerender(
+				<ContextMeter
+					usage={{ ...state.usage, context: { size: 200000, used: 20000 } }}
+				/>,
+			);
+			expect(view.getByRole("button", { name: "10% of context used" })).toBe(
+				control,
+			);
+			expect(
+				view.getByRole("region", { name: "Context" }).textContent,
+			).toContain("10%");
+			view.rerender(<ContextMeter usage={state.usage} />);
+			expect(
+				view.getByRole("button", { name: "Context usage not reported" }),
+			).toBe(control);
+			expect(
+				view.getByRole("region", { name: "Context" }).textContent,
+			).toContain("Not reported by the agent");
+		},
+	);
+
 	it("opens without context and labels missing metrics as unknown", async () => {
 		const state = blank("c", "opencode", null, "2026-10-17T12:00:00Z");
 		const view = render(<ContextMeter usage={state.usage} />);
