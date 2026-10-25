@@ -24,7 +24,7 @@ import {
 	type JSX,
 	type ReactNode,
 	useContext,
-	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -153,7 +153,7 @@ function Folded({ children }: { children: ReactNode }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const box = useRef<HTMLDivElement>(null);
 	const [cut, setCut] = useState(false);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const element = box.current;
 		if (element === null || open) {
 			return;

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { taskOutcome } from "./api";
+import { LANDED } from "./landed-outcomes";
 import { Markdown } from "./markdown";
 import { type Decided, mergedFacts } from "./merged-facts";
 
@@ -17,17 +17,20 @@ import { type Decided, mergedFacts } from "./merged-facts";
  * for no task, or for one whose merge was never recorded here.
  */
 export function useLanded(task: string | null): Landed | null {
-	const [landed, setLanded] = useState<Landed | null>(null);
+	const [landed, setLanded] = useState<Landed | null>(
+		task === null ? null : (LANDED.get(task) ?? null),
+	);
 	useEffect(() => {
 		if (task === null) {
 			return;
 		}
 		let current = true;
-		taskOutcome(task).then(
-			(read) => current && setLanded(read),
-			// A card says what it can; the report above it stands alone.
-			() => {},
-		);
+		// A card says what it can; the report above it stands alone.
+		void LANDED.load(task).then(() => {
+			if (current) {
+				setLanded(LANDED.get(task) ?? null);
+			}
+		});
 		return () => {
 			current = false;
 		};

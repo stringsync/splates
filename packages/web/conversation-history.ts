@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { ApiError, answered, scoped } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
+import { LANDED } from "./landed-outcomes";
 import { messageOf } from "./sending";
 
 /** Complete history kept across refreshes, and the selected histories being read. */
@@ -135,6 +136,11 @@ export class ConversationHistory
 			) {
 				throw new Error("Couldn't load complete conversation history.");
 			}
+			// Its merged cards open whole, not growing as their stats arrive.
+			await LANDED.preload(state.messages);
+			if (generation !== this.generation) {
+				return;
+			}
 			if (this.feed.revision(id) === revision) {
 				this.feed.put(state);
 				return;
@@ -151,5 +157,6 @@ export class ConversationHistory
 		this.reading.clear();
 		this.errors.clear();
 		this.complete.clear();
+		LANDED.clear();
 	}
 }

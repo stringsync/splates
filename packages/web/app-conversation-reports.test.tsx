@@ -293,6 +293,42 @@ describe("App's report cards", () => {
 		expect(card.querySelector("strong")?.textContent).toBe("wraps");
 	});
 
+	it("opens a merged card with how its task went already in it, so it never grows", async () => {
+		testing.landed.header = {
+			outcome: {
+				project: "/repo",
+				task: "header",
+				base: "main",
+				ended: "merged",
+				startedAt: "2026-10-14T09:20:00.000Z",
+				endedAt: "2026-10-14T10:00:00.000Z",
+				questionRounds: 0,
+				reviewRounds: 0,
+				failedMerges: 0,
+				size: { files: 2, added: 40, removed: 3 },
+				findings: [],
+				conversation: null,
+				agent: null,
+				model: null,
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("agent", "## ✅ Merged header onto main\n\nIt wraps now."),
+				],
+			}),
+		]);
+
+		expect(
+			within(view.getByRole("region", { name: "merged header" })).getByRole(
+				"region",
+				{ name: "how it went" },
+			),
+		).not.toBeNull();
+	});
+
 	it("shows under a merged card how its task went beside the project's usual, the gate's word and what went wrong", async () => {
 		testing.landed.header = {
 			outcome: {
