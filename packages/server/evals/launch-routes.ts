@@ -17,12 +17,14 @@ export class EvalLaunchRoutes {
 
 	/** The free plan for the body's probes and agents: what the run would reserve. */
 	readonly plan: Handler = async (request) =>
-		Response.json(await this.ready().plan(await this.spec(request)));
+		Response.json(await this.ready().plan(this.spec(await body(request))));
 
 	/** Starts the run; only the person's Run button sends this. */
 	readonly start: Handler = async (request) => {
-		const spec = await this.spec(request);
-		const key = (await this.json(request)).key;
+		// A request's body reads once, so the spec and its key share one read.
+		const sent = await body(request);
+		const spec = this.spec(sent);
+		const key = sent.key;
 		if (typeof key !== "string" || key === "") {
 			fail("usage", "a run names its card by `key`", {});
 		}
@@ -48,17 +50,13 @@ export class EvalLaunchRoutes {
 		return new URL(request.url).searchParams.get("key") ?? "";
 	}
 
-	private async json(request: Request): Promise<Record<string, unknown>> {
-		return (await body(request)) as Record<string, unknown>;
-	}
-
-	private async spec(request: Request): Promise<{
+	private spec(sent: Record<string, unknown>): {
 		skill: string;
 		probes: string[];
 		agents: AgentPick[];
 		baseline: string | null;
-	}> {
-		const { skill, probes, agents, baseline } = await this.json(request);
+	} {
+		const { skill, probes, agents, baseline } = sent;
 		if (typeof skill !== "string" || !SKILLS.includes(skill)) {
 			fail("usage", `no probes for skill ${String(skill)}`, {});
 		}
