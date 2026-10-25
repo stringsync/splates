@@ -12,8 +12,9 @@ reply into stretches of type `text`, `questions`, `review`, `proposal`,
   `- (a)` or `- [a]` choices.
 - Review `## 🔍 Ready to merge <task> onto <base>`, with `Checks:` and
   `Failed:` lines; proposal `## 💡 Proposed ...`.
-- Reports `## ✅ Merged <task> onto <base>`, `## ✅ Done: ...` (an
-  automation's run, no task; offers Archive and a green check like a merge),
+- Reports `## ✅ Merged <task> onto <base>`, `## ✅ Done: ...` (any
+  conversation's work over with no task landed, an automation's run among
+  them; offers Archive and the same green circle check as a merge),
   `## 🛑 Removed`, `## ⏸ Deferred`, `## ⚠️ Escalated`, `## ⏳ Working`.
 - Permission `## 🔐 Permission: queue lane <n>|queue #<n>|remove lane
   <n>|run evals <skill>|run command` (older `## 📥 Queue` reads as queue); todo `### 📝

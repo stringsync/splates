@@ -4,7 +4,6 @@ import {
 	CircleCheckIcon,
 	CircleSlashIcon,
 	GitBranchIcon,
-	GitMergeIcon,
 	HourglassIcon,
 	type LucideIcon,
 	PauseIcon,
@@ -146,7 +145,8 @@ export const ENDINGS: Record<
 	TaskReport["ending"],
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
-	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
+	// Both are work over, so they share the check.
+	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },

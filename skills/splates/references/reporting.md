@@ -42,6 +42,17 @@ as lost. It keeps `## 🛑 Removed` for work that really ended.
 The task set out to stop uploads retrying a 413; it is back on the list.
 ```
 
+Work over with no task to merge or remove, such as a question you were
+asked to look into, a setup step or an automation's run, ends on a Done
+report, what came of it after the colon. It too asks and offers nothing, and
+a reply in a talk that carries on is none:
+
+```markdown
+## ✅ Done: the upload 413s come from the proxy, not the app
+
+Its body limit is 1 MB; nothing in this repository needs to change.
+```
+
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.
 

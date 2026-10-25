@@ -87,7 +87,7 @@ export function ReportCard({
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				// An automation's Done names no task.
+				// A Done report names no task.
 				task={report.task === "" ? undefined : report.task}
 				base={report.base}
 				aside={

@@ -145,7 +145,7 @@ export type Ending =
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## ✅ Done:
- * <what came of it>` (an automation's run, with no task), `## 🛑 Removed
+ * <what came of it>` (work over with no task, such as an automation's run), `## 🛑 Removed
  * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
  * Working <task>: on <agent>`.
  */
@@ -219,7 +219,7 @@ const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
 
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
-/** An automation's run finished: `## ✅ Done: <what came of it>`. */
+/** A conversation's work is over with no task: `## ✅ Done: <what came of it>`. */
 const DONE = /^## ✅ Done(?::[ \t]*(.*?))?[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;

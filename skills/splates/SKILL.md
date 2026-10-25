@@ -106,10 +106,12 @@ not removed:
 The task set out to stop uploads retrying a 413; it is back on the list.
 ```
 
-An automation's run, from a hook prompt (`[SPLATES EVENT ...]` or `[SPLATES
-SCHEDULE <n>]`), ends with its last reply as a Done report, what came of it
-after the colon, unless that reply is already a Merged or Removed report, so
-the user sees the run is over and archives it:
+When the work the conversation was for is over and no task merged, was
+removed or deferred (a question you were asked to look into answered, a
+setup step finished, an automation's run from a hook prompt, `[SPLATES EVENT
+...]` or `[SPLATES SCHEDULE <n>]`), its last reply is a Done report, what came
+of it after the colon, so the user sees the work is over and archives it. A
+reply in a talk that carries on is no Done report:
 
 ```markdown
 ## ✅ Done: two merged tasks reviewed, nothing to fix
@@ -197,7 +199,8 @@ because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](referen
 ([notes.md](references/notes.md)), `[SPLATES GARDEN]` ([garden.md](references/garden.md)),
 `[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
-the prompt after it asks and end with the Done report in Formats above. Read
+the prompt after it asks and end with the Done report in Formats above,
+unless your last reply is already a Merged, Removed or Deferred report. Read
 the file when one arrives.
 
 | Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

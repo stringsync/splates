@@ -99,6 +99,29 @@ describe("App's offer to archive a conversation whose task is over", () => {
 		).toBeTruthy();
 	});
 
+	it("offers to archive a conversation of the person's that reports its work done, with no task", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Upload 413s",
+				messages: [
+					message("user", "Why do uploads fail with a 413?"),
+					message(
+						"agent",
+						"## ✅ Done: the 413s come from the proxy\n\nIts body limit is 1 MB.",
+					),
+				],
+			}),
+		]);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "done" }),
+		);
+		expect(within(card).getByRole("button", { name: "Archive" })).toBeTruthy();
+		expect(
+			within(agentList(view)).getByRole("img", { name: "done" }),
+		).toBeTruthy();
+	});
+
 	it("offers no archiving once the conversation carries on past a report, or when the task escalated", async () => {
 		const view = await testing.openConversations([
 			conversation({
