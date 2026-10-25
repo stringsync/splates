@@ -47,7 +47,8 @@ removes the worktree. A conflict or a failing check goes back to the agent that
 made the change, which fixes it and merges again. A check that writes a JUnit
 XML report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit
 --reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test slower
-than 5 seconds.
+than 5 seconds. A check that appends `{"phase": "<name>", "ms": <n>}` lines to
+`$SPLATES_GATE_PHASES` has those phase times kept in the merge's log entry.
 
 **Project notes.** Keep durable conventions, decisions and other project context
 as short Markdown files in `notes/`, one thing per file, edited in place.

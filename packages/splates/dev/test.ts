@@ -7,6 +7,7 @@ import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { type ScopeCount, TestScope } from "./test-scope";
@@ -46,6 +47,8 @@ export interface TestOptions {
 	bail?: boolean;
 	/** Print nothing unless the tests fail, then all they printed. */
 	quiet?: boolean;
+	/** What times each bun run for a merge's gate; untimed when left out. */
+	phases?: PhaseTimer;
 }
 
 /**
@@ -107,16 +110,22 @@ export async function test(opts: TestOptions): Promise<void> {
 	// of its CPU. The page's run preloads what puts its DOM in place and
 	// clears it after each test.
 	const evals = opts.all ? [] : ["--path-ignore-patterns=evals/**"];
-	const runs = opts.evals
-		? [["--path-ignore-patterns=packages/**"]]
+	const runs: { phase: string; args: string[] }[] = opts.evals
+		? [{ phase: "eval tests", args: ["--path-ignore-patterns=packages/**"] }]
 		: [
-				[...evals, "--path-ignore-patterns=packages/web/**"],
-				[
-					"--preload=./packages/web/test-preload.ts",
-					"--path-ignore-patterns=packages/server/**",
-					"--path-ignore-patterns=packages/splates/**",
-					"--path-ignore-patterns=evals/**",
-				],
+				{
+					phase: "server tests",
+					args: [...evals, "--path-ignore-patterns=packages/web/**"],
+				},
+				{
+					phase: "web tests",
+					args: [
+						"--preload=./packages/web/test-preload.ts",
+						"--path-ignore-patterns=packages/server/**",
+						"--path-ignore-patterns=packages/splates/**",
+						"--path-ignore-patterns=evals/**",
+					],
+				},
 			];
 
 	// a worker runs a file at a time; suites opt into within-file concurrency
@@ -177,8 +186,8 @@ export async function test(opts: TestOptions): Promise<void> {
 	let failed = false;
 	const reports: string[] = [];
 	const printed: string[] = [];
-	for (const [at, args] of runs.entries()) {
-		const { exitCode } = await (async () => {
+	for (const [at, { phase, args }] of runs.entries()) {
+		const spawned = async () => {
 			if (!opts.quiet) {
 				return await ps.spawn(bunTest(args, at), { cwd: ROOT, env, signal });
 			}
@@ -189,7 +198,11 @@ export async function test(opts: TestOptions): Promise<void> {
 			});
 			printed.push(done.stdout, done.stderr);
 			return done;
-		})().catch((error: unknown) => {
+		};
+		const { exitCode } = await (opts.phases
+			? opts.phases.time(phase, spawned)
+			: spawned()
+		).catch((error: unknown) => {
 			if (signal.aborted) {
 				throw new Error(
 					`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,

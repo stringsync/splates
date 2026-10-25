@@ -29,6 +29,13 @@ export const BESIDE_GATE_NICE = 10;
 export const RECENT_FAILED_FILES = "SPLATES_RECENT_FAILED_FILES";
 
 /**
+ * Set for a merge's gate to a file its command may append the phases it
+ * timed to, one `{"phase": "<name>", "ms": <n>}` line each, which the merge's
+ * log entry keeps as its `gate`.
+ */
+export const GATE_PHASES = "SPLATES_GATE_PHASES";
+
+/**
  * How long a merge's gate may run before it is killed. The whole suite takes
  * well under a minute alone, so a gate this long has hung, and the agent
  * merges again.

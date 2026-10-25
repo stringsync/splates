@@ -11,6 +11,7 @@ import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { fix } from "./fix";
+import { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { refuseWholeSuite, test } from "./test";
@@ -71,36 +72,42 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	const started = performance.now();
 	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
 	const priority = new AgentPriority(ps, { premerge: true });
-	await fix({ check: true, log, priority, ps }).catch((error: unknown) => {
-		log.error("premerge: the checks failed, so no tests ran");
-		throw error;
-	});
+	const phases = new PhaseTimer(ps);
+	await fix({ check: true, log, priority, phases, ps }).catch(
+		(error: unknown) => {
+			log.error("premerge: the checks failed, so no tests ran");
+			throw error;
+		},
+	);
 	// Files that failed recent gates run first, and stop the gate when they
 	// fail again; nothing is skipped, as the whole suite follows.
 	const recent = await existing(
 		(ps.env(RECENT_FAILED_FILES) ?? "").split("\n").filter(Boolean),
 	);
 	if (recent.length) {
-		await test({
-			ci: true,
-			allowed: true,
-			bail: true,
-			quiet: true,
-			files: recent,
-			log,
-			priority,
-			...(opts.all === undefined ? {} : { all: opts.all }),
-			ps,
-			deadline: Duration.ms(
-				Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
-			),
-		});
+		await phases.time("recent", () =>
+			test({
+				ci: true,
+				allowed: true,
+				bail: true,
+				quiet: true,
+				files: recent,
+				log,
+				priority,
+				...(opts.all === undefined ? {} : { all: opts.all }),
+				ps,
+				deadline: Duration.ms(
+					Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
+				),
+			}),
+		);
 	}
 	await test({
 		ci: true,
 		allowed: true,
 		log,
 		priority,
+		phases,
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),

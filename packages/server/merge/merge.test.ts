@@ -592,6 +592,24 @@ describe.concurrent("merge", () => {
 		});
 	});
 
+	it("logs the phases the gate timed at $SPLATES_GATE_PHASES, with the rest as setup", async () => {
+		await using deps = await Testing.open();
+		deps.config.preMerge = `echo '{"phase":"biome","ms":5}' >> "$SPLATES_GATE_PHASES"`;
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, worktree, facts);
+
+		expect(facts.gate).toEqual({
+			workers: expect.any(Number),
+			load: expect.any(Number),
+			ms: { biome: 5, setup: expect.any(Number) },
+		});
+	});
+
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {
 		await using deps = await Testing.open();
 

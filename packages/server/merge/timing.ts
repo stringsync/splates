@@ -1,5 +1,5 @@
 import type { Clock } from "webappwiz/time";
-import type { Facts } from "../records";
+import type { Facts, GatePhases } from "../records";
 import type { MergeTimes } from "../tasks";
 
 /** Updates the caller's facts even when a merge or a gate refuses. */
@@ -24,6 +24,11 @@ export class MergeTiming implements Disposable {
 					(this.facts[fact] ?? 0) + this.clock.now().subtract(started).ms;
 			},
 		};
+	}
+
+	/** Keeps a whole gate run's phases, each run's in place of the last's. */
+	gated(phases: GatePhases): void {
+		this.facts.gate = phases;
 	}
 
 	/** How long the merge so far waited for the premerge lock, and ran besides. */

@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import {
+	GATE_PHASES,
 	type PlacedLock,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
@@ -11,6 +12,7 @@ import {
 } from "../server/shared";
 import type { Shell } from "../terminal";
 import { gateCores } from "./cores";
+import { TimedPhases } from "./phases";
 import type { MergeTiming } from "./timing";
 
 /** How long a merge waits for the premerge lock before its line says it is queued. */
@@ -219,8 +221,13 @@ export class MergeGate {
 		files: string[] | undefined,
 		recent: string[] = [],
 	): Promise<GateRun> {
-		const report = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/splates-test-report.xml`;
+		const gitDir = (
+			await this.git.out(cwd, "rev-parse", "--absolute-git-dir")
+		).trim();
+		const report = `${gitDir}/splates-test-report.xml`;
+		const phases = `${gitDir}/splates-gate-phases.jsonl`;
 		await this.fs.rm(report, { force: true });
+		await this.fs.rm(phases, { force: true });
 		const command =
 			files === undefined
 				? this.command
@@ -230,6 +237,8 @@ export class MergeGate {
 						...files.map((file) => quoted(`./${file}`)),
 					].join(" ");
 		const timeoutMs = files === undefined ? this.timeoutMs : 180_000;
+		const load = loadavg()[0] ?? 0;
+		const workers = gateCores(availableParallelism(), load);
 		const started = performance.now();
 		const run = await this.shell.run(command, cwd, {
 			env: {
@@ -237,19 +246,32 @@ export class MergeGate {
 				SPLATES_WORKTREE: cwd,
 				SPLATES_TEST_REPORT: report,
 				[PREMERGE_HELD]: "1",
-				SPLATES_CORES: String(
-					gateCores(availableParallelism(), loadavg()[0] ?? 0),
-				),
-				...(files === undefined && recent.length
-					? { [RECENT_FAILED_FILES]: recent.join("\n") }
+				SPLATES_CORES: String(workers),
+				...(files === undefined
+					? {
+							[GATE_PHASES]: phases,
+							...(recent.length
+								? { [RECENT_FAILED_FILES]: recent.join("\n") }
+								: {}),
+						}
 					: {}),
 			},
 			timeoutMs,
 		});
+		const ranMs = performance.now() - started;
+		if (files === undefined) {
+			this.timing.gated({
+				workers,
+				load,
+				ms: new TimedPhases(await this.fs.read(phases).catch(() => "")).of(
+					ranMs,
+				),
+			});
+		}
 		return {
 			...run,
 			xml: await this.fs.read(report).catch(() => ""),
-			timedOut: run.exitCode !== 0 && performance.now() - started >= timeoutMs,
+			timedOut: run.exitCode !== 0 && ranMs >= timeoutMs,
 		};
 	}
 

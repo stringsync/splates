@@ -52,6 +52,11 @@ export interface Facts {
 		capacityWaitMs?: number;
 		/** Rebase-and-retest rounds caused by trunk moving after a gate; absent on older events. */
 		retests?: number;
+		/**
+		 * What its last whole gate run spent its time on; absent on older
+		 * events and a merge that ran no gate.
+		 */
+		gate?: GatePhases;
 		/** The branch it landed on, or was refused landing on. */
 		base: string;
 		/** The commit the base reached, short. */
@@ -431,6 +436,21 @@ export interface LandedSince {
 	commits: LandedCommit[];
 }
 
+/** One whole gate run's time, by phase, and the machine it ran on. */
+export interface GatePhases {
+	/** The test workers it was given, `SPLATES_CORES`. */
+	workers: number;
+	/** The machine's one-minute load average when it started. */
+	load: number;
+	/**
+	 * Milliseconds by phase, in the order they ran: those the gate's command
+	 * timed through `SPLATES_GATE_PHASES`, such as `biome` or `server tests`,
+	 * then `setup`, the rest of the run: `postRewrite` and the command's own
+	 * start. Only `setup` when the command timed none.
+	 */
+	ms: Record<string, number>;
+}
+
 /** The facts each action's event records, by name, which `isCurrent` checks an event holds. */
 export const FACTS = {
 	// A fact an action gains is listed here too.
@@ -449,6 +469,7 @@ export const FACTS = {
 		"gateMs",
 		"capacityWaitMs",
 		"retests",
+		"gate",
 		"output",
 		"began",
 		"landed",
@@ -574,6 +595,7 @@ export function isCurrent(event: Event): boolean {
 					"gateMs",
 					"capacityWaitMs",
 					"retests",
+					"gate",
 					"output",
 					"began",
 					"landed",

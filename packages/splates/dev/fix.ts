@@ -1,5 +1,6 @@
 import { ConsoleLogger, color, type Logger } from "webappwiz/log";
 import { NodePs, type Ps } from "webappwiz/system";
+import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 
@@ -14,6 +15,8 @@ export interface FixOptions {
 	ps?: Ps;
 	/** What puts an agent's run behind a merge gate; this run's own by default. */
 	priority?: AgentPriority;
+	/** What times each check for a merge's gate; untimed when left out. */
+	phases?: PhaseTimer;
 }
 
 /**
@@ -36,33 +39,37 @@ export async function fix(opts: FixOptions): Promise<void> {
 
 	// An agent's run beside a merge gate makes way for it; biome, tsc and scry inherit the nice.
 	(opts.priority ?? new AgentPriority(ps)).lower();
+	const timed = <T>(phase: string, run: () => Promise<T>): Promise<T> =>
+		opts.phases ? opts.phases.time(phase, run) : run();
 	const flags = opts.check ? [] : ["--write", "--unsafe"];
-	const biome = await ps.spawn(["bunx", "biome", "check", ...flags, "."], {
-		cwd: ROOT,
-	});
+	const biome = await timed("biome", () =>
+		ps.spawn(["bunx", "biome", "check", ...flags, "."], { cwd: ROOT }),
+	);
 	step("biome", biome.exitCode === 0, "Biome check failed");
 
-	const typecheck = await ps.spawn(["bunx", "tsc", "--noEmit"], {
-		cwd: ROOT,
-	});
+	const typecheck = await timed("typecheck", () =>
+		ps.spawn(["bunx", "tsc", "--noEmit"], { cwd: ROOT }),
+	);
 	step("typecheck", typecheck.exitCode === 0, "Typechecking failed");
 
 	if (opts.skipScry) {
 		return;
 	}
 
-	const scry = await ps.spawn(
-		[
-			"bunx",
-			"@webappwiz/cli",
-			"scry",
-			"check",
-			"--since",
-			"main",
-			"--disable-over-budget",
-			...(opts.codeOnly ? ["--disable", "som", "--disable", "llm"] : []),
-		],
-		{ cwd: ROOT },
+	const scry = await timed("scry", () =>
+		ps.spawn(
+			[
+				"bunx",
+				"@webappwiz/cli",
+				"scry",
+				"check",
+				"--since",
+				"main",
+				"--disable-over-budget",
+				...(opts.codeOnly ? ["--disable", "som", "--disable", "llm"] : []),
+			],
+			{ cwd: ROOT },
+		),
 	);
 	step("scry", scry.exitCode === 0, "Scry check failed");
 }

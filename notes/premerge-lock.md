@@ -86,6 +86,17 @@ If they fail again the gate stops there with that report, which
 attribution retests as usual. If they pass, the full suite runs as
 before, so no test is skipped. The recent pass uses the same workers as the full run.
 
+## Phase times
+
+Each whole gate run's time goes in its `merge` log entry as `gate`: the
+workers it was given, the one-minute load when it started, and `ms` by
+phase. The gate names a file in `SPLATES_GATE_PHASES`; `dev premerge`
+appends a line per phase (`PhaseTimer`): `biome`, `typecheck`, `scry`,
+`recent`, `server tests`, `web tests`. The gate sums them and adds `setup`,
+the rest of the run: `postRewrite`'s `bun install` and the command's own
+start. A retest of named files records nothing; a later whole run replaces
+the earlier one's.
+
 ## History
 
 Until 2026-10-23, heavy-job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and

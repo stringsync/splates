@@ -3,6 +3,7 @@ export type {
 	Escalated,
 	Event,
 	Facts,
+	GatePhases,
 	JudgedNote,
 	LandedCommit,
 	LandedSince,
