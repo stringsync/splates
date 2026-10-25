@@ -15,6 +15,15 @@ export const SWIPE_PX = 120;
 /** How far a finger moves, in pixels, before it is a swipe or a scroll. */
 const DRIFT_PX = 10;
 
+/** How steeply a start may slant, as rise over run, and still be a swipe. */
+const SLANT = 1.5;
+
+/** How fast a flick is, in pixels per ms, that archives from a shorter pull. */
+const FLICK_PX_MS = 0.5;
+
+/** The shortest pull a flick archives from, in pixels. */
+const FLICK_MIN_PX = 40;
+
 /** How long a let-go row takes to slide off, then to close up, in ms. */
 const LEAVE_MS = 200;
 
@@ -27,10 +36,10 @@ export type Archive = {
 
 /**
  * Slides a row left under a finger, over an Archive backing, as iOS Mail's
- * rows slide. Let go short of `SWIPE_PX`, it slides back. Past it, a row
+ * rows slide. Let go short of `SWIPE_PX` without a flick, it slides back. Past it, a row
  * whose archiving asks first slides back as the question opens; any other
  * slides off, closes up so the rows below rise into its place, and only then
- * is archived, so it is gone before the list moves. A finger that moves up or
+ * is archived, so it is gone before the list moves. A finger that moves mostly up or
  * down first scrolls instead, and one moving right is left to the browser,
  * whose swipe from the edge goes back.
  */
@@ -51,6 +60,8 @@ export function Swipeable({
 	const row = useRef<HTMLDivElement>(null);
 	const backing = useRef<HTMLDivElement>(null);
 	const start = useRef<{ x: number; y: number } | null>(null);
+	// A flick is judged by how long the pull took, so the time it began is kept.
+	const began = useRef(0);
 	const swiping = useRef(false);
 	// Whether the pull is past SWIPE_PX, so letting go would archive.
 	const past = useRef(false);
@@ -130,6 +141,7 @@ export function Swipeable({
 					}
 					swiped.current = false;
 					start.current = { x: event.clientX, y: event.clientY };
+					began.current = event.timeStamp;
 				}}
 				onPointerMove={(event: PointerEvent) => {
 					if (start.current === null) {
@@ -141,7 +153,7 @@ export function Swipeable({
 						if (Math.hypot(dx, dy) <= DRIFT_PX) {
 							return;
 						}
-						if (dx >= 0 || Math.abs(dy) >= Math.abs(dx)) {
+						if (dx >= 0 || Math.abs(dy) > Math.abs(dx) * SLANT) {
 							start.current = null;
 							return;
 						}
@@ -155,7 +167,10 @@ export function Swipeable({
 					const far =
 						swiping.current &&
 						start.current !== null &&
-						start.current.x - event.clientX >= SWIPE_PX;
+						pullArchives(
+							start.current.x - event.clientX,
+							event.timeStamp - began.current,
+						);
 					end();
 					if (!far) {
 						settle();
@@ -187,12 +202,6 @@ export function Swipeable({
 /** How wide the strip along the right edge is, in pixels, that starts a swipe. */
 const EDGE_PX = 24;
 
-/** How fast a flick is, in pixels per ms, that archives from a shorter pull. */
-const FLICK_PX_MS = 0.5;
-
-/** The shortest pull a flick archives from, in pixels. */
-const FLICK_MIN_PX = 40;
-
 /**
  * A strip along the right edge of a screen whose finger, pulled left, slides
  * `target` away over an Archive backing, as `Swipeable`'s rows slide. Only the
@@ -209,7 +218,7 @@ export function EdgeSwipe({
 	target: RefObject<HTMLElement | null>;
 }): JSX.Element {
 	const backing = useRef<HTMLDivElement>(null);
-	// Whether the pull is past SWIPE_PX, so letting go would archive.
+	// Kept apart from the pull so the buzz and cue fire once, on crossing.
 	const past = useRef(false);
 	// When the finger went down, to tell a flick.
 	const began = useRef(0);
@@ -294,11 +303,9 @@ export function EdgeSwipe({
 				onPointerUp={(event: PointerEvent) => {
 					const pulled =
 						start.current === null ? 0 : start.current.x - event.clientX;
-					const flicked =
-						pulled >= FLICK_MIN_PX &&
-						pulled / Math.max(1, event.timeStamp - began.current) >=
-							FLICK_PX_MS;
-					const far = swiping.current && (pulled >= SWIPE_PX || flicked);
+					const far =
+						swiping.current &&
+						pullArchives(pulled, event.timeStamp - began.current);
 					end();
 					if (!far || archive.asks()) {
 						settle();
@@ -329,4 +336,11 @@ export function EdgeSwipe({
 			/>
 		</>
 	);
+}
+
+/** Whether a pull of `pulled` pixels over `ms` is far enough to archive. */
+function pullArchives(pulled: number, ms: number): boolean {
+	const flicked =
+		pulled >= FLICK_MIN_PX && pulled / Math.max(1, ms) >= FLICK_PX_MS;
+	return pulled >= SWIPE_PX || flicked;
 }

@@ -437,6 +437,64 @@ describe("App on a phone", () => {
 		]);
 	});
 
+	/** Swipes an inbox row left by `by` pixels, rising `rise`, over `ms`, at set times. */
+	const swipeRow = async (
+		inbox: HTMLElement,
+		name: RegExp,
+		by: number,
+		rise: number,
+		ms: number,
+	) => {
+		const row = within(inbox).getByRole("button", { name });
+		const touch = (type: string, left: number, top: number, at: number) => {
+			const event = new PointerEvent(type, {
+				bubbles: true,
+				clientX: left,
+				clientY: top,
+			});
+			Object.defineProperty(event, "timeStamp", { value: at });
+			row.dispatchEvent(event);
+		};
+		await act(async () => {
+			touch("pointerdown", 300, 100, 1000);
+			touch("pointermove", 300 - by, 100 + rise, 1000 + ms);
+			touch("pointerup", 300 - by, 100 + rise, 1000 + ms);
+		});
+	};
+
+	it("archives a row on a slanted swipe or a quick flick, but not a slow short pull", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
+				conversation({ id: "c2", title: "Add search", status: "stopped" }),
+				conversation({ id: "c3", title: "Slow one", status: "stopped" }),
+			],
+			null,
+			{ tasks: [] },
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+
+		// Slanted, steeper than 45 degrees but still mostly sideways.
+		await swipeRow(inbox, /Fix login/, SWIPE_PX + 20, 140, 400);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+
+		// Quick and short of the mark.
+		await swipeRow(inbox, /Add search/, 60, 4, 50);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c2/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+
+		// Slow and short of the mark.
+		await swipeRow(inbox, /Slow one/, 60, 4, 600);
+		expect(testing.posted("/api/conversations/c3/archived")).toEqual([]);
+	});
+
 	it("archives an open conversation swiped left from the right edge, landing in the inbox with an undo that goes when something else is done", async () => {
 		const view = await testing.openConversations(
 			[
