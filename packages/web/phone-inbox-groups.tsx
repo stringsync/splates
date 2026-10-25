@@ -136,7 +136,7 @@ export function FolderSection({
 			open={open}
 			onOpenChange={onFold}
 			render={<section aria-label={folder.name} />}
-			className="group/folder flex flex-col pt-4 not-first:mt-3 not-first:border-border not-first:border-t"
+			className="group/folder flex flex-col pt-4 not-first:before:mx-4 not-first:before:mb-3 not-first:before:border-border not-first:before:border-t not-first:before:content-['']"
 		>
 			<div className="group/head flex items-center pr-2">
 				<CollapsibleTrigger
