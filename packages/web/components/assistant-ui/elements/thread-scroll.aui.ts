@@ -1,5 +1,6 @@
 import { type AssistantState, useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { ReadingPlace } from "#web/components/assistant-ui/elements/thread-place.aui.ts";
 import { carriesOn } from "#web/directives.tsx";
 
 /**
@@ -221,58 +222,77 @@ export function useAnchorAtOnce(
 }
 /**
  * Keeps what the person is reading where it is when the thread changes above
- * it, as earlier messages load or a card above grows, which the browser's own
- * scroll anchoring does not hold here. The first message in view is the
- * mark: when the content resizes without the thread scrolling, it moves back
- * to the offset it had. A scroll, by anyone, only takes a new mark.
+ * it, as earlier messages load, an image above comes in or a card above
+ * grows, which the browser's own scroll anchoring does not hold here. The
+ * place is a `ReadingPlace`: when the thread resizes without scrolling, the
+ * thread scrolls by as much as the place drifted. A scroll, by anyone, only
+ * takes a new place, so the person's own scroll or a jump to a question or to
+ * the latest is never undone. Each message is watched as well as the whole,
+ * since the room kept below a turn anchored to the top shrinks by what grows
+ * above, and the whole keeps its height. Earlier messages put above are held
+ * in the commit that adds them, after assistant-ui's own hold, which puts
+ * back the first message and so misses by however far it was stuck.
  */
 export function useHoldPlace(viewport: RefObject<HTMLDivElement | null>): void {
+	const count = useAuiState((s) => s.thread.messages.length);
+	const first = useAuiState((s) => s.thread.messages[0]?.id);
+	const watching = useRef<ResizeObserver | null>(null);
+	const putBack = useRef<(() => void) | null>(null);
 	useLayoutEffect(() => {
 		const scroller = viewport.current;
 		const content = scroller?.firstElementChild;
 		if (scroller == null || content == null) {
 			return;
 		}
-		let mark: HTMLElement | null = null;
-		let offset = 0;
+		const place = new ReadingPlace(scroller);
 		let top = scroller.scrollTop;
-		const offsetOf = (element: HTMLElement) =>
-			element.getBoundingClientRect().top -
-			scroller.getBoundingClientRect().top;
 		const take = () => {
 			top = scroller.scrollTop;
-			mark = null;
-			for (const message of scroller.querySelectorAll<HTMLElement>(
-				"[data-message-id]",
-			)) {
-				if (
-					message.getBoundingClientRect().bottom >
-					scroller.getBoundingClientRect().top
-				) {
-					mark = message;
-					offset = offsetOf(message);
-					return;
-				}
-			}
+			place.take();
 		};
-		const resized = () => {
-			if (mark !== null && mark.isConnected && scroller.scrollTop === top) {
-				const shift = offsetOf(mark) - offset;
-				if (shift !== 0) {
-					scroller.scrollTop += shift;
-				}
+		const hold = () => {
+			const shift = place.drift();
+			if (shift !== 0) {
+				scroller.scrollTop += shift;
 			}
 			take();
 		};
+		const resized = () => {
+			if (scroller.scrollTop === top) {
+				hold();
+			} else {
+				take();
+			}
+		};
 		take();
 		scroller.addEventListener("scroll", take, { passive: true });
-		const watching = new ResizeObserver(resized);
-		watching.observe(content);
+		const observer = new ResizeObserver(resized);
+		observer.observe(content);
+		watching.current = observer;
+		putBack.current = hold;
 		return () => {
 			scroller.removeEventListener("scroll", take);
-			watching.disconnect();
+			observer.disconnect();
+			watching.current = null;
+			putBack.current = null;
 		};
 	}, [viewport]);
+	// Runs after assistant-ui's layout effects, the viewport's, in the commit.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: again as earlier messages come
+	useLayoutEffect(() => {
+		putBack.current?.();
+	}, [first]);
+	// Watching one already watched changes nothing, so each new message only
+	// adds itself.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: again as messages come
+	useLayoutEffect(() => {
+		const observer = watching.current;
+		for (const message of viewport.current?.querySelectorAll(
+			"[data-message-id]",
+		) ?? []) {
+			observer?.observe(message);
+		}
+	}, [viewport, count]);
 }
 /**
  * Reports how many messages the person has read, the most they have scrolled
