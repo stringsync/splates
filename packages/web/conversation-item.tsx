@@ -35,7 +35,7 @@ import {
 	pinConversation,
 	renameConversation,
 } from "./conversation-api";
-import { filable, useArchive } from "./conversation-archive";
+import { useArchive } from "./conversation-archive";
 import { reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
@@ -289,14 +289,14 @@ export function Item({
 								Stop turn
 							</DropdownMenuItem>
 						)}
-						{filable(conversation) && (
+						{
 							<DropdownMenuItem
 								onClick={() => file(archived ? undefined : onLeft)}
 							>
 								<Put />
 								{put}
 							</DropdownMenuItem>
-						)}
+						}
 					</DropdownMenuContent>
 				</DropdownMenu>
 				{pins && (
@@ -317,7 +317,7 @@ export function Item({
 						<Pin />
 					</Button>
 				)}
-				{filable(conversation) && (
+				{
 					<Button
 						size="icon-xs"
 						variant="ghost"
@@ -326,7 +326,7 @@ export function Item({
 					>
 						<Put />
 					</Button>
-				)}
+				}
 			</span>
 			<Refusal refusal={refusal} className="w-full px-3 pb-1.5" />
 		</div>

@@ -175,7 +175,8 @@ describe("App's agents, in a folder per project", () => {
 		).toEqual(["Mane", "Stripes"]);
 	});
 
-	it("lists a folder's automations among its conversations by recency, untagged, with no Archive for a persistent agent", async () => {
+	// scry-ignore simple-test-setup: this test alone lists these automations among the folder's conversations.
+	it("lists a folder's automations among its conversations by recency, untagged, each with an Archive", async () => {
 		const view = await testing.openConversations(
 			[
 				...mine,
@@ -215,8 +216,8 @@ describe("App's agents, in a folder per project", () => {
 		expect(within(here).queryByText("Automation")).toBeNull();
 		expect(within(here).queryByRole("separator")).toBeNull();
 		expect(
-			within(here).queryByRole("button", { name: "Archive Groomer" }),
-		).toBeNull();
+			within(here).getByRole("button", { name: "Archive Groomer" }),
+		).toBeDefined();
 		expect(
 			within(here).getByRole("button", { name: "Archive Mine" }),
 		).toBeTruthy();

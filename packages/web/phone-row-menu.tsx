@@ -25,7 +25,7 @@ import {
 	pinConversation,
 	renameConversation,
 } from "./conversation-api";
-import { filable, useArchive } from "./conversation-archive";
+import { useArchive } from "./conversation-archive";
 import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useExpect } from "./expecting";
@@ -126,7 +126,7 @@ export function Filed({
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
 	const { file, asks, confirm } = useArchive(conversation, refuse);
-	const archivable = !conversation.archived && filable(conversation);
+	const archivable = !conversation.archived;
 	return (
 		<>
 			{confirm}

@@ -287,23 +287,22 @@ describe("dev conversations", () => {
 	});
 
 	// scry-ignore simple-test-setup: only the server's automations start a persistent agent, never the page, so this one starts it directly.
-	it("refuses to archive a persistent agent's conversation, which its automation retires", async () => {
+	it("archives a persistent agent's conversation like any other", async () => {
 		const groomer = await conversations.start("fake", {
 			task: null,
 			cwd: deps.service.git.root,
 			persistent: "groomer",
 		});
 
-		const refused = await json(
+		const archived = await json(
 			port,
 			`/api/conversations/${groomer.id}/archived`,
 			"PUT",
 			{ archived: true },
 		);
 
-		expect(refused.status).toBe(400);
-		expect(await refused.text()).toContain("Automations page");
-		expect(groomer.state.archived).toBe(false);
+		expect(archived.status).toBe(200);
+		expect(groomer.state.archived).toBe(true);
 	});
 
 	// scry-ignore simple-test-setup: only this test's turn runs a tool, which the summary drops

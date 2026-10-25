@@ -42,7 +42,6 @@ import {
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
 import { approveSuite, markRead } from "./conversation-api";
-import { filable } from "./conversation-archive";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
@@ -227,7 +226,7 @@ function Conversation({
 	);
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.
-	const archivable = !archived && filable(conversation);
+	const archivable = !archived;
 	const fileAway = () => archive.file(onLeft);
 	// Swiped away on a phone, it is offered back in the inbox it lands in.
 	const swipeAway = (_then?: () => void, failed?: () => void) =>

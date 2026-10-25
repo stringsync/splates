@@ -28,7 +28,7 @@ import {
 	restartConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import { filable, useArchive } from "./conversation-archive";
+import { useArchive } from "./conversation-archive";
 import { TakingLong } from "./countdown";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
@@ -128,24 +128,18 @@ export function useThreadActions(
 			icon: <ClockIcon />,
 			run: stamps.toggle,
 		},
-		...(filable(conversation)
-			? [
-					{
-						label: archived ? "Unarchive" : "Archive",
-						icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-						detail:
-							archived || archiveKey === null ? undefined : (
-								<Kbd>{archiveKey}</Kbd>
-							),
-						run: () => archive.file(archived ? undefined : onLeft),
-					},
-				]
-			: []),
+		{
+			label: archived ? "Unarchive" : "Archive",
+			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
+			detail:
+				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
+			run: () => archive.file(archived ? undefined : onLeft),
+		},
 	];
 	// Not while the page may be stale, as the thread it would file takes no input then.
 	const { locked } = useFreshness();
 	const fileByKey = () => {
-		if (!locked && !archived && filable(conversation)) {
+		if (!locked && !archived) {
 			archive.file(onLeft);
 		}
 	};

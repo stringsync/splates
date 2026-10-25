@@ -472,13 +472,6 @@ export class ConversationRoutes {
 					.map((each) => each.unarchive()),
 			);
 		} else {
-			if (conversation.state.persistent !== undefined) {
-				fail(
-					"usage",
-					`conversation ${conversation.id} is the project's ${conversation.state.persistent}, kept while it is on: turn it off from the Automations page to retire it`,
-					{ conversation: conversation.id },
-				);
-			}
 			// The agents a lane's orchestrator started work its lanes: they go
 			// with it, stopped mid-work if they were at it, as the page confirmed.
 			await Promise.all(
