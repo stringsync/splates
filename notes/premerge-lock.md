@@ -84,7 +84,7 @@ in `SPLATES_RECENT_FAILED_FILES`, those still in the tree.
 
 If they fail again the gate stops there with that report, which
 attribution retests as usual. If they pass, the full suite runs as
-before, so no test is skipped.
+before, so no test is skipped. The recent pass uses the same workers as the full run.
 
 ## History
 

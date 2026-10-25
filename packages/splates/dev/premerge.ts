@@ -87,7 +87,6 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 			bail: true,
 			quiet: true,
 			files: recent,
-			workers: 1,
 			log,
 			priority,
 			...(opts.all === undefined ? {} : { all: opts.all }),
