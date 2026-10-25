@@ -15,7 +15,7 @@ import { type Member, MergeBatch } from "./batch";
 import type { TaskBranches } from "./branches";
 import { clearGate } from "./clear-gate";
 import { finishLanding } from "./finish";
-import { follow } from "./follow";
+import { type Followed, follow } from "./follow";
 import { type Checkout, MergeGate } from "./gate";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
@@ -219,25 +219,77 @@ export async function merge(
 		if (batching) {
 			await batch.offer(task, base);
 		}
-		const followed = batching
-			? await follow(
-					{ batch, git, log },
-					{
-						task,
-						path: worktree.path,
-						ownHead,
-						requireLease: () => state.requireLease(),
-						onStacked: startGate,
-						onUnstacked: async () => {
-							worktree = await worktree.save({
-								gate: "queued",
-								mergePlace: lastPlace,
-							});
-						},
+		// While waiting, a base that moved under the branch and now conflicts
+		// with it ends the wait: the rebase after refuses it as it would
+		// have, without the line. Never lets anything through.
+		let seenBase: string | null = firstOnto;
+		const doomed = async (): Promise<boolean> => {
+			const tip = await git.run(git.root, "rev-parse", "--verify", base);
+			if (tip.code !== 0 || tip.stdout === seenBase) {
+				return false;
+			}
+			seenBase = tip.stdout;
+			const merged = await git.run(
+				git.root,
+				"merge-tree",
+				"--write-tree",
+				tip.stdout,
+				ownHead,
+			);
+			return merged.code === 1;
+		};
+		const watching = remote === null && runner.command !== "";
+		let followed: Followed;
+		if (batching) {
+			followed = await follow(
+				{ batch, git, log, doomed: watching ? doomed : undefined },
+				{
+					task,
+					path: worktree.path,
+					ownHead,
+					requireLease: () => state.requireLease(),
+					onStacked: startGate,
+					onUnstacked: async () => {
+						worktree = await worktree.save({
+							gate: "queued",
+							mergePlace: lastPlace,
+						});
 					},
-					(signal) => runner.reserve(onQueued, signal),
-				)
-			: { capacity: await runner.reserve(onQueued) };
+				},
+				(signal) => runner.reserve(onQueued, signal),
+			);
+		} else {
+			const waiting = new AbortController();
+			const poll = setInterval(() => {
+				if (watching) {
+					void doomed().then((yes) => {
+						if (yes) {
+							waiting.abort(new Error("the branch conflicts with the base"));
+						}
+					});
+				}
+			}, 1000);
+			try {
+				followed = {
+					capacity: await runner.reserve(onQueued, waiting.signal),
+				};
+			} catch (error) {
+				if (!waiting.signal.aborted) {
+					throw error;
+				}
+				followed = { doomed: true };
+			} finally {
+				clearInterval(poll);
+			}
+		}
+		if ("doomed" in followed) {
+			// Refuses the conflict with its rebase left in progress.
+			await rebaseOntoBase();
+			// Only reached when the rebase found no conflict after all: the
+			// prediction never lets anything through, so wait for the turn.
+			await batch.clear(task);
+			followed = { capacity: await runner.reserve(onQueued) };
+		}
 		if ("result" in followed) {
 			const { result } = followed;
 			worktree = await state.requireLease();

@@ -62,6 +62,21 @@ describe("merge batches", () => {
 		await deps.disposeAsync();
 	});
 
+	// scry-ignore simple-test-setup: the held lock and the base moving under the waiting merge are this case's inputs.
+	it("refuses a waiting merge once the base moves to conflict with it, without the lock released", async () => {
+		await deps.commit(alpha, "README.md", "task side\n", "task edit");
+		await deps.finish(alpha);
+		await premerge.acquire();
+
+		const merging = merge({ ...deps, premerge }, alpha);
+		await offered("alpha");
+		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk edit");
+
+		await expect(merging).toBail("conflict", { message: "README.md" });
+		expect(await deps.fs.exists(deps.premerge.path)).toBe(true);
+		await premerge.release();
+	});
+
 	// scry-ignore simple-test-setup: the two merges, their counted shells and the held lock are this case's concurrent inputs.
 	it("gates the merges queued behind the lock's holder as one batch, landing them all with one gate", async () => {
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");

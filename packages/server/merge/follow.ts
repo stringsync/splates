@@ -4,7 +4,10 @@ import type { Git } from "../git";
 import type { MergeBatch, Settled } from "./batch";
 
 /** What following came to: the lock, to lead, or a batch's result. */
-export type Followed = { capacity: AsyncDisposable } | { result: Settled };
+export type Followed =
+	| { capacity: AsyncDisposable }
+	| { result: Settled }
+	| { doomed: true };
 
 /**
  * Waits for the premerge lock as a merge offered to any batch: answers each
@@ -12,7 +15,8 @@ export type Followed = { capacity: AsyncDisposable } | { result: Settled };
  * returns the batch's result once one lands or refuses it, giving the wait
  * up, or the lock once it is had with no result, which makes this merge
  * the next leader. Either way the branch is left on `ownHead` unless the
- * batch landed it.
+ * batch landed it. `doomed`, asked each poll while the branch is on no stack,
+ * ends the wait with `{ doomed: true }` once it answers true, the ticket gone.
  */
 export async function follow(
 	{
@@ -20,7 +24,14 @@ export async function follow(
 		git,
 		log,
 		pollMs = 1000,
-	}: { batch: MergeBatch; git: Git; log: Logger; pollMs?: number },
+		doomed,
+	}: {
+		batch: MergeBatch;
+		git: Git;
+		log: Logger;
+		pollMs?: number;
+		doomed?: () => Promise<boolean>;
+	},
 	{
 		task,
 		path,
@@ -45,6 +56,7 @@ export async function follow(
 	let result: Settled | null = null;
 	let stacked = false;
 	let done = false;
+	let gaveUp = false;
 	const unstack = async () => {
 		if (stacked) {
 			stacked = false;
@@ -84,6 +96,11 @@ export async function follow(
 				const head = await stack(invite.onto);
 				await batch.stacked(task, invite.onto, head);
 			}
+			if (doomed !== undefined && !stacked && (await doomed())) {
+				gaveUp = true;
+				controller.abort(new Error("the branch conflicts with the base"));
+				return;
+			}
 			await sleep(Duration.ms(pollMs));
 		}
 	})();
@@ -120,10 +137,16 @@ export async function follow(
 	}
 	await unstack();
 	await batch.clear(task);
+	if (gaveUp) {
+		if (capacity !== null) {
+			await capacity[Symbol.asyncDispose]();
+		}
+		return { doomed: true };
+	}
 	if (capacity === null) {
 		// Aborted by a result that then turned out dissolved: wait again.
 		return follow(
-			{ batch, git, log, pollMs },
+			{ batch, git, log, pollMs, doomed },
 			{ task, path, ownHead, requireLease, onStacked, onUnstacked },
 			reserve,
 		);

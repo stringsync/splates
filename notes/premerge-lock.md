@@ -114,3 +114,6 @@ time, so they only made short work wait behind it, and were removed.
 - `packages/server/merge/recent-failures.ts`: `recentFailedFiles`
 - `packages/splates/dev/premerge.ts`
 - `packages/server/testing.ts`: `Testing`
+
+A waiter whose branch comes to conflict with the base gives its ticket up through
+the same `AbortSignal`, so a doomed merge does not hold a place in the line.

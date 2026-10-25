@@ -36,7 +36,11 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
 ## Rebase, gate and landing
 
 - It rebases onto the base before waiting for the premerge lock, so a conflict
-  stops the merge before the wait.
+  stops the merge before the wait. While it waits (`follow`'s poll, or a timer
+  with no batch), each move of the base is checked against the branch with
+  `git merge-tree --write-tree`; a conflict gives the wait up, the ticket
+  leaves the line, and the rebase refuses it as `conflict`. The rebase stays
+  the final word: the check only refuses earlier.
 - Holding the lock, it rebases again onto whatever landed meanwhile, a no-op
   when nothing did. That second rebase is the loop's, so a conflict is one
   refusal and one charged attempt.
