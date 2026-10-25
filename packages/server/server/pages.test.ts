@@ -13,10 +13,14 @@ describe("Pages", () => {
 	});
 	it("serves every content-named chunk and its source map immutably", async () => {
 		const routes = pages.routes();
-		expect(Object.keys(assets.chunks).length).toBeGreaterThan(1);
-		const files = Object.entries(assets.chunks).flatMap(([name, chunk]) => [
-			{ path: `/${name}`, body: chunk.code },
-			{ path: `/${name}.map`, body: chunk.map },
+		expect(assets.chunks.names.length).toBeGreaterThan(1);
+		const [code, maps] = await Promise.all([
+			assets.chunks.code(),
+			assets.chunks.maps(),
+		]);
+		const files = assets.chunks.names.flatMap((name) => [
+			{ path: `/${name}`, body: code[name] },
+			{ path: `/${name}.map`, body: maps[name] },
 		]);
 		const served = await Promise.all(
 			files.map(async ({ path }) => {
@@ -35,6 +39,17 @@ describe("Pages", () => {
 				cache: "public, max-age=31536000, immutable",
 			})),
 		);
+	});
+
+	it("loads the chunks only once one is asked for, and their maps only for a map", async () => {
+		const loads: string[] = [];
+		const ask = counting(loads);
+		await ask("/main.js");
+		expect(loads).toEqual([]);
+		expect(await (await ask("/chunk-a.js"))?.text()).toBe("a");
+		expect(loads).toEqual(["code"]);
+		expect(await (await ask("/chunk-a.js.map"))?.text()).toBe("{}");
+		expect(loads).toEqual(["code", "maps"]);
 	});
 
 	it("keeps only the correctly stamped entry immutable and revalidates by ETag", async () => {
@@ -80,10 +95,29 @@ describe("Pages", () => {
 	});
 });
 
+/** A page with one chunk, asked by path, whose code and maps say in `loads` as they load. */
+function counting(
+	loads: string[],
+): (path: string) => Promise<Response> | undefined {
+	const routes = new Pages({
+		...assets,
+		chunks: {
+			names: ["chunk-a.js"],
+			code: async () => {
+				loads.push("code");
+				return { "chunk-a.js": "a" };
+			},
+			maps: async () => {
+				loads.push("maps");
+				return { "chunk-a.js": "{}" };
+			},
+		},
+	}).routes();
+	return (path) => routes[path]?.(new Request(`http://localhost${path}`));
+}
+
 /** The entry's route, called directly so compression can be checked before fetch decodes it. */
-function route(
-	pages: Pages,
-): (request: Request) => Response | Promise<Response> {
+function route(pages: Pages): (request: Request) => Promise<Response> {
 	const serve = pages.routes()["/main.js"];
 	if (serve === undefined) {
 		throw new Error("the entry has no route");

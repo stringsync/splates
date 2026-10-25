@@ -1,4 +1,4 @@
-import chunks from "../web-build/chunks.txt" with { type: "text" };
+import chunkNames from "../web-build/chunk-names.txt" with { type: "text" };
 import icon192 from "../web-build/icon-192.txt" with { type: "text" };
 import icon512 from "../web-build/icon-512.txt" with { type: "text" };
 import scriptMap from "../web-build/main.map.txt" with { type: "text" };
@@ -21,9 +21,15 @@ export interface Assets {
 	styles: string;
 	/**
 	 * The chunks of the React app that load when a page first needs them, by
-	 * the name the script asks for, each with its source map.
+	 * the name the script asks for, each with its source map. They are most of
+	 * the page's bytes, the maps most of theirs, so each loads only on its
+	 * first ask: a process that serves no page never holds them.
 	 */
-	chunks: Record<string, { code: string; map: string }>;
+	chunks: {
+		names: readonly string[];
+		code(): Promise<Record<string, string>>;
+		maps(): Promise<Record<string, string>>;
+	};
 	/** The service worker, through which a phone shows notifications. */
 	worker: string;
 	/** The service worker's source map. */
@@ -39,7 +45,22 @@ export const assets: Assets = {
 	shell,
 	script,
 	scriptMap,
-	chunks: JSON.parse(chunks),
+	chunks: {
+		names: JSON.parse(chunkNames),
+		// Imported as the rest are, so a release bundles them, but on demand.
+		code: once(async () => {
+			const { default: code } = await import("../web-build/chunks.txt", {
+				with: { type: "text" },
+			});
+			return JSON.parse(code);
+		}),
+		maps: once(async () => {
+			const { default: maps } = await import("../web-build/chunk-maps.txt", {
+				with: { type: "text" },
+			});
+			return JSON.parse(maps);
+		}),
+	},
 	styles,
 	worker,
 	workerMap,
@@ -49,3 +70,12 @@ export const assets: Assets = {
 		512: Uint8Array.fromBase64(icon512),
 	},
 };
+
+/** `load`, run on the first call only, every call after given what it made. */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+	let loaded: Promise<T> | null = null;
+	return () => {
+		loaded ??= load();
+		return loaded;
+	};
+}

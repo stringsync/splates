@@ -3,7 +3,7 @@ import type { Assets } from "./assets";
 
 type Body = string | Uint8Array<ArrayBuffer>;
 
-/** One file the page asks for, hashed once as the server starts. */
+/** One file the page asks for, hashed once as it is loaded. */
 interface PageFile {
 	body: Body;
 	type: string;
@@ -24,21 +24,43 @@ export class Pages {
 	/** The shell, naming the script and styles by what they hold. */
 	readonly page: string;
 
-	private readonly files = new Map<string, PageFile>();
+	/**
+	 * Each file by its path: the small ones made as the server starts, the
+	 * chunks and their maps only on the first ask for one.
+	 */
+	private readonly files = new Map<
+		string,
+		() => PageFile | Promise<PageFile>
+	>();
 
 	constructor(readonly assets: Assets) {
-		const file = (path: string, body: Body, type: string, named = false) => {
-			this.files.set(path, {
-				body,
-				type,
-				hash: Bun.hash(body).toString(36),
-				named,
+		const made = (body: Body, type: string, named: boolean): PageFile => ({
+			body,
+			type,
+			hash: Bun.hash(body).toString(36),
+			named,
+		});
+		const file = (path: string, body: Body, type: string): PageFile => {
+			const ready = made(body, type, false);
+			this.files.set(path, () => ready);
+			return ready;
+		};
+		const later = (path: string, load: () => Promise<Body>, type: string) => {
+			let ready: Promise<PageFile> | null = null;
+			// Each named by its content's hash, so no `?v=` is needed to keep one.
+			this.files.set(path, () => {
+				ready ??= load().then((body) => made(body, type, true));
+				return ready;
 			});
 		};
 		const js = "text/javascript; charset=utf-8";
-		file("/main.js", assets.script, js);
+		const script = file("/main.js", assets.script, js);
 		file("/main.js.map", assets.scriptMap, "application/json");
-		file("/styles.css", assets.styles, "text/css; charset=utf-8");
+		const styles = file(
+			"/styles.css",
+			assets.styles,
+			"text/css; charset=utf-8",
+		);
 		// At the root, so its scope is the whole page.
 		file("/worker.js", assets.worker, js);
 		file("/worker.js.map", assets.workerMap, "application/json");
@@ -49,25 +71,29 @@ export class Pages {
 		);
 		file("/icon-192.png", assets.icons[192], "image/png");
 		file("/icon-512.png", assets.icons[512], "image/png");
-		// The chunks the script loads as a page is first opened, each named by
-		// its content's hash, so no `?v=` is needed to keep one.
-		for (const [name, { code, map }] of Object.entries(assets.chunks)) {
-			file(`/${name}`, code, js, true);
-			file(`/${name}.map`, map, "application/json", true);
+		// The chunks the script loads as a page is first opened.
+		const { chunks } = assets;
+		for (const name of chunks.names) {
+			later(`/${name}`, async () => (await chunks.code())[name] ?? "", js);
+			later(
+				`/${name}.map`,
+				async () => (await chunks.maps())[name] ?? "",
+				"application/json",
+			);
 		}
-		this.page = stamped(assets, (path) => this.files.get(path)?.hash);
+		this.page = stamped(assets, { script: script.hash, styles: styles.hash });
 		file("/", this.page, "text/html; charset=utf-8");
 	}
 
 	/** The server's routes for the page's own files, spread into its `routes`. */
-	routes(): Record<string, (request: Request) => Response | Promise<Response>> {
+	routes(): Record<string, (request: Request) => Promise<Response>> {
 		// The page is a React app in `packages/web`, built before publishing and
 		// carried in the bundle, so nothing here builds markup or reads it off
 		// disk.
 		return Object.fromEntries(
 			[...this.files].map(([path, file]) => [
 				path,
-				(request: Request) => this.respond(request, file),
+				async (request: Request) => this.respond(request, await file()),
 			]),
 		);
 	}
@@ -167,7 +193,7 @@ export class Pages {
 // script starts from, so they load beside it rather than after it.
 function stamped(
 	{ shell, script }: Assets,
-	hashOf: (path: string) => string | undefined,
+	hashes: { script: string; styles: string },
 ): string {
 	const starts = [
 		...script.matchAll(/(?:from|import\()"\.\/(chunk-\w+\.js)"/g),
@@ -176,10 +202,7 @@ function stamped(
 		.map((name) => `<link rel="modulepreload" href="/${name}">`)
 		.join("\n\t\t");
 	return shell
-		.replace('src="/main.js"', `src="/main.js?v=${hashOf("/main.js")}"`)
-		.replace(
-			'href="/styles.css"',
-			`href="/styles.css?v=${hashOf("/styles.css")}"`,
-		)
+		.replace('src="/main.js"', `src="/main.js?v=${hashes.script}"`)
+		.replace('href="/styles.css"', `href="/styles.css?v=${hashes.styles}"`)
 		.replace("</head>", `${preloads}\n\t</head>`);
 }

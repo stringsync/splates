@@ -154,9 +154,29 @@ for (const [name, entry, splitting] of [
 	await Bun.write(`${out}/${name}.txt`, code);
 	await Bun.write(`${out}/${name}.map.txt`, map);
 	if (splitting) {
-		// All the page's chunks in one text file, since the server imports its
-		// assets as text and a release bundles what is imported.
-		await Bun.write(`${out}/chunks.txt`, JSON.stringify(chunks));
+		// The page's chunks as text, since the server imports its assets as text
+		// and a release bundles what is imported. Their code and their maps are
+		// apart, and both apart from their names, so the server loads each only
+		// once a browser asks for one: the maps, most of the bytes, only for
+		// DevTools.
+		const named = (pick: (chunk: Built) => string) =>
+			JSON.stringify(
+				Object.fromEntries(
+					Object.entries(chunks).map(([name, chunk]) => [name, pick(chunk)]),
+				),
+			);
+		await Bun.write(
+			`${out}/chunk-names.txt`,
+			JSON.stringify(Object.keys(chunks)),
+		);
+		await Bun.write(
+			`${out}/chunks.txt`,
+			named(({ code }) => code),
+		);
+		await Bun.write(
+			`${out}/chunk-maps.txt`,
+			named(({ map }) => map),
+		);
 	}
 }
 await Bun.write(`${out}/styles.txt`, await styles());

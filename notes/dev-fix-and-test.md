@@ -107,6 +107,9 @@ run-command permission card for anything else heavy, running it only on
 - Xcode's git: the `xcrun` stub cost the server tests a third of their CPU.
 - Together, on a 4-CPU Linux container, 2026-10-22: 118s → 67s wall, 252s →
   140s CPU.
+- Lazy page chunks, 2026-10-25: a test file importing `testing` no longer
+  loads the page's 15 MB of chunks and maps, about 250 MB less per worker;
+  `packages/splates/e2e.test.ts` peaks at 0.89 GB of tree RSS, from 1.29 GB.
 
 ## Where
 
