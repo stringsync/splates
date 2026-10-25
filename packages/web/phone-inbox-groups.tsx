@@ -128,7 +128,7 @@ export function FolderSection({
 			render={<section aria-label={folder.name} />}
 			className="group/folder flex flex-col pt-4"
 		>
-			<div className="flex items-center pr-2">
+			<div className="group/head flex items-center pr-2">
 				<CollapsibleTrigger className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none">
 					<ChevronRightIcon
 						aria-hidden
@@ -148,12 +148,12 @@ export function FolderSection({
 						type="button"
 						aria-label={`New conversation in ${folder.name}`}
 						onClick={onNew}
-						className="flex size-10 shrink-0 items-center justify-center text-muted-foreground active:bg-muted"
+						className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
 					>
 						<PlusIcon className="size-4" />
 					</button>
 				)}
-				<RemoveProjectButton folder={folder} />
+				<RemoveProjectButton folder={folder} phone />
 			</div>
 			<CollapsibleContent>
 				{folder.trees.length === 0 && <ProjectEmpty />}

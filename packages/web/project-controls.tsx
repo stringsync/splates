@@ -15,6 +15,7 @@ import {
 	EmptyDescription,
 	EmptyHeader,
 } from "#web/components/ui/empty.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { AddProject } from "./add-project";
 import { NavigationContext } from "./navigation";
 import { forgetUsed } from "./new-conversation-project";
@@ -47,8 +48,10 @@ export function AddProjectButton(): JSX.Element {
 /** Removing a project forgets its registration, preserving its repository and history. */
 export function RemoveProjectButton({
 	folder,
+	phone = false,
 }: {
 	folder: Folder;
+	phone?: boolean;
 }): JSX.Element | null {
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -81,16 +84,18 @@ export function RemoveProjectButton({
 	};
 	return (
 		<>
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				className="max-md:size-10"
+			<button
+				type="button"
+				className={cn(
+					"flex shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100",
+					phone ? "size-10" : "size-6",
+				)}
 				aria-label={`Remove project ${folder.name}`}
 				title={`Remove project ${folder.name}`}
 				onClick={() => setOpen(true)}
 			>
-				<XIcon />
-			</Button>
+				<XIcon className={phone ? "size-4" : "size-3.5"} />
+			</button>
 			<Dialog
 				open={open}
 				onOpenChange={(next) => {
