@@ -9,6 +9,7 @@ import { printed } from "../agents/testing";
 import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
 import { WorkerRegistry } from "./registry";
+import { StartFailingPs } from "./testing";
 import { UnixWorkerListener } from "./unix-listener";
 import { UnixWorkerSocket } from "./unix-socket";
 import type { ConnectedWorker } from "./worker";
@@ -19,9 +20,11 @@ describe("WorkerDaemon", () => {
 	let listener: UnixWorkerListener;
 	let daemon: WorkerDaemon;
 	let worker: ConnectedWorker;
+	let ps: StartFailingPs;
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
+		ps = new StartFailingPs();
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
@@ -34,7 +37,7 @@ describe("WorkerDaemon", () => {
 			{
 				id: "mac",
 				slots: 8,
-				ps: new NodePs(),
+				ps,
 				fs: new NodeFs(),
 				log: new MemoryLogger(),
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
@@ -111,6 +114,17 @@ describe("WorkerDaemon", () => {
 
 		expect(await child.exited).toBe(127);
 		expect(child.stderr()).toContain("cannot start /no/such/program");
+	});
+
+	it("says why a process could not start when spawning throws", async () => {
+		ps.startFailure = new Error("posix_spawn ENOENT");
+		const child = worker.start(["/no/such/program"], dir);
+
+		expect(await child.exited).toBe(127);
+		expect(child.stderr()).toContain(
+			`cannot start /no/such/program in ${dir}: posix_spawn ENOENT`,
+		);
+		expect(child.pid).toBeNull();
 	});
 
 	// scry-ignore simple-test-setup: its shell and what it types are its own; no other test opens a pty

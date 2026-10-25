@@ -49,11 +49,18 @@ export class WorkerProcessHost implements Resource {
 	) {
 		const { timer = null } = opts;
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
-		this.child = ps.start(argv, {
-			cwd,
-			env,
-			unset: [SERVING],
-		});
+		try {
+			this.child = ps.start(argv, {
+				cwd,
+				env,
+				unset: [SERVING],
+			});
+		} catch (error) {
+			throw new Error(
+				`cannot start ${argv[0]} in ${cwd}: ${error instanceof Error ? error.message : String(error)}`,
+				{ cause: error },
+			);
+		}
 		this.stdin = this.child.stdin.getWriter();
 		channel.send({ type: "started", pid: this.child.pid });
 		channel.events.on("data", ({ bytes }) => {
