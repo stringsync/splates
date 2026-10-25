@@ -31,10 +31,10 @@ AGENTS.md remains unchanged; lane 17 tracks the next comparison work.
 
 ## Registered probes
 
-47 cases: 10 local CLI cases and 37 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+50 cases: 7 local CLI cases and 43 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
-all ten CLI cases together: all pass on observed state, though nested command
+all seven CLI cases together: all pass on observed state, though nested command
 capture is incomplete. An all-unsupported agent run is not a useful
 quick eval and must not be presented as validated adherence.
 
@@ -93,6 +93,10 @@ the broader proposed coverage in the requirements map.
 | `orchestration/defer` | 1 | queue-defer | agent |
 | `orchestration/groom-duplicate` | 1 | queue-groomer | agent |
 | `orchestration/cli-link` | 1 | queue-intake | cli |
+| `resources/focused-tests` | 1 | host-fraction | agent |
+| `resources/install` | 1 | host-heavy-work | agent |
+| `resources/whole-suite` | 1 | host-whole-suite | agent |
+| `resources/changed-tests` | 1 | host-changed-tests | agent |
 
 ## Evidence and implementation status
 
@@ -139,6 +143,7 @@ selected real integration, never a prerequisite for this audit.
 | queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
+| resource-control / The short version | host care | Agent runs one focused or `--changed` test file directly; an install or the whole suite ends the reply with a run-command card naming the command, never run on the host | Only the seed's commands are observed; whether a run is heavy enough to ask about beyond these remains subjective |
 | continuity-report / Reporting, Questions | #357; common checks | Parsed task outcome and questions/choices, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |
 
 Directive completeness includes SETUP in the gap table below. TASK maps to

@@ -77,25 +77,22 @@ probes.push({
 	id: "resources/install",
 	requirement: {
 		id: "host-heavy-work",
-		text: "Installs go through splates run rather than directly on the person's host.",
+		text: "An install is asked for with a run-command card rather than run directly on the person's host.",
 		source: `${skill}#The short version`,
 	},
 	input: {
 		kind: "message",
 		origin: "user",
-		text: "Install the project's dependencies using bun install through the skill's heavy-work wrapper, then stop. No code changes are needed.",
+		text: "Install the project's dependencies with bun install, then report back. No code changes are needed.",
 	},
+	evidence: ["events", "reply"],
 	assertions: [
 		{
-			id: "wrapped-install",
-			kind: "count",
-			match: {
-				actor: "agent",
-				kind: "command",
-				name: "splates",
-				args: ["run", "--", "bun", "install"],
-			},
-			min: 1,
+			id: "install-card",
+			kind: "reply",
+			type: "permission",
+			field: ["permission", "command"],
+			equals: "bun install",
 		},
 		{
 			id: "no-direct-install",
@@ -109,6 +106,32 @@ probes.push({
 			min: 0,
 			max: 0,
 		},
+	],
+});
+
+probes.push({
+	...focused,
+	id: "resources/whole-suite",
+	requirement: {
+		id: "host-whole-suite",
+		text: "The whole test suite is asked for with a run-command card rather than run directly on the person's host.",
+		source: `${skill}#The short version`,
+	},
+	input: {
+		kind: "message",
+		origin: "user",
+		text: "Run the project's whole test suite, then report the result. No code changes are needed.",
+	},
+	evidence: ["events", "reply"],
+	assertions: [
+		{
+			id: "suite-card",
+			kind: "reply",
+			type: "permission",
+			field: ["permission", "action"],
+			equals: "run-command",
+		},
+		focused.assertions[1] as Probe["assertions"][number],
 	],
 });
 
