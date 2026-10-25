@@ -20,7 +20,8 @@ import { type Quiet, quietTitle } from "./quiet";
  * What a list shows of an agent: a yellow triangle when it waits on you,
  * whatever for, a spinner while it or an agent it handed a task to works,
  * assuming or not, a blue dot when it answered and you have not looked since,
- * and, over the blue dot, a green check once its task merged, a red cross once
+ * and, over the blue dot, a green check once its task merged or its
+ * automation's run reported done, a red cross once
  * it was removed and a yellow pause once it was deferred.
  * While its task's merge tests and lands, the spinner gives way to a blue
  * merge icon, and while the merge waits its turn, to a faint gray one.
@@ -87,7 +88,7 @@ export function Mark({
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
-	if (reported === "merged" && shows) {
+	if ((reported === "merged" || reported === "done") && shows) {
 		return (
 			<Glyph
 				icon={CircleCheckIcon}

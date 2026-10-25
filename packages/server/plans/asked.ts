@@ -137,13 +137,15 @@ export interface Proposal {
 /** How a task ended, or what it waits on, as the skill's reports title them. */
 export type Ending =
 	| "merged"
+	| "done"
 	| "removed"
 	| "deferred"
 	| "escalated"
 	| "working";
 
 /**
- * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
+ * A report the skill titles `## ✅ Merged <task> onto <base>`, `## ✅ Done:
+ * <what came of it>` (an automation's run, with no task), `## 🛑 Removed
  * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
  * Working <task>: on <agent>`.
  */
@@ -217,6 +219,8 @@ const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
 
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
+/** An automation's run finished: `## ✅ Done: <what came of it>`. */
+const DONE = /^## ✅ Done(?::[ \t]*(.*?))?[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
@@ -268,6 +272,7 @@ function keptAt(
 ): { stretch: Stretch; end: number } | null {
 	const line = lines[start] as string;
 	const merged = MERGED.exec(line);
+	const done = DONE.exec(line);
 	const ended = ENDED.exec(line);
 	const workingTask = WORKING_TASK.exec(line);
 	const proposed = PROPOSAL.exec(line);
@@ -279,6 +284,7 @@ function keptAt(
 		evals === null &&
 		run === null &&
 		merged === null &&
+		done === null &&
 		ended === null &&
 		workingTask === null &&
 		proposed === null
@@ -390,28 +396,37 @@ function keptAt(
 					body,
 					source,
 				}
-			: workingTask !== null
+			: done !== null
 				? {
-						ending: "working",
-						task: workingTask[1] as string,
+						ending: "done",
+						task: "",
 						base: null,
-						reason: workingTask[2] || null,
+						reason: done[1] || null,
 						body,
 						source,
 					}
-				: {
-						ending:
-							ended?.[1] !== undefined
-								? "removed"
-								: ended?.[2] !== undefined
-									? "deferred"
-									: "escalated",
-						task: ended?.[3] as string,
-						base: null,
-						reason: ended?.[4] || null,
-						body,
-						source,
-					};
+				: workingTask !== null
+					? {
+							ending: "working",
+							task: workingTask[1] as string,
+							base: null,
+							reason: workingTask[2] || null,
+							body,
+							source,
+						}
+					: {
+							ending:
+								ended?.[1] !== undefined
+									? "removed"
+									: ended?.[2] !== undefined
+										? "deferred"
+										: "escalated",
+							task: ended?.[3] as string,
+							base: null,
+							reason: ended?.[4] || null,
+							body,
+							source,
+						};
 	return { stretch: { type: "report", report }, end };
 }
 

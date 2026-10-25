@@ -83,11 +83,12 @@ export function ReportCard({
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
-				label={`${report.ending} ${report.task}`}
+				label={`${report.ending} ${report.task}`.trim()}
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				task={report.task}
+				// An automation's Done names no task.
+				task={report.task === "" ? undefined : report.task}
 				base={report.base}
 				aside={
 					<ReportAside

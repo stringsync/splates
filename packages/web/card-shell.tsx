@@ -1,6 +1,7 @@
 import type { TaskReport } from "@stringsync/splates-server/plans";
 import {
 	ChevronRightIcon,
+	CircleCheckIcon,
 	CircleSlashIcon,
 	GitBranchIcon,
 	GitMergeIcon,
@@ -146,6 +147,7 @@ export const ENDINGS: Record<
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
 	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
+	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },
 	// From before escalating was retired.

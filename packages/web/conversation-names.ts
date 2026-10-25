@@ -35,9 +35,13 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 	return lastReport(conversation)?.ending ?? null;
 }
 
-/** Whether the conversation's work is done, as `reportedAs` reads it: its task merged. */
+/**
+ * Whether the conversation's work is done, as `reportedAs` reads it: its
+ * task merged, or its automation's run finished.
+ */
 export function reportsDone(conversation: ConversationState): boolean {
-	return reportedAs(conversation) === "merged";
+	const reported = reportedAs(conversation);
+	return reported === "merged" || reported === "done";
 }
 
 /**

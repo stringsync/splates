@@ -113,6 +113,25 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads the skill's Done report, an automation run's, with no task", async () => {
+		const done = await skillExample("## ✅ Done");
+
+		expect(stretches(done)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "done",
+					task: "",
+					base: null,
+					reason: "two merged tasks reviewed, nothing to fix",
+					body: "Both kept their tests; the notes needed no change.",
+					source:
+						"## ✅ Done: two merged tasks reviewed, nothing to fix\n\nBoth kept their tests; the notes needed no change.",
+				},
+			},
+		]);
+	});
+
 	it("reads the skill's merge and remove reports", async () => {
 		const merged = await skillExample("## ✅ Merged");
 		const removed = await skillExample("## 🛑 Removed");

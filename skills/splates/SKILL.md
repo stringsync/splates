@@ -106,6 +106,17 @@ not removed:
 The task set out to stop uploads retrying a 413; it is back on the list.
 ```
 
+An automation's run, from a hook prompt (`[SPLATES EVENT ...]` or `[SPLATES
+SCHEDULE <n>]`), ends with its last reply as a Done report, what came of it
+after the colon, unless that reply is already a Merged or Removed report, so
+the user sees the run is over and archives it:
+
+```markdown
+## ✅ Done: two merged tasks reviewed, nothing to fix
+
+Both kept their tests; the notes needed no change.
+```
+
 Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with a
 demo, a `Checks:` line and the last line `Reply "merge", or say what to
 change.`: copy its whole shape from
@@ -186,7 +197,8 @@ because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](referen
 ([notes.md](references/notes.md)), `[SPLATES GARDEN]` ([garden.md](references/garden.md)),
 `[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
-the prompt after it asks. Read the file when one arrives.
+the prompt after it asks and end with the Done report in Formats above. Read
+the file when one arrives.
 
 | Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

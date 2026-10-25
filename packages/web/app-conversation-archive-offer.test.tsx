@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
 import {
 	act,
+	agentList,
 	cleanup,
 	conversation,
 	fireEvent,
@@ -71,6 +72,31 @@ describe("App's offer to archive a conversation whose task is over", () => {
 		]);
 		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 		expect(view.getByText("Start a conversation with")).toBeTruthy();
+	});
+
+	it("offers to archive an automation's run that reports done, checked off in the list like a merge", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Review merged",
+				automation: "a1",
+				messages: [
+					message("user", "[SPLATES SCHEDULE a1] Review what merged."),
+					message(
+						"agent",
+						"## ✅ Done: two merged tasks reviewed, nothing to fix\n\nBoth kept their tests.",
+					),
+				],
+			}),
+		]);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "done" }),
+		);
+		expect(card.textContent).toContain("two merged tasks reviewed");
+		expect(within(card).getByRole("button", { name: "Archive" })).toBeTruthy();
+		expect(
+			within(agentList(view)).getByRole("img", { name: "done" }),
+		).toBeTruthy();
 	});
 
 	it("offers no archiving once the conversation carries on past a report, or when the task escalated", async () => {
