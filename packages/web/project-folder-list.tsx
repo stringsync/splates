@@ -53,7 +53,7 @@ export function FolderList({
 	onLane: (folder: Folder, lane: number) => void;
 }): JSX.Element {
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex flex-col">
 			{folders.map((folder) => {
 				const key = folderKey(folder);
 				const open = !folded.has(key);
@@ -64,13 +64,13 @@ export function FolderList({
 						open={open}
 						onOpenChange={(open) => onFold(key, open)}
 						render={<section aria-label={folder.name} />}
-						className="group/folder flex flex-col"
+						className="group/folder flex flex-col not-first:mt-3 not-first:border-border not-first:border-t not-first:pt-2"
 					>
 						<div className="group/head flex items-center">
-							<CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
+							<CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-semibold text-[13px] text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
 								<ChevronRightIcon
 									aria-hidden
-									className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/folder:rotate-90"
+									className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90"
 								/>
 								<span className="min-w-0 truncate">{folder.name}</span>
 								{!open && folder.waiting.length > 0 && (
