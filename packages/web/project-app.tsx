@@ -1,8 +1,10 @@
+import { useDisposerEffect } from "@webappwiz/react";
 import { type ComponentProps, type JSX, useContext, useState } from "react";
 import { App } from "./app";
 import { EverywhereContext, useHoldEverywhere } from "./everywhere-context";
 import { useShownProject } from "./navigation";
 import { ProjectFeeds, type ProjectFeedsOptions } from "./project-feeds";
+import { ProjectList, ProjectListContext } from "./project-list";
 
 /**
  * The page, for whichever project the address names: render it in place of
@@ -36,7 +38,14 @@ export function ProjectApp({
 				wall,
 			}),
 	);
+	// Kept for the page too, so the switcher opens on a list already read.
+	const [projects] = useState(() => new ProjectList(everywhere));
+	useDisposerEffect((disposer) => disposer.use(projects.start()), [projects]);
 	// Keyed, so the last project's shells and state go with its `App`; its
 	// feeds, kept, stop streaming as it goes.
-	return <App key={project} {...props} {...feeds.of(project)} />;
+	return (
+		<ProjectListContext value={projects}>
+			<App key={project} {...props} {...feeds.of(project)} />
+		</ProjectListContext>
+	);
 }

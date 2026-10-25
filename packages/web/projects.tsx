@@ -1,4 +1,5 @@
 import type { ServerChoice } from "@stringsync/splates-server/server";
+import { useReactive } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,
@@ -11,14 +12,7 @@ import {
 	TriangleAlertIcon,
 	XIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	use,
-	useCallback,
-	useContext,
-	useEffect,
-	useState,
-} from "react";
+import { type JSX, use, useContext, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	DropdownMenu,
@@ -40,12 +34,8 @@ import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
 import { forgetUsed } from "./new-conversation-project";
 import { OpenerContext } from "./openers";
-import {
-	focusProject,
-	forgetProject,
-	listProjects,
-	type ProjectChoice,
-} from "./project-api";
+import { focusProject, forgetProject, type ProjectChoice } from "./project-api";
+import { useProjectList } from "./project-list";
 import {
 	placeOf,
 	projectUrl,
@@ -96,9 +86,13 @@ export function ProjectSwitcher({
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
-	// Null until first listed, so it never says none match before it knows.
-	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
-	const [servers, setServers] = useState<ServerChoice[]>([]);
+	// Kept for the page and current already, so opening it asks nothing.
+	const list = useProjectList();
+	const { projects, servers } = useReactive(
+		list,
+		(list) => ({ projects: list.projects, servers: list.servers }),
+		["changed"],
+	);
 	const [adding, setAdding] = useState(false);
 	// The server the page is on its way to, once picked: a new page takes
 	// seconds to come under load, and the old one must not be used meanwhile.
@@ -119,22 +113,20 @@ export function ProjectSwitcher({
 	const opener = use(OpenerContext);
 	const { refusal, refuse: refused } = useRefusal();
 
-	const load = useCallback(
+	useEffect(
 		() =>
-			listProjects().then(
-				(listed) => {
-					setProjects(listed.projects);
-					setServers(listed.servers);
-				},
-				(error: unknown) => refused("Projects not listed", error),
+			list.events.on("refused", (error) =>
+				refused("Projects not listed", error),
 			),
-		[refused],
+		[list, refused],
 	);
+	// Shown at once from what the page holds; asked again behind it only for
+	// what the feed never says, as a project focused from another device.
 	useEffect(() => {
 		if (open) {
-			void load();
+			void list.refresh();
 		}
-	}, [open, load]);
+	}, [open, list]);
 	useShortcut("shortcuts.projects", () => setOpen((was) => !was), keyed);
 	const shortcut = useShortcutLabel("shortcuts.projects");
 
@@ -166,7 +158,10 @@ export function ProjectSwitcher({
 		setOpen(false);
 		// What an address naming none shows next, on any device; going there
 		// waits on it no more than on a refusal.
-		void focusProject(each.slug).catch(() => {});
+		void focusProject(each.slug).then(
+			() => list.refresh(),
+			() => {},
+		);
 		if (!current(each)) {
 			// So coming back lands here, and the page names `each` while it opens.
 			const leaving =
@@ -200,7 +195,7 @@ export function ProjectSwitcher({
 			(next) => {
 				forgetUsed(each.slug);
 				if (!current(each)) {
-					return load();
+					return list.refresh();
 				}
 				// The page showed it: on to the one focused before it, or to
 				// none left.
