@@ -47,18 +47,15 @@ export const assets: Assets = {
 	scriptMap,
 	chunks: {
 		names: JSON.parse(chunkNames),
-		// Imported as the rest are, so a release bundles them, but on demand.
+		// Imported as files, so a release carries them beside its bundle, and
+		// read only on demand.
 		code: once(async () => {
-			const { default: code } = await import("../web-build/chunks.txt", {
-				with: { type: "text" },
-			});
-			return JSON.parse(code);
+			const { chunkFiles } = await import("./chunk-files");
+			return Bun.file(chunkFiles.code).json();
 		}),
 		maps: once(async () => {
-			const { default: maps } = await import("../web-build/chunk-maps.txt", {
-				with: { type: "text" },
-			});
-			return JSON.parse(maps);
+			const { chunkFiles } = await import("./chunk-files");
+			return Bun.file(chunkFiles.maps).json();
 		}),
 	},
 	styles,
