@@ -1,19 +1,23 @@
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
+import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
 import { useReactive } from "@webappwiz/react";
-import { FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
+import { BanIcon, FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { CardBox, useCardDictationTurn } from "./card-box";
+import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { ORDER, spent } from "./eval-status";
-import { Refusal } from "./refusal";
+import { Refusal, useRefusal } from "./refusal";
 
 /** The conversation the card is in, which the server tells once its run is done; null outside one. */
 export const EvalsConversation = createContext<string | null>(null);
@@ -25,6 +29,8 @@ export const EvalsConversation = createContext<string | null>(null);
  * is the run's progress, cells landed of those planned, the tally and the
  * cost so far, linked to the report on the Evals page; a Stop button ends it.
  * Once done, it shows the report condensed, and the agent is told, with it.
+ * Before it runs, Reject turns it down and tells the agent, and "Anything else"
+ * carries a note to the agent with Reject or Run.
  */
 export function EvalsCard({
 	proposal,
@@ -53,26 +59,63 @@ export function EvalsCard({
 		["changed"],
 	);
 	const { launch, grid } = state;
+	const { reply, sent } = useCardReply();
+	const { refusal, attempt } = useRefusal();
+	const [rejected, setRejected] = useState(false);
+	const kept = useKept(`run-evals:${run.key}`, sent);
+	const [more, setMore] = useState(kept.read);
+	const written = useRef(more);
+	const panel = useRef<HTMLDivElement>(null);
+	const turn = useCardDictationTurn(panel);
+	const send = reply?.send ?? null;
+	const turnedDown = rejected || (sent?.includes(RUN_DENIED) ?? false);
+	const open = launch === null && !turnedDown;
+	const note = (): string => written.current.trim();
+	const reject = (): void => {
+		if (send === null) {
+			return;
+		}
+		setRejected(true);
+		void attempt(
+			send(
+				note() === ""
+					? RUN_DENIED
+					: `${RUN_DENIED}\n\n> **Anything else?**\n\n${note()}`,
+			).catch((error: unknown) => {
+				setRejected(false);
+				throw error;
+			}),
+			"Not rejected",
+		);
+	};
+	const start = (): void => {
+		void run.run();
+		if (send !== null && note() !== "") {
+			void attempt(send(note()), "Note not sent");
+		}
+	};
 	const landed = grid === null ? 0 : grid.cells - (grid.tally.pending ?? 0);
 	return (
 		<CardShell
 			label={`run evals ${run.ask.skill}`}
 			Icon={FlaskConicalIcon}
 			title={
-				launch === null
-					? `Run evals on the ${run.ask.skill} skill`
-					: state.running
-						? "Running evals"
-						: launch.status === "refused"
-							? "Evals refused"
-							: launch.status === "stopped"
-								? "Evals stopped"
-								: "Evals done"
+				turnedDown
+					? "Evals rejected"
+					: launch === null
+						? `Run evals on the ${run.ask.skill} skill`
+						: state.running
+							? "Running evals"
+							: launch.status === "refused"
+								? "Evals refused"
+								: launch.status === "stopped"
+									? "Evals stopped"
+									: "Evals done"
 			}
 			tone="info"
 		>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{launch === null ? (
+			{launch === null && !turnedDown ? (
 				<>
 					<section
 						aria-label="probes"
@@ -128,7 +171,7 @@ export function EvalsCard({
 						))}
 					</fieldset>
 				</>
-			) : (
+			) : launch === null ? null : (
 				<div className="mx-4 mb-3 flex flex-col gap-1 text-sm">
 					{grid !== null && (
 						<>
@@ -160,7 +203,28 @@ export function EvalsCard({
 					)}
 				</div>
 			)}
-			{launch === null && state.plan !== null && (
+			{open && send !== null && (
+				<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
+					<p className="font-medium text-sm leading-snug">Anything else?</p>
+					<CardBox
+						aria-label="Anything else"
+						value={more}
+						placeholder="Your note (optional)"
+						files={null}
+						onValue={(text) => {
+							written.current = text;
+							setMore(text);
+							kept.write(text);
+						}}
+					/>
+				</div>
+			)}
+			{turnedDown && (sent ?? "").includes("> **Anything else?**") && (
+				<CardBody
+					text={`> **Anything else?**\n\n${(sent ?? "").split("> **Anything else?**\n\n").slice(1).join("")}`}
+				/>
+			)}
+			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
 					{state.plan.tokens === null
 						? state.plan.output
@@ -168,7 +232,19 @@ export function EvalsCard({
 				</p>
 			)}
 			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
-				{launch === null && (
+				{open && (
+					<Button
+						size="sm"
+						variant="outline"
+						className="gap-1.5"
+						disabled={send === null}
+						onClick={() => turn(reject)}
+					>
+						<BanIcon data-icon="inline-start" />
+						Reject
+					</Button>
+				)}
+				{open && (
 					<Button
 						size="sm"
 						className="gap-1.5"
@@ -178,7 +254,7 @@ export function EvalsCard({
 							state.plan === null ||
 							state.plan.tokens === null
 						}
-						onClick={() => void run.run()}
+						onClick={() => turn(start)}
 					>
 						<PlayIcon data-icon="inline-start" />
 						Run
@@ -196,7 +272,7 @@ export function EvalsCard({
 					</Button>
 				)}
 			</div>
-			<Refusal refusal={state.refusal} className="mx-4 mb-3" />
+			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
 	);
 }
