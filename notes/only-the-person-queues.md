@@ -2,7 +2,7 @@
 description: Why only the person queues work and agents never start agents, and what an agent does instead (task add, defer, the queue card, the lane's approval budget)
 ---
 
-Queueing spends the person's tokens and worker dollars, so starting work is
+Queueing spends the person's tokens, so starting work is
 their call: every agent is refused `queue add`, `queue remove`, `queue move`,
 `lane queue`, `lane unqueue` and `lane approve`. An auto-run setting that
 queued ready tasks by itself, and a `[SPLATES QUEUE]` directive, were both

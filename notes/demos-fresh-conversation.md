@@ -12,4 +12,5 @@ it reads as starting an agent rather than playing a recording. The merged
 card instead has a Demo it footer action beside Archive that asks the
 conversation's own agent, the one that merged, since it already has the
 context. A demo comes before a merge only for invasive or irreversible
-changes, as the user's chance to step in; a merged task gets no demo after.
+changes, as the user's chance to step in; after a merge an agent offers no
+demo unasked, though the person can start one from the card or the task.

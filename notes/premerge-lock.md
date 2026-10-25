@@ -12,8 +12,8 @@ Nothing else waits on it.
 - The premerge lock is `~/.splates/premerge.lock`,
   `premergeLockOfMachine`.
 - Landing itself holds the project's merge lease, `merge.lock`.
-- Nothing else waits on either: installs, hooks, focused
-  `splates dev test` runs and `splates run` take no lock.
+- Nothing else waits on either: installs, hooks and focused
+  `splates dev test` runs take no lock.
 
 ## Time limits
 

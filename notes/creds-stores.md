@@ -11,8 +11,5 @@ The environment is never read, so a stray export is not picked up.
 `systemStores` (`creds/stores.ts`) uses the OS store `wiz creds` shares
 (macOS Keychain, Windows Credential Manager, a Linux secret service).
 `SPLATES_SECRET_STORE=keyring` forces it, and `file` keeps both stores in
-`0600` files under `~/.splates/secrets/` (`KeyFileStore`, as a worker's
-`--key-file`), for a Linux with no secret service; a server that cannot reach its store says so and names these. A hosted secrets
-manager was rejected for workers since it would put a second standing
-credential on each. Workers hold no provider keys: every agent runs on this
+`0600` files under `~/.splates/secrets/` (`KeyFileStore`), for a Linux with no secret service; a server that cannot reach its store says so and names these. Workers hold no provider keys: every agent runs on this
 machine's own worker, signed in as the person. Tests use `FakeSecretStore` from `webappwiz/creds/testing`.

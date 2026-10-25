@@ -1,5 +1,5 @@
 ---
-description: The places a new top-level page must be registered (PAGES, PHONE_PAGES, DESKTOP_PAGES, pageIn, useAppPages, styles.css) and how heavy pages load on demand as their own chunk
+description: Everywhere a new top-level page of the web app must be registered, and how a heavy page loads on demand as its own chunk
 ---
 
 A page is one value of the `Page` union in `packages/web/page-route.tsx`.
@@ -9,7 +9,9 @@ shortcut) and `PHONE_PAGES` (phone padding) in `page-route.tsx`,
 in `page-address.ts` mapping its hash, and its body in the record
 `useAppPages` returns in `app-pages.tsx`. The `Record<Page, ...>` types make
 TypeScript flag most misses, but not `pageIn`, which falls through to the
-board. Its `.tsx` files also need `@source` lines in `styles.css`.
+board. Tailwind's glob in `styles.css` already scans a new top-level
+`.tsx`; only a class-holding `.ts` or a file in a subdirectory needs its own
+`@source` line.
 
 Heavy pages are exported from `lazy-pages.tsx` through `onDemand(() =>
 import(...))`, `React.lazy` with a fallback that stays blank until a slow chunk counts down,

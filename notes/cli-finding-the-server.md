@@ -1,12 +1,12 @@
 ---
-description: How a CLI command finds the running splates server: --dev, then SPLATES_DEV, then port 4269; the server sets SPLATES_DEV and SPLATES_CONVERSATION for every agent it starts
+description: How a CLI command finds the running splates server (--dev, then SPLATES_DEV), and how an agent the server starts knows its server and conversation
 ---
 
-Commands that need the running server (`ports`, `worker queue`, `budget`,
-`worker list`, `artifact add`, the conversation `follow`) resolve it with
-`serverOf` in `packages/server/workers/server-of.ts`: the `--dev <url>`
-flag, then `SPLATES_DEV`, and some fall back to this machine's server on
-`DEFAULT_PORT` 4269.
+Commands that need the running server (`worker queue`, `worker list`,
+`artifact add`, the conversation `follow`) resolve it with `serverOf` in
+`packages/server/workers/server-of.ts`: the `--dev <url>` flag, then
+`SPLATES_DEV`, else none. Only `ports` falls back to this machine's server
+on `DEFAULT_PORT` 4269 (`ports/list.ts`).
 
 The server sets `SPLATES_DEV` and `SPLATES_CONVERSATION` in the environment
 of every agent it starts, which is how `splates attach`, `artifact`, `creds`

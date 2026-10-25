@@ -1,12 +1,18 @@
 ---
-description: Tailwind only sees classes in files listed by hand as @source lines in styles.css; a file left off compiles but loses its styles silently, and a test catches only top-level .tsx files
+description: Tailwind only sees classes in files styles.css names with @source; top-level .tsx files are globbed, but a class-holding .ts or a file in another directory must be listed
 ---
 
 `build.ts` compiles `styles.css` with Tailwind's `compile` and `Scanner`
-without automatic content detection, so only files named by an `@source
-"./x.tsx";` line in `styles.css` (about 230 of them) are scanned. A file left
-off still builds, but its utility classes are never emitted and nothing
-errors. `styles.test.ts` checks that every top-level non-test `*.tsx` except
-`main.tsx` is listed, which fails `splates dev test` for a new component
-left off. It does not cover `.ts` files that build class strings
-(`phone-rows.ts`) or files under `components/`, which must be added by hand.
+without automatic content detection, so only what an `@source` line in
+`styles.css` names is scanned. A file left off still builds, but its utility
+classes are never emitted and nothing errors.
+
+- A glob, `@source "./*.tsx"` minus `*.test.tsx`, covers every top-level page
+  file, so a new component needs no line.
+- A `.ts` file that builds class strings (`phone-rows.ts`, `board.ts`,
+  `status-pill.ts`) must be listed by hand.
+- So must a file in another directory; `components/ui` and
+  `components/assistant-ui` are listed.
+
+`styles.test.ts` checks the glob, the listed `.ts` files and that tests are
+left out. It cannot catch a new class-holding `.ts` or directory left off.

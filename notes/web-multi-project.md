@@ -17,11 +17,11 @@ the last conversation hides its folder; unarchiving brings it back. Both lists o
 existing forget API, keeping files and conversation history and refusing while
 conversations are under way.
 
-The sidebar's folders (`project-folders.ts`) are these per-project groups:
-automations (persistent agents such as the groomer, and each run of an
-agent hook, marked by its conversation's `automation`; see `automated` in
-`conversation-rows.ts`), above a rule, first,
-then pinned, then working, then the rest. The phone inbox pulls waiting-on-
+The sidebar's folders (`project-folders.ts`) are these per-project groups.
+Each lists automations first (persistent agents such as the groomer, and
+each run of an agent hook, marked by its conversation's `automation`; see
+`automated` in `conversation-rows.ts`), then a rule, then pinned, working,
+and the rest. The phone inbox pulls waiting-on-
 you rows from every project into one Needs you group; desktop has no inbox,
 showing the new-conversation home with no conversation open and one line
 atop the agents counting those waiting on you.

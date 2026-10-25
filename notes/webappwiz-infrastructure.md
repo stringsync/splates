@@ -1,11 +1,10 @@
 ---
-description: Which infrastructure comes from webappwiz rather than being written here: fs and process access, logging, time, ids, locks, creds, CLI parsing, events, disposables
+description: Which infrastructure comes from webappwiz rather than being written here; check before writing a utility or adding a dependency
 ---
 
 The server's runtime dependencies are `webappwiz` (pinned to one version),
 `@agentclientprotocol/sdk` and `zod`. From webappwiz: `webappwiz/system` (`Fs`/`NodeFs`,
-`Ps`/`NodePs`, `FileLock`, `HeavyJobs`, `OpenPortProvider`,
-`makeUndumpable`), `webappwiz/log` (`Logger`, `MemoryLogger`),
+`Ps`/`NodePs`, `FileLock`, `OpenPortProvider`), `webappwiz/log` (`Logger`, `MemoryLogger`),
 `webappwiz/time` (`Duration`, `Timer`, `Clock`, `Throttler`, `Debouncer`),
 `webappwiz/id` (`CounterIdProvider`, `UuidProvider`), `webappwiz/disposable`
 (`Resource`), `webappwiz/events` (`Eventful`, `Dispatcher`),
