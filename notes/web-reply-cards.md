@@ -14,7 +14,8 @@ reply into stretches of type `text`, `questions`, `review`, `proposal`,
   `Failed:` lines; proposal `## 💡 Proposed ...`.
 - Reports `## ✅ Merged <task> onto <base>`, `## ✅ Done: ...` (any
   conversation's work over with no task landed, an automation's run among
-  them; offers Archive and the same green circle check as a merge),
+  them; offers Archive and the same green circle check as a merge, whose
+  card is titled Done too, naming the task and base in its body),
   `## 🛑 Removed`, `## ⏸ Deferred`, `## ⚠️ Escalated`, `## ⏳ Working`.
 - Permission `## 🔐 Permission: queue lane <n>|queue #<n>|remove lane
   <n>|run evals <skill>|run command` (older `## 📥 Queue` reads as queue); todo `### 📝

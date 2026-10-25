@@ -52,8 +52,12 @@ describe("App's report cards", () => {
 		const merged = await waitFor(() =>
 			within(view).getByRole("region", { name: "merged header" }),
 		);
-		expect(merged.textContent).toContain("Merged");
-		expect(merged.textContent).toContain("main");
+		// Titled Done like any finished work, with what merged where in its body.
+		expect(within(merged).getByRole("banner").textContent).toContain("Done");
+		expect(within(merged).getByRole("banner").textContent).not.toContain(
+			"header",
+		);
+		expect(merged.textContent).toContain("headermerged ontomain");
 		expect(merged.textContent).toContain("The header wraps now.");
 		const removed = within(view).getByRole("region", {
 			name: "removed footer",

@@ -3,7 +3,6 @@ import {
 	ChevronRightIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
-	GitBranchIcon,
 	HourglassIcon,
 	type LucideIcon,
 	PauseIcon,
@@ -18,7 +17,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { WIDE } from "./app-nav";
 import { Markdown } from "./markdown";
-import { ReferenceChip, TaskChip } from "./reference-chip";
+import { TaskOnto } from "./task-onto";
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what
@@ -145,7 +144,8 @@ export const ENDINGS: Record<
 	TaskReport["ending"],
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
-	// Both are work over, so they share the check.
+	// Both are work over, so they share the check; a merge's report card
+	// titles itself Done and names what merged in its body.
 	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
@@ -224,21 +224,11 @@ function Header({
 			{/* In a narrow thread the chips take a row of their own beneath, so
 			    the aside stays beside the title rather than wrapping alone. */}
 			{task !== undefined && (
-				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs @max-md:order-last @max-md:basis-full">
-					<TaskChip task={task} inline />
-					{base !== null && (
-						<>
-							<span>onto</span>
-							<ReferenceChip
-								Icon={GitBranchIcon}
-								kind=""
-								name={base}
-								title={base}
-								inline
-							/>
-						</>
-					)}
-				</span>
+				<TaskOnto
+					task={task}
+					base={base}
+					className="@max-md:order-last @max-md:basis-full"
+				/>
 			)}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}
 		</div>

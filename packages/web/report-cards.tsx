@@ -37,10 +37,12 @@ import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard } from "./current-task";
 import { Markdown } from "./markdown";
+import { MergedBody } from "./merged-body";
 import { demoed, MergedStats, useLanded } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
 import { ReportAside } from "./report-header";
 import { TaskIcon } from "./task-icon";
+import { TaskOnto } from "./task-onto";
 import type { ReportTiming } from "./working-report-time";
 
 /**
@@ -66,12 +68,16 @@ export function ReportCard({
 	timing?: ReportTiming;
 }): JSX.Element {
 	const { Icon, tone } = ENDINGS[report.ending];
+	const merged = report.ending === "merged";
 	// A Working card whose time has stopped, once later words replace it,
-	// says the work is past.
+	// says the work is past. A merge is work done like any other, its card
+	// titled so, with what merged where said in its body.
 	const title =
 		report.ending === "working" && timing?.until != null
 			? "Worked"
-			: ENDINGS[report.ending].title;
+			: merged
+				? "Done"
+				: ENDINGS[report.ending].title;
 	const text = reportText(report);
 	// Shows the markdown the agent wrote in place of the card's body, until
 	// toggled back; never kept, so the card opens rendered.
@@ -79,7 +85,7 @@ export function ReportCard({
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
-	const landed = useLanded(report.ending === "merged" ? report.task : null);
+	const landed = useLanded(merged ? report.task : null);
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
@@ -87,8 +93,8 @@ export function ReportCard({
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				// A Done report names no task.
-				task={report.task === "" ? undefined : report.task}
+				// A Done report names no task, and a merge names its own in its body.
+				task={report.task === "" || merged ? undefined : report.task}
 				base={report.base}
 				aside={
 					<ReportAside
@@ -103,13 +109,21 @@ export function ReportCard({
 						<Source text={report.source} />
 						<CardArchive report={report} />
 					</>
-				) : text === "" && report.ending !== "merged" ? (
+				) : text === "" && !merged ? (
 					archivable ? (
 						<CardArchive report={report} />
 					) : undefined
 				) : (
 					<>
-						{report.ending === "merged" ? (
+						{merged && (
+							<TaskOnto
+								task={report.task}
+								base={report.base}
+								verb="merged"
+								className="-mb-1.5 px-4 pt-3.5 @max-md:px-3 @max-md:pt-2.5"
+							/>
+						)}
+						{merged ? (
 							<MergedBody
 								text={text}
 								outcome={landed?.outcome.outcome}
@@ -122,7 +136,7 @@ export function ReportCard({
 								</Folded>
 							)
 						)}
-						{report.ending === "merged" && <MergedStats landed={landed} />}
+						{merged && <MergedStats landed={landed} />}
 						<CardArchive report={report} demo={demoed(landed)} />
 					</>
 				)}
@@ -174,78 +188,6 @@ function Folded({ children }: { children: ReactNode }): JSX.Element {
 			)}
 		</div>
 	);
-}
-
-/**
- * A merged card's one body: the first paragraph of the agent's report, or of
- * the task's `## Outcome` when the report says nothing, with More opening the
- * rest of both, the outcome's demo and verification among them.
- */
-function MergedBody({
-	text,
-	outcome,
-	lead,
-}: {
-	text: string;
-	outcome: string | undefined;
-	lead: boolean;
-}): JSX.Element | null {
-	const [open, setOpen] = useState(false);
-	const [first, ...rest] = paragraphs(text !== "" ? text : (outcome ?? ""));
-	if (first === undefined) {
-		return null;
-	}
-	const more = [
-		rest.join("\n\n"),
-		text !== "" && outcome !== undefined ? outcome : "",
-	].filter((each) => each !== "");
-	return (
-		<div>
-			<CardBody text={first} lead={lead} />
-			{open ? (
-				<section aria-label="outcome" className="-mt-2">
-					{more.map((each) => (
-						<CardBody key={each} text={each} />
-					))}
-				</section>
-			) : (
-				more.length > 0 && (
-					<button
-						type="button"
-						onClick={() => setOpen(true)}
-						className="flex h-10 pointer-coarse:h-11 w-full items-center justify-center gap-1 border-t font-medium text-muted-foreground text-sm hover:bg-muted active:bg-muted"
-					>
-						More
-						<ChevronDownIcon className="size-4" />
-					</button>
-				)
-			)}
-		</div>
-	);
-}
-
-/** `text`'s paragraphs, a blank line apart, outside any code fence. */
-function paragraphs(text: string): string[] {
-	const found: string[] = [];
-	let fenced = false;
-	let current: string[] = [];
-	for (const line of text.trim().split("\n")) {
-		if (/^\s*(```|~~~)/.test(line)) {
-			fenced = !fenced;
-		}
-		if (!fenced && line.trim() === "") {
-			if (current.length > 0) {
-				found.push(current.join("\n"));
-			}
-			current = [];
-		} else {
-			current.push(line);
-		}
-	}
-	if (current.length > 0) {
-		found.push(current.join("\n"));
-	}
-	return found;
 }
 
 /** A report's markdown as the agent wrote it, to read or copy. */
