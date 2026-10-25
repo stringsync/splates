@@ -119,7 +119,7 @@ export function ReportCard({
 							<TaskOnto
 								task={report.task}
 								base={report.base}
-								verb="merged"
+								merged
 								className="-mb-1.5 px-4 pt-3.5 @max-md:px-3 @max-md:pt-2.5"
 							/>
 						)}

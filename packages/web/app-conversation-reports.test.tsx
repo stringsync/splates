@@ -57,7 +57,7 @@ describe("App's report cards", () => {
 		expect(within(merged).getByRole("banner").textContent).not.toContain(
 			"header",
 		);
-		expect(merged.textContent).toContain("headermerged ontomain");
+		expect(merged.textContent).toContain("MergedTaskheaderontomain");
 		expect(merged.textContent).toContain("The header wraps now.");
 		const removed = within(view).getByRole("region", {
 			name: "removed footer",
