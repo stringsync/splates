@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
-import { resize, workTimelines } from "./drivers";
+import { resize, workTimeline, workTimelines } from "./drivers";
 import {
 	cleanup,
-	fireEvent,
 	second,
 	Testing,
-	todo,
 	tool,
 	turn,
 	waitFor,
@@ -27,17 +25,16 @@ describe("App's splates events", () => {
 		testing.dispose();
 	});
 
-	/** The counts of the thread's quiet events, and the dialog they open to. */
+	/** The counts on the row's line, and its quiet events' lines once it opens. */
 	const counted = async (thread: HTMLElement) => {
 		const counts = await waitFor(() =>
-			within(thread).getByRole("button", { name: "quiet events" }),
+			within(thread).getByRole("note", { name: "quiet events" }),
 		);
-		const text = counts.textContent;
-		fireEvent.click(counts);
-		const dialog = await waitFor(() =>
-			within(document.body).getByRole("dialog"),
-		);
-		return { text, dialog };
+		const timeline = workTimeline(thread);
+		const lines = [
+			...timeline.querySelectorAll<HTMLElement>('[data-slot="quiet-event"]'),
+		];
+		return { text: counts.textContent, timeline, lines };
 	};
 
 	/** The thread of a turn, opened with `events`. */
@@ -46,36 +43,36 @@ describe("App's splates events", () => {
 		return await waitFor(() => view.getByRole("region", { name: "Tests" }));
 	};
 
-	for (const width of [390, 1024]) {
-		it(`shows uncounted handed-off adds and visible details at ${width}px`, async () => {
-			resize(width, 844);
-			const thread = await opened(turn(["Done."]), [
-				{
-					id: "add",
-					at: second(2),
-					action: "add",
-					task: "delegated",
-					reason: null,
-					conversation: "c1",
-					base: "main",
-					tasks: [],
-					goal: "Read every detail",
-					subjects: [],
-					agent: "codex",
-					model: "small",
-				},
-			]);
-			expect(
-				within(thread).queryAllByRole("note", { name: "splates" }),
-			).toHaveLength(0);
-			const { text, dialog } = await counted(thread);
-			expect(text).toBe("Details");
-			expect(dialog.textContent).toContain(
-				"Handed to codex (small): Read every detail",
-			);
-			expect(dialog.querySelector("time")?.dateTime).toBe(second(2));
-		});
-	}
+	it("shows an uncounted handed-off add in the timeline", async () => {
+		const thread = await opened(turn(["Done."]), [
+			{
+				id: "add",
+				at: second(2),
+				action: "add",
+				task: "delegated",
+				reason: null,
+				conversation: "c1",
+				base: "main",
+				tasks: [],
+				goal: "Read every detail",
+				subjects: [],
+				agent: "codex",
+				model: "small",
+			},
+		]);
+		expect(
+			within(thread).queryAllByRole("note", { name: "splates" }),
+		).toHaveLength(0);
+		expect(
+			within(thread).queryByRole("note", { name: "quiet events" }),
+		).toBeNull();
+		const lines = workTimeline(thread).querySelectorAll(
+			'[data-slot="quiet-event"]',
+		);
+		expect([...lines].map((line) => line.textContent)).toEqual([
+			"Addeddelegated",
+		]);
+	});
 
 	it("includes refusals within the three summary kinds", async () => {
 		const thread = await opened(turn(["Done."]), [
@@ -84,54 +81,10 @@ describe("App's splates events", () => {
 			attached(4, ["one.png"], []),
 			todoEvent("task take", 5, undefined, "not_found"),
 		]);
-		const { text, dialog } = await counted(thread);
+		const { text, timeline } = await counted(thread);
 		expect(text).toBe("1 moved·1 taken·+1 more·1 refused");
-		expect(dialog.textContent).toContain("one.png");
-		expect(dialog.textContent).toContain("task take: not_found");
-	});
-
-	it("shows lane tasks, full subjects, first detail lines and their sources", async () => {
-		const subject =
-			"A full subject that remains readable even when it extends across several lines on a phone";
-		const view = await testing.openConversations(
-			[
-				{
-					...turn(["Done."]),
-					events: [
-						update(7, 2, subject),
-						{
-							...laneEvent("lane", 3),
-							action: "lane add",
-							lane: 4,
-							name: "Details",
-						},
-					],
-				},
-			],
-			undefined,
-			{
-				todos: [
-					todo({
-						id: 7,
-						subject,
-						text: "First detail line\nSecond detail line",
-						from: "source-task",
-						lane: 4,
-					}),
-				],
-				lanes: [{ id: 4, name: "Details" }],
-			},
-		);
-		const thread = await waitFor(() =>
-			view.getByRole("region", { name: "Tests" }),
-		);
-		const { dialog } = await counted(thread);
-		expect(dialog.textContent).toContain("First detail line");
-		expect(dialog.textContent).not.toContain("Second detail line");
-		expect(dialog.textContent).toContain("Source: source-task");
-		expect(
-			within(dialog).getByRole("region", { name: "Lanes" }).textContent,
-		).toContain(subject);
+		expect(timeline.textContent).toContain("one.png");
+		expect(timeline.textContent).toContain("task take: not_found");
 	});
 
 	it("draws each event as a line between the work it came in, a refused one marked", async () => {
@@ -192,7 +145,7 @@ describe("App's splates events", () => {
 		expect(within(line).getByTitle(/codex \(gpt-5\.5\)/));
 	});
 
-	it("counts todos taken, released or removed, and lists them in the dialog, a refused one as refused", async () => {
+	it("counts todos taken, released or removed, and lists them in the timeline, a refused one as refused", async () => {
 		const thread = await opened(turn(["Done."]), [
 			todoEvent("task take", 3, [{ id: 12, subject: "Fix the lease" }]),
 			todoEvent("task release", 4, [
@@ -207,12 +160,12 @@ describe("App's splates events", () => {
 		expect(
 			within(thread).queryAllByRole("note", { name: "splates" }),
 		).toHaveLength(0);
-		const { text, dialog } = await counted(thread);
+		const { text, timeline } = await counted(thread);
 		expect(text).toBe("4 taken·1 removed·1 refused");
-		expect(dialog.textContent).toContain("Took#12 Fix the lease");
-		expect(dialog.textContent).toContain("Released#1 One#2 Two#3 Three");
-		expect(dialog.textContent).toContain("Removed#12 Fix the lease");
-		expect(dialog.textContent).toContain("task take: not_found");
+		expect(timeline.textContent).toContain("Took#12 Fix the lease");
+		expect(timeline.textContent).toContain("Released3 tasks");
+		expect(timeline.textContent).toContain("Removed#12 Fix the lease");
+		expect(timeline.textContent).toContain("task take: not_found");
 	});
 
 	it("draws a cred request as a chip opening it on the Creds page, and none for a cred already kept", async () => {
@@ -233,7 +186,7 @@ describe("App's splates events", () => {
 		expect(thread.textContent).not.toContain("## 🔑");
 	});
 
-	it("counts the files an attach stored or dropped, and draws each attach in the dialog, a bare one not at all", async () => {
+	it("counts the files an attach stored or dropped, and draws each attach in the timeline, a bare one not at all", async () => {
 		const thread = await opened(turn(["Done."]), [
 			attached(1, ["/git/splates/a/shot.png"], []),
 			attached(2, ["/git/splates/a/one.png", "/git/splates/a/two.png"], []),
@@ -242,13 +195,9 @@ describe("App's splates events", () => {
 			attached(5, ["/git/splates/a/new.png"], ["one.png", "two.png"]),
 		]);
 
-		const { text, dialog } = await counted(thread);
+		const { text, lines } = await counted(thread);
 		expect(text).toBe("7 files");
-		expect(
-			within(dialog)
-				.getAllByRole("note", { name: "splates" })
-				.map((line) => line.textContent),
-		).toEqual([
+		expect(lines.map((line) => line.textContent)).toEqual([
 			"Attachedshot.pngtoalpha",
 			"Attached 2 filestoalpha",
 			"Removedold.pngfromalpha",
@@ -318,7 +267,7 @@ describe("App's splates events", () => {
 		expect(lines[1]?.querySelector('[aria-label="Failed"]')).not.toBeNull();
 	});
 
-	it("counts todo updates, keeping separate entries with each time and change", async () => {
+	it("counts todo updates, folding a run of them into one line", async () => {
 		const thread = await opened(
 			turn([
 				tool({
@@ -332,28 +281,23 @@ describe("App's splates events", () => {
 			[update(1, 3.1, "One"), update(2, 3.2, "Two"), update(3, 3.3, "Three")],
 		);
 
-		const { text, dialog } = await counted(thread);
+		const { text, lines } = await counted(thread);
 		expect(text).toBe("3 moved");
-		const lines = within(dialog).getAllByRole("note", { name: "splates" });
-		expect(lines).toHaveLength(3);
-		expect(lines[0]?.textContent).toContain("#1 One");
-		expect(lines[2]?.textContent).toContain("#3 Three");
-		expect(dialog.querySelectorAll("time")).toHaveLength(3);
-		expect(dialog.textContent).toContain("moved to position 2");
+		expect(lines.map((line) => line.textContent)).toEqual(["Updated3 tasks"]);
 	});
 
-	it("draws one todo update in the dialog with what changed in its chip's title", async () => {
+	it("draws one todo update in the timeline with what changed in its chip's title", async () => {
 		const thread = await opened(turn(["Done."]), [update(7, 2, "Seven")]);
 
-		const { dialog } = await counted(thread);
-		const line = within(dialog).getByRole("note", { name: "splates" });
-		expect(line.textContent).toContain("Updated#7 Seven");
-		expect(line.querySelector("[title]")?.getAttribute("title")).toContain(
+		const { lines } = await counted(thread);
+		const [line] = lines;
+		expect(line?.textContent).toContain("Updated#7 Seven");
+		expect(line?.querySelector("[title]")?.getAttribute("title")).toContain(
 			"moved to position 2",
 		);
 	});
 
-	it("counts a lane started, updated and removed, and draws each in the dialog", async () => {
+	it("counts a lane started, updated and removed, and draws each in the timeline", async () => {
 		const thread = await opened(turn(["Done."]), [
 			{ ...laneEvent("a", 2), action: "lane add", lane: 4, name: "Stats" },
 			{
@@ -380,13 +324,14 @@ describe("App's splates events", () => {
 			},
 		]);
 
-		const { text, dialog } = await counted(thread);
+		const { text, lines } = await counted(thread);
 		expect(text).toBe("3 lanes·1 refused");
-		expect(
-			within(dialog)
-				.getAllByRole("note", { name: "splates" })
-				.map((line) => line.textContent),
-		).toEqual(["StartedStats", "UpdatedMetrics", "RemovedMetrics"]);
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"StartedStats",
+			"UpdatedMetrics",
+			"RemovedMetrics",
+			"lane remove: usage",
+		]);
 	});
 
 	it("draws a removed task as one line, its reason and the todos put back in its chip's title", async () => {
@@ -443,11 +388,7 @@ function update(id: number, secs: number, subject: string): Event {
 }
 
 /** A claim of `task` the agent ran at `secs`, refused as `reason` when given. */
-function claim(
-	task: string,
-	secs: number,
-	opts: { reason?: string } = {},
-): Event {
+function claim(task: string, secs: number, opts: ClaimOpts = {}): Event {
 	const { reason } = opts;
 	return reason === undefined
 		? {
@@ -467,6 +408,12 @@ function claim(
 				reason,
 				conversation: "c1",
 			};
+}
+
+/** How `claim` went. */
+interface ClaimOpts {
+	/** Why it was refused; absent when it went through. */
+	reason?: string;
 }
 
 /** A todo command the agent ran at `secs`, refused as `reason` when given. */

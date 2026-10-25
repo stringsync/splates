@@ -133,18 +133,11 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									? "Working"
 									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
-						{quiet.length > 0 && (
-							<>
-								<span aria-hidden className="max-md:hidden">
-									·
-								</span>
-								{/* On a phone they wrap under Worked, past the chevron. */}
-								<QuietCounts
-									events={quiet}
-									className="max-md:basis-full max-md:pl-5"
-								/>
-							</>
-						)}
+						{/* On a phone they wrap under Worked, past the chevron. */}
+						<QuietCounts
+							events={quiet}
+							className="max-md:basis-full max-md:pl-5"
+						/>
 					</summary>
 					{opened &&
 						(steps.length > 0 || (!work.going && work.plan !== null)) && (

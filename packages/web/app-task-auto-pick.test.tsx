@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
 import type { Event } from "@stringsync/splates-server/records";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -193,15 +194,15 @@ describe("App's Auto pick", () => {
 	});
 });
 
-/** Auto pick's line, in the dialog its row's quiet events open to. */
+/** Auto pick's line, in the timeline of the row it fell in. */
 async function quietLine(view: {
 	getByRole: (role: string, options: { name: string }) => HTMLElement;
 }): Promise<HTMLElement> {
-	fireEvent.click(
-		await waitFor(() => view.getByRole("button", { name: "quiet events" })),
+	const thread = await waitFor(() =>
+		view.getByRole("region", { name: "Tests" }),
 	);
 	return await waitFor(() =>
-		within(document.body).getByRole("note", { name: "splates" }),
+		within(workTimeline(thread)).getByRole("note", { name: "splates" }),
 	);
 }
 

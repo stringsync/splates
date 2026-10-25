@@ -1,16 +1,8 @@
 import type { Event } from "@stringsync/splates-server/records";
 import { FilesIcon, ListTodoIcon, PackageIcon, XIcon } from "lucide-react";
-import { type JSX, type ReactNode, useState } from "react";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "#web/components/ui/dialog.tsx";
+import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { type CountKind, countsOf } from "./quiet-counts";
-import { QuietEventDetail } from "./quiet-event-detail";
-import { Stamp } from "./stamp";
 import { LaneIcon } from "./task-icon";
 
 /** The most kinds of count a row shows before the rest fold into `+N more`. */
@@ -24,9 +16,9 @@ const ICONS: Partial<Record<CountKind, typeof FilesIcon>> = {
 };
 
 /**
- * The quiet events of a work row as muted plain counts, `3 tasks added ·
- * Uploads lane · 2 moved`, that open a dialog of them in full. Notes read and
- * Auto pick have no count; Details leaves a way into rows with only those.
+ * The quiet events of a work row as muted plain counts in its line, `3 tasks
+ * added · Uploads lane · 2 moved`, which open with the row: its timeline shows
+ * each where it happened. Notes read and Auto pick have no count.
  */
 export function QuietCounts({
 	events,
@@ -35,7 +27,6 @@ export function QuietCounts({
 	events: readonly Event[];
 	className?: string;
 }): JSX.Element | null {
-	const [open, setOpen] = useState(false);
 	if (events.length === 0) {
 		return null;
 	}
@@ -70,24 +61,16 @@ export function QuietCounts({
 			),
 		});
 	}
-	if (parts.length === 0) {
-		parts.push({
-			key: "events",
-			node: "Details",
-		});
-	}
-	return (
+	return parts.length === 0 ? null : (
 		<>
-			<button
-				type="button"
+			<span aria-hidden className="max-md:hidden">
+				·
+			</span>
+			<span
+				role="note"
 				aria-label="quiet events"
-				onClick={(event) => {
-					// Inside a row's summary, opening the dialog must not fold the row.
-					event.preventDefault();
-					setOpen(true);
-				}}
 				className={cn(
-					"flex min-w-0 cursor-pointer flex-wrap items-center gap-x-1.5 text-muted-foreground text-xs hover:text-foreground",
+					"flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs",
 					className,
 				)}
 			>
@@ -97,108 +80,7 @@ export function QuietCounts({
 						{node}
 					</span>
 				))}
-			</button>
-			{open && (
-				<Dialog open onOpenChange={setOpen}>
-					<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-						<DialogHeader>
-							<DialogTitle>What it did on the side</DialogTitle>
-						</DialogHeader>
-						<Groups events={events} />
-					</DialogContent>
-				</Dialog>
-			)}
+			</span>
 		</>
-	);
-}
-
-/** The groups the dialog sorts individual events into. */
-const GROUPS: {
-	title: string;
-	has: (event: Event) => boolean;
-}[] = [
-	{ title: "Tasks added", has: (event) => event.action === "task add" },
-	{
-		title: "Tasks updated",
-		has: (event) => event.action === "task update",
-	},
-	{
-		title: "Tasks taken and removed",
-		has: (event) =>
-			event.action === "task take" ||
-			event.action === "task release" ||
-			event.action === "task remove",
-	},
-	{
-		title: "Queue",
-		has: (event) =>
-			event.action === "queue add" || event.action === "queue remove",
-	},
-	{
-		title: "Lanes",
-		has: (event) =>
-			event.action === "lane add" ||
-			event.action === "lane update" ||
-			event.action === "lane remove",
-	},
-	{ title: "Files", has: (event) => event.action === "attach" },
-	{
-		title: "Artifacts",
-		has: (event) =>
-			event.action === "artifact add" || event.action === "artifact remove",
-	},
-	{
-		title: "Notes read",
-		has: (event) => event.action === "note read",
-	},
-	{ title: "Auto pick", has: (event) => event.action === "auto" },
-	{ title: "Handed to another agent", has: (event) => event.action === "add" },
-];
-
-/** Each successful event stays separate; refused commands follow with their reasons. */
-function Groups({ events }: { events: readonly Event[] }): JSX.Element {
-	const done = events.filter((event) => event.reason === null);
-	const refused = events.filter((event) => event.reason !== null);
-	return (
-		<div className="flex flex-col gap-4">
-			{GROUPS.map(({ title, has }) => {
-				const each = done.filter(has);
-				const [first] = each;
-				return first === undefined ? null : (
-					<section key={title} aria-label={title} className="flex flex-col">
-						<h3 className="font-medium text-muted-foreground text-xs">
-							{title}
-						</h3>
-						<div className="flex min-w-0 flex-col gap-3">
-							{each.map((event) => (
-								<QuietEventDetail key={event.id} event={event} />
-							))}
-						</div>
-					</section>
-				);
-			})}
-			{refused.length > 0 && (
-				<section aria-label="Refused" className="flex flex-col gap-1">
-					<h3 className="font-medium text-muted-foreground text-xs">Refused</h3>
-					<ul className="flex flex-col gap-1 text-xs">
-						{refused.map((event) => (
-							<li
-								key={event.id}
-								className="flex min-w-0 flex-wrap items-baseline gap-2 wrap-anywhere"
-							>
-								<XIcon
-									aria-hidden
-									className="size-3 shrink-0 translate-y-0.5 text-destructive"
-								/>
-								<span className="min-w-0 flex-1">
-									{event.action}: {event.reason}
-								</span>
-								<Stamp at={event.at} />
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
-		</div>
 	);
 }

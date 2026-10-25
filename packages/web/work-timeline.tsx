@@ -4,7 +4,7 @@ import {
 	notesRead,
 } from "@stringsync/splates-server/notes/browser";
 import { editLines } from "@stringsync/splates-server/tasks/browser";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, XIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, use, useState } from "react";
 import { CodeDiff } from "#web/components/assistant-ui/elements/code-diff.tsx";
 import {
@@ -12,12 +12,14 @@ import {
 	paper,
 } from "#web/components/assistant-ui/elements/surfaces.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AddedLine } from "./added-line";
+import { AutoPickLine } from "./auto-pick-line";
 import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { NoteChip } from "./note-chip";
-import { NamedChip } from "./splates-event";
+import { Action, NamedChip, type SplatesEventView } from "./splates-event";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
@@ -129,25 +131,38 @@ export function TimelineItem({
 				</Call>
 			);
 		case "event": {
-			const view = lineOfRun(item.event, item.also, false, 0);
-			return view === null ? null : (
-				<div
-					data-slot="quiet-event"
-					className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
-				>
-					<span aria-hidden className="shrink-0">
-						•
-					</span>
-					{view.words.map((word, index) =>
-						typeof word === "string" ? (
-							// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
-							<span key={index}>{word}</span>
-						) : (
-							// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
-							<NamedChip key={index} named={word} />
-						),
-					)}
-				</div>
+			const { event } = item;
+			if (event.action === "auto" && event.reason === null) {
+				return <AutoPickLine event={event} details />;
+			}
+			const view = lineOfRun(event, item.also, false, 0);
+			// A refused command has no line of its own, yet the row counts it.
+			if (view === null && event.reason !== null) {
+				return (
+					<div
+						data-slot="quiet-event"
+						className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs wrap-anywhere"
+					>
+						<XIcon
+							aria-label="Refused"
+							className="size-3 shrink-0 text-destructive"
+						/>
+						{event.action}: {event.reason}
+					</div>
+				);
+			}
+			if (view === null) {
+				return null;
+			}
+			// What the row's dialog used to offer: an added task goes in a click.
+			return event.action === "task add" && event.reason === null ? (
+				<AddedLine
+					view={view}
+					id={event.number}
+					render={(each) => <EventLine view={each} />}
+				/>
+			) : (
+				<EventLine view={view} />
 			);
 		}
 		case "said":
@@ -170,6 +185,27 @@ export function TimelineItem({
 		default:
 			return item satisfies never;
 	}
+}
+
+/** Something splates did at the agent's word, in its words, then its one action. */
+function EventLine({ view }: { view: SplatesEventView }): JSX.Element {
+	return (
+		<div
+			data-slot="quiet-event"
+			className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
+		>
+			{view.words.map((word, index) =>
+				typeof word === "string" ? (
+					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+					<span key={index}>{word}</span>
+				) : (
+					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+					<NamedChip key={index} named={word} />
+				),
+			)}
+			{view.act != null && <Action act={view.act} />}
+		</div>
+	);
 }
 
 /**

@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
+import { workTimeline } from "./drivers";
 import {
-	act,
 	cleanup,
-	fireEvent,
 	second,
 	Testing,
 	tool,
@@ -15,30 +14,16 @@ import {
 describe("App's note reads", () => {
 	let testing: Testing;
 
+	beforeEach(() => {
+		testing = new Testing();
+	});
+
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
 	});
 
-	it("draws a turn's note reads in the dialog as separate entries with their own times", async () => {
-		testing = new Testing();
-		const read = (
-			id: string,
-			at: number,
-			subagent: boolean,
-			path = "notes/retries.md",
-		): Event => ({
-			id,
-			at: second(at),
-			action: "note read",
-			task: null,
-			reason: null,
-			conversation: "c1",
-			path,
-			hash: null,
-			tool: id,
-			subagent,
-		});
+	it("adds no count to the row for note reads, and draws them in its timeline as one line", async () => {
 		const view = await testing.openConversations([
 			{
 				...turn([
@@ -52,32 +37,47 @@ describe("App's note reads", () => {
 					"Read it.",
 				]),
 				events: [
-					read("r1", 2.5, false),
-					read("r2", 4, true),
-					read("r3", 4.5, true, "notes/queue.md"),
+					read("r1", 2.5),
+					read("r2", 4, { subagent: true }),
+					read("r3", 4.5, { subagent: true, path: "notes/queue.md" }),
 				],
 			},
 		]);
 		const thread = await waitFor(() =>
 			view.getByRole("region", { name: "Tests" }),
 		);
-		const counts = await waitFor(() =>
-			within(thread).getByRole("button", { name: "quiet events" }),
-		);
-		// Notes read leave a way in without adding a count.
-		expect(counts.textContent).toBe("Details");
-		await act(async () => fireEvent.click(counts));
-		const dialog = await waitFor(() =>
-			within(document.body).getByRole("dialog"),
-		);
-		const lines = within(dialog).getAllByRole("note", { name: "splates" });
-		expect(lines.map((line) => line.textContent)).toEqual([
-			"Read notes/retries.md",
-			"Read notes/retries.md by a subagent",
-			"Read notes/queue.md by a subagent",
-		]);
+		await waitFor(() => expect(thread.textContent).toContain("Read it."));
 		expect(
-			[...dialog.querySelectorAll("time")].map((time) => time.dateTime),
-		).toEqual([second(2.5), second(4), second(4.5)]);
+			within(thread).queryByRole("note", { name: "quiet events" }),
+		).toBeNull();
+		const lines = workTimeline(thread).querySelectorAll(
+			'[data-slot="quiet-event"]',
+		);
+		expect([...lines].map((line) => line.textContent)).toEqual(["Read2 notes"]);
 	});
 });
+
+/** A note read at `at` seconds by the tool call `id`. */
+function read(id: string, at: number, opts: ReadOpts = {}): Event {
+	const { subagent = false, path = "notes/retries.md" } = opts;
+	return {
+		id,
+		at: second(at),
+		action: "note read",
+		task: null,
+		reason: null,
+		conversation: "c1",
+		path,
+		hash: null,
+		tool: id,
+		subagent,
+	};
+}
+
+/** How `read` reads its note. */
+interface ReadOpts {
+	/** A subagent read it, not the conversation's agent. */
+	subagent?: boolean;
+	/** The note read, from the project root. */
+	path?: string;
+}

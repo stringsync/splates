@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { workTimeline } from "./drivers";
 import {
 	cleanup,
-	fireEvent,
 	second,
 	Testing,
 	todo,
@@ -49,12 +49,16 @@ describe("App's todo add events for a todo a task has taken", () => {
 					lanes: [],
 				},
 			);
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "quiet events" })),
+			const thread = await waitFor(() =>
+				view.getByRole("region", { name: "Tests" }),
 			);
-			const line = await waitFor(() =>
-				within(document.body).getByRole("note", { name: "splates" }),
-			);
+			const line = await waitFor(() => {
+				const found = workTimeline(thread).querySelector<HTMLElement>(
+					'[data-slot="quiet-event"]',
+				);
+				expect(found?.textContent).toContain("Added");
+				return found as HTMLElement;
+			});
 
 			expect(within(line).queryByRole("button", { name: "Remove" })).toBeNull();
 		} finally {

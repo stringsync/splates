@@ -256,9 +256,10 @@ describe("App's work row", () => {
 		expect(notes.map((note) => note.textContent)).toEqual([
 			"Claimedupload-limit",
 		]);
+		// A hand-off adds no count to the row's line.
 		expect(
-			within(thread).getByRole("button", { name: "quiet events" }).textContent,
-		).toBe("Details");
+			within(thread).queryByRole("note", { name: "quiet events" }),
+		).toBeNull();
 		const viewport = thread.querySelector(
 			'[data-slot="aui_thread-viewport"]',
 		) as HTMLElement;

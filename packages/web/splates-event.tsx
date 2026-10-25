@@ -501,7 +501,8 @@ function Chip({
 	);
 }
 
-function Action({ act }: { act: Act }): JSX.Element {
+/** An event's one action, as a small button, or what it did once done. */
+export function Action({ act }: { act: Act }): JSX.Element {
 	const { done = null } = act;
 	if (done !== null) {
 		return <span className="shrink-0">{done}</span>;

@@ -4,6 +4,7 @@ import type {
 	ArtifactVersion,
 } from "@stringsync/splates-server/artifacts";
 import type { Event } from "@stringsync/splates-server/records";
+import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -15,6 +16,15 @@ import {
 	waitFor,
 	within,
 } from "./testing";
+
+/** The lines of the quiet events in the thread's opened work timeline. */
+function quietLines(thread: HTMLElement): HTMLElement[] {
+	return [
+		...workTimeline(thread).querySelectorAll<HTMLElement>(
+			'[data-slot="quiet-event"]',
+		),
+	];
+}
 
 describe("App's artifacts", () => {
 	let testing: Testing;
@@ -63,22 +73,16 @@ describe("App's artifacts", () => {
 			],
 		);
 
-		fireEvent.click(
-			await waitFor(() =>
-				within(thread).getByRole("button", { name: "quiet events" }),
-			),
-		);
 		const lines = await waitFor(() => {
-			const found = within(document.body).getAllByRole("note", {
-				name: "splates",
-			});
-			expect(found).toHaveLength(3);
+			const found = quietLines(thread);
+			expect(found).toHaveLength(4);
 			return found;
 		});
 		expect(lines.map((line) => line.textContent)).toEqual([
 			"Addedreport.html",
 			"Addedreport.html(v2)",
 			"Removedreport.html",
+			"artifact add: too_large",
 		]);
 		await act(async () =>
 			fireEvent.click(
@@ -305,14 +309,11 @@ describe("App's artifacts", () => {
 			[artifact("shot.png", [version(1, 10, "image/png")])],
 			[added(1, "shot.png", 1)],
 		);
-		fireEvent.click(
-			await waitFor(() =>
-				within(thread).getByRole("button", { name: "quiet events" }),
-			),
-		);
-		const line = await waitFor(() =>
-			within(document.body).getByRole("note", { name: "splates" }),
-		);
+		const line = await waitFor(() => {
+			const [found] = quietLines(thread);
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "shot.png" })),
 		);

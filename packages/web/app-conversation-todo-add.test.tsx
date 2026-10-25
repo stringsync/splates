@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
+import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -45,21 +46,21 @@ describe("App's todo add events", () => {
 		testing.dispose();
 	});
 
-	it("draws an added todo in the dialog as one line naming it, and a refused add as none", async () => {
+	it("draws an added todo in the timeline as one line naming it, and a refused add with its reason", async () => {
 		expect(within(thread).queryAllByRole("note", { name: "splates" })).toEqual(
 			[],
 		);
-		const dialog = await quietDialog(thread);
-		const lines = within(dialog).getAllByRole("note", { name: "splates" });
+		const timeline = workTimeline(thread);
 
-		expect(lines.map((line) => line.textContent)).toEqual([
+		expect(quietLines(timeline).map((line) => line.textContent)).toEqual([
 			"Added#4 Upload retries forever on a 413Remove",
+			"task add: usage",
 		]);
 	});
 
 	it("removes the todo from its line, and puts it back with Undo", async () => {
-		const dialog = await quietDialog(thread);
-		const line = within(dialog).getByRole("note", { name: "splates" });
+		const timeline = workTimeline(thread);
+		const line = quietLines(timeline)[0] as HTMLElement;
 
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "Remove" })),
@@ -71,9 +72,11 @@ describe("App's todo add events", () => {
 		const listed = testing.served.todos;
 		testing.served = { ...testing.served, todos: [] };
 		await act(async () => testing.stream?.onmessage?.());
-		const removed = await waitFor(() =>
-			within(dialog).getByRole("note", { name: "splates" }),
-		);
+		const removed = await waitFor(() => {
+			const [first] = quietLines(timeline);
+			expect(first?.textContent).toStartWith("Removed");
+			return first as HTMLElement;
+		});
 		expect(removed.textContent).toBe(
 			"Removed#4 Upload retries forever on a 413Undo",
 		);
@@ -88,16 +91,15 @@ describe("App's todo add events", () => {
 		testing.served = { ...testing.served, todos: listed };
 		await act(async () => testing.stream?.onmessage?.());
 		await waitFor(() =>
-			within(within(dialog).getByRole("note", { name: "splates" })).getByRole(
-				"button",
-				{ name: "Remove" },
-			),
+			within(quietLines(timeline)[0] as HTMLElement).getByRole("button", {
+				name: "Remove",
+			}),
 		);
 	});
 
 	it("opens the todo from its chip", async () => {
-		const dialog = await quietDialog(thread);
-		const line = within(dialog).getByRole("note", { name: "splates" });
+		const timeline = workTimeline(thread);
+		const line = quietLines(timeline)[0] as HTMLElement;
 
 		await act(async () =>
 			fireEvent.click(
@@ -109,18 +111,11 @@ describe("App's todo add events", () => {
 	});
 });
 
-/** Opens the counts of a thread's quiet events, and gives the dialog they open to. */
-async function quietDialog(thread: HTMLElement): Promise<HTMLElement> {
-	fireEvent.click(
-		await waitFor(() =>
-			within(thread).getByRole("button", { name: "quiet events" }),
-		),
-	);
-	return await waitFor(() =>
-		within(document.body).getByRole("dialog", {
-			name: "What it did on the side",
-		}),
-	);
+/** The lines of the timeline's quiet events. */
+function quietLines(timeline: HTMLElement): HTMLElement[] {
+	return [
+		...timeline.querySelectorAll<HTMLElement>('[data-slot="quiet-event"]'),
+	];
 }
 
 /** A todo add the agent ran at `secs`, adding todo `id` to lane 1. */
