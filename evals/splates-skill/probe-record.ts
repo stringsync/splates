@@ -224,6 +224,8 @@ export interface RunOptions {
 	batch?: { skill: string; startedAt: string };
 	stopOnFailure?: boolean;
 	directory: string;
+	/** The person's home, which the agent's sandbox stays out of; `homedir()` when absent. */
+	home?: string;
 	parallel: number;
 	reps: number;
 	skillHash: string;

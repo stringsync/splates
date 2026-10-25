@@ -42,7 +42,7 @@ export const probes: Probe[] = [
 			origin: "user",
 			text: "Run only smoke.test.ts directly with bun test if the skill permits it, then report the result. No code changes are needed.",
 		},
-		tools: ["exec", "read"],
+		tools: ["exec", "read", "write"],
 		evidence: ["events"],
 		assertions: [
 			{

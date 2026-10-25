@@ -5,7 +5,10 @@ description: Where eval results are saved (~/.splates/probe-evals), how the Eval
 `fast` writes each invocation to a `batch-*` directory under
 `~/.splates/probe-evals` (`defaultDirectory` in `probe-cli.ts`, or
 `--directory`), `batch.json` written before any cell starts, each run in
-`run-*/result.json` with `logs/trace.jsonl`. The server's `EvalRoutes` read
+`run-*/result.json` with `logs/trace.jsonl`. Under the home, as there, the
+agent's own `repo`, `home`, `tmp` and `splates-home` go in a
+`splates-eval-run-*` temp directory instead (`runOne` in `probe-run.ts`),
+since native Claude refuses a run inside its login home. The server's `EvalRoutes` read
 the same directory and regrade each run with the harness's `readRun`, as
 `report` does; they exist only when the server runs from a checkout, and a
 release answers 404. The Evals page lists runs and shows each like the

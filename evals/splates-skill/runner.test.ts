@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { FakeAgent } from "@stringsync/splates-server/agents/testing";
 import type { Probe } from "./probe";
 import { acpAdapter, cliAdapter, launchIsolated } from "./probe-adapters";
@@ -84,6 +84,7 @@ it("runs combinations with bounded parallelism, fresh paths/ports and immediate 
 	expect(first.run.usage.milliseconds).toBeGreaterThan(0);
 });
 
+// scry-ignore simple-test-setup: the batch options and the adapter reading batch.json belong only to this test.
 it("saves a batch's planned cells before any starts", async () => {
 	const opts = await options({
 		batch: { skill: "splates", startedAt: "2026-10-21T00:00:00.000Z" },
@@ -382,6 +383,35 @@ it("isolates real direct CLI commands, captures output, and never calls a model"
 		stderr: "",
 	});
 	expect(results[0]?.run.evidence.complete).not.toContain("events");
+});
+
+// scry-ignore simple-test-setup: only this test names a home, to put the results directory inside it.
+it("keeps the agent's sandbox outside the home its results are saved under", async () => {
+	const home = join(testDirectory, "person");
+	const results = join(home, ".splates", "probe-evals");
+	await mkdir(results, { recursive: true });
+	let env: Record<string, string> = {};
+	const [run] = await runProbes(
+		{ probes: [probe()], seeds: [seed] },
+		[
+			{
+				adapter: adapter(async (context) => {
+					env = { ...context.env };
+					context.reply("done");
+				}),
+				model: "m",
+			},
+		],
+		await options({ directory: results, home }),
+	);
+	const { isolation } = (run as StoredRun).run;
+	const sandbox = dirname(isolation.repository);
+	await rm(sandbox, { recursive: true, force: true });
+
+	expect(isolation.repository.startsWith(home)).toBe(false);
+	expect(env.HOME).toBe(join(sandbox, "home"));
+	expect(isolation.splatesHome).toBe(join(sandbox, "splates-home"));
+	expect(isolation.outputs.startsWith(results)).toBe(true);
 });
 
 it("separates incompatible comparisons and rejects edited stored assertions", async () => {

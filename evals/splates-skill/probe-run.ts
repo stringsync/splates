@@ -1,6 +1,8 @@
 import { appendFileSync } from "node:fs";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { inside } from "./native-codex-roots";
 import {
 	type Evidence,
 	type Json,
@@ -39,9 +41,18 @@ export async function runOne(
 	const { seed, target, repetition } = opts;
 	const start = performance.now();
 	const dir = await mkdtemp(join(opts.directory, "run-"));
+	// What the agent works in sits outside the person's home, which the results
+	// directory is usually under: Claude reads CLAUDE.md and settings from every
+	// directory above its repository, and refuses a run inside its login home.
+	const sandbox = inside(
+		await realpath(opts.home ?? homedir()),
+		await realpath(dir),
+	)
+		? await mkdtemp(join(await realpath(tmpdir()), "splates-eval-run-"))
+		: dir;
 	const isolation: ProbeIsolation = {
-		repository: join(dir, "repo"),
-		splatesHome: join(dir, "splates-home"),
+		repository: join(sandbox, "repo"),
+		splatesHome: join(sandbox, "splates-home"),
 		logs: join(dir, "logs"),
 		outputs: join(dir, "outputs"),
 		ports: [],
@@ -52,8 +63,8 @@ export async function runOne(
 			isolation.splatesHome,
 			isolation.logs,
 			isolation.outputs,
-			join(dir, "home"),
-			join(dir, "tmp"),
+			join(sandbox, "home"),
+			join(sandbox, "tmp"),
 		].map((path) => mkdir(path, { recursive: true })),
 	);
 	const evidence: Evidence = {
@@ -170,11 +181,11 @@ export async function runOne(
 		signal: controller.signal,
 		env: {
 			PATH: process.env.PATH ?? "",
-			HOME: join(dir, "home"),
-			TMPDIR: join(dir, "tmp"),
+			HOME: join(sandbox, "home"),
+			TMPDIR: join(sandbox, "tmp"),
 			SPLATES_HOME: isolation.splatesHome,
-			XDG_CONFIG_HOME: join(dir, "home", ".config"),
-			XDG_CACHE_HOME: join(dir, "home", ".cache"),
+			XDG_CONFIG_HOME: join(sandbox, "home", ".config"),
+			XDG_CACHE_HOME: join(sandbox, "home", ".cache"),
 		},
 		reportUsage(value) {
 			if (traceClosed) {

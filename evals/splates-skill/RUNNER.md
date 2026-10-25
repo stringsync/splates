@@ -313,7 +313,15 @@ page shows the cells still to come. Every combination gets
 are appended to `logs/trace.jsonl` as they arrive, including the input snapshot
 under `outputs/skill` for ACP. An initial incomplete result is written before
 setup and atomically replaced on completion, so interruption does not look like
-a missing success. Persistence failures fail the command explicitly. Cancelled
+a missing success. Persistence failures fail the command explicitly.
+When the results directory is under the person's home, as
+`~/.splates/probe-evals` is, what the agent works in (its `repo`,
+`splates-home`, private `home` and `tmp`) sits apart in a `splates-eval-run-*`
+directory under the system temp directory, recorded under `isolation` in
+`result.json`: an agent inside the home would read `CLAUDE.md` and settings
+from the directories above its repository, and native Claude refuses such a
+run. The temp directory is cleared at reboot; grading reads only
+`result.json`. A results directory outside the home holds them in `run-*`. Cancelled
 queued combinations are persisted without launching. Bound/error statuses
 retain failed and uncovered verdicts alongside their termination reason.
 
