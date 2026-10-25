@@ -161,7 +161,7 @@ export function OfflinePill(): JSX.Element {
 			className={`${STATUS_PILL} border-destructive/40 text-destructive`}
 		>
 			<span className="size-1.5 rounded-full bg-destructive" />
-			Can't reach the server
+			Offline
 		</span>
 	);
 }

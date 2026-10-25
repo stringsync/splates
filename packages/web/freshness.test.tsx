@@ -42,7 +42,7 @@ describe("Saying the page may be stale", () => {
 	it("says at once in the bar, as an error, that it cannot reach the server, with no buttons", () => {
 		const page = barred(UNREACHABLE);
 
-		expect(page.getByRole("alert").textContent).toBe("Can't reach the server");
+		expect(page.getByRole("alert").textContent).toBe("Offline");
 		expect(page.queryByRole("button")).toBeNull();
 		expect(page.queryByRole("status")).toBeNull();
 	});
