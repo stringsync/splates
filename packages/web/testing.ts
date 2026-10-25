@@ -49,6 +49,7 @@ import { FakeShell } from "./fake-shell";
 import { FakeStream, type Stream } from "./fake-stream";
 import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
+import { PageCopy } from "./page-copy";
 import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
 import {
@@ -586,7 +587,11 @@ export class Testing implements Resource {
 					{ value: this.dictation },
 					createElement(
 						EverywhereContext,
-						{ value: new EverywhereFeed() },
+						{
+							value: new EverywhereFeed({
+								copy: new PageCopy(this.copies, "everywhere", this.timer),
+							}),
+						},
 						createElement(ProjectApp, {
 							settings: new Settings(localStorage),
 							checkpointEvery: CHECKPOINT_EVERY,

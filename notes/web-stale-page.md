@@ -36,7 +36,9 @@ The same holds before the page has anything.
   it (`ProjectFeeds`): its conversations and tasks. The other pages stay
   empty until its own snapshot is in.
 - Both are locked alike.
-- Placeholder rows (`Skeleton`) stand still.
+- Placeholder rows (`Skeleton`) stand still: the inbox's `InboxLoading` and
+  the sidebar's `ListLoading`, each held until every project is listed, so
+  rows are never drawn flat and then moved into folders.
 
 ## Where
 

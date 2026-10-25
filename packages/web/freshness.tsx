@@ -122,6 +122,42 @@ export function InboxLoading({
 	);
 }
 
+/** Widths of each placeholder row's name, in rems. */
+const LIST_ROWS = ["w-28", "w-20", "w-32", "w-24"];
+
+/**
+ * What the sidebar shows in place of its rows before its first listing of
+ * every project: rows shaped like its own, a mark and a name. Their count
+ * cannot predict the loaded list's folders.
+ */
+export function ListLoading({
+	className,
+}: {
+	className?: string;
+}): JSX.Element {
+	return (
+		<div
+			role="status"
+			aria-label="Loading conversations"
+			className={cn("flex flex-col", className)}
+		>
+			<span className="sr-only">Loading conversations…</span>
+			<ul aria-hidden className="flex flex-col">
+				{LIST_ROWS.map((name, index) => (
+					<li
+						// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
+						key={index}
+						className="flex items-center gap-2 py-1.5 pr-2 pl-3"
+					>
+						<Skeleton className="size-3.5 shrink-0 rounded-full" />
+						<Skeleton className={cn("h-3.5", name)} />
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
 /**
  * The inbox's rows, kept but `inert` while the page is locked, so nothing is
  * opened or answered on what has moved.

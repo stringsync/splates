@@ -9,7 +9,14 @@ project so switching draws at once. `EverywhereFeed` reads `/api/everywhere`
 and its stream for every project's tasks and conversations, each tagged
 `InProject<T>`, and is read-only: a write goes to the item's own project
 through `scoped(path, slug)` and the stream brings the change back. It
-streams only while something holds it.
+streams only while something holds it. It keeps its last listing in
+IndexedDB, as the project's own feeds do (web-stale-page), and a page
+opened again draws its folders from that copy at once; a server that
+refuses the listing takes the copy's folders off again.
+
+Both lists hold a placeholder until the first listing of every project is in:
+drawn flat and then moved into folders as it came, their rows would jump
+and remount under a click.
 
 The sidebar and inbox show folders only for projects with visible
 conversations, including the focused project only when it has some. Archiving

@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserMicrophone, DictationSocket } from "webappwiz/dictate/browser";
+import { SystemTimer } from "webappwiz/time";
 import { scoped } from "./api";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
@@ -9,6 +10,8 @@ import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import type { Stale } from "./page-cache";
+import { IndexedPageCopies } from "./page-copies";
+import { PageCopy } from "./page-copy";
 import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
 
@@ -83,8 +86,18 @@ const dictation =
 		: null;
 
 // Every project's tasks and conversations, held here, above the project
-// shown, so switching projects leaves it streaming.
-const everywhere = new EverywhereFeed();
+// shown, so switching projects leaves it streaming, and kept for the next
+// page to draw its folders from at once.
+const everywhere = new EverywhereFeed({
+	copy:
+		typeof indexedDB === "undefined"
+			? null
+			: new PageCopy(
+					new IndexedPageCopies(indexedDB),
+					"everywhere",
+					new SystemTimer(),
+				),
+});
 
 createRoot(root).render(
 	location.hash === EVENTS_PREVIEW ? (

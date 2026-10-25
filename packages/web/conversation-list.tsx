@@ -32,7 +32,7 @@ import {
 } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
-import { StaleRows } from "./freshness";
+import { ListLoading, StaleRows } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { byLane, inOrder } from "./lane-groups";
@@ -122,6 +122,7 @@ export const ConversationList = memo(function ConversationList({
 	}, [tasks, conversations, todos]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
+		listing: feed.loading,
 		projects: feed.projects,
 		tasks: feed.tasks,
 		conversations: conversationIndex(feed),
@@ -327,7 +328,11 @@ export const ConversationList = memo(function ConversationList({
 				/>
 			))}
 			<StaleRows>
-				{grouped !== null ? (
+				{/* Held while the listing of every project is on its way, so the rows
+				    are not drawn flat and then moved into folders as it comes. */}
+				{everywhere.listing ? (
+					<ListLoading />
+				) : grouped !== null ? (
 					<Placing value={placing}>
 						<FolderList
 							folders={grouped.folders}

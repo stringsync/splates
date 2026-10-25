@@ -13,6 +13,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { answered } from "./api";
 import { LiveStream } from "./live-stream";
+import type { PageCopy } from "./page-copy";
 
 export type EverywhereFeedEvents = { changed: undefined };
 
@@ -33,6 +34,9 @@ export type EverywhereSummary = Omit<
  *
  * One for the page, outliving a switch of project: it streams only while
  * `hold` has a holder, since the server watches every project for it.
+ * Given `copy`, it keeps what the server last listed there, and a page
+ * opened again draws its folders from that at once, as the project's own
+ * feeds do, rather than waiting on the listing of every project.
  */
 export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	private readonly dispatcher = new Dispatcher<EverywhereFeedEvents>();
@@ -61,6 +65,15 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	private holders = 0;
 	private readonly streamed = new Map<string, ConversationState>();
 	private readonly tagged = new WeakMap<object, object>();
+	/** Whether a listing has come from the server, which the kept one gives way to. */
+	private heard = false;
+	private readonly copy: PageCopy<EverywhereListing> | null;
+
+	constructor({
+		copy = null,
+	}: { copy?: PageCopy<EverywhereListing> | null } = {}) {
+		this.copy = copy;
+	}
 
 	/**
 	 * Streams until the last holder disposes what this returns, and a held
@@ -69,6 +82,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	 */
 	hold(): Resource {
 		if (this.holders++ === 0 && this.stream === null) {
+			void this.paint();
 			this.start();
 		}
 		let held = true;
@@ -100,6 +114,23 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	 */
 	listed(slug: string): EverywhereProject | undefined {
 		return this.held.get(slug);
+	}
+
+	/** Shows the listing last kept, unless one has come from the server since. */
+	private async paint(): Promise<void> {
+		const kept = this.copy === null ? null : await this.copy.load();
+		if (kept === null || this.heard) {
+			return;
+		}
+		this.held = new Map(kept.projects.map((each) => [each.project, each]));
+		this.available = true;
+		this.loading = false;
+		this.show();
+	}
+
+	/** Keeps what the server last said, for the next page. */
+	private kept(): void {
+		this.copy?.keep(() => ({ projects: [...this.held.values()] }));
 	}
 
 	private start(): void {
@@ -162,6 +193,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 						),
 		});
 		this.show();
+		this.kept();
 	}
 
 	private drop(slug: string, id: string): void {
@@ -176,6 +208,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 			conversations: held.conversations.filter((each) => each.id !== id),
 		});
 		this.show();
+		this.kept();
 	}
 
 	private board(board: EverywhereBoard): void {
@@ -193,6 +226,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 			conversations: held?.conversations ?? [],
 		});
 		this.show();
+		this.kept();
 	}
 
 	/** Reads every project afresh, keeping what streamed while it was on its way. */
@@ -201,9 +235,18 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 		const response = await answered("/api/everywhere").catch(() => null);
 		if (response === null || !response.ok) {
 			this.loading = false;
-			this.dispatcher.dispatch("changed");
+			// A server that answers has refused them: what a kept copy drew goes.
+			// One that does not has said nothing, so it stays, stale.
+			if (response !== null && this.held.size > 0) {
+				this.held = new Map();
+				this.available = false;
+				this.show();
+			} else {
+				this.dispatcher.dispatch("changed");
+			}
 			return;
 		}
+		this.heard = true;
 		const { projects } = (await response.json()) as EverywhereListing;
 		const moved = (key: string) => (this.changedAt.get(key) ?? -1) >= since;
 		const next = new Map<string, EverywhereProject>();
@@ -232,6 +275,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 		this.available = true;
 		this.loading = false;
 		this.show();
+		this.kept();
 	}
 
 	private inProject<T extends object>(value: T, project: string): InProject<T> {
