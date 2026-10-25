@@ -449,6 +449,11 @@ export interface GatePhases {
 	 * start. Only `setup` when the command timed none.
 	 */
 	ms: Record<string, number>;
+	/**
+	 * The peak memory in megabytes of each test run's process tree, by phase,
+	 * as `server tests`; left out by gates before it was measured.
+	 */
+	peakMb?: Record<string, number>;
 }
 
 /** The facts each action's event records, by name, which `isCurrent` checks an event holds. */

@@ -22,6 +22,17 @@ describe("PhaseTimer", () => {
 		]);
 	});
 
+	it("appends a phase's peak memory to the gate's file", async () => {
+		const fs = new FakeFs();
+
+		await new PhaseTimer(gatePs(), fs).peak("server tests", 1280);
+
+		expect(JSON.parse(await fs.read("/phases.jsonl"))).toEqual({
+			phase: "server tests",
+			peakMb: 1280,
+		});
+	});
+
 	it("only runs the phase outside a gate", async () => {
 		const fs = new FakeFs();
 		const timer = new PhaseTimer(new FakePs(), fs);

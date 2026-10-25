@@ -260,12 +260,13 @@ export class MergeGate {
 		});
 		const ranMs = performance.now() - started;
 		if (files === undefined) {
+			const timed = new TimedPhases(await this.fs.read(phases).catch(() => ""));
+			const peakMb = timed.peaks();
 			this.timing.gated({
 				workers,
 				load,
-				ms: new TimedPhases(await this.fs.read(phases).catch(() => "")).of(
-					ranMs,
-				),
+				ms: timed.of(ranMs),
+				...(Object.keys(peakMb).length ? { peakMb } : {}),
 			});
 		}
 		return {

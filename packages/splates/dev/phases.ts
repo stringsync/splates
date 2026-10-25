@@ -24,4 +24,12 @@ export class PhaseTimer {
 			}
 		}
 	}
+
+	/** Records the peak memory `phase`'s process tree reached, in megabytes. */
+	async peak(phase: string, peakMb: number): Promise<void> {
+		const path = this.ps.env(GATE_PHASES);
+		if (path) {
+			await this.fs.append(path, `${JSON.stringify({ phase, peakMb })}\n`);
+		}
+	}
 }

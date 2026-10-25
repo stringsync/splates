@@ -23,4 +23,22 @@ describe("TimedPhases", () => {
 			setup: 30,
 		});
 	});
+
+	it("keeps each phase's highest peak memory apart from its time", () => {
+		const lines = [
+			'{"phase":"server tests","ms":3000}',
+			'{"phase":"server tests","peakMb":349}',
+			'{"phase":"web tests","peakMb":1340}',
+			'{"phase":"server tests","peakMb":1280}',
+		].join("\n");
+
+		expect(new TimedPhases(lines).peaks()).toEqual({
+			"server tests": 1280,
+			"web tests": 1340,
+		});
+		expect(new TimedPhases(lines).of(5000)).toEqual({
+			"server tests": 3000,
+			setup: 2000,
+		});
+	});
 });

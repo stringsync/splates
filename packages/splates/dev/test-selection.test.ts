@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
+import { PeakMemory } from "./peak-memory";
 import { test as runTests, type TestOptions } from "./test";
 
 describe("focused development tests", () => {
@@ -10,7 +11,12 @@ describe("focused development tests", () => {
 	beforeEach(() => {
 		ps = new FakePs();
 		ps.platform = "linux";
-		opts = { ps, log: new MemoryLogger() };
+		// its `ps` listings sampled apart, so `ps` holds only the runs
+		opts = {
+			ps,
+			log: new MemoryLogger(),
+			memory: new PeakMemory(new FakePs()),
+		};
 	});
 
 	it("runs changed tests here with one worker", async () => {

@@ -7,49 +7,11 @@ import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import { PeakMemory, runSummary } from "./peak-memory";
 import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { type ScopeCount, TestScope } from "./test-scope";
-
-export interface TestOptions {
-	/** Preflight file selection, without executing tests. */
-	scope?: Pick<TestScope, "count">;
-	/** Run only the free eval harness tests. */
-	evals?: boolean;
-	/** Run the package's and the eval harness's tests together. */
-	all?: boolean;
-	/** Run tests affected by uncommitted changes, using Bun's import graph. */
-	changed?: boolean;
-	/** Compare changes against this git reference instead; implies changed. */
-	since?: string;
-	/** Run only tests whose name matches this regular expression. */
-	testNamePattern?: string;
-	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
-	ci?: boolean;
-	/** Run only the test files whose path has one of these, as `bun test` filters. */
-	files?: string[];
-	/**
-	 * Test files run at once; half the cores when left out, one for a focused run.
-	 */
-	workers?: number;
-	ps?: Ps;
-	log?: Logger;
-	/** The person's approvals of an agent's whole-suite run; the machine's when left out. */
-	grants?: SuiteGrants;
-	/** Whether the caller already checked an agent may run the whole suite, as `dev premerge` does. */
-	allowed?: boolean;
-	/** What puts an agent's run behind a merge gate; this run's own by default. */
-	priority?: AgentPriority;
-	/** How long the run may take before it is stopped. */
-	deadline?: Duration;
-	/** Stop each run at its first failing test, as `bun test --bail`. */
-	bail?: boolean;
-	/** Print nothing unless the tests fail, then all they printed. */
-	quiet?: boolean;
-	/** What times each bun run for a merge's gate; untimed when left out. */
-	phases?: PhaseTimer;
-}
 
 /**
  * How long a test run may take. Tests should not hang this long, even under
@@ -180,6 +142,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	const deadline = opts.deadline ?? TEST_DEADLINE;
 	const signal = AbortSignal.timeout(deadline.ms);
 	const fs = new NodeFs();
+	const memory = opts.memory ?? new PeakMemory(ps);
 	await using git = await directGit(ps);
 	await using scratch = await scratchDir();
 	const env = { ...git.env, TMPDIR: scratch.path };
@@ -199,9 +162,16 @@ export async function test(opts: TestOptions): Promise<void> {
 			printed.push(done.stdout, done.stderr);
 			return done;
 		};
-		const { exitCode } = await (opts.phases
-			? opts.phases.time(phase, spawned)
-			: spawned()
+		// Each run ends on its time, workers and the peak memory of its process
+		// tree, so what a worker costs is seen rather than guessed.
+		const started = performance.now();
+		const measured = () => memory.during(spawned);
+		const {
+			value: { exitCode },
+			peakMb,
+		} = await (opts.phases
+			? opts.phases.time(phase, measured)
+			: measured()
 		).catch((error: unknown) => {
 			if (signal.aborted) {
 				throw new Error(
@@ -210,6 +180,20 @@ export async function test(opts: TestOptions): Promise<void> {
 			}
 			throw error;
 		});
+		const summary = runSummary({
+			phase,
+			took: Duration.ms(performance.now() - started),
+			workers,
+			peakMb,
+		});
+		if (opts.quiet) {
+			printed.push(`${summary}\n`);
+		} else {
+			_log.info(summary);
+		}
+		if (peakMb !== null) {
+			await opts.phases?.peak(phase, peakMb);
+		}
 		failed ||= exitCode !== 0;
 		if (report) {
 			const xml = await fs.read(`${report}.${at}`).catch(() => null);
@@ -229,6 +213,47 @@ export async function test(opts: TestOptions): Promise<void> {
 		}
 		throw new Error("Tests failed");
 	}
+}
+
+export interface TestOptions {
+	/** Preflight file selection, without executing tests. */
+	scope?: Pick<TestScope, "count">;
+	/** Run only the free eval harness tests. */
+	evals?: boolean;
+	/** Run the package's and the eval harness's tests together. */
+	all?: boolean;
+	/** Run tests affected by uncommitted changes, using Bun's import graph. */
+	changed?: boolean;
+	/** Compare changes against this git reference instead; implies changed. */
+	since?: string;
+	/** Run only tests whose name matches this regular expression. */
+	testNamePattern?: string;
+	/** Print only the failing tests and each run's summary, as bun's `--only-failures`. */
+	ci?: boolean;
+	/** Run only the test files whose path has one of these, as `bun test` filters. */
+	files?: string[];
+	/**
+	 * Test files run at once; half the cores when left out, one for a focused run.
+	 */
+	workers?: number;
+	ps?: Ps;
+	log?: Logger;
+	/** The person's approvals of an agent's whole-suite run; the machine's when left out. */
+	grants?: SuiteGrants;
+	/** Whether the caller already checked an agent may run the whole suite, as `dev premerge` does. */
+	allowed?: boolean;
+	/** What puts an agent's run behind a merge gate; this run's own by default. */
+	priority?: AgentPriority;
+	/** How long the run may take before it is stopped. */
+	deadline?: Duration;
+	/** Stop each run at its first failing test, as `bun test --bail`. */
+	bail?: boolean;
+	/** Print nothing unless the tests fail, then all they printed. */
+	quiet?: boolean;
+	/** What times each bun run for a merge's gate; untimed when left out. */
+	phases?: PhaseTimer;
+	/** What measures each bun run's peak memory; sampled through `ps` when left out. */
+	memory?: PeakMemory;
 }
 
 /**
