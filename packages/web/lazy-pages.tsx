@@ -24,7 +24,12 @@ export function onDemand<Props extends object>(
 	const loaded = () =>
 		lazy(async () => {
 			using timeout = expiring(WAITS.answer);
-			return await aborts.race(timeout.signal, load());
+			try {
+				return await aborts.race(timeout.signal, load());
+			} catch (error) {
+				reloadForNewBuild(error);
+				throw error;
+			}
 		});
 	return function OnDemand(props: Props): JSX.Element {
 		// A rejected chunk stays rejected in its `lazy`: Try again makes another.
@@ -44,6 +49,32 @@ export function onDemand<Props extends object>(
 			</ChunkFailed>
 		);
 	};
+}
+
+const RELOADED_AT = "chunk-reloaded-at";
+
+/**
+ * A tab left open across a server restart holds a script that names chunks
+ * only the old build had, so its import fails for good. Reloading fetches the
+ * new script; at most once a minute, so a chunk that is truly gone shows the
+ * error rather than looping.
+ */
+function reloadForNewBuild(
+	error: unknown,
+	reload: () => void = () => location.reload(),
+): void {
+	if (!(error instanceof TypeError)) {
+		return;
+	}
+	if (!/dynamically imported module/i.test(error.message)) {
+		return;
+	}
+	const last = Number(sessionStorage.getItem(RELOADED_AT) ?? 0);
+	if (Date.now() - last < 60_000) {
+		return;
+	}
+	sessionStorage.setItem(RELOADED_AT, String(Date.now()));
+	reload();
 }
 
 /** What `onDemand` shows in place of a chunk that failed or never came. */
