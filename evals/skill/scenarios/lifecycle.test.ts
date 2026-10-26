@@ -1,0 +1,22 @@
+import { expect, it } from "bun:test";
+import { reported, startsBefore } from "./lifecycle";
+
+it("reads a Merged card from a reply", () => {
+	const reply = "Done.\n\n## ✅ Merged sample onto main\n\nvalue is two.";
+	expect(reported(reply, "merged", "sample")).toBe(true);
+	expect(reported(reply, "merged", "other")).toBe(false);
+	expect(reported(reply, "removed")).toBe(false);
+});
+
+it("orders steps by first match", () => {
+	const steps = ["ls", "splates add x", "cat value.txt"];
+	expect(startsBefore(steps, /splates add/, /value\.txt/)).toBe(true);
+	expect(
+		startsBefore(
+			["cat value.txt", "splates add x"],
+			/splates add/,
+			/value\.txt/,
+		),
+	).toBe(false);
+	expect(startsBefore(["ls"], /splates add/, /value\.txt/)).toBe(false);
+});
