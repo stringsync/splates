@@ -1,19 +1,26 @@
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
-import { FakeClock } from "webappwiz/time/testing";
+import { FakeClock, FakeWallClock } from "webappwiz/time/testing";
 import { MergeSteps } from "./steps";
 
 describe("MergeSteps", () => {
-	it("keeps each step from when it began, once however often it is entered", () => {
-		const clock = new FakeClock(
-			Duration.ms(Date.parse("2026-10-26T10:00:00.000Z")),
-		);
-		const steps = new MergeSteps(clock);
+	let clock: FakeClock;
+	let wall: FakeWallClock;
+	let steps: MergeSteps;
 
+	beforeEach(() => {
+		clock = new FakeClock();
+		wall = new FakeWallClock(Date.parse("2026-10-26T10:00:00.000Z"));
+		steps = new MergeSteps(clock, wall);
+	});
+
+	it("keeps each step from when it began, once however often it is entered", () => {
 		steps.enter("rebase");
 		clock.advance(Duration.secs(1));
+		wall.advance(Duration.secs(1));
 		steps.enter("rebase");
 		clock.advance(Duration.secs(1));
+		wall.advance(Duration.secs(1));
 
 		expect(steps.enter("wait")).toEqual({
 			steps: [
@@ -23,8 +30,19 @@ describe("MergeSteps", () => {
 		});
 	});
 
+	it("measures elapsed time independently of calendar clock adjustments", () => {
+		steps.enter("rebase");
+		clock.advance(Duration.secs(2));
+		wall.advance(Duration.secs(60));
+		steps.enter("test");
+		clock.advance(Duration.secs(5));
+		wall.set(0);
+
+		expect(steps.progress.steps[1]?.at).toBe("2026-10-26T10:01:00.000Z");
+		expect(steps.ms).toEqual({ rebase: 2000, test: 5000 });
+	});
+
 	it("names the file a step prints to, kept once the step under way is given one", () => {
-		const steps = new MergeSteps(new FakeClock());
 		steps.enter("rebase");
 
 		expect(steps.outputOf("/git", "check")).toBe(
@@ -43,7 +61,6 @@ describe("MergeSteps", () => {
 	});
 
 	it("keeps the premerge's phases past it, until another premerge starts", () => {
-		const steps = new MergeSteps(new FakeClock());
 		steps.enter("test");
 		steps.phased([{ phase: "biome", ms: 10 }]);
 
@@ -53,8 +70,6 @@ describe("MergeSteps", () => {
 	});
 
 	it("sums each step's time across retests, the one under way up to now", () => {
-		const clock = new FakeClock();
-		const steps = new MergeSteps(clock);
 		steps.enter("rebase");
 		clock.advance(Duration.secs(1));
 		steps.enter("test");

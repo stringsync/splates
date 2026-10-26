@@ -1,4 +1,9 @@
-import { type Clock, SystemClock } from "webappwiz/time";
+import {
+	type Clock,
+	SystemClock,
+	SystemWallClock,
+	type WallClock,
+} from "webappwiz/time";
 import type { LivePhase, MergeProgress, MergeStep } from "../tasks";
 import { outputPath } from "./output";
 
@@ -10,8 +15,12 @@ import { outputPath } from "./output";
 export class MergeSteps {
 	private steps: MergeProgress["steps"] = [];
 	private phases: LivePhase[] | undefined;
+	private readonly starts: number[] = [];
 
-	constructor(private readonly clock: Clock = new SystemClock()) {}
+	constructor(
+		private readonly clock: Clock = new SystemClock(),
+		private readonly wall: WallClock = new SystemWallClock(),
+	) {}
 
 	/**
 	 * Begins `step`, unless it is the one under way, and gives the record to
@@ -25,11 +34,12 @@ export class MergeSteps {
 				this.steps = [...this.steps.slice(0, -1), { ...last, output }];
 			}
 		} else {
+			this.starts.push(this.clock.now().ms);
 			this.steps = [
 				...this.steps,
 				{
 					step,
-					at: new Date(this.clock.now().ms).toISOString(),
+					at: new Date(this.wall.now()).toISOString(),
 					...(output === undefined ? {} : { output }),
 				},
 			];
@@ -54,10 +64,10 @@ export class MergeSteps {
 	get ms(): Partial<Record<MergeStep, number>> {
 		const now = this.clock.now().ms;
 		const ms: Partial<Record<MergeStep, number>> = {};
-		this.steps.forEach(({ step, at }, index) => {
-			const ends = this.steps[index + 1]?.at;
+		this.steps.forEach(({ step }, index) => {
+			// Calendar timestamps go to the page; elapsed times must survive clock adjustments.
 			const took =
-				(ends === undefined ? now : Date.parse(ends)) - Date.parse(at);
+				(this.starts[index + 1] ?? now) - (this.starts[index] ?? now);
 			ms[step] = (ms[step] ?? 0) + Math.max(0, took);
 		});
 		return ms;
