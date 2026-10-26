@@ -20,13 +20,13 @@ import { type Quiet, quietTitle } from "./quiet";
  * What a list shows of an agent: a yellow triangle when it waits on you,
  * whatever for, a spinner while it or an agent it handed a task to works,
  * assuming or not, a blue dot when it answered and you have not looked since,
- * and, over the blue dot, a green check once its task merged or it
+ * and, once work stops, over the blue dot, a green check once its task merged or it
  * reported its work done, a red cross once
  * it was removed and a yellow pause once it was deferred.
  * While its task's merge tests and lands, the spinner gives way to a blue
  * merge icon, and while the merge waits its turn, to a faint gray one.
  * An idle agent with a command left running in the background shows a
- * muted spinner, over the blue dot, saying in its tooltip when it answered. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
+ * muted spinner, over a completion report or the blue dot, saying what is running. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. A spinner gone quiet long enough that the agent
  * may be stuck stops, in amber, saying how long in its tooltip. Each sits centered in a box of one size, so
@@ -61,98 +61,6 @@ export function Mark({
 	/** Whether it has left a command running in the background. */
 	background?: boolean;
 }): JSX.Element {
-	if (starting) {
-		const waiting = picking
-			? "Auto pick is choosing the agent"
-			: "Waiting for agent to start";
-		return (
-			<span
-				role="status"
-				aria-label={waiting.toLowerCase()}
-				title={waiting}
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<HourglassIcon className="size-3.5 text-muted-foreground" />
-			</span>
-		);
-	}
-	if (subagent && !(need.kind === "waiting" && need.why === "failed")) {
-		return (
-			<Mark
-				need={need.kind === "waiting" ? { kind: "idle" } : need}
-				hosting={hosting}
-				quiet={quiet}
-			/>
-		);
-	}
-	const shows =
-		need.kind === "idle" ||
-		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
-	if ((reported === "merged" || reported === "done") && shows) {
-		return (
-			<Glyph
-				icon={CircleCheckIcon}
-				role="img"
-				aria-label={reported}
-				color="text-success"
-			/>
-		);
-	}
-	if (reported === "removed" && shows) {
-		return (
-			<Glyph
-				icon={CircleXIcon}
-				role="img"
-				aria-label="removed"
-				color="text-destructive"
-			/>
-		);
-	}
-	if (reported === "deferred" && shows) {
-		return (
-			<Glyph
-				icon={CirclePauseIcon}
-				role="img"
-				aria-label="deferred"
-				color="text-warning"
-			/>
-		);
-	}
-	// Over the blue dot, since the agent wakes to answer again once its
-	// command ends, so the mark holds when you open the row.
-	if (need.kind === "idle" && !hosting && background && !waitsOn(reported)) {
-		const title = unread
-			? "Background commands running, new reply"
-			: "Background commands running";
-		return (
-			<span
-				role="status"
-				aria-label="background commands running"
-				title={title}
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
-			</span>
-		);
-	}
-	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
-		return <Dot role="status" aria-label="unread" color="bg-info" />;
-	}
-	if (need.kind === "waiting" || (waitsOn(reported) && shows)) {
-		return (
-			<Glyph
-				icon={TriangleAlertIcon}
-				role="status"
-				aria-label="waiting on you"
-				title={need.kind === "waiting" ? need.subject : undefined}
-				color="text-warning"
-			/>
-		);
-	}
-	if (need.kind === "idle" && !hosting) {
-		// Empty, so what sits beside it lines up with the rows that have one.
-		return <span className="size-3.5 shrink-0" />;
-	}
 	if (need.kind === "working" && need.merge === "running") {
 		return (
 			<span
@@ -180,6 +88,95 @@ export function Mark({
 				<GitMergeIcon className="size-3.5 text-muted-foreground/50" />
 			</span>
 		);
+	}
+	if (starting) {
+		const waiting = picking
+			? "Auto pick is choosing the agent"
+			: "Waiting for agent to start";
+		return (
+			<span
+				role="status"
+				aria-label={waiting.toLowerCase()}
+				title={waiting}
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<HourglassIcon className="size-3.5 text-muted-foreground" />
+			</span>
+		);
+	}
+	if (subagent && !(need.kind === "waiting" && need.why === "failed")) {
+		return (
+			<Mark
+				need={need.kind === "waiting" ? { kind: "idle" } : need}
+				hosting={hosting}
+				quiet={quiet}
+			/>
+		);
+	}
+	// Over the blue dot, since the agent wakes to answer again once its
+	// command ends, so the mark holds when you open the row.
+	if (need.kind === "idle" && !hosting && background && !waitsOn(reported)) {
+		return (
+			<span
+				role="status"
+				aria-label="background commands running"
+				title="Background commands running"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
+			</span>
+		);
+	}
+	const shows =
+		need.kind === "idle" ||
+		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
+	if ((reported === "merged" || reported === "done") && shows && !hosting) {
+		return (
+			<Glyph
+				icon={CircleCheckIcon}
+				role="img"
+				aria-label={reported}
+				color="text-success"
+			/>
+		);
+	}
+	if (reported === "removed" && shows && !hosting) {
+		return (
+			<Glyph
+				icon={CircleXIcon}
+				role="img"
+				aria-label="removed"
+				color="text-destructive"
+			/>
+		);
+	}
+	if (reported === "deferred" && shows && !hosting) {
+		return (
+			<Glyph
+				icon={CirclePauseIcon}
+				role="img"
+				aria-label="deferred"
+				color="text-warning"
+			/>
+		);
+	}
+	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
+		return <Dot role="status" aria-label="unread" color="bg-info" />;
+	}
+	if (need.kind === "waiting" || (waitsOn(reported) && shows)) {
+		return (
+			<Glyph
+				icon={TriangleAlertIcon}
+				role="status"
+				aria-label="waiting on you"
+				title={need.kind === "waiting" ? need.subject : undefined}
+				color="text-warning"
+			/>
+		);
+	}
+	if (need.kind === "idle" && !hosting) {
+		// Empty, so what sits beside it lines up with the rows that have one.
+		return <span className="size-3.5 shrink-0" />;
 	}
 	if (quiet !== null && need.kind !== "idle") {
 		return (

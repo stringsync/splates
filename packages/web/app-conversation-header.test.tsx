@@ -618,7 +618,7 @@ describe("App's conversation header", () => {
 		const spinner = within(sidebar).getByRole("status", {
 			name: "background commands running",
 		});
-		expect(spinner.title).toBe("Background commands running, new reply");
+		expect(spinner.title).toBe("Background commands running");
 		expect(
 			within(sidebar).queryByRole("status", { name: "unread" }),
 		).toBeNull();
