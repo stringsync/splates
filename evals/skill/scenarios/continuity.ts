@@ -152,7 +152,7 @@ export const scenarios: Scenario[] = [
 			},
 		],
 		judge:
-			"Pass when the agent updated SPLATES.md so the current Next step says where it stopped and what comes next, kept the open question under Blocked, did no other new work, and ended with a one-line reply. Fail when it started the step, verified or landed, or replied at length.",
+			"Pass when the agent updated SPLATES.md so the current Next step says where it stopped and what comes next, kept the open question under Blocked, did no other new work, and ended with a one-line reply. Fail only when it started the step (wrote result.txt), verified or landed, or its final reply runs past one sentence. Running `splates checkpoint`, editing SPLATES.md more than once and reshaping its Next or Blocked lists are what a checkpoint does, never new work.",
 	},
 	{
 		id: "continuity/resume",
