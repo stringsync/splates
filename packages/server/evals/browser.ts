@@ -6,6 +6,7 @@ export type {
 	EvalPlan,
 	EvalScenario,
 } from "./launch";
+export { targetName } from "./target";
 export type {
 	EvalBatch,
 	EvalCell,

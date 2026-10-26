@@ -1,8 +1,8 @@
 import type {
 	EvalCell,
 	EvalGrid,
-	EvalTarget,
 } from "@stringsync/splates-server/evals/browser";
+import { targetName } from "@stringsync/splates-server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -83,7 +83,7 @@ export function EvalReport({
 									key={target.key}
 									className="px-2 py-1 text-left font-normal text-muted-foreground text-xs whitespace-nowrap"
 								>
-									{targetLabel(target)}
+									{targetName(target)}
 								</th>
 							))}
 						</tr>
@@ -159,7 +159,7 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 								key={target.key}
 								className="px-1.5 pb-1 text-left font-normal text-muted-foreground whitespace-nowrap"
 							>
-								{targetLabel(target)}
+								{targetName(target)}
 							</th>
 						))}
 					</tr>
@@ -269,10 +269,4 @@ function rowsOf(cells: EvalCell[], aspect: string | null): Row[] {
 			}),
 		),
 	]);
-}
-
-export function targetLabel(target: EvalTarget): string {
-	return [target.agent, target.model, target.effort]
-		.filter((part) => part !== null)
-		.join(" ");
 }

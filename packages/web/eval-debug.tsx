@@ -2,6 +2,7 @@ import type {
 	EvalDetail,
 	EvalStep,
 } from "@stringsync/splates-server/evals/browser";
+import { targetName } from "@stringsync/splates-server/evals/browser";
 import { ArrowLeftIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -9,7 +10,6 @@ import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
 import { ReadingNow } from "./countdown";
 import { ImproveMenu, improvable } from "./eval-improve";
-import { targetLabel } from "./eval-report";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
 
@@ -65,7 +65,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 					<StatusChip status={run.status} />
 					<h2 className="font-medium">{run.scenario}</h2>
 					<span className="text-muted-foreground text-sm">
-						on {targetLabel(run.target)}
+						on {targetName(run.target)}
 						{run.repetition > 0 && `, repetition ${run.repetition + 1}`}
 					</span>
 				</span>

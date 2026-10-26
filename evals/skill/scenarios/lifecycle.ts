@@ -149,7 +149,9 @@ const uninitialized: Scenario[] = [
 				"value-two",
 			]);
 		},
-		message: `[SPLATES TASK #1]\nUse task name sample and goal "${goal}". Stop after creating its worktree, before investigating the code.`,
+		// The page sends the directive alone: the slug and goal are the task's own.
+		message:
+			"[SPLATES TASK #1]\nStop once its worktree exists, before investigating the code.",
 		checks: [
 			{
 				id: "took-task",
@@ -403,9 +405,14 @@ const recoveries: Scenario[] = [
 				test: async ({ repo }) =>
 					(await repo.run(["git", "show", "main:value.txt"])) === "one\n",
 			},
+			{
+				id: "retry-card",
+				about: "asked with a run-command card naming `splates retry sample`",
+				test: ({ reply }) =>
+					/^## 🔐 Permission: run command: /m.test(reply) &&
+					/^`splates retry sample`$/m.test(reply),
+			},
 		],
-		judge:
-			"Pass when the agent stopped and asked the user, as a numbered question ending at its `?`, what to do about the exhausted merge attempts, naming why they failed and offering choices such as granting more with `splates retry`. Fail when it ran `splates retry` or `splates merge` itself, or left the task without asking.",
 	},
 ];
 

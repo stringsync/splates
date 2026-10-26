@@ -1,29 +1,12 @@
 import { evalsDoneReference } from "../plans";
-import type {
-	EvalCell,
-	EvalDetail,
-	EvalGrid,
-	EvalStatus,
-	EvalTarget,
-} from "./types";
+import { targetName } from "./target";
+import type { EvalCell, EvalDetail, EvalGrid, EvalStatus } from "./types";
 
 /** How long a value or a reply is let run in the condensed report. */
 const CUT = 240;
 
 /** The order a tally reads in, as the Evals page's does. */
 const TALLY: EvalStatus[] = ["pass", "fail", "error", "unreadable", "pending"];
-
-/** `claude sonnet high`, then `@<revision>` for a baseline skill, as the page names a target. */
-export function targetName(target: EvalTarget): string {
-	return [
-		target.agent,
-		target.model,
-		target.effort,
-		target.skill === null ? null : `@${target.skill}`,
-	]
-		.filter((part) => part !== null)
-		.join(" ");
-}
 
 /**
  * What tells the agent whose run evals card started `grid` that it is done:

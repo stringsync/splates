@@ -2,6 +2,7 @@ import type {
 	EvalBatch,
 	EvalGrid,
 } from "@stringsync/splates-server/evals/browser";
+import { targetName } from "@stringsync/splates-server/evals/browser";
 import { ArrowLeftIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
@@ -11,7 +12,7 @@ import { ReadingNow } from "./countdown";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
-import { EvalReport, targetLabel } from "./eval-report";
+import { EvalReport } from "./eval-report";
 import { ORDER, StatusChip, spent } from "./eval-status";
 import type { EvalsOpen } from "./page-address";
 import { TopBar } from "./top-bar";
@@ -104,7 +105,7 @@ export function EvalsPage({
 									</span>
 								</span>
 								<span className="text-muted-foreground text-xs">
-									{batch.targets.map(targetLabel).join(", ")} · {batch.cells}{" "}
+									{batch.targets.map(targetName).join(", ")} · {batch.cells}{" "}
 									{batch.cells === 1 ? "cell" : "cells"} · {spent(batch)}
 								</span>
 							</button>

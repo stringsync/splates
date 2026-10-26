@@ -1,4 +1,5 @@
 import type { EvalDetail } from "@stringsync/splates-server/evals/browser";
+import { targetName } from "@stringsync/splates-server/evals/browser";
 import { ChevronDownIcon, WrenchIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -15,7 +16,6 @@ import { AgentIcon } from "./agent-icons";
 import { evalRun } from "./api";
 import { still, touchItems } from "./board";
 import { Dispatching } from "./dispatching";
-import { targetLabel } from "./eval-report";
 
 /** Whether a run's outcome is one worth improving: the agent did not do what the skill asks. */
 export function improvable(status: string): boolean {
@@ -39,7 +39,7 @@ export function improvePrompt(run: EvalDetail): string {
 
 Scenario: \`${run.scenario}\` (${run.aspect})
 Requirement: ${run.requirement}
-Agent: ${targetLabel(run.target)}, repetition ${run.repetition + 1}
+Agent: ${targetName(run.target)}, repetition ${run.repetition + 1}
 
 It asked the agent:
 
