@@ -37,7 +37,7 @@ export function improvePrompt(run: EvalDetail): string {
 	];
 	return `An eval scenario is not passing. Improve the splates skill (\`skills/splates/\`) so it does, without special-casing the scenario.
 
-Scenario: \`${run.probe}\` (${run.aspect})
+Scenario: \`${run.scenario}\` (${run.aspect})
 Requirement: ${run.requirement}
 Agent: ${targetLabel(run.target)}, repetition ${run.repetition + 1}
 
@@ -55,7 +55,7 @@ ${run.reply || "(none)"}
 
 The run, with its whole transcript, opens on the Evals page as \`${run.id}\`, under ~/.splates/evals.
 
-Start a splates task for the change, and note the commit you branched from. When it is ready, ask the person to re-run only this scenario with the run evals permission card, naming \`${run.probe}\` and setting \`Baseline:\` to that commit, so the re-run shows both skills side by side. Never start an eval yourself. The change lands only once the person approves it.`;
+Start a splates task for the change, and note the commit you branched from. When it is ready, ask the person to re-run only this scenario with the run evals permission card, naming \`${run.scenario}\` and setting \`Baseline:\` to that commit, so the re-run shows both skills side by side. Never start an eval yourself. The change lands only once the person approves it.`;
 }
 
 /**

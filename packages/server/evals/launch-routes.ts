@@ -6,7 +6,7 @@ import { body, type Handler } from "../server/shared";
 import { NATIVE_AGENTS } from "./agents";
 import type { EvalLaunches } from "./launch";
 
-/** The skill whose probes exist today; another's slot in beside it. */
+/** The skill whose scenarios exist today; another's slot in beside it. */
 const SKILLS = ["splates"];
 
 /** Where a conversation works, for a run its card starts to use the skill there. */
@@ -22,11 +22,11 @@ export class EvalLaunchRoutes {
 		private readonly dirs: ConversationDirs = { cwdOf: async () => null },
 	) {}
 
-	/** Every registered probe, for the card to group by aspect and requirement. */
-	readonly probes: Handler = async () =>
-		Response.json(await this.ready().probes());
+	/** Every registered scenario, for the card to group by aspect and requirement. */
+	readonly scenarios: Handler = async () =>
+		Response.json(await this.ready().scenarios());
 
-	/** The free plan for the body's probes and agents: what the run would reserve. */
+	/** The free plan for the body's scenarios and agents: what the run would reserve. */
 	readonly plan: Handler = async (request) =>
 		Response.json(await this.ready().plan(this.spec(await body(request))));
 
@@ -82,20 +82,20 @@ export class EvalLaunchRoutes {
 
 	private spec(sent: Record<string, unknown>): {
 		skill: string;
-		probes: string[];
+		scenarios: string[];
 		agents: AgentPick[];
 		baseline: string | null;
 	} {
-		const { skill, probes, agents, baseline } = sent;
+		const { skill, scenarios, agents, baseline } = sent;
 		if (typeof skill !== "string" || !SKILLS.includes(skill)) {
-			fail("usage", `no probes for skill ${String(skill)}`, {});
+			fail("usage", `no scenarios for skill ${String(skill)}`, {});
 		}
 		if (
-			!Array.isArray(probes) ||
-			probes.length === 0 ||
-			!probes.every((each) => typeof each === "string" && each !== "")
+			!Array.isArray(scenarios) ||
+			scenarios.length === 0 ||
+			!scenarios.every((each) => typeof each === "string" && each !== "")
 		) {
-			fail("usage", "pick at least one probe", {});
+			fail("usage", "pick at least one scenario", {});
 		}
 		if (!Array.isArray(agents) || agents.length === 0) {
 			fail("usage", "pick at least one agent to run on", {});
@@ -111,6 +111,6 @@ export class EvalLaunchRoutes {
 		if (baseline != null && typeof baseline !== "string") {
 			fail("usage", "the baseline is a revision", {});
 		}
-		return { skill, probes, agents, baseline: baseline ?? null };
+		return { skill, scenarios, agents, baseline: baseline ?? null };
 	}
 }

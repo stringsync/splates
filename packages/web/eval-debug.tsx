@@ -63,7 +63,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 			<header className="flex flex-col gap-1">
 				<span className="flex flex-wrap items-center gap-2">
 					<StatusChip status={run.status} />
-					<h2 className="font-medium">{run.probe}</h2>
+					<h2 className="font-medium">{run.scenario}</h2>
 					<span className="text-muted-foreground text-sm">
 						on {targetLabel(run.target)}
 						{run.repetition > 0 && `, repetition ${run.repetition + 1}`}

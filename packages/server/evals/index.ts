@@ -7,7 +7,7 @@ export type {
 	EvalFinished,
 	EvalLaunch,
 	EvalPlan,
-	EvalProbe,
+	EvalScenario,
 } from "./launch";
 export { EvalLaunches } from "./launch";
 export type { ConversationDirs } from "./launch-routes";

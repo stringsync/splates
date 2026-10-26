@@ -555,7 +555,7 @@ export async function dev(
 		log,
 	});
 
-	// The port was free when `ports` probed it, not necessarily when it binds,
+	// The port was free when `ports` scenariod it, not necessarily when it binds,
 	// so a bind lost to someone else's asks again, which moves on past it.
 	let requested = await ports.get();
 	const listen = (): ReturnType<typeof Bun.serve<Connection>> =>
@@ -602,7 +602,7 @@ export async function dev(
 					},
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
-					"/api/evals/probes": guarded(evalLaunchRoutes.probes),
+					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),

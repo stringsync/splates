@@ -27,7 +27,7 @@ export function targetName(target: EvalTarget): string {
 
 /**
  * What tells the agent whose run evals card started `grid` that it is done:
- * the directive, then the batch condensed: its tally and cost, each probe's
+ * the directive, then the batch condensed: its tally and cost, each scenario's
  * outcome on each agent, and for each run that did not pass, the checks and
  * the judge's reason that held it back, or what broke, its reply cut short,
  * and the run's id. `details` are
@@ -44,17 +44,18 @@ export function evalsDonePrompt(
 		grid.tokens === null ? null : `${grid.tokens.toLocaleString()} tokens`,
 		grid.costUsd === null ? null : `$${grid.costUsd.toFixed(2)}`,
 	].filter((part) => part !== null);
-	const probes = [...new Set(grid.grid.map((cell) => cell.probe))];
+	const scenarios = [...new Set(grid.grid.map((cell) => cell.scenario))];
 	const table = [
-		`| Probe | ${grid.targets.map(targetName).join(" | ")} |`,
+		`| Scenario | ${grid.targets.map(targetName).join(" | ")} |`,
 		`| --- |${" --- |".repeat(grid.targets.length)}`,
-		...probes.map(
-			(probe) =>
-				`| \`${probe}\` | ${grid.targets
+		...scenarios.map(
+			(scenario) =>
+				`| \`${scenario}\` | ${grid.targets
 					.map((target) =>
 						outcomes(
 							grid.grid.filter(
-								(cell) => cell.probe === probe && cell.target === target.key,
+								(cell) =>
+									cell.scenario === scenario && cell.target === target.key,
 							),
 						),
 					)
@@ -75,7 +76,7 @@ export function evalsDonePrompt(
 			...(run.error === undefined ? [] : [`  - Error: ${cut(run.error)}`]),
 		];
 		return [
-			`- \`${run.probe}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}`,
+			`- \`${run.scenario}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}`,
 			...held,
 			`  - Reply: ${run.reply === "" ? "(none)" : cut(JSON.stringify(run.reply))}`,
 			`  - Run: \`${run.id}\``,
@@ -90,7 +91,7 @@ ${missed.length === 0 ? "\nEvery run passed." : `\nNot passing:\n\n${missed.join
 `;
 }
 
-/** One probe's outcome on one agent, a word per repetition. */
+/** One scenario's outcome on one agent, a word per repetition. */
 function outcomes(cells: readonly EvalCell[]): string {
 	return cells.length === 0
 		? "not run"

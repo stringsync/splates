@@ -34,7 +34,7 @@ describe("EvalLaunchRoutes", () => {
 	it("starts the run its card names from the one body the Run button sends", async () => {
 		const sent = {
 			skill: "splates",
-			probes: ["resources/install"],
+			scenarios: ["resources/install"],
 			agents: [{ agent: "claude" }],
 			baseline: "fd9f3785",
 			key: "card-1",
@@ -50,7 +50,7 @@ describe("EvalLaunchRoutes", () => {
 		await routes.start(
 			launch({
 				skill: "splates",
-				probes: ["resources/install"],
+				scenarios: ["resources/install"],
 				agents: [{ agent: "claude" }],
 				key: "card-1",
 				conversation: "c-1",
@@ -67,7 +67,7 @@ describe("EvalLaunchRoutes", () => {
 		cwds.set("c-1", cwd);
 		const ask = {
 			skill: "splates",
-			probes: ["resources/install"],
+			scenarios: ["resources/install"],
 			agents: [{ agent: "claude" }],
 			key: "card-1",
 		};

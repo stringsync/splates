@@ -35,7 +35,7 @@ describe("evalsDonePrompt", () => {
 		costUsd: 0.42,
 		grid: [
 			{
-				probe: "resources/install",
+				scenario: "resources/install",
 				aspect: "resource-control",
 				requirement: "host-heavy-work",
 				target: claude.key,
@@ -43,7 +43,7 @@ describe("evalsDonePrompt", () => {
 				run: run("batch-abc/run-1/result.json", "fail"),
 			},
 			{
-				probe: "resources/install",
+				scenario: "resources/install",
 				aspect: "resource-control",
 				requirement: "host-heavy-work",
 				target: codex.key,
@@ -54,7 +54,7 @@ describe("evalsDonePrompt", () => {
 	};
 	const failed: EvalDetail = {
 		...run("batch-abc/run-1/result.json", "fail"),
-		probe: "resources/install",
+		scenario: "resources/install",
 		aspect: "resource-control",
 		requirement: "Ask before installing.",
 		target: claude,

@@ -5,7 +5,7 @@ import type {
 	EvalGrid,
 	EvalLaunch,
 	EvalPlan,
-	EvalProbe,
+	EvalScenario,
 } from "@stringsync/splates-server/evals/browser";
 import { ApiError, answered, sendJson } from "./request";
 
@@ -64,18 +64,18 @@ export async function saveEvalAgents(
 	})) as EvalAgentsView;
 }
 
-/** What a run of `probes` on `agents` would reserve, from the runner's free plan. */
+/** What a run of `scenarios` on `agents` would reserve, from the runner's free plan. */
 export async function evalPlan(run: EvalRunAsk): Promise<EvalPlan> {
 	return (await sendJson("/api/evals/plan", "POST", run)) as EvalPlan;
 }
 
-/** Every probe the harness registers. */
-export async function evalProbes(): Promise<EvalProbe[]> {
-	const response = await answered("/api/evals/probes");
+/** Every scenario the harness registers. */
+export async function evalScenarios(): Promise<EvalScenario[]> {
+	const response = await answered("/api/evals/scenarios");
 	if (!response.ok) {
-		throw new ApiError("error", `/api/evals/probes: ${response.status}`);
+		throw new ApiError("error", `/api/evals/scenarios: ${response.status}`);
 	}
-	return (await response.json()) as EvalProbe[];
+	return (await response.json()) as EvalScenario[];
 }
 
 /** Starts the paid run the person asked for, the card `key` naming it. */
@@ -109,10 +109,10 @@ export async function stopEvalRun(key: string): Promise<void> {
 	);
 }
 
-/** What a run is asked with: the probes, the agents and what the skill is judged against. */
+/** What a run is asked with: the scenarios, the agents and what the skill is judged against. */
 export interface EvalRunAsk {
 	skill: string;
-	probes: string[];
+	scenarios: string[];
 	agents: EvalAgentsView["agents"];
 	baseline: string | null;
 	/** The conversation whose card asks, told once the run is done. */

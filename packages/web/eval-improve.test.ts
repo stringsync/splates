@@ -9,7 +9,7 @@ describe("improvePrompt", () => {
 		tokens: null,
 		costUsd: null,
 		milliseconds: 1,
-		probe: "resources/install",
+		scenario: "resources/install",
 		aspect: "resource-control",
 		requirement: "Ask before installing.",
 		target: {

@@ -15,7 +15,7 @@ import { replied } from "./thread-reply";
 /**
  * An agent's reply as the page would show it: through the thread's own
  * renderer, so its questions, reports and reviews come out as the cards a
- * person would meet, not only whether the probe's check passed.
+ * person would meet, not only whether the scenario's check passed.
  */
 export function EvalReply({ text }: { text: string }): JSX.Element {
 	const messages = useMemo<ThreadMessageLike[]>(

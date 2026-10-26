@@ -192,7 +192,7 @@ export interface PermissionProposal {
 	title: string | null;
 	/** What it comes to, as markdown. */
 	body: string;
-	/** For `run-evals`: what to run, from the card's probe list. */
+	/** For `run-evals`: what to run, from the card's scenario list. */
 	evals?: EvalAsk;
 	/** For `run-command`: the command to run, from the first backticked line. */
 	command?: string;
@@ -200,13 +200,13 @@ export interface PermissionProposal {
 
 /**
  * The evals a `## 🔐 Permission: run evals <skill>: <what it checks>` card
- * asks to run: the probes it picked, one `` - `probe-id` `` item each, and
+ * asks to run: the scenarios it picked, one `` - `scenario-id` `` item each, and
  * optionally the revision the skill's change is judged against, as a
  * `` Baseline: `rev` `` line.
  */
 export interface EvalAsk {
 	skill: string;
-	probes: string[];
+	scenarios: string[];
 	baseline: string | null;
 }
 
@@ -228,7 +228,7 @@ const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 const EVALS_PERMISSION =
 	/^## 🔐 Permission: run evals (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-/** A run-evals card's probe: a list item that is one code span, then maybe a note. */
+/** A run-evals card's scenario: a list item that is one code span, then maybe a note. */
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
@@ -323,12 +323,12 @@ function keptAt(
 		};
 	}
 	if (evals !== null) {
-		const probes: string[] = [];
+		const scenarios: string[] = [];
 		let baseline: string | null = null;
 		const prose = body.split("\n").filter((each) => {
-			const probe = EVAL_PROBE.exec(each);
-			if (probe !== null) {
-				probes.push(probe[1] as string);
+			const scenario = EVAL_PROBE.exec(each);
+			if (scenario !== null) {
+				scenarios.push(scenario[1] as string);
 				return false;
 			}
 			const base = EVAL_BASELINE.exec(each);
@@ -347,7 +347,7 @@ function keptAt(
 					tasks: [],
 					title: evals[2] || null,
 					body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
-					evals: { skill: evals[1] as string, probes, baseline },
+					evals: { skill: evals[1] as string, scenarios, baseline },
 				},
 			},
 			end,

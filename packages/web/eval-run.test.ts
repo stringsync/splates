@@ -23,7 +23,7 @@ describe("EvalRun", () => {
 		timer = new FakeTimer();
 	});
 
-	it("groups the probes and plans on the saved agents without starting", async () => {
+	it("groups the scenarios and plans on the saved agents without starting", async () => {
 		const run = EvalRun.of(proposal(), { server, timer });
 
 		await run.load();
@@ -65,7 +65,7 @@ describe("EvalRun", () => {
 
 const ASK = {
 	skill: "splates",
-	probes: ["decisions/local-choice", "lifecycle/merge"],
+	scenarios: ["decisions/local-choice", "lifecycle/merge"],
 	baseline: null,
 };
 
@@ -77,7 +77,7 @@ class FakeEvalServer implements EvalRunServer {
 	async savedAgents() {
 		return [{ agent: "claude", model: "opus" }, { agent: "codex" }];
 	}
-	async probes() {
+	async scenarios() {
 		return [
 			{
 				id: "decisions/local-choice",

@@ -10,7 +10,7 @@ import { ImproveMenu, improvable } from "./eval-improve";
 import { ORDER, StatusChip, spent } from "./eval-status";
 
 /**
- * A batch of evals as one card: its totals, then a grid of its probes,
+ * A batch of evals as one card: its totals, then a grid of its scenarios,
  * grouped by aspect, against the agents it ran on, each cell a run's outcome
  * or pending until it lands. Narrowed to one aspect, it shows only that part
  * of the skill. A landed cell opens its run.
@@ -76,7 +76,7 @@ export function EvalReport({
 					<thead>
 						<tr>
 							<th className="py-1 pr-3 text-left font-normal text-muted-foreground text-xs">
-								Probe
+								Scenario
 							</th>
 							{grid.targets.map((target) => (
 								<th
@@ -100,9 +100,9 @@ export function EvalReport({
 									</th>
 								</tr>
 							) : (
-								<tr key={row.probe} className="border-t">
+								<tr key={row.scenario} className="border-t">
 									<td className="py-1.5 pr-3 align-top">
-										<div className="font-medium">{row.probe}</div>
+										<div className="font-medium">{row.scenario}</div>
 										<div className="text-muted-foreground text-xs">
 											{row.requirement}
 										</div>
@@ -134,12 +134,12 @@ export function EvalReport({
 }
 
 /**
- * A batch condensed for the card that started it: each probe's outcome on
+ * A batch condensed for the card that started it: each scenario's outcome on
  * each agent, a chip per repetition opening its run on the Evals page.
  */
 export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
-	const probes = useMemo(
-		() => [...new Set(grid.grid.map((cell) => cell.probe))],
+	const scenarios = useMemo(
+		() => [...new Set(grid.grid.map((cell) => cell.scenario))],
 		[grid.grid],
 	);
 	const open = (run: string): void => {
@@ -153,7 +153,7 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 			>
 				<thead>
 					<tr>
-						<th className="sr-only">Probe</th>
+						<th className="sr-only">Scenario</th>
 						{grid.targets.map((target) => (
 							<th
 								key={target.key}
@@ -165,17 +165,18 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 					</tr>
 				</thead>
 				<tbody>
-					{probes.map((probe) => (
-						<tr key={probe}>
+					{scenarios.map((scenario) => (
+						<tr key={scenario}>
 							<td className="py-0.5 pr-2">
-								<code>{probe}</code>
+								<code>{scenario}</code>
 							</td>
 							{grid.targets.map((target) => (
 								<td key={target.key} className="px-1.5 py-0.5">
 									<Cells
 										cells={grid.grid.filter(
 											(cell) =>
-												cell.probe === probe && cell.target === target.key,
+												cell.scenario === scenario &&
+												cell.target === target.key,
 										)}
 										onOpen={open}
 									/>
@@ -189,7 +190,7 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 	);
 }
 
-/** One probe on one agent: a chip for each repetition, each opening its run. */
+/** One scenario on one agent: a chip for each repetition, each opening its run. */
 function Cells({
 	cells,
 	onOpen,
@@ -210,7 +211,7 @@ function Cells({
 						key={cell.repetition}
 						type="button"
 						title={spent(cell.run)}
-						aria-label={`${cell.probe} on ${cell.target}, repetition ${cell.repetition + 1}: ${cell.run.status}`}
+						aria-label={`${cell.scenario} on ${cell.target}, repetition ${cell.repetition + 1}: ${cell.run.status}`}
 						onClick={() => onOpen(cell.run?.id ?? "")}
 						className="rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					>
@@ -235,25 +236,34 @@ function worst(cells: EvalCell[]): string | null {
 
 type Row =
 	| { type: "aspect"; aspect: string }
-	| { type: "probe"; probe: string; requirement: string; cells: EvalCell[] };
+	| {
+			type: "scenario";
+			scenario: string;
+			requirement: string;
+			cells: EvalCell[];
+	  };
 
-/** The grid's rows: each aspect's heading, then its probes, in the order the batch planned them. */
+/** The grid's rows: each aspect's heading, then its scenarios, in the order the batch planned them. */
 function rowsOf(cells: EvalCell[], aspect: string | null): Row[] {
 	const byAspect = new Map<string, Map<string, EvalCell[]>>();
 	for (const cell of cells) {
 		if (aspect !== null && cell.aspect !== aspect) {
 			continue;
 		}
-		const probes = byAspect.get(cell.aspect) ?? new Map<string, EvalCell[]>();
-		probes.set(cell.probe, [...(probes.get(cell.probe) ?? []), cell]);
-		byAspect.set(cell.aspect, probes);
+		const scenarios =
+			byAspect.get(cell.aspect) ?? new Map<string, EvalCell[]>();
+		scenarios.set(cell.scenario, [
+			...(scenarios.get(cell.scenario) ?? []),
+			cell,
+		]);
+		byAspect.set(cell.aspect, scenarios);
 	}
-	return [...byAspect].flatMap(([name, probes]): Row[] => [
+	return [...byAspect].flatMap(([name, scenarios]): Row[] => [
 		{ type: "aspect", aspect: name },
-		...[...probes].map(
-			([probe, each]): Row => ({
-				type: "probe",
-				probe,
+		...[...scenarios].map(
+			([scenario, each]): Row => ({
+				type: "scenario",
+				scenario,
 				requirement: each[0]?.requirement ?? "",
 				cells: each,
 			}),

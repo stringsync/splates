@@ -4,7 +4,7 @@ export type {
 	EvalLaunch,
 	EvalLaunchStatus,
 	EvalPlan,
-	EvalProbe,
+	EvalScenario,
 } from "./launch";
 export type {
 	EvalBatch,

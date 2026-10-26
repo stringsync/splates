@@ -2,7 +2,7 @@ import type {
 	EvalGrid,
 	EvalLaunch,
 	EvalPlan,
-	EvalProbe,
+	EvalScenario,
 } from "@stringsync/splates-server/evals/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type {
@@ -18,7 +18,7 @@ import {
 	evalBatch,
 	evalLaunch,
 	evalPlan,
-	evalProbes,
+	evalScenarios,
 	startEvalRun,
 	stopEvalRun,
 } from "./api";
@@ -27,7 +27,7 @@ import { refusalOf } from "./refusal";
 /** What a run card reads and writes on the server. */
 export interface EvalRunServer {
 	savedAgents(): Promise<AgentPick[]>;
-	probes(): Promise<EvalProbe[]>;
+	scenarios(): Promise<EvalScenario[]>;
 	plan(run: EvalRunAsk): Promise<EvalPlan>;
 	start(key: string, run: EvalRunAsk): Promise<EvalLaunch>;
 	launch(key: string): Promise<EvalLaunch | null>;
@@ -37,7 +37,7 @@ export interface EvalRunServer {
 
 export const HTTP_EVAL_RUN: EvalRunServer = {
 	savedAgents: async () => (await evalAgents()).agents,
-	probes: evalProbes,
+	scenarios: evalScenarios,
 	plan: evalPlan,
 	start: startEvalRun,
 	launch: evalLaunch,
@@ -58,15 +58,15 @@ export type EvalRunEvents = { changed: undefined };
 /** How often a run in flight is read again. */
 const FOLLOW = Duration.secs(2);
 
-/** One probe's place on the card: its aspect, requirement and id. */
-export interface ProbeGroup {
+/** One scenario's place on the card: its aspect, requirement and id. */
+export interface ScenarioGroup {
 	aspect: string;
-	requirements: { requirement: string; probes: string[] }[];
+	requirements: { requirement: string; scenarios: string[] }[];
 }
 
 /**
  * The run an agent's `run evals` card asks for, for the person to start: the
- * probes it picked grouped by aspect and requirement, the saved agents
+ * scenarios it picked grouped by aspect and requirement, the saved agents
  * (each of which can be left out for this run), and the free plan's
  * reservation. Starting is the person's, through `run`; once it runs the
  * card follows the batch the runner writes: cells landed of those planned,
@@ -78,8 +78,8 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 	/** The agents saved, each with whether this run uses it. */
 	agents: { pick: AgentPick; on: boolean }[] = [];
-	groups: ProbeGroup[] = [];
-	/** The probes the card names that the harness does not know. */
+	groups: ScenarioGroup[] = [];
+	/** The scenarios the card names that the harness does not know. */
 	unknown: string[] = [];
 	plan: EvalPlan | null = null;
 	launch: EvalLaunch | null = null;
@@ -109,7 +109,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		const ask = proposal.evals as EvalAsk;
 		return new EvalRun(
 			ask,
-			`${ask.skill}:${ask.probes.join(",")}:${proposal.title ?? ""}`,
+			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}`,
 			opts,
 		);
 	}
@@ -130,17 +130,17 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 	async load(): Promise<void> {
 		try {
-			const [saved, probes, launch] = await Promise.all([
+			const [saved, scenarios, launch] = await Promise.all([
 				this.server.savedAgents(),
-				this.server.probes(),
+				this.server.scenarios(),
 				this.server.launch(this.key),
 			]);
 			this.agents = saved.map((pick) => ({ pick, on: true }));
 			this.groups = groupsOf(
-				probes.filter((each) => this.ask.probes.includes(each.id)),
+				scenarios.filter((each) => this.ask.scenarios.includes(each.id)),
 			);
-			const known = new Set(probes.map((each) => each.id));
-			this.unknown = this.ask.probes.filter((each) => !known.has(each));
+			const known = new Set(scenarios.map((each) => each.id));
+			this.unknown = this.ask.scenarios.filter((each) => !known.has(each));
 			this.launch = launch;
 			this.loaded = true;
 			this.refusal = null;
@@ -201,7 +201,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	private request(): EvalRunAsk {
 		return {
 			skill: this.ask.skill,
-			probes: this.ask.probes,
+			scenarios: this.ask.scenarios,
 			agents: this.picked,
 			baseline: this.ask.baseline,
 		};
@@ -259,22 +259,22 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	}
 }
 
-function groupsOf(probes: EvalProbe[]): ProbeGroup[] {
-	const groups: ProbeGroup[] = [];
-	for (const probe of probes) {
-		let group = groups.find((each) => each.aspect === probe.aspect);
+function groupsOf(scenarios: EvalScenario[]): ScenarioGroup[] {
+	const groups: ScenarioGroup[] = [];
+	for (const scenario of scenarios) {
+		let group = groups.find((each) => each.aspect === scenario.aspect);
 		if (group === undefined) {
-			group = { aspect: probe.aspect, requirements: [] };
+			group = { aspect: scenario.aspect, requirements: [] };
 			groups.push(group);
 		}
 		let requirement = group.requirements.find(
-			(each) => each.requirement === probe.requirement,
+			(each) => each.requirement === scenario.requirement,
 		);
 		if (requirement === undefined) {
-			requirement = { requirement: probe.requirement, probes: [] };
+			requirement = { requirement: scenario.requirement, scenarios: [] };
 			group.requirements.push(requirement);
 		}
-		requirement.probes.push(probe.id);
+		requirement.scenarios.push(scenario.id);
 	}
 	return groups;
 }

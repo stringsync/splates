@@ -358,7 +358,7 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a run evals permission with its probes and baseline", () => {
+	it("reads a run evals permission with its scenarios and baseline", () => {
 		const found = stretches(
 			[
 				"## 🔐 Permission: run evals splates: the decision probes",
@@ -383,7 +383,7 @@ describe("stretches", () => {
 					body: "Checks the new wording.",
 					evals: {
 						skill: "splates",
-						probes: ["decisions/local-choice", "decisions/ask-first"],
+						scenarios: ["decisions/local-choice", "decisions/ask-first"],
 						baseline: "main",
 					},
 				},

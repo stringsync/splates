@@ -23,7 +23,7 @@ import { Refusal, useRefusal } from "./refusal";
 export const EvalsConversation = createContext<string | null>(null);
 
 /**
- * The card an agent asks to run evals with: the probes it picked, the saved
+ * The card an agent asks to run evals with: the scenarios it picked, the saved
  * agents they run on (each can be left out for this run) and what the runner
  * would reserve. Only its Run button spends anything. Once it runs, the card
  * is the run's progress, cells landed of those planned, the tally and the
@@ -118,7 +118,7 @@ export function EvalsCard({
 			{launch === null && !turnedDown ? (
 				<>
 					<section
-						aria-label="probes"
+						aria-label="scenarios"
 						className="mx-4 mb-3 flex flex-col gap-2 text-sm"
 					>
 						{state.groups.map((group) => (
@@ -130,7 +130,7 @@ export function EvalsCard({
 										className="ml-3 text-muted-foreground text-xs"
 									>
 										{each.requirement}:{" "}
-										{each.probes.map((id) => (
+										{each.scenarios.map((id) => (
 											<code key={id} className="mr-1.5">
 												{id}
 											</code>
@@ -141,7 +141,7 @@ export function EvalsCard({
 						))}
 						{state.unknown.length > 0 && (
 							<p className="text-destructive text-xs">
-								Not a probe: {state.unknown.join(", ")}
+								Not a scenario: {state.unknown.join(", ")}
 							</p>
 						)}
 					</section>

@@ -48,7 +48,7 @@ export class EvalStore {
 					join(this.directory, run),
 				).catch((error: unknown) => ({ unreadable: String(error) }));
 				return {
-					probe: cell.scenario,
+					scenario: cell.scenario,
 					aspect: cell.aspect,
 					requirement: cell.requirement,
 					target: target.key,
@@ -96,7 +96,7 @@ export class EvalStore {
 		}
 		return {
 			...summaryOf(id, result),
-			probe: result.scenario.id,
+			scenario: result.scenario.id,
 			aspect: result.scenario.aspect,
 			requirement: result.scenario.requirement,
 			target: targetOf(result.agent, result.skill),

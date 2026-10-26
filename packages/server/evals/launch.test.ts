@@ -35,7 +35,7 @@ describe("EvalLaunches", () => {
 	const spec = {
 		key: "card-1",
 		skill: "splates",
-		probes: ["resources/install"],
+		scenarios: ["resources/install"],
 		agents: [{ agent: "claude" }],
 		baseline: null,
 	};

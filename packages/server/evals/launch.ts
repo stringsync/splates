@@ -10,7 +10,7 @@ export interface EvalLaunchSpec {
 	/** Names the card, so a reload finds its run again. */
 	key: string;
 	skill: string;
-	probes: string[];
+	scenarios: string[];
 	agents: AgentPick[];
 	/** The revision the skill's change is judged against; the runner's own default when null. */
 	baseline: string | null;
@@ -44,8 +44,8 @@ export interface EvalPlan {
 	output: string;
 }
 
-/** A probe the harness registers, as `splates dev eval list` names it. */
-export interface EvalProbe {
+/** A scenario the harness registers, as `splates dev eval list` names it. */
+export interface EvalScenario {
 	id: string;
 	aspect: string;
 	requirement: string;
@@ -84,8 +84,8 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	// launches are held in memory.
 	constructor(private readonly opts: EvalLaunchesOptions) {}
 
-	/** Every probe the harness registers. */
-	async probes(): Promise<EvalProbe[]> {
+	/** Every scenario the harness registers. */
+	async scenarios(): Promise<EvalScenario[]> {
 		const { stdout } = await this.opts.ps.spawnCapture(
 			[join(this.opts.checkout, "bin/splates"), "dev", "eval", "list"],
 			{ cwd: this.opts.checkout },
@@ -181,7 +181,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			"dev",
 			"eval",
 			command,
-			...spec.probes.flatMap((probe) => ["--scenario", probe]),
+			...spec.scenarios.flatMap((scenario) => ["--scenario", scenario]),
 			...spec.agents.flatMap((pick) => ["--agent", targetOf(pick)]),
 			...(spec.baseline === null ? [] : ["--baseline", spec.baseline]),
 			...(spec.skillDir == null ? [] : ["--skill", spec.skillDir]),

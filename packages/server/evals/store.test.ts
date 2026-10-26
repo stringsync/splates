@@ -89,7 +89,7 @@ describe("EvalStore", () => {
 		const run = await store.run(`batch-one/${runName(0)}/result.json`);
 
 		expect(run).toMatchObject({
-			probe: "resources/install",
+			scenario: "resources/install",
 			input: "Install it.",
 			checks: [{ id: "asked", pass: false }],
 			reply: "Installed.",

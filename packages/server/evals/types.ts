@@ -42,9 +42,9 @@ export interface EvalRun {
 	error?: string;
 }
 
-/** One cell of a batch's grid: a scenario (`probe`, as run cards name it) on a target at a repetition. */
+/** One cell of a batch's grid: a scenario (`scenario`, as run cards name it) on a target at a repetition. */
 export interface EvalCell {
-	probe: string;
+	scenario: string;
 	aspect: string;
 	requirement: string;
 	target: string;
@@ -81,7 +81,7 @@ export type EvalStep =
 
 /** A run opened: what it asked, each check, the judge's verdict and what the agent did. */
 export interface EvalDetail extends EvalRun {
-	probe: string;
+	scenario: string;
 	aspect: string;
 	requirement: string;
 	target: EvalTarget;
