@@ -12,7 +12,7 @@ import { RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
-import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
+import { ProjectEmpty } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
@@ -82,7 +82,6 @@ export function ProjectList({
 							>
 								<PlusIcon className="size-3.5" />
 							</button>
-							<RemoveProjectButton folder={folder} />
 						</div>
 						<CollapsibleContent>
 							{folder.trees.length === 0 && <ProjectEmpty />}

@@ -108,36 +108,6 @@ describe("Project controls in conversation lists", () => {
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
-	it("offers removing projects in the sidebar", async () => {
-		resize(1024, 768);
-		const view = await testing.openConversations([], null, { tasks: [] });
-		const list = agentList(view);
-		await shopIn(list);
-		await act(async () =>
-			fireEvent.click(
-				within(list).getByRole("button", { name: "Remove project shop" }),
-			),
-		);
-		const remove = view.getByRole("dialog", { name: "Remove project shop?" });
-		expect(
-			within(remove).getByText(/files and conversation history are kept/),
-		).toBeTruthy();
-		expect(testing.posts).toHaveLength(0);
-		testing.reply = { next: { slug: "webappwiz" } };
-		await act(async () =>
-			fireEvent.click(
-				within(remove).getByRole("button", { name: "Remove project" }),
-			),
-		);
-		expect(testing.posts).toContainEqual(
-			expect.objectContaining({
-				path: "/api/projects/shop",
-				method: "DELETE",
-			}),
-		);
-		expect(testing.visited).toHaveLength(0);
-	});
-
 	it("lists every project in the inbox by name, those with no conversations too", async () => {
 		resize(390, 844);
 		testing.everywhere = [
@@ -181,78 +151,6 @@ describe("Project controls in conversation lists", () => {
 			within(add).getByRole("textbox", { name: "project path" }),
 		).toBeTruthy();
 		expect(view.queryByRole("dialog", { name: "Pages" })).toBeNull();
-	});
-
-	it("opens the page's own project's menu on a long press of its name", async () => {
-		resize(390, 844);
-		const view = await testing.openConversations([], null, { tasks: [] });
-		const list = agentList(view);
-		await shopIn(list);
-		const here = within(list).getByRole("region", { name: "webappwiz" });
-		// As Android holds a row: the finger down, then the context menu.
-		const head = within(here).getByRole("button", { name: /^webappwiz/ });
-		await act(async () => {
-			fireEvent.pointerDown(head);
-			fireEvent.contextMenu(head);
-			fireEvent.click(head);
-		});
-		const menu = view.getByRole("dialog", { name: "webappwiz" });
-		expect(
-			within(menu).getByRole("button", { name: "New conversation" }),
-		).toBeTruthy();
-		expect(
-			within(menu).getByRole("button", { name: "Remove project…" }),
-		).toBeTruthy();
-		await act(async () => fireEvent.keyDown(menu, { key: "Escape" }));
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-	});
-
-	it("offers removing a project from its menu in the inbox", async () => {
-		resize(390, 844);
-		const view = await testing.openConversations([], null, { tasks: [] });
-		const list = agentList(view);
-		await shopIn(list);
-		expect(
-			within(list).queryByRole("button", { name: /^Remove project/ }),
-		).toBeNull();
-		expect(
-			within(list).getByRole("button", { name: "Menu for shop" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(
-				within(list).getByRole("button", { name: "Menu for webappwiz" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("dialog", { name: "webappwiz" })).getByRole(
-					"button",
-					{ name: "Remove project…" },
-				),
-			),
-		);
-		const remove = await waitFor(() =>
-			view.getByRole("dialog", { name: "Remove project webappwiz?" }),
-		);
-		expect(
-			within(remove).getByText(/files and conversation history are kept/),
-		).toBeTruthy();
-		expect(testing.posts).toHaveLength(0);
-		testing.reply = { next: { slug: "shop" } };
-		await act(async () =>
-			fireEvent.click(
-				within(remove).getByRole("button", { name: "Remove project" }),
-			),
-		);
-		expect(testing.posts).toContainEqual(
-			expect.objectContaining({
-				path: "/api/projects/webappwiz",
-				method: "DELETE",
-			}),
-		);
-		expect(
-			new URL(String(testing.visited.at(-1))).searchParams.get("project"),
-		).toBe("shop");
 	});
 
 	it("empties the page's own project after swiping away its last conversation and lists it again when unarchived", async () => {
@@ -306,63 +204,6 @@ describe("Project controls in conversation lists", () => {
 		]);
 	});
 
-	it("keeps removal open with a reason when the server refuses", async () => {
-		const view = await testing.openConversations([], null, { tasks: [] });
-		const list = agentList(view);
-		const remove = await waitFor(() =>
-			within(list).getByRole("button", { name: "Remove project shop" }),
-		);
-		await act(async () => fireEvent.click(remove));
-		const dialog = view.getByRole("dialog", { name: "Remove project shop?" });
-		testing.refuseWrites = { reason: "locked", message: "try later" };
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Remove project" }),
-			),
-		);
-		await waitFor(() =>
-			expect(within(dialog).getByRole("alert").textContent).toContain(
-				"try later",
-			),
-		);
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
-		);
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(within(await shopIn(list)).getByText("Shop chat")).toBeTruthy();
-	});
-	it("moves to the previous project when removing the one shown", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					task: null,
-					title: "Here",
-					status: "stopped",
-				}),
-			],
-			null,
-			{ tasks: [] },
-		);
-		const button = await waitFor(() =>
-			within(agentList(view)).getByRole("button", {
-				name: "Remove project webappwiz",
-			}),
-		);
-		await act(async () => fireEvent.click(button));
-		testing.reply = { next: { slug: "shop" } };
-		const dialog = view.getByRole("dialog", {
-			name: "Remove project webappwiz?",
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Remove project" }),
-			),
-		);
-		expect(
-			new URL(String(testing.visited.at(-1))).searchParams.get("project"),
-		).toBe("shop");
-	});
 	it("keeps another project's folder when its last conversation is removed by the stream", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });

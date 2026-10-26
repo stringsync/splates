@@ -1,19 +1,13 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import {
-	ChevronRightIcon,
-	EllipsisIcon,
-	PlusIcon,
-	TrashIcon,
-} from "lucide-react";
-import { Fragment, type JSX, type ReactNode, useState } from "react";
+import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import { Fragment, type JSX, type ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { openedBy } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
 import { hostsAtWork } from "./conversation-rows";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
-import { Action, Sheet, useLongPress } from "./phone-row-menu";
-import { ProjectEmpty, useRemoveProject } from "./project-controls";
+import { ProjectEmpty } from "./project-controls";
 import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
 
@@ -93,21 +87,16 @@ export function ProjectSection({
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
 	const items = folder.listed.map((tree) => ({ tree, folder }));
-	const [menu, setMenu] = useState(false);
-	const press = useLongPress(() => setMenu(true));
-	const removal = useRemoveProject(folder);
 	return (
 		<section aria-label={folder.name} className="flex flex-col pt-4">
 			<div className="flex items-center pr-2">
 				<h2 className="flex min-w-0 flex-1">
 					<button
 						type="button"
-						{...press}
 						aria-expanded={open}
 						onClick={() => onFold(!open)}
-						// No callout or selection to fight the long press.
 						className={cn(
-							"flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 text-left font-medium text-muted-foreground text-xs uppercase tracking-wide [-webkit-touch-callout:none] select-none",
+							"flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 text-left font-medium text-muted-foreground text-xs uppercase tracking-wide",
 							folder.here && "text-foreground",
 						)}
 					>
@@ -131,42 +120,7 @@ export function ProjectSection({
 						<PlusIcon className="size-4" />
 					</button>
 				)}
-				{(onNew !== null || removal !== null) && (
-					<button
-						type="button"
-						aria-label={`Menu for ${folder.name}`}
-						onClick={() => setMenu(true)}
-						className={HEAD_BUTTON}
-					>
-						<EllipsisIcon className="size-4" />
-					</button>
-				)}
 			</div>
-			<Sheet open={menu} onOpenChange={setMenu} title={folder.name}>
-				{onNew !== null && (
-					<Action
-						icon={<PlusIcon />}
-						onClick={() => {
-							setMenu(false);
-							onNew();
-						}}
-					>
-						New conversation
-					</Action>
-				)}
-				{removal !== null && (
-					<Action
-						icon={<TrashIcon />}
-						onClick={() => {
-							setMenu(false);
-							removal.ask();
-						}}
-					>
-						Remove project…
-					</Action>
-				)}
-			</Sheet>
-			{removal?.dialog}
 			{open && folder.trees.length === 0 && <ProjectEmpty />}
 			{open && items.length > 0 && (
 				<Lines

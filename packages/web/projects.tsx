@@ -411,7 +411,7 @@ export function ProjectSwitcher({
 												onClick={() => void forget(each)}
 											>
 												<XIcon />
-												Forget {each.slug}
+												Remove project {each.slug}
 											</DropdownMenuItem>
 										</DropdownMenuContent>
 									</DropdownMenu>

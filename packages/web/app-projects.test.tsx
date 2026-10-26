@@ -294,7 +294,9 @@ describe("App's projects", () => {
 		expect(shop.getAttribute("href")).toBe("cursor://file/code/shop");
 		await act(async () => fireEvent.keyDown(shop, { key: "Escape" }));
 		await openMenu(view, "old");
-		await waitFor(() => view.getByRole("menuitem", { name: "Forget old" }));
+		await waitFor(() =>
+			view.getByRole("menuitem", { name: "Remove project old" }),
+		);
 		expect(view.queryByRole("menuitem", { name: "Open in Cursor" })).toBeNull();
 		localStorage.clear();
 	});
@@ -305,7 +307,7 @@ describe("App's projects", () => {
 
 		await openMenu(view, "old");
 		const forget = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Forget old" }),
+			view.getByRole("menuitem", { name: "Remove project old" }),
 		);
 		await act(async () => fireEvent.click(forget));
 
@@ -326,7 +328,7 @@ describe("App's projects", () => {
 		).toBeTruthy();
 		await openMenu(view, "shop");
 		const forget = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Forget shop" }),
+			view.getByRole("menuitem", { name: "Remove project shop" }),
 		);
 		await act(async () => fireEvent.click(forget));
 
@@ -343,7 +345,9 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await clickShown(() => view.getByRole("menuitem", { name: "Forget shop" }));
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Remove project shop" }),
+		);
 
 		await waitFor(() =>
 			expect(new URL(String(testing.visited[0])).search).toBe(
@@ -359,7 +363,9 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await clickShown(() => view.getByRole("menuitem", { name: "Forget shop" }));
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Remove project shop" }),
+		);
 
 		await waitFor(() =>
 			expect(String(testing.visited[0])).toBe("http://localhost/"),
