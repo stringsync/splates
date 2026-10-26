@@ -1,5 +1,5 @@
 ---
-description: How splates dev fix and dev test run, which scoped runs agents may do, the whole-suite approval, and the suite's timeouts and DOM split; read before running or changing either
+description: How splates dev fix and dev test run, how the runs are scheduled as jobs, and the suite's timeouts and DOM split; read before running or changing either
 ---
 
 `splates dev fix` typechecks, formats and scry-checks; `splates dev test`
@@ -37,28 +37,21 @@ step (`--code-only` to skip scry's model calls) and to ask with the
 run-command permission card for anything else heavy, running it only on
 `[SPLATES RUN ALLOWED]`.
 
-## Whole-suite approval
+## Jobs
 
-- An agent (`SPLATES_CONVERSATION` set) is refused an unscoped `dev test` or
-  `dev premerge` with `not_granted`; the message names the scoped flags, which
-  need no approval below half the test files. Scoped runs reaching at least
-  half report the estimated count and require the same one-run approval.
-  The count follows imports without executing tests; unknown imports
-  conservatively count their dependent tests, while configuration changes
-  count all path-matching files.
-  Test-name patterns narrow cases, not the preflight file count.
-- Outside a gate (`SPLATES_PREMERGE`) it runs only once the person allows a
-  `## 🔐 Permission: run command: <why>` card whose command is a `dev test`
-  or `dev premerge` run without `--evals` (`isWholeSuite`), including scoped
-  runs.
-- Allow first posts `/api/conversations/:id/suite`, which writes a one-run
-  grant to `~/.splates/suite-grants/<conversation>` (`SuiteGrants`, standing
-  an hour), then sends `[SPLATES RUN ALLOWED]` as for any command.
-- `splates dev approve-suite <conversation>` writes the same grant from a
-  terminal.
-- The run takes the grant (`refuseWholeSuite`), so each approval is one run.
-- The person's own runs, from no conversation, are never asked.
-- The grant is on this machine, where every agent runs.
+- Every `dev test` and `dev fix` run submits a job to the server's scheduler
+  (`packages/splates/dev/job.ts`, `scheduled`, over `JobClient`) and runs on
+  its grant; nobody approves a run by hand.
+- A scoped run asks for `cpus` = its workers (one by default), at low
+  priority. An unscoped run asks for the `suite` pool and the gate's range of
+  cpus (`gateJob`), at low priority and requeue-able: a merge's gate
+  preempts it, and it waits and starts over. `--evals` asks for cpus only.
+  `dev fix` asks for 2 cpus at low priority.
+- No server (no `SPLATES_DEV`, or one that does not answer), a merge's gate
+  (`SPLATES_PREMERGE`) and `dev premerge`, which holds the machine itself,
+  run at once, unscheduled.
+- Scopes (`--changed`, `--since`, paths, `--test-name-pattern`) only choose
+  files; none is refused or needs a card.
 
 ## The whole run
 
@@ -79,7 +72,8 @@ run-command permission card for anything else heavy, running it only on
 ## Making way for the gate
 
 - A `dev test` or `dev fix` run from a conversation lowers its own priority
-  to nice 10 (`AgentPriority`), so a merge gate beside it keeps the CPU.
+  to nice 10 (`AgentPriority`): a courtesy beside the scheduler, which is the
+  mechanism.
 - A gate's own run, a `dev premerge` by hand and the person's runs keep
   theirs (`premerge-lock.md`).
 
@@ -130,9 +124,8 @@ run-command permission card for anything else heavy, running it only on
 
 ## Where
 
-- `packages/splates/dev/test.ts`: `refuseWholeSuite`
+- `packages/splates/dev/job.ts`: `scheduled`
 - `packages/splates/dev/priority.ts`: `AgentPriority`
 - `packages/splates/dev/peak-memory.ts`: `PeakMemory`, `footprintKb`
-- `packages/server/plans/run-command.ts`: `isWholeSuite`
 - `packages/web/test-preload.ts`
 - `splates.config.ts`: `preMerge`

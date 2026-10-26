@@ -41,7 +41,7 @@ import {
 	useProjects,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
-import { approveSuite, markRead } from "./conversation-api";
+import { markRead } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
@@ -65,7 +65,6 @@ import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
-import { SuiteGrant } from "./run-command-card";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
@@ -180,7 +179,6 @@ function Conversation({
 		edit: editUnsent,
 	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
 	const unsent = useReactive(feed, (feed) => feed.unsent.get(id), ["changed"]);
-	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const unsentActions = useMemo(
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],
@@ -342,81 +340,79 @@ function Conversation({
 											<RestedUI />
 											<InterruptedUI />
 											<EvalsConversation value={id}>
-												<SuiteGrant value={suite}>
-													<ArchiveConversation
-														value={archivable ? fileAway : null}
-													>
-														<ArchiveOfferProvider value={offer}>
-															<StartNewContext value={startNew}>
-																<ReplyContext value={reply}>
-																	<NamedContext value={named}>
-																		<ThreadView
-																			docked
-																			historyFailure={historyFailure}
-																			onRead={onRead}
-																			autoFocus={
-																				summary !== true && (!asking || typed)
-																			}
-																			stopping={stopping}
-																			going={going}
-																			mentions={mentions ?? undefined}
-																			references={references}
-																			commands={commands ?? undefined}
-																			placeholder={
-																				archived
-																					? "Send a message to unarchive and continue"
-																					: undefined
-																			}
-																			controls={
-																				!archived && (
-																					<>
-																						<ContextMeter
-																							usage={conversation.usage}
-																							compactions={compactionsIn(
-																								conversation.messages,
-																							)}
-																						/>
-																						<SettingControls
-																							agent={conversation.agent}
-																							autoPick={autoPick}
-																							settings={settings}
-																							current={(setting) =>
-																								setting.current
-																							}
-																							onChange={choose}
-																						/>
-																					</>
-																				)
-																			}
-																			above={
+												<ArchiveConversation
+													value={archivable ? fileAway : null}
+												>
+													<ArchiveOfferProvider value={offer}>
+														<StartNewContext value={startNew}>
+															<ReplyContext value={reply}>
+																<NamedContext value={named}>
+																	<ThreadView
+																		docked
+																		historyFailure={historyFailure}
+																		onRead={onRead}
+																		autoFocus={
+																			summary !== true && (!asking || typed)
+																		}
+																		stopping={stopping}
+																		going={going}
+																		mentions={mentions ?? undefined}
+																		references={references}
+																		commands={commands ?? undefined}
+																		placeholder={
+																			archived
+																				? "Send a message to unarchive and continue"
+																				: undefined
+																		}
+																		controls={
+																			!archived && (
 																				<>
-																					<NeedsYouBar />
-
-																					<Refusal
-																						refusal={refusal}
-																						className="px-2"
+																					<ContextMeter
+																						usage={conversation.usage}
+																						compactions={compactionsIn(
+																							conversation.messages,
+																						)}
 																					/>
-																					{offer !== null && barred && (
-																						<ArchiveBar offer={offer} />
-																					)}
-																					{conversation.ask !== null && (
-																						<AskPanel
-																							key={conversation.ask.id}
-																							drafts={drafts}
-																							conversation={conversation}
-																							agent={agent}
-																							ask={conversation.ask}
-																						/>
-																					)}
+																					<SettingControls
+																						agent={conversation.agent}
+																						autoPick={autoPick}
+																						settings={settings}
+																						current={(setting) =>
+																							setting.current
+																						}
+																						onChange={choose}
+																					/>
 																				</>
-																			}
-																		/>
-																	</NamedContext>
-																</ReplyContext>
-															</StartNewContext>
-														</ArchiveOfferProvider>
-													</ArchiveConversation>
-												</SuiteGrant>
+																			)
+																		}
+																		above={
+																			<>
+																				<NeedsYouBar />
+
+																				<Refusal
+																					refusal={refusal}
+																					className="px-2"
+																				/>
+																				{offer !== null && barred && (
+																					<ArchiveBar offer={offer} />
+																				)}
+																				{conversation.ask !== null && (
+																					<AskPanel
+																						key={conversation.ask.id}
+																						drafts={drafts}
+																						conversation={conversation}
+																						agent={agent}
+																						ask={conversation.ask}
+																					/>
+																				)}
+																			</>
+																		}
+																	/>
+																</NamedContext>
+															</ReplyContext>
+														</StartNewContext>
+													</ArchiveOfferProvider>
+												</ArchiveConversation>
 											</EvalsConversation>
 										</UnsentContext.Provider>
 									</Composing.Provider>

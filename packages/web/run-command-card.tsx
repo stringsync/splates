@@ -1,11 +1,10 @@
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import {
-	isWholeSuite,
 	RUN_ALLOWED,
 	RUN_DENIED,
 } from "@stringsync/splates-server/plans/browser";
 import { BanIcon, CheckIcon, TerminalIcon } from "lucide-react";
-import { createContext, type JSX, useContext, useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
@@ -16,19 +15,12 @@ import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /**
- * Lets the open conversation's agent run the whole test suite once, which
- * splates refuses it otherwise; null outside a conversation.
- */
-export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
-
-/**
  * The card an agent asks to run a heavy command with: the command, why, and
  * how loaded the machine is now, read each second while it waits. Allow and Deny answer the agent with a
  * directive; the choice shows at once and is taken back if the send fails.
  * Once answered it folds to an event line, "Allowed <command>" or "Denied
  * <command>", that opens the card; the answer is drawn here only, not again
  * as the directive's own line.
- * Allowing the whole test suite first grants the conversation its one run.
  */
 export function RunCommandCard({
 	proposal,
@@ -52,8 +44,6 @@ export function RunCommandCard({
 			?.split("\n\n> **Anything else?**\n\n")
 			.slice(1)
 			.join("\n\n> **Anything else?**\n\n") ?? more;
-	const grant = useContext(SuiteGrant);
-	const suite = isWholeSuite(proposal.command ?? "");
 	const choice = sent?.includes(RUN_ALLOWED)
 		? RUN_ALLOWED
 		: sent?.includes(RUN_DENIED)
@@ -67,23 +57,15 @@ export function RunCommandCard({
 			return;
 		}
 		setChosen(directive);
-		const granted =
-			directive === RUN_ALLOWED && suite && grant !== null
-				? grant()
-				: Promise.resolve();
 		void attempt(
-			granted
-				.then(() =>
-					send(
-						written.current.trim() === ""
-							? directive
-							: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
-					),
-				)
-				.catch((error: unknown) => {
-					setChosen(null);
-					throw error;
-				}),
+			send(
+				written.current.trim() === ""
+					? directive
+					: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
+			).catch((error: unknown) => {
+				setChosen(null);
+				throw error;
+			}),
 			failed,
 		);
 	};

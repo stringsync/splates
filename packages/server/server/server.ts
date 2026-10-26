@@ -853,9 +853,6 @@ export async function dev(
 					"/api/conversations/:id/prompt": {
 						POST: talk(owned((project) => project.promptConversation)),
 					},
-					"/api/conversations/:id/suite": {
-						POST: talk(owned((project) => project.approveSuite)),
-					},
 					"/api/conversations/:id/attachments/:name": {
 						GET: talk(owned((project) => project.conversationAttachment)),
 					},
