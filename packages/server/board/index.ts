@@ -18,6 +18,7 @@ export {
 	elsewhereMention,
 	followers,
 	isReady,
+	isSkipped,
 	lane,
 	lanes,
 	lanesTaken,

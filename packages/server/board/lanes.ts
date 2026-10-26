@@ -139,6 +139,22 @@ export function lane(
 	};
 }
 
+/**
+ * Whether the queued lane `task` is in passes over it, because the person
+ * took it out of the queue: only queueing it by hand puts it back.
+ */
+export function isSkipped(
+	records: readonly LaneRecord[],
+	task: TaskRecord,
+): boolean {
+	return records.some(
+		(record) =>
+			record.id === task.lane &&
+			record.queued === true &&
+			(record.skip ?? []).includes(task.id),
+	);
+}
+
 /** What blocks `task` and has yet to merge, in list order. */
 export function blockersOf(tasks: TaskRecord[], task: TaskRecord): Blocker[] {
 	return tasks

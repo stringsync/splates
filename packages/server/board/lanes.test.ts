@@ -1,9 +1,28 @@
 import { describe, expect, it } from "bun:test";
 import { SOUND2SCORE_LANES, sound2score } from "./example";
-import { cycle, lane, lanes, mentioned, misordered, settle } from "./lanes";
+import {
+	cycle,
+	isSkipped,
+	lane,
+	lanes,
+	mentioned,
+	misordered,
+	settle,
+} from "./lanes";
 import type { TaskRecord } from "./task";
 
 describe("lanes", () => {
+	it("says a queued lane skips a task only while queued", () => {
+		const one = task({ id: 1, lane: 1, position: 1 });
+		const queued = [{ id: 1, name: "A", queued: true as const, skip: [1] }];
+
+		expect(isSkipped(queued, one)).toBe(true);
+		expect(isSkipped([{ id: 1, name: "A", skip: [1] }], one)).toBe(false);
+		expect(isSkipped(queued, task({ id: 2, lane: 1, position: 2 }))).toBe(
+			false,
+		);
+	});
+
 	it("draws the sound2score lanes as they were run", () => {
 		const tasks = sound2score();
 

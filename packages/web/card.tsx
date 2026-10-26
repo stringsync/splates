@@ -1,6 +1,9 @@
 import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import { blockerLabel } from "@stringsync/splates-server/board/browser";
+import {
+	blockerLabel,
+	isSkipped,
+} from "@stringsync/splates-server/board/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import {
 	CircleAlertIcon,
@@ -144,6 +147,17 @@ export function Card({
 							>
 								<HandIcon aria-hidden className="size-3" />
 								By hand
+							</span>
+						)}
+					{todo.takenBy === null &&
+						todo.stage !== "queued" &&
+						isSkipped(board.lanes, todo) && (
+							<span
+								className="inline-flex items-center gap-1"
+								title="Its lane is queued but passes over it, as it was taken out of the queue: only Queue starts it"
+							>
+								<HandIcon aria-hidden className="size-3" />
+								Skipped
 							</span>
 						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
