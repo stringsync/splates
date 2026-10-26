@@ -3,6 +3,7 @@ import { BotIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
+import { AutoIcon } from "./auto-brand";
 import { automated } from "./conversation-rows";
 
 /**
@@ -32,6 +33,9 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
+	if (conversation.picking) {
+		return <AutoIcon className={cn("size-4 shrink-0", className)} />;
+	}
 	return !automated(conversation) ? (
 		<AgentIcon agent={conversation.agent} name={name} className={className} />
 	) : (

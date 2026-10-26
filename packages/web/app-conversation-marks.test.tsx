@@ -116,7 +116,7 @@ Cap upload retries
 		expect(runs?.innerHTML).not.toContain('aria-label="merging"');
 	});
 
-	it("marks an agent whose merge tests as merging, and one whose merge waits its turn faintly", async () => {
+	it("marks a testing merge as merging and a queued merge with an hourglass", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({
@@ -145,6 +145,32 @@ Cap upload retries
 			["alpha", "merging"],
 			["beta", "waiting to merge"],
 		]);
+		expect(
+			view
+				.getByRole("status", { name: "waiting to merge" })
+				.querySelector(".lucide-hourglass"),
+		).toBeTruthy();
+	});
+
+	it("shows an hourglass for a task held in the queue before its agent starts", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Queued task",
+					queued: 3,
+					status: "stopped",
+				}),
+			],
+			null,
+		);
+		const mark = within(agentList(view)).getByRole("status", {
+			name: "queued",
+		});
+		expect(mark.querySelector(".lucide-hourglass")).toBeTruthy();
+		expect(
+			within(agentList(view)).queryByRole("status", { name: "working" }),
+		).toBeNull();
 	});
 
 	it("marks an agent quiet long enough to be stuck, and stops its turn from its menu", async () => {

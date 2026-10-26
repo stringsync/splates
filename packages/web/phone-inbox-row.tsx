@@ -136,6 +136,9 @@ export function Row({
 						{text}
 					</span>
 					<Mark
+						starting={conversation?.status === "starting"}
+						picking={conversation?.picking}
+						queued={conversation?.queued != null}
 						need={need}
 						reported={reported}
 						unread={conversation?.unread ?? false}
@@ -184,6 +187,17 @@ export function statusOf(
 		const place =
 			need.mergePlace === undefined ? "" : ` · ${placeInLine(need.mergePlace)}`;
 		return { text: `Waiting to merge${place}`, urgent: false };
+	}
+	if (conversation?.queued != null) {
+		return { text: "Queued", urgent: false };
+	}
+	if (conversation?.status === "starting") {
+		return {
+			text: conversation.picking
+				? "Auto pick is choosing the agent"
+				: "Waiting for agent to start",
+			urgent: false,
+		};
 	}
 	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
 		return { text: quietText(quiet), urgent: true };

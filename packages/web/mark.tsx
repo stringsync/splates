@@ -24,7 +24,7 @@ import { type Quiet, quietTitle } from "./quiet";
  * reported its work done, a red cross once
  * it was removed and a yellow pause once it was deferred.
  * While its task's merge tests and lands, the spinner gives way to a blue
- * merge icon, and while the merge waits its turn, to a faint gray one.
+ * merge icon, and while the merge waits its turn, to an hourglass.
  * An idle agent with a command left running in the background shows a
  * muted spinner, over a completion report or the blue dot, saying what is running. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
@@ -41,6 +41,7 @@ export function Mark({
 	hosting = false,
 	subagent = false,
 	starting = false,
+	queued = false,
 	picking = false,
 	quiet = null,
 	background = false,
@@ -48,6 +49,8 @@ export function Mark({
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
 	starting?: boolean;
+	/** Its task is queued and has not started. */
+	queued?: boolean;
 	/** Auto pick has yet to decide its agent, which opens once it has. */
 	picking?: boolean;
 	reported?: Ending | null;
@@ -85,14 +88,16 @@ export function Mark({
 				}
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
-				<GitMergeIcon className="size-3.5 text-muted-foreground/50" />
+				<HourglassIcon className="size-3.5 text-muted-foreground" />
 			</span>
 		);
 	}
-	if (starting) {
-		const waiting = picking
-			? "Auto pick is choosing the agent"
-			: "Waiting for agent to start";
+	if (starting || queued) {
+		const waiting = queued
+			? "Queued"
+			: picking
+				? "Auto pick is choosing the agent"
+				: "Waiting for agent to start";
 		return (
 			<span
 				role="status"

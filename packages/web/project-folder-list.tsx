@@ -167,6 +167,9 @@ export function ForeignItem({
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : (
 				<Mark
+					starting={conversation?.status === "starting"}
+					picking={conversation?.picking}
+					queued={conversation?.queued != null}
 					need={need}
 					reported={conversation === null ? null : reportedAs(conversation)}
 					unread={conversation?.unread ?? false}
