@@ -23,12 +23,14 @@ export function onDemand<Props extends object>(
 ): (props: Props) => JSX.Element {
 	const loaded = () =>
 		lazy(async () => {
-			using timeout = expiring(WAITS.answer);
+			const timeout = expiring(WAITS.answer);
 			try {
 				return await aborts.race(timeout.signal, load());
 			} catch (error) {
 				reloadForNewBuild(error);
 				throw error;
+			} finally {
+				timeout.dispose();
 			}
 		});
 	return function OnDemand(props: Props): JSX.Element {

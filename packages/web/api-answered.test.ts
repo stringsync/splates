@@ -43,7 +43,7 @@ describe("answered", () => {
 		// and its page: a test worker carried 30 s of them.
 		const expired = expiring(Duration.ms(10));
 		const stopped = expiring(Duration.ms(10));
-		stopped[Symbol.dispose]();
+		stopped.dispose();
 
 		await Bun.sleep(40);
 
