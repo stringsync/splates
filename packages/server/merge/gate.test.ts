@@ -33,6 +33,7 @@ describe("MergeGate.reserve", () => {
 			{ preMerge: "true", postRewrite: null } as Config,
 			new MergeTiming({}, new SystemClock()),
 			lock,
+			undefined as never,
 		);
 	});
 

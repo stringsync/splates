@@ -1,4 +1,4 @@
-import { availableParallelism, loadavg } from "node:os";
+import { loadavg } from "node:os";
 import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
@@ -11,7 +11,7 @@ import {
 	RECENT_FAILED_FILES,
 } from "../server/shared";
 import type { Shell } from "../terminal";
-import { gateCores } from "./cores";
+import type { GateTrail } from "./cores";
 import { TimedPhases } from "./phases";
 import type { MergeTiming } from "./timing";
 
@@ -45,6 +45,8 @@ export class MergeGate {
 		private readonly config: Config,
 		private readonly timing: MergeTiming,
 		private readonly premerge: PlacedLock,
+		/** Sizes each run's workers, by the load less the gate before's share. */
+		private readonly trail: GateTrail,
 		private readonly timeoutMs: number = PREMERGE_TIMEOUT_MS,
 	) {}
 
@@ -238,7 +240,7 @@ export class MergeGate {
 					].join(" ");
 		const timeoutMs = files === undefined ? this.timeoutMs : 180_000;
 		const load = loadavg()[0] ?? 0;
-		const workers = gateCores(availableParallelism(), load);
+		const workers = await this.trail.size();
 		const started = performance.now();
 		const run = await this.shell.run(command, cwd, {
 			env: {
@@ -259,6 +261,8 @@ export class MergeGate {
 			timeoutMs,
 		});
 		const ranMs = performance.now() - started;
+		// A record lost only sizes the next gate by the whole load, as before.
+		await this.trail.ran(workers, Duration.ms(ranMs)).catch(() => {});
 		if (files === undefined) {
 			const timed = new TimedPhases(await this.fs.read(phases).catch(() => ""));
 			const peakMb = timed.peaks();

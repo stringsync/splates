@@ -56,7 +56,13 @@ Batches. A waiter that a batch lands gives its wait up through the
   waiting on the lock the gate holds.
 - `SPLATES_CORES`, the test workers its `dev test` runs: the cores the last
   minute's load left idle, between half the cores and all but two
-  (`gateCores`, `merge/cores.ts`). Elsewhere `dev test` runs half the cores.
+  (`gateCores`, `merge/cores.ts`). That load leaves out what the gate
+  before still adds to it, cpus × (1 − e^(−ran/60s)) × e^(−since/60s), as
+  the one-minute average keeps a gate's workers for about a minute after it
+  ends (`GateTrail`, `lingering`; each run kept in `gate.last` in the
+  machine's splates home). Counted as the person's, it held back-to-back
+  gates to 8 workers (web tests 42.6s, against 30.3s at 11 to 12;
+  2026-10-26). Elsewhere `dev test` runs half the cores.
   Either way `dev test` lowers each half's count to what half of free memory
   holds at the half's measured worker cost (`dev/worker-memory.ts`; an
   agent's run takes a quarter), never below 1.
@@ -92,7 +98,8 @@ before, so no test is skipped. The recent pass uses the same workers as the full
 ## Phase times
 
 Each whole gate run's time goes in its `merge` log entry as `gate`: the
-workers it was given, the one-minute load when it started, and `ms` by
+workers it was given, the one-minute load when it started (the raw
+average, the gate before's share included), and `ms` by
 phase. The gate names a file in `SPLATES_GATE_PHASES`; `dev premerge`
 appends a line per phase (`PhaseTimer`): `biome`, `typecheck`, `scry`,
 `recent`, `server tests`, `web tests`. The gate sums them and adds `setup`,
@@ -117,7 +124,7 @@ this lock again.
 - `packages/server/server/premerge.ts`: `premergeLockOfMachine`,
   `PREMERGE_TIMEOUT_MS`, `PREMERGE_HOLD_MS`, `TimedLock`
 - `packages/server/merge/gate.ts`: `MergeGate`, setting `SPLATES_CORES`
-- `packages/server/merge/cores.ts`: `gateCores`
+- `packages/server/merge/cores.ts`: `gateCores`, `GateTrail`, `lingering`
 - `packages/server/merge/merge.ts`: the `timeout` refusal
 - `packages/server/merge/recent-failures.ts`: `recentFailedFiles`
 - `packages/splates/dev/premerge.ts`

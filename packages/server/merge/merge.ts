@@ -14,6 +14,7 @@ import { attributeFailure } from "./attribution";
 import { type Member, MergeBatch } from "./batch";
 import type { TaskBranches } from "./branches";
 import { clearGate } from "./clear-gate";
+import { GateTrail } from "./cores";
 import { finishLanding } from "./finish";
 import { type Followed, follow } from "./follow";
 import { type Checkout, MergeGate } from "./gate";
@@ -138,6 +139,7 @@ export async function merge(
 		config,
 		timing,
 		premerge,
+		GateTrail.ofMachine(fs, service.ps),
 		gateTimeoutMs,
 	);
 	// Working until landing holds the lock: waiting and testing must not
