@@ -53,7 +53,7 @@ export class TestScope {
 					"diff",
 					"--name-only",
 					"-z",
-					opts.since ?? "HEAD",
+					opts.since || "HEAD",
 					"--",
 				)),
 				...(await this.git("ls-files", "--others", "--exclude-standard", "-z")),

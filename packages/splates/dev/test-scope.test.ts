@@ -5,6 +5,25 @@ import { FakeFs } from "webappwiz/system/testing";
 import { TestScope } from "./test-scope";
 
 describe("test scope preflight", () => {
+	it.each([undefined, "", "main"])(
+		"counts changed tests against the expected revision for since=%j",
+		async (since) => {
+			const { scope, ps } = await fixture();
+			expect(await scope.count({ changed: true, since })).toEqual({
+				selected: 2,
+				total: 3,
+			});
+			expect(ps.diffArgs).toEqual([
+				"--no-optional-locks",
+				"diff",
+				"--name-only",
+				"-z",
+				since || "HEAD",
+				"--",
+			]);
+		},
+	);
+
 	it("follows transitive imports and keeps the whole-suite denominator", async () => {
 		const { scope } = await fixture();
 		expect(await scope.count({ since: "main" })).toEqual({
@@ -67,7 +86,11 @@ describe("test scope preflight", () => {
 class ScopeGit implements GitRunner {
 	changed = "shared.ts";
 	untracked = "";
+	diffArgs: string[] = [];
 	async git(_cwd: string, argv: string[]) {
+		if (argv.includes("diff")) {
+			this.diffArgs = argv;
+		}
 		return {
 			code: 0,
 			stdout: argv.includes("diff")
