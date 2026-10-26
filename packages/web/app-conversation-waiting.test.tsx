@@ -201,11 +201,9 @@ Cap upload retries
 			]),
 			"c1",
 		);
-		// The first thing under the pages, atop the agents and their heading.
-		const heading = view.getByRole("heading", { name: "All conversations" });
+		// The first thing under the pages, atop the agents.
 		expect(lineOf(view).previousElementSibling).toBe(null);
-		expect(lineOf(view).nextElementSibling).toBe(heading);
-		expect(heading.nextElementSibling).toBe(
+		expect(lineOf(view).nextElementSibling).toBe(
 			view.getByRole("navigation", { name: "conversations" }),
 		);
 		expect(waiting(view)).toBe("1 waiting on you");

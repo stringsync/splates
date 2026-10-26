@@ -41,7 +41,6 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
-	onLane,
 	name,
 	talk,
 	terminals,
@@ -57,8 +56,6 @@ export function AppNav({
 	onOpen: (id: string | null) => void;
 	/** Goes to another page. */
 	onPage: (page: Page) => void;
-	/** Opens the board on lane `id`. */
-	onLane: (id: number) => void;
 	/** The project's name. */
 	name: string;
 	talk: ConversationFeed;
@@ -161,9 +158,6 @@ export function AppNav({
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>
-						<h2 className={cn(NAV_HEADING, "-mb-1 shrink-0")}>
-							All conversations
-						</h2>
 						<ConversationList
 							feed={talk}
 							terminals={terminals}
@@ -176,7 +170,6 @@ export function AppNav({
 							}}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
-							onLane={onLane}
 						/>
 					</div>
 				)}

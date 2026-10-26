@@ -6,7 +6,6 @@
 import { createContext, useContext } from "react";
 import { NEW } from "./conversation-address";
 import { NavigationContext } from "./navigation";
-import { laneAddress } from "./page-address";
 import { listProjects } from "./project-api";
 import { shownProject } from "./project-places";
 
@@ -79,6 +78,17 @@ export function forgetUsed(slug: string): void {
 }
 
 /**
+ * The address of the conversations of the project `slug` names, with none
+ * open: the inbox on a phone, the screen that starts one beside a sidebar.
+ */
+export function projectUrl(slug: string): string {
+	const url = new URL(location.href);
+	url.searchParams.set("project", slug);
+	url.hash = "#conversations";
+	return url.toString();
+}
+
+/**
  * The address of the screen that starts a conversation in the project
  * `slug` names, `open` its place under `#conversations/`, as `new/codex`.
  * Show it with `NavigationContext`'s `show`, which draws that project's page
@@ -88,14 +98,6 @@ export function newConversationUrl(slug: string, open: string = NEW): string {
 	const url = new URL(location.href);
 	url.searchParams.set("project", slug);
 	url.hash = `#conversations/${open}`;
-	return url.toString();
-}
-
-/** The address of project `slug`'s board, opened on lane `id`. */
-export function laneUrl(slug: string, id: number): string {
-	const url = new URL(location.href);
-	url.searchParams.set("project", slug);
-	url.hash = laneAddress(id);
 	return url.toString();
 }
 

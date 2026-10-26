@@ -189,7 +189,6 @@ describe("conversation render subscriptions", () => {
 								here={{ root: "/tmp/project", repo: "project", trunk: "main" }}
 								open="two"
 								onOpen={open}
-								onLane={open}
 							/>
 						</Profiler>
 						<Profiler id="thread" onRender={() => commits.thread++}>

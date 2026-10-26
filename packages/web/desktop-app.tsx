@@ -56,7 +56,6 @@ export function DesktopApp({
 	page,
 	open,
 	go,
-	openLane,
 	name,
 	bodies,
 	opening,
@@ -74,8 +73,6 @@ export function DesktopApp({
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null) => void;
-	/** Opens the board on lane `id`. */
-	openLane: (id: number) => void;
 	/** The project's name. */
 	name: string;
 	/** What each page shows, or null before the first snapshot. */
@@ -159,7 +156,6 @@ export function DesktopApp({
 						open={open}
 						onOpen={(id) => go("conversations", id)}
 						onPage={(to) => go(to)}
-						onLane={openLane}
 						name={name}
 						talk={talk}
 						terminals={terminals}

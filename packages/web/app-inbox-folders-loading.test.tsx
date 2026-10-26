@@ -53,7 +53,7 @@ describe("App's folders while every project's listing is on its way", () => {
 		testing.dispose();
 	});
 
-	it("holds the sidebar's rows until every project is listed, rather than drawing them flat and moving them into folders", async () => {
+	it("holds the sidebar's rows until every project is listed, rather than drawing them flat and moving them into place", async () => {
 		testing.hang("/api/everywhere");
 		const view = await testing.openConversations(mine, null);
 
@@ -68,7 +68,9 @@ describe("App's folders while every project's listing is on its way", () => {
 			testing.everywhereStream?.named?.get("projects")?.({ data: "" }),
 		);
 
-		await waitFor(() => within(nav).getByRole("region", { name: "zebra" }));
+		await waitFor(() =>
+			within(nav).getByRole("region", { name: "Other projects" }),
+		);
 		expect(
 			within(nav).queryByRole("status", { name: "Loading conversations" }),
 		).toBeNull();
@@ -79,7 +81,7 @@ describe("App's folders while every project's listing is on its way", () => {
 		).toBeTruthy();
 	});
 
-	it("draws the sidebar's folders from the copy kept last time before the server lists every project", async () => {
+	it("draws the sidebar's other projects from the copy kept last time before the server lists every project", async () => {
 		testing.hang("/api/everywhere");
 		testing.copies.save("everywhere", {
 			build: "",
@@ -88,14 +90,18 @@ describe("App's folders while every project's listing is on its way", () => {
 		const view = await testing.openConversations(mine, null);
 
 		const nav = agentList(view);
-		await waitFor(() => within(nav).getByRole("region", { name: "zebra" }));
+		const others = await waitFor(() =>
+			within(nav).getByRole("region", { name: "Other projects" }),
+		);
 		expect(
 			within(nav).queryByRole("status", { name: "Loading conversations" }),
 		).toBeNull();
-		expect(within(nav).getByText("Stripes")).toBeTruthy();
+		expect(
+			within(others).getByRole("button", { name: /^zebra/ }).textContent,
+		).toBe("zebra1 at work");
 	});
 
-	it("draws a phone's inbox folders from the copy kept last time before the server lists every project", async () => {
+	it("draws the other projects in a phone's inbox from the copy kept last time before the server lists every project", async () => {
 		resize(390, 844);
 		testing.hang("/api/everywhere");
 		testing.copies.save("everywhere", {
@@ -105,10 +111,14 @@ describe("App's folders while every project's listing is on its way", () => {
 		const view = await testing.openConversations(mine, null);
 
 		const inbox = view.getByRole("region", { name: "inbox" });
-		await waitFor(() => within(inbox).getByRole("region", { name: "zebra" }));
+		const others = await waitFor(() =>
+			within(inbox).getByRole("region", { name: "Other projects" }),
+		);
 		expect(
 			within(inbox).queryByRole("status", { name: "Loading inbox" }),
 		).toBeNull();
-		expect(within(inbox).getByText("Stripes")).toBeTruthy();
+		expect(
+			within(others).getByRole("button", { name: /^zebra/ }).textContent,
+		).toBe("zebra1 at work");
 	});
 });

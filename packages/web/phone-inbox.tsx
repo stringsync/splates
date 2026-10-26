@@ -1,7 +1,3 @@
-import {
-	lanesTaken,
-	type TaskRecord,
-} from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -42,26 +38,19 @@ import {
 import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
-import { useFolded } from "./folded";
 import { InboxLoading, StaleRows } from "./freshness";
 import { NavigationContext } from "./navigation";
 import {
-	laneUrl,
 	newConversationUrl,
+	projectUrl,
 	useOpenNew,
 } from "./new-conversation-project";
 import type { Nested } from "./parts";
-import { FolderSection, Group } from "./phone-inbox-groups";
+import { Group, OtherProjects, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { clearUndo, useUndoOffer } from "./phone-undo";
 import { AddProjectButton } from "./project-controls";
-import {
-	FOLDED_FOLDERS,
-	type Folder,
-	folderKey,
-	foldersOf,
-	groupsOf,
-} from "./project-folders";
+import { type Folder, foldersOf, groupsOf } from "./project-folders";
 import { Refusal, useRefusal } from "./refusal";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
@@ -72,9 +61,7 @@ import { BarButton, TopBar } from "./top-bar";
  * on you come first, then those at work, then the rest, newest first in each,
  * each row a finger's height saying what it waits on. The agents one handed
  * out, its subagents and parts, sit under it, in its group, since they answer
- * to it rather than to you. Those at work on one lane's tasks sit together
- * under the lane's title, as in the sidebar, which opens the lane on the
- * board. A tap on one waiting goes straight to what it
+ * to it rather than to you. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
  * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen starts a new
  * conversation. Under each conversation, as in
@@ -82,12 +69,12 @@ import { BarButton, TopBar } from "./top-bar";
  * agent left running, each opening the conversation with it on the screen.
  * The main tree's terminals come last, to go back to or close.
  *
- * With the feed of every project to be had, the groups are the sidebar's: those
- * waiting on you, whatever their project, in Needs you on top, each naming its
- * project, then a folder per project, its agents at work first. A folder folds
- * away as the sidebar's does, dotted while folded with one waiting, and its +
- * starts a conversation there. Another project's row only opens, by switching
- * the page to that project.
+ * With the feed of every project to be had, the groups are the sidebar's, one
+ * project at a time: those waiting on you, whatever their project, in Needs
+ * you on top, each naming its project, then the page's own project, its
+ * agents at work first, its + starting a conversation there, then a line for
+ * each other project that switches the page to it. Another project's row
+ * only opens, by switching the page to that project.
  *
  * Beside a sidebar, `onMenu` null, it is the page the sidebar's Inbox opens:
  * under the shell's bar, with no menu and no composer along the bottom, the
@@ -99,21 +86,17 @@ export function Inbox({
 	drafts,
 	terminals,
 	tasks,
-	todos,
 	here,
 	status,
 	loading,
 	onMenu,
 	onOpen,
-	onLane,
 }: {
 	feed: ConversationFeed;
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
-	/** The page's project's queued tasks, to read which lane each task at work is on. */
-	todos: TaskRecord[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
 	here: { root: string; repo: string; trunk: string | null } | null;
 	/** Whether the server is offline or outdated, shown in the header. */
@@ -123,8 +106,6 @@ export function Inbox({
 	/** Opens the phone's drawer; null beside a sidebar. */
 	onMenu: (() => void) | null;
 	onOpen: (id: string) => void;
-	/** Opens the page's project's board on lane `id`. */
-	onLane: (id: number) => void;
 }): JSX.Element {
 	const conversations = useConversationIndex(feed);
 	const { agents, pending, available } = useReactive(
@@ -192,7 +173,6 @@ export function Inbox({
 			conversations,
 		],
 	);
-	const { folded, fold } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
 	// An undo offered by a swipe lasts while you stay here and do nothing else.
 	useEffect(() => {
@@ -213,24 +193,15 @@ export function Inbox({
 		}
 		onOpen(openedBy(row));
 	};
-	const taken = lanesTaken(todos);
-	const lanesHere = { taken, onLane };
-	const lanesOf = (folder: Folder) => ({
-		taken: folder.lanesTaken ?? taken,
-		onLane: (lane: number) =>
-			folder.here || folder.project === null
-				? onLane(lane)
-				: navigation.show(laneUrl(folder.project, lane)),
-	});
-	const startIn = (folder: Folder) => {
-		if (folder.here || folder.project === null) {
-			onOpen(NEW);
-		} else {
-			navigation.show(newConversationUrl(folder.project));
+	const switchTo = (folder: Folder) => {
+		if (folder.project !== null) {
+			navigation.show(projectUrl(folder.project));
 		}
 	};
 	const empty =
-		grouped === null ? trees.length === 0 : grouped.folders.length === 0;
+		grouped === null
+			? trees.length === 0
+			: grouped.here.trees.length === 0 && grouped.others.length === 0;
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (
@@ -308,7 +279,6 @@ export function Inbox({
 											}))}
 											agents={agents}
 											urgent={title === "Needs you"}
-											lanes={title === "Needs you" ? undefined : lanesHere}
 											beneath={beneath}
 											onOpen={open}
 										/>
@@ -325,19 +295,14 @@ export function Inbox({
 										beneath={beneath}
 										onOpen={open}
 									/>
-									{grouped.folders.map((folder) => (
-										<FolderSection
-											key={folderKey(folder)}
-											folder={folder}
-											open={!folded.has(folderKey(folder))}
-											onFold={(open) => fold(folderKey(folder), open)}
-											onNew={available ? () => startIn(folder) : null}
-											agents={agents}
-											lanes={lanesOf(folder)}
-											beneath={beneath}
-											onOpen={open}
-										/>
-									))}
+									<ProjectSection
+										folder={grouped.here}
+										onNew={available ? () => onOpen(NEW) : null}
+										agents={agents}
+										beneath={beneath}
+										onOpen={open}
+									/>
+									<OtherProjects folders={grouped.others} onSwitch={switchTo} />
 								</>
 							)}
 							<TerminalGroup

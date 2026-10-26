@@ -38,7 +38,6 @@ export function PhoneApp({
 	page,
 	open,
 	go,
-	openLane,
 	name,
 	header,
 	offline,
@@ -55,8 +54,6 @@ export function PhoneApp({
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null, how?: Move) => void;
-	/** Opens the board on lane `id`. */
-	openLane: (id: number) => void;
 	/** The project's name. */
 	name: string;
 	/** The server's header, which heads the drawer. */
@@ -109,7 +106,6 @@ export function PhoneApp({
 							drafts={drafts}
 							terminals={terminals}
 							tasks={snapshot?.tasks ?? []}
-							todos={snapshot?.todos ?? []}
 							here={
 								snapshot === null
 									? null
@@ -123,7 +119,6 @@ export function PhoneApp({
 							status={status}
 							onMenu={menu}
 							onOpen={(id) => go("conversations", id)}
-							onLane={openLane}
 						/>
 					</TopBarFrame>
 				) : page === "conversations" ? (

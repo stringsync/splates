@@ -4,26 +4,18 @@ import {
 	EllipsisIcon,
 	PlusIcon,
 	TrashIcon,
-	TriangleAlertIcon,
 } from "lucide-react";
-import { Fragment, type JSX, type ReactNode, use, useState } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { openedBy } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
-import { Lanes } from "./conversation-names";
 import { hostsAtWork } from "./conversation-rows";
-import { byLane } from "./lane-groups";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
 import { Action, Sheet, useLongPress } from "./phone-row-menu";
 import { ProjectEmpty, useRemoveProject } from "./project-controls";
 import { InLanes } from "./project-folder-list";
-import type { Folder } from "./project-folders";
+import { type Folder, folderKey } from "./project-folders";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
 export interface Item {
@@ -37,16 +29,6 @@ export interface Item {
 }
 
 /**
- * How to gather a list's rows at work on one lane's tasks under the lane's
- * title: each task's lane, as `lanesTaken` reads the queue, and what the
- * title does.
- */
-export interface LaneGrouping {
-	taken: Readonly<Record<string, number>>;
-	onLane: (lane: number) => void;
-}
-
-/**
  * A heading and its rows, each agent's subagents under it, and what
  * `beneath` puts under each, or nothing when it has none. The count is of the
  * agents at the top. `named` has each row say which project it is in.
@@ -57,7 +39,6 @@ export function Group({
 	agents,
 	urgent = false,
 	named = false,
-	lanes,
 	beneath,
 	onOpen,
 }: {
@@ -66,8 +47,6 @@ export function Group({
 	items: Item[];
 	urgent?: boolean;
 	named?: boolean;
-	/** Gathers the rows at work on a lane's tasks under its title; none without it. */
-	lanes?: LaneGrouping;
 	/** The rows under an agent's, a level deeper than `depth`, its own. */
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
@@ -89,7 +68,6 @@ export function Group({
 				items={items}
 				agents={agents}
 				named={named}
-				lanes={lanes}
 				beneath={beneath}
 				onOpen={onOpen}
 			/>
@@ -98,29 +76,21 @@ export function Group({
 }
 
 /**
- * A project's folder: its name, a dot while folded with an agent of its
- * waiting, a + to start a conversation in it and a ⋯ for its menu, which a
- * long press on its name opens too, none of them waiting on a hover; then its persistent
- * agents, set apart by a rule, then its agents at work and the rest, those
- * on one lane's tasks under the lane's title. Another project's rows have no menu.
+ * The page's own project: its name, a + to start a conversation in it and a
+ * ⋯ for its menu, which a long press on its name opens too, none of them
+ * waiting on a hover; then its agents, pinned, at work, then the rest.
  */
-export function FolderSection({
+export function ProjectSection({
 	folder,
-	open,
-	onFold,
 	onNew,
 	agents,
-	lanes,
 	beneath,
 	onOpen,
 }: {
 	folder: Folder;
-	open: boolean;
-	onFold: (open: boolean) => void;
 	/** Null while no conversation can start. */
 	onNew: (() => void) | null;
 	agents: AgentChoice[];
-	lanes: LaneGrouping;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
@@ -132,31 +102,15 @@ export function FolderSection({
 	const press = useLongPress(() => setMenu(true));
 	const removal = useRemoveProject(folder);
 	return (
-		<Collapsible
-			open={open}
-			onOpenChange={onFold}
-			render={<section aria-label={folder.name} />}
-			className="group/folder flex flex-col pt-4 not-first:before:mx-4 not-first:before:mb-3 not-first:before:border-border not-first:before:border-t not-first:before:content-['']"
-		>
-			<div className="group/head flex items-center pr-2">
-				<CollapsibleTrigger
+		<section aria-label={folder.name} className="flex flex-col pt-4">
+			<div className="flex items-center pr-2">
+				<h2
 					{...press}
 					// No callout or selection to fight the long press.
-					className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none [-webkit-touch-callout:none] select-none"
+					className="flex min-h-10 min-w-0 flex-1 items-center px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide [-webkit-touch-callout:none] select-none"
 				>
-					<ChevronRightIcon
-						aria-hidden
-						className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/folder:rotate-90"
-					/>
 					<span className="min-w-0 truncate">{folder.name}</span>
-					{!open && folder.waiting.length > 0 && (
-						<TriangleAlertIcon
-							role="img"
-							aria-label="waiting on you"
-							className="size-3 shrink-0 text-warning"
-						/>
-					)}
-				</CollapsibleTrigger>
+				</h2>
 				{onNew !== null && (
 					<button
 						type="button"
@@ -203,20 +157,71 @@ export function FolderSection({
 				)}
 			</Sheet>
 			{removal?.dialog}
-			<CollapsibleContent>
-				{folder.trees.length === 0 && <ProjectEmpty />}
-				{items.length > 0 && (
-					<Lines
-						items={items}
-						agents={agents}
-						named={false}
-						lanes={lanes}
-						beneath={folder.here ? beneath : () => []}
-						onOpen={onOpen}
-					/>
-				)}
-			</CollapsibleContent>
-		</Collapsible>
+			{/* Its agents may all be in Needs you, which says so above. */}
+			{folder.trees.length === 0 && <ProjectEmpty />}
+			{items.length > 0 && (
+				<Lines
+					items={items}
+					agents={agents}
+					named={false}
+					beneath={beneath}
+					onOpen={onOpen}
+				/>
+			)}
+		</section>
+	);
+}
+
+/**
+ * Every other project with agents, a line each saying how many are at work
+ * and how many wait on you, a tap switching the page to it.
+ */
+export function OtherProjects({
+	folders,
+	onSwitch,
+}: {
+	folders: Folder[];
+	onSwitch: (folder: Folder) => void;
+}): ReactNode {
+	if (folders.length === 0) {
+		return null;
+	}
+	return (
+		<section aria-label="Other projects" className="pt-4">
+			<h2 className="px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+				Other projects
+			</h2>
+			<ul>
+				{folders.map((folder) => (
+					<li key={folderKey(folder)}>
+						<button
+							type="button"
+							onClick={() => onSwitch(folder)}
+							className="flex min-h-12 w-full min-w-0 items-center gap-3 px-4 text-left active:bg-muted"
+						>
+							<span className="min-w-0 flex-1 truncate font-medium">
+								{folder.name}
+							</span>
+							<span className="flex shrink-0 gap-1 text-muted-foreground text-xs tabular-nums">
+								{folder.atWork > 0 && <span>{folder.atWork} at work</span>}
+								{folder.atWork > 0 && folder.waiting.length > 0 && "·"}
+								{folder.waiting.length > 0 && (
+									<span className="text-warning">
+										{folder.waiting.length === 1
+											? "1 needs you"
+											: `${folder.waiting.length} need you`}
+									</span>
+								)}
+							</span>
+							<ChevronRightIcon
+								aria-hidden
+								className="size-4 shrink-0 text-muted-foreground"
+							/>
+						</button>
+					</li>
+				))}
+			</ul>
+		</section>
 	);
 }
 
@@ -224,22 +229,17 @@ export function FolderSection({
 const HEAD_BUTTON =
 	"flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40";
 
-/**
- * The rows of `items`, each tree's subagents under it, those at work on one
- * lane's tasks together under the lane's title when `lanes` is given.
- */
+/** The rows of `items`, each tree's subagents under it. */
 function Lines({
 	items,
 	agents,
 	named,
-	lanes,
 	beneath,
 	onOpen,
 }: {
 	items: Item[];
 	agents: AgentChoice[];
 	named: boolean;
-	lanes?: LaneGrouping;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): ReactNode {
@@ -288,60 +288,7 @@ function Lines({
 			</ul>
 		</InFolder>
 	);
-	if (lanes === undefined) {
-		return items.map(line);
-	}
-	const itemOf = new Map(items.map((item) => [item.tree, item]));
-	return byLane(
-		items.map((item) => item.tree),
-		lanes.taken,
-	).map(({ lane, trees }) => {
-		const gathered = trees.flatMap((tree) => itemOf.get(tree) ?? []);
-		if (lane === null) {
-			return gathered.map(line);
-		}
-		const folder = gathered[0]?.folder ?? null;
-		return (
-			<InFolder key={`${folder?.project ?? ""} lane:${lane}`} folder={folder}>
-				<LaneBlock lane={lane} onLane={lanes.onLane}>
-					{gathered.map(line)}
-				</LaneBlock>
-			</InFolder>
-		);
-	});
-}
-
-/**
- * The rows at work on lane `lane`'s tasks under its title, which opens the
- * lane on the board, named as the `Lanes` around it name it.
- */
-function LaneBlock({
-	lane,
-	onLane,
-	children,
-}: {
-	lane: number;
-	onLane: (lane: number) => void;
-	children: ReactNode;
-}): JSX.Element {
-	const name =
-		use(Lanes).find((each) => each.id === lane)?.name ?? `Lane ${lane}`;
-	return (
-		<section
-			aria-label={`${name} lane`}
-			className="my-1 ml-2 border-foreground/10 border-l"
-		>
-			<button
-				type="button"
-				onClick={() => onLane(lane)}
-				title={`Open ${name} on the board`}
-				className="flex min-h-9 w-full min-w-0 items-center px-3 text-left font-medium text-foreground/80 text-xs active:bg-muted"
-			>
-				<span className="min-w-0 truncate">{name}</span>
-			</button>
-			{children}
-		</section>
-	);
+	return items.map(line);
 }
 
 function InFolder({

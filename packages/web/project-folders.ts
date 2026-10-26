@@ -1,8 +1,10 @@
 /**
- * Every project's agents as the sidebar and the phone's inbox group them:
- * a folder per project, its pinned agents, then those at work, then the rest. The inbox lifts those
- * waiting on you out into one Needs you across every project; the sidebar
- * leaves them in place. Only the grouping: each list draws its own rows.
+ * Every project's agents as the sidebar and the phone's inbox group them,
+ * one project at a time: those waiting on you, whatever their project, in
+ * one Needs you, then the page's own project's pinned agents, then those at
+ * work, then the rest, then each other project with agents, which the lists
+ * show as one line that switches to it. Only the grouping: each list draws
+ * its own rows.
  */
 
 import type { LaneRecord } from "@stringsync/splates-server/board";
@@ -20,12 +22,10 @@ import {
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import type { Nested } from "./parts";
 
-/** Where the sidebar keeps its folders folded away, by `folderKey`. */
-export const FOLDED_FOLDERS = "splates.sidebar.collapsed";
-
 /**
  * Every project's agents in folders, the page's own from `here`, which
  * shows a change at once, and the rest from the feed of every project.
+ * The page's own folder is there even with no agents, to start one in.
  */
 export function foldersOf(
 	projects: readonly EverywhereSummary[],
@@ -56,17 +56,22 @@ export function foldersOf(
 		listed.push(folder(null, here, null, null, true));
 	}
 	const folders = listed
-		.filter((each) => each.trees.length > 0)
+		.filter((each) => each.here || each.trees.length > 0)
 		.sort(
 			(one, other) =>
 				one.name.localeCompare(other.name) ||
 				(one.project ?? "").localeCompare(other.project ?? ""),
 		);
+	const ownFolder = folders.find((each) => each.here);
+	if (ownFolder === undefined) {
+		throw new Error("no folder for the page's own project");
+	}
 	return {
 		needsYou: folders.flatMap((each) =>
 			each.waiting.map((tree) => ({ folder: each, tree })),
 		),
-		folders,
+		here: ownFolder,
+		others: folders.filter((each) => !each.here),
 	};
 }
 
@@ -102,12 +107,8 @@ export interface Folder {
 	 * ones, then those with an agent at work, then the rest, each newest first.
 	 */
 	listed: Nested<Needing>[];
-	/**
-	 * Its trees as the sidebar lists them, those waiting on you left in
-	 * place, among the agents at work, so a row never jumps as its agent
-	 * stops to ask.
-	 */
-	inPlace: { listed: Nested<Needing>[] };
+	/** How many of its trees have an agent at work. */
+	atWork: number;
 }
 
 /** A tree in Needs you, with the folder it comes from. */
@@ -119,10 +120,10 @@ export interface Placed {
 export interface Folders {
 	/** Every folder's waiting trees, folder by folder. */
 	needsYou: Placed[];
-	/**
-	 * By name, projects with visible conversations.
-	 */
-	folders: Folder[];
+	/** The project the page shows. */
+	here: Folder;
+	/** By name, the other projects with visible conversations. */
+	others: Folder[];
 }
 
 /** The page's own project, as its snapshot and conversation feed have it. */
@@ -139,38 +140,35 @@ export function hereAlone(here: Here): Folders {
 	return foldersOf([], [], [], here);
 }
 
-/** What a folder's fold is kept under. */
+/** What tells a folder apart from the others. */
 export function folderKey(folder: Folder): string {
 	return folder.project ?? "";
 }
 
 /**
  * `trees` by what is most pressing in each: one waiting on you, then the
- * rest pinned, at work, or none of those, each in the
- * order given. Not `apart`, none is waiting: one that waits on you goes
- * where it would otherwise, among those at work when no other holds it.
+ * rest pinned, at work, or none of those, each in the order given.
  */
 export function groupsOf(
 	trees: Nested<Needing>[],
-	apart = true,
 ): Record<"waiting" | "pinned" | "working" | "recent", Nested<Needing>[]> {
-	const waits = (tree: Nested<Needing>) =>
-		flatten([tree]).some((row) => waitsOnYou(row));
-	const waiting = apart ? trees.filter(waits) : [];
+	const waiting = trees.filter((tree) =>
+		flatten([tree]).some((row) => waitsOnYou(row)),
+	);
 	const rest = trees.filter((tree) => !waiting.includes(tree));
 	const pinned = rest.filter((tree) => tree.row.conversation?.pinned === true);
-	const working = rest.filter(
-		(tree) =>
-			!pinned.includes(tree) &&
-			(waits(tree) ||
-				flatten([tree]).some(
-					(row) => row.need.kind === "working" || row.need.kind === "assuming",
-				)),
-	);
+	const working = rest.filter((tree) => !pinned.includes(tree) && atWork(tree));
 	const recent = rest.filter(
 		(tree) => !pinned.includes(tree) && !working.includes(tree),
 	);
 	return { waiting, pinned, working, recent };
+}
+
+/** Whether an agent of `tree` is at work. */
+function atWork(tree: Nested<Needing>): boolean {
+	return flatten([tree]).some(
+		(row) => row.need.kind === "working" || row.need.kind === "assuming",
+	);
 }
 
 function folder(
@@ -185,7 +183,6 @@ function folder(
 	// puts its host with those at work, then only what the list shows.
 	const { waiting, pinned, working, recent } = groupsOf(trees);
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
-	const steady = groupsOf(trees, false);
 	return {
 		project,
 		name: repo,
@@ -199,8 +196,6 @@ function folder(
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),
 		listed: shown([...pinned, ...working, ...recent]),
-		inPlace: {
-			listed: shown([...steady.pinned, ...steady.working, ...steady.recent]),
-		},
+		atWork: shownIn(trees).filter(atWork).length,
 	};
 }

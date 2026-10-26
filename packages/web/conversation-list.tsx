@@ -31,23 +31,19 @@ import {
 	shownIn,
 } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
-import { useFolded } from "./folded";
 import { ListLoading, StaleRows } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
-import { byLane, inOrder } from "./lane-groups";
-import { LaneRows } from "./lane-rows";
 import { useBeneath } from "./list-beneath";
-import { TerminalRow } from "./list-rows";
+import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
-import { laneUrl, newConversationUrl } from "./new-conversation-project";
-import { FolderList, ForeignItem, type RenderRow } from "./project-folder-list";
+import { newConversationUrl, projectUrl } from "./new-conversation-project";
 import {
-	FOLDED_FOLDERS,
-	type Folder,
-	folderKey,
-	foldersOf,
-} from "./project-folders";
+	ForeignItem,
+	ProjectList,
+	type RenderRow,
+} from "./project-folder-list";
+import { type Folder, foldersOf } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
 
@@ -64,9 +60,7 @@ const DIGITS = 10;
  * state; each one's mark says whether it works or waits on you. Under a
  * conversation, muted as a subagent is, sit its terminal while its shell is
  * up and each command its agent left running, each opening in the pane
- * beside the page. The conversations at work on one lane's tasks sit
- * together under the lane's title, where the newest of them would, and the
- * title opens the lane on the board.
+ * beside the page.
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
  * the rows shown, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or
@@ -74,11 +68,11 @@ const DIGITS = 10;
  * them, round past either end; each but the digits as the settings bind it.
  * Holding ⌥⌘ shows each of those keys beside what it opens.
  *
- * With the feed of every project to be had, the rows go in folders instead,
- * a folder per project as `foldersOf` groups them, those waiting on you
- * left in place. Another project's
- * row opens by switching the page to that project, where its task, trunk
- * and lanes are the page's own.
+ * With the feed of every project to be had, the list shows one project at a
+ * time, as `foldersOf` groups them: those waiting on you in every project,
+ * then the page's own project's, then a line for each other project that
+ * switches to it. Another project's row opens by switching the page to that
+ * project, where its task, trunk and lanes are the page's own.
  */
 export const ConversationList = memo(function ConversationList({
 	feed,
@@ -88,7 +82,6 @@ export const ConversationList = memo(function ConversationList({
 	here,
 	open,
 	onOpen,
-	onLane,
 }: {
 	feed: ConversationFeed;
 	/** The page's shells, the main tree's among them. */
@@ -101,8 +94,6 @@ export const ConversationList = memo(function ConversationList({
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
-	/** Opens the page's project's board on lane `id`. */
-	onLane: (id: number) => void;
 }): JSX.Element {
 	const conversations = useConversationIndex(feed);
 	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
@@ -110,15 +101,14 @@ export const ConversationList = memo(function ConversationList({
 	]);
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 
-	const { rows, nested, hosting, listed, taken, groupsHere } = useMemo(() => {
+	const { rows, nested, hosting, listed, taken } = useMemo(() => {
 		const rows = rowsOf(tasks, conversations);
 		const nested = nestRows(tasks, rows);
 		const hosting = hostsAtWork(nested);
 		// What it lists of them, without the feed of every project.
 		const listed = shownIn(nested);
 		const taken = lanesTaken(todos);
-		const groupsHere = byLane(listed, taken);
-		return { rows, nested, hosting, listed, taken, groupsHere };
+		return { rows, nested, hosting, listed, taken };
 	}, [tasks, conversations, todos]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
@@ -147,32 +137,22 @@ export const ConversationList = memo(function ConversationList({
 			conversations,
 		],
 	);
-	const { folded, fold } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
-	const groupsOf = useCallback(
-		(folder: Folder) =>
-			byLane(folder.inPlace.listed, folder.lanesTaken ?? taken),
-		[taken],
-	);
-	// Every row as it shows, each part under its task, the folded folders' left out.
+	// Every row as it shows, each part under its task.
 	const entries = useMemo<Entry[]>(
 		() =>
 			grouped === null
-				? flatten(inOrder(groupsHere)).map((row) => ({
-						folder: null,
-						row,
-					}))
+				? flatten(listed).map((row) => ({ folder: null, row }))
 				: [
-						...grouped.folders
-							.filter((folder) => !folded.has(folderKey(folder)))
-							.flatMap((folder) =>
-								flatten(inOrder(groupsOf(folder))).map((row) => ({
-									folder,
-									row,
-								})),
-							),
+						...grouped.needsYou.flatMap(({ folder, tree }) =>
+							flatten([tree]).map((row) => ({ folder, row })),
+						),
+						...flatten(grouped.here.listed).map((row) => ({
+							folder: grouped.here,
+							row,
+						})),
 					],
-		[grouped, groupsHere, folded, groupsOf],
+		[grouped, listed],
 	);
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
@@ -277,6 +257,7 @@ export const ConversationList = memo(function ConversationList({
 		) : (
 			<ForeignItem
 				row={row}
+				project={folder.name}
 				agent={
 					row.conversation === null
 						? null
@@ -334,34 +315,26 @@ export const ConversationList = memo(function ConversationList({
 					<ListLoading />
 				) : grouped !== null ? (
 					<Placing value={placing}>
-						<FolderList
-							folders={grouped.folders}
-							folded={folded}
-							onFold={fold}
-							onNew={(folder) =>
-								folder.here || folder.project === null
-									? onOpen(NEW)
-									: navigation.show(newConversationUrl(folder.project))
-							}
+						<ProjectList
+							folders={grouped}
+							onNew={() => onOpen(NEW)}
+							onSwitch={(folder) => {
+								if (folder.project !== null) {
+									navigation.show(projectUrl(folder.project));
+								}
+							}}
 							render={renderRow}
 							beneath={beneathOf}
-							groupsOf={groupsOf}
-							onLane={(folder, lane) =>
-								folder.here || folder.project === null
-									? onLane(lane)
-									: navigation.show(laneUrl(folder.project, lane))
-							}
 						/>
 					</Placing>
 				) : /* None, and no list either: an empty one would still take a gap. */
 				listed.length === 0 ? null : (
 					<Placing value={placing}>
-						<LaneRows
+						<Rows
 							label="conversation list"
-							groups={groupsHere}
+							rows={listed}
 							beneath={beneath}
 							render={(row, nested) => renderHere(row, nested)}
-							onLane={onLane}
 						/>
 					</Placing>
 				)}

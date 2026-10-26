@@ -431,7 +431,6 @@ export function App({
 																								page={page}
 																								open={open}
 																								go={go}
-																								openLane={openLane}
 																								name={name}
 																								bodies={bodies}
 																								opening={opening}
@@ -450,7 +449,6 @@ export function App({
 																								page={page}
 																								open={open}
 																								go={go}
-																								openLane={openLane}
 																								name={name}
 																								header={header}
 																								offline={offline}

@@ -1,5 +1,5 @@
 ---
-description: One page shows every registered project; ?project= picks the focused one, EverywhereFeed reads the rest read-only, the sidebar's folders are those per-project groups, and only the project's own pages wear its switcher
+description: One page shows every registered project; ?project= picks the focused one, EverywhereFeed reads the rest read-only, the sidebar and inbox list one project at a time with the others one line each, and only the project's own pages wear its switcher
 ---
 
 A `splates server` serves every project in `~/.splates/projects.json`. The
@@ -14,26 +14,28 @@ IndexedDB, as the project's own feeds do (web-stale-page), and a page
 opened again draws its folders from that copy at once; a server that
 refuses the listing takes the copy's folders off again.
 
-Both lists hold a placeholder until the first listing of every project is in:
-drawn flat and then moved into folders as it came, their rows would jump
-and remount under a click.
+The sidebar and the phone inbox list one project at a time, the same way,
+from `foldersOf` (`project-folders.ts`): Needs you, the waiting-on-you rows
+of every project, each naming its project; then the focused project's own,
+pinned, working, then the rest, each newest first, flat but for subagents
+nested under the conversation that handed them out; then Other projects,
+one line for each other project with visible conversations, saying how many
+are at work and waiting, that switches the page to it. Lanes do not group
+rows: lanes belong to the board. Automations (persistent agents such as the
+groomer, and each run of an agent hook, marked by its conversation's
+`automation`; see `automated` in `conversation-rows.ts`) sit among them, set
+apart only by a bolt for their mark, and leave the list once archived: a
+persistent agent's run archives itself as it ends, so the groomer shows only
+while a run is open. Archiving another project's last conversation drops its
+line; unarchiving brings it back. The focused project shows even when empty.
+Both lists offer Add a project and Remove project; removal uses the existing
+forget API, keeping files and conversation history and refusing while
+conversations are under way. The desktop home, with no conversation open,
+is the new-conversation screen, with one line atop the sidebar's agents
+counting those waiting on you.
 
-The sidebar and inbox show folders only for projects with visible
-conversations, including the focused project only when it has some. Archiving
-the last conversation hides its folder; unarchiving brings it back. Both lists offer Add a project and Remove project; removal uses the
-existing forget API, keeping files and conversation history and refusing while
-conversations are under way.
-
-The sidebar's folders (`project-folders.ts`) are these per-project groups.
-Each lists pinned, working, and the rest, each newest first. Automations
-(persistent agents such as the groomer, and each run of an agent hook,
-marked by its conversation's `automation`; see `automated` in
-`conversation-rows.ts`) sit among them, set apart only by a bolt for their
-mark, and leave the list once archived: a persistent agent's run archives
-itself as it ends, so the groomer shows only while a run is open. The phone inbox pulls waiting-on-
-you rows from every project into one Needs you group; desktop has no inbox,
-showing the new-conversation home with no conversation open and one line
-atop the agents counting those waiting on you.
+Both lists hold a placeholder until the first listing of every project is in,
+so their rows do not jump and remount under a click.
 
 Which pages follow the project is said in one place, `scope` on `PAGES`
 (`page-route.tsx`): Board, Creds, Automations and Notes are the project's,

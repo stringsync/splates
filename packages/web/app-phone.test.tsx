@@ -175,52 +175,66 @@ describe("App on a phone", () => {
 			{ tasks: [] },
 		);
 		const inbox = view.getByRole("region", { name: "inbox" });
-		await waitFor(() => within(inbox).getByRole("region", { name: "zebra" }));
+		await waitFor(() =>
+			within(inbox).getByRole("region", { name: "Other projects" }),
+		);
 		return inbox;
 	};
 
-	it("folds the inbox by project, with every project's waiting agents in Needs you", async () => {
+	it("shows one project at a time, with every project's waiting agents in Needs you, another's opening on its page", async () => {
 		const inbox = await inZebraAndHere();
+		expect(
+			within(inbox)
+				.getAllByRole("region")
+				.map((group) => group.getAttribute("aria-label")),
+		).toEqual(["Needs you", "webappwiz", "Other projects"]);
 		const needsYou = within(inbox).getByRole("region", { name: "Needs you" });
 		expect(needsYou.textContent).toContain("Zebra broke");
 		expect(needsYou.textContent).toContain("zebra");
-		const zebra = within(inbox).getByRole("region", { name: "zebra" });
-		expect(within(zebra).getByRole("button", { name: /Stripes/ })).toBeTruthy();
+		const here = within(inbox).getByRole("region", { name: "webappwiz" });
+		expect(within(here).getByRole("button", { name: /Mine/ })).toBeTruthy();
+		expect(within(inbox).queryByRole("button", { name: /Stripes/ })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(within(zebra).getByRole("button", { name: /Stripes/ })),
+			fireEvent.click(
+				within(needsYou).getByRole("button", { name: /Zebra broke/ }),
+			),
 		);
 		const there = new URL(String(testing.visited[0]));
 		expect(there.searchParams.get("project")).toBe("zebra");
-		expect(there.hash).toBe("#conversations/z1");
+		expect(there.hash).toBe("#conversations/z2");
 	});
 
-	it("starts a conversation in a folder's project from its +", async () => {
+	it("starts a conversation in the page's own project from its +, and in no other", async () => {
 		const inbox = await inZebraAndHere();
+		expect(
+			within(inbox).queryByRole("button", {
+				name: "New conversation in zebra",
+			}),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(
 				within(inbox).getByRole("button", {
-					name: "New conversation in zebra",
+					name: "New conversation in webappwiz",
 				}),
 			),
 		);
-		expect(new URL(String(testing.visited[0])).hash).toBe("#conversations/new");
+		expect(location.hash).toBe("#conversations/new");
+		expect(testing.visited).toEqual([]);
 	});
 
-	it("folds a folder away, dotted while one of its agents waits", async () => {
+	it("shows each other project as one line with how many are at work and need you, switching the page to it", async () => {
 		const inbox = await inZebraAndHere();
-		const zebra = within(inbox).getByRole("region", { name: "zebra" });
-		await act(async () =>
-			fireEvent.click(within(zebra).getByRole("button", { name: /^zebra/ })),
-		);
-		await waitFor(() =>
-			expect(
-				within(zebra).queryByRole("button", { name: /Stripes/ }),
-			).toBeNull(),
-		);
-		expect(
-			within(zebra).getByRole("img", { name: "waiting on you" }),
-		).toBeTruthy();
+		const others = within(inbox).getByRole("region", {
+			name: "Other projects",
+		});
+		const zebra = within(others).getByRole("button", { name: /^zebra/ });
+		expect(zebra.textContent).toBe("zebra1 at work·1 needs you");
+
+		await act(async () => fireEvent.click(zebra));
+		const there = new URL(String(testing.visited[0]));
+		expect(there.searchParams.get("project")).toBe("zebra");
+		expect(there.hash).toBe("#conversations");
 	});
 
 	// scry-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
