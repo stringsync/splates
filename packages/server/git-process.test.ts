@@ -1,10 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { threadId, Worker } from "node:worker_threads";
+import { Worker } from "node:worker_threads";
 import { type Child, NodePs } from "webappwiz/system";
 import { Git } from "./git";
-import { nativeGit, processGit } from "./git-process";
+import { processGit } from "./git-process";
 
 class DrainingProcess {
 	readonly output = new TransformStream<Uint8Array>();
@@ -66,16 +64,18 @@ describe("processGit", () => {
 		await expect(git.commonDir()).rejects.toThrow("empty path");
 	});
 
+	// scry-ignore simple-test-setup: Only this regression uses workers and their synchronization; there is no shared setup to move.
 	it("keeps concurrent workers' git output separate even though they share a pid", async () => {
 		const module = new URL("./git-process.ts", import.meta.url).href;
 		const code = `
 			const { parentPort, workerData } = require("node:worker_threads");
 			(async () => {
-				const { nativeGit } = await import(workerData.module);
+				const { processGit } = await import(workerData.module);
+				const { NodePs } = await import("webappwiz/system");
 				parentPort.postMessage("ready");
 				parentPort.once("message", async () => {
 					try {
-						parentPort.postMessage(await nativeGit().git("/", [
+						parentPort.postMessage(await processGit(new NodePs()).git("/", [
 							"-c", "alias.marker=!echo " + workerData.marker + "; sleep 0.1", "marker"
 						]));
 					} catch (error) {
@@ -104,24 +104,19 @@ describe("processGit", () => {
 		}
 	});
 
-	it("runs real git through Bun's own spawn, leaving no output file behind", async () => {
+	it("returns real git output and failures through NodePs", async () => {
 		const runner = processGit(new NodePs());
 		const version = await runner.git("/", ["--version"]);
 		expect(version.code).toBe(0);
 		expect(version.stdout).toStartWith("git version");
 		expect(version.stderr).toBe("");
 
-		const missing = await nativeGit().git("/nonexistent-splates-dir", [
+		const missing = await runner.git("/nonexistent-splates-dir", [
 			"rev-parse",
 			"HEAD",
 		]);
 		expect(missing.code).not.toBe(0);
 		expect(missing.stderr).toContain("nonexistent-splates-dir");
-
-		const left = (await readdir(tmpdir())).filter((name) =>
-			name.startsWith(`splates-git-${process.pid}-${threadId}-`),
-		);
-		expect(left).toEqual([]);
 	});
 });
 
