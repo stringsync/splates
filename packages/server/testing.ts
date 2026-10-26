@@ -168,6 +168,7 @@ export class Testing implements AsyncDisposable {
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.premerge = new FileLock(join(this.splatesHome, "premerge.lock"), {
+			pidOnly: true,
 			fs: this.fs,
 			ps: this.ps,
 			log: this.log,
@@ -181,6 +182,7 @@ export class Testing implements AsyncDisposable {
 		});
 		this.lockPath = join(this.dir, "merge.lock");
 		this.lock = new FileLock(this.lockPath, {
+			pidOnly: true,
 			fs: this.fs,
 			ps: this.ps,
 			log: this.log,
@@ -249,6 +251,7 @@ export class Testing implements AsyncDisposable {
 		this.format = new Format(this.splatesDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.splatesDir, "format.lock"), {
+				pidOnly: true,
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,

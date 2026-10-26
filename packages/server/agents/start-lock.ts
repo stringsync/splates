@@ -20,7 +20,7 @@ export class StartLock implements Lock {
 	private readonly file: FileLock;
 
 	constructor(path: string, deps: { fs: Fs; ps: Ps; log: Logger }) {
-		this.file = new FileLock(path, deps);
+		this.file = new FileLock(path, { ...deps, pidOnly: true });
 	}
 
 	/** This machine's, in `SPLATES_HOME`, `~/.splates` for none. */

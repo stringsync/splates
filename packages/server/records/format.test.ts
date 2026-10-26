@@ -151,6 +151,7 @@ function format(deps: Testing, migrations: readonly Migration[]): Format {
 	return new Format(deps.splatesDir, {
 		fs: deps.fs,
 		lock: new FileLock(`${deps.splatesDir}/format.lock`, {
+			pidOnly: true,
 			fs: deps.fs,
 			ps: deps.ps,
 			log: deps.log,

@@ -47,7 +47,9 @@ export class FsStorage implements Storage {
 		private readonly fs: Fs,
 		opts: FsStorageOptions = {},
 	) {
-		this.locks = opts.locks ?? { at: (path) => new FileLock(path, { fs }) };
+		this.locks = opts.locks ?? {
+			at: (path) => new FileLock(path, { fs, pidOnly: true }),
+		};
 	}
 
 	/**
@@ -71,7 +73,8 @@ export class FsStorage implements Storage {
 	}): FsStorage {
 		return new FsStorage(home, fs, {
 			locks: {
-				at: (path) => new FileLock(path, { fs, ps, log, stalenessMs }),
+				at: (path) =>
+					new FileLock(path, { fs, ps, log, stalenessMs, pidOnly: true }),
 			},
 		});
 	}

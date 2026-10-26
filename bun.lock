@@ -10,10 +10,10 @@
         "@stringsync/splates": "workspace:*",
         "@stringsync/splates-server": "workspace:*",
         "@types/bun": "1.3.14",
-        "@webappwiz/cli": "0.0.47",
-        "@webappwiz/scry": "0.0.47",
+        "@webappwiz/cli": "0.0.49",
+        "@webappwiz/scry": "0.0.50",
         "typescript": "^7",
-        "webappwiz": "0.0.47",
+        "webappwiz": "0.0.50",
         "zod": "^4.4.3",
       },
     },
@@ -22,7 +22,7 @@
       "version": "0.0.57",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
-        "webappwiz": "0.0.47",
+        "webappwiz": "0.0.50",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -38,7 +38,7 @@
       },
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
-        "webappwiz": "0.0.47",
+        "webappwiz": "0.0.50",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -50,7 +50,7 @@
       "version": "0.0.57",
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
-        "webappwiz": "0.0.47",
+        "webappwiz": "0.0.50",
       },
       "devDependencies": {
         "@assistant-ui/core": "^0.3.28",
@@ -73,7 +73,7 @@
         "@types/bun": "1.3.14",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
-        "@webappwiz/react": "0.0.47",
+        "@webappwiz/react": "0.0.50",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-webgl": "^0.19.0",
         "@xterm/xterm": "^6.0.0",
@@ -461,11 +461,11 @@
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.4.0", "", {}, "sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ=="],
 
-    "@webappwiz/cli": ["@webappwiz/cli@0.0.47", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.47", "webappwiz": "^0.0.47", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-mXIfoaeEuXrtI3AQuEzjrSZXhc1rxoKG4EDhIuDlpYi8mJZrcvpT+59r9NklssyP+G0OZhKx7ggVVP32G0/J4A=="],
+    "@webappwiz/cli": ["@webappwiz/cli@0.0.49", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.49", "webappwiz": "^0.0.49", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-C2dOoipjYELMdBFhg8LxwWKjEfrFGbCYZU/WTy4xEJfd6g2xa4QuyW3H71Xp0kEn5FTO6sz/FximAv725zbMpA=="],
 
-    "@webappwiz/react": ["@webappwiz/react@0.0.47", "", { "dependencies": { "webappwiz": "^0.0.47" }, "peerDependencies": { "react": "^19" } }, "sha512-UUuCPEtLzCIGBJQbPhrQBMyl/x813bKu4g5lOCoZ0YChfmwyYKyjglCSzTEfIVV6uQZNmy4X+iKvmh9jFfjVsQ=="],
+    "@webappwiz/react": ["@webappwiz/react@0.0.50", "", { "dependencies": { "webappwiz": "^0.0.50" }, "peerDependencies": { "react": "^19" } }, "sha512-nTXduoToPdVjKNNgxQwhOrht2GzkmFYDjhumGV9fr+dJwhLQednriWEeAlyyQcTS0tjbzXWLizHF8a5GYBI0cQ=="],
 
-    "@webappwiz/scry": ["@webappwiz/scry@0.0.47", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.47", "zod": "^4.4.3" } }, "sha512-FKZIVqIHmt/br53Hsvyi/oL9zrPgP7bsishdjwEEmwOY7NtkETaHqyqe5kHpaZIz1XgiIsPXFhnniq6z4+EzaA=="],
+    "@webappwiz/scry": ["@webappwiz/scry@0.0.50", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.50", "zod": "^4.4.3" } }, "sha512-cFL493/LSCzPEb4jnSxYf6oUsHVb96SgjNC7/kD5dZxlbIB3EKlzwhc8konl96+ZAJ46rZ1Jx50m2CcwYwFUsA=="],
 
     "@xterm/addon-fit": ["@xterm/addon-fit@0.11.0", "", {}, "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g=="],
 
@@ -771,7 +771,7 @@
 
     "vfile-message": ["vfile-message@4.0.3", "", { "dependencies": { "@types/unist": "^3.0.0", "unist-util-stringify-position": "^4.0.0" } }, "sha512-QTHzsGd1EhbZs4AsQ20JX1rC3cOlt/IWJruk893DfLRr57lcnOeMaWG4K0JrRta4mIJZKth2Au3mM3u03/JWKw=="],
 
-    "webappwiz": ["webappwiz@0.0.47", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-Z0afzbjKU3N8LJAjmtEvJckJZYoY7nFvBK6sQ4ozMFIvdAeqA708DTd/JRyi+sHUAwyHFzXHjlCLvo/qs61tFg=="],
+    "webappwiz": ["webappwiz@0.0.50", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-ecl3Vr2ga4yVjmz17dHivMgI/rX13SJ4IJUHGC67KC0yBbyVCVr2drKzzEp8VxhmxJF/G8beobnv0M1hCcesyg=="],
 
     "whatwg-mimetype": ["whatwg-mimetype@3.0.0", "", {}, "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q=="],
 
@@ -796,6 +796,10 @@
     "@tailwindcss/oxide-wasm32-wasi/@tybys/wasm-util": ["@tybys/wasm-util@0.10.3", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg=="],
 
     "@tailwindcss/oxide-wasm32-wasi/tslib": ["tslib@2.8.1", "", { "bundled": true }, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
+
+    "@webappwiz/cli/@webappwiz/scry": ["@webappwiz/scry@0.0.49", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.49", "zod": "^4.4.3" } }, "sha512-gvk8cZVih/mD4HekeE5ZN2pdbyKu5CAhb8ARUn2RzpergohhnBdEmyoZrgGgvwJ7Qg2F7YIb6buBpjReEJOLAQ=="],
+
+    "@webappwiz/cli/webappwiz": ["webappwiz@0.0.49", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-A3ciqreJItEraFIZorSso77YtP5dYZt0LVjbpWDx7scEi/gl8SbhWGF9qA4kFTnCBarLvWRnBqngiMLOzx9h+g=="],
 
     "parse-entities/@types/unist": ["@types/unist@2.0.11", "", {}, "sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA=="],
   }

@@ -130,6 +130,7 @@ function formatOf(deps: Testing, migrations: Step[]): Format {
 	return new Format(deps.splatesDir, {
 		fs: deps.fs,
 		lock: new FileLock(`${deps.splatesDir}/format.lock`, {
+			pidOnly: true,
 			fs: deps.fs,
 			ps: deps.ps,
 			log: deps.log,
@@ -153,6 +154,7 @@ function migration(
 		fs: deps.fs,
 		log: deps.log,
 		lock: new FileLock(`${deps.splatesDir}-migration.lock`, {
+			pidOnly: true,
 			fs: deps.fs,
 			ps: deps.ps,
 			log: deps.log,

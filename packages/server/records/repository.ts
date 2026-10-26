@@ -237,7 +237,12 @@ export function migrationOf(
 	return new Migration(format, {
 		fs,
 		log,
-		lock: new FileLock(`${format.splatesDir}-migration.lock`, { fs, ps, log }),
+		lock: new FileLock(`${format.splatesDir}-migration.lock`, {
+			fs,
+			ps,
+			log,
+			pidOnly: true,
+		}),
 		release: RUNNING,
 		child: Migration.childOf(ps, dirname(dirname(format.splatesDir))),
 		settle: home && (() => home.leaveAside(format.splatesDir)),
@@ -297,7 +302,12 @@ export async function recordsMigration(
 	});
 	const format = new Format(splatesDir, {
 		fs,
-		lock: new FileLock(`${splatesDir}-format.lock`, { fs, ps, log }),
+		lock: new FileLock(`${splatesDir}-format.lock`, {
+			fs,
+			ps,
+			log,
+			pidOnly: true,
+		}),
 		log,
 		database: home.stamp(),
 		into: home,
@@ -356,7 +366,13 @@ export async function openRepository(
 		git,
 	});
 	const lockAt = (path: string): Lock =>
-		new FileLock(path, { fs, ps, log, stalenessMs: config.leaseStalenessMs });
+		new FileLock(path, {
+			fs,
+			ps,
+			log,
+			stalenessMs: config.leaseStalenessMs,
+			pidOnly: true,
+		});
 	// The project's directory under the splates home, beside its database,
 	// where the merge lease is kept.
 	const dir =

@@ -35,7 +35,10 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	const tasks = new Tasks(
 		new TaskStore(
 			new FsStorage(`${git}/splates`, fs, {
-				locks: { at: (path: string) => new FileLock(path, { fs, ps, log }) },
+				locks: {
+					at: (path: string) =>
+						new FileLock(path, { fs, ps, log, pidOnly: true }),
+				},
 			}),
 		),
 	);

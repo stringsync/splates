@@ -143,7 +143,12 @@ export function premergeLockOfProject({
 	const key = createHash("sha256").update(root).digest("hex").slice(0, 12);
 	return new TimedLock(
 		new TicketedLock(
-			new FileLock(`${home}/premerge-${key}.lock`, { fs, ps, log }),
+			new FileLock(`${home}/premerge-${key}.lock`, {
+				fs,
+				ps,
+				log,
+				pidOnly: true,
+			}),
 			`${home}/premerge-${key}.queue`,
 			{ fs, ps, log },
 		),

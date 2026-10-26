@@ -86,6 +86,7 @@ describe("Projects", () => {
 				locks: {
 					at: (path) =>
 						new FileLock(path, {
+							pidOnly: true,
 							fs: deps.fs,
 							ps: deps.ps,
 							log: deps.log,
