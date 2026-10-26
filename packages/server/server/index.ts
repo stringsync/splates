@@ -6,7 +6,8 @@ export {
 	GATE_PHASES,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
-	premergeLockOfMachine,
+	premergeLockOfProject,
+	projectRootOf,
 	RECENT_FAILED_FILES,
 } from "./premerge";
 export type { Behind, Release } from "./release";

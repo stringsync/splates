@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { dirname } from "node:path";
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { splatesHome } from "../models";
@@ -112,31 +114,51 @@ export class TimedLock implements PlacedLock {
 }
 
 /**
- * The machine's one premerge: every task's merge gate, and a `splates dev
- * premerge` run by hand, holds it while the whole suite runs, so the full
- * suite runs one at a time on this machine. Waiters take it in the order
- * they asked, told their place in line meanwhile, and a holder keeps it at
- * most `PREMERGE_HOLD_MS`.
+ * A project's one premerge: every task's merge gate in that project, and a
+ * `splates dev premerge` run by hand there, holds it while the whole suite
+ * runs, so a project's full suite runs one at a time. Projects take theirs
+ * apart, since they cannot stomp on each other's checkouts. Waiters take it
+ * in the order they asked, told their place in line meanwhile, and a holder
+ * keeps it at most `PREMERGE_HOLD_MS`. `root` is the project's main tree.
  */
-export function premergeLockOfMachine({
+export function premergeLockOfProject({
 	fs,
 	ps,
 	log,
+	root,
 	holdMs = PREMERGE_HOLD_MS,
 }: {
 	fs: Fs;
 	ps: Ps;
 	log: Logger;
+	root: string;
 	holdMs?: number;
 }): PlacedLock {
 	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
+	const key = createHash("sha256").update(root).digest("hex").slice(0, 12);
 	return new TimedLock(
 		new TicketedLock(
-			new FileLock(`${home}/premerge.lock`, { fs, ps, log }),
-			`${home}/premerge.queue`,
+			new FileLock(`${home}/premerge-${key}.lock`, { fs, ps, log }),
+			`${home}/premerge-${key}.queue`,
 			{ fs, ps, log },
 		),
 		holdMs,
 		log,
 	);
+}
+
+/** The main tree of the project `cwd` is in, whichever worktree that is. */
+export async function projectRootOf(ps: Ps, cwd: string): Promise<string> {
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		cwd,
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	if (exitCode !== 0) {
+		throw new Error(`not a git repository: ${cwd}`);
+	}
+	return dirname(stdout.trim());
 }

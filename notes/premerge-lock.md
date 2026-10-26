@@ -4,13 +4,13 @@ description: How merge gates take turns on this machine and how long a gate may 
 
 The whole suite is the only heavy thing splates runs, and it runs only as
 a premerge. Every merge's gate, and a `splates dev premerge` run by hand,
-holds the machine's premerge lock, so one premerge runs at a time.
+holds its project's premerge lock, so one premerge runs at a time in each project, and projects do not wait on each other.
 Nothing else waits on it.
 
 ## How it works
 
-- The premerge lock is `~/.splates/premerge.lock`,
-  `premergeLockOfMachine`.
+- The premerge lock is `~/.splates/premerge-<key>.lock`, <key> a hash of the project's main tree,
+  `premergeLockOfProject`.
 - Landing itself holds the project's merge lease, `merge.lock`.
 - Nothing else waits on either: installs, hooks and focused
   `splates dev test` runs take no lock.
@@ -19,7 +19,7 @@ Nothing else waits on it.
 
 Waiters take the lock first come, first served: `TicketedLock`
 (`packages/server/server/ticketed-lock.ts`) wraps the `FileLock`, each waiter
-leaving a ticket in `~/.splates/premerge.queue/` and only the oldest live
+leaving a ticket in `~/.splates/premerge-<key>.queue/` and only the oldest live
 ticket asking the lock itself, which otherwise goes to whichever waiter polls
 first. A ticket whose process is gone is dropped by the next waiter to look.
 The lock tells each waiter its place as it changes; `MergeGate.reserve`
@@ -135,7 +135,7 @@ this lock again.
 
 ## Where
 
-- `packages/server/server/premerge.ts`: `premergeLockOfMachine`,
+- `packages/server/server/premerge.ts`: `premergeLockOfProject`,
   `PREMERGE_TIMEOUT_MS`, `PREMERGE_HOLD_MS`, `TimedLock`
 - `packages/server/merge/gate.ts`: `MergeGate`, setting `SPLATES_CORES`
 - `packages/server/merge/cores.ts`: `gateCores`, `GateTrail`, `lingering`

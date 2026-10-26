@@ -19,7 +19,7 @@ import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { RUNNING } from "../server/release";
-import { type PlacedLock, premergeLockOfMachine } from "../server/shared";
+import { type PlacedLock, premergeLockOfProject } from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
@@ -90,7 +90,7 @@ export interface Repository {
 	creds: Creds;
 	/** The machine's dev slots, which a task gives back as it ends. */
 	slots: Slots;
-	/** Held by a merge's gate, so one premerge runs on the machine at a time. */
+	/** Held by a merge's gate, so one premerge runs per project at a time. */
 	premerge: PlacedLock;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
@@ -437,7 +437,7 @@ export async function openRepository(
 			plans: new PlanStore(fs, storage),
 		}),
 		slots: Slots.ofMachine({ fs, ps, log }),
-		premerge: premergeLockOfMachine({ fs, ps, log }),
+		premerge: premergeLockOfProject({ fs, ps, log, root }),
 		creds,
 		dir,
 		dispose: () => home.dispose(),

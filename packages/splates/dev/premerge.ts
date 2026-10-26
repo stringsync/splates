@@ -4,7 +4,8 @@ import {
 	CHECKED_COMMIT,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
-	premergeLockOfMachine,
+	premergeLockOfProject,
+	projectRootOf,
 	RECENT_FAILED_FILES,
 	SuiteGrants,
 } from "@stringsync/splates-server/server";
@@ -32,7 +33,7 @@ export interface PremergeOptions {
  * What the merge gate runs: `dev fix`'s checks without writing fixes, failing
  * fast, then the tests as `dev test --ci` runs them. A failed check is named
  * apart from failed tests, for the gate's attribution. Run by hand, it waits
- * for the machine's premerge lock, so the whole suite runs one at a time;
+ * for the project's premerge lock, so the whole suite runs one at a time;
  * inside a gate, which holds it already, it runs at once. An agent runs it
  * by hand only once the person approves, as the whole suite. Its tests are
  * stopped once it has run `PREMERGE_TIMEOUT_MS`, as the gate kills it then.
@@ -50,8 +51,13 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 	if (!opts.evals) {
 		await refuseWholeSuite(ps, new SuiteGrants({ fs: new NodeFs(), ps }));
 	}
-	const lock = premergeLockOfMachine({ fs: new NodeFs(), ps, log });
-	log.info("premerge: waiting for the machine's premerge lock");
+	const lock = premergeLockOfProject({
+		fs: new NodeFs(),
+		ps,
+		log,
+		root: await projectRootOf(ps, ROOT),
+	});
+	log.info("premerge: waiting for the project's premerge lock");
 	await lock.acquire();
 	try {
 		await checkAndTest(opts, log);
