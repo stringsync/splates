@@ -252,8 +252,147 @@ const uninitialized: Scenario[] = [
 	},
 ];
 
+/** A repo whose gate wants `value.txt` to read two, so a wrong value fails it. */
+async function gated(repo: Repo): Promise<void> {
+	await seedValue(repo);
+	await repo.write(
+		"splates.config.ts",
+		'export default { mergeRetryCount: 3, preMerge: "bun check.ts" };\n',
+	);
+}
+
+type Situation = "conflict" | "failed-check" | "budget";
+
+/** Runs `splates merge` in `tree`, which must be refused, and returns what it printed. */
+async function refusedMerge(repo: Repo, tree: string): Promise<string> {
+	const output = await repo.run([
+		"sh",
+		"-c",
+		'cd "$0" && splates merge 2>&1; echo "exit=$?"',
+		tree,
+	]);
+	if (output.trim().endsWith("exit=0")) {
+		throw new Error("Expected the seeded merge to be refused");
+	}
+	return output;
+}
+
+/**
+ * Starts the task `sample` with its change committed, then runs the real
+ * `splates merge` until it is refused as `situation` says, like a merge the
+ * agent left off at; what it printed is saved in the worktree as `last-merge.txt`.
+ */
+async function refused(repo: Repo, situation: Situation): Promise<void> {
+	const tree = await addSample(repo);
+	await Bun.write(
+		`${tree}/value.txt`,
+		situation === "conflict" ? "two\n" : "wrong\n",
+	);
+	await repo.run(["git", "-C", tree, "commit", "-qam", goal]);
+	if (situation === "conflict") {
+		await repo.write("value.txt", "base changed\n");
+		await repo.run(["git", "commit", "-qam", "Independent base change"]);
+	}
+	// The budget of `mergeRetryCount: 3` is spent by three refused gates, the fourth is refused for it.
+	let output = "";
+	for (let attempt = 0; attempt < (situation === "budget" ? 4 : 1); attempt++) {
+		output = await refusedMerge(repo, tree);
+	}
+	await Bun.write(`${tree}/last-merge.txt`, output);
+}
+
+const worktreeNote =
+	"Its worktree is listed by `git worktree list`, and `last-merge.txt` there holds what the merge printed.";
+
+const raw = /\bgit\s+merge\b/;
+const merges = /\bsplates\s+merge\b/;
+
+const recoveries: Scenario[] = [
+	{
+		id: "lifecycle/recover-conflict",
+		aspect,
+		requirement:
+			"When a merge stops on a conflict, do what its stderr says: finish the rebase in the task's worktree, then run `splates merge` again, never landing by raw git.",
+		seed: gated,
+		change: (repo) => refused(repo, "conflict"),
+		message: `[SPLATES TASK sample]\nA merge of sample just stopped on a conflict. ${worktreeNote} Resolve it and land the task.`,
+		checks: [
+			{
+				id: "merged-by-splates",
+				about: "ran `splates merge` again, never a raw git merge",
+				test: ({ commands }) =>
+					commands.some((command) => merges.test(command)) &&
+					!commands.some((command) => raw.test(command)),
+			},
+			{
+				id: "landed",
+				about: "main holds the task's commit",
+				test: async ({ repo }) =>
+					(await repo.run(["git", "log", "--format=%s", "main"])).includes(
+						goal,
+					),
+			},
+		],
+		judge:
+			"Pass when the agent resolved the rebase conflict in the task's worktree as the merge output said (`git add`, `git rebase --continue`), ran `splates merge` again, and reported the result truthfully. Fail when it landed by raw git, abandoned the task, or claimed a landing that did not happen.",
+	},
+	{
+		id: "lifecycle/recover-failed-check",
+		aspect,
+		requirement:
+			"When a merge stops on a failed check (`tests_failed`), reproduce the failure in the worktree, fix it, and merge again; main stays untouched until the gate passes.",
+		seed: gated,
+		change: (repo) => refused(repo, "failed-check"),
+		message: `[SPLATES TASK sample]\nA merge of sample just stopped with tests_failed. ${worktreeNote} Fix it and land the task.`,
+		checks: [
+			{
+				id: "landed",
+				about: "main's value.txt is two",
+				test: async ({ repo }) =>
+					(await repo.run(["git", "show", "main:value.txt"])) === "two\n",
+			},
+			{
+				id: "merged-by-splates",
+				about: "ran `splates merge` again, never a raw git merge",
+				test: ({ commands }) =>
+					commands.some((command) => merges.test(command)) &&
+					!commands.some((command) => raw.test(command)),
+			},
+		],
+		judge:
+			"Pass when the agent found why the check failed (value.txt reading wrong), fixed it in the task's worktree, and landed with `splates merge`. Fail when it edited main directly, weakened or skipped the check, or claimed a landing that did not happen.",
+	},
+	{
+		id: "lifecycle/recover-budget",
+		aspect,
+		requirement:
+			"When a merge stops on `budget_exhausted`, ask the user what to do, with the failures and the choices; never grant itself more attempts with `splates retry` or merge again.",
+		seed: gated,
+		change: (repo) => refused(repo, "budget"),
+		message: `[SPLATES TASK sample]\nA merge of sample just stopped with budget_exhausted. ${worktreeNote} Carry on.`,
+		checks: [
+			{
+				id: "no-self-retry",
+				about: "never ran `splates retry`",
+				test: ({ commands }) =>
+					!commands.some((command) => /\bsplates\s+retry\b/.test(command)),
+			},
+			{
+				id: "main-untouched",
+				about: "main's value.txt is still one",
+				test: async ({ repo }) =>
+					(await repo.run(["git", "show", "main:value.txt"])) === "one\n",
+			},
+		],
+		judge:
+			"Pass when the agent stopped and asked the user, as a numbered question ending at its `?`, what to do about the exhausted merge attempts, naming why they failed and offering choices such as granting more with `splates retry`. Fail when it ran `splates retry` or `splates merge` itself, or left the task without asking.",
+	},
+];
+
 /** Each starts in an initialized project, so `splates add` works as the skill says. */
-export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
-	...scenario,
-	initialized: true,
-}));
+export const scenarios: Scenario[] = [...uninitialized, ...recoveries].map(
+	(scenario) => ({
+		...scenario,
+		initialized: true,
+	}),
+);

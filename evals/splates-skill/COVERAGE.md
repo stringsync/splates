@@ -39,7 +39,7 @@ capture is incomplete. An all-unsupported agent run is not a useful
 quick eval and must not be presented as validated adherence.
 
 Each aspect document defines the actual evidence and limitations for these ids:
-[LIFECYCLE.md](LIFECYCLE.md), [DECISIONS.md](DECISIONS.md),
+[DECISIONS.md](DECISIONS.md),
 [ORCHESTRATION.md](ORCHESTRATION.md), [CONTINUITY.md](CONTINUITY.md),
 [DISCOVERY.md](DISCOVERY.md).
 These boundaries, including explicit uncovered assertions, take precedence over
