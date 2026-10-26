@@ -60,6 +60,7 @@ export {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
 	scheduleReference,

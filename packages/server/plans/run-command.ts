@@ -7,6 +7,34 @@ const SPLATES = /^(?:\S*\/)?splates$|^@stringsync\/splates(?:@\S+)?$/;
  * approves one run. Leading `VAR=value` words and `bunx` are passed over.
  */
 export function isWholeSuite(command: string): boolean {
+	const words = splatesWords(command);
+	if (words === null || words[0] !== "dev") {
+		return false;
+	}
+	const which = words[1];
+	const rest = words.slice(2);
+	return (
+		(which === "test" || which === "premerge") && !rest.includes("--evals")
+	);
+}
+
+/**
+ * The task a run-command card's `splates retry <task>` asks another round of
+ * merge attempts for, which the page grants itself on Allow, as only the
+ * person may; null for any other command.
+ */
+export function retryOf(command: string): string | null {
+	const words = splatesWords(command);
+	return words?.length === 2 && words[0] === "retry"
+		? (words[1] as string)
+		: null;
+}
+
+/**
+ * The words of `command` after what runs splates, leading `VAR=value` words
+ * and `bunx` passed over; null when it does not run splates.
+ */
+function splatesWords(command: string): string[] | null {
 	const words = command.trim().split(/\s+/);
 	let at = 0;
 	while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[at] ?? "")) {
@@ -15,12 +43,5 @@ export function isWholeSuite(command: string): boolean {
 	if (words[at] === "bunx") {
 		at++;
 	}
-	if (!SPLATES.test(words[at] ?? "") || words[at + 1] !== "dev") {
-		return false;
-	}
-	const which = words[at + 2];
-	const rest = words.slice(at + 3);
-	return (
-		(which === "test" || which === "premerge") && !rest.includes("--evals")
-	);
+	return SPLATES.test(words[at] ?? "") ? words.slice(at + 1) : null;
 }

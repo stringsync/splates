@@ -1,5 +1,5 @@
 import type { Event } from "@stringsync/splates-server/records";
-import { type JSX, type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -7,6 +7,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
+import { ReplyContext } from "./card-reply";
+import { MergeCardContext } from "./merge-card";
+import { Refusal, useRefusal } from "./refusal";
+import { grantRetry, Untold } from "./retry-grant";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
 
 type MergeEvent = Extract<Event, { action: "merge" }>;
@@ -18,6 +22,10 @@ type MergeEvent = Extract<Event, { action: "merge" }>;
  * was in, each failed test with what it said, whom the gate blamed, what git
  * or the gate printed, and the attempts left. An older event without some of
  * these shows what it has.
+ *
+ * Refused for a spent budget while the thread's task still has none left,
+ * its action is Grant instead, which gives another round of attempts as
+ * `splates retry` does and tells the agent to merge again.
  */
 export function MergeFailedLine({
 	view,
@@ -27,14 +35,66 @@ export function MergeFailedLine({
 	event: MergeEvent;
 }): JSX.Element {
 	const [open, setOpen] = useState(false);
+	const grant = useGrant(event);
 	return (
 		<>
 			<SplatesEvent
-				event={{ ...view, act: { label: "Why", run: () => setOpen(true) } }}
+				event={{
+					...view,
+					act: grant?.act ?? { label: "Why", run: () => setOpen(true) },
+				}}
 			/>
+			{grant !== null && <Refusal refusal={grant.refusal} />}
 			<MergeWhy event={event} open={open} onOpenChange={setOpen} />
 		</>
 	);
+}
+
+/**
+ * The Grant of a merge refused for a spent budget, while the thread's task
+ * is that one with no attempts left, or once granted here; null otherwise.
+ * It shows granted at once and is taken back should the server refuse.
+ */
+function useGrant(event: MergeEvent): {
+	act: { label: string; run: () => void; done: string | null };
+	refusal: string | null;
+} | null {
+	const card = useContext(MergeCardContext);
+	const reply = useContext(ReplyContext);
+	const { refusal, attempt } = useRefusal();
+	const [granted, setGranted] = useState(false);
+	const task = card?.task ?? null;
+	const spent =
+		task !== null &&
+		task.task === event.task &&
+		task.status === "working" &&
+		task.mergeAttempts >= task.mergeAttemptLimit;
+	if (event.reason !== "budget_exhausted" || task === null) {
+		return null;
+	}
+	if (!spent && !granted) {
+		return null;
+	}
+	const run = () => {
+		setGranted(true);
+		void attempt(
+			grantRetry(task.task, reply?.send ?? null).catch((error: unknown) => {
+				if (!(error instanceof Untold)) {
+					setGranted(false);
+				}
+				throw error;
+			}),
+			"Merge attempts",
+		);
+	};
+	return {
+		act: {
+			label: `Grant ${task.mergeAttemptLimit} more`,
+			run,
+			done: granted ? "Granted" : null,
+		},
+		refusal,
+	};
 }
 
 /** The dialog a refused merge's Why opens. */

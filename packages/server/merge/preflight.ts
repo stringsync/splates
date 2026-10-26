@@ -64,7 +64,7 @@ export async function refuseUnready(
 		}
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: ask the user, who can grant another ${config.mergeRetryCount} with \`splates retry ${task}\`, or \`splates remove ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: ask the user for another ${config.mergeRetryCount} with a run-command card naming \`splates retry ${task}\`, which only the user runs, from its Grant, and end your turn; or \`splates remove ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}

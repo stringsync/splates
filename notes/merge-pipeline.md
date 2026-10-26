@@ -9,6 +9,11 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
 ## Refusals and attempts
 
 - A task has `mergeRetryCount` attempts, 5; `splates retry` grants more.
+- `splates retry` is the person's: the agent asks with a run-command card
+  naming it, and the page's Grant on that card, or on the line of a merge
+  refused `budget_exhausted`, grants from the page and sends the agent
+  `[SPLATES RETRIED]` to merge again. The page grants rather than allowing the
+  agent to run it, so an agent never grants itself attempts.
 - Before spending one it refuses a dirty tree, a branch tracking `SPLATES.md`,
   unchecked `## Blocked` questions or `## Next` steps, a lease held by another
   process, and an exhausted budget.

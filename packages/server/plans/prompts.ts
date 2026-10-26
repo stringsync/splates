@@ -143,6 +143,14 @@ export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
 
 /**
+ * What tells an agent the person granted its task another round of merge
+ * attempts, as `splates retry` does, from its retry card or the refused
+ * merge's Grant: the page has granted them already, so the agent merges
+ * again. The splates skill says what it means.
+ */
+export const RETRIED = "[SPLATES RETRIED]";
+
+/**
  * What approves an agent's proposal as it stands and asks it to go ahead,
  * the answers to any calls it chose nothing for after it, as the Proposed
  * card's Approve button sends: the splates skill says what it means.

@@ -29,6 +29,7 @@ export {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
 	setupReference,
@@ -46,4 +47,4 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
-export { isWholeSuite } from "./run-command";
+export { isWholeSuite, retryOf } from "./run-command";

@@ -122,7 +122,13 @@ const LINES: {
 				}
 			: {
 					mark: "failed",
-					words: ["Merge failed", task(event)],
+					words: [
+						"Merge failed",
+						task(event),
+						...(event.reason === "budget_exhausted"
+							? ["· out of merge attempts"]
+							: []),
+					],
 					at: event.at,
 				},
 	claim: (event) =>

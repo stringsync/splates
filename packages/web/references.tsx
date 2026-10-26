@@ -9,6 +9,7 @@ import {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
 	taskNumberReference,
@@ -27,6 +28,7 @@ import {
 	MessageCircleIcon,
 	PlayIcon,
 	PlugIcon,
+	RotateCcwIcon,
 	TerminalIcon,
 	UtensilsIcon,
 } from "lucide-react";
@@ -215,6 +217,13 @@ export const BARE_DIRECTIVES = [
 		label: "Approve",
 		about: "go ahead with the proposal it made",
 		icon: LightbulbIcon,
+		tone: "success",
+	},
+	{
+		directive: RETRIED,
+		label: "Merge attempts granted",
+		about: "merge again with the attempts the person granted its task",
+		icon: RotateCcwIcon,
 		tone: "success",
 	},
 	{

@@ -87,8 +87,25 @@ can land only after the complete gate passes again. Conflicts are expected: reso
 nothing of them, in `SPLATES.md`, a report or a task. Write what each
 `tests_failed` or `merge_failed` failed on under the `## Next` step it concerns
 when needed to resume it; otherwise the conversation and commits hold it.
-When `merge` stops on `budget_exhausted`, ask the user (see [When you cannot go on](questions.md#when-you-cannot-go-on)):
-a `- ` line per attempt on what it failed on (the check that broke,
-the tree in the way, or that it conflicted), one on what
-would get it through, then a question choosing between `splates retry
-<task>`, theirs to run (or the page's Retry), and a remove and redo.
+When `merge` stops on `budget_exhausted`, ask the user for more attempts
+with a run-command card naming `splates retry <task>`, which the page shows
+as a retry card the user grants with a tap. Never run `splates retry`
+yourself: the attempts are the user's to give, and the page runs it. Under
+the command, a `- ` line per attempt on what it failed on (the check that
+broke, the tree in the way, or that it conflicted), then one on what would
+get it through, and end your turn:
+
+```markdown
+## 🔐 Permission: run command: more merge attempts for upload-413
+
+`splates retry upload-413`
+
+- Attempts 1 and 2 conflicted in `packages/web/app.tsx` with the merge card.
+- Attempts 3 to 5 failed `uploads > retries a 413` against a trunk that moved.
+- Rebasing once more onto the new upload client gets it through.
+```
+
+`[SPLATES RETRIED]` means the user granted them, from your card or from the
+refused merge's Grant, so it may come before you ask: merge again. A Deny
+(`[SPLATES RUN DENIED]`) means `splates remove <task> --reason redo` with a
+task added for the redo, unless the user's note says otherwise.

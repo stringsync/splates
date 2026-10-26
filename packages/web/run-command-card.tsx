@@ -1,10 +1,12 @@
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import {
 	isWholeSuite,
+	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	retryOf,
 } from "@stringsync/splates-server/plans/browser";
-import { BanIcon, CheckIcon, TerminalIcon } from "lucide-react";
+import { BanIcon, CheckIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
 import { createContext, type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
@@ -13,6 +15,7 @@ import { CardBody, CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
 import { Refusal, useRefusal } from "./refusal";
+import { grantRetry, Untold } from "./retry-grant";
 import { SplatesEvent } from "./splates-event";
 
 /**
@@ -29,6 +32,8 @@ export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
  * <command>", that opens the card; the answer is drawn here only, not again
  * as the directive's own line.
  * Allowing the whole test suite first grants the conversation its one run.
+ * A `splates retry <task>` is the person's alone to run, so its Grant runs
+ * it from the page and tells the agent `[SPLATES RETRIED]` instead.
  */
 export function RunCommandCard({
 	proposal,
@@ -54,19 +59,33 @@ export function RunCommandCard({
 			.join("\n\n> **Anything else?**\n\n") ?? more;
 	const grant = useContext(SuiteGrant);
 	const suite = isWholeSuite(proposal.command ?? "");
-	const choice = sent?.includes(RUN_ALLOWED)
-		? RUN_ALLOWED
-		: sent?.includes(RUN_DENIED)
-			? RUN_DENIED
-			: chosen;
-	const live = useLiveMachine(choice === null);
-	const now = useNow(choice === null);
+	const retry = retryOf(proposal.command ?? "");
+	const choice =
+		sent?.includes(RUN_ALLOWED) || sent?.includes(RETRIED)
+			? RUN_ALLOWED
+			: sent?.includes(RUN_DENIED)
+				? RUN_DENIED
+				: chosen;
+	const live = useLiveMachine(choice === null && retry === null);
+	const now = useNow(choice === null && retry === null);
 	const send = reply?.send ?? null;
 	const answer = (directive: string, failed: string): void => {
 		if (send === null) {
 			return;
 		}
 		setChosen(directive);
+		if (directive === RUN_ALLOWED && retry !== null) {
+			void attempt(
+				grantRetry(retry, send, written.current).catch((error: unknown) => {
+					if (!(error instanceof Untold)) {
+						setChosen(null);
+					}
+					throw error;
+				}),
+				"Merge attempts",
+			);
+			return;
+		}
 		const granted =
 			directive === RUN_ALLOWED && suite && grant !== null
 				? grant()
@@ -93,10 +112,18 @@ export function RunCommandCard({
 				<SplatesEvent
 					event={{
 						mark: choice === RUN_ALLOWED ? "landed" : "failed",
-						words: [
-							choice === RUN_ALLOWED ? "Allowed" : "Denied",
-							{ kind: "command", command: proposal.command ?? "" },
-						],
+						words:
+							retry !== null
+								? [
+										choice === RUN_ALLOWED
+											? "Granted merge attempts to"
+											: "Denied merge attempts to",
+										{ kind: "task", task: retry },
+									]
+								: [
+										choice === RUN_ALLOWED ? "Allowed" : "Denied",
+										{ kind: "command", command: proposal.command ?? "" },
+									],
 						title: choice,
 						act: { label: "Open", run: () => setOpened(true) },
 					}}
@@ -107,8 +134,8 @@ export function RunCommandCard({
 	}
 	return (
 		<CardShell
-			label="run command"
-			Icon={TerminalIcon}
+			label={retry !== null ? "retry merge" : "run command"}
+			Icon={retry !== null ? RotateCcwIcon : TerminalIcon}
 			title={proposal.title ?? "Run a command"}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
@@ -116,7 +143,7 @@ export function RunCommandCard({
 				<code>{proposal.command}</code>
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{choice === null && (
+			{choice === null && retry === null && (
 				<MachineStats
 					reading={live?.reading ?? null}
 					at={live?.at}
@@ -150,7 +177,11 @@ export function RunCommandCard({
 						) : (
 							<BanIcon className="size-3.5" />
 						)}
-						{choice === RUN_ALLOWED ? "Allowed" : "Denied"}
+						{choice === RUN_ALLOWED
+							? retry !== null
+								? "Granted"
+								: "Allowed"
+							: "Denied"}
 					</span>
 				) : (
 					<>
@@ -170,8 +201,12 @@ export function RunCommandCard({
 							onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
 							className="gap-1.5"
 						>
-							<CheckIcon data-icon="inline-start" />
-							Allow
+							{retry !== null ? (
+								<RotateCcwIcon data-icon="inline-start" />
+							) : (
+								<CheckIcon data-icon="inline-start" />
+							)}
+							{retry !== null ? "Grant attempts" : "Allow"}
 						</Button>
 					</>
 				)}
