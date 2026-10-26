@@ -160,7 +160,7 @@ export const SETTINGS = {
 	"shortcuts.projects": shortcut(
 		"Switch project",
 		"Open the list of projects on this machine.",
-		"Ctrl+Mod+KeyP",
+		"Alt+Mod+KeyO",
 	),
 	"shortcuts.todos": shortcut("Board", "Open the board.", "Alt+Mod+KeyT"),
 	"shortcuts.new": shortcut(

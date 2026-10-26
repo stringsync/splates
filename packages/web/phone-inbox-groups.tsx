@@ -4,6 +4,7 @@ import {
 	EllipsisIcon,
 	PlusIcon,
 	TrashIcon,
+	TriangleAlertIcon,
 } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -15,7 +16,7 @@ import { Row } from "./phone-inbox-row";
 import { Action, Sheet, useLongPress } from "./phone-row-menu";
 import { ProjectEmpty, useRemoveProject } from "./project-controls";
 import { InLanes } from "./project-folder-list";
-import { type Folder, folderKey } from "./project-folders";
+import type { Folder } from "./project-folders";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
 export interface Item {
@@ -31,14 +32,13 @@ export interface Item {
 /**
  * A heading and its rows, each agent's subagents under it, and what
  * `beneath` puts under each, or nothing when it has none. The count is of the
- * agents at the top. `named` has each row say which project it is in.
+ * agents at the top.
  */
 export function Group({
 	title,
 	items,
 	agents,
 	urgent = false,
-	named = false,
 	beneath,
 	onOpen,
 }: {
@@ -46,7 +46,6 @@ export function Group({
 	title: string;
 	items: Item[];
 	urgent?: boolean;
-	named?: boolean;
 	/** The rows under an agent's, a level deeper than `depth`, its own. */
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
@@ -64,52 +63,83 @@ export function Group({
 			>
 				{title} · {items.length}
 			</h2>
-			<Lines
-				items={items}
-				agents={agents}
-				named={named}
-				beneath={beneath}
-				onOpen={onOpen}
-			/>
+			<Lines items={items} agents={agents} beneath={beneath} onOpen={onOpen} />
 		</section>
 	);
 }
 
 /**
- * The page's own project: its name, a + to start a conversation in it and a
- * ⋯ for its menu, which a long press on its name opens too, none of them
- * waiting on a hover; then its agents, pinned, at work, then the rest.
+ * A project's folder: its name, which folds it away as this browser keeps
+ * it, how many agents wait on you there, a + to start a conversation in it
+ * and a ⋯ for its menu, which a long press on its name opens too, none of
+ * them waiting on a hover; then `trees`, those waiting on you first, and
+ * "N more" when it holds more.
  */
 export function ProjectSection({
 	folder,
+	trees,
+	more,
+	onMore,
+	open,
+	onFold,
 	onNew,
 	agents,
 	beneath,
 	onOpen,
 }: {
 	folder: Folder;
+	/** What it lists of its trees. */
+	trees: Nested<Needing>[];
+	/** How many more it holds than it lists. */
+	more: number;
+	onMore: () => void;
+	/** Whether it is unfolded. */
+	open: boolean;
+	onFold: (open: boolean) => void;
 	/** Null while no conversation can start. */
 	onNew: (() => void) | null;
 	agents: AgentChoice[];
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
-	const items = folder.listed.map((tree) => ({
-		tree,
-		folder,
-	}));
+	const items = trees.map((tree) => ({ tree, folder }));
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
 	const removal = useRemoveProject(folder);
 	return (
 		<section aria-label={folder.name} className="flex flex-col pt-4">
 			<div className="flex items-center pr-2">
-				<h2
-					{...press}
-					// No callout or selection to fight the long press.
-					className="flex min-h-10 min-w-0 flex-1 items-center px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide [-webkit-touch-callout:none] select-none"
-				>
-					<span className="min-w-0 truncate">{folder.name}</span>
+				<h2 className="flex min-w-0 flex-1">
+					<button
+						type="button"
+						{...press}
+						aria-expanded={open}
+						onClick={() => onFold(!open)}
+						// No callout or selection to fight the long press.
+						className={cn(
+							"flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 text-left font-medium text-muted-foreground text-xs uppercase tracking-wide [-webkit-touch-callout:none] select-none",
+							folder.here && "text-foreground",
+						)}
+					>
+						<ChevronRightIcon
+							aria-hidden
+							className={cn(
+								"size-3.5 shrink-0 transition-transform duration-150",
+								open && "rotate-90",
+							)}
+						/>
+						<span className="min-w-0 truncate">{folder.name}</span>
+						{folder.waiting.length > 0 && (
+							<span
+								role="status"
+								aria-label={`${folder.waiting.length} waiting on you`}
+								className="ml-auto flex shrink-0 items-center gap-0.5 text-warning tabular-nums"
+							>
+								<TriangleAlertIcon aria-hidden className="size-3" />
+								{folder.waiting.length}
+							</span>
+						)}
+					</button>
 				</h2>
 				{onNew !== null && (
 					<button
@@ -157,70 +187,24 @@ export function ProjectSection({
 				)}
 			</Sheet>
 			{removal?.dialog}
-			{/* Its agents may all be in Needs you, which says so above. */}
-			{folder.trees.length === 0 && <ProjectEmpty />}
-			{items.length > 0 && (
+			{open && folder.trees.length === 0 && <ProjectEmpty />}
+			{open && items.length > 0 && (
 				<Lines
 					items={items}
 					agents={agents}
-					named={false}
 					beneath={beneath}
 					onOpen={onOpen}
 				/>
 			)}
-		</section>
-	);
-}
-
-/**
- * Every other project with agents, a line each saying how many are at work
- * and how many wait on you, a tap switching the page to it.
- */
-export function OtherProjects({
-	folders,
-	onSwitch,
-}: {
-	folders: Folder[];
-	onSwitch: (folder: Folder) => void;
-}): ReactNode {
-	if (folders.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label="Other projects" className="pt-4">
-			<h2 className="px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-				Other projects
-			</h2>
-			<ul>
-				{folders.map((folder) => (
-					<li key={folderKey(folder)}>
-						<button
-							type="button"
-							onClick={() => onSwitch(folder)}
-							className="flex min-h-12 w-full min-w-0 items-center gap-3 px-4 text-left active:bg-muted"
-						>
-							<span className="min-w-0 flex-1 truncate font-medium">
-								{folder.name}
-							</span>
-							<span className="flex shrink-0 gap-1 text-muted-foreground text-xs tabular-nums">
-								{folder.atWork > 0 && <span>{folder.atWork} at work</span>}
-								{folder.atWork > 0 && folder.waiting.length > 0 && "·"}
-								{folder.waiting.length > 0 && (
-									<span className="text-warning">
-										{folder.waiting.length === 1
-											? "1 needs you"
-											: `${folder.waiting.length} need you`}
-									</span>
-								)}
-							</span>
-							<ChevronRightIcon
-								aria-hidden
-								className="size-4 shrink-0 text-muted-foreground"
-							/>
-						</button>
-					</li>
-				))}
-			</ul>
+			{open && more > 0 && (
+				<button
+					type="button"
+					onClick={onMore}
+					className="min-h-10 px-4 text-left text-muted-foreground text-sm active:bg-muted"
+				>
+					{more} more
+				</button>
+			)}
 		</section>
 	);
 }
@@ -233,13 +217,11 @@ const HEAD_BUTTON =
 function Lines({
 	items,
 	agents,
-	named,
 	beneath,
 	onOpen,
 }: {
 	items: Item[];
 	agents: AgentChoice[];
-	named: boolean;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): ReactNode {
@@ -277,7 +259,6 @@ function Lines({
 								hosting={
 									row.conversation !== null && hosting.has(row.conversation.id)
 								}
-								project={named && folder !== null ? folder.name : null}
 								foreign={folder !== null && !folder.here}
 								onOpen={() => onOpen(row, folder)}
 							/>

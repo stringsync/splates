@@ -32,12 +32,12 @@ import { cn } from "#web/lib/utils.ts";
 import { AddProject } from "./add-project";
 import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
-import { forgetUsed } from "./new-conversation-project";
 import { OpenerContext } from "./openers";
-import { focusProject, forgetProject, type ProjectChoice } from "./project-api";
+import { forgetProject, type ProjectChoice } from "./project-api";
 import { useProjectList } from "./project-list";
 import {
 	placeOf,
+	previousProject,
 	projectUrl,
 	rememberPlace,
 	shownProject,
@@ -49,8 +49,9 @@ import { NAV_HEADING, TITLE } from "./top-bar";
 /**
  * The project's name, and under it its path unless `path` is false, heading the page, as a picker of every
  * project on this machine in order of their names, each marked with how many
- * agents wait on you there: its shortcut, ⌃⌘P unless set otherwise, which no
- * browser takes, opens it, typing narrows it, the arrows and Enter pick.
+ * agents wait on you there: its shortcut, ⌥⌘O unless set otherwise, opens
+ * it with the project this tab showed before marked, so the shortcut and
+ * Enter go back there; typing narrows it, the arrows and Enter pick.
  * Below them, when this machine runs slots, every `splates server` it has a
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
@@ -66,6 +67,7 @@ export function ProjectSwitcher({
 	hash,
 	servers: slots = true,
 	path = true,
+	onShortcut,
 	onPick,
 	className,
 }: {
@@ -82,6 +84,8 @@ export function ProjectSwitcher({
 	servers?: boolean;
 	/** Whether its trigger shows the project's path under its name. */
 	path?: boolean;
+	/** Told its shortcut was pressed, as to show the sidebar it sits in. */
+	onShortcut?: () => void;
 	/** Told of a pick of another project just before the page shows it. */
 	onPick?: (project: ProjectChoice) => void;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
@@ -131,7 +135,16 @@ export function ProjectSwitcher({
 			void list.refresh();
 		}
 	}, [open, list]);
-	useShortcut("shortcuts.projects", () => setOpen((was) => !was), keyed);
+	useShortcut(
+		"shortcuts.projects",
+		() => {
+			onShortcut?.();
+			setOpen((was) => !was);
+			setQuery("");
+			setActive(previous());
+		},
+		keyed,
+	);
 	const shortcut = useShortcutLabel("shortcuts.projects");
 
 	const words = query.trim().toLowerCase();
@@ -155,17 +168,20 @@ export function ProjectSwitcher({
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.focused : each.slug === shown;
 	const here = (projects ?? []).find(current);
+	// Where it opens: on the project shown before, to go back with Enter.
+	const previous = () => {
+		const slug = previousProject();
+		const at = matching.findIndex(
+			(each) => each.slug === slug && !each.gone && !current(each),
+		);
+		return at === -1 ? 0 : at;
+	};
+	// The page focuses what it shows, on any device, however it came to show it.
 	const go = (each: ProjectChoice | undefined) => {
 		if (each === undefined || each.gone) {
 			return;
 		}
 		setOpen(false);
-		// What an address naming none shows next, on any device; going there
-		// waits on it no more than on a refusal.
-		void focusProject(each.slug).then(
-			() => list.refresh(),
-			() => {},
-		);
 		if (!current(each)) {
 			// So coming back lands here, and the page names `each` while it opens.
 			const leaving =
@@ -197,7 +213,6 @@ export function ProjectSwitcher({
 	const forget = (each: ProjectChoice) =>
 		forgetProject(each.slug).then(
 			(next) => {
-				forgetUsed(each.slug);
 				if (!current(each)) {
 					return list.refresh();
 				}
@@ -227,7 +242,7 @@ export function ProjectSwitcher({
 				onOpenChange={(next) => {
 					setOpen(next);
 					setQuery("");
-					setActive(0);
+					setActive(previous());
 					setAdding(false);
 				}}
 			>

@@ -15,6 +15,7 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
+	useState,
 } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
@@ -31,19 +32,26 @@ import {
 	shownIn,
 } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
+import { useFolded } from "./folded";
 import { ListLoading, StaleRows } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { useBeneath } from "./list-beneath";
 import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
-import { newConversationUrl, projectUrl } from "./new-conversation-project";
+import { newConversationUrl } from "./new-conversation-project";
 import {
 	ForeignItem,
 	ProjectList,
 	type RenderRow,
 } from "./project-folder-list";
-import { type Folder, foldersOf } from "./project-folders";
+import {
+	FOLDED_FOLDERS,
+	type Folder,
+	folderKey,
+	foldersOf,
+	shownTrees,
+} from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
 
@@ -68,11 +76,11 @@ const DIGITS = 10;
  * them, round past either end; each but the digits as the settings bind it.
  * Holding ⌥⌘ shows each of those keys beside what it opens.
  *
- * With the feed of every project to be had, the list shows one project at a
- * time, as `foldersOf` groups them: those waiting on you in every project,
- * then the page's own project's, then a line for each other project that
- * switches to it. Another project's row opens by switching the page to that
- * project, where its task, trunk and lanes are the page's own.
+ * With the feed of every project to be had, the list shows every project,
+ * a folder each as `foldersOf` groups them, the page's own first, each with
+ * those waiting on you on top. Another project's row opens by switching the
+ * page to that project, where its task, trunk and lanes are the page's own,
+ * and it becomes the project shown everywhere.
  */
 export const ConversationList = memo(function ConversationList({
 	feed,
@@ -138,21 +146,21 @@ export const ConversationList = memo(function ConversationList({
 		],
 	);
 	const navigation = useContext(NavigationContext);
-	// Every row as it shows, each part under its task.
+	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries = useMemo<Entry[]>(
 		() =>
 			grouped === null
 				? flatten(listed).map((row) => ({ folder: null, row }))
-				: [
-						...grouped.needsYou.flatMap(({ folder, tree }) =>
-							flatten([tree]).map((row) => ({ folder, row })),
+				: grouped
+						.filter((folder) => !folded.has(folderKey(folder)))
+						.flatMap((folder) =>
+							flatten(
+								shownTrees(folder, expanded.has(folderKey(folder))).trees,
+							).map((row) => ({ folder, row })),
 						),
-						...flatten(grouped.here.listed).map((row) => ({
-							folder: grouped.here,
-							row,
-						})),
-					],
-		[grouped, listed],
+		[grouped, listed, folded, expanded],
 	);
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
@@ -257,7 +265,6 @@ export const ConversationList = memo(function ConversationList({
 		) : (
 			<ForeignItem
 				row={row}
-				project={folder.name}
 				agent={
 					row.conversation === null
 						? null
@@ -317,12 +324,15 @@ export const ConversationList = memo(function ConversationList({
 					<Placing value={placing}>
 						<ProjectList
 							folders={grouped}
-							onNew={() => onOpen(NEW)}
-							onSwitch={(folder) => {
-								if (folder.project !== null) {
-									navigation.show(projectUrl(folder.project));
-								}
-							}}
+							folded={folded}
+							onFold={fold}
+							expanded={expanded}
+							onExpand={(key) => setExpanded(new Set(expanded).add(key))}
+							onNew={(folder) =>
+								folder.here || folder.project === null
+									? onOpen(NEW)
+									: navigation.show(newConversationUrl(folder.project))
+							}
 							render={renderRow}
 							beneath={beneathOf}
 						/>

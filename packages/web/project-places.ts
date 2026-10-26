@@ -55,6 +55,30 @@ export function rememberPlace(project: string, place: Place): void {
 	sessionStorage.setItem(PLACES, JSON.stringify(all));
 }
 
+/** The project this tab showed before the one it shows, by slug. */
+const PREVIOUS = "splates.previousProject";
+
+/** The project this tab showed last before this one, by slug; null for none yet. */
+export function previousProject(): string | null {
+	try {
+		return sessionStorage.getItem(PREVIOUS) || null;
+	} catch {
+		return null;
+	}
+}
+
+/** Keeps `project`, the one the tab leaves, for the switcher to offer first. */
+export function rememberPrevious(project: string): void {
+	if (project === "") {
+		return;
+	}
+	try {
+		sessionStorage.setItem(PREVIOUS, project);
+	} catch {
+		// Storage refused: the switcher offers no project first.
+	}
+}
+
 /**
  * Where the page goes to show `project`, named by its slug, so the address
  * keeps showing it whatever is focused later: where this tab last left it,

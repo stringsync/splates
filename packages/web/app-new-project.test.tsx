@@ -8,21 +8,6 @@ function visit(url: string): void {
 	).happyDOM.setURL(url);
 }
 
-/**
- * The project New starts in next, as `new-conversation-project.ts` keeps it,
- * read here rather than through it: importing it ahead of `./testing` would
- * build its navigation before the DOM is there.
- */
-const LAST = "splates.newConversationProject";
-
-function _lastProject(): unknown {
-	return JSON.parse(localStorage.getItem(LAST) ?? "null");
-}
-
-function rememberProject(project: { slug: string; root: string }): void {
-	localStorage.setItem(LAST, JSON.stringify(project));
-}
-
 const WEBAPPWIZ = { root: "/code/webappwiz", repo: "webappwiz" };
 
 describe("App's New, by project", () => {
@@ -66,20 +51,12 @@ describe("App's New, by project", () => {
 		sessionStorage.clear();
 	});
 
-	it("opens New in the project last used, from another project's page", async () => {
-		rememberProject({ slug: "shop", root: "/code/shop" });
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
+	it("opens New in the project the page shows, one a conversation last started in elsewhere aside", async () => {
+		// What an older page kept for New, which no longer leads it elsewhere.
+		localStorage.setItem(
+			"splates.newConversationProject",
+			JSON.stringify({ slug: "shop", root: "/code/shop" }),
 		);
-
-		const there = new URL(String(testing.visited.at(-1)));
-		expect(there.search).toBe("?project=shop");
-		expect(there.hash).toBe("#conversations/new");
-	});
-
-	it("opens New on the page when it shows the project last used", async () => {
-		rememberProject({ slug: "webappwiz", root: "/code/webappwiz" });
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "New" })),

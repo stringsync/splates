@@ -133,6 +133,11 @@ export function AppNav({
 					name={name}
 					heading
 					path={false}
+					onShortcut={() => {
+						if (!sidebar.shown) {
+							sidebar.toggle();
+						}
+					}}
 					className="mx-0 mt-3 px-3"
 				/>
 				{pages.filter(({ scope }) => scope === "project").map(tab)}

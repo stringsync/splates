@@ -26,11 +26,9 @@ function listed(project: string, root: string): EverywhereProject {
 	};
 }
 
-/** The other projects' lines in `list`, once every project is listed. */
-function othersIn(list: HTMLElement): Promise<HTMLElement> {
-	return waitFor(() =>
-		within(list).getByRole("region", { name: "Other projects" }),
-	);
+/** Shop's folder in `list`, once every project is listed. */
+function shopIn(list: HTMLElement): Promise<HTMLElement> {
+	return waitFor(() => within(list).getByRole("region", { name: "shop" }));
 }
 
 describe("Project controls in conversation lists", () => {
@@ -64,7 +62,7 @@ describe("Project controls in conversation lists", () => {
 		resize(1024, 768);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await othersIn(list);
+		await shopIn(list);
 		expect(
 			within(list).queryByRole("button", { name: "Add a project" }),
 		).toBeNull();
@@ -74,7 +72,7 @@ describe("Project controls in conversation lists", () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await othersIn(list);
+		await shopIn(list);
 		await act(async () =>
 			fireEvent.click(
 				within(list).getByRole("button", { name: "Add a project" }),
@@ -96,25 +94,25 @@ describe("Project controls in conversation lists", () => {
 		];
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		const others = await othersIn(list);
+		const shop = await shopIn(list);
 		expect(
 			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
 				"No conversations yet.",
 			),
 		).toBeTruthy();
 		expect(
-			within(others)
-				.getAllByRole("button", { name: /^(?!Remove)/ })
-				.map((line) => line.textContent),
-		).toEqual(["shop"]);
-		expect(within(list).queryByText("Shop chat")).toBeNull();
+			within(list)
+				.getAllByRole("region")
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["webappwiz", "shop"]);
+		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
 	it("offers removing projects in the sidebar", async () => {
 		resize(1024, 768);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await othersIn(list);
+		await shopIn(list);
 		await act(async () =>
 			fireEvent.click(
 				within(list).getByRole("button", { name: "Remove project shop" }),
@@ -148,18 +146,18 @@ describe("Project controls in conversation lists", () => {
 		];
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		const others = await othersIn(list);
+		const shop = await shopIn(list);
 		expect(
 			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
 				"No conversations yet.",
 			),
 		).toBeTruthy();
 		expect(
-			within(others)
-				.getAllByRole("button", { name: /^(?!Remove)/ })
-				.map((line) => line.textContent),
-		).toEqual(["shop"]);
-		expect(within(list).queryByText("Shop chat")).toBeNull();
+			within(list)
+				.getAllByRole("region")
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["webappwiz", "shop"]);
+		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
 	it("offers adding a project in the phone's drawer", async () => {
@@ -189,10 +187,10 @@ describe("Project controls in conversation lists", () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await othersIn(list);
+		await shopIn(list);
 		const here = within(list).getByRole("region", { name: "webappwiz" });
 		// As Android holds a row: the finger down, then the context menu.
-		const head = within(here).getByRole("heading", { name: "webappwiz" });
+		const head = within(here).getByRole("button", { name: "webappwiz" });
 		await act(async () => {
 			fireEvent.pointerDown(head);
 			fireEvent.contextMenu(head);
@@ -209,17 +207,17 @@ describe("Project controls in conversation lists", () => {
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 	});
 
-	it("offers removing the page's own project from its menu in the inbox, and no other", async () => {
+	it("offers removing a project from its menu in the inbox", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await othersIn(list);
+		await shopIn(list);
 		expect(
 			within(list).queryByRole("button", { name: /^Remove project/ }),
 		).toBeNull();
 		expect(
-			within(list).queryByRole("button", { name: "Menu for shop" }),
-		).toBeNull();
+			within(list).getByRole("button", { name: "Menu for shop" }),
+		).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(
 				within(list).getByRole("button", { name: "Menu for webappwiz" }),
@@ -331,9 +329,7 @@ describe("Project controls in conversation lists", () => {
 			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
 		);
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(
-			within(await othersIn(list)).getByRole("button", { name: /^shop/ }),
-		).toBeTruthy();
+		expect(within(await shopIn(list)).getByText("Shop chat")).toBeTruthy();
 	});
 	it("moves to the previous project when removing the one shown", async () => {
 		const view = await testing.openConversations(
@@ -367,24 +363,22 @@ describe("Project controls in conversation lists", () => {
 			new URL(String(testing.visited.at(-1))).searchParams.get("project"),
 		).toBe("shop");
 	});
-	it("hides another project's line when its last conversation is removed by the stream", async () => {
+	it("hides another project's folder when its last conversation is removed by the stream", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
-		const others = await othersIn(agentList(view));
-		expect(within(others).getByRole("button", { name: /^shop/ })).toBeTruthy();
+		await shopIn(agentList(view));
 		await act(async () =>
 			testing.everywhereStream?.named?.get("removed")?.({
 				data: JSON.stringify({ project: "shop", id: "s1" }),
 			}),
 		);
 		expect(
-			within(agentList(view)).queryByRole("region", { name: "Other projects" }),
+			within(agentList(view)).queryByRole("region", { name: "shop" }),
 		).toBeNull();
 	});
-	it("hides another project's line when the stream archives its last conversation", async () => {
+	it("hides another project's folder when the stream archives its last conversation", async () => {
 		const view = await testing.openConversations([], null, { tasks: [] });
-		const others = await othersIn(agentList(view));
-		expect(within(others).getByRole("button", { name: /^shop/ })).toBeTruthy();
+		await shopIn(agentList(view));
 		await act(async () =>
 			testing.everywhereStream?.onmessage?.({
 				data: JSON.stringify({
@@ -401,9 +395,7 @@ describe("Project controls in conversation lists", () => {
 		);
 		await waitFor(() =>
 			expect(
-				within(agentList(view)).queryByRole("region", {
-					name: "Other projects",
-				}),
+				within(agentList(view)).queryByRole("region", { name: "shop" }),
 			).toBeNull(),
 		);
 	});

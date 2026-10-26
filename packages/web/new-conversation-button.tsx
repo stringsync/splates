@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import { type JSX, useContext } from "react";
+import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { focusComposer } from "./composer-editor";
@@ -12,11 +12,10 @@ import {
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
-import { lastProject, ShownRoot, useOpenNew } from "./new-conversation-project";
 import { shownProject } from "./project-places";
 import type { Terminals } from "./terminals";
 
-/** New, atop the sidebar: a click or the shortcut opens the new conversation already there, else a fresh one. */
+/** New, atop the sidebar: a click or the shortcut opens the page's project's new conversation already there, else a fresh one. */
 export function NewConversation({
 	drafts,
 	terminals,
@@ -28,26 +27,15 @@ export function NewConversation({
 }): JSX.Element {
 	const held = useHeld();
 	const touch = useTouch();
-	const openNew = useOpenNew(onOpen);
-	const root = useContext(ShownRoot);
 	const another = () => {
-		const last = lastProject();
-		const shown = shownProject();
-		const project =
-			last === null ||
-			root === null ||
-			last.root === root ||
-			last.slug === shown
-				? shown
-				: last.slug;
-		const key = newDraft(project);
+		const key = newDraft(shownProject());
 		const place =
 			drafts.isOpen(key) || drafts.holds(key)
 				? (drafts.placeOf(key) ?? NEW)
 				: NEW;
 		// On a new conversation already, nothing mounts to focus its composer.
 		const there = location.hash.startsWith(`#conversations/${NEW}`);
-		openNew(place);
+		onOpen(place);
 		if (there && !touch) {
 			focusComposer();
 		}

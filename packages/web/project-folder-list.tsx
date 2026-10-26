@@ -1,15 +1,19 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import { PlusIcon, TriangleAlertIcon } from "lucide-react";
+import { ChevronRightIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
-import { keyOfRow } from "./conversation-rows";
-import { RowItem, Rows } from "./list-rows";
+import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
-import { type Folder, type Folders, folderKey } from "./project-folders";
+import { type Folder, folderKey, shownTrees } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
 /** Draws a row of `folder`'s. */
@@ -20,138 +24,127 @@ export type RenderRow = (
 ) => ReactNode;
 
 /**
- * The sidebar's agents, one project at a time: those waiting on you in every
- * project under Needs you, then the page's own project's, pinned, at work,
- * then the rest, its "+" starting a conversation in it, then every other
- * project with agents as one line, saying how many are at work, that
- * switches the page to it. Quiet: a name and its rows.
+ * The sidebar's agents, a folder per project, the page's own first: each
+ * with those waiting on you on top, then its pinned agents, then those at
+ * work, then the rest; another project's shows a few, then "N more". A
+ * folder's header counts what waits on you there, folds it away as this
+ * browser keeps it, and its "+" starts a conversation in it. Quiet: a name,
+ * a count and its rows.
  */
 export function ProjectList({
 	folders,
+	folded,
+	onFold,
+	expanded,
+	onExpand,
 	render,
 	beneath,
 	onNew,
-	onSwitch,
 }: {
-	folders: Folders;
+	folders: Folder[];
+	folded: ReadonlySet<string>;
+	onFold: (key: string, open: boolean) => void;
+	/** The folders showing every row, past "N more", by key. */
+	expanded: ReadonlySet<string>;
+	onExpand: (key: string) => void;
 	render: RenderRow;
 	beneath: (folder: Folder, row: Needing) => ReactNode[];
-	onNew: () => void;
-	/** Shows `folder`'s project's page. */
-	onSwitch: (folder: Folder) => void;
+	/** Starts a conversation in `folder`'s project, showing it. */
+	onNew: (folder: Folder) => void;
 }): JSX.Element {
-	const { needsYou, here, others } = folders;
 	return (
 		<div className="flex flex-col gap-3">
-			{needsYou.length > 0 && (
-				<section aria-label="Needs you" className="flex flex-col">
-					<h2 className={cn(HEADING, "text-warning")}>Needs you</h2>
-					<ul aria-label="Needs you conversations" className="flex flex-col">
-						{needsYou.map(({ folder, tree }) => (
-							<InLanes
-								key={`${folderKey(folder)} ${keyOfRow(tree.row)}`}
-								folder={folder}
-							>
-								<RowItem
-									tree={tree}
-									render={(row, nested) => render(folder, row, nested)}
-									beneath={(row) => beneath(folder, row)}
-								/>
-							</InLanes>
-						))}
-					</ul>
-				</section>
-			)}
-			<section aria-label={here.name} className="group/head flex flex-col">
-				<div className="flex items-center">
-					<h2 className={cn(HEADING, "min-w-0 flex-1 truncate")}>
-						{here.name}
-					</h2>
-					<button
-						type="button"
-						aria-label={`New conversation in ${here.name}`}
-						title={`New conversation in ${here.name}`}
-						onClick={onNew}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
+			{folders.map((folder) => {
+				const key = folderKey(folder);
+				const { trees, more } = shownTrees(folder, expanded.has(key));
+				return (
+					<Collapsible
+						key={key}
+						open={!folded.has(key)}
+						onOpenChange={(open) => onFold(key, open)}
+						render={<section aria-label={folder.name} />}
+						className="group/folder flex flex-col"
 					>
-						<PlusIcon className="size-3.5" />
-					</button>
-					<RemoveProjectButton folder={here} />
-				</div>
-				{/* Its agents may all be in Needs you, which says so above. */}
-				{here.trees.length === 0 && <ProjectEmpty />}
-				{here.listed.length > 0 && (
-					<InLanes folder={here}>
-						<Rows
-							label={`${here.name} conversations`}
-							rows={here.listed}
-							render={(row, nested) => render(here, row, nested)}
-							beneath={(row) => beneath(here, row)}
-						/>
-					</InLanes>
-				)}
-			</section>
-			{others.length > 0 && (
-				<section aria-label="Other projects" className="flex flex-col">
-					<h2 className={HEADING}>Other projects</h2>
-					<ul aria-label="Other projects" className="flex flex-col">
-						{others.map((folder) => (
-							<li
-								key={folderKey(folder)}
-								className="group/head flex items-center"
+						<div className="group/head flex items-center">
+							<CollapsibleTrigger
+								className={cn(
+									HEADING,
+									"flex min-w-0 flex-1 cursor-pointer items-center gap-1 rounded-md py-0.5 pl-1.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+									folder.here && "text-foreground",
+								)}
 							>
+								<ChevronRightIcon
+									aria-hidden
+									className="size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90"
+								/>
+								<span className="min-w-0 truncate">{folder.name}</span>
+								{folder.waiting.length > 0 && (
+									<span
+										role="status"
+										aria-label={`${folder.waiting.length} waiting on you`}
+										className="ml-auto flex shrink-0 items-center gap-0.5 text-warning normal-case tabular-nums"
+									>
+										<TriangleAlertIcon aria-hidden className="size-3" />
+										{folder.waiting.length}
+									</span>
+								)}
+							</CollapsibleTrigger>
+							<button
+								type="button"
+								aria-label={`New conversation in ${folder.name}`}
+								title={`New conversation in ${folder.name}`}
+								onClick={() => onNew(folder)}
+								className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
+							>
+								<PlusIcon className="size-3.5" />
+							</button>
+							<RemoveProjectButton folder={folder} />
+						</div>
+						<CollapsibleContent>
+							{folder.trees.length === 0 && <ProjectEmpty />}
+							{trees.length > 0 && (
+								<InLanes folder={folder}>
+									<Rows
+										label={`${folder.name} conversations`}
+										rows={trees}
+										render={(row, nested) => render(folder, row, nested)}
+										beneath={(row) => beneath(folder, row)}
+									/>
+								</InLanes>
+							)}
+							{more > 0 && (
 								<button
 									type="button"
-									data-row
-									onClick={() => onSwitch(folder)}
-									title={`Switch to ${folder.name}`}
-									className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]"
+									onClick={() => onExpand(key)}
+									className="w-full rounded-md py-1 pl-8 text-left text-muted-foreground text-xs hover:bg-foreground/[0.05] hover:text-foreground"
 								>
-									<span className="min-w-0 flex-1 truncate text-sm">
-										{folder.name}
-									</span>
-									{folder.waiting.length > 0 && (
-										<TriangleAlertIcon
-											role="img"
-											aria-label="waiting on you"
-											className="size-3 shrink-0 text-warning"
-										/>
-									)}
-									{folder.atWork > 0 && (
-										<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-											{folder.atWork} at work
-										</span>
-									)}
+									{more} more
 								</button>
-								<RemoveProjectButton folder={folder} />
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
+							)}
+						</CollapsibleContent>
+					</Collapsible>
+				);
+			})}
 		</div>
 	);
 }
 
-/** A section's title, as quiet as the rows under it. */
+/** A folder's title, as quiet as the rows under it. */
 const HEADING =
 	"px-3 pb-1 font-medium text-[11px] text-muted-foreground uppercase tracking-wide";
 
 /**
  * A row of another project's, which this page holds no actions for: its
- * mark, its name and its project's, opening its project's page at it.
+ * mark and its name, opening its project's page at it.
  */
 export function ForeignItem({
 	row,
-	project,
 	agent,
 	hint,
 	nested,
 	onOpen,
 }: {
 	row: Needing;
-	/** Its project's name. */
-	project: string;
 	/** Its agent's name; null for an external one. */
 	agent: string | null;
 	hint: string | null;
@@ -189,9 +182,6 @@ export function ForeignItem({
 				>
 					{name}
 				</span>
-			</span>
-			<span className="max-w-20 shrink-0 truncate text-muted-foreground text-xs">
-				{project}
 			</span>
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>

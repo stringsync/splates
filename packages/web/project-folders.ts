@@ -1,10 +1,10 @@
 /**
- * Every project's agents as the sidebar and the phone's inbox group them,
- * one project at a time: those waiting on you, whatever their project, in
- * one Needs you, then the page's own project's pinned agents, then those at
- * work, then the rest, then each other project with agents, which the lists
- * show as one line that switches to it. Only the grouping: each list draws
- * its own rows.
+ * Every project's agents as the sidebar and the phone's inbox group them: a
+ * folder per project, the page's own first, then every other with agents by
+ * name, each with its agents waiting on you on top, then its pinned ones,
+ * then those at work, then the rest. What waits on you stays in its own
+ * project, so reading down one never jumps to another's. Only the grouping:
+ * each list draws its own rows.
  */
 
 import type { LaneRecord } from "@stringsync/splates-server/board";
@@ -25,14 +25,15 @@ import type { Nested } from "./parts";
 /**
  * Every project's agents in folders, the page's own from `here`, which
  * shows a change at once, and the rest from the feed of every project.
- * The page's own folder is there even with no agents, to start one in.
+ * The page's own folder comes first, there even with no agents, to start
+ * one in.
  */
 export function foldersOf(
 	projects: readonly EverywhereSummary[],
 	tasks: readonly InProject<Details>[],
 	conversations: readonly InProject<ConversationState>[],
 	here: Here,
-): Folders {
+): Folder[] {
 	const listed = projects.map((project) =>
 		project.root === here.root
 			? folder(project.project, here, null, null, true)
@@ -62,17 +63,10 @@ export function foldersOf(
 				one.name.localeCompare(other.name) ||
 				(one.project ?? "").localeCompare(other.project ?? ""),
 		);
-	const ownFolder = folders.find((each) => each.here);
-	if (ownFolder === undefined) {
-		throw new Error("no folder for the page's own project");
-	}
-	return {
-		needsYou: folders.flatMap((each) =>
-			each.waiting.map((tree) => ({ folder: each, tree })),
-		),
-		here: ownFolder,
-		others: folders.filter((each) => !each.here),
-	};
+	return [
+		...folders.filter((each) => each.here),
+		...folders.filter((each) => !each.here),
+	];
 }
 
 /** One project's agents. */
@@ -100,30 +94,16 @@ export interface Folder {
 	 * reads every row, those the list leaves out too.
 	 */
 	hosting: Set<string>;
-	/** The trees with an agent waiting on you, which Needs you lists in its place. */
+	/** The trees with an agent waiting on you, which its header counts. */
 	waiting: Nested<Needing>[];
 	/**
-	 * The other trees with none waiting, as the folder lists them: the pinned
-	 * ones, then those with an agent at work, then the rest, each newest first.
+	 * Its trees as the folder lists them: those waiting on you, then the
+	 * pinned ones, then those with an agent at work, then the rest, each
+	 * newest first.
 	 */
 	listed: Nested<Needing>[];
 	/** How many of its trees have an agent at work. */
 	atWork: number;
-}
-
-/** A tree in Needs you, with the folder it comes from. */
-export interface Placed {
-	folder: Folder;
-	tree: Nested<Needing>;
-}
-
-export interface Folders {
-	/** Every folder's waiting trees, folder by folder. */
-	needsYou: Placed[];
-	/** The project the page shows. */
-	here: Folder;
-	/** By name, the other projects with visible conversations. */
-	others: Folder[];
 }
 
 /** The page's own project, as its snapshot and conversation feed have it. */
@@ -136,7 +116,7 @@ export interface Here {
 }
 
 /** The page's own project in a folder of its own, for a page without the feed. */
-export function hereAlone(here: Here): Folders {
+export function hereAlone(here: Here): Folder[] {
 	return foldersOf([], [], [], here);
 }
 
@@ -195,7 +175,32 @@ function folder(
 		trees: shown(trees),
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),
-		listed: shown([...pinned, ...working, ...recent]),
+		listed: shown([...waiting, ...pinned, ...working, ...recent]),
 		atWork: shownIn(trees).filter(atWork).length,
 	};
 }
+
+/** How many of another project's trees show before its "N more". */
+const SHOWN_ELSEWHERE = 5;
+
+/**
+ * What `folder` lists: every tree for the page's own project, or once
+ * `expanded`; else those waiting on you and then the rest up to a few, with
+ * how many more it holds.
+ */
+export function shownTrees(
+	folder: Folder,
+	expanded: boolean,
+): { trees: Nested<Needing>[]; more: number } {
+	if (folder.here || expanded) {
+		return { trees: folder.listed, more: 0 };
+	}
+	const count = Math.max(SHOWN_ELSEWHERE, folder.waiting.length);
+	return {
+		trees: folder.listed.slice(0, count),
+		more: Math.max(0, folder.listed.length - count),
+	};
+}
+
+/** Where this browser keeps which projects the sidebar and the inbox fold away. */
+export const FOLDED_FOLDERS = "splates.sidebar.collapsed";

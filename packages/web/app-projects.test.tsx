@@ -63,14 +63,14 @@ describe("App's projects", () => {
 		sessionStorage.clear();
 	});
 
-	it("opens the switcher on ⌃⌘P, narrows it as you type, and goes to the pick on Enter", async () => {
+	it("opens the switcher on ⌥⌘O, narrows it as you type, and goes to the pick on Enter", async () => {
 		const view = await testing.open();
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "p",
-				code: "KeyP",
-				ctrlKey: true,
+				key: "ø",
+				code: "KeyO",
+				altKey: true,
 				metaKey: true,
 			}),
 		);
@@ -215,9 +215,9 @@ describe("App's projects", () => {
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "p",
-				code: "KeyP",
-				ctrlKey: true,
+				key: "ø",
+				code: "KeyO",
+				altKey: true,
 				metaKey: true,
 			}),
 		);
@@ -249,9 +249,9 @@ describe("App's projects", () => {
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "p",
-				code: "KeyP",
-				ctrlKey: true,
+				key: "ø",
+				code: "KeyO",
+				altKey: true,
 				metaKey: true,
 			}),
 		);
@@ -264,9 +264,9 @@ describe("App's projects", () => {
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "p",
-				code: "KeyP",
-				ctrlKey: true,
+				key: "ø",
+				code: "KeyO",
+				altKey: true,
 				metaKey: true,
 			}),
 		);

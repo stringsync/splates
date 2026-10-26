@@ -17,7 +17,6 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { AddProject } from "./add-project";
 import { NavigationContext } from "./navigation";
-import { forgetUsed } from "./new-conversation-project";
 import { forgetProject } from "./project-api";
 import type { Folder } from "./project-folders";
 import { projectUrl } from "./project-places";
@@ -105,7 +104,6 @@ export function useRemoveProject(
 		setBusy(true);
 		try {
 			const next = await forgetProject(slug);
-			forgetUsed(slug);
 			setOpen(false);
 			if (folder.here) {
 				const url = new URL(location.href);

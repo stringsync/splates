@@ -29,7 +29,6 @@ export function Row({
 	depth,
 	agent,
 	hosting,
-	project,
 	foreign,
 	onOpen,
 }: {
@@ -40,8 +39,6 @@ export function Row({
 	agent: string | null;
 	/** Whether an agent it handed a task to is at work. */
 	hosting: boolean;
-	/** The project to name after it, as Needs you does; null to name none. */
-	project: string | null;
 	/** Whether it is another project's, which this page holds no menu for. */
 	foreign: boolean;
 	onOpen: () => void;
@@ -115,11 +112,6 @@ export function Row({
 							{name}
 						</span>
 					</span>
-					{project !== null && (
-						<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
-							{project}
-						</span>
-					)}
 					{moved !== null && (
 						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 							{moved}

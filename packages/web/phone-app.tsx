@@ -6,11 +6,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 } from "#web/components/ui/dropdown-menu.tsx";
+import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { OfflinePill, useFreshness } from "./freshness";
 import { MergeBadge } from "./merge-badge";
-import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
@@ -73,8 +73,7 @@ export function PhoneApp({
 	pageMenu: PageMenu;
 }): JSX.Element {
 	const [drawer, setDrawer] = useState(false);
-	// In the project the last one started in, which may be another's page.
-	const openNew = useOpenNew((open) => go("conversations", open));
+	const openNew = (open: string = NEW) => go("conversations", open);
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
 		talk,
@@ -97,123 +96,113 @@ export function PhoneApp({
 			</>
 		);
 	return (
-		<ShownRoot value={snapshot?.root ?? null}>
-			<div className="min-h-dvh">
-				{page === "conversations" && open === null ? (
-					<TopBarFrame value={kebab}>
-						<Inbox
-							feed={talk}
-							drafts={drafts}
-							terminals={terminals}
-							tasks={snapshot?.tasks ?? []}
-							here={
-								snapshot === null
-									? null
-									: {
-											root: snapshot.root,
-											repo: snapshot.repo,
-											trunk: snapshot.trunk,
-										}
-							}
-							loading={snapshot === null}
-							status={status}
-							onMenu={menu}
-							onOpen={(id) => go("conversations", id)}
-						/>
-					</TopBarFrame>
-				) : page === "conversations" ? (
-					<Screen
-						// A thread reaches across the right padding, so its scrollbar
-						// sits at the screen's edge (`--thread-bleed-end`).
-						className="px-1 [--thread-bleed-end:--spacing(1)]"
+		<div className="min-h-dvh">
+			{page === "conversations" && open === null ? (
+				<TopBarFrame value={kebab}>
+					<Inbox
+						feed={talk}
+						drafts={drafts}
+						terminals={terminals}
+						tasks={snapshot?.tasks ?? []}
+						here={
+							snapshot === null
+								? null
+								: {
+										root: snapshot.root,
+										repo: snapshot.repo,
+										trunk: snapshot.trunk,
+									}
+						}
+						loading={snapshot === null}
+						status={status}
+						onMenu={menu}
+						onOpen={(id) => go("conversations", id)}
+					/>
+				</TopBarFrame>
+			) : page === "conversations" ? (
+				<Screen
+					// A thread reaches across the right padding, so its scrollbar
+					// sits at the screen's edge (`--thread-bleed-end`).
+					className="px-1 [--thread-bleed-end:--spacing(1)]"
+				>
+					{/* Every conversation's way back counts how many others wait. */}
+					<TopBarFrame
+						value={{
+							...kebab,
+							// An update is for the screens above a conversation.
+							dot: undefined,
+							badge: snapshot !== null && (
+								<WaitingBadge feed={talk} tasks={snapshot.tasks} open={open} />
+							),
+						}}
 					>
-						{/* Every conversation's way back counts how many others wait. */}
-						<TopBarFrame
-							value={{
-								...kebab,
-								// An update is for the screens above a conversation.
-								dot: undefined,
-								badge: snapshot !== null && (
-									<WaitingBadge
-										feed={talk}
-										tasks={snapshot.tasks}
-										open={open}
-									/>
-								),
-							}}
-						>
-							{body}
-						</TopBarFrame>
-					</Screen>
-				) : (
-					<div>
-						{/* The page's own bar lands in the middle, as every other's
+						{body}
+					</TopBarFrame>
+				</Screen>
+			) : (
+				<div>
+					{/* The page's own bar lands in the middle, as every other's
 					    does beside a sidebar. */}
-						<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
-							<span className="relative flex shrink-0">
-								<BarButton label="Open menu" onClick={menu}>
-									<MenuIcon />
-								</BarButton>
-								{snapshot !== null && (
-									<WaitingBadge
-										feed={talk}
-										tasks={snapshot.tasks}
-										open={null}
-									/>
-								)}
-							</span>
-							<div
-								ref={setSlot}
-								className="flex min-w-0 flex-1 items-center gap-1"
-							/>
-						</header>
-						<TopBarFrame
-							value={{
-								...kebab,
-								menu: (
-									<>
-										{available && (
-											<>
-												<DropdownMenuItem onClick={() => openNew()}>
-													<SquarePenIcon />
-													New conversation
-												</DropdownMenuItem>
-												<DropdownMenuSeparator />
-											</>
-										)}
-										{pageMenu.items}
-									</>
-								),
-								slot,
-								status,
-								project: name,
-							}}
-						>
-							{body}
-						</TopBarFrame>
-					</div>
-				)}
-				<Drawer
-					open={drawer}
-					onOpenChange={setDrawer}
-					header={header}
-					name={name}
-					page={page}
-					conversation={open}
-					available={available}
-					waiting={waiting}
-					archived={conversations.filter((each) => each.archived).length}
-					orphans={
-						available && snapshot !== null
-							? orphanCount(snapshot.tasks, conversations)
-							: 0
-					}
-					snapshot={snapshot}
-					update={pageMenu.dot}
-					onGo={go}
-				/>
-			</div>
-		</ShownRoot>
+					<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
+						<span className="relative flex shrink-0">
+							<BarButton label="Open menu" onClick={menu}>
+								<MenuIcon />
+							</BarButton>
+							{snapshot !== null && (
+								<WaitingBadge feed={talk} tasks={snapshot.tasks} open={null} />
+							)}
+						</span>
+						<div
+							ref={setSlot}
+							className="flex min-w-0 flex-1 items-center gap-1"
+						/>
+					</header>
+					<TopBarFrame
+						value={{
+							...kebab,
+							menu: (
+								<>
+									{available && (
+										<>
+											<DropdownMenuItem onClick={() => openNew()}>
+												<SquarePenIcon />
+												New conversation
+											</DropdownMenuItem>
+											<DropdownMenuSeparator />
+										</>
+									)}
+									{pageMenu.items}
+								</>
+							),
+							slot,
+							status,
+							project: name,
+						}}
+					>
+						{body}
+					</TopBarFrame>
+				</div>
+			)}
+			<Drawer
+				open={drawer}
+				onOpenChange={setDrawer}
+				header={header}
+				name={name}
+				page={page}
+				conversation={open}
+				available={available}
+				waiting={waiting}
+				archived={conversations.filter((each) => each.archived).length}
+				orphans={
+					available && snapshot !== null
+						? orphanCount(snapshot.tasks, conversations)
+						: 0
+				}
+				snapshot={snapshot}
+				update={pageMenu.dot}
+				onGo={go}
+			/>
+		</div>
 	);
 }
 

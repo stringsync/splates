@@ -62,7 +62,6 @@ import { type Drafts, newDraft } from "./drafts";
 import { useTouch } from "./hooks/use-touch";
 import { Orphaned } from "./list-rows";
 import { NamedContext } from "./mentioned";
-import { rememberProject, rememberShown } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { limitsOf, PlanLimits } from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";
@@ -242,9 +241,6 @@ export function useNewConversation({
 			feed.put(state);
 			drafts.started(draft);
 			rememberAuto(auto);
-			if (root !== null) {
-				rememberShown(root);
-			}
 			const answered = await promptConversation(
 				id,
 				prompt,
@@ -337,10 +333,7 @@ export function useNewConversation({
 			servers={false}
 			className="mx-0"
 			hash={`#conversations/${withDraft(auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`, identity)}`}
-			onPick={(each) => {
-				drafts.move(draft, newDraft(each.slug, null, identity));
-				rememberProject(each);
-			}}
+			onPick={(each) => drafts.move(draft, newDraft(each.slug, null, identity))}
 		/>
 	);
 	return {

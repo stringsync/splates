@@ -15,6 +15,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useState,
 } from "react";
 import {
 	Empty,
@@ -38,19 +39,25 @@ import {
 import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
+import { useFolded } from "./folded";
 import { InboxLoading, StaleRows } from "./freshness";
 import { NavigationContext } from "./navigation";
-import {
-	newConversationUrl,
-	projectUrl,
-	useOpenNew,
-} from "./new-conversation-project";
+import { newConversationUrl } from "./new-conversation-project";
 import type { Nested } from "./parts";
-import { Group, OtherProjects, ProjectSection } from "./phone-inbox-groups";
+import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { clearUndo, useUndoOffer } from "./phone-undo";
 import { AddProjectButton } from "./project-controls";
-import { type Folder, foldersOf, groupsOf } from "./project-folders";
+import {
+	FOLDED_FOLDERS,
+	type Folder,
+	folderKey,
+	foldersOf,
+	groupsOf,
+	shownTrees,
+} from "./project-folders";
+import { useProjectName } from "./project-places";
+import { ProjectSwitcher } from "./projects";
 import { Refusal, useRefusal } from "./refusal";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
@@ -63,18 +70,19 @@ import { BarButton, TopBar } from "./top-bar";
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
- * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen starts a new
- * conversation. Under each conversation, as in
+ * left archives it, asking first as Archive does. The project's name in the
+ * bar switches projects, its shortcut too, and the pen starts a new
+ * conversation in the project shown. Under each conversation, as in
  * the sidebar, sit its terminal while its shell is up and each command its
  * agent left running, each opening the conversation with it on the screen.
  * The main tree's terminals come last, to go back to or close.
  *
- * With the feed of every project to be had, the groups are the sidebar's, one
- * project at a time: those waiting on you, whatever their project, in Needs
- * you on top, each naming its project, then the page's own project, its
- * agents at work first, its + starting a conversation there, then a line for
- * each other project that switches the page to it. Another project's row
- * only opens, by switching the page to that project.
+ * With the feed of every project to be had, the groups are the sidebar's: a
+ * folder per project, the page's own first, each with those waiting on you
+ * on top, another's a few rows then "N more". A folder folds away as the
+ * sidebar's does, and its + starts a conversation there. Another project's
+ * row opens by switching the page to that project, which becomes the one
+ * shown everywhere.
  *
  * Beside a sidebar, `onMenu` null, it is the page the sidebar's Inbox opens:
  * under the shell's bar, with no menu and no composer along the bottom, the
@@ -118,8 +126,8 @@ export function Inbox({
 		["changed"],
 	);
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
-	// In the project the last one started in, which may be another's page.
-	const openNew = useOpenNew(onOpen);
+	const openNew = () => onOpen(NEW);
+	const name = useProjectName(here?.repo);
 	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
 	const { trees, hosting, waiting, pinned, working, recent } = useMemo(() => {
 		const rows = rowsOf(tasks, conversations);
@@ -174,6 +182,8 @@ export function Inbox({
 		],
 	);
 	const navigation = useContext(NavigationContext);
+	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 	// An undo offered by a swipe lasts while you stay here and do nothing else.
 	useEffect(() => {
 		// Deferred, so StrictMode's remount in development keeps the offer.
@@ -193,15 +203,17 @@ export function Inbox({
 		}
 		onOpen(openedBy(row));
 	};
-	const switchTo = (folder: Folder) => {
-		if (folder.project !== null) {
-			navigation.show(projectUrl(folder.project));
+	const startIn = (folder: Folder) => {
+		if (folder.here || folder.project === null) {
+			onOpen(NEW);
+		} else {
+			navigation.show(newConversationUrl(folder.project));
 		}
 	};
 	const empty =
 		grouped === null
 			? trees.length === 0
-			: grouped.here.trees.length === 0 && grouped.others.length === 0;
+			: grouped.every((folder) => folder.trees.length === 0);
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (
@@ -221,7 +233,21 @@ export function Inbox({
 						</BarButton>
 					)
 				}
-				title={wide ? "Inbox" : status}
+				title={
+					wide ? (
+						"Inbox"
+					) : (
+						<>
+							<ProjectSwitcher
+								name={name}
+								bar
+								servers={false}
+								className="mx-0"
+							/>
+							{status}
+						</>
+					)
+				}
 				actions={[
 					{
 						label: "New conversation",
@@ -262,49 +288,50 @@ export function Inbox({
 								agentOf: (each) => agentName(agents, each.agent),
 							}}
 						>
-							{grouped === null ? (
-								[
-									["Needs you", waiting],
-									["Pinned", pinned],
-									["Working", working],
-									["Recent", recent],
-								].map(([title, group]) => (
-									<Fragment key={String(title)}>
-										<Group
-											title={String(title)}
-											items={(group as Nested<Needing>[]).map((tree) => ({
-												tree,
-												folder: null,
-												hosting,
-											}))}
-											agents={agents}
-											urgent={title === "Needs you"}
-											beneath={beneath}
-											onOpen={open}
-										/>
-									</Fragment>
-								))
-							) : (
-								<>
-									<Group
-										title="Needs you"
-										items={grouped.needsYou}
-										agents={agents}
-										urgent
-										named
-										beneath={beneath}
-										onOpen={open}
-									/>
-									<ProjectSection
-										folder={grouped.here}
-										onNew={available ? () => onOpen(NEW) : null}
-										agents={agents}
-										beneath={beneath}
-										onOpen={open}
-									/>
-									<OtherProjects folders={grouped.others} onSwitch={switchTo} />
-								</>
-							)}
+							{grouped === null
+								? [
+										["Needs you", waiting],
+										["Pinned", pinned],
+										["Working", working],
+										["Recent", recent],
+									].map(([title, group]) => (
+										<Fragment key={String(title)}>
+											<Group
+												title={String(title)}
+												items={(group as Nested<Needing>[]).map((tree) => ({
+													tree,
+													folder: null,
+													hosting,
+												}))}
+												agents={agents}
+												urgent={title === "Needs you"}
+												beneath={beneath}
+												onOpen={open}
+											/>
+										</Fragment>
+									))
+								: grouped.map((folder) => {
+										const key = folderKey(folder);
+										const { trees, more } = shownTrees(
+											folder,
+											expanded.has(key),
+										);
+										return (
+											<ProjectSection
+												key={key}
+												folder={folder}
+												trees={trees}
+												more={more}
+												onMore={() => setExpanded(new Set(expanded).add(key))}
+												open={!folded.has(key)}
+												onFold={(open) => fold(key, open)}
+												onNew={available ? () => startIn(folder) : null}
+												agents={agents}
+												beneath={beneath}
+												onOpen={open}
+											/>
+										);
+									})}
 							<TerminalGroup
 								mains={mains}
 								nameOf={(key) => terminals.nameOf(key)}

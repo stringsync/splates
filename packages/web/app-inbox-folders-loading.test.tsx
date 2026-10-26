@@ -68,9 +68,7 @@ describe("App's folders while every project's listing is on its way", () => {
 			testing.everywhereStream?.named?.get("projects")?.({ data: "" }),
 		);
 
-		await waitFor(() =>
-			within(nav).getByRole("region", { name: "Other projects" }),
-		);
+		await waitFor(() => within(nav).getByRole("region", { name: "zebra" }));
 		expect(
 			within(nav).queryByRole("status", { name: "Loading conversations" }),
 		).toBeNull();
@@ -90,15 +88,13 @@ describe("App's folders while every project's listing is on its way", () => {
 		const view = await testing.openConversations(mine, null);
 
 		const nav = agentList(view);
-		const others = await waitFor(() =>
-			within(nav).getByRole("region", { name: "Other projects" }),
+		const zebra = await waitFor(() =>
+			within(nav).getByRole("region", { name: "zebra" }),
 		);
 		expect(
 			within(nav).queryByRole("status", { name: "Loading conversations" }),
 		).toBeNull();
-		expect(
-			within(others).getByRole("button", { name: /^zebra/ }).textContent,
-		).toBe("zebra1 at work");
+		expect(within(zebra).getByText("Stripes")).toBeTruthy();
 	});
 
 	it("draws the other projects in a phone's inbox from the copy kept last time before the server lists every project", async () => {
@@ -111,14 +107,12 @@ describe("App's folders while every project's listing is on its way", () => {
 		const view = await testing.openConversations(mine, null);
 
 		const inbox = view.getByRole("region", { name: "inbox" });
-		const others = await waitFor(() =>
-			within(inbox).getByRole("region", { name: "Other projects" }),
+		const zebra = await waitFor(() =>
+			within(inbox).getByRole("region", { name: "zebra" }),
 		);
 		expect(
 			within(inbox).queryByRole("status", { name: "Loading inbox" }),
 		).toBeNull();
-		expect(
-			within(others).getByRole("button", { name: /^zebra/ }).textContent,
-		).toBe("zebra1 at work");
+		expect(within(zebra).getByText("Stripes")).toBeTruthy();
 	});
 });

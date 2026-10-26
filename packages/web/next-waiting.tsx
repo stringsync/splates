@@ -106,11 +106,11 @@ function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
 				everywhere.tasks,
 				everywhere.conversations,
 				{ ...here, tasks, conversations },
-			).needsYou.flatMap(({ folder, tree }) => {
+			).flatMap((folder) => {
 				const { project } = folder;
 				return folder.here || project === null
 					? []
-					: flatten([tree])
+					: flatten(folder.waiting)
 							.filter((row) => waitsOnYou(row))
 							.map((row) => newConversationUrl(project, openedBy(row)));
 			})
