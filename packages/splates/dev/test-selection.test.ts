@@ -94,7 +94,7 @@ describe("focused development tests", () => {
 	it("runs a gate's two halves side by side on its cores between them", async () => {
 		ps.setEnv({ SPLATES_CORES: "8" });
 
-		await runTests({ ...opts, freeMemoryMb: () => 64_000 });
+		await runTests(opts);
 
 		expect(ps.getCalls()).toEqual([
 			expect.stringMatching(/--parallel=3 .*packages\/web\/\*\*$/),

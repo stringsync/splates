@@ -76,9 +76,7 @@ waited (or the gate runs in a batch's stacked checkout).
   machine's splates home). Counted as the person's, it held back-to-back
   gates to 8 workers (web tests 42.6s, against 30.3s at 11 to 12;
   2026-10-26). Elsewhere `dev test` runs half the cores.
-  Either way `dev test` lowers each half's count to what half of free memory
-  holds at the half's measured worker cost (`dev/worker-memory.ts`; an
-  agent's run takes a quarter), never below 1.
+  Test workers use that CPU allocation directly, without a free-memory cap.
 - `Testing` strips both.
 
 14 workers with the load at 32 took 148 to 170s and timed out, 8 took 63 to

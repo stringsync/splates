@@ -97,7 +97,7 @@ run-command permission card for anything else heavy, running it only on
 - Since 2026-10-26 the two run side by side (`sideBySide` in `dev/test.ts`),
   their workers adding up to the cores, three fifths to the page's
   (`PAGE_SHARE`, from a day of gate phases: server 27.7s, page 42.3s, one
-  after the other), and free memory split the same way. Each one's output
+  after the other), with no free-memory cap. Each one's output
   prints whole as it ends. A gate logs each half's time `within` a `tests`
   phase, its peak memory under `tests`, and leaves the halves out of
   `setup`. A run of one worker, as a focused one, or one given `--workers`
@@ -142,14 +142,10 @@ run-command permission card for anything else heavy, running it only on
   the full run's peak footprint from 573 to 432 MB and the pending timers to
   under ten.
 
-- Memory budget, 2026-10-25: each half's worker count is the cores rule or
-  floor(free memory × share / cost), whichever is fewer, never below 1;
-  the cost is `WORKER_COST_MB` (server 600, page 450; how to re-measure is
-  beside it in `dev/worker-memory.ts`), the share a quarter of free memory
-  for an agent's run and half for a gate (`SPLATES_CORES` set). Free memory
-  is `os.freemem()`, which on macOS counts only never-used pages, so it
-  reads low and errs safe. The readout says `(set by free memory)` when it
-  set the count; `--workers <n>` skips the rule.
+- The free-memory worker cap was removed on 2026-10-26: macOS reported
+  little unused memory even with reclaimable pages available, reducing gates
+  to one worker and causing timeouts. Worker counts now follow the CPU
+  allocation above.
 
 ## Where
 
@@ -157,6 +153,5 @@ run-command permission card for anything else heavy, running it only on
 - `packages/splates/dev/priority.ts`: `AgentPriority`
 - `packages/splates/dev/peak-memory.ts`: `PeakMemory`, `footprintKb`
 - `packages/server/plans/run-command.ts`: `isWholeSuite`
-- `packages/splates/dev/worker-memory.ts`: `budgetedWorkers`, `WORKER_COST_MB`
 - `packages/web/test-preload.ts`
 - `splates.config.ts`: `preMerge`

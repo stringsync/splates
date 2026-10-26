@@ -17,7 +17,6 @@ import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { type ScopeCount, TestScope } from "./test-scope";
 import { TestTimings } from "./timings";
-import { budgetedWorkers, freeMemoryMb } from "./worker-memory";
 
 /**
  * How long a test run may take. Tests should not hang this long, even under
@@ -124,21 +123,6 @@ export async function test(opts: TestOptions): Promise<void> {
 			: gate > 0
 				? gate
 				: Math.max(1, Math.floor(availableParallelism() / 2)));
-	// Free memory caps the count too, per half, since a page worker and a
-	// server worker cost differently (`WORKER_COST_MB`); `--workers` is the
-	// person's word and is left alone. Side by side, a half takes its cores
-	// and their part of free memory.
-	const workersFor = (half: "server" | "page", its: number) =>
-		opts.workers !== undefined
-			? { workers: its, byMemory: false }
-			: budgetedWorkers({
-					cores: its,
-					half,
-					gate: gate > 0,
-					freeMb: Math.floor(
-						((opts.freeMemoryMb ?? freeMemoryMb)() * its) / cores,
-					),
-				});
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
 	const report = ps.env("SPLATES_TEST_REPORT");
@@ -210,13 +194,12 @@ export async function test(opts: TestOptions): Promise<void> {
 	let failed = false;
 	const reports: (string | null)[] = runs.map(() => null);
 	const printed: string[][] = runs.map(() => []);
-	const runOne = async (at: number, its: number) => {
+	const runOne = async (at: number, workers: number) => {
 		const run = runs[at];
 		if (!run) {
 			return;
 		}
 		const { phase, args, half } = run;
-		const { workers, byMemory } = workersFor(half, its);
 		const ordered = (await timings
 			?.forRun(half, measures ? scratch.path : undefined)
 			.catch(() => null)) ?? { args: [], kept: async () => {} };
@@ -273,7 +256,6 @@ export async function test(opts: TestOptions): Promise<void> {
 			took: Duration.ms(performance.now() - started),
 			workers,
 			peakMb,
-			byMemory,
 		});
 		if (opts.quiet) {
 			printed[at]?.push(`${summary}\n`);
@@ -411,8 +393,6 @@ export interface TestOptions {
 	phases?: PhaseTimer;
 	/** What measures each bun run's peak memory; sampled through `ps` when left out. */
 	memory?: PeakMemory;
-	/** What reads free memory in megabytes, `os.freemem()` when left out. */
-	freeMemoryMb?: () => number;
 	/** Where a whole run's per-file timings are kept; the repository's common git dir when left out, none when null. */
 	timings?: TestTimings | null;
 }
