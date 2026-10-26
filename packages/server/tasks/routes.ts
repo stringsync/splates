@@ -1,4 +1,6 @@
 // scry-ignore-file doc-comments-address-users: its imports moved to server/; it predates the rule
+
+import { SystemTimer } from "webappwiz/time";
 import { movedPath } from "../config";
 import type { Conversations } from "../conversations";
 import { fail } from "../exit";
@@ -6,6 +8,7 @@ import { mergeEstimates, TaskBranches } from "../merge";
 import type { Project, ProjectWatch } from "../server/shared";
 import { fileResponse, MEDIA_TYPES, refuse } from "../server/shared";
 import { editorOf } from "./editors";
+import { mergeOutput } from "./merge-output";
 import { inTree } from "./open";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
@@ -19,6 +22,7 @@ export class TaskRoutes {
 	readonly #project: Project;
 	readonly #conversations: Conversations | null;
 	readonly #watch: ProjectWatch;
+	readonly #timer = new SystemTimer();
 
 	constructor(
 		project: Project,
@@ -115,6 +119,26 @@ export class TaskRoutes {
 	// under way, from as far back in the journal as a few hundred tasks reach.
 	readonly mergeEstimates = async (): Promise<Response> =>
 		Response.json(mergeEstimates(await this.#project.journal.tail(5000)));
+
+	// What a step of a task's merge under way printed, as it prints it, for
+	// the merge card's step to open: its checks, or its premerge.
+	readonly mergeOutput = async (request: Request): Promise<Response> => {
+		const [, , , task = "", , index = ""] = new URL(request.url).pathname.split(
+			"/",
+		);
+		const { service, fs } = this.#project;
+		const output = await mergeOutput(
+			{ service, fs, timer: this.#timer },
+			decodeURIComponent(task),
+			Number.parseInt(index, 10),
+		);
+		if (output === null) {
+			return refuse(404, "not_found", "that merge step printed nothing here");
+		}
+		return new Response(output, {
+			headers: { "content-type": "text/plain; charset=utf-8" },
+		});
+	};
 
 	// One finished task with the SPLATES.md it ended on.
 	readonly finishedTask = async (request: Request): Promise<Response> => {

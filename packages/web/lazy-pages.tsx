@@ -130,6 +130,10 @@ export const BackgroundPane = onDemand(async () => ({
 	default: (await import("./background-pane")).BackgroundPane,
 }));
 
+export const MergeOutputPane = onDemand(async () => ({
+	default: (await import("./background-pane")).MergeOutputPane,
+}));
+
 export const Todos = onDemand(async () => ({
 	default: (await import("./todos")).Todos,
 }));

@@ -1,4 +1,5 @@
 import type { MergeEstimates } from "@stringsync/splates-server/merge";
+import type { Event, GatePhases } from "@stringsync/splates-server/records";
 import type {
 	Details,
 	LivePhase,
@@ -7,8 +8,11 @@ import type {
 import { MERGE_STEPS } from "@stringsync/splates-server/tasks/browser";
 import { placeInLine } from "./merge-place";
 
-/** Where a step or phase of a merge stands: over, under way, or to come. */
-export type Standing = "done" | "running" | "next";
+/**
+ * Where a step or phase of a merge stands: over, under way, or to come; or,
+ * once the merge was refused, the step it was refused at.
+ */
+export type Standing = "done" | "running" | "next" | "failed";
 
 /** A phase of the premerge, with those it runs beside its siblings inside. */
 export interface PhaseRow {
@@ -32,6 +36,8 @@ export interface StepRow {
 	typical: number | null;
 	/** The premerge's phases, on its last run. */
 	phases: PhaseRow[];
+	/** Its index among the merge's steps when it ran a command whose output the server keeps; null otherwise. */
+	output: number | null;
 }
 
 /**
@@ -66,6 +72,7 @@ export function mergeChecklist(
 				index === lastTest
 					? phaseRows(progress.phases ?? [], running, now, estimates)
 					: [],
+			output: each.output === undefined ? null : index,
 		};
 	});
 	const gated = task.gate !== null;
@@ -89,12 +96,76 @@ export function mergeChecklist(
 				ms: null,
 				typical: estimates?.steps[step] ?? null,
 				phases: [],
+				output: null,
 			}),
 		),
 	];
 }
 
-function labelOf(task: Details, step: MergeStep, running: boolean): string {
+/**
+ * The checklist of a merge that ended, from what its event kept: each step it
+ * took, its time summed across retests, and its last premerge's phases; the
+ * step it ended in marked failed when it was `refused`. Empty for an event
+ * from before it kept its steps.
+ */
+export function endedChecklist(
+	event: Pick<MergeEvent, "base" | "stepsMs" | "gate">,
+	refused: boolean,
+): StepRow[] {
+	const ms = event.stepsMs ?? {};
+	const taken = MERGE_STEPS.filter((step) => ms[step] !== undefined);
+	const base = event.base ?? "the base";
+	return taken.map((step, index) => {
+		const failed = refused && index === taken.length - 1;
+		return {
+			step,
+			label: labelOf({ base, mergePlace: null }, step, false),
+			standing: failed ? "failed" : "done",
+			ms: ms[step] ?? null,
+			typical: null,
+			phases: step === "test" ? gatePhaseRows(event.gate, failed) : [],
+			output: null,
+		};
+	});
+}
+
+type MergeEvent = Extract<Event, { action: "merge" }>;
+
+/**
+ * A whole gate's phases as rows, those run inside another under it, setup
+ * left out. A gate that `failed` stopped in the last it ran, marked so.
+ */
+function gatePhaseRows(
+	gate: GatePhases | undefined,
+	failed: boolean,
+): PhaseRow[] {
+	const within = gate?.within ?? {};
+	const names = Object.keys(gate?.ms ?? {}).filter((name) => name !== "setup");
+	const row = (phase: string): PhaseRow => ({
+		phase,
+		standing: "done",
+		ms: gate?.ms[phase] ?? null,
+		typical: null,
+		inside: [],
+	});
+	const tops = names.filter((name) => {
+		const parent = within[name];
+		return parent === undefined || !names.includes(parent);
+	});
+	return tops.map((top, index) => ({
+		...row(top),
+		...(failed && index === tops.length - 1
+			? { standing: "failed" as const }
+			: {}),
+		inside: names.filter((name) => within[name] === top).map(row),
+	}));
+}
+
+function labelOf(
+	task: Pick<Details, "base" | "mergePlace">,
+	step: MergeStep,
+	running: boolean,
+): string {
 	switch (step) {
 		case "rebase":
 			return `Rebase onto ${task.base}`;

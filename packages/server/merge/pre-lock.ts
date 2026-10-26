@@ -34,6 +34,7 @@ export async function refuseFailedChecks(
 		onto,
 		testedHead,
 		lastBase,
+		output,
 	}: {
 		task: string;
 		branch: string;
@@ -42,10 +43,12 @@ export async function refuseFailedChecks(
 		onto: string;
 		testedHead: string;
 		lastBase: string | null;
+		/** The file the checks print to as they run. */
+		output?: string;
 	},
 	facts: Partial<Facts["merge"]>,
 ): Promise<void> {
-	const checked = await runner.checkBeforeLock(cwd, task);
+	const checked = await runner.checkBeforeLock(cwd, task, output);
 	await state.requireLease();
 	if (checked.exitCode === 0) {
 		return;

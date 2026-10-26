@@ -378,6 +378,15 @@ describe.concurrent("merge", () => {
 		});
 		expect(await deps.fs.exists(join(worktree, "gate-ran"))).toBe(false);
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
+		// What the checks printed as they ran, for the merge card to open.
+		const gitDir = await deps.gitCli(
+			worktree,
+			"rev-parse",
+			"--absolute-git-dir",
+		);
+		expect(await deps.fs.read(`${gitDir}/splates-merge-1-check.log`)).toBe(
+			"bad-check\n",
+		);
 
 		deps.config.preLock = "true";
 		deps.config.preMerge = 'git rev-parse HEAD | grep -q "$SPLATES_CHECKED"';
@@ -404,6 +413,18 @@ describe.concurrent("merge", () => {
 		});
 		// It named no test, so what the gate printed is all there is to show.
 		expect(facts.output).toBe("boom-from-tests");
+		const gitDir = await deps.gitCli(
+			worktree,
+			"rev-parse",
+			"--absolute-git-dir",
+		);
+		const printed = (await deps.fs.readdir(gitDir)).filter((name) =>
+			/^splates-merge-\d+-test\.log$/.test(name),
+		);
+		expect(printed).toHaveLength(1);
+		expect(await deps.fs.read(`${gitDir}/${printed[0]}`)).toBe(
+			"boom-from-tests\n",
+		);
 		expect(await deps.gitCli(worktree, "rev-parse", "HEAD~1")).toBe(
 			trunkBefore,
 		);

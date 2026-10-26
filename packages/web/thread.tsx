@@ -53,7 +53,7 @@ import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
-import { MergeProgress } from "./merge-progress";
+import { MergeCardContext } from "./merge-card";
 import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
@@ -186,6 +186,7 @@ function Conversation({
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],
 	);
+	const mergeCard = useMemo(() => ({ conversation: id, task }), [id, task]);
 	const section = useRef<HTMLElement>(null);
 	const reply = useReply(id, drafts, send);
 	const typed = useTyped(runtime);
@@ -310,7 +311,6 @@ function Conversation({
 						phone={onBack !== null}
 					/>
 				)}
-				{task !== null && <MergeProgress task={task} phone={onBack !== null} />}
 				<PhoneSheets
 					conversation={id}
 					on={onBack !== null}
@@ -325,104 +325,106 @@ function Conversation({
 										widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
 								}}
 							>
-								<AssistantRuntimeProvider runtime={runtime}>
-									<Composing.Provider value={runtime.thread.composer}>
-										<UnsentContext.Provider value={unsentActions}>
-											<QuestionsUI />
-											<ReviewUI />
-											<ReportUI />
-											<TodoUI />
-											<PermissionUI />
-											<DemoUI />
-											<WorkUI />
-											<QueuedUI />
-											<GoingUI />
-											<EventUI />
-											<StoppedUI />
-											<CompactionUI />
-											<BackgroundUI />
-											<RestedUI />
-											<InterruptedUI />
-											<EvalsConversation value={id}>
-												<SuiteGrant value={suite}>
-													<ArchiveConversation
-														value={archivable ? fileAway : null}
-													>
-														<ArchiveOfferProvider value={offer}>
-															<StartNewContext value={startNew}>
-																<ReplyContext value={reply}>
-																	<NamedContext value={named}>
-																		<ThreadView
-																			docked
-																			historyFailure={historyFailure}
-																			onRead={onRead}
-																			autoFocus={
-																				summary !== true && (!asking || typed)
-																			}
-																			stopping={stopping}
-																			going={going}
-																			mentions={mentions ?? undefined}
-																			references={references}
-																			commands={commands ?? undefined}
-																			placeholder={
-																				archived
-																					? "Send a message to unarchive and continue"
-																					: undefined
-																			}
-																			controls={
-																				!archived && (
+								<MergeCardContext value={mergeCard}>
+									<AssistantRuntimeProvider runtime={runtime}>
+										<Composing.Provider value={runtime.thread.composer}>
+											<UnsentContext.Provider value={unsentActions}>
+												<QuestionsUI />
+												<ReviewUI />
+												<ReportUI />
+												<TodoUI />
+												<PermissionUI />
+												<DemoUI />
+												<WorkUI />
+												<QueuedUI />
+												<GoingUI />
+												<EventUI />
+												<StoppedUI />
+												<CompactionUI />
+												<BackgroundUI />
+												<RestedUI />
+												<InterruptedUI />
+												<EvalsConversation value={id}>
+													<SuiteGrant value={suite}>
+														<ArchiveConversation
+															value={archivable ? fileAway : null}
+														>
+															<ArchiveOfferProvider value={offer}>
+																<StartNewContext value={startNew}>
+																	<ReplyContext value={reply}>
+																		<NamedContext value={named}>
+																			<ThreadView
+																				docked
+																				historyFailure={historyFailure}
+																				onRead={onRead}
+																				autoFocus={
+																					summary !== true && (!asking || typed)
+																				}
+																				stopping={stopping}
+																				going={going}
+																				mentions={mentions ?? undefined}
+																				references={references}
+																				commands={commands ?? undefined}
+																				placeholder={
+																					archived
+																						? "Send a message to unarchive and continue"
+																						: undefined
+																				}
+																				controls={
+																					!archived && (
+																						<>
+																							<ContextMeter
+																								usage={conversation.usage}
+																								compactions={compactionsIn(
+																									conversation.messages,
+																								)}
+																							/>
+																							<SettingControls
+																								agent={conversation.agent}
+																								autoPick={autoPick}
+																								settings={settings}
+																								current={(setting) =>
+																									setting.current
+																								}
+																								onChange={choose}
+																							/>
+																						</>
+																					)
+																				}
+																				above={
 																					<>
-																						<ContextMeter
-																							usage={conversation.usage}
-																							compactions={compactionsIn(
-																								conversation.messages,
-																							)}
-																						/>
-																						<SettingControls
-																							agent={conversation.agent}
-																							autoPick={autoPick}
-																							settings={settings}
-																							current={(setting) =>
-																								setting.current
-																							}
-																							onChange={choose}
-																						/>
-																					</>
-																				)
-																			}
-																			above={
-																				<>
-																					<NeedsYouBar />
+																						<NeedsYouBar />
 
-																					<Refusal
-																						refusal={refusal}
-																						className="px-2"
-																					/>
-																					{offer !== null && barred && (
-																						<ArchiveBar offer={offer} />
-																					)}
-																					{conversation.ask !== null && (
-																						<AskPanel
-																							key={conversation.ask.id}
-																							drafts={drafts}
-																							conversation={conversation}
-																							agent={agent}
-																							ask={conversation.ask}
+																						<Refusal
+																							refusal={refusal}
+																							className="px-2"
 																						/>
-																					)}
-																				</>
-																			}
-																		/>
-																	</NamedContext>
-																</ReplyContext>
-															</StartNewContext>
-														</ArchiveOfferProvider>
-													</ArchiveConversation>
-												</SuiteGrant>
-											</EvalsConversation>
-										</UnsentContext.Provider>
-									</Composing.Provider>
-								</AssistantRuntimeProvider>
+																						{offer !== null && barred && (
+																							<ArchiveBar offer={offer} />
+																						)}
+																						{conversation.ask !== null && (
+																							<AskPanel
+																								key={conversation.ask.id}
+																								drafts={drafts}
+																								conversation={conversation}
+																								agent={agent}
+																								ask={conversation.ask}
+																							/>
+																						)}
+																					</>
+																				}
+																			/>
+																		</NamedContext>
+																	</ReplyContext>
+																</StartNewContext>
+															</ArchiveOfferProvider>
+														</ArchiveConversation>
+													</SuiteGrant>
+												</EvalsConversation>
+											</UnsentContext.Provider>
+										</Composing.Provider>
+									</AssistantRuntimeProvider>
+								</MergeCardContext>
 								<Widgets
 									phone={onBack !== null}
 									roomy={widgets.roomy}

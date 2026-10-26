@@ -32,16 +32,31 @@ export function MergeFailedLine({
 			<SplatesEvent
 				event={{ ...view, act: { label: "Why", run: () => setOpen(true) } }}
 			/>
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
-					<DialogHeader>
-						<DialogTitle>Merge failed: {event.task ?? ""}</DialogTitle>
-						<DialogDescription>{worded(event)}</DialogDescription>
-					</DialogHeader>
-					<Why event={event} />
-				</DialogContent>
-			</Dialog>
+			<MergeWhy event={event} open={open} onOpenChange={setOpen} />
 		</>
+	);
+}
+
+/** The dialog a refused merge's Why opens. */
+export function MergeWhy({
+	event,
+	open,
+	onOpenChange,
+}: {
+	event: MergeEvent;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}): JSX.Element {
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+				<DialogHeader>
+					<DialogTitle>Merge failed: {event.task ?? ""}</DialogTitle>
+					<DialogDescription>{worded(event)}</DialogDescription>
+				</DialogHeader>
+				<Why event={event} />
+			</DialogContent>
+		</Dialog>
 	);
 }
 

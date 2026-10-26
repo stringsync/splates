@@ -26,7 +26,11 @@ export function BackgroundPane({
 	onClose: () => void;
 }): JSX.Element {
 	const [output] = useState(
-		() => new BackgroundOutput(conversation, background.id, background.command),
+		() =>
+			new BackgroundOutput(
+				`/api/conversations/${conversation}/background/${encodeURIComponent(background.id)}`,
+				background.command,
+			),
 	);
 	useEffect(() => () => output.dispose(), [output]);
 	const { status } = useReactive(
@@ -87,6 +91,84 @@ export function BackgroundPane({
 						{stopping ? "Stopping" : "Stop"}
 					</Button>
 				)}
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label="Close"
+					title="Close (Escape)"
+					onClick={onClose}
+				>
+					<XIcon />
+				</Button>
+			</header>
+			<Output
+				output={output}
+				className="min-h-0 flex-1 overflow-hidden rounded-lg bg-[#0a0a0a] p-2"
+			/>
+		</aside>
+	);
+}
+
+/**
+ * What step `index` of `task`'s merge printed, its checks or its premerge,
+ * in the same pane, following it while it runs.
+ */
+export function MergeOutputPane({
+	task,
+	index,
+	label,
+	running,
+	phone,
+	onClose,
+}: {
+	task: string;
+	index: number;
+	label: string;
+	running: boolean;
+	phone: boolean;
+	onClose: () => void;
+}): JSX.Element {
+	const [output] = useState(
+		() =>
+			new BackgroundOutput(
+				`/api/tasks/${encodeURIComponent(task)}/merge-output/${index}`,
+			),
+	);
+	useEffect(() => () => output.dispose(), [output]);
+	const { status } = useReactive(
+		output,
+		(output) => ({ status: output.status }),
+		["changed"],
+	);
+	useEffect(() => {
+		const close = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				onClose();
+			}
+		};
+		window.addEventListener("keydown", close);
+		return () => window.removeEventListener("keydown", close);
+	}, [onClose]);
+	return (
+		<aside
+			aria-label="merge step output"
+			className={cn(
+				"fixed z-40 flex flex-col gap-2 bg-background p-3",
+				phone ? "inset-0" : cn("inset-y-0 right-0 border-l", PANE_WIDTH),
+			)}
+		>
+			<header className="flex min-h-8 items-center gap-2">
+				<StateMark state={running ? "running" : "completed"} />
+				<h2 className="min-w-0 flex-1 truncate font-medium text-sm">{label}</h2>
+				<span role="status" className="text-muted-foreground text-xs">
+					{status === "closed"
+						? running
+							? "Disconnected"
+							: "Gone"
+						: running
+							? "Running"
+							: "Done"}
+				</span>
 				<Button
 					size="icon-sm"
 					variant="ghost"

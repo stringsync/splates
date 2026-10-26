@@ -689,6 +689,9 @@ export async function dev(
 					"/api/open": { POST: talk(scoped((project) => project.open)) },
 					"/api/paths": scoped((project) => project.paths),
 					"/api/tasks/:task/diff": scoped((project) => project.diff),
+					"/api/tasks/:task/merge-output/:index": scoped(
+						(project) => project.mergeOutput,
+					),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
 					"/api/finished/:key": scoped((project) => project.finishedTask),

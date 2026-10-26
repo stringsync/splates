@@ -281,7 +281,12 @@ describe("merge concurrency", () => {
 			expect((await record()).mergeSteps).toEqual({
 				steps: [
 					{ step: "rebase", at: expect.any(String) },
-					{ step: "test", at: expect.any(String) },
+					{
+						step: "test",
+						at: expect.any(String),
+						// What the premerge prints, for the merge card to follow.
+						output: expect.stringMatching(/\/splates-merge-1-test\.log$/),
+					},
 				],
 				phases: [{ phase: "biome", at: "2026-10-26T10:00:00.000Z" }],
 			});

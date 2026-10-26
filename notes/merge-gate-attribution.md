@@ -19,6 +19,11 @@ task for them all when several fail together and none is pinned on the code.
 - Before taking the merge-tree lock it waits for the machine's premerge lock
   (`premerge-lock.md`).
 - It is killed past 3 minutes.
+- What `preLock` and the whole gate print goes, as it prints, to
+  `splates-merge-<n>-<step>.log` in the task's git dir, named on its step in
+  `mergeSteps` as `output`; `/api/tasks/:task/merge-output/:n` follows it
+  while the step runs, for the merge card's step to open in the side pane.
+  Retests write none, and the files go with the worktree.
 - There is no runner pool, remote job or heavy-job slot.
 
 ## Attribution

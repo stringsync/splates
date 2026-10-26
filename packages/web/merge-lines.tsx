@@ -1,6 +1,7 @@
 import type { Event } from "@stringsync/splates-server/records";
-import type { JSX } from "react";
+import { type JSX, useContext } from "react";
 import { lineOf } from "./event-lines";
+import { EndedMergeCard, LiveMergeCard, MergeCardContext } from "./merge-card";
 import { MergeFailedLine } from "./merge-failed-line";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
 
@@ -14,11 +15,15 @@ export function isMergeStep(event: Event): event is MergeStep {
 
 /**
  * A merge as it goes, from its first step and the `also` folded into it: a
- * "Merge queued" line counting up while it waits for the premerge lock,
- * keeping the wait once it has it, then a "Merge started" line counting up
- * while it runs, which becomes "Merged" or "Merge failed" with its run time.
- * A merge that had the lock at once has only the second line. A step left
- * without an end once its turn is over was cut off: "Merge interrupted".
+ * card of its steps while this conversation's task merges, folded once it
+ * ends to "Merged" or "Merge failed" with its run time, opening to the steps
+ * it took. Where there is no card to draw, a merge in a thread whose task is
+ * gone or one from before its event kept its steps, it is lines: a "Merge
+ * queued" line counting up while it waits for the premerge lock, keeping the
+ * wait once it has it, then a "Merge started" line counting up while it
+ * runs, which becomes "Merged" or "Merge failed" with its run time. A merge
+ * that had the lock at once has only the second line. A step left without
+ * an end once its turn is over was cut off: "Merge interrupted".
  */
 export function MergeLines({
 	first,
@@ -41,6 +46,26 @@ export function MergeLines({
 	const end =
 		also.find((each): each is EventOf<"merge"> => each.action === "merge") ??
 		null;
+	const card = useContext(MergeCardContext);
+	const task = card?.task ?? null;
+	if (end !== null && end.stepsMs !== undefined) {
+		return (
+			<EndedMergeCard
+				end={end}
+				ms={Date.parse(end.at) - Date.parse(first.at)}
+			/>
+		);
+	}
+	if (
+		end === null &&
+		going &&
+		card !== null &&
+		task !== null &&
+		task.task === first.task &&
+		task.mergeSteps !== null
+	) {
+		return <LiveMergeCard task={task} conversation={card.conversation} />;
+	}
 	return (
 		<>
 			{queued !== null && (

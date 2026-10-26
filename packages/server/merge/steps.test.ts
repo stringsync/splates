@@ -23,6 +23,25 @@ describe("MergeSteps", () => {
 		});
 	});
 
+	it("names the file a step prints to, kept once the step under way is given one", () => {
+		const steps = new MergeSteps(new FakeClock());
+		steps.enter("rebase");
+
+		expect(steps.outputOf("/git", "check")).toBe(
+			"/git/splates-merge-1-check.log",
+		);
+		steps.enter("test");
+		expect(steps.outputOf("/git", "test")).toBe(
+			"/git/splates-merge-1-test.log",
+		);
+		expect(
+			steps.enter("test", "/git/splates-merge-1-test.log").steps[1]?.output,
+		).toBe("/git/splates-merge-1-test.log");
+		expect(steps.enter("test", "/other.log").steps[1]?.output).toBe(
+			"/git/splates-merge-1-test.log",
+		);
+	});
+
 	it("keeps the premerge's phases past it, until another premerge starts", () => {
 		const steps = new MergeSteps(new FakeClock());
 		steps.enter("test");

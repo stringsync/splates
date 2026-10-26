@@ -156,9 +156,15 @@ export async function merge(
 		mergeSteps: steps.enter("rebase"),
 		...(runner.command ? { gate: "queued" as const } : {}),
 	});
-	const enter = async (step: MergeStep) => {
-		worktree = await worktree.save({ mergeSteps: steps.enter(step) });
+	const enter = async (step: MergeStep, output?: string) => {
+		worktree = await worktree.save({ mergeSteps: steps.enter(step, output) });
 	};
+	// The checks and the premerge print into the task's git directory, for
+	// the page to follow as they run; it goes with the worktree.
+	const gitDir = (
+		await git.out(worktree.path, "rev-parse", "--absolute-git-dir")
+	).trim();
+	const outputOf = (step: MergeStep) => steps.outputOf(gitDir, step);
 	const onPhases = async (phases: LivePhase[]) => {
 		worktree = await worktree.save({ mergeSteps: steps.phased(phases) });
 	};
@@ -217,7 +223,7 @@ export async function merge(
 				worktree = await worktree.save({
 					gate: "running",
 					mergePlace: undefined,
-					mergeSteps: steps.enter("test"),
+					mergeSteps: steps.enter("test", outputOf("test")),
 				});
 			}
 			if (started) {
@@ -231,7 +237,8 @@ export async function merge(
 			facts.began = queued ?? begun ?? null;
 		};
 		if (runner.command && runner.preLock) {
-			await enter("check");
+			const output = outputOf("check");
+			await enter("check", output);
 			await refuseFailedChecks(
 				{ git, service, state, log, runner },
 				{
@@ -242,6 +249,7 @@ export async function merge(
 					onto: firstOnto,
 					testedHead: ownHead,
 					lastBase: rebase.lastBase ?? null,
+					output,
 				},
 				facts,
 			);
@@ -409,12 +417,14 @@ export async function merge(
 				},
 			};
 			const cwd = checkout?.path ?? worktree.path;
+			const output = outputOf("test");
 			if (runner.command) {
-				await enter("test");
+				await enter("test", output);
 			}
 			let gated = await runner.run(cwd, task, {
 				recent: await recentFailedFiles(journal),
 				onPhases,
+				output,
 			});
 			await state.requireLease();
 			if (gated.timedOut) {
@@ -457,7 +467,7 @@ export async function merge(
 				log.error(attribution.why);
 				if (attribution.kind === "flake") {
 					await onPhases([]);
-					gated = await runner.run(cwd, task, { onPhases });
+					gated = await runner.run(cwd, task, { onPhases, output });
 					if (gated.exitCode !== 0) {
 						// A selective pass cannot excuse a later failure anywhere in the
 						// complete gate. Keep the tree out without spending an attempt.

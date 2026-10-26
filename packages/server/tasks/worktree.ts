@@ -404,8 +404,11 @@ export interface LivePhase {
 
 /** How far the merge under way has got, as `TaskState.mergeSteps` keeps it. */
 export interface MergeProgress {
-	/** Each step it reached, in order, with when it began; the last runs now. */
-	steps: { step: MergeStep; at: string }[];
+	/**
+	 * Each step it reached, in order, with when it began; the last runs now.
+	 * A step that runs a command names the file it prints to, `output`.
+	 */
+	steps: { step: MergeStep; at: string; output?: string }[];
 	/** The premerge's phases so far, while it tests. */
 	phases?: LivePhase[];
 }

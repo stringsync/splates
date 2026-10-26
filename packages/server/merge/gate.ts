@@ -14,6 +14,7 @@ import {
 import type { LivePhase } from "../tasks";
 import type { Shell } from "../terminal";
 import type { GateTrail } from "./cores";
+import { OutputFile } from "./output";
 import { TimedPhases } from "./phases";
 import type { MergeTiming } from "./timing";
 
@@ -118,15 +119,21 @@ export class MergeGate {
 	 * the whole gate to skip once it passed on this commit. Needs neither the
 	 * lock nor the cores, so it is not timed as the gate and holds nothing.
 	 */
-	async checkBeforeLock(cwd: string, task: string): Promise<GateRun> {
+	async checkBeforeLock(
+		cwd: string,
+		task: string,
+		output?: string,
+	): Promise<GateRun> {
 		const command = this.config.preLock;
 		if (!command) {
 			return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 		}
 		const head = (await this.git.out(cwd, "rev-parse", "HEAD")).trim();
+		await using printed = this.printed(output);
 		const run = await this.shell.run(command, cwd, {
 			env: { SPLATES_TASK: task, SPLATES_WORKTREE: cwd },
 			timeoutMs: 180_000,
+			...(printed === null ? {} : { watcher: printed.watcher }),
 		});
 		if (run.exitCode === 0) {
 			this.checked = head;
@@ -136,6 +143,11 @@ export class MergeGate {
 
 	/** The commit the `preLock` checks passed on, if they did. */
 	private checked: string | undefined;
+
+	/** The file a command's output goes to as it prints, when given one. */
+	private printed(output: string | undefined): OutputFile | null {
+		return output === undefined ? null : new OutputFile(this.fs, output);
+	}
 
 	/** How long the whole gate may run before it is killed. */
 	get timeout(): Duration {
@@ -152,7 +164,8 @@ export class MergeGate {
 	 * Runs the gate in `cwd`, or just the test `files` of a retest, which with
 	 * `at` run on that commit of the repository instead. The whole gate runs
 	 * the `recent` test files that failed earlier gates before the rest, and
-	 * tells `onPhases` its phases as they start and end.
+	 * tells `onPhases` its phases as they start and end, and what it prints to
+	 * the file at `output`.
 	 */
 	async run(
 		cwd: string,
@@ -162,11 +175,13 @@ export class MergeGate {
 			at,
 			recent,
 			onPhases,
+			output,
 		}: {
 			files?: string[];
 			at?: string;
 			recent?: string[];
 			onPhases?: OnPhases;
+			output?: string;
 		} = {},
 	): Promise<GateRun> {
 		using _time = this.timing.track("gateMs");
@@ -177,7 +192,13 @@ export class MergeGate {
 			if (files === undefined ? !this.command : false) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 			}
-			return await this.runHere(cwd, task, { files, at, recent, onPhases });
+			return await this.runHere(cwd, task, {
+				files,
+				at,
+				recent,
+				onPhases,
+				output,
+			});
 		} catch (error) {
 			return { exitCode: 1, stdout: "", stderr: String(error), xml: "" };
 		}
@@ -192,11 +213,13 @@ export class MergeGate {
 			at,
 			recent,
 			onPhases,
+			output,
 		}: {
 			files?: string[];
 			at?: string;
 			recent?: string[];
 			onPhases?: OnPhases;
+			output?: string;
 		},
 	): Promise<GateRun> {
 		if (at !== undefined) {
@@ -237,7 +260,7 @@ export class MergeGate {
 			}
 			return result;
 		}
-		return this.runIn(cwd, task, files, recent, onPhases);
+		return this.runIn(cwd, task, files, recent, onPhases, output);
 	}
 
 	/**
@@ -277,6 +300,7 @@ export class MergeGate {
 		files: string[] | undefined,
 		recent: string[] = [],
 		onPhases?: OnPhases,
+		output?: string,
 	): Promise<GateRun> {
 		const gitDir = (
 			await this.git.out(cwd, "rev-parse", "--absolute-git-dir")
@@ -301,7 +325,9 @@ export class MergeGate {
 			files === undefined ? onPhases : undefined,
 			phases,
 		);
+		await using printed = this.printed(output);
 		const run = await this.shell.run(command, cwd, {
+			...(printed === null ? {} : { watcher: printed.watcher }),
 			env: {
 				SPLATES_TASK: task,
 				SPLATES_WORKTREE: cwd,

@@ -39,12 +39,12 @@ export class BackgroundOutput
 	private readonly reading = new AbortController();
 
 	/**
-	 * Background command `background` of conversation `conversation`, led by
-	 * `command` after a `$` as a shell would echo it, where it has one.
+	 * What the server streams at `path`: a background command's output, or a
+	 * merge step's. Led by `command` after a `$` as a shell would echo it,
+	 * where it has one.
 	 */
 	constructor(
-		readonly conversation: string,
-		readonly background: string,
+		readonly path: string,
 		readonly command: string | null = null,
 	) {
 		this.element.className = "h-full w-full";
@@ -91,12 +91,9 @@ export class BackgroundOutput
 
 	private async read(): Promise<void> {
 		try {
-			const response = await fetch(
-				scoped(
-					`/api/conversations/${this.conversation}/background/${encodeURIComponent(this.background)}`,
-				),
-				{ signal: this.reading.signal },
-			);
+			const response = await fetch(scoped(this.path), {
+				signal: this.reading.signal,
+			});
 			if (!response.ok || response.body === null) {
 				this.set("closed");
 				return;

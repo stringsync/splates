@@ -12,7 +12,7 @@ import {
 import { ChangesPane } from "./changes";
 import { focusComposer } from "./composer-editor";
 import type { ConversationFeed } from "./conversation-feed";
-import { BackgroundPane } from "./lazy-pages";
+import { BackgroundPane, MergeOutputPane } from "./lazy-pages";
 import type { Page } from "./page-route";
 import { TerminalPane } from "./terminal";
 import type { Terminals } from "./terminals";
@@ -23,6 +23,8 @@ export interface SidePanes {
 	review: (task: string) => void;
 	/** Opens the output of command `background` conversation `conversation` left running. */
 	watch: (conversation: string, background: string) => void;
+	/** Opens what a step of a task's merge printed, from its card in `conversation`. */
+	watchMerge: WatchMergeStep;
 	/** Whether `conversation`'s shell has a job running. */
 	shellRunning: (conversation: string) => boolean;
 	/** Shows or hides `conversation`'s terminal, in place of another pane. */
@@ -119,6 +121,11 @@ export function useSidePanes({
 		conversation: string;
 		background: string;
 	} | null>(null);
+	// The merge step whose output is open beside the page, from its card in
+	// a conversation, in place of that conversation's terminal.
+	const [following, setFollowing] = useState<
+		Parameters<WatchMergeStep>[0] | null
+	>(null);
 	// The conversation up, unless archived, whose terminal the pane shows when the changes
 	// do not have it.
 	const shown =
@@ -143,22 +150,37 @@ export function useSidePanes({
 			? (shown.background.find((each) => each.id === watching.background) ??
 				null)
 			: null;
+	const followed =
+		shown !== null && following?.conversation === shown.id ? following : null;
 	const watch = useCallback(
 		(conversation: string, background: string) => {
 			setReviewing(null);
+			setFollowing(null);
 			terminals.hide();
 			setWatching({ conversation, background });
 		},
 		[terminals],
 	);
+	const watchMerge = useCallback<WatchMergeStep>(
+		(step) => {
+			setReviewing(null);
+			setWatching(null);
+			terminals.hide();
+			setFollowing(step);
+		},
+		[terminals],
+	);
 	const closeWatching = useCallback(() => setWatching(null), []);
+	const closeFollowing = useCallback(() => setFollowing(null), []);
 	const review = useCallback((task: string) => {
 		setWatching(null);
+		setFollowing(null);
 		setReviewing(task);
 	}, []);
 	const showTerminal = useCallback(
 		(conversation: string) => {
 			setWatching(null);
+			setFollowing(null);
 			setReviewing(null);
 			terminals.show(conversation);
 		},
@@ -166,7 +188,7 @@ export function useSidePanes({
 	);
 	const toggleTerminal = useCallback(
 		(conversation: string) => {
-			if (watched !== null || reviewing !== null) {
+			if (watched !== null || followed !== null || reviewing !== null) {
 				showTerminal(conversation);
 				return;
 			}
@@ -175,7 +197,7 @@ export function useSidePanes({
 				focusComposer();
 			}
 		},
-		[watched, reviewing, showTerminal, terminals],
+		[watched, followed, reviewing, showTerminal, terminals],
 	);
 	const shownId = shown?.id ?? null;
 	const watchedId = watched?.id ?? null;
@@ -198,6 +220,7 @@ export function useSidePanes({
 	const paned =
 		reviewed !== undefined ||
 		watched !== null ||
+		followed !== null ||
 		(shown !== null && terminal === shown.id);
 	const pane =
 		reviewed !== undefined ? (
@@ -207,6 +230,16 @@ export function useSidePanes({
 				version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
 				phone={!wide}
 				onClose={() => setReviewing(null)}
+			/>
+		) : followed !== null ? (
+			<MergeOutputPane
+				key={`${followed.task}:${followed.index}`}
+				task={followed.task}
+				index={followed.index}
+				label={followed.label}
+				running={stepRunning(snapshot, followed.task, followed.index)}
+				phone={!wide}
+				onClose={closeFollowing}
 			/>
 		) : watched !== null && shown !== null ? (
 			<BackgroundPane
@@ -231,6 +264,7 @@ export function useSidePanes({
 	return {
 		review,
 		watch,
+		watchMerge,
 		shellRunning,
 		toggleTerminal,
 		showTerminal,
@@ -242,4 +276,23 @@ export function useSidePanes({
 		paned,
 		pane,
 	};
+}
+
+/** Opens what step `index` of `task`'s merge printed, named `label`, from its card in `conversation`. */
+export type WatchMergeStep = (step: {
+	conversation: string;
+	task: string;
+	index: number;
+	label: string;
+}) => void;
+
+/** Whether step `index` of `task`'s merge is the one under way. */
+function stepRunning(
+	snapshot: Snapshot | null,
+	task: string,
+	index: number,
+): boolean {
+	const steps = snapshot?.tasks.find((each) => each.task === task)?.mergeSteps
+		?.steps;
+	return steps !== undefined && index === steps.length - 1;
 }

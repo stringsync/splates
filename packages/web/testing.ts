@@ -376,6 +376,10 @@ export class Testing implements Resource {
 				return Response.json(this.tree);
 			}
 
+			// No recent merges, so a merge card shows only its own times.
+			if (route === "/api/merge-estimates") {
+				return Response.json({ steps: {}, phases: [], merges: 0 });
+			}
 			if (route === "/api/finished") {
 				return Response.json(
 					this.finished.map(({ plan: _, ...facts }) => facts),
