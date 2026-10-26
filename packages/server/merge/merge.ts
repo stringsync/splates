@@ -127,6 +127,7 @@ export async function merge(
 	const base = worktree.base;
 	facts.base = base;
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
+	facts.conflictsLeft = config.mergeConflictCount - worktree.conflictAttempts;
 	facts.failedTests = [];
 	facts.began = null;
 	delete facts.failureAttribution;

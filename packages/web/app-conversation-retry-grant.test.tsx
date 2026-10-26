@@ -30,6 +30,7 @@ describe("App's grant of merge attempts", () => {
 		base: "main",
 		mergeAttempts: 5,
 		mergeAttemptLimit: 5,
+		budgetSpent: true,
 	});
 
 	const exhausted: Event = {
@@ -108,7 +109,7 @@ describe("App's grant of merge attempts", () => {
 				},
 			],
 			"c1",
-			{ tasks: [{ ...spent, mergeAttempts: 0 }] },
+			{ tasks: [{ ...spent, mergeAttempts: 0, budgetSpent: false }] },
 		);
 		await waitFor(() => expect(view.getByRole("button", { name: "Why" })));
 		expect(view.queryByRole("button", { name: /Grant/ })).toBeNull();

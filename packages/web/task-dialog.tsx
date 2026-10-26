@@ -312,6 +312,12 @@ function Facts({
 		"Merges tried",
 		`${task.mergeAttempts} of ${task.mergeAttemptLimit}`,
 	]);
+	if (task.conflictAttempts > 0) {
+		facts.push([
+			"Conflicts",
+			`${task.conflictAttempts} of ${task.conflictAttemptLimit}`,
+		]);
+	}
 	if (task.age !== null) {
 		facts.push(["Started", `${task.age} ago`]);
 	}

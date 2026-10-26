@@ -272,7 +272,10 @@ describe.concurrent("merge", () => {
 		expect(await deps.gitCli(worktree, "status", "--porcelain")).toContain(
 			"UU README.md",
 		);
-		expect((await deps.service.find("alpha")).state?.mergeAttempts).toBe(1);
+		expect((await deps.service.find("alpha")).state).toMatchObject({
+			mergeAttempts: 0,
+			conflictAttempts: 1,
+		});
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
@@ -289,7 +292,7 @@ describe.concurrent("merge", () => {
 		await expect(merge(deps, worktree)).toBail("conflict", {
 			message: "README.md",
 		});
-		expect((await deps.service.find("alpha")).state?.mergeAttempts).toBe(1);
+		expect((await deps.service.find("alpha")).state?.conflictAttempts).toBe(1);
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(true);
 	});
 
@@ -755,6 +758,20 @@ describe.concurrent("merge", () => {
 		await deps.finish(worktree.path);
 		await expect(merge(deps, worktree.path)).toBail("budget_exhausted", {
 			message: "splates retry alpha",
+		});
+	});
+
+	it("stops once the conflict budget is spent, with merge attempts left", async () => {
+		await using deps = await Testing.open();
+
+		deps.config.mergeConflictCount = 2;
+		await add(deps, "alpha");
+		const worktree = await deps.service.find("alpha");
+		await worktree.save({ conflictAttempts: 2 });
+
+		await deps.finish(worktree.path);
+		await expect(merge(deps, worktree.path)).toBail("budget_exhausted", {
+			message: "2 conflicted rebases",
 		});
 	});
 

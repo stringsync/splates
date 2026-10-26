@@ -68,7 +68,7 @@ function useGrant(event: MergeEvent): {
 		task !== null &&
 		task.task === event.task &&
 		task.status === "working" &&
-		task.mergeAttempts >= task.mergeAttemptLimit;
+		task.budgetSpent;
 	if (event.reason !== "budget_exhausted" || task === null) {
 		return null;
 	}
@@ -89,7 +89,10 @@ function useGrant(event: MergeEvent): {
 	};
 	return {
 		act: {
-			label: `Grant ${task.mergeAttemptLimit} more`,
+			label:
+				task.mergeAttempts >= task.mergeAttemptLimit
+					? `Grant ${task.mergeAttemptLimit} more`
+					: `Grant ${task.conflictAttemptLimit} more`,
 			run,
 			done: granted ? "Granted" : null,
 		},
@@ -187,10 +190,16 @@ function Why({ event }: { event: MergeEvent }): JSX.Element {
 					<Printed text={output} />
 				</Part>
 			)}
-			{event.attemptsLeft !== undefined && (
+			{event.reason === "conflict" && event.conflictsLeft !== undefined ? (
 				<p className="text-muted-foreground">
-					{attemptsLeft(event.attemptsLeft)}
+					{conflictsLeft(event.conflictsLeft)}
 				</p>
+			) : (
+				event.attemptsLeft !== undefined && (
+					<p className="text-muted-foreground">
+						{attemptsLeft(event.attemptsLeft)}
+					</p>
+				)
 			)}
 		</div>
 	);
@@ -269,4 +278,11 @@ function attemptsLeft(left: number): string {
 	return shown === 1
 		? "1 merge attempt left."
 		: `${shown} merge attempts left.`;
+}
+
+function conflictsLeft(left: number): string {
+	const shown = Math.max(0, left);
+	return shown === 1
+		? "1 conflicted rebase left."
+		: `${shown} conflicted rebases left.`;
 }

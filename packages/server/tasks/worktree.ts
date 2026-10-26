@@ -123,6 +123,23 @@ export class Worktree {
 		return this.service.config.mergeRetryCount;
 	}
 
+	get conflictAttempts(): number {
+		return this.snapshot.state?.conflictAttempts ?? 0;
+	}
+
+	/** How many conflicted rebases a task gets before `merge` stops on `budget_exhausted`. */
+	get conflictAttemptLimit(): number {
+		return this.service.config.mergeConflictCount;
+	}
+
+	/** Whether either budget is spent, so only `retry` lets it merge again. */
+	get budgetSpent(): boolean {
+		return (
+			this.mergeAttempts >= this.mergeAttemptLimit ||
+			this.conflictAttempts >= this.conflictAttemptLimit
+		);
+	}
+
 	get exists(): boolean {
 		return this.snapshot.exists;
 	}
@@ -482,6 +499,11 @@ export interface TaskState {
 	status: RecordStatus;
 	lease: LeaseState | null;
 	mergeAttempts: number;
+	/**
+	 * Conflicted rebases since the last `retry`, spent from their own
+	 * budget instead of `mergeAttempts`. Absent in old records: none.
+	 */
+	conflictAttempts?: number;
 	/**
 	 * How many merges failed in all, those before a `retry` gave the
 	 * attempts back too. Absent in old records: none counted yet.

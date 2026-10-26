@@ -39,7 +39,9 @@ export class MergeState {
 		const by = worktree.state?.mergeFailuresBy ?? {};
 		await worktree.take({
 			status: "working",
-			mergeAttempts: worktree.mergeAttempts + 1,
+			...(reason === "conflict"
+				? { conflictAttempts: worktree.conflictAttempts + 1 }
+				: { mergeAttempts: worktree.mergeAttempts + 1 }),
 			mergeFailures: (worktree.state?.mergeFailures ?? 0) + 1,
 			mergeFailuresBy: { ...by, [reason]: (by[reason] ?? 0) + 1 },
 			gateFailures: [

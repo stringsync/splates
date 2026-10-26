@@ -182,6 +182,7 @@ const STARTED = {
 	base: true,
 	lease: true,
 	mergeAttempts: true,
+	conflictAttempts: true,
 	mergeFailures: true,
 	mergeFailuresBy: true,
 	gateFailures: true,

@@ -33,6 +33,7 @@ describe("WorktreeService", () => {
 			on: {},
 			leaseStalenessMs: 90_000,
 			mergeRetryCount: 2,
+			mergeConflictCount: 3,
 			removedCapacity: 50,
 			finishedCapacity: 500,
 			logCapacity: 200,

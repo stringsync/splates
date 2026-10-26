@@ -73,6 +73,7 @@ function defaults(root: string, trunk: string): Config {
 		on: {},
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 5,
+		mergeConflictCount: 10,
 		removedCapacity: 50,
 		finishedCapacity: 500,
 		logCapacity: 1000,

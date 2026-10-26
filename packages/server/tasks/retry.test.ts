@@ -25,6 +25,22 @@ describe("retry", () => {
 		});
 	});
 
+	it("gives a task that spent its conflicted rebases both budgets back", async () => {
+		await add(deps, "alpha");
+		const spent = await deps.service.find("alpha");
+		await spent.save({
+			mergeAttempts: 1,
+			conflictAttempts: deps.config.mergeConflictCount,
+		});
+
+		await retry(deps, "alpha");
+
+		expect((await deps.service.find("alpha")).state).toMatchObject({
+			mergeAttempts: 0,
+			conflictAttempts: 0,
+		});
+	});
+
 	it("hands back the attempts the task had spent before the grant", async () => {
 		await add(deps, "alpha");
 		const spent = await deps.service.find("alpha");
@@ -39,7 +55,7 @@ describe("retry", () => {
 		await add(deps, "alpha");
 
 		await expect(retry(deps, "alpha")).toBail("usage", {
-			message: "only a task that spent them all",
+			message: "only a task that spent one budget",
 		});
 		expect((await deps.service.find("alpha")).state?.status).toBe("working");
 	});

@@ -228,7 +228,7 @@ describe("merge concurrency", () => {
 		expect(facts.retests).toBe(1);
 		expect(facts.gateMs).toBeGreaterThan(0);
 		expect(facts.durationMs).toBeGreaterThan(facts.gateMs ?? 0);
-		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
+		expect((await deps.service.find("alpha")).conflictAttempts).toBe(1);
 		expect(await deps.git.conflictedPaths(alpha)).toEqual(["alpha.txt"]);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});

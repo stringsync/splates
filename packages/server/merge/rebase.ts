@@ -9,7 +9,8 @@ import { indent, tail } from "./refusal";
  * Rebases a task onto its base's tip, as a merge does before waiting for
  * the gate and again after, so a conflict with what landed meanwhile stops
  * the merge before the wait, and the gate tests what lands. Either way a
- * conflict is one refusal and one charged attempt, since it ends the merge.
+ * conflict is one refusal, charged to the conflict budget rather than the
+ * merge attempts, since it is the base moving more than the task failing.
  */
 export class BaseRebase {
 	/**
@@ -89,7 +90,11 @@ export class BaseRebase {
 			if (paths.length === 0) {
 				this.facts.output = MergeState.said(output);
 			}
-			this.facts.attemptsLeft = (this.facts.attemptsLeft ?? 1) - 1;
+			if (reason === "conflict") {
+				this.facts.conflictsLeft = (this.facts.conflictsLeft ?? 1) - 1;
+			} else {
+				this.facts.attemptsLeft = (this.facts.attemptsLeft ?? 1) - 1;
+			}
 			fail(
 				reason,
 				paths.length > 0

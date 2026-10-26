@@ -8,7 +8,10 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
 
 ## Refusals and attempts
 
-- A task has `mergeRetryCount` attempts, 5; `splates retry` grants more.
+- A task has `mergeRetryCount` attempts, 5, and apart from them
+  `mergeConflictCount` conflicted rebases, 10, since with many agents on one
+  file a conflict is the base moving, not the task failing; either spent
+  stops it on `budget_exhausted`, and `splates retry` gives both back.
 - `splates retry` is the person's: the agent asks with a run-command card
   naming it, and the page's Grant on that card, or on the line of a merge
   refused `budget_exhausted`, grants from the page and sends the agent
@@ -17,8 +20,8 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
 - Before spending one it refuses a dirty tree, a branch tracking `SPLATES.md`,
   unchecked `## Blocked` questions or `## Next` steps, a lease held by another
   process, and an exhausted budget.
-- Only a conflict, or a `tests_failed` attributed to the task that repeats its
-  last one, spends an attempt. Flakes, environment failures and timeouts do
+- Only a `tests_failed` attributed to the task that repeats its last one, or
+  a `merge_failed`, spends an attempt; a conflict spends from its own budget. Flakes, environment failures and timeouts do
   not.
 - A repeat is the same `rebasedOnto` base commit, or the same failing test
   names on any base. Each failure is recorded in `gateFailures` with its

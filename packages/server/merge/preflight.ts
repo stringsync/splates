@@ -52,7 +52,7 @@ export async function refuseUnready(
 			{ task, paths: plans },
 		);
 	}
-	if (worktree.mergeAttempts >= config.mergeRetryCount) {
+	if (worktree.budgetSpent) {
 		// Once per budget: an agent that keeps trying is one refusal, not many.
 		if (worktree.state?.gateFailures?.at(-1)?.reason !== "budget_exhausted") {
 			await worktree.save({
@@ -62,10 +62,18 @@ export async function refuseUnready(
 				],
 			});
 		}
+		const spent =
+			worktree.mergeAttempts >= config.mergeRetryCount
+				? `its ${config.mergeRetryCount} merge attempts`
+				: `its ${config.mergeConflictCount} conflicted rebases`;
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: ask the user for another ${config.mergeRetryCount} with a run-command card naming \`splates retry ${task}\`, which only the user runs, from its Grant, and end your turn; or \`splates remove ${task}\` and start over against current ${base}`,
-			{ task, mergeAttempts: worktree.mergeAttempts },
+			`'${task}' has used ${spent}: ask the user for more with a run-command card naming \`splates retry ${task}\`, which only the user runs, from its Grant, and end your turn; or \`splates remove ${task}\` and start over against current ${base}`,
+			{
+				task,
+				mergeAttempts: worktree.mergeAttempts,
+				conflictAttempts: worktree.conflictAttempts,
+			},
 		);
 	}
 	if (worktree.leaseHeldByOther) {

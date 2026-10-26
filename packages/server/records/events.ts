@@ -73,6 +73,8 @@ export interface Facts {
 		files: string[];
 		/** The merge attempts it has left. */
 		attemptsLeft: number;
+		/** The conflicted rebases it has left; absent on older events. */
+		conflictsLeft?: number;
 		/**
 		 * Its first `merge queued` or `merge start` event, or null for a merge
 		 * refused before it reached the premerge lock; absent on older events.
@@ -481,6 +483,7 @@ export const FACTS = {
 		"commit",
 		"files",
 		"attemptsLeft",
+		"conflictsLeft",
 		"failedTests",
 		"failureAttribution",
 		"durationMs",
@@ -620,6 +623,7 @@ export function isCurrent(event: Event): boolean {
 					"began",
 					"landed",
 					"batch",
+					"conflictsLeft",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

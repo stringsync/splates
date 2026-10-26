@@ -68,6 +68,13 @@ export interface Config {
 	/** Failed `merge` attempts a task gets before only a person's `splates retry` lets it try again. */
 	mergeRetryCount: number;
 	/**
+	 * Conflicted rebases a task gets before only a person's `splates retry` lets
+	 * it try again. Counted apart from `mergeRetryCount`: with many agents on
+	 * one file a conflict is the base moving, not the task failing, so it would
+	 * spend those attempts before any test ran.
+	 */
+	mergeConflictCount: number;
+	/**
 	 * How many removed task names to keep, so `remove` can say "already removed"
 	 * rather than "never existed". A flat cap with no age policy: losing the
 	 * oldest costs a nicer message and nothing else.

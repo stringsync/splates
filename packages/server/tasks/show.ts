@@ -93,6 +93,11 @@ export interface Details {
 	/** The merges it has tried; at `mergeAttemptLimit`, only `splates retry` lets it try again. */
 	mergeAttempts: number;
 	mergeAttemptLimit: number;
+	/** Its conflicted rebases, counted apart from `mergeAttempts`. */
+	conflictAttempts: number;
+	conflictAttemptLimit: number;
+	/** Whether either budget is spent, so only `splates retry` lets it merge again. */
+	budgetSpent: boolean;
 	/**
 	 * Whether the plan leaves nothing unchecked under `## Blocked` or
 	 * `## Next`, which `splates merge` requires.
@@ -202,6 +207,9 @@ export class TaskDetails {
 			activeAt: await this.activeAt(worktree, committedAt, uncommitted),
 			mergeAttempts: worktree.mergeAttempts,
 			mergeAttemptLimit: worktree.mergeAttemptLimit,
+			conflictAttempts: worktree.conflictAttempts,
+			conflictAttemptLimit: worktree.conflictAttemptLimit,
+			budgetSpent: worktree.budgetSpent,
 			ready: ready(unfinished(plan ?? "")),
 			plan,
 			planProblems:

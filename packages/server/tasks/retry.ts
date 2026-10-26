@@ -7,7 +7,8 @@ import type { WorktreeService } from "./worktree-service";
 
 /**
  * The way back from `budget_exhausted`. A task that has spent its merge
- * attempts gets another `mergeRetryCount` of them, instead of `remove` and redo.
+ * attempts or its conflicted rebases gets both budgets back whole, instead of
+ * `remove` and redo.
  *
  * Only once they are spent, and only for a person: the budget's whole job is
  * to make an agent stop and ask. An agent that granted itself more would be
@@ -71,10 +72,10 @@ export async function grantRetry(
 	if (found.gone) {
 		fail("not_found", `no task '${task}'`, { task });
 	}
-	if (found.mergeAttempts < found.mergeAttemptLimit) {
+	if (!found.budgetSpent) {
 		fail(
 			"usage",
-			`'${task}' has spent ${found.mergeAttempts} of its ${found.mergeAttemptLimit} merge attempts: only a task that spent them all can be granted more`,
+			`'${task}' has spent ${found.mergeAttempts} of its ${found.mergeAttemptLimit} merge attempts and ${found.conflictAttempts} of its ${found.conflictAttemptLimit} conflicted rebases: only a task that spent one budget can be granted more`,
 			{ task, attempts: found.mergeAttempts },
 		);
 	}
@@ -85,6 +86,7 @@ export async function grantRetry(
 		worktree: await found.save({
 			status: "working",
 			mergeAttempts: 0,
+			conflictAttempts: 0,
 			retries: (found.state?.retries ?? 0) + 1,
 		}),
 		attempts: found.mergeAttempts,

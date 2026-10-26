@@ -153,11 +153,16 @@ describe("App's Queue page", () => {
 
 	// scry-ignore simple-test-setup: the spent merge attempts belong only to this retry test, not shared setup
 	it("grants a task out of merge attempts another round, saying so where it was asked", async () => {
-		const spent = { task: "alpha", mergeAttempts: 3 };
+		const spent = { task: "alpha", mergeAttempts: 3, budgetSpent: true };
 		const view = await testing.openTasks({
 			tasks: [
 				details(spent),
-				details({ ...spent, task: "beta", mergeAttempts: 1 }),
+				details({
+					...spent,
+					task: "beta",
+					mergeAttempts: 1,
+					budgetSpent: false,
+				}),
 			],
 		});
 
@@ -199,7 +204,7 @@ describe("App's Queue page", () => {
 			message: "'alpha' has spent 1 of its 3 merge attempts",
 		};
 		const view = await testing.openTasks({
-			tasks: [details({ mergeAttempts: 3 })],
+			tasks: [details({ mergeAttempts: 3, budgetSpent: true })],
 		});
 		await openQueueRow(view, "alpha");
 		testing.holdWrites();

@@ -433,9 +433,7 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 
 /** Working with its merge attempts spent: what `splates retry` is for. */
 function outOfMerges(task: Details): boolean {
-	return (
-		task.status === "working" && task.mergeAttempts >= task.mergeAttemptLimit
-	);
+	return task.status === "working" && task.budgetSpent;
 }
 
 /**
@@ -479,7 +477,8 @@ export function useRetry(task: Details): {
 						</>
 					) : (
 						<>
-							Retry gives another {task.mergeAttemptLimit} merge attempts, as{" "}
+							Retry gives back its {task.mergeAttemptLimit} merge attempts and{" "}
+							{task.conflictAttemptLimit} conflicted rebases, as{" "}
 							<code>splates retry</code> does.
 						</>
 					)}

@@ -75,7 +75,9 @@ stops merge as `blocked` without spending an attempt. Wait for its owner to fini
 held by a live operation. A failed rebase with no unmerged paths is
 `merge_failed`, not a content `conflict`.
 
-Each `conflict` or `merge_failed` spends one of the task's merge attempts.
+Each `merge_failed` spends one of the task's merge attempts. A `conflict`
+spends none of them: conflicts have their own larger budget,
+`mergeConflictCount` (10), and run out to `budget_exhausted` the same way.
 A `tests_failed` spends one only when the failing test files passed on the
 exact base commit and failed again with the task, and the failure repeats the
 last: the same base commit, or the same failing tests on any base. A failure
