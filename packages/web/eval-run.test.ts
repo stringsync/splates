@@ -32,7 +32,7 @@ describe("EvalRun", () => {
 			"decisions",
 			"lifecycle",
 		]);
-		expect(run.plan?.tokens).toBe(4000000);
+		expect(run.plan?.usd).toBe(8);
 		expect(server.started).toEqual([]);
 	});
 
@@ -94,7 +94,7 @@ class FakeEvalServer implements EvalRunServer {
 		];
 	}
 	async plan() {
-		return { cells: 4, tokens: 4000000, usd: 8, output: "" };
+		return { cells: 4, usd: 8, output: "" };
 	}
 	async start(key: string, run: unknown) {
 		this.started.push(run);
@@ -118,7 +118,6 @@ class FakeEvalServer implements EvalRunServer {
 	async batch(): Promise<EvalGrid> {
 		return {
 			id: "batch-a",
-			kind: "batch",
 			skill: "splates",
 			startedAt: "",
 			targets: [],

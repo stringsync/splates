@@ -183,8 +183,8 @@ export function EvalsCard({
 							</div>
 							<div className="text-muted-foreground text-xs">
 								{spent(grid)}
-								{state.plan?.tokens != null && state.plan.usd != null
-									? ` of ${state.plan.tokens.toLocaleString()} tokens · $${state.plan.usd.toFixed(2)} reserved`
+								{state.plan?.usd != null
+									? ` of at most $${state.plan.usd.toFixed(2)}`
 									: ""}
 							</div>
 							{!state.running && <EvalSummary grid={grid} />}
@@ -226,9 +226,9 @@ export function EvalsCard({
 			)}
 			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
-					{state.plan.tokens === null
+					{state.plan.usd === null
 						? state.plan.output
-						: `Reserves up to ${state.plan.tokens.toLocaleString()} tokens · $${(state.plan.usd ?? 0).toFixed(2)} across ${state.plan.cells} ${state.plan.cells === 1 ? "run" : "runs"}.`}
+						: `At most $${state.plan.usd.toFixed(2)} across ${state.plan.cells} ${state.plan.cells === 1 ? "run" : "runs"}.`}
 				</p>
 			)}
 			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
@@ -252,7 +252,7 @@ export function EvalsCard({
 							!state.loaded ||
 							state.unknown.length > 0 ||
 							state.plan === null ||
-							state.plan.tokens === null
+							state.plan.usd === null
 						}
 						onClick={() => turn(start)}
 					>

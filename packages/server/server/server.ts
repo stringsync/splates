@@ -1,6 +1,6 @@
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
@@ -12,6 +12,7 @@ import {
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
+	evalsDirectory,
 } from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
@@ -394,7 +395,7 @@ export async function dev(
 			: new EvalLaunches({
 					ps,
 					checkout: evalsCheckout,
-					directory: join(splatesHome(ps), "probe-evals"),
+					directory: evalsDirectory(ps),
 				});
 	if (evalLaunches !== null) {
 		disposer.defer(async () => evalLaunches.dispose());
@@ -420,7 +421,15 @@ export async function dev(
 		);
 		disposer.defer(async () => unwatch());
 	}
-	const evalLaunchRoutes = new EvalLaunchRoutes(evalLaunches);
+	const evalLaunchRoutes = new EvalLaunchRoutes(evalLaunches, {
+		cwdOf: async (id) => {
+			const owner = await holding(id);
+			const conversation = await owner?.conversations
+				?.find(id)
+				.catch(() => null);
+			return conversation?.cwd ?? null;
+		},
+	});
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({

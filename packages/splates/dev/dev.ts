@@ -32,11 +32,11 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	dev
 		.command("eval")
 		.description(
-			"compare versions of the splates skill by running agents on it; uses tokens billed to an API key or counted against a Claude plan, so run it only when asked",
+			"run the splates skill's eval scenarios on real agents, graded by code checks and a judge; `run` uses tokens billed to an API key or counted against a Claude plan, so run it only when asked",
 		)
 		.rest("args", z.string(), {
 			description:
-				"[fast|list|report] [--probe id] [--target agent:model] [--parallel n], or explicit e2e [run|report]",
+				"list | plan | run | report <batch>, with [--scenario id] [--agent agent:model@effort] [--baseline rev] [--reps n] [--parallel n]",
 		})
 		.allowUnknownOption()
 		.action((opts, { ps }) => evalSkill({ ...opts, ps }));

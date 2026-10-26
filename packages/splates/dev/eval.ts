@@ -2,17 +2,16 @@ import { NodePs, type Ps } from "webappwiz/system";
 import { ROOT } from "./root";
 
 export interface EvalOptions {
-	/** What splates's evals entry is given: fast selection, report, or explicit e2e, then its arguments. */
+	/** What splates's evals entry is given: `list`, `plan`, `run` or `report`, then its arguments. */
 	args: string[];
 	ps?: Ps;
 }
 
-/** Run the focused suite by default; legacy end-to-end evaluation requires `e2e`. */
+/** Runs the skill's eval scenarios (`evals/skill`); with no arguments, its help. */
 export async function evalSkill(opts: EvalOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
-	const args = opts.args.length ? opts.args : ["fast"];
 	const { exitCode } = await ps.spawn(
-		["bun", "evals/splates-skill/index.ts", ...args],
+		["bun", "evals/skill/index.ts", ...opts.args],
 		{ cwd: ROOT },
 	);
 	if (exitCode !== 0) {

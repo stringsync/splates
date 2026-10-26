@@ -68,8 +68,8 @@ export function EvalsPage({
 			) : batches.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No eval has run on this machine yet. Each run of{" "}
-					<code>splates dev eval</code> is saved in ~/.splates/probe-evals and
-					shows here.
+					<code>splates dev eval</code> is saved in ~/.splates/evals and shows
+					here.
 				</p>
 			) : (
 				<ul className="flex flex-col divide-y">
@@ -85,9 +85,7 @@ export function EvalsPage({
 										{new Date(batch.startedAt).toLocaleString()}
 									</span>
 									<span className="text-muted-foreground text-xs">
-										{batch.kind === "loose"
-											? "runs saved before batches"
-											: (batch.skill ?? batch.kind)}
+										{batch.skill ?? "evals"}
 									</span>
 									<span className="flex gap-1">
 										{ORDER.filter((status) => batch.tally[status]).map(

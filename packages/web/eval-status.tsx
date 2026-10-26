@@ -6,23 +6,17 @@ import { cn } from "#web/lib/utils.ts";
 const TONES: Record<EvalStatus, string> = {
 	pass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
 	fail: "bg-destructive/15 text-destructive",
-	"infrastructure-error": "bg-destructive/15 text-destructive",
+	error: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
 	unreadable: "bg-destructive/15 text-destructive",
-	uncovered: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-	bound: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-	unsupported: "bg-muted text-muted-foreground",
 	pending: "bg-muted text-muted-foreground",
 };
 
 /** A run's outcome as a chip: its word, colored by how it went. */
 export function StatusChip({
 	status,
-	unjudged = 0,
 	className,
 }: {
 	status: EvalStatus;
-	/** Checks the harness cannot judge yet; a mark on `pass` when above 0. */
-	unjudged?: number;
 	className?: string;
 }): JSX.Element {
 	return (
@@ -34,16 +28,6 @@ export function StatusChip({
 			)}
 		>
 			{status}
-			{status === "pass" && unjudged > 0 && (
-				<span
-					title={`${unjudged} unjudged ${unjudged === 1 ? "check" : "checks"}`}
-					role="img"
-					aria-label={`${unjudged} unjudged`}
-					className="ml-1"
-				>
-					◐
-				</span>
-			)}
 		</span>
 	);
 }
@@ -70,11 +54,8 @@ export function spent({
 /** Outcomes in the order a tally reads them, the worst first. */
 export const ORDER: EvalStatus[] = [
 	"fail",
-	"infrastructure-error",
+	"error",
 	"unreadable",
-	"bound",
-	"uncovered",
-	"unsupported",
 	"pending",
 	"pass",
 ];

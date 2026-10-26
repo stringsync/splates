@@ -12,7 +12,7 @@ describe("EvalLaunches", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		const checkout = join(deps.root, "checkout");
-		const directory = join(deps.root, "probe-evals");
+		const directory = join(deps.root, "evals");
 		await mkdir(join(checkout, "bin"), { recursive: true });
 		await mkdir(directory, { recursive: true });
 		// Stands in for the runner: writes its batch where it is told, then exits.

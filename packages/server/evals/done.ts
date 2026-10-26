@@ -11,20 +11,16 @@ import type {
 const CUT = 240;
 
 /** The order a tally reads in, as the Evals page's does. */
-const TALLY: EvalStatus[] = [
-	"pass",
-	"fail",
-	"uncovered",
-	"bound",
-	"infrastructure-error",
-	"unsupported",
-	"unreadable",
-	"pending",
-];
+const TALLY: EvalStatus[] = ["pass", "fail", "error", "unreadable", "pending"];
 
-/** `claude sonnet high` for a target, as the page names it. */
+/** `claude sonnet high`, then `@<revision>` for a baseline skill, as the page names a target. */
 export function targetName(target: EvalTarget): string {
-	return [target.agent, target.model, target.effort]
+	return [
+		target.agent,
+		target.model,
+		target.effort,
+		target.skill === null ? null : `@${target.skill}`,
+	]
 		.filter((part) => part !== null)
 		.join(" ");
 }
@@ -32,8 +28,9 @@ export function targetName(target: EvalTarget): string {
 /**
  * What tells the agent whose run evals card started `grid` that it is done:
  * the directive, then the batch condensed: its tally and cost, each probe's
- * outcome on each agent, and for each run that did not pass, the checks that
- * held it back, its reply cut short, and where its trace is. `details` are
+ * outcome on each agent, and for each run that did not pass, the checks and
+ * the judge's reason that held it back, or what broke, its reply cut short,
+ * and the run's id. `details` are
  * the runs that did not pass, opened.
  */
 export function evalsDonePrompt(
@@ -65,21 +62,23 @@ export function evalsDonePrompt(
 		),
 	];
 	const missed = details.map((run) => {
-		const checks = run.checks
-			.filter((check) => check.status !== "pass")
-			.map(
-				(check) =>
-					`  - \`${check.id}\` (${check.assertion.kind}, ${check.status}): expected ${cut(JSON.stringify(check.expected))}, actual ${cut(JSON.stringify(check.actual))}`,
-			);
-		const stopped =
-			run.termination === "stop"
-				? ""
-				: `, stopped early: ${run.termination}${run.detail === null ? "" : ` (${cut(run.detail)})`}`;
+		const held = [
+			...run.checks
+				.filter((check) => !check.pass)
+				.map(
+					(check) =>
+						`  - Check \`${check.id}\`: ${check.about}${check.error === undefined ? "" : ` (${cut(check.error)})`}`,
+				),
+			...(run.judge?.pass === false
+				? [`  - Judge: ${cut(run.judge.reason)}`]
+				: []),
+			...(run.error === undefined ? [] : [`  - Error: ${cut(run.error)}`]),
+		];
 		return [
-			`- \`${run.probe}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}${stopped}`,
-			...checks,
-			`  - Reply: ${run.reply === null ? "(none)" : cut(JSON.stringify(run.reply))}`,
-			`  - Trace: \`${run.logs}\``,
+			`- \`${run.probe}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}`,
+			...held,
+			`  - Reply: ${run.reply === "" ? "(none)" : cut(JSON.stringify(run.reply))}`,
+			`  - Run: \`${run.id}\``,
 		].join("\n");
 	});
 	return `${evalsDoneReference(grid.id)}

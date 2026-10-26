@@ -1,0 +1,118 @@
+import { describe, expect, it } from "bun:test";
+import { commandFor, commandsOf, readClaude, readCodex } from "./agents";
+
+describe("agents", () => {
+	it("reads text, tool calls with their results, the reply and usage", () => {
+		const run = readClaude([
+			{
+				type: "assistant",
+				message: {
+					content: [
+						{ type: "text", text: "Looking." },
+						{
+							type: "tool_use",
+							id: "a",
+							name: "Bash",
+							input: { command: "bun test --changed 2>&1 | tail -40" },
+						},
+					],
+				},
+			},
+			{
+				type: "user",
+				message: {
+					content: [
+						{
+							type: "tool_result",
+							tool_use_id: "a",
+							content: [{ type: "text", text: "1 pass" }],
+						},
+					],
+				},
+			},
+			{
+				type: "result",
+				subtype: "success",
+				result: "All green.",
+				total_cost_usd: 0.1,
+				num_turns: 3,
+				usage: {
+					input_tokens: 10,
+					output_tokens: 5,
+					cache_read_input_tokens: 85,
+				},
+			},
+		]);
+
+		expect(run.reply).toBe("All green.");
+		expect(run.transcript[1]).toEqual({
+			kind: "tool",
+			name: "Bash",
+			input: '{"command":"bun test --changed 2>&1 | tail -40"}',
+			output: "1 pass",
+		});
+		expect(commandsOf(run.transcript)).toEqual([
+			"bun test --changed 2>&1 | tail -40",
+		]);
+		expect(run).toMatchObject({ usd: 0.1, turns: 3, tokens: 100, error: null });
+	});
+
+	it("says why a run ended badly", () => {
+		expect(
+			readClaude([
+				{ type: "result", subtype: "error_max_turns", is_error: true },
+			]).error,
+		).toBe("claude ended: error_max_turns");
+	});
+
+	it("reads messages, shell commands and each turn's tokens", () => {
+		const run = readCodex([
+			{ type: "item.completed", item: { type: "reasoning", text: "hm" } },
+			{
+				type: "item.completed",
+				item: {
+					type: "command_execution",
+					command: "bun test src/math.test.ts",
+					aggregated_output: "2 pass",
+					exit_code: 0,
+				},
+			},
+			{
+				type: "item.completed",
+				item: { type: "agent_message", text: "Fixed." },
+			},
+			{ type: "turn.completed", usage: { input_tokens: 40, output_tokens: 2 } },
+		]);
+
+		expect(run.reply).toBe("Fixed.");
+		expect(commandsOf(run.transcript)).toEqual(["bun test src/math.test.ts"]);
+		expect(run).toMatchObject({ tokens: 42, turns: 1, usd: null, error: null });
+	});
+
+	it("runs Claude headless on the person's login without their settings, and refuses an agent it has no runner for", () => {
+		const { argv, format } = commandFor(
+			{ agent: "claude", model: "sonnet" },
+			"Hi.",
+			{ usd: 0.5 },
+		);
+
+		expect(format).toBe("claude");
+		expect(argv).toContain("bypassPermissions");
+		expect(
+			argv.slice(
+				argv.indexOf("--setting-sources"),
+				argv.indexOf("--setting-sources") + 2,
+			),
+		).toEqual(["--setting-sources", "project,local"]);
+		expect(
+			argv.slice(
+				argv.indexOf("--max-budget-usd"),
+				argv.indexOf("--max-budget-usd") + 2,
+			),
+		).toEqual(["--max-budget-usd", "0.5"]);
+		expect(argv.at(-1)).toBe("Hi.");
+		expect(() => commandFor({ agent: "opencode" }, "Hi.")).toThrow(
+			"no eval runner",
+		);
+	});
+});

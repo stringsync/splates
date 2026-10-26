@@ -11,9 +11,10 @@ export type {
 	EvalCell,
 	EvalCheck,
 	EvalDetail,
-	EvalEvent,
 	EvalGrid,
 	EvalRun,
 	EvalStatus,
+	EvalStep,
 	EvalTarget,
+	EvalVerdict,
 } from "./types";

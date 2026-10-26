@@ -16,6 +16,8 @@ export interface EvalLaunchSpec {
 	baseline: string | null;
 	/** The conversation whose card it is, told once it is done; null for none. */
 	conversation?: string | null;
+	/** The skill to run, the conversation's own when it has one; the checkout's when null. */
+	skillDir?: string | null;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -32,11 +34,11 @@ export interface EvalLaunch {
 	output: string;
 }
 
-/** What the runner says in a plan: how much it would reserve, in its words. */
+/** What the runner says in a plan: how many runs, and at most what they cost. */
 export interface EvalPlan {
-	/** Probe-by-agent runs the plan comes to. */
+	/** Scenario-by-agent runs the plan comes to. */
 	cells: number;
-	tokens: number | null;
+	/** The most they can cost, in dollars; null when the runner refused the plan. */
 	usd: number | null;
 	/** The runner's output, for a refusal or anything the numbers leave out. */
 	output: string;
@@ -52,7 +54,7 @@ export interface EvalProbe {
 
 const TAIL = 20;
 
-/** `claude:MODEL@EFFORT` for a pick, as `--target` takes it. */
+/** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
 export function targetOf(pick: AgentPick): string {
 	return `${pick.agent}${pick.model === undefined ? "" : `:${pick.model}`}${
 		pick.effort === undefined ? "" : `@${pick.effort}`
@@ -78,9 +80,8 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	readonly events = this.dispatcher.events;
 	private readonly launches = new Map<string, Launched>();
 
-	// Each run is the existing runner as a child (`splates dev eval fast ...
-	// --yes`), so its change gate, shared budgets and admission stay the
-	// harness's; launches are held in memory.
+	// Each run is the harness as a child (`splates dev eval run ...`);
+	// launches are held in memory.
 	constructor(private readonly opts: EvalLaunchesOptions) {}
 
 	/** Every probe the harness registers. */
@@ -101,19 +102,18 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			}));
 	}
 
-	/** Runs the free `plan` for `spec` and reads its reservation off the output. */
+	/** Runs the free `plan` for `spec` and reads its runs and ceiling off the output. */
 	async plan(spec: Omit<EvalLaunchSpec, "key">): Promise<EvalPlan> {
 		const { exitCode, stdout, stderr } = await this.opts.ps.spawnCapture(
 			this.argv("plan", spec),
 			{ cwd: this.opts.checkout },
 		);
 		const output = `${stdout}${stderr}`.trim();
-		const limits =
-			/aggregate admission limits (\d+) tokens \/ USD ([\d.]+)/.exec(output);
+		const runs = /^runs (\d+)$/m.exec(output);
+		const usd = /^usd ([\d.]+)$/m.exec(output);
 		return {
-			cells: spec.probes.length * Math.max(1, spec.agents.length),
-			tokens: exitCode === 0 && limits ? Number(limits[1]) : null,
-			usd: exitCode === 0 && limits ? Number(limits[2]) : null,
+			cells: runs ? Number(runs[1]) : 0,
+			usd: exitCode === 0 && usd ? Number(usd[1]) : null,
 			output: tailOf(output),
 		};
 	}
@@ -125,7 +125,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			return this.read(held);
 		}
 		const known = new Set(await this.batches());
-		const child = this.opts.ps.start(this.argv("fast", spec, ["--yes"]), {
+		const child = this.opts.ps.start(this.argv("run", spec), {
 			cwd: this.opts.checkout,
 		});
 		const launch: Launched = {
@@ -173,21 +173,20 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	}
 
 	private argv(
-		command: "plan" | "fast",
+		command: "plan" | "run",
 		spec: Omit<EvalLaunchSpec, "key">,
-		rest: string[] = [],
 	): string[] {
 		return [
 			join(this.opts.checkout, "bin/splates"),
 			"dev",
 			"eval",
 			command,
-			...spec.probes.flatMap((probe) => ["--probe", probe]),
-			...spec.agents.flatMap((pick) => ["--target", targetOf(pick)]),
+			...spec.probes.flatMap((probe) => ["--scenario", probe]),
+			...spec.agents.flatMap((pick) => ["--agent", targetOf(pick)]),
 			...(spec.baseline === null ? [] : ["--baseline", spec.baseline]),
+			...(spec.skillDir == null ? [] : ["--skill", spec.skillDir]),
 			"--directory",
 			this.opts.directory,
-			...rest,
 		];
 	}
 

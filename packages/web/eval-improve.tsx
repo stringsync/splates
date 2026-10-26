@@ -17,46 +17,45 @@ import { still, touchItems } from "./board";
 import { Dispatching } from "./dispatching";
 import { targetLabel } from "./eval-report";
 
-/** Whether a run's outcome is one worth improving: it failed or the harness could not cover it. */
+/** Whether a run's outcome is one worth improving: the agent did not do what the skill asks. */
 export function improvable(status: string): boolean {
-	return status === "fail" || status === "uncovered";
+	return status === "fail";
 }
 
 /**
- * What asks an agent to improve the skill or the page for `run`'s probe: the
- * probe's spec, each check that did not pass and why, the reply and where
- * the trace is, and the way to re-run only that probe, which the person
- * starts from the permission card.
+ * What asks an agent to improve the skill for `run`'s scenario: the
+ * requirement, each check and the judge's reason that held it back, the reply,
+ * and the way to re-run only that scenario, which the person starts from the
+ * permission card.
  */
 export function improvePrompt(run: EvalDetail): string {
-	const checks = run.checks
-		.filter((check) => check.status !== "pass")
-		.map(
-			(check) =>
-				`- \`${check.id}\` (${check.assertion.kind}, ${check.status}): expected ${JSON.stringify(check.expected)}, actual ${JSON.stringify(check.actual)}`,
-		);
-	return `An eval probe is not passing. Improve the splates skill (\`skills/splates/\`) or the page so it does, without special-casing the probe.
+	const held = [
+		...run.checks
+			.filter((check) => !check.pass)
+			.map((check) => `- Check \`${check.id}\`: ${check.about}`),
+		...(run.judge?.pass === false ? [`- Judge: ${run.judge.reason}`] : []),
+	];
+	return `An eval scenario is not passing. Improve the splates skill (\`skills/splates/\`) so it does, without special-casing the scenario.
 
-Probe: \`${run.probe}\` (${run.aspect}, requirement ${run.requirement})
-Requirement: ${run.requirementText}
+Scenario: \`${run.probe}\` (${run.aspect})
+Requirement: ${run.requirement}
 Agent: ${targetLabel(run.target)}, repetition ${run.repetition + 1}
-Outcome: ${run.status}${run.termination === "stop" ? "" : `, stopped early: ${run.termination}${run.detail === null ? "" : ` (${run.detail})`}`}
 
 It asked the agent:
 
 ${run.input}
 
-Checks that did not pass:
+What held it back:
 
-${checks.length === 0 ? "- none; see the run's events" : checks.join("\n")}
+${held.length === 0 ? "- nothing named; read the transcript" : held.join("\n")}
 
 The agent's reply:
 
-${run.reply ?? "(none)"}
+${run.reply || "(none)"}
 
-Its trace and logs are in \`${run.logs}\`; the run opens on the Evals page as \`${run.id}\`.
+The run, with its whole transcript, opens on the Evals page as \`${run.id}\`, under ~/.splates/evals.
 
-Start a splates task for the change, and note the commit you branched from. When it is ready, ask the person to re-run only this probe with the run evals permission card, naming \`${run.probe}\` and setting \`Baseline:\` to that commit, so the re-run lands as a batch beside this one. Never start an eval yourself. The change lands only once the person approves it.`;
+Start a splates task for the change, and note the commit you branched from. When it is ready, ask the person to re-run only this scenario with the run evals permission card, naming \`${run.probe}\` and setting \`Baseline:\` to that commit, so the re-run shows both skills side by side. Never start an eval yourself. The change lands only once the person approves it.`;
 }
 
 /**

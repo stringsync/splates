@@ -151,28 +151,28 @@ Takes about two minutes.
 ```
 
 Evals cost the user tokens, so only they start them. To ask for a run
-(splates repository only, where `splates dev eval list` names the probes),
-end your reply with the run card: the probes you picked, one `` - `id` `` item
-each, and optionally the revision the skill's change is judged against. The
-page shows it with the saved eval agents and the reservation, and its Run
-button is the user's; never run `splates dev eval fast` yourself.
+(splates repository only, where `splates dev eval list` names the scenarios),
+end your reply with the run card: the scenarios you picked, one `` - `id` ``
+item each, and optionally the revision the skill's change is judged against.
+The page shows it with the saved eval agents and what the run costs at most,
+and its Run button is the user's; never run `splates dev eval run` yourself.
 
 ```markdown
-## 🔐 Permission: run evals splates: the decision probes
+## 🔐 Permission: run evals splates: the resource scenarios
 
-Checks the new wording of the ask-first rule.
+Checks the new wording of the scoped-tests rule.
 
-- `decisions/local-choice`
-- `decisions/ask-first`
+- `resources/focused-tests`
+- `resources/whole-suite`
 
 Baseline: `main`
 ```
 
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
-and the report condensed: each probe's outcome on each agent, and each check
-that did not pass with the reply it read. Reply with what it shows and the
-next steps you recommend, as a proposal (see
-[proposing.md](references/proposing.md)): the skill or probe change it
+and the report condensed: each scenario's outcome on each agent, and for each
+that did not pass, the checks that failed, the judge's reason and the reply.
+Reply with what it shows and the next steps you recommend, as a proposal (see
+[proposing.md](references/proposing.md)): the skill or scenario change it
 points to, and a run card to check that change once it is ready.
 
 ## In every conversation

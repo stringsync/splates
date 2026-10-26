@@ -1,29 +1,22 @@
-/** A run's outcome, as the harness grades it, or `pending` for a cell yet to land and `unreadable` for a result the harness refuses. */
-export type EvalStatus =
-	| "pass"
-	| "fail"
-	| "uncovered"
-	| "bound"
-	| "infrastructure-error"
-	| "unsupported"
-	| "pending"
-	| "unreadable";
+/** A run's outcome, as the harness graded it, or `pending` for a cell yet to land and `unreadable` for a result that cannot be read. */
+export type EvalStatus = "pass" | "fail" | "error" | "pending" | "unreadable";
 
-/** An agent a batch ran on: its adapter, as `claude@1`, and model. */
+/** An agent a batch ran on, with the skill it ran: its model and thinking level, and the skill's revision when it was not the checkout's. */
 export interface EvalTarget {
-	/** `<adapterVersion>/<model>`, then `@<effort>` when one was set, what a cell names it by. */
+	/** `<agent>/<model>@<effort>`, then ` @<revision>` for a baseline skill, what a cell names it by. */
 	key: string;
 	agent: string;
 	model: string | null;
 	/** The thinking level it ran at; null for the agent's default. */
 	effort: string | null;
+	/** The skill revision it ran, for a baseline; null for the checkout's skill. */
+	skill: string | null;
 }
 
-/** One `splates dev eval` invocation, or the runs saved loose on one day before batches. */
+/** One `splates dev eval run` invocation. */
 export interface EvalBatch {
-	/** Its directory under the results directory, or `loose-<YYYY-MM-DD>`. */
+	/** Its directory under the results directory. */
 	id: string;
-	kind: "batch" | "paired" | "unchanged-baseline" | "loose";
 	/** The skill it ran, when it says. */
 	skill: string | null;
 	/** When it started, as ISO 8601. */
@@ -32,7 +25,7 @@ export interface EvalBatch {
 	/** How many cells ended each way, `pending` among them. */
 	tally: Partial<Record<EvalStatus, number>>;
 	cells: number;
-	/** Summed over its runs; null when any could not say. */
+	/** Summed over its runs; null when none could say. */
 	tokens: number | null;
 	costUsd: number | null;
 }
@@ -41,18 +34,15 @@ export interface EvalBatch {
 export interface EvalRun {
 	/** Its `result.json`, relative to the results directory. */
 	id: string;
-	/** The harness's status, but `pass` when only checks `uncovered` by design held it back. */
 	status: EvalStatus;
-	/** How many checks the harness cannot judge yet, by design. */
-	unjudged: number;
 	tokens: number | null;
 	costUsd: number | null;
 	milliseconds: number;
-	/** Why the harness refused it, for `unreadable`. */
+	/** What broke, for `error`, or why it is `unreadable`. */
 	error?: string;
 }
 
-/** One cell of a batch's grid: a probe on a target at a repetition. */
+/** One cell of a batch's grid: a scenario (`probe`, as run cards name it) on a target at a repetition. */
 export interface EvalCell {
 	probe: string;
 	aspect: string;
@@ -68,53 +58,41 @@ export interface EvalGrid extends EvalBatch {
 	grid: EvalCell[];
 }
 
-/** An event the run saw: a command, read, write or directive. */
-export interface EvalEvent {
-	id: string;
-	actor: string;
-	kind: string;
-	name: string;
-	args: string[];
-	exitCode?: number;
-	payload?: unknown;
-}
-
-/**
- * One check of a run and how it went. `assertion` is the probe's own spec of
- * it, by kind: `count`, `before`, `state`, `reply` and `uncovered`; `runner`
- * for the harness's own, a channel the run left incomplete.
- */
+/** One code check of a run and how it went. */
 export interface EvalCheck {
 	id: string;
-	status: "pass" | "fail" | "uncovered";
-	assertion: { kind: string; [key: string]: unknown };
-	expected: unknown;
-	actual: unknown;
-	/** The events it rests on, by id. */
-	evidence: string[];
+	/** What it checks, in words. */
+	about: string;
+	pass: boolean;
+	/** Why it could not be told, when the check itself broke. */
+	error?: string;
 }
 
-/** A run opened: what it asked, each check and everything the checks read. */
+/** What the judge decided of a run, and why. */
+export interface EvalVerdict {
+	pass: boolean;
+	reason: string;
+}
+
+/** One step of what the agent did: something it said, or a tool it called and what came back. */
+export type EvalStep =
+	| { kind: "text"; text: string }
+	| { kind: "tool"; name: string; input: string; output: string | null };
+
+/** A run opened: what it asked, each check, the judge's verdict and what the agent did. */
 export interface EvalDetail extends EvalRun {
 	probe: string;
 	aspect: string;
 	requirement: string;
-	requirementText: string;
 	target: EvalTarget;
 	repetition: number;
+	/** The person's message to the agent. */
 	input: string;
-	/** How the run stopped: `stop` at its boundary, or a bound or failure. */
-	termination: string;
-	detail: string | null;
+	/** What the judge was asked to decide; null when the scenario has no judge. */
+	rubric: string | null;
 	checks: EvalCheck[];
-	events: EvalEvent[];
-	state: Record<string, unknown>;
-	/** The agent's reply, as written; null when the run has none. */
-	reply: string | null;
-	/** The channels the run saw whole. */
-	complete: string[];
-	/** Where its trace and logs are on this machine. */
-	logs: string;
-	/** The command that runs it again. */
-	reproduction: string[];
+	judge: EvalVerdict | null;
+	/** The agent's reply, as written; empty when it gave none. */
+	reply: string;
+	transcript: EvalStep[];
 }

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body, type Handler } from "../server/shared";
@@ -7,9 +9,18 @@ import type { EvalLaunches } from "./launch";
 /** The skill whose probes exist today; another's slot in beside it. */
 const SKILLS = ["splates"];
 
+/** Where a conversation works, for a run its card starts to use the skill there. */
+export interface ConversationDirs {
+	/** The directory conversation `id` works in; null when it is not known. */
+	cwdOf(id: string): Promise<string | null>;
+}
+
 /** How the Evals card plans, starts, follows and stops a paid run. */
 export class EvalLaunchRoutes {
-	constructor(private readonly launches: EvalLaunches | null) {}
+	constructor(
+		private readonly launches: EvalLaunches | null,
+		private readonly dirs: ConversationDirs = { cwdOf: async () => null },
+	) {}
 
 	/** Every registered probe, for the card to group by aspect and requirement. */
 	readonly probes: Handler = async () =>
@@ -31,11 +42,21 @@ export class EvalLaunchRoutes {
 		if (conversation != null && typeof conversation !== "string") {
 			fail("usage", "a run's conversation is its id", {});
 		}
+		const cwd =
+			typeof conversation === "string"
+				? await this.dirs.cwdOf(conversation)
+				: null;
+		const skillDir = cwd === null ? null : join(cwd, "skills", "splates");
 		return Response.json(
 			await this.ready().start({
 				...spec,
 				key,
 				conversation: conversation ?? null,
+				// The conversation's skill, as its task edits it, when it has one.
+				skillDir:
+					skillDir !== null && existsSync(join(skillDir, "SKILL.md"))
+						? skillDir
+						: null,
 			}),
 		);
 	};

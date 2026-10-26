@@ -4,20 +4,19 @@ import { fail } from "../exit";
 import { splatesHome } from "../models";
 import type { Handler } from "../server/shared";
 import { evalsDonePrompt } from "./done";
-import { EvalStore, type ReadRun } from "./store";
+import { EvalStore } from "./store";
 
 /**
  * The saved eval batches the Evals page and the report card read, from
- * `probe-evals` in splates's home, each run graded again by the harness's own
- * `readRun`, as `splates dev eval report` grades it. Only a checkout has the
- * harness; from a release the routes answer 404.
+ * `evals` in splates's home, as `splates dev eval run` graded them. Only a
+ * checkout has the harness; from a release the routes answer 404.
  */
 export class EvalRoutes {
 	private readonly directory: string;
 	private store: EvalStore | null = null;
 
 	constructor(private readonly opts: EvalOptions) {
-		this.directory = join(splatesHome(opts.ps), "probe-evals");
+		this.directory = evalsDirectory(opts.ps);
 	}
 
 	/** Whether this server runs from a checkout, which has the harness. */
@@ -79,18 +78,17 @@ export class EvalRoutes {
 	}
 
 	private async opened(): Promise<EvalStore> {
-		const { checkout } = this.opts;
-		if (checkout === null) {
+		if (this.opts.checkout === null) {
 			fail("not_found", "evals are read from a splates checkout", {});
 		}
-		if (this.store === null) {
-			const { readRun } = (await import(
-				join(checkout, "evals/splates-skill/probe-record.ts")
-			)) as { readRun: ReadRun };
-			this.store = new EvalStore(this.directory, readRun);
-		}
+		this.store ??= new EvalStore(this.directory);
 		return this.store;
 	}
+}
+
+/** Where `splates dev eval run` writes its batches, in splates's home. */
+export function evalsDirectory(ps: Ps): string {
+	return join(splatesHome(ps), "evals");
 }
 
 interface EvalOptions {

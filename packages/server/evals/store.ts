@@ -1,5 +1,5 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type {
 	EvalBatch,
 	EvalCell,
@@ -11,442 +11,210 @@ import type {
 } from "./types";
 
 /**
- * The eval results under `directory`, as batches: each `splates dev eval`
- * invocation's directory (`batch-*`, or `experiment-*` for a paired one), and
- * the `run-*` saved loose at the top before batches, one batch per day.
+ * The eval batches under `directory`, as `splates dev eval run` writes them:
+ * each `batch-*` directory's `batch.json`, the cells it planned, and the
+ * `run-<n>/result.json` of each cell that has landed, cell `n` in plan order.
  */
 export class EvalStore {
-	constructor(
-		private readonly directory: string,
-		private readonly readRun: ReadRun,
-	) {}
+	constructor(private readonly directory: string) {}
 
 	/** Every batch, newest first. */
 	async batches(): Promise<EvalBatch[]> {
-		const read = await this.readAll();
-		return read
-			.map((each) => {
-				const { grid: _, ...batch } = gridOf(each, this.directory);
-				return batch;
-			})
+		const grids = await Promise.all(
+			(await this.ids()).map((id) => this.grid(id)),
+		);
+		return grids
+			.filter((grid) => grid !== null)
+			.map(({ grid: _, ...batch }) => batch)
 			.sort((first, second) => second.startedAt.localeCompare(first.startedAt));
 	}
 
 	/** The batch `id` names with its every cell; null when there is none. */
 	async grid(id: string): Promise<EvalGrid | null> {
-		const found = (await this.readAll()).find((each) => each.batch.id === id);
-		return found === undefined ? null : gridOf(found, this.directory);
+		const dir = join(this.directory, id);
+		const batch = await readJson<SavedBatch>(join(dir, "batch.json"));
+		if (batch?.schema !== 2) {
+			return null;
+		}
+		const targets: EvalTarget[] = [];
+		const grid: EvalCell[] = await Promise.all(
+			batch.cells.map(async (cell, index) => {
+				const target = targetOf(cell.agent, cell.skill);
+				if (!targets.some((each) => each.key === target.key)) {
+					targets.push(target);
+				}
+				const run = `${id}/${runName(index)}/result.json`;
+				const result = await readJson<SavedResult>(
+					join(this.directory, run),
+				).catch((error: unknown) => ({ unreadable: String(error) }));
+				return {
+					probe: cell.scenario,
+					aspect: cell.aspect,
+					requirement: cell.requirement,
+					target: target.key,
+					repetition: cell.repetition,
+					run:
+						result === null
+							? null
+							: "unreadable" in result
+								? {
+										id: run,
+										status: "unreadable",
+										tokens: null,
+										costUsd: null,
+										milliseconds: 0,
+										error: result.unreadable,
+									}
+								: summaryOf(run, result),
+				};
+			}),
+		);
+		const tally: Partial<Record<EvalStatus, number>> = {};
+		for (const cell of grid) {
+			const status = cell.run?.status ?? "pending";
+			tally[status] = (tally[status] ?? 0) + 1;
+		}
+		const runs = grid.flatMap((cell) => (cell.run === null ? [] : [cell.run]));
+		return {
+			id,
+			skill: batch.skill ?? null,
+			startedAt: batch.startedAt,
+			targets,
+			tally,
+			cells: grid.length,
+			tokens: total(runs.map((each) => each.tokens)),
+			costUsd: total(runs.map((each) => each.costUsd)),
+			grid,
+		};
 	}
 
 	/** The run whose `result.json` is `id`, relative to the directory, opened whole. */
 	async run(id: string): Promise<EvalDetail> {
-		const path = join(this.directory, id);
-		const saved = await this.readRun(path);
-		const { probe, run, result } = saved;
-		const { identity, evidence } = run;
+		const result = await readJson<SavedResult>(join(this.directory, id));
+		if (result === null) {
+			throw new Error(`no eval run ${id}`);
+		}
 		return {
-			...summaryOf(id, saved),
-			probe: probe.id,
-			aspect: probe.aspect,
-			requirement: probe.requirement.id,
-			requirementText: probe.requirement.text,
-			target: targetOf(
-				identity.adapterVersion,
-				identity.model,
-				identity.effort ?? null,
-			),
-			repetition: identity.repetition,
-			input: probe.input.text,
-			termination: evidence.termination,
-			detail: result.detail ?? evidence.detail ?? null,
-			checks: result.verdicts.map((verdict) => ({
-				...verdict,
-				assertion: probe.assertions.find(
-					(assertion) => assertion.id === verdict.id,
-				) ?? { kind: "runner" },
-			})),
-			events: evidence.events,
-			state: evidence.state,
-			reply: evidence.reply ?? null,
-			complete: evidence.complete,
-			logs: join(dirname(path), "logs"),
-			reproduction: run.reproduction,
+			...summaryOf(id, result),
+			probe: result.scenario.id,
+			aspect: result.scenario.aspect,
+			requirement: result.scenario.requirement,
+			target: targetOf(result.agent, result.skill),
+			repetition: result.repetition,
+			input: result.scenario.message,
+			rubric: result.scenario.rubric,
+			checks: result.checks,
+			judge:
+				result.judge === null
+					? null
+					: { pass: result.judge.pass, reason: result.judge.reason },
+			reply: result.reply,
+			transcript: result.transcript,
 		};
 	}
 
-	private async readAll(): Promise<Read[]> {
+	private async ids(): Promise<string[]> {
 		const entries = await readdir(this.directory, {
 			withFileTypes: true,
 		}).catch(() => []);
-		const batches: Read[] = [];
-		const loose = new Map<string, Read>();
-		for (const entry of entries) {
-			if (!entry.isDirectory()) {
-				continue;
-			}
-			const path = join(this.directory, entry.name);
-			if (
-				entry.name.startsWith("batch-") ||
-				entry.name.startsWith("experiment-")
-			) {
-				batches.push(await this.readBatch(path, entry.name));
-			} else if (entry.name.startsWith("run-")) {
-				const result = join(path, "result.json");
-				const at = (await stat(path)).mtime;
-				const day = at.toISOString().slice(0, 10);
-				const batch = loose.get(day) ?? {
-					batch: {
-						id: `loose-${day}`,
-						kind: "loose",
-						skill: null,
-						startedAt: at.toISOString(),
-					},
-					planned: [],
-					runs: [],
-				};
-				if (at.toISOString() < batch.batch.startedAt) {
-					batch.batch.startedAt = at.toISOString();
-				}
-				batch.runs.push(await this.readOne(result));
-				loose.set(day, batch);
-			}
-		}
-		return [...batches, ...loose.values()];
-	}
-
-	private async readBatch(path: string, id: string): Promise<Read> {
-		const manifest = await manifestOf(path);
-		const runs: Read["runs"] = [];
-		for (const entry of await readdir(path, { withFileTypes: true })) {
-			if (entry.isDirectory() && entry.name.startsWith("run-")) {
-				runs.push(await this.readOne(join(path, entry.name, "result.json")));
-			}
-		}
-		return {
-			batch: {
-				id,
-				kind: manifest.kind,
-				skill: manifest.skill,
-				startedAt: manifest.startedAt ?? (await stat(path)).mtime.toISOString(),
-			},
-			planned: manifest.planned,
-			runs,
-		};
-	}
-
-	private async readOne(path: string): Promise<Read["runs"][number]> {
-		try {
-			return { path, saved: await this.readRun(path) };
-		} catch (error) {
-			return {
-				path,
-				saved: null,
-				error: error instanceof Error ? error.message : String(error),
-			};
-		}
+		return entries
+			.filter((entry) => entry.isDirectory() && entry.name.startsWith("batch-"))
+			.map((entry) => entry.name);
 	}
 }
 
-/** What of a saved run the page reads; `evals/` is not part of a release, so its types are not either. */
-export interface SavedRun {
-	probe: {
+/** The directory cell `index` of a batch lands in. */
+export function runName(index: number): string {
+	return `run-${String(index).padStart(3, "0")}`;
+}
+
+/** An agent as a batch saves it. */
+interface SavedAgent {
+	agent: string;
+	model?: string;
+	effort?: string;
+}
+
+/** The skill a run used, as a batch saves it. */
+interface SavedSkill {
+	label: string;
+	revision: string | null;
+}
+
+/** `batch.json`, as far as the page reads it. */
+interface SavedBatch {
+	schema: number;
+	skill?: string;
+	startedAt: string;
+	cells: {
+		scenario: string;
+		aspect: string;
+		requirement: string;
+		agent: SavedAgent;
+		skill: SavedSkill;
+		repetition: number;
+	}[];
+}
+
+/** `result.json`, as far as the page reads it. */
+interface SavedResult {
+	scenario: {
 		id: string;
 		aspect: string;
-		requirement: { id: string; text: string };
-		input: { text: string };
-		assertions: { id: string; kind: string }[];
+		requirement: string;
+		message: string;
+		rubric: string | null;
 	};
-	run: {
-		identity: {
-			adapterVersion: string;
-			model: string | null;
-			effort?: string;
-			repetition: number;
-		};
-		evidence: {
-			events: EvalDetail["events"];
-			state: Record<string, unknown>;
-			reply?: string;
-			complete: string[];
-			termination: string;
-			detail?: string;
-		};
-		usage: {
-			milliseconds: number;
-			tokens: number | null;
-			costUsd: number | null;
-		};
-		reproduction: string[];
-	};
-	result: {
-		status: EvalStatus;
-		detail?: string;
-		verdicts: {
-			id: string;
-			status: "pass" | "fail" | "uncovered";
-			expected: unknown;
-			actual: unknown;
-			evidence: string[];
-		}[];
-	};
-}
-
-/** The harness's `readRun`: a saved run, graded again; it throws on one it refuses. */
-export type ReadRun = (path: string) => Promise<SavedRun>;
-
-/** A cell as a batch's manifest plans it. */
-interface Planned {
-	probe: string;
-	aspect: string;
-	requirement: string;
-	adapterVersion: string;
-	model: string | null;
-	effort: string | null;
+	agent: SavedAgent;
+	skill: SavedSkill;
 	repetition: number;
-}
-
-/** A batch's directory read: what it planned, and the runs it holds. */
-interface Read {
-	batch: Omit<EvalBatch, "targets" | "tally" | "cells" | "tokens" | "costUsd">;
-	planned: Planned[];
-	runs: { path: string; saved: SavedRun | null; error?: string }[];
-}
-
-/** What a batch's directory says it planned: `batch.json`, or a paired run's `experiment.json`. */
-async function manifestOf(path: string): Promise<{
-	kind: EvalBatch["kind"];
-	skill: string | null;
-	startedAt: string | null;
-	planned: Planned[];
-}> {
-	const batch = await json(join(path, "batch.json"));
-	if (batch !== null) {
-		const { skill, startedAt, cells } = batch as {
-			skill: string;
-			startedAt: string;
-			cells: (Omit<Planned, "effort"> & { effort?: string })[];
-		};
-		return {
-			kind: "batch",
-			skill,
-			startedAt,
-			planned: cells.map((cell) => ({ ...cell, effort: cell.effort ?? null })),
-		};
-	}
-	const experiment = (await json(join(path, "experiment.json"))) as {
-		experiment?: { kind?: string };
-		jobs?: {
-			probe: { id: string; aspect: string; requirement: { id: string } };
-			adapterVersion: string;
-			agent: string;
-			requestedModel: string | null;
-			requestedEffort?: string;
-			repetition: number;
-		}[];
-	} | null;
-	return {
-		kind:
-			experiment?.experiment?.kind === "unchanged-baseline"
-				? "unchanged-baseline"
-				: "paired",
-		skill: null,
-		startedAt: null,
-		planned: (experiment?.jobs ?? []).map((job) => ({
-			probe: job.probe.id,
-			aspect: job.probe.aspect,
-			requirement: job.probe.requirement.id,
-			adapterVersion: `${job.agent}@${job.adapterVersion}`,
-			model: job.requestedModel,
-			effort: job.requestedEffort ?? null,
-			repetition: job.repetition,
-		})),
+	status: "pass" | "fail" | "error";
+	error: string | null;
+	checks: EvalDetail["checks"];
+	judge: { pass: boolean; reason: string } | null;
+	reply: string;
+	transcript: EvalDetail["transcript"];
+	usage: {
+		usd: number | null;
+		tokens: number | null;
+		milliseconds: number;
 	};
 }
 
-async function json(path: string): Promise<unknown> {
-	try {
-		return JSON.parse(await readFile(path, "utf8"));
-	} catch {
-		return null;
-	}
-}
-
-/** A batch's grid: each planned cell with the run that landed for it, then any run it did not plan. */
-function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
-	const landed = new Map<string, EvalRun>();
-	const unplanned: EvalCell[] = [];
-	const plannedKeys = new Set(
-		planned.map((cell) =>
-			cellKey(
-				cell.probe,
-				targetKey(cell.adapterVersion, cell.model, cell.effort),
-				cell.repetition,
-			),
-		),
-	);
-	for (const { path, saved, error } of runs) {
-		const id = relative(directory, path);
-		if (saved === null) {
-			unplanned.push({
-				probe: id,
-				aspect: "unreadable",
-				requirement: "",
-				target: "unknown",
-				repetition: 0,
-				run: {
-					id,
-					status: "unreadable",
-					unjudged: 0,
-					tokens: null,
-					costUsd: null,
-					milliseconds: 0,
-					error,
-				},
-			});
-			continue;
-		}
-		const { identity } = saved.run;
-		const target = targetKey(
-			identity.adapterVersion,
-			identity.model,
-			identity.effort ?? null,
-		);
-		const key = cellKey(saved.probe.id, target, identity.repetition);
-		const run = summaryOf(id, saved);
-		if (plannedKeys.has(key)) {
-			landed.set(key, run);
-		} else {
-			unplanned.push({
-				probe: saved.probe.id,
-				aspect: saved.probe.aspect,
-				requirement: saved.probe.requirement.id,
-				target,
-				repetition: identity.repetition,
-				run,
-			});
-		}
-	}
-	const grid: EvalCell[] = [
-		...planned.map((cell) => {
-			const target = targetKey(cell.adapterVersion, cell.model, cell.effort);
-			return {
-				probe: cell.probe,
-				aspect: cell.aspect,
-				requirement: cell.requirement,
-				target,
-				repetition: cell.repetition,
-				run: landed.get(cellKey(cell.probe, target, cell.repetition)) ?? null,
-			};
-		}),
-		...unplanned,
-	];
-	const targets = new Map<string, EvalTarget>();
-	for (const cell of grid) {
-		if (cell.target !== "unknown" && !targets.has(cell.target)) {
-			const [adapterVersion = "", model = null, effort = null] = splitKey(
-				cell.target,
-			);
-			targets.set(cell.target, targetOf(adapterVersion, model, effort));
-		}
-	}
-	const tally: EvalBatch["tally"] = {};
-	for (const cell of grid) {
-		const status = cell.run?.status ?? "pending";
-		tally[status] = (tally[status] ?? 0) + 1;
-	}
-	const ran = grid.flatMap((cell) => (cell.run === null ? [] : [cell.run]));
-	const sum = (read: (run: EvalRun) => number | null): number | null =>
-		ran.some((run) => read(run) === null)
-			? null
-			: ran.reduce((total, run) => total + (read(run) ?? 0), 0);
-	return {
-		...batch,
-		targets: [...targets.values()],
-		tally,
-		cells: grid.length,
-		tokens: sum((run) => run.tokens),
-		costUsd: sum((run) => run.costUsd),
-		grid,
-	};
-}
-
-export function summaryOf(id: string, saved: SavedRun): EvalRun {
-	const { usage } = saved.run;
-	const { status, unjudged } = judgedStatus(saved);
+function summaryOf(id: string, result: SavedResult): EvalRun {
 	return {
 		id,
-		status,
-		unjudged,
-		tokens: usage.tokens,
-		costUsd: usage.costUsd,
-		milliseconds: usage.milliseconds,
+		status: result.status,
+		tokens: result.usage.tokens,
+		costUsd: result.usage.usd,
+		milliseconds: result.usage.milliseconds,
+		...(result.error === null ? {} : { error: result.error }),
 	};
 }
 
-/**
- * The status a card shows. The harness grades any run with an `uncovered`
- * assertion `uncovered`, though most probes carry some by design; when those
- * are the only checks not passing, the run's judged checks all passed, so it
- * reads `pass` and counts the unjudged. A missing channel stays `uncovered`.
- */
-function judgedStatus(saved: SavedRun): {
-	status: EvalStatus;
-	unjudged: number;
-} {
-	const { status, verdicts } = saved.result;
-	const byDesign = new Set(
-		saved.probe.assertions
-			.filter((assertion) => assertion.kind === "uncovered")
-			.map((assertion) => assertion.id),
-	);
-	const unjudged = verdicts.filter(
-		(verdict) => verdict.status === "uncovered" && byDesign.has(verdict.id),
-	).length;
-	const rest = verdicts.every(
-		(verdict) =>
-			verdict.status === "pass" ||
-			(verdict.status === "uncovered" && byDesign.has(verdict.id)),
-	);
+function targetOf(agent: SavedAgent, skill: SavedSkill): EvalTarget {
+	const revision = skill.revision;
 	return {
-		status: status === "uncovered" && rest ? "pass" : status,
-		unjudged,
+		key: `${agent.agent}/${agent.model ?? ""}${agent.effort === undefined ? "" : `@${agent.effort}`}${revision === null ? "" : ` @${revision}`}`,
+		agent: agent.agent,
+		model: agent.model ?? null,
+		effort: agent.effort ?? null,
+		skill: revision,
 	};
 }
 
-function targetKey(
-	adapterVersion: string,
-	model: string | null,
-	effort: string | null,
-): string {
-	const named = model === null ? adapterVersion : `${adapterVersion}/${model}`;
-	return effort === null ? named : `${named}@${effort}`;
+/** `path` as JSON; null when there is no such file. */
+async function readJson<T>(path: string): Promise<T | null> {
+	const text = await readFile(path, "utf8").catch((error: unknown) => {
+		if ((error as { code?: string }).code === "ENOENT") {
+			return null;
+		}
+		throw error;
+	});
+	return text === null ? null : (JSON.parse(text) as T);
 }
 
-function splitKey(key: string): [string, string | null, string | null] {
-	const at = key.indexOf("/");
-	if (at === -1) {
-		return [key, null, null];
-	}
-	const rest = key.slice(at + 1);
-	const level = rest.lastIndexOf("@");
-	return level === -1
-		? [key.slice(0, at), rest, null]
-		: [key.slice(0, at), rest.slice(0, level), rest.slice(level + 1)];
-}
-
-function targetOf(
-	adapterVersion: string,
-	model: string | null,
-	effort: string | null,
-): EvalTarget {
-	return {
-		key: targetKey(adapterVersion, model, effort),
-		agent: adapterVersion.split("@")[0] ?? adapterVersion,
-		model,
-		effort,
-	};
-}
-
-function cellKey(probe: string, target: string, repetition: number): string {
-	return `${probe}\n${target}\n${repetition}`;
+function total(values: (number | null)[]): number | null {
+	const known = values.filter((each) => each !== null);
+	return known.length === 0 ? null : known.reduce((sum, each) => sum + each, 0);
 }

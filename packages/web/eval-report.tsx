@@ -216,7 +216,6 @@ function Cells({
 					>
 						<StatusChip
 							status={cell.run.status}
-							unjudged={cell.run.unjudged}
 							className={cn("cursor-pointer hover:opacity-80")}
 						/>
 					</button>
