@@ -26,7 +26,7 @@ import { type Quiet, quietTitle } from "./quiet";
  * While its task's merge tests and lands, the spinner gives way to a blue
  * merge icon, and while the merge waits its turn, to a faint gray one.
  * An idle agent with a command left running in the background shows a
- * muted spinner. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
+ * muted spinner, over the blue dot, saying in its tooltip when it answered. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. A spinner gone quiet long enough that the agent
  * may be stuck stops, in amber, saying how long in its tooltip. Each sits centered in a box of one size, so
@@ -118,6 +118,23 @@ export function Mark({
 			/>
 		);
 	}
+	// Over the blue dot, since the agent wakes to answer again once its
+	// command ends, so the mark holds when you open the row.
+	if (need.kind === "idle" && !hosting && background && !waitsOn(reported)) {
+		const title = unread
+			? "Background commands running, new reply"
+			: "Background commands running";
+		return (
+			<span
+				role="status"
+				aria-label="background commands running"
+				title={title}
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
+			</span>
+		);
+	}
 	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
 		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}
@@ -130,18 +147,6 @@ export function Mark({
 				title={need.kind === "waiting" ? need.subject : undefined}
 				color="text-warning"
 			/>
-		);
-	}
-	if (need.kind === "idle" && !hosting && background) {
-		return (
-			<span
-				role="status"
-				aria-label="background commands running"
-				title="Background commands running"
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
-			</span>
 		);
 	}
 	if (need.kind === "idle" && !hosting) {

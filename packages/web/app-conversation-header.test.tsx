@@ -596,6 +596,46 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
+	it("marks an unread conversation with its spinner rather than the dot while it has a command running", async () => {
+		const running = {
+			id: "b1",
+			name: "Run the build",
+			command: "bun run build",
+			subagent: null,
+			state: "running" as const,
+			output: "/tmp/b1.output",
+		};
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Open one" }),
+			conversation({
+				id: "c2",
+				title: "Build it",
+				unread: true,
+				background: [running],
+			}),
+		]);
+		const sidebar = view.getByRole("navigation", { name: "conversations" });
+		const spinner = within(sidebar).getByRole("status", {
+			name: "background commands running",
+		});
+		expect(spinner.title).toBe("Background commands running, new reply");
+		expect(
+			within(sidebar).queryByRole("status", { name: "unread" }),
+		).toBeNull();
+
+		await testing.say(
+			conversation({
+				id: "c2",
+				title: "Build it",
+				unread: true,
+				background: [{ ...running, state: "completed" }],
+			}),
+		);
+		expect(
+			within(sidebar).getByRole("status", { name: "unread" }),
+		).toBeTruthy();
+	});
+
 	it("names the subagent that started a command in its row's title", async () => {
 		const view = await testing.openConversations([
 			conversation({
