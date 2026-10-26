@@ -126,7 +126,7 @@ describe("App's agents, in a folder per project", () => {
 		expect(there.hash).toBe("#conversations/z2");
 	});
 
-	it("keeps the folders by name, the page's own among them marked, so a switch moves none", async () => {
+	it("keeps the folders by name, none marked as the page's own, so a switch moves none", async () => {
 		testing.everywhere = [
 			listed("apple", "/code/apple", [
 				conversation({ id: "a1", title: "Core", status: "running" }),
@@ -140,14 +140,9 @@ describe("App's agents, in a folder per project", () => {
 		expect(
 			within(nav)
 				.getAllByRole("region")
-				.map((each) => [
-					each.getAttribute("aria-label"),
-					within(each).queryByRole("img", { name: "shown" }) !== null,
-				]),
-		).toEqual([
-			["apple", false],
-			["webappwiz", true],
-		]);
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["apple", "webappwiz"]);
+		expect(within(nav).queryByRole("img", { name: "shown" })).toBeNull();
 	});
 
 	it("lists every agent of every project, none held back", async () => {

@@ -14,7 +14,7 @@ import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
 import { Action, Sheet, useLongPress } from "./phone-row-menu";
 import { ProjectEmpty, useRemoveProject } from "./project-controls";
-import { InLanes, ShownDot } from "./project-folder-list";
+import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
@@ -119,7 +119,6 @@ export function ProjectSection({
 							)}
 						/>
 						<span className="min-w-0 truncate">{folder.name}</span>
-						{folder.here && <ShownDot />}
 					</button>
 				</h2>
 				{onNew !== null && (
