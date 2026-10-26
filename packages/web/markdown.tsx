@@ -80,13 +80,13 @@ export const Markdown = memo(function Markdown({
 	);
 });
 
-// Every level renders as the same quiet uppercase label: the documents this
-// renders sit inside a card or a dialog that already carries the real title,
-// so a heading here is a section marker, not a hierarchy, and a run of
-// title-sized lines would shout over the content. The tag still says the
-// level for a reader.
+// Every level renders as the same small semibold line over a hairline: the
+// documents this renders sit inside a card or a dialog that already carries
+// the real title, so a heading here is a section marker, not a hierarchy, and
+// a run of title-sized lines would shout over the content. The tag still says
+// the level for a reader.
 export const HEADING =
-	"mt-[0.9rem] mb-[0.3rem] first:mt-0 font-bold text-[0.8rem] uppercase tracking-[0.08em] opacity-55";
+	"mt-[0.9rem] mb-[0.3rem] first:mt-0 border-b border-current/20 pb-[0.2rem] font-semibold text-[0.95rem]";
 
 const OPTIONS: MarkdownToJSX.Options = {
 	// Markup in a todo or a plan is shown as typed, never as elements.
