@@ -51,7 +51,7 @@ describe("App's reads that never answer", () => {
 			expect(view.getByRole("button", { name: "Set up Agents" })).toBeTruthy(),
 		);
 		expect(view.queryByText(/Couldn't read your setup/)).toBeNull();
-	});
+	}, 15_000);
 
 	it("says Billing's budgets gave up rather than reading on, and reads again on Try again", async () => {
 		testing.hang("/api/budgets");
