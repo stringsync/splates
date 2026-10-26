@@ -59,7 +59,7 @@ export function ProjectList({
 						render={<section aria-label={folder.name} />}
 						className="group/folder flex flex-col"
 					>
-						<div className="group/head flex items-center">
+						<div className="group/head relative flex items-center">
 							<CollapsibleTrigger
 								className={cn(
 									HEADING,
@@ -72,8 +72,8 @@ export function ProjectList({
 									className="size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90"
 								/>
 								<span className="min-w-0 truncate">{folder.name}</span>
-								{folder.here && <ShownDot />}
 							</CollapsibleTrigger>
+							{folder.here && <ShownBar />}
 							<button
 								type="button"
 								aria-label={`New conversation in ${folder.name}`}
@@ -113,6 +113,18 @@ export function ShownDot(): JSX.Element {
 			aria-label="shown"
 			title="The project shown"
 			className="size-1.5 shrink-0 rounded-full bg-primary"
+		/>
+	);
+}
+
+/** Marks the folder of the project the page shows with a bar beside its name only, not the rows under it. */
+function ShownBar(): JSX.Element {
+	return (
+		<span
+			role="img"
+			aria-label="shown"
+			title="The project shown"
+			className="absolute inset-y-0.5 left-0 w-0.5 rounded-full bg-primary"
 		/>
 	);
 }
