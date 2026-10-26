@@ -141,6 +141,28 @@ const anchoredTurn = (s: AssistantState, going: boolean) => {
 		: undefined;
 };
 /**
+ * The turn to anchor to the top, as `anchoredTurn` finds it, but never one
+ * already under way when the thread opened: opening a conversation mid-turn
+ * shows its latest, at the bottom, and only a message sent from here
+ * anchors.
+ */
+export function useAnchoredTurn(going: boolean): string | undefined {
+	const turn = useAuiState((s) => anchoredTurn(s, going));
+	const any = useAuiState((s) => s.thread.messages.length > 0);
+	const asked = useAuiState(
+		(s) => s.thread.messages.findLast((m) => m.role === "user")?.id,
+	);
+	const opening = useRef<{ asked: string | undefined } | null>(null);
+	// The first messages in sight are what the thread opened on, unless the
+	// person sent them from here, which `going` says.
+	if (opening.current === null && any) {
+		opening.current = { asked: going ? undefined : asked };
+	}
+	return turn !== undefined && turn === opening.current?.asked
+		? undefined
+		: turn;
+}
+/**
  * No message is too tall to anchor by its top. assistant-ui would scroll past
  * the top of a tall one, leaving only its foot in view, but ours stays stuck
  * atop its turn whole, so the reply would only scroll behind it.
@@ -156,9 +178,8 @@ const RESERVE = "[data-aui-top-anchor-reserve]";
  */
 export function useAnchorAtOnce(
 	viewport: RefObject<HTMLDivElement | null>,
-	going: boolean,
+	id: string | undefined,
 ): void {
-	const id = useAuiState((s) => anchoredTurn(s, going));
 	useLayoutEffect(() => {
 		const scroller = viewport.current;
 		const anchor = scroller?.querySelector<HTMLElement>(

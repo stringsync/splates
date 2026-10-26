@@ -98,4 +98,24 @@ describe("Conversation bottom after loading", () => {
 		await resize(2600);
 		expect(thread.scrollTop).toBe(2600);
 	});
+
+	it("opens a conversation mid-turn at the bottom rather than anchored to the last message", async () => {
+		height = 1800;
+		const view = await testing.openConversations([
+			conversation({
+				status: "running",
+				messages: [
+					message("user", "fix the footer"),
+					message("agent", "Looking at it."),
+					message("user", "and the header"),
+					message("agent", "On it."),
+				],
+			}),
+		]);
+		const thread = view.container.querySelector(
+			'[data-slot="aui_thread-viewport"]',
+		) as HTMLElement;
+		Object.defineProperty(thread, "clientHeight", { get: () => 500 });
+		await waitFor(() => expect(thread.scrollTop).toBe(1800));
+	});
 });

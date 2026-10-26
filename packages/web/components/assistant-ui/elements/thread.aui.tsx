@@ -31,6 +31,7 @@ import { ThreadMessage } from "#web/components/assistant-ui/elements/thread-mess
 import {
 	UNCLAMPED,
 	useAnchorAtOnce,
+	useAnchoredTurn,
 	useClearOf,
 	useFollowWork,
 	useHoldPlace,
@@ -102,7 +103,6 @@ const ThreadRoot: FC<{
 }> = ({ isEmpty, autoFocus, onRead, docked, going, historyFailure }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
-	const running = useAuiState((s) => s.thread.isRunning);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
 	// keyboard over half the page.
@@ -133,7 +133,9 @@ const ThreadRoot: FC<{
 		};
 	}, []);
 	useTrackRead(viewport, onRead);
-	useAnchorAtOnce(viewport, going);
+	const running = useAuiState((s) => s.thread.isRunning);
+	const turn = useAnchoredTurn(going);
+	useAnchorAtOnce(viewport, turn);
 	useFollowWork(viewport);
 	useHoldPlace(viewport);
 	const footer = useRef<HTMLDivElement>(null);
@@ -154,8 +156,10 @@ const ThreadRoot: FC<{
 				ref={viewport}
 				// Late media and cards must keep the bottom in view after opening;
 				// top anchoring otherwise disables this once the first scroll lands.
+				// Only a turn sent from here anchors at the top, so a thread opened
+				// mid-turn opens at its bottom.
 				autoScroll={!running && !going}
-				turnAnchor="top"
+				turnAnchor={turn === undefined ? "bottom" : "top"}
 				topAnchorMessageClamp={UNCLAMPED}
 				data-slot="aui_thread-viewport"
 				// Clear of what sits over its right, such as docked widgets, which
