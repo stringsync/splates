@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { PeakMemory } from "./peak-memory";
 import { test as runTests, type TestOptions } from "./test";
+import { TestTimings } from "./timings";
 
 describe("focused development tests", () => {
 	let ps: FakePs;
@@ -16,6 +17,7 @@ describe("focused development tests", () => {
 			ps,
 			log: new MemoryLogger(),
 			memory: new PeakMemory(new FakePs()),
+			timings: null,
 		};
 	});
 
@@ -98,6 +100,28 @@ describe("focused development tests", () => {
 			expect.stringMatching(/--parallel=3 .*packages\/web\/\*\*$/),
 			expect.stringMatching(/--parallel=5 .*--preload=/),
 		]);
+	});
+
+	it("starts a gate's slowest files first, measuring them afresh", async () => {
+		ps.setEnv({ SPLATES_GATE_PHASES: "/gate/phases.jsonl" });
+		const timings = new TestTimings(new FakeFs(), "/repo/.git");
+
+		await runTests({ ...opts, workers: 2, timings });
+
+		expect(ps.getCalls()).toEqual([
+			expect.stringMatching(
+				/--timings=\S+timings-server\.json --update-timings/,
+			),
+			expect.stringMatching(/--timings=\S+timings-page\.json --update-timings/),
+		]);
+	});
+
+	it("leaves a focused run in path order", async () => {
+		const timings = new TestTimings(new FakeFs(), "/repo/.git");
+
+		await runTests({ ...opts, changed: true, timings });
+
+		expect(ps.getCalls().join("\n")).not.toContain("--timings");
 	});
 
 	it("reports a failing focused test", async () => {

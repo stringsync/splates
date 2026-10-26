@@ -66,6 +66,12 @@ run-command permission card for anything else heavy, running it only on
   in a merge's gate, `--parallel=$SPLATES_CORES`, the cores the load left
   idle (`gateCores`, `premerge-lock.md`). Trailing arguments filter files by path, as `bun
   test` does.
+- Each half starts its slowest files first (bun's `--timings`), by the
+  per-file durations of its last passing gate, kept in the common git dir as
+  `splates-test-timings-<half>.json` (`TestTimings`). Only a gate's whole run
+  (`SPLATES_GATE_PHASES` set) measures them (`--update-timings` into a scratch
+  copy), and a half's copy replaces the kept file only when that half passed.
+  A missing or unreadable file leaves the run in path order.
 - The whole run is killed at six minutes; inside `dev premerge`, at what is
   left of the gate's 3 minutes.
 - `evals/**` is excluded unless `--evals` or `--all`.

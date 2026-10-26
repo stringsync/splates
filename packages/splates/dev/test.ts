@@ -3,7 +3,11 @@ import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fail } from "@stringsync/splates-server/exit";
 import { Git } from "@stringsync/splates-server/git";
-import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
+import {
+	GATE_PHASES,
+	PREMERGE_HELD,
+	SuiteGrants,
+} from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -12,6 +16,7 @@ import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
 import { type ScopeCount, TestScope } from "./test-scope";
+import { TestTimings } from "./timings";
 import { budgetedWorkers, freeMemoryMb } from "./worker-memory";
 
 /**
@@ -137,7 +142,12 @@ export async function test(opts: TestOptions): Promise<void> {
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
 	const report = ps.env("SPLATES_TEST_REPORT");
-	const bunTest = (args: string[], at: number, workers: number) => [
+	const bunTest = (
+		args: string[],
+		at: number,
+		workers: number,
+		timings: string[],
+	) => [
 		"bun",
 		"test",
 		"--pass-with-no-tests",
@@ -156,6 +166,7 @@ export async function test(opts: TestOptions): Promise<void> {
 			? ["--test-name-pattern", opts.testNamePattern]
 			: []),
 		...args,
+		...timings,
 		...(report
 			? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
 			: []),
@@ -173,6 +184,16 @@ export async function test(opts: TestOptions): Promise<void> {
 	await using git = await directGit(ps);
 	await using scratch = await scratchDir();
 	const env = { ...git.env, TMPDIR: scratch.path };
+	// A whole run starts each half's slowest files first, by the timings of
+	// its last passing gate; a gate's whole run measures them afresh, kept
+	// for each half that passed.
+	const timings =
+		focused || opts.evals
+			? null
+			: opts.timings !== undefined
+				? opts.timings
+				: await commonTimings(ps, fs);
+	const measures = ps.env(GATE_PHASES) !== undefined;
 	// The two halves run side by side, each on its share of the cores,
 	// rather than one after the other: each waits on its own slowest
 	// file, and the server's last files no longer hold up the page's
@@ -196,16 +217,20 @@ export async function test(opts: TestOptions): Promise<void> {
 		}
 		const { phase, args, half } = run;
 		const { workers, byMemory } = workersFor(half, its);
+		const ordered = (await timings
+			?.forRun(half, measures ? scratch.path : undefined)
+			.catch(() => null)) ?? { args: [], kept: async () => {} };
+		const command = bunTest(args, at, workers, ordered.args);
 		const captured = opts.quiet || split !== null;
 		const spawned = async () => {
 			if (!captured) {
-				return await ps.spawn(bunTest(args, at, workers), {
+				return await ps.spawn(command, {
 					cwd: ROOT,
 					env,
 					signal,
 				});
 			}
-			const done = await ps.spawnCapture(bunTest(args, at, workers), {
+			const done = await ps.spawnCapture(command, {
 				cwd: ROOT,
 				env,
 				signal,
@@ -259,6 +284,8 @@ export async function test(opts: TestOptions): Promise<void> {
 			await opts.phases?.peak(phase, peakMb);
 		}
 		failed ||= exitCode !== 0;
+		// Timings lost only cost the next run its order.
+		await ordered.kept(exitCode === 0).catch(() => {});
 		if (report) {
 			const xml = await fs.read(`${report}.${at}`).catch(() => null);
 			await fs.rm(`${report}.${at}`, { force: true });
@@ -386,6 +413,14 @@ export interface TestOptions {
 	memory?: PeakMemory;
 	/** What reads free memory in megabytes, `os.freemem()` when left out. */
 	freeMemoryMb?: () => number;
+	/** Where a whole run's per-file timings are kept; the repository's common git dir when left out, none when null. */
+	timings?: TestTimings | null;
+}
+
+/** The timings kept in the repository's common git dir, or none outside a repository. */
+async function commonTimings(ps: Ps, fs: NodeFs): Promise<TestTimings | null> {
+	const dir = await new Git(ROOT, { ps }).commonDir().catch(() => null);
+	return dir === null ? null : new TestTimings(fs, dir);
 }
 
 /**
