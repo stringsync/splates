@@ -135,7 +135,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.startedBy ?? null,
 		);
 		state.skill = start.skill ?? null;
-		state.capped = start.capped ?? false;
+		state.automatic = start.automatic ?? start.capped ?? false;
 		state.queued = start.queued ?? null;
 		if (start.persistent !== undefined) {
 			state.persistent = start.persistent;
@@ -510,6 +510,8 @@ type Said =
 			/** The project's splates skill version; missing when it had none, or before it was kept. */
 			skill?: string;
 			/** Whether the server's queue or a hook started it; missing for one neither did. */
+			automatic?: boolean;
+			/** What `automatic` was written as before it was renamed. */
 			capped?: boolean;
 			/** The queued task it was held for; missing for one held for none. */
 			queued?: number;

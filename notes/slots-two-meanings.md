@@ -1,5 +1,5 @@
 ---
-description: The two unrelated things splates calls a slot: the animal-word dev server slots, and a worker's agent slots
+description: What splates calls a slot: the animal-word dev server slots; workers have none since agents are uncapped
 ---
 
 Server slots are the short animal words (`fox`) that `splates server --slot`
@@ -9,14 +9,14 @@ slots` lists and prunes them (`packages/splates/slots.ts`, `ports/slot.ts`).
 A slot is refused on a project's main tree, and its word is held until the
 task merges or is removed.
 
-Worker slots no longer cap anything (since 2026-10-26): nothing limits how
-many agents run, and heavy commands wait their turn as jobs instead. The
-`Scheduler` places every agent at once on a worker that is up. What waits,
-in `splates worker queue` (`waiting.ts`), first come first served and never
-failed for waiting, is what splates starts on its own (automations, hooks,
-the groomer, queue starts) while paused (`paused` in `workers.json`, `PUT
-/api/workers/local`, the Queue page's Pause), with the reason `paused`, and
-any agent while no worker is up. The person's own agents start even while
-paused (`uncapped` on the request, `capped: false` on its listing). The
-worker's slot setting (`splates worker slots`, `--slots`) is left over and
-places nothing.
+Workers had agent slots until 2026-10-26, when agents were uncapped and the
+slot setting (`splates worker slots`, `worker run --slots`, `slots` in
+`workers.json`) was removed; `worker run` still accepts `--slots` and
+ignores it, since a supervisor started before then passes it. The
+`Scheduler` (`workers/scheduler.ts`) places every agent at once on a worker
+that is up. What waits, in `splates worker queue` (`waiting.ts`), first come
+first served and never failed for waiting, is what splates starts on its own
+(automations, hooks, the groomer, queue starts) while paused (`paused` in
+`workers.json`, `PUT /api/workers/local`, the Queue page's Pause), with the
+reason `paused`, and any agent while no worker is up. The person's own agents
+start even while paused (`automatic: false` on the request and its listing).

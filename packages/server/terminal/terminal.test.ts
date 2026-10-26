@@ -44,7 +44,6 @@ describe("dev terminal", () => {
 			{ where: "memory", dial: async () => pair.worker },
 			{
 				id: "local",
-				slots: 4,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),

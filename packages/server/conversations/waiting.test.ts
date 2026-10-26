@@ -90,7 +90,7 @@ describe("An agent waiting to start as the server goes down", () => {
 		const second = await before.start("fake", {
 			task: "signup",
 			cwd: "/repo-splates/signup",
-			capped: true,
+			automatic: true,
 		});
 		await once(second, () => second.state.queue !== null);
 		id = second.id;

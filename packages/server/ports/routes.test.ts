@@ -45,7 +45,6 @@ describe("DevTaskPorts", () => {
 			{ where: path, dial: () => UnixWorkerSocket.connect(path) },
 			{
 				id: "local",
-				slots: 8,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),

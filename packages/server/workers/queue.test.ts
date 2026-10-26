@@ -22,16 +22,25 @@ describe("splates worker queue", () => {
 					: workers.queue(),
 		});
 		url = `http://127.0.0.1:${server.port}`;
-		const app = workers.slots.project("/code/app");
+		const app = workers.placement.project("/code/app");
 		await app.take(
-			{ id: "c1", task: "login", agent: "claude", uncapped: true },
+			{ id: "c1", task: "login", agent: "claude", automatic: false },
 			signal,
 		);
-		void app.take({ id: "c2", task: "signup", agent: "claude" }, signal);
-		void app.take({ id: "c3", task: null, agent: "claude" }, signal);
-		void workers.slots
+		void app.take(
+			{ id: "c2", task: "signup", agent: "claude", automatic: true },
+			signal,
+		);
+		void app.take(
+			{ id: "c3", task: null, agent: "claude", automatic: true },
+			signal,
+		);
+		void workers.placement
 			.project("/code/site")
-			.take({ id: "c4", task: "deploy", agent: "claude" }, signal);
+			.take(
+				{ id: "c4", task: "deploy", agent: "claude", automatic: true },
+				signal,
+			);
 	});
 
 	afterEach(async () => {
@@ -82,11 +91,9 @@ describe("splates worker queue", () => {
 			log: new MemoryLogger(),
 			ps: new NodePs(),
 		});
-		expect(workers.slots.scheduler.queue().map((entry) => entry.id)).toEqual([
-			"c3",
-			"c4",
-			"c2",
-		]);
+		expect(
+			workers.placement.scheduler.queue().map((entry) => entry.id),
+		).toEqual(["c3", "c4", "c2"]);
 	});
 
 	it("refuses to move what does not wait", async () => {

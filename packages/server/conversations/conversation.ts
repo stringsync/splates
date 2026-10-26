@@ -220,7 +220,7 @@ export class Conversation
 						id: state.id,
 						task: state.task,
 						agent: state.agent,
-						uncapped: !spawned(state),
+						automatic: spawned(state),
 					},
 					live.handle.worker,
 				) ?? null;
@@ -324,7 +324,7 @@ export class Conversation
 			cwd,
 			assigned = false,
 			startedBy = null,
-			capped = false,
+			automatic = false,
 			skill = null,
 			queued,
 			title = null,
@@ -350,7 +350,7 @@ export class Conversation
 			startedBy,
 		);
 		state.skill = skill;
-		state.capped = capped;
+		state.automatic = automatic;
 		state.queued = queued ?? null;
 		state.title = title;
 		if (persistent !== undefined) {
@@ -371,7 +371,7 @@ export class Conversation
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(startedBy === null ? {} : { startedBy }),
-			...(capped ? { capped } : {}),
+			...(automatic ? { automatic } : {}),
 			...(skill === null ? {} : { skill }),
 			...(queued === undefined ? {} : { queued }),
 			...(persistent === undefined ? {} : { persistent }),
@@ -1234,11 +1234,11 @@ export class Conversation
 	}
 
 	/**
-	 * Waits in the queue for a slot for its agent, keeping where it waits in
-	 * its state: its placement on the worker it was placed on, undefined with
-	 * no queue, or null once a stop takes it out of line. Slots cap how many
-	 * agents agents start, never how many the person does: the person's go
-	 * uncapped, waiting only while no worker they can run on is up.
+	 * Waits in the queue for a worker for its agent, keeping where it waits
+	 * in its state: its placement on the worker it was placed on, undefined
+	 * with no queue, or null once a stop takes it out of line. An automatic
+	 * one also waits while starts are paused; the person's own wait only
+	 * while no worker they can run on is up.
 	 */
 	private async place(): Promise<Placement | undefined | null> {
 		const { slots } = this.deps;
@@ -1256,7 +1256,7 @@ export class Conversation
 		);
 		try {
 			const placement = await slots.take(
-				{ id, task, agent, uncapped: !spawned(this.state) },
+				{ id, task, agent, automatic: spawned(this.state) },
 				placing.signal,
 			);
 			this.grant = placement;
@@ -1306,7 +1306,7 @@ export class Conversation
  * person; an older one a lane's orchestrator started counts too.
  */
 function spawned(state: ConversationState): boolean {
-	return state.capped || state.startedBy !== null;
+	return state.automatic || state.startedBy !== null;
 }
 
 /** What a conversation is opened with, started afresh or brought in. */
@@ -1323,8 +1323,8 @@ interface Opening {
 	assigned?: boolean;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */
 	startedBy?: string | null;
-	/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
-	capped?: boolean;
+	/** Whether the server's queue or a hook starts it, so it waits while starts are paused. */
+	automatic?: boolean;
 	/** The project's splates skill version as it starts; null when it has none. */
 	skill?: string | null;
 	/** The queued task it is held for until the queue starts it (`hold`). */

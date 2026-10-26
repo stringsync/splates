@@ -1,11 +1,9 @@
-import { availableParallelism, totalmem } from "node:os";
 import type { Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { endWithSupervisor } from "./lifecycle";
-import { machineSlots } from "./machine";
 import type { WorkerRunOptions } from "./run-options";
 import { UnixWorkerSocket } from "./unix-socket";
 
@@ -27,7 +25,6 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const id = opts.id || "local";
 	const daemon = new WorkerDaemon(dialer(opts), {
 		id,
-		slots: opts.slots || machineSlots(availableParallelism(), totalmem()),
 		ps,
 		fs: opts.fs,
 		log,

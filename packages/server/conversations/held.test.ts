@@ -40,7 +40,7 @@ describe("A conversation held for a queued task", () => {
 			task: null,
 			cwd: "/repo",
 			assigned: true,
-			capped: true,
+			automatic: true,
 			queued: 7,
 			title: "#7 Totals first",
 		});

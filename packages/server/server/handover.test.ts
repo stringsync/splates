@@ -46,7 +46,6 @@ describe("dev restart with agents on the worker", () => {
 			{ where: socket, dial: () => UnixWorkerSocket.connect(socket) },
 			{
 				id: LOCAL_WORKER,
-				slots: 4,
 				ps: new FakeAgentPs(agent),
 				fs: deps.fs,
 				log: new MemoryLogger(),

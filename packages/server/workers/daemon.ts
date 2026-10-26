@@ -137,7 +137,6 @@ export class WorkerDaemon implements AsyncResource {
 						? {}
 						: { key: this.dialer.verify.key }),
 					info: {
-						slots: this.opts.slots,
 						platform: this.opts.ps.platform,
 						...(host === null ? {} : { host }),
 						build: RUNNING,
@@ -370,7 +369,6 @@ export function jittered(wait: Duration, random: () => number): Duration {
 export interface WorkerDaemonOptions {
 	/** Stays the same across restarts, so the server resumes its session. */
 	id: string;
-	slots: number;
 	ps: Ps;
 	fs: Fs;
 	log: Logger;

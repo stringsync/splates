@@ -94,39 +94,39 @@ export function Running({
 }): JSX.Element {
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
-	const capped = held.filter((each) => each.capped);
+	const automatic = held.filter((each) => each.automatic);
 	const attempt = (title: string, write: Promise<void>) =>
 		void write.catch((error: unknown) => refuse(title, error));
 	return (
-		<QueueSection title="Started by splates" count={capped.length}>
+		<QueueSection title="Started by splates" count={automatic.length}>
 			<Refusal refusal={refusal} />
-			{capped.length === 0 ? (
+			{automatic.length === 0 ? (
 				<QueueEmpty>Nothing splates started runs</QueueEmpty>
 			) : (
-				capped.map((slot) => {
-					const conversation = known.of(slot.id);
-					const here = known.here(slot.project);
+				automatic.map((held) => {
+					const conversation = known.of(held.id);
+					const here = known.here(held.project);
 					const project = here
 						? undefined
-						: (known.project(slot.project)?.slug ?? slot.project);
+						: (known.project(held.project)?.slug ?? held.project);
 					return (
 						<QueueRow
-							key={slot.id}
+							key={held.id}
 							name={
-								slot.task ??
+								held.task ??
 								(conversation ? nameOf(conversation) : "A conversation")
 							}
 							by={startedBy(conversation)}
-							age={age(slot.since)}
-							id={here ? undefined : known.project(slot.project)?.name}
+							age={age(held.since)}
+							id={here ? undefined : known.project(held.project)?.name}
 							quiet={{
 								label: "Stop",
 								onClick: () =>
-									attempt("Not stopped", cancelConversation(slot.id, project)),
+									attempt("Not stopped", cancelConversation(held.id, project)),
 							}}
 							main={{
 								label: "Open",
-								onClick: () => known.open(slot.project, slot.id),
+								onClick: () => known.open(held.project, held.id),
 							}}
 							menu={
 								<>
@@ -134,7 +134,7 @@ export function Running({
 										onClick={() =>
 											attempt(
 												"Not restarted",
-												restartConversation(slot.id, project),
+												restartConversation(held.id, project),
 											)
 										}
 									>
@@ -144,7 +144,7 @@ export function Running({
 										onClick={() =>
 											attempt(
 												"Not archived",
-												archiveConversation(slot.id, true, project),
+												archiveConversation(held.id, true, project),
 											)
 										}
 									>

@@ -312,7 +312,7 @@ describe("Conversation lifecycle", () => {
 		const queued = await conversations.start("fake", {
 			task: null,
 			cwd: "/repo",
-			capped: true,
+			automatic: true,
 		});
 		const own = await started();
 		const reread = async () =>
@@ -323,7 +323,7 @@ describe("Conversation lifecycle", () => {
 					clock,
 					launch: agent.launch,
 				}).list()
-			).map(({ state }) => [state.id, state.capped]);
+			).map(({ state }) => [state.id, state.automatic]);
 
 		expect(await reread()).toEqual(
 			expect.arrayContaining([

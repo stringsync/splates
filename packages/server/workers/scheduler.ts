@@ -25,10 +25,10 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	) {}
 
 	/**
-	 * A slot for `request`, at once when it may start, else once its turn
+	 * A place for `request`, at once when it may start, else once its turn
 	 * comes; aborting `signal` takes it out of the queue, rejecting.
 	 */
-	take(request: SlotRequest, signal?: AbortSignal): Promise<Grant> {
+	take(request: StartRequest, signal?: AbortSignal): Promise<Grant> {
 		return new Promise<Grant>((resolve, reject) => {
 			if (signal?.aborted) {
 				reject(signal.reason);
@@ -61,7 +61,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * Counts `request` against `worker` without queueing, for an agent that
 	 * already runs there, as one taken back after a restart.
 	 */
-	hold(request: SlotRequest, worker: string): Grant {
+	hold(request: StartRequest, worker: string): Grant {
 		return this.grant(request, worker);
 	}
 
@@ -76,8 +76,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			agent: request.agent,
 			position: at + 1,
 			since,
-			reason:
-				paused && request.uncapped !== true ? "paused" : reasonFor(workers),
+			reason: paused && request.automatic ? "paused" : reasonFor(workers),
 		}));
 	}
 
@@ -86,8 +85,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return this.queue().find((each) => each.id === id) ?? null;
 	}
 
-	/** The agents holding slots, on whichever worker. */
-	held(): HeldSlot[] {
+	/** The agents placed, on whichever worker. */
+	held(): PlacedAgent[] {
 		return [...this.holding.values()].map(({ held }) => held);
 	}
 
@@ -111,7 +110,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	}
 
 	/**
-	 * Frees every slot held on `worker`, as when it is removed with its
+	 * Frees every agent placed on `worker`, as when it is removed with its
 	 * agents still on it or has been away too long, saying `why`, telling each grant's holder through `lost`, and
 	 * places whoever can go elsewhere: the holders that take their agents
 	 * back up included, once `worker` is out of the pool.
@@ -204,11 +203,11 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * The worker for `request`, among those awake: any on the server's build
 	 * before every one waiting on an update, which a rollout is to take
 	 * down, and among equals the one running fewest agents. While the pool
-	 * is paused only an uncapped request is placed: the person's own agents
+	 * is paused no automatic request is placed: the person's own agents
 	 * still start.
 	 */
-	private pick(request: SlotRequest): string | null {
-		if (request.uncapped !== true && this.paused()) {
+	private pick(request: StartRequest): string | null {
+		if (request.automatic && this.paused()) {
 			return null;
 		}
 		const used = new Map<string, number>();
@@ -228,13 +227,13 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return best?.id ?? null;
 	}
 
-	private grant(request: SlotRequest, worker: string): Grant {
-		const held: HeldSlot = {
+	private grant(request: StartRequest, worker: string): Grant {
+		const held: PlacedAgent = {
 			id: request.id,
 			project: request.project,
 			task: request.task,
 			worker,
-			uncapped: request.uncapped === true,
+			automatic: request.automatic,
 			since: this.clock.now(),
 		};
 		const losing = new AbortController();
@@ -301,8 +300,8 @@ export interface PoolWorker {
 	replacing?: boolean;
 }
 
-/** What wants a slot: one conversation's agent. */
-export interface SlotRequest {
+/** What wants a worker: one conversation's agent. */
+export interface StartRequest {
 	/** The conversation's id. */
 	id: string;
 	/** The project's main tree. */
@@ -311,10 +310,11 @@ export interface SlotRequest {
 	/** The agent it starts, by id. */
 	agent: string;
 	/**
-	 * Placed even while the pool is paused: an agent the person started, or
-	 * a task they queued, rather than one splates starts on its own.
+	 * Started by splates on its own (an automation, a hook, the groomer),
+	 * so held while the pool is paused; false for an agent the person
+	 * started, or a task they queued, which is placed even then.
 	 */
-	uncapped?: boolean;
+	automatic: boolean;
 }
 
 /** Why a queued agent waits. */
@@ -335,22 +335,22 @@ export interface QueueEntry {
 }
 
 /** One agent running on a worker. */
-export interface HeldSlot {
+export interface PlacedAgent {
 	id: string;
 	project: string;
 	task: string | null;
 	worker: string;
-	/** Started by the person, not by splates on its own (`SlotRequest`). */
-	uncapped: boolean;
-	/** When the slot was granted, epoch milliseconds. */
+	/** Started by splates on its own, not by the person (`StartRequest`). */
+	automatic: boolean;
+	/** When it was placed, epoch milliseconds. */
 	since: number;
 }
 
-/** A slot an agent holds until it is disposed, which frees it. */
+/** A place an agent holds until it is disposed, which frees it. */
 export interface Grant extends Resource {
 	readonly worker: string;
 	/**
-	 * Aborts once the slot is taken away with its worker, as a forced
+	 * Aborts once the place is taken away with its worker, as a forced
 	 * remove does, while the agent may still think it runs there.
 	 */
 	readonly lost: AbortSignal;
@@ -361,19 +361,19 @@ export interface Grant extends Resource {
 }
 
 /**
- * `changed` whenever the queue or the slots held change; `drain` with a
+ * `changed` whenever the queue or the agents placed change; `drain` with a
  * worker's id once it starts draining (`poke`).
  */
 export type SchedulerEvents = { changed: undefined; drain: string };
 
-/** A slot held, and what tells its holder once it is taken away. */
+/** A place held, and what tells its holder once it is taken away. */
 interface Holding {
-	held: HeldSlot;
+	held: PlacedAgent;
 	losing: AbortController;
 }
 
 interface Waiting {
-	request: SlotRequest;
+	request: StartRequest;
 	since: number;
 	placed(grant: Grant): void;
 }

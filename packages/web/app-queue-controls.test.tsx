@@ -32,8 +32,8 @@ describe("App's queue controls", () => {
 		const view = await openQueue(
 			pool({
 				held: [
-					held("a", { capped: true, task: "groom-backlog" }),
-					held("b", { capped: false, task: "mine" }),
+					held("a", { automatic: true, task: "groom-backlog" }),
+					held("b", { automatic: false, task: "mine" }),
 				],
 			}),
 		);
@@ -102,7 +102,6 @@ function pool({
 		host: null,
 		build: "1.0.0",
 		protocol: "1.0",
-		slots: { used: held.length, total: 3 },
 		health: "connected",
 		draining,
 		removing: false,
@@ -120,7 +119,7 @@ function held(id: string, overrides: Partial<HeldListing>): HeldListing {
 		id,
 		project: "/repo",
 		task: null,
-		capped: true,
+		automatic: true,
 		since: new Date().toISOString(),
 		...overrides,
 	};

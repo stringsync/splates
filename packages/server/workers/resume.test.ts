@@ -32,7 +32,6 @@ describe("ConnectedWorker after the coordinator restarts", () => {
 			{ where: "memory", dial: async () => pair.worker },
 			{
 				id: "local",
-				slots: 1,
 				ps,
 				fs: new FakeFs(),
 				log: { info: () => {}, error: () => {} },

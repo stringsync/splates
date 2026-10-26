@@ -105,7 +105,7 @@ describe("Conversations waiting for a slot", () => {
 		conversations.start("fake", {
 			task,
 			cwd: `/repo-splates/${task}`,
-			capped: true,
+			automatic: true,
 		});
 
 	const restOut = () => {
@@ -181,10 +181,10 @@ describe("Conversations waiting for a slot", () => {
 		await until(own, "idle");
 		expect(own.state.queue).toBeNull();
 		expect(
-			scheduler.held().map(({ id, uncapped }) => ({ id, uncapped })),
+			scheduler.held().map(({ id, automatic }) => ({ id, automatic })),
 		).toEqual([
-			{ id: first.id, uncapped: false },
-			{ id: own.id, uncapped: true },
+			{ id: first.id, automatic: true },
+			{ id: own.id, automatic: false },
 		]);
 	});
 

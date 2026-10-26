@@ -19,27 +19,17 @@ import {
 } from "./scheduler";
 import type { ConnectedWorker } from "./worker";
 
-/** How many agents a worker runs at once until its hello says. */
-export const DEFAULT_SLOTS = 8;
-
 /**
- * How many agents other agents started this machine's worker runs at once,
- * until the slots set on it say otherwise; those the person starts count
- * against none.
- */
-export const LOCAL_SLOTS = 16;
-
-/**
- * The machine's queue for worker slots, over the workers its registry
+ * The machine's queue for workers, over the workers its registry
  * keeps: the agents other agents start, from every project, wait in one
  * line, and each starts on the worker it was placed on.
  */
-export class WorkerSlots implements Resource {
+export class AgentPlacement implements Resource {
 	readonly scheduler: Scheduler;
 	/** The workers placement sees. */
 	readonly pool: Pool;
 	private readonly unlisten: () => void;
-	/** What frees the slots of a worker away too long; none without a log. */
+	/** What frees the agents of a worker away too long; none without a log. */
 	private readonly gone: GoneWorkers | null;
 
 	constructor(
@@ -53,7 +43,7 @@ export class WorkerSlots implements Resource {
 			paused = () => false,
 		}: {
 			wall?: WallClock;
-			/** What was set on worker `id` by hand: its slots, and whether it drains. */
+			/** What was set on worker `id` by hand: whether it drains. */
 			record?: (id: string) => WorkerRecord | undefined;
 			/** Whether worker `id` takes agents at all: not this machine's own once it is removed. */
 			pooled?: (id: string) => boolean;
@@ -88,15 +78,15 @@ export class WorkerSlots implements Resource {
 					});
 	}
 
-	/** The queue as the agents of the project at `root` take slots from it. */
+	/** The queue as the agents of the project at `root` are placed from it. */
 	project(root: string): ConversationSlots {
 		const { scheduler, registry } = this;
-		const request = ({ id, task, agent, uncapped }: SlotAsk) => ({
+		const request = ({ id, task, agent, automatic }: SlotAsk) => ({
 			id,
 			task,
 			agent,
 			project: root,
-			...(uncapped === undefined ? {} : { uncapped }),
+			automatic,
 		});
 		return {
 			events: scheduler.events,
@@ -141,7 +131,7 @@ export class WorkerSlots implements Resource {
 		};
 	}
 
-	/** What holds each worker's slots, by its id: a task, or a conversation's id for one in no task. */
+	/** What runs on each worker, by its id: a task, or a conversation's id for one in no task. */
 	used(): Map<string, string[]> {
 		const used = new Map<string, string[]>();
 		for (const held of this.scheduler.held()) {
@@ -168,20 +158,6 @@ function spotOf(entry: QueueEntry, of: number) {
 		since: new Date(entry.since).toISOString(),
 		reason: entry.reason,
 	};
-}
-
-/**
- * How many agents `worker` runs at once: what was set on it by hand, else
- * what its hello says.
- */
-export function slotsOf(
-	worker: ConnectedWorker,
-	record: WorkerRecord | undefined,
-): number {
-	return (
-		record?.slots ??
-		(typeof worker.info.slots === "number" ? worker.info.slots : DEFAULT_SLOTS)
-	);
 }
 
 /**

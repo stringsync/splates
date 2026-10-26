@@ -67,12 +67,10 @@ export async function workerPool(): Promise<WorkerPool> {
 }
 
 /**
- * What can be set on a worker: its slots, null to go by its hello, whether
- * it drains, and, on this machine's own, whether what splates starts on its
- * own is paused.
+ * What can be set on a worker: whether it drains, and, on this machine's
+ * own, whether what splates starts on its own is paused.
  */
 export interface WorkerChange {
-	slots?: number | null;
 	draining?: boolean;
 	paused?: boolean;
 }

@@ -49,16 +49,16 @@ describe("A conversation whose worker is removed under it", () => {
 		scheduler = new Scheduler({ workers: () => workers }, clock);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
-			take: async ({ id, task, agent: wants }, signal) => {
+			take: async ({ id, task, agent: wants, automatic }, signal) => {
 				const grant = await scheduler.take(
-					{ id, task, agent: wants, project: "/repo" },
+					{ id, task, agent: wants, automatic, project: "/repo" },
 					signal,
 				);
 				return { ...grant, launch: agent.launch };
 			},
-			hold: ({ id, task, agent: wants }, worker) => {
+			hold: ({ id, task, agent: wants, automatic }, worker) => {
 				const grant = scheduler.hold(
-					{ id, task, agent: wants, project: "/repo" },
+					{ id, task, agent: wants, automatic, project: "/repo" },
 					worker,
 				);
 				return {
@@ -91,7 +91,7 @@ describe("A conversation whose worker is removed under it", () => {
 		const conversation = await conversations.start("fake", {
 			task,
 			cwd: task === null ? "/repo" : `/repo-splates/${task}`,
-			capped: true,
+			automatic: true,
 		});
 		await until(conversation, "idle");
 		return conversation;

@@ -7,10 +7,10 @@ import { CoordinatorIdentity } from "./identity";
 import type { HeldListing, WorkerPool } from "./list";
 import { workerList } from "./list";
 import { LocalWorkerUpdate } from "./local-update";
+import { AgentPlacement } from "./placement";
 import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
-import { WorkerSlots } from "./slots";
 import { UnixWorkerListener } from "./unix-listener";
 import type { ConnectedWorker } from "./worker";
 
@@ -22,20 +22,19 @@ const QueueMove = z.object({ position: z.number().int() });
 
 /** What `PUT /api/workers/:id` is sent: what to set on a worker. */
 const Settings = z.object({
-	slots: z.number().int().min(1).nullable().optional(),
 	draining: z.boolean().optional(),
 	/** Whether everything splates starts on its own waits; this machine's own alone. */
 	paused: z.boolean().optional(),
 });
 
-/** Accepts this machine's worker over its private Unix socket and manages its slots. */
+/** Accepts this machine's worker over its private Unix socket and places agents on it. */
 export class DevWorkers implements AsyncResource {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
 	/** What proves this server to its workers. */
 	readonly identity: CoordinatorIdentity;
 	/** Where agents are placed on a worker, and where they wait while paused. */
-	readonly slots: WorkerSlots;
+	readonly placement: AgentPlacement;
 	/**
 	 * This machine's worker, which the page's shells and task ports run on,
 	 * and agents too while it is on; work waits for it to join.
@@ -69,28 +68,31 @@ export class DevWorkers implements AsyncResource {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
-		this.slots = new WorkerSlots(this.registry, {
+		this.placement = new AgentPlacement(this.registry, {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
 			log,
 			paused: () => records.paused,
 		});
-		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
+		this.placement.scheduler.events.on("changed", () => void this.removeIdle());
 		this.updater = new LocalWorkerUpdate({
 			registry: this.registry,
 			records,
 			build: RUNNING,
 			used: () => this.used(),
 			pooled: (id) => this.pooled(id),
-			poke: () => this.slots.scheduler.poke(),
+			poke: () => this.placement.scheduler.poke(),
 			log,
 		});
-		this.slots.scheduler.events.on("changed", () => void this.updater.look());
+		this.placement.scheduler.events.on(
+			"changed",
+			() => void this.updater.look(),
+		);
 	}
 
 	/** What runs on each worker: the tasks its agents run, a conversation's id for one in no task. */
 	private used(): Map<string, string[]> {
-		return this.slots.used();
+		return this.placement.used();
 	}
 
 	/** Whether this machine's worker takes agents. */
@@ -141,7 +143,7 @@ export class DevWorkers implements AsyncResource {
 	/**
 	 * `GET /api/workers`: each worker and each refusal, as `splates worker
 	 * list` shows them, the build this server runs, whether it is paused,
-	 * and every agent holding a slot.
+	 * and every agent placed.
 	 */
 	readonly list = async (): Promise<Response> =>
 		Response.json({
@@ -153,20 +155,20 @@ export class DevWorkers implements AsyncResource {
 			),
 			build: RUNNING,
 			paused: this.records.paused,
-			held: this.slots.scheduler.held().map(
+			held: this.placement.scheduler.held().map(
 				(held): HeldListing => ({
 					id: held.id,
 					project: held.project,
 					task: held.task,
-					capped: !held.uncapped,
+					automatic: held.automatic,
 					since: new Date(held.since).toISOString(),
 				}),
 			),
 		} satisfies WorkerPool);
 
 	/**
-	 * `PUT /api/workers/:id`: sets how many agents worker `id` runs at once
-	 * (null to go by its hello) and whether it drains, taking no new ones.
+	 * `PUT /api/workers/:id`: sets whether worker `id` drains, taking no new
+	 * agents.
 	 * Taking new agents again turns this machine's own back on, removed or
 	 * being removed. `paused`, on this machine's own alone, holds back
 	 * everything splates starts on its own, the person's agents still
@@ -180,10 +182,10 @@ export class DevWorkers implements AsyncResource {
 			return refuse(
 				400,
 				"usage",
-				"say the slots, whether it drains or whether it is paused",
+				"say whether it drains or whether it is paused",
 			);
 		}
-		const { slots, draining, paused } = body.data;
+		const { draining, paused } = body.data;
 		const local = id === LOCAL_WORKER;
 		if (paused !== undefined && !local) {
 			return refuse(400, "usage", "only this machine's worker is paused");
@@ -194,10 +196,10 @@ export class DevWorkers implements AsyncResource {
 		if (paused !== undefined) {
 			await this.records.pause(paused);
 			this.log.info(paused ? "paused" : "resumed");
-			if (slots === undefined && draining === undefined) {
+			if (draining === undefined) {
 				// Poked so a resume places those waiting at once and the task
 				// queue, which sweeps on the scheduler's change, starts its own.
-				this.slots.scheduler.poke();
+				this.placement.scheduler.poke();
 				return this.list();
 			}
 		}
@@ -213,18 +215,17 @@ export class DevWorkers implements AsyncResource {
 			this.log.info(`worker ${id} added back`);
 		}
 		await this.records.set(id, {
-			...(slots === undefined ? {} : { slots }),
 			...(draining === undefined ? {} : { draining }),
 			...(local ? { removing: false } : {}),
 		});
-		this.slots.scheduler.poke();
+		this.placement.scheduler.poke();
 		return this.list();
 	};
 
 	/**
 	 * `DELETE /api/workers/:id`: removes worker `id`, revoking its key. One
 	 * with agents on it drains and is removed once they end, unless
-	 * `?force`, which ends them now and frees their slots. This machine's
+	 * `?force`, which ends them now and frees their places. This machine's
 	 * own is only taken out of the pool, its process kept for the page's
 	 * shells and task ports, until `PUT` turns it on again.
 	 */
@@ -244,7 +245,7 @@ export class DevWorkers implements AsyncResource {
 		const running = this.used().get(id) ?? [];
 		if (running.length > 0 && !force) {
 			await this.records.set(id, { draining: true, removing: true });
-			this.slots.scheduler.poke();
+			this.placement.scheduler.poke();
 			return Response.json({ id, removed: false, running });
 		}
 		await this.forget(id);
@@ -264,25 +265,25 @@ export class DevWorkers implements AsyncResource {
 	/**
 	 * Revokes worker `id`'s key and service token, hangs up on it, and frees
 	 * what its agents held.
-	 * This machine's own is turned off instead, keeping its slots for when
-	 * it is back.
+	 * This machine's own is turned off instead, keeping its settings for
+	 * when it is back.
 	 */
 	private async forget(id: string): Promise<void> {
 		if (id === LOCAL_WORKER) {
 			await this.records.set(id, { draining: false, removing: false });
 			await this.records.turnLocal(false);
-			this.slots.scheduler.poke();
+			this.placement.scheduler.poke();
 			this.log.info(`worker ${id} removed: this machine only coordinates`);
 			return;
 		}
 	}
 
 	/**
-	 * `GET /api/queue`: every agent waiting for a slot, first in line first,
+	 * `GET /api/queue`: every agent waiting for a worker, first in line first,
 	 * from every project, as `splates worker queue list` shows them.
 	 */
 	readonly queue = async (): Promise<Response> =>
-		Response.json({ queue: queueListing(this.slots.scheduler.queue()) });
+		Response.json({ queue: queueListing(this.placement.scheduler.queue()) });
 
 	/**
 	 * `PUT /api/queue/:id/position`: moves the agent of conversation `id` to
@@ -296,7 +297,7 @@ export class DevWorkers implements AsyncResource {
 		if (!body.success) {
 			return refuse(400, "usage", "say the position to move it to, from 1");
 		}
-		if (!this.slots.scheduler.move(id, body.data.position)) {
+		if (!this.placement.scheduler.move(id, body.data.position)) {
 			return refuse(404, "not_found", `conversation ${id} is not in the queue`);
 		}
 		return this.queue();
@@ -326,7 +327,7 @@ export class DevWorkers implements AsyncResource {
 
 	async disposeAsync(): Promise<void> {
 		this.updater.dispose();
-		this.slots.dispose();
+		this.placement.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
 	}

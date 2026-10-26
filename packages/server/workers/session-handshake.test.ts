@@ -48,12 +48,12 @@ describe("WorkerSession handshake", () => {
 	it("hands the coordinator the worker's id and info in its hello", async () => {
 		void worker.connect(pair.worker, {
 			id: "mac",
-			info: { slots: 8, platform: "darwin" },
+			info: { platform: "darwin" },
 		});
 
 		expect(await WorkerSession.hello(pair.coordinator)).toMatchObject({
 			id: "mac",
-			info: { slots: 8, platform: "darwin" },
+			info: { platform: "darwin" },
 		});
 	});
 

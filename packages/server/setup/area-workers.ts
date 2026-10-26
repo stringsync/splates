@@ -10,10 +10,10 @@ function workersArea(): SetupArea {
 	const localStep: SetupStep = {
 		id: "local-worker",
 		title: "Make this Mac a worker",
-		why: "Agents run on this Mac's own worker, the agents other agents start up to its slots at a time.",
-		user: "Pick how many agents this Mac runs at once.",
+		why: "Agents run on this Mac's own worker, as many at once as are started.",
+		user: "Press Next: this Mac takes agents unless its worker was removed.",
 		agent:
-			"Run `splates worker drain local --undo` then `splates worker slots local <slots>` with the number the user picks, which makes this Mac's own worker run that many agents at once, turning it back on if it was removed. Check `splates worker list`.",
+			"Run `splates worker drain local --undo`, which turns this Mac's own worker back on if it was removed. Check `splates worker list`.",
 		optional: true,
 		after: [],
 		check: async (machine) => {
@@ -23,7 +23,7 @@ function workersArea(): SetupArea {
 			return local !== undefined && !local.draining && !local.removing;
 		},
 		notDone:
-			"This Mac is not taking agents yet: run `splates worker drain local --undo` then `splates worker slots local <slots>`, then press Next.",
+			"This Mac is not taking agents yet: run `splates worker drain local --undo`, then press Next.",
 		undo: {
 			removes: async () => [
 				`This Mac's worker, \`${LOCAL_WORKER}\`, its agents running to their end first`,

@@ -42,13 +42,14 @@ describe("GoneWorkers", () => {
 		timer.fireIntervals();
 	};
 
-	/** Holds a slot on `worker`, as an agent placed there does. */
+	/** Holds a place on `worker`, as an agent placed there does. */
 	const hold = (worker: string) =>
 		scheduler.hold(
 			{
 				id: worker,
 				task: "fix",
 				agent: "claude",
+				automatic: true,
 				project: "/repo",
 			},
 			worker,

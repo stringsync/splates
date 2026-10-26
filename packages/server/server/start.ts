@@ -34,7 +34,6 @@ import {
 	CoordinatorState,
 	DevWorkers,
 	FileLogger,
-	LOCAL_SLOTS,
 	LOCAL_WORKER,
 	WorkerRecords,
 	workerGit,
@@ -144,15 +143,7 @@ async function start(
 		}
 		// Agents run on the local worker, beside the server, so a restart
 		// leaves them running.
-		const worker = [
-			"worker",
-			"run",
-			"--id",
-			LOCAL_WORKER,
-			"--slots",
-			String(LOCAL_SLOTS),
-			"--quiet",
-		];
+		const worker = ["worker", "run", "--id", LOCAL_WORKER, "--quiet"];
 		const code = await supervise(ctx.ps, {
 			build,
 			env: slot?.env,
@@ -279,7 +270,7 @@ async function start(
 		records,
 	});
 	const worker = workers.local;
-	const { slots } = workers;
+	const { placement } = workers;
 	const server = await dev(
 		{ ...ctx, projects },
 		{
@@ -297,7 +288,7 @@ async function start(
 					storage: storage.within("conversations"),
 					artifacts: artifactLimits(config),
 					launcher: worker,
-					slots: slots.project(git.root),
+					slots: placement.project(git.root),
 					machine: worker,
 					starting,
 					offered,

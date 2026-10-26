@@ -188,7 +188,7 @@ export class Groomer implements Resource {
 			model: pick.model,
 			settings: pickSettings(pick.effort, offered),
 			assigned: true,
-			capped: true,
+			automatic: true,
 			persistent: GROOMER_ROLE,
 		});
 	}

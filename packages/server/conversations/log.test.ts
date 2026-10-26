@@ -33,6 +33,13 @@ describe("ConversationLog", () => {
 		expect(replayed?.state.status).toBe("stopped");
 	});
 
+	it("reads a start written as capped, before automatic was named, as automatic", async () => {
+		const fs = new FakeFs();
+		await fs.write(PATH, `${JSON.stringify({ ...START, capped: true })}\n`);
+
+		expect((await logOn(fs).replay())?.state.automatic).toBe(true);
+	});
+
 	it("keeps what it writes after a line a crash cut short", async () => {
 		const fs = new FakeFs();
 		await fs.write(PATH, `${JSON.stringify(START)}\n{"kind":"rena`);

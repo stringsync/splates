@@ -2,7 +2,6 @@ export {
 	drainWorker,
 	removeWorker,
 	setQueuePaused,
-	setWorkerSlots,
 } from "./admin";
 export { WorkerChannel } from "./channel";
 export { CoordinatorState } from "./coordinator-state";
@@ -24,6 +23,7 @@ export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
 export { OsSensors } from "./os-sensors";
+export { AgentPlacement } from "./placement";
 export { WorkerProcess } from "./process";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
@@ -37,13 +37,12 @@ export {
 	LOCAL_WORKER,
 } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
-export type { Grant, HeldSlot, PoolWorker, QueueEntry } from "./scheduler";
-export { Scheduler, type SlotRequest } from "./scheduler";
+export type { Grant, PlacedAgent, PoolWorker, QueueEntry } from "./scheduler";
+export { Scheduler, type StartRequest } from "./scheduler";
 export type { ServerOf, ServerSend } from "./server-of";
 export { serverOf } from "./server-of";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
-export { LOCAL_SLOTS, WorkerSlots } from "./slots";
 export type { WorkerSocket } from "./socket";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";

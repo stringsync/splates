@@ -304,7 +304,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model,
 			assigned,
 			startedBy,
-			capped,
+			automatic,
 			queued,
 			title,
 			persistent,
@@ -330,7 +330,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
 			/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
-			capped?: boolean;
+			automatic?: boolean;
 			/** The queued task it is held for, its agent unopened until `release`. */
 			queued?: number;
 			/** What to call it until its agent names it. */
@@ -361,7 +361,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				model,
 				assigned,
 				startedBy,
-				capped,
+				automatic,
 				queued,
 				title,
 				persistent,

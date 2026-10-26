@@ -167,7 +167,7 @@ export async function dev(
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 		onWorkerRoom: (listener) =>
-			workers.slots.scheduler.events.on("changed", listener),
+			workers.placement.scheduler.events.on("changed", listener),
 		paused: () => workers.records.paused,
 	};
 	const serve = (project: Project): Promise<Served> =>
@@ -622,7 +622,7 @@ export async function dev(
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),
-							queue: queueListing(workers.slots.scheduler.queue()),
+							queue: queueListing(workers.placement.scheduler.queue()),
 						}),
 					),
 					// Through a tunnel only once Access verified who is asking, as a

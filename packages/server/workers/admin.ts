@@ -83,18 +83,6 @@ export async function drainWorker(
 	);
 }
 
-/** `splates worker slots <id> <n>`: how many agents it runs at once, from now on. */
-export async function setWorkerSlots(
-	opts: ServerCallOptions & { id: string; slots: number },
-): Promise<void> {
-	await callServer(`/api/workers/${encodeURIComponent(opts.id)}`, {
-		...opts,
-		method: "PUT",
-		body: { slots: opts.slots },
-	});
-	opts.log.info(`${opts.id} runs ${opts.slots} agents at once`);
-}
-
 /**
  * `splates worker remove <id>`: revokes its key and forgets it, once the
  * agents on it end, or at once with `force`, ending them. This machine's

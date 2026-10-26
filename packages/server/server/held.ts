@@ -44,7 +44,7 @@ export function heldFor(
 				model: pick.model,
 				settings: pickSettings(pick.effort, offered),
 				assigned: true,
-				capped: false,
+				automatic: false,
 				queued: queued.id,
 				title: `#${queued.id} ${queued.subject}`,
 			});

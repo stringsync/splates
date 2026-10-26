@@ -138,10 +138,11 @@ export interface ConversationState {
 	/** The prospectively assigned notes phase; null for the original experiment. */
 	notesExperiment: { version: string; at: string } | null;
 	/**
-	 * Started by the server's queue or a hook, so its agent holds one of the
-	 * workers' slots; the person's own conversations take none.
+	 * Started by the server's queue or a hook, so its agent waits while
+	 * starts are paused; the person's own conversations never do. Read from
+	 * `capped` in logs written before it was renamed.
 	 */
-	capped: boolean;
+	automatic: boolean;
 	/**
 	 * The queued task it is held for, out of the line for a slot until the
 	 * queue starts that task and gives it its worktree; null otherwise.
@@ -652,7 +653,7 @@ export function blank(
 		autoPick: null,
 		notesHoldout: null,
 		notesExperiment: null,
-		capped: false,
+		automatic: false,
 		queued: null,
 		unread: false,
 		seen: 0,

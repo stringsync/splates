@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { type PoolWorker, Scheduler, type SlotRequest } from "./scheduler";
+import { type PoolWorker, Scheduler, type StartRequest } from "./scheduler";
 
 describe("Scheduler", () => {
 	let clock: FakeWallClock;
@@ -23,7 +23,7 @@ describe("Scheduler", () => {
 	});
 
 	/** Asks to place `id`, noting it in `placed` once it is. */
-	const take = (id: string, overrides: Partial<SlotRequest> = {}) =>
+	const take = (id: string, overrides: Partial<StartRequest> = {}) =>
 		scheduler.take(request(id, overrides)).then((grant) => {
 			placed.push(id);
 			return grant;
@@ -38,7 +38,7 @@ describe("Scheduler", () => {
 				project: "/repo",
 				task: "a",
 				worker: "local",
-				uncapped: false,
+				automatic: true,
 				since: 1_000,
 			},
 		]);
@@ -56,7 +56,7 @@ describe("Scheduler", () => {
 		paused = true;
 		clock.set(5_000);
 		const automatic = take("a");
-		const mine = await take("b", { uncapped: true });
+		const mine = await take("b", { automatic: false });
 		await settle();
 
 		expect(mine.worker).toBe("local");
@@ -158,9 +158,9 @@ describe("Scheduler", () => {
 
 	it("spreads agents over equal workers by how many each runs", async () => {
 		workers = [worker("one"), worker("two")];
-		const first = await take("a", { uncapped: true });
+		const first = await take("a", { automatic: false });
 		const second = await take("b");
-		const third = await take("c", { uncapped: true });
+		const third = await take("c", { automatic: false });
 		const fourth = await take("d");
 		expect([first, second, third, fourth].map((grant) => grant.worker)).toEqual(
 			["one", "two", "one", "two"],
@@ -169,7 +169,7 @@ describe("Scheduler", () => {
 
 	it("queues an agent the person started only while no worker is up", async () => {
 		workers = [];
-		const waiting = take("a", { uncapped: true });
+		const waiting = take("a", { automatic: false });
 		await settle();
 		expect(scheduler.spot("a")?.reason).toBe("no worker up");
 		workers = [worker("remote")];
@@ -236,13 +236,14 @@ function worker(id: string, overrides: Partial<PoolWorker> = {}): PoolWorker {
 
 function request(
 	id: string,
-	overrides: Partial<SlotRequest> = {},
-): SlotRequest {
+	overrides: Partial<StartRequest> = {},
+): StartRequest {
 	return {
 		id,
 		project: "/repo",
 		task: id,
 		agent: "claude",
+		automatic: true,
 		...overrides,
 	};
 }

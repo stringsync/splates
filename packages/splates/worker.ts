@@ -5,7 +5,6 @@ import {
 	FileLogger,
 	listWorkers,
 	removeWorker,
-	setWorkerSlots,
 	workerRun,
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
@@ -36,7 +35,7 @@ splatesWorker
 	.option("slots", z.coerce.number().int().min(0), {
 		default: 0,
 		description:
-			"how many tasks this worker takes at once; by default one for each core and 4 GB of memory it has, whichever is fewer, as a VM such as WSL2 sees them",
+			"ignored: nothing caps how many agents a worker runs; still read, since a `splates server` started before it was dropped passes it",
 	})
 	.option("id", z.literal("local"), {
 		default: "local",
@@ -51,7 +50,6 @@ splatesWorker
 	.action((opts, ctx) =>
 		workerRun({
 			coordinator: opts.server || opts.coordinator,
-			slots: opts.slots,
 			id: opts.id,
 			log: opts.quiet ? quietLog(ctx) : ctx.log,
 			ps: ctx.ps,
@@ -62,7 +60,7 @@ splatesWorker
 splatesWorker
 	.command("list")
 	.description(
-		"list the workers the running `splates server` has: platform, build, protocol, slots used and total, health with when it was last heard, and tasks, then any it refused for speaking another protocol",
+		"list the workers the running `splates server` has: platform, build, protocol, health with when it was last heard, and tasks, then any it refused for speaking another protocol",
 	)
 	.option("dev", z.string(), {
 		default: "",
@@ -104,30 +102,6 @@ splatesWorker
 		drainWorker({
 			id: opts.id,
 			undo: opts.undo,
-			dev: opts.dev,
-			log: ctx.log,
-			fs: ctx.fs,
-			ps: ctx.ps,
-			send: ctx.fetch,
-		}),
-	);
-
-splatesWorker
-	.command("slots")
-	.description(
-		"set how many agents a worker runs at once, from now on, over what it started with",
-	)
-	.arg("id", z.string(), {
-		description: "the worker, as `splates worker list` names it",
-	})
-	.arg("slots", z.coerce.number().int().min(1), {
-		description: "how many at once",
-	})
-	.option("dev", z.string(), dev)
-	.action((opts, ctx) =>
-		setWorkerSlots({
-			id: opts.id,
-			slots: opts.slots,
 			dev: opts.dev,
 			log: ctx.log,
 			fs: ctx.fs,

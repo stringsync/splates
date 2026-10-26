@@ -33,7 +33,6 @@ describe("processes over the Unix worker link", () => {
 			{ where: path, dial: () => UnixWorkerSocket.connect(path) },
 			{
 				id: "local",
-				slots: 1,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),

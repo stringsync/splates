@@ -27,7 +27,7 @@ describe("DevWorkers", () => {
 
 	it("places nothing new on a drained worker", async () => {
 		await workers.update(put("local", { draining: true }));
-		const placed = workers.slots.scheduler.take(request("one"));
+		const placed = workers.placement.scheduler.take(request("one"));
 		let settled = false;
 		void placed.then(() => {
 			settled = true;
@@ -35,24 +35,27 @@ describe("DevWorkers", () => {
 		await Bun.sleep(10);
 
 		expect(settled).toBe(false);
-		expect(workers.slots.scheduler.queue()).toHaveLength(1);
+		expect(workers.placement.scheduler.queue()).toHaveLength(1);
 		await workers.update(put("local", { draining: false }));
 		expect((await placed).worker).toBe("local");
 	});
 
 	it("pauses what splates starts on its own, the person's own agents still placed, and places it on resume", async () => {
 		let changes = 0;
-		workers.slots.scheduler.events.on("changed", () => {
+		workers.placement.scheduler.events.on("changed", () => {
 			changes += 1;
 		});
 		expect((await workers.update(put("local", { paused: true }))).status).toBe(
 			200,
 		);
 		expect(changes).toBe(1);
-		const capped = workers.slots.scheduler.take(request("theirs"));
-		await workers.slots.scheduler.take({ ...request("mine"), uncapped: true });
+		const automatic = workers.placement.scheduler.take(request("theirs"));
+		await workers.placement.scheduler.take({
+			...request("mine"),
+			automatic: false,
+		});
 		await Bun.sleep(10);
-		expect(workers.slots.scheduler.spot("theirs")?.reason).toBe("paused");
+		expect(workers.placement.scheduler.spot("theirs")?.reason).toBe("paused");
 
 		const listed = await (await workers.list()).json();
 		expect(listed).toMatchObject({
@@ -62,7 +65,7 @@ describe("DevWorkers", () => {
 					id: "mine",
 					project: "/repo",
 					task: "mine-task",
-					capped: false,
+					automatic: false,
 					since: expect.any(String),
 				},
 			],
@@ -70,11 +73,11 @@ describe("DevWorkers", () => {
 
 		changes = 0;
 		await workers.update(put("local", { paused: false }));
-		expect((await capped).worker).toBe("local");
+		expect((await automatic).worker).toBe("local");
 		expect(changes).toBeGreaterThan(0);
 		expect((await (await workers.list()).json()).held).toMatchObject([
-			{ id: "mine", capped: false },
-			{ id: "theirs", capped: true },
+			{ id: "mine", automatic: false },
+			{ id: "theirs", automatic: true },
 		]);
 	});
 
@@ -86,29 +89,30 @@ describe("DevWorkers", () => {
 	});
 
 	it("lists the build it runs beside the workers, as each set by hand", async () => {
-		await workers.update(put("local", { slots: 3, draining: true }));
+		await workers.update(put("local", { draining: true }));
 		const listed = await (await workers.list()).json();
 
 		expect(listed).toMatchObject({
 			build: RUNNING,
-			workers: [{ id: "local", draining: true, slots: { total: 3 } }],
+			workers: [{ id: "local", draining: true }],
 		});
 	});
 
 	it("removes this machine's own worker from the pool for good, keeping its process", async () => {
-		await workers.update(put("local", { slots: 3 }));
 		const removed = await (await workers.remove(del("local"))).json();
 		expect(removed).toMatchObject({ removed: true, running: [] });
 
 		const listed = await (await workers.list()).json();
 		expect(listed.workers).toEqual([]);
 		expect(workers.registry.worker("local")).toBe(workers.local);
-		const placed = workers.slots.scheduler.take({
+		const placed = workers.placement.scheduler.take({
 			...request("mine"),
-			uncapped: true,
+			automatic: false,
 		});
 		await Bun.sleep(10);
-		expect(workers.slots.scheduler.spot("mine")?.reason).toBe("no worker up");
+		expect(workers.placement.scheduler.spot("mine")?.reason).toBe(
+			"no worker up",
+		);
 
 		const again = new DevWorkers(new MemoryLogger(), {
 			records: workers.records,
@@ -119,13 +123,13 @@ describe("DevWorkers", () => {
 		await workers.update(put("local", { draining: false }));
 		expect((await placed).worker).toBe("local");
 		expect((await (await workers.list()).json()).workers).toMatchObject([
-			{ id: "local", draining: false, removing: false, slots: { total: 3 } },
+			{ id: "local", draining: false, removing: false },
 		]);
 	});
 
 	it("lets this machine's own agents run to their end as its worker is removed", async () => {
-		const held = workers.slots.scheduler.hold(
-			{ ...request("mine"), uncapped: true },
+		const held = workers.placement.scheduler.hold(
+			{ ...request("mine"), automatic: false },
 			"local",
 		);
 		const waiting = await (await workers.remove(del("local"))).json();
@@ -149,8 +153,7 @@ describe("DevWorkers", () => {
 		).toBe(404);
 		expect(workers.records.localOn).toBe(false);
 		expect(
-			(await workers.update(put("local", { slots: 2, draining: false })))
-				.status,
+			(await workers.update(put("local", { draining: false }))).status,
 		).toBe(200);
 		expect(workers.records.localOn).toBe(true);
 	});
@@ -171,5 +174,11 @@ function del(id: string, force = false): Request {
 }
 
 function request(id: string) {
-	return { id, task: `${id}-task`, project: "/repo", agent: "claude" };
+	return {
+		id,
+		task: `${id}-task`,
+		project: "/repo",
+		agent: "claude",
+		automatic: true,
+	};
 }

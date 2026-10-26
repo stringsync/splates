@@ -45,7 +45,6 @@ describe("splates worker list", () => {
 
 	async function join_(
 		id: string,
-		slots: number,
 		dial: () => Promise<UnixWorkerSocket | WebSocketWorkerSocket>,
 	): Promise<void> {
 		const joined = new Promise<void>((resolve) =>
@@ -58,7 +57,6 @@ describe("splates worker list", () => {
 			{ where: id, dial },
 			{
 				id,
-				slots,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),
@@ -78,7 +76,7 @@ describe("splates worker list", () => {
 
 	// scry-ignore simple-test-setup: it alone dials both a socket and a WebSocket
 	it("lists this machine’s worker over its Unix socket", async () => {
-		await join_("local", 8, () =>
+		await join_("local", () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
 		);
 
@@ -86,14 +84,11 @@ describe("splates worker list", () => {
 
 		expect(listed.refused).toEqual([]);
 		expect(
-			listed.workers.map(
-				(worker: { id: string; kind: string; slots: unknown }) => [
-					worker.id,
-					worker.kind,
-					worker.slots,
-				],
-			),
-		).toEqual([["local", "local", { used: 0, total: 8 }]]);
+			listed.workers.map((worker: { id: string; kind: string }) => [
+				worker.id,
+				worker.kind,
+			]),
+		).toEqual([["local", "local"]]);
 		expect(listed.workers[0]).toMatchObject({
 			health: "connected",
 			tasks: [],
@@ -103,17 +98,17 @@ describe("splates worker list", () => {
 	});
 
 	it("prints a table, one row a worker", async () => {
-		await join_("local", 8, () =>
+		await join_("local", () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
 		);
 
 		const text = await ls(false);
 
-		expect(text).toMatch(/local\s+local\s.*\s0\/8\s+connected, heard/);
+		expect(text).toMatch(/local\s+local\s.*\s+connected, heard/);
 	});
 
 	it("lists the local worker as away before it joins", async () => {
-		expect(await ls(false)).toMatch(/local\s+local\s.*\s0\/\?\s+away/);
+		expect(await ls(false)).toMatch(/local\s+local\s.*\s+away/);
 	});
 
 	it("fails when it has no splates server to ask", async () => {

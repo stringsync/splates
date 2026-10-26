@@ -184,7 +184,7 @@ export class Automations implements Resource {
 				model: pick.model,
 				settings: pickSettings(pick.effort, offered),
 				assigned: true,
-				capped: true,
+				automatic: true,
 				...(persistent === undefined ? {} : { persistent }),
 				...(automation === undefined ? {} : { automation }),
 			});

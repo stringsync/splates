@@ -36,7 +36,6 @@ describe("WorkerDaemon", () => {
 			{ where: path, dial: () => UnixWorkerSocket.connect(path) },
 			{
 				id: "mac",
-				slots: 8,
 				ps,
 				fs: new NodeFs(),
 				log: new MemoryLogger(),
@@ -56,9 +55,8 @@ describe("WorkerDaemon", () => {
 		await rm(dir, { recursive: true, force: true });
 	});
 
-	it("joins with its slots, platform and build", () => {
+	it("joins with its platform and build", () => {
 		expect(worker.info).toMatchObject({
-			slots: 8,
 			platform: process.platform,
 			build: expect.any(String),
 		});

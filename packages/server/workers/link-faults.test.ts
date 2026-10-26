@@ -92,7 +92,6 @@ describe("the worker link through a faulty network", () => {
 			},
 			{
 				id: "box",
-				slots: 4,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),

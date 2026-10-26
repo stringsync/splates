@@ -65,7 +65,7 @@ export function Tasks({
 	// A task whose agent splates started shows under Started by splates, not again below.
 	const slotted = new Set(
 		held.flatMap((each) =>
-			each.capped && each.task !== null
+			each.automatic && each.task !== null
 				? [`${each.project}\n${each.task}`]
 				: [],
 		),

@@ -32,7 +32,7 @@ describe("Queue rows from another project", () => {
 							id: "remote",
 							project: "/other",
 							task: "remote task",
-							capped: true,
+							automatic: true,
 							since: "2026-10-23T12:00:00.000Z",
 						},
 					]}

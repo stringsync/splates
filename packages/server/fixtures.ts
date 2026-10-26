@@ -100,7 +100,7 @@ export function conversation(
 		autoPick: null,
 		notesHoldout: null,
 		notesExperiment: null,
-		capped: false,
+		automatic: false,
 		queued: null,
 		unread: false,
 		seen: 0,

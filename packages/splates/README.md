@@ -256,8 +256,8 @@ serving on this machine.
 
 This machine's own worker runs agents over a private Unix socket and
 reconnects when the server restarts. Remote workers cannot join.
-Use `splates worker list` to inspect it, `splates worker slots local <n>`
-to set its slots, and `splates worker drain local --undo` to resume it.
+It runs as many agents at once as are started. Use `splates worker list` to
+inspect it, and `splates worker drain local --undo` to resume it.
 
 ### Task ports
 

@@ -31,7 +31,6 @@ describe("dev terminal kept by its key", () => {
 			{ where: "memory", dial },
 			{
 				id: "local",
-				slots: 4,
 				ps: new NodePs(),
 				fs: new NodeFs(),
 				log: new MemoryLogger(),

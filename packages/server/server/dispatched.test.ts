@@ -102,7 +102,7 @@ describe("dev dispatched", () => {
 			task: null,
 			cwd: deps.service.git.root,
 			assigned: true,
-			capped: true,
+			automatic: true,
 			queued: 1,
 			title: "#1 Alpha",
 		});

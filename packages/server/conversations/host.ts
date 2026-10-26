@@ -154,14 +154,15 @@ export interface ConversationSlots {
 
 /**
  * What asks for a slot: conversation `id`'s agent, of `task`, by the
- * agent's id, which a worker must hold the key of. An uncapped one, which
- * the person started, goes on any worker up, however full.
+ * agent's id, which a worker must hold the key of. An automatic one, which
+ * splates started on its own, waits while starts are paused; one the person
+ * started goes on any worker up.
  */
 export interface SlotAsk {
 	id: string;
 	task: string | null;
 	agent: string;
-	uncapped?: boolean;
+	automatic: boolean;
 }
 
 /** A slot on a worker, and how to start an agent there. */

@@ -79,7 +79,7 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 		);
 	}
 
-	/** Sets `change` on worker `id`: its slots, or whether it drains. */
+	/** Sets `change` on worker `id`: whether it drains. */
 	change(id: string, change: WorkerChange): Promise<void> {
 		return this.write(
 			(pool) => changed(pool, id, (worker) => set(worker, change)),
@@ -129,9 +129,5 @@ function set(worker: WorkerListing, change: WorkerChange): WorkerListing {
 	return {
 		...worker,
 		...(change.draining === undefined ? {} : { draining: change.draining }),
-		slots:
-			change.slots == null
-				? worker.slots
-				: { ...worker.slots, total: change.slots },
 	};
 }

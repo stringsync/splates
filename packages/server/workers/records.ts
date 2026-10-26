@@ -4,7 +4,6 @@ import type { Document } from "../storage";
 /** Settings for this machine's worker, kept across server restarts. */
 const Record = z.object({
 	id: z.string(),
-	slots: z.number().int().min(1).nullable().default(null),
 	draining: z.boolean().default(false),
 	removing: z.boolean().default(false),
 	updating: z.boolean().default(false),

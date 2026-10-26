@@ -82,7 +82,6 @@ describe("a worker checking its coordinator", () => {
 			},
 			{
 				id: "box",
-				slots: 1,
 				proofWithin: Duration.ms(300),
 				ps: new NodePs(),
 				fs: new NodeFs(),
@@ -95,6 +94,7 @@ describe("a worker checking its coordinator", () => {
 		return log;
 	}
 
+	// scry-ignore simple-test-setup: each case builds its own coordinator, signing or not, and points a worker at it with its own verify.
 	it("joins a coordinator that signs its nonce, sending its key after", async () => {
 		const identity = CoordinatorIdentity.generate();
 		const ours = coordinator(identity, true);

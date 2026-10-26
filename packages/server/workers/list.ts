@@ -11,7 +11,6 @@ import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
-import { slotsOf } from "./slots";
 import type { ConnectedWorker, WorkerKind } from "./worker";
 
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
@@ -24,7 +23,6 @@ export interface WorkerListing {
 	build: string | null;
 	/** What its link settled on; null before any handshake. */
 	protocol: string | null;
-	slots: { used: number; total: number | null };
 	/** `connected` while the link is up, else `away`. */
 	health: "connected" | "away";
 	/** Takes no new agents, by `splates worker drain` or a removal waiting on its agents. */
@@ -82,20 +80,20 @@ export interface WorkerPool extends WorkerListings {
 	build: string;
 	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
 	paused: boolean;
-	/** Every agent holding a slot, on whichever worker, the person's own included. */
+	/** Every agent placed on a worker, on whichever one, the person's own included. */
 	held: HeldListing[];
 }
 
-/** One agent holding a slot, as `GET /api/workers` lists it. */
+/** One agent placed on a worker, as `GET /api/workers` lists it. */
 export interface HeldListing {
 	/** The conversation's id. */
 	id: string;
 	/** The project's main tree. */
 	project: string;
 	task: string | null;
-	/** Whether it counts against the slot limit: one an automation, a hook or the groomer started. */
-	capped: boolean;
-	/** When the slot was granted, an ISO time. */
+	/** Whether splates started it on its own, so Pause holds the like of it: an automation, a hook or the groomer. */
+	automatic: boolean;
+	/** When it was placed, an ISO time. */
 	since: string;
 }
 
@@ -113,13 +111,6 @@ function listing(
 		host: typeof info.host === "string" ? info.host : null,
 		build: typeof info.build === "string" ? info.build : null,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
-		slots: {
-			used: tasks.length,
-			total:
-				record?.slots != null || typeof info.slots === "number"
-					? slotsOf(worker, record)
-					: null,
-		},
 		health: worker.connected ? "connected" : "away",
 		draining: record?.draining === true,
 		removing: record?.removing === true,
@@ -139,7 +130,6 @@ const Listings = z.object({
 			host: z.string().nullable().default(null),
 			build: z.string().nullable(),
 			protocol: z.string().nullable(),
-			slots: z.object({ used: z.number(), total: z.number().nullable() }),
 			health: z.enum(["connected", "away"]),
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
@@ -160,7 +150,7 @@ const Listings = z.object({
 				id: z.string(),
 				project: z.string(),
 				task: z.string().nullable(),
-				capped: z.boolean(),
+				automatic: z.boolean(),
 				since: z.string(),
 			}),
 		)
@@ -200,23 +190,13 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 	if (listed.workers.length > 0) {
 		lines.push(
 			table(
-				[
-					"worker",
-					"kind",
-					"platform",
-					"build",
-					"protocol",
-					"slots",
-					"health",
-					"tasks",
-				],
+				["worker", "kind", "platform", "build", "protocol", "health", "tasks"],
 				listed.workers.map((worker) => [
 					worker.id,
 					worker.kind,
 					platformLabel(worker),
 					worker.build ?? "?",
 					worker.protocol ?? "?",
-					`${worker.slots.used}/${worker.slots.total ?? "?"}`,
 					health(worker, wall),
 					worker.tasks.join(",") || "-",
 				]),
