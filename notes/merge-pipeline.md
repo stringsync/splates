@@ -122,7 +122,7 @@ batch re-forms without it and gates again. A leader found culprit is refused
 as a lone merge is and the followers go on alone. `trunk` refuses every
 member, held and free. `flake` reruns the gate on the stack. An inconclusive
 result, a timeout or a base that moved dissolves the batch: the followers wait
-on, back on their own heads, and the leader gates alone. A follower's branch
+on, back on their own heads, and the leader gates alone, the log keeping the tail of what the batch gate printed. A follower's branch
 sits on a stack only while that batch is live, so a later plain rebase onto
 the base never replays another task's commits. A follower learns its result
 from the collection and gives its lock wait up through an `AbortSignal`

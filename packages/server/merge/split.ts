@@ -60,7 +60,7 @@ export async function splitBatch(
 		await state.requireLease();
 		if (blamed === null) {
 			log.error(
-				"could not tell which task of the batch the failing tests fail with: gating alone",
+				`could not tell which task of the batch the failing tests fail with: gating alone\n${output}`,
 			);
 			await batch.dissolve(members);
 			return "alone";
@@ -102,7 +102,9 @@ export async function splitBatch(
 		return "refuse";
 	}
 	// Inconclusive: one at a time tells which merge it is about.
-	log.error("the batch's gate told nothing conclusive: gating alone");
+	log.error(
+		`the batch's gate told nothing conclusive (exit ${gated.exitCode}): gating alone\n${output}`,
+	);
 	await batch.dissolve(members);
 	return "alone";
 }
