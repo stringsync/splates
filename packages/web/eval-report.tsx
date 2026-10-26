@@ -13,7 +13,8 @@ import { ORDER, StatusChip, spent } from "./eval-status";
  * A batch of evals as one card: its totals, then a grid of its scenarios,
  * grouped by aspect, against the agents it ran on, each cell a run's outcome
  * or pending until it lands. Narrowed to one aspect, it shows only that part
- * of the skill. A landed cell opens its run.
+ * of the skill. A landed cell opens its run. Below the md breakpoint the grid
+ * stacks, each scenario listing its agents, rather than scrolling sideways.
  */
 export function EvalReport({
 	grid,
@@ -71,7 +72,7 @@ export function EvalReport({
 					))}
 				</div>
 			)}
-			<div className="overflow-x-auto">
+			<div className="hidden md:block">
 				<table className="w-full border-collapse text-sm">
 					<thead>
 						<tr>
@@ -129,6 +130,44 @@ export function EvalReport({
 					</tbody>
 				</table>
 			</div>
+			<div className="md:hidden">
+				{rows.map((row) =>
+					row.type === "aspect" ? (
+						<div
+							key={`aspect:${row.aspect}`}
+							className="pt-3 pb-1 font-medium text-muted-foreground text-xs uppercase"
+						>
+							{row.aspect}
+						</div>
+					) : (
+						<div key={row.scenario} className="border-t py-2">
+							<div className="font-medium">{row.scenario}</div>
+							<div className="text-muted-foreground text-xs">
+								{row.requirement}
+							</div>
+							{grid.targets.map((target) => (
+								<div
+									key={target.key}
+									className="flex items-center justify-between gap-2 py-0.5"
+								>
+									<span className="text-muted-foreground text-xs">
+										{targetName(target)}
+									</span>
+									<Cells
+										cells={row.cells.filter(
+											(cell) => cell.target === target.key,
+										)}
+										onOpen={onOpen}
+									/>
+								</div>
+							))}
+							{worst(row.cells) !== null && (
+								<ImproveMenu run={worst(row.cells) ?? ""} className="mt-1" />
+							)}
+						</div>
+					),
+				)}
+			</div>
 		</section>
 	);
 }
@@ -146,47 +185,73 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 		location.hash = `#evals/${encodeURIComponent(grid.id)}/${encodeURIComponent(run)}`;
 	};
 	return (
-		<div className="overflow-x-auto">
-			<table
-				aria-label="eval summary"
-				className="w-full border-collapse text-xs"
-			>
-				<thead>
-					<tr>
-						<th className="sr-only">Scenario</th>
-						{grid.targets.map((target) => (
-							<th
-								key={target.key}
-								className="px-1.5 pb-1 text-left font-normal text-muted-foreground whitespace-nowrap"
-							>
-								{targetName(target)}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{scenarios.map((scenario) => (
-						<tr key={scenario}>
-							<td className="py-0.5 pr-2">
-								<code>{scenario}</code>
-							</td>
+		<>
+			<div className="hidden md:block">
+				<table
+					aria-label="eval summary"
+					className="w-full border-collapse text-xs"
+				>
+					<thead>
+						<tr>
+							<th className="sr-only">Scenario</th>
 							{grid.targets.map((target) => (
-								<td key={target.key} className="px-1.5 py-0.5">
-									<Cells
-										cells={grid.grid.filter(
-											(cell) =>
-												cell.scenario === scenario &&
-												cell.target === target.key,
-										)}
-										onOpen={open}
-									/>
-								</td>
+								<th
+									key={target.key}
+									className="px-1.5 pb-1 text-left font-normal text-muted-foreground whitespace-nowrap"
+								>
+									{targetName(target)}
+								</th>
 							))}
 						</tr>
-					))}
-				</tbody>
-			</table>
-		</div>
+					</thead>
+					<tbody>
+						{scenarios.map((scenario) => (
+							<tr key={scenario}>
+								<td className="py-0.5 pr-2">
+									<code>{scenario}</code>
+								</td>
+								{grid.targets.map((target) => (
+									<td key={target.key} className="px-1.5 py-0.5">
+										<Cells
+											cells={grid.grid.filter(
+												(cell) =>
+													cell.scenario === scenario &&
+													cell.target === target.key,
+											)}
+											onOpen={open}
+										/>
+									</td>
+								))}
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<div className="text-xs md:hidden">
+				{scenarios.map((scenario) => (
+					<div key={scenario} className="py-1">
+						<code>{scenario}</code>
+						{grid.targets.map((target) => (
+							<div
+								key={target.key}
+								className="flex items-center justify-between gap-2 py-0.5"
+							>
+								<span className="text-muted-foreground">
+									{targetName(target)}
+								</span>
+								<Cells
+									cells={grid.grid.filter(
+										(cell) =>
+											cell.scenario === scenario && cell.target === target.key,
+									)}
+									onOpen={open}
+								/>
+							</div>
+						))}
+					</div>
+				))}
+			</div>
+		</>
 	);
 }
 
