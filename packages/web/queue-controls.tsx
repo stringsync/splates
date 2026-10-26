@@ -13,7 +13,7 @@ import type { WorkerPoolView } from "./worker-pool";
 
 /** What Pause holds back and what it leaves, behind the ⓘ beside it. */
 export const PAUSE_HOLDS =
-	"Nothing caps how many agents run; heavy commands wait their turn as jobs instead. Pause holds back what splates starts on its own: the queue, automations, hooks and the groomer. Agents you start still start.";
+	"Nothing caps how many agents run; merges take turns and agents ask before other heavy work. Pause holds back what splates starts on its own: the queue, automations, hooks and the groomer. Agents you start still start.";
 
 /**
  * What splates starts on its own, atop the Queue page: Pause, or Resume

@@ -88,8 +88,8 @@ Access: that host then reaches only the tasks.
 
 ## Workers
 
-Nothing caps how many agents run: heavy commands wait their turn as jobs
-instead. When the user asks to run more agents at once on this Mac, tell them
+Nothing caps how many agents run: merges take turns on the premerge lock,
+and agents ask before other heavy work. When the user asks to run more agents at once on this Mac, tell them
 so; when agents do not start at all, that is the Workers setup area:
 `local-worker`. Run `splates worker drain local --undo`; the person can also
 pause or resume what splates starts on its own at the top of the page's
