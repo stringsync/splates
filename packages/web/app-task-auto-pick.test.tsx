@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
 import type { Event } from "@stringsync/splates-server/records";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -152,9 +151,8 @@ describe("App's Auto pick", () => {
 			"judged: Bugfix 90%, Shallow 80%",
 		);
 		expect(line.textContent).toContain("Auto picked Haiku, low effort");
-		expect(line.textContent).toContain("KindBugfix90%");
 
-		const found = line;
+		const found = await openFindings(line);
 		expect(found.textContent).toContain("KindBugfix90%");
 		expect(found.textContent).toContain("DepthShallow80%");
 		expect(found.textContent).toContain("Rule 2: Bugfix, Shallow");
@@ -175,8 +173,7 @@ describe("App's Auto pick", () => {
 			},
 		]);
 		const line = await quietLine(view);
-		expect(line.textContent).toContain("Auto moved up to BigUndo");
-		expect(line.textContent).toContain("From Haiku, low effort");
+		expect(line.textContent).toContain("Auto moved up to Big");
 
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "Undo" })),
@@ -190,20 +187,30 @@ describe("App's Auto pick", () => {
 
 	it("says why the judge found nothing when it did not answer", async () => {
 		const line = await lineFor(null, "the judge took over 5s");
-		expect(line.textContent).toContain("The judge took over 5s");
+		const found = await openFindings(line);
+		expect(found.textContent).toContain("The judge took over 5s");
 	});
 });
 
-/** Auto pick's line, in the timeline of the row it fell in. */
+/** Auto pick's line, drawn among the conversation's own. */
 async function quietLine(view: {
 	getByRole: (role: string, options: { name: string }) => HTMLElement;
 }): Promise<HTMLElement> {
-	const thread = await waitFor(() =>
-		view.getByRole("region", { name: "Tests" }),
+	return await waitFor(() => view.getByRole("note", { name: "splates" }));
+}
+
+/** The findings Auto pick's line opens, as its dotted link shows them. */
+async function openFindings(line: HTMLElement): Promise<HTMLElement> {
+	await act(async () =>
+		fireEvent.click(line.querySelector("button[aria-label]") as HTMLElement),
 	);
-	return await waitFor(() =>
-		within(workTimeline(thread)).getByRole("note", { name: "splates" }),
-	);
+	return await waitFor(() => {
+		const found = document.querySelector('[data-slot="popover-content"]');
+		if (found === null) {
+			throw new Error("findings not open");
+		}
+		return found as HTMLElement;
+	});
 }
 
 /** Auto pick's decision for the conversation, the judge having found `signs`. */

@@ -59,10 +59,11 @@ const LOUD = new Set<Action>([
 	"handoff",
 	"retry",
 	"escalate",
+	"auto",
 ]);
 
 /** Loud actions whose refusal is only a quiet note. */
-const QUIET_WHEN_REFUSED = new Set<Action>(["add"]);
+const QUIET_WHEN_REFUSED = new Set<Action>(["add", "auto"]);
 
 /** Actions that are always quiet. */
 const QUIET = new Set<Action>([
@@ -79,5 +80,4 @@ const QUIET = new Set<Action>([
 	"attach",
 	"artifact add",
 	"artifact remove",
-	"auto",
 ]);
