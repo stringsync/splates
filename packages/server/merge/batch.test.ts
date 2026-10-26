@@ -9,6 +9,8 @@ describe("MergeBatch", () => {
 	let ps: FakePs;
 	let log: MemoryLogger;
 	let batch: MergeBatch;
+	/** The records the batch keeps, to write an offer by hand. */
+	let records: ReturnType<FsStorage["collection"]>;
 	/** A follower of `task` that answers each invitation with `head`, until stopped. */
 	let following: (
 		task: string,
@@ -27,6 +29,9 @@ describe("MergeBatch", () => {
 				pollMs: 5,
 				replyMs: 200,
 			},
+		);
+		records = new FsStorage("/project/.git/splates", fs).collection(
+			"merge-batch",
 		);
 		following = (task, head) => {
 			let done = false;
@@ -102,9 +107,6 @@ describe("MergeBatch", () => {
 
 	it("drops the offer of a merge whose process is gone", async () => {
 		await batch.offer("beta", "main");
-		const records = new FsStorage("/project/.git/splates", fs).collection(
-			"merge-batch",
-		);
 		await records.write(
 			"offer:ghost",
 			JSON.stringify({
@@ -122,6 +124,23 @@ describe("MergeBatch", () => {
 		await beta.stop();
 
 		expect(members.map((each) => each.task)).toEqual(["beta"]);
+		expect(await records.read("offer:ghost")).toBeNull();
+	});
+
+	it("drops a gone process's offer kept under the host's other name", async () => {
+		await records.write(
+			"offer:ghost",
+			JSON.stringify({
+				task: "ghost",
+				pid: 99,
+				hostname: "Mac",
+				base: "main",
+				since: "2026-01-01T00:00:00.000Z",
+			}),
+		);
+		ps.kill(99);
+
+		expect(await batch.form("alpha", "main", "tip")).toEqual([]);
 		expect(await records.read("offer:ghost")).toBeNull();
 	});
 

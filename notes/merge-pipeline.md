@@ -91,9 +91,11 @@ so a batch stacks the squashed commit. The merge that takes the lock leads:
 `MergeBatch.form` invites the live offers for its base oldest first, up to
 `MERGE_BATCH_CAP` (4, the leader included), each onto the tip the one before
 made; a follower stacks by `reset --hard` to its own head and `rebase <tip>`,
-or declines on a conflict and is not asked again. The leader gates the tip
-once in a detached `splates-batch` checkout (`MergeGate.checkout`, where
-`postRewrite` installs), then `landTested` moves the base to the tip with one
+or declines on a conflict and is not asked again. An offer whose pid is gone
+is dropped whatever hostname it was written under, since macOS renames the
+host with the network. The leader gates the tip
+once in a detached checkout, `.gates/<leader>-splates-batch` in the
+worktree root (`MergeGate.checkout`, where `postRewrite` installs), then `landTested` moves the base to the tip with one
 compare-and-swap and each follower is told `landed`; every process ends its
 own task (`finishLanding`), so a follower's merge event has its own wait,
 `commit` and files, and `batch` names the tasks gated together, leader first.
@@ -102,6 +104,11 @@ journal when available. Merged cards and merge log lines name the other
 tasks. Stats counts batched tasks and successful shared landing gates,
 counting each gate on its leader; their difference is the separate gates
 saved, excluding failed attempts.
+
+Until 2026-10-26 that checkout sat in the leader's git directory
+(`.git/worktrees/<leader>/splates-batch`), where biome finds no
+`package.json`: every batch's gate failed its checks before any test ran,
+read as inconclusive, and dissolved, so no batch ever landed.
 
 Only the tip is gated, as merge trains do: every landed commit is inside a
 tree the whole suite passed on, never gated alone.

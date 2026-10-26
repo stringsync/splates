@@ -1,4 +1,5 @@
 import { loadavg } from "node:os";
+import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
@@ -264,14 +265,17 @@ export class MergeGate {
 	}
 
 	/**
-	 * A detached checkout of `at` named `name` in the repository's git
-	 * directory, as a batch gates its stacked tip in, removed when disposed
-	 * of; throws when git cannot make or remove it. Run the whole gate there
-	 * with `run`, which installs its dependencies as the command's
-	 * `postRewrite` does.
+	 * A detached checkout of `at` named `name` beside the task worktrees, as
+	 * a batch gates its stacked tip in, removed when disposed of; throws when
+	 * git cannot make or remove it. Run the whole gate there with `run`,
+	 * which installs its dependencies as the command's `postRewrite` does.
+	 * Never inside the git directory: biome finds no `package.json` under
+	 * `.git`, so the gate's checks failed there before any test ran.
 	 */
 	async checkout(cwd: string, at: string, name: string): Promise<Checkout> {
-		const path = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/${name}`;
+		const path = `${this.config.worktreeRoot}/.gates/${basename(cwd)}-${name}`;
+		// One a crashed gate left behind would stop git adding it again.
+		await this.git.removeWorktree(path);
 		const added = await this.git.run(
 			cwd,
 			"worktree",

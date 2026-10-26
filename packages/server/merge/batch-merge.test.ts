@@ -108,9 +108,10 @@ describe("merge batches", () => {
 
 		expect(alphaPs.getCalls()).toHaveLength(1);
 		expect(betaPs.getCalls()).toHaveLength(0);
-		expect(alphaPs.getCallEnvs()[0]?.SPLATES_WORKTREE).toEndWith(
-			"/splates-batch",
-		);
+		// Outside the git directory, where biome finds the package.json.
+		const gatedIn = alphaPs.getCallEnvs()[0]?.SPLATES_WORKTREE;
+		expect(gatedIn).toEndWith("/.gates/alpha-splates-batch");
+		expect(gatedIn).not.toContain("/.git/");
 		expect(alphaFacts.batch).toEqual(["alpha", "beta"]);
 		expect(betaFacts.batch).toEqual(["alpha", "beta"]);
 		expect(await deps.outcomes.list()).toEqual(

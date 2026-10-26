@@ -150,7 +150,10 @@ export class MergeBatch {
 			if (offer === null) {
 				continue;
 			}
-			if (offer.hostname === this.ps.hostname && !this.ps.alive(offer.pid)) {
+			// Only this machine merges, so the pid is told whatever the hostname
+			// says: macOS renames the host with the network ("Mac", "jmbp.local"),
+			// and a dead offer kept for it cost every leader a 30s wait.
+			if (!this.ps.alive(offer.pid)) {
 				this.log.error(
 					`dropping the merge offer of ${offer.task}: pid ${offer.pid} is gone`,
 				);
