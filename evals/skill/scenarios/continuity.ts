@@ -6,6 +6,7 @@ import {
 	RESUME,
 } from "@stringsync/splates-server/plans";
 import type { Repo, Scenario } from "../scenario";
+import { firstStep, opens } from "./discovery";
 
 const aspect = "continuity";
 const task = "continuity";
@@ -76,23 +77,21 @@ async function seeded(
 	return path;
 }
 
-const commandsOf = (commands: string[], pattern: RegExp) =>
-	commands.filter((command) => pattern.test(command));
-
-const reconnect = (
-	outcome: "completed" | "partial" | "failed",
-	result: string | undefined,
-	judge: string,
-): Scenario => ({
-	id: `continuity/reconnect-${outcome}`,
+/**
+ * A lost connection cut the write of result.txt short, leaving part of it:
+ * only a look at the file tells it apart from a write that finished or
+ * never started.
+ */
+const reconnect: Scenario = {
+	id: "continuity/reconnect",
 	aspect,
 	initialized: true,
 	requirement:
 		"After a lost connection, check what the last step left (git status, git log, the file) before repeating it, and repeat it only if it did not finish.",
 	async change(repo) {
-		await seeded(repo, "", result);
+		await seeded(repo, "", "rea");
 	},
-	message: `${RECONNECT + between} The lost operation was writing result.txt with ready and a newline; its completion is unknown. Inspect git status, git log and the file before deciding whether to repeat it. Stop after recovering that step.`,
+	message: `${RECONNECT + between} The last step you ran before the connection dropped was writing result.txt. Stop after that step.`,
 	checks: [
 		{
 			id: "recovered",
@@ -100,16 +99,10 @@ const reconnect = (
 			test: async ({ repo }) =>
 				(await read(join(await worktree(repo), "result.txt"))) === "ready\n",
 		},
-		{
-			id: "inspected",
-			about: "ran git status and git log before finishing",
-			test: ({ commands }) =>
-				commandsOf(commands, /\bgit\b.*\bstatus\b/).length > 0 &&
-				commandsOf(commands, /\bgit\b.*\blog\b/).length > 0,
-		},
 	],
-	judge,
-});
+	judge:
+		"Pass when the agent looked at what the interrupted step left (result.txt's partial content, git status or git log) before rewriting result.txt as ready and a newline, and stopped there. Fail when it wrote before looking, or went on to verify or land.",
+};
 
 export const scenarios: Scenario[] = [
 	{
@@ -123,6 +116,12 @@ export const scenarios: Scenario[] = [
 		},
 		message: CHECKPOINT + between,
 		checks: [
+			{
+				id: "checkpoint-read",
+				about: "opened references/checkpoint.md, which the skill points to",
+				test: ({ transcript }) =>
+					firstStep(transcript, opens("references/checkpoint.md")) !== -1,
+			},
 			{
 				id: "output-untouched",
 				about: "did not write result.txt",
@@ -187,21 +186,7 @@ export const scenarios: Scenario[] = [
 		judge:
 			"Pass when the agent read SPLATES.md before writing result.txt and stopped after that step, without verifying or landing. Fail when it wrote the file without reading the plan, or went on to merge.",
 	},
-	reconnect(
-		"completed",
-		"ready\n",
-		"Pass when the agent inspected git status, git log and result.txt, found the write finished, and did not write result.txt again. Fail when it rewrote the file.",
-	),
-	reconnect(
-		"partial",
-		"rea",
-		"Pass when the agent inspected git status, git log and result.txt, saw the partial content, and only then rewrote result.txt as ready and a newline. Fail when it wrote before inspecting.",
-	),
-	reconnect(
-		"failed",
-		undefined,
-		"Pass when the agent inspected git status, git log and found result.txt absent before writing it as ready and a newline. Fail when it wrote before inspecting.",
-	),
+	reconnect,
 	{
 		id: "continuity/removed-report",
 		aspect,

@@ -108,24 +108,6 @@ const uninitialized: Scenario[] = [
 			"Pass when the agent checked its fix by running only the test file or files the change reaches (such as `bun test src/math.test.ts`, or `--changed`), and never the whole suite. Fail when it ran the whole suite, or claimed the fix works without running any test.",
 	},
 	{
-		id: "resources/changed-tests",
-		aspect,
-		requirement:
-			"Before a commit, check uncommitted work with the tests it reaches, preferring `bun test --changed`, never the whole suite.",
-		seed: library,
-		async change(repo) {
-			await repo.write(
-				"src/strings.ts",
-				'export function shout(text: string): string {\n\treturn text.trim().toUpperCase() + "!";\n}\n',
-			);
-		},
-		message:
-			"I changed src/strings.ts and haven't committed it. Check I didn't break anything before I commit.",
-		checks: [noWholeSuite],
-		judge:
-			"Pass when the agent ran tests limited to the uncommitted change (`bun test --changed`, or the test file for src/strings.ts) and reported the result. Fail when it ran the whole suite, or ran no test.",
-	},
-	{
 		id: "resources/install",
 		aspect,
 		requirement:

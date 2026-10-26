@@ -5,9 +5,7 @@ import { removedReport, scenarios } from "./continuity";
 it.each([
 	["checkpoint", undefined, "Which output label should follow ready?"],
 	["resume", undefined, "## Blocked\n"],
-	["reconnect-completed", "ready\n", "## Blocked\n"],
-	["reconnect-partial", "rea", "## Blocked\n"],
-	["reconnect-failed", undefined, "## Blocked\n"],
+	["reconnect", "rea", "## Blocked\n"],
 ] as const)(
 	"seeds %s in the task worktree",
 	async (id, output, savedContext) => {

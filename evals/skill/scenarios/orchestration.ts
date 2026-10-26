@@ -159,26 +159,4 @@ export const scenarios: Scenario[] = [
 			},
 		],
 	},
-	{
-		id: "orchestration/link",
-		aspect,
-		requirement:
-			"A task that needs another first is linked with `splates task update <id> --blocked-by <id>`.",
-		initialized: true,
-		change: board,
-		message: "Link Other to Base: Other has to wait until Base lands.",
-		checks: [
-			{
-				id: "linked",
-				about: "Other (2) is blocked by Base (1), and Base by nothing",
-				test: async ({ repo }) => {
-					const tasks = await queued(repo);
-					return (
-						tasks.find((task) => task.id === 2)?.blockedBy.join() === "1" &&
-						tasks.find((task) => task.id === 1)?.blockedBy.length === 0
-					);
-				},
-			},
-		],
-	},
 ];

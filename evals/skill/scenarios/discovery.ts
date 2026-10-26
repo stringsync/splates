@@ -140,22 +140,6 @@ const uninitialized: Scenario[] = [
 		],
 	},
 	{
-		id: "discovery/checkpoint",
-		aspect,
-		requirement:
-			"On `[SPLATES CHECKPOINT]` the agent reads references/checkpoint.md, which the skill points to, before it updates SPLATES.md.",
-		seed: greeter,
-		message: "[SPLATES CHECKPOINT]",
-		checks: [
-			{
-				id: "checkpoint-read",
-				about: "opened references/checkpoint.md",
-				test: ({ transcript }) =>
-					firstStep(transcript, opens("references/checkpoint.md")) !== -1,
-			},
-		],
-	},
-	{
 		id: "discovery/setup",
 		aspect,
 		requirement:

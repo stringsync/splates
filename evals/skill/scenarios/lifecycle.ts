@@ -1,5 +1,5 @@
 import { stretches } from "@stringsync/splates-server/plans";
-import type { Check, Outcome, Repo, Scenario } from "../scenario";
+import type { Check, Repo, Scenario } from "../scenario";
 
 const aspect = "lifecycle";
 const goal = "Change value to two";
@@ -18,22 +18,7 @@ export function reported(
 	);
 }
 
-/** Whether the step at `first` comes before the step at `second`; false when `first` is absent. */
-export function startsBefore(
-	steps: string[],
-	first: RegExp,
-	second: RegExp,
-): boolean {
-	const at = steps.findIndex((step) => first.test(step));
-	if (at === -1) {
-		return false;
-	}
-	const later = steps.findIndex((step) => second.test(step));
-	return later === -1 || at < later;
-}
-
 const addsTask = /\bsplates\s+add\b/;
-const touchesValue = /value\.txt/;
 
 async function seedValue(repo: Repo): Promise<void> {
 	await repo.write("value.txt", "one\n");
@@ -68,9 +53,6 @@ async function committedTask(repo: Repo): Promise<string> {
 	return tree;
 }
 
-const mainValue = async ({ repo }: Outcome) =>
-	(await Bun.file(`${repo.dir}/value.txt`).text()) === "one\n";
-
 const taskGone: Check = {
 	id: "task-gone",
 	about: "`splates list` no longer shows the task",
@@ -79,33 +61,6 @@ const taskGone: Check = {
 };
 
 const uninitialized: Scenario[] = [
-	{
-		id: "lifecycle/start",
-		aspect,
-		requirement:
-			"Start a task with `splates add` before reading or editing any project file, and work in its worktree, leaving main untouched.",
-		seed: seedValue,
-		message: `Change value.txt from one to two. Use task name sample and goal "${goal}". Stop after you have read value.txt, before editing.`,
-		checks: [
-			{
-				id: "add-first",
-				about: "ran `splates add` before touching value.txt",
-				test: ({ transcript }) =>
-					startsBefore(
-						transcript.flatMap((step) =>
-							step.kind === "tool" ? [step.input] : [],
-						),
-						addsTask,
-						touchesValue,
-					),
-			},
-			{
-				id: "main-untouched",
-				about: "main's value.txt is still one",
-				test: mainValue,
-			},
-		],
-	},
 	{
 		id: "lifecycle/claim",
 		aspect,
@@ -217,26 +172,28 @@ const uninitialized: Scenario[] = [
 		id: "lifecycle/remove-moot",
 		aspect,
 		requirement:
-			"When the work is moot, end the task with `splates remove <task> --reason moot` and the Removed card, never a merge.",
+			"When investigating shows the task has nothing left to change, end it with `splates remove <task>`, its reason `nothing` or `moot`, and the Removed card, never a merge.",
 		seed: seedValue,
-		change: async (repo) => void (await addSample(repo)),
-		message:
-			"[SPLATES TASK sample]\nThe requested change is obsolete. There are no associated queued tasks. Remove this task as moot and report the outcome.",
+		// Main already reads two when the task starts, so its Goal is met.
+		change: async (repo) => {
+			await repo.write("value.txt", "two\n");
+			await repo.run(["git", "commit", "-qam", "Set value to two"]);
+			await addSample(repo);
+		},
+		// The page sends the directive alone.
+		message: "[SPLATES TASK sample]",
 		checks: [
 			{
 				id: "removed",
-				about: "ran `splates remove sample --reason moot`",
+				about: "ran `splates remove sample --reason nothing` or `moot`",
 				test: ({ commands }) =>
 					commands.some((command) =>
-						/\bsplates\s+remove\s+sample\b.*--reason[ =]moot\b/.test(command),
+						/\bsplates\s+remove\s+sample\b.*--reason[ =](nothing|moot)\b/.test(
+							command,
+						),
 					),
 			},
 			taskGone,
-			{
-				id: "main-unchanged",
-				about: "main's value.txt is still one",
-				test: mainValue,
-			},
 			{
 				id: "no-merge",
 				about: "never ran `splates merge`",

@@ -101,7 +101,8 @@ const uninitialized: Scenario[] = [
 		requirement:
 			"A small decision, cheap to undo, is made by the agent, not asked: record the choice and its alternative under the Next step it belongs to.",
 		change: withTask(basePlan),
-		message: `${context} Choose between three and five for a local retry-limit constant. This is a new decision, cheap to undo in one commit, with no data or external effects. Record your choice and its alternative under the relevant Next step; implementation continues in a later turn.`,
+		// Says nothing of where to record it: the skill does.
+		message: `${context} Next it needs a retry limit for the local retry constant, three or five. Plan that step and stop; another session will implement it.`,
 		checks: [
 			{
 				id: "context-under-next",
