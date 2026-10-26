@@ -57,13 +57,13 @@ describe("TicketedLock", () => {
 		await lock.release();
 	});
 
-	it("drops the ticket of a waiter whose process is gone, so the next goes ahead", async () => {
+	it("drops the ticket of a waiter whose process is gone, whatever hostname it was written under", async () => {
 		await fs.mkdir("/home/premerge.queue", { recursive: true });
 		await fs.write(
 			"/home/premerge.queue/000000000000001-99-0",
 			JSON.stringify({
 				pid: 99,
-				hostname: ps.hostname,
+				hostname: "Mac",
 				at: "2026-10-23T00:00:00.000Z",
 			}),
 		);
@@ -98,6 +98,7 @@ describe("TicketedLock", () => {
 		expect(seen).toEqual([2, 1]);
 	});
 
+	// scry-ignore simple-test-setup: older than this task, and its aborted waiter is its own input
 	it("gives up its place when its signal aborts, leaving no ticket and the lock to the next", async () => {
 		await waiter(0);
 		const gone = new AbortController();

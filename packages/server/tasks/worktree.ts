@@ -64,21 +64,14 @@ export class Worktree {
 	}
 
 	get leaseHeld(): boolean {
-		// On this host the pid alone decides. Every splates command is its own
-		// short-lived process, so a lease goes stale the moment its command
-		// exits, and nothing refreshes the heartbeat while one runs: judged by
-		// age, a merge whose test gate outlasts the staleness window could be
-		// claimed out from under it. The heartbeat only judges a holder on
-		// another host, whose pid cannot be checked.
+		// The pid alone decides. Every splates command is its own short-lived
+		// process, so a lease goes stale the moment its command exits, and
+		// nothing refreshes the heartbeat while one runs: judged by age, a merge
+		// whose test gate outlasts the staleness window could be claimed out
+		// from under it. Whatever hostname the lease was written under, its
+		// holder runs on this machine, whose name macOS changes with the network.
 		const { lease } = this;
-		const { ps, config } = this.service;
-		if (!lease) {
-			return false;
-		}
-		if (lease.hostname === ps.hostname) {
-			return ps.alive(lease.pid);
-		}
-		return Date.now() - Date.parse(lease.heartbeatAt) < config.leaseStalenessMs;
+		return lease !== null && this.service.ps.alive(lease.pid);
 	}
 
 	/**
@@ -114,7 +107,7 @@ export class Worktree {
 
 	get leaseOurs(): boolean {
 		const { ps } = this.service;
-		return this.lease?.pid === ps.pid && this.lease.hostname === ps.hostname;
+		return this.lease?.pid === ps.pid;
 	}
 
 	get leaseHeldByOther(): boolean {

@@ -152,7 +152,6 @@ export class Testing implements AsyncDisposable {
 			fs: this.fs,
 			ps: this.ps,
 			log: this.log,
-			stalenessMs: this.config.leaseStalenessMs,
 		});
 		this.machine = new FsStorage(this.splatesHome, this.fs);
 		this.outcomes = new Outcomes(this.machine);

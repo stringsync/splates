@@ -32,9 +32,9 @@ export class TicketedLock implements PlacedLock {
 	// Each waiter leaves a ticket in `dir`, and only the one with the oldest
 	// live ticket asks `inner` for the lock, which otherwise goes to whichever
 	// waiter polls first. A ticket whose process is gone is dropped by the
-	// next waiter to look, so a killed waiter holds nobody up; one from
-	// another host is dropped once older than `stalenessMs`, as `FileLock`
-	// treats such a holder.
+	// next waiter to look, so a killed waiter holds nobody up. The pid alone
+	// decides, whatever hostname the ticket was written under: every waiter
+	// runs on this machine, whose name macOS changes with the network.
 	private readonly fs: Fs;
 	private readonly ps: Ps;
 	private readonly log: Logger;
@@ -170,14 +170,9 @@ export class TicketedLock implements PlacedLock {
 				? { pid: "?", why: "it cannot be read" }
 				: null;
 		}
-		if (holder.hostname === this.ps.hostname) {
-			return this.ps.alive(holder.pid)
-				? null
-				: { pid: holder.pid, why: "the process is gone" };
-		}
-		return Date.now() - Date.parse(holder.at) > this.stalenessMs
-			? { pid: holder.pid, why: `it has waited on ${holder.hostname} too long` }
-			: null;
+		return this.ps.alive(holder.pid)
+			? null
+			: { pid: holder.pid, why: "the process is gone" };
 	}
 }
 
@@ -187,6 +182,6 @@ export interface TicketedLockOptions {
 	log: Logger;
 	/** How often a waiter looks at the line again. */
 	pollMs?: number;
-	/** How long a ticket from another host may wait before it is dropped. */
+	/** How long a ticket that cannot be read may wait before it is dropped. */
 	stalenessMs?: number;
 }

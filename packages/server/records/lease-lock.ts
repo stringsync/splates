@@ -1,7 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock, Ps } from "webappwiz/system";
-import { Duration, sleep, type Timer } from "webappwiz/time";
+import { Duration, sleep } from "webappwiz/time";
 
 /** Who holds a lock, as `FileLock` writes it. */
 interface Holder {
@@ -11,15 +10,14 @@ interface Holder {
 }
 
 /**
- * The merge lease: a lock whose holder keeps its `at` fresh while it holds
- * it, so a long test run is never judged stale. Release it, or let it go
- * stale once the process ends: one on this host is free once its pid is
- * gone, one on another once its beat is old.
+ * The merge lease: a lock held for as long as its holder's process lives, so
+ * a long test run is never judged stale. Release it, or let it go stale once
+ * the process ends. The pid alone decides, whatever hostname the holder was
+ * written under: every holder runs on this machine, whose name macOS changes
+ * with the network. Nothing removes it when the process dies.
  */
 export class LeaseLock implements Lock {
-	// Its holder's `at` is kept fresh while held, since a holder on another
-	// host is judged by its age alone. Nothing removes it when the process dies.
-	private beat: Resource | null = null;
+	private held = false;
 
 	constructor(
 		readonly path: string,
@@ -27,7 +25,7 @@ export class LeaseLock implements Lock {
 			fs: Fs;
 			ps: Ps;
 			log: Logger;
-			timer: Timer;
+			/** After how long a holder that cannot be read counts as gone. */
 			stalenessMs: number;
 			pollMs?: number;
 		},
@@ -65,27 +63,23 @@ export class LeaseLock implements Lock {
 			break;
 		}
 		await this.stamp();
-		this.beat = this.deps.timer.setInterval(
-			() => void this.stamp().catch(() => {}),
-			Duration.ms(stalenessMs / 3),
-		);
+		this.held = true;
 	}
 
 	// scry-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
 	async release(): Promise<void> {
-		if (this.beat === null) {
+		if (!this.held) {
 			return;
 		}
-		this.beat.dispose();
-		this.beat = null;
+		this.held = false;
 		await this.deps.fs.rm(this.path, { recursive: true, force: true });
 	}
 
 	async releaseIfOurs(): Promise<void> {
 		const { ps } = this.deps;
 		const holder = await this.holder();
-		if (holder?.pid === ps.pid && holder.hostname === ps.hostname) {
-			this.beat ??= { dispose: () => {} };
+		if (holder?.pid === ps.pid) {
+			this.held = true;
 			await this.release();
 		}
 	}
@@ -116,10 +110,6 @@ export class LeaseLock implements Lock {
 	}
 
 	private isStale(holder: Holder): boolean {
-		const { ps, stalenessMs } = this.deps;
-		if (holder.hostname === ps.hostname) {
-			return !ps.alive(holder.pid);
-		}
-		return Date.now() - Date.parse(holder.at) > stalenessMs;
+		return !this.deps.ps.alive(holder.pid);
 	}
 }

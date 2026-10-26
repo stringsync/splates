@@ -1,7 +1,6 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
-import { SystemTimer } from "webappwiz/time";
 import { TaskStore, Tasks } from "../board";
 import type { Config } from "../config";
 import {
@@ -365,14 +364,13 @@ export async function openRepository(
 			? await home.dir()
 			: splatesDir;
 	// The merge lease: one per repository, kept on disk so it outlives a
-	// restart, and beating while held, so a long test run is never judged
-	// stale. One whose holder dies is free once its pid is gone.
+	// restart, and held for as long as its holder lives, so a long test run is
+	// never judged stale. One whose holder dies is free once its pid is gone.
 	const mergeLease = `${dir}/merge.lock`;
 	const lease = new LeaseLock(mergeLease, {
 		fs,
 		ps,
 		log,
-		timer: new SystemTimer(),
 		stalenessMs: config.leaseStalenessMs,
 	});
 	// Before anything reads or makes a record.

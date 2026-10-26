@@ -21,8 +21,6 @@ export interface SqliteStorageOptions {
 	ps: Ps;
 	log?: Logger;
 	timer?: Timer;
-	/** After how long a lock held from another host counts as stale. */
-	stalenessMs?: number;
 	/** How often a watch looks for another process's writes, and a waiter for a lock's release. */
 	pollMs?: number;
 	/**
@@ -43,7 +41,6 @@ export class SqliteStorage implements Storage, Resource {
 			db: new SqliteDb(path, { timer: opts.timer, pollMs: opts.pollMs }),
 			ps: opts.ps,
 			log: opts.log,
-			stalenessMs: opts.stalenessMs ?? 90_000,
 			pollMs: opts.pollMs,
 			cache: { dir: opts.cache ?? `${path}.files`, fs: opts.fs },
 		});
@@ -83,8 +80,8 @@ export class SqliteStorage implements Storage, Resource {
 	}
 
 	lock(key: string): Lock {
-		const { db, ps, log, stalenessMs, pollMs } = this.shared;
-		return new SqliteLock(this.full(key), { db, ps, log, stalenessMs, pollMs });
+		const { db, ps, log, pollMs } = this.shared;
+		return new SqliteLock(this.full(key), { db, ps, log, pollMs });
 	}
 
 	watch(key: string, opts: WatchOptions = {}): Watch {
@@ -267,7 +264,6 @@ interface Shared {
 	db: SqliteDb;
 	ps: Ps;
 	log?: Logger;
-	stalenessMs: number;
 	pollMs?: number;
 	/** Where `materialize` writes copies. */
 	cache: { dir: string; fs: Fs };

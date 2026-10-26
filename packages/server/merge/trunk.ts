@@ -64,11 +64,9 @@ export class CoordinatorLanding implements TrunkLanding {
 			};
 		}
 		const held = await this.holder();
-		if (
-			held === null ||
-			held.pid !== holder.pid ||
-			held.hostname !== holder.hostname
-		) {
+		// By pid alone, since the machine's hostname may have changed with the
+		// network since the lease was taken.
+		if (held === null || held.pid !== holder.pid) {
 			return {
 				status: "refused",
 				why: `the merge lease is no longer held by pid ${holder.pid} on ${holder.hostname}${held === null ? "" : `: pid ${held.pid} on ${held.hostname} holds it`}`,

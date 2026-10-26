@@ -17,8 +17,6 @@ export interface ProjectHomeOptions {
 	log: Logger;
 	/** The registry, which keeps the id the checkout's records are under. */
 	projects: Projects;
-	/** After how long a lock in the database counts as stale. */
-	stalenessMs?: number;
 }
 
 /** The file beside the database naming where the records went once they moved. */
@@ -65,13 +63,8 @@ export class ProjectHome {
 		if (this.opened === null) {
 			const dir = await this.dir();
 			await this.opts.fs.mkdir(dir, { recursive: true });
-			const { fs, ps, log, stalenessMs } = this.opts;
-			this.opened = SqliteStorage.open(`${dir}/state.db`, {
-				fs,
-				ps,
-				log,
-				stalenessMs,
-			});
+			const { fs, ps, log } = this.opts;
+			this.opened = SqliteStorage.open(`${dir}/state.db`, { fs, ps, log });
 		}
 		return this.opened;
 	}
@@ -110,7 +103,7 @@ export class ProjectHome {
 	 * made is a whole one, and stamps it `format`. Run again, it starts over.
 	 */
 	async import(legacy: string, format: number): Promise<void> {
-		const { fs, ps, log, stalenessMs } = this.opts;
+		const { fs, ps, log } = this.opts;
 		const dir = await this.dir();
 		await fs.mkdir(dir, { recursive: true });
 		const path = `${dir}/state.db`;
@@ -118,7 +111,7 @@ export class ProjectHome {
 		for (const stale of [partial, `${partial}-wal`, `${partial}-shm`]) {
 			await fs.rm(stale, { force: true });
 		}
-		const into = SqliteStorage.open(partial, { fs, ps, log, stalenessMs });
+		const into = SqliteStorage.open(partial, { fs, ps, log });
 		try {
 			await into.importFiles(fs, legacy);
 			await into.document<number>(STAMP).write(format);

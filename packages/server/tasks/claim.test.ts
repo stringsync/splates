@@ -63,12 +63,22 @@ describe("claim", () => {
 		});
 		await expect(claim(deps, "alpha")).toBail("lease_held");
 
-		// A holder on another host goes cold when its heartbeat ages out.
+		// Nor does another hostname, which macOS gives this machine as the
+		// network changes: the pid alone decides.
 		await (await deps.service.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
-				hostname: "elsewhere",
+				hostname: "Mac",
 				heartbeatAt: new Date(Date.now() - 120_000).toISOString(),
+			},
+		});
+		await expect(claim(deps, "alpha")).toBail("lease_held");
+
+		await (await deps.service.find("alpha")).save({
+			lease: {
+				pid: 99_999_999,
+				hostname: "Mac",
+				heartbeatAt: new Date().toISOString(),
 			},
 		});
 		await claim(deps, "alpha");

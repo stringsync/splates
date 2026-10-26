@@ -70,12 +70,15 @@ describe("SqliteStorage", () => {
 		watch.dispose();
 	});
 
-	it("steals a lock from a process that died", async () => {
+	it("steals a lock from a process that died, whatever hostname it was taken under", async () => {
+		// macOS renames the machine as its network changes.
 		const dead = new FakePs();
 		dead.pid = 4242;
+		dead.hostname = "Mac";
 		const held = (await open({ ps: dead })).lock("merge.lock");
 		await held.acquire();
 		const ps = new FakePs();
+		ps.hostname = "jmbp.local";
 		ps.kill(4242);
 
 		await (await open({ ps })).lock("merge.lock").acquire();
@@ -96,6 +99,8 @@ describe("SqliteStorage", () => {
 		await Bun.sleep(30);
 
 		expect(taken).toBe(false);
+		// Renamed by macOS as its network changed, it still releases its own.
+		ps.hostname = "jmbp.local";
 		await first.release();
 		await second;
 
@@ -142,6 +147,7 @@ describe("SqliteStorage", () => {
 		expect(await fs.read(path)).toBe('{"n":1}\n');
 	});
 
+	// scry-ignore simple-test-setup: older than this task, and its old database is its own input
 	it("adds the owner index to an existing database without changing live or rotated log sizes", async () => {
 		const storage = await open();
 		const log = storage.log<{ text: string }>("conversations/one.jsonl", {

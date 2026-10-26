@@ -11,9 +11,9 @@ interface Holder {
 }
 
 /**
- * A mutex between processes, held by a row in the database: taken by the
- * insert that finds none there, and stolen from a holder on this host that
- * died, or on another that fell silent for `stalenessMs`.
+ * A mutex between the processes on this machine that share a database:
+ * `acquire` waits until no live process holds it, taking it from one that
+ * died, and `release` gives it up.
  */
 export class SqliteLock implements Lock {
 	constructor(
@@ -22,7 +22,6 @@ export class SqliteLock implements Lock {
 			db: SqliteDb;
 			ps: Ps;
 			log?: Logger;
-			stalenessMs: number;
 			pollMs?: number;
 		},
 	) {}
@@ -57,8 +56,8 @@ export class SqliteLock implements Lock {
 	async release(): Promise<void> {
 		const { db, ps } = this.deps;
 		db.db
-			.query("DELETE FROM locks WHERE key = ? AND pid = ? AND hostname = ?")
-			.run(this.key, ps.pid, ps.hostname);
+			.query("DELETE FROM locks WHERE key = ? AND pid = ?")
+			.run(this.key, ps.pid);
 	}
 
 	async releaseIfOurs(): Promise<void> {
@@ -83,10 +82,9 @@ export class SqliteLock implements Lock {
 	}
 
 	private isStale(holder: Holder): boolean {
-		const { ps, stalenessMs } = this.deps;
-		if (holder.hostname === ps.hostname) {
-			return !ps.alive(holder.pid);
-		}
-		return Date.now() - holder.at > stalenessMs;
+		// The pid alone decides, whatever hostname the row was written under:
+		// every holder runs on this machine, whose name macOS changes with the
+		// network.
+		return !this.deps.ps.alive(holder.pid);
 	}
 }
