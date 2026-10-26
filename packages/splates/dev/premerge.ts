@@ -1,9 +1,9 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
+import { gateLockOfMachine } from "@stringsync/splates-server/jobs";
 import {
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
-	premergeLockOfMachine,
 	RECENT_FAILED_FILES,
 	SuiteGrants,
 } from "@stringsync/splates-server/server";
@@ -29,8 +29,9 @@ export interface PremergeOptions {
  * What the merge gate runs: `dev fix`'s checks without writing fixes, failing
  * fast, then the tests as `dev test --ci` runs them. A failed check is named
  * apart from failed tests, for the gate's attribution. Run by hand, it waits
- * for the machine's premerge lock, so the whole suite runs one at a time;
- * inside a gate, which holds it already, it runs at once. An agent runs it
+ * its turn as a job of the machine's scheduler (the premerge lock, with no
+ * server), so the whole suite runs one at a time; inside a gate, which holds
+ * it already, it runs at once. An agent runs it
  * by hand only once the person approves, as the whole suite. Its tests are
  * stopped once it has run `PREMERGE_TIMEOUT_MS`, as the gate kills it then.
  */
@@ -38,17 +39,24 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const ps = opts.ps ?? new NodePs();
 	if (ps.env(PREMERGE_HELD) !== undefined) {
-		return await checkAndTest(opts, log);
+		return await checkAndTest(log, opts);
 	}
 	// Refused before waiting on the lock, rather than once a gate lets it go.
 	if (!opts.evals) {
 		await refuseWholeSuite(ps, new SuiteGrants({ fs: new NodeFs(), ps }));
 	}
-	const lock = premergeLockOfMachine({ fs: new NodeFs(), ps, log });
-	log.info("premerge: waiting for the machine's premerge lock");
-	await lock.acquire();
+	const lock = gateLockOfMachine({
+		fs: new NodeFs(),
+		ps,
+		log,
+		what: "splates dev premerge",
+	});
+	log.info("premerge: waiting for the machine's turn to run the suite");
+	await lock.acquire((place) => {
+		log.info(`premerge: ${place === 1 ? "next" : `${place} in line`}`);
+	});
 	try {
-		await checkAndTest(opts, log);
+		await checkAndTest(log, { ...opts, workers: lock.allocation?.cpus });
 	} finally {
 		await lock.release();
 	}
@@ -67,7 +75,14 @@ async function existing(files: string[]): Promise<string[]> {
 	return found.filter((file) => file !== null);
 }
 
-async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
+async function checkAndTest(
+	log: Logger,
+	opts: PremergeOptions & {
+		/** Test files at once, the job's cpus; `dev test`'s own count when left out. */
+		workers?: number;
+	},
+): Promise<void> {
+	const { workers } = opts;
 	const ps = opts.ps ?? new NodePs();
 	const started = performance.now();
 	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
@@ -108,6 +123,7 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		log,
 		priority,
 		phases,
+		...(workers === undefined ? {} : { workers }),
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),

@@ -25,6 +25,11 @@ dates: a settled paragraph may have been superseded by a later one.
   agents" is now enforced.
 - `opencode-acp.md`: the opt-in OpenCode plan, partly historical, its
   evidence synthetic.
+- `resource-scheduler.md`: the 2026-10-25 decision to replace the premerge
+  lock, the suite grants and the run-command card for load with a batch job
+  scheduler in `splates server` (`packages/server/jobs/`), modelled on
+  HyperQueue with Slurm's backfill and preemption, after a search found no
+  library for it; lane 83 carries it out.
 - `runners-leave-the-product.md`: the 2026-10-22 decision to remove product
   runners, followed by the 2026-10-23 decision to remove them from
   `splates dev` too. Runner provisioning and billing, remote workers, images

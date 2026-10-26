@@ -2,10 +2,20 @@
 description: How merge gates take turns on this machine and how long a gate may run; bears on slow or stuck merges and on what waits for what
 ---
 
-The whole suite is the only heavy thing splates runs, and it runs only as
-a premerge. Every merge's gate, and a `splates dev premerge` run by hand,
-holds the machine's premerge lock, so one premerge runs at a time.
-Nothing else waits on it.
+Since 2026-10-25 a merge's gate, and a `splates dev premerge` run by hand,
+take their turn as a job of the machine's scheduler in `splates server`
+(`packages/server/jobs/`, `designs/resource-scheduler.md`): a request for
+the `suite` pool (one item) and between half the cores and all but two,
+at high priority, submitted through `gateLockOfMachine` and held over an
+event stream; the gate's test workers are the job's cpus. The premerge lock
+below is now the suite pool's exclusive lock, which the scheduler holds
+while such a job runs, and the fallback a command with no `SPLATES_DEV` (the
+person's own terminal, or no server) takes directly, so the two still
+exclude each other. The rest of this note describes that lock; the lane
+"Resource scheduler" (83) moves the other runs onto the scheduler and
+rewrites these notes.
+
+The whole suite runs only as a premerge, one at a time.
 
 ## How it works
 

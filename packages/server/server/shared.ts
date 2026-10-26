@@ -11,6 +11,7 @@ export {
 	json,
 	LOOPBACK,
 	MEDIA_TYPES,
+	pulsing,
 	refuse,
 	uploads,
 } from "./http";
@@ -22,6 +23,7 @@ export {
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
 	RECENT_FAILED_FILES,
+	suiteLockOfMachine,
 } from "./premerge";
 export type { DevMachine, Handler, Project, Served } from "./project";
 export type { ProjectWatch } from "./project-watch";

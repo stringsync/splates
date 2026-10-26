@@ -117,6 +117,24 @@ export class TimedLock implements PlacedLock {
  * they asked, told their place in line meanwhile, and a holder keeps it at
  * most `PREMERGE_HOLD_MS`.
  */
+/**
+ * The machine's lock on the tree a whole suite runs in, `premerge.lock`
+ * under the splates home: the scheduler holds it while a job holding the
+ * suite pool runs, and a command with no scheduler to ask takes it itself.
+ */
+export function suiteLockOfMachine({
+	fs,
+	ps,
+	log,
+}: {
+	fs: Fs;
+	ps: Ps;
+	log: Logger;
+}): FileLock {
+	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
+	return new FileLock(`${home}/premerge.lock`, { fs, ps, log });
+}
+
 export function premergeLockOfMachine({
 	fs,
 	ps,
@@ -131,7 +149,7 @@ export function premergeLockOfMachine({
 	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 	return new TimedLock(
 		new TicketedLock(
-			new FileLock(`${home}/premerge.lock`, { fs, ps, log }),
+			suiteLockOfMachine({ fs, ps, log }),
 			`${home}/premerge.queue`,
 			{ fs, ps, log },
 		),

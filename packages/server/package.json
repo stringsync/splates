@@ -67,6 +67,8 @@
 		"./evals": "./evals/index.ts",
 		"./evals/browser": "./evals/browser.ts",
 		"./hooks": "./hooks/index.ts",
+		"./jobs": "./jobs/index.ts",
+		"./jobs/testing": "./jobs/testing.ts",
 		"./hooks/browser": "./hooks/browser.ts",
 		"./queue": "./queue/index.ts",
 		"./queue/browser": "./queue/browser.ts",
