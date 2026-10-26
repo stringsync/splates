@@ -10,6 +10,7 @@ import {
 } from "webappwiz/time";
 import { EXIT } from "../exit";
 import { SUPERVISOR } from "../workers";
+import { ServerInterrupt } from "./interrupt";
 
 /** What a server exits with to be started again as it was. */
 export const RESTART = 75;
@@ -35,9 +36,9 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
 /**
  * Runs `splates server` as a child of this process, sharing its terminal, and
  * starts another each time the child exits to restart: as this one was
- * started, or on the newest splates when it asks to update. Ctrl-C reaches the
- * child too, and its exit ends this; one while no child serves, as during a
- * build or a crash's pause, ends this at once. A SIGTERM or SIGHUP to this one
+ * started, or on the newest splates when it asks to update. Ctrl-C cancels the
+ * child or build; a second press or two seconds without exiting force-stops
+ * this command and its descendants. A SIGTERM or SIGHUP to this one
  * stops the child with a SIGTERM and ends this, since the child would
  * otherwise outlive it, listening on its port. A `worker` runs beside it as a second child,
  * told this process's pid so it ends once this is gone. Both stop, ending
@@ -68,12 +69,11 @@ export async function supervise(
 	let argv = [...splates, ...ps.args];
 	// Built until it updates: npm's splates ships its page.
 	let building = build;
-	// Ctrl-C is the child's to end on, and its exit then ends this, never
-	// read as a crash. One that comes while no server runs, as during a build
-	// or the pause after a crash, ends this at once.
-	const interrupting = new AbortController();
-	const quiet = ps.on("SIGINT", () => interrupting.abort());
+	// Interrupt both builds and serving, and never restart an interrupted child.
+	const interrupting = new ServerInterrupt(ps, { timer, log });
+	const quiet = ps.on("SIGINT", () => interrupting.interrupt());
 	const stopping = new AbortController();
+	const signal = AbortSignal.any([stopping.signal, interrupting.signal]);
 	let stopped = 0;
 	const stopOn = (signal: string, code: number) =>
 		ps.on(signal, () => {
@@ -89,7 +89,7 @@ export async function supervise(
 		void keep(ps, () => [...splates, ...worker], {
 			env: { ...env, [SUPERVISOR]: String(ps.pid) },
 			cwd,
-			signal: working.signal,
+			signal: AbortSignal.any([working.signal, interrupting.signal]),
 			timer,
 		});
 	}
@@ -100,9 +100,23 @@ export async function supervise(
 		for (;;) {
 			// A failed build has said why on the terminal, and the page it left
 			// behind is still one to serve, saying it failed.
-			const built =
-				building === null ||
-				(await ps.spawn(building.argv, { cwd: building.cwd })).exitCode === 0;
+			let built = true;
+			try {
+				if (building !== null) {
+					const { exitCode } = await interrupting.wait(
+						ps.spawn(building.argv, { cwd: building.cwd, signal }),
+					);
+					built = exitCode === 0;
+				}
+			} catch (error) {
+				if (interrupting.signal.aborted) {
+					return INTERRUPTED;
+				}
+				if (stopping.signal.aborted) {
+					return stopped;
+				}
+				throw error;
+			}
 			if (stopping.signal.aborted) {
 				return stopped;
 			}
@@ -112,17 +126,22 @@ export async function supervise(
 			let exitCode: number;
 			const began = clock.now();
 			try {
-				({ exitCode } = await ps.spawn(argv, {
-					env: {
-						...env,
-						[SERVING]: "1",
-						...(built ? {} : { [UNBUILT]: "1" }),
-					},
-					cwd,
-					signal: stopping.signal,
-				}));
+				({ exitCode } = await interrupting.wait(
+					ps.spawn(argv, {
+						env: {
+							...env,
+							[SERVING]: "1",
+							...(built ? {} : { [UNBUILT]: "1" }),
+						},
+						cwd,
+						signal,
+					}),
+				));
 			} catch (error) {
 				// An abort rejects the spawn once the child is gone.
+				if (interrupting.signal.aborted) {
+					return INTERRUPTED;
+				}
 				if (stopping.signal.aborted) {
 					return stopped;
 				}
@@ -179,6 +198,7 @@ export async function supervise(
 		working.abort();
 		watching?.dispose();
 		quiet.dispose();
+		interrupting.dispose();
 		terminated.dispose();
 		hungUp.dispose();
 	}

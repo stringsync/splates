@@ -3,7 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
 import { Duration, type Timer } from "webappwiz/time";
-import { FakeClock } from "webappwiz/time/testing";
+import { FakeClock, FakeTimer } from "webappwiz/time/testing";
 import { RESTART, supervise } from "./supervise";
 
 describe("supervise, crashed", () => {
@@ -28,15 +28,11 @@ describe("supervise, crashed", () => {
 		pauses = [];
 	});
 
-	// Each run ends with its code, after serving for its seconds; the last
-	// is ended by Ctrl-C.
+	// Each run ends with its code, after serving for its seconds.
 	const running = (...runs: [code: number, secs: number][]) => {
 		ps.simulate(async () => {
 			const [code, secs] = runs.shift() ?? [130, 0];
 			clock.advance(Duration.secs(secs));
-			if (runs.length === 0) {
-				ps.dispatch("SIGINT");
-			}
 			return code;
 		});
 	};
@@ -108,9 +104,12 @@ describe("supervise, crashed", () => {
 	});
 
 	it("ends when Ctrl-C ended a server with another code", async () => {
-		running([1, 0]);
+		ps.simulate(async () => {
+			ps.dispatch("SIGINT");
+			return 1;
+		});
 
-		expect(await supervise(ps, { timer, clock })).toBe(1);
+		expect(await supervise(ps, { timer: new FakeTimer(), clock })).toBe(1);
 		expect(ps.getCalls()).toHaveLength(1);
 	});
 

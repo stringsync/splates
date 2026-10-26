@@ -25,7 +25,7 @@ export { LocalWorkerMachine } from "./machine";
 export { OsSensors } from "./os-sensors";
 export { AgentPlacement } from "./placement";
 export { WorkerProcess } from "./process";
-export { WorkerProcessHost } from "./process-host";
+export { descendants, WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
 export type { QueueListing } from "./queue";
 export { listQueue, moveQueued, queueListing } from "./queue";
