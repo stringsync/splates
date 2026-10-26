@@ -50,6 +50,8 @@ export async function sandbox(
 	);
 	const env = {
 		...outside(process.env),
+		// opencode takes its project from PWD, not the cwd it is spawned in.
+		PWD: dir,
 		PATH: `${bin}:${process.env.PATH ?? ""}`,
 		SPLATES_HOME: home,
 		GIT_CONFIG_NOSYSTEM: "1",

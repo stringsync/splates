@@ -175,15 +175,24 @@ async function skillAt(skill: string, revision: string): Promise<string> {
 	const dir = await mkdtemp(
 		join(await realpath(tmpdir()), "splates-eval-skill-"),
 	);
+	const top = (
+		await output(["git", "-C", skill, "rev-parse", "--show-toplevel"])
+	).trim();
+	// From a subdirectory, git archive keeps only that subdirectory of the
+	// tree it is given, which inside `skills/splates` is nothing.
 	const archive = Bun.spawn(
-		["git", "-C", skill, "archive", "--format=tar", `${revision}:${prefix}`],
+		["git", "-C", top, "archive", "--format=tar", `${revision}:${prefix}`],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
 	const tar = Bun.spawn(["tar", "-x", "-C", dir], {
 		stdin: archive.stdout,
 		stderr: "pipe",
 	});
-	if ((await archive.exited) !== 0 || (await tar.exited) !== 0) {
+	if (
+		(await archive.exited) !== 0 ||
+		(await tar.exited) !== 0 ||
+		!(await Bun.file(join(dir, "SKILL.md")).exists())
+	) {
 		await rm(dir, { recursive: true, force: true });
 		throw new Error(
 			`no skill at ${revision}: ${(await new Response(archive.stderr).text()).trim()}`,
