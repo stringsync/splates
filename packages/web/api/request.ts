@@ -53,15 +53,41 @@ export async function answered(
 	input: string,
 	{ within = WAITS.answer, signal, ...init }: Answering = {},
 ): Promise<Response> {
-	const timeout = AbortSignal.timeout(within.ms);
+	using timeout = expiring(within);
 	try {
 		return await fetch(input, {
 			...init,
-			signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+			signal: signal
+				? AbortSignal.any([signal, timeout.signal])
+				: timeout.signal,
 		});
 	} catch (error) {
-		throw timedOut(error, timeout, within);
+		throw timedOut(error, timeout.signal, within);
 	}
+}
+
+/**
+ * A signal aborted with a `TimeoutError`, as `AbortSignal.timeout`'s is, once
+ * `within` has passed, unless disposed first: `using timeout = expiring(wait)`
+ * around the work, and `timeout.signal` to what should give up.
+ */
+export function expiring(
+	within: Duration,
+): { readonly signal: AbortSignal } & Disposable {
+	// `AbortSignal.timeout`'s own timer runs on after the answer, holding its
+	// signal, the request and whatever awaited it until it fires: in a worker
+	// of the page's tests, which make thousands of requests a minute, that
+	// kept 30 s of tests' pages alive.
+	const controller = new AbortController();
+	const timer = setTimeout(
+		() =>
+			controller.abort(new DOMException("signal timed out", "TimeoutError")),
+		within.ms,
+	);
+	return {
+		signal: controller.signal,
+		[Symbol.dispose]: () => clearTimeout(timer),
+	};
 }
 
 /**
@@ -72,11 +98,11 @@ export async function answeredFrom(
 	waiting: Promise<Response>,
 	within: Duration = WAITS.answer,
 ): Promise<Response> {
-	const timeout = AbortSignal.timeout(within.ms);
+	using timeout = expiring(within);
 	try {
-		return await aborts.race(timeout, waiting);
+		return await aborts.race(timeout.signal, waiting);
 	} catch (error) {
-		throw timedOut(error, timeout, within);
+		throw timedOut(error, timeout.signal, within);
 	}
 }
 

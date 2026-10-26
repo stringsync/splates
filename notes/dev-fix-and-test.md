@@ -110,11 +110,29 @@ run-command permission card for anything else heavy, running it only on
 - Lazy page chunks, 2026-10-25: a test file importing `testing` no longer
   loads the page's 15 MB of chunks and maps, about 250 MB less per worker;
   `packages/splates/e2e.test.ts` peaks at 0.89 GB of tree RSS, from 1.29 GB.
+- Page worker memory, 2026-10-25 (16 cores, bun 1.4.2, one worker over all
+  225 page files, 334s): RSS 500 MB → 1.6 GB, but physical footprint
+  (`footprint -p`) 233 → 432 MB, peaking there; over 40 files, RSS 207 →
+  886 MB against a footprint of 198 → 303 MB. `vmmap` showed mimalloc's
+  region (tag 240) 1.4 GB resident and 364 MB dirty: on macOS the pages it
+  frees stay counted in RSS until memory pressure, so RSS read three times
+  the footprint. `dev test`'s peak is the footprint on macOS for that reason.
+  A gate worker's share, 28 files, costs about 260 MB; the footprint grows
+  with the files a worker has loaded, since `--no-isolate` keeps every
+  file's modules, steeper over the alphabetically late files. 40 trivial
+  `render(<p>)` files cost 0.3 MB each. `--smol` changed nothing (305 MB
+  over 40 files). Before this, every page request's `AbortSignal.timeout`
+  left a 30s timer running after its answer, 1,500 of them pending in a
+  worker, each holding its request's page; `expiring` in
+  `packages/web/api/request.ts` disposes the timer with the answer, which cut
+  the full run's peak footprint from 573 to 432 MB and the pending timers to
+  under ten.
 
 ## Where
 
 - `packages/splates/dev/test.ts`: `refuseWholeSuite`
 - `packages/splates/dev/priority.ts`: `AgentPriority`
+- `packages/splates/dev/peak-memory.ts`: `PeakMemory`, `footprintKb`
 - `packages/server/plans/run-command.ts`: `isWholeSuite`
 - `packages/web/test-preload.ts`
 - `splates.config.ts`: `preMerge`

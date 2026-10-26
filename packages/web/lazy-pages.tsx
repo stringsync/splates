@@ -8,7 +8,7 @@ import {
 	useState,
 } from "react";
 import { aborts } from "webappwiz/abort";
-import { WAITS } from "./api";
+import { expiring, WAITS } from "./api";
 import { ReadFailed, StillWaiting } from "./countdown";
 
 /**
@@ -22,7 +22,10 @@ export function onDemand<Props extends object>(
 	load: () => Promise<{ default: ComponentType<Props> }>,
 ): (props: Props) => JSX.Element {
 	const loaded = () =>
-		lazy(() => aborts.race(AbortSignal.timeout(WAITS.answer.ms), load()));
+		lazy(async () => {
+			using timeout = expiring(WAITS.answer);
+			return await aborts.race(timeout.signal, load());
+		});
 	return function OnDemand(props: Props): JSX.Element {
 		// A rejected chunk stays rejected in its `lazy`: Try again makes another.
 		const [{ Page, attempt }, setTry] = useState(() => ({

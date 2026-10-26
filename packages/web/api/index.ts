@@ -57,6 +57,7 @@ export {
 	ApiError,
 	answered,
 	answeredFrom,
+	expiring,
 	scoped,
 	send,
 	sendJson,

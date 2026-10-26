@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
-import { ApiError, answered, answeredFrom, send } from "./api";
+import { ApiError, answered, answeredFrom, expiring, send } from "./api";
 import { EarlyReads } from "./early-reads";
 import { Testing } from "./testing";
 
@@ -36,6 +36,20 @@ describe("answered", () => {
 		const response = await answered("/api/stats");
 
 		expect(response.ok).toBe(true);
+	});
+
+	it("times out as AbortSignal.timeout does, unless disposed first, as answered does once answered", async () => {
+		// `AbortSignal.timeout`'s timer ran the whole wait, holding the request
+		// and its page: a test worker carried 30 s of them.
+		const expired = expiring(Duration.ms(10));
+		const stopped = expiring(Duration.ms(10));
+		stopped[Symbol.dispose]();
+
+		await Bun.sleep(40);
+
+		expect(expired.signal.aborted).toBe(true);
+		expect(expired.signal.reason).toHaveProperty("name", "TimeoutError");
+		expect(stopped.signal.aborted).toBe(false);
 	});
 
 	it("gives up on a read index.html started, which the page cannot abort", async () => {
