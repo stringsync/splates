@@ -99,8 +99,9 @@ question they are for.
 The user answers in chat. From the `splates server` page, a reply quotes each
 question it answers, its line in bold (`> **How should …?**`), and answers
 under it: the choices picked as `- (b) <its text>`, numbered in the order
-picked for an order, then any words. Anything else they say comes before the
-first quote. Match each quote to an open question by its line, whatever its
+picked for an order, then any words. Anything else they say comes last, under
+`> **Anything else?**`, or as bare words when no question is answered.
+Match each question quote to an open question by its line, whatever its
 number; questions not quoted stay open. In a task, a quote can come from
 `SPLATES.md` as the page last read it, ahead of your report: when it matches
 no question you have open, as one you changed since, ask again rather than

@@ -16,7 +16,7 @@ import { here } from "./flags";
 
 /** `splates queue`, which the root cli mounts beside `splates task`. */
 export const splatesQueue = cli<SplatesDeps>("queue").description(
-	"the queue: the tasks a worker of `splates server` starts as soon as it has a slot free, each after every task it is blocked by, otherwise in the order you set. Only you queue a task, from the backlog or groomed, and an agent asks you to with a queue card; one that names no model runs on the roster's first agent",
+	"the queue: the tasks `splates server` starts on its worker as soon as nothing they are blocked by is open, without capping how many run, otherwise in the order you set. Only you queue a task, from the backlog or groomed, and an agent asks you to with a queue card; one that names no model uses Auto pick to choose its agent and model",
 );
 
 splatesQueue

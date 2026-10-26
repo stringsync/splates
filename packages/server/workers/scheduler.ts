@@ -4,7 +4,7 @@ import type { WallClock } from "webappwiz/time";
 
 /**
  * Places agents on workers at once, however many run: nothing caps how
- * many agents run, and heavy commands wait as jobs instead. An agent waits
+ * many agents run. An agent waits
  * only while no worker is up, or, for one splates starts on its own, while
  * the pool is paused, first come, first served, in an order the person can
  * change.
@@ -131,9 +131,9 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	}
 
 	/**
-	 * Places whoever can be placed now, as after a worker joins or grows,
+	 * Places whoever can be placed now, as after a worker joins,
 	 * and tells of each worker that has started draining since it last
-	 * looked, for the agents on it to let go of slots they only wait in.
+	 * looked, for the agents on it to move off at their next pause.
 	 */
 	poke(): void {
 		const draining = new Set(

@@ -18,8 +18,7 @@ export type Provider = (typeof PROVIDERS)[number];
  * The operating system's own stores, shared with `wiz creds`.
  * `SPLATES_SECRET_STORE=keyring` or `file` settles which; unset, the keyring.
  * `file` keeps them in files only this user may read under
- * `~/.splates/secrets/`, for a Linux with no secret service, as `splates
- * worker run --key-file` keeps a worker's key.
+ * `~/.splates/secrets/`, for a Linux with no secret service.
  */
 export function systemStores(opts: SystemStoresOptions = {}): SecretStores {
 	const choice = opts.choice ?? process.env.SPLATES_SECRET_STORE;
