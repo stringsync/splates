@@ -67,6 +67,9 @@ Batches. A waiter that a batch lands gives its wait up through the
 - `SPLATES_CORES`, the test workers its `dev test` runs: the cores the last
   minute's load left idle, between half the cores and all but two
   (`gateCores`, `merge/cores.ts`). Elsewhere `dev test` runs half the cores.
+  Either way `dev test` lowers each half's count to what half of free memory
+  holds at the half's measured worker cost (`dev/worker-memory.ts`; an
+  agent's run takes a quarter), never below 1.
 - `Testing` strips both.
 
 14 workers with the load at 32 took 148 to 170s and timed out, 8 took 63 to

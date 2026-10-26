@@ -149,13 +149,16 @@ export function runSummary({
 	took,
 	workers,
 	peakMb,
+	byMemory = false,
 }: {
 	phase: string;
 	took: Duration;
 	workers: number;
 	peakMb: number | null;
+	/** Free memory, not cores, set the worker count. */
+	byMemory?: boolean;
 }): string {
-	const on = `${phase}: ${took.human()} on ${workers} worker${workers === 1 ? "" : "s"}`;
+	const on = `${phase}: ${took.human()} on ${workers} worker${workers === 1 ? "" : "s"}${byMemory ? " (set by free memory)" : ""}`;
 	if (peakMb === null) {
 		return on;
 	}

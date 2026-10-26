@@ -10,6 +10,7 @@ import { PeakMemory, runSummary } from "./peak-memory";
 import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
+import { budgetedWorkers, freeMemoryMb } from "./worker-memory";
 
 /**
  * How long a test run may take. Tests should not hang this long, even under
@@ -43,23 +44,32 @@ export async function test(opts: TestOptions): Promise<void> {
 	// of its CPU. The page's run preloads what puts its DOM in place and
 	// clears it after each test.
 	const evals = opts.all ? [] : ["--path-ignore-patterns=evals/**"];
-	const runs: { phase: string; args: string[] }[] = opts.evals
-		? [{ phase: "eval tests", args: ["--path-ignore-patterns=packages/**"] }]
-		: [
-				{
-					phase: "server tests",
-					args: [...evals, "--path-ignore-patterns=packages/web/**"],
-				},
-				{
-					phase: "web tests",
-					args: [
-						"--preload=./packages/web/test-preload.ts",
-						"--path-ignore-patterns=packages/server/**",
-						"--path-ignore-patterns=packages/splates/**",
-						"--path-ignore-patterns=evals/**",
-					],
-				},
-			];
+	const runs: { phase: string; args: string[]; half: "server" | "page" }[] =
+		opts.evals
+			? [
+					{
+						phase: "eval tests",
+						half: "server",
+						args: ["--path-ignore-patterns=packages/**"],
+					},
+				]
+			: [
+					{
+						phase: "server tests",
+						half: "server",
+						args: [...evals, "--path-ignore-patterns=packages/web/**"],
+					},
+					{
+						phase: "web tests",
+						half: "page",
+						args: [
+							"--preload=./packages/web/test-preload.ts",
+							"--path-ignore-patterns=packages/server/**",
+							"--path-ignore-patterns=packages/splates/**",
+							"--path-ignore-patterns=evals/**",
+						],
+					},
+				];
 
 	// a worker runs a file at a time; suites opt into within-file concurrency
 	// themselves, since most still share a fixture built in beforeEach. Half
@@ -103,11 +113,23 @@ export async function test(opts: TestOptions): Promise<void> {
 			request,
 		},
 		run: async ({ cpus, signal: stop }) => {
-			const workers = cpus ?? planned;
+			const cores = cpus ?? planned;
+			// Free memory caps the count too, per half, since a page worker and
+			// a server worker cost differently (`WORKER_COST_MB`); `--workers`
+			// is the person's word and is left alone.
+			const workersFor = (half: "server" | "page") =>
+				opts.workers !== undefined
+					? { workers: cores, byMemory: false }
+					: budgetedWorkers({
+							cores,
+							half,
+							gate: gate > 0,
+							freeMb: (opts.freeMemoryMb ?? freeMemoryMb)(),
+						});
 			// `splates merge` names where its gate wants a JUnit report, to queue a
 			// task for each slow test; bun keeps printing its own output beside it.
 			const report = ps.env("SPLATES_TEST_REPORT");
-			const bunTest = (args: string[], at: number) => [
+			const bunTest = (args: string[], at: number, workers: number) => [
 				"bun",
 				"test",
 				"--pass-with-no-tests",
@@ -144,16 +166,17 @@ export async function test(opts: TestOptions): Promise<void> {
 			let failed = false;
 			const reports: string[] = [];
 			const printed: string[] = [];
-			for (const [at, { phase, args }] of runs.entries()) {
+			for (const [at, { phase, args, half }] of runs.entries()) {
+				const { workers, byMemory } = workersFor(half);
 				const spawned = async () => {
 					if (!opts.quiet) {
-						return await ps.spawn(bunTest(args, at), {
+						return await ps.spawn(bunTest(args, at, workers), {
 							cwd: ROOT,
 							env,
 							signal,
 						});
 					}
-					const done = await ps.spawnCapture(bunTest(args, at), {
+					const done = await ps.spawnCapture(bunTest(args, at, workers), {
 						cwd: ROOT,
 						env,
 						signal,
@@ -184,6 +207,7 @@ export async function test(opts: TestOptions): Promise<void> {
 					took: Duration.ms(performance.now() - started),
 					workers,
 					peakMb,
+					byMemory,
 				});
 				if (opts.quiet) {
 					printed.push(`${summary}\n`);
@@ -251,6 +275,8 @@ export interface TestOptions {
 	phases?: PhaseTimer;
 	/** What measures each bun run's peak memory; sampled through `ps` when left out. */
 	memory?: PeakMemory;
+	/** What reads free memory in megabytes, `os.freemem()` when left out. */
+	freeMemoryMb?: () => number;
 }
 
 /**

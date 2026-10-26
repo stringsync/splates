@@ -121,10 +121,20 @@ the run-command permission card is for a cost that is not compute.
   the full run's peak footprint from 573 to 432 MB and the pending timers to
   under ten.
 
+- Memory budget, 2026-10-25: each half's worker count is the cores rule or
+  floor(free memory × share / cost), whichever is fewer, never below 1;
+  the cost is `WORKER_COST_MB` (server 600, page 450; how to re-measure is
+  beside it in `dev/worker-memory.ts`), the share a quarter of free memory
+  for an agent's run and half for a gate (`SPLATES_CORES` set). Free memory
+  is `os.freemem()`, which on macOS counts only never-used pages, so it
+  reads low and errs safe. The readout says `(set by free memory)` when it
+  set the count; `--workers <n>` skips the rule.
+
 ## Where
 
 - `packages/splates/dev/job.ts`: `scheduled`
 - `packages/splates/dev/priority.ts`: `AgentPriority`
 - `packages/splates/dev/peak-memory.ts`: `PeakMemory`, `footprintKb`
+- `packages/splates/dev/worker-memory.ts`: `budgetedWorkers`, `WORKER_COST_MB`
 - `packages/web/test-preload.ts`
 - `splates.config.ts`: `preMerge`
