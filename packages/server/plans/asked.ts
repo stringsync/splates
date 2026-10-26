@@ -181,7 +181,7 @@ export interface TodoProposal {
 export interface PermissionProposal {
 	/**
 	 * What it asks: queue work, remove a lane with its tasks, run evals, or
-	 * run a heavy command, the whole test suite among them.
+	 * run a command whose cost is not compute: tokens, a write outside the repository.
 	 */
 	action: "queue" | "remove-lane" | "run-evals" | "run-command";
 	/** The lane it acts on whole; null for tasks named one by one. */

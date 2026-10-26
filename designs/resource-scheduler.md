@@ -151,3 +151,19 @@ record, `packages/server/jobs/`, and the merge gate and `dev premerge` on
 it; then #1395 (dev test and dev fix as jobs, the grants go), #1396
 (`splates run`, the install hooks), #1397 (the Machine page's queue and
 pause) and #1398 (the words: skill, CLAUDE.md, AGENTS.md, notes, code).
+
+## Built, the rest (2026-10-25)
+
+- #1395: `splates dev test` and `splates dev fix` submit themselves as jobs
+  (a whole suite is a low, requeue-able job on the suite pool; scoped runs
+  and fix ask for cpus) and run at once with no server. `SuiteGrants`, the
+  approve-suite command and route, `isWholeSuite` and the half-the-files
+  refusal are gone.
+- #1396: `splates run -- <cmd>` submits any command as a job and prints its
+  place; a task's `postCheckout` install takes its turn as a job.
+- #1397: the Queue page lists running and waiting jobs with the head job's
+  reservation; the person can pause and resume job starts.
+- #1398: the words. The skill, CLAUDE.md and AGENTS.md send compute to
+  `splates run` and keep the run-command card for a cost that is not
+  compute; `notes/premerge-lock.md` became `notes/jobs.md`; "heavy" left
+  the live notes and code (the older records above keep it as history).

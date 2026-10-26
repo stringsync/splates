@@ -14,7 +14,8 @@ export const PREMERGE_HELD = "SPLATES_PREMERGE";
  * The nice an agent's own runs take beside a merge gate, so the gate keeps
  * the CPU on a busy machine and its git-spawning tests stop timing out:
  * pass it to `nice -n` or `os.setPriority` for anything an agent runs that
- * is not the gate.
+ * is not the gate. It is a courtesy beside the job scheduler, which orders
+ * jobs but cannot lower what runs outside it.
  */
 // The gate runs in the agent's own `splates merge`, so it cannot be raised;
 // what runs beside it is lowered instead. Measured on a Mac with the cores
@@ -60,6 +61,7 @@ export class TimedLock implements PlacedLock {
 	#timer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
+		// scry-ignore classes-over-function-exports: it forwards `onPlace`, which only a `PlacedLock` takes.
 		private readonly inner: PlacedLock,
 		private readonly holdMs: number,
 		private readonly log: Logger,

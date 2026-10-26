@@ -15,7 +15,7 @@ import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /**
- * The card an agent asks to run a heavy command with: the command, why, and
+ * The card an agent asks to run a command, whose cost is not compute, with: the command, why, and
  * how loaded the machine is now, read each second while it waits. Allow and Deny answer the agent with a
  * directive; the choice shows at once and is taken back if the send fails.
  * Once answered it folds to an event line, "Allowed <command>" or "Denied

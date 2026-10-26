@@ -1,5 +1,5 @@
 ---
-description: How merge gates take turns on this machine and how long a gate may run; bears on slow or stuck merges and on what waits for what
+description: How jobs take turns on this machine (merge gates, dev runs, splates run) and how long a gate may run and how long a gate may run; bears on slow or stuck merges and on what waits for what
 ---
 
 Since 2026-10-25 a merge's gate, and a `splates dev premerge` run by hand,
@@ -109,7 +109,7 @@ the earlier one's.
 
 ## History
 
-Until 2026-10-23, heavy-job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and
+Until 2026-10-23, job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and
 a core budget (`SPLATES_HEAVY_CORES`) made hooks, test runs and installs
 queue behind each other. The premerge lock already ran the suite one at a
 time, so they only made short work wait behind it, and were removed.

@@ -4,8 +4,7 @@ description: How splates dev fix and dev test run, how the runs are scheduled as
 
 `splates dev fix` typechecks, formats and scry-checks; `splates dev test`
 runs the suite, but an agent runs only a scoped part of it. The whole suite
-runs in the merge gate, and an agent needs the person's one-run approval for
-it elsewhere.
+runs in the merge gate; elsewhere it is a low, requeue-able job.
 
 ## dev fix
 
@@ -33,9 +32,9 @@ it elsewhere.
 
 The person runs as many agents as they like on one machine, and nothing caps
 them. AGENTS.md and the splates skill teach agents to run `dev fix` once per
-step (`--code-only` to skip scry's model calls) and to ask with the
-run-command permission card for anything else heavy, running it only on
-`[SPLATES RUN ALLOWED]`.
+step (`--code-only` to skip scry's model calls) and to run anything else
+that needs the machine as `splates run -- <cmd>`, a job that waits its turn;
+the run-command permission card is for a cost that is not compute.
 
 ## Jobs
 
@@ -57,7 +56,7 @@ run-command permission card for anything else heavy, running it only on
 
 - An unfiltered run is `bun test --parallel=<half the cores> --timeout 30000`;
   in a merge's gate, `--parallel=$SPLATES_CORES`, the cores the load left
-  idle (`gateCores`, `premerge-lock.md`). Trailing arguments filter files by path, as `bun
+  idle (`gateCores`, `jobs.md`). Trailing arguments filter files by path, as `bun
   test` does.
 - The whole run is killed at six minutes; inside `dev premerge`, at what is
   left of the gate's 3 minutes.
@@ -75,7 +74,7 @@ run-command permission card for anything else heavy, running it only on
   to nice 10 (`AgentPriority`): a courtesy beside the scheduler, which is the
   mechanism.
 - A gate's own run, a `dev premerge` by hand and the person's runs keep
-  theirs (`premerge-lock.md`).
+  theirs (`jobs.md`).
 
 ## DOM split
 

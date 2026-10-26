@@ -24,8 +24,8 @@ requirement, rubric, message, transcript and reply and answers
 `fail` otherwise, and `error` when the agent broke before it could be graded.
 
 There is no process grading, event capture or budget layer: whatever the
-skill asks the agent to do shows in its commands and reply. Heavy work the
-skill forbids, such as an install or the whole suite, is the agent's own
+skill asks the agent to do shows in its commands and reply. A job the
+skill has the agent submit, such as an install, is the agent's own
 step, so a check sees whether it ran. `plan` prints the run count and a
 ceiling of $1.05 a run. Free: `list`, `plan`, `report` and
 `splates dev test --evals`. The old probe harness in `evals/splates-skill/`

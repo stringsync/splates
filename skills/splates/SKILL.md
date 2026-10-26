@@ -23,30 +23,27 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Keep off heavy work on the host machine**, which the person works on
-   beside many other agents. The whole suite runs only in the merge gate,
-   one premerge at a time on the machine. For checks, run a **fraction** of
-   the tests: `bun test --changed` or explicit test-file paths, combined when
-   the change reaches many tests. In splates's own repo, use `splates dev
-   test --changed` before committing, `--since main` after committing, or
-   explicit file paths; `--test-name-pattern <regex>` narrows cases further,
-   and focused runs use one worker (`--workers <n>`). Scoped runs reaching
-   at least half the test files report their estimated count and require the
-   same one-run permission card, naming the exact scoped command. Test-name
-   patterns do not reduce this file count. Run `splates dev fix`
-   once per step, not after every edit, with `--code-only` to skip scry's
-   model calls. An unscoped `splates dev test` or `splates dev premerge` is
-   refused an agent (`not_granted`) until the person allows one run from a
-   run-command card ending your reply: `## 🔐 Permission: run command:
-   <why>`, then the command alone on a line in backticks, as `` `splates dev
-   test` ``, and the why under it. Anything else that needs the machine (an install, a build,
-   docker, a benchmark, anything long or CPU-hungry): run it as
+3. **Run what needs the machine as a job**; the person works on it beside
+   many other agents. The whole suite runs in the merge gate, one premerge at
+   a time on the machine. For checks, run a **fraction** of the tests: `bun
+   test --changed` or explicit test-file paths, combined when the change
+   reaches many tests. In splates's own repo, use `splates dev test
+   --changed` before committing, `--since main` after committing, or explicit
+   file paths; `--test-name-pattern <regex>` narrows cases further, and
+   focused runs use one worker (`--workers <n>`). `splates dev test` and
+   `splates dev fix` submit themselves as jobs and wait their turn; a whole
+   suite is a low, requeue-able job and needs no approval. Run `splates dev
+   fix` once per step, not after every edit, with `--code-only` to skip
+   scry's model calls. Anything else that needs the machine (an install, a
+   build, docker, a benchmark, anything long or CPU-hungry): run it as
    `splates run [--cpus <n>] [--memory <mb>] [--walltime <duration>] -- <cmd>`,
-   which waits its turn behind merges and other jobs. Ask with the same
-   card, ending your turn and running only on `[SPLATES RUN ALLOWED]`, for a
-   cost that is not compute: tokens, a write outside the repository. The
-   person may run as many agents as they like and nothing caps them, so the
-   machine's load is yours to mind.
+   which waits its turn behind merges and other jobs. Ask with a run-command
+   card ending your reply: `## 🔐 Permission: run command: <why>`, then the
+   command alone on a line in backticks and the why under it, running only
+   on `[SPLATES RUN ALLOWED]`, for a cost that is not compute: tokens, a
+   write outside the repository, a deploy. The person may run as many agents
+   as they like and nothing caps them, so the machine's load is yours to
+   mind.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
@@ -139,18 +136,17 @@ the user to queue):
 <A line on what the tasks add up to.>
 ```
 
-Anything heavy that is not a scoped test run (a build, an install, docker, a
-benchmark, anything long or CPU-hungry) is asked with the run-command card: the
-command alone on the first backticked line, and what it costs under it. End
+A cost that is not compute (tokens, a write outside the repository, a deploy)
+is asked with the run-command card: the command alone on the first backticked line, and what it costs under it. End
 your turn after it; the user's Allow sends `[SPLATES RUN ALLOWED]`, and only
 then do you run it.
 
 ```markdown
-## 🔐 Permission: run command: build the web app
+## 🔐 Permission: run command: deploy the docs site
 
-`bun run build`
+`bun run deploy`
 
-Takes about two minutes.
+Publishes the docs site, which is outside the repository.
 ```
 
 Evals cost the user tokens, so only they start them. To ask for a run
@@ -328,10 +324,10 @@ the message; a `Maybe relevant:` one only when it fits.
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
-   once share the tree, so give each its own files. Keep off heavy work on the host
-   machine the person works on, as step 3 of the short version says: test a
-   small portion, and ask with a run-command card before anything else
-   heavy. A subagent is bound by the same rule and asks through you.
+   once share the tree, so give each its own files. Keep to what step 3 of the
+   short version says: test a small portion, and run anything else that needs
+   the machine with `splates run`. A subagent is bound by the same rule and
+   asks through you.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or
