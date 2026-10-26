@@ -16,7 +16,6 @@ import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
 import { navPage, type Page } from "./page-route";
-import { ProjectSwitcher } from "./projects";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
@@ -29,8 +28,8 @@ export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held: the project's under its switcher, then those
- * of every project under Everywhere. The agents of every project are under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
+ * shortcut while ⌥⌘ is held: the project's, whose switcher heads the
+ * sidebar, then those of every project under Everywhere. The agents of every project are under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
  * unless it is hidden. A button on the border between the tabs and the
  * agents folds the tabs away, for more room for the agents. A phone has
  * its own layout, `PhoneApp`, in place of it.
@@ -41,7 +40,6 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
-	name,
 	talk,
 	terminals,
 	drafts,
@@ -56,8 +54,6 @@ export function AppNav({
 	onOpen: (id: string | null) => void;
 	/** Goes to another page. */
 	onPage: (page: Page) => void;
-	/** The project's name. */
-	name: string;
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
@@ -128,18 +124,6 @@ export function AppNav({
 						onOpen={onOpen}
 					/>
 				)}
-				{/* Shown folded too, so the project is a click from any page. */}
-				<ProjectSwitcher
-					name={name}
-					heading
-					path={false}
-					onShortcut={() => {
-						if (!sidebar.shown) {
-							sidebar.toggle();
-						}
-					}}
-					className="mx-0 mt-3 px-3"
-				/>
 				{pages.filter(({ scope }) => scope === "project").map(tab)}
 				<h2 hidden={!pagesShown} className={cn(NAV_HEADING, "mt-3 py-1")}>
 					Everywhere

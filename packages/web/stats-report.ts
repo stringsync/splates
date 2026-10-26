@@ -22,7 +22,7 @@ export type StatsReportEvents = { changed: undefined };
 
 /** Where the summary comes from: `splates server`, or a test's own. */
 export interface StatsSource {
-	stats(period: PeriodId, project?: string): Promise<Stats>;
+	stats(period: PeriodId): Promise<Stats>;
 }
 
 /** A span of time the page can look at, as its control names it. */
@@ -75,13 +75,6 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	error: string | null = null;
 	/** What the page looks at: 7 days, until the person picks another. */
 	period: Period = PERIODS[3] as Period;
-	/** The main tree the page narrows to; null for all projects, as it starts. */
-	project: string | null = null;
-	/**
-	 * Every project with a task in the period, as the filter offers them,
-	 * kept across a narrowing that leaves `stats.projects` one row.
-	 */
-	choices: string[] = [];
 	/** The last load asked for, so an earlier one landing late is dropped. */
 	private asked = 0;
 
@@ -94,13 +87,6 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		return this.refresh();
 	}
 
-	/** Narrows every figure to the main tree `project`, or to all for null. */
-	filter(project: string | null): Promise<void> {
-		this.project = project;
-		this.dispatcher.dispatch("changed");
-		return this.refresh();
-	}
-
 	async refresh(): Promise<void> {
 		const asked = ++this.asked;
 		if (this.error !== null) {
@@ -109,17 +95,11 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 			this.dispatcher.dispatch("changed");
 		}
 		try {
-			const stats = await this.source.stats(
-				this.period.id,
-				this.project ?? undefined,
-			);
+			const stats = await this.source.stats(this.period.id);
 			if (asked !== this.asked) {
 				return;
 			}
 			this.stats = stats;
-			if (this.project === null) {
-				this.choices = stats.projects.map((each) => each.project);
-			}
 			this.error = null;
 		} catch (error) {
 			if (asked !== this.asked) {
@@ -226,17 +206,6 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 				each,
 			),
 		);
-	}
-
-	/** What the filter offers: every project of the period, then the picked one if it has no task in it, by name. */
-	get options(): { root: string; name: string }[] {
-		const roots = new Set(this.choices);
-		if (this.project !== null) {
-			roots.add(this.project);
-		}
-		return [...roots]
-			.map((root) => ({ root, name: projectName(root) }))
-			.sort((one, other) => one.name.localeCompare(other.name));
 	}
 
 	get projects(): Row[] {

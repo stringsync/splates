@@ -294,7 +294,6 @@ function TodosBar({
 	return (
 		<TopBar
 			title="Board"
-			scoped
 			actions={[
 				shownLanes({
 					lanes,

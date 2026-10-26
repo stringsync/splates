@@ -439,8 +439,14 @@ function PageScreen({
 						<span className="truncate">{name}</span>
 					</h2>
 				}
+				project
 				detail={
-					<span className="flex min-w-0 items-center gap-2 text-sm">
+					<span
+						className={cn(
+							"flex min-w-0 items-center gap-2",
+							phone ? "text-xs" : "text-sm",
+						)}
+					>
 						{where}
 						<span role="status" className="shrink-0 text-xs">
 							{status === "connecting" && "Connecting"}

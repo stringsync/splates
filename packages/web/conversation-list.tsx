@@ -15,7 +15,6 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
-	useState,
 } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
@@ -50,7 +49,6 @@ import {
 	type Folder,
 	folderKey,
 	foldersOf,
-	shownTrees,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
@@ -77,7 +75,7 @@ const DIGITS = 10;
  * Holding ⌥⌘ shows each of those keys beside what it opens.
  *
  * With the feed of every project to be had, the list shows every project,
- * a folder each as `foldersOf` groups them, the page's own first, each with
+ * a folder each by name as `foldersOf` groups them, each with
  * those waiting on you on top. Another project's row opens by switching the
  * page to that project, where its task, trunk and lanes are the page's own,
  * and it becomes the project shown everywhere.
@@ -147,7 +145,6 @@ export const ConversationList = memo(function ConversationList({
 	);
 	const navigation = useContext(NavigationContext);
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
-	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries = useMemo<Entry[]>(
 		() =>
@@ -156,11 +153,9 @@ export const ConversationList = memo(function ConversationList({
 				: grouped
 						.filter((folder) => !folded.has(folderKey(folder)))
 						.flatMap((folder) =>
-							flatten(
-								shownTrees(folder, expanded.has(folderKey(folder))).trees,
-							).map((row) => ({ folder, row })),
+							flatten(folder.listed).map((row) => ({ folder, row })),
 						),
-		[grouped, listed, folded, expanded],
+		[grouped, listed, folded],
 	);
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
@@ -326,8 +321,6 @@ export const ConversationList = memo(function ConversationList({
 							folders={grouped}
 							folded={folded}
 							onFold={fold}
-							expanded={expanded}
-							onExpand={(key) => setExpanded(new Set(expanded).add(key))}
 							onNew={(folder) =>
 								folder.here || folder.project === null
 									? onOpen(NEW)

@@ -1,9 +1,10 @@
 /**
  * Every project's agents as the sidebar and the phone's inbox group them: a
- * folder per project, the page's own first, then every other with agents by
- * name, each with its agents waiting on you on top, then its pinned ones,
+ * folder per project by name, the page's own among them with no agents too,
+ * each with its agents waiting on you on top, then its pinned ones,
  * then those at work, then the rest. What waits on you stays in its own
- * project, so reading down one never jumps to another's. Only the grouping:
+ * project, so reading down one never jumps to another's, and a switch moves
+ * no folder. Only the grouping:
  * each list draws its own rows.
  */
 
@@ -25,8 +26,7 @@ import type { Nested } from "./parts";
 /**
  * Every project's agents in folders, the page's own from `here`, which
  * shows a change at once, and the rest from the feed of every project.
- * The page's own folder comes first, there even with no agents, to start
- * one in.
+ * The page's own folder is there even with no agents, to start one in.
  */
 export function foldersOf(
 	projects: readonly EverywhereSummary[],
@@ -56,17 +56,13 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, null, true));
 	}
-	const folders = listed
+	return listed
 		.filter((each) => each.here || each.trees.length > 0)
 		.sort(
 			(one, other) =>
 				one.name.localeCompare(other.name) ||
 				(one.project ?? "").localeCompare(other.project ?? ""),
 		);
-	return [
-		...folders.filter((each) => each.here),
-		...folders.filter((each) => !each.here),
-	];
 }
 
 /** One project's agents. */
@@ -177,28 +173,6 @@ function folder(
 		waiting: shown(waiting),
 		listed: shown([...waiting, ...pinned, ...working, ...recent]),
 		atWork: shownIn(trees).filter(atWork).length,
-	};
-}
-
-/** How many of another project's trees show before its "N more". */
-const SHOWN_ELSEWHERE = 5;
-
-/**
- * What `folder` lists: every tree for the page's own project, or once
- * `expanded`; else those waiting on you and then the rest up to a few, with
- * how many more it holds.
- */
-export function shownTrees(
-	folder: Folder,
-	expanded: boolean,
-): { trees: Nested<Needing>[]; more: number } {
-	if (folder.here || expanded) {
-		return { trees: folder.listed, more: 0 };
-	}
-	const count = Math.max(SHOWN_ELSEWHERE, folder.waiting.length);
-	return {
-		trees: folder.listed.slice(0, count),
-		more: Math.max(0, folder.listed.length - count),
 	};
 }
 

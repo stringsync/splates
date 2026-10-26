@@ -132,7 +132,31 @@ describe("App's agents, in a folder per project", () => {
 		expect(there.hash).toBe("#conversations/z2");
 	});
 
-	it("shows a few of another project's agents, then the rest on N more", async () => {
+	it("keeps the folders by name, the page's own among them marked, so a switch moves none", async () => {
+		testing.everywhere = [
+			listed("apple", "/code/apple", [
+				conversation({ id: "a1", title: "Core", status: "running" }),
+			]),
+			listed("webappwiz", "/repo", []),
+		];
+		const view = await testing.openConversations(mine, null);
+		const nav = agentList(view);
+		await waitFor(() => within(nav).getByRole("region", { name: "apple" }));
+
+		expect(
+			within(nav)
+				.getAllByRole("region")
+				.map((each) => [
+					each.getAttribute("aria-label"),
+					within(each).queryByRole("img", { name: "shown" }) !== null,
+				]),
+		).toEqual([
+			["apple", false],
+			["webappwiz", true],
+		]);
+	});
+
+	it("lists every agent of every project, none held back", async () => {
 		testing.everywhere = [
 			listed(
 				"zebra",
@@ -148,14 +172,13 @@ describe("App's agents, in a folder per project", () => {
 			listed("webappwiz", "/repo", []),
 		];
 		const { nav } = await inbox();
-		const zebra = within(nav).getByRole("region", { name: "zebra" });
 
-		expect(within(zebra).getAllByRole("listitem")).toHaveLength(5);
-		await act(async () =>
-			fireEvent.click(within(zebra).getByRole("button", { name: "2 more" })),
-		);
-
-		expect(within(zebra).getAllByRole("listitem")).toHaveLength(7);
+		expect(
+			within(within(nav).getByRole("region", { name: "zebra" })).getAllByRole(
+				"listitem",
+			),
+		).toHaveLength(7);
+		expect(within(nav).queryByRole("button", { name: /more$/ })).toBeNull();
 	});
 
 	it("folds a project away, as this browser keeps it", async () => {

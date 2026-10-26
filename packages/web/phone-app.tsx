@@ -2,24 +2,20 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
-import {
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-} from "#web/components/ui/dropdown-menu.tsx";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { OfflinePill, useFreshness } from "./freshness";
-import { MergeBadge } from "./merge-badge";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
+import { PageChips } from "./phone-chips";
 import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
 import { WaitingBadge } from "./phone-thread";
-import { QueueBadge } from "./slot-queue";
+import { ProjectSwitcher } from "./projects";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
 
@@ -29,9 +25,11 @@ import { BarButton, TopBarFrame } from "./top-bar";
  * back, and every other page sits under a bar whose menu opens the drawer.
  * How many agents wait on you marks the way out of every screen but the
  * inbox, which lists them: a conversation's way back, and a page's menu.
- * Branding and the project switcher head the drawer. Every bar's kebab holds
- * the page menu, and a page's starts a new conversation too, as the inbox's
- * pen does.
+ * The project is the inbox's and every page's title, which switches it, with
+ * a row of the project's pages under it and a pen to start a conversation at
+ * the bar's end; a conversation names it under its own name. Every bar's
+ * kebab holds the page menu; the server's status beyond being offline, as
+ * what merges, is the drawer's.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
@@ -83,18 +81,12 @@ export function PhoneApp({
 	useHomeIsInbox(page, go);
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
-	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
-	// The drawer's header says more, as why the server is outdated.
+	const kebab = { menu: pageMenu.items, dot: pageMenu.dot, project: name };
+	// The drawer's header says more, as why the server is outdated, and what
+	// merges and queues.
 	const { unreachable, reason } = useFreshness();
-	const status =
-		offline || unreachable ? (
-			<OfflinePill reason={reason} />
-		) : (
-			<>
-				<MergeBadge snapshot={snapshot} />
-				<QueueBadge queue={pageMenu.machine?.queue ?? []} />
-			</>
-		);
+	const status = (offline || unreachable) && <OfflinePill reason={reason} />;
+	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
 			{page === "conversations" && open === null ? (
@@ -115,6 +107,7 @@ export function PhoneApp({
 						}
 						loading={snapshot === null}
 						status={status}
+						chips={chips}
 						onMenu={menu}
 						onOpen={(id) => go("conversations", id)}
 					/>
@@ -152,31 +145,29 @@ export function PhoneApp({
 								<WaitingBadge feed={talk} tasks={snapshot.tasks} open={null} />
 							)}
 						</span>
+						<ProjectSwitcher
+							name={name}
+							path={false}
+							servers={false}
+							className="mx-0 max-w-3/5 shrink"
+						/>
 						<div
 							ref={setSlot}
 							className="flex min-w-0 flex-1 items-center gap-1"
 						/>
 					</header>
+					{chips}
 					<TopBarFrame
 						value={{
 							...kebab,
-							menu: (
-								<>
-									{available && (
-										<>
-											<DropdownMenuItem onClick={() => openNew()}>
-												<SquarePenIcon />
-												New conversation
-											</DropdownMenuItem>
-											<DropdownMenuSeparator />
-										</>
-									)}
-									{pageMenu.items}
-								</>
-							),
 							slot,
 							status,
-							project: name,
+							untitled: true,
+							end: available && (
+								<BarButton label="New conversation" onClick={() => openNew()}>
+									<SquarePenIcon />
+								</BarButton>
+							),
 						}}
 					>
 						{body}

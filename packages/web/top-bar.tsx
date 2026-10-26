@@ -43,10 +43,15 @@ export interface BarFrame {
 	/** Marks a bar's way back, as with how many agents wait on you. */
 	badge?: ReactNode;
 	/**
-	 * The project's name, which a bar of the project's own pages puts before
-	 * its title as a switcher: `splates ▾ / Board`.
+	 * The project's name, which a phone's bar of the project's own, as a
+	 * conversation's, puts under its title as a switcher.
 	 */
 	project?: string;
+	/**
+	 * Leaves the title out, as a phone's page bar does, which the project
+	 * heads instead and the page chips name.
+	 */
+	untitled?: boolean;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -54,9 +59,9 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
 /**
  * The bar atop every page and conversation, one line of text and icons at
  * `--top-bar-height`: what leads it, as a way back, then the title, the
- * page's status and what `detail` adds, then its actions. A page of the
- * project's own, `scoped`, heads its title with the project's switcher, so a
- * bar without one shows every project. Those that do not
+ * page's status and what `detail` adds, then its actions. On a phone, a bar
+ * of the project's own, `project`, puts the project's switcher under its
+ * title, and `detail` beside it. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
  * Update before it once a restart would update splates. Under
@@ -68,7 +73,7 @@ export function TopBar({
 	title,
 	detail,
 	actions = [],
-	scoped = false,
+	project: named = false,
 	className,
 }: {
 	leading?: ReactNode;
@@ -77,8 +82,8 @@ export function TopBar({
 	/** After the title, smaller, as the branch a conversation runs on. */
 	detail?: ReactNode;
 	actions?: BarAction[];
-	/** Whether the page shows the project picked, rather than every project. */
-	scoped?: boolean;
+	/** Whether a phone names the project under the title: a conversation's bar. */
+	project?: boolean;
 	/** For a bar in place: sticky, bordered, clear of a phone's notch. */
 	className?: string;
 }): ReactNode {
@@ -92,7 +97,17 @@ export function TopBar({
 		menu !== null || kept.length > 0,
 	);
 	const folded = [...shown.slice(fit), ...kept];
-	const project = scoped ? frame?.project : undefined;
+	// The project's line under the title, with the detail on it.
+	const project = named && !wide ? frame?.project : undefined;
+	const heading =
+		frame?.untitled === true ? null : typeof title === "string" ? (
+			<h2 title={title} className={cn(TITLE, "truncate")}>
+				{title}
+			</h2>
+		) : (
+			title
+		);
+	const below = project !== undefined;
 	const row = (
 		<>
 			{leading && frame?.badge ? (
@@ -106,39 +121,26 @@ export function TopBar({
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
 					<div ref={titled} className="flex min-w-0 items-center gap-1.5">
-						{project !== undefined && (
-							<>
-								<ProjectSwitcher
-									name={project}
-									keyed={false}
-									bar
-									servers={false}
-									className="mx-0"
-								/>
-								<span aria-hidden className="text-muted-foreground/60">
-									/
-								</span>
-							</>
-						)}
-						{typeof title === "string" ? (
-							<h2
-								title={title}
-								className={cn(
-									TITLE,
-									"truncate",
-									// The project's name gives way first.
-									project !== undefined && "shrink-0",
-								)}
-							>
-								{title}
-							</h2>
+						{below ? (
+							<div className="flex min-w-0 flex-col">
+								{heading}
+								<div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+									<ProjectSwitcher
+										name={project}
+										bar
+										servers={false}
+										className="-my-0.5 shrink-0 py-0.5"
+									/>
+									{detail}
+								</div>
+							</div>
 						) : (
-							title
+							heading
 						)}
 					</div>
 					{/* Whole up to a long branch, so its icons never spill over
 					    the actions: the title gives way instead. */}
-					{Boolean(detail) && (
+					{Boolean(detail) && !below && (
 						<div
 							ref={detailed}
 							className="flex min-w-0 max-w-60 shrink-0 items-center text-muted-foreground"

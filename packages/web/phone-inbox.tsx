@@ -68,16 +68,17 @@ import { BarButton, TopBar } from "./top-bar";
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
- * left archives it, asking first as Archive does. The project's name in the
- * bar switches projects, its shortcut too, and the pen starts a new
- * conversation in the project shown. Under each conversation, as in
+ * left archives it, asking first as Archive does. The project's name, the
+ * bar's title, switches projects, its shortcut too, the pen starts a new
+ * conversation in the project shown, and `chips` under the bar go to the
+ * project's pages. Under each conversation, as in
  * the sidebar, sit its terminal while its shell is up and each command its
  * agent left running, each opening the conversation with it on the screen.
  * The main tree's terminals come last, to go back to or close.
  *
  * With the feed of every project to be had, the groups are the sidebar's: a
- * folder per project, the page's own first, each with those waiting on you
- * on top, every project's rows listed in full. A folder folds away as the
+ * folder per project by name, the page's own marked, each with those
+ * waiting on you on top, then every other. A folder folds away as the
  * sidebar's does, and its + starts a conversation there. Another project's
  * row opens by switching the page to that project, which becomes the one
  * shown everywhere.
@@ -94,6 +95,7 @@ export function Inbox({
 	tasks,
 	here,
 	status,
+	chips,
 	loading,
 	onMenu,
 	onOpen,
@@ -107,6 +109,8 @@ export function Inbox({
 	here: { root: string; repo: string; trunk: string | null } | null;
 	/** Whether the server is offline or outdated, shown in the header. */
 	status: ReactNode;
+	/** The row of the project's pages under a phone's bar. */
+	chips?: ReactNode;
 	/** Whether the project snapshot is still on its way. */
 	loading: boolean;
 	/** Opens the phone's drawer; null beside a sidebar. */
@@ -237,7 +241,7 @@ export function Inbox({
 						<>
 							<ProjectSwitcher
 								name={name}
-								bar
+								path={false}
 								servers={false}
 								className="mx-0"
 							/>
@@ -257,6 +261,7 @@ export function Inbox({
 					},
 				]}
 			/>
+			{!wide && chips}
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
 				<StaleRows>
 					<UndoRow conversations={conversations} />
@@ -313,7 +318,6 @@ export function Inbox({
 											<ProjectSection
 												key={key}
 												folder={folder}
-												trees={folder.listed}
 												open={!folded.has(key)}
 												onFold={(open) => fold(key, open)}
 												onNew={available ? () => startIn(folder) : null}

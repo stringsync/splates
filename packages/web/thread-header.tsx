@@ -20,8 +20,9 @@ import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
  * A conversation's bar: its name, which a double-click renames, then its
- * widgets and a new conversation. A phone leads it with the way back. Where
- * it runs is the first of its widgets.
+ * widgets and a new conversation. A phone leads it with the way back, names
+ * the project under the name, and keeps its widgets by the composer instead
+ * (see `ThreadControls`). Where it runs is the first of its widgets.
  */
 export function ThreadHeader({
 	conversation,
@@ -44,6 +45,7 @@ export function ThreadHeader({
 	const phone = onBack !== null;
 	return (
 		<TopBar
+			project
 			leading={
 				phone && (
 					<BarButton label="Back to conversations" onClick={onBack}>
@@ -79,16 +81,24 @@ export function ThreadHeader({
 				)
 			}
 			actions={[
-				{
-					label: "Widgets",
-					icon: widgets.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
-					run: widgets.toggle,
-					expanded: widgets.open,
-					busy: conversation.background.some(
-						(each) => each.state === "running",
-					),
-					shortcut: key,
-				},
+				...(phone
+					? []
+					: [
+							{
+								label: "Widgets",
+								icon: widgets.open ? (
+									<PanelRightCloseIcon />
+								) : (
+									<PanelRightIcon />
+								),
+								run: widgets.toggle,
+								expanded: widgets.open,
+								busy: conversation.background.some(
+									(each) => each.state === "running",
+								),
+								shortcut: key,
+							},
+						]),
 				{
 					label: "New conversation",
 					icon: <SquarePenIcon />,

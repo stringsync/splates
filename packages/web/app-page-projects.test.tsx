@@ -52,7 +52,7 @@ describe("App's pages and the project switcher", () => {
 		resize(1024, 768);
 	});
 
-	it("heads only the project's own pages' bars with its switcher", async () => {
+	it("heads no page's bar with a switcher beside the sidebar's", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
 		const switchers = [
@@ -61,23 +61,23 @@ describe("App's pages and the project switcher", () => {
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
 		];
-		expect(switchers).toEqual(["webappwiz", null, null, "webappwiz"]);
+		expect(switchers).toEqual([null, null, null, null]);
 	});
 
-	it("names the server atop the sidebar, the project heading its own pages", async () => {
+	it("heads the sidebar with the project's switcher, its own pages first under it", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 		await goTo(view, "Stats");
 
 		const tabs = view.getByRole("tablist");
 		expect([
-			view.getByRole("heading", { level: 1 }).textContent,
-			within(tabs).getByRole("button", { name: /^Switch project/ }).textContent,
+			view.getByRole("button", { name: /^Switch project/ }).textContent,
+			within(tabs).queryByRole("button", { name: /^Switch project/ }),
 			within(tabs)
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
 		]).toEqual([
-			"Spinning Plates",
 			"webappwiz",
+			null,
 			[
 				"Board",
 				"Creds",
@@ -103,7 +103,7 @@ describe("App's pages and the project switcher", () => {
 		]).toEqual(["Board", "Queue"]);
 	});
 
-	it("heads a phone's drawer with the server, the project heading its own pages", async () => {
+	it("heads a phone's drawer with the server, the project heading its own pages, and a page's bar with the project, its chips naming the page", async () => {
 		resize(390, 844);
 		const view = await testing.open({
 			repo: "webappwiz",
@@ -123,11 +123,22 @@ describe("App's pages and the project switcher", () => {
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
 
-		const bar = await barOf(view);
-		expect([
-			within(bar).getByRole("heading", { name: "Creds" }).textContent,
-			within(bar).getByRole("button", { name: /^Switch project/ }).textContent,
-		]).toEqual(["Creds", "webappwiz"]);
+		const bar = await waitFor(() => {
+			const header = view.container.querySelector("header");
+			expect(header).not.toBeNull();
+			return header as HTMLElement;
+		});
+		await waitFor(() =>
+			expect([
+				within(bar).queryByRole("heading", { name: "Creds" }),
+				within(bar).getByRole("button", { name: /^Switch project/ })
+					.textContent,
+				within(view.getByRole("navigation", { name: "pages" })).getByRole(
+					"button",
+					{ current: "page" },
+				).textContent,
+			]).toEqual([null, "webappwiz", "Creds"]),
+		);
 	});
 });
 

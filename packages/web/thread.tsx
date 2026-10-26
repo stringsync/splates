@@ -30,10 +30,8 @@ import { toWaiting, useArrived } from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
-import { useAutoPick } from "./auto-pick-switch";
 import { BackgroundCard, BackgroundUI } from "./background";
 import { ReplyContext } from "./card-reply";
-import { useChooseSetting } from "./choose-setting";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -68,17 +66,16 @@ import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SuiteGrant } from "./run-command-card";
-import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
+import { ThreadControls } from "./thread-controls";
 import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
 import { UnsentContext } from "./unsent";
-import { ContextMeter, compactionsIn } from "./usage";
 import {
 	CompactionUI,
 	InterruptedUI,
@@ -160,13 +157,11 @@ function Conversation({
 	onBack: (() => void) | null;
 	historyFailure?: React.ReactNode;
 }): JSX.Element {
-	const { id, settings, archived, summary } = conversation;
+	const { id, archived, summary } = conversation;
 	const refused = useCallback(
 		(title: string, error: unknown) => refuseIn(id, title, error),
 		[refuseIn, id],
 	);
-	const choose = useChooseSetting(id, refused);
-	const autoPick = useAutoPick(conversation, refused);
 	const thread = useThreadMessages(conversation, feed);
 	const { queued, asking, going } = thread;
 	// Nothing to tell anyone: the next scroll tries again.
@@ -378,25 +373,13 @@ function Conversation({
 																						: undefined
 																				}
 																				controls={
-																					!archived && (
-																						<>
-																							<ContextMeter
-																								usage={conversation.usage}
-																								compactions={compactionsIn(
-																									conversation.messages,
-																								)}
-																							/>
-																							<SettingControls
-																								agent={conversation.agent}
-																								autoPick={autoPick}
-																								settings={settings}
-																								current={(setting) =>
-																									setting.current
-																								}
-																								onChange={choose}
-																							/>
-																						</>
-																					)
+																					<ThreadControls
+																						conversation={conversation}
+																						refused={refused}
+																						widgets={
+																							onBack === null ? null : widgets
+																						}
+																					/>
 																				}
 																				above={
 																					<>

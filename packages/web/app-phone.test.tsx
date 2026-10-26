@@ -572,7 +572,7 @@ describe("App on a phone", () => {
 		).toBeNull();
 	});
 
-	it("starts a new conversation from the kebab atop any other page", async () => {
+	it("starts a new conversation from the pen atop any other page", async () => {
 		const view = await testing.openConversations([], null);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
@@ -584,22 +584,46 @@ describe("App on a phone", () => {
 			fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
 		);
 		expect(location.hash).toBe("#tasks");
-		// The inbox's pen starts one; a page's bar keeps it in the kebab.
-		expect(view.queryByRole("button", { name: "New conversation" })).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
-					view.getByRole("menuitem", { name: "New conversation" }),
+					view.getByRole("button", { name: "New conversation" }),
 				),
 			),
 		);
 
 		expect(location.hash).toBe("#conversations/new");
 		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
+	});
+
+	it("goes between the project's pages from the chips under the bar, back going home", async () => {
+		const view = await testing.openConversations([], null);
+		const length = history.length;
+		const chip = (name: string) =>
+			within(view.getByRole("navigation", { name: "pages" })).getByRole(
+				"button",
+				{ name },
+			);
+		expect(chip("Inbox").getAttribute("aria-current")).toBe("page");
+
+		await act(async () => fireEvent.click(chip("Board")));
+		await waitFor(() =>
+			expect(chip("Board").getAttribute("aria-current")).toBe("page"),
+		);
+		await act(async () => fireEvent.click(chip("Creds")));
+		await waitFor(() => expect(location.hash).toBe("#creds"));
+		expect(chip("Creds").getAttribute("aria-current")).toBe("page");
+		expect(history.length).toBe(length + 1);
+
+		await act(
+			() =>
+				new Promise<void>((resolve) => {
+					addEventListener("popstate", () => resolve(), { once: true });
+					history.back();
+				}),
+		);
+		expect(location.hash).toBe("#conversations");
 	});
 
 	it("goes back to the inbox from any page the menu opened, however many it opened", async () => {
@@ -1131,7 +1155,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations");
 	});
 
-	it("keeps branding in the drawer alone, and the project switcher in the inbox's bar and the drawer", async () => {
+	it("keeps branding in the drawer alone, and the project switcher in the drawer and every bar, titling the inbox and pages", async () => {
 		const view = await testing.openConversations([], null);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		expect(
@@ -1163,15 +1187,21 @@ describe("App on a phone", () => {
 			expect(header).not.toBeNull();
 			return header as HTMLElement;
 		});
-		await waitFor(() =>
-			expect(
-				within(bar).queryByRole("button", { name: "Switch project" }),
-			).toBeNull(),
-		);
+		expect(
+			within(bar).getByRole("button", { name: "Switch project" }),
+		).toBeTruthy();
 		expect(
 			within(bar).queryByRole("img", { name: /Spinning Plates|slot / }),
 		).toBeNull();
-		expect(within(bar).getByRole("heading", { name: "Stats" })).toBeTruthy();
+		await waitFor(() =>
+			expect(
+				within(view.getByRole("navigation", { name: "pages" })).getByRole(
+					"button",
+					{ current: "page" },
+				).textContent,
+			).toBe("Stats"),
+		);
+		expect(within(bar).queryByRole("heading", { name: "Stats" })).toBeNull();
 	});
 
 	it("keeps its drawer's header to one line, leaving out the project's path", async () => {
@@ -1188,12 +1218,13 @@ describe("App on a phone", () => {
 		expect(drawer.textContent).not.toContain("/work/demo-repo");
 	});
 
-	it("opens phone widgets with a visible close control and returns focus to the header", async () => {
+	it("opens phone widgets from beside the composer, with a visible close control, and returns focus there", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Look around" })],
 			"c1",
 		);
 		const toggle = view.getByRole("button", { name: "Widgets" });
+		expect(toggle.closest("header")).toBeNull();
 		toggle.focus();
 		await act(async () => fireEvent.click(toggle));
 		const widgets = view.getByRole("region", { name: "widgets" });
@@ -1207,12 +1238,21 @@ describe("App on a phone", () => {
 		expect(toggle.getAttribute("aria-expanded")).toBe("false");
 	});
 
-	it("heads a conversation with its name alone, its task's branch atop its widgets", async () => {
+	it("heads a conversation with its name over its project's switcher, its task's branch atop its widgets", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			"c1",
 			{ tasks: [details({ task: "alpha" })] },
 		);
+		const bar = view
+			.getByRole("button", { name: "Back to conversations" })
+			.closest("header");
+		expect(bar).not.toBeNull();
+		expect(
+			within(bar as HTMLElement).getByRole("button", {
+				name: "Switch project",
+			}),
+		).toBeTruthy();
 		expect(view.queryByRole("img", { name: "branch" })).toBeNull();
 
 		await act(async () =>

@@ -104,7 +104,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "shop"]);
+		).toEqual(["shop", "webappwiz"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -156,7 +156,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "shop"]);
+		).toEqual(["shop", "webappwiz"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -190,7 +190,7 @@ describe("Project controls in conversation lists", () => {
 		await shopIn(list);
 		const here = within(list).getByRole("region", { name: "webappwiz" });
 		// As Android holds a row: the finger down, then the context menu.
-		const head = within(here).getByRole("button", { name: "webappwiz" });
+		const head = within(here).getByRole("button", { name: /^webappwiz/ });
 		await act(async () => {
 			fireEvent.pointerDown(head);
 			fireEvent.contextMenu(head);

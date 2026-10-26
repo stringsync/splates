@@ -55,8 +55,9 @@ import { NAV_HEADING, TITLE } from "./top-bar";
  * Below them, when this machine runs slots, every `splates server` it has a
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
- * names, copies its path, or forgets it. In a page's bar it is one muted
- * line, and a pick shows the same page of the other project. Heading the
+ * names, copies its path, or forgets it. Under the title of a phone's
+ * conversation it is one small muted line, and a pick shows the same page of
+ * the other project. Heading the
  * project's pages in a nav, it is as small as the nav's other headings.
  */
 export function ProjectSwitcher({
@@ -67,14 +68,13 @@ export function ProjectSwitcher({
 	hash,
 	servers: slots = true,
 	path = true,
-	onShortcut,
 	onPick,
 	className,
 }: {
 	name: string;
 	/** Whether its shortcut opens it: false for a second on the page, so one press opens one. */
 	keyed?: boolean;
-	/** Whether it is in a page's bar, picking which project the page shows. */
+	/** Whether it is a small line under a bar's title, as a phone conversation's. */
 	bar?: boolean;
 	/** Whether it heads the project's pages in a nav, as small as its other headings. */
 	heading?: boolean;
@@ -84,8 +84,6 @@ export function ProjectSwitcher({
 	servers?: boolean;
 	/** Whether its trigger shows the project's path under its name. */
 	path?: boolean;
-	/** Told its shortcut was pressed, as to show the sidebar it sits in. */
-	onShortcut?: () => void;
 	/** Told of a pick of another project just before the page shows it. */
 	onPick?: (project: ProjectChoice) => void;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
@@ -138,7 +136,6 @@ export function ProjectSwitcher({
 	useShortcut(
 		"shortcuts.projects",
 		() => {
-			onShortcut?.();
 			setOpen((was) => !was);
 			setQuery("");
 			setActive(previous());
@@ -262,7 +259,7 @@ export function ProjectSwitcher({
 					{heading ? (
 						<span className={cn(NAV_HEADING, "px-0")}>{name}</span>
 					) : bar ? (
-						<span className="truncate text-muted-foreground text-sm max-md:text-base">
+						<span className="truncate text-muted-foreground text-xs">
 							{name}
 						</span>
 					) : (
@@ -276,7 +273,12 @@ export function ProjectSwitcher({
 						</span>
 					)}
 					<span className="ml-auto flex shrink-0 items-center gap-0.5">
-						<ChevronsUpDownIcon className="size-3.5 text-muted-foreground max-md:size-4" />
+						<ChevronsUpDownIcon
+							className={cn(
+								"size-3.5 text-muted-foreground",
+								!bar && "max-md:size-4",
+							)}
+						/>
 					</span>
 				</PopoverTrigger>
 				<PopoverContent align="start" className="w-80 gap-0 p-0">

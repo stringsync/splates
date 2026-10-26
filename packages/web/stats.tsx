@@ -19,7 +19,6 @@ import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
 import { Closing, Merges } from "./stats-flow";
-import { projectFilter } from "./stats-project-filter";
 import {
 	type Axis,
 	type Bucket,
@@ -32,7 +31,8 @@ import {
 import { TopBar } from "./top-bar";
 
 /**
- * What to change, from how tasks have ended across every project, or the one picked in the header: the one or
+ * What to change, from how tasks have ended across every project, split by
+ * project further down: the one or
  * two acts that stand out this period, each with the figures behind it, and
  * everything else folded away.
  */
@@ -50,8 +50,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		models,
 		devices,
 		projects,
-		project,
-		options,
 	} = useReactive(
 		report,
 		(report) => ({
@@ -67,8 +65,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			models: report.models,
 			devices: report.devices,
 			projects: report.projects,
-			project: report.project,
-			options: report.options,
 		}),
 		["changed"],
 	);
@@ -79,10 +75,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 
 	return (
 		<section aria-label="stats" className="flex min-w-0 flex-col gap-6">
-			<TopBar
-				title="Stats"
-				actions={[projectFilter(report, project, options)]}
-			/>
+			<TopBar title="Stats" />
 			{/* Not Tabs: under the app's vertical Tabs it would lay out as a column. */}
 			<div
 				role="radiogroup"

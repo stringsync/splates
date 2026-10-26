@@ -15,7 +15,7 @@ import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
 import { Action, Sheet, useLongPress } from "./phone-row-menu";
 import { ProjectEmpty, useRemoveProject } from "./project-controls";
-import { InLanes } from "./project-folder-list";
+import { InLanes, ShownDot } from "./project-folder-list";
 import type { Folder } from "./project-folders";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
@@ -72,11 +72,10 @@ export function Group({
  * A project's folder: its name, which folds it away as this browser keeps
  * it, how many agents wait on you there, a + to start a conversation in it
  * and a ⋯ for its menu, which a long press on its name opens too, none of
- * them waiting on a hover; then `trees`, those waiting on you first.
+ * them waiting on a hover; then its agents, those waiting on you first.
  */
 export function ProjectSection({
 	folder,
-	trees,
 	open,
 	onFold,
 	onNew,
@@ -85,8 +84,6 @@ export function ProjectSection({
 	onOpen,
 }: {
 	folder: Folder;
-	/** What it lists of its trees. */
-	trees: Nested<Needing>[];
 	/** Whether it is unfolded. */
 	open: boolean;
 	onFold: (open: boolean) => void;
@@ -96,7 +93,7 @@ export function ProjectSection({
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
-	const items = trees.map((tree) => ({ tree, folder }));
+	const items = folder.listed.map((tree) => ({ tree, folder }));
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
 	const removal = useRemoveProject(folder);
@@ -123,6 +120,7 @@ export function ProjectSection({
 							)}
 						/>
 						<span className="min-w-0 truncate">{folder.name}</span>
+						{folder.here && <ShownDot />}
 						{folder.waiting.length > 0 && (
 							<span
 								role="status"

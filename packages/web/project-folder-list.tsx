@@ -13,7 +13,7 @@ import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { ProjectEmpty, RemoveProjectButton } from "./project-controls";
-import { type Folder, folderKey, shownTrees } from "./project-folders";
+import { type Folder, folderKey } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
 /** Draws a row of `folder`'s. */
@@ -24,9 +24,9 @@ export type RenderRow = (
 ) => ReactNode;
 
 /**
- * The sidebar's agents, a folder per project, the page's own first: each
- * with those waiting on you on top, then its pinned agents, then those at
- * work, then the rest; another project's shows a few, then "N more". A
+ * The sidebar's agents, a folder per project by name, the page's own
+ * marked: each with those waiting on you on top, then its pinned agents,
+ * then those at work, then the rest, every one of them. A
  * folder's header counts what waits on you there, folds it away as this
  * browser keeps it, and its "+" starts a conversation in it. Quiet: a name,
  * a count and its rows.
@@ -35,8 +35,6 @@ export function ProjectList({
 	folders,
 	folded,
 	onFold,
-	expanded,
-	onExpand,
 	render,
 	beneath,
 	onNew,
@@ -44,9 +42,6 @@ export function ProjectList({
 	folders: Folder[];
 	folded: ReadonlySet<string>;
 	onFold: (key: string, open: boolean) => void;
-	/** The folders showing every row, past "N more", by key. */
-	expanded: ReadonlySet<string>;
-	onExpand: (key: string) => void;
 	render: RenderRow;
 	beneath: (folder: Folder, row: Needing) => ReactNode[];
 	/** Starts a conversation in `folder`'s project, showing it. */
@@ -56,7 +51,6 @@ export function ProjectList({
 		<div className="flex flex-col gap-3">
 			{folders.map((folder) => {
 				const key = folderKey(folder);
-				const { trees, more } = shownTrees(folder, expanded.has(key));
 				return (
 					<Collapsible
 						key={key}
@@ -78,6 +72,7 @@ export function ProjectList({
 									className="size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90"
 								/>
 								<span className="min-w-0 truncate">{folder.name}</span>
+								{folder.here && <ShownDot />}
 								{folder.waiting.length > 0 && (
 									<span
 										role="status"
@@ -102,30 +97,33 @@ export function ProjectList({
 						</div>
 						<CollapsibleContent>
 							{folder.trees.length === 0 && <ProjectEmpty />}
-							{trees.length > 0 && (
+							{folder.listed.length > 0 && (
 								<InLanes folder={folder}>
 									<Rows
 										label={`${folder.name} conversations`}
-										rows={trees}
+										rows={folder.listed}
 										render={(row, nested) => render(folder, row, nested)}
 										beneath={(row) => beneath(folder, row)}
 									/>
 								</InLanes>
-							)}
-							{more > 0 && (
-								<button
-									type="button"
-									onClick={() => onExpand(key)}
-									className="w-full rounded-md py-1 pl-8 text-left text-muted-foreground text-xs hover:bg-foreground/[0.05] hover:text-foreground"
-								>
-									{more} more
-								</button>
 							)}
 						</CollapsibleContent>
 					</Collapsible>
 				);
 			})}
 		</div>
+	);
+}
+
+/** Marks the folder of the project the page shows, which keeps its place by name. */
+export function ShownDot(): JSX.Element {
+	return (
+		<span
+			role="img"
+			aria-label="shown"
+			title="The project shown"
+			className="size-1.5 shrink-0 rounded-full bg-primary"
+		/>
 	);
 }
 
