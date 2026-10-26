@@ -28,5 +28,4 @@ skill asks the agent to do shows in its commands and reply. Heavy work the
 skill forbids, such as an install or the whole suite, is the agent's own
 step, so a check sees whether it ran. `plan` prints the run count and a
 ceiling of $1.05 a run. Free: `list`, `plan`, `report` and
-`splates dev test --evals`. The old probe harness in `evals/splates-skill/`
-remains until its aspects move to scenarios.
+`splates dev test --evals`.

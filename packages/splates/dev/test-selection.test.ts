@@ -66,14 +66,12 @@ describe("focused development tests", () => {
 		await runTests({
 			...opts,
 			evals: true,
-			files: ["evals/splates-skill/resources.probes.test.ts"],
+			files: ["evals/skill/run.test.ts"],
 		});
 
 		expect(ps.getCalls()).toHaveLength(1);
 		expect(ps.getCalls()[0]).toContain("--path-ignore-patterns=packages/**");
-		expect(ps.getCalls()[0]).toEndWith(
-			"evals/splates-skill/resources.probes.test.ts",
-		);
+		expect(ps.getCalls()[0]).toEndWith("evals/skill/run.test.ts");
 		expect(ps.getCalls()[0]).not.toContain(" evals/ ");
 	});
 
