@@ -82,7 +82,7 @@ merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
 Only run `splates dev eval` when the user asks you to, since it uses tokens the
 user pays for: billed to an API key, or counted against their Claude plan's
 usage limits.
-`splates dev eval report` and the evals' tests (`splates dev test --evals`)
+`splates dev eval report`, `splates dev eval show` and the evals' tests (`splates dev test --evals`)
 are free.
 
 Assume any user may clone and run this public repository against their own

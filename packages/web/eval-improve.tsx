@@ -23,10 +23,10 @@ export function improvable(status: string): boolean {
 }
 
 /**
- * What asks an agent to improve the skill for `run`'s scenario: the
- * requirement, each check and the judge's reason that held it back, the reply,
- * and the way to re-run only that scenario, which the person starts from the
- * permission card.
+ * What asks an agent to work the eval loop on `run`'s scenario: the
+ * requirement, each check and the judge's reason that held it back, the
+ * reply, how to show the run in full, and the loop the skill's evals.md
+ * lays out, whose runs the person starts from the permission card.
  */
 export function improvePrompt(run: EvalDetail): string {
 	const held = [
@@ -35,7 +35,7 @@ export function improvePrompt(run: EvalDetail): string {
 			.map((check) => `- Check \`${check.id}\`: ${check.about}`),
 		...(run.judge?.pass === false ? [`- Judge: ${run.judge.reason}`] : []),
 	];
-	return `An eval scenario is not passing. Improve the splates skill (\`skills/splates/\`) so it does, without special-casing the scenario.
+	return `An eval scenario is not passing. Find why, which may be the skill, the scenario, its judge or the harness, and fix it, without special-casing the scenario in the skill.
 
 Scenario: \`${run.scenario}\` (${run.aspect})
 Requirement: ${run.requirement}
@@ -53,9 +53,9 @@ The agent's reply:
 
 ${run.reply || "(none)"}
 
-The run, with its whole transcript, opens on the Evals page as \`${run.id}\`, under ~/.splates/evals.
+The run opens on the Evals page as \`${run.id}\`, and in full with \`splates dev eval show ${run.id}\`.
 
-Start a splates task for the change, and note the commit you branched from. When it is ready, ask the person to re-run only this scenario with the run evals permission card, naming \`${run.scenario}\` and setting \`Baseline:\` to that commit, so the re-run shows both skills side by side. Never start an eval yourself. The change lands only once the person approves it.`;
+Start a splates task for it and work the loop in the splates skill's \`references/evals.md\`: run this one scenario with 3 repetitions for its starting pass rate, label each failure (harness, scenario, judge or skill), fix one thing in that layer, rerun, and log the round in SPLATES.md, until it passes every repetition or three rounds bring no gain. Never start an eval yourself: ask with the run evals card.`;
 }
 
 /**

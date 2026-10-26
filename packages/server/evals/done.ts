@@ -11,10 +11,11 @@ const TALLY: EvalStatus[] = ["pass", "fail", "error", "unreadable", "pending"];
 /**
  * What tells the agent whose run evals card started `grid` that it is done:
  * the directive, then the batch condensed: its tally and cost, each scenario's
- * outcome on each agent, and for each run that did not pass, the checks and
- * the judge's reason that held it back, or what broke, its reply cut short,
- * and the run's id. `details` are
- * the runs that did not pass, opened.
+ * outcome on each agent (a pass rate over repetitions), and for each run that
+ * failed, the checks and the judge's reason that held it back, its reply cut
+ * short and how to show it in full; then the runs that errored, apart, since
+ * an error is never the skill's. `details` are the runs that did not pass,
+ * opened.
  */
 export function evalsDonePrompt(
 	grid: EvalGrid,
@@ -45,40 +46,70 @@ export function evalsDonePrompt(
 					.join(" | ")} |`,
 		),
 	];
-	const missed = details.map((run) => {
-		const held = [
-			...run.checks
-				.filter((check) => !check.pass)
-				.map(
-					(check) =>
-						`  - Check \`${check.id}\`: ${check.about}${check.error === undefined ? "" : ` (${cut(check.error)})`}`,
-				),
-			...(run.judge?.pass === false
-				? [`  - Judge: ${cut(run.judge.reason)}`]
-				: []),
-			...(run.error === undefined ? [] : [`  - Error: ${cut(run.error)}`]),
-		];
-		return [
-			`- \`${run.scenario}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}`,
-			...held,
-			`  - Reply: ${run.reply === "" ? "(none)" : cut(JSON.stringify(run.reply))}`,
-			`  - Run: \`${run.id}\``,
-		].join("\n");
-	});
+	const missed = (runs: readonly EvalDetail[]) =>
+		runs.map((run) => {
+			const held = [
+				...run.checks
+					.filter((check) => !check.pass)
+					.map(
+						(check) =>
+							`  - Check \`${check.id}\`: ${check.about}${check.error === undefined ? "" : ` (${cut(check.error)})`}`,
+					),
+				...(run.judge?.pass === false
+					? [`  - Judge: ${cut(run.judge.reason)}`]
+					: []),
+				...(run.error === undefined ? [] : [`  - Error: ${cut(run.error)}`]),
+			];
+			return [
+				`- \`${run.scenario}\` on ${targetName(run.target)}, repetition ${run.repetition + 1}: ${run.status}`,
+				...held,
+				`  - Reply: ${run.reply === "" ? "(none)" : cut(JSON.stringify(run.reply))}`,
+				`  - Run: \`${run.id}\`, in full with \`splates dev eval show ${run.id}\``,
+			].join("\n");
+		});
+	const failed = missed(details.filter((run) => run.status !== "error"));
+	const errored = missed(details.filter((run) => run.status === "error"));
+	const sections = [
+		...(failed.length === 0 ? [] : [`Not passing:\n\n${failed.join("\n")}`]),
+		...(errored.length === 0
+			? []
+			: [
+					`Errors, the harness's or the setup's, never the skill's:\n\n${errored.join("\n")}`,
+				]),
+	];
 	return `${evalsDoneReference(grid.id)}
 
 The run your run evals card asked for is done: ${grid.cells} ${grid.cells === 1 ? "cell" : "cells"}${tally === "" ? "" : ` · ${tally}`}${cost.length === 0 ? "" : ` · ${cost.join(" · ")}`}.
 
 ${table.join("\n")}
-${missed.length === 0 ? "\nEvery run passed." : `\nNot passing:\n\n${missed.join("\n")}`}
+${sections.length === 0 ? "\nEvery run passed." : `\n${sections.join("\n\n")}`}
 `;
 }
 
-/** One scenario's outcome on one agent, a word per repetition. */
+/**
+ * One scenario's outcome on one agent: its status for a single run, or for
+ * repetitions the pass rate of those graded, with errors and pending counted
+ * apart, since neither says anything of the skill.
+ */
 function outcomes(cells: readonly EvalCell[]): string {
-	return cells.length === 0
-		? "not run"
-		: cells.map((cell) => cell.run?.status ?? "pending").join(", ");
+	if (cells.length === 0) {
+		return "not run";
+	}
+	const statuses = cells.map((cell) => cell.run?.status ?? "pending");
+	if (statuses.length === 1) {
+		return statuses[0] ?? "pending";
+	}
+	const count = (status: string) =>
+		statuses.filter((each) => each === status).length;
+	const graded = statuses.filter(
+		(each) => each !== "error" && each !== "pending",
+	).length;
+	return [
+		`${count("pass")}/${graded} pass`,
+		...(["error", "pending"] as const)
+			.filter((status) => count(status) > 0)
+			.map((status) => `${count(status)} ${status}`),
+	].join(", ");
 }
 
 function cut(text: string): string {

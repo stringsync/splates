@@ -11,7 +11,9 @@ const HELP = `splates dev eval: run the splates skill's eval scenarios on real a
   list                       every scenario: id, aspect, requirement, kind
   plan  [selection]          how many runs a selection comes to, and at most what it costs
   run   [selection]          runs it into a new batch-* directory (costs tokens)
-  report <batch>             a batch's results
+  report <batch>             each scenario's pass rate, why runs failed, and errors apart
+  show <batch> <run>         one run: its message, checks, judge, every step and the reply;
+                             also takes a run id, batch-x/run-003/result.json
 
 Selection:
   --scenario <id>            a scenario, repeatable; all when none
@@ -80,6 +82,23 @@ async function main(argv: string[]): Promise<number> {
 			return 2;
 		}
 		console.log(await report(resolve(values.directory, batch)));
+		return 0;
+	}
+	if (command === "show") {
+		const path = runPath(rest);
+		if (path === null) {
+			console.error(
+				"show names a run: a batch and its run (run-003 or 3), or a run id as batch-x/run-003/result.json",
+			);
+			return 2;
+		}
+		console.log(
+			shown(
+				JSON.parse(
+					await readFile(resolve(values.directory, path), "utf8"),
+				) as Result,
+			),
+		);
 		return 0;
 	}
 	if (command !== "plan" && command !== "run") {
@@ -185,27 +204,142 @@ async function output(argv: string[]): Promise<string> {
 	return text;
 }
 
-/** A batch's runs, one line each: status, scenario, agent and skill, and what held it back. */
+/** A batch's results, read from each `run-*` directory, as `report` and `show` name them. */
 async function report(batch: string): Promise<string> {
 	const runs = (await readdir(batch)).filter((each) => each.startsWith("run-"));
-	const lines = await Promise.all(
-		runs.sort().map(async (run) => {
-			const result = JSON.parse(
-				await readFile(join(batch, run, "result.json"), "utf8"),
-			) as Result;
-			const held = [
-				...result.checks
-					.filter((check) => !check.pass)
-					.map((check) => `${check.id}: ${check.about}`),
-				...(result.judge?.pass === false
-					? [`judge: ${result.judge.reason}`]
-					: []),
-				...(result.error === null ? [] : [result.error]),
-			];
-			return `${result.status}\t${result.scenario.id}\t${label(result)}${held.length === 0 ? "" : `\n\t${held.join("\n\t")}`}`;
-		}),
+	return summary(
+		await Promise.all(
+			runs.sort().map(async (run) => ({
+				run,
+				result: JSON.parse(
+					await readFile(join(batch, run, "result.json"), "utf8"),
+				) as Result,
+			})),
+		),
 	);
+}
+
+/**
+ * Each scenario's pass rate on each agent and skill, with why each failing
+ * run failed under it; then the runs that errored, apart, since an error is
+ * the harness's or the setup's, never the skill's.
+ */
+export function summary(
+	runs: readonly { run: string; result: Result }[],
+): string {
+	const failed = runs.filter(({ result }) => result.status !== "error");
+	const errored = runs.filter(({ result }) => result.status === "error");
+	const lines: string[] = [];
+	for (const scenario of [
+		...new Set(failed.map(({ result }) => result.scenario.id)),
+	]) {
+		lines.push(scenario);
+		const ofScenario = failed.filter(
+			({ result }) => result.scenario.id === scenario,
+		);
+		for (const who of [
+			...new Set(ofScenario.map(({ result }) => label(result))),
+		]) {
+			const cell = ofScenario.filter(({ result }) => label(result) === who);
+			const passed = cell.filter(
+				({ result }) => result.status === "pass",
+			).length;
+			lines.push(`  ${who}\t${passed}/${cell.length} pass`);
+			for (const { run, result } of cell) {
+				if (result.status === "pass") {
+					continue;
+				}
+				lines.push(`    ${run} ${result.status}`);
+				for (const reason of held(result)) {
+					lines.push(`      ${reason}`);
+				}
+			}
+		}
+	}
+	if (errored.length > 0) {
+		lines.push(
+			"",
+			"Errors, the harness's or the setup's, not the skill's:",
+			...errored.map(
+				({ run, result }) =>
+					`  ${run} ${result.scenario.id} ${label(result)}: ${result.error ?? "no error saved"}`,
+			),
+		);
+	}
 	return lines.join("\n");
+}
+
+/** What held a run back: each failing check, and the judge's reason when it failed it. */
+function held(result: Result): string[] {
+	return [
+		...result.checks
+			.filter((check) => !check.pass)
+			.map((check) => `${check.id}: ${check.about}`),
+		...(result.judge?.pass === false ? [`judge: ${result.judge.reason}`] : []),
+	];
+}
+
+/**
+ * A run's `result.json`, under the batches directory, from `show`'s
+ * arguments: a batch and its run as `run-003` or `3`, or a run id as the
+ * Evals page and `[SPLATES EVALS DONE]` name it; null for neither.
+ */
+export function runPath(args: readonly string[]): string | null {
+	const [first, run] = args;
+	if (first === undefined) {
+		return null;
+	}
+	if (run === undefined) {
+		const parts = first.split("/").filter((part) => part !== "");
+		return parts.length >= 2
+			? join(parts[0] ?? "", parts[1] ?? "", "result.json")
+			: null;
+	}
+	const name = /^\d+$/.test(run) ? `run-${run.padStart(3, "0")}` : run;
+	return join(first, name, "result.json");
+}
+
+/** How long one step's input or output is let run in `show`. */
+const STEP_CUT = 600;
+
+/**
+ * One run in full, to diagnose it: what it asked, its status and what held
+ * it back, each step the agent took (its words, each tool call and what came
+ * back, cut short), and the reply.
+ */
+export function shown(result: Result): string {
+	const cut = (text: string) =>
+		text.length <= STEP_CUT ? text : `${text.slice(0, STEP_CUT)}…`;
+	const indent = (text: string, by: string) =>
+		text
+			.split("\n")
+			.map((line) => by + line)
+			.join("\n");
+	const reasons = [
+		...held(result),
+		...(result.error === null ? [] : [result.error]),
+	];
+	return [
+		`${result.status}\t${result.scenario.id}\t${label(result)}, repetition ${result.repetition + 1}`,
+		`Requirement: ${result.scenario.requirement}`,
+		...reasons.map((reason) => `Held back: ${reason}`),
+		...(result.judge?.pass === true
+			? [`Judge passed: ${result.judge.reason}`]
+			: []),
+		"",
+		"Message:",
+		indent(result.scenario.message, "  "),
+		"",
+		"Steps:",
+		...result.transcript.map((step) =>
+			step.kind === "text"
+				? indent(cut(step.text), "  ")
+				: `  > ${step.name} ${cut(step.input)}\n${indent(cut(step.output ?? "(no output)"), "    < ")}`,
+		),
+		"",
+		"Reply:",
+		indent(result.reply || "(none)", "  "),
+	].join("\n");
 }
 
 function label(result: Result): string {

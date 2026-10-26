@@ -165,11 +165,12 @@ Repetitions: 3
 ```
 
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
-and the report condensed: each scenario's outcome on each agent, and for each
-that did not pass, the checks that failed, the judge's reason and the reply.
-Reply with what it shows and the next steps you recommend, as a proposal (see
-[proposing.md](references/proposing.md)): the skill or scenario change it
-points to, and a run card to check that change once it is ready.
+and the report condensed: each scenario's pass rate on each agent, and for
+each run that failed, the checks that failed, the judge's reason and the
+reply, with the runs that errored listed apart. Improving a scenario is a
+loop of run, diagnose, fix one thing, rerun and log, which
+[evals.md](references/evals.md) lays out: read it before the first run card
+of a task and when the run is done.
 
 ## In every conversation
 
@@ -199,7 +200,7 @@ from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says. A few directives have no row
 because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](references/setup.md)),
 `[SPLATES DEFER]` ([queue.md](references/queue.md), Deferring), `[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)),
-`[SPLATES EVALS DONE <batch>]` (Formats above, after the run card), and hook
+`[SPLATES EVALS DONE <batch>]` ([evals.md](references/evals.md)), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
 the prompt after it asks and end with the Done report in Formats above,
 unless your last reply is already a Merged, Removed or Deferred report. Read
@@ -264,6 +265,9 @@ These only when their moment comes:
 --project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
+- When an eval scenario is not passing, in the splates repository, or
+  `[SPLATES EVALS DONE <batch>]` comes: [references/evals.md](references/evals.md),
+  the loop that improves it.
 - When the user asks to move splates's tasks, conversations or settings to
   another machine or project, or to back them up or restore them:
   [references/transfer.md](references/transfer.md).

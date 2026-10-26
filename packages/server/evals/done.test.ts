@@ -80,7 +80,48 @@ describe("evalsDonePrompt", () => {
 		expect(text).not.toContain("`not-installed`");
 		expect(text).toContain("Judge: it installed without asking");
 		expect(text).toContain('Reply: "Installed."');
-		expect(text).toContain("Run: `batch-abc/run-1/result.json`");
+		expect(text).toContain(
+			"Run: `batch-abc/run-1/result.json`, in full with `splates dev eval show batch-abc/run-1/result.json`",
+		);
+	});
+
+	it("gives repetitions as a pass rate and lists errors apart from failures", () => {
+		const cell = (repetition: number, status: "pass" | "fail" | "error") => ({
+			scenario: "resources/install",
+			aspect: "resource-control",
+			requirement: "host-heavy-work",
+			target: claude.key,
+			repetition,
+			run: {
+				...run(`batch-abc/run-${repetition}/result.json`, "pass"),
+				status,
+			},
+		});
+		const text = evalsDonePrompt(
+			{
+				...grid,
+				targets: [claude],
+				grid: [cell(0, "pass"), cell(1, "fail"), cell(2, "error")],
+			},
+			[
+				failed,
+				{
+					...failed,
+					id: "batch-abc/run-2/result.json",
+					status: "error",
+					error: "model not found",
+					repetition: 2,
+				},
+			],
+		);
+
+		expect(text).toContain("| `resources/install` | 1/2 pass, 1 error |");
+		expect(text).toMatch(
+			/Not passing:\n\n- `resources\/install` on .*: fail\n/,
+		);
+		expect(text).toMatch(
+			/Errors, the harness's or the setup's, never the skill's:\n\n- `resources\/install` on .*repetition 3: error\n(.*\n)* {2}- Error: model not found/,
+		);
 	});
 
 	it("says every run passed when none held back", () => {
