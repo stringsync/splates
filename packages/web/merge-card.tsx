@@ -348,7 +348,7 @@ function Mark({
 	if (standing === "running") {
 		return (
 			<Loader2Icon
-				className={cn("shrink-0 animate-spin text-info", className)}
+				className={cn("shrink-0 animate-spin text-muted-foreground", className)}
 			/>
 		);
 	}
