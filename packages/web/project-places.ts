@@ -84,7 +84,8 @@ export function rememberPrevious(project: string): void {
  * keeps showing it whatever is focused later: where this tab last left it,
  * else the same page of it, and none of the last project's conversations,
  * which are its own. With `stay`, the same page, at its top: the system or
- * cred it was on is the last project's.
+ * cred it was on is the last project's. Likewise from any page but the
+ * conversations.
  */
 export function projectUrl(
 	project: { slug: string },
@@ -93,7 +94,11 @@ export function projectUrl(
 	const url = new URL(location.href);
 	url.searchParams.set("project", project.slug);
 	const { hash } = placeOf(project.slug);
-	if (stay) {
+	// Off the conversations, the page is the project's own view of something
+	// (tasks, queue, stats): the switch keeps to it rather than to a place.
+	const onConversations =
+		url.hash === "" || url.hash.startsWith("#conversations");
+	if (stay || !onConversations) {
 		url.hash = url.hash.split("/")[0] ?? "";
 	} else if (hash !== undefined) {
 		url.hash = hash;

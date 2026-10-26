@@ -102,6 +102,22 @@ describe("App coming back to a project", () => {
 		expect(location.hash).toBe("#tasks");
 	});
 
+	it("stays on a project-scoped page over where the project was left", async () => {
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
+		);
+		await waitFor(() => expect(location.hash).toBe("#creds"));
+		sessionStorage.setItem(
+			"splates.places",
+			JSON.stringify({ shop: { hash: "#conversations" } }),
+		);
+		await pick(view, "/code/shop");
+		const there = new URL(String(testing.visited[0]));
+		expect(there.search).toBe("?project=shop");
+		expect(there.hash).toBe("#creds");
+	});
+
 	it("names the project started in while it opens again", async () => {
 		await testing.open({ repo: "webappwiz" });
 		cleanup();
