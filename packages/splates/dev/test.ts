@@ -331,11 +331,12 @@ export async function test(opts: TestOptions): Promise<void> {
 /** The phase the two halves run within, side by side. */
 const TESTS_PHASE = "tests";
 
-// From a day of gates (2026-10-25 to 26), each at the gate's cores: the
-// server's run took 27.7s and the page's 42.3s, so the page takes three
-// fifths of the cores.
+// From the side-by-side gates of 2026-10-26: at three fifths of the cores the
+// page's half still ran 1.4 to 1.7 times as long as the server's (62s to 37s
+// at 9 workers), about twice the server's worker-seconds, so the page takes
+// a little under two thirds.
 /** The part of the cores the page's half takes beside the server's. */
-export const PAGE_SHARE = 0.6;
+export const PAGE_SHARE = 0.65;
 
 /**
  * The cores each run takes side by side, adding up to `cores`, or null when

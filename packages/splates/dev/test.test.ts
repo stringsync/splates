@@ -23,9 +23,9 @@ describe("dev test", () => {
 		expect(joinedReports([])).toBe("");
 	});
 
-	it("splits the cores between the halves, three fifths to the page's", () => {
+	it("splits the cores between the halves, nearly two thirds to the page's", () => {
 		expect(sideBySide(["server", "page"], 8)).toEqual([3, 5]);
-		expect(sideBySide(["server", "page"], 14)).toEqual([6, 8]);
+		expect(sideBySide(["server", "page"], 14)).toEqual([5, 9]);
 	});
 
 	it("leaves each half a worker on few cores", () => {

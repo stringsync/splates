@@ -95,9 +95,11 @@ run-command permission card for anything else heavy, running it only on
   rest, since happy-dom replaces `setTimeout`, `URL` and other globals the
   server is tested against.
 - Since 2026-10-26 the two run side by side (`sideBySide` in `dev/test.ts`),
-  their workers adding up to the cores, three fifths to the page's
-  (`PAGE_SHARE`, from a day of gate phases: server 27.7s, page 42.3s, one
-  after the other), with no free-memory cap. Each one's output
+  their workers adding up to the cores, nearly two thirds to the page's
+  (`PAGE_SHARE`), with no free-memory cap. Side by side cut `tests` at 8
+  workers from about 72s (server 27.7s + page 42.3s) to 62s to 67s; at three
+  fifths the page's half still ran 1.4 to 1.7 times as long as the server's,
+  so it took 0.65 from 2026-10-26. Each one's output
   prints whole as it ends. A gate logs each half's time `within` a `tests`
   phase, its peak memory under `tests`, and leaves the halves out of
   `setup`. A run of one worker, as a focused one, or one given `--workers`
