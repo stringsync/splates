@@ -23,6 +23,10 @@ was at that revision, taken out of git. The run uses the skill in the
 card's conversation's directory, `skills/splates`, when it has one
 (`EvalLaunchRoutes`), so a task's worktree tests its own change.
 
+That override selects only the skill files. The harness and scenario code
+always run from the server's checkout (`EvalLaunches`), so a scenario fix in
+a task must land in that checkout before a run card can exercise it.
+
 The card sends its conversation with Run. When the run is done with a batch
 written, `EvalLaunches` says `finished` and the server tells that
 conversation, as splates server, `[SPLATES EVALS DONE <batch>]` and the

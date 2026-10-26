@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import {
 	CHECKPOINT,
 	RECONNECT,
@@ -69,9 +69,9 @@ async function seeded(
 		"Write result.txt with ready",
 	]);
 	const path = await worktree(repo);
-	await repo.write(join(path, "SPLATES.md"), plan + extra);
+	await repo.write(relative(repo.dir, join(path, "SPLATES.md")), plan + extra);
 	if (result !== undefined) {
-		await repo.write(join(path, "result.txt"), result);
+		await repo.write(relative(repo.dir, join(path, "result.txt")), result);
 	}
 	return path;
 }
