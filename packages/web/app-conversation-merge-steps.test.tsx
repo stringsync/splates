@@ -118,6 +118,26 @@ describe("App's merge steps", () => {
 		).toContain("The merge gate's tests failed");
 	});
 
+	it("folds a refused merge's card once a later attempt follows it", async () => {
+		const view = await testing.openConversations([
+			{
+				...turn(["Merging."], { status: "idle" }),
+				events: [
+					queued(),
+					started("q1", second(35)),
+					timed(merged("q1", second(105), "tests_failed")),
+					{ ...started(null, second(200)), id: "s2" },
+				],
+			},
+		]);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "Merge" }),
+		);
+
+		expect(card.textContent).toContain("Merge failed in 1m 40s");
+		expect(within(card).queryByRole("list")).toBeNull();
+	});
+
 	it("draws the conversation's task merging as a live card whose premerge opens what it prints", async () => {
 		const view = await testing.openConversations(
 			[

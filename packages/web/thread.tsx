@@ -1,6 +1,7 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { TaskReport } from "@stringsync/splates-server/plans";
+import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
@@ -186,7 +187,14 @@ function Conversation({
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],
 	);
-	const mergeCard = useMemo(() => ({ conversation: id, task }), [id, task]);
+	const superseded = useMemo(
+		() => supersededMerges(conversation.events),
+		[conversation.events],
+	);
+	const mergeCard = useMemo(
+		() => ({ conversation: id, task, superseded }),
+		[id, task, superseded],
+	);
 	const section = useRef<HTMLElement>(null);
 	const reply = useReply(id, drafts, send);
 	const typed = useTyped(runtime);
@@ -513,4 +521,25 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
 			</button>
 		</p>
 	);
+}
+
+/** Ids of the refused merges that a later merge attempt for the same task followed. */
+function supersededMerges(events: readonly Event[]): Set<string> {
+	const out = new Set<string>();
+	for (const event of events) {
+		if (event.action === "merge" && event.reason !== null) {
+			const later = events.some(
+				(each) =>
+					each.at > event.at &&
+					each.task === event.task &&
+					(each.action === "merge" ||
+						each.action === "merge queued" ||
+						each.action === "merge start"),
+			);
+			if (later) {
+				out.add(event.id);
+			}
+		}
+	}
+	return out;
 }

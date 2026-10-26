@@ -38,6 +38,8 @@ type MergeEvent = Extract<Event, { action: "merge" }>;
 export const MergeCardContext = createContext<{
 	conversation: string;
 	task: Details | null;
+	/** Ids of refused merges a later attempt for the same task followed. */
+	superseded: ReadonlySet<string>;
 } | null>(null);
 
 /** Opens what a merge step printed in the pane beside the page; null where the page has no pane. */
@@ -127,6 +129,8 @@ export function EndedMergeCard({
 	ms: number;
 }): JSX.Element {
 	const refused = end.reason !== null;
+	const superseded =
+		useContext(MergeCardContext)?.superseded.has(end.id) ?? false;
 	const [why, setWhy] = useState(false);
 	return (
 		<>
@@ -137,7 +141,7 @@ export function EndedMergeCard({
 				tone={refused ? "destructive" : "success"}
 				task={end.task ?? ""}
 				base={end.base ?? null}
-				folded={!refused}
+				folded={!refused || superseded}
 			>
 				<Timeline
 					rows={endedChecklist(end, refused)}
