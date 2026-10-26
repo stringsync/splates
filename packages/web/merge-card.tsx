@@ -251,10 +251,7 @@ function StepItem({
 					</button>
 				)}
 				{row.phases.length > 0 && (
-					<ol
-						aria-label="Premerge phases"
-						className="mt-1 mb-1.5 rounded-lg border bg-muted/40 px-3 py-1.5"
-					>
+					<ol aria-label="Premerge phases" className="mt-0.5 mb-1.5">
 						{row.phases.map((phase) => (
 							<PhaseItem key={phase.phase} phase={phase} depth={0} />
 						))}
