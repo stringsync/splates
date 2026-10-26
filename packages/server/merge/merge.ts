@@ -8,7 +8,7 @@ import type { Git } from "../git";
 import type { Slots } from "../ports";
 import type { Facts, Journal } from "../records";
 import type { PlacedLock } from "../server/shared";
-import type { WorktreeService } from "../tasks";
+import type { LivePhase, MergeStep, WorktreeService } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { type Member, MergeBatch } from "./batch";
@@ -16,7 +16,7 @@ import type { TaskBranches } from "./branches";
 import { clearGate } from "./clear-gate";
 import { GateTrail } from "./cores";
 import { finishLanding } from "./finish";
-import { type Followed, follow } from "./follow";
+import { conflictsOnBase, type Followed, follow, waitAlone } from "./follow";
 import { type Checkout, MergeGate } from "./gate";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
@@ -27,6 +27,7 @@ import { BaseRebase } from "./rebase";
 import { recentFailedFiles } from "./recent-failures";
 import { refuseTestsFailed, tail } from "./refusal";
 import { splitBatch } from "./split";
+import { MergeSteps } from "./steps";
 import { failedTests, failingCases, timedTests } from "./test-report";
 import { MergeTiming } from "./timing";
 import type { TrunkLanding } from "./trunk";
@@ -146,12 +147,20 @@ export async function merge(
 	// Working until landing holds the lock: waiting and testing must not
 	// leave a dead merge's `merging` status showing another landing. The
 	// page reads `gate` and `mergeSince` meanwhile, for as long as this merge
-	// holds the lease.
+	// holds the lease, and `mergeSteps` to show it moving.
+	const steps = new MergeSteps(clock);
 	worktree = await worktree.take({
 		status: "working",
 		mergeSince: new Date().toISOString(),
+		mergeSteps: steps.enter("rebase"),
 		...(runner.command ? { gate: "queued" as const } : {}),
 	});
+	const enter = async (step: MergeStep) => {
+		worktree = await worktree.save({ mergeSteps: steps.enter(step) });
+	};
+	const onPhases = async (phases: LivePhase[]) => {
+		worktree = await worktree.save({ mergeSteps: steps.phased(phases) });
+	};
 	await using _gate = {
 		[Symbol.asyncDispose]: () => clearGate(service, task),
 	};
@@ -195,7 +204,10 @@ export async function merge(
 				facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
 			}
 			lastPlace = place;
-			worktree = await worktree.save({ mergePlace: place });
+			worktree = await worktree.save({
+				mergePlace: place,
+				mergeSteps: steps.enter("wait"),
+			});
 		};
 		let started = false;
 		// Every step names the first, so the page folds them into one run.
@@ -204,6 +216,7 @@ export async function merge(
 				worktree = await worktree.save({
 					gate: "running",
 					mergePlace: undefined,
+					mergeSteps: steps.enter("test"),
 				});
 			}
 			if (started) {
@@ -217,6 +230,7 @@ export async function merge(
 			facts.began = queued ?? begun ?? null;
 		};
 		if (runner.command && runner.preLock) {
+			await enter("check");
 			await refuseFailedChecks(
 				{ git, service, state, log, runner },
 				{
@@ -240,22 +254,7 @@ export async function merge(
 		// While waiting, a base that moved under the branch and now conflicts
 		// with it ends the wait: the rebase after refuses it as it would
 		// have, without the line. Never lets anything through.
-		let seenBase: string | null = firstOnto;
-		const doomed = async (): Promise<boolean> => {
-			const tip = await git.run(git.root, "rev-parse", "--verify", base);
-			if (tip.code !== 0 || tip.stdout === seenBase) {
-				return false;
-			}
-			seenBase = tip.stdout;
-			const merged = await git.run(
-				git.root,
-				"merge-tree",
-				"--write-tree",
-				tip.stdout,
-				ownHead,
-			);
-			return merged.code === 1;
-		};
+		const doomed = conflictsOnBase(git, base, firstOnto, ownHead);
 		const watching = remote === null && runner.command !== "";
 		let followed: Followed;
 		if (batching) {
@@ -277,28 +276,10 @@ export async function merge(
 				(signal) => runner.reserve(onQueued, signal),
 			);
 		} else {
-			const waiting = new AbortController();
-			const poll = setInterval(() => {
-				if (watching) {
-					void doomed().then((yes) => {
-						if (yes) {
-							waiting.abort(new Error("the branch conflicts with the base"));
-						}
-					});
-				}
-			}, 1000);
-			try {
-				followed = {
-					capacity: await runner.reserve(onQueued, waiting.signal),
-				};
-			} catch (error) {
-				if (!waiting.signal.aborted) {
-					throw error;
-				}
-				followed = { doomed: true };
-			} finally {
-				clearInterval(poll);
-			}
+			followed = await waitAlone(
+				(signal) => runner.reserve(onQueued, signal),
+				watching ? doomed : undefined,
+			);
 		}
 		if ("doomed" in followed) {
 			// Refuses the conflict with its rebase left in progress.
@@ -313,6 +294,7 @@ export async function merge(
 			worktree = await state.requireLease();
 			facts.batch = result.batch;
 			if (result.kind === "landed") {
+				await enter("finish");
 				const holder = await git.worktreeFor(base);
 				await finishLanding(
 					{ service, git, config, log, tasks, slots, branches, timing },
@@ -375,6 +357,10 @@ export async function merge(
 			delete facts.batch;
 			facts.failedTests = [];
 
+			// A retest after the base moved rebases afresh.
+			if (facts.retests) {
+				await enter("rebase");
+			}
 			const rebasedOnto = await rebaseOntoBase();
 
 			// After the rebase, never before: a branch that passed against an older
@@ -422,8 +408,12 @@ export async function merge(
 				},
 			};
 			const cwd = checkout?.path ?? worktree.path;
+			if (runner.command) {
+				await enter("test");
+			}
 			let gated = await runner.run(cwd, task, {
 				recent: await recentFailedFiles(journal),
+				onPhases,
 			});
 			await state.requireLease();
 			if (gated.timedOut) {
@@ -465,7 +455,8 @@ export async function merge(
 				);
 				log.error(attribution.why);
 				if (attribution.kind === "flake") {
-					gated = await runner.run(cwd, task);
+					await onPhases([]);
+					gated = await runner.run(cwd, task, { onPhases });
 					if (gated.exitCode !== 0) {
 						// A selective pass cannot excuse a later failure anywhere in the
 						// complete gate. Keep the tree out without spending an attempt.
@@ -530,6 +521,7 @@ export async function merge(
 			// A hook that wrote no report, or one that does not parse, times nothing.
 			const testTimes = timedTests(gated.xml);
 
+			await enter("land");
 			const result = await landTested(
 				{ service, git, lock, branches, trunk },
 				worktree,
@@ -549,6 +541,7 @@ export async function merge(
 					batch: names,
 				});
 			}
+			await enter("finish");
 			await finishLanding(
 				{ service, git, config, log, tasks, slots, branches, timing },
 				{ ...result, testTimes },

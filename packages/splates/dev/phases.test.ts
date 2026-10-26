@@ -4,7 +4,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { PhaseTimer } from "./phases";
 
 describe("PhaseTimer", () => {
-	it("appends each phase to the gate's file, a failing one too", async () => {
+	it("appends each phase to the gate's file as it starts and ends, a failing one too", async () => {
 		const fs = new FakeFs();
 		const timer = new PhaseTimer(gatePs(), fs);
 
@@ -17,7 +17,9 @@ describe("PhaseTimer", () => {
 
 		const lines = (await fs.read("/phases.jsonl")).trim().split("\n");
 		expect(lines.map((line) => JSON.parse(line))).toEqual([
+			{ phase: "biome", started: expect.any(String) },
 			{ phase: "biome", ms: expect.any(Number) },
+			{ phase: "typecheck", started: expect.any(String) },
 			{ phase: "typecheck", ms: expect.any(Number) },
 		]);
 	});
@@ -29,11 +31,11 @@ describe("PhaseTimer", () => {
 			within: "tests",
 		});
 
-		expect(JSON.parse(await fs.read("/phases.jsonl"))).toEqual({
-			phase: "web tests",
-			ms: expect.any(Number),
-			within: "tests",
-		});
+		const lines = (await fs.read("/phases.jsonl")).trim().split("\n");
+		expect(lines.map((line) => JSON.parse(line))).toEqual([
+			{ phase: "web tests", started: expect.any(String), within: "tests" },
+			{ phase: "web tests", ms: expect.any(Number), within: "tests" },
+		]);
 	});
 
 	it("appends a phase's peak memory to the gate's file", async () => {

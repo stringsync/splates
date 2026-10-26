@@ -28,11 +28,14 @@ export type {
 	DiffSize,
 	FailedTest,
 	GateFailure,
+	LivePhase,
 	MergeFailure,
+	MergeProgress,
+	MergeStep,
 	MergeTimes,
 	RemoveReason,
 	TaskState,
 	Worktree,
 } from "./worktree";
-export { REMOVE_REASONS } from "./worktree";
+export { MERGE_STEPS, REMOVE_REASONS } from "./worktree";
 export { taskOf, WorktreeService } from "./worktree-service";

@@ -266,6 +266,11 @@ export function need(
 			? { kind: "assuming", subject: first.text, questions: open }
 			: working(task);
 	}
+	// Its turn ended on a merge it left running in the background: the
+	// merge is the work under way, as it is while the turn waits on it.
+	if (task?.mergeSince != null) {
+		return working(task);
+	}
 	const last = conversation.messages.at(-1);
 	const ended = last?.until ?? last?.at ?? null;
 	if (first !== undefined) {

@@ -11,10 +11,17 @@ import {
 	PREMERGE_TIMEOUT_MS,
 	RECENT_FAILED_FILES,
 } from "../server/shared";
+import type { LivePhase } from "../tasks";
 import type { Shell } from "../terminal";
 import type { GateTrail } from "./cores";
 import { TimedPhases } from "./phases";
 import type { MergeTiming } from "./timing";
+
+/** How often a whole gate's phases are read while it runs, to show it moving. */
+const PHASES_EVERY_MS = 2000;
+
+/** Told a whole gate's phases so far each time they change while it runs. */
+export type OnPhases = (phases: LivePhase[]) => Promise<void>;
 
 /** How long a merge waits for the premerge lock before its line says it is queued. */
 export const QUEUED_AFTER_MS = 1000;
@@ -144,7 +151,8 @@ export class MergeGate {
 	/**
 	 * Runs the gate in `cwd`, or just the test `files` of a retest, which with
 	 * `at` run on that commit of the repository instead. The whole gate runs
-	 * the `recent` test files that failed earlier gates before the rest.
+	 * the `recent` test files that failed earlier gates before the rest, and
+	 * tells `onPhases` its phases as they start and end.
 	 */
 	async run(
 		cwd: string,
@@ -153,7 +161,13 @@ export class MergeGate {
 			files,
 			at,
 			recent,
-		}: { files?: string[]; at?: string; recent?: string[] } = {},
+			onPhases,
+		}: {
+			files?: string[];
+			at?: string;
+			recent?: string[];
+			onPhases?: OnPhases;
+		} = {},
 	): Promise<GateRun> {
 		using _time = this.timing.track("gateMs");
 		// Each run is bounded on its own, so the hold starts over with it: a
@@ -163,7 +177,7 @@ export class MergeGate {
 			if (files === undefined ? !this.command : false) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 			}
-			return await this.runHere(cwd, task, { files, at, recent });
+			return await this.runHere(cwd, task, { files, at, recent, onPhases });
 		} catch (error) {
 			return { exitCode: 1, stdout: "", stderr: String(error), xml: "" };
 		}
@@ -173,7 +187,17 @@ export class MergeGate {
 	private async runHere(
 		cwd: string,
 		task: string,
-		{ files, at, recent }: { files?: string[]; at?: string; recent?: string[] },
+		{
+			files,
+			at,
+			recent,
+			onPhases,
+		}: {
+			files?: string[];
+			at?: string;
+			recent?: string[];
+			onPhases?: OnPhases;
+		},
 	): Promise<GateRun> {
 		if (at !== undefined) {
 			let scratch: Checkout;
@@ -213,7 +237,7 @@ export class MergeGate {
 			}
 			return result;
 		}
-		return this.runIn(cwd, task, files, recent);
+		return this.runIn(cwd, task, files, recent, onPhases);
 	}
 
 	/**
@@ -252,6 +276,7 @@ export class MergeGate {
 		task: string,
 		files: string[] | undefined,
 		recent: string[] = [],
+		onPhases?: OnPhases,
 	): Promise<GateRun> {
 		const gitDir = (
 			await this.git.out(cwd, "rev-parse", "--absolute-git-dir")
@@ -272,6 +297,10 @@ export class MergeGate {
 		const load = loadavg()[0] ?? 0;
 		const workers = await this.trail.size();
 		const started = performance.now();
+		await using _watch = this.watchPhases(
+			files === undefined ? onPhases : undefined,
+			phases,
+		);
 		const run = await this.shell.run(command, cwd, {
 			env: {
 				SPLATES_TASK: task,
@@ -310,6 +339,42 @@ export class MergeGate {
 			...run,
 			xml: await this.fs.read(report).catch(() => ""),
 			timedOut: run.exitCode !== 0 && ranMs >= timeoutMs,
+		};
+	}
+
+	/**
+	 * Reads the phases file at `path` every few seconds until disposed of,
+	 * telling `onPhases` whenever what it lists changed. A read or a telling
+	 * that fails only leaves the page a step behind.
+	 */
+	private watchPhases(
+		onPhases: OnPhases | undefined,
+		path: string,
+	): AsyncDisposable {
+		if (onPhases === undefined) {
+			return { [Symbol.asyncDispose]: async () => {} };
+		}
+		let told = "[]";
+		let telling: Promise<void> = Promise.resolve();
+		const look = async () => {
+			const phases = new TimedPhases(
+				await this.fs.read(path).catch(() => ""),
+			).live();
+			const said = JSON.stringify(phases);
+			if (said !== told) {
+				told = said;
+				await onPhases(phases).catch(() => {});
+			}
+		};
+		const timer = setInterval(() => {
+			// One at a time, so an older list never lands after a newer one.
+			telling = telling.then(look);
+		}, PHASES_EVERY_MS);
+		return {
+			[Symbol.asyncDispose]: async () => {
+				clearInterval(timer);
+				await telling;
+			},
 		};
 	}
 

@@ -1,6 +1,7 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { conversationIn, TASK } from "./conversation-address";
+import { followShown } from "./navigation";
 import type { Page } from "./page-route";
 import { isMain } from "./terminals";
 
@@ -60,7 +61,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 
 	/**
 	 * Follows the address as the browser moves it, by its back and forward or
-	 * a link, until disposed.
+	 * a link, or as `NavigationContext`'s `show` does, until disposed.
 	 */
 	attach(): Resource {
 		const disposer = new Disposer();
@@ -70,6 +71,9 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			window.addEventListener(event, this.follow);
 			disposer.defer(() => window.removeEventListener(event, this.follow));
 		}
+		// An address in this project, as the merge popover opens, moves no
+		// hash the browser tells of.
+		disposer.defer(followShown(this.follow));
 		return disposer;
 	}
 

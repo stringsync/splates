@@ -6,7 +6,7 @@ import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
 import type { FinishedPlan } from "./finished";
 import { landingNotices } from "./landings";
-import type { DiffSize, Gate, Worktree } from "./worktree";
+import type { DiffSize, Gate, MergeProgress, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -70,6 +70,8 @@ export interface Details {
 	mergeSince: string | null;
 	/** Its merge's place in line for the premerge lock while it waits, 1 next; null otherwise. */
 	mergePlace: number | null;
+	/** How far its merge under way has got; null with none under way. */
+	mergeSteps: MergeProgress | null;
 	ahead: number | null;
 	/**
 	 * Whether removing it would lose work: commits its base does not have, or
@@ -187,6 +189,7 @@ export class TaskDetails {
 			gate: worktree.gate,
 			mergeSince: worktree.mergeSince,
 			mergePlace: worktree.mergePlace,
+			mergeSteps: worktree.mergeSteps,
 			ahead,
 			unmerged:
 				// Unknown counts as unmerged, so nothing is discarded unasked.

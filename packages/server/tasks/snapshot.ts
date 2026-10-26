@@ -157,6 +157,7 @@ export function fingerprint({
 			task.gate,
 			task.mergeSince,
 			task.mergePlace,
+			task.mergeSteps,
 			task.comingConflict,
 			task.ahead,
 			task.unmerged,

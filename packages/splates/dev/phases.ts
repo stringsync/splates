@@ -3,7 +3,8 @@ import { type Fs, NodeFs, type Ps } from "webappwiz/system";
 
 /**
  * Times the phases of a merge's gate for its log entry, appending each to the
- * file the gate names in `SPLATES_GATE_PHASES`; outside a gate it only runs them.
+ * file the gate names in `SPLATES_GATE_PHASES` as it starts and as it ends;
+ * outside a gate it only runs them.
  */
 export class PhaseTimer {
 	constructor(
@@ -23,6 +24,13 @@ export class PhaseTimer {
 	): Promise<T> {
 		const path = this.ps.env(GATE_PHASES);
 		const started = performance.now();
+		// So the page can show it under way, not only once it ends.
+		if (path) {
+			await this.fs.append(
+				path,
+				`${JSON.stringify({ phase, started: new Date().toISOString(), ...(within ? { within } : {}) })}\n`,
+			);
+		}
 		try {
 			return await run();
 		} finally {

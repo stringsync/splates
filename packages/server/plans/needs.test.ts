@@ -86,6 +86,28 @@ describe("needs", () => {
 		});
 	});
 
+	it("says an agent whose turn ended on a merge left running is merging", () => {
+		const since = "2026-10-23T12:00:00.000Z";
+		const idle = talk({ status: "idle" });
+
+		expect(need(task({ gate: "running", mergeSince: since }), idle)).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "running",
+			mergeSince: since,
+		});
+		expect(
+			need(task({ gate: "queued", mergeSince: since, mergePlace: 3 }), idle),
+		).toEqual({
+			kind: "working",
+			subject: null,
+			merge: "queued",
+			mergeSince: since,
+			mergePlace: 3,
+		});
+		expect(need(task(), idle)).toEqual({ kind: "idle" });
+	});
+
 	it("waits on a review its last reply asks for, once its turn ends", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const reviewing = talk({
@@ -423,6 +445,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		gate: null,
 		mergeSince: null,
 		mergePlace: null,
+		mergeSteps: null,
 		ahead: 1,
 		unmerged: true,
 		added: 1,

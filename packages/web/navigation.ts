@@ -13,7 +13,7 @@ export interface Navigation {
 }
 
 /** Told whenever `show` moves the address, which `popstate` never says. */
-const SHOWN = new EventTarget();
+const SHOWN = new Set<() => void>();
 
 /**
  * Moves the address to `url` in an entry of its own, and has the page draw
@@ -34,7 +34,9 @@ export function showAddress(url: string): void {
 	// so the page's own back button never steps out of the project.
 	history.replaceState({ ...history.state, scroll: scrollY }, "");
 	history.pushState({ at: next.hash, scroll: 0 }, "", next);
-	SHOWN.dispatchEvent(new Event("shown"));
+	for (const changed of [...SHOWN]) {
+		changed();
+	}
 }
 
 /**
@@ -45,11 +47,17 @@ export function useShownProject(): string | null {
 	return useSyncExternalStore(follow, shownProject);
 }
 
+/** Calls `changed` each time `show` moves the address, until the returned stop. */
+export function followShown(changed: () => void): () => void {
+	SHOWN.add(changed);
+	return () => SHOWN.delete(changed);
+}
+
 function follow(changed: () => void): () => void {
-	SHOWN.addEventListener("shown", changed);
+	const unfollow = followShown(changed);
 	window.addEventListener("popstate", changed);
 	return () => {
-		SHOWN.removeEventListener("shown", changed);
+		unfollow();
 		window.removeEventListener("popstate", changed);
 	};
 }

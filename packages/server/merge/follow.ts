@@ -10,13 +10,11 @@ export type Followed =
 	| { doomed: true };
 
 /**
- * Waits for the premerge lock as a merge offered to any batch: answers each
- * leader's invitation by stacking the branch on the tip it names, and
- * returns the batch's result once one lands or refuses it, giving the wait
- * up, or the lock once it is had with no result, which makes this merge
- * the next leader. Either way the branch is left on `ownHead` unless the
- * batch landed it. `doomed`, asked each poll while the branch is on no stack,
- * ends the wait with `{ doomed: true }` once it answers true, the ticket gone.
+ * Waits for the premerge lock as a merge offered to any batch, and says
+ * what came of it: the result of a batch that landed or refused the branch,
+ * `{ doomed: true }` once `doomed` answers true while the branch is on no
+ * stack, or the lock, which makes this merge the next leader. The branch is
+ * left on `ownHead` unless a batch landed it.
  */
 export async function follow(
 	{
@@ -52,6 +50,8 @@ export async function follow(
 	},
 	reserve: (signal: AbortSignal) => Promise<AsyncDisposable>,
 ): Promise<Followed> {
+	// Each leader's invitation is answered by stacking the branch on the tip
+	// it names; a batch's result gives the wait up, the ticket gone.
 	const controller = new AbortController();
 	let result: Settled | null = null;
 	let stacked = false;
@@ -152,4 +152,65 @@ export async function follow(
 		);
 	}
 	return { capacity };
+}
+
+/**
+ * Waits for the premerge lock as a merge offered to no batch. `doomed`,
+ * asked every `pollMs`, ends the wait with `{ doomed: true }` once it
+ * answers true.
+ */
+export async function waitAlone(
+	reserve: (signal: AbortSignal) => Promise<AsyncDisposable>,
+	doomed?: () => Promise<boolean>,
+	pollMs = 1000,
+): Promise<Followed> {
+	const waiting = new AbortController();
+	const poll = setInterval(() => {
+		if (doomed) {
+			void doomed().then((yes) => {
+				if (yes) {
+					waiting.abort(new Error("the branch conflicts with the base"));
+				}
+			});
+		}
+	}, pollMs);
+	try {
+		return { capacity: await reserve(waiting.signal) };
+	} catch (error) {
+		if (!waiting.signal.aborted) {
+			throw error;
+		}
+		return { doomed: true };
+	} finally {
+		clearInterval(poll);
+	}
+}
+
+/**
+ * Asks whether `base`, once it moves past `seen`, conflicts with the
+ * branch's tip `head`: true only for a merge that would conflict, so a
+ * wait it ends never lets anything through.
+ */
+export function conflictsOnBase(
+	git: Git,
+	base: string,
+	seen: string | null,
+	head: string,
+): () => Promise<boolean> {
+	let seenBase = seen;
+	return async () => {
+		const tip = await git.run(git.root, "rev-parse", "--verify", base);
+		if (tip.code !== 0 || tip.stdout === seenBase) {
+			return false;
+		}
+		seenBase = tip.stdout;
+		const merged = await git.run(
+			git.root,
+			"merge-tree",
+			"--write-tree",
+			tip.stdout,
+			head,
+		);
+		return merged.code === 1;
+	};
 }

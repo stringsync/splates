@@ -1,6 +1,7 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
+import { showAddress } from "./navigation";
 import { PageAddress, ruleAddress, todoAddress } from "./page-address";
 
 /** Waits for the browser to move through its history, as a swipe does. */
@@ -48,6 +49,16 @@ describe("PageAddress", () => {
 		expect(location.hash).toBe("#conversations");
 		await traverse(() => history.forward());
 		expect(address.open).toBe("c1");
+	});
+
+	it("follows an address in its own project that the page's navigation shows", () => {
+		const url = new URL(location.href);
+		url.hash = "#conversations/c7";
+
+		showAddress(url.toString());
+
+		expect(address.page).toBe("conversations");
+		expect(address.open).toBe("c7");
 	});
 
 	it("leaves no entry for a move made in place of the one open", () => {

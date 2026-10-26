@@ -53,6 +53,7 @@ import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
+import { MergeProgress } from "./merge-progress";
 import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
@@ -309,6 +310,7 @@ function Conversation({
 						phone={onBack !== null}
 					/>
 				)}
+				{task !== null && <MergeProgress task={task} phone={onBack !== null} />}
 				<PhoneSheets
 					conversation={id}
 					on={onBack !== null}

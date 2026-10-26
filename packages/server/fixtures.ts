@@ -38,6 +38,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		gate: null,
 		mergeSince: null,
 		mergePlace: null,
+		mergeSteps: null,
 		ahead: 1,
 		unmerged: true,
 		added: 2,

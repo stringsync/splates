@@ -56,4 +56,38 @@ describe("TimedPhases", () => {
 			setup: 2000,
 		});
 	});
+
+	it("leaves a phase's start line out of its time", () => {
+		const lines = [
+			'{"phase":"biome","started":"2026-10-26T10:00:00.000Z"}',
+			'{"phase":"biome","ms":1000}',
+		].join("\n");
+
+		expect(new TimedPhases(lines).of(1500)).toEqual({
+			biome: 1000,
+			setup: 500,
+		});
+	});
+
+	it("lists a running gate's phases in the order they started, timed once they end", () => {
+		const lines = [
+			'{"phase":"biome","started":"2026-10-26T10:00:00.000Z"}',
+			'{"phase":"biome","ms":1000}',
+			'{"phase":"scry","ms":20}',
+			'{"phase":"tests","started":"2026-10-26T10:00:02.000Z"}',
+			'{"phase":"web tests","started":"2026-10-26T10:00:02.100Z","within":"tests"}',
+			'{"pha',
+		].join("\n");
+
+		expect(new TimedPhases(lines).live()).toEqual([
+			{ phase: "biome", at: "2026-10-26T10:00:00.000Z", ms: 1000 },
+			{ phase: "scry", ms: 20 },
+			{ phase: "tests", at: "2026-10-26T10:00:02.000Z" },
+			{
+				phase: "web tests",
+				at: "2026-10-26T10:00:02.100Z",
+				within: "tests",
+			},
+		]);
+	});
 });

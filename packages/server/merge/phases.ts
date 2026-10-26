@@ -1,4 +1,5 @@
 import type { GatePhases } from "../records";
+import type { LivePhase } from "../tasks";
 
 /** The phases a gate's command timed, from the lines it appended to `SPLATES_GATE_PHASES`. */
 export class TimedPhases {
@@ -30,6 +31,50 @@ export class TimedPhases {
 			peaks[peaked.phase] = Math.max(peaks[peaked.phase] ?? 0, peaked.value);
 		}
 		return peaks;
+	}
+
+	/**
+	 * The phases so far of a gate still running, in the order they started:
+	 * each from the line that says it started, given its time once a line
+	 * says it ended. A phase whose command marks only its end shows once it
+	 * has.
+	 */
+	live(): LivePhase[] {
+		const phases: LivePhase[] = [];
+		for (const line of this.lines.split("\n")) {
+			let value: unknown;
+			try {
+				value = JSON.parse(line);
+			} catch {
+				continue;
+			}
+			if (
+				typeof value !== "object" ||
+				value === null ||
+				!("phase" in value) ||
+				typeof value.phase !== "string"
+			) {
+				continue;
+			}
+			const { phase } = value;
+			const started: unknown = Reflect.get(value, "started");
+			const ms: unknown = Reflect.get(value, "ms");
+			const within: unknown = Reflect.get(value, "within");
+			const inside = typeof within === "string" ? { within } : {};
+			if (typeof started === "string") {
+				phases.push({ phase, at: started, ...inside });
+			} else if (typeof ms === "number") {
+				const open = phases.find(
+					(each) => each.phase === phase && each.ms === undefined,
+				);
+				if (open === undefined) {
+					phases.push({ phase, ms, ...inside });
+				} else {
+					open.ms = ms;
+				}
+			}
+		}
+		return phases;
 	}
 
 	/** The lines that name a phase and give `field` as a number. */

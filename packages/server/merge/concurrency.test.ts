@@ -10,6 +10,7 @@ import { join } from "node:path";
 import type { Lock } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import type { Facts } from "../records";
+import { eventually } from "../server/testing";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
@@ -252,6 +253,42 @@ describe("merge concurrency", () => {
 		expect(await deps.fs.exists(join(alpha, "late.txt"))).toBe(true);
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+	it("keeps the merge's steps and its premerge's phases on the record as it goes", async () => {
+		alphaPs.simulate(async () => {
+			const phases = alphaPs.getCallEnvs().at(-1)?.SPLATES_GATE_PHASES ?? "";
+			await deps.fs.append(
+				phases,
+				`${JSON.stringify({ phase: "biome", started: "2026-10-26T10:00:00.000Z" })}\n`,
+			);
+			alphaStarted.resolve();
+			await alphaRelease.promise;
+			return 0;
+		});
+		const running = merge(
+			{ ...deps, shell: new Shell({ ps: alphaPs }) },
+			alpha,
+		);
+		try {
+			await alphaStarted.promise;
+			const record = () => deps.service.find("alpha");
+			expect(
+				await eventually(
+					async () => (await record()).mergeSteps?.phases !== undefined,
+					10_000,
+				),
+			).toBe(true);
+			expect((await record()).mergeSteps).toEqual({
+				steps: [
+					{ step: "rebase", at: expect.any(String) },
+					{ step: "test", at: expect.any(String) },
+				],
+				phases: [{ phase: "biome", at: "2026-10-26T10:00:00.000Z" }],
+			});
+		} finally {
+			alphaRelease.resolve();
+			await running;
+		}
 	});
 });
 

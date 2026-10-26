@@ -102,6 +102,12 @@ export class Worktree {
 		return place !== undefined && this.leaseHeld ? place : null;
 	}
 
+	/** How far the merge under way has got, while it still runs; null otherwise. */
+	get mergeSteps(): MergeProgress | null {
+		const steps = this.snapshot.state?.mergeSteps;
+		return steps !== undefined && this.leaseHeld ? steps : null;
+	}
+
 	get leaseStatus(): "held" | "stale" | "none" {
 		return !this.lease ? "none" : this.leaseHeld ? "held" : "stale";
 	}
@@ -361,6 +367,49 @@ export type RecordStatus = "working" | "merging";
 /** Where a merge stands before it lands, as `TaskState.gate` keeps it. */
 export type Gate = "queued" | "running";
 
+/**
+ * A step of a merge, in the order a merge takes them: rebasing onto its base
+ * and squashing, running the checks that come before the line, waiting its
+ * turn for the premerge lock, running the premerge, landing on the base, and
+ * finishing up, its worktree removed.
+ */
+export type MergeStep =
+	| "rebase"
+	| "check"
+	| "wait"
+	| "test"
+	| "land"
+	| "finish";
+
+/** Every step a merge may take, in order, for a page to list those to come. */
+export const MERGE_STEPS: readonly MergeStep[] = [
+	"rebase",
+	"check",
+	"wait",
+	"test",
+	"land",
+	"finish",
+];
+
+/** A phase the premerge timed while it runs, from its `SPLATES_GATE_PHASES` lines. */
+export interface LivePhase {
+	phase: string;
+	/** When it started; absent for a command that times its phases only once they end. */
+	at?: string;
+	/** How long it took, once it ended. */
+	ms?: number;
+	/** The phase it runs inside of, beside its siblings. */
+	within?: string;
+}
+
+/** How far the merge under way has got, as `TaskState.mergeSteps` keeps it. */
+export interface MergeProgress {
+	/** Each step it reached, in order, with when it began; the last runs now. */
+	steps: { step: MergeStep; at: string }[];
+	/** The premerge's phases so far, while it tests. */
+	phases?: LivePhase[];
+}
+
 /** What a task's record stores about who is driving it. */
 export interface LeaseState {
 	pid: number;
@@ -461,6 +510,8 @@ export interface TaskState {
 	mergeSince?: string;
 	/** Its place in line for the lock while it waits, 1 being next. Absent otherwise. */
 	mergePlace?: number;
+	/** The steps the merge under way has taken, and its premerge's phases. Absent otherwise. */
+	mergeSteps?: MergeProgress;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];

@@ -1,6 +1,6 @@
 import type { WorktreeService } from "../tasks";
 /**
- * Takes `gate`, `mergeSince` and `mergePlace` off the task's record once its merge ends, landed or not, so
+ * Takes `gate`, `mergeSince`, `mergePlace` and `mergeSteps` off the task's record once its merge ends, landed or not, so
  * a later lease on it shows no merge under way. A landed task has no record
  * left to change.
  */
@@ -15,6 +15,7 @@ export async function clearGate(
 			gate: undefined,
 			mergeSince: undefined,
 			mergePlace: undefined,
+			mergeSteps: undefined,
 		});
 	}
 }
