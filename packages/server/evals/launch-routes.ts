@@ -47,9 +47,13 @@ export class EvalLaunchRoutes {
 				? await this.dirs.cwdOf(conversation)
 				: null;
 		const skillDir = cwd === null ? null : join(cwd, "skills", "splates");
+		// The task worktree's own harness, when the conversation has one.
+		const evalCheckout =
+			cwd !== null && existsSync(join(cwd, "bin/splates")) ? cwd : null;
 		return Response.json(
 			await this.ready().start({
 				...spec,
+				evalCheckout,
 				key,
 				conversation: conversation ?? null,
 				// The conversation's skill, as its task edits it, when it has one.

@@ -43,7 +43,9 @@ describe("EvalLaunchRoutes", () => {
 		const response = await routes.start(launch(sent));
 
 		expect(response.status).toBe(200);
-		expect(started).toEqual([{ ...sent, conversation: null, skillDir: null }]);
+		expect(started).toEqual([
+			{ ...sent, conversation: null, skillDir: null, evalCheckout: null },
+		]);
 	});
 
 	it("passes on the conversation whose card it is, to tell it when the run is done", async () => {

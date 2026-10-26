@@ -27,6 +27,8 @@ export interface EvalLaunchSpec {
 	conversation?: string | null;
 	/** The skill to run, the conversation's own when it has one; the checkout's when null. */
 	skillDir?: string | null;
+	/** The checkout whose harness, scenarios and judge run, the conversation's task worktree; the server's own when null. */
+	evalCheckout?: string | null;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -108,7 +110,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	async plan(spec: Omit<EvalLaunchSpec, "key">): Promise<EvalPlan> {
 		const { exitCode, stdout, stderr } = await this.opts.ps.spawnCapture(
 			this.argv("plan", spec),
-			{ cwd: this.opts.checkout },
+			{ cwd: spec.evalCheckout ?? this.opts.checkout },
 		);
 		const output = `${stdout}${stderr}`.trim();
 		const runs = /^runs (\d+)$/m.exec(output);
@@ -128,7 +130,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 		}
 		const known = new Set(await this.batches());
 		const child = this.opts.ps.start(this.argv("run", spec), {
-			cwd: this.opts.checkout,
+			cwd: spec.evalCheckout ?? this.opts.checkout,
 		});
 		const launch: Launched = {
 			id: crypto.randomUUID(),
@@ -179,7 +181,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 		spec: Omit<EvalLaunchSpec, "key">,
 	): string[] {
 		return [
-			join(this.opts.checkout, "bin/splates"),
+			join(spec.evalCheckout ?? this.opts.checkout, "bin/splates"),
 			"dev",
 			"eval",
 			command,

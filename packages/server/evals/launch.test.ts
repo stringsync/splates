@@ -55,6 +55,16 @@ describe("EvalLaunches", () => {
 
 		expect(finished).toEqual([]);
 	});
+
+	it("runs the evals of the task worktree it is given, writing batches where the page reads", async () => {
+		const worktree = await taskWorktree(deps.root);
+		await launches.start({ ...spec, evalCheckout: worktree });
+		await done(launches);
+
+		const launch = await launches.get("card-1");
+		expect(launch?.batch).toBe("batch-wt");
+		expect(launch?.output).toContain("worktree");
+	});
 });
 
 /** Waits for card-1's run to end. */
@@ -66,4 +76,17 @@ async function done(launches: EvalLaunches): Promise<void> {
 		await Bun.sleep(10);
 	}
 	throw new Error("the run never ended");
+}
+
+/** A task worktree whose runner writes a batch and prints where it ran. */
+async function taskWorktree(root: string): Promise<string> {
+	const worktree = join(root, "task-worktree");
+	await mkdir(join(worktree, "bin"), { recursive: true });
+	const runner = join(worktree, "bin/splates");
+	await writeFile(
+		runner,
+		`#!/bin/sh\nmkdir -p "${join(root, "evals")}/batch-wt"\npwd\n`,
+	);
+	await chmod(runner, 0o755);
+	return worktree;
 }
