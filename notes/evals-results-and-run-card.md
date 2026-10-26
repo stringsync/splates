@@ -14,6 +14,18 @@ pass, fail, error, pending and unreadable. Results of the old harness in
 The agents a run uses are machine-wide in `~/.splates/eval-agents.json`;
 the harness runs `claude` and `codex`.
 
+The model picker draws from the ACP roster, but evals run the native CLIs.
+A model listed there is not proof that the native CLI's account can use it.
+Codex receives the saved model as `codex exec --model`; an explicit saved
+model overrides its own configured default. A `model_not_found` error needs
+the saved eval pick corrected, not another run of the same batch. Verify the
+replacement with a minimal native response under that CLI's login first.
+On this machine, `gpt-6.1-sol` was rejected while `gpt-6-astra` completed a
+response; the saved Codex eval pick was changed to `gpt-6-astra`.
+Before starting, a run card re-reads the saved picks. If they changed since
+the card loaded, it shows the new picks and plan and waits for another Run,
+so an already-open card cannot keep submitting the rejected model.
+
 An agent never starts a paid run: it ends its reply with a `## 🔐
 Permission: run evals` card listing scenario ids and an optional
 `Baseline:`, and the page shows it with the saved agents and the run's

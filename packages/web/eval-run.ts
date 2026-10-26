@@ -169,6 +169,28 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	/** The person's Run: starts the paid run, then follows it. */
 	async run(): Promise<void> {
 		try {
+			const saved = await this.server.savedAgents();
+			if (
+				saved.length !== this.agents.length ||
+				saved.some((pick, at) => {
+					const shown = this.agents[at]?.pick;
+					return (
+						pick.agent !== shown?.agent ||
+						pick.model !== shown?.model ||
+						pick.effort !== shown?.effort
+					);
+				})
+			) {
+				// A card can outlive a correction to a rejected model. Show the
+				// new picks and cost before the person authorizes that run.
+				this.agents = saved.map((pick) => ({ pick, on: true }));
+				this.plan = null;
+				this.refusal =
+					"Saved eval agents changed. Review the updated agents and press Run again.";
+				this.changed();
+				await this.replan();
+				return;
+			}
 			this.launch = await this.server.start(this.key, {
 				...this.request(),
 				conversation: this.conversation,

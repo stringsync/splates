@@ -3,6 +3,7 @@ import type {
 	EvalGrid,
 	EvalLaunch,
 } from "@stringsync/splates-server/evals/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import { FakeTimer } from "webappwiz/time/testing";
 import { EvalRun, type EvalRunServer } from "./eval-run";
 
@@ -61,6 +62,27 @@ describe("EvalRun", () => {
 		expect(run.running).toBe(false);
 		expect(run.grid?.tally.pass).toBe(4);
 	});
+
+	it("refreshes a corrected model before starting a card loaded with the old pick", async () => {
+		server.agents = [{ agent: "codex", model: "gpt-6.1-sol" }];
+		const run = EvalRun.of(proposal(), { server, timer });
+		await run.load();
+		server.agents = [{ agent: "codex", model: "gpt-6-astra" }];
+
+		await run.run();
+
+		expect(server.started).toEqual([]);
+		expect(run.picked).toEqual(server.agents);
+		expect(run.refusal).toContain("Saved eval agents changed");
+		expect(run.plan?.usd).toBe(8);
+
+		await run.run();
+
+		expect(server.started).toEqual([
+			{ ...ASK, agents: server.agents, conversation: null },
+		]);
+		expect(run.refusal).toBeNull();
+	});
 });
 
 const ASK = {
@@ -70,12 +92,16 @@ const ASK = {
 };
 
 class FakeEvalServer implements EvalRunServer {
+	agents: AgentPick[] = [
+		{ agent: "claude", model: "opus" },
+		{ agent: "codex" },
+	];
 	started: unknown[] = [];
 	launched: EvalLaunch | null = null;
 	pending = 2;
 
 	async savedAgents() {
-		return [{ agent: "claude", model: "opus" }, { agent: "codex" }];
+		return this.agents;
 	}
 	async scenarios() {
 		return [
