@@ -358,6 +358,26 @@ describe.concurrent("merge", () => {
 		expect(facts.output).toContain("refused-by-hook");
 	});
 
+	it("refuses a failing preLock check before the premerge lock is taken, and hands the gate the commit it passed on", async () => {
+		await using deps = await Testing.open();
+
+		deps.config.preLock = "echo bad-check; exit 1";
+		deps.config.preMerge = "touch gate-ran";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await expect(merge(deps, worktree)).toBail("tests_failed", {
+			message: ["bad-check"],
+		});
+		expect(await deps.fs.exists(join(worktree, "gate-ran"))).toBe(false);
+		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
+
+		deps.config.preLock = "true";
+		deps.config.preMerge = 'git rev-parse HEAD | grep -q "$SPLATES_CHECKED"';
+		await merge(deps, worktree);
+	});
+
 	it("leaves the branch rebased on the tested trunk and trunk alone when the gate fails", async () => {
 		await using deps = await Testing.open();
 

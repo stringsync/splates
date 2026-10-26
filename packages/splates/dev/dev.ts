@@ -83,6 +83,11 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			default: false,
 			description: "run the package's and the eval harness's tests together",
 		})
+		.option("checks", z.boolean(), {
+			default: false,
+			description:
+				"run the checks alone, without the lock or the tests, as a merge does before it waits for the lock",
+		})
 		.action((opts, { log, ps }) => premerge({ ...opts, log, ps }));
 
 	dev

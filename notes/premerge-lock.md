@@ -50,6 +50,19 @@ reformed groups. See `merge-pipeline.md`,
 Batches. A waiter that a batch lands gives its wait up through the
 `AbortSignal` `TicketedLock.acquire` takes, leaving no ticket.
 
+## Checks before the line
+
+A merge with `config.preLock` runs it after the first rebase, before it joins
+the line (`merge/pre-lock.ts`, `MergeGate.checkBeforeLock`): this repo's is
+`dev premerge --checks`, biome, tsc and scry, which need neither the lock nor
+the cores. On 2026-10-25/26 every `environment` gate failure was a check
+failure, scry each time, and 4 waited 15 to 89s for the lock first. A failure
+refuses as `tests_failed`, blamed on the `environment`, with the check's
+output. A pass sets `SPLATES_CHECKED` to the commit it passed on for the gate:
+`dev premerge` there runs no checks when its tree is that commit, and only
+biome and tsc, keeping scry's earlier result, when the base moved while it
+waited (or the gate runs in a batch's stacked checkout).
+
 ## What the gate sets
 
 - `SPLATES_PREMERGE`, so the `dev premerge` it runs goes ahead without
@@ -128,6 +141,7 @@ this lock again.
 - `packages/server/merge/cores.ts`: `gateCores`, `GateTrail`, `lingering`
 - `packages/server/merge/merge.ts`: the `timeout` refusal
 - `packages/server/merge/recent-failures.ts`: `recentFailedFiles`
+- `packages/server/merge/pre-lock.ts`: the refusal of a failed `preLock`
 - `packages/splates/dev/premerge.ts`
 - `packages/server/testing.ts`: `Testing`
 

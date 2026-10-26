@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	CHECKED_COMMIT,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
@@ -19,6 +20,8 @@ import { refuseWholeSuite, test } from "./test";
 export interface PremergeOptions {
 	/** Run the eval harness's tests only. */
 	evals?: boolean;
+	/** Run the checks alone, without the lock or the tests: a merge's `preLock`. */
+	checks?: boolean;
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
 	log?: Logger;
@@ -37,6 +40,9 @@ export interface PremergeOptions {
 export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const ps = opts.ps ?? new NodePs();
+	if (opts.checks) {
+		return await checkOnly(opts, log, ps);
+	}
 	if (ps.env(PREMERGE_HELD) !== undefined) {
 		return await checkAndTest(opts, log);
 	}
@@ -52,6 +58,39 @@ export async function premerge(opts: PremergeOptions): Promise<void> {
 	} finally {
 		await lock.release();
 	}
+}
+
+/** The checks alone, as a merge runs them before it waits for the lock. */
+async function checkOnly(
+	_opts: PremergeOptions,
+	log: Logger,
+	ps: Ps,
+): Promise<void> {
+	await fix({
+		check: true,
+		log,
+		ps,
+		priority: new AgentPriority(ps, { premerge: true }),
+	}).catch((error: unknown) => {
+		log.error("premerge: the checks failed, so no tests ran");
+		throw error;
+	});
+}
+
+/**
+ * What the checks a merge ran before the lock leave to do: nothing when the
+ * tree is the commit they passed on, else biome and the type checker, which
+ * a newer base can break, with scry's earlier result kept.
+ */
+async function checksLeft(ps: Ps): Promise<"all" | "none" | "code"> {
+	const checked = ps.env(CHECKED_COMMIT);
+	if (!checked) {
+		return "all";
+	}
+	const head = await ps.spawnCapture(["git", "rev-parse", "HEAD"], {
+		cwd: ROOT,
+	});
+	return head.stdout.trim() === checked ? "none" : "code";
 }
 
 /** The files still in the tree. */
@@ -73,12 +112,20 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
 	const priority = new AgentPriority(ps, { premerge: true });
 	const phases = new PhaseTimer(ps);
-	await fix({ check: true, log, priority, phases, ps }).catch(
-		(error: unknown) => {
+	const left = await checksLeft(ps);
+	if (left !== "none") {
+		await fix({
+			check: true,
+			skipScry: left === "code",
+			log,
+			priority,
+			phases,
+			ps,
+		}).catch((error: unknown) => {
 			log.error("premerge: the checks failed, so no tests ran");
 			throw error;
-		},
-	);
+		});
+	}
 	// Files that failed recent gates run first, and stop the gate when they
 	// fail again; nothing is skipped, as the whole suite follows.
 	const recent = await existing(

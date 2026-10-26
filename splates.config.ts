@@ -4,6 +4,7 @@ export default {
 	// A fresh tree has no workspace links yet, so bootstrap before loading the CLI.
 	postCheckout: "bun install",
 	postRewrite: "bun install",
+	preLock: "./bin/splates dev premerge --checks",
 	preMerge: "./bin/splates dev premerge",
 	remote: null,
 } satisfies ConfigFile;

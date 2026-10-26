@@ -17,6 +17,7 @@ export {
 export { DEFAULT_PORT } from "./ports";
 export {
 	BESIDE_GATE_NICE,
+	CHECKED_COMMIT,
 	GATE_PHASES,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,

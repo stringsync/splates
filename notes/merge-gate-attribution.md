@@ -14,6 +14,8 @@ task for them all when several fail together and none is pinned on the code.
   no gate when neither is set.
 - It runs with `SPLATES_TASK`, `SPLATES_WORKTREE`, `SPLATES_PREMERGE` and
   `SPLATES_TEST_REPORT`, a JUnit path under the git dir.
+- `config.preLock`, when set, ran before that wait; its failure is refused
+  the same way as an `environment` failure (`premerge-lock.md`).
 - Before taking the merge-tree lock it waits for the machine's premerge lock
   (`premerge-lock.md`).
 - It is killed past 3 minutes.

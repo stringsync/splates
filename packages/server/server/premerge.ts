@@ -10,11 +10,12 @@ import { type PlacedLock, TicketedLock } from "./ticketed-lock";
  */
 export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
+/** The commit the `preLock` checks passed on, set for the gate's `dev premerge`. */
+export const CHECKED_COMMIT = "SPLATES_CHECKED";
+
 /**
- * The nice an agent's own runs take beside a merge gate, so the gate keeps
- * the CPU on a busy machine and its git-spawning tests stop timing out:
- * pass it to `nice -n` or `os.setPriority` for anything an agent runs that
- * is not the gate.
+ * The nice for anything an agent runs beside a merge gate that is not the
+ * gate, so the gate keeps the CPU: pass it to `nice -n` or `os.setPriority`.
  */
 // The gate runs in the agent's own `splates merge`, so it cannot be raised;
 // what runs beside it is lowered instead. Measured on a Mac with the cores

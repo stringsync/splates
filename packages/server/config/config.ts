@@ -47,6 +47,14 @@ export interface Config {
 	 */
 	preMerge: string | null;
 	/**
+	 * Command run by `merge` after the first rebase, via `sh -c`, before the
+	 * merge waits for the premerge lock, so a check that needs neither the lock
+	 * nor the cores fails without the wait. A nonzero exit refuses the merge as
+	 * a failed gate. `preMerge` then runs with `$SPLATES_CHECKED` set to the
+	 * commit this passed on, so it can skip what that run covered.
+	 */
+	preLock: string | null;
+	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
 	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:

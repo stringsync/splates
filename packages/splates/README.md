@@ -63,7 +63,8 @@ Keep sensitive information out of them.
 **One premerge at a time.** Each merge's gate (`postRewrite` and
 `preMerge`) holds the machine's premerge lock, so merges from several agents
 test one after another rather than run the machine out of memory. A gate
-that runs past 3 minutes is killed, and the agent merges again.
+that runs past 3 minutes is killed, and the agent merges again. A `preLock`
+command, if set, runs before the wait, so checks that need no lock fail first.
 
 **Pushing.** With `remote: "origin"` in `splates.config.ts`, each task's
 branch goes to that remote as `splates/<task>`: after every commit an agent

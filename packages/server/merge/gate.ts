@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import {
+	CHECKED_COMMIT,
 	GATE_PHASES,
 	type PlacedLock,
 	PREMERGE_HELD,
@@ -99,6 +100,35 @@ export class MergeGate {
 		}
 		return { [Symbol.asyncDispose]: () => this.premerge.release() };
 	}
+
+	/** The checks to run before the merge waits for the lock, or "". */
+	get preLock(): string {
+		return this.config.preLock ?? "";
+	}
+
+	/**
+	 * Runs the `preLock` checks in `cwd` before the merge joins the line, for
+	 * the whole gate to skip once it passed on this commit. Needs neither the
+	 * lock nor the cores, so it is not timed as the gate and holds nothing.
+	 */
+	async checkBeforeLock(cwd: string, task: string): Promise<GateRun> {
+		const command = this.config.preLock;
+		if (!command) {
+			return { exitCode: 0, stdout: "", stderr: "", xml: "" };
+		}
+		const head = (await this.git.out(cwd, "rev-parse", "HEAD")).trim();
+		const run = await this.shell.run(command, cwd, {
+			env: { SPLATES_TASK: task, SPLATES_WORKTREE: cwd },
+			timeoutMs: 180_000,
+		});
+		if (run.exitCode === 0) {
+			this.checked = head;
+		}
+		return { ...run, xml: "" };
+	}
+
+	/** The commit the `preLock` checks passed on, if they did. */
+	private checked: string | undefined;
 
 	/** How long the whole gate may run before it is killed. */
 	get timeout(): Duration {
@@ -248,6 +278,9 @@ export class MergeGate {
 				SPLATES_WORKTREE: cwd,
 				SPLATES_TEST_REPORT: report,
 				[PREMERGE_HELD]: "1",
+				...(files === undefined && this.checked !== undefined
+					? { [CHECKED_COMMIT]: this.checked }
+					: {}),
 				SPLATES_CORES: String(workers),
 				...(files === undefined
 					? {

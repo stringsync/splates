@@ -20,6 +20,7 @@ import { type Followed, follow } from "./follow";
 import { type Checkout, MergeGate } from "./gate";
 import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
+import { refuseFailedChecks } from "./pre-lock";
 import { refuseUnready } from "./preflight";
 import { queueFailedTests } from "./queue-failures";
 import { BaseRebase } from "./rebase";
@@ -215,6 +216,21 @@ export async function merge(
 			});
 			facts.began = queued ?? begun ?? null;
 		};
+		if (runner.command && runner.preLock) {
+			await refuseFailedChecks(
+				{ git, service, state, log, runner },
+				{
+					task,
+					branch: worktree.branch,
+					base,
+					cwd: worktree.path,
+					onto: firstOnto,
+					testedHead: ownHead,
+					lastBase: rebase.lastBase ?? null,
+				},
+				facts,
+			);
+		}
 		// Only a gated merge landing here batches: with a central remote each
 		// task pushes its own tested branch for the server to land.
 		const batching = remote === null && runner.command !== "";
