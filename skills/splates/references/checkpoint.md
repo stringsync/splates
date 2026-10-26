@@ -15,7 +15,10 @@ where you are and start nothing new:
    machine goes too. With no remote configured it leaves the tree alone.
    Squash the WIP commit away with the rest before merging, as Committing
    says.
-4. Reply with one line on where you stand, and end your turn.
+4. Reply with one sentence on where you stand, such as `Checkpointed
+   <task>: paused before <the step>.`, and end your turn. Leave out what
+   `SPLATES.md` already holds (open questions, what is unchanged) and what
+   `splates checkpoint` printed: the next prompt reads those for itself.
 
 `[SPLATES RESUME]`, sent after a checkpoint, means carry on: read `SPLATES.md`
 again and go on from where the current `## Next` step says you stopped.

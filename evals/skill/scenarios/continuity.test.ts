@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import { join } from "node:path";
-import { removedReport, scenarios } from "./continuity";
+import { oneSentence, removedReport, scenarios } from "./continuity";
 
 it.each([
 	["checkpoint", undefined, "Which output label should follow ready?"],
@@ -38,4 +38,17 @@ it("finds the Removed report for a task", () => {
 	);
 	expect(removedReport(reply, "other")).toBeNull();
 	expect(removedReport("## ✅ Done: nothing", "continuity")).toBeNull();
+});
+
+it.each([
+	["Checkpointed `continuity`: paused before writing `result.txt`.", true],
+	["Checkpoint saved; paused before writing result.txt, question kept.", true],
+	[
+		"Checkpointed `continuity`. `SPLATES.md` was already current, so I left it.",
+		false,
+	],
+	["Checkpointed.\nThe question is open.", false],
+	["", false],
+] as const)("reads %j as one sentence: %p", (reply, expected) => {
+	expect(oneSentence(reply)).toBe(expected);
 });

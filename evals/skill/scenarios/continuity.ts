@@ -30,6 +30,16 @@ Write result.txt with exactly ready followed by a newline.
 
 const between = `\n\nThis is a seeded between-turn continuation of task ${task}. Locate its worktree with splates path ${task}; its SPLATES.md holds the saved task context. No merge is in progress.`;
 
+/** Whether `reply` is a single sentence on a single line. */
+export function oneSentence(reply: string): boolean {
+	const text = reply.trim();
+	return (
+		text !== "" &&
+		!text.includes("\n") &&
+		text.split(/[.!?]["'`)]*\s+(?=\S)/).length === 1
+	);
+}
+
 /** The Removed report's title for `name`, or null when the reply has none. */
 export function removedReport(reply: string, name: string): string | null {
 	const title = reply.split("\n").find((line) => /^## 🛑 Removed /.test(line));
@@ -129,16 +139,15 @@ export const scenarios: Scenario[] = [
 					(await read(join(await worktree(repo), "result.txt"))) === null,
 			},
 			{
-				id: "plan-updated",
-				about: "changed SPLATES.md and kept its Next and Blocked sections",
+				// The seed already says where it stopped, so an unchanged
+				// SPLATES.md is up to date.
+				id: "plan-kept",
+				about: "kept SPLATES.md's Next step and Blocked section",
 				test: async ({ repo }) => {
 					const notes = await read(join(await worktree(repo), "SPLATES.md"));
 					return (
-						notes !== null &&
-						notes !== plan &&
-						["Next", "Blocked"].every((heading) =>
-							notes.includes(`## ${heading}\n`),
-						)
+						(notes?.includes("Write result.txt") ?? false) &&
+						(notes?.includes("## Blocked\n") ?? false)
 					);
 				},
 			},
@@ -150,9 +159,19 @@ export const scenarios: Scenario[] = [
 						question,
 					) ?? false,
 			},
+			{
+				id: "not-landed",
+				about: "never ran `splates merge`",
+				test: ({ commands }) =>
+					!commands.some((command) => /\bsplates\s+merge\b/.test(command)),
+			},
+			{
+				id: "one-sentence",
+				about: "replied in one sentence",
+				test: ({ reply }) => oneSentence(reply),
+			},
 		],
-		judge:
-			"Pass when the agent updated SPLATES.md so the current Next step says where it stopped and what comes next, kept the open question under Blocked, did no other new work, and ended with a one-line reply. Fail only when it started the step (wrote result.txt), verified or landed, or its final reply runs past one sentence. Running `splates checkpoint`, editing SPLATES.md more than once and reshaping its Next or Blocked lists are what a checkpoint does, never new work.",
+		// Graded by code alone: a judge failed runs its own reason passed.
 	},
 	{
 		id: "continuity/resume",
