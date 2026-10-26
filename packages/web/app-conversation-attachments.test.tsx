@@ -23,9 +23,17 @@ describe("App's attachments", () => {
 	/** Where each new tab the page opened was opened to. */
 	let opened: (string | URL | undefined)[];
 	let open: { mockRestore(): void };
+	let decode: typeof createImageBitmap;
 
 	beforeEach(() => {
 		testing = new Testing();
+		// The page decodes an image to draw on, which happy-dom cannot.
+		decode = globalThis.createImageBitmap;
+		globalThis.createImageBitmap = (async () => ({
+			width: 100,
+			height: 50,
+			close() {},
+		})) as unknown as typeof createImageBitmap;
 		opened = [];
 		// A new tab is outside the page.
 		// scry-ignore fakes-over-mocks
@@ -37,6 +45,7 @@ describe("App's attachments", () => {
 
 	afterEach(() => {
 		open.mockRestore();
+		globalThis.createImageBitmap = decode;
 		cleanup();
 		testing.dispose();
 	});
@@ -264,13 +273,6 @@ describe("App's attachments", () => {
 	});
 
 	it("marks up the image whose chip the caret is just after on ⌘B, and only there", async () => {
-		const decode = globalThis.createImageBitmap;
-		// The page decodes it to draw on, which happy-dom cannot.
-		globalThis.createImageBitmap = (async () => ({
-			width: 100,
-			height: 50,
-			close() {},
-		})) as unknown as typeof createImageBitmap;
 		try {
 			const { view, box } = await openEmpty();
 			await act(async () => box.focus());
@@ -299,18 +301,10 @@ describe("App's attachments", () => {
 			);
 			expect(textIn(box)).toBe("[Image 1] ");
 		} finally {
-			globalThis.createImageBitmap = decode;
 		}
 	});
 
 	it("leaves the keyboard on the annotator on a click there, though its chip is in the composer", async () => {
-		const decode = globalThis.createImageBitmap;
-		// The page decodes it to draw on, which happy-dom cannot.
-		globalThis.createImageBitmap = (async () => ({
-			width: 100,
-			height: 50,
-			close() {},
-		})) as unknown as typeof createImageBitmap;
 		try {
 			const { view, box } = await openEmpty();
 			await act(async () => box.focus());
@@ -329,7 +323,6 @@ describe("App's attachments", () => {
 
 			expect(document.activeElement).not.toBe(box);
 		} finally {
-			globalThis.createImageBitmap = decode;
 		}
 	});
 

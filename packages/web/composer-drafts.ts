@@ -43,20 +43,28 @@ export function useDraft(
 				}
 			}
 		};
+		// What the composer writes itself is no news to it: a file it just took
+		// off would come back from the draft's files, still holding it.
+		let writing = false;
 		const unsubscribe = composer.subscribe(() => {
 			const { text, attachments } = composer.getState();
-			drafts.write(key, text);
-			drafts.attach(
-				key,
-				attachments.flatMap((each) =>
-					each.file === undefined ? [] : [each.file],
-				),
-			);
+			writing = true;
+			try {
+				drafts.write(key, text);
+				drafts.attach(
+					key,
+					attachments.flatMap((each) =>
+						each.file === undefined ? [] : [each.file],
+					),
+				);
+			} finally {
+				writing = false;
+			}
 		});
 		fill();
 		// Written from elsewhere: a message Home could not send to it.
 		const unlisten = drafts.events.on("written", (written) => {
-			if (written === key) {
+			if (written === key && !writing) {
 				fill();
 			}
 		});
