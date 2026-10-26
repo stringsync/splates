@@ -23,6 +23,10 @@ copy, after a wake, or after a dropped or failed stream.
   no countdown or spinner shows: loading is quiet.
 - After `offlineAfter` the page unlocks so what it shows can be read and
   copied. `OfflinePill` says "Can't reach the server" as an error.
+- Behind Cloudflare Access a lapsed sign-in fails every read and stream
+  alike, like a server that is down. Once unreachable, the page asks the
+  shell (`sign-in.ts`): a redirect means sign in again, so it reloads, at
+  most once a minute.
 - `OfflinePill` has no Retry or dismiss: the streams reopen by themselves,
   and the next stale spell locks the page again.
 

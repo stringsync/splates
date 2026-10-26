@@ -12,6 +12,7 @@ import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Feed } from "./feed";
+import { SIGN_IN } from "./sign-in";
 import { STATUS_PILL } from "./status-pill";
 
 /**
@@ -68,6 +69,14 @@ export function useFeedsFreshness(
 	}, [stale, feed]);
 	const unreachable = stale && (waited || snapshot.offline);
 	const locked = stale && !unreachable;
+	// Behind Cloudflare Access a lapsed sign-in looks like a server that is
+	// down, for as long as the page stays open: go and sign in again.
+	useEffect(() => {
+		if (!unreachable) {
+			return;
+		}
+		void SIGN_IN.reloadIfWanted();
+	}, [unreachable]);
 	return useMemo(
 		() => ({ stale, unreachable, locked }),
 		[stale, unreachable, locked],
