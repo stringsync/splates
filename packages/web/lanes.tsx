@@ -32,6 +32,7 @@ import { useExpectSnapshot } from "./expecting";
 import { GroomUntriaged } from "./groom-untriaged";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
+import { LaneStalled } from "./lane-stalled";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
 import { byHand } from "./todo-board";
@@ -189,8 +190,8 @@ export function Lane({
 					// Shrinks to the wrapper's height, so a tall lane scrolls in its own
 					// list rather than the board scrolling up and down with it.
 					"min-h-0 w-full shrink max-md:w-full",
-					// A glint running around its edge.
-					running && "running-outline",
+					// A glint running around its edge, while the lane can go on.
+					running && lane.stalled === undefined && "running-outline",
 					opened && "ring-1 ring-primary/40",
 					// The slot it leaves while it is in hand, where it will land.
 					isDragging && "bg-muted ring-1 ring-border *:invisible",
@@ -287,6 +288,9 @@ export function Lane({
 					{lane.queued &&
 						lane.budget !== undefined &&
 						lane.budget <= BUDGET_LOW && <LaneApproval lane={lane} />}
+					{lane.stalled !== undefined && (
+						<LaneStalled name={lane.name} holdups={lane.stalled.holdups} />
+					)}
 					<Refusal refusal={refusedLanes.get(lane.id)} />
 				</header>
 				<Cards

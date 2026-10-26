@@ -9,7 +9,12 @@ that with `lane run`, `lane pause`, `task take` and `task release`, and the
 same day lanes gained "queue whole": each task is queued as soon as nothing
 blocks it, until the lane is empty, which is the running glint on its
 header. A task marked By hand sits under the lane outside the glint and is
-skipped when a queued lane starts work. A lane ends when its last task merges
+skipped when a queued lane starts work. A queued lane none of whose tasks
+will ever be queued, each waiting on a task nothing starts on its own
+(skipped, By hand, in an unqueued lane or none, budget spent, or a lost
+blocker), is stalled (`LaneState.stalled`, since 2026-10-26): it stays
+queued, so it goes on once the person clears the block, but loses its glint
+and shows each holdup with a Queue button, as `lane show` does. A lane ends when its last task merges
 or is removed; one emptied by hand stays. Agents may add empty lanes and
 remove empty lanes; removing a lane containing tasks is the person's call.
 

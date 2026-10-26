@@ -1,5 +1,5 @@
 export { BACKLOG_LANE } from "./backlog";
-export type { LaneRecord, LaneState } from "./lanes";
+export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";
 export {
 	APPROVAL,
 	BUDGET_LOW,

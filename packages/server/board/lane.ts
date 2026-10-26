@@ -5,6 +5,7 @@ import type { Facts, Journal } from "../records";
 import { table } from "../table";
 import {
 	blockerLabel,
+	type Holdup,
 	type LaneRecord,
 	type LaneState,
 	lane,
@@ -82,7 +83,7 @@ export async function laneShow(
 			{ lane: id },
 		);
 	}
-	const found = lane(states, record);
+	const found = lane(states, record, records);
 	if (json) {
 		log.info(JSON.stringify(laneJson(found), null, "\t"));
 		return;
@@ -169,6 +170,14 @@ function nextLines(found: LaneState): string[] {
 	if (open.length === 0) {
 		return ["Every task in it is under way."];
 	}
+	if (found.stalled !== undefined) {
+		return [
+			color.yellow(
+				"Stalled: queued whole, but none of its tasks will be queued until you act on what holds it up:",
+			),
+			...found.stalled.holdups.map((holdup) => `  ${holdupLine(holdup)}`),
+		];
+	}
 	if (found.queued) {
 		return [
 			"Queued whole: each of its tasks is queued as soon as nothing blocks it, until it is empty.",
@@ -199,6 +208,19 @@ function step(
 			);
 }
 
+/** A task holding up a stalled lane, why, and what puts it back on its way. */
+function holdupLine({ id, subject, lane, why }: Holdup): string {
+	const what = {
+		skipped: `taken out of the queue: \`splates queue add ${id}\` puts it back`,
+		manual: `queued by hand only: \`splates queue add ${id}\` queues it`,
+		unqueued: `its lane is not queued: \`splates queue add ${id}\` queues it`,
+		untriaged: `in no lane: \`splates queue add ${id}\` queues it`,
+		budget: `its lane's budget is spent: \`splates lane approve ${lane}\` lets it go on`,
+		lost: `a task it was blocked by was removed without merging: \`splates task update ${id} --remove-blocked-by <id>\` lets it go`,
+	}[why];
+	return `#${id} ${subject}: ${what}`;
+}
+
 function laneJson(found: LaneState) {
 	return {
 		lane: found.id,
@@ -209,6 +231,7 @@ function laneJson(found: LaneState) {
 		ready: found.ready,
 		queued: found.queued,
 		blockers: found.blockers,
+		...(found.stalled === undefined ? {} : { stalled: found.stalled }),
 	};
 }
 

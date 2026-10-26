@@ -12,7 +12,8 @@ import type { TaskRecord } from "./task";
  * lanes had names, comes last, called by its number.
  */
 export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
-	return named(tasks, records).map((record) => lane(tasks, record));
+	const all = named(tasks, records);
+	return all.map((record) => lane(tasks, record, all));
 }
 
 /**
@@ -61,6 +62,33 @@ export interface LaneState {
 	queued: boolean;
 	/** The tasks it may still queue on its own, as `LaneRecord.budget`; absent for no limit. */
 	budget?: number;
+	/**
+	 * Queued whole, but none of its tasks will ever be queued until the
+	 * person acts: what holds it up. Absent while it can go on.
+	 */
+	stalled?: Stall;
+}
+
+/**
+ * Why a queued lane can queue none of its tasks: the tasks its waiting ones
+ * are held up by, at the root, that nothing will start on its own.
+ */
+export interface Stall {
+	holdups: Holdup[];
+}
+
+/** A task nothing will start on its own, which a stalled lane waits on. */
+export interface Holdup {
+	id: number;
+	subject: string;
+	/** The lane it is in, or null when it is in none. */
+	lane: number | null;
+	/**
+	 * Why nothing starts it: its queued lane skips it, only the person queues
+	 * it, its lane is not queued, it is in no lane, its lane's budget is
+	 * spent, or a task it was blocked by was removed without merging.
+	 */
+	why: "skipped" | "manual" | "unqueued" | "untriaged" | "budget" | "lost";
 }
 
 /** A task that has to merge first, and where it stands now. */
@@ -109,8 +137,11 @@ export function named(
 /** The lane `record` stands for, empty when no task is in it. */
 export function lane(
 	tasks: TaskRecord[],
-	{ id, name, queued, budget }: LaneRecord,
+	record: LaneRecord,
+	/** Every lane, for whether what blocks it will start; only `record` when absent. */
+	records: readonly LaneRecord[] = [record],
 ): LaneState {
+	const { id, name, queued, budget } = record;
 	const steps = tasks
 		.filter((task) => task.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -136,7 +167,122 @@ export function lane(
 		ready: next !== null && blockersOf(tasks, next).length === 0,
 		queued: queued === true,
 		...(queued === true && budget !== undefined ? { budget } : {}),
+		...stalledOf(tasks, record, records),
 	};
+}
+
+/**
+ * What holds up queued lane `record` when it is stalled: it has tasks it
+ * would queue, and none of them will ever start, each waiting, however far
+ * down, on a task nothing starts on its own. A lane with any of them that
+ * can go on is not stalled, nor one that is not queued.
+ */
+function stalledOf(
+	tasks: readonly TaskRecord[],
+	record: LaneRecord,
+	records: readonly LaneRecord[],
+): { stalled?: Stall } {
+	if (record.queued !== true) {
+		return {};
+	}
+	const byId = new Map(tasks.map((task) => [task.id, task]));
+	const laneOf = (task: TaskRecord) =>
+		records.find((each) => each.id === task.lane);
+	/** Why nothing starts `task` on its own, though its blockers may; null for nothing. */
+	const idle = (task: TaskRecord): Holdup["why"] | null => {
+		if ((task.blockersLost ?? []).length > 0) {
+			return "lost";
+		}
+		if (task.lane === null) {
+			return "untriaged";
+		}
+		const its = laneOf(task);
+		if (its?.queued !== true) {
+			return "unqueued";
+		}
+		if (task.manual === true) {
+			return "manual";
+		}
+		if ((its.skip ?? []).includes(task.id)) {
+			return "skipped";
+		}
+		if (its.budget === 0) {
+			return "budget";
+		}
+		return null;
+	};
+	// Whether `task` will start, or is under way, with no one stepping in,
+	// and the tasks at the root of what stops it when not.
+	const roots = new Map<number, Holdup[]>();
+	const visiting = new Set<number>();
+	const holdupsOf = (task: TaskRecord): Holdup[] => {
+		const known = roots.get(task.id);
+		if (known !== undefined) {
+			return known;
+		}
+		if (
+			task.takenBy !== null ||
+			task.stage === "queued" ||
+			task.stage === "running" ||
+			visiting.has(task.id)
+		) {
+			return [];
+		}
+		visiting.add(task.id);
+		const why = idle(task);
+		const found: Holdup[] =
+			why !== null
+				? [{ id: task.id, subject: task.subject, lane: task.lane, why }]
+				: task.blockedBy.flatMap((blocker) => {
+						const other = byId.get(blocker);
+						return other === undefined ? [] : holdupsOf(other);
+					});
+		visiting.delete(task.id);
+		roots.set(task.id, found);
+		return found;
+	};
+	const waiting = tasks.filter(
+		(task) =>
+			task.lane === record.id &&
+			task.takenBy === null &&
+			(task.stage === "backlog" || task.stage === "ready") &&
+			task.manual !== true &&
+			!(record.skip ?? []).includes(task.id),
+	);
+	if (waiting.length === 0) {
+		return {};
+	}
+	const each = waiting.map((task) =>
+		task.blockedBy.flatMap((id) => {
+			const other = byId.get(id);
+			return other === undefined ? [] : holdupsOf(other);
+		}),
+	);
+	if (
+		each.some(
+			(found, i) =>
+				found.length === 0 && (waiting[i]?.blockersLost ?? []).length === 0,
+		)
+	) {
+		return {};
+	}
+	const holdups = new Map<number, Holdup>();
+	for (const [i, task] of waiting.entries()) {
+		if ((task.blockersLost ?? []).length > 0) {
+			holdups.set(task.id, {
+				id: task.id,
+				subject: task.subject,
+				lane: task.lane,
+				why: "lost",
+			});
+		}
+		for (const found of each[i] ?? []) {
+			holdups.set(found.id, found);
+		}
+	}
+	return holdups.size === 0
+		? {}
+		: { stalled: { holdups: [...holdups.values()] } };
 }
 
 /**

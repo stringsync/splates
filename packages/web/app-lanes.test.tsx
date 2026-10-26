@@ -319,6 +319,35 @@ describe("App's lanes", () => {
 		expect(view.queryByText("Queued lane")).toBeNull();
 	});
 
+	it("says a queued lane is stalled on a task taken out of the queue, and queues it from there", async () => {
+		const view = await testing.open({
+			todos: [
+				todo({ id: 1, subject: "first", lane: 1, stage: "ready" }),
+				todo({ id: 2, subject: "second", lane: 1, blockedBy: [1] }),
+			],
+			lanes: [{ id: 1, name: "Licensing", queued: true, skip: [1] }],
+		});
+		const stalled = view.getByRole("region", { name: "Licensing stalled" });
+		expect(
+			within(stalled).getByText("#1 was taken out of the queue"),
+		).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(
+				within(stalled).getByRole("button", { name: "Queue #1" }),
+			),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/todos/1/queued",
+			method: "PUT",
+			body: JSON.stringify({ queued: true }),
+		});
+		expect(
+			view.queryByRole("region", { name: "Licensing stalled" }),
+		).toBeNull();
+	});
+
 	it("queues a lane whole with one tap on its header", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
