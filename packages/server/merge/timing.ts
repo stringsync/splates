@@ -1,10 +1,12 @@
 import type { Clock } from "webappwiz/time";
 import type { Facts, GatePhases } from "../records";
 import type { MergeTimes } from "../tasks";
+import type { MergeSteps } from "./steps";
 
 /** Updates the caller's facts even when a merge or a gate refuses. */
 export class MergeTiming implements Disposable {
 	private readonly started;
+	private steps: MergeSteps | null = null;
 	constructor(
 		private readonly facts: Partial<Facts["merge"]>,
 		private readonly clock: Clock,
@@ -26,6 +28,11 @@ export class MergeTiming implements Disposable {
 		};
 	}
 
+	/** Keeps the time of each of `steps` once the merge ends. */
+	stepping(steps: MergeSteps): void {
+		this.steps = steps;
+	}
+
 	/** Keeps a whole gate run's phases, each run's in place of the last's. */
 	gated(phases: GatePhases): void {
 		this.facts.gate = phases;
@@ -42,5 +49,8 @@ export class MergeTiming implements Disposable {
 
 	[Symbol.dispose](): void {
 		this.facts.durationMs = this.clock.now().subtract(this.started).ms;
+		if (this.steps !== null) {
+			this.facts.stepsMs = this.steps.ms;
+		}
 	}
 }

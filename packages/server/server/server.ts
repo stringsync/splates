@@ -690,6 +690,7 @@ export async function dev(
 					"/api/paths": scoped((project) => project.paths),
 					"/api/tasks/:task/diff": scoped((project) => project.diff),
 					"/api/finished": scoped((project) => project.finishedTasks),
+					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
 					"/api/finished/:key": scoped((project) => project.finishedTask),
 					"/api/tasks/:task/outcome": scoped((project) =>
 						ended.landed(project.root),

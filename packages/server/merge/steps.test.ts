@@ -32,4 +32,19 @@ describe("MergeSteps", () => {
 		steps.enter("rebase");
 		expect(steps.enter("test").phases).toBeUndefined();
 	});
+
+	it("sums each step's time across retests, the one under way up to now", () => {
+		const clock = new FakeClock();
+		const steps = new MergeSteps(clock);
+		steps.enter("rebase");
+		clock.advance(Duration.secs(1));
+		steps.enter("test");
+		clock.advance(Duration.secs(5));
+		steps.enter("rebase");
+		clock.advance(Duration.secs(2));
+		steps.enter("test");
+		clock.advance(Duration.secs(3));
+
+		expect(steps.ms).toEqual({ rebase: 3000, test: 8000 });
+	});
 });

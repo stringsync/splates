@@ -30,6 +30,10 @@ describe("TimedPhases", () => {
 			tests: 4100,
 			setup: 900,
 		});
+		expect(new TimedPhases(lines).within()).toEqual({
+			"server tests": "tests",
+			"web tests": "tests",
+		});
 	});
 
 	it("passes over a half-written line", () => {

@@ -149,6 +149,7 @@ export async function merge(
 	// page reads `gate` and `mergeSince` meanwhile, for as long as this merge
 	// holds the lease, and `mergeSteps` to show it moving.
 	const steps = new MergeSteps(clock);
+	timing.stepping(steps);
 	worktree = await worktree.take({
 		status: "working",
 		mergeSince: new Date().toISOString(),

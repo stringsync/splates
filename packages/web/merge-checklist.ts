@@ -1,3 +1,4 @@
+import type { MergeEstimates } from "@stringsync/splates-server/merge";
 import type {
 	Details,
 	LivePhase,
@@ -12,9 +13,11 @@ export type Standing = "done" | "running" | "next";
 /** A phase of the premerge, with those it runs beside its siblings inside. */
 export interface PhaseRow {
 	phase: string;
-	standing: Exclude<Standing, "next">;
-	/** How long it took, or has run so far; null when the gate never said. */
+	standing: Standing;
+	/** How long it took, or has run so far; null when the gate never said, or for one to come. */
 	ms: number | null;
+	/** How long it took in recent merges, for one under way or to come; null otherwise or unknown. */
+	typical: number | null;
 	inside: PhaseRow[];
 }
 
@@ -25,6 +28,8 @@ export interface StepRow {
 	standing: Standing;
 	/** How long it took, or has run so far; null for one to come. */
 	ms: number | null;
+	/** How long it took in recent merges, for one under way or to come; null otherwise or unknown. */
+	typical: number | null;
 	/** The premerge's phases, on its last run. */
 	phases: PhaseRow[];
 }
@@ -33,9 +38,15 @@ export interface StepRow {
  * The checklist of `task`'s merge under way at `now`: each step it has taken,
  * timed, the last under way, then those it has yet to take; empty with no
  * merge under way. A merge with no premerge to run neither waits nor tests,
- * and one past its premerge waits no more.
+ * and one past its premerge waits no more. With `estimates`, the steps and
+ * phases under way or to come say how long they took in recent merges, and
+ * a premerge under way lists the phases it has yet to start.
  */
-export function mergeChecklist(task: Details, now: number): StepRow[] {
+export function mergeChecklist(
+	task: Details,
+	now: number,
+	estimates: MergeEstimates | null = null,
+): StepRow[] {
 	const progress = task.mergeSteps;
 	if (progress === null || progress.steps.length === 0) {
 		return [];
@@ -50,9 +61,10 @@ export function mergeChecklist(task: Details, now: number): StepRow[] {
 			label: labelOf(task, each.step, running),
 			standing: running ? "running" : "done",
 			ms: Math.max(0, (ends ? Date.parse(ends) : now) - Date.parse(each.at)),
+			typical: running ? (estimates?.steps[each.step] ?? null) : null,
 			phases:
 				index === lastTest
-					? phaseRows(progress.phases ?? [], running, now)
+					? phaseRows(progress.phases ?? [], running, now, estimates)
 					: [],
 		};
 	});
@@ -75,6 +87,7 @@ export function mergeChecklist(task: Details, now: number): StepRow[] {
 				label: labelOf(task, step, false),
 				standing: "next",
 				ms: null,
+				typical: estimates?.steps[step] ?? null,
 				phases: [],
 			}),
 		),
@@ -103,35 +116,61 @@ function labelOf(task: Details, step: MergeStep, running: boolean): string {
 /**
  * The phases as rows, those run inside another under it. A phase with no
  * end is under way while the premerge is; once it is over, it ended
- * without saying so.
+ * without saying so. While it runs, the phases recent merges ran that it has
+ * yet to start follow, each where it ran.
  */
 function phaseRows(
 	phases: LivePhase[],
 	testing: boolean,
 	now: number,
+	estimates: MergeEstimates | null,
 ): PhaseRow[] {
+	const typicalOf = (phase: string): number | null =>
+		estimates?.phases.find((each) => each.phase === phase)?.ms ?? null;
 	const row = (phase: LivePhase): PhaseRow => {
-		const open = phase.ms === undefined;
+		const running = phase.ms === undefined && testing;
 		return {
 			phase: phase.phase,
-			standing: open && testing ? "running" : "done",
+			standing: running ? "running" : "done",
 			ms:
 				phase.ms ??
 				(phase.at !== undefined && testing
 					? Math.max(0, now - Date.parse(phase.at))
 					: null),
+			typical: running ? typicalOf(phase.phase) : null,
 			inside: [],
 		};
 	};
-	const tops = phases.filter(
+	const toCome = testing
+		? (estimates?.phases ?? [])
+				.filter((each) => !phases.some((phase) => phase.phase === each.phase))
+				.map(
+					(each): LivePhase => ({
+						phase: each.phase,
+						...(each.within === undefined ? {} : { within: each.within }),
+					}),
+				)
+		: [];
+	const all = [...phases, ...toCome];
+	const rowOf = (phase: LivePhase): PhaseRow =>
+		toCome.includes(phase)
+			? {
+					phase: phase.phase,
+					standing: "next",
+					ms: null,
+					typical: typicalOf(phase.phase),
+					inside: [],
+				}
+			: row(phase);
+	const tops = all.filter(
 		(phase) =>
 			phase.within === undefined ||
-			!phases.some((other) => other.phase === phase.within),
+			!all.some((other) => other.phase === phase.within),
 	);
 	return tops.map((top) => ({
-		...row(top),
-		inside: phases
+		...rowOf(top),
+		inside: all
 			.filter((phase) => phase.within === top.phase)
-			.map((phase) => row(phase)),
+			.map((phase) => rowOf(phase)),
 	}));
 }

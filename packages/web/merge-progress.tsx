@@ -1,3 +1,4 @@
+import type { MergeEstimates } from "@stringsync/splates-server/merge";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	ChevronDownIcon,
@@ -6,8 +7,9 @@ import {
 	GitMergeIcon,
 	Loader2Icon,
 } from "lucide-react";
-import { type JSX, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { mergeEstimates } from "./api";
 import { useNow } from "./hooks/use-now";
 import {
 	mergeChecklist,
@@ -21,8 +23,10 @@ import { spanOf } from "./merge-lines";
  * While the conversation's task merges, the merge as a checklist: each step
  * it has taken with how long it took, the one under way counting up with a
  * spinner, the premerge's phases under it as they start and end, then the
- * steps to come. Its head says how long the whole merge has run, and folds
- * the list away. Gone once the merge lands or is refused.
+ * steps to come. Those under way and to come say how long they took in
+ * recent merges, so a slow step can be told from a stuck one. Its head says
+ * how long the whole merge has run, and folds the list away. Gone once the
+ * merge lands or is refused.
  */
 export function MergeProgress({
 	task,
@@ -34,10 +38,26 @@ export function MergeProgress({
 	const merging = task.mergeSteps !== null && task.mergeSince !== null;
 	const now = useNow(merging);
 	const [open, setOpen] = useState(true);
+	const [estimates, setEstimates] = useState<MergeEstimates | null>(null);
+	// Once a merge, as recent merges change little while it runs. Without
+	// them the card shows only its own times.
+	useEffect(() => {
+		if (!merging) {
+			return;
+		}
+		let current = true;
+		mergeEstimates().then(
+			(read) => current && setEstimates(read),
+			() => {},
+		);
+		return () => {
+			current = false;
+		};
+	}, [merging]);
 	if (!merging || task.mergeSince === null) {
 		return null;
 	}
-	const rows = mergeChecklist(task, now);
+	const rows = mergeChecklist(task, now, estimates);
 	const current = rows.find((row) => row.standing === "running");
 	const waiting = current?.step === "wait";
 	return (
@@ -96,7 +116,13 @@ export function MergeProgress({
 function StepItem({ row }: { row: StepRow }): JSX.Element {
 	return (
 		<li aria-label={`${row.label}, ${standingOf(row.standing)}`}>
-			<Line label={row.label} standing={row.standing} ms={row.ms} strong />
+			<Line
+				label={row.label}
+				standing={row.standing}
+				ms={row.ms}
+				typical={row.typical}
+				strong
+			/>
 			{row.phases.length > 0 && (
 				<ol aria-label="Premerge phases" className="flex flex-col pl-5">
 					{row.phases.map((phase) => (
@@ -111,7 +137,12 @@ function StepItem({ row }: { row: StepRow }): JSX.Element {
 function PhaseItem({ phase }: { phase: PhaseRow }): JSX.Element {
 	return (
 		<li aria-label={`${phase.phase}, ${standingOf(phase.standing)}`}>
-			<Line label={phase.phase} standing={phase.standing} ms={phase.ms} />
+			<Line
+				label={phase.phase}
+				standing={phase.standing}
+				ms={phase.ms}
+				typical={phase.typical}
+			/>
 			{phase.inside.length > 0 && (
 				<ol className="flex flex-col pl-5">
 					{phase.inside.map((inside) => (
@@ -123,16 +154,18 @@ function PhaseItem({ phase }: { phase: PhaseRow }): JSX.Element {
 	);
 }
 
-/** One row: its mark, its name, and its time on the right. */
+/** One row: its mark, its name, and its time on the right, then its usual time. */
 function Line({
 	label,
 	standing,
 	ms,
+	typical,
 	strong = false,
 }: {
 	label: string;
 	standing: Standing;
 	ms: number | null;
+	typical: number | null;
 	strong?: boolean;
 }): JSX.Element {
 	return (
@@ -149,6 +182,14 @@ function Line({
 			</span>
 			{ms !== null && (
 				<span className="shrink-0 text-xs tabular-nums">{spanOf(ms)}</span>
+			)}
+			{typical !== null && (
+				<span
+					title={`Usually ${spanOf(typical)} in recent merges`}
+					className="shrink-0 text-muted-foreground/60 text-xs tabular-nums"
+				>
+					{ms !== null && "/ "}~{spanOf(typical)}
+				</span>
 			)}
 		</span>
 	);

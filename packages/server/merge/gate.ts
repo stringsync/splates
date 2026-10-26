@@ -328,11 +328,13 @@ export class MergeGate {
 		if (files === undefined) {
 			const timed = new TimedPhases(await this.fs.read(phases).catch(() => ""));
 			const peakMb = timed.peaks();
+			const within = timed.within();
 			this.timing.gated({
 				workers,
 				load,
 				ms: timed.of(ranMs),
 				...(Object.keys(peakMb).length ? { peakMb } : {}),
+				...(Object.keys(within).length ? { within } : {}),
 			});
 		}
 		return {

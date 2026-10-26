@@ -1,5 +1,5 @@
 import type { Question } from "../plans";
-import type { FailedTest, RemoveReason } from "../tasks";
+import type { FailedTest, MergeStep, RemoveReason } from "../tasks";
 
 /** An escalation that went through, which an old conversation shows as a card. */
 export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;
@@ -57,6 +57,11 @@ export interface Facts {
 		 * events and a merge that ran no gate.
 		 */
 		gate?: GatePhases;
+		/**
+		 * Milliseconds in each step it took, each step's runs summed across
+		 * retests; absent on older events.
+		 */
+		stepsMs?: Partial<Record<MergeStep, number>>;
 		/** The branch it landed on, or was refused landing on. */
 		base: string;
 		/** The commit the base reached, short. */
@@ -457,6 +462,11 @@ export interface GatePhases {
 	 * by gates before it was measured.
 	 */
 	peakMb?: Record<string, number>;
+	/**
+	 * The phase each phase ran inside of, beside its siblings, by phase, as
+	 * `server tests` inside `tests`; left out by gates before it was kept.
+	 */
+	within?: Record<string, string>;
 }
 
 /** The facts each action's event records, by name, which `isCurrent` checks an event holds. */
@@ -478,6 +488,7 @@ export const FACTS = {
 		"capacityWaitMs",
 		"retests",
 		"gate",
+		"stepsMs",
 		"output",
 		"began",
 		"landed",
@@ -604,6 +615,7 @@ export function isCurrent(event: Event): boolean {
 					"capacityWaitMs",
 					"retests",
 					"gate",
+					"stepsMs",
 					"output",
 					"began",
 					"landed",

@@ -33,6 +33,12 @@ describe.concurrent("merge", () => {
 		expect(facts.gateMs).toBeGreaterThan(0);
 		expect(facts.capacityWaitMs).toBeGreaterThan(0);
 		expect(facts.retests).toBe(0);
+		expect(Object.keys(facts.stepsMs ?? {})).toEqual([
+			"rebase",
+			"test",
+			"land",
+			"finish",
+		]);
 
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
 			"add alpha",

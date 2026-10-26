@@ -33,6 +33,22 @@ export class MergeSteps {
 		return this.progress;
 	}
 
+	/**
+	 * The milliseconds spent in each step so far, each step's runs summed
+	 * across retests, the one under way up to now.
+	 */
+	get ms(): Partial<Record<MergeStep, number>> {
+		const now = this.clock.now().ms;
+		const ms: Partial<Record<MergeStep, number>> = {};
+		this.steps.forEach(({ step, at }, index) => {
+			const ends = this.steps[index + 1]?.at;
+			const took =
+				(ends === undefined ? now : Date.parse(ends)) - Date.parse(at);
+			ms[step] = (ms[step] ?? 0) + Math.max(0, took);
+		});
+		return ms;
+	}
+
 	get progress(): MergeProgress {
 		return {
 			steps: this.steps,

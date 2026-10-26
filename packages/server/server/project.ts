@@ -400,6 +400,7 @@ export interface Served extends AsyncResource {
 	paths: Handler;
 	diff: Handler;
 	finishedTasks: Handler;
+	mergeEstimates: Handler;
 	finishedTask: Handler;
 	retryTask: Handler;
 	removeTask: Handler;

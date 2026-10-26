@@ -64,20 +64,17 @@ describe("mergeChecklist", () => {
 			NOW,
 		);
 
+		const none = { typical: null, inside: [] };
 		expect(test?.phases).toEqual([
-			{ phase: "biome", standing: "done", ms: 5000, inside: [] },
+			{ phase: "biome", standing: "done", ms: 5000, ...none },
 			{
 				phase: "tests",
 				standing: "running",
 				ms: 90_000,
+				typical: null,
 				inside: [
-					{ phase: "web tests", standing: "done", ms: 30_000, inside: [] },
-					{
-						phase: "server tests",
-						standing: "running",
-						ms: 90_000,
-						inside: [],
-					},
+					{ phase: "web tests", standing: "done", ms: 30_000, ...none },
+					{ phase: "server tests", standing: "running", ms: 90_000, ...none },
 				],
 			},
 		]);
@@ -121,6 +118,68 @@ describe("mergeChecklist", () => {
 			"test",
 			"land",
 			"finish",
+		]);
+	});
+
+	it("says how long the steps and phases under way and to come took in recent merges, listing the phases to come", () => {
+		const rows = mergeChecklist(
+			details({
+				gate: "running",
+				mergeSince: at(0),
+				mergeSteps: {
+					steps: [
+						{ step: "rebase", at: at(0) },
+						{ step: "test", at: at(2) },
+					],
+					phases: [
+						{ phase: "biome", at: at(3), ms: 5000 },
+						{ phase: "tests", at: at(10) },
+					],
+				},
+			}),
+			NOW,
+			{
+				steps: { rebase: 3000, test: 200_000, land: 1000 },
+				phases: [
+					{ phase: "biome", ms: 4000 },
+					{ phase: "tests", ms: 150_000 },
+					{ phase: "server tests", ms: 140_000, within: "tests" },
+					{ phase: "scry", ms: 20_000 },
+				],
+				merges: 20,
+			},
+		);
+
+		expect(rows.map(({ step, typical }) => ({ step, typical }))).toEqual([
+			{ step: "rebase", typical: null },
+			{ step: "test", typical: 200_000 },
+			{ step: "land", typical: 1000 },
+			{ step: "finish", typical: null },
+		]);
+		expect(rows[1]?.phases).toEqual([
+			{ phase: "biome", standing: "done", ms: 5000, typical: null, inside: [] },
+			{
+				phase: "tests",
+				standing: "running",
+				ms: 90_000,
+				typical: 150_000,
+				inside: [
+					{
+						phase: "server tests",
+						standing: "next",
+						ms: null,
+						typical: 140_000,
+						inside: [],
+					},
+				],
+			},
+			{
+				phase: "scry",
+				standing: "next",
+				ms: null,
+				typical: 20_000,
+				inside: [],
+			},
 		]);
 	});
 });

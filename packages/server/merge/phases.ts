@@ -33,6 +33,17 @@ export class TimedPhases {
 		return peaks;
 	}
 
+	/** The phase each phase ran inside of, for those that ran inside one. */
+	within(): NonNullable<GatePhases["within"]> {
+		const within: NonNullable<GatePhases["within"]> = {};
+		for (const phase of this.parsed("ms")) {
+			if (phase.within) {
+				within[phase.phase] = phase.within;
+			}
+		}
+		return within;
+	}
+
 	/**
 	 * The phases so far of a gate still running, in the order they started:
 	 * each from the line that says it started, given its time once a line

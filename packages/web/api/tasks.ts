@@ -1,3 +1,4 @@
+import type { MergeEstimates } from "@stringsync/splates-server/merge";
 import type {
 	Landed,
 	NoteStats,
@@ -30,6 +31,15 @@ export async function taskDiff(task: string): Promise<FileDiff[]> {
 		throw new ApiError("error", `${task}'s diff: ${response.status}`);
 	}
 	return (await response.json()) as FileDiff[];
+}
+
+/** How long each step and premerge phase of a merge usually takes here. */
+export async function mergeEstimates(): Promise<MergeEstimates> {
+	const response = await answered(scoped("/api/merge-estimates"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/merge-estimates: ${response.status}`);
+	}
+	return (await response.json()) as MergeEstimates;
 }
 
 /**

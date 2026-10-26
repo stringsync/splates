@@ -70,6 +70,7 @@ export {
 	spend,
 } from "./spend";
 export {
+	mergeEstimates,
 	noteStats,
 	openFile,
 	paths,

@@ -2,7 +2,7 @@
 import { movedPath } from "../config";
 import type { Conversations } from "../conversations";
 import { fail } from "../exit";
-import { TaskBranches } from "../merge";
+import { mergeEstimates, TaskBranches } from "../merge";
 import type { Project, ProjectWatch } from "../server/shared";
 import { fileResponse, MEDIA_TYPES, refuse } from "../server/shared";
 import { editorOf } from "./editors";
@@ -110,6 +110,11 @@ export class TaskRoutes {
 	// page to look back on.
 	readonly finishedTasks = async (): Promise<Response> =>
 		Response.json(await this.#project.service.finished.list());
+
+	// How long each step of a merge usually takes here, for the card of one
+	// under way, from as far back in the journal as a few hundred tasks reach.
+	readonly mergeEstimates = async (): Promise<Response> =>
+		Response.json(mergeEstimates(await this.#project.journal.tail(5000)));
 
 	// One finished task with the SPLATES.md it ended on.
 	readonly finishedTask = async (request: Request): Promise<Response> => {

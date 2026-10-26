@@ -8,6 +8,8 @@ export {
 	pushedLine,
 	TaskBranches,
 } from "./branches";
+export type { MergeEstimates } from "./estimates";
+export { ESTIMATED_FROM, mergeEstimates } from "./estimates";
 export type { GateRun } from "./gate";
 export { MergeGate } from "./gate";
 export type { GitHubRepo, InstallationToken } from "./github-app";
