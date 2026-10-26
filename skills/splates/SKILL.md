@@ -39,9 +39,12 @@ the rest:
    refused an agent (`not_granted`) until the person allows one run from a
    run-command card ending your reply: `## 🔐 Permission: run command:
    <why>`, then the command alone on a line in backticks, as `` `splates dev
-   test` ``, and the why under it. Anything else heavy (an install, a build,
-   docker, a benchmark, anything long or CPU-hungry): ask with the same
-   card, end your turn, and run it only on `[SPLATES RUN ALLOWED]`. The
+   test` ``, and the why under it. Anything else that needs the machine (an install, a build,
+   docker, a benchmark, anything long or CPU-hungry): run it as
+   `splates run [--cpus <n>] [--memory <mb>] [--walltime <duration>] -- <cmd>`,
+   which waits its turn behind merges and other jobs. Ask with the same
+   card, ending your turn and running only on `[SPLATES RUN ALLOWED]`, for a
+   cost that is not compute: tokens, a write outside the repository. The
    person may run as many agents as they like and nothing caps them, so the
    machine's load is yours to mind.
 4. **Commit as you go**, in plain messages with no attribution.

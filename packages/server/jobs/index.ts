@@ -26,6 +26,15 @@ export {
 export type { JobSend, JobServer } from "./remote-job";
 export { RemoteJob } from "./remote-job";
 export { JobRoutes } from "./routes";
+export type { RunOptions } from "./run";
+export {
+	EXPIRED_EXIT,
+	installJob,
+	RUN_CPUS,
+	RUN_WALLTIME,
+	run,
+	runJob,
+} from "./run";
 export { ScheduledJob } from "./scheduled-job";
 export type { JobSchedulerOptions, SchedulerEvents } from "./scheduler";
 export {

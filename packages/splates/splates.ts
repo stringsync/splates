@@ -53,6 +53,7 @@ import { notes } from "./notes";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
+import { run } from "./run";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
 import { splatesSlots } from "./slots";
@@ -401,6 +402,30 @@ splates
 	.action((opts, ctx) => showLog(ctx, { count: opts.count, json: opts.json }));
 
 splates.mount("server", splatesServer);
+
+splates
+	.command("run")
+	.description(
+		"run a command that needs the machine (an install, a build, a benchmark, anything long or CPU-hungry) as a job of splates server's scheduler: it waits its turn behind merges and other jobs, printing its place, then runs niced with its output shown. Put the command after `--`. Defaults to 2 cpus and 10 minutes, after which it is stopped (exit 124). With no server reachable it runs at once",
+	)
+	.option("cpus", z.coerce.number().int().positive(), {
+		default: 2,
+		description: "cores the command needs",
+	})
+	.option("memory", z.coerce.number().int().nonnegative(), {
+		default: 0,
+		description: "megabytes of memory the command needs; 0 asks for none",
+	})
+	.option("walltime", z.string(), {
+		default: "10m",
+		description:
+			"how long the command may run before it is stopped: a number and a unit, as 90s, 10m or 2h",
+	})
+	.rest("command", z.string(), {
+		description: "the command and its arguments, after `--`",
+	})
+	.allowUnknownOption()
+	.action((opts, { log, ps }) => run({ ...opts, log, ps }));
 
 splates
 	.command("ports")
