@@ -77,7 +77,7 @@ export function AutomationsPage({
 		);
 	return (
 		<section aria-label="automations" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Automations" />
+			<TopBar title="Automations" scoped />
 			<p className="text-muted-foreground text-sm">
 				What runs on a task event or a schedule, while splates server runs. A
 				schedule that came due while it was down runs once as it starts.

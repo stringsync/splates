@@ -104,29 +104,48 @@ export type Page =
 	| "notes";
 
 /**
- * Each page in the nav, with the shortcut that opens it, if any. Conversations
- * is not one: each layout lists its agents beside them.
+ * Each page in the nav, with the shortcut that opens it, if any, and whether
+ * it shows the project picked or every project, which the nav groups them
+ * by: the project's first. Conversations is not one: each layout lists its
+ * agents beside them, from every project.
  */
 export const PAGES: {
 	value: Page;
 	label: string;
 	Icon: LucideIcon;
 	shortcut?: ShortcutKey;
+	scope: "project" | "everywhere";
 }[] = [
 	{
 		value: "todos",
 		label: "Board",
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
+		scope: "project",
 	},
-	{ value: "tasks", label: "Queue", Icon: TaskIcon },
-	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
-	{ value: "evals", label: "Evals", Icon: FlaskConicalIcon },
-	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
-	{ value: "billing", label: "Billing", Icon: GaugeIcon },
-	{ value: "automations", label: "Automations", Icon: ZapIcon },
-	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
-	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
+	{ value: "creds", label: "Creds", Icon: KeyRoundIcon, scope: "project" },
+	{
+		value: "automations",
+		label: "Automations",
+		Icon: ZapIcon,
+		scope: "project",
+	},
+	{ value: "notes", label: "Notes", Icon: BookOpenIcon, scope: "project" },
+	{ value: "tasks", label: "Queue", Icon: TaskIcon, scope: "everywhere" },
+	{
+		value: "stats",
+		label: "Stats",
+		Icon: ChartColumnIcon,
+		scope: "everywhere",
+	},
+	{
+		value: "evals",
+		label: "Evals",
+		Icon: FlaskConicalIcon,
+		scope: "everywhere",
+	},
+	{ value: "billing", label: "Billing", Icon: GaugeIcon, scope: "everywhere" },
+	{ value: "setup", label: "Setup", Icon: ListChecksIcon, scope: "everywhere" },
 ];
 
 /**

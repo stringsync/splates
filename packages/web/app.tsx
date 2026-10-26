@@ -352,7 +352,6 @@ export function App({
 		);
 	const header = (
 		<AppHeader
-			name={name}
 			snapshot={snapshot}
 			outdated={outdated}
 			offline={offline}
@@ -445,6 +444,7 @@ export function App({
 																							open={open}
 																							go={go}
 																							openLane={openLane}
+																							name={name}
 																							header={header}
 																							offline={offline}
 																							body={

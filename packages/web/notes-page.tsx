@@ -62,6 +62,7 @@ export function NotesPage({
 		<section aria-label="notes" className="flex min-w-0 flex-col gap-6">
 			<TopBar
 				title="Notes"
+				scoped
 				actions={[
 					{
 						label: "New note",

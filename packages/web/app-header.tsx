@@ -6,25 +6,22 @@ import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
-import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
 import { STATUS_PILL } from "./status-pill";
+import { TITLE } from "./top-bar";
 
 /**
  * Heads a phone's drawer, as tall as the bar beside it, its border in line
- * with the bar's: the slot mark, the project switcher and the server's state, then how a restart goes and why a
+ * with the bar's: the slot mark, the server's name and its state, then how a restart goes and why a
  * checkpoint could not start, under the row when they show. The page menu
  * is in every bar's kebab.
  */
 export function AppHeader({
-	name,
 	snapshot,
 	outdated,
 	offline,
 	machine,
 }: {
-	/** The project's name. */
-	name: string;
 	snapshot: Snapshot | null;
 	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
@@ -35,7 +32,7 @@ export function AppHeader({
 		<header className="flex min-w-0 flex-col">
 			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
 				<SlotMark snapshot={snapshot} />
-				<ProjectSwitcher name={name} keyed={false} path={false} />
+				<h1 className={cn(TITLE, "truncate")}>Spinning Plates</h1>
 				<ServerBadges
 					snapshot={snapshot}
 					outdated={outdated}

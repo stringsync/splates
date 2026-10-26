@@ -155,7 +155,7 @@ export function CredsPage({
 			aria-label="creds"
 			className="flex min-w-0 flex-col gap-8"
 		>
-			<TopBar title="Creds" />
+			<TopBar title="Creds" scoped />
 			{open.length > 0 && (
 				<div className="flex flex-col gap-3">
 					<header className="flex items-baseline gap-2">

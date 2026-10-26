@@ -39,6 +39,7 @@ export function PhoneApp({
 	open,
 	go,
 	openLane,
+	name,
 	header,
 	offline,
 	body,
@@ -56,7 +57,9 @@ export function PhoneApp({
 	go: (page: Page, conversation?: string | null, how?: Move) => void;
 	/** Opens the board on lane `id`. */
 	openLane: (id: number) => void;
-	/** The project's header, which heads the drawer. */
+	/** The project's name. */
+	name: string;
+	/** The server's header, which heads the drawer. */
 	header: ReactNode;
 	/** Whether the server stopped answering, said beside the name. */
 	offline: boolean;
@@ -188,6 +191,7 @@ export function PhoneApp({
 								),
 								slot,
 								status,
+								project: name,
 							}}
 						>
 							{body}
@@ -198,6 +202,7 @@ export function PhoneApp({
 					open={drawer}
 					onOpenChange={setDrawer}
 					header={header}
+					name={name}
 					page={page}
 					conversation={open}
 					available={available}

@@ -44,7 +44,7 @@ import {
 } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 import { shortPath } from "./short-path";
-import { TITLE } from "./top-bar";
+import { NAV_HEADING, TITLE } from "./top-bar";
 
 /**
  * The project's name, and under it its path unless `path` is false, heading the page, as a picker of every
@@ -55,12 +55,14 @@ import { TITLE } from "./top-bar";
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
  * names, copies its path, or forgets it. In a page's bar it is one muted
- * line after the title, and a pick shows the same page of the other project.
+ * line, and a pick shows the same page of the other project. Heading the
+ * project's pages in a nav, it is as small as the nav's other headings.
  */
 export function ProjectSwitcher({
 	name,
 	keyed = true,
 	bar = false,
+	heading = false,
 	hash,
 	servers: slots = true,
 	path = true,
@@ -70,8 +72,10 @@ export function ProjectSwitcher({
 	name: string;
 	/** Whether its shortcut opens it: false for a second on the page, so one press opens one. */
 	keyed?: boolean;
-	/** Whether it follows a page's title, picking which project the page shows. */
+	/** Whether it is in a page's bar, picking which project the page shows. */
 	bar?: boolean;
+	/** Whether it heads the project's pages in a nav, as small as its other headings. */
+	heading?: boolean;
 	/** Where a pick of another project lands, in place of where this tab last left it. */
 	hash?: string;
 	/** Whether it lists the slots' servers too, to open another one's page. */
@@ -240,7 +244,9 @@ export function ProjectSwitcher({
 						/>
 					}
 				>
-					{bar ? (
+					{heading ? (
+						<span className={cn(NAV_HEADING, "px-0")}>{name}</span>
+					) : bar ? (
 						<span className="truncate text-muted-foreground text-sm max-md:text-base">
 							{name}
 						</span>

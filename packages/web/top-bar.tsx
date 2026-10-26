@@ -22,6 +22,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWide } from "./app-nav";
+import { ProjectSwitcher } from "./projects";
 import { RestartButton } from "./restart-button";
 
 /** What the page's shell gives every bar under it. */
@@ -41,6 +42,11 @@ export interface BarFrame {
 	end?: ReactNode;
 	/** Marks a bar's way back, as with how many agents wait on you. */
 	badge?: ReactNode;
+	/**
+	 * The project's name, which a bar of the project's own pages puts before
+	 * its title as a switcher: `splates ▾ / Board`.
+	 */
+	project?: string;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -48,7 +54,9 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
 /**
  * The bar atop every page and conversation, one line of text and icons at
  * `--top-bar-height`: what leads it, as a way back, then the title, the
- * page's status and what `detail` adds, then its actions. Those that do not
+ * page's status and what `detail` adds, then its actions. A page of the
+ * project's own, `scoped`, heads its title with the project's switcher, so a
+ * bar without one shows every project. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
  * Update before it once a restart would update splates. Under
@@ -60,6 +68,7 @@ export function TopBar({
 	title,
 	detail,
 	actions = [],
+	scoped = false,
 	className,
 }: {
 	leading?: ReactNode;
@@ -68,6 +77,8 @@ export function TopBar({
 	/** After the title, smaller, as the branch a conversation runs on. */
 	detail?: ReactNode;
 	actions?: BarAction[];
+	/** Whether the page shows the project picked, rather than every project. */
+	scoped?: boolean;
 	/** For a bar in place: sticky, bordered, clear of a phone's notch. */
 	className?: string;
 }): ReactNode {
@@ -81,6 +92,7 @@ export function TopBar({
 		menu !== null || kept.length > 0,
 	);
 	const folded = [...shown.slice(fit), ...kept];
+	const project = scoped ? frame?.project : undefined;
 	const row = (
 		<>
 			{leading && frame?.badge ? (
@@ -93,9 +105,31 @@ export function TopBar({
 			)}
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
-					<div ref={titled} className="flex min-w-0 items-center">
+					<div ref={titled} className="flex min-w-0 items-center gap-1.5">
+						{project !== undefined && (
+							<>
+								<ProjectSwitcher
+									name={project}
+									keyed={false}
+									bar
+									servers={false}
+									className="mx-0"
+								/>
+								<span aria-hidden className="text-muted-foreground/60">
+									/
+								</span>
+							</>
+						)}
 						{typeof title === "string" ? (
-							<h2 title={title} className={cn(TITLE, "truncate")}>
+							<h2
+								title={title}
+								className={cn(
+									TITLE,
+									"truncate",
+									// The project's name gives way first.
+									project !== undefined && "shrink-0",
+								)}
+							>
 								{title}
 							</h2>
 						) : (
@@ -191,6 +225,10 @@ export interface BarAction {
 	/** Kept in the kebab whatever the room, as a phone's New conversation. */
 	kebab?: boolean;
 }
+
+/** How a heading over a group of a nav's pages reads. */
+export const NAV_HEADING =
+	"truncate px-3 font-medium text-muted-foreground text-xs uppercase tracking-wide";
 
 /** How a bar's title reads, for a page that heads it with its own. */
 export const TITLE =

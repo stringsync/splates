@@ -1,5 +1,5 @@
 ---
-description: One page shows every registered project; ?project= picks the focused one, EverywhereFeed reads the rest read-only, and the sidebar's folders are those per-project groups
+description: One page shows every registered project; ?project= picks the focused one, EverywhereFeed reads the rest read-only, the sidebar's folders are those per-project groups, and only the project's own pages wear its switcher
 ---
 
 A `splates server` serves every project in `~/.splates/projects.json`. The
@@ -34,3 +34,14 @@ itself as it ends, so the groomer shows only while a run is open. The phone inbo
 you rows from every project into one Needs you group; desktop has no inbox,
 showing the new-conversation home with no conversation open and one line
 atop the agents counting those waiting on you.
+
+Which pages follow the project is said in one place, `scope` on `PAGES`
+(`page-route.tsx`): Board, Creds, Automations and Notes are the project's,
+Queue, Stats, Evals, Billing and Setup span every project. The sidebar and
+the phone drawer list the project's pages under a switcher heading the
+group, then the rest under Everywhere, and their heads name the server, not
+a project, since the conversations under them span every project. A
+project's page passes `scoped` to its `TopBar`, which then heads its title
+with the project's switcher, `name ▾ / Board`, from the shell's
+`TopBarFrame` `project`; a bar without it shows every project, and a pick
+from it stays on the same page.

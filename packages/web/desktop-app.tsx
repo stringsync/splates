@@ -44,8 +44,9 @@ const DESKTOP_PAGES: Record<Page, string> = {
 /**
  * The page beside a sidebar, a layout of its own beside the phone's: one
  * row of bars across the top, the sidebar's head floating at its left with
- * the project switcher and the button that hides the sidebar,
- * and each page's own bar in the rest, whose kebab ends with the page menu.
+ * the server's name and the button that hides the sidebar,
+ * and each page's own bar in the rest, a project's page's headed by its
+ * switcher, whose kebab ends with the page menu.
  * Under them, the sidebar's tabs and the page. The sidebar keeps its width
  * and whether it shows for the next visit. What each page shows, `bodies`,
  * is the same as on a phone. The phone's inbox stays the phone's: with no
@@ -123,6 +124,7 @@ export function DesktopApp({
 		),
 		menu: menu.items,
 		dot: menu.dot,
+		project: name,
 	};
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>
@@ -140,7 +142,7 @@ export function DesktopApp({
 					)}
 					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 				>
-					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
+					<SidebarHead snapshot={snapshot} sidebar={sidebar} />
 					{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 					<header
@@ -158,6 +160,7 @@ export function DesktopApp({
 						onOpen={(id) => go("conversations", id)}
 						onPage={(to) => go(to)}
 						onLane={openLane}
+						name={name}
 						talk={talk}
 						terminals={terminals}
 						drafts={drafts}

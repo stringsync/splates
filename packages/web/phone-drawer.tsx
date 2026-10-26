@@ -10,14 +10,17 @@ import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { navPage, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
+import { ProjectSwitcher } from "./projects";
 import { UpdateDot } from "./release";
 import { RestartButton } from "./restart-button";
 import { SetupDot } from "./setup-state";
+import { NAV_HEADING } from "./top-bar";
 
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
- * ChatGPT apps: the project's header up top, the inbox first, then the other
- * pages, then Add a project, and the archived conversations last. The
+ * ChatGPT apps: the server's header up top, the inbox of every project first,
+ * then the project's pages under its switcher, then those of every project
+ * under Everywhere, then Add a project, and the archived conversations last. The
  * pages it opens take each other's place in history above the inbox, even while it loads, so back from any of them goes home, as Android's
  * top-level destinations do.
  */
@@ -25,6 +28,7 @@ export function Drawer({
 	open,
 	onOpenChange,
 	header,
+	name,
 	page,
 	conversation,
 	available,
@@ -37,8 +41,10 @@ export function Drawer({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** The project's header: its switcher, its status, and the page menu. */
+	/** The server's header: its name and its status. */
 	header: ReactNode;
+	/** The project's name. */
+	name: string;
 	page: Page;
 	/** The conversation open, by its address, or null. */
 	conversation: string | null;
@@ -71,6 +77,28 @@ export function Drawer({
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	const [adding, setAdding] = useState(false);
+	const entry = ({ value, label, Icon }: (typeof pages)[number]) => (
+		<Entry
+			key={value}
+			current={navPage(page) === value}
+			onClick={() => go(value)}
+			icon={
+				<span className="relative flex">
+					<Icon />
+					{value === "creds" && requested && (
+						<span role="img" aria-label="creds requested">
+							<UpdateDot ring="ring-sidebar" />
+						</span>
+					)}
+					{value === "tasks" && orphans > 0 && (
+						<OrphansDot ring="ring-sidebar" />
+					)}
+					{value === "setup" && <SetupDot ring="ring-sidebar" />}
+				</span>
+			}
+			label={label}
+		/>
+	);
 	return (
 		<>
 			<AddProjectDialog open={adding} onOpenChange={setAdding} />
@@ -91,28 +119,17 @@ export function Drawer({
 								count={waiting}
 								urgent
 							/>
-							{pages.map(({ value, label, Icon }) => (
-								<Entry
-									key={value}
-									current={navPage(page) === value}
-									onClick={() => go(value)}
-									icon={
-										<span className="relative flex">
-											<Icon />
-											{value === "creds" && requested && (
-												<span role="img" aria-label="creds requested">
-													<UpdateDot ring="ring-sidebar" />
-												</span>
-											)}
-											{value === "tasks" && orphans > 0 && (
-												<OrphansDot ring="ring-sidebar" />
-											)}
-											{value === "setup" && <SetupDot ring="ring-sidebar" />}
-										</span>
-									}
-									label={label}
-								/>
-							))}
+							<ProjectSwitcher
+								name={name}
+								heading
+								keyed={false}
+								path={false}
+								servers={false}
+								className="mx-0 mt-3 h-10 px-3"
+							/>
+							{pages.filter(({ scope }) => scope === "project").map(entry)}
+							<h2 className={cn(NAV_HEADING, "mt-3 py-2")}>Everywhere</h2>
+							{pages.filter(({ scope }) => scope === "everywhere").map(entry)}
 							<Entry
 								current={false}
 								onClick={() => {

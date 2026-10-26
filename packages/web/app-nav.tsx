@@ -16,18 +16,21 @@ import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
 import { navPage, type Page } from "./page-route";
+import { ProjectSwitcher } from "./projects";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
+import { NAV_HEADING } from "./top-bar";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held, the agents under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
+ * shortcut while ⌥⌘ is held: the project's under its switcher, then those
+ * of every project under Everywhere. The agents of every project are under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
  * unless it is hidden. A button on the border between the tabs and the
  * agents folds the tabs away, for more room for the agents. A phone has
  * its own layout, `PhoneApp`, in place of it.
@@ -39,6 +42,7 @@ export function AppNav({
 	open,
 	onOpen,
 	onLane,
+	name,
 	talk,
 	terminals,
 	drafts,
@@ -55,6 +59,8 @@ export function AppNav({
 	onPage: (page: Page) => void;
 	/** Opens the board on lane `id`. */
 	onLane: (id: number) => void;
+	/** The project's name. */
+	name: string;
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
@@ -79,6 +85,34 @@ export function AppNav({
 		available && snapshot !== null
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
+	const tab = ({ value, label, Icon, shortcut }: (typeof pages)[number]) => (
+		<TabsTrigger
+			key={value}
+			value={value}
+			// Folded, a tab stays mounted, so it still answers to its shortcut.
+			hidden={!pagesShown}
+			className={cn(
+				"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary",
+				// Marked too while a page under it is open.
+				value !== page &&
+					value === navPage(page) &&
+					"group-data-[variant=line]/tabs-list:bg-accent [&_svg]:text-primary",
+			)}
+		>
+			<span className="relative flex">
+				<Icon />
+				{value === "creds" && requested && (
+					<span role="img" aria-label="creds requested">
+						<UpdateDot ring="ring-sidebar" />
+					</span>
+				)}
+				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
+				{value === "setup" && <SetupDot ring="ring-sidebar" />}
+			</span>
+			<span className="flex-1 text-left">{label}</span>
+			<HeldKey shortcut={shortcut} held={held} />
+		</TabsTrigger>
+	);
 	return (
 		<>
 			{/* Below the row of bars, where its head floats. Hidden, it stays
@@ -97,36 +131,18 @@ export function AppNav({
 						onOpen={onOpen}
 					/>
 				)}
-				{pages.map(({ value, label, Icon, shortcut }) => (
-					<TabsTrigger
-						key={value}
-						value={value}
-						// Folded, a tab stays mounted, so it still answers to its shortcut.
-						hidden={!pagesShown}
-						className={cn(
-							"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary",
-							// Marked too while a page under it is open.
-							value !== page &&
-								value === navPage(page) &&
-								"group-data-[variant=line]/tabs-list:bg-accent [&_svg]:text-primary",
-						)}
-					>
-						<span className="relative flex">
-							<Icon />
-							{value === "creds" && requested && (
-								<span role="img" aria-label="creds requested">
-									<UpdateDot ring="ring-sidebar" />
-								</span>
-							)}
-							{value === "tasks" && orphans > 0 && (
-								<OrphansDot ring="ring-sidebar" />
-							)}
-							{value === "setup" && <SetupDot ring="ring-sidebar" />}
-						</span>
-						<span className="flex-1 text-left">{label}</span>
-						<HeldKey shortcut={shortcut} held={held} />
-					</TabsTrigger>
-				))}
+				{/* Shown folded too, so the project is a click from any page. */}
+				<ProjectSwitcher
+					name={name}
+					heading
+					path={false}
+					className="mx-0 mt-3 px-3"
+				/>
+				{pages.filter(({ scope }) => scope === "project").map(tab)}
+				<h2 hidden={!pagesShown} className={cn(NAV_HEADING, "mt-3 py-1")}>
+					Everywhere
+				</h2>
+				{pages.filter(({ scope }) => scope === "everywhere").map(tab)}
 				{/* Under their tab, so one is a click away from any page. */}
 				{available && snapshot !== null && (
 					<PagesFold sidebar={sidebar} shown={pagesShown} />
@@ -145,6 +161,9 @@ export function AppNav({
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>
+						<h2 className={cn(NAV_HEADING, "-mb-1 shrink-0")}>
+							All conversations
+						</h2>
 						<ConversationList
 							feed={talk}
 							terminals={terminals}
