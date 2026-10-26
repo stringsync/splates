@@ -104,6 +104,15 @@ run-command permission card for anything else heavy, running it only on
   phase, its peak memory under `tests`, and leaves the halves out of
   `setup`. A run of one worker, as a focused one, or one given `--workers`
   still runs them in turn.
+- Side by side holds up under load. From 14:14 to 15:05 UTC on 2026-10-26,
+  18 gates in a row ran `tests` at 140s to 175s, half of them timing out,
+  yet the server half alone ran 140s to 173s, about 4x its 37s, as it did one
+  after the other in the timeouts at 13:16 and 13:25 (134s, 143s against
+  28s), so each half slowed alike either way. The slow gates tracked the
+  hour, not the load reading (14:14 at load 12 took 68s, 14:42 at 12.5 timed
+  out) or the queue (15:01 and 15:05 timed out with nothing waiting), and it
+  ended by 15:20. The machine was loaded from outside the gates; the log
+  records nothing to say by what.
 - Each runs `--no-isolate`, a worker keeping one module registry across its
   files.
 - The page's run preloads `packages/web/test-preload.ts`, which cleans up
