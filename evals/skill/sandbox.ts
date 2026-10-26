@@ -76,7 +76,10 @@ export async function sandbox(
 			await cp(skill, join(dir, at), { recursive: true });
 		}
 		await repo.run(["git", "add", "-A"]);
-		await repo.run(["git", "commit", "-qm", "Initialize splates"]);
+		const staged = await repo.run(["git", "diff", "--cached", "--name-only"]);
+		if (staged.trim() !== "") {
+			await repo.run(["git", "commit", "-qm", "Initialize splates"]);
+		}
 	}
 	await change?.(repo);
 	return {
