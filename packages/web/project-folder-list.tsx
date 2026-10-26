@@ -64,7 +64,6 @@ export function ProjectList({
 								className={cn(
 									HEADING,
 									"flex min-w-0 flex-1 cursor-pointer items-center gap-1 rounded-md py-0.5 pl-1.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
-									folder.here && "text-foreground",
 								)}
 							>
 								<ChevronRightIcon

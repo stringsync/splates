@@ -97,7 +97,6 @@ export function ProjectSection({
 						onClick={() => onFold(!open)}
 						className={cn(
 							"flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 text-left font-medium text-muted-foreground text-xs uppercase tracking-wide",
-							folder.here && "text-foreground",
 						)}
 					>
 						<ChevronRightIcon
