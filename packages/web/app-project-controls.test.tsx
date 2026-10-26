@@ -86,7 +86,7 @@ describe("Project controls in conversation lists", () => {
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 	});
 
-	it("shows the page's own project in the sidebar with no conversations, and other projects only with some", async () => {
+	it("lists every project in the sidebar by name, those with no conversations too", async () => {
 		resize(1024, 768);
 		testing.everywhere = [
 			...(testing.everywhere ?? []),
@@ -104,7 +104,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["shop", "webappwiz"]);
+		).toEqual(["apple", "shop", "webappwiz"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -138,7 +138,7 @@ describe("Project controls in conversation lists", () => {
 		expect(testing.visited).toHaveLength(0);
 	});
 
-	it("shows the page's own project in the inbox with no conversations, and other projects only with some", async () => {
+	it("lists every project in the inbox by name, those with no conversations too", async () => {
 		resize(390, 844);
 		testing.everywhere = [
 			...(testing.everywhere ?? []),
@@ -156,7 +156,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["shop", "webappwiz"]);
+		).toEqual(["apple", "shop", "webappwiz"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -363,7 +363,7 @@ describe("Project controls in conversation lists", () => {
 			new URL(String(testing.visited.at(-1))).searchParams.get("project"),
 		).toBe("shop");
 	});
-	it("hides another project's folder when its last conversation is removed by the stream", async () => {
+	it("keeps another project's folder when its last conversation is removed by the stream", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		await shopIn(agentList(view));
@@ -372,11 +372,14 @@ describe("Project controls in conversation lists", () => {
 				data: JSON.stringify({ project: "shop", id: "s1" }),
 			}),
 		);
-		expect(
-			within(agentList(view)).queryByRole("region", { name: "shop" }),
-		).toBeNull();
+		const shop = within(agentList(view)).getByRole("region", { name: "shop" });
+		await waitFor(() =>
+			expect(
+				within(shop).queryByRole("link", { name: /Shop chat/ }),
+			).toBeNull(),
+		);
 	});
-	it("hides another project's folder when the stream archives its last conversation", async () => {
+	it("keeps another project's folder when the stream archives its last conversation", async () => {
 		const view = await testing.openConversations([], null, { tasks: [] });
 		await shopIn(agentList(view));
 		await act(async () =>
@@ -393,13 +396,14 @@ describe("Project controls in conversation lists", () => {
 				}),
 			}),
 		);
+		const shop = within(agentList(view)).getByRole("region", { name: "shop" });
 		await waitFor(() =>
 			expect(
-				within(agentList(view)).queryByRole("region", { name: "shop" }),
+				within(shop).queryByRole("link", { name: /Shop chat/ }),
 			).toBeNull(),
 		);
 	});
-	it("shows the inbox empty state when every project is empty", async () => {
+	it("lists every project's folder when every project is empty", async () => {
 		resize(390, 844);
 		testing.everywhere = [
 			listed("webappwiz", "/repo"),
@@ -407,15 +411,13 @@ describe("Project controls in conversation lists", () => {
 		];
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
-		await waitFor(() =>
-			expect(
-				within(list).getByText("No conversations yet. Start one below."),
-			).toBeTruthy(),
-		);
+		await shopIn(list);
 		expect(
-			within(list).queryByRole("region", { name: "webappwiz" }),
+			within(list).getByRole("region", { name: "webappwiz" }),
+		).toBeTruthy();
+		expect(
+			within(list).queryByText("No conversations yet. Start one below."),
 		).toBeNull();
-		expect(within(list).queryByRole("region", { name: "shop" })).toBeNull();
 		expect(
 			within(list).getByRole("button", { name: "Add a project" }),
 		).toBeTruthy();

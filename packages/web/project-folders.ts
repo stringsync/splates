@@ -1,6 +1,6 @@
 /**
  * Every project's agents as the sidebar and the phone's inbox group them: a
- * folder per project by name, the page's own among them with no agents too,
+ * folder per project by name, those with no agents too,
  * each with its agents waiting on you on top, then its pinned ones,
  * then those at work, then the rest. What waits on you stays in its own
  * project, so reading down one never jumps to another's, and a switch moves
@@ -26,7 +26,8 @@ import type { Nested } from "./parts";
 /**
  * Every project's agents in folders, the page's own from `here`, which
  * shows a change at once, and the rest from the feed of every project.
- * The page's own folder is there even with no agents, to start one in.
+ * Every project has its folder, even with no agents, so none comes and
+ * goes under you.
  */
 export function foldersOf(
 	projects: readonly EverywhereSummary[],
@@ -56,13 +57,11 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, null, true));
 	}
-	return listed
-		.filter((each) => each.here || each.trees.length > 0)
-		.sort(
-			(one, other) =>
-				one.name.localeCompare(other.name) ||
-				(one.project ?? "").localeCompare(other.project ?? ""),
-		);
+	return listed.sort(
+		(one, other) =>
+			one.name.localeCompare(other.name) ||
+			(one.project ?? "").localeCompare(other.project ?? ""),
+	);
 }
 
 /** One project's agents. */

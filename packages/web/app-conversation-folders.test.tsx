@@ -87,24 +87,24 @@ describe("App's agents, in a folder per project", () => {
 		return { view, nav };
 	};
 
-	it("lists every project with agents in a folder, the page's own first, each with its waiting agents on top and counted in its header", async () => {
+	it("lists every project in a folder by name, each with its waiting agents on top and counted in its header", async () => {
 		const { view, nav } = await inbox();
 
-		// Empty projects left out, and no Needs you across them.
+		// Empty projects too, by name, and no Needs you across them.
 		expect(
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "zebra"]);
+		).toEqual(["apple", "webappwiz", "zebra"]);
 		expect(
 			within(nav)
 				.getAllByRole("region")
 				.map((folder) => [
 					within(folder)
-						.getAllByRole("listitem")
+						.queryAllByRole("listitem")
 						.map((item) => item.textContent),
 				]),
-		).toEqual([[["Mine broke", "Mine"]], [["Zebra broke", "Stripes"]]]);
+		).toEqual([[[]], [["Mine broke", "Mine"]], [["Zebra broke", "Stripes"]]]);
 		expect(
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),

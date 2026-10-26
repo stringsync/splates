@@ -211,10 +211,9 @@ export function Inbox({
 			navigation.show(newConversationUrl(folder.project));
 		}
 	};
-	const empty =
-		grouped === null
-			? trees.length === 0
-			: grouped.every((folder) => folder.trees.length === 0);
+	// Every project keeps its folder, each saying it is empty, so only the
+	// flat list without them has an empty state.
+	const empty = grouped === null && trees.length === 0;
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (
