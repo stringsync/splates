@@ -33,6 +33,8 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	 * stale page says so instead of lying.
 	 */
 	offline = false;
+	/** What the last read failed with, to say why the page is offline; null once the server answers. */
+	failure: string | null = null;
 	/**
 	 * What the server says when a newer splates has moved the repo's records on,
 	 * past what it understands: it refuses until it is updated.
@@ -289,7 +291,9 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 					return;
 				}
 				if (refusal?.reason !== "outdated") {
-					throw new Error(`snapshot: ${response.status}`);
+					throw new Error(
+						`snapshot ${response.status}${refusal?.message ? ` ${refusal.message}` : ""}`,
+					);
 				}
 				this.reached({ outdated: refusal.message ?? "" });
 				return;
@@ -305,9 +309,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 			this.seeded = false;
 			this.reached({ snapshot, outdated: null, missing: null, failed: null });
 			this.copy?.keep(() => snapshot);
-		} catch {
+		} catch (error) {
 			// The last good snapshot stays, for the page to say it is stale.
-			this.set({ fresh: false });
+			this.set({
+				fresh: false,
+				failure: error instanceof Error ? error.message : String(error),
+			});
 			this.lost();
 		}
 	}
@@ -338,7 +345,8 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	): void {
 		this.unreachable?.dispose();
 		this.unreachable = null;
-		const answered = Object.keys(next).length > 0 ? { fresh: true } : {};
+		const answered =
+			Object.keys(next).length > 0 ? { fresh: true, failure: null } : {};
 		this.set({ ...next, ...answered, offline: false });
 	}
 
@@ -346,7 +354,13 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		next: Partial<
 			Pick<
 				Feed,
-				"snapshot" | "offline" | "outdated" | "missing" | "failed" | "fresh"
+				| "snapshot"
+				| "offline"
+				| "outdated"
+				| "missing"
+				| "failed"
+				| "fresh"
+				| "failure"
 			>
 		>,
 	): void {

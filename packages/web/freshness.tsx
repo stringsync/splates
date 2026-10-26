@@ -28,12 +28,15 @@ export interface Freshness {
 	unreachable: boolean;
 	/** Stale and reachable: the page takes no input. */
 	locked: boolean;
+	/** What the last read failed with, while unreachable. */
+	reason: string | null;
 }
 
 const FRESH: Freshness = {
 	stale: false,
 	unreachable: false,
 	locked: false,
+	reason: null,
 };
 
 /** Fresh unless given, so a part drawn without the page works as it is. */
@@ -50,7 +53,11 @@ export function useFeedsFreshness(
 ): Freshness {
 	const snapshot = useReactive(
 		feed,
-		(feed) => ({ fresh: feed.fresh, offline: feed.offline }),
+		(feed) => ({
+			fresh: feed.fresh,
+			offline: feed.offline,
+			failure: feed.failure,
+		}),
 		["changed"],
 	);
 	const listing = useReactive(talk, (talk) => ({ fresh: talk.fresh }), [
@@ -78,8 +85,8 @@ export function useFeedsFreshness(
 		void SIGN_IN.reloadIfWanted();
 	}, [unreachable]);
 	return useMemo(
-		() => ({ stale, unreachable, locked }),
-		[stale, unreachable, locked],
+		() => ({ stale, unreachable, locked, reason: snapshot.failure }),
+		[stale, unreachable, locked, snapshot.failure],
 	);
 }
 
@@ -198,15 +205,22 @@ export function Locked({ children }: { children: ReactNode }): JSX.Element {
  * reached. The page is unlocked by then, so what it shows can be read and
  * copied; the streams reopen by themselves, so it offers no Retry.
  */
-export function OfflinePill(): JSX.Element {
+export function OfflinePill({
+	reason = null,
+}: {
+	reason?: string | null;
+}): JSX.Element {
 	return (
 		<span
 			role="alert"
-			title="splates server stopped answering: is it still running? The page keeps trying."
+			title={`splates server stopped answering: is it still running? The page keeps trying.${reason === null ? "" : ` Last read: ${reason}`}`}
 			className={`${STATUS_PILL} border-destructive/40 text-destructive`}
 		>
 			<span className="size-1.5 rounded-full bg-destructive" />
 			Offline
+			{reason === null ? null : (
+				<span className="truncate font-normal">{reason}</span>
+			)}
 		</span>
 	);
 }
@@ -216,6 +230,6 @@ export function OfflinePill(): JSX.Element {
  * reached, once the page has stopped waiting on it. Before that it says nothing.
  */
 export function StaleChip(): JSX.Element | null {
-	const { unreachable } = useFreshness();
-	return unreachable ? <OfflinePill /> : null;
+	const { unreachable, reason } = useFreshness();
+	return unreachable ? <OfflinePill reason={reason} /> : null;
 }

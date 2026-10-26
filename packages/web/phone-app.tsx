@@ -86,10 +86,10 @@ export function PhoneApp({
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
 	// The drawer's header says more, as why the server is outdated.
-	const { unreachable } = useFreshness();
+	const { unreachable, reason } = useFreshness();
 	const status =
 		offline || unreachable ? (
-			<OfflinePill />
+			<OfflinePill reason={reason} />
 		) : (
 			<>
 				<MergeBadge snapshot={snapshot} />

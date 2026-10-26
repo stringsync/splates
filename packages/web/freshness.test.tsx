@@ -25,6 +25,7 @@ describe("Saying the page may be stale", () => {
 		const page = rows({
 			stale: false,
 			unreachable: false,
+			reason: null,
 			locked: false,
 		});
 
@@ -51,12 +52,14 @@ describe("Saying the page may be stale", () => {
 const STALE: Freshness = {
 	stale: true,
 	unreachable: false,
+	reason: null,
 	locked: true,
 };
 
 const UNREACHABLE: Freshness = {
 	stale: true,
 	unreachable: true,
+	reason: null,
 	locked: false,
 };
 

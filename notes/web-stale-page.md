@@ -27,6 +27,9 @@ copy, after a wake, or after a dropped or failed stream.
   alike, like a server that is down. Once unreachable, the page asks the
   shell (`sign-in.ts`): a redirect means sign in again, so it reloads, at
   most once a minute.
+- `OfflinePill` shows `Feed.failure`, what the last snapshot read failed with
+  (an HTTP status and the server's message, or the browser's network error),
+  so a device that cannot connect can say why.
 - `OfflinePill` has no Retry or dismiss: the streams reopen by themselves,
   and the next stale spell locks the page again.
 
