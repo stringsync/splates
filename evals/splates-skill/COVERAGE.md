@@ -94,8 +94,8 @@ the broader proposed coverage in the requirements map.
 | `orchestration/groom-duplicate` | 1 | queue-groomer | agent |
 | `orchestration/cli-link` | 1 | queue-intake | cli |
 | `resources/focused-tests` | 1 | host-fraction | agent |
-| `resources/install` | 1 | host-heavy-work | agent |
-| `resources/whole-suite` | 1 | host-whole-suite | agent |
+| `resources/install` | 1 | host-install-job | agent |
+| `resources/whole-suite` | 1 | host-whole-suite-job | agent |
 | `resources/changed-tests` | 1 | host-changed-tests | agent |
 
 ## Evidence and implementation status

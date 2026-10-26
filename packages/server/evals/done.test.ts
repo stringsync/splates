@@ -37,7 +37,7 @@ describe("evalsDonePrompt", () => {
 			{
 				probe: "resources/install",
 				aspect: "resource-control",
-				requirement: "host-heavy-work",
+				requirement: "host-install-job",
 				target: claude.key,
 				repetition: 0,
 				run: run("batch-abc/run-1/result.json", "fail"),
@@ -45,7 +45,7 @@ describe("evalsDonePrompt", () => {
 			{
 				probe: "resources/install",
 				aspect: "resource-control",
-				requirement: "host-heavy-work",
+				requirement: "host-install-job",
 				target: codex.key,
 				repetition: 0,
 				run: run("batch-abc/run-2/result.json", "pass"),
