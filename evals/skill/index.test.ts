@@ -8,5 +8,5 @@ it("reads agent, model and thinking level", () => {
 		effort: "high",
 	});
 	expect(pickOf("codex")).toEqual({ agent: "codex" });
-	expect(() => pickOf("opencode:x")).toThrow("no eval runner");
+	expect(() => pickOf("cursor:x")).toThrow("no eval runner");
 });

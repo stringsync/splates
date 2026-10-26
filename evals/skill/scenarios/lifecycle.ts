@@ -147,8 +147,6 @@ const uninitialized: Scenario[] = [
 				"Change value.txt from one to two.",
 				"--slug",
 				"value-two",
-				"--agent",
-				"fake",
 			]);
 		},
 		message: `[SPLATES TASK #1]\nUse task name sample and goal "${goal}". Stop after creating its worktree, before investigating the code.`,
@@ -253,11 +251,21 @@ const uninitialized: Scenario[] = [
 ];
 
 /** A repo whose gate wants `value.txt` to read two, so a wrong value fails it. */
+/**
+ * Gated by a Bun test with a JUnit report, which a refused merge needs to
+ * pin the failure on the task and spend an attempt; without it the gate
+ * blames the environment and the budget never runs out. The test passes on
+ * main's `one`, so it fails only with the task's `wrong`.
+ */
 async function gated(repo: Repo): Promise<void> {
 	await seedValue(repo);
 	await repo.write(
+		"value.test.ts",
+		'import { expect, it } from "bun:test";\n\nit("value is never wrong", async () => {\n\texpect(await Bun.file("value.txt").text()).not.toBe("wrong\\n");\n});\n',
+	);
+	await repo.write(
 		"splates.config.ts",
-		'export default { mergeRetryCount: 3, preMerge: "bun check.ts" };\n',
+		"export default {\n\tmergeRetryCount: 3,\n\tpreMerge: 'bun test --reporter=junit --reporter-outfile=\"$SPLATES_TEST_REPORT\"',\n};\n",
 	);
 }
 
@@ -293,10 +301,22 @@ async function refused(repo: Repo, situation: Situation): Promise<void> {
 		await repo.write("value.txt", "base changed\n");
 		await repo.run(["git", "commit", "-qam", "Independent base change"]);
 	}
-	// The budget of `mergeRetryCount: 3` is spent by three refused gates, the fourth is refused for it.
-	let output = "";
-	for (let attempt = 0; attempt < (situation === "budget" ? 4 : 1); attempt++) {
+	let output = await refusedMerge(repo, tree);
+	// The first failure on a base is free and each repeat spends one of
+	// `mergeRetryCount: 3`'s attempts, so a few more merges exhaust it.
+	for (let attempt = 0; situation === "budget" && attempt < 6; attempt++) {
+		if (output.includes('"reason":"budget_exhausted"')) {
+			break;
+		}
 		output = await refusedMerge(repo, tree);
+	}
+	if (
+		situation === "budget" &&
+		!output.includes('"reason":"budget_exhausted"')
+	) {
+		throw new Error(
+			`Expected the seeded merges to exhaust the budget:\n${output}`,
+		);
 	}
 	await Bun.write(`${tree}/last-merge.txt`, output);
 }
