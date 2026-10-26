@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { commandFor, commandsOf, readClaude, readCodex } from "./agents";
+import {
+	commandFor,
+	commandsOf,
+	readClaude,
+	readCodex,
+	readOpenCode,
+} from "./agents";
 
 describe("agents", () => {
 	it("reads text, tool calls with their results, the reply and usage", () => {
@@ -89,6 +95,49 @@ describe("agents", () => {
 		expect(run).toMatchObject({ tokens: 42, turns: 1, usd: null, error: null });
 	});
 
+	it("reads OpenCode's text, bash calls, cost, tokens and errors", () => {
+		const run = readOpenCode([
+			{ type: "step_start", part: { type: "step-start" } },
+			{
+				type: "tool_use",
+				part: {
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "echo hi" },
+						output: "hi\n",
+					},
+				},
+			},
+			{
+				type: "step_finish",
+				part: {
+					cost: 0.01,
+					tokens: { input: 10, output: 5, cache: { read: 20, write: 0 } },
+				},
+			},
+			{ type: "text", part: { text: "done" } },
+			{
+				type: "step_finish",
+				part: { cost: 0.02, tokens: { input: 1, output: 1 } },
+			},
+		]);
+
+		expect(run.reply).toBe("done");
+		expect(commandsOf(run.transcript)).toEqual(["echo hi"]);
+		expect(run).toMatchObject({ turns: 2, tokens: 37, error: null });
+		expect(run.usd).toBeCloseTo(0.03);
+		expect(
+			readOpenCode([
+				{ type: "error", error: { name: "X", data: { message: "bad key" } } },
+			]).error,
+		).toBe("opencode: bad key");
+		expect(
+			commandFor({ agent: "opencode", model: "a/b", effort: "high" }, "Hi.")
+				.argv,
+		).toContain("a/b#high");
+	});
+
 	it("runs Claude headless on the person's login without their settings, and refuses an agent it has no runner for", () => {
 		const { argv, format } = commandFor(
 			{ agent: "claude", model: "sonnet" },
@@ -111,7 +160,7 @@ describe("agents", () => {
 			),
 		).toEqual(["--max-budget-usd", "0.5"]);
 		expect(argv.at(-1)).toBe("Hi.");
-		expect(() => commandFor({ agent: "opencode" }, "Hi.")).toThrow(
+		expect(() => commandFor({ agent: "aider" }, "Hi.")).toThrow(
 			"no eval runner",
 		);
 	});

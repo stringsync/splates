@@ -8,7 +8,7 @@ export interface AgentPick {
 }
 
 /** How an agent's output stream is written. */
-export type Format = "claude" | "codex";
+export type Format = "claude" | "codex" | "opencode";
 
 /** What one agent run came to. */
 export interface AgentRun {
@@ -22,7 +22,7 @@ export interface AgentRun {
 }
 
 /** The agents a run can use. */
-export const AGENTS = ["claude", "codex"];
+export const AGENTS = ["claude", "codex", "opencode"];
 
 const TURNS = 30;
 const MINUTES = 10;
@@ -82,6 +82,30 @@ export function commandFor(
 			],
 		};
 	}
+	if (pick.agent === "opencode") {
+		const model =
+			pick.model === undefined
+				? []
+				: [
+						"--model",
+						pick.effort === undefined
+							? pick.model
+							: `${pick.model}#${pick.effort}`,
+					];
+		return {
+			format: "opencode",
+			argv: [
+				"opencode",
+				"run",
+				"--standalone",
+				"--auto",
+				"--format",
+				"json",
+				...model,
+				message,
+			],
+		};
+	}
 	throw new Error(`no eval runner for agent ${pick.agent}`);
 }
 
@@ -111,7 +135,12 @@ export async function runAgent(
 			return [];
 		}
 	});
-	const run = format === "claude" ? readClaude(lines) : readCodex(lines);
+	const run =
+		format === "claude"
+			? readClaude(lines)
+			: format === "codex"
+				? readCodex(lines)
+				: readOpenCode(lines);
 	if (child.signalCode !== null) {
 		return {
 			...run,
@@ -238,6 +267,56 @@ export function readCodex(lines: Record<string, unknown>[]): AgentRun {
 	return run;
 }
 
+/** OpenCode's `run --format json`: text and tool parts, each step's cost and tokens, and errors. */
+export function readOpenCode(lines: Record<string, unknown>[]): AgentRun {
+	const transcript: Step[] = [];
+	const run: AgentRun = {
+		reply: "",
+		transcript,
+		usd: null,
+		tokens: null,
+		turns: 0,
+		error: null,
+	};
+	for (const line of lines) {
+		const part = (line.part ?? {}) as Record<string, unknown>;
+		if (line.type === "text" && typeof part.text === "string") {
+			transcript.push({ kind: "text", text: part.text });
+		} else if (line.type === "tool_use") {
+			const state = (part.state ?? {}) as Record<string, unknown>;
+			transcript.push({
+				kind: "tool",
+				name: String(part.tool),
+				input: JSON.stringify(state.input ?? {}),
+				output:
+					typeof state.output === "string"
+						? state.output
+						: typeof state.error === "string"
+							? state.error
+							: null,
+			});
+		} else if (line.type === "step_finish") {
+			run.turns = (run.turns ?? 0) + 1;
+			if (typeof part.cost === "number") {
+				run.usd = (run.usd ?? 0) + part.cost;
+			}
+			const tokens = (part.tokens ?? {}) as Record<string, unknown>;
+			const cache = (tokens.cache ?? {}) as Record<string, unknown>;
+			run.tokens =
+				(run.tokens ?? 0) +
+				(sum([tokens.input, tokens.output, cache.read, cache.write]) ?? 0);
+		} else if (line.type === "error") {
+			const error = (line.error ?? {}) as {
+				name?: unknown;
+				data?: { message?: unknown };
+			};
+			run.error = `opencode: ${String(error.data?.message ?? error.name ?? JSON.stringify(line))}`;
+		}
+	}
+	run.reply = lastText(transcript);
+	return run;
+}
+
 /** Each shell command a transcript ran, as the agent wrote it. */
 export function commandsOf(transcript: readonly Step[]): string[] {
 	return transcript.flatMap((step) => {
@@ -246,6 +325,10 @@ export function commandsOf(transcript: readonly Step[]): string[] {
 		}
 		if (step.name === "shell") {
 			return [step.input];
+		}
+		if (step.name === "bash") {
+			const input = JSON.parse(step.input) as { command?: unknown };
+			return typeof input.command === "string" ? [input.command] : [];
 		}
 		if (step.name === "Bash") {
 			const input = JSON.parse(step.input) as { command?: unknown };
