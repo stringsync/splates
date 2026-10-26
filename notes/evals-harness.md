@@ -16,7 +16,9 @@ private `SPLATES_HOME` whose only agent can never start, and this checkout's
 headless with nothing asked of a person (`commandFor` in `agents.ts`):
 Claude in `--print` stream-json with `bypassPermissions`, project settings
 only, no MCP servers and capped turns and spend; Codex in `exec --json`
-with its approvals and sandbox bypassed. The outcome is the reply, the
+with its approvals and sandbox bypassed; OpenCode in `run --standalone
+--auto --format json`, with its saved provider-qualified model and optional
+variant. The outcome is the reply, the
 transcript, the shell commands run and the repo. Every check runs on it,
 then the judge (`judge.ts`, Claude `haiku` with no tools) reads the
 requirement, rubric, message, transcript and reply and answers

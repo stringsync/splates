@@ -16,7 +16,7 @@ const HELP = `splates dev eval: run the splates skill's eval scenarios on real a
 Selection:
   --scenario <id>            a scenario, repeatable; all when none
   --agent <agent[:model][@effort]>
-                             claude or codex, repeatable; claude when none
+                             claude, codex or opencode, repeatable; claude when none
   --baseline <rev>           also runs each with the skill as it was at <rev>
   --reps <n>                 runs of each, 1 by default
   --skill <dir>              the skill to run, this checkout's skills/splates by default

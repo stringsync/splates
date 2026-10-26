@@ -12,10 +12,17 @@ server runs from a checkout, and a release answers 404. The page shows
 pass, fail, error, pending and unreadable. Results of the old harness in
 `~/.splates/probe-evals` stay on disk, but the page no longer reads them.
 The agents a run uses are machine-wide in `~/.splates/eval-agents.json`;
-the harness runs `claude` and `codex`.
+the harness runs `claude`, `codex` and `opencode`. OpenCode must also be in
+the ACP roster to appear in the page's model picker. Adding it to the roster
+does not add it to the saved eval picks; save that pick separately.
 
 The model picker draws from the ACP roster, but evals run the native CLIs.
 A model listed there is not proof that the native CLI's account can use it.
+OpenCode receives the exact provider-qualified model as `opencode run
+--standalone --auto --format json --model`, with `#<effort>` appended when
+saved. It uses its native login and configuration, independently of the
+ACP roster's launch recipe. Choose a model listed by `opencode models
+--standalone`; listing alone does not verify paid access.
 Codex receives the saved model as `codex exec --model`; an explicit saved
 model overrides its own configured default. A `model_not_found` error needs
 the saved eval pick corrected, not another run of the same batch. Verify the

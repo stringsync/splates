@@ -1,6 +1,6 @@
 import type { Limits, Step } from "./scenario";
 
-/** An agent a run uses, as the Evals page saves it: `claude`, `codex`, and its model and thinking level. */
+/** An agent a run uses, as the Evals page saves it, with its model and thinking level. */
 export interface AgentPick {
 	agent: string;
 	model?: string;
