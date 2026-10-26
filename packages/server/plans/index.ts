@@ -1,7 +1,5 @@
 export type {
 	Ending,
-	EvalAsk,
-	PermissionProposal,
 	Proposal,
 	Review,
 	Stretch,
@@ -24,6 +22,7 @@ export {
 	orphaned,
 	TASK,
 } from "./needs";
+export type { EvalAsk, PermissionProposal, ReachAsk } from "./permission";
 export type { Decision, Question } from "./plan";
 export {
 	checkPlan,
@@ -51,6 +50,7 @@ export {
 	directive,
 	evalsDoneReference,
 	eventReference,
+	GRANTED,
 	groomReference,
 	handOffReference,
 	isUpdate,

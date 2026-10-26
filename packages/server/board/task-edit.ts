@@ -68,9 +68,13 @@ export async function taskAdd(
 		[
 			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
 			...task.files.map((path) => `  ${path}`),
-			task.blockedBy.length === 0
-				? `  start it: splates ${project === undefined ? "" : `--project ${project} `}add ${task.state.slug ?? "<slug>"} --task ${task.id}`
-				: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
+			// Another project's task is its own to start: the person queues it
+			// there from the card the agent's reply ends with.
+			project !== undefined
+				? `  offer it to the user to queue there: end your reply with \`## 🔐 Permission: queue ${project} #${task.id}: ${task.subject}\``
+				: task.blockedBy.length === 0
+					? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
+					: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);
 	return task;

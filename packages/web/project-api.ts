@@ -8,7 +8,7 @@ import type {
 	After,
 	Checkpoint,
 } from "@stringsync/splates-server/conversations";
-import type { Added } from "@stringsync/splates-server/projects";
+import type { Added, Reach } from "@stringsync/splates-server/projects";
 import type { Behind, ServerChoice } from "@stringsync/splates-server/server";
 import type { Held } from "@stringsync/splates-server/terminal";
 import { ApiError, answered, send, sendJson } from "./api";
@@ -65,6 +65,21 @@ export async function commitProject(
 ): Promise<void> {
 	await sendJson(`/api/projects/${encodeURIComponent(slug)}/commit`, "POST", {
 		paths,
+	});
+}
+
+/**
+ * Lets project `from` do as much as `reach` in project `into`, each by its
+ * slug, as a grant card's Allow asks: the person's call, never an agent's.
+ */
+export async function grantReach(
+	into: string,
+	from: string,
+	reach: Reach,
+): Promise<void> {
+	await sendJson(`/api/projects/${encodeURIComponent(into)}/grants`, "PUT", {
+		from,
+		reach,
 	});
 }
 

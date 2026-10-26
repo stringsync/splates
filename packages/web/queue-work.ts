@@ -53,12 +53,18 @@ export class QueueWork {
 			: (this.lane?.name ?? title ?? `lane ${lane}`);
 	}
 
-	/** The command that queues it from a terminal, as the person may instead. */
+	/**
+	 * The command that queues it from a terminal, as the person may instead,
+	 * naming the project when the card's tasks are another project's.
+	 */
 	get command(): string {
-		const { lane } = this.proposal;
+		const { lane, tasks, project } = this.proposal;
+		const splates =
+			project === undefined ? "splates" : `splates --project ${project}`;
+		const ids = lane === null ? tasks : this.todos.map((todo) => todo.id);
 		return this.byTask
-			? `splates queue add ${this.todos.map((todo) => todo.id).join(" ")}`
-			: `splates lane queue ${lane}`;
+			? `${splates} queue add ${ids.join(" ")}`
+			: `${splates} lane queue ${lane}`;
 	}
 
 	/** Whether it is queued: the lane whole, or each task yet to start. */

@@ -1,4 +1,6 @@
 import type { Logger } from "webappwiz/log";
+import type { Ps } from "webappwiz/system";
+import { fail } from "../exit";
 import type { Git } from "../git";
 import type { Projects, Reach } from "./projects";
 
@@ -42,13 +44,30 @@ export async function listReaches(
 
 /**
  * `splates projects grant`: lets agents of the project `slug` names do as much
- * as `reach` in the one `git` is in.
+ * as `reach` in the one `git` is in. The person's call alone, so an agent is
+ * refused: it asks with a grant card, whose Allow grants it.
  */
 export async function grantReach(
-	{ projects, git, log }: { projects: Projects; git: Git; log: Logger },
+	{
+		projects,
+		git,
+		log,
+		ps,
+	}: { projects: Projects; git: Git; log: Logger; ps: Ps },
 	slug: string,
 	reach: Reach,
 ): Promise<void> {
+	const asking = ps.env("SPLATES_CONVERSATION") ?? ps.env("SPLATES_STARTED_BY");
+	if (asking !== undefined) {
+		const here =
+			(await projects.list()).find((each) => each.root === git.root)?.slug ??
+			git.root;
+		fail(
+			"not_granted",
+			`a grant is the user's to give: ask for it with a \`## 🔐 Permission: grant ${here} ${reach} to ${slug}\` card, whose Allow grants it`,
+			{ project: slug, reach },
+		);
+	}
 	const other = await projects.named(slug);
 	await projects.grant(git.root, other.root, reach);
 	log.info(`#${other.slug} may now ${GRANTED[reach]} here`);

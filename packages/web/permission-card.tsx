@@ -2,6 +2,7 @@ import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
+import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
 	HandIcon,
 	HourglassIcon,
@@ -10,16 +11,25 @@ import {
 	Trash2Icon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useContext } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ActionCard } from "./action-card";
-import { dropLane, queueLane, queueTodo } from "./api";
+import { answered, dropLane, queueLane, queueTodo, scoped } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
 import { Dispatching } from "./dispatching";
 import { EvalsCard } from "./evals-card";
-import { useExpectSnapshot } from "./expecting";
+import { type SnapshotExpecter, useExpectSnapshot } from "./expecting";
+import { GrantCard } from "./grant-card";
+import { useShownProject } from "./navigation";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
 import { stageOf } from "./todo-queue";
@@ -57,6 +67,8 @@ export function PermissionCard({
 			return <RunCommandCard proposal={proposal} />;
 		case "queue":
 			return <QueueCard proposal={proposal} />;
+		case "grant":
+			return <GrantCard proposal={proposal} />;
 	}
 }
 
@@ -121,10 +133,113 @@ function RemoveLaneCard({
 const AHEAD = 3;
 
 /**
- * Queuing a lane whole or tasks one by one, shown where it lands: the
- * queue as it stands, then the card's tasks joining it.
+ * Queuing a lane whole or tasks one by one, in this project or, as the card
+ * names one, another.
  */
 function QueueCard({
+	proposal,
+}: {
+	proposal: PermissionProposal;
+}): JSX.Element {
+	const shown = useShownProject();
+	return proposal.project === undefined || proposal.project === shown ? (
+		<OwnQueueCard proposal={proposal} />
+	) : (
+		<OtherQueueCard proposal={proposal} project={proposal.project} />
+	);
+}
+
+/**
+ * Queuing tasks of another project's, read from its own snapshot, and again
+ * once queued: its tasks only, not where they land in its queue, and none
+ * of them opens this page's board.
+ */
+function OtherQueueCard({
+	proposal,
+	project,
+}: {
+	proposal: PermissionProposal;
+	project: string;
+}): JSX.Element {
+	const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+	const read = useCallback(async () => {
+		const response = await answered(scoped("/api/snapshot", project));
+		if (response.ok) {
+			setSnapshot((await response.json()) as Snapshot);
+		}
+	}, [project]);
+	useEffect(() => {
+		void read().catch(() => {});
+	}, [read]);
+	const work = new QueueWork(proposal, {
+		linked: snapshot !== null,
+		lanes: snapshot?.lanes ?? [],
+		todos: snapshot?.todos ?? [],
+	});
+	// Shown at once on the snapshot read, then read again either way.
+	const expect: SnapshotExpecter["expect"] = async (expectation, write) => {
+		setSnapshot((now) => (now === null ? now : expectation(now)));
+		try {
+			await write;
+		} finally {
+			await read().catch(() => {});
+		}
+	};
+	const { name, todos } = work;
+	return (
+		<ActionCard
+			label={`queue ${project} ${name}`}
+			Icon={TriangleAlertIcon}
+			title={
+				work.queued
+					? `Queued ${project} ${name}`
+					: `Add ${project} ${name} to its queue`
+			}
+			body={proposal.body}
+			action={{
+				verb: todos.length === 1 ? "Queue task" : `Queue ${todos.length} tasks`,
+				VerbIcon: ListPlusIcon,
+				done: "Queued",
+				command: work.command,
+				run: () =>
+					work.queue(expect, {
+						// A card names another project's tasks, never its lane.
+						queueLane: () => Promise.reject(new Error(`not ${project}'s lane`)),
+						queueTodo: (id, queued) => queueTodo(id, queued, project),
+					}),
+				failed: "Not queued",
+			}}
+			done={snapshot !== null && !work.gone && work.queued}
+			gone={work.gone ? `No longer on ${project}'s board` : null}
+			tone="warning"
+		>
+			{todos.length > 0 && (
+				<Panel>
+					{todos.map((todo) => {
+						const stage = stageOf(todo);
+						const on = stage === "running" || stage === "queued";
+						return (
+							<Row
+								key={todo.id}
+								todo={todo}
+								Icon={on ? HourglassIcon : ListPlusIcon}
+								status={on ? stage : "joins"}
+								tone={on ? "quiet" : "plain"}
+								opens={false}
+							/>
+						);
+					})}
+				</Panel>
+			)}
+		</ActionCard>
+	);
+}
+
+/**
+ * Queuing a lane whole or tasks one by one of this project's, shown where
+ * it lands: the queue as it stands, then the card's tasks joining it.
+ */
+function OwnQueueCard({
 	proposal,
 }: {
 	proposal: PermissionProposal;
@@ -299,17 +414,22 @@ const ROW_TONES = {
 	},
 };
 
-/** A task in the panel, which opens it, and where it stands. */
+/**
+ * A task in the panel, which opens it unless `opens` is false, as for
+ * another project's, and where it stands.
+ */
 function Row({
 	todo,
 	Icon,
 	status,
 	tone,
+	opens = true,
 }: {
 	todo: TaskRecord;
 	Icon: LucideIcon;
 	status: string;
 	tone: keyof typeof ROW_TONES;
+	opens?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
 	const { row, icon, status: toned } = ROW_TONES[tone];
@@ -324,13 +444,17 @@ function Row({
 			<span className="text-muted-foreground text-xs tabular-nums">
 				#{todo.id}
 			</span>
-			<button
-				type="button"
-				onClick={() => board.open(todo.id)}
-				className="min-w-0 flex-1 cursor-pointer truncate rounded text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				{todo.subject}
-			</button>
+			{opens ? (
+				<button
+					type="button"
+					onClick={() => board.open(todo.id)}
+					className="min-w-0 flex-1 cursor-pointer truncate rounded text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+				>
+					{todo.subject}
+				</button>
+			) : (
+				<span className="min-w-0 flex-1 truncate">{todo.subject}</span>
+			)}
 			<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
 		</li>
 	);

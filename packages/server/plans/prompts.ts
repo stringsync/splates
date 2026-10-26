@@ -145,6 +145,13 @@ export const RUN_DENIED = "[SPLATES RUN DENIED]";
 export const RETRIED = "[SPLATES RETRIED]";
 
 /**
+ * What tells an agent the person gave the reach its grant card asked for,
+ * from the card's Allow: the page has granted it already, so the agent
+ * carries on with the work it was for. The splates skill says what it means.
+ */
+export const GRANTED = "[SPLATES GRANTED]";
+
+/**
  * What approves an agent's proposal as it stands and asks it to go ahead,
  * the answers to any calls it chose nothing for after it, as the Proposed
  * card's Approve button sends: the splates skill says what it means.

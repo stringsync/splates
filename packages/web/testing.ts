@@ -145,6 +145,8 @@ export class Testing implements Resource {
 	readingBudgets: Promise<void> = Promise.resolve();
 	/** What the page reads; a test sets it before the page fetches again. */
 	served: Snapshot = snapshot();
+	/** What the page reads of another project's, by the slug `?project=` names. */
+	servedOf: Record<string, Snapshot> = {};
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
 	/** What `/api/paths` waits on, for a test to hold them back. */
@@ -431,6 +433,13 @@ export class Testing implements Resource {
 			}
 			if (this.#refusal !== null) {
 				return Response.json(this.#refusal, { status: 409 });
+			}
+			const of =
+				this.servedOf[
+					new URL(path, "http://page").searchParams.get("project") ?? ""
+				];
+			if (route === "/api/snapshot" && of !== undefined) {
+				return Response.json(of);
 			}
 			return Response.json(this.served);
 		}) as unknown as typeof fetch;

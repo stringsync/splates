@@ -358,6 +358,47 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads another project's queue card and a grant card", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: queue webappwiz #404: A locale for format()",
+				"",
+				"`splates --project webappwiz queue add 404`",
+				"",
+				"The report page needs it.",
+				"",
+				"## 🔐 Permission: grant webappwiz tasks to splates: reorder its lane",
+				"",
+				"Other should come before Base.",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "permission",
+				permission: {
+					action: "queue",
+					lane: null,
+					tasks: [404],
+					project: "webappwiz",
+					title: "A locale for format()",
+					body: "The report page needs it.",
+				},
+			},
+			{
+				type: "permission",
+				permission: {
+					action: "grant",
+					lane: null,
+					tasks: [],
+					title: "reorder its lane",
+					body: "Other should come before Base.",
+					grant: { in: "webappwiz", reach: "tasks", from: "splates" },
+				},
+			},
+		]);
+	});
+
 	it("reads a run evals permission with its scenarios and baseline", () => {
 		const found = stretches(
 			[

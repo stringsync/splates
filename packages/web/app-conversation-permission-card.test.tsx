@@ -6,6 +6,7 @@ import {
 	details,
 	fireEvent,
 	message,
+	snapshot,
 	Testing,
 	todo,
 	waitFor,
@@ -221,5 +222,59 @@ describe("App's permission card", () => {
 
 		expect(testing.posts.at(-1)).toMatchObject({ method: "DELETE" });
 		expect(testing.posts.at(-1)?.path).toContain("/api/lanes/3");
+	});
+
+	it("queues another project's tasks through that project, from its own board", async () => {
+		testing.servedOf.shop = snapshot({
+			project: "shop",
+			todos: [
+				todo({ id: 404, subject: "Fix the cart", stage: "ready" }),
+				todo({ id: 405, subject: "Ship the cart", stage: "queued" }),
+			],
+		});
+		const asking = conversation({
+			title: "Cart",
+			messages: [
+				message(
+					"agent",
+					[
+						"## 🔐 Permission: queue shop #404: the cart",
+						"",
+						"Ours waits on it.",
+					].join("\n"),
+				),
+			],
+		});
+		const view = await testing.openConversations([asking], undefined, board);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "queue shop the cart" }),
+		);
+		await waitFor(() => expect(card.textContent).toContain("Fix the cart"));
+		expect(card.textContent).toContain("Add shop the cart to its queue");
+		expect(
+			within(card).getByRole("button", {
+				name: "copy splates --project shop queue add 404",
+			}),
+		).toBeTruthy();
+		// Another project's task opens nothing of this page's board.
+		expect(
+			within(card).queryByRole("button", { name: "Fix the cart" }),
+		).toBeNull();
+
+		// What shop's board reads once the queue lands, read again after.
+		testing.servedOf.shop = snapshot({
+			project: "shop",
+			todos: [todo({ id: 404, subject: "Fix the cart", stage: "queued" })],
+		});
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: /Queue task/ })),
+		);
+
+		expect(testing.posted("/api/todos/404/queued?project=shop")).toEqual([
+			{ method: "PUT", body: { queued: true } },
+		]);
+		await waitFor(() =>
+			expect(card.textContent).toContain("Queued shop the cart"),
+		);
 	});
 });

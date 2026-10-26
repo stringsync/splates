@@ -89,6 +89,31 @@ describe("dev projects", () => {
 		});
 	});
 
+	it("grants one project reach into another, as a grant card's Allow asks", async () => {
+		await using other = await another();
+		const here = (await deps.projects.list()).find(
+			(each) => each.root === deps.root,
+		)?.slug as string;
+
+		await serving(deps, async (_snapshot, port) => {
+			const granted = await write(port, "/api/projects/repo-2/grants", "PUT", {
+				from: here,
+				reach: "tasks",
+			});
+			expect(granted.status).toBe(200);
+			expect(await deps.projects.reach(deps.root, other.root)).toBe("tasks");
+
+			expect(
+				(
+					await write(port, "/api/projects/repo-2/grants", "PUT", {
+						from: here,
+						reach: "everything",
+					})
+				).status,
+			).toBe(400);
+		});
+	});
+
 	it("starts with no project, then shows the one last focused for an address naming none", async () => {
 		await deps.projects.forget(deps.root);
 

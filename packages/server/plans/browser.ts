@@ -22,6 +22,7 @@ export {
 	DIRECTIVES,
 	demoReference,
 	directive,
+	GRANTED,
 	handOffReference,
 	isUpdate,
 	leadingDirectives,

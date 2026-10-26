@@ -1,4 +1,9 @@
 import { type Demo, demoAt, isDemoTitle } from "./demo";
+import {
+	asksPermission,
+	type PermissionProposal,
+	permissionOf,
+} from "./permission";
 import { offers, type Question, settled, sized } from "./plan";
 
 /**
@@ -171,48 +176,6 @@ export interface TodoProposal {
 	body: string;
 }
 
-/**
- * What the agent asks the person to allow, as the skill's `## 🔐 Permission:
- * queue lane <n>: <name>`, `## 🔐 Permission: queue #<n>, #<n>: <what>` or `##
- * 🔐 Permission: remove lane <n>: <name>` puts it: an agent never does these
- * itself, so the card's buttons are the person's. The older `## 📥 Queue ...`
- * titles read as the queue ones.
- */
-export interface PermissionProposal {
-	/**
-	 * What it asks: queue work, remove a lane with its tasks, run evals, or
-	 * run a heavy command, the whole test suite among them.
-	 */
-	action: "queue" | "remove-lane" | "run-evals" | "run-command";
-	/** The lane it acts on whole; null for tasks named one by one. */
-	lane: number | null;
-	/** The tasks named one by one; none for a lane. */
-	tasks: number[];
-	/** What the title says after its colon, if anything. */
-	title: string | null;
-	/** What it comes to, as markdown. */
-	body: string;
-	/** For `run-evals`: what to run, from the card's scenario list. */
-	evals?: EvalAsk;
-	/** For `run-command`: the command to run, from the first backticked line. */
-	command?: string;
-}
-
-/**
- * The evals a `## 🔐 Permission: run evals <skill>: <what it checks>` card
- * asks to run: the scenarios it picked, one `` - `scenario-id` `` item each, and
- * optionally the revision the skill's change is judged against, as a
- * `` Baseline: `rev` `` line and how many times to run each cell, as a
- * `Repetitions: <n>` line.
- */
-export interface EvalAsk {
-	skill: string;
-	scenarios: string[];
-	baseline: string | null;
-	/** Runs of each cell; the runner's own default when absent. */
-	reps?: number;
-}
-
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
 const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 /**
@@ -229,22 +192,6 @@ const ENDED =
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
-const EVALS_PERMISSION =
-	/^## 🔐 Permission: run evals (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-/** A run-evals card's scenario: a list item that is one code span, then maybe a note. */
-const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
-const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
-const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
-const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
-/** A run-command card's command: a line that is one code span. */
-const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
-const PERMISSION =
-	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
-/**
- * A queue card's line of the command that queues its work from a terminal,
- * `` `splates lane queue 7` ``, which the card shows on its own row.
- */
-const COMMAND_LINE = /^`splates [^`\n]+`[ \t]*$/gm;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
  * within its body.
@@ -280,13 +227,9 @@ function keptAt(
 	const ended = ENDED.exec(line);
 	const workingTask = WORKING_TASK.exec(line);
 	const proposed = PROPOSAL.exec(line);
-	const permission = PERMISSION.exec(line);
-	const evals = EVALS_PERMISSION.exec(line);
-	const run = RUN_PERMISSION.exec(line);
+	const asking = asksPermission(line);
 	if (
-		permission === null &&
-		evals === null &&
-		run === null &&
+		!asking &&
 		merged === null &&
 		done === null &&
 		ended === null &&
@@ -303,86 +246,11 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
-	if (run !== null) {
-		const rows = body.split("\n");
-		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
-		const command =
-			at < 0 ? "" : (RUN_COMMAND.exec(rows[at] as string)?.[1] as string);
+	if (asking) {
 		return {
 			stretch: {
 				type: "permission",
-				permission: {
-					action: "run-command",
-					lane: null,
-					tasks: [],
-					title: run[1] || null,
-					body: rows
-						.filter((_, index) => index !== at)
-						.join("\n")
-						.replace(/^\n+|\s+$/g, ""),
-					command,
-				},
-			},
-			end,
-		};
-	}
-	if (evals !== null) {
-		const scenarios: string[] = [];
-		let baseline: string | null = null;
-		let reps: number | undefined;
-		const prose = body.split("\n").filter((each) => {
-			const scenario = EVAL_PROBE.exec(each);
-			if (scenario !== null) {
-				scenarios.push(scenario[1] as string);
-				return false;
-			}
-			const base = EVAL_BASELINE.exec(each);
-			if (base !== null) {
-				baseline = base[1] as string;
-				return false;
-			}
-			const times = EVAL_REPS.exec(each);
-			if (times !== null && Number(times[1]) > 0) {
-				reps = Number(times[1]);
-				return false;
-			}
-			return true;
-		});
-		return {
-			stretch: {
-				type: "permission",
-				permission: {
-					action: "run-evals",
-					lane: null,
-					tasks: [],
-					title: evals[2] || null,
-					body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
-					evals: {
-						skill: evals[1] as string,
-						scenarios,
-						baseline,
-						...(reps === undefined ? {} : { reps }),
-					},
-				},
-			},
-			end,
-		};
-	}
-	if (permission !== null) {
-		const lane = permission[2] ?? permission[3] ?? permission[5];
-		return {
-			stretch: {
-				type: "permission",
-				permission: {
-					action: permission[1] === undefined ? "queue" : "remove-lane",
-					lane: lane === undefined ? null : Number(lane),
-					tasks: Array.from(
-						(permission[4] ?? permission[6] ?? "").matchAll(/\d+/g),
-						Number,
-					),
-					title: permission[7] || null,
-					body: body.replace(COMMAND_LINE, "").replace(/^\n+|\s+$/g, ""),
-				},
+				permission: permissionOf(line, body) as PermissionProposal,
 			},
 			end,
 		};

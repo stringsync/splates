@@ -6,11 +6,12 @@ import { fail } from "../exit";
 import { openRepository } from "../records";
 import type { DevMachine } from "../server/shared";
 import { init } from "./init";
-import type { Project } from "./projects";
+import { type Project, REACHES, type Reach } from "./projects";
 
 /**
  * What the page's project picker asks of `splates server` beyond listing: adding
- * a project, committing what `splates init` wrote there, and focusing one. Its
+ * a project, committing what `splates init` wrote there, focusing one, and a
+ * grant card's grant from one to another. Its
  * handlers are properties, so `dev` hands them to its routes as they are.
  */
 export class Picker {
@@ -64,6 +65,27 @@ export class Picker {
 		}
 		await projects.focus(found.root);
 		return Response.json({});
+	};
+
+	/**
+	 * Lets the project the body's `from` names do as much as its `reach` in
+	 * the one the path names, as a grant card's Allow asks: the person's
+	 * call, which `splates projects grant` refuses an agent.
+	 */
+	readonly grant = async (request: Request): Promise<Response> => {
+		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
+		const { from, reach } = (await request.json().catch(() => ({}))) as {
+			from?: unknown;
+			reach?: unknown;
+		};
+		if (!REACHES.includes(reach as Reach)) {
+			fail("usage", `a grant is one of ${REACHES.join(", ")}`, { reach });
+		}
+		const { projects } = this.deps;
+		const to = await projects.named(slug);
+		const other = await projects.named(String(from));
+		await projects.grant(to.root, other.root, reach as Reach);
+		return Response.json({ in: to.slug, from: other.slug, reach });
 	};
 }
 

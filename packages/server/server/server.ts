@@ -569,6 +569,7 @@ export async function dev(
 							}),
 						),
 					},
+					"/api/projects/:slug/grants": { PUT: guarded(picker.grant) },
 					"/api/focus": { PUT: guarded(picker.focus) },
 					"/api/stats": guarded(ended.stats),
 					"/api/auto-pick/overrides": guarded(ended.overrides),

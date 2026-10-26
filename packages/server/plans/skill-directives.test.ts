@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
 	APPROVE,
 	CHECKPOINT,
+	GRANTED,
 	groomReference,
 	MERGE,
 	RECONNECT,
@@ -28,6 +29,7 @@ describe("the splates skill's Directives table", () => {
 				RUN_ALLOWED,
 				RUN_DENIED,
 				RETRIED,
+				GRANTED,
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
 			].toSorted(),

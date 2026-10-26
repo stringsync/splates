@@ -28,7 +28,7 @@ splatesProjects
 	.command("grant")
 	.use(repository({ needs: "own" }))
 	.description(
-		"let agents of another project do as much as `read`, `queue` or `tasks` here, each including those before it; the user's call, so an agent runs it only when the user asks it to",
+		"let agents of another project do as much as `read`, `queue` or `tasks` here, each including those before it; the user's call, refused an agent, which asks with a `## 🔐 Permission: grant <this> <reach> to <other>` card instead",
 	)
 	.arg("project", z.string(), { description: "the other project's slug" })
 	.arg("reach", z.enum(REACHES), {

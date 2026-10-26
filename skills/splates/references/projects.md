@@ -25,10 +25,41 @@ queue starts it. A command that needs more than the project granted stops
 on `not_granted`; never `cd` there to get around it, which is checked the
 same way.
 
-Whenever work here needs another project, ask for what it takes rather
-than work around it: a grant, as a question under `## Blocked` naming the
-project, the reach, and what you would do with it; or, for a repository
-that is not a splates project yet, leave to `splates init` it, which makes it
-one any agent can reach. Run `splates projects grant <slug> <reach>` from that
-project's directory, or `splates init` there, only once the user says so in
-so many words, as in "let webappwiz run the queue here".
+## Offering to start it
+
+Queuing a task there adds it to that project's Untriaged, where nothing
+starts it until someone queues it. End your reply with its queue card, the
+other project's slug before the numbers, for the user to queue it now or
+leave it:
+
+```markdown
+## 🔐 Permission: queue webappwiz #404: format() takes a locale
+
+`splates --project webappwiz queue add 404`
+
+The report page here needs it to show prices by locale.
+```
+
+Several tasks for the same project go on one card (`queue webappwiz #404,
+#405: ...`). The card is an offer: the work is the user's to start.
+
+## Asking for a grant
+
+Whenever work here needs more of another project than it grants, ask for it
+with the grant card, rather than work around it: the project that grants
+first, then the reach, then this project, and under it what you would do
+with it. End your turn after it.
+
+```markdown
+## 🔐 Permission: grant webappwiz queue to splates: queue the locale change
+
+The report page here needs `format()` to take a locale; once allowed, this
+queues that in webappwiz for its own agent.
+```
+
+Its Allow grants the reach from the page and sends `[SPLATES GRANTED]`:
+carry on with the work it was for, ending with the queue card above when
+it queued a task. `splates projects grant` is the user's alone, refused an
+agent, so never run it. For a repository that is not a splates project
+yet, ask before you `splates init` it, which makes it one any agent can
+reach.

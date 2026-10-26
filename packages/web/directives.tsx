@@ -3,6 +3,7 @@ import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
 	APPROVE,
 	DIRECTIVES,
+	GRANTED,
 	MERGE,
 	RUN_ALLOWED,
 	RUN_DENIED,
@@ -294,8 +295,12 @@ function wordsOf(
 	board: BoardContext,
 	nameAgent: (agent: { agent: string; model?: string }) => string | undefined,
 ): Words | null {
-	if (directive === RUN_ALLOWED || directive === RUN_DENIED) {
-		// The run-command card it answers folds to an event line saying it.
+	if (
+		directive === RUN_ALLOWED ||
+		directive === RUN_DENIED ||
+		directive === GRANTED
+	) {
+		// The run-command or grant card it answers folds to an event line saying it.
 		return null;
 	}
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);

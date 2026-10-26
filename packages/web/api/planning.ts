@@ -87,10 +87,17 @@ export async function manualTodo(id: number, manual: boolean): Promise<void> {
 
 /**
  * Puts todo `id` in the queue, for a worker to start once nothing it is
- * blocked by is open, or takes it out, back to the backlog.
+ * blocked by is open, or takes it out, back to the backlog. Given
+ * `project`, a slug, that project's todo `id` instead of this page's.
  */
-export async function queueTodo(id: number, queued: boolean): Promise<void> {
-	await sendJson(`/api/todos/${id}/queued`, "PUT", { queued });
+export async function queueTodo(
+	id: number,
+	queued: boolean,
+	project: string | null = null,
+): Promise<void> {
+	await sendJson(scoped(`/api/todos/${id}/queued`, project), "PUT", {
+		queued,
+	});
 }
 
 /** Tries queued todo `id`'s start again, after its start was refused. */
