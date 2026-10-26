@@ -153,9 +153,10 @@ const ENTITIES: Record<string, string> = {
  * failing, so it is named for the file it came from.
  */
 export function failedTests(output: string): FailedTest[] {
-	// bun prints each as a `(fail) name` line well before the summary, with the
-	// expect diff or error and its stack just above it.
-	const lines = output.split("\n");
+	// bun prints each as a `(fail) name` line, `✗ name` since 1.4, well before
+	// the summary, with the expect diff or error and its stack just above it.
+	// A gate that forces color wraps every part of the line in escapes.
+	const lines = output.replace(ANSI, "").split("\n");
 	const found = new Map<string, string>();
 	let start = 0;
 	let file: string | undefined;
@@ -212,12 +213,14 @@ function afterFail(next: string | undefined): string[] {
 	return next !== undefined && /^\s*\^ /.test(next) ? [next.trim()] : [];
 }
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: color escapes
+const ANSI = /\u001b\[[0-9;]*[A-Za-z]/g;
 const UNHANDLED = "Unhandled error between tests";
 const UNHANDLED_LINE = /^\s*# Unhandled error between tests\s*$/;
 const RULE_LINE = /^-{3,}\s*$/;
 // bun heads each file's output with its path
 const FILE_LINE = /^(\S+\.(?:test|spec)\.[cm]?[jt]sx?):\s*$/;
-const FAIL_LINE = /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;
+const FAIL_LINE = /^\s*(?:\(fail\)|✗)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;
 
 /** The most lines kept of what one failed test said. */
 const MESSAGE_LINES = 30;

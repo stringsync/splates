@@ -118,4 +118,18 @@ describe("test reports", () => {
 			},
 		]);
 	});
+
+	it("reads bun 1.4's colored check-mark lines", () => {
+		const output = [
+			"\u001b[0m\u001b[31merror\u001b[0m\u001b[2m:\u001b[0m Expected: 1",
+			"\u001b[0m\u001b[31m\u2717\u001b[0m \u001b[0mrender\u001b[2m >\u001b[0m\u001b[1m renders a.png\u001b[0m \u001b[0m\u001b[2m[\u001b[1m476.84ms\u001b[0m\u001b[2m]\u001b[0m",
+			"",
+			"\u001b[0m\u001b[2m1 tests failed:\u001b[0m",
+			"\u001b[0m\u001b[31m\u2717\u001b[0m \u001b[0mrender\u001b[2m >\u001b[0m\u001b[1m renders a.png\u001b[0m \u001b[0m\u001b[2m[\u001b[1m476.84ms\u001b[0m\u001b[2m]\u001b[0m",
+		].join("\n");
+
+		expect(failedTests(output)).toEqual([
+			{ name: "render > renders a.png", message: "error: Expected: 1" },
+		]);
+	});
 });
