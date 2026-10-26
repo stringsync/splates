@@ -160,32 +160,6 @@ describe("skill checks", () => {
 		).toEqual([]);
 	});
 
-	it("numbered-questions: passes two questions numbered, and ignores code and quotes", () => {
-		expect(
-			verdicts("numbered-questions", [
-				user(),
-				say(
-					"Two calls left.\n\n> **Which one?**\n\n```\nwhy?\n```\n\n1. What cap?\n2. What then?\n   - (a) Stop (chosen)",
-				),
-			]),
-		).toEqual([true]);
-	});
-
-	it("numbered-questions: fails questions in bullets", () => {
-		expect(
-			verdicts("numbered-questions", [
-				user(),
-				say("- What cap?\n- What then?"),
-			]),
-		).toEqual([false]);
-	});
-
-	it("numbered-questions: does not apply to a single question", () => {
-		expect(
-			verdicts("numbered-questions", [user(), say("Shall I go on?")]),
-		).toEqual([]);
-	});
-
 	it("setup-read-first: passes a step read before acting, and fails one acted on first", () => {
 		expect(
 			verdicts("setup-read-first", [
@@ -255,25 +229,6 @@ describe("skill checks", () => {
 			]),
 		).toEqual([true]);
 	});
-
-	it("squashed: passes one plain commit, and fails several or an attributed one", () => {
-		const found = judge(
-			{ beats: [] },
-			{
-				landed: [
-					{ task: "a", commits: ["Stop retrying a 413"] },
-					{ task: "b", commits: ["Step one", "Step two"] },
-					{
-						task: "c",
-						commits: [
-							"Fix it\n\nCo-authored-by: Claude <noreply@anthropic.com>",
-						],
-					},
-				],
-			},
-		).squashed;
-		expect(found?.map((each) => each.ok)).toEqual([true, false, false]);
-	});
 });
 
 function user(text = "fix the upload"): Beat {
@@ -314,7 +269,5 @@ function verdicts(
 	beats: Beat[],
 	end: Partial<EndState> = {},
 ): boolean[] | undefined {
-	return judge({ beats }, { landed: [], ...end })[check]?.map(
-		(each) => each.ok,
-	);
+	return judge({ beats }, end)[check]?.map((each) => each.ok);
 }

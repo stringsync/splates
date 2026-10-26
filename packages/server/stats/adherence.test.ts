@@ -4,39 +4,16 @@ import type { ConversationState } from "../conversations";
 import { conversation, message, tool } from "../fixtures";
 import { FsStorage } from "../storage";
 import { Adherence, condense } from "./adherence";
-import { type Outcome, Outcomes } from "./outcomes";
 
 const AT = "2026-10-14T10:00:00.000Z";
 
 describe("Adherence", () => {
 	let fs: FakeFs;
-	let outcomes: Outcomes;
 	let adherence: Adherence;
 
 	beforeEach(() => {
 		fs = new FakeFs();
-		outcomes = new Outcomes(new FsStorage("/home/.splates", fs));
-		adherence = new Adherence(
-			new FsStorage("/home/.splates", fs),
-			outcomes,
-			fs,
-		);
-	});
-
-	const landed = (overrides: Partial<Outcome>): Outcome => ({
-		project: "/repo",
-		task: "upload-413",
-		base: "main",
-		ended: "merged",
-		startedAt: AT,
-		endedAt: AT,
-		questionRounds: 0,
-		reviewRounds: 0,
-		failedMerges: 0,
-		conversation: "c1",
-		agent: null,
-		model: null,
-		...overrides,
+		adherence = new Adherence(new FsStorage("/home/.splates", fs), fs);
 	});
 
 	it("condenses the agent's own words and commands, joining text streamed apart", () => {
@@ -78,10 +55,7 @@ describe("Adherence", () => {
 		});
 	});
 
-	it("keeps each conversation's scores as last judged, with the commits it merged", async () => {
-		await outcomes.record(landed({ commits: ["One", "Two"] }));
-		await outcomes.record(landed({ conversation: "other", commits: ["Fine"] }));
-
+	it("keeps each conversation's scores as last judged", async () => {
 		await adherence.judge(merged(), "/repo", AT);
 
 		expect(await adherence.list()).toEqual([
@@ -93,7 +67,6 @@ describe("Adherence", () => {
 				at: AT,
 				scores: {
 					"report-title": { passed: 1, failed: 0 },
-					squashed: { passed: 0, failed: 1 },
 				},
 			},
 		]);
@@ -105,7 +78,15 @@ describe("Adherence", () => {
 		await adherence.judge(state, "/repo", AT);
 		state.messages.push(
 			message("user", "again"),
-			message("agent", "- A?\n- B?"),
+			message(
+				"agent",
+				tool({
+					id: "t3",
+					command: "splates merge",
+					output: "merged upload-413 onto main",
+				}),
+				"Done, it landed.",
+			),
 		);
 		await adherence.judge(state, "/repo", AT);
 
@@ -113,8 +94,8 @@ describe("Adherence", () => {
 			.trim()
 			.split("\n");
 		expect(lines).toHaveLength(2);
-		expect((await adherence.list())[0]?.scores["numbered-questions"]).toEqual({
-			passed: 0,
+		expect((await adherence.list())[0]?.scores["report-title"]).toEqual({
+			passed: 1,
 			failed: 1,
 		});
 	});

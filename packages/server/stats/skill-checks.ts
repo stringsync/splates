@@ -39,8 +39,6 @@ export type Beat =
 export interface EndState {
 	/** Whether the conversation's project has notes; absent for older callers. */
 	hasNotes?: boolean;
-	/** Each task it merged, with the message of each commit that landed. */
-	landed: { task: string; commits: string[] }[];
 }
 
 /** How one place a rule applied went. */
@@ -138,46 +136,6 @@ export const CHECKS: readonly Check[] = [
 				};
 			}),
 		],
-	},
-	{
-		id: "numbered-questions",
-		rule: "Asks two or more questions as a numbered list",
-		judge: ({ beats }) =>
-			turns(beats).flatMap(({ report }) => {
-				const asked = questionLines(report);
-				if (asked.length < 2) {
-					return [];
-				}
-				const loose = asked.filter((line) => !NUMBERED.test(line));
-				return [
-					{
-						ok: loose.length === 0,
-						why:
-							loose.length === 0
-								? `${asked.length} questions, all numbered`
-								: `not numbered: "${loose[0]?.trim()}"`,
-					},
-				];
-			}),
-	},
-	{
-		id: "squashed",
-		rule: "Lands one commit with no attribution",
-		judge: (_, { landed }) =>
-			landed.map(({ task, commits }) => {
-				const attributed = commits.find((message) =>
-					ATTRIBUTION.some((pattern) => pattern.test(message)),
-				);
-				return {
-					ok: commits.length === 1 && attributed === undefined,
-					why:
-						commits.length !== 1
-							? `${task}: landed ${commits.length} commits`
-							: attributed === undefined
-								? `${task}: one plain commit`
-								: `${task}: attributed`,
-				};
-			}),
 	},
 	{
 		id: "setup-read-first",
@@ -312,12 +270,6 @@ const REVIEW = /^##\s.*Ready to merge\b/m;
 
 /** The line a review ends on, which the page needs to show its Merge button. */
 const REVIEW_ENDS = 'Reply "merge", or say what to change.';
-
-/** A numbered list item. */
-const NUMBERED = /^\s*\d+\.\s/;
-
-/** What gives a commit away as an agent's: a trailer, a signature or a robot. */
-const ATTRIBUTION = [/^co-authored-by:/im, /generated (with|by)/i, /🤖/u];
 
 /** `splates <verb>` where a shell would run it, with whatever follows. */
 const SPLATES =
@@ -488,24 +440,6 @@ function reviews(beats: Beat[]): string[] {
 /** What `report` is titled: its first line. */
 function titleOf(report: string): string {
 	return report.trim().split("\n")[0]?.trim() ?? "";
-}
-
-/** The lines of `text` that ask something: ending in `?`, outside code, quotes and headings. */
-function questionLines(text: string): string[] {
-	let fenced = false;
-	return text.split("\n").filter((line) => {
-		if (/^\s*(```|~~~)/.test(line)) {
-			fenced = !fenced;
-			return false;
-		}
-		const trimmed = line.trim().replace(/\**$/, "");
-		return (
-			!fenced &&
-			trimmed.endsWith("?") &&
-			!trimmed.startsWith("#") &&
-			!trimmed.startsWith(">")
-		);
-	});
 }
 
 function isPlan(path: string): boolean {

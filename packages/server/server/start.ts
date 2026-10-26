@@ -185,11 +185,10 @@ async function start(
 	// Read once: a roster edited while it serves applies from the restart.
 	const roster = await seeded(rosterOf(ctx), offered);
 	const limits = new Limits(settingsStorage.document("limits.json"));
-	// Judged as each turn ends, for the Stats page, across projects like the
-	// outcomes it reads the merged commits from.
+	// Judged as each turn ends, for the Stats page, across projects.
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
-	const adherence = new Adherence(machine, outcomes, ctx.fs);
+	const adherence = new Adherence(machine, ctx.fs);
 	const spend = new Spend(machine);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.

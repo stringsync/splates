@@ -31,7 +31,7 @@ export class NoteStatsRoutes {
 			noteStats(
 				await sources(root),
 				await outcomes.list(),
-				await new Adherence(storage, outcomes, fs).list(),
+				await new Adherence(storage, fs).list(),
 			),
 		);
 	};

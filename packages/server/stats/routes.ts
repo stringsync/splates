@@ -21,11 +21,7 @@ export class DevOutcomes {
 
 	constructor({ fs, ps }: { fs: Fs; ps: Ps }) {
 		this.outcomes = new Outcomes(new FsStorage(splatesHome(ps), fs));
-		this.adherence = new Adherence(
-			new FsStorage(splatesHome(ps), fs),
-			this.outcomes,
-			fs,
-		);
+		this.adherence = new Adherence(new FsStorage(splatesHome(ps), fs), fs);
 	}
 
 	/** `?period=` names the period, as `PERIODS` does, or `all` for all time; 7 days for none. `?project=` narrows it to that main tree. */

@@ -269,9 +269,9 @@ describe("summarize", () => {
 			["0.0.9", 1, expect.objectContaining({ applied: 1, passed: 1 })],
 			[null, 1, expect.objectContaining({ applied: 1, passed: 1 })],
 		]);
-		expect(skill[0]?.checks.find((check) => check.id === "squashed")).toEqual(
-			expect.objectContaining({ applied: 0, passed: 0 }),
-		);
+		expect(
+			skill[0]?.checks.find((check) => check.id === "report-title"),
+		).toEqual(expect.objectContaining({ applied: 0, passed: 0 }));
 	});
 
 	it("totals cost, tokens, working time and lines over the tasks that kept them", () => {

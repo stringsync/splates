@@ -3,14 +3,7 @@ import { ConfigFiles } from "../config";
 import type { ConversationState } from "../conversations";
 import { Notes } from "../notes";
 import type { Log, Storage } from "../storage";
-import type { Outcomes } from "./outcomes";
-import {
-	type Beat,
-	type EndState,
-	judge,
-	splatesCalls,
-	type Transcript,
-} from "./skill-checks";
+import { type Beat, judge, type Transcript } from "./skill-checks";
 
 /**
  * How closely `splates server`'s conversations follow the splates skill, across
@@ -27,8 +20,6 @@ export class Adherence {
 	constructor(
 		/** The machine's storage, or a test's own. */
 		storage: Storage,
-		/** Where the commits a conversation merged are kept; null to judge without them. */
-		private readonly outcomes: Outcomes | null,
 		private readonly fs: Fs,
 	) {
 		this.log = storage.log("adherence.jsonl");
@@ -44,10 +35,7 @@ export class Adherence {
 		const config = await new ConfigFiles(this.fs).read(project);
 		const hasNotes =
 			(await new Notes(this.fs).list(project, config)).length > 0;
-		const verdicts = judge(transcript, {
-			...(await this.endOf(state, transcript)),
-			hasNotes,
-		});
+		const verdicts = judge(transcript, { hasNotes });
 		const scores: Scores = Object.fromEntries(
 			Object.entries(verdicts)
 				.filter(([, each]) => each.length > 0)
@@ -84,32 +72,6 @@ export class Adherence {
 			last.set(judged.conversation, judged);
 		}
 		return [...last.values()];
-	}
-
-	/** What `state` merged, read from the outcomes only once it has merged anything. */
-	private async endOf(
-		state: ConversationState,
-		{ beats }: Transcript,
-	): Promise<EndState> {
-		const merged = beats.some(
-			(each) =>
-				each.kind === "run" &&
-				each.ok &&
-				splatesCalls(each.command).some(({ verb }) => verb === "merge"),
-		);
-		if (!merged || this.outcomes === null) {
-			return { landed: [] };
-		}
-		const outcomes = await this.outcomes.list();
-		return {
-			landed: outcomes.flatMap((each) =>
-				each.conversation === state.id &&
-				each.ended === "merged" &&
-				each.commits !== undefined
-					? [{ task: each.task, commits: each.commits }]
-					: [],
-			),
-		};
 	}
 }
 

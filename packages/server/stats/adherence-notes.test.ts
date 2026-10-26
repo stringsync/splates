@@ -16,7 +16,7 @@ describe("Adherence with project notes", () => {
 	beforeEach(async () => {
 		root = await mkdtemp(join(tmpdir(), "splates-notes-adherence-"));
 		const fs = new NodeFs();
-		adherence = new Adherence(new FsStorage(`${root}/.splates`, fs), null, fs);
+		adherence = new Adherence(new FsStorage(`${root}/.splates`, fs), fs);
 		await fs.mkdir(`${root}/context`, { recursive: true });
 		await fs.write(
 			`${root}/splates.config.ts`,
