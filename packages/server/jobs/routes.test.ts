@@ -56,6 +56,17 @@ describe("JobRoutes with JobClient", () => {
 		scheduler.dispose();
 	});
 
+	it("pauses and resumes the scheduler's starts", async () => {
+		await routes.pause();
+		expect(scheduler.list().paused).toBe(true);
+		const held = await scheduler.submit(SPEC);
+		expect(scheduler.list().waiting.map((job) => job.id)).toEqual([held.id]);
+		await routes.resume();
+		await scheduler.sweep();
+		expect(scheduler.list().paused).toBe(false);
+		expect(scheduler.list().running.map((job) => job.id)).toEqual([held.id]);
+	});
+
 	it("submits a job and hears over its stream that it started", async () => {
 		const job = await client.submit(SPEC);
 

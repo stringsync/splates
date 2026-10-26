@@ -13,6 +13,7 @@ import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { FinishedTasks } from "./finished-tasks";
 import { useNow } from "./hooks/use-now";
+import { Jobs } from "./jobs";
 import { Orphaned } from "./list-rows";
 import { localWorker } from "./local-worker";
 import { useMachine } from "./machine";
@@ -89,6 +90,7 @@ export function Tasks({
 					waiting={queue.filter((entry) => entry.queued !== true).length}
 				/>
 			)}
+			<Jobs jobs={machine?.jobs ?? null} />
 			<section
 				aria-label="queue card"
 				className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs"

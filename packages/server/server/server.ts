@@ -654,6 +654,8 @@ export async function dev(
 						GET: guarded(jobs.list),
 						POST: local(guarded(jobs.submit)),
 					},
+					"/api/jobs/pause": { POST: talk(guarded(jobs.pause)) },
+					"/api/jobs/resume": { POST: talk(guarded(jobs.resume)) },
 					"/api/jobs/:id": { DELETE: local(guarded(jobs.finish)) },
 					"/api/jobs/:id/events": guarded(jobs.events),
 					"/api/jobs/:id/renew": { POST: local(guarded(jobs.renew)) },

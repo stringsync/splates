@@ -70,6 +70,8 @@ export class JobScheduler
 	#again = false;
 	#issued = 0;
 	#paused = false;
+	/** The job the pass reserved room for, and when it expects to fit. */
+	#reserved: { id: string; at: Duration } | null = null;
 
 	constructor(
 		private readonly pools: Pools,
@@ -154,6 +156,9 @@ export class JobScheduler
 					place: job.place ?? 0,
 					waitedMs: now.subtract(job.submittedAt).ms,
 					effective: this.#effective(job, now),
+					...(this.#reserved?.id === job.id
+						? { reservedInMs: Math.max(0, this.#reserved.at.ms - now.ms) }
+						: {}),
 				})),
 		};
 	}
@@ -209,6 +214,7 @@ export class JobScheduler
 					one.submittedAt.ms - other.submittedAt.ms,
 			);
 		let reservation: Reservation | null = null;
+		this.#reserved = null;
 		let place = 0;
 		for (const job of waiting) {
 			if (!this.#paused) {
@@ -229,6 +235,7 @@ export class JobScheduler
 						continue;
 					}
 					reservation = this.#reserve(job, free, capacity, now);
+					this.#reserved = { id: job.id, at: reservation.at };
 				}
 			}
 			place++;

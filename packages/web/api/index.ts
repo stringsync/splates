@@ -83,6 +83,7 @@ export {
 	type MachineStatus,
 	machine,
 	moveQueued,
+	pauseJobs,
 	removeWorker,
 	taskPorts,
 	updateWorker,

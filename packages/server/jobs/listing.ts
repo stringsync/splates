@@ -24,6 +24,8 @@ export interface WaitingJob extends ListedJob {
 	waitedMs: number;
 	/** Its priority with its age added. */
 	effective: number;
+	/** The head job, when it waits for room: how long until it is expected to fit. */
+	reservedInMs?: number;
 }
 
 /** The scheduler's queue: what runs, what waits in line, and whether starts are paused. */

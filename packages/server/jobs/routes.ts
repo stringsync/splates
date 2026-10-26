@@ -40,6 +40,17 @@ export class JobRoutes {
 	readonly list = async (): Promise<Response> =>
 		Response.json(this.scheduler.list());
 
+	/** `POST /api/jobs/pause` and `/resume`: the person's, as the queue's pause is. */
+	readonly pause = async (): Promise<Response> => {
+		this.scheduler.pause();
+		return Response.json({ paused: true });
+	};
+
+	readonly resume = async (): Promise<Response> => {
+		this.scheduler.resume();
+		return Response.json({ paused: false });
+	};
+
 	readonly submit = async (request: Request): Promise<Response> => {
 		const parsed = SPEC.safeParse(await request.json().catch(() => null));
 		if (!parsed.success) {
