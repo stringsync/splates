@@ -110,6 +110,23 @@ describe("advise", () => {
 		).toMatchObject({ act: expect.stringContaining("smaller") });
 	});
 
+	it("names the file most conflicts are in, once enough tasks met there", () => {
+		const conflicted = (tasks: number) =>
+			period({
+				failedMerges: 20,
+				failedBy: { conflict: 20, tests_failed: 0, merge_failed: 0 },
+				conflictedIn: {
+					"COVERAGE.md": { conflicts: 18, tasks },
+					"a.ts": { conflicts: 2, tasks: 2 },
+				},
+			});
+
+		expect(card("Why merges failed", conflicted(9))?.act).toBe(
+			"Most conflicts are in COVERAGE.md (18 of 20, across 9 tasks): many tasks edit the same lines there, so change the file so they need not, such as a count every task rewrites.",
+		);
+		expect(card("Why merges failed", conflicted(2))?.act).toContain("one lane");
+	});
+
 	it("says whether each figure moved since the weeks before, and whether that is better", () => {
 		const before = period({
 			merged: 10,

@@ -243,6 +243,7 @@ function failures(period: Tally, before: Before): Advice {
 	const [reason, count] = Object.entries(failedBy).sort(
 		([, one], [, other]) => other - one,
 	)[0] ?? ["", 0];
+	const hot = hotFile(period);
 	return {
 		id: "failures",
 		title: "Why merges failed",
@@ -255,7 +256,9 @@ function failures(period: Tally, before: Before): Advice {
 			count < ENOUGH
 				? null
 				: reason === "conflict"
-					? "Most failures are conflicts: tasks overlap, so put work on the same files in one lane."
+					? hot !== null
+						? `Most conflicts are in ${hot.file} (${hot.conflicts} of ${failedBy.conflict}, across ${plural(hot.tasks, "task")}): many tasks edit the same lines there, so change the file so they need not, such as a count every task rewrites.`
+						: "Most failures are conflicts: tasks overlap, so put work on the same files in one lane."
 					: reason === "tests_failed"
 						? "Most failures are failed checks: have agents run the project's checks before they merge."
 						: "Most failures are a base that would not move: commit or clear what sits in the main tree.",
@@ -270,6 +273,25 @@ function failures(period: Tally, before: Before): Advice {
 					),
 		trend: before.trend(period, FAILURES),
 	};
+}
+
+/**
+ * The file in at least half the period's conflicts, across enough tasks to
+ * be the file's doing rather than two tasks meeting; null when none is.
+ */
+function hotFile(
+	period: Tally,
+): { file: string; conflicts: number; tasks: number } | null {
+	const [file, conflicted] =
+		Object.entries(period.conflictedIn).sort(
+			([, one], [, other]) => other.conflicts - one.conflicts,
+		)[0] ?? [];
+	return file === undefined ||
+		conflicted === undefined ||
+		conflicted.tasks < ENOUGH ||
+		conflicted.conflicts * 2 < period.failedBy.conflict
+		? null
+		: { file, ...conflicted };
 }
 
 function removals(period: Tally, before: Before): Advice {

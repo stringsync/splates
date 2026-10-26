@@ -125,6 +125,7 @@ describe.concurrent("outcomes", () => {
 		expect(outcome).toMatchObject({
 			failedMerges: 1,
 			failedMergesBy: { conflict: 1 },
+			conflictedFiles: { "mixer-gain.ts": 1 },
 			questionsAsked: 6,
 			picksAsked: 4,
 			picksOverturned: 1,

@@ -204,8 +204,13 @@ describe("summarize", () => {
 					waitedMs: 1000,
 					startedAt: "2026-10-14T09:59:50.000Z",
 					failedMergesBy: { conflict: 2 },
+					conflictedFiles: { "COVERAGE.md": 2 },
 				}),
-				ended({ ended: "removed", removedFor: "redo" }),
+				ended({
+					ended: "removed",
+					removedFor: "redo",
+					conflictedFiles: { "COVERAGE.md": 1, "a.ts": 1 },
+				}),
 				// Written before any of it was kept.
 				ended({ ended: "removed" }),
 			],
@@ -222,6 +227,10 @@ describe("summarize", () => {
 			waitedMs: 1000,
 			spentMs: 10_000,
 			failedBy: { conflict: 2, tests_failed: 0, merge_failed: 0 },
+			conflictedIn: {
+				"COVERAGE.md": { conflicts: 3, tasks: 2 },
+				"a.ts": { conflicts: 1, tasks: 1 },
+			},
 			removedFor: { redo: 1, unsaid: 1, moot: 0 },
 		});
 	});

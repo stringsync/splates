@@ -350,6 +350,11 @@ export interface Outcome {
 	failedMerges: number;
 	/** `failedMerges` by why each failed. Absent from lines written before it was kept. */
 	failedMergesBy?: Partial<Record<MergeFailure, number>>;
+	/**
+	 * How many of its conflicts each file was in, as far as its record kept
+	 * them. Absent from lines written before it was kept, and when none.
+	 */
+	conflictedFiles?: Record<string, number>;
 	/** The questions its plan asked under `## Blocked`. Absent from older lines. */
 	questionsAsked?: number;
 	/** Of those, the ones that offered a `(chosen)` pick and were answered with a choice. */

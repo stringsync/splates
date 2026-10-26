@@ -17,6 +17,7 @@ import { StartedRecords } from "./started-records";
 import {
 	type DiffSize,
 	type DiscardOptions,
+	type GateFailure,
 	type TaskState,
 	Worktree,
 } from "./worktree";
@@ -420,6 +421,7 @@ export class WorktreeService {
 			reviewRounds: legacy ? reviews : (worked?.reviewRounds ?? 0),
 			failedMerges: state.mergeFailures ?? 0,
 			failedMergesBy: state.mergeFailuresBy ?? {},
+			...conflictedFiles(state.gateFailures ?? []),
 			questionsAsked: asked.asked,
 			picksAsked: asked.picked,
 			picksOverturned: asked.overturned,
@@ -544,4 +546,19 @@ export interface WorktreeServiceOptions {
 	 * one lock; one of its own, locked in this process alone, by default.
 	 */
 	store?: TaskStore;
+}
+
+/** How many of the conflicts in `failures` each file was in, when any were. */
+function conflictedFiles(failures: GateFailure[]): {
+	conflictedFiles?: Record<string, number>;
+} {
+	const files: Record<string, number> = {};
+	for (const failure of failures) {
+		if (failure.reason === "conflict") {
+			for (const file of failure.files ?? []) {
+				files[file] = (files[file] ?? 0) + 1;
+			}
+		}
+	}
+	return Object.keys(files).length === 0 ? {} : { conflictedFiles: files };
 }

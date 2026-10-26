@@ -100,8 +100,15 @@ export interface Tally {
 	linesRemoved: number;
 	/** Failed merges by why, where it was kept. */
 	failedBy: Record<MergeFailure, number>;
+	/** Each file merges conflicted in: how many conflicts, and in how many tasks. */
+	conflictedIn: Record<string, ConflictedFile>;
 	/** Removed tasks by why; `unsaid` for one removed without `--reason`, or before it was kept. */
 	removedFor: Record<RemoveReason | "unsaid", number>;
+}
+
+export interface ConflictedFile {
+	conflicts: number;
+	tasks: number;
 }
 
 /** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
@@ -258,6 +265,14 @@ function tally(outcomes: Outcome[]): Tally {
 			failedBy[reason] += each.failedMergesBy?.[reason] ?? 0;
 		}
 	}
+	const conflictedIn: Record<string, ConflictedFile> = {};
+	for (const each of outcomes) {
+		for (const [file, conflicts] of Object.entries(
+			each.conflictedFiles ?? {},
+		)) {
+			addConflicts(conflictedIn, file, { conflicts, tasks: 1 });
+		}
+	}
 	return {
 		merged: merged.length,
 		batchedMerges: merged.filter((each) => (each.batch?.length ?? 0) > 1)
@@ -302,7 +317,20 @@ function tally(outcomes: Outcome[]): Tally {
 		linesAdded: sum(sized, (each) => each.size?.added ?? 0),
 		linesRemoved: sum(sized, (each) => each.size?.removed ?? 0),
 		failedBy,
+		conflictedIn,
 		removedFor,
+	};
+}
+
+function addConflicts(
+	into: Record<string, ConflictedFile>,
+	file: string,
+	more: ConflictedFile,
+): void {
+	const had = into[file] ?? { conflicts: 0, tasks: 0 };
+	into[file] = {
+		conflicts: had.conflicts + more.conflicts,
+		tasks: had.tasks + more.tasks,
 	};
 }
 
@@ -315,6 +343,9 @@ export function combine(tallies: Tally[]): Tally {
 		}
 		for (const reason of MERGE_FAILURES) {
 			total.failedBy[reason] += each.failedBy[reason];
+		}
+		for (const [file, conflicted] of Object.entries(each.conflictedIn)) {
+			addConflicts(total.conflictedIn, file, conflicted);
 		}
 		for (const reason of ["unsaid", ...REMOVE_REASONS] as const) {
 			total.removedFor[reason] += each.removedFor[reason];
