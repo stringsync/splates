@@ -17,6 +17,21 @@ describe("TimedPhases", () => {
 		});
 	});
 
+	it("leaves the time of phases run side by side to the phase they ran within", () => {
+		const lines = [
+			'{"phase":"server tests","ms":3000,"within":"tests"}',
+			'{"phase":"web tests","ms":4000,"within":"tests"}',
+			'{"phase":"tests","ms":4100}',
+		].join("\n");
+
+		expect(new TimedPhases(lines).of(5000)).toEqual({
+			"server tests": 3000,
+			"web tests": 4000,
+			tests: 4100,
+			setup: 900,
+		});
+	});
+
 	it("passes over a half-written line", () => {
 		expect(new TimedPhases('{"phase":"scry","ms":20}\n{"pha').of(50)).toEqual({
 			scry: 20,

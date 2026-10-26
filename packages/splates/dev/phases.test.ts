@@ -22,6 +22,20 @@ describe("PhaseTimer", () => {
 		]);
 	});
 
+	it("names the phase a phase ran within", async () => {
+		const fs = new FakeFs();
+
+		await new PhaseTimer(gatePs(), fs).time("web tests", async () => {}, {
+			within: "tests",
+		});
+
+		expect(JSON.parse(await fs.read("/phases.jsonl"))).toEqual({
+			phase: "web tests",
+			ms: expect.any(Number),
+			within: "tests",
+		});
+	});
+
 	it("appends a phase's peak memory to the gate's file", async () => {
 		const fs = new FakeFs();
 

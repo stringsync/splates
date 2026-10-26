@@ -446,12 +446,15 @@ export interface GatePhases {
 	 * Milliseconds by phase, in the order they ran: those the gate's command
 	 * timed through `SPLATES_GATE_PHASES`, such as `biome` or `server tests`,
 	 * then `setup`, the rest of the run: `postRewrite` and the command's own
-	 * start. Only `setup` when the command timed none.
+	 * start. Only `setup` when the command timed none. Since 2026-10-26 the
+	 * two test runs go side by side, timed each and together as `tests`, so
+	 * the phases no longer add up to the run.
 	 */
 	ms: Record<string, number>;
 	/**
 	 * The peak memory in megabytes of each test run's process tree, by phase,
-	 * as `server tests`; left out by gates before it was measured.
+	 * as `server tests`, or `tests` for the two runs side by side; left out
+	 * by gates before it was measured.
 	 */
 	peakMb?: Record<string, number>;
 }

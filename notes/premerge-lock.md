@@ -102,8 +102,9 @@ workers it was given, the one-minute load when it started (the raw
 average, the gate before's share included), and `ms` by
 phase. The gate names a file in `SPLATES_GATE_PHASES`; `dev premerge`
 appends a line per phase (`PhaseTimer`): `biome`, `typecheck`, `scry`,
-`recent`, `server tests`, `web tests`. The gate sums them and adds `setup`,
-the rest of the run: `postRewrite`'s `bun install` and the command's own
+`recent`, `server tests`, `web tests`, and `tests`, the two test runs
+side by side, which marks them `within` it. The gate sums them, all but
+those within another, and adds `setup`, the rest of the run: `postRewrite`'s `bun install` and the command's own
 start. A retest of named files records nothing; a later whole run replaces
 the earlier one's.
 

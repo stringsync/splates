@@ -63,7 +63,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	}
 	// An agent's run beside a merge gate makes way for it; its workers inherit the nice.
 	(opts.priority ?? new AgentPriority(ps)).lower();
-	// The page's tests and the rest run apart, one after the other. A DOM test
+	// The page's tests and the rest run apart, in processes of their own. A DOM test
 	// puts happy-dom on `globalThis` for its whole process, `setTimeout`, `URL`
 	// and the stream types among it, which the server is tested against. Apart,
 	// each run keeps one global and module registry per worker across the files
@@ -121,15 +121,18 @@ export async function test(opts: TestOptions): Promise<void> {
 				: Math.max(1, Math.floor(availableParallelism() / 2)));
 	// Free memory caps the count too, per half, since a page worker and a
 	// server worker cost differently (`WORKER_COST_MB`); `--workers` is the
-	// person's word and is left alone.
-	const workersFor = (half: "server" | "page") =>
+	// person's word and is left alone. Side by side, a half takes its cores
+	// and their part of free memory.
+	const workersFor = (half: "server" | "page", its: number) =>
 		opts.workers !== undefined
-			? { workers: cores, byMemory: false }
+			? { workers: its, byMemory: false }
 			: budgetedWorkers({
-					cores,
+					cores: its,
 					half,
 					gate: gate > 0,
-					freeMb: (opts.freeMemoryMb ?? freeMemoryMb)(),
+					freeMb: Math.floor(
+						((opts.freeMemoryMb ?? freeMemoryMb)() * its) / cores,
+					),
 				});
 	// `splates merge` names where its gate wants a JUnit report, to queue a
 	// task for each slow test; bun keeps printing its own output beside it.
@@ -160,21 +163,42 @@ export async function test(opts: TestOptions): Promise<void> {
 	];
 	// bun's per-test timeout cannot stop a test spinning in a synchronous
 	// loop, and such a run once held the machine for ten hours. Ending bun's runner
-	// ends its workers too.
+	// ends its workers too. A run that fails to start ends its sibling.
 	const deadline = opts.deadline ?? TEST_DEADLINE;
-	const signal = AbortSignal.timeout(deadline.ms);
+	const timeout = AbortSignal.timeout(deadline.ms);
+	const broke = new AbortController();
+	const signal = AbortSignal.any([timeout, broke.signal]);
 	const fs = new NodeFs();
 	const memory = opts.memory ?? new PeakMemory(ps);
 	await using git = await directGit(ps);
 	await using scratch = await scratchDir();
 	const env = { ...git.env, TMPDIR: scratch.path };
+	// The two halves run side by side, each on its share of the cores,
+	// rather than one after the other: each waits on its own slowest
+	// file, and the server's last files no longer hold up the page's
+	// run. Their workers add up to the cores, never more, as the gate
+	// times out under load past them. A run of one worker runs alone, and
+	// `--workers <n>` keeps its word, n to each run, one after the other.
+	const split =
+		opts.workers === undefined
+			? sideBySide(
+					runs.map(({ half }) => half),
+					cores,
+				)
+			: null;
 	let failed = false;
-	const reports: string[] = [];
-	const printed: string[] = [];
-	for (const [at, { phase, args, half }] of runs.entries()) {
-		const { workers, byMemory } = workersFor(half);
+	const reports: (string | null)[] = runs.map(() => null);
+	const printed: string[][] = runs.map(() => []);
+	const runOne = async (at: number, its: number) => {
+		const run = runs[at];
+		if (!run) {
+			return;
+		}
+		const { phase, args, half } = run;
+		const { workers, byMemory } = workersFor(half, its);
+		const captured = opts.quiet || split !== null;
 		const spawned = async () => {
-			if (!opts.quiet) {
+			if (!captured) {
 				return await ps.spawn(bunTest(args, at, workers), {
 					cwd: ROOT,
 					env,
@@ -186,25 +210,37 @@ export async function test(opts: TestOptions): Promise<void> {
 				env,
 				signal,
 			});
-			printed.push(done.stdout, done.stderr);
+			// Side by side, each run's output is printed whole once it
+			// ends, so the two never interleave.
+			if (opts.quiet) {
+				printed[at]?.push(done.stdout, done.stderr);
+			} else {
+				process.stdout.write(done.stdout);
+				process.stderr.write(done.stderr);
+			}
 			return done;
 		};
-		// Each run ends on its time, workers and the peak memory of its process
-		// tree, so what a worker costs is seen rather than guessed.
+		// Each run ends on its time, workers and, alone, the peak memory of
+		// its process tree, so what a worker costs is seen rather than
+		// guessed; side by side, the tree is both runs', measured around them.
 		const started = performance.now();
-		const measured = () => memory.during(spawned);
+		const timed = <T>(run: () => Promise<T>) =>
+			opts.phases
+				? opts.phases.time(
+						phase,
+						run,
+						split === null ? {} : { within: TESTS_PHASE },
+					)
+				: run();
+		const measured = async () =>
+			split === null
+				? await memory.during(spawned)
+				: { value: await spawned(), peakMb: null };
 		const {
 			value: { exitCode },
 			peakMb,
-		} = await (opts.phases
-			? opts.phases.time(phase, measured)
-			: measured()
-		).catch((error: unknown) => {
-			if (signal.aborted) {
-				throw new Error(
-					`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
-				);
-			}
+		} = await timed(measured).catch((error: unknown) => {
+			broke.abort();
 			throw error;
 		});
 		const summary = runSummary({
@@ -215,7 +251,7 @@ export async function test(opts: TestOptions): Promise<void> {
 			byMemory,
 		});
 		if (opts.quiet) {
-			printed.push(`${summary}\n`);
+			printed[at]?.push(`${summary}\n`);
 		} else {
 			_log.info(summary);
 		}
@@ -228,19 +264,83 @@ export async function test(opts: TestOptions): Promise<void> {
 			await fs.rm(`${report}.${at}`, { force: true });
 			// bun writes none for a run whose files the filters all left out
 			if (xml !== null || exitCode !== 0) {
-				reports.push(xml ?? "");
+				reports[at] = xml ?? "";
 			}
 		}
-	}
+	};
+	const ran = async () => {
+		if (split === null) {
+			for (const at of runs.keys()) {
+				await runOne(at, cores);
+			}
+			return;
+		}
+		const started = performance.now();
+		const { peakMb } = await memory.during(() =>
+			Promise.all(split.map((its, at) => runOne(at, its))),
+		);
+		const summary = runSummary({
+			phase: TESTS_PHASE,
+			took: Duration.ms(performance.now() - started),
+			workers: cores,
+			peakMb,
+		});
+		if (opts.quiet) {
+			printed.push([`${summary}\n`]);
+		} else {
+			_log.info(summary);
+		}
+		if (peakMb !== null) {
+			await opts.phases?.peak(TESTS_PHASE, peakMb);
+		}
+	};
+	await (split !== null && opts.phases
+		? opts.phases.time(TESTS_PHASE, ran)
+		: ran()
+	).catch((error: unknown) => {
+		if (timeout.aborted) {
+			throw new Error(
+				`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
+			);
+		}
+		throw error;
+	});
 	if (report) {
-		await fs.write(report, joinedReports(reports));
+		await fs.write(
+			report,
+			joinedReports(reports.filter((xml) => xml !== null)),
+		);
 	}
 	if (failed) {
-		for (const text of printed) {
+		for (const text of printed.flat()) {
 			process.stderr.write(text);
 		}
 		throw new Error("Tests failed");
 	}
+}
+
+/** The phase the two halves run within, side by side. */
+const TESTS_PHASE = "tests";
+
+// From a day of gates (2026-10-25 to 26), each at the gate's cores: the
+// server's run took 27.7s and the page's 42.3s, so the page takes three
+// fifths of the cores.
+/** The part of the cores the page's half takes beside the server's. */
+export const PAGE_SHARE = 0.6;
+
+/**
+ * The cores each run takes side by side, adding up to `cores`, or null when
+ * they run one after the other: a lone run, or too few cores for a worker each.
+ */
+export function sideBySide(
+	halves: ("server" | "page")[],
+	cores: number,
+): number[] | null {
+	if (halves.length !== 2 || cores < 2) {
+		return null;
+	}
+	const page = Math.min(cores - 1, Math.max(1, Math.round(cores * PAGE_SHARE)));
+	return halves.map((half) => (half === "page" ? page : cores - page));
 }
 
 export interface TestOptions {
@@ -261,7 +361,9 @@ export interface TestOptions {
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
 	files?: string[];
 	/**
-	 * Test files run at once; half the cores when left out, one for a focused run.
+	 * Test files each run takes at once, the runs one after the other; when
+	 * left out, half the cores or the gate's, split between the runs side by
+	 * side, and one for a focused run.
 	 */
 	workers?: number;
 	ps?: Ps;

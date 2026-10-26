@@ -85,9 +85,17 @@ run-command permission card for anything else heavy, running it only on
 
 ## DOM split
 
-- It runs as two `bun test` runs in turn: the page's (`packages/web`) and the
+- It runs as two `bun test` processes: the page's (`packages/web`) and the
   rest, since happy-dom replaces `setTimeout`, `URL` and other globals the
   server is tested against.
+- Since 2026-10-26 the two run side by side (`sideBySide` in `dev/test.ts`),
+  their workers adding up to the cores, three fifths to the page's
+  (`PAGE_SHARE`, from a day of gate phases: server 27.7s, page 42.3s, one
+  after the other), and free memory split the same way. Each one's output
+  prints whole as it ends. A gate logs each half's time `within` a `tests`
+  phase, its peak memory under `tests`, and leaves the halves out of
+  `setup`. A run of one worker, as a focused one, or one given `--workers`
+  still runs them in turn.
 - Each runs `--no-isolate`, a worker keeping one module registry across its
   files.
 - The page's run preloads `packages/web/test-preload.ts`, which cleans up

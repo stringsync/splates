@@ -89,6 +89,17 @@ describe("focused development tests", () => {
 		expect(ps.getCalls()[0]).toContain("--parallel=8");
 	});
 
+	it("runs a gate's two halves side by side on its cores between them", async () => {
+		ps.setEnv({ SPLATES_CORES: "8" });
+
+		await runTests({ ...opts, freeMemoryMb: () => 64_000 });
+
+		expect(ps.getCalls()).toEqual([
+			expect.stringMatching(/--parallel=3 .*packages\/web\/\*\*$/),
+			expect.stringMatching(/--parallel=5 .*--preload=/),
+		]);
+	});
+
 	it("reports a failing focused test", async () => {
 		ps.simulate(async () => 1);
 

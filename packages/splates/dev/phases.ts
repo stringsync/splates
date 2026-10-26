@@ -11,8 +11,16 @@ export class PhaseTimer {
 		private readonly fs: Fs = new NodeFs(),
 	) {}
 
-	/** Runs `phase`, timing it whether it passes or throws. */
-	async time<T>(phase: string, run: () => Promise<T>): Promise<T> {
+	/**
+	 * Runs `phase`, timing it whether it passes or throws. A phase `within`
+	 * another runs beside its siblings inside it, so the gate leaves it out
+	 * when it works out what time the phases left.
+	 */
+	async time<T>(
+		phase: string,
+		run: () => Promise<T>,
+		{ within }: { within?: string } = {},
+	): Promise<T> {
 		const path = this.ps.env(GATE_PHASES);
 		const started = performance.now();
 		try {
@@ -20,7 +28,10 @@ export class PhaseTimer {
 		} finally {
 			if (path) {
 				const ms = Math.round(performance.now() - started);
-				await this.fs.append(path, `${JSON.stringify({ phase, ms })}\n`);
+				await this.fs.append(
+					path,
+					`${JSON.stringify({ phase, ms, ...(within ? { within } : {}) })}\n`,
+				);
 			}
 		}
 	}
