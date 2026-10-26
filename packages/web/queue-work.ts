@@ -32,6 +32,11 @@ export class QueueWork {
 			: (this.board.lanes.find((each) => each.id === lane) ?? null);
 	}
 
+	/** Whether it queues tasks one by one: named so, or a lane of one task, which needs no lane queued whole. */
+	private get byTask(): boolean {
+		return this.proposal.lane === null || this.todos.length === 1;
+	}
+
 	/** Its tasks still on the board, in the lane's order or as the card named them. */
 	get todos(): TaskRecord[] {
 		const { lane, tasks } = this.proposal;
@@ -50,15 +55,15 @@ export class QueueWork {
 
 	/** The command that queues it from a terminal, as the person may instead. */
 	get command(): string {
-		const { lane, tasks } = this.proposal;
-		return lane === null
-			? `splates queue add ${tasks.join(" ")}`
+		const { lane } = this.proposal;
+		return this.byTask
+			? `splates queue add ${this.todos.map((todo) => todo.id).join(" ")}`
 			: `splates lane queue ${lane}`;
 	}
 
 	/** Whether it is queued: the lane whole, or each task yet to start. */
 	get queued(): boolean {
-		return this.proposal.lane === null
+		return this.byTask
 			? this.waiting().every((todo) => todo.stage === "queued")
 			: this.lane?.queued === true;
 	}
@@ -79,7 +84,7 @@ export class QueueWork {
 		writes: QueueWrites,
 	): Promise<void> {
 		const { lane } = this.proposal;
-		if (lane !== null) {
+		if (lane !== null && !this.byTask) {
 			await expecter(laneQueued(lane, true), writes.queueLane(lane, true));
 			return;
 		}

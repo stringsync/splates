@@ -27,15 +27,35 @@ describe("QueueWork", () => {
 			{
 				linked: true,
 				lanes: [{ id: 3, name: "Billing export" }],
-				todos: [todo({ id: 1, lane: 3 }), todo({ id: 2, lane: null })],
+				todos: [
+					todo({ id: 1, lane: 3 }),
+					todo({ id: 3, lane: 3 }),
+					todo({ id: 2, lane: null }),
+				],
 			},
 		);
 
 		expect(work.name).toBe("Billing export");
-		expect(work.todos.map(({ id }) => id)).toEqual([1]);
+		expect(work.todos.map(({ id }) => id)).toEqual([1, 3]);
 		expect(work.queued).toBe(false);
 		await work.queue(shown, writes);
 		expect(writes.noted).toEqual(["lane 3 true"]);
+	});
+
+	it("queues only the task of a lane of one, not the lane", async () => {
+		const writes = new NotedWrites();
+		const work = new QueueWork(
+			{ action: "queue", lane: 3, tasks: [], title: null, body: "" },
+			{
+				linked: true,
+				lanes: [{ id: 3, name: "Billing export" }],
+				todos: [todo({ id: 1, lane: 3 })],
+			},
+		);
+
+		expect(work.command).toBe("splates queue add 1");
+		await work.queue(shown, writes);
+		expect(writes.noted).toEqual(["#1 true"]);
 	});
 
 	it("queues each named task yet to start and not yet queued", async () => {
