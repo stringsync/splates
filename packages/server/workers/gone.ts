@@ -10,7 +10,7 @@ export const GONE_AFTER = Duration.mins(15);
 const LOOK_EVERY = Duration.mins(1);
 
 /**
- * Frees the slots held on a worker that has been away `after`, as a
+ * Frees the places held on a worker that has been away `after`, as a
  * machine turned off or carried off is, so each agent there carries on
  * elsewhere from what its task last pushed, as when the worker is removed.
  * One that comes back in time takes its agents back up as before. This
@@ -25,7 +25,7 @@ export class GoneWorkers implements Resource {
 		this.look = opts.timer.setInterval(() => this.check(), LOOK_EVERY);
 	}
 
-	/** Frees each worker away past the bound that holds a slot. */
+	/** Frees each worker away past the bound that holds an agent. */
 	private check(): void {
 		const { workers, scheduler, clock, log } = this.opts;
 		const after = this.opts.after ?? GONE_AFTER;

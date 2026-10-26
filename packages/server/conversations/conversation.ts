@@ -83,9 +83,9 @@ export class Conversation
 	 * server having gone down first: `sayUnsaid` starts it again to say it.
 	 */
 	private unsaid = false;
-	/** The slot its agent holds on a worker; null while it has none. */
+	/** The place its agent holds on a worker; null while it has none. */
 	private grant: Grant | null = null;
-	/** Takes its agent out of the queue for a slot; null while it waits in none. */
+	/** Takes its agent out of the queue for a place; null while it waits in none. */
 	private placing: AbortController | null = null;
 	/**
 	 * Lets a held one go, to open its agent, or not, once stopped; null
@@ -98,11 +98,11 @@ export class Conversation
 	 */
 	private carry: string | null = null;
 	/**
-	 * The question its agent was asking when a drain freed its slot, kept
+	 * The question its agent was asking when a drain freed its place, kept
 	 * on the page for the person to answer (`free`); null for none.
 	 */
 	private kept: Ask | null = null;
-	/** Stops hearing of workers that start draining; null with no slots. */
+	/** Stops hearing of workers that start draining; null with no placer. */
 	private readonly unlistenDrain: (() => void) | null;
 
 	private constructor(
@@ -148,7 +148,7 @@ export class Conversation
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
 		this.unlistenDrain =
-			deps.slots?.events.on("drain", (worker) => {
+			deps.placer?.events.on("drain", (worker) => {
 				if (this.grant?.worker === worker) {
 					void (this.grant.replaces() ? this.moveOff() : this.free());
 				}
@@ -204,7 +204,7 @@ export class Conversation
 
 	/**
 	 * The agent `live` names, taken back on the worker it runs on, holding
-	 * its slot there; null when nothing here runs it any more, stopped as
+	 * its place there; null when nothing here runs it any more, stopped as
 	 * any dead process is.
 	 */
 	private static takeBack(
@@ -215,7 +215,7 @@ export class Conversation
 		let hold: Hold | null = null;
 		try {
 			hold =
-				deps.slots?.hold(
+				deps.placer?.hold(
 					{
 						id: state.id,
 						task: state.task,
@@ -652,7 +652,7 @@ export class Conversation
 	}
 
 	/**
-	 * Holds it for its queued task, out of the line for a slot, until
+	 * Holds it for its queued task, out of the line for a place, until
 	 * `release` gives it the task: what is said to it meanwhile waits for
 	 * its agent, as while any agent starts. A stopped one, as a held one
 	 * reads back after a restart, is held again; one held already, or under
@@ -692,7 +692,7 @@ export class Conversation
 
 	/**
 	 * Gives a held one its task, the queue having started it in `cwd`: it
-	 * follows the task there and takes its place in the line for a slot.
+	 * follows the task there and takes its place in the line for a place.
 	 */
 	release(
 		task: string,
@@ -727,7 +727,7 @@ export class Conversation
 
 	/**
 	 * Stops it as the server goes down. One still starting, as while it
-	 * waits for a slot, keeps that unsaid, with whatever was said to it yet
+	 * waits for a place, keeps that unsaid, with whatever was said to it yet
 	 * to reach its agent, so the next run starts it again and says it, as
 	 * though the server had stayed up.
 	 */
@@ -843,13 +843,13 @@ export class Conversation
 	}
 
 	/**
-	 * Lets go of the slot of an agent asking the person something on a
+	 * Lets go of the place of an agent asking the person something on a
 	 * worker that drains, rather than keep the worker up until they answer,
 	 * which may be hours: ends it, its worktree left as it stands, and keeps
 	 * its question on the page. The answer, or whatever the person says
 	 * instead, places it again in a new session, told `[SPLATES TASK <task>]`
 	 * first, as `requeue` does for an idle one. One in no task has nothing
-	 * to carry on from, so it keeps its slot until answered.
+	 * to carry on from, so it keeps its place until answered.
 	 */
 	private async free(): Promise<void> {
 		const { task, ask } = this.state;
@@ -867,10 +867,10 @@ export class Conversation
 	 * Moves its agent off a worker being replaced, at its next pause, so the
 	 * worker can update without waiting on the person: one asking does as
 	 * `free` says; one idle, nothing running in the background, ends and
-	 * frees its slot, and the person's next words place it again in a new
+	 * frees its place, and the person's next words place it again in a new
 	 * session told `[SPLATES TASK <task>]` first, as `requeue` does for an
 	 * idle one. One at work moves once its turn ends. One in no task has
-	 * nothing to carry on from, so it keeps its slot until it ends.
+	 * nothing to carry on from, so it keeps its place until it ends.
 	 */
 	private async moveOff(): Promise<void> {
 		if (this.state.ask !== null) {
@@ -1130,7 +1130,7 @@ export class Conversation
 		}
 		Object.assign(this.state, next);
 		this.changed();
-		// An agent that asks on a worker already draining lets its slot go too,
+		// An agent that asks on a worker already draining lets its place go too,
 		// and one whose turn ends on a worker being replaced moves off it.
 		if (next.ask != null && this.grant?.drains() === true) {
 			void this.free();
@@ -1218,7 +1218,7 @@ export class Conversation
 	}
 
 	/**
-	 * Opens the agent in `cwd` once it has a slot, clearing `opening` once it
+	 * Opens the agent in `cwd` once it has a place, clearing `opening` once it
 	 * has, failed to, or was stopped while it waited for one.
 	 */
 	private async wake(agent: Agent, cwd: string): Promise<void> {
@@ -1241,8 +1241,8 @@ export class Conversation
 	 * while no worker they can run on is up.
 	 */
 	private async place(): Promise<Placement | undefined | null> {
-		const { slots } = this.deps;
-		if (slots === undefined) {
+		const { placer } = this.deps;
+		if (placer === undefined) {
 			return undefined;
 		}
 		this.grant?.dispose();
@@ -1251,11 +1251,11 @@ export class Conversation
 		const placing = new AbortController();
 		this.placing = placing;
 		this.set({ status: "starting", error: null });
-		const unlisten = slots.events.on("changed", () =>
-			this.queued(slots.spot(id)),
+		const unlisten = placer.events.on("changed", () =>
+			this.queued(placer.spot(id)),
 		);
 		try {
-			const placement = await slots.take(
+			const placement = await placer.take(
 				{ id, task, agent, automatic: spawned(this.state) },
 				placing.signal,
 			);
@@ -1284,7 +1284,7 @@ export class Conversation
 		}
 	}
 
-	/** Keeps where its agent waits for a slot, saying so only when that changed. */
+	/** Keeps where its agent waits for a place, saying so only when that changed. */
 	private queued(spot: QueueSpot | null): void {
 		const was = this.state.queue;
 		if (

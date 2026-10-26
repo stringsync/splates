@@ -16,7 +16,7 @@ export function unused(): Usage {
 	};
 }
 
-/** Where an agent waits for a slot, as the page shows it. */
+/** Where an agent waits for a place, as the page shows it. */
 export interface QueueSpot {
 	/** From 1, the next to be placed. */
 	position: number;
@@ -24,7 +24,7 @@ export interface QueueSpot {
 	of: number;
 	/** When it joined the queue. */
 	since: string;
-	/** Why it waits: "no free slot", or "needs macOS" for a platform no worker runs. */
+	/** Why it waits: "no free place", or "needs macOS" for a platform no worker runs. */
 	reason: string;
 }
 
@@ -61,13 +61,10 @@ export interface ConversationState {
 	 * and again once it starts.
 	 */
 	stoppedIdle: string | null;
-	/** Where its agent waits for a slot on a worker; null once it has one, or wants none. */
+	/** Where its agent waits for a place on a worker; null once it has one, or wants none. */
 	queue: QueueSpot | null;
 	messages: Message[];
-	/**
-	 * What splates did at its agent's word, oldest first, read from the journal
-	 * rather than its log, so the page can show each among its messages.
-	 */
+	/** What splates did at its agent's word, oldest first, shown among its messages. */
 	events: Event[];
 	ask: Ask | null;
 	/** What the session lets the person pick: its mode, model, effort. */
@@ -144,7 +141,7 @@ export interface ConversationState {
 	 */
 	automatic: boolean;
 	/**
-	 * The queued task it is held for, out of the line for a slot until the
+	 * The queued task it is held for, out of the line for a place until the
 	 * queue starts that task and gives it its worktree; null otherwise.
 	 */
 	queued: number | null;

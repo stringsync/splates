@@ -2,7 +2,7 @@ import type { Answer, Ask } from "./state";
 
 /**
  * What the person said to `ask`, in words a new session can read, as for an
- * agent whose slot a drain freed while it asked: that session never asked,
+ * agent whose place a drain freed while it asked: that session never asked,
  * so it hears the question with the answer. Null for one dismissed.
  */
 export function answerWords(ask: Ask, answer: Answer): string | null {

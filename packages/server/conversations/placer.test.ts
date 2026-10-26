@@ -5,14 +5,14 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
 import { FakeAgent } from "../agents/testing";
 import { type PoolWorker, Scheduler } from "../workers";
-import type { ConversationSlots } from "./host";
+import type { ConversationPlacer } from "./host";
 import { Conversations } from "./index";
 import { IDLE_STOP } from "./state";
 import { eventually, once, until } from "./testing";
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
-describe("Conversations waiting for a slot", () => {
+describe("Conversations waiting for a place", () => {
 	let timer: FakeTimer;
 	let agent: FakeAgent;
 	let workers: PoolWorker[];
@@ -43,7 +43,7 @@ describe("Conversations waiting for a slot", () => {
 			{ workers: () => workers, paused: () => paused },
 			clock,
 		);
-		const slots: ConversationSlots = {
+		const placer: ConversationPlacer = {
 			events: scheduler.events,
 			take: async (asked, signal) => {
 				const grant = await scheduler.take(
@@ -93,7 +93,7 @@ describe("Conversations waiting for a slot", () => {
 				clock,
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
-				slots,
+				placer,
 			},
 		);
 	});
@@ -154,7 +154,7 @@ describe("Conversations waiting for a slot", () => {
 		expect(agent.launched).toHaveLength(0);
 	});
 
-	it("frees an idle agent's slot when it rests, and queues it again on the next prompt", async () => {
+	it("frees an idle agent's place when it rests, and queues it again on the next prompt", async () => {
 		const first = await start("login");
 		await until(first, "idle");
 
@@ -204,7 +204,7 @@ describe("Conversations waiting for a slot", () => {
 		expect(own.state.queue).toBeNull();
 	});
 
-	it("frees the slot of an agent that fails to start", async () => {
+	it("frees the place of an agent that fails to start", async () => {
 		agent.dying = 1;
 		const first = await start("login");
 		await until(first, "failed");

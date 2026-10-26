@@ -101,12 +101,12 @@ export interface ConversationDeps {
 	/** What starts each agent, and takes one back after a restart. */
 	launcher: Launcher;
 	/**
-	 * Where each agent waits for a slot on a worker before it starts, and
+	 * Where each agent waits for a place on a worker before it starts, and
 	 * starts there: one another agent started for a free one, one the person
 	 * started for any worker up. With none, every one starts at once on
 	 * `launcher`.
 	 */
-	slots?: ConversationSlots;
+	placer?: ConversationPlacer;
 	/** Where the agent runs, which its background commands' output is read from. */
 	machine: WorkerMachine;
 	/**
@@ -131,46 +131,46 @@ export interface ConversationDeps {
 	route?: Route | null;
 }
 
-/** A project's way into the machine's queue for worker slots (`Scheduler`). */
-export interface ConversationSlots {
+/** A project's way into the machine's queue for places on workers (`Scheduler`). */
+export interface ConversationPlacer {
 	/**
-	 * A slot for the agent of conversation `id`, once its turn comes;
+	 * A place for the agent of conversation `id`, once its turn comes;
 	 * aborting `signal` takes it out of the queue, rejecting.
 	 */
-	take(request: SlotAsk, signal: AbortSignal): Promise<Placement>;
+	take(request: PlaceRequest, signal: AbortSignal): Promise<Placement>;
 	/**
-	 * Counts an agent already running on `worker` against its slots, and
+	 * Counts an agent already running on `worker` against its worker, and
 	 * reaches it there; throws for a worker this server no longer knows.
 	 */
-	hold(request: SlotAsk, worker: string): Hold;
+	hold(request: PlaceRequest, worker: string): Hold;
 	/** Where the agent of conversation `id` waits; null for one not waiting. */
 	spot(id: string): QueueSpot | null;
 	/**
-	 * `changed` as the queue or the slots held change; `drain` with a
+	 * `changed` as the queue or the places held change; `drain` with a
 	 * worker's id once it starts draining.
 	 */
 	readonly events: Events<{ changed: undefined; drain: string }>;
 }
 
 /**
- * What asks for a slot: conversation `id`'s agent, of `task`, by the
+ * What asks for a place: conversation `id`'s agent, of `task`, by the
  * agent's id, which a worker must hold the key of. An automatic one, which
  * splates started on its own, waits while starts are paused; one the person
  * started goes on any worker up.
  */
-export interface SlotAsk {
+export interface PlaceRequest {
 	id: string;
 	task: string | null;
 	agent: string;
 	automatic: boolean;
 }
 
-/** A slot on a worker, and how to start an agent there. */
+/** A place on a worker, and how to start an agent there. */
 export interface Placement extends Grant {
 	launch: Launch;
 }
 
-/** A slot on a worker an agent already runs on, and how to take it back. */
+/** A place on a worker an agent already runs on, and how to take it back. */
 export interface Hold extends Grant {
 	/**
 	 * Takes back the process `handle` names on the worker, as

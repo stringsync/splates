@@ -6,7 +6,7 @@ import { launcherOf } from "../agents";
 import { FakeAgent } from "../agents/testing";
 import { taskReference } from "../plans";
 import { type PoolWorker, Scheduler } from "../workers";
-import type { ConversationSlots } from "./host";
+import type { ConversationPlacer } from "./host";
 import { type Conversation, Conversations } from "./index";
 import { eventually, type Held, until } from "./testing";
 
@@ -47,7 +47,7 @@ describe("A conversation whose worker is removed under it", () => {
 		});
 		workers = [worker("w1"), worker("w2")];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
-		const slots: ConversationSlots = {
+		const placer: ConversationPlacer = {
 			events: scheduler.events,
 			take: async ({ id, task, agent: wants, automatic }, signal) => {
 				const grant = await scheduler.take(
@@ -78,7 +78,7 @@ describe("A conversation whose worker is removed under it", () => {
 				clock,
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
-				slots,
+				placer,
 				root: "/repo",
 			},
 		);
@@ -97,7 +97,7 @@ describe("A conversation whose worker is removed under it", () => {
 		return conversation;
 	};
 
-	/** Takes w1 out of the pool and its slots away, as a forced remove does. */
+	/** Takes w1 out of the pool and its places away, as a forced remove does. */
 	const remove = () => {
 		workers = workers.filter((each) => each.id !== "w1");
 		scheduler.release("w1");
@@ -179,7 +179,7 @@ describe("A conversation whose worker is removed under it", () => {
 		return conversation;
 	};
 
-	/** Waits for `conversation`'s agent to let its slot go, keeping its question. */
+	/** Waits for `conversation`'s agent to let its place go, keeping its question. */
 	const freed = (conversation: Conversation) =>
 		eventually(
 			() =>
@@ -187,7 +187,7 @@ describe("A conversation whose worker is removed under it", () => {
 				conversation.state.ask !== null,
 		);
 
-	it("frees the slot of one asking once its worker drains, keeping the question", async () => {
+	it("frees the place of one asking once its worker drains, keeping the question", async () => {
 		const conversation = await asking();
 
 		drain();
@@ -245,7 +245,7 @@ describe("A conversation whose worker is removed under it", () => {
 		expect(conversation.state.ask?.id).toBe("t1");
 	});
 
-	it("keeps the slot of one asking in no task, with nothing to carry on from", async () => {
+	it("keeps the place of one asking in no task, with nothing to carry on from", async () => {
 		const conversation = await asking(null);
 
 		drain();
@@ -294,7 +294,7 @@ describe("A conversation whose worker is removed under it", () => {
 		expect(scheduler.held()).toEqual([]);
 	});
 
-	it("keeps the slot of one in no task on a worker being replaced", async () => {
+	it("keeps the place of one in no task on a worker being replaced", async () => {
 		const conversation = await start(null);
 
 		replace();

@@ -308,7 +308,7 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.pinned).toBe(false);
 	});
 
-	it("keeps that the queue started it, holding a slot, and reads it back", async () => {
+	it("keeps that the queue started it, holding a place, and reads it back", async () => {
 		const queued = await conversations.start("fake", {
 			task: null,
 			cwd: "/repo",

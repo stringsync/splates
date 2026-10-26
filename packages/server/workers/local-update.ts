@@ -11,7 +11,7 @@ export interface LocalWorkerUpdateOptions {
 	records: WorkerRecords;
 	/** The build the server runs, which every worker is brought to. */
 	build: string;
-	/** What holds each worker's slots, by its id. */
+	/** What agents each worker holds, by its id. */
 	used: () => Map<string, string[]>;
 	/** Whether worker `id` takes agents at all: not this machine's own once it is removed. */
 	pooled: (id: string) => boolean;

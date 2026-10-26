@@ -10,7 +10,7 @@ import type { Spend } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import type { Storage } from "../storage";
 import type { WorkerMachine } from "../workers";
-import type { ConversationSlots, ProjectRoster } from "./host";
+import type { ConversationPlacer, ProjectRoster } from "./host";
 import type { Limit } from "./state";
 export interface ConversationsOptions {
 	/** The ledger each finished turn's dollars are added to, priced at `prices`; none keeps no ledger. */
@@ -26,11 +26,11 @@ export interface ConversationsOptions {
 	/** What starts agents and takes them back after a restart, over `launch`: a worker. */
 	launcher?: Launcher;
 	/**
-	 * Where each agent waits for a slot on a worker, which it then starts
+	 * Where each agent waits for a place on a worker, which it then starts
 	 * on: one another agent started for a free one, one the person started
 	 * for any worker up. With none, every one starts at once on `launcher`.
 	 */
-	slots?: ConversationSlots;
+	placer?: ConversationPlacer;
 	/**
 	 * Where agents run, which their background output is read from; this
 	 * machine by default.

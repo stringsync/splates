@@ -6,7 +6,7 @@ import {
 	SystemWallClock,
 	type WallClock,
 } from "webappwiz/time";
-import type { ConversationSlots, SlotAsk } from "../conversations";
+import type { ConversationPlacer, PlaceRequest } from "../conversations";
 import { RUNNING } from "../server/shared";
 import { GoneWorkers } from "./gone";
 import type { WorkerRecord } from "./records";
@@ -79,9 +79,9 @@ export class AgentPlacement implements Resource {
 	}
 
 	/** The queue as the agents of the project at `root` are placed from it. */
-	project(root: string): ConversationSlots {
+	project(root: string): ConversationPlacer {
 		const { scheduler, registry } = this;
-		const request = ({ id, task, agent, automatic }: SlotAsk) => ({
+		const request = ({ id, task, agent, automatic }: PlaceRequest) => ({
 			id,
 			task,
 			agent,

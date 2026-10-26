@@ -20,12 +20,12 @@ export type {
 	ConversationDeps,
 	ConversationEvents,
 	ConversationHost,
-	ConversationSlots,
+	ConversationPlacer,
 	ConversationsEvents,
 	Lift,
+	PlaceRequest,
 	ProjectRef,
 	Route,
-	SlotAsk,
 	Weigh,
 } from "./host";
 export { listing } from "./listing";

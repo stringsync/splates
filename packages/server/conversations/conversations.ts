@@ -30,7 +30,7 @@ import { archivedNewestFirst } from "./archive";
 import { Conversation, type Picked } from "./conversation";
 import type {
 	ConversationDeps,
-	ConversationSlots,
+	ConversationPlacer,
 	ConversationsEvents,
 	Lift,
 	ProjectRoster,
@@ -67,7 +67,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly storage: Storage;
 	private readonly ids: IdProvider;
 	private readonly launcher: Launcher;
-	private readonly slots: ConversationSlots | undefined;
+	private readonly placer: ConversationPlacer | undefined;
 	private readonly machine: WorkerMachine;
 	private readonly starting: Lock;
 	private readonly timer: Timer;
@@ -116,7 +116,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.storage = opts.storage ?? new FsStorage(dir, this.fs);
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
-		this.slots = opts.slots;
+		this.placer = opts.placer;
 		this.machine = opts.machine ?? new LocalWorkerMachine(systemPs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
 		this.timer = opts.timer ?? new SystemTimer();
@@ -169,7 +169,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			timer: this.timer,
 			clock: this.clock,
 			launcher: this.launcher,
-			...(this.slots === undefined ? {} : { slots: this.slots }),
+			...(this.placer === undefined ? {} : { placer: this.placer }),
 			machine: this.machine,
 			starting: this.starting,
 			watch: this.watch,
@@ -329,7 +329,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned?: boolean;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
-			/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
+			/** Whether the server's queue or a hook starts it, to hold a place on a worker. */
 			automatic?: boolean;
 			/** The queued task it is held for, its agent unopened until `release`. */
 			queued?: number;

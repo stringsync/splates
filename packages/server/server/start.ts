@@ -288,7 +288,7 @@ async function start(
 					storage: storage.within("conversations"),
 					artifacts: artifactLimits(config),
 					launcher: worker,
-					slots: placement.project(git.root),
+					placer: placement.project(git.root),
 					machine: worker,
 					starting,
 					offered,

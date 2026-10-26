@@ -5,7 +5,7 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
 import { FakeAgent } from "../agents/testing";
 import { type PoolWorker, Scheduler } from "../workers";
-import type { ConversationSlots } from "./host";
+import type { ConversationPlacer } from "./host";
 import { Conversations } from "./index";
 import { once, until } from "./testing";
 
@@ -30,7 +30,7 @@ describe("An agent waiting to start as the server goes down", () => {
 			{ workers: () => workers, paused: () => paused },
 			clock,
 		);
-		const slots: ConversationSlots = {
+		const placer: ConversationPlacer = {
 			events: scheduler.events,
 			take: async (asked, signal) => {
 				const grant = await scheduler.take(
@@ -77,7 +77,7 @@ describe("An agent waiting to start as the server goes down", () => {
 			clock,
 			ids: new CounterIdProvider(),
 			launch: agent.launch,
-			slots,
+			placer,
 		});
 	};
 
