@@ -147,7 +147,8 @@ Takes about two minutes.
 Evals cost the user tokens, so only they start them. To ask for a run
 (splates repository only, where `splates dev eval list` names the scenarios),
 end your reply with the run card: the scenarios you picked, one `` - `id` ``
-item each, and optionally the revision the skill's change is judged against.
+item each, and optionally the revision the skill's change is judged against and how many
+times to run each cell (`Repetitions: <n>`, to tell a change from noise).
 The page shows it with the saved eval agents and what the run costs at most,
 and its Run button is the user's; never run `splates dev eval run` yourself.
 
@@ -160,6 +161,7 @@ Checks the new wording of the scoped-tests rule.
 - `resources/whole-suite`
 
 Baseline: `main`
+Repetitions: 3
 ```
 
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`

@@ -391,6 +391,22 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads a run evals card's Repetitions line", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: run evals splates: noise check",
+				"",
+				"- `decisions/local-choice`",
+				"",
+				"Repetitions: 3",
+			].join("\n"),
+		);
+
+		expect(found).toMatchObject([
+			{ permission: { body: "", evals: { reps: 3 } } },
+		]);
+	});
+
 	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

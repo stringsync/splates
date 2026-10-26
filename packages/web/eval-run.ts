@@ -226,6 +226,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			scenarios: this.ask.scenarios,
 			agents: this.picked,
 			baseline: this.ask.baseline,
+			...(this.ask.reps === undefined ? {} : { reps: this.ask.reps }),
 		};
 	}
 

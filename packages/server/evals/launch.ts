@@ -5,6 +5,13 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Child, Ps } from "webappwiz/system";
 import type { AgentPick } from "../models";
 
+/** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
+export function targetOf(pick: AgentPick): string {
+	return `${pick.agent}${pick.model === undefined ? "" : `:${pick.model}`}${
+		pick.effort === undefined ? "" : `@${pick.effort}`
+	}`;
+}
+
 /** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
 export interface EvalLaunchSpec {
 	/** Names the card, so a reload finds its run again. */
@@ -14,6 +21,8 @@ export interface EvalLaunchSpec {
 	agents: AgentPick[];
 	/** The revision the skill's change is judged against; the runner's own default when null. */
 	baseline: string | null;
+	/** Runs of each cell, as `--reps`; the runner's own default when absent. */
+	reps?: number;
 	/** The conversation whose card it is, told once it is done; null for none. */
 	conversation?: string | null;
 	/** The skill to run, the conversation's own when it has one; the checkout's when null. */
@@ -53,13 +62,6 @@ export interface EvalScenario {
 }
 
 const TAIL = 20;
-
-/** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
-export function targetOf(pick: AgentPick): string {
-	return `${pick.agent}${pick.model === undefined ? "" : `:${pick.model}`}${
-		pick.effort === undefined ? "" : `@${pick.effort}`
-	}`;
-}
 
 interface EvalLaunchesOptions {
 	ps: Ps;
@@ -184,6 +186,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			...spec.scenarios.flatMap((scenario) => ["--scenario", scenario]),
 			...spec.agents.flatMap((pick) => ["--agent", targetOf(pick)]),
 			...(spec.baseline === null ? [] : ["--baseline", spec.baseline]),
+			...(spec.reps === undefined ? [] : ["--reps", String(spec.reps)]),
 			...(spec.skillDir == null ? [] : ["--skill", spec.skillDir]),
 			"--directory",
 			this.opts.directory,

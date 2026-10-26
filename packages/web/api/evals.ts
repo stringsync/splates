@@ -115,6 +115,8 @@ export interface EvalRunAsk {
 	scenarios: string[];
 	agents: EvalAgentsView["agents"];
 	baseline: string | null;
+	/** Runs of each cell; the runner's default when absent. */
+	reps?: number;
 	/** The conversation whose card asks, told once the run is done. */
 	conversation?: string | null;
 }

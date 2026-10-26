@@ -85,8 +85,9 @@ export class EvalLaunchRoutes {
 		scenarios: string[];
 		agents: AgentPick[];
 		baseline: string | null;
+		reps?: number;
 	} {
-		const { skill, scenarios, agents, baseline } = sent;
+		const { skill, scenarios, agents, baseline, reps } = sent;
 		if (typeof skill !== "string" || !SKILLS.includes(skill)) {
 			fail("usage", `no scenarios for skill ${String(skill)}`, {});
 		}
@@ -111,6 +112,18 @@ export class EvalLaunchRoutes {
 		if (baseline != null && typeof baseline !== "string") {
 			fail("usage", "the baseline is a revision", {});
 		}
-		return { skill, scenarios, agents, baseline: baseline ?? null };
+		if (
+			reps != null &&
+			(typeof reps !== "number" || !Number.isInteger(reps) || reps < 1)
+		) {
+			fail("usage", "repetitions are a whole number of at least 1", {});
+		}
+		return {
+			skill,
+			scenarios,
+			agents,
+			baseline: baseline ?? null,
+			...(reps == null ? {} : { reps }),
+		};
 	}
 }

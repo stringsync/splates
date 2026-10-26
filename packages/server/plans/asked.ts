@@ -202,12 +202,15 @@ export interface PermissionProposal {
  * The evals a `## 🔐 Permission: run evals <skill>: <what it checks>` card
  * asks to run: the scenarios it picked, one `` - `scenario-id` `` item each, and
  * optionally the revision the skill's change is judged against, as a
- * `` Baseline: `rev` `` line.
+ * `` Baseline: `rev` `` line and how many times to run each cell, as a
+ * `Repetitions: <n>` line.
  */
 export interface EvalAsk {
 	skill: string;
 	scenarios: string[];
 	baseline: string | null;
+	/** Runs of each cell; the runner's own default when absent. */
+	reps?: number;
 }
 
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
@@ -231,6 +234,7 @@ const EVALS_PERMISSION =
 /** A run-evals card's scenario: a list item that is one code span, then maybe a note. */
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
+const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
@@ -325,6 +329,7 @@ function keptAt(
 	if (evals !== null) {
 		const scenarios: string[] = [];
 		let baseline: string | null = null;
+		let reps: number | undefined;
 		const prose = body.split("\n").filter((each) => {
 			const scenario = EVAL_PROBE.exec(each);
 			if (scenario !== null) {
@@ -334,6 +339,11 @@ function keptAt(
 			const base = EVAL_BASELINE.exec(each);
 			if (base !== null) {
 				baseline = base[1] as string;
+				return false;
+			}
+			const times = EVAL_REPS.exec(each);
+			if (times !== null && Number(times[1]) > 0) {
+				reps = Number(times[1]);
 				return false;
 			}
 			return true;
@@ -347,7 +357,12 @@ function keptAt(
 					tasks: [],
 					title: evals[2] || null,
 					body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
-					evals: { skill: evals[1] as string, scenarios, baseline },
+					evals: {
+						skill: evals[1] as string,
+						scenarios,
+						baseline,
+						...(reps === undefined ? {} : { reps }),
+					},
 				},
 			},
 			end,
