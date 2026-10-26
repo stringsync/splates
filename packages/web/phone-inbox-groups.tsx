@@ -72,14 +72,11 @@ export function Group({
  * A project's folder: its name, which folds it away as this browser keeps
  * it, how many agents wait on you there, a + to start a conversation in it
  * and a ⋯ for its menu, which a long press on its name opens too, none of
- * them waiting on a hover; then `trees`, those waiting on you first, and
- * "N more" when it holds more.
+ * them waiting on a hover; then `trees`, those waiting on you first.
  */
 export function ProjectSection({
 	folder,
 	trees,
-	more,
-	onMore,
 	open,
 	onFold,
 	onNew,
@@ -90,9 +87,6 @@ export function ProjectSection({
 	folder: Folder;
 	/** What it lists of its trees. */
 	trees: Nested<Needing>[];
-	/** How many more it holds than it lists. */
-	more: number;
-	onMore: () => void;
 	/** Whether it is unfolded. */
 	open: boolean;
 	onFold: (open: boolean) => void;
@@ -195,15 +189,6 @@ export function ProjectSection({
 					beneath={beneath}
 					onOpen={onOpen}
 				/>
-			)}
-			{open && more > 0 && (
-				<button
-					type="button"
-					onClick={onMore}
-					className="min-h-10 px-4 text-left text-muted-foreground text-sm active:bg-muted"
-				>
-					{more} more
-				</button>
 			)}
 		</section>
 	);

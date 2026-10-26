@@ -15,7 +15,6 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
-	useState,
 } from "react";
 import {
 	Empty,
@@ -54,7 +53,6 @@ import {
 	folderKey,
 	foldersOf,
 	groupsOf,
-	shownTrees,
 } from "./project-folders";
 import { useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
@@ -79,7 +77,7 @@ import { BarButton, TopBar } from "./top-bar";
  *
  * With the feed of every project to be had, the groups are the sidebar's: a
  * folder per project, the page's own first, each with those waiting on you
- * on top, another's a few rows then "N more". A folder folds away as the
+ * on top, every project's rows listed in full. A folder folds away as the
  * sidebar's does, and its + starts a conversation there. Another project's
  * row opens by switching the page to that project, which becomes the one
  * shown everywhere.
@@ -183,7 +181,6 @@ export function Inbox({
 	);
 	const navigation = useContext(NavigationContext);
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
-	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 	// An undo offered by a swipe lasts while you stay here and do nothing else.
 	useEffect(() => {
 		// Deferred, so StrictMode's remount in development keeps the offer.
@@ -312,17 +309,11 @@ export function Inbox({
 									))
 								: grouped.map((folder) => {
 										const key = folderKey(folder);
-										const { trees, more } = shownTrees(
-											folder,
-											expanded.has(key),
-										);
 										return (
 											<ProjectSection
 												key={key}
 												folder={folder}
-												trees={trees}
-												more={more}
-												onMore={() => setExpanded(new Set(expanded).add(key))}
+												trees={folder.listed}
 												open={!folded.has(key)}
 												onFold={(open) => fold(key, open)}
 												onNew={available ? () => startIn(folder) : null}
