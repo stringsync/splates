@@ -121,7 +121,7 @@ export function ProjectSection({
 					</button>
 				)}
 			</div>
-			{open && folder.trees.length === 0 && <ProjectEmpty />}
+			{open && folder.trees.length === 0 && <ProjectEmpty phone />}
 			{open && items.length > 0 && (
 				<Lines
 					items={items}
