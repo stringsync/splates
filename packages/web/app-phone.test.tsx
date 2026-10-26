@@ -196,8 +196,8 @@ describe("App on a phone", () => {
 			expect.stringContaining("Stripes"),
 		]);
 		expect(
-			within(zebra).getByRole("status", { name: "1 waiting on you" }),
-		).toBeTruthy();
+			within(zebra).queryByRole("status", { name: "1 waiting on you" }),
+		).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(

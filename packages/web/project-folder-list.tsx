@@ -1,5 +1,5 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import { ChevronRightIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
+import { ChevronRightIcon, PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import {
 	Collapsible,
@@ -73,16 +73,6 @@ export function ProjectList({
 								/>
 								<span className="min-w-0 truncate">{folder.name}</span>
 								{folder.here && <ShownDot />}
-								{folder.waiting.length > 0 && (
-									<span
-										role="status"
-										aria-label={`${folder.waiting.length} waiting on you`}
-										className="ml-auto flex shrink-0 items-center gap-0.5 text-warning normal-case tabular-nums"
-									>
-										<TriangleAlertIcon aria-hidden className="size-3" />
-										{folder.waiting.length}
-									</span>
-								)}
 							</CollapsibleTrigger>
 							<button
 								type="button"

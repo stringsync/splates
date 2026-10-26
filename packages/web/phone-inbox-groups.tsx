@@ -4,7 +4,6 @@ import {
 	EllipsisIcon,
 	PlusIcon,
 	TrashIcon,
-	TriangleAlertIcon,
 } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -121,16 +120,6 @@ export function ProjectSection({
 						/>
 						<span className="min-w-0 truncate">{folder.name}</span>
 						{folder.here && <ShownDot />}
-						{folder.waiting.length > 0 && (
-							<span
-								role="status"
-								aria-label={`${folder.waiting.length} waiting on you`}
-								className="ml-auto flex shrink-0 items-center gap-0.5 text-warning tabular-nums"
-							>
-								<TriangleAlertIcon aria-hidden className="size-3" />
-								{folder.waiting.length}
-							</span>
-						)}
 					</button>
 				</h2>
 				{onNew !== null && (

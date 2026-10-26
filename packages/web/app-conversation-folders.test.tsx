@@ -103,14 +103,8 @@ describe("App's agents, in a folder per project", () => {
 					within(folder)
 						.getAllByRole("listitem")
 						.map((item) => item.textContent),
-					within(folder)
-						.getByRole("status", { name: /^\d+ waiting on you$/ })
-						.getAttribute("aria-label"),
 				]),
-		).toEqual([
-			[["Mine broke", "Mine"], "1 waiting on you"],
-			[["Zebra broke", "Stripes"], "1 waiting on you"],
-		]);
+		).toEqual([[["Mine broke", "Mine"]], [["Zebra broke", "Stripes"]]]);
 		expect(
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
