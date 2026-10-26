@@ -115,7 +115,7 @@ When the user asks to run `splates server` in the cloud, that is the Server
 on a Droplet setup area (`replica-keys`), with the rest of this section
 done by you on the box. The box is a DigitalOcean Droplet the user makes
 once by hand, and a Spaces bucket beside it in the same account holds the
-server's records as its replica ([notes/replica.md](../../../notes/replica.md)),
+server's records as its replica,
 so both go from one dashboard. Ask the user for the Droplet's address and
 how you reach it, and the bucket's name and region; never write them into a
 checked-in file but the project's `splates.config.ts`, where the replica names its

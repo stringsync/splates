@@ -17,7 +17,7 @@ import {
 } from "webappwiz/time";
 import { TooltipProvider } from "#web/components/ui/tooltip.tsx";
 import { Opening } from "./add-project";
-import { noteStats, stats } from "./api";
+import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
 import { useAppPages } from "./app-pages";
@@ -250,7 +250,7 @@ export function App({
 	};
 	const name = useProjectName(snapshot?.repo, snapshot?.project);
 
-	const [report] = useState(() => new StatsReport({ stats, notes: noteStats }));
+	const [report] = useState(() => new StatsReport({ stats }));
 	// What the other pages read, so each shows its last answer on a visit.
 	const [readings] = useState(() => new PageReadings());
 	const visits = usePageVisits({

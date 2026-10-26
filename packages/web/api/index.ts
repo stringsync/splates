@@ -71,7 +71,6 @@ export {
 } from "./spend";
 export {
 	mergeEstimates,
-	noteStats,
 	openFile,
 	paths,
 	removeTask,

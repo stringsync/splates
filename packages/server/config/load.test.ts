@@ -29,7 +29,6 @@ describe("loadConfig", () => {
 		const config = await loadConfig(root, { fs, git });
 
 		expect(config.worktreeRoot).toBe(`${root}-splates.noindex`);
-		expect(config.notesDir).toBe("notes");
 	});
 
 	it("leaves every hook unset, so a repo runs only what it asks for", async () => {
@@ -43,14 +42,13 @@ describe("loadConfig", () => {
 	it("overrides only the defaults splates.config.ts names", async () => {
 		await fs.write(
 			join(root, "splates.config.ts"),
-			`export default { trunk: "trunk", mergeRetryCount: 7, notesDir: "docs/context" };\n`,
+			`export default { trunk: "trunk", mergeRetryCount: 7 };\n`,
 		);
 
 		const config = await loadConfig(root, { fs, git });
 
 		expect(config.trunk).toBe("trunk");
 		expect(config.mergeRetryCount).toBe(7);
-		expect(config.notesDir).toBe("docs/context");
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 

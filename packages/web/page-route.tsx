@@ -1,6 +1,5 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
-	BookOpenIcon,
 	ChartColumnIcon,
 	FlaskConicalIcon,
 	GaugeIcon,
@@ -100,8 +99,7 @@ export type Page =
 	| "billing"
 	| "automations"
 	| "auto-pick"
-	| "setup"
-	| "notes";
+	| "setup";
 
 /**
  * Each page in the nav, with the shortcut that opens it, if any, and whether
@@ -130,7 +128,6 @@ export const PAGES: {
 		Icon: ZapIcon,
 		scope: "project",
 	},
-	{ value: "notes", label: "Notes", Icon: BookOpenIcon, scope: "project" },
 	{ value: "tasks", label: "Queue", Icon: TaskIcon, scope: "everywhere" },
 	{
 		value: "stats",
@@ -169,7 +166,6 @@ export const PHONE_PAGES: Record<Page, string> = {
 	billing: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",
-	notes: "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };

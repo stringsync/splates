@@ -69,59 +69,34 @@ describe("HookStore", () => {
 		});
 	});
 
-	it("turns the notes gardener on weekly, keeping its pause and schedule through a new pick", async () => {
-		const hooks = new HookStore(new MemoryStorage());
-
-		await hooks.gardener({ agent: "claude" });
-		expect((await hooks.read())[0]).toMatchObject({
-			id: "notes-gardener",
-			source: "builtin",
-			trigger: { every: "7d" },
-			hook: { kind: "garden", agent: "claude" },
-		});
-
-		await hooks.gardener({ agent: "claude" }, { cron: "0 9 * * 1" });
-		await hooks.pause("notes-gardener", true);
-		await hooks.gardener({ agent: "codex", model: "gpt" });
-		const gardener = (await hooks.read())[0];
-		expect(gardener).toMatchObject({
-			trigger: { cron: "0 9 * * 1" },
-			hook: { kind: "garden", agent: "codex", model: "gpt" },
-			paused: true,
-		});
-		// The new schedule counts from when it was set.
-		expect(gardener?.editedAt).toBeString();
-
-		await expect(
-			hooks.gardener({ agent: "claude" }, { every: "soon" }),
-		).rejects.toThrow("no interval");
-		await hooks.gardener(null);
-		expect(await hooks.read()).toEqual([]);
-	});
-
-	it("reads a notes audit saved before it grew into the gardener as the gardener", async () => {
+	it("ignores retired notes automations while keeping the groomer", async () => {
 		const storage = new MemoryStorage();
 		await storage.document("hooks.json").write({
 			automations: [
-				{
-					id: "notes-audit",
-					trigger: { cron: "0 9 * * 1" },
-					hook: { kind: "audit", agent: "claude", model: "opus" },
-					createdAt: "2026-10-20T00:00:00.000Z",
+				...["notes-audit", "notes-gardener"].map((id) => ({
+					id,
+					trigger: { every: "7d" },
+					hook: {
+						kind: id === "notes-audit" ? "audit" : "garden",
+						agent: "claude",
+					},
 					source: "builtin",
-					paused: true,
+					createdAt: "2026-10-20T00:00:00.000Z",
+				})),
+				{
+					id: "groomer",
+					trigger: { every: "1d" },
+					hook: { kind: "groom", agent: "claude" },
+					source: "builtin",
+					createdAt: "2026-10-20T00:00:00.000Z",
 				},
 			],
 		});
-
-		expect(await new HookStore(storage).read()).toEqual([
+		expect(await new HookStore(storage).read()).toMatchObject([
 			{
-				id: "notes-gardener",
-				trigger: { cron: "0 9 * * 1" },
-				hook: { kind: "garden", agent: "claude", model: "opus" },
-				createdAt: "2026-10-20T00:00:00.000Z",
-				source: "builtin",
-				paused: true,
+				id: "groomer",
+				hook: { kind: "groom" },
+				trigger: { event: "task.created" },
 			},
 		]);
 	});

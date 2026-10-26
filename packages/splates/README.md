@@ -50,16 +50,6 @@ XML report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit
 than 5 seconds. A check that appends `{"phase": "<name>", "ms": <n>}` lines to
 `$SPLATES_GATE_PHASES` has those phase times kept in the merge's log entry.
 
-**Project notes.** Keep durable conventions, decisions and other project context
-as short Markdown files in `notes/`, one thing per file, edited in place.
-Each starts with frontmatter such as `description: Why releases use explicit exports`
-between `---` lines. `splates notes` prints those descriptions in filename
-order, one per line; a missing directory prints nothing successfully. Read
-the files directly or search them with `rg`. Set `notesDir: "docs/context"`
-in `splates.config.ts` to move the directory, relative to the checkout root
-or to an absolute path. Notes change through tasks, just as code does.
-Keep sensitive information out of them.
-
 **One premerge at a time.** Each merge's gate (`postRewrite` and
 `preMerge`) holds the machine's premerge lock, so merges from several agents
 test one after another rather than run the machine out of memory. A gate

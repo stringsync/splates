@@ -47,8 +47,6 @@ import {
 	NamedContext,
 	namedIn,
 } from "#web/mentioned.tsx";
-import { NoteChip } from "#web/note-chip.tsx";
-import { linkNotes, noteIn } from "#web/note-references.ts";
 import { TaskChip } from "#web/reference-chip.tsx";
 import { SentAttachmentChip } from "#web/sent-attachments.tsx";
 import { RunInTerminal } from "#web/terminal.tsx";
@@ -121,15 +119,7 @@ function MarkdownTextImpl({
 						linkMentions(
 							linkNamed(
 								linkElsewhere(
-									linkTasks(
-										typed
-											? typed(text)
-											: linkNotes(
-													text,
-													named.notes ?? [],
-													named.notesRoot ?? named.tree,
-												),
-									),
+									linkTasks(typed ? typed(text) : text),
 									named.projects,
 								),
 								named,
@@ -292,8 +282,6 @@ const defaultComponents = memoizeMarkdownComponents({
 	// spot on the page, such as a footnote, stays in it. A todo's opens it over
 	// the conversation, and a system or file a person named shows as its chip.
 	a: ({ className, ...props }) => {
-		const note = noteIn(props.href);
-		if (note !== null) return <NoteChip path={note} />;
 		const mention = mentionIn(props.href);
 		if (mention !== null) {
 			return <Mention id={mention} />;

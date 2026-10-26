@@ -18,7 +18,7 @@ const ICONS: Partial<Record<CountKind, typeof FilesIcon>> = {
 /**
  * The quiet events of a work row as muted plain counts in its line, `3 tasks
  * added · Uploads lane · 2 moved`, which open with the row: its timeline shows
- * each where it happened. Notes read and Auto pick have no count.
+ * each where it happened. Auto pick has no count.
  */
 export function QuietCounts({
 	events,

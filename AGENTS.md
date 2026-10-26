@@ -81,6 +81,17 @@ merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
 
 Only run `splates dev eval` when the user asks you to, since it uses tokens the
 user pays for: billed to an API key, or counted against their Claude plan's
-usage limits (see `notes/evals-harness.md`).
+usage limits.
 `splates dev eval report` and the evals' tests (`splates dev test --evals`)
 are free.
+
+Assume any user may clone and run this public repository against their own
+accounts. Personal hosts, ids and email addresses belong in local state, never
+tracked files. Never commit secrets, including encrypted secrets; read them from
+the creds store at runtime.
+
+Billing costs come from pulled sources, never hand entry. An unreachable provider
+must not be recorded as zero.
+
+`designs/` holds decisions settled with the user, rather than live documentation.
+Read their dates: later decisions may supersede earlier settled paragraphs.

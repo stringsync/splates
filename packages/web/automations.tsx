@@ -4,7 +4,6 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
-	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 	runsNow,
 } from "@stringsync/splates-server/hooks/browser";
@@ -32,12 +31,6 @@ import {
 	GroomerOff,
 	groomerPick,
 } from "./groomer-card";
-import {
-	GardenerForm,
-	GardenerOff,
-	gardenerPick,
-	type SetGardener,
-} from "./notes-gardener-card";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal } from "./refusal";
@@ -48,8 +41,7 @@ import { TopBar } from "./top-bar";
  * `splates server` runs, each with when it last ran and for what task, which
  * `opens` opens, to edit, pause or remove, and a form to add one. The person's own come first; then those the project
  * checks in, which only `splates.config.ts` changes, and those splates
- * itself sets, as the groomer, whose agent is all that changes here, and
- * the notes gardener, whose agent and schedule do.
+ * itself sets, as the groomer, whose agent is all that changes here.
  */
 export function AutomationsPage({
 	opens,
@@ -61,20 +53,18 @@ export function AutomationsPage({
 }): JSX.Element {
 	const list = useReading("automations", () => new AutomationList());
 	useEffect(() => void list.read(), [list]);
-	const { rows, refusal, own, checkedIn, builtIn, groomer, notesGardener } =
-		useReactive(
-			list,
-			(list) => ({
-				rows: list.rows,
-				refusal: list.refusal,
-				own: list.own,
-				checkedIn: list.checkedIn,
-				builtIn: list.builtIn,
-				groomer: list.groomer,
-				notesGardener: list.notesGardener,
-			}),
-			["changed"],
-		);
+	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
+		list,
+		(list) => ({
+			rows: list.rows,
+			refusal: list.refusal,
+			own: list.own,
+			checkedIn: list.checkedIn,
+			builtIn: list.builtIn,
+			groomer: list.groomer,
+		}),
+		["changed"],
+	);
 	return (
 		<section aria-label="automations" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Automations" scoped />
@@ -114,22 +104,16 @@ export function AutomationsPage({
 					)}
 					<Group
 						title="Built in"
-						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation; removing the notes gardener turns it off."
+						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation."
 						rows={builtIn}
 						opens={opens}
 						onGroom={(pick) => list.groom(pick)}
-						onGardener={(pick, schedule) => list.gardener(pick, schedule)}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRun={(row) => void list.run(row)}
 						onRemove={(row) => void list.remove(row)}
 					>
 						{groomer === null && (
 							<GroomerOff onGroom={(pick) => list.groom(pick)} />
-						)}
-						{notesGardener === null && (
-							<GardenerOff
-								onGardener={(pick, schedule) => list.gardener(pick, schedule)}
-							/>
 						)}
 					</Group>
 				</>
@@ -169,7 +153,6 @@ function Group({
 	opens,
 	onEdit,
 	onGroom,
-	onGardener,
 	onPause,
 	onRun,
 	onRemove,
@@ -182,7 +165,6 @@ function Group({
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
-	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRun?: (row: AutomationRow) => void;
 	onRemove?: (row: AutomationRow) => void;
@@ -205,7 +187,6 @@ function Group({
 							opens={opens}
 							onEdit={onEdit}
 							onGroom={onGroom}
-							onGardener={onGardener}
 							onPause={onPause}
 							onRun={onRun}
 							onRemove={onRemove}
@@ -228,15 +209,13 @@ type Edit = (
 /**
  * One automation: what sets it off, what it runs, when it last ran, and its
  * buttons; or, while it is being edited, the form that edits it, which for
- * the groomer picks only its agent, and for the notes gardener its agent and
- * schedule.
+ * the groomer picks only its agent.
  */
 function Card({
 	row,
 	opens,
 	onEdit,
 	onGroom,
-	onGardener,
 	onPause,
 	onRun,
 	onRemove,
@@ -245,41 +224,18 @@ function Card({
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
-	onGardener?: SetGardener;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRun?: (row: AutomationRow) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
 	const [grooming, setGrooming] = useState(false);
-	const [editingGardener, setEditingGardener] = useState(false);
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
 	const paused = row.paused === true;
 	// The groomer's agent, all of it the page edits; null for any other.
 	const groomer = row.id === GROOMER_AUTOMATION ? groomerPick(row.hook) : null;
-	// The notes gardener's agent; its schedule the page edits too.
-	const gardener =
-		row.id === GARDENER_AUTOMATION ? gardenerPick(row.hook) : null;
-	if (editingGardener && gardener !== null && onGardener !== undefined) {
-		return (
-			<li aria-label={`automation ${row.id}`}>
-				<GardenerForm
-					pick={gardener}
-					trigger={row.trigger}
-					title="Edit the notes gardener"
-					submit="Save"
-					onSubmit={(picked, schedule) => {
-						// Shown saved at once; a refusal is said above the list.
-						setEditingGardener(false);
-						void onGardener(picked, schedule);
-					}}
-					onCancel={() => setEditingGardener(false)}
-				/>
-			</li>
-		);
-	}
 	if (grooming && groomer !== null && onGroom !== undefined) {
 		return (
 			<li aria-label={`automation ${row.id}`}>
@@ -325,18 +281,13 @@ function Card({
 			<AutomationFace row={row} opens={opens} />
 			{!pending &&
 				(onEdit !== undefined ||
-					(groomer !== null && onGroom !== undefined) ||
-					(gardener !== null && onGardener !== undefined)) && (
+					(groomer !== null && onGroom !== undefined)) && (
 					<Button
 						size="icon-sm"
 						variant="ghost"
 						aria-label="Edit"
 						onClick={() =>
-							groomer
-								? setGrooming(true)
-								: gardener
-									? setEditingGardener(true)
-									: setEditing(AutomationDraft.of(row))
+							groomer ? setGrooming(true) : setEditing(AutomationDraft.of(row))
 						}
 					>
 						<PencilIcon />

@@ -5,7 +5,6 @@ import {
 	HookStore,
 	hookAdd,
 	hookEdit,
-	hookGardener,
 	hookGroomer,
 	hookList,
 	hookPause,
@@ -206,11 +205,10 @@ splatesHook
 	.command("run")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"run an automation now, as the Automations page's Run now does, its schedule left as it was: one on a schedule, the groomer or the notes gardener, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
+		"run an automation now, as the Automations page's Run now does, its schedule left as it was: one on a schedule or the groomer, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
 	)
 	.arg("id", z.string(), {
-		description:
-			"its number in `splates hook list`, or `groomer` or `notes-gardener`",
+		description: "its number in `splates hook list`, or `groomer`",
 	})
 	.action((opts, ctx) =>
 		hookRun({ hooks: storeOf(ctx), log: ctx.log }, opts.id),
@@ -248,52 +246,6 @@ splatesHook
 			);
 		}
 		await hookGroomer({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null);
-	});
-
-splatesHook
-	.command("gardener")
-	.use(repository({ needs: "tasks" }))
-	.description(
-		"turn on the notes gardener, built-in automation `notes-gardener`, or set the agent it runs as and its schedule, as the Automations page does: on each run, an agent reads each project note no open task names by its path, checks it against the code and the other notes, and drafts the fixes in one task, `notes-garden`: rewriting what went stale, merging notes that say one thing, splitting one that says several, settling a contradiction the code settles and sharpening descriptions, then asks you to review the change rather than merge it, asking about any contradiction the code does not settle. No run starts while `notes-garden` is open. Off by default, since each run reads code for every note on your tokens; it runs every 7d until you set `--every` or `--cron`. `--off` turns it off",
-	)
-	.option("agent", z.string(), {
-		default: "",
-		description: "the agent it runs as, as `splates agents` names it",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "its model (default: the agent's own)",
-	})
-	.option("effort", z.string(), {
-		default: "",
-		description: "its thinking level (default: the agent's own)",
-	})
-	.option("every", z.string(), {
-		default: "",
-		description: "run every so often, as 1d (default: as it was, or 7d)",
-	})
-	.option("cron", z.string(), {
-		default: "",
-		description:
-			'run on a five-field cron line, in this machine\'s time, as "0 9 * * 1"',
-	})
-	.option("off", z.boolean(), {
-		default: false,
-		description: "turn it off",
-	})
-	.action(async (opts, ctx) => {
-		const pick = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
-		if (opts.off === (pick != null)) {
-			fail(
-				"usage",
-				"say how it runs with --agent, or turn it off with --off",
-				{},
-			);
-		}
-		await hookGardener({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null, {
-			every: opts.every,
-			cron: opts.cron,
-		});
 	});
 
 /** What sets the automation `splates hook add` adds off, refusing two triggers or none. */

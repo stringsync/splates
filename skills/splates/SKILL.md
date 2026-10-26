@@ -196,9 +196,7 @@ A prompt that has `[SPLATES ...]` comes from the `splates server` page or
 from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says. A few directives have no row
 because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](references/setup.md)),
-`[SPLATES DEFER]` ([queue.md](references/queue.md), Deferring), `[SPLATES KEEP]`
-([notes.md](references/notes.md)), `[SPLATES GARDEN]` ([garden.md](references/garden.md)),
-`[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)),
+`[SPLATES DEFER]` ([queue.md](references/queue.md), Deferring), `[SPLATES DEMO <task> <point>]` ([demos.md](references/demos.md)),
 `[SPLATES EVALS DONE <batch>]` (Formats above, after the run card), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
 the prompt after it asks and end with the Done report in Formats above,
@@ -269,14 +267,6 @@ These only when their moment comes:
   [references/transfer.md](references/transfer.md).
 
 ## Workflow
-
-When you need to know how the project is meant to work, before reading code
-for it, or have learned something worth keeping, run `splates notes` and read
-[references/notes.md](references/notes.md). Notes are progressively
-disclosed: only descriptions are listed, so explore and index them yourself,
-reading just the notes that fit. Under `splates server`, a message may end
-with note pointers: read each `Read before acting:` note before you act on
-the message; a `Maybe relevant:` one only when it fits.
 
 1. **Start before you look.** When a request may end in a code change,
    `splates add <task> --goal "<what done means>"` before reading any code,

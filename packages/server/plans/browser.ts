@@ -24,7 +24,6 @@ export {
 	directive,
 	handOffReference,
 	isUpdate,
-	KEEP,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,

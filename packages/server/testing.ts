@@ -121,7 +121,6 @@ export class Testing implements AsyncDisposable {
 			trunk: "main",
 			remote: null,
 			worktreeRoot: `${this.root}-splates`,
-			notesDir: "notes",
 			postCheckout: null,
 			postRewrite: null,
 			// Keeps merge's gate green unless a test asks otherwise.
@@ -156,7 +155,7 @@ export class Testing implements AsyncDisposable {
 		});
 		this.machine = new FsStorage(this.splatesHome, this.fs);
 		this.outcomes = new Outcomes(this.machine);
-		this.adherence = new Adherence(this.machine, this.fs);
+		this.adherence = new Adherence(this.machine);
 		const store = new TaskStore(this.storage);
 		this.service = new WorktreeService(this.git, this.config, this.dir, {
 			store,

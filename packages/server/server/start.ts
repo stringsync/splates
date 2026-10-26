@@ -16,7 +16,6 @@ import { cannotReach, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
-import { NoteReads, NoteUses } from "../notes";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
 import { Journal, ProjectHome } from "../records";
@@ -188,7 +187,7 @@ async function start(
 	// Judged as each turn ends, for the Stats page, across projects.
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
-	const adherence = new Adherence(machine, ctx.fs);
+	const adherence = new Adherence(machine);
 	const spend = new Spend(machine);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.
@@ -281,7 +280,7 @@ async function start(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ dir, storage, git, config, journal }) => {
+			conversations: ({ dir, storage, git, config }) => {
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,
 					storage: storage.within("conversations"),
@@ -293,12 +292,6 @@ async function start(
 					offered,
 					limits,
 					adherence,
-					noteReads: new NoteReads({
-						fs: ctx.fs,
-						journal,
-						uses: new NoteUses(storage),
-						root: git.root,
-					}),
 					outcomes,
 					spend: { ledger: spend, prices: outcomes.prices },
 					readLimits: async (agent) =>

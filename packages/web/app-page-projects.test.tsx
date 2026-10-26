@@ -82,7 +82,6 @@ describe("App's pages and the project switcher", () => {
 				"Board",
 				"Creds",
 				"Automations",
-				"Notes",
 				"Queue",
 				"Stats",
 				"Evals",

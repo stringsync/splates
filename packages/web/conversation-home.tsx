@@ -288,7 +288,6 @@ export function useNewConversation({
 		task === null
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
-		root,
 	);
 	// On Auto pick the agent is yet to be picked: only its switch shows, off
 	// for the agent it stands in with.

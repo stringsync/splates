@@ -65,7 +65,6 @@ function defaults(root: string, trunk: string): Config {
 		// and made timing tests fail the merge gate. A file marking the folder,
 		// `.metadata_never_index`, is ignored by macOS 26.
 		worktreeRoot: resolve(root, "..", `${basename(root)}-splates.noindex`),
-		notesDir: "notes",
 		postCheckout: null,
 		postRewrite: null,
 		preMerge: null,

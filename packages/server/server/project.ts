@@ -5,12 +5,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
-import {
-	AutoPickRoutes,
-	lifting,
-	projectJudge,
-	QueueAutoPick,
-} from "../auto-pick";
+import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { LaneRecord } from "../board";
 import { BoardRoutes, tasksNamed } from "../board";
 import type {
@@ -24,15 +19,13 @@ import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { NotesRoutes, routing, weighing } from "../notes";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { letGo, QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import type { NoteSource } from "../stats";
-import { BudgetRoutes, NoteEventsRoutes } from "../stats";
+import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER } from "../workers";
@@ -116,12 +109,6 @@ export async function serveProject(
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
 		conversations.lift = lifting(project, conversations, { slug });
-		conversations.route = routing(project, {
-			judge: (who) => projectJudge(project, slug, who),
-		});
-		conversations.weigh = weighing(project, {
-			judge: (who) => projectJudge(project, slug, who),
-		});
 		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
@@ -166,8 +153,6 @@ export async function serveProject(
 		...new BoardRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
-		...new NotesRoutes(project),
-		...new NoteEventsRoutes(project),
 		...automations.routes,
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
@@ -426,16 +411,10 @@ export interface Served extends AsyncResource {
 	saveCred: Handler;
 	removeCred: Handler;
 	dismissCred: Handler;
-	listNotes: Handler;
 	/** Where its replica stands now, or as last recorded; null when none has run. */
 	replica: () => Promise<ReplicaStatus | null>;
 	/** Whether its creds, the project's then the device's, keep `name`. */
 	kept: (name: string) => Promise<boolean>;
-	/** The project's journal, for the Stats page's Notes section. */
-	noteEvents: () => Promise<NoteSource>;
-	readNote: Handler;
-	saveNote: Handler;
-	removeNote: Handler;
 	listBudgets: Handler;
 	setBudget: Handler;
 	raiseBudget: Handler;

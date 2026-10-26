@@ -19,7 +19,6 @@ import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
 import { Closing, Merges } from "./stats-flow";
-import { NoteSection } from "./stats-notes";
 import { projectFilter } from "./stats-project-filter";
 import {
 	type Axis,
@@ -40,7 +39,6 @@ import { TopBar } from "./top-bar";
 export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 	const {
 		stats,
-		notes,
 		error,
 		empty,
 		period,
@@ -58,7 +56,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		report,
 		(report) => ({
 			stats: report.stats,
-			notes: report.notes,
 			error: report.error,
 			empty: report.empty,
 			period: report.period,
@@ -153,8 +150,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							/>
 						</>
 					)}
-					{/* Whether pointers to notes help, against the holdout. */}
-					{notes !== null && <NoteSection notes={notes} />}
 					<Collapsible
 						render={<section aria-label="Everything else" />}
 						className="group/rest flex flex-col gap-3"

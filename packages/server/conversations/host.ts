@@ -57,24 +57,6 @@ export type Lift = (
 	said: readonly Message[],
 ) => Promise<void>;
 
-/**
- * The note pointers for `said`, what the person says next in
- * `conversation`, to follow it to the agent; null to attach none.
- */
-export type Route = (
-	conversation: ConversationHost,
-	said: readonly Message[],
-) => Promise<string | null>;
-
-/**
- * What looks back, once a turn of `conversation` that began at `since` has
- * ended, at what its agent did with the notes it read in it.
- */
-export type Weigh = (
-	conversation: Pick<ConversationHost, "state" | "cwd">,
-	since: string,
-) => Promise<void>;
-
 export type ConversationEvents = { changed: undefined; chosen: string };
 
 /** What every conversation in a repo is made with. */
@@ -127,8 +109,6 @@ export interface ConversationDeps {
 	servers: SessionServers | null;
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift?: Lift | null;
-	/** What points the agent at the project notes that bear on what the person says; null for nothing. */
-	route?: Route | null;
 }
 
 /** A project's way into the machine's queue for places on workers (`Scheduler`). */

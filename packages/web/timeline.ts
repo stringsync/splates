@@ -46,7 +46,7 @@ export function timeline(work: Work): Item[] {
 				last.event.action === event.action &&
 				last.event.reason === null &&
 				event.reason === null &&
-				(event.action === "task update" || event.action === "note read")
+				event.action === "task update"
 			) {
 				last.also.push(event);
 			} else {

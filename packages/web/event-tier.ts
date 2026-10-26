@@ -79,6 +79,5 @@ const QUIET = new Set<Action>([
 	"attach",
 	"artifact add",
 	"artifact remove",
-	"note read",
 	"auto",
 ]);

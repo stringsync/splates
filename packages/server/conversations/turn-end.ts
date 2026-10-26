@@ -2,7 +2,7 @@ import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import type { Storage } from "../storage";
 import type { Conversation } from "./conversation";
-import type { ProjectRoster, Weigh } from "./host";
+import type { ProjectRoster } from "./host";
 import type { ConversationsOptions } from "./options";
 import { spent } from "./spent";
 
@@ -10,7 +10,6 @@ import { spent } from "./spent";
 export interface LookingBack {
 	adherence: Adherence | null;
 	outcomes: Outcomes | null;
-	weigh: Weigh | null;
 	spend: NonNullable<ConversationsOptions["spend"]> | null;
 	storage: Storage;
 	root: string | null;
@@ -30,11 +29,11 @@ export interface Began {
 /**
  * Looks back, without waiting, at the turn of `conversation` that began as
  * `began` says and has just ended, however it did: how it followed the
- * skill, an outcome it saved, the notes it applied and what it cost.
+ * skill, an outcome it saved, what it cost.
  */
 export function lookBack(
 	conversation: Conversation,
-	{ adherence, outcomes, weigh, spend, storage, root, projects }: LookingBack,
+	{ adherence, outcomes, spend, storage, root, projects }: LookingBack,
 	began: Began,
 ): void {
 	void adherence
@@ -54,9 +53,6 @@ export function lookBack(
 				conversation.now(),
 			)
 			.catch(() => {});
-	}
-	if (weigh !== null && began.at !== null) {
-		void weigh(conversation, began.at).catch(() => {});
 	}
 	if (began.used !== null && spend !== null) {
 		void spent(spend, conversation, {

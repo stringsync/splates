@@ -2,7 +2,6 @@ import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
 import { type AgentPick, pickLabel } from "../models";
 import { changed, type HookChange } from "./edit";
-import { GARDENER_AUTOMATION } from "./garden";
 import { GROOMER_AUTOMATION } from "./groomer";
 import type { Automation, Hook, HookStore, Trigger } from "./store";
 
@@ -51,9 +50,7 @@ export async function hookEdit(
 			"usage",
 			id === GROOMER_AUTOMATION
 				? "the groomer changes through `splates hook groomer --agent`"
-				: id === GARDENER_AUTOMATION
-					? "the notes gardener changes through `splates hook gardener`"
-					: `no automation ${id}: \`splates hook list\` numbers yours`,
+				: `no automation ${id}: \`splates hook list\` numbers yours`,
 			{ id },
 		);
 	}
@@ -87,27 +84,6 @@ export async function hookGroomer(
 		set === null
 			? `${color.green("groomer off")}: \`splates server\` retires its conversation`
 			: `${color.green("groomer on")} ${described(set)}`,
-	);
-}
-
-/**
- * Turns the notes gardener on as `pick`, every so often or on a cron line, one
- * of them or neither to keep its schedule, or off for null, then says so.
- */
-export async function hookGardener(
-	{ hooks, log }: HookDeps,
-	pick: AgentPick | null,
-	{ every = "", cron = "" }: { every?: string; cron?: string } = {},
-): Promise<void> {
-	if (every !== "" && cron !== "") {
-		fail("usage", "say when it runs with --every or --cron, not both", {});
-	}
-	const trigger = every !== "" ? { every } : cron !== "" ? { cron } : undefined;
-	const set = await hooks.gardener(pick, trigger);
-	log.info(
-		set === null
-			? color.green("notes gardener off")
-			: `${color.green("notes gardener on")} ${described(set)}`,
 	);
 }
 
@@ -166,7 +142,5 @@ export function hookLabel(hook: Hook): string {
 			return `run \`${hook.command}\``;
 		case "groom":
 			return `groom the backlog with ${pickLabel(hook)}`;
-		case "garden":
-			return `tend the project notes with ${pickLabel(hook)}`;
 	}
 }

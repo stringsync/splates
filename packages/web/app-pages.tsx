@@ -9,7 +9,6 @@ import {
 	AutoPickPage,
 	BillingPage,
 	EvalsPage,
-	NotesPage,
 	SetupPage,
 	StatsPage,
 	Todos,
@@ -99,12 +98,6 @@ export function useAppPages({
 									todoView.open(id);
 								}}
 								onOpenLane={openLane}
-							/>
-						),
-						notes: (
-							<NotesPage
-								feed={available ? talk : null}
-								onOpen={openConversation}
 							/>
 						),
 						stats: <StatsPage report={report} />,

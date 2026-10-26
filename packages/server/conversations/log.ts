@@ -209,9 +209,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				replayed.model = entry.model;
 			} else if (entry.kind === "auto-pick") {
 				state.autoPick = { ...entry.pick, overridden: false };
-			} else if (entry.kind === "notes-holdout") {
-				state.notesHoldout = entry.holdout;
-				state.notesExperiment = entry.experiment ?? null;
 			} else if (entry.kind === "auto-pick-switch") {
 				state.autoPick = switched(state, entry.on);
 			} else if (entry.kind === "override") {

@@ -49,7 +49,6 @@ import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
-import { notes } from "./notes";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
@@ -87,13 +86,6 @@ export const splates = cli<SplatesDeps>("splates").use(exits<SplatesDeps>());
 
 // Every action is handed the dependencies it runs with, so it passes the
 // context straight on: each command takes the few it names off it.
-splates
-	.command("notes")
-	.use(repository({ needs: "read" }))
-	.description(
-		"print each project note's frontmatter description, one per line; notesDir in splates.config.ts defaults to notes; an absent directory prints nothing",
-	)
-	.action((_opts, ctx) => notes(ctx));
 
 splates
 	.command("init")

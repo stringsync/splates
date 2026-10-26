@@ -225,7 +225,6 @@ function Conversation({
 		paths,
 		projects,
 		task?.worktree ?? (conversation.task === null ? root : null),
-		root,
 	);
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.

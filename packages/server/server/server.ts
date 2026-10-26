@@ -29,7 +29,7 @@ import {
 	setupProjectAt,
 } from "../setup";
 import { BillingRoutes, Spend } from "../spend";
-import { DevOutcomes, NoteStatsRoutes } from "../stats";
+import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
@@ -361,29 +361,6 @@ export async function dev(
 	const picker = new Picker(deps);
 
 	const ended = new DevOutcomes(deps);
-	// The Notes section reads the journals of the projects the Stats filter takes in.
-	const notesStats = new NoteStatsRoutes({
-		fs,
-		ps,
-		sources: async (root) => {
-			if (root !== null) {
-				const known = (await projects.list()).find(
-					(each) => each.root === root && !each.gone,
-				);
-				if (known === undefined) {
-					fail("not_found", `no splates project at ${root}`, { project: root });
-				}
-				return [await (await servedAt(root)).noteEvents()];
-			}
-			await everywhere.openAll();
-			const opened = await Promise.allSettled(served.values());
-			return Promise.all(
-				opened.flatMap((each) =>
-					each.status === "fulfilled" ? [each.value.noteEvents()] : [],
-				),
-			);
-		},
-	});
 	const evalsCheckout =
 		(await sourceCommit(ps)) === null
 			? null
@@ -749,19 +726,6 @@ export async function dev(
 					},
 					"/api/creds/:name/dismiss": {
 						POST: talk(scoped((project) => project.dismissCred)),
-					},
-					"/api/notes": { GET: scoped((project) => project.listNotes) },
-					"/api/stats/notes": {
-						GET: guarded(notesStats.noteStats),
-					},
-					"/api/notes/read": { GET: scoped((project) => project.readNote) },
-					// Through a tunnel only once Access verified who is asking: a save
-					// lands on trunk.
-					"/api/notes/save": {
-						POST: talk(scoped((project) => project.saveNote)),
-					},
-					"/api/notes/remove": {
-						POST: talk(scoped((project) => project.removeNote)),
 					},
 					"/api/budgets": scoped((project) => project.listBudgets),
 					"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },

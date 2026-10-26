@@ -52,8 +52,6 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { type Chip, listedOf } from "#web/notes-attached.ts";
-import { NotesPopover } from "#web/notes-popover.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
 import { serverToldLines } from "#web/queue-start.ts";
 import {
@@ -162,9 +160,6 @@ export const UserMessage: FC = () => {
 		return typeof at === "number" ? at : null;
 	});
 	const sending = useAuiState((s) => s.message.metadata.custom.sending);
-	const notes = useAuiState((s) => s.message.metadata.custom.notes) as
-		| readonly Chip[]
-		| undefined;
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -288,17 +283,6 @@ export const UserMessage: FC = () => {
 							Steered into the running turn
 						</span>
 					)}
-				</div>
-			)}
-			{notes !== undefined && (
-				<div
-					data-slot="aui_user-message-notes"
-					className="flex flex-wrap gap-1 max-sm:justify-end"
-				>
-					<NotesPopover
-						title="Pointed to for this message"
-						notes={listedOf(notes)}
-					/>
 				</div>
 			)}
 			{typeof sending === "number" && <SendingLine seconds={sending} />}

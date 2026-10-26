@@ -42,14 +42,6 @@ and the page cannot show the task as merging. A merge can take minutes while
 the gate runs; wait it out, and use a long enough timeout rather than
 backgrounding it.
 
-## Project notes at merge
-
-When the project has notes, `splates merge` prints their index before anything
-else, on every attempt, refused or not. Read it against your diff: where a
-change makes a note untrue, update that note in the same task, commit it, and
-merge again. A note the diff leaves true needs nothing. Merge gates on none of
-this: it cannot check a note, so the check is yours.
-
 ## When a merge fails
 
 A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit

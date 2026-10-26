@@ -1,8 +1,4 @@
 import type { Edit, Tool } from "@stringsync/splates-server/conversations";
-import {
-	noteCalled,
-	notesRead,
-} from "@stringsync/splates-server/notes/browser";
 import { editLines } from "@stringsync/splates-server/tasks/browser";
 import { ChevronRightIcon, XIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, use, useState } from "react";
@@ -18,7 +14,6 @@ import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import { NoteChip } from "./note-chip";
 import { Action, NamedChip, type SplatesEventView } from "./splates-event";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
@@ -237,38 +232,13 @@ function Call({
 	const state = stateOf(tool, use(Going));
 	const what = resource(tool);
 	const named = files(tool);
-	const context = use(NamedContext);
-	const notes = notesRead(
-		tool,
-		context.notes ?? [],
-		context.notesRoot ?? context.tree,
-		context.tree,
-	);
+	const _context = use(NamedContext);
 	return (
 		<Line
 			state={state}
 			verb={verb(tool, state, subagent)}
 			resource={
-				notes.length > 0 ? (
-					<>
-						{notes.map((note) => (
-							<NoteChip key={note.path} path={note.path} />
-						))}
-						{named
-							.filter(
-								({ path }) =>
-									!noteCalled(
-										path,
-										notes,
-										context.notesRoot ?? context.tree,
-										context.tree,
-									),
-							)
-							.map(({ path, lines }) => (
-								<FileChip key={path} path={path} lines={lines} />
-							))}
-					</>
-				) : named.length > 0 ? (
+				named.length > 0 ? (
 					named.map(({ path, lines }) => (
 						<FileChip key={path} path={path} lines={lines} />
 					))

@@ -3,7 +3,6 @@ import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { MemoryStorage } from "../storage/testing";
-import { GARDENER_TRIGGER } from "./garden";
 import { RunStore } from "./runs";
 import { Scheduler } from "./scheduler";
 import type { Automation } from "./store";
@@ -31,9 +30,6 @@ describe("Scheduler", () => {
 				},
 				groom: async () => {
 					ran.push("groom");
-				},
-				garden: async (hook) => {
-					ran.push(`garden with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -98,23 +94,6 @@ describe("Scheduler", () => {
 		clock.advance(Duration.hrs(1));
 		await running.look();
 		expect(ran).toEqual(["tidy"]);
-	});
-
-	it("starts the notes gardener as its schedule comes due", async () => {
-		automations = [
-			{
-				id: "notes-gardener",
-				trigger: GARDENER_TRIGGER,
-				hook: { kind: "garden", agent: "claude" },
-				createdAt: new Date(clock.now()).toISOString(),
-				source: "builtin",
-			},
-		];
-		const running = await start();
-		clock.advance(Duration.days(7));
-		await running.look();
-
-		expect(ran).toEqual(["garden with claude"]);
 	});
 
 	it("runs one asked for by hand once per request, paused too, its schedule left be", async () => {

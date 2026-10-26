@@ -1,5 +1,4 @@
 import {
-	BookOpenIcon,
 	CheckIcon,
 	FileIcon,
 	FilesIcon,
@@ -18,9 +17,6 @@ import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
-import { NamedContext } from "./mentioned";
-import { NoteChip } from "./note-chip";
-import { type ListedPath, NotesPopover } from "./notes-popover";
 import { OpenerContext } from "./openers";
 
 import { credAddress } from "./page-address";
@@ -116,11 +112,7 @@ export type Named =
 	  }
 	| { kind: "cred"; name: string }
 	/** A shell command, as a run-command card asked to run it. */
-	| { kind: "command"; command: string }
-	/** A project note, by its path from the project root. */
-	| { kind: "note"; path: string }
-	/** Project notes, by their paths from the project root, as one pill. */
-	| { kind: "notes"; notes: readonly ListedPath[] };
+	| { kind: "command"; command: string };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -291,7 +283,6 @@ export function NamedChip({
 	const board = useContext(Board);
 	const openArtifact = useOpenArtifact();
 	const opener = use(OpenerContext);
-	const { notesRoot, tree } = use(NamedContext);
 	switch (named.kind) {
 		case "task": {
 			const { task, goal = "", note } = named;
@@ -383,24 +374,6 @@ export function NamedChip({
 				>
 					{distinctNames([named.path]).get(named.path)}
 				</Chip>
-			);
-		case "note": {
-			const root = notesRoot ?? tree;
-			return root === null ? (
-				<Chip Icon={BookOpenIcon} title={named.path} className={GIVES_WAY}>
-					{named.path.split("/").at(-1)}
-				</Chip>
-			) : (
-				<span className={cn("min-w-0", GIVES_WAY)}>
-					<NoteChip path={`${root}/${named.path}`} />
-				</span>
-			);
-		}
-		case "notes":
-			return (
-				<span className={cn("min-w-0", GIVES_WAY)}>
-					<NotesPopover title="Read this turn" notes={named.notes} />
-				</span>
 			);
 		case "artifact": {
 			const { conversation, name, version } = named;

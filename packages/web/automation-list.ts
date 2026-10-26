@@ -5,7 +5,6 @@ import type {
 } from "@stringsync/splates-server/hooks";
 import {
 	BY_HAND,
-	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 	GROOMER_TRIGGER,
 } from "@stringsync/splates-server/hooks/browser";
@@ -14,7 +13,6 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
 	addAutomation,
 	editAutomation,
-	gardenerAutomation,
 	groomAutomation,
 	pauseAutomation,
 	automations as readAutomations,
@@ -34,14 +32,7 @@ export interface AutomationsApi {
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
 	run: (id: string) => Promise<AutomationRow[]>;
 	groom: (pick: AgentPick) => Promise<AutomationRow[]>;
-	gardener: (
-		pick: AgentPick,
-		schedule: GardenerSchedule,
-	) => Promise<AutomationRow[]>;
 }
-
-/** When the notes gardener runs: every so often, or on a cron line. */
-export type GardenerSchedule = { every: string } | { cron: string };
 
 const API: AutomationsApi = {
 	read: readAutomations,
@@ -51,7 +42,6 @@ const API: AutomationsApi = {
 	pause: pauseAutomation,
 	run: runAutomation,
 	groom: groomAutomation,
-	gardener: gardenerAutomation,
 };
 
 /**
@@ -88,11 +78,6 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	/** The groomer, or null while it is off. */
 	get groomer(): AutomationRow | null {
 		return this.rows?.find((each) => each.id === GROOMER_AUTOMATION) ?? null;
-	}
-
-	/** The notes gardener, or null while it is off. */
-	get notesGardener(): AutomationRow | null {
-		return this.rows?.find((each) => each.id === GARDENER_AUTOMATION) ?? null;
 	}
 
 	async read(): Promise<void> {
@@ -208,38 +193,6 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 							},
 						],
 			() => this.api.groom(pick),
-		);
-	}
-
-	/**
-	 * Sets the agent the notes gardener runs as and when, turning it on when it
-	 * is off, shown as being saved until the server says what it now is.
-	 */
-	gardener(pick: AgentPick, schedule: GardenerSchedule): Promise<boolean> {
-		const hook: Hook = { kind: "garden", ...pick };
-		return this.#change(
-			"Not saved",
-			(rows) =>
-				rows.some((each) => each.id === GARDENER_AUTOMATION)
-					? rows.map((each) =>
-							each.id === GARDENER_AUTOMATION
-								? { ...each, trigger: schedule, hook, when: "", does: "" }
-								: each,
-						)
-					: [
-							...rows,
-							{
-								id: GARDENER_AUTOMATION,
-								trigger: schedule,
-								hook,
-								createdAt: new Date().toISOString(),
-								source: "builtin",
-								when: "",
-								does: "",
-								runs: [],
-							},
-						],
-			() => this.api.gardener(pick, schedule),
 		);
 	}
 

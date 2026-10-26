@@ -1,7 +1,6 @@
 import type { MergeEstimates } from "@stringsync/splates-server/merge";
 import type {
 	Landed,
-	NoteStats,
 	PeriodId,
 	Stats,
 } from "@stringsync/splates-server/stats/browser";
@@ -86,12 +85,6 @@ export async function stats(
 		throw new ApiError("error", `${path}: ${response.status}`);
 	}
 	return (await response.json()) as Stats;
-}
-
-/** How note pointers did in `project`'s main tree, or in every project for none: the Notes section of the Stats page. */
-export async function noteStats(project?: string): Promise<NoteStats> {
-	const path = `/api/stats/notes${project === undefined ? "" : `?project=${encodeURIComponent(project)}`}`;
-	return (await send(path, { method: "GET" })) as NoteStats;
 }
 
 /**

@@ -13,7 +13,7 @@ describe("Adherence", () => {
 
 	beforeEach(() => {
 		fs = new FakeFs();
-		adherence = new Adherence(new FsStorage("/home/.splates", fs), fs);
+		adherence = new Adherence(new FsStorage("/home/.splates", fs));
 	});
 
 	it("condenses the agent's own words and commands, joining text streamed apart", () => {

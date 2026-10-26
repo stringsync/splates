@@ -10,8 +10,6 @@ import { Board, still } from "./board";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
 import { NamedContext } from "./mentioned";
-import { NoteChip } from "./note-chip";
-import { linkNotes, noteIn } from "./note-references";
 import { todoAddress } from "./page-address";
 import { placeKey, projectUrl, shownProject } from "./project-places";
 import { TaskChip } from "./reference-chip";
@@ -49,14 +47,7 @@ export const Markdown = memo(function Markdown({
 	unlinked = false,
 }: MarkdownProps): JSX.Element {
 	const named = useContext(NamedContext);
-	const linked = linkMentions(
-		linkElsewhere(
-			linkTasks(
-				linkNotes(text, named.notes ?? [], named.notesRoot ?? named.tree),
-			),
-			named.projects,
-		),
-	);
+	const linked = linkMentions(linkElsewhere(linkTasks(text), named.projects));
 	if (inline) {
 		return (
 			<span className={cn("min-w-0 break-words", className)}>
@@ -367,10 +358,6 @@ export function ElsewhereMention({
 
 /** A link opens in a new tab, so the page keeps its place. */
 function Link(props: ComponentProps<"a">): JSX.Element {
-	const note = noteIn(props.href);
-	if (note !== null) {
-		return <NoteChip path={note} />;
-	}
 	const mention = mentionIn(props.href);
 	if (mention !== null) {
 		return <Mention id={mention} />;

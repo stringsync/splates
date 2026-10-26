@@ -3,8 +3,6 @@ export { measured, outlier } from "./baselines";
 export type { Fact, FoundFacts } from "./finding-facts";
 export { foundFacts } from "./finding-facts";
 export type { Landed } from "./landed";
-export type { ExperimentArm, ExperimentReport } from "./note-experiment";
-export type { Arm, NoteRow, NoteStats } from "./notes";
 export type { Outcome } from "./outcomes";
 export type { RuleOverrides } from "./overrides";
 export type {

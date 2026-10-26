@@ -53,7 +53,7 @@ export function kindOf(event: Event): CountKind | null {
 		case "artifact remove":
 			return "artifacts";
 		default:
-			// Notes read, Auto pick, and an add handed to another agent only
+			// Auto pick and an add handed to another agent only
 			// show in the dialog.
 			return null;
 	}

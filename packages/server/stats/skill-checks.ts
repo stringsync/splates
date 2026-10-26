@@ -8,12 +8,9 @@
  */
 
 /** Each check's verdicts on one conversation, by its id. */
-export function judge(
-	transcript: Transcript,
-	end: EndState,
-): Record<string, Verdict[]> {
+export function judge(transcript: Transcript): Record<string, Verdict[]> {
 	return Object.fromEntries(
-		CHECKS.map((check) => [check.id, check.judge(transcript, end)]),
+		CHECKS.map((check) => [check.id, check.judge(transcript)]),
 	);
 }
 
@@ -35,12 +32,6 @@ export type Beat =
 	/** Files a tool call wrote or edited. */
 	| { kind: "edit"; paths: string[] };
 
-/** What the conversation left behind, which its transcript does not say. */
-export interface EndState {
-	/** Whether the conversation's project has notes; absent for older callers. */
-	hasNotes?: boolean;
-}
-
 /** How one place a rule applied went. */
 export interface Verdict {
 	ok: boolean;
@@ -53,40 +44,11 @@ export interface Check {
 	id: string;
 	/** The rule, as the Stats page names it. */
 	rule: string;
-	judge(transcript: Transcript, end: EndState): Verdict[];
+	judge(transcript: Transcript): Verdict[];
 }
 
 /** Every check, in the order the Stats page lists them. */
 export const CHECKS: readonly Check[] = [
-	{
-		id: "notes-first",
-		rule: "Runs splates notes before the first edit when the project has notes",
-		judge: ({ beats }, { hasNotes = false }) => {
-			const edit = beats.findIndex((beat) => beat.kind === "edit");
-			if (edit === -1) {
-				return [];
-			}
-			if (!hasNotes) {
-				return [{ ok: true, why: "project has no notes" }];
-			}
-			const read = beats
-				.slice(0, edit)
-				.some(
-					(beat) =>
-						beat.kind === "run" &&
-						beat.ok &&
-						splatesCalls(beat.command).some(({ verb }) => verb === "notes"),
-				);
-			return [
-				{
-					ok: read,
-					why: read
-						? "splates notes came before the first edit"
-						: "edited before running splates notes",
-				},
-			];
-		},
-	},
 	{
 		id: "plan-first",
 		rule: "Writes SPLATES.md before the first edit",

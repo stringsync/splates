@@ -2,7 +2,6 @@ import type { Resource } from "webappwiz/disposable";
 import {
 	type Conversation,
 	type Conversations,
-	GARDENER_ROLE,
 	SERVER_TOLD,
 } from "../conversations";
 import {
@@ -20,8 +19,7 @@ import {
 	type TaskEventName,
 } from "../hooks";
 import { type AgentPick, pickSettings } from "../models";
-import { Notes, unclaimed } from "../notes";
-import { eventReference, GARDEN, need, scheduleReference } from "../plans";
+import { eventReference, need, scheduleReference } from "../plans";
 import type { Journal } from "../records";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
@@ -219,36 +217,6 @@ export class Automations implements Resource {
 					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`, {
 						automation: id,
 					}),
-				// No agent, and none of the person's tokens, while the last
-				// run's fixes wait for review, or every note has a task open
-				// for it already, or there are none.
-				garden: async (hook) => {
-					const notes = await new Notes(this.#project.fs).list(
-						root,
-						this.#project.config,
-					);
-					const paths = unclaimed(
-						notes,
-						root,
-						await this.#project.tasks.stored(),
-						(await service.list()).map(({ task }) => task),
-					);
-					if (paths.length > 0) {
-						// An earlier run still open is put away, so the page keeps
-						// one gardener row, apart from the person's conversations.
-						for (const open of await conversations.list()) {
-							if (
-								open.state.persistent === GARDENER_ROLE &&
-								!open.state.archived
-							) {
-								await this.#restAfterTurn(conversations, open);
-							}
-						}
-						await begin(pickOf(hook), gardenPrompt(paths), {
-							persistent: GARDENER_ROLE,
-						});
-					}
-				},
 				// Not awaited: the groomer works down the backlog turn by turn,
 				// while the hooks after it run.
 				groom: async (hook) => {
@@ -276,11 +244,6 @@ function referenceOf(fired: Fired): string {
 	return "event" in fired
 		? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
 		: scheduleReference(fired.schedule);
-}
-
-/** What the notes gardener's conversation opens with: the directive, then each note it reads. */
-function gardenPrompt(paths: readonly string[]): string {
-	return `${GARDEN}\n\n${paths.map((path) => `- \`${path}\``).join("\n")}`;
 }
 
 /** The agent, model and thinking level a groom hook runs its groomer as. */

@@ -12,7 +12,6 @@ import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
-import { chipsOf, withChips } from "./notes-attached";
 import { heldPrompt, queuedReply, working } from "./queued-time";
 import { messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
@@ -96,28 +95,24 @@ export function useThreadMessages(
 		const resumed = starting
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
-		const chips = chipsOf(said, conversation.events);
 		const liked = workingTimes(
 			said.map((message, index) =>
 				queuedReply(
-					withChips(
-						like(
-							message,
-							index,
-							conversation.id,
-							!writing || index < said.length - 1,
-							said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
-							now,
-							conversation.lastTask,
-							happened[index],
-							writing &&
-								index === said.length - 1 &&
-								conversation.ask?.type === "permission"
-								? conversation.ask.at
-								: null,
-							said[index + 1]?.steered === true || index === resumed,
-						),
-						chips.get(index),
+					like(
+						message,
+						index,
+						conversation.id,
+						!writing || index < said.length - 1,
+						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+						now,
+						conversation.lastTask,
+						happened[index],
+						writing &&
+							index === said.length - 1 &&
+							conversation.ask?.type === "permission"
+							? conversation.ask.at
+							: null,
+						said[index + 1]?.steered === true || index === resumed,
 					),
 					said[index - 1],
 				),

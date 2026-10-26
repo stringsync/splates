@@ -153,14 +153,7 @@ describe("App's conversation header", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual([
-			"main",
-			"Terminal⌃`",
-			"Defer",
-			"Keep this",
-			"Show timestamps",
-			"Archive⌥⌘⌫",
-		]);
+		).toEqual(["main", "Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
 	});
 
 	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {
@@ -259,50 +252,6 @@ describe("App's conversation header", () => {
 		} finally {
 			setSystemTime();
 		}
-	});
-
-	it("requests a project-note draft without interrupting a running turn", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Project decisions", status: "running" }),
-		]);
-		const actions = () => view.getByRole("navigation", { name: "actions" });
-		await act(async () =>
-			fireEvent.click(
-				within(actions()).getByRole("button", { name: "Keep this" }),
-			),
-		);
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[SPLATES KEEP]" } },
-		]);
-		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
-
-		await testing.say(conversation({ id: "c1", title: "Project decisions" }));
-		expect(
-			within(actions()).getByRole("button", { name: "Keep this" }),
-		).toBeTruthy();
-
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Project decisions",
-				status: "running",
-				checkpoint: "asked",
-			}),
-		);
-		expect(
-			within(actions()).queryByRole("button", { name: "Keep this" }),
-		).toBeNull();
-
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Project decisions",
-				archived: true,
-			}),
-		);
-		expect(
-			within(actions()).queryByRole("button", { name: "Keep this" }),
-		).toBeNull();
 	});
 
 	it("defers what the person last asked from under Pause, stopping the turn so the agent saves its work", async () => {

@@ -4,33 +4,19 @@ import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import { fail } from "../exit";
 import type { Git } from "../git";
-import { Notes } from "../notes";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import type { Worktree } from "../tasks";
 
 /**
  * Refuses a merge before it spends anything: a dirty tree, a branch
  * tracking the plan, an exhausted budget, a lease held elsewhere, or
- * unchecked questions and steps. Prints the project's notes first on every
- * attempt, refused or not, since merge cannot check that a note still
- * holds and the agent checks its diff against them.
+ * unchecked questions and steps.
  */
 export async function refuseUnready(
-	{ git, fs, config, log }: { git: Git; fs: Fs; config: Config; log: Logger },
+	{ git, fs, config }: { git: Git; fs: Fs; config: Config; log: Logger },
 	worktree: Worktree,
 ): Promise<void> {
 	const { task, base } = worktree;
-	const notes = await new Notes(fs)
-		.list(worktree.path, config)
-		.catch((error: unknown) => {
-			log.error(
-				`project notes not read: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			return [];
-		});
-	if (notes.length > 0) {
-		log.info(notes.map((note) => note.description).join("\n"));
-	}
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(

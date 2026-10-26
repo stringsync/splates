@@ -26,8 +26,6 @@ export interface HookActions {
 	): Promise<void>;
 	/** Wakes the project's groomer, which the state, not `fired`, tells what to groom. */
 	groom(hook: Extract<Hook, { kind: "groom" }>): Promise<void>;
-	/** Starts an agent tending the project notes no open task names yet. */
-	garden(hook: Extract<Hook, { kind: "garden" }>): Promise<void>;
 }
 
 /** Runs `automation`'s hook for `fired`, keeping the run, and logging a failure rather than throwing it. */
@@ -51,8 +49,6 @@ export async function fire(
 			await actions.agent(hook, fired, automation.id);
 		} else if (hook.kind === "groom") {
 			await actions.groom(hook);
-		} else if (hook.kind === "garden") {
-			await actions.garden(hook);
 		}
 	} catch (error) {
 		run.error = String(error);

@@ -20,7 +20,6 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
-import type { NoteReads } from "../notes";
 import { installedVersion } from "../server/shared";
 import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
@@ -34,8 +33,6 @@ import type {
 	ConversationsEvents,
 	Lift,
 	ProjectRoster,
-	Route,
-	Weigh,
 } from "./host";
 import type { ConversationsOptions } from "./options";
 import { outside } from "./outside";
@@ -76,7 +73,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
 	private readonly adherence: Adherence | null;
-	private readonly noteReads: NoteReads | null;
 	private readonly outcomes: Outcomes | null;
 	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
@@ -96,10 +92,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	url: string | null = null;
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift: Lift | null = null;
-	/** What points each agent at the project notes that bear on what the person says; null for nothing. */
-	route: Route | null = null;
-	/** What judges, after each turn, whether its agent applied the notes it read; null for nothing. */
-	weigh: Weigh | null = null;
 
 	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
 	refreshRoster(agents: Agent[]): void {
@@ -125,7 +117,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
 		this.adherence = opts.adherence ?? null;
-		this.noteReads = opts.noteReads ?? null;
 		this.outcomes = opts.outcomes ?? null;
 		this.spend = opts.spend ?? null;
 		this.readLimits = opts.readLimits ?? null;
@@ -156,9 +147,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// Set once the project opens too, as Auto pick reads the project.
 			get lift() {
 				return conversations.lift;
-			},
-			get route() {
-				return conversations.route;
 			},
 			fs: this.fs,
 			storage: this.storage,
@@ -508,7 +496,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		let archived = conversation.state.archived;
 		let limits = conversation.state.usage.limits;
 		let status = conversation.state.status;
-		this.noteReads?.follow(conversation.state);
 		// When the running turn began; null when it began before this server.
 		let turnStarted: string | null = null;
 		// What it had used as the running turn began, for the ledger.
@@ -519,7 +506,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			.catch(() => {});
 		conversation.events.on("changed", () => {
 			const { agent } = conversation.state;
-			this.noteReads?.hear(conversation.state, conversation.cwd);
 			// A turn ended: what the agent does not send is asked for.
 			if (status === "running" && conversation.state.status === "idle") {
 				this.askLimits(conversation);
@@ -535,7 +521,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 					{
 						adherence: this.adherence,
 						outcomes: this.outcomes,
-						weigh: this.weigh,
 						spend: this.spend,
 						storage: this.storage,
 						root: this.root,

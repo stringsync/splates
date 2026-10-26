@@ -7,7 +7,6 @@ import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
-import { Notes } from "../notes";
 import { PLAN_FILE, Plans } from "../plans";
 import { BESIDE_GATE_NICE } from "../server/shared";
 import type { Shell } from "../terminal";
@@ -249,7 +248,6 @@ export async function add(
 			.join("\n"),
 		(await worktree.changedFiles()) ?? [],
 	);
-	const notes = await new Notes(fs).list(worktree.path, config);
 	log.info(
 		[
 			`${color.green("added")} ${task}`,
@@ -263,9 +261,6 @@ export async function add(
 					]),
 			...blocked,
 			...overlaps.map((warning) => color.yellow(`  ${warning}`)),
-			...(notes.length === 0
-				? []
-				: [`  notes: ${notes.length}, splates notes lists them`]),
 		].join("\n"),
 	);
 }

@@ -5,16 +5,25 @@ import { FsStorage } from "../storage";
 import { ConversationLog, type Entry } from "./log";
 
 describe("ConversationLog", () => {
-	it("replays a versioned notes assignment and accepts the older holdout format", async () => {
-		const experiment = { version: "notes-v2", at: "2026-10-23T00:00:00.000Z" };
-		expect(
-			(await replay({ kind: "notes-holdout", holdout: true, experiment }))
-				?.state,
-		).toMatchObject({ notesHoldout: true, notesExperiment: experiment });
-		expect(
-			(await replay({ kind: "notes-holdout", holdout: false }))?.state,
-		).toMatchObject({ notesHoldout: false, notesExperiment: null });
-	});
+	it.each([
+		{
+			kind: "notes-holdout",
+			holdout: true,
+			experiment: { version: "notes-v2", at: "2026-10-23T00:00:00.000Z" },
+		},
+		{ kind: "notes-holdout", holdout: false },
+	] as const)(
+		"ignores historical notes assignment %j while replaying",
+		async (entry) => {
+			const replayed = await replay(entry, {
+				kind: "end",
+				error: "later failure",
+			});
+			expect(replayed?.state.error).toBe("later failure");
+			expect(replayed?.state).not.toHaveProperty("notesHoldout");
+			expect(replayed?.state).not.toHaveProperty("notesExperiment");
+		},
+	);
 	it("reads back a failed process's error while nothing has run since", async () => {
 		const replayed = await replay({ kind: "end", error: "it fell over" });
 

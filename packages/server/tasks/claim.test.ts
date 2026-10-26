@@ -21,25 +21,6 @@ describe("claim", () => {
 		expect(deps.out()).not.toContain("notes:");
 	});
 
-	it.each(["notes", "project-notes"])(
-		"points at the task checkout's notes in %s when claiming",
-		async (directory) => {
-			deps.config.notesDir = directory;
-			await add(deps, "alpha");
-			const { path } = await deps.service.find("alpha");
-			await deps.fs.mkdir(`${path}/${directory}`);
-			await deps.fs.write(
-				`${path}/${directory}/conventions.md`,
-				"---\ndescription: Project conventions\n---\n\nUse named exports.\n",
-			);
-
-			await claim(deps, "alpha");
-
-			expect(deps.out()).toContain("notes: 1, splates notes lists them");
-			expect(deps.out()).not.toContain("Project conventions");
-		},
-	);
-
 	it("refuses a live lease and takes a cold one", async () => {
 		await add(deps, "alpha");
 		await (await deps.service.find("alpha")).save({

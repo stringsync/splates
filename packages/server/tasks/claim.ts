@@ -1,7 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
-import { Notes } from "../notes";
 import { goalOf, Plans } from "../plans";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -73,10 +72,6 @@ export async function claim(
 			? "  uncommitted: none"
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
-	const notes = await new Notes(fs).list(worktree.path, service.config);
-	if (notes.length > 0) {
-		lines.push(`  notes: ${notes.length}, splates notes lists them`);
-	}
 	log.info(lines.join("\n"));
 	// What the page shows as the task the conversation is now on.
 	const plan = (await new Plans(fs).read(worktree.path)) ?? "";

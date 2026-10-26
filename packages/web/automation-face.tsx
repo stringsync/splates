@@ -6,7 +6,6 @@ import type {
 } from "@stringsync/splates-server/hooks";
 import {
 	BY_HAND,
-	GARDENER_AUTOMATION,
 	GROOMER_AUTOMATION,
 } from "@stringsync/splates-server/hooks/browser";
 import { ClockIcon, ListTodoIcon, TerminalIcon, ZapIcon } from "lucide-react";
@@ -48,8 +47,7 @@ export interface RunOpens {
 
 /**
  * What an automation is, beside its buttons: its mark, what sets it off,
- * who or what it runs, and when it last ran. The groomer and the notes
- * gardener go by their names.
+ * who or what it runs, and when it last ran. The groomer goes by its name.
  */
 export function AutomationFace({
 	row,
@@ -61,12 +59,7 @@ export function AutomationFace({
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
-	const named =
-		row.id === GROOMER_AUTOMATION
-			? "Groomer"
-			: row.id === GARDENER_AUTOMATION
-				? "Notes gardener"
-				: null;
+	const named = row.id === GROOMER_AUTOMATION ? "Groomer" : null;
 	const when = adding ? "Adding…" : pending ? "Saving…" : row.when;
 	const last = row.runs.at(-1);
 	return (

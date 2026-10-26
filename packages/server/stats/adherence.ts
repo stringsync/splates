@@ -1,7 +1,4 @@
-import type { Fs } from "webappwiz/system";
-import { ConfigFiles } from "../config";
 import type { ConversationState } from "../conversations";
-import { Notes } from "../notes";
 import type { Log, Storage } from "../storage";
 import { type Beat, judge, type Transcript } from "./skill-checks";
 
@@ -20,7 +17,6 @@ export class Adherence {
 	constructor(
 		/** The machine's storage, or a test's own. */
 		storage: Storage,
-		private readonly fs: Fs,
 	) {
 		this.log = storage.log("adherence.jsonl");
 	}
@@ -32,10 +28,7 @@ export class Adherence {
 		at: string,
 	): Promise<void> {
 		const transcript = condense(state);
-		const config = await new ConfigFiles(this.fs).read(project);
-		const hasNotes =
-			(await new Notes(this.fs).list(project, config)).length > 0;
-		const verdicts = judge(transcript, { hasNotes });
+		const verdicts = judge(transcript);
 		const scores: Scores = Object.fromEntries(
 			Object.entries(verdicts)
 				.filter(([, each]) => each.length > 0)

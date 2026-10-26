@@ -424,7 +424,7 @@ export async function openRepository(
 		storage,
 		ps,
 		outcomes,
-		adherence: new Adherence(machine, fs),
+		adherence: new Adherence(machine),
 	});
 	await service.init();
 	if (migrates) {

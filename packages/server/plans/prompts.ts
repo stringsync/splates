@@ -34,12 +34,6 @@ export function scheduleReference(automation: string): string {
 }
 
 /**
- * What opens the conversation the notes gardener starts, before the paths
- * of the notes it reads: the splates skill says what it means.
- */
-export const GARDEN = "[SPLATES GARDEN]";
-
-/**
  * What tells the project's groomer to groom backlog task `id`, which
  * `splates server` claimed for it: the splates skill says what it means.
  */
@@ -164,12 +158,6 @@ export const APPROVE = "[SPLATES APPROVE]";
  * what it means.
  */
 export const DEFER = "[SPLATES DEFER]";
-
-/**
- * What asks an agent to draft a project note from the conversation and wait
- * for the person's approval before merging it, as Keep this sends.
- */
-export const KEEP = "[SPLATES KEEP]";
 
 /**
  * What the agent alone is told of a message the person dictated: the page

@@ -6,17 +6,16 @@ import type { Work } from "./work";
 
 describe("Work timeline quiet events", () => {
 	const at = (second: number) => new Date(second * 1000).toISOString();
-	const read = (id: string, second: number): Event => ({
+	const updated = (id: string, second: number): Event => ({
 		id,
 		at: at(second),
-		action: "note read",
+		action: "task update",
 		task: null,
 		reason: null,
 		conversation: "c1",
-		path: `notes/${id}.md`,
-		hash: null,
-		tool: id,
-		subagent: false,
+		number: 1,
+		subject: "Update uploads",
+		changed: {},
 	});
 	const work = (events: Event[]): Work => ({
 		parts: [
@@ -33,7 +32,7 @@ describe("Work timeline quiet events", () => {
 	});
 
 	it("places events by time and breaks repeated commands around them", () => {
-		const items = timeline(work([read("later", 6), read("between", 3)]));
+		const items = timeline(work([updated("later", 6), updated("between", 3)]));
 		expect(items.map((item) => item.type)).toEqual([
 			"command",
 			"event",
@@ -45,8 +44,8 @@ describe("Work timeline quiet events", () => {
 		).toEqual(["between", "later"]);
 	});
 
-	it("folds consecutive notes but keeps separate runs across calls", () => {
-		const events = [read("one", 2), read("two", 3), read("three", 6)];
+	it("folds consecutive updates but keeps separate runs across calls", () => {
+		const events = [updated("one", 2), updated("two", 3), updated("three", 6)];
 		const items = timeline(work(events));
 		expect(
 			items

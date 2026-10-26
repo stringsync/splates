@@ -25,7 +25,6 @@ describe("WorktreeService", () => {
 			trunk: "main",
 			remote: null,
 			worktreeRoot: "/repo-splates",
-			notesDir: "notes",
 			postCheckout: null,
 			postRewrite: null,
 			preMerge: "true",
