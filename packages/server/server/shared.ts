@@ -34,4 +34,4 @@ export { installedVersion, projectSkills } from "./skills";
 export type { Connection } from "./sockets";
 export { CONNECTIONS } from "./sockets";
 export { RESTART, SERVING } from "./supervise";
-export type { PlacedLock } from "./ticketed-lock";
+export type { PlacedAcquireOptions, PlacedLock } from "./ticketed-lock";

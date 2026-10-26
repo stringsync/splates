@@ -7,6 +7,7 @@ import type { Git } from "../git";
 import {
 	CHECKED_COMMIT,
 	GATE_PHASES,
+	type PlacedAcquireOptions,
 	type PlacedLock,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
@@ -74,6 +75,7 @@ export class MergeGate {
 		onQueued: (place: number) => Promise<void> = async () => {},
 		/** Aborted by a merge that stops wanting the lock, as a batch's follower does once it is landed. */
 		signal?: AbortSignal,
+		opts?: PlacedAcquireOptions,
 	): Promise<AsyncDisposable> {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
@@ -87,10 +89,14 @@ export class MergeGate {
 			return telling;
 		};
 		const acquired = this.premerge
-			.acquire((at) => {
-				place = at;
-				return queued ? tell(at) : undefined;
-			}, signal)
+			.acquire(
+				(at) => {
+					place = at;
+					return queued ? tell(at) : undefined;
+				},
+				signal,
+				opts,
+			)
 			.then(() => true);
 		// A `Lock` cannot be tried without waiting, so a lock not had soon is taken as held.
 		let timer: ReturnType<typeof setTimeout> | undefined;

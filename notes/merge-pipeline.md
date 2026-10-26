@@ -12,6 +12,10 @@ fast-forwards the base with a compare-and-swap and discards the worktree.
   `mergeConflictCount` conflicted rebases, 10, since with many agents on one
   file a conflict is the base moving, not the task failing; either spent
   stops it on `budget_exhausted`, and `splates retry` gives both back.
+- A merge whose last refusal was a conflict takes a premerge ticket `ahead`
+  (`TicketedLock`, named with `!` to sort first): behind only the gate
+  running, the waiter marked `next` and other tickets ahead, so its
+  resolution is not stale by the time it gates.
 - `splates retry` is the person's: the agent asks with a run-command card
   naming it, and the page's Grant on that card, or on the line of a merge
   refused `budget_exhausted`, grants from the page and sends the agent

@@ -57,6 +57,37 @@ describe("TicketedLock", () => {
 		await lock.release();
 	});
 
+	it("serves a waiter that asks to go ahead before those waiting behind the next", async () => {
+		places = [[], [], [], []];
+		await waiter(0);
+		const next = waiter(1);
+		const behind = waiter(2);
+		await Bun.sleep(20);
+		const ahead = lock.acquire(
+			(place) => {
+				places[3]?.push(place);
+			},
+			undefined,
+			{ ahead: true },
+		);
+		await Bun.sleep(20);
+		expect([places[2], places[3]]).toEqual([[2, 3], [2]]);
+
+		const order: string[] = [];
+		const done = (who: string) => () => order.push(who);
+		void next.then(done("next"));
+		void behind.then(done("behind"));
+		void ahead.then(done("ahead"));
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		expect(order).toEqual(["next", "ahead", "behind"]);
+	});
+
 	it("drops the ticket of a waiter whose process is gone, whatever hostname it was written under", async () => {
 		await fs.mkdir("/home/premerge.queue", { recursive: true });
 		await fs.write(

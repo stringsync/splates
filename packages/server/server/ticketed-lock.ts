@@ -14,12 +14,22 @@ export interface PlacedLock extends Lock {
 	acquire(
 		onPlace?: (place: number) => void | Promise<void>,
 		signal?: AbortSignal,
+		opts?: PlacedAcquireOptions,
 	): Promise<void>;
 	/**
 	 * Starts over the time a holder may keep the lock, where the lock caps
 	 * it: a holder that begins another bounded step of work calls it.
 	 */
 	renew?(): void;
+}
+
+export interface PlacedAcquireOptions {
+	/**
+	 * Waits ahead of every waiter that did not ask to, behind those that did
+	 * and the one already next, as a merge does once it has resolved a
+	 * conflict, so its resolution does not go stale behind the whole line.
+	 */
+	ahead?: boolean;
 }
 
 /**
@@ -67,8 +77,9 @@ export class TicketedLock implements PlacedLock {
 	async acquire(
 		onPlace?: (place: number) => void | Promise<void>,
 		signal?: AbortSignal,
+		opts: PlacedAcquireOptions = {},
 	): Promise<void> {
-		const ticket = await this.issue();
+		const ticket = await this.issue(opts.ahead === true);
 		try {
 			let place: number | null = null;
 			for (;;) {
@@ -79,6 +90,11 @@ export class TicketedLock implements PlacedLock {
 					await onPlace?.(place);
 				}
 				if (ahead === 0) {
+					// Seen by a ticket `ahead` issued from now on, which waits behind it.
+					await this.fs.write(
+						`${this.dir}/${ticket}`,
+						JSON.stringify({ ...this.holder(), next: true }),
+					);
 					break;
 				}
 				await sleep(Duration.ms(this.pollMs));
@@ -115,29 +131,48 @@ export class TicketedLock implements PlacedLock {
 
 	/**
 	 * Leaves a ticket named so that names sort in the order they were issued:
-	 * the time, then the process, then a count within it.
+	 * the time, then the process, then a count within it. One `ahead` starts
+	 * with `AHEAD`, which sorts before every digit.
 	 */
-	private async issue(): Promise<string> {
+	private async issue(ahead: boolean): Promise<string> {
 		await this.fs.mkdir(this.dir, { recursive: true });
 		const at = new Date();
-		const name = `${String(at.getTime()).padStart(15, "0")}-${this.ps.pid}-${this.issued++}`;
-		await this.fs.write(
-			`${this.dir}/${name}`,
-			JSON.stringify({
-				pid: this.ps.pid,
-				hostname: this.ps.hostname,
-				at: at.toISOString(),
-			}),
-		);
+		const name = `${ahead ? AHEAD : ""}${String(at.getTime()).padStart(15, "0")}-${this.ps.pid}-${this.issued++}`;
+		await this.fs.write(`${this.dir}/${name}`, JSON.stringify(this.holder()));
 		return name;
 	}
 
-	/** How many live tickets were issued before `ticket`, dropping the dead ones it meets. */
+	private holder(): { pid: number; hostname: string; at: string } {
+		return {
+			pid: this.ps.pid,
+			hostname: this.ps.hostname,
+			at: new Date().toISOString(),
+		};
+	}
+
+	/** Whether `name`'s waiter is past the line, asking `inner` for the lock. */
+	private async isNext(name: string): Promise<boolean> {
+		const raw = await this.fs.read(`${this.dir}/${name}`).catch(() => null);
+		try {
+			return raw !== null && JSON.parse(raw).next === true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * How many live tickets were issued before `ticket`, dropping the dead
+	 * ones it meets. One `AHEAD` counts a plain ticket marked `next` too,
+	 * whose waiter is asking `inner` and no longer looks at the line.
+	 */
 	private async ahead(ticket: string): Promise<number> {
 		const names = await this.fs.readdir(this.dir).catch(() => []);
 		let ahead = 0;
 		for (const name of names) {
-			if (name >= ticket) {
+			if (
+				name >= ticket &&
+				!(ticket.startsWith(AHEAD) && (await this.isNext(name)))
+			) {
 				continue;
 			}
 			const stale = await this.isStale(name);
@@ -166,7 +201,8 @@ export class TicketedLock implements PlacedLock {
 		}
 		if (holder === null) {
 			// Still being written, most likely: only one unreadable for long is gone.
-			return Date.now() - Number(name.split("-")[0]) > this.stalenessMs
+			return Date.now() - Number(name.replace(AHEAD, "").split("-")[0]) >
+				this.stalenessMs
 				? { pid: "?", why: "it cannot be read" }
 				: null;
 		}
@@ -175,6 +211,9 @@ export class TicketedLock implements PlacedLock {
 			: { pid: holder.pid, why: "the process is gone" };
 	}
 }
+
+/** Starts the name of a ticket that waits ahead of the plain ones. */
+const AHEAD = "!";
 
 export interface TicketedLockOptions {
 	fs: Fs;

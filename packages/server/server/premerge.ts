@@ -4,7 +4,11 @@ import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
-import { type PlacedLock, TicketedLock } from "./ticketed-lock";
+import {
+	type PlacedAcquireOptions,
+	type PlacedLock,
+	TicketedLock,
+} from "./ticketed-lock";
 
 /**
  * Set for what a merge's gate runs, which holds the premerge lock already:
@@ -71,8 +75,9 @@ export class TimedLock implements PlacedLock {
 	async acquire(
 		onPlace?: (place: number) => void | Promise<void>,
 		signal?: AbortSignal,
+		opts?: PlacedAcquireOptions,
 	): Promise<void> {
-		await this.inner.acquire(onPlace, signal);
+		await this.inner.acquire(onPlace, signal, opts);
 		this.#hold();
 	}
 

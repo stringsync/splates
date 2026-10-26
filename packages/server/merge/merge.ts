@@ -179,6 +179,7 @@ export async function merge(
 		facts,
 	);
 	const rebaseOntoBase = () => rebase.onto();
+	const line = state.line();
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
 	await treeLock.acquire();
 	try {
@@ -283,11 +284,11 @@ export async function merge(
 						});
 					},
 				},
-				(signal) => runner.reserve(onQueued, signal),
+				(signal) => runner.reserve(onQueued, signal, line),
 			);
 		} else {
 			followed = await waitAlone(
-				(signal) => runner.reserve(onQueued, signal),
+				(signal) => runner.reserve(onQueued, signal, line),
 				watching ? doomed : undefined,
 			);
 		}
@@ -297,7 +298,7 @@ export async function merge(
 			// Only reached when the rebase found no conflict after all: the
 			// prediction never lets anything through, so wait for the turn.
 			await batch.clear(task);
-			followed = { capacity: await runner.reserve(onQueued) };
+			followed = { capacity: await runner.reserve(onQueued, undefined, line) };
 		}
 		if ("result" in followed) {
 			const { result } = followed;

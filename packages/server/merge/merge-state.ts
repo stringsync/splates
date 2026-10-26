@@ -1,10 +1,23 @@
 import { fail } from "../exit";
+import type { PlacedAcquireOptions } from "../server/shared";
 import type { FailedTest, GateFailure, MergeFailure, Worktree } from "../tasks";
 import { repeatsFailure } from "./charge";
 
 /** Guards merge mutations and records refusals on the task that owns them. */
 export class MergeState {
 	constructor(private readonly worktree: Worktree) {}
+
+	/**
+	 * Where it waits for the premerge lock: ahead of the line once its last
+	 * merge stopped on a conflict, so only the gate already running and the
+	 * merge next for it can land before it and conflict again.
+	 */
+	line(): PlacedAcquireOptions {
+		return {
+			ahead: this.worktree.state?.gateFailures?.at(-1)?.reason === "conflict",
+		};
+	}
+
 	/** Git owns its lock: neither its age nor an absent open fd proves it stale. */
 	async refuseIndexLock(
 		output: string,
