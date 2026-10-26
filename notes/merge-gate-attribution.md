@@ -5,7 +5,8 @@ description: What the merge gate runs and how a failing test is blamed on the ta
 The gate runs on this machine, one premerge at a time, and a failing test is
 blamed on the task, trunk, a flake or the environment before any attempt is
 charged. Only a failure pinned on the task, and repeating its last one,
-spends an attempt. Each failing test also becomes a backlog task.
+spends an attempt. Each failing test also becomes a backlog task, or one
+task for them all when several fail together and none is pinned on the code.
 
 ## The gate
 
@@ -48,7 +49,11 @@ spends an attempt. Each failing test also becomes a backlog task.
 - Each commit's task comes from `service.finished` by its landed commit.
 - The same lines are kept as the merge event's `landed` fact.
 - Each failing test becomes a backlog task `Tests failed: <name>` unless one
-  with that subject is listed.
+  with that subject is listed. When two or more fail in a gate blamed on the
+  `environment` or a `flake`, they become one task instead, `Tests failed
+  together in <task>'s gate: <n> tests (<kind>)`, naming each: sixteen
+  page tests timing out at once in a loaded gate (2026-10-23) were one event,
+  not sixteen bugs, and had been queued as sixteen tasks.
 
 ## Where
 
