@@ -16,5 +16,5 @@ with `preMerge: "true"` so merges pass and a no-op `bunx` first on `PATH` so
 `init` never reaches GitHub; its tests are `describe.concurrent`, one repo
 each, 30s timeout, and one asserts the published help has no `dev` while
 `bin/splates` has. `Testing` strips `SPLATES_CONVERSATION`, `SPLATES_DEV`,
-`SPLATES_WORKER`, the slot and job-slot variables and every `ARBOR_*`, so a
+`SPLATES_WORKER`, the slot and heavy variables and every `ARBOR_*`, so a
 test run inside a live agent stays isolated.

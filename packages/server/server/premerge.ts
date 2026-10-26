@@ -14,8 +14,7 @@ export const PREMERGE_HELD = "SPLATES_PREMERGE";
  * The nice an agent's own runs take beside a merge gate, so the gate keeps
  * the CPU on a busy machine and its git-spawning tests stop timing out:
  * pass it to `nice -n` or `os.setPriority` for anything an agent runs that
- * is not the gate. It is a courtesy beside the job scheduler, which orders
- * jobs but cannot lower what runs outside it.
+ * is not the gate.
  */
 // The gate runs in the agent's own `splates merge`, so it cannot be raised;
 // what runs beside it is lowered instead. Measured on a Mac with the cores
@@ -61,7 +60,6 @@ export class TimedLock implements PlacedLock {
 	#timer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
-		// scry-ignore classes-over-function-exports: it forwards `onPlace`, which only a `PlacedLock` takes.
 		private readonly inner: PlacedLock,
 		private readonly holdMs: number,
 		private readonly log: Logger,
@@ -119,24 +117,6 @@ export class TimedLock implements PlacedLock {
  * they asked, told their place in line meanwhile, and a holder keeps it at
  * most `PREMERGE_HOLD_MS`.
  */
-/**
- * The machine's lock on the tree a whole suite runs in, `premerge.lock`
- * under the splates home: the scheduler holds it while a job holding the
- * suite pool runs, and a command with no scheduler to ask takes it itself.
- */
-export function suiteLockOfMachine({
-	fs,
-	ps,
-	log,
-}: {
-	fs: Fs;
-	ps: Ps;
-	log: Logger;
-}): FileLock {
-	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
-	return new FileLock(`${home}/premerge.lock`, { fs, ps, log });
-}
-
 export function premergeLockOfMachine({
 	fs,
 	ps,
@@ -151,7 +131,7 @@ export function premergeLockOfMachine({
 	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 	return new TimedLock(
 		new TicketedLock(
-			suiteLockOfMachine({ fs, ps, log }),
+			new FileLock(`${home}/premerge.lock`, { fs, ps, log }),
 			`${home}/premerge.queue`,
 			{ fs, ps, log },
 		),

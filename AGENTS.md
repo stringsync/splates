@@ -18,20 +18,21 @@ gate runs it, as `bin/splates dev premerge` (`preMerge` in
 your own is the same work twice. Running a test file or two you changed by
 hand (`bun test <path>`) is fine, as is any scoped `splates dev test`
 (`--changed`, `--since main`, file paths, `--test-name-pattern`, `--evals`),
-which submit themselves as jobs of the server's scheduler and wait their turn.
-A whole-suite `splates dev test` is a low, requeue-able job; it needs no
-approval. `splates dev test --evals` tests the eval harness, for changes under
-`evals/`.
+which needs no approval when it reaches fewer than half the test files. A
+scoped run reaching at least half reports its estimated file count and requires
+the same one-run permission card, naming the exact scoped command. Test-name
+patterns do not reduce this file count. An unscoped `splates dev test` or
+`splates dev premerge` is refused an agent until the person allows one run from a
+`## 🔐 Permission: run command: <why>` card naming `` `bin/splates dev test` ``. `splates dev test --evals` tests the eval
+harness, for changes under `evals/`.
 
 Everything runs on the person's machine, beside their work and every other
 agent's, and nothing caps how many agents they run, so keep runs small. Run
 `splates dev fix` once per step, not after every edit; `--code-only` skips
-scry's model calls when you only need its code rules. Anything else that needs
-the machine (a build, an install, docker, a benchmark, anything long or
-CPU-hungry) you run as `bin/splates run [--cpus <n>] [--memory <mb>]
-[--walltime <duration>] -- <cmd>`, a job that waits its turn behind merges. The
-run-command permission card is for a cost that is not compute (tokens, a write
-outside the repository, a deploy).
+scry's model calls when you only need its code rules. Anything else heavy (a
+build, an install, a whole suite, docker, a benchmark, anything long or
+CPU-hungry) you ask for with the run-command permission card the splates skill
+shows, end your turn, and run only on `[SPLATES RUN ALLOWED]`.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

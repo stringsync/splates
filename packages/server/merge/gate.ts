@@ -34,8 +34,8 @@ export interface GateRun {
 
 /**
  * Runs merge checks on this machine, including isolated retests: one merge's
- * gate at a time, holding its job in the machine's scheduler (or, with no
- * server, the premerge lock), each killed past `timeoutMs`.
+ * gate at a time, holding the machine's premerge lock, each killed past
+ * `timeoutMs`.
  */
 export class MergeGate {
 	constructor(
@@ -238,9 +238,7 @@ export class MergeGate {
 					].join(" ");
 		const timeoutMs = files === undefined ? this.timeoutMs : 180_000;
 		const load = loadavg()[0] ?? 0;
-		// The job's cpus where the scheduler gave them; sized by the load otherwise.
-		const workers =
-			this.premerge.allocation?.cpus ?? gateCores(availableParallelism(), load);
+		const workers = gateCores(availableParallelism(), load);
 		const started = performance.now();
 		const run = await this.shell.run(command, cwd, {
 			env: {

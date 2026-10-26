@@ -6,7 +6,6 @@ import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
-import { installJob, JobClient, JobLock } from "../jobs";
 import { pickAgent, type RosterAgent } from "../models";
 import { Notes } from "../notes";
 import { PLAN_FILE, Plans } from "../plans";
@@ -210,41 +209,14 @@ export async function add(
 	// merge gate on the machine keeps the CPU.
 	const hook = config.postCheckout;
 	if (hook) {
-		// The install takes its turn as a job of the server's scheduler, so
-		// many tasks starting at once do not install together; with no server
-		// it runs at once.
-		const turn = new JobLock(
-			JobClient.of(service.ps, log) ?? {
-				submit: async () => {
-					throw new Error("SPLATES_DEV names no server");
-				},
+		const { exitCode } = await shell.stream(hook, worktree.path, {
+			nice: BESIDE_GATE_NICE,
+			env: {
+				SPLATES_TASK: task,
+				SPLATES_WORKTREE: worktree.path,
+				SPLATES_TRUNK: config.trunk,
 			},
-			{
-				acquire: async () => {},
-				release: async () => {},
-				releaseIfOurs: async () => {},
-			},
-			installJob(hook, task),
-			log,
-		);
-		await turn.acquire((place) => {
-			log.info(
-				place === 1 ? "install: next in line" : `install: ${place} in line`,
-			);
 		});
-		let exitCode: number;
-		try {
-			({ exitCode } = await shell.stream(hook, worktree.path, {
-				nice: BESIDE_GATE_NICE,
-				env: {
-					SPLATES_TASK: task,
-					SPLATES_WORKTREE: worktree.path,
-					SPLATES_TRUNK: config.trunk,
-				},
-			}));
-		} finally {
-			await turn.release();
-		}
 		if (exitCode !== 0) {
 			// No agent starts in a tree its hook left broken.
 			if (handOff !== undefined) {

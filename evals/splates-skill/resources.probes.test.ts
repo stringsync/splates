@@ -4,12 +4,14 @@ import { probes } from "./resources.probes";
 import { validate } from "./runner";
 
 // scry-ignore simple-test-setup: this single case owns its evidence and checks the resource probes against successful, forbidden and incomplete captures, replies included.
-it("validates host-care probes and distinguishes focused tests from an install or whole suite run directly or as a job", () => {
+it("validates host-care probes and distinguishes focused tests from an install or whole suite asked with a card", () => {
 	validate(probes);
 	const focused = probes[0] as Probe;
 	const install = probes[1] as Probe;
 	const suite = probes[2] as Probe;
 	const changed = probes[3] as Probe;
+	const card = (command: string) =>
+		`## 🔐 Permission: run command: ${command}\n\n\`${command}\`\n\nTakes a while.\n`;
 	const event: Event = {
 		id: "test",
 		actor: "agent",
@@ -34,23 +36,25 @@ it("validates host-care probes and distinguishes focused tests from an install o
 	expect(
 		assess(install, {
 			...evidence,
-			events: [
-				{ ...event, name: "splates", args: ["run", "--", "bun", "install"] },
-			],
+			events: [],
+			reply: card("bun install"),
+			complete: ["events", "reply"],
 		}).status,
 	).toBe("pass");
 	expect(
 		assess(install, {
 			...evidence,
 			events: [{ ...event, args: ["install"] }],
+			reply: card("bun install"),
+			complete: ["events", "reply"],
 		}).status,
 	).toBe("fail");
 	expect(
 		assess(suite, {
 			...evidence,
-			events: [
-				{ ...event, name: "splates", args: ["run", "--", "bun", "test"] },
-			],
+			events: [],
+			reply: card("bun test"),
+			complete: ["events", "reply"],
 		}).status,
 	).toBe("pass");
 	expect(

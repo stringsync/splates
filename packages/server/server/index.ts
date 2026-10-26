@@ -7,7 +7,6 @@ export {
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfMachine,
 	RECENT_FAILED_FILES,
-	suiteLockOfMachine,
 } from "./premerge";
 export type { Behind, Release } from "./release";
 export { newest, RUNNING } from "./release";
@@ -17,6 +16,7 @@ export { dev } from "./server";
 export type { ServerChoice } from "./servers";
 export { serveDev } from "./start";
 export { rosterOf, savedTunnelOf, seeded } from "./start-settings";
+export { SUITE_GRANT_MS, SuiteGrants } from "./suite-grant";
 export { SERVING } from "./supervise";
 export type { PlacedLock } from "./ticketed-lock";
 export { update } from "./update";

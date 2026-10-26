@@ -467,6 +467,7 @@ export interface Served extends AsyncResource {
 	) => Promise<Promise<void>[]>;
 	moveConversation: Handler;
 	promptConversation: Handler;
+	approveSuite: Handler;
 	addArtifact: Handler;
 	removeArtifact: Handler;
 	deleteArtifactVersion: Handler;

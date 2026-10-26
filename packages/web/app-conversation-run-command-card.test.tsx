@@ -50,6 +50,7 @@ describe("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
 		]);
+		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
 	it("sends Anything else with Allow and keeps it in the reopened card", async () => {
@@ -78,6 +79,7 @@ describe("App's run-command card", () => {
 			0,
 		);
 		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
+		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
 	it("sends Anything else with Deny and keeps it in the reopened card", async () => {
@@ -106,6 +108,36 @@ describe("App's run-command card", () => {
 			0,
 		);
 		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
+		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
+	});
+
+	it("grants the whole test suite's one run before telling the agent to run it", async () => {
+		const asking = conversation({
+			title: "Imports",
+			messages: [
+				message(
+					"agent",
+					"## 🔐 Permission: run command: the move touches every import\n\n`bin/splates dev test`\n\n`--changed` picks most of the suite anyway.",
+				),
+			],
+		});
+		const view = await testing.openConversations([asking]);
+		await waitFor(() =>
+			expect(view.getByText("bin/splates dev test")).toBeTruthy(),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Allow/ })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
+			]),
+		);
+		expect(
+			testing.posts
+				.map((each) => each.path)
+				.filter((path) => path.startsWith("/api/conversations/c1/")),
+		).toEqual(["/api/conversations/c1/suite", "/api/conversations/c1/prompt"]);
 	});
 
 	it("reads the machine each second while it waits, keeping the last reading with its age when asking fails", async () => {

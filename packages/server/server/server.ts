@@ -2,7 +2,7 @@
 
 import { dirname } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
-import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
+import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
 import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
@@ -15,13 +15,6 @@ import {
 	evalsDirectory,
 } from "../evals";
 import { fail } from "../exit";
-import {
-	Accounting,
-	JobRoutes,
-	JobScheduler,
-	MachinePools,
-	SUITE,
-} from "../jobs";
 import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, Picker } from "../projects";
@@ -53,7 +46,6 @@ import { Migrations } from "./migrations";
 import type { DevOptions } from "./options";
 import { Pages } from "./pages";
 import { DEFAULT_PORT, devPorts } from "./ports";
-import { suiteLockOfMachine } from "./premerge";
 import {
 	type DevContext,
 	type DevMachine,
@@ -458,22 +450,7 @@ export async function dev(
 	);
 
 	// Not any project's: every page on this server shares one machine.
-	const machineSensors = sensors ?? new OsSensors(fs);
-	const machine = new Machine(machineSensors);
-	// Nor are its jobs: every merge gate and agent's run on this machine
-	// takes its turn in one queue over the machine's pools.
-	const scheduler = new JobScheduler(
-		new MachinePools(machineSensors),
-		new Accounting(machineStorage),
-		{
-			clock: new SystemClock(),
-			timer: new SystemTimer(),
-			log,
-			exclusive: { pool: SUITE, lock: suiteLockOfMachine({ fs, ps, log }) },
-		},
-	);
-	disposer.defer(async () => scheduler.dispose());
-	const jobs = new JobRoutes(scheduler);
+	const machine = new Machine(sensors ?? new OsSensors(fs));
 	const opencode = new OpenCodeSetupRoutes(
 		new OpenCodeSetup({
 			fs,
@@ -646,19 +623,8 @@ export async function dev(
 						Response.json({
 							...(await machine.read()),
 							queue: queueListing(workers.slots.scheduler.queue()),
-							jobs: scheduler.list(),
 						}),
 					),
-					// The machine's jobs: an agent's `splates` submits and holds one.
-					"/api/jobs": {
-						GET: guarded(jobs.list),
-						POST: local(guarded(jobs.submit)),
-					},
-					"/api/jobs/pause": { POST: talk(guarded(jobs.pause)) },
-					"/api/jobs/resume": { POST: talk(guarded(jobs.resume)) },
-					"/api/jobs/:id": { DELETE: local(guarded(jobs.finish)) },
-					"/api/jobs/:id/events": guarded(jobs.events),
-					"/api/jobs/:id/renew": { POST: local(guarded(jobs.renew)) },
 					// Through a tunnel only once Access verified who is asking, as a
 					// conversation is: what an agent said goes to the device.
 					"/api/push": talk(guarded(pushes.key)),
@@ -852,6 +818,9 @@ export async function dev(
 					},
 					"/api/conversations/:id/prompt": {
 						POST: talk(owned((project) => project.promptConversation)),
+					},
+					"/api/conversations/:id/suite": {
+						POST: talk(owned((project) => project.approveSuite)),
 					},
 					"/api/conversations/:id/attachments/:name": {
 						GET: talk(owned((project) => project.conversationAttachment)),

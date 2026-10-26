@@ -20,8 +20,6 @@ export interface PlacedLock extends Lock {
 	 * it: a holder that begins another bounded step of work calls it.
 	 */
 	renew?(): void;
-	/** What the holder was given of the machine's pools, where the lock is a job; null otherwise. */
-	readonly allocation?: Record<string, number> | null;
 }
 
 /**

@@ -1,4 +1,3 @@
-import type { JobListing } from "@stringsync/splates-server/jobs";
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type {
 	MachineReading,
@@ -37,14 +36,7 @@ export async function taskPorts(): Promise<PortLink[]> {
  */
 export type MachineStatus = MachineReading & {
 	queue: QueueListing[];
-	/** Absent from a server that predates the scheduler. */
-	jobs?: JobListing;
 };
-
-/** Pauses the scheduler's starts, or resumes them; the person's alone. */
-export async function pauseJobs(paused: boolean): Promise<void> {
-	await send(`/api/jobs/${paused ? "pause" : "resume"}`, {});
-}
 
 /** Moves the agent of conversation `id` to `position` in the queue for a worker slot, from 1. */
 export async function moveQueued(id: string, position: number): Promise<void> {

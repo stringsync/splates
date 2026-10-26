@@ -10,7 +10,7 @@ import type { TrunkLanding } from "./trunk";
 
 /**
  * Lands the exact tip certified by a gate, or returns null when its base
- * moved and it needs another rebase and gate. No job holds this lock.
+ * moved and it needs another rebase and gate. No heavy work holds this lock.
  * Callers hold the task's merge-tree lock until they finish with its checkout.
  * A batch's leader lands the stack's `tip`, which its own `testedHead` is
  * under, as one move of the base.

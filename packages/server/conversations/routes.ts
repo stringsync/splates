@@ -1,3 +1,4 @@
+import { NodeFs } from "webappwiz/system";
 import {
 	addVersion,
 	artifactResponse,
@@ -14,6 +15,7 @@ import {
 	refuse,
 	uploads,
 } from "../server/shared";
+import { SuiteGrants } from "../server/suite-grant";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
@@ -247,6 +249,18 @@ export class ConversationRoutes {
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
 		});
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * The person allows the agent's run-command card that runs the whole test
+	 * suite: one run of it, outside a merge's gate. The card's Allow then
+	 * tells the agent, as for any command.
+	 */
+	readonly approveSuite = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { ps } = this.#project.service;
+		await new SuiteGrants({ fs: new NodeFs(), ps }).grant(conversation.id);
 		return Response.json(conversation.state);
 	};
 

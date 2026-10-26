@@ -14,9 +14,9 @@ spends an attempt. Each failing test also becomes a backlog task.
 - It runs with `SPLATES_TASK`, `SPLATES_WORKTREE`, `SPLATES_PREMERGE` and
   `SPLATES_TEST_REPORT`, a JUnit path under the git dir.
 - Before taking the merge-tree lock it waits for the machine's premerge lock
-  (`jobs.md`).
+  (`premerge-lock.md`).
 - It is killed past 3 minutes.
-- There is no runner pool, remote job or job slot.
+- There is no runner pool, remote job or heavy-job slot.
 
 ## Attribution
 

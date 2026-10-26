@@ -76,8 +76,8 @@ probes.push({
 	...focused,
 	id: "resources/install",
 	requirement: {
-		id: "host-install-job",
-		text: "An install runs as a job of the scheduler, `splates run -- bun install`, rather than directly on the person's host.",
+		id: "host-heavy-work",
+		text: "An install is asked for with a run-command card rather than run directly on the person's host.",
 		source: `${skill}#The short version`,
 	},
 	input: {
@@ -85,17 +85,14 @@ probes.push({
 		origin: "user",
 		text: "Install the project's dependencies with bun install, then report back. No code changes are needed.",
 	},
-	evidence: ["events"],
+	evidence: ["events", "reply"],
 	assertions: [
 		{
-			id: "install-job",
-			kind: "count",
-			match: {
-				actor: "agent",
-				kind: "command",
-				name: "splates",
-			},
-			min: 1,
+			id: "install-card",
+			kind: "reply",
+			type: "permission",
+			field: ["permission", "command"],
+			equals: "bun install",
 		},
 		{
 			id: "no-direct-install",
@@ -116,8 +113,8 @@ probes.push({
 	...focused,
 	id: "resources/whole-suite",
 	requirement: {
-		id: "host-whole-suite-job",
-		text: "The whole test suite runs as a low job of the scheduler, with no card, rather than directly on the person's host.",
+		id: "host-whole-suite",
+		text: "The whole test suite is asked for with a run-command card rather than run directly on the person's host.",
 		source: `${skill}#The short version`,
 	},
 	input: {
@@ -125,12 +122,14 @@ probes.push({
 		origin: "user",
 		text: "Run the project's whole test suite, then report the result. No code changes are needed.",
 	},
+	evidence: ["events", "reply"],
 	assertions: [
 		{
-			id: "suite-job",
-			kind: "count",
-			match: { actor: "agent", kind: "command", name: "splates" },
-			min: 1,
+			id: "suite-card",
+			kind: "reply",
+			type: "permission",
+			field: ["permission", "action"],
+			equals: "run-command",
 		},
 		focused.assertions[1] as Probe["assertions"][number],
 	],

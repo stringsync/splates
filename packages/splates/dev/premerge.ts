@@ -1,10 +1,11 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { gateLockOfMachine } from "@stringsync/splates-server/jobs";
 import {
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
+	premergeLockOfMachine,
 	RECENT_FAILED_FILES,
+	SuiteGrants,
 } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
@@ -13,7 +14,7 @@ import { fix } from "./fix";
 import { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
-import { test } from "./test";
+import { refuseWholeSuite, test } from "./test";
 
 export interface PremergeOptions {
 	/** Run the eval harness's tests only. */
@@ -28,29 +29,26 @@ export interface PremergeOptions {
  * What the merge gate runs: `dev fix`'s checks without writing fixes, failing
  * fast, then the tests as `dev test --ci` runs them. A failed check is named
  * apart from failed tests, for the gate's attribution. Run by hand, it waits
- * its turn as a job of the machine's scheduler (the premerge lock, with no
- * server), so the whole suite runs one at a time; inside a gate, which holds
- * it already, it runs at once. Its tests are
+ * for the machine's premerge lock, so the whole suite runs one at a time;
+ * inside a gate, which holds it already, it runs at once. An agent runs it
+ * by hand only once the person approves, as the whole suite. Its tests are
  * stopped once it has run `PREMERGE_TIMEOUT_MS`, as the gate kills it then.
  */
 export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const ps = opts.ps ?? new NodePs();
 	if (ps.env(PREMERGE_HELD) !== undefined) {
-		return await checkAndTest(log, opts);
+		return await checkAndTest(opts, log);
 	}
-	const lock = gateLockOfMachine({
-		fs: new NodeFs(),
-		ps,
-		log,
-		what: "splates dev premerge",
-	});
-	log.info("premerge: waiting for the machine's turn to run the suite");
-	await lock.acquire((place) => {
-		log.info(`premerge: ${place === 1 ? "next" : `${place} in line`}`);
-	});
+	// Refused before waiting on the lock, rather than once a gate lets it go.
+	if (!opts.evals) {
+		await refuseWholeSuite(ps, new SuiteGrants({ fs: new NodeFs(), ps }));
+	}
+	const lock = premergeLockOfMachine({ fs: new NodeFs(), ps, log });
+	log.info("premerge: waiting for the machine's premerge lock");
+	await lock.acquire();
 	try {
-		await checkAndTest(log, { ...opts, workers: lock.allocation?.cpus });
+		await checkAndTest(opts, log);
 	} finally {
 		await lock.release();
 	}
@@ -69,30 +67,18 @@ async function existing(files: string[]): Promise<string[]> {
 	return found.filter((file) => file !== null);
 }
 
-async function checkAndTest(
-	log: Logger,
-	opts: PremergeOptions & {
-		/** Test files at once, the job's cpus; `dev test`'s own count when left out. */
-		workers?: number;
-	},
-): Promise<void> {
-	const { workers } = opts;
+async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const started = performance.now();
 	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
 	const priority = new AgentPriority(ps, { premerge: true });
 	const phases = new PhaseTimer(ps);
-	await fix({
-		check: true,
-		log,
-		priority,
-		phases,
-		ps,
-		unscheduled: true,
-	}).catch((error: unknown) => {
-		log.error("premerge: the checks failed, so no tests ran");
-		throw error;
-	});
+	await fix({ check: true, log, priority, phases, ps }).catch(
+		(error: unknown) => {
+			log.error("premerge: the checks failed, so no tests ran");
+			throw error;
+		},
+	);
 	// Files that failed recent gates run first, and stop the gate when they
 	// fail again; nothing is skipped, as the whole suite follows.
 	const recent = await existing(
@@ -102,7 +88,7 @@ async function checkAndTest(
 		await phases.time("recent", () =>
 			test({
 				ci: true,
-				unscheduled: true,
+				allowed: true,
 				bail: true,
 				quiet: true,
 				files: recent,
@@ -118,11 +104,10 @@ async function checkAndTest(
 	}
 	await test({
 		ci: true,
-		unscheduled: true,
+		allowed: true,
 		log,
 		priority,
 		phases,
-		...(workers === undefined ? {} : { workers }),
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),

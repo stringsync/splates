@@ -1,15 +1,17 @@
 import { mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
-import { gateJob, Priority, SUITE } from "@stringsync/splates-server/jobs";
+import { fail } from "@stringsync/splates-server/exit";
+import { Git } from "@stringsync/splates-server/git";
+import { PREMERGE_HELD, SuiteGrants } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { scheduled } from "./job";
 import { PeakMemory, runSummary } from "./peak-memory";
 import type { PhaseTimer } from "./phases";
 import { AgentPriority } from "./priority";
 import { ROOT } from "./root";
+import { type ScopeCount, TestScope } from "./test-scope";
 import { budgetedWorkers, freeMemoryMb } from "./worker-memory";
 
 /**
@@ -32,6 +34,33 @@ export async function test(opts: TestOptions): Promise<void> {
 	const focused = Boolean(
 		opts.changed || opts.since || opts.files?.length || opts.testNamePattern,
 	);
+	if (!focused && !opts.evals && !opts.allowed) {
+		await refuseWholeSuite(
+			ps,
+			opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
+		);
+	}
+	if (
+		focused &&
+		!opts.evals &&
+		!opts.allowed &&
+		ps.env("SPLATES_CONVERSATION") !== undefined &&
+		ps.env(PREMERGE_HELD) === undefined
+	) {
+		const count = await (
+			opts.scope ?? new TestScope(new Git(ROOT, { ps }))
+		).count(opts);
+		_log.info(
+			`Test scope: up to ${count.selected} of ${count.total} test files (before filtering test names).`,
+		);
+		if (count.total > 0 && count.selected * 2 >= count.total) {
+			await refuseWholeSuite(
+				ps,
+				opts.grants ?? new SuiteGrants({ fs: new NodeFs(), ps }),
+				count,
+			);
+		}
+	}
 	// An agent's run beside a merge gate makes way for it; its workers inherit the nice.
 	(opts.priority ?? new AgentPriority(ps)).lower();
 	// The page's tests and the rest run apart, one after the other. A DOM test
@@ -83,164 +112,140 @@ export async function test(opts: TestOptions): Promise<void> {
 	// each test gets 30s rather than 5s. A merge's gate names its own share
 	// in `SPLATES_CORES`, more on a quiet machine (`gateCores`).
 	const gate = Number(ps.env("SPLATES_CORES"));
-	const planned =
+	const cores =
 		opts.workers ??
 		(focused
 			? 1
 			: gate > 0
 				? gate
 				: Math.max(1, Math.floor(availableParallelism() / 2)));
+	// Free memory caps the count too, per half, since a page worker and a
+	// server worker cost differently (`WORKER_COST_MB`); `--workers` is the
+	// person's word and is left alone.
+	const workersFor = (half: "server" | "page") =>
+		opts.workers !== undefined
+			? { workers: cores, byMemory: false }
+			: budgetedWorkers({
+					cores,
+					half,
+					gate: gate > 0,
+					freeMb: (opts.freeMemoryMb ?? freeMemoryMb)(),
+				});
+	// `splates merge` names where its gate wants a JUnit report, to queue a
+	// task for each slow test; bun keeps printing its own output beside it.
+	const report = ps.env("SPLATES_TEST_REPORT");
+	const bunTest = (args: string[], at: number, workers: number) => [
+		"bun",
+		"test",
+		"--pass-with-no-tests",
+		`--parallel=${workers}`,
+		"--no-isolate",
+		"--timeout",
+		"30000",
+		...(opts.ci ? ["--only-failures"] : []),
+		...(opts.bail ? ["--bail"] : []),
+		...(opts.since
+			? [`--changed=${opts.since}`]
+			: opts.changed
+				? ["--changed"]
+				: []),
+		...(opts.testNamePattern
+			? ["--test-name-pattern", opts.testNamePattern]
+			: []),
+		...args,
+		...(report
+			? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
+			: []),
+		...(opts.files ?? []),
+	];
+	// bun's per-test timeout cannot stop a test spinning in a synchronous
+	// loop, and such a run once held the machine for ten hours. Ending bun's runner
+	// ends its workers too.
 	const deadline = opts.deadline ?? TEST_DEADLINE;
-	const wholeSuite = !focused && !opts.evals;
-	// A whole suite asks for the suite's tree and, unless told its workers, the
-	// gate's range of cpus; at low priority, and requeue-able, so a merge's gate
-	// takes the machine and it starts over after.
-	const request = {
-		resources:
-			wholeSuite && opts.workers === undefined && !(gate > 0)
-				? gateJob({ what: "splates dev test" }).request.resources
-				: { cpus: planned, ...(wholeSuite ? { [SUITE]: 1 } : {}) },
-		walltime: Duration.ms(deadline.ms + Duration.mins(1).ms),
-	};
-	await scheduled({
-		ps,
-		log: _log,
-		unscheduled: opts.unscheduled ?? false,
-		spec: {
-			what: wholeSuite ? "splates dev test" : "splates dev test --scoped",
-			priority: Priority.low,
-			...(wholeSuite ? { requeueable: true } : {}),
-			request,
-		},
-		run: async ({ cpus, signal: stop }) => {
-			const cores = cpus ?? planned;
-			// Free memory caps the count too, per half, since a page worker and
-			// a server worker cost differently (`WORKER_COST_MB`); `--workers`
-			// is the person's word and is left alone.
-			const workersFor = (half: "server" | "page") =>
-				opts.workers !== undefined
-					? { workers: cores, byMemory: false }
-					: budgetedWorkers({
-							cores,
-							half,
-							gate: gate > 0,
-							freeMb: (opts.freeMemoryMb ?? freeMemoryMb)(),
-						});
-			// `splates merge` names where its gate wants a JUnit report, to queue a
-			// task for each slow test; bun keeps printing its own output beside it.
-			const report = ps.env("SPLATES_TEST_REPORT");
-			const bunTest = (args: string[], at: number, workers: number) => [
-				"bun",
-				"test",
-				"--pass-with-no-tests",
-				`--parallel=${workers}`,
-				"--no-isolate",
-				"--timeout",
-				"30000",
-				...(opts.ci ? ["--only-failures"] : []),
-				...(opts.bail ? ["--bail"] : []),
-				...(opts.since
-					? [`--changed=${opts.since}`]
-					: opts.changed
-						? ["--changed"]
-						: []),
-				...(opts.testNamePattern
-					? ["--test-name-pattern", opts.testNamePattern]
-					: []),
-				...args,
-				...(report
-					? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
-					: []),
-				...(opts.files ?? []),
-			];
-			// bun's per-test timeout cannot stop a test spinning in a synchronous
-			// loop, and such a run once held the machine for ten hours. Ending bun's runner
-			// ends its workers too.
-			const timeout = AbortSignal.timeout(deadline.ms);
-			const signal = AbortSignal.any([timeout, stop]);
-			const fs = new NodeFs();
-			const memory = opts.memory ?? new PeakMemory(ps);
-			await using git = await directGit(ps);
-			await using scratch = await scratchDir();
-			const env = { ...git.env, TMPDIR: scratch.path };
-			let failed = false;
-			const reports: string[] = [];
-			const printed: string[] = [];
-			for (const [at, { phase, args, half }] of runs.entries()) {
-				const { workers, byMemory } = workersFor(half);
-				const spawned = async () => {
-					if (!opts.quiet) {
-						return await ps.spawn(bunTest(args, at, workers), {
-							cwd: ROOT,
-							env,
-							signal,
-						});
-					}
-					const done = await ps.spawnCapture(bunTest(args, at, workers), {
-						cwd: ROOT,
-						env,
-						signal,
-					});
-					printed.push(done.stdout, done.stderr);
-					return done;
-				};
-				// Each run ends on its time, workers and the peak memory of its process
-				// tree, so what a worker costs is seen rather than guessed.
-				const started = performance.now();
-				const measured = () => memory.during(spawned);
-				const {
-					value: { exitCode },
-					peakMb,
-				} = await (opts.phases
-					? opts.phases.time(phase, measured)
-					: measured()
-				).catch((error: unknown) => {
-					if (timeout.aborted) {
-						throw new Error(
-							`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
-						);
-					}
-					throw error;
+	const signal = AbortSignal.timeout(deadline.ms);
+	const fs = new NodeFs();
+	const memory = opts.memory ?? new PeakMemory(ps);
+	await using git = await directGit(ps);
+	await using scratch = await scratchDir();
+	const env = { ...git.env, TMPDIR: scratch.path };
+	let failed = false;
+	const reports: string[] = [];
+	const printed: string[] = [];
+	for (const [at, { phase, args, half }] of runs.entries()) {
+		const { workers, byMemory } = workersFor(half);
+		const spawned = async () => {
+			if (!opts.quiet) {
+				return await ps.spawn(bunTest(args, at, workers), {
+					cwd: ROOT,
+					env,
+					signal,
 				});
-				const summary = runSummary({
-					phase,
-					took: Duration.ms(performance.now() - started),
-					workers,
-					peakMb,
-					byMemory,
-				});
-				if (opts.quiet) {
-					printed.push(`${summary}\n`);
-				} else {
-					_log.info(summary);
-				}
-				if (peakMb !== null) {
-					await opts.phases?.peak(phase, peakMb);
-				}
-				failed ||= exitCode !== 0;
-				if (report) {
-					const xml = await fs.read(`${report}.${at}`).catch(() => null);
-					await fs.rm(`${report}.${at}`, { force: true });
-					// bun writes none for a run whose files the filters all left out
-					if (xml !== null || exitCode !== 0) {
-						reports.push(xml ?? "");
-					}
-				}
 			}
-			if (report) {
-				await fs.write(report, joinedReports(reports));
+			const done = await ps.spawnCapture(bunTest(args, at, workers), {
+				cwd: ROOT,
+				env,
+				signal,
+			});
+			printed.push(done.stdout, done.stderr);
+			return done;
+		};
+		// Each run ends on its time, workers and the peak memory of its process
+		// tree, so what a worker costs is seen rather than guessed.
+		const started = performance.now();
+		const measured = () => memory.during(spawned);
+		const {
+			value: { exitCode },
+			peakMb,
+		} = await (opts.phases
+			? opts.phases.time(phase, measured)
+			: measured()
+		).catch((error: unknown) => {
+			if (signal.aborted) {
+				throw new Error(
+					`Tests ran past ${deadline.human()}, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
+				);
 			}
-			if (failed) {
-				for (const text of printed) {
-					process.stderr.write(text);
-				}
-				throw new Error("Tests failed");
+			throw error;
+		});
+		const summary = runSummary({
+			phase,
+			took: Duration.ms(performance.now() - started),
+			workers,
+			peakMb,
+			byMemory,
+		});
+		if (opts.quiet) {
+			printed.push(`${summary}\n`);
+		} else {
+			_log.info(summary);
+		}
+		if (peakMb !== null) {
+			await opts.phases?.peak(phase, peakMb);
+		}
+		failed ||= exitCode !== 0;
+		if (report) {
+			const xml = await fs.read(`${report}.${at}`).catch(() => null);
+			await fs.rm(`${report}.${at}`, { force: true });
+			// bun writes none for a run whose files the filters all left out
+			if (xml !== null || exitCode !== 0) {
+				reports.push(xml ?? "");
 			}
-		},
-	});
+		}
+	}
+	if (report) {
+		await fs.write(report, joinedReports(reports));
+	}
+	if (failed) {
+		for (const text of printed) {
+			process.stderr.write(text);
+		}
+		throw new Error("Tests failed");
+	}
 }
 
 export interface TestOptions {
+	/** Preflight file selection, without executing tests. */
+	scope?: Pick<TestScope, "count">;
 	/** Run only the free eval harness tests. */
 	evals?: boolean;
 	/** Run the package's and the eval harness's tests together. */
@@ -261,8 +266,10 @@ export interface TestOptions {
 	workers?: number;
 	ps?: Ps;
 	log?: Logger;
-	/** Whether the caller holds the machine already, as `dev premerge` does, so the run is not scheduled. */
-	unscheduled?: boolean;
+	/** The person's approvals of an agent's whole-suite run; the machine's when left out. */
+	grants?: SuiteGrants;
+	/** Whether the caller already checked an agent may run the whole suite, as `dev premerge` does. */
+	allowed?: boolean;
 	/** What puts an agent's run behind a merge gate; this run's own by default. */
 	priority?: AgentPriority;
 	/** How long the run may take before it is stopped. */
@@ -277,6 +284,60 @@ export interface TestOptions {
 	memory?: PeakMemory;
 	/** What reads free memory in megabytes, `os.freemem()` when left out. */
 	freeMemoryMb?: () => number;
+}
+
+/**
+ * Refuses an agent the whole suite, which is the merge gate's to run, unless
+ * the person allowed this conversation's run from its run-command card. A gate's run,
+ * and the person's own from a terminal, go ahead.
+ */
+export async function refuseWholeSuite(
+	ps: Ps,
+	grants: SuiteGrants,
+	count?: ScopeCount,
+): Promise<void> {
+	const conversation = ps.env("SPLATES_CONVERSATION");
+	if (
+		conversation === undefined ||
+		ps.env(PREMERGE_HELD) !== undefined ||
+		(await grants.take(conversation))
+	) {
+		return;
+	}
+	fail(
+		"not_granted",
+		`${count ? `This scope may reach ${count.selected} of ${count.total} test files, at least half the suite. ` : ""}the whole suite is the merge gate's to run, so an agent runs it only once the person approves. Scope it below half the test files: \`--changed\` (tests your uncommitted changes reach), \`--since main\` (once committed), test file paths, or \`--test-name-pattern <regex>\`; \`--evals\` runs the eval harness's tests alone. For a run reaching at least half the files, end your reply with a \`## 🔐 Permission: run command: <why>\` card, the exact refused command alone on a line in backticks (for example, \`\` \`bin/splates dev test --since main\` \`\`) and the why under it, and wait: its Allow lets this conversation run the approved \`splates dev test\` or \`splates dev premerge\` once`,
+		{ conversation, ...count },
+	);
+}
+
+/**
+ * Lets `conversation` run the whole suite once, as Allow on its run-command
+ * card does from the page. The person's to give: refused from an agent.
+ */
+export async function approveSuite({
+	conversation,
+	log,
+	ps,
+	grants = new SuiteGrants({ fs: new NodeFs(), ps }),
+}: {
+	conversation: string;
+	log: Logger;
+	ps: Ps;
+	grants?: SuiteGrants;
+}): Promise<void> {
+	const asking = ps.env("SPLATES_CONVERSATION");
+	if (asking !== undefined) {
+		fail(
+			"not_granted",
+			"only the person approves a whole-suite run: end your reply with a `## 🔐 Permission: run command: <why>` card for `bin/splates dev test`",
+			{ conversation: asking },
+		);
+	}
+	await grants.grant(conversation);
+	log.info(
+		`${conversation} may run the whole suite once: tell its agent to run \`splates dev test\``,
+	);
 }
 
 /**

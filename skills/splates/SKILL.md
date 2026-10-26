@@ -23,22 +23,21 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Run what needs the machine as a job.** The person works on it beside
-   many other agents, so do exactly this:
+3. **Keep heavy work off the machine.** The person works on it beside many
+   other agents, so do exactly this:
    - Check a change with `bun test --changed` or explicit test files, never
-     the whole suite. In splates's own repo: `splates dev test --changed`,
-     `--since main` or file paths, and `splates dev fix` once per step
-     (`--code-only` skips scry's model calls).
-   - Run anything else that needs the machine through `splates run -- <cmd>`,
-     never directly: `splates run -- bun install`, `splates run -- bun test`,
-     `splates run -- docker build .`. It waits its turn behind merges, and a
-     whole suite run this way needs no approval.
-   - Add `--cpus <n>`, `--memory <mb>` or `--walltime <duration>` before the
-     `--` when the command needs them.
-   - Ask with a run-command card (`## 🔐 Permission: run command: <why>`,
-     the command alone on a line in backticks, the why under it, then run
-     only on `[SPLATES RUN ALLOWED]`) only for a cost that is not compute:
-     tokens, a write outside the repository, a deploy.
+     the whole suite, which runs only in the merge gate. In splates's own
+     repo: `splates dev test --changed`, `--since main` or file paths, and
+     `splates dev fix` once per step (`--code-only` skips scry's model calls).
+   - An unscoped `splates dev test` or `dev premerge`, or a scoped run
+     reaching half the test files, is refused (`not_granted`) until the
+     person allows one run.
+   - Anything heavy (the whole suite, an install, a build, docker, a
+     benchmark, anything long or CPU-hungry), or any cost that is not compute
+     (tokens, a write outside the repository, a deploy): ask with a
+     run-command card (`## 🔐 Permission: run command: <why>`, the command
+     alone on a line in backticks, the why under it), end your turn, and run
+     it only on `[SPLATES RUN ALLOWED]`.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
@@ -131,17 +130,18 @@ the user to queue):
 <A line on what the tasks add up to.>
 ```
 
-A cost that is not compute (tokens, a write outside the repository, a deploy)
-is asked with the run-command card: the command alone on the first backticked line, and what it costs under it. End
+Anything heavy that is not a scoped test run (a build, an install, docker, a
+benchmark, anything long or CPU-hungry) is asked with the run-command card: the
+command alone on the first backticked line, and what it costs under it. End
 your turn after it; the user's Allow sends `[SPLATES RUN ALLOWED]`, and only
 then do you run it.
 
 ```markdown
-## 🔐 Permission: run command: deploy the docs site
+## 🔐 Permission: run command: build the web app
 
-`bun run deploy`
+`bun run build`
 
-Publishes the docs site, which is outside the repository.
+Takes about two minutes.
 ```
 
 Evals cost the user tokens, so only they start them. To ask for a run
@@ -319,10 +319,10 @@ the message; a `Maybe relevant:` one only when it fits.
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
-   once share the tree, so give each its own files. Keep to what step 3 of the
-   short version says: test a small portion, and run anything else that needs
-   the machine with `splates run`. A subagent is bound by the same rule and
-   asks through you.
+   once share the tree, so give each its own files. Keep off heavy work on the host
+   machine the person works on, as step 3 of the short version says: test a
+   small portion, and ask with a run-command card before anything else
+   heavy. A subagent is bound by the same rule and asks through you.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or

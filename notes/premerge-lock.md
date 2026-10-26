@@ -1,21 +1,11 @@
 ---
-description: How jobs take turns on this machine (merge gates, dev runs, splates run) and how long a gate may run and how long a gate may run; bears on slow or stuck merges and on what waits for what
+description: How merge gates take turns on this machine and how long a gate may run; bears on slow or stuck merges and on what waits for what
 ---
 
-Since 2026-10-25 a merge's gate, and a `splates dev premerge` run by hand,
-take their turn as a job of the machine's scheduler in `splates server`
-(`packages/server/jobs/`, `designs/resource-scheduler.md`): a request for
-the `suite` pool (one item) and between half the cores and all but two,
-at high priority, submitted through `gateLockOfMachine` and held over an
-event stream; the gate's test workers are the job's cpus. The premerge lock
-below is now the suite pool's exclusive lock, which the scheduler holds
-while such a job runs, and the fallback a command with no `SPLATES_DEV` (the
-person's own terminal, or no server) takes directly, so the two still
-exclude each other. The rest of this note describes that lock; the lane
-"Resource scheduler" (83) moves the other runs onto the scheduler and
-rewrites these notes.
-
-The whole suite runs only as a premerge, one at a time.
+The whole suite is the only heavy thing splates runs, and it runs only as
+a premerge. Every merge's gate, and a `splates dev premerge` run by hand,
+holds the machine's premerge lock, so one premerge runs at a time.
+Nothing else waits on it.
 
 ## How it works
 
@@ -112,10 +102,15 @@ the earlier one's.
 
 ## History
 
-Until 2026-10-23, job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and
+Until 2026-10-23, heavy-job slots (`HeavyJobs`, `SPLATES_HEAVY_JOBS`) and
 a core budget (`SPLATES_HEAVY_CORES`) made hooks, test runs and installs
 queue behind each other. The premerge lock already ran the suite one at a
 time, so they only made short work wait behind it, and were removed.
+
+On 2026-10-25 a job scheduler for the machine (`packages/server/jobs`,
+`splates run`, pools, backfill, preemption) took this lock's place; its
+edge cases cost more than it saved, and on 2026-10-26 it was removed for
+this lock again.
 
 ## Where
 

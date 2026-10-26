@@ -42,7 +42,7 @@ worktrees. There are no job runners.
 
 - 2026-10-22: remote agents, their clones, the relay, task keys and
   waking were removed (see `designs/worker-pool.md`).
-- 2026-10-23: the stateless runners that took tests and installs instead were
+- 2026-10-23: the stateless runners that took heavy jobs instead were
   removed, with their jobs, server provisioning and runner billing.
 
 ## Where
