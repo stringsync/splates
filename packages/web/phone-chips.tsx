@@ -5,11 +5,11 @@ import { useNavPages } from "./evals-available";
 import type { Move } from "./page-address";
 import { navPage, type Page } from "./page-route";
 
-const CHIPPED: Page[] = ["conversations", "todos"];
+const CHIPPED: Page[] = ["conversations", "todos", "tasks"];
 
 /**
- * The row under a phone's inbox and page bars that moves between the inbox
- * and the board in one tap, and the page you are on if another; the rest are in the drawer. As the
+ * The row under a phone's inbox and page bars that moves between the inbox,
+ * the board and the queue in one tap, and the page you are on if another; the rest are in the drawer. As the
  * drawer's do, they take each other's place in history above the inbox, so
  * back from either goes home.
  */
@@ -26,6 +26,7 @@ export function PageChips({
 	const shown = [
 		{ value: "conversations" as Page, label: "Inbox", Icon: InboxIcon },
 		{ value: "todos" as Page, label: "Board", Icon: KanbanIcon },
+		...pages.filter(({ value }) => value === "tasks"),
 		// Another page, opened from the drawer, shows as the page you are on.
 		...pages.filter(({ value }) => value === at && !CHIPPED.includes(value)),
 	];
