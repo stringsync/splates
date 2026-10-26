@@ -1,17 +1,17 @@
-import { InboxIcon } from "lucide-react";
+import { InboxIcon, KanbanIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { useNavPages } from "./evals-available";
 import type { Move } from "./page-address";
 import { navPage, type Page } from "./page-route";
 
+const CHIPPED: Page[] = ["conversations", "todos"];
+
 /**
- * The row under a phone's inbox and page bars that moves between the
- * project's pages in one tap, without the drawer: the inbox, then the
- * project's own pages, then the page of every project shown, if one is,
- * the others then their icons alone, so the row fits a phone's width. As
- * the drawer's do, they take each other's place in history above the inbox,
- * so back from any of them goes home.
+ * The row under a phone's inbox and page bars that moves between the inbox
+ * and the board in one tap, and the page you are on if another; the rest are in the drawer. As the
+ * drawer's do, they take each other's place in history above the inbox, so
+ * back from either goes home.
  */
 export function PageChips({
 	page,
@@ -25,12 +25,10 @@ export function PageChips({
 	const at = navPage(page);
 	const shown = [
 		{ value: "conversations" as Page, label: "Inbox", Icon: InboxIcon },
-		...pages.filter(({ scope, value }) => scope === "project" || value === at),
+		{ value: "todos" as Page, label: "Board", Icon: KanbanIcon },
+		// Another page, opened from the drawer, shows as the page you are on.
+		...pages.filter(({ value }) => value === at && !CHIPPED.includes(value)),
 	];
-	// A page of every project adds a chip, too many to name every one.
-	const terse = pages.some(
-		({ scope, value }) => scope === "everywhere" && value === at,
-	);
 	return (
 		<nav
 			aria-label="pages"
@@ -63,7 +61,7 @@ export function PageChips({
 						)}
 					>
 						<Icon />
-						{(current || !terse) && label}
+						{label}
 					</button>
 				);
 			})}

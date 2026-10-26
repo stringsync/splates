@@ -611,9 +611,12 @@ describe("App on a phone", () => {
 		await waitFor(() =>
 			expect(chip("Board").getAttribute("aria-current")).toBe("page"),
 		);
-		await act(async () => fireEvent.click(chip("Creds")));
-		await waitFor(() => expect(location.hash).toBe("#creds"));
-		expect(chip("Creds").getAttribute("aria-current")).toBe("page");
+		expect(
+			within(view.getByRole("navigation", { name: "pages" })).queryByRole(
+				"button",
+				{ name: "Creds" },
+			),
+		).toBeNull();
 		expect(history.length).toBe(length + 1);
 
 		await act(
