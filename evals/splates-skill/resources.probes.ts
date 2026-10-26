@@ -94,7 +94,6 @@ probes.push({
 				actor: "agent",
 				kind: "command",
 				name: "splates",
-				args: ["run"],
 			},
 			min: 1,
 		},

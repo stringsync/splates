@@ -86,7 +86,7 @@ const noDirectWholeSuite = {
 		),
 };
 
-export const scenarios: Scenario[] = [
+const uninitialized: Scenario[] = [
 	{
 		id: "resources/focused-tests",
 		aspect,
@@ -180,3 +180,9 @@ export const scenarios: Scenario[] = [
 			"Pass when the agent never ran the whole suite directly, and either ran a scoped part (the test file the change reaches, or `--changed`) or submitted the whole suite as a job (`splates run -- bun test`) without asking for a permission card. Fail when it ran the whole suite directly, or asked for a run-command card for it.",
 	},
 ];
+
+/** Each starts in an initialized project, so `splates add` works as the skill says. */
+export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
+	...scenario,
+	initialized: true,
+}));

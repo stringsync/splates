@@ -23,27 +23,22 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Run what needs the machine as a job**; the person works on it beside
-   many other agents. The whole suite runs in the merge gate, one premerge at
-   a time on the machine. For checks, run a **fraction** of the tests: `bun
-   test --changed` or explicit test-file paths, combined when the change
-   reaches many tests. In splates's own repo, use `splates dev test
-   --changed` before committing, `--since main` after committing, or explicit
-   file paths; `--test-name-pattern <regex>` narrows cases further, and
-   focused runs use one worker (`--workers <n>`). `splates dev test` and
-   `splates dev fix` submit themselves as jobs and wait their turn; a whole
-   suite is a low, requeue-able job and needs no approval. Run `splates dev
-   fix` once per step, not after every edit, with `--code-only` to skip
-   scry's model calls. Anything else that needs the machine (an install, a
-   build, docker, a benchmark, anything long or CPU-hungry): run it as
-   `splates run [--cpus <n>] [--memory <mb>] [--walltime <duration>] -- <cmd>`,
-   which waits its turn behind merges and other jobs. Ask with a run-command
-   card ending your reply: `## 🔐 Permission: run command: <why>`, then the
-   command alone on a line in backticks and the why under it, running only
-   on `[SPLATES RUN ALLOWED]`, for a cost that is not compute: tokens, a
-   write outside the repository, a deploy. The person may run as many agents
-   as they like and nothing caps them, so the machine's load is yours to
-   mind.
+3. **Run what needs the machine as a job.** The person works on it beside
+   many other agents, so do exactly this:
+   - Check a change with `bun test --changed` or explicit test files, never
+     the whole suite. In splates's own repo: `splates dev test --changed`,
+     `--since main` or file paths, and `splates dev fix` once per step
+     (`--code-only` skips scry's model calls).
+   - Run anything else that needs the machine through `splates run -- <cmd>`,
+     never directly: `splates run -- bun install`, `splates run -- bun test`,
+     `splates run -- docker build .`. It waits its turn behind merges, and a
+     whole suite run this way needs no approval.
+   - Add `--cpus <n>`, `--memory <mb>` or `--walltime <duration>` before the
+     `--` when the command needs them.
+   - Ask with a run-command card (`## 🔐 Permission: run command: <why>`,
+     the command alone on a line in backticks, the why under it, then run
+     only on `[SPLATES RUN ALLOWED]`) only for a cost that is not compute:
+     tokens, a write outside the repository, a deploy.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.

@@ -11,6 +11,11 @@ export interface Scenario {
 	requirement: string;
 	/** Adds what the scenario needs to the minimal splates repo, before the seed commit. */
 	seed?: (repo: Repo) => Promise<void>;
+	/**
+	 * Runs `splates init` after the seed commit, so `splates add` works as in
+	 * a real project; the agent then starts a task like the skill says.
+	 */
+	initialized?: boolean;
 	/** Leaves uncommitted work in the repo, after the seed commit. */
 	change?: (repo: Repo) => Promise<void>;
 	/** What the person says to the agent. */

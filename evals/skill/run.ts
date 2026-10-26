@@ -47,7 +47,12 @@ export async function runOne(
 	};
 	let box: Awaited<ReturnType<typeof sandbox>> | null = null;
 	try {
-		box = await sandbox(opts.skill, scenario.seed, scenario.change);
+		box = await sandbox(
+			opts.skill,
+			scenario.seed,
+			scenario.change,
+			scenario.initialized,
+		);
 		const { argv, format } = runners.command(
 			pick,
 			scenario.message,

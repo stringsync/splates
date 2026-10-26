@@ -25,6 +25,7 @@ export async function sandbox(
 	skill: string,
 	seed?: (repo: Repo) => Promise<void>,
 	change?: (repo: Repo) => Promise<void>,
+	initialized = false,
 ): Promise<Sandbox> {
 	// A private splates home whose only agent can never start, and this
 	// checkout's `splates` first on PATH.
@@ -67,6 +68,16 @@ export async function sandbox(
 	await seed?.(repo);
 	await repo.run(["git", "add", "-A"]);
 	await repo.run(["git", "commit", "-qm", "Seed the eval repository"]);
+	if (initialized) {
+		await repo.run(["splates", "init"]);
+		// init installs the released skill; the run is of the one given.
+		for (const at of [".claude/skills/splates", ".agents/skills/splates"]) {
+			await rm(join(dir, at), { recursive: true, force: true });
+			await cp(skill, join(dir, at), { recursive: true });
+		}
+		await repo.run(["git", "add", "-A"]);
+		await repo.run(["git", "commit", "-qm", "Initialize splates"]);
+	}
 	await change?.(repo);
 	return {
 		repo,
