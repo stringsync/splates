@@ -18,7 +18,6 @@ describe("GoneWorkers", () => {
 		connected = { mac: true, instance: true };
 		const worker = (id: string): PoolWorker => ({
 			id,
-			slots: 1,
 			awake: connected[id] === true,
 		});
 		scheduler = new Scheduler(

@@ -6,7 +6,7 @@ describe("Scheduler", () => {
 	let clock: FakeWallClock;
 	let workers: PoolWorker[];
 	let scheduler: Scheduler;
-	/** Who got a slot from `take`, in the order they got one. */
+	/** Who was placed by `take`, in the order they were. */
 	let placed: string[];
 	/** Whether the pool is paused, as the server's records say. */
 	let paused: boolean;
@@ -22,14 +22,14 @@ describe("Scheduler", () => {
 		placed = [];
 	});
 
-	/** Asks for a slot for `id`, noting it in `placed` once it has one. */
+	/** Asks to place `id`, noting it in `placed` once it is. */
 	const take = (id: string, overrides: Partial<SlotRequest> = {}) =>
 		scheduler.take(request(id, overrides)).then((grant) => {
 			placed.push(id);
 			return grant;
 		});
 
-	it("places an agent on a free slot at once", async () => {
+	it("places an agent at once", async () => {
 		const grant = await take("a");
 		expect(grant.worker).toBe("local");
 		expect(scheduler.held()).toEqual([
@@ -44,44 +44,38 @@ describe("Scheduler", () => {
 		]);
 	});
 
-	it("queues an agent once every slot is held, and places it when one frees", async () => {
-		const first = await take("a");
-		clock.set(5_000);
-		const second = take("b");
-		await settle();
-		expect(placed).toEqual(["a"]);
-		expect(scheduler.queue()).toEqual([
-			{
-				id: "b",
-				project: "/repo",
-				task: "b",
-				agent: "claude",
-				position: 1,
-				since: 5_000,
-				reason: "no free slot",
-			},
-		]);
-		first.dispose();
-		expect((await second).worker).toBe("local");
+	it("places every agent at once, however many run", async () => {
+		await take("a");
+		await take("b");
+		await take("c");
+		expect(placed).toEqual(["a", "b", "c"]);
 		expect(scheduler.queue()).toEqual([]);
 	});
 
-	it("holds back a capped agent while paused, still placing the person's own, and places it on resume", async () => {
-		workers = [worker("local", { slots: 2 })];
+	it("holds back what splates starts on its own while paused, still placing the person's own, and places it on resume", async () => {
 		paused = true;
-		const capped = take("a");
+		clock.set(5_000);
+		const automatic = take("a");
 		const mine = await take("b", { uncapped: true });
 		await settle();
 
 		expect(mine.worker).toBe("local");
 		expect(placed).toEqual(["b"]);
 		expect(scheduler.queue()).toEqual([
-			expect.objectContaining({ id: "a", reason: "paused" }),
+			{
+				id: "a",
+				project: "/repo",
+				task: "a",
+				agent: "claude",
+				position: 1,
+				since: 5_000,
+				reason: "paused",
+			},
 		]);
 
 		paused = false;
 		scheduler.poke();
-		expect((await capped).worker).toBe("local");
+		expect((await automatic).worker).toBe("local");
 		expect(scheduler.queue()).toEqual([]);
 	});
 
@@ -90,44 +84,38 @@ describe("Scheduler", () => {
 		workers = [worker("local"), worker("box")];
 		const here = await take("a");
 		const there = await take("b");
-		const next = take("c");
-		await settle();
+		expect(there.worker).toBe("box");
 
-		workers = [worker("local", { slots: 2 })];
+		workers = [worker("local")];
 		scheduler.release("box");
 
 		expect(there.lost.aborted).toBe(true);
 		expect(here.lost.aborted).toBe(false);
-		expect((await next).worker).toBe("local");
 	});
 
-	it("frees a slot once however often its grant is disposed", async () => {
-		workers = [worker("local", { slots: 2 })];
+	it("frees a hold once however often its grant is disposed", async () => {
 		const first = await take("a");
-		await take("b");
 		first.dispose();
 		first.dispose();
-		void take("c");
-		void take("d");
-		await settle();
-		expect(placed).toEqual(["a", "b", "c"]);
+		expect(scheduler.held()).toEqual([]);
 	});
 
 	it("serves the queue first come, first served, in the order the person sets", async () => {
-		const first = await take("a");
+		paused = true;
 		void take("b");
 		void take("c");
 		void take("d");
 		expect(scheduler.move("d", 1)).toBe(true);
 		expect(scheduler.queue().map((entry) => entry.id)).toEqual(["d", "b", "c"]);
-		first.dispose();
+		paused = false;
+		scheduler.poke();
 		await settle();
-		expect(placed).toEqual(["a", "d"]);
+		expect(placed).toEqual(["d", "b", "c"]);
 		expect(scheduler.move("nobody", 1)).toBe(false);
 	});
 
-	it("clamps a move to the ends of the queue", async () => {
-		await take("a");
+	it("clamps a move to the ends of the queue", () => {
+		paused = true;
 		void take("b");
 		void take("c");
 		scheduler.move("b", 9);
@@ -136,16 +124,10 @@ describe("Scheduler", () => {
 		expect(scheduler.queue().map((entry) => entry.id)).toEqual(["b", "c"]);
 	});
 
-	it("falls back to a registered worker when the local one is full", async () => {
-		workers = [worker("local"), worker("remote")];
-		expect((await take("a")).worker).toBe("local");
-		expect((await take("b")).worker).toBe("remote");
-	});
-
-	it("takes a worker waiting on an update only when none on the coordinator's build has room", async () => {
+	it("takes a worker waiting on an update only when none on the coordinator's build is up", async () => {
 		workers = [worker("local", { outdated: true }), worker("made")];
-		scheduler.hold(request("a"), "local").dispose();
 		expect((await take("a")).worker).toBe("made");
+		workers = [worker("local", { outdated: true })];
 		expect((await take("b")).worker).toBe("local");
 	});
 
@@ -162,7 +144,7 @@ describe("Scheduler", () => {
 		expect((await waiting).worker).toBe("local");
 	});
 
-	it("says no worker is up when none it could run on is", async () => {
+	it("says no worker is up when none it could run on is", () => {
 		workers = [worker("local", { awake: false })];
 		void take("a");
 		expect(scheduler.spot("a")?.reason).toBe("no worker up");
@@ -174,36 +156,18 @@ describe("Scheduler", () => {
 		expect(scheduler.spot("a")?.reason).toBe("worker draining");
 	});
 
-	it("places an uncapped agent on a full worker, taking no slot from the rest", async () => {
-		await take("a");
-		expect((await take("b", { uncapped: true })).worker).toBe("local");
-		const capped = take("c");
-		await settle();
-		expect(placed).toEqual(["a", "b"]);
-		workers = [worker("local", { slots: 2 })];
-		scheduler.poke();
-		expect((await capped).worker).toBe("local");
-	});
-
-	it("places an uncapped agent on a worker with room before a full one", async () => {
-		workers = [worker("local"), worker("other")];
-		await take("a");
-		expect((await take("b", { uncapped: true })).worker).toBe("other");
-		expect((await take("c", { uncapped: true })).worker).toBe("local");
-	});
-
-	it("spreads agents over equal workers by load", async () => {
-		workers = [worker("one", { slots: 4 }), worker("two", { slots: 4 })];
+	it("spreads agents over equal workers by how many each runs", async () => {
+		workers = [worker("one"), worker("two")];
 		const first = await take("a", { uncapped: true });
-		const second = await take("b", { uncapped: true });
+		const second = await take("b");
 		const third = await take("c", { uncapped: true });
-		const fourth = await take("d", { uncapped: true });
+		const fourth = await take("d");
 		expect([first, second, third, fourth].map((grant) => grant.worker)).toEqual(
 			["one", "two", "one", "two"],
 		);
 	});
 
-	it("queues an uncapped agent only while no worker is up", async () => {
+	it("queues an agent the person started only while no worker is up", async () => {
 		workers = [];
 		const waiting = take("a", { uncapped: true });
 		await settle();
@@ -213,15 +177,14 @@ describe("Scheduler", () => {
 		expect((await waiting).worker).toBe("remote");
 	});
 
-	it("counts a held agent against its worker's slots", async () => {
+	it("counts a held agent toward its worker's load", async () => {
+		workers = [worker("local"), worker("other")];
 		scheduler.hold(request("a"), "local");
-		void take("b");
-		await settle();
-		expect(placed).toEqual([]);
+		expect((await take("b")).worker).toBe("other");
 	});
 
 	it("takes an agent out of the queue when its wait is aborted", async () => {
-		await take("a");
+		paused = true;
 		const abort = new AbortController();
 		const waiting = scheduler.take(request("b"), abort.signal);
 		abort.abort(new Error("stopped"));
@@ -266,7 +229,6 @@ describe("Scheduler", () => {
 function worker(id: string, overrides: Partial<PoolWorker> = {}): PoolWorker {
 	return {
 		id,
-		slots: 1,
 		awake: true,
 		...overrides,
 	};

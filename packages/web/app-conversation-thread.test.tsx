@@ -547,12 +547,12 @@ describe("App's conversation thread", () => {
 		);
 	});
 
-	it("says where an agent waits for a slot, and moves it to the front", async () => {
+	it("says where an agent waits to start, and moves it to the front", async () => {
 		const since = new Date(Date.now() - 5 * 60_000).toISOString();
 		const view = await testing.openConversations([
 			conversation({
 				status: "starting",
-				queue: { position: 3, of: 4, since, reason: "no free slot" },
+				queue: { position: 3, of: 4, since, reason: "paused" },
 			}),
 		]);
 
@@ -560,7 +560,7 @@ describe("App's conversation thread", () => {
 			'[data-slot="queue-banner"]',
 		);
 		expect(banner?.textContent).toContain(
-			"Waiting for a slot, 3rd of 4 in line. Every slot is taken. It has waited 5m, and starts on its own once a slot frees.",
+			"Waiting to start, 3rd of 4 in line. The queue is paused, so what splates starts on its own waits. It has waited 5m, and starts once you resume it on the Queue page.",
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Start next" })),
@@ -583,7 +583,7 @@ describe("App's conversation thread", () => {
 			'[data-slot="queue-late"]',
 		);
 		expect(late?.textContent).toContain(
-			"Taking longer than usual. The Queue page shows what holds each slot.",
+			"Taking longer than usual. The Queue page shows what waits and why.",
 		);
 		expect(
 			view.getByRole("link", { name: "Open Queue" }).getAttribute("href"),

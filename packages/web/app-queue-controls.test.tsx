@@ -28,7 +28,7 @@ describe("App's queue controls", () => {
 		return view;
 	};
 
-	it("says how many of the slots run, counting only what takes one", async () => {
+	it("counts every agent running, listing those splates started", async () => {
 		const view = await openQueue(
 			pool({
 				held: [
@@ -40,22 +40,17 @@ describe("App's queue controls", () => {
 		const controls = within(
 			view.getByRole("region", { name: "queue controls" }),
 		);
-		expect(controls.getByRole("status").textContent).toBe("1 of 3 running");
-		const running = within(view.getByRole("region", { name: "Running" }));
-		expect(running.getByText("groom-backlog")).toBeDefined();
-		expect(running.queryByText("mine")).toBeNull();
+		expect(controls.getByRole("status").textContent).toBe("2 running");
+		const started = within(
+			view.getByRole("region", { name: "Started by splates" }),
+		);
+		expect(started.getByText("groom-backlog")).toBeDefined();
+		expect(started.queryByText("mine")).toBeNull();
 	});
 
-	it("explains a limit lowered below what runs", async () => {
-		const view = await openQueue(
-			pool({
-				total: 1,
-				held: [held("a", { capped: true }), held("b", { capped: true })],
-			}),
-		);
-		expect(view.getByRole("status").textContent).toBe(
-			"2 running, over the limit · new ones wait until under 1",
-		);
+	it("offers no limit on how many agents run", async () => {
+		const view = await openQueue(pool({}));
+		expect(view.queryByRole("button", { name: "More at once" })).toBeNull();
 	});
 
 	it("pauses at once, and the button turns to Resume", async () => {
@@ -88,30 +83,14 @@ describe("App's queue controls", () => {
 			body: JSON.stringify({ paused: false, draining: false }),
 		});
 	});
-
-	it("sets how many agents run at once from its stepper", async () => {
-		const view = await openQueue(pool({}));
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More at once" })),
-		);
-
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/workers/local",
-			method: "PUT",
-			body: JSON.stringify({ slots: 4 }),
-		});
-	});
 });
 
-/** The pool of this machine's worker, `total` slots, with `held` holding them. */
+/** The pool of this machine's worker, with `held` running on it. */
 function pool({
-	total = 3,
 	held = [],
 	paused = false,
 	draining = false,
 }: {
-	total?: number;
 	held?: HeldListing[];
 	paused?: boolean;
 	draining?: boolean;
@@ -123,7 +102,7 @@ function pool({
 		host: null,
 		build: "1.0.0",
 		protocol: "1.0",
-		slots: { used: held.length, total },
+		slots: { used: held.length, total: 3 },
 		health: "connected",
 		draining,
 		removing: false,
@@ -135,7 +114,7 @@ function pool({
 	return { workers: [local], refused: [], build: "1.0.0", paused, held };
 }
 
-/** Conversation `id` holding a slot in the project under test. */
+/** Conversation `id` running in the project under test. */
 function held(id: string, overrides: Partial<HeldListing>): HeldListing {
 	return {
 		id,

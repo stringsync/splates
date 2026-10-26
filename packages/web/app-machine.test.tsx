@@ -65,7 +65,8 @@ describe("App's machine stats", () => {
 		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 
-	it("says how many agents and queued tasks wait for a slot in the header, each agent a tap away to move up", async () => {
+	// scry-ignore simple-test-setup: the waiting agents are this test's own inputs
+	it("says how many agents wait to start in the header, each a tap away to move up", async () => {
 		const since = new Date(Date.now() - 4 * 60_000).toISOString();
 		testing.machine = reading({
 			queue: [
@@ -75,7 +76,7 @@ describe("App's machine stats", () => {
 					task: "login",
 					position: 1,
 					since,
-					reason: "no free slot",
+					reason: "paused",
 				},
 				{
 					id: "c2",
@@ -85,34 +86,19 @@ describe("App's machine stats", () => {
 					since,
 					reason: "needs Linux",
 				},
-				{
-					id: "#7",
-					project: "/code/app",
-					task: "#7 Cache the score",
-					position: 3,
-					since,
-					reason: "no free slot",
-					queued: true,
-				},
 			],
 		});
 		const view = await testing.open();
 
-		await clickShown(() => view.getByText("3 queued"));
+		await clickShown(() => view.getByText("2 queued"));
 		const queue = await waitFor(() =>
 			view.getByRole("list", { name: "Queue" }),
 		);
 		expect(queue.textContent).toContain("login");
-		expect(queue.textContent).toContain("app · 4m · no free slot");
+		expect(queue.textContent).toContain("app · 4m · paused");
 		expect(queue.textContent).toContain("site · 4m · needs Linux");
 		expect(
 			within(queue).queryByRole("button", { name: "Move login up" }),
-		).toBeNull();
-		expect(queue.textContent).toContain("#7 Cache the score");
-		expect(
-			within(queue).queryByRole("button", {
-				name: "Move #7 Cache the score up",
-			}),
 		).toBeNull();
 
 		await act(async () =>

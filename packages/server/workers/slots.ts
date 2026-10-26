@@ -198,7 +198,6 @@ function poolWorker(
 	const { info } = worker;
 	return {
 		id: worker.id,
-		slots: slotsOf(worker, record),
 		awake: record?.draining !== true,
 		draining: record?.draining === true,
 		outdated: typeof info.build === "string" && info.build !== build,

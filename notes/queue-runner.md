@@ -3,9 +3,10 @@ description: How the queue starts tasks: every unblocked queued task starts at o
 ---
 
 `QueueRunner` works the queue down: every queued task in `queueOrder` that
-no open task blocks starts as a task of its own at once. Queue starts take
-no worker slot (since 2026-10-23); like the person's agents, they and their
-held conversations are not `capped`.
+no open task blocks starts as a task of its own at once. Queue starts are
+never capped (since 2026-10-23; nothing caps any agent since 2026-10-26);
+like the person's agents, they and their held conversations are not
+`capped`.
 
 ## Starting
 

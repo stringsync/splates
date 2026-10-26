@@ -14,7 +14,6 @@ import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { FinishedTasks } from "./finished-tasks";
 import { useNow } from "./hooks/use-now";
 import { Orphaned } from "./list-rows";
-import { localWorker } from "./local-worker";
 import { useMachine } from "./machine";
 import { Mark } from "./mark";
 import { NavigationContext } from "./navigation";
@@ -63,7 +62,7 @@ export function Tasks({
 	const known = useKnown(project.root);
 	const held = pool?.held ?? [];
 	const queue = machine?.queue ?? [];
-	// A task whose agent holds a slot shows under Running, not again below.
+	// A task whose agent splates started shows under Started by splates, not again below.
 	const slotted = new Set(
 		held.flatMap((each) =>
 			each.capped && each.task !== null
@@ -83,23 +82,13 @@ export function Tasks({
 		<section aria-label="queue" className="flex flex-col gap-4">
 			<TopBar title="Queue" />
 			{pool !== null && (
-				<QueueControls
-					view={view}
-					pool={pool}
-					waiting={queue.filter((entry) => entry.queued !== true).length}
-				/>
+				<QueueControls view={view} pool={pool} waiting={queue.length} />
 			)}
 			<section
 				aria-label="queue card"
 				className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs"
 			>
-				<Running
-					held={held}
-					total={
-						pool === null ? null : (localWorker(pool)?.slots.total ?? null)
-					}
-					known={known}
-				/>
+				<Running held={held} known={known} />
 				<Waiting queue={queue} known={known} />
 				<UpNext todos={project.todos} onOpen={onOpenTodo} />
 				<QueuedLanes

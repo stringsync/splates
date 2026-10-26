@@ -11,13 +11,13 @@ const DEV = {
 
 /** `splates worker queue`, which `splates worker` mounts. */
 export const splatesWaiting = cli<SplatesDeps>("queue").description(
-	"the agents waiting for a slot on a worker of the running `splates server`: each one another agent started (with `splates add --agent`, or a lane's orchestrator handing out tasks), started or resumed while every worker it can run on is full, waits here, first come, first served, and starts once a slot frees, as when an agent left idle 30 minutes stops; none is ever failed for waiting. An agent you start waits only while no worker it can run on is up, as with this machine's own removed or none on the platform its project requires",
+	"the agents waiting to start on a worker of the running `splates server`: nothing caps how many agents run, so one waits only while what splates starts on its own (the queue, automations, hooks, the groomer) is paused, or while no worker it can run on is up, first come, first served; none is ever failed for waiting. An agent you start waits only while no worker is up",
 );
 
 splatesWaiting
 	.command("list")
 	.description(
-		"list the agents waiting for a slot, first in line first: position, project, task, conversation, how long each has waited and why (no free slot, no worker up, or a platform no worker runs, as `needs macOS`)",
+		"list the agents waiting to start, first in line first: position, project, task, conversation, how long each has waited and why (paused, no worker up, or worker draining)",
 	)
 	.option("dev", z.string(), DEV)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
@@ -35,7 +35,7 @@ splatesWaiting
 splatesWaiting
 	.command("move")
 	.description(
-		"move an agent waiting for a slot to another place in line, from 1 for the next to start, then list the queue",
+		"move an agent waiting to start to another place in line, from 1 for the next to start, then list the queue",
 	)
 	.arg("which", z.string(), {
 		description: "the task it works, or its conversation's id",

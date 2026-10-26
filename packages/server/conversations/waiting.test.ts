@@ -11,23 +11,25 @@ import { once, until } from "./testing";
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
-describe("An agent waiting for a slot as the server goes down", () => {
+describe("An agent waiting to start as the server goes down", () => {
 	let agent: FakeAgent;
 	let fs: FakeFs;
 	let id: string;
 	let again: Conversations;
 
-	/** The server's next run, over the same logs, its scheduler holding nothing. */
-	const run = (): Conversations => {
+	/** A run of the server over the same logs, its pool `paused` or not. */
+	const run = (paused: boolean): Conversations => {
 		const clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		const workers: PoolWorker[] = [
 			{
 				id: "local",
-				slots: 1,
 				awake: true,
 			},
 		];
-		const scheduler = new Scheduler({ workers: () => workers }, clock);
+		const scheduler = new Scheduler(
+			{ workers: () => workers, paused: () => paused },
+			clock,
+		);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
 			take: async (asked, signal) => {
@@ -82,16 +84,9 @@ describe("An agent waiting for a slot as the server goes down", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		await fs.mkdir("/repo");
-		await fs.mkdir("/repo-splates/login");
 		await fs.mkdir("/repo-splates/signup");
 		agent = new FakeAgent();
-		const before = run();
-		const first = await before.start("fake", {
-			task: "login",
-			cwd: "/repo-splates/login",
-			capped: true,
-		});
-		await until(first, "idle");
+		const before = run(true);
 		const second = await before.start("fake", {
 			task: "signup",
 			cwd: "/repo-splates/signup",
@@ -100,12 +95,12 @@ describe("An agent waiting for a slot as the server goes down", () => {
 		await once(second, () => second.state.queue !== null);
 		id = second.id;
 		await before.disposeAsync();
-		again = run();
+		again = run(false);
 	});
 
 	afterEach(() => again.disposeAsync());
 
-	it("starts in the next run, which holds no slots", async () => {
+	it("starts in the next run, which is not paused", async () => {
 		await until(await again.find(id), "idle");
 		expect(agent.launched.map(({ cwd }) => cwd)).toContain(
 			"/repo-splates/signup",

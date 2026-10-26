@@ -36,7 +36,6 @@ describe("Queue rows from another project", () => {
 							since: "2026-10-23T12:00:00.000Z",
 						},
 					]}
-					total={3}
 					known={known}
 				/>,
 			);
@@ -66,7 +65,7 @@ describe("Queue rows from another project", () => {
 						task: "remote task",
 						position: 1,
 						since: "2026-10-23T12:00:00.000Z",
-						reason: "slots",
+						reason: "paused",
 					},
 				]}
 				known={known}

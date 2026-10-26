@@ -43,7 +43,6 @@ describe("A conversation whose worker is removed under it", () => {
 		};
 		const worker = (id: string): PoolWorker => ({
 			id,
-			slots: 1,
 			awake: true,
 		});
 		workers = [worker("w1"), worker("w2")];

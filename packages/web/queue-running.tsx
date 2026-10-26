@@ -65,8 +65,8 @@ export function useKnown(here: string): Known {
 }
 
 /**
- * Who started a conversation holding a slot: the groomer, an automation or
- * a hook; nothing for one the page does not hold.
+ * Who started a conversation splates started on its own: the groomer, an
+ * automation or a hook; nothing for one the page does not hold.
  */
 function startedBy(
 	conversation: ConversationState | undefined,
@@ -81,17 +81,15 @@ function startedBy(
 }
 
 /**
- * The agents holding a slot that counts against the limit: those
- * automations, hooks and the groomer started, in any project, each opened
- * on its conversation and stopped from its row.
+ * The agents running that splates started on its own: those automations,
+ * hooks and the groomer started, in any project, each opened on its
+ * conversation and stopped from its row.
  */
 export function Running({
 	held,
-	total,
 	known,
 }: {
 	held: HeldListing[];
-	total: number | null;
 	known: Known;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -100,13 +98,10 @@ export function Running({
 	const attempt = (title: string, write: Promise<void>) =>
 		void write.catch((error: unknown) => refuse(title, error));
 	return (
-		<QueueSection
-			title="Running"
-			count={total === null ? capped.length : `${capped.length} of ${total}`}
-		>
+		<QueueSection title="Started by splates" count={capped.length}>
 			<Refusal refusal={refusal} />
 			{capped.length === 0 ? (
-				<QueueEmpty>Nothing holds a slot</QueueEmpty>
+				<QueueEmpty>Nothing splates started runs</QueueEmpty>
 			) : (
 				capped.map((slot) => {
 					const conversation = known.of(slot.id);
@@ -166,8 +161,8 @@ export function Running({
 }
 
 /**
- * The agents waiting for a slot, first in line first, dragged into
- * another order; each opened, sent to the front, or put away.
+ * The agents waiting to start, as while paused, first in line first,
+ * dragged into another order; each opened, sent to the front, or put away.
  */
 export function Waiting({
 	queue,
@@ -178,21 +173,20 @@ export function Waiting({
 }): JSX.Element {
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
-	const line = queue.filter((entry) => entry.queued !== true);
 	const move = (id: string, to: number) =>
 		void moveQueued(id, to + 1).catch((error: unknown) =>
 			refuse("Not moved", error),
 		);
 	return (
-		<QueueSection title="Waiting for a slot" count={line.length}>
+		<QueueSection title="Waiting to start" count={queue.length}>
 			<Refusal refusal={refusal} />
-			{line.length === 0 ? (
+			{queue.length === 0 ? (
 				<QueueEmpty>Nothing waits</QueueEmpty>
 			) : (
 				<SortableRows
-					items={line}
+					items={queue}
 					idOf={(entry) => entry.id}
-					label="waiting for a slot"
+					label="waiting to start"
 					onMove={move}
 					row={(entry, { grip, dragging }) => {
 						const conversation = known.of(entry.id);

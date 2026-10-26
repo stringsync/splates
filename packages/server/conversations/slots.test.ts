@@ -16,6 +16,7 @@ describe("Conversations waiting for a slot", () => {
 	let timer: FakeTimer;
 	let agent: FakeAgent;
 	let workers: PoolWorker[];
+	let paused: boolean;
 	let scheduler: Scheduler;
 	let conversations: Conversations;
 
@@ -34,11 +35,14 @@ describe("Conversations waiting for a slot", () => {
 		workers = [
 			{
 				id: "local",
-				slots: 1,
 				awake: true,
 			},
 		];
-		scheduler = new Scheduler({ workers: () => workers }, clock);
+		paused = false;
+		scheduler = new Scheduler(
+			{ workers: () => workers, paused: () => paused },
+			clock,
+		);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
 			take: async (asked, signal) => {
@@ -113,65 +117,66 @@ describe("Conversations waiting for a slot", () => {
 		}
 	};
 
-	it("starts an agent only once a slot frees, saying where it waits meanwhile", async () => {
-		const first = await start("login");
-		await until(first, "idle");
-		const second = await start("signup");
-		await once(second, () => second.state.queue !== null);
-		expect(second.state.status).toBe("starting");
-		expect(second.state.queue).toEqual({
+	it("starts an agent only once the pool resumes, saying where it waits meanwhile", async () => {
+		paused = true;
+		const waiting = await start("signup");
+		await once(waiting, () => waiting.state.queue !== null);
+		expect(waiting.state.status).toBe("starting");
+		expect(waiting.state.queue).toEqual({
 			position: 1,
 			of: 1,
 			since: "2026-10-11T10:00:00.000Z",
-			reason: "no free slot",
+			reason: "paused",
 		});
-		expect(agent.launched).toHaveLength(1);
+		expect(agent.launched).toHaveLength(0);
 
-		await first.stop();
-		await until(second, "idle");
-		expect(second.state.queue).toBeNull();
+		paused = false;
+		scheduler.poke();
+		await until(waiting, "idle");
+		expect(waiting.state.queue).toBeNull();
 		expect(agent.launched.map(({ cwd }) => cwd)).toEqual([
-			"/repo-splates/login",
 			"/repo-splates/signup",
 		]);
 	});
 
 	it("takes a stopped agent out of the queue without starting it", async () => {
-		const first = await start("login");
-		await until(first, "idle");
-		const second = await start("signup");
-		await once(second, () => second.state.queue !== null);
+		paused = true;
+		const waiting = await start("signup");
+		await once(waiting, () => waiting.state.queue !== null);
 
-		await second.stop();
-		expect(second.state.status).toBe("stopped");
-		expect(second.state.queue).toBeNull();
+		await waiting.stop();
+		expect(waiting.state.status).toBe("stopped");
+		expect(waiting.state.queue).toBeNull();
 		expect(scheduler.queue()).toEqual([]);
-		await first.stop();
+		paused = false;
+		scheduler.poke();
 		await eventually(() => false, 0);
-		expect(agent.launched).toHaveLength(1);
+		expect(agent.launched).toHaveLength(0);
 	});
 
 	it("frees an idle agent's slot when it rests, and queues it again on the next prompt", async () => {
 		const first = await start("login");
 		await until(first, "idle");
-		const second = await start("signup");
-		await once(second, () => second.state.queue !== null);
 
 		restOut();
-		await until(second, "idle");
-		expect(first.state.status).toBe("stopped");
+		await until(first, "stopped");
+		expect(scheduler.held()).toEqual([]);
 
+		paused = true;
 		const again = first.prompt("back");
 		await once(first, () => first.state.queue !== null);
-		await second.stop();
+		expect(first.state.queue?.reason).toBe("paused");
+		paused = false;
+		scheduler.poke();
 		await again;
 		await until(first, "idle");
-		expect(agent.launched).toHaveLength(3);
+		expect(agent.launched).toHaveLength(2);
 	});
 
-	it("starts an agent the person starts at once on a full worker, taking no slot", async () => {
+	it("starts an agent the person starts at once while the pool is paused", async () => {
 		const first = await start("login");
 		await until(first, "idle");
+		paused = true;
 		const own = await conversations.start("fake", { task: null, cwd: "/repo" });
 		await until(own, "idle");
 		expect(own.state.queue).toBeNull();
@@ -191,7 +196,6 @@ describe("Conversations waiting for a slot", () => {
 		workers = [
 			{
 				id: "remote",
-				slots: 1,
 				awake: true,
 			},
 		];

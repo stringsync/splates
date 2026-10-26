@@ -12,7 +12,7 @@ describe("splates worker queue", () => {
 
 	beforeEach(async () => {
 		workers = new DevWorkers(new MemoryLogger());
-		workers.local.info = { slots: 1 };
+		await workers.records.pause(true);
 		server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
@@ -23,7 +23,10 @@ describe("splates worker queue", () => {
 		});
 		url = `http://127.0.0.1:${server.port}`;
 		const app = workers.slots.project("/code/app");
-		await app.take({ id: "c1", task: "login", agent: "claude" }, signal);
+		await app.take(
+			{ id: "c1", task: "login", agent: "claude", uncapped: true },
+			signal,
+		);
 		void app.take({ id: "c2", task: "signup", agent: "claude" }, signal);
 		void app.take({ id: "c3", task: null, agent: "claude" }, signal);
 		void workers.slots
@@ -44,7 +47,7 @@ describe("splates worker queue", () => {
 		return log.entries.map((entry) => String(entry.message)).join("\n");
 	}
 
-	it("lists who waits for a slot, first in line first, and why", async () => {
+	it("lists who waits to start, first in line first, and why", async () => {
 		const out = await run((log) =>
 			listQueue({ dev: url, json: false, log, ps: new NodePs() }),
 		);
@@ -54,7 +57,7 @@ describe("splates worker queue", () => {
 			["2", "app", "-", "c3"],
 			["3", "site", "deploy", "c4"],
 		]);
-		expect(rows[0]).toContain("no free slot");
+		expect(rows[0]).toContain("paused");
 	});
 
 	it("moves an agent by its task or its conversation", async () => {

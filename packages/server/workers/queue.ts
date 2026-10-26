@@ -13,9 +13,9 @@ import { table } from "../table";
 import type { QueueEntry } from "./scheduler";
 import { serverOf } from "./server-of";
 
-/** One agent waiting for a slot, as `GET /api/queue` and `splates worker queue list` give it. */
+/** One agent waiting to start, as `GET /api/queue` and `splates worker queue list` give it. */
 export interface QueueListing {
-	/** Its conversation's id, or `#<n>` for queued task n. */
+	/** Its conversation's id. */
 	id: string;
 	/** The main tree of its project. */
 	project: string;
@@ -24,8 +24,6 @@ export interface QueueListing {
 	/** When it joined the queue. */
 	since: string;
 	reason: string;
-	/** A queued task waiting to start its agent, which `splates queue` orders. */
-	queued?: true;
 }
 
 /** `entries` as `GET /api/queue` answers them. */
@@ -45,7 +43,6 @@ const Listings = z.object({
 			position: z.number(),
 			since: z.string(),
 			reason: z.string(),
-			queued: z.literal(true).optional(),
 		}),
 	),
 });
@@ -88,13 +85,6 @@ export async function moveQueued(
 		fail(
 			"usage",
 			`${found.length} conversations of ${opts.which} wait: name one by its id (${found.map((each) => each.id).join(", ")})`,
-			{ which: opts.which },
-		);
-	}
-	if (entry.queued === true) {
-		fail(
-			"usage",
-			`${entry.id} is a queued task, waiting to start its agent: order it with \`splates queue move\``,
 			{ which: opts.which },
 		);
 	}

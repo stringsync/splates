@@ -158,6 +158,7 @@ describe("App's controls that put agents to work", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: the waiting agents are this test's own inputs
 	it("shows a queued todo's held conversation waiting in line on its card and in its dialog, and opens it", async () => {
 		const view = await board(
 			[
@@ -170,7 +171,7 @@ describe("App's controls that put agents to work", () => {
 						position: 1,
 						of: 1,
 						since: "2026-10-19T12:00:00.000Z",
-						reason: "no free slot",
+						reason: "paused",
 					},
 				}),
 			],
@@ -188,7 +189,7 @@ describe("App's controls that put agents to work", () => {
 			name: "Open #3 Fix the upload",
 		});
 		expect(
-			within(chip).getByRole("img", { name: "1st in line for a slot" }),
+			within(chip).getByRole("img", { name: "1st in line to start" }),
 		).toBeTruthy();
 		expect(
 			within(card).queryByRole("img", { name: /in line for an agent/ }),

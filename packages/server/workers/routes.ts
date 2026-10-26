@@ -34,7 +34,7 @@ export class DevWorkers implements AsyncResource {
 	readonly records: WorkerRecords;
 	/** What proves this server to its workers. */
 	readonly identity: CoordinatorIdentity;
-	/** The queue agents take a slot on a worker from: capped for those other agents start, not for the person's. */
+	/** Where agents are placed on a worker, and where they wait while paused. */
 	readonly slots: WorkerSlots;
 	/**
 	 * This machine's worker, which the page's shells and task ports run on,

@@ -9,13 +9,14 @@ slots` lists and prunes them (`packages/splates/slots.ts`, `ports/slot.ts`).
 A slot is refused on a project's main tree, and its word is held until the
 task merges or is removed.
 
-Worker slots are how many tasks a worker runs at once (`splates worker run
---slots`; default one per core or per 4 GB, whichever is fewer). Agents that
-agents, automations, hooks or the groomer start each hold one; an agent the
-person starts or the queue starts takes none. Those
-waiting for room stand in `splates worker queue` (`waiting.ts`), first come
-first served, never failed for waiting. The page's Queue tab sets how many,
-and pauses: while paused (`paused` in `workers.json`, `PUT
-/api/workers/local`), nothing splates starts on its own is placed, neither
-capped agents nor queue starts, and each waits with the reason `paused`; the
-person's own agents still start.
+Worker slots no longer cap anything (since 2026-10-26): nothing limits how
+many agents run, and heavy commands wait their turn as jobs instead. The
+`Scheduler` places every agent at once on a worker that is up. What waits,
+in `splates worker queue` (`waiting.ts`), first come first served and never
+failed for waiting, is what splates starts on its own (automations, hooks,
+the groomer, queue starts) while paused (`paused` in `workers.json`, `PUT
+/api/workers/local`, the Queue page's Pause), with the reason `paused`, and
+any agent while no worker is up. The person's own agents start even while
+paused (`uncapped` on the request, `capped: false` on its listing). The
+worker's slot setting (`splates worker slots`, `--slots`) is left over and
+places nothing.

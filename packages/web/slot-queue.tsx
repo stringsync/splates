@@ -43,7 +43,7 @@ function waited(since: string, now: number): string {
 
 /**
  * Moves conversation `id` to `position` in the queue, keeping why it was
- * refused, as when it got its slot meanwhile.
+ * refused, as when it started meanwhile.
  */
 function useMove(): {
 	move: (id: string, position: number) => void;
@@ -89,15 +89,10 @@ function numbersIn(reason: string): number[] {
 
 /**
  * Why a conversation at `spot` waits, held for queued task `held` or else in
- * the line for a worker's slot, having waited `span`.
+ * the line to start, having waited `span`.
  */
-function waitSays(spot: QueueSpot, held: number | null, span: string): string {
+function waitSays(spot: QueueSpot, _held: number | null, span: string): string {
 	const { reason } = spot;
-	if (reason === "no free slot") {
-		return held === null
-			? `Every slot is taken. It has waited ${span}, and starts on its own once a slot frees.`
-			: `Every agent slot is taken. It has waited ${span}, and starts on its own once a slot frees.`;
-	}
 	if (reason === "starting") {
 		return `Its task is starting, readying a worktree and installing. It has been at it ${span}.`;
 	}
@@ -126,7 +121,7 @@ function waitSays(spot: QueueSpot, held: number | null, span: string): string {
 
 /**
  * What to try for a wait at `spot` that wants the person, past
- * `QUEUE_LATE` or at once, held for queued task `held` or else for a slot:
+ * `QUEUE_LATE` or at once, held for queued task `held` or else in line to start:
  * a line on it, and what to do, or null when the banner already offers it.
  */
 function lateSays(spot: QueueSpot, held: number | null): string | null {
@@ -137,16 +132,13 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
 	if (reason === "starting") {
 		return "Taking longer than usual. A fresh install can take a few minutes; if the start fails, this says why.";
 	}
-	return held === null ||
-		reason === "no free slot" ||
-		reason === "worker draining" ||
-		reason === "paused"
-		? "Taking longer than usual. The Queue page shows what holds each slot."
+	return held === null || reason === "worker draining" || reason === "paused"
+		? "Taking longer than usual. The Queue page shows what waits and why."
 		: null;
 }
 
 /**
- * Under a conversation's header while its agent waits for a slot on a
+ * Under a conversation's header while its agent waits to start on a
  * worker, or is held for a queued task until the queue starts it, across the
  * pane's padding to its edges: where it is in line, how long it has waited
  * and why, so the person does not take the wait for a hang. Past
@@ -161,7 +153,7 @@ export function QueueBanner({
 }: {
 	id: string;
 	spot: QueueSpot;
-	/** The queued task it is held for, or null for one in the line for a slot. */
+	/** The queued task it is held for, or null for one in line to start. */
 	held: number | null;
 	phone: boolean;
 }): JSX.Element {
@@ -190,7 +182,7 @@ export function QueueBanner({
 				<span className="min-w-0 flex-1">
 					<span className="font-medium text-foreground">
 						{held === null
-							? `Waiting for a slot, ${ordinal(spot.position)} of ${spot.of} in line.`
+							? `Waiting to start, ${ordinal(spot.position)} of ${spot.of} in line.`
 							: `Queued, ${ordinal(spot.position)} of ${spot.of} to start.`}
 					</span>{" "}
 					{waitSays(spot, held, waited(spot.since, now))}
@@ -308,7 +300,7 @@ export function QueueMark({ spot }: { spot: QueueSpot }): JSX.Element {
 	return (
 		<span
 			role="img"
-			aria-label={`${ordinal(spot.position)} in line for a slot`}
+			aria-label={`${ordinal(spot.position)} in line to start`}
 			title={`${ordinal(spot.position)} of ${spot.of} in line: ${spot.reason}${wants ? ". Taking longer than usual: open it for what to try." : ""}`}
 			className={cn(
 				"inline-flex items-center gap-0.5 whitespace-nowrap text-xs tabular-nums",
@@ -322,7 +314,7 @@ export function QueueMark({ spot }: { spot: QueueSpot }): JSX.Element {
 }
 
 /**
- * In the header while any agent waits for a slot on a worker: how many, and,
+ * In the header while any agent waits to start on a worker: how many, and,
  * opened, the queue first in line first, each with a way to move it up.
  */
 export function QueueBadge({
@@ -342,16 +334,17 @@ export function QueueBadge({
 		<Popover>
 			<PopoverTrigger
 				role="status"
-				title="Agents waiting for a slot on a worker"
+				title="Agents waiting to start"
 				className={`${STATUS_PILL} bg-muted text-muted-foreground`}
 			>
 				<HourglassIcon />
 				{queue.length} queued
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80">
-				<p className="font-medium text-sm">Waiting for a slot</p>
+				<p className="font-medium text-sm">Waiting to start</p>
 				<p className="text-muted-foreground text-xs">
-					First come, first served; each starts once a slot frees.
+					First come, first served; each starts once the queue resumes or the
+					worker is up.
 				</p>
 				<ol aria-label="Queue" className="flex flex-col gap-1">
 					{queue.map((entry) => (
@@ -368,7 +361,7 @@ export function QueueBadge({
 									{entry.reason}
 								</span>
 							</span>
-							{entry.position > 1 && entry.queued !== true && (
+							{entry.position > 1 && (
 								<Button
 									variant="ghost"
 									size="icon"
