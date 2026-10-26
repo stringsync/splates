@@ -108,6 +108,35 @@ describe("needs", () => {
 		expect(need(task(), idle)).toEqual({ kind: "idle" });
 	});
 
+	it("waits on a permission card its last reply asks for, once its turn ends", () => {
+		const at = "2026-10-11T10:07:00.000Z";
+		const asking = talk({
+			status: "idle",
+			unread: true,
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{
+							type: "text",
+							text: "## 🔐 Permission: run command: build the web app\n\n`bun run build`\n\nTakes about two minutes.",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
+
+		expect(need(null, asking)).toMatchObject({
+			kind: "waiting",
+			why: "ask",
+			subject: "build the web app",
+			since: at,
+		});
+	});
+
 	it("waits on a review its last reply asks for, once its turn ends", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const reviewing = talk({

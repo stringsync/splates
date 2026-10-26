@@ -281,6 +281,10 @@ export function need(
 	if (lead !== undefined) {
 		return waiting("questions", lead.text, ended, asked);
 	}
+	const permission = permissionIn(conversation);
+	if (permission !== null) {
+		return waiting("ask", permission, ended);
+	}
 	const review = reviewIn(conversation);
 	return review !== null ? waiting("review", review, ended) : { kind: "idle" };
 }
@@ -293,6 +297,19 @@ function askedIn(conversation: ConversationState): Question[] {
 	return stretches(lastWords(conversation) ?? "").flatMap((stretch) =>
 		stretch.type === "questions" ? stretch.questions : [],
 	);
+}
+
+/**
+ * What the permission card the agent's last reply asks for is about, when
+ * that reply is its last word and holds one; null otherwise.
+ */
+function permissionIn(conversation: ConversationState): string | null {
+	for (const stretch of stretches(lastWords(conversation) ?? "")) {
+		if (stretch.type === "permission") {
+			return stretch.permission.title ?? "Permission";
+		}
+	}
+	return null;
 }
 
 /**
