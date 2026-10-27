@@ -1,5 +1,14 @@
 export { BACKLOG_LANE, protectBacklog } from "./backlog";
 export { blockedWarning } from "./blocked-warning";
+export type {
+	Deferral,
+	DeferralAsk,
+	DeferralBlocker,
+	DeferredQuestion,
+	OutsideBlocker,
+	TaskBlockerStatus,
+} from "./deferral";
+export { cleared, deferralBlockers, deferralProblem } from "./deferral";
 export {
 	laneAdd,
 	laneList,

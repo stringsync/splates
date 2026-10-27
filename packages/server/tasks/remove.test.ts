@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { taskShow } from "../board";
 import { queueAdd } from "../queue";
 import { LIVE_PID, Testing } from "../testing";
 import { add } from "./add";
@@ -134,7 +135,10 @@ describe("remove", () => {
 		await add(deps, "alpha", { tasks: [started.id] });
 		await (await deps.tasks.find(taken.id)).take("alpha");
 
-		await remove(deps, "alpha", { reason: "blocked" });
+		await remove(deps, "alpha", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
 			{ id: started.id, stage: "backlog", takenBy: null },
@@ -154,10 +158,108 @@ describe("remove", () => {
 		]);
 		await add(deps, "alpha", { tasks: [started.id] });
 
-		await remove(deps, "alpha", { reason: "blocked" });
+		await remove(deps, "alpha", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 		expect((await deps.tasks.find(started.id)).state.stage).toBe("ready");
+	});
+
+	it("refuses a deferral with no why or no blocker, saying how to name them, and keeps the tree", async () => {
+		await add(deps, "alpha");
+
+		await expect(remove(deps, "alpha", { reason: "blocked" })).toBail("usage", {
+			message: "--why",
+		});
+		await expect(
+			remove(deps, "alpha", {
+				reason: "blocked",
+				deferral: { why: "It needs a key." },
+			}),
+		).toBail("usage", { message: "--waiting-on" });
+		await expect(
+			remove(deps, "alpha", {
+				reason: "blocked",
+				deferral: { why: "It needs #99.", blockedBy: [99] },
+			}),
+		).toBail("not_found");
+
+		expect((await deps.service.find("alpha")).status).not.toBe("removed");
+	});
+
+	it("keeps why the work stopped and each blocker on the task it took, linking the tasks", async () => {
+		const blocker = await deps.tasks.add("Build the upload client", null);
+		const started = await deps.tasks.add("Retry on 413", null);
+		await add(deps, "alpha", { tasks: [started.id] });
+
+		await remove(deps, "alpha", {
+			reason: "blocked",
+			conversation: "c1",
+			deferral: {
+				why: "The fix needs the new upload client.",
+				blockedBy: [blocker.id],
+				questions: ["Keep the 413 retry for old clients?"],
+				outside: ["an upstream release"],
+				detail: "Stopped: the client is half built.",
+			},
+		});
+
+		const state = (await deps.tasks.find(started.id)).state;
+		expect(state).toMatchObject({
+			takenBy: null,
+			blockedBy: [blocker.id],
+			text: "Stopped: the client is half built.",
+			deferred: {
+				why: "The fix needs the new upload client.",
+				task: "alpha",
+				conversation: "c1",
+				tasks: [{ id: blocker.id, subject: "Build the upload client" }],
+				questions: [{ text: "Keep the 413 retry for old clients?" }],
+				outside: [{ what: "an upstream release" }],
+			},
+		});
+		expect(deps.out()).toContain(`waits on: task ${blocker.id} merging`);
+		await taskShow(deps, started.id);
+		expect(deps.out()).toContain(
+			"deferred:  from alpha, 0m ago: The fix needs the new upload client.",
+		);
+		expect(deps.out()).toContain(
+			`[ ] #${blocker.id} Build the upload client (backlog)`,
+		);
+		expect(deps.out()).toContain(
+			"[ ] the person: Keep the 413 retry for old clients? (open)",
+		);
+	});
+
+	it("gives work started with no board task one of its own to hold its deferral", async () => {
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.fs.write(
+			`${worktree}/SPLATES.md`,
+			"# alpha\n\n## Goal\n\nStop uploads retrying a 413\n",
+		);
+
+		const { released } = await remove(deps, "alpha", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
+
+		const [held] = await deps.tasks.all();
+		expect(released).toEqual([
+			{ id: held?.id ?? 0, subject: "Stop uploads retrying a 413" },
+		]);
+		expect(held?.state).toMatchObject({
+			subject: "Stop uploads retrying a 413",
+			slug: "alpha",
+			from: "alpha",
+			stage: "ready",
+			takenBy: null,
+			deferred: { why: "It needs a key.", outside: [{ what: "a key" }] },
+		});
+		expect(held?.text).toContain("## Goal");
+		expect(deps.out()).toContain("holds the deferred work");
 	});
 
 	it("tells 'already removed' apart from 'never existed'", async () => {

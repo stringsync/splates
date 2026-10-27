@@ -34,10 +34,19 @@ The task set out to stop uploads retrying a 413.
 
 A task blocked on other work is deferred, not discarded: `splates remove
 <task> --reason blocked`, then the report below, so the user does not read it
-as lost. It keeps `## 🛑 Removed` for work that really ended.
+as lost. It keeps `## 🛑 Removed` for work that really ended. The remove
+takes `--why`, what you found that stops the work, and at least one
+blocker: `--blocked-by <n>` for a task that has to merge first, `--ask
+"<question>"` for the person's call, `--waiting-on "<what>"` for something
+outside splates. Add `--detail` to rewrite the task's detail for whoever
+takes it next, as Deferring in [queue.md](queue.md) says. The board task
+keeps all of it, one of its own made for work that took none, and the
+queue starts it in a fresh conversation once it is queued and its tasks
+have merged; nothing comes back to this one. The text after the colon sums
+up the blockers:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on the upload rewrite
+## ⏸ Deferred <task>: waiting on #812 and your call on old clients
 
 The task set out to stop uploads retrying a 413; it is back on the list.
 ```

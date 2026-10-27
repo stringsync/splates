@@ -170,7 +170,7 @@ describe("stretches", () => {
 			report: {
 				ending: "deferred",
 				task: "<task>",
-				reason: "waiting on the upload rewrite",
+				reason: "waiting on #812 and your call on old clients",
 			},
 		});
 	});

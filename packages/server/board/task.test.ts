@@ -421,7 +421,10 @@ describe.concurrent("task", () => {
 		await taskAdd(deps, "support dark mode", null);
 		await add(deps, "dark", { tasks: [1] });
 
-		await remove(deps, "dark", { reason: "blocked" });
+		await remove(deps, "dark", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		expect((await deps.tasks.find(1)).takenBy).toBeNull();
 		expect(deps.out()).toContain("task 1 is open again");

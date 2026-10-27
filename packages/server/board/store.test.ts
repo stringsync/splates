@@ -57,7 +57,10 @@ describe.concurrent("TaskStore", () => {
 		await taskAdd(deps, "support dark mode", null, { lane: "new" });
 		await add(deps, "dark", { tasks: [1] });
 
-		await remove(deps, "dark", { reason: "blocked" });
+		await remove(deps, "dark", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		const record = await stored(deps, 1);
 		expect(record).toMatchObject({

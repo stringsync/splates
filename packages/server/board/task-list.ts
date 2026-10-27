@@ -2,6 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";
+import { cleared, deferralBlockers } from "./deferral";
 import {
 	blockersOf,
 	followers,
@@ -169,6 +170,7 @@ export async function taskShow(
 		),
 		`  age:       ${age(task.state.createdAt)}`,
 		...task.files.map((path) => `  file:      ${path}`),
+		...deferredLines(task.state, states),
 	];
 	// A mention of a task that has gone reads as if it were still there, so
 	// each is said to be open or gone: ids never come back, and a gone one has
@@ -186,4 +188,27 @@ export async function taskShow(
 		lines.push("", task.text);
 	}
 	log.info(lines.join("\n"));
+}
+
+/**
+ * Why `task`'s work was last deferred and each blocker it named, checked off
+ * once cleared, so whoever takes it again starts from there.
+ */
+function deferredLines(task: TaskRecord, states: TaskRecord[]): string[] {
+	if (task.deferred === undefined) {
+		return [];
+	}
+	const blockers = deferralBlockers(task, states).map((blocker) => {
+		const what =
+			blocker.kind === "task"
+				? `#${blocker.id} ${blocker.subject}`
+				: blocker.kind === "question"
+					? `the person: ${blocker.text.split("\n")[0]}`
+					: blocker.what;
+		return `    [${cleared(blocker) ? "x" : " "}] ${what} (${blocker.status})`;
+	});
+	return [
+		`  deferred:  from ${task.deferred.task}, ${age(task.deferred.at)} ago: ${task.deferred.why}`,
+		...blockers,
+	];
 }

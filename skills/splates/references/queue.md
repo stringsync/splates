@@ -79,6 +79,12 @@ Either way, take no further step toward the request and reply with nothing
 beyond the line the page shows for the task; then, after a request, carry on
 with any work under way, and, sent alone, end your turn.
 
+A task of yours deferred with `splates remove <task> --reason blocked`
+asks the same of its detail, given as `--detail`: why it stopped, what you
+found, the steps done ticked off, those left, and, since the remove
+discards the branch, what of it is worth redoing,
+for a stranger who has none of this conversation.
+
 ## Asking the user to queue
 
 You never change the queue: splates refuses an agent `splates queue add`,

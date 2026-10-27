@@ -124,7 +124,10 @@ describe.concurrent("a lane queued whole", () => {
 		await add(deps, "store-licenses", { tasks: [1] });
 
 		// Deferred work stays open without starting again from its queued lane.
-		await remove(deps, "store-licenses", { reason: "blocked" });
+		await remove(deps, "store-licenses", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 		expect((await deps.tasks.find(1)).state).toMatchObject({
@@ -167,7 +170,10 @@ describe.concurrent("a lane queued whole", () => {
 		await add(deps, "alpha", { tasks: [1] });
 
 		await laneUpdate(deps, 1, { queued: false });
-		await remove(deps, "alpha", { reason: "blocked" });
+		await remove(deps, "alpha", {
+			reason: "blocked",
+			deferral: { why: "It needs a key.", outside: ["a key"] },
+		});
 
 		expect((await deps.tasks.find(1)).state.stage).toBe("backlog");
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);

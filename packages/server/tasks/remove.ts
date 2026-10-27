@@ -1,7 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Tasks } from "../board";
+import type { DeferralAsk, Task, Tasks } from "../board";
+import { deferralProblem } from "../board";
 import { fail } from "../exit";
 import { pushedLine, type TaskBranches } from "../merge";
+import { goalLine } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { RemoveReason } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -13,6 +15,14 @@ export interface RemoveOptions {
 	conversation?: string;
 	/** Why, kept in its outcome for the Stats page. */
 	reason?: RemoveReason;
+	/**
+	 * Why blocked work stopped and what it waits on, which `reason: "blocked"`
+	 * requires, kept on the board task it goes back to.
+	 */
+	deferral?: Partial<DeferralAsk> & {
+		/** The task's detail rewritten for whoever takes it next. */
+		detail?: string;
+	};
 }
 
 /**
@@ -24,7 +34,9 @@ export interface RemoveOptions {
  *
  * What it took leaves the board too, unless blocked work is being deferred.
  * Deferred work goes back to ready or the backlog, outside the queue and
- * any queued lane until the person queues it again.
+ * any queued lane until the person queues it again, holding why it stopped
+ * and what it waits on; work that took no board task gets one of its own,
+ * ready, so the deferral is kept somewhere.
  */
 export async function remove(
 	{
@@ -41,8 +53,18 @@ export async function remove(
 		branches: TaskBranches;
 	},
 	task: string,
-	{ force = false, conversation, reason }: RemoveOptions = {},
+	{ force = false, conversation, reason, deferral = {} }: RemoveOptions = {},
 ): Promise<{ released: { id: number; subject: string }[] }> {
+	const ask: DeferralAsk = {
+		why: deferral.why ?? "",
+		blockedBy: deferral.blockedBy ?? [],
+		questions: deferral.questions ?? [],
+		outside: deferral.outside ?? [],
+	};
+	const problem = reason === "blocked" ? deferralProblem(ask) : null;
+	if (problem !== null) {
+		fail("usage", problem, { task });
+	}
 	const worktree = await service.find(task);
 
 	if (worktree.gone) {
@@ -74,6 +96,32 @@ export async function remove(
 	// Counted before the branch goes, so the report can say what was lost.
 	const unlanded = worktree.hasBranch ? await worktree.commitsAhead() : 0;
 
+	// Recorded before the tree goes, so a blocker that is refused loses nothing.
+	let held: Task | null = null;
+	if (reason === "blocked") {
+		for (const id of ask.blockedBy) {
+			await queue.find(id);
+		}
+		const holding = await queue.takenBy(task);
+		if (holding.length === 0) {
+			const plan = await service.finalPlan(worktree);
+			held = await queue.add(goalLine(plan) ?? task, task, {
+				slug: task,
+				text: deferral.detail ?? plan,
+				ready: true,
+			});
+			holding.push(held);
+		}
+		for (const each of holding) {
+			await each.defer(ask, {
+				task,
+				conversation:
+					conversation ?? worktree.state?.dispatch?.conversation ?? undefined,
+				detail: each === held ? undefined : deferral.detail,
+			});
+		}
+	}
+
 	const discarded = await worktree.discard("removed", {
 		conversation,
 		reason,
@@ -89,7 +137,8 @@ export async function remove(
 	const deleted = pushedLine(await branches.delete(task), "deleted");
 
 	const taken = await queue.takenBy(task);
-	const released = reason === "blocked" ? taken : [];
+	const released =
+		reason === "blocked" ? [...taken, ...(held === null ? [] : [held])] : [];
 	for (const each of taken) {
 		if (reason === "blocked") {
 			await each.release({ unqueue: true });
@@ -128,7 +177,18 @@ export async function remove(
 	}
 	for (const each of released) {
 		lines.push(
-			`  task ${each.id} is open again, out of the queue until queued by hand: ${each.subject}`,
+			each === held
+				? `  task ${each.id} holds the deferred work, ready and out of the queue until queued by hand: ${each.subject}`
+				: `  task ${each.id} is open again, out of the queue until queued by hand: ${each.subject}`,
+		);
+	}
+	if (reason === "blocked") {
+		lines.push(
+			...ask.blockedBy.map((id) => `  waits on: task ${id} merging`),
+			...ask.questions.map(
+				(text) => `  waits on: the person answering ${text.split("\n")[0]}`,
+			),
+			...ask.outside.map((what) => `  waits on: ${what}`),
 		);
 	}
 	log.info(lines.join("\n"));

@@ -4,15 +4,16 @@ import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";
+import type { Deferral, DeferralAsk } from "./deferral";
 import type { Tasks } from "./tasks";
 
 /**
  * Work deferred for later: what an agent notes when something outside its
- * task comes up, so it can move on instead of growing the task. Kept under the
- * shared `.git`, so every worktree sees a new one at once, with nothing to
- * commit and nothing to merge.
+ * task comes up, so it can move on instead of growing the task. Every
+ * worktree sees a new one at once, with nothing to commit or merge.
  */
 export class Task {
+	// Kept under the shared `.git`, which every worktree reads.
 	constructor(
 		private readonly tasks: Tasks,
 		readonly state: TaskRecord,
@@ -221,6 +222,93 @@ export class Task {
 	}
 
 	/**
+	 * Records why the work of `task` was set aside and what it waits on,
+	 * linking each task it names, and with `detail`, rewrites its detail for
+	 * whoever takes it next. Refuses a task named that is not on the board.
+	 */
+	async defer(
+		ask: DeferralAsk,
+		{
+			task,
+			conversation,
+			detail,
+		}: { task: string; conversation?: string; detail?: string },
+	): Promise<Task> {
+		const ids = [...new Set(ask.blockedBy)];
+		const named = await Promise.all(ids.map((id) => this.tasks.find(id)));
+		const add = ids.filter((id) => !this.blockedBy.includes(id));
+		if (add.length > 0) {
+			await this.tasks.link(this.id, { add });
+		}
+		const deferred: Deferral = {
+			why: ask.why.trim(),
+			at: new Date().toISOString(),
+			task,
+			...(conversation === undefined ? {} : { conversation }),
+			tasks: named.map(({ id, subject }) => ({ id, subject })),
+			questions: ask.questions
+				.map((text) => text.trim())
+				.filter(Boolean)
+				.map((text) => ({ text })),
+			outside: ask.outside
+				.map((what) => what.trim())
+				.filter(Boolean)
+				.map((what) => ({ what })),
+		};
+		return this.tasks.revise(this.id, (state) => ({
+			...state,
+			...(detail === undefined || detail.trim() === ""
+				? {}
+				: { text: detail.trim() }),
+			deferred,
+		}));
+	}
+
+	/**
+	 * Records the person's answer to question `index` of its deferral, adding
+	 * it to its detail for whoever takes it next.
+	 */
+	answer(index: number, answer: string): Promise<Task> {
+		return this.tasks.revise(this.id, (state) => {
+			const question = deferredAt(state, "questions", index);
+			const deferred = state.deferred as Deferral;
+			const said = answer.trim();
+			return {
+				...state,
+				text: [
+					state.text,
+					`The person answered ${question.text.split("\n")[0]}\n\n${said}`,
+				]
+					.filter(Boolean)
+					.join("\n\n"),
+				deferred: {
+					...deferred,
+					questions: deferred.questions.map((each, i) =>
+						i === index ? { ...each, answer: said } : each,
+					),
+				},
+			};
+		});
+	}
+
+	/** Marks what its deferral waits on outside splates, `index`, as done. */
+	outsideDone(index: number): Promise<Task> {
+		return this.tasks.revise(this.id, (state) => {
+			deferredAt(state, "outside", index);
+			const deferred = state.deferred as Deferral;
+			return {
+				...state,
+				deferred: {
+					...deferred,
+					outside: deferred.outside.map((each, i) =>
+						i === index ? { ...each, done: true as const } : each,
+					),
+				},
+			};
+		});
+	}
+
+	/**
 	 * Removes it for good. `landed` is the commit it merged as, written on
 	 * each task it blocked; without one, those it blocked are held for the
 	 * person.
@@ -240,8 +328,26 @@ export class Task {
 	}
 }
 
-/** What a task is on disk: one file apiece, so two agents never rewrite one. */
+/** Blocker `index` of `kind` in `state`'s deferral, refusing one it does not have. */
+function deferredAt<Kind extends "questions" | "outside">(
+	state: TaskRecord,
+	kind: Kind,
+	index: number,
+): Deferral[Kind][number] {
+	const found = state.deferred?.[kind][index];
+	if (found === undefined) {
+		fail(
+			"not_found",
+			`task ${state.id} has no deferred ${kind === "questions" ? "question" : "outside blocker"} ${index + 1}`,
+			{ number: state.id, index },
+		);
+	}
+	return found;
+}
+
+/** Everything a task holds: its words, place, links and how far it has come. */
 export interface TaskRecord {
+	// One file apiece on disk, so two agents never rewrite one.
 	id: number;
 	/** What is left to do, in a line. */
 	subject: string;
@@ -258,8 +364,8 @@ export interface TaskRecord {
 	/** Absolute paths of the files attached, in `tasks/<id>/`. */
 	files: string[];
 	/**
-	 * The tasks that have to merge before this one starts, sorted. One leaves
-	 * the list when it merges or is removed, and with it every link to it.
+	 * The tasks that have to merge before this one starts, sorted. A task
+	 * that merges or is removed drops out of it.
 	 */
 	blockedBy: number[];
 	/** The lane it runs in, or null for none. */
@@ -304,6 +410,11 @@ export interface TaskRecord {
 	 * when it is queued again. Absent for none.
 	 */
 	unqueuedFor?: number[];
+	/**
+	 * Why its work was last set aside and what it waits on, kept once it is
+	 * taken again, so the page can follow it; absent for one never deferred.
+	 */
+	deferred?: Deferral;
 }
 
 /**
@@ -481,9 +592,8 @@ export function checkSlug(slug: string, facts: Record<string, unknown>): void {
 }
 
 /**
- * A subject and its detail, trimmed. A subject running past one line keeps
- * only the first, the rest leading the detail, so the list stays one line a
- * task however it was written.
+ * A subject and its detail, trimmed, the subject kept to one line, so the
+ * list shows one line a task: the rest of a longer one leads the detail.
  */
 export function wording(
 	subject: string,
@@ -497,8 +607,8 @@ export function wording(
 }
 
 /**
- * Runs `update`, which changes task `id`, and journals it with what moved
- * between the task before and after, so a refused one is journaled bare.
+ * Runs `update`, which changes task `id`, and journals what it moved; a
+ * refused one is journaled with nothing moved.
  */
 export async function recordUpdate(
 	journal: Journal,

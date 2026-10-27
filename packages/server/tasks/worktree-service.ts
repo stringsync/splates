@@ -356,7 +356,7 @@ export class WorktreeService {
 	 * The `SPLATES.md` a task ends on: its tree's, or the copy kept in repo
 	 * state for a tree on a worker; "" for none.
 	 */
-	private async finalPlan(worktree: Worktree): Promise<string> {
+	async finalPlan(worktree: Worktree): Promise<string> {
 		const own = worktree.exists
 			? await new Plans(this.fs).read(worktree.path)
 			: null;
@@ -542,8 +542,8 @@ export interface WorktreeServiceOptions {
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
 	/**
-	 * The numbered records, shared with the list of tasks so both write under
-	 * one lock; one of its own, locked in this process alone, by default.
+	 * The numbered records: pass the list of tasks' own so neither undoes
+	 * the other's writes. One of its own by default.
 	 */
 	store?: TaskStore;
 }

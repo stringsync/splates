@@ -99,11 +99,11 @@ The task set out to stop uploads retrying a 413.
 ```
 
 When the work is blocked and only set aside for later, remove it with
-`--reason blocked` and report it deferred, what it waits on after the colon,
-not removed:
+`--reason blocked`, which asks why it stopped and what it waits on, and
+report it deferred, the blockers in short after the colon, not removed:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on the upload rewrite
+## ⏸ Deferred <task>: waiting on #812 and your call on old clients
 
 The task set out to stop uploads retrying a 413; it is back on the list.
 ```
@@ -405,7 +405,8 @@ them again. Before removing work to redo, add replacement tasks with what
 you learned. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way), `redo`
 (better redone against current trunk) or `blocked` (set aside until other work
-lands: report it as Deferred); the Stats page counts them.
+lands, a person's answer or something outside splates, each named as its
+refusal says: report it as Deferred); the Stats page counts them.
 
 `wait` ends on `removed` (landed or dropped: check for overlap again),
 waits on a person (the other task's questions are open: tell the user you

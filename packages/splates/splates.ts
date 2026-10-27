@@ -332,13 +332,46 @@ splates
 	})
 	.option("reason", z.optional(z.enum(REMOVE_REASONS)), {
 		description:
-			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk), blocked (set aside until what it waits on lands, so back on the list)",
+			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk), blocked (set aside until what it waits on lands, so back on the list, which takes --why and at least one blocker)",
+	})
+	.option("why", z.string(), {
+		default: "",
+		description:
+			"with --reason blocked: what you found that stops the work, in a sentence or two, for the person and whoever takes it next",
+	})
+	.repeated("blocked-by", z.string(), {
+		description:
+			"with --reason blocked: numbers of the tasks it waits on to merge, comma separated or the flag repeated",
+	})
+	.repeated("ask", z.string(), {
+		description:
+			"with --reason blocked: a question only the person can answer, in the skill's question format; repeat the flag for each",
+	})
+	.repeated("waiting-on", z.string(), {
+		description:
+			"with --reason blocked: something outside splates it waits on, such as a key or an upstream release; repeat the flag for each",
+	})
+	.option("detail", z.string(), {
+		default: "",
+		description:
+			"with --reason blocked: the task's detail rewritten for whoever takes it next: why it stopped, what you found, the steps done and left, and where any pushed work is",
 	})
 	.action(async (opts, ctx) => {
 		await ctx.journal.record(
 			"remove",
 			opts.task,
-			() => remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
+			() =>
+				remove(ctx, opts.task, {
+					force: opts.force,
+					reason: opts.reason,
+					deferral: {
+						why: opts.why,
+						blockedBy: taskIds(opts["blocked-by"].join(",")),
+						questions: opts.ask,
+						outside: opts["waiting-on"],
+						detail: opts.detail === "" ? undefined : opts.detail,
+					},
+				}),
 			({ released }) => ({ why: opts.reason ?? null, released }),
 		);
 		await follow(ctx, null, { from: opts.task });

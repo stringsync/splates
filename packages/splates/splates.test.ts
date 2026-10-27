@@ -188,6 +188,34 @@ describe("splates cli", () => {
 		});
 	});
 
+	it("defers a task with why it stopped and each blocker it names", async () => {
+		await splates.run(deps, ["task", "add", "build the client", "--slug", "c"]);
+		await splates.run(deps, ["add", "alpha", "--goal", "retry on 413"]);
+		await splates.run(deps, [
+			"remove",
+			"alpha",
+			"--reason",
+			"blocked",
+			"--why",
+			"It needs the new client.",
+			"--blocked-by",
+			"1",
+			"--ask",
+			"Keep the retry for old clients?",
+			"--waiting-on",
+			"an upstream release",
+		]);
+
+		await splates.run(deps, ["task", "show", "3"]);
+		expect(env.out()).toContain("task 3 retry on 413");
+		expect(env.out()).toContain("It needs the new client.");
+		expect(env.out()).toContain("[ ] #1 build the client (ready)");
+		expect(env.out()).toContain(
+			"[ ] the person: Keep the retry for old clients? (open)",
+		);
+		expect(env.out()).toContain("[ ] an upstream release (open)");
+	});
+
 	it("links every task a repeated or comma-listed --blocked-by names", async () => {
 		await splates.run(deps, ["task", "add", "a", "--slug", "a"]);
 		await splates.run(deps, ["task", "add", "b", "--slug", "b"]);

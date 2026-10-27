@@ -1,4 +1,12 @@
 export { BACKLOG_LANE } from "./backlog";
+export type {
+	Deferral,
+	DeferralBlocker,
+	DeferredQuestion,
+	OutsideBlocker,
+	TaskBlockerStatus,
+} from "./deferral";
+export { cleared, deferralBlockers } from "./deferral";
 export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";
 export {
 	APPROVAL,
