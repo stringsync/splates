@@ -68,3 +68,18 @@ viewer. `detail` names a JSON file in the batch directory the page opens a
 cell with, every field optional: `input`, `rubric`, `reply`, `checks`
 (`{id, about, pass, error?}`), `judge` (`{pass, reason}`) and `transcript`
 (`{kind: "text", text}` or `{kind: "tool", name, input, output}` steps).
+
+## Commands (2026-10-26)
+
+`list`, `run` and an optional `plan` are shell commands, run with `sh -c`
+from the project's root, or from the worktree of the conversation whose card
+asks, so a run checks the change the task makes. `list` prints a JSON line
+per case, `{case, group?, about?}`, as `batch.json` names them. `run` and
+`plan` are told the run in env vars, `SPLATES_EVALS_CASES` and
+`SPLATES_EVALS_TARGETS` a line each, `SPLATES_EVALS_RESULTS` absolute, and
+`SPLATES_EVALS_REPS` and `SPLATES_EVALS_BASELINE` when the card names them:
+env, not flags, since no framework's arguments match. `run` writes one new
+batch directory under the results, which is how the card finds it. `plan`
+prints `{cells, usd}` or exits non-zero to refuse; a project without one runs
+with no ceiling shown. Splates's own config names its harness for all three,
+so no server path is special to a splates checkout.

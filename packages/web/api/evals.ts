@@ -67,12 +67,23 @@ export async function saveEvalAgents(
 
 /** What a run of `scenarios` on `agents` would reserve, from the runner's free plan. */
 export async function evalPlan(run: EvalRunAsk): Promise<EvalPlan> {
-	return (await sendJson("/api/evals/plan", "POST", run)) as EvalPlan;
+	return (await sendJson(scoped("/api/evals/plan"), "POST", run)) as EvalPlan;
 }
 
-/** Every scenario the harness registers. */
-export async function evalScenarios(): Promise<EvalScenario[]> {
-	const response = await answered("/api/evals/scenarios");
+/**
+ * Every case the project's `evals.list` prints, from the worktree of
+ * `conversation` when it has one.
+ */
+export async function evalScenarios(
+	conversation: string | null = null,
+): Promise<EvalScenario[]> {
+	const response = await answered(
+		scoped(
+			conversation === null
+				? "/api/evals/scenarios"
+				: `/api/evals/scenarios?conversation=${encodeURIComponent(conversation)}`,
+		),
+	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/scenarios: ${response.status}`);
 	}
@@ -84,7 +95,7 @@ export async function startEvalRun(
 	key: string,
 	run: EvalRunAsk,
 ): Promise<EvalLaunch> {
-	return (await sendJson("/api/evals/launch", "POST", {
+	return (await sendJson(scoped("/api/evals/launch"), "POST", {
 		...run,
 		key,
 	})) as EvalLaunch;
@@ -93,7 +104,7 @@ export async function startEvalRun(
 /** The run of card `key`; null when this server has none for it. */
 export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 	const response = await answered(
-		`/api/evals/launch?key=${encodeURIComponent(key)}`,
+		scoped(`/api/evals/launch?key=${encodeURIComponent(key)}`),
 	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/launch: ${response.status}`);
@@ -104,13 +115,13 @@ export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 /** Stops the run of card `key`. */
 export async function stopEvalRun(key: string): Promise<void> {
 	await sendJson(
-		`/api/evals/launch?key=${encodeURIComponent(key)}`,
+		scoped(`/api/evals/launch?key=${encodeURIComponent(key)}`),
 		"DELETE",
 		{},
 	);
 }
 
-/** What a run is asked with: the scenarios, the agents and what the skill is judged against. */
+/** What a run is asked with: the cases, the agents and what the change is judged against. */
 export interface EvalRunAsk {
 	skill: string;
 	scenarios: string[];
@@ -118,6 +129,6 @@ export interface EvalRunAsk {
 	baseline: string | null;
 	/** Runs of each cell; the runner's default when absent. */
 	reps?: number;
-	/** The conversation whose card asks, told once the run is done. */
+	/** The conversation whose card asks, told once the run is done, and whose worktree it runs in. */
 	conversation?: string | null;
 }

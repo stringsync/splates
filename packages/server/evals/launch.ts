@@ -1,8 +1,8 @@
 import { readdir } from "node:fs/promises";
-import { join } from "node:path";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Child, Ps } from "webappwiz/system";
+import { fail } from "../exit";
 import type { AgentPick } from "../models";
 
 /** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
@@ -12,23 +12,36 @@ export function targetOf(pick: AgentPick): string {
 	}`;
 }
 
+/** A project's eval commands, from the `evals` block of its `splates.config.ts`. */
+export interface EvalCommands {
+	/** The project's root, where the commands run when a run names no worktree. */
+	root: string;
+	/** Where batches are written, absolute, as `SPLATES_EVALS_RESULTS` tells `run`. */
+	results: string;
+	/** Prints the cases, one JSON object a line; null when the project names none. */
+	list: string | null;
+	/** Runs the cases and targets in the env into a new batch; null when the project names none. */
+	run: string | null;
+	/** Prints what a run would come to and cost at most; null when the project names none. */
+	plan: string | null;
+}
+
 /** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
 export interface EvalLaunchSpec {
 	/** Names the card, so a reload finds its run again. */
 	key: string;
+	/** The card's label, the skill or suite it names. */
 	skill: string;
 	scenarios: string[];
 	agents: AgentPick[];
-	/** The revision the skill's change is judged against; the runner's own default when null. */
+	/** The revision the change is judged against; the runner's own default when null. */
 	baseline: string | null;
-	/** Runs of each cell, as `--reps`; the runner's own default when absent. */
+	/** Runs of each cell; the runner's own default when absent. */
 	reps?: number;
 	/** The conversation whose card it is, told once it is done; null for none. */
 	conversation?: string | null;
-	/** The skill to run, the conversation's own when it has one; the checkout's when null. */
-	skillDir?: string | null;
-	/** The checkout whose harness, scenarios and judge run, the conversation's task worktree; the server's own when null. */
-	evalCheckout?: string | null;
+	/** Where the commands run, the conversation's task worktree; the project's root when null. */
+	cwd?: string | null;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -39,98 +52,131 @@ export interface EvalLaunch {
 	id: string;
 	key: string;
 	status: EvalLaunchStatus;
-	/** The `batch-*` directory it writes, once the runner has made it. */
+	/** The batch directory it writes, once the runner has made it. */
 	batch: string | null;
-	/** The runner's last words, as the CLI says them: a refusal's reason. */
+	/** The runner's last words: a refusal's reason. */
 	output: string;
 }
 
-/** What the runner says in a plan: how many runs, and at most what they cost. */
+/** What a project's `plan` says a run comes to; without one, nothing is known of its cost. */
 export interface EvalPlan {
-	/** Scenario-by-agent runs the plan comes to. */
-	cells: number;
-	/** The most they can cost, in dollars; null when the runner refused the plan. */
+	/** Case-by-target runs the plan comes to; null when the project prints no plan. */
+	cells: number | null;
+	/** The most they can cost, in dollars; null when there is no ceiling to show. */
 	usd: number | null;
-	/** The runner's output, for a refusal or anything the numbers leave out. */
+	/** Whether the plan turned the run down, its reason in `output`. */
+	refused: boolean;
+	/** The planner's output, for a refusal or anything the numbers leave out. */
 	output: string;
 }
 
-/** A scenario the harness registers, as `splates dev eval list` names it. */
+/** A case a project's `list` prints. */
 export interface EvalScenario {
 	id: string;
-	aspect: string;
-	requirement: string;
-	kind: string;
+	/** What the card heads the case with, as `group` in `batch.json`. */
+	group: string | null;
+	/** What the case checks, as `about` in `batch.json`. */
+	about: string | null;
 }
 
 const TAIL = 20;
 
-interface EvalLaunchesOptions {
-	ps: Ps;
-	/** The checkout's root, whose `bin/splates` runs the harness. */
-	checkout: string;
-	/** Where batches are written. */
-	directory: string;
-}
-
 /**
- * Starts, follows and stops the paid runs the Evals card asks for, and says
- * `finished` when one started from a conversation's card is done, for that
+ * Starts, follows and stops the paid runs the Evals card asks for, through
+ * the `list`, `plan` and `run` commands a project names, and says `finished`
+ * when one started from a conversation's card is done, for that
  * conversation to be told. A restart forgets which launch was whose, though
  * the batch it wrote stays on the Evals page.
  */
 export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<EvalLaunchesEvents>();
 	readonly events = this.dispatcher.events;
+	/** By project root and card key. */
 	private readonly launches = new Map<string, Launched>();
 
-	// Each run is the harness as a child (`splates dev eval run ...`);
-	// launches are held in memory.
-	constructor(private readonly opts: EvalLaunchesOptions) {}
+	// Each run is the project's `run` command as a child; launches are held in memory.
+	constructor(private readonly ps: Ps) {}
 
-	/** Every scenario the harness registers. */
-	async scenarios(): Promise<EvalScenario[]> {
-		const { stdout } = await this.opts.ps.spawnCapture(
-			[join(this.opts.checkout, "bin/splates"), "dev", "eval", "list"],
-			{ cwd: this.opts.checkout },
+	/** Every case the project's `list` prints. */
+	async scenarios(
+		commands: EvalCommands,
+		cwd: string | null = null,
+	): Promise<EvalScenario[]> {
+		if (commands.list === null) {
+			return [];
+		}
+		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+			["sh", "-c", commands.list],
+			{ cwd: cwd ?? commands.root },
 		);
-		return stdout
-			.split("\n")
-			.map((line) => line.split("\t"))
-			.filter((parts) => parts.length === 4)
-			.map(([id, aspect, requirement, kind]) => ({
-				id: id as string,
-				aspect: aspect as string,
-				requirement: requirement as string,
-				kind: kind as string,
-			}));
+		if (exitCode !== 0) {
+			fail(
+				"hook_failed",
+				tailOf(`${stdout}${stderr}`) || `evals.list exited ${exitCode}`,
+				{},
+			);
+		}
+		return stdout.split("\n").flatMap((line) => {
+			const each = parsed(line);
+			return each === null || typeof each.case !== "string" || each.case === ""
+				? []
+				: [
+						{
+							id: each.case,
+							group: typeof each.group === "string" ? each.group : null,
+							about: typeof each.about === "string" ? each.about : null,
+						},
+					];
+		});
 	}
 
-	/** Runs the free `plan` for `spec` and reads its runs and ceiling off the output. */
-	async plan(spec: Omit<EvalLaunchSpec, "key">): Promise<EvalPlan> {
-		const { exitCode, stdout, stderr } = await this.opts.ps.spawnCapture(
-			this.argv("plan", spec),
-			{ cwd: spec.evalCheckout ?? this.opts.checkout },
+	/** Runs the project's free `plan` for `spec`; without one, nothing is refused and no ceiling shown. */
+	async plan(
+		commands: EvalCommands,
+		spec: Omit<EvalLaunchSpec, "key">,
+	): Promise<EvalPlan> {
+		if (commands.plan === null) {
+			return { cells: null, usd: null, refused: false, output: "" };
+		}
+		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+			["sh", "-c", commands.plan],
+			{ cwd: spec.cwd ?? commands.root, env: envOf(commands, spec) },
 		);
-		const output = `${stdout}${stderr}`.trim();
-		const runs = /^runs (\d+)$/m.exec(output);
-		const usd = /^usd ([\d.]+)$/m.exec(output);
+		const said = stdout
+			.split("\n")
+			.map(parsed)
+			.findLast((each) => each !== null);
+		const number = (value: unknown): number | null =>
+			typeof value === "number" && Number.isFinite(value) ? value : null;
 		return {
-			cells: runs ? Number(runs[1]) : 0,
-			usd: exitCode === 0 && usd ? Number(usd[1]) : null,
-			output: tailOf(output),
+			cells: number(said?.cells),
+			usd: exitCode === 0 ? number(said?.usd) : null,
+			refused: exitCode !== 0,
+			output: tailOf(`${stdout}${stderr}`),
 		};
 	}
 
 	/** Starts `spec`, unless its card already has a run going. */
-	async start(spec: EvalLaunchSpec): Promise<EvalLaunch> {
-		const held = this.launches.get(spec.key);
+	async start(
+		commands: EvalCommands,
+		spec: EvalLaunchSpec,
+	): Promise<EvalLaunch> {
+		if (commands.run === null) {
+			fail(
+				"not_found",
+				"this project names no evals.run in splates.config.ts",
+				{},
+			);
+		}
+		const id = idOf(commands, spec.key);
+		const held = this.launches.get(id);
 		if (held !== undefined && held.status === "running") {
 			return this.read(held);
 		}
-		const known = new Set(await this.batches());
-		const child = this.opts.ps.start(this.argv("run", spec), {
-			cwd: spec.evalCheckout ?? this.opts.checkout,
+		const known = new Set(await batchesIn(commands.results));
+		const child = this.ps.start(["sh", "-c", commands.run], {
+			cwd: spec.cwd ?? commands.root,
+			env: envOf(commands, spec),
 		});
 		const launch: Launched = {
 			id: crypto.randomUUID(),
@@ -139,24 +185,25 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			batch: null,
 			output: "",
 			child,
+			results: commands.results,
 			known,
 			stopping: false,
 			conversation: spec.conversation ?? null,
 		};
-		this.launches.set(spec.key, launch);
+		this.launches.set(id, launch);
 		void this.watch(launch);
 		return this.read(launch);
 	}
 
 	/** The run of the card `key` names, or null when it has none here. */
-	async get(key: string): Promise<EvalLaunch | null> {
-		const launch = this.launches.get(key);
+	async get(commands: EvalCommands, key: string): Promise<EvalLaunch | null> {
+		const launch = this.launches.get(idOf(commands, key));
 		return launch === undefined ? null : this.read(launch);
 	}
 
 	/** Stops the run of the card `key` names; its landed cells stay on the Evals page. */
-	async stop(key: string): Promise<EvalLaunch | null> {
-		const launch = this.launches.get(key);
+	async stop(commands: EvalCommands, key: string): Promise<EvalLaunch | null> {
+		const launch = this.launches.get(idOf(commands, key));
 		if (launch === undefined) {
 			return null;
 		}
@@ -174,31 +221,6 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 				launch.child.kill();
 			}
 		}
-	}
-
-	private argv(
-		command: "plan" | "run",
-		spec: Omit<EvalLaunchSpec, "key">,
-	): string[] {
-		return [
-			join(spec.evalCheckout ?? this.opts.checkout, "bin/splates"),
-			"dev",
-			"eval",
-			command,
-			...spec.scenarios.flatMap((scenario) => ["--scenario", scenario]),
-			...spec.agents.flatMap((pick) => ["--agent", targetOf(pick)]),
-			...(spec.baseline === null ? [] : ["--baseline", spec.baseline]),
-			...(spec.reps === undefined ? [] : ["--reps", String(spec.reps)]),
-			...(spec.skillDir == null ? [] : ["--skill", spec.skillDir]),
-			"--directory",
-			this.opts.directory,
-		];
-	}
-
-	private async batches(): Promise<string[]> {
-		return (await readdir(this.opts.directory).catch(() => [])).filter((each) =>
-			each.startsWith("batch-"),
-		);
 	}
 
 	/** Collects the child's words and settles the launch when it exits. */
@@ -227,6 +249,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 		) {
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
+				results: launch.results,
 				conversation: launch.conversation,
 			});
 		}
@@ -235,12 +258,57 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	/** The launch, its batch found if the runner has made one since it started. */
 	private async read(launch: Launched): Promise<EvalLaunch> {
 		if (launch.batch === null) {
-			const made = (await this.batches()).filter(
+			const made = (await batchesIn(launch.results)).filter(
 				(each) => !launch.known.has(each),
 			);
 			launch.batch = made.sort().at(-1) ?? null;
 		}
 		return viewOf(launch);
+	}
+}
+
+/**
+ * What a project's `plan` and `run` are told, as the evals docs lay out: the
+ * cases and targets a line each, where to write, and the card's repetitions
+ * and baseline when it names them.
+ */
+function envOf(
+	commands: EvalCommands,
+	spec: Omit<EvalLaunchSpec, "key">,
+): Record<string, string> {
+	return {
+		SPLATES_EVALS_CASES: spec.scenarios.join("\n"),
+		SPLATES_EVALS_TARGETS: spec.agents.map(targetOf).join("\n"),
+		SPLATES_EVALS_RESULTS: commands.results,
+		...(spec.reps === undefined
+			? {}
+			: { SPLATES_EVALS_REPS: String(spec.reps) }),
+		...(spec.baseline === null
+			? {}
+			: { SPLATES_EVALS_BASELINE: spec.baseline }),
+	};
+}
+
+function idOf(commands: EvalCommands, key: string): string {
+	return `${commands.root}\n${key}`;
+}
+
+/** The batch directories `results` holds. */
+async function batchesIn(results: string): Promise<string[]> {
+	return (await readdir(results, { withFileTypes: true }).catch(() => []))
+		.filter((each) => each.isDirectory())
+		.map((each) => each.name);
+}
+
+/** The JSON object `line` holds, or null for anything else. */
+function parsed(line: string): Record<string, unknown> | null {
+	try {
+		const value: unknown = JSON.parse(line);
+		return typeof value === "object" && value !== null && !Array.isArray(value)
+			? (value as Record<string, unknown>)
+			: null;
+	} catch {
+		return null;
 	}
 }
 
@@ -257,6 +325,8 @@ function viewOf(launch: Launched): EvalLaunch {
 /** A run that finished with its batch written, for the conversation whose card started it. */
 export interface EvalFinished {
 	launch: EvalLaunch;
+	/** The directory the batch is in. */
+	results: string;
 	conversation: string;
 }
 
@@ -264,6 +334,7 @@ export type EvalLaunchesEvents = { finished: EvalFinished };
 
 interface Launched extends EvalLaunch {
 	child: Child;
+	results: string;
 	known: Set<string>;
 	stopping: boolean;
 	conversation: string | null;

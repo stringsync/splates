@@ -12,19 +12,16 @@ export type {
 export { CONTRACT_FORMAT, contractRunId, RESULTS_FILE } from "./contract";
 export { evalsDonePrompt } from "./done";
 export type {
+	EvalCommands,
 	EvalFinished,
 	EvalLaunch,
 	EvalPlan,
 	EvalScenario,
 } from "./launch";
 export { EvalLaunches } from "./launch";
-export type { ConversationDirs } from "./launch-routes";
+export type { ConversationDirs, EvalProjects } from "./launch-routes";
 export { EvalLaunchRoutes } from "./launch-routes";
-export {
-	EvalRoutes,
-	evalsDirectory,
-	projectEvalsDirectory,
-} from "./routes";
+export { EvalRoutes, projectEvalCommands } from "./routes";
 export { EvalStore } from "./store";
 export { targetName } from "./target";
 export type { EvalDetail, EvalGrid } from "./types";

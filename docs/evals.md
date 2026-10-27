@@ -17,6 +17,44 @@ Relative to the project's root, or absolute, or under `~`. Each batch is a
 directory in it holding a `batch.json`. A cell ends `pass`, `fail` or `error`,
 with an optional score from 0 to 1 and an optional reason.
 
+## Starting runs from the page
+
+With `list` and `run` beside `results`, an agent's `run evals` card starts
+your evals from the page, the person pressing Run:
+
+```ts
+evals: {
+	results: ".evals",
+	list: "bun evals/list.ts",
+	run: "bun evals/run.ts",
+	plan: "bun evals/plan.ts",
+}
+```
+
+Each is a shell command, run from the project's root, or from the task
+worktree of the conversation whose card asks.
+
+- `list` prints the cases a card can pick, one JSON object a line:
+  `{"case": "refunds/partial", "group": "refunds", "about": "Refunds part of an order"}`.
+  Only `case` is required; the card heads cases by `group`, then `about`.
+- `run` runs the cases on the targets it is told in the environment, and
+  writes one new batch directory under `SPLATES_EVALS_RESULTS` in the format
+  below. Exiting non-zero before writing one refuses the run, its output
+  shown on the card.
+  - `SPLATES_EVALS_CASES`: the case ids, one a line.
+  - `SPLATES_EVALS_TARGETS`: the targets, one a line, as
+    `agent[:model][@effort]`, such as `claude:claude-opus-5-5@high`.
+  - `SPLATES_EVALS_RESULTS`: the results directory, absolute.
+  - `SPLATES_EVALS_REPS`: runs of each cell, when the card names it.
+  - `SPLATES_EVALS_BASELINE`: the revision the change is judged against,
+    when the card names one.
+- `plan`, optional, is told the same and prints what the run comes to,
+  `{"cells": 12, "usd": 3.6}`, for the card to show at most what it costs;
+  exiting non-zero refuses the run, its output shown. Without it, the card
+  shows no ceiling.
+
+Without `run`, the page only shows results.
+
 ## The format
 
 `<results>/<batch>/batch.json`, written before any cell runs:

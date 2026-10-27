@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { Testing } from "../testing";
-import { EvalRoutes, projectEvalsDirectory } from "./routes";
+import { EvalRoutes, projectEvalCommands } from "./routes";
 
 const request = (path: string) => new Request(`http://localhost${path}`);
 
@@ -28,16 +28,29 @@ describe("EvalRoutes", () => {
 	it("reads the results directory against the project, or under home", async () => {
 		await using deps = await Testing.open();
 		const home = deps.ps.env("HOME") ?? "";
+		const results = (results: string) =>
+			projectEvalCommands(deps.ps, "/repo", { results })?.results;
 
-		expect(projectEvalsDirectory(deps.ps, "/repo", null)).toBeNull();
-		expect(projectEvalsDirectory(deps.ps, "/repo", { results: ".evals" })).toBe(
-			"/repo/.evals",
-		);
+		expect(projectEvalCommands(deps.ps, "/repo", null)).toBeNull();
+		expect(results(".evals")).toBe("/repo/.evals");
+		expect(results("/abs/evals")).toBe("/abs/evals");
+		expect(results("~/evals")).toBe(join(home, "evals"));
+	});
+
+	it("names no command a project leaves out", async () => {
+		await using deps = await Testing.open();
+
 		expect(
-			projectEvalsDirectory(deps.ps, "/repo", { results: "/abs/evals" }),
-		).toBe("/abs/evals");
-		expect(
-			projectEvalsDirectory(deps.ps, "/repo", { results: "~/evals" }),
-		).toBe(join(home, "evals"));
+			projectEvalCommands(deps.ps, "/repo", {
+				results: ".evals",
+				run: "make evals",
+			}),
+		).toEqual({
+			root: "/repo",
+			results: "/repo/.evals",
+			list: null,
+			run: "make evals",
+			plan: null,
+		});
 	});
 });

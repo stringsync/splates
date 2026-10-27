@@ -1,28 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Testing } from "../testing";
-import { type EvalFinished, EvalLaunches } from "./launch";
+import { type EvalCommands, type EvalFinished, EvalLaunches } from "./launch";
 
 describe("EvalLaunches", () => {
 	let deps: Testing;
 	let launches: EvalLaunches;
 	let finished: EvalFinished[];
+	let commands: EvalCommands;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		const checkout = join(deps.root, "checkout");
-		const directory = join(deps.root, "evals");
-		await mkdir(join(checkout, "bin"), { recursive: true });
-		await mkdir(directory, { recursive: true });
-		// Stands in for the runner: writes its batch where it is told, then exits.
-		const runner = join(checkout, "bin/splates");
-		await writeFile(
-			runner,
-			`#!/bin/sh\nmkdir -p "${directory}/batch-one"\necho done\n`,
-		);
-		await chmod(runner, 0o755);
-		launches = new EvalLaunches({ ps: deps.ps, checkout, directory });
+		const root = join(deps.root, "project");
+		const results = join(deps.root, "evals");
+		await mkdir(root, { recursive: true });
+		await mkdir(results, { recursive: true });
+		// Stands in for a framework: writes its batch where it is told, then exits.
+		commands = {
+			root,
+			results,
+			list: `printf '%s\\n' '{"case":"refunds/partial","group":"refunds","about":"Refunds part"}' 'not json' '{"case":"refunds/full"}'`,
+			run: `mkdir -p "$SPLATES_EVALS_RESULTS/nightly" && printf '%s|%s|%s|%s\\n' "$SPLATES_EVALS_CASES" "$SPLATES_EVALS_TARGETS" "$SPLATES_EVALS_REPS" "$PWD"`,
+			plan: null,
+		};
+		launches = new EvalLaunches(deps.ps);
 		finished = [];
 		launches.events.on("finished", (each) => finished.push(each));
 	});
@@ -34,59 +36,114 @@ describe("EvalLaunches", () => {
 
 	const spec = {
 		key: "card-1",
-		skill: "splates",
-		scenarios: ["resources/install"],
+		skill: "refunds",
+		scenarios: ["refunds/partial"],
 		agents: [{ agent: "claude" }],
 		baseline: null,
 	};
 
+	it("lists the cases the project's list prints, skipping lines that are not one", async () => {
+		expect(await launches.scenarios(commands)).toEqual([
+			{ id: "refunds/partial", group: "refunds", about: "Refunds part" },
+			{ id: "refunds/full", group: null, about: null },
+		]);
+	});
+
+	it("tells the run its cases, targets and repetitions, and finds the batch it writes", async () => {
+		await launches.start(commands, {
+			...spec,
+			scenarios: ["a", "b"],
+			agents: [{ agent: "claude", model: "opus", effort: "high" }],
+			reps: 2,
+		});
+		await done(launches, commands);
+
+		const launch = await launches.get(commands, "card-1");
+		expect(launch?.batch).toBe("nightly");
+		expect(launch?.output).toContain(
+			`a\nb|claude:opus@high|2|${commands.root}`,
+		);
+	});
+
 	it("tells the conversation whose card started a run once it is done", async () => {
-		await launches.start({ ...spec, conversation: "c-1" });
-		await done(launches);
+		await launches.start(commands, { ...spec, conversation: "c-1" });
+		await done(launches, commands);
 
 		expect(finished).toHaveLength(1);
 		expect(finished[0]?.conversation).toBe("c-1");
-		expect(finished[0]?.launch.batch).toBe("batch-one");
+		expect(finished[0]?.results).toBe(commands.results);
+		expect(finished[0]?.launch.batch).toBe("nightly");
 	});
 
 	it("tells no one of a run started from no conversation", async () => {
-		await launches.start(spec);
-		await done(launches);
+		await launches.start(commands, spec);
+		await done(launches, commands);
 
 		expect(finished).toEqual([]);
 	});
 
-	it("runs the evals of the task worktree it is given, writing batches where the page reads", async () => {
-		const worktree = await taskWorktree(deps.root);
-		await launches.start({ ...spec, evalCheckout: worktree });
-		await done(launches);
+	it("runs in the task worktree it is given, writing batches where the page reads", async () => {
+		const worktree = join(deps.root, "task-worktree");
+		await mkdir(worktree, { recursive: true });
 
-		const launch = await launches.get("card-1");
-		expect(launch?.batch).toBe("batch-wt");
-		expect(launch?.output).toContain("worktree");
+		await launches.start(commands, { ...spec, cwd: worktree });
+		await done(launches, commands);
+
+		const launch = await launches.get(commands, "card-1");
+		expect(launch?.batch).toBe("nightly");
+		expect(launch?.output).toContain(worktree);
+	});
+
+	it("calls a run that fails before writing a batch refused", async () => {
+		await launches.start({ ...commands, run: "echo no key >&2; exit 1" }, spec);
+		await done(launches, commands);
+
+		const launch = await launches.get(commands, "card-1");
+		expect(launch?.status).toBe("refused");
+		expect(launch?.output).toBe("no key");
+	});
+
+	it("shows no ceiling for a project that prints no plan, and refuses nothing", async () => {
+		expect(await launches.plan(commands, spec)).toEqual({
+			cells: null,
+			usd: null,
+			refused: false,
+			output: "",
+		});
+	});
+
+	it("reads the ceiling off the project's plan, or its refusal", async () => {
+		const planned = await launches.plan(
+			{
+				...commands,
+				plan: `echo "planning $SPLATES_EVALS_CASES"; echo '{"cells": 3, "usd": 1.5}'`,
+			},
+			spec,
+		);
+		const refused = await launches.plan(
+			{ ...commands, plan: "echo over budget; exit 2" },
+			spec,
+		);
+
+		expect(planned).toMatchObject({ cells: 3, usd: 1.5, refused: false });
+		expect(refused).toMatchObject({
+			usd: null,
+			refused: true,
+			output: "over budget",
+		});
 	});
 });
 
 /** Waits for card-1's run to end. */
-async function done(launches: EvalLaunches): Promise<void> {
+async function done(
+	launches: EvalLaunches,
+	commands: EvalCommands,
+): Promise<void> {
 	for (let tries = 0; tries < 200; tries++) {
-		if ((await launches.get("card-1"))?.status !== "running") {
+		if ((await launches.get(commands, "card-1"))?.status !== "running") {
 			return;
 		}
 		await Bun.sleep(10);
 	}
 	throw new Error("the run never ended");
-}
-
-/** A task worktree whose runner writes a batch and prints where it ran. */
-async function taskWorktree(root: string): Promise<string> {
-	const worktree = join(root, "task-worktree");
-	await mkdir(join(worktree, "bin"), { recursive: true });
-	const runner = join(worktree, "bin/splates");
-	await writeFile(
-		runner,
-		`#!/bin/sh\nmkdir -p "${join(root, "evals")}/batch-wt"\npwd\n`,
-	);
-	await chmod(runner, 0o755);
-	return worktree;
 }

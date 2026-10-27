@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EvalLaunches, EvalLaunchSpec } from "./launch";
+import type { EvalCommands, EvalLaunches, EvalLaunchSpec } from "./launch";
 import { EvalLaunchRoutes } from "./launch-routes";
 
 const launch = (sent: Record<string, unknown>) =>
@@ -11,76 +11,83 @@ const launch = (sent: Record<string, unknown>) =>
 		body: JSON.stringify(sent),
 	});
 
+const COMMANDS: EvalCommands = {
+	root: "/repo",
+	results: "/repo/.evals",
+	list: "list",
+	run: "run",
+	plan: null,
+};
+
 describe("EvalLaunchRoutes", () => {
 	let started: EvalLaunchSpec[];
 	let launches: EvalLaunches;
+	let commands: EvalCommands | null;
 	let routes: EvalLaunchRoutes;
 	let cwds: Map<string, string>;
 
 	beforeEach(() => {
 		cwds = new Map();
 		started = [];
+		commands = COMMANDS;
 		launches = {
-			async start(spec: EvalLaunchSpec) {
+			async start(_: EvalCommands, spec: EvalLaunchSpec) {
 				started.push(spec);
 				return spec;
 			},
 		} as unknown as EvalLaunches;
-		routes = new EvalLaunchRoutes(launches, {
-			cwdOf: async (id) => cwds.get(id) ?? null,
-		});
+		routes = new EvalLaunchRoutes(
+			launches,
+			{ commandsOf: async () => commands },
+			{
+				cwdOf: async (id) => cwds.get(id) ?? null,
+			},
+		);
 	});
 
+	const ask = {
+		skill: "splates",
+		scenarios: ["resources/install"],
+		agents: [{ agent: "claude" }],
+		key: "card-1",
+	};
+
 	it("starts the run its card names from the one body the Run button sends", async () => {
-		const sent = {
-			skill: "splates",
-			scenarios: ["resources/install"],
-			agents: [{ agent: "claude" }],
-			baseline: "fd9f3785",
-			key: "card-1",
-		};
+		const sent = { ...ask, baseline: "fd9f3785" };
 
 		const response = await routes.start(launch(sent));
 
 		expect(response.status).toBe(200);
-		expect(started).toEqual([
-			{ ...sent, conversation: null, skillDir: null, evalCheckout: null },
-		]);
+		expect(started).toEqual([{ ...sent, conversation: null, cwd: null }]);
 	});
 
-	it("passes on the conversation whose card it is, to tell it when the run is done", async () => {
-		await routes.start(
-			launch({
-				skill: "splates",
-				scenarios: ["resources/install"],
-				agents: [{ agent: "claude" }],
-				key: "card-1",
-				conversation: "c-1",
-			}),
-		);
-
-		expect(started[0]?.conversation).toBe("c-1");
-	});
-
-	it("runs the skill the conversation works on, when its directory has one", async () => {
+	it("runs where the conversation works, when that directory is there", async () => {
 		const cwd = await mkdtemp(join(tmpdir(), "eval-routes-test-"));
-		await mkdir(join(cwd, "skills/splates"), { recursive: true });
-		await writeFile(join(cwd, "skills/splates/SKILL.md"), "# splates\n");
 		cwds.set("c-1", cwd);
-		const ask = {
-			skill: "splates",
-			scenarios: ["resources/install"],
-			agents: [{ agent: "claude" }],
-			key: "card-1",
-		};
+		cwds.set("c-gone", join(cwd, "gone"));
 
 		await routes.start(launch({ ...ask, conversation: "c-1" }));
+		await routes.start(launch({ ...ask, conversation: "c-gone" }));
 		await routes.start(launch({ ...ask, conversation: "c-2" }));
 		await rm(cwd, { recursive: true, force: true });
 
-		expect(started.map((each) => each.skillDir)).toEqual([
-			join(cwd, "skills/splates"),
-			null,
+		expect(started.map((each) => [each.conversation, each.cwd])).toEqual([
+			["c-1", cwd],
+			["c-gone", null],
+			["c-2", null],
 		]);
+	});
+
+	it("refuses a run for a project that names no run command", async () => {
+		commands = { ...COMMANDS, run: null };
+
+		await expect(routes.start(launch(ask))).rejects.toThrow("evals.run");
+		expect(started).toEqual([]);
+	});
+
+	it("refuses a run for a project that names no evals", async () => {
+		commands = null;
+
+		await expect(routes.start(launch(ask))).rejects.toThrow("names no evals");
 	});
 });

@@ -1,3 +1,4 @@
+import type { EvalPlan } from "@stringsync/splates-server/evals/browser";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
 import { useReactive } from "@webappwiz/react";
@@ -103,7 +104,7 @@ export function EvalsCard({
 				turnedDown
 					? "Evals rejected"
 					: launch === null
-						? `Run evals on the ${run.ask.skill} skill`
+						? `Run ${run.ask.skill} evals`
 						: state.running
 							? "Running evals"
 							: launch.status === "refused"
@@ -122,14 +123,16 @@ export function EvalsCard({
 						className="mx-4 mb-3 flex flex-col gap-2 text-sm"
 					>
 						{state.groups.map((group) => (
-							<div key={group.aspect}>
-								<div className="font-medium">{group.aspect}</div>
-								{group.requirements.map((each) => (
+							<div key={group.group}>
+								{group.group !== "" && (
+									<div className="font-medium">{group.group}</div>
+								)}
+								{group.abouts.map((each) => (
 									<div
-										key={each.requirement}
+										key={each.about}
 										className="ml-3 text-muted-foreground text-xs"
 									>
-										{each.requirement}:{" "}
+										{each.about !== "" && `${each.about}: `}
 										{each.scenarios.map((id) => (
 											<code key={id} className="mr-1.5">
 												{id}
@@ -226,9 +229,7 @@ export function EvalsCard({
 			)}
 			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
-					{state.plan.usd === null
-						? state.plan.output
-						: `At most $${state.plan.usd.toFixed(2)} across ${state.plan.cells} ${state.plan.cells === 1 ? "run" : "runs"}.`}
+					{planText(state.plan)}
 				</p>
 			)}
 			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
@@ -252,7 +253,7 @@ export function EvalsCard({
 							!state.loaded ||
 							state.unknown.length > 0 ||
 							state.plan === null ||
-							state.plan.usd === null
+							state.plan.refused
 						}
 						onClick={() => turn(start)}
 					>
@@ -275,4 +276,21 @@ export function EvalsCard({
 			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
 	);
+}
+
+/** What the plan says of the run: its ceiling, its refusal, or that the project prints none. */
+function planText(plan: EvalPlan): string {
+	if (plan.refused) {
+		return plan.output;
+	}
+	if (plan.usd === null) {
+		return plan.output !== ""
+			? plan.output
+			: "This project prints no plan, so the run shows no cost ceiling.";
+	}
+	const runs =
+		plan.cells === null
+			? ""
+			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
+	return `At most $${plan.usd.toFixed(2)}${runs}.`;
 }

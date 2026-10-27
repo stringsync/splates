@@ -27,7 +27,7 @@ import { refusalOf } from "./refusal";
 /** What a run card reads and writes on the server. */
 export interface EvalRunServer {
 	savedAgents(): Promise<AgentPick[]>;
-	scenarios(): Promise<EvalScenario[]>;
+	scenarios(conversation: string | null): Promise<EvalScenario[]>;
 	plan(run: EvalRunAsk): Promise<EvalPlan>;
 	start(key: string, run: EvalRunAsk): Promise<EvalLaunch>;
 	launch(key: string): Promise<EvalLaunch | null>;
@@ -58,17 +58,17 @@ export type EvalRunEvents = { changed: undefined };
 /** How often a run in flight is read again. */
 const FOLLOW = Duration.secs(2);
 
-/** One scenario's place on the card: its aspect, requirement and id. */
+/** The card's cases under a heading, by what each checks; either may be empty. */
 export interface ScenarioGroup {
-	aspect: string;
-	requirements: { requirement: string; scenarios: string[] }[];
+	group: string;
+	abouts: { about: string; scenarios: string[] }[];
 }
 
 /**
  * The run an agent's `run evals` card asks for, for the person to start: the
- * scenarios it picked grouped by aspect and requirement, the saved agents
- * (each of which can be left out for this run), and the free plan's
- * reservation. Starting is the person's, through `run`; once it runs the
+ * cases it picked grouped as the project's `evals.list` heads them, the
+ * saved agents (each of which can be left out for this run), and the free
+ * plan's reservation when the project prints one. Starting is the person's, through `run`; once it runs the
  * card follows the batch the runner writes: cells landed of those planned,
  * the tally and the cost so far. Reads and writes nothing until `load`.
  */
@@ -132,7 +132,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		try {
 			const [saved, scenarios, launch] = await Promise.all([
 				this.server.savedAgents(),
-				this.server.scenarios(),
+				this.server.scenarios(this.conversation),
 				this.server.launch(this.key),
 			]);
 			this.agents = saved.map((pick) => ({ pick, on: true }));
@@ -191,10 +191,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				await this.replan();
 				return;
 			}
-			this.launch = await this.server.start(this.key, {
-				...this.request(),
-				conversation: this.conversation,
-			});
+			this.launch = await this.server.start(this.key, this.request());
 			this.refusal = null;
 		} catch (error) {
 			this.refusal = refusalOf("Not started", error);
@@ -227,6 +224,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			agents: this.picked,
 			baseline: this.ask.baseline,
 			...(this.ask.reps === undefined ? {} : { reps: this.ask.reps }),
+			conversation: this.conversation,
 		};
 	}
 
@@ -285,19 +283,19 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 function groupsOf(scenarios: EvalScenario[]): ScenarioGroup[] {
 	const groups: ScenarioGroup[] = [];
 	for (const scenario of scenarios) {
-		let group = groups.find((each) => each.aspect === scenario.aspect);
+		const name = scenario.group ?? "";
+		let group = groups.find((each) => each.group === name);
 		if (group === undefined) {
-			group = { aspect: scenario.aspect, requirements: [] };
+			group = { group: name, abouts: [] };
 			groups.push(group);
 		}
-		let requirement = group.requirements.find(
-			(each) => each.requirement === scenario.requirement,
-		);
-		if (requirement === undefined) {
-			requirement = { requirement: scenario.requirement, scenarios: [] };
-			group.requirements.push(requirement);
+		const about = scenario.about ?? "";
+		let each = group.abouts.find((one) => one.about === about);
+		if (each === undefined) {
+			each = { about, scenarios: [] };
+			group.abouts.push(each);
 		}
-		requirement.scenarios.push(scenario.id);
+		each.scenarios.push(scenario.id);
 	}
 	return groups;
 }

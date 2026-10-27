@@ -1,99 +1,139 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body, type Handler } from "../server/shared";
 import { NATIVE_AGENTS } from "./agents";
-import type { EvalLaunches } from "./launch";
+import type { EvalCommands, EvalLaunches, EvalLaunchSpec } from "./launch";
 
-/** The skill whose scenarios exist today; another's slot in beside it. */
-const SKILLS = ["splates"];
-
-/** Where a conversation works, for a run its card starts to use the skill there. */
+/** Where a conversation works, for a run its card starts to use the code there. */
 export interface ConversationDirs {
 	/** The directory conversation `id` works in; null when it is not known. */
 	cwdOf(id: string): Promise<string | null>;
 }
 
-/** How the Evals card plans, starts, follows and stops a paid run. */
+/** Which eval commands a request's project names. */
+export interface EvalProjects {
+	/** The eval commands of the project `request` names; null when it names no `evals`. */
+	commandsOf(request: Request): Promise<EvalCommands | null>;
+}
+
+/**
+ * How the Evals card lists, plans, starts, follows and stops a paid run,
+ * through the commands the project of the request names.
+ */
 export class EvalLaunchRoutes {
 	constructor(
-		private readonly launches: EvalLaunches | null,
+		private readonly launches: EvalLaunches,
+		private readonly projects: EvalProjects,
 		private readonly dirs: ConversationDirs = { cwdOf: async () => null },
 	) {}
 
-	/** Every registered scenario, for the card to group by aspect and requirement. */
-	readonly scenarios: Handler = async () =>
-		Response.json(await this.ready().scenarios());
+	/** Every case the project lists, for the card to group; `?conversation=` lists its worktree's. */
+	readonly scenarios: Handler = async (request) => {
+		const commands = await this.commands(request);
+		if (commands.list === null) {
+			fail(
+				"not_found",
+				"this project names no evals.list in splates.config.ts",
+				{},
+			);
+		}
+		const conversation = new URL(request.url).searchParams.get("conversation");
+		return Response.json(
+			await this.launches.scenarios(commands, await this.cwdOf(conversation)),
+		);
+	};
 
-	/** The free plan for the body's scenarios and agents: what the run would reserve. */
-	readonly plan: Handler = async (request) =>
-		Response.json(await this.ready().plan(this.spec(await body(request))));
+	/** The free plan for the body's cases and agents: what the run would reserve. */
+	readonly plan: Handler = async (request) => {
+		const commands = await this.runnable(request);
+		const sent = await body(request);
+		return Response.json(
+			await this.launches.plan(commands, {
+				...this.spec(sent),
+				cwd: await this.cwdOf(this.conversation(sent)),
+			}),
+		);
+	};
 
 	/** Starts the run; only the person's Run button sends this. */
 	readonly start: Handler = async (request) => {
+		const commands = await this.runnable(request);
 		// A request's body reads once, so the spec and its key share one read.
 		const sent = await body(request);
 		const spec = this.spec(sent);
-		const { key, conversation } = sent;
+		const { key } = sent;
 		if (typeof key !== "string" || key === "") {
 			fail("usage", "a run names its card by `key`", {});
 		}
-		if (conversation != null && typeof conversation !== "string") {
-			fail("usage", "a run's conversation is its id", {});
-		}
-		const cwd =
-			typeof conversation === "string"
-				? await this.dirs.cwdOf(conversation)
-				: null;
-		const skillDir = cwd === null ? null : join(cwd, "skills", "splates");
-		// The task worktree's own harness, when the conversation has one.
-		const evalCheckout =
-			cwd !== null && existsSync(join(cwd, "bin/splates")) ? cwd : null;
+		const conversation = this.conversation(sent);
 		return Response.json(
-			await this.ready().start({
+			await this.launches.start(commands, {
 				...spec,
-				evalCheckout,
 				key,
-				conversation: conversation ?? null,
-				// The conversation's skill, as its task edits it, when it has one.
-				skillDir:
-					skillDir !== null && existsSync(join(skillDir, "SKILL.md"))
-						? skillDir
-						: null,
+				conversation,
+				// The conversation's task worktree, so a run checks the change it makes.
+				cwd: await this.cwdOf(conversation),
 			}),
 		);
 	};
 
 	/** `?key=` names the card; null when it has no run here. */
 	readonly read: Handler = async (request) =>
-		Response.json(await this.ready().get(this.key(request)));
+		Response.json(
+			await this.launches.get(await this.commands(request), this.key(request)),
+		);
 
 	/** Stops the run `?key=` names. */
 	readonly stop: Handler = async (request) =>
-		Response.json(await this.ready().stop(this.key(request)));
+		Response.json(
+			await this.launches.stop(await this.commands(request), this.key(request)),
+		);
 
-	private ready(): EvalLaunches {
-		if (this.launches === null) {
-			fail("not_found", "evals run from a splates checkout", {});
+	private async commands(request: Request): Promise<EvalCommands> {
+		const commands = await this.projects.commandsOf(request);
+		if (commands === null) {
+			fail("not_found", "this project names no evals in splates.config.ts", {});
 		}
-		return this.launches;
+		return commands;
+	}
+
+	private async runnable(request: Request): Promise<EvalCommands> {
+		const commands = await this.commands(request);
+		if (commands.run === null) {
+			fail(
+				"not_found",
+				"this project names no evals.run in splates.config.ts",
+				{},
+			);
+		}
+		return commands;
+	}
+
+	/** Where conversation `id` works, when it still exists; null for none. */
+	private async cwdOf(id: string | null): Promise<string | null> {
+		const cwd = id === null || id === "" ? null : await this.dirs.cwdOf(id);
+		return cwd !== null && existsSync(cwd) ? cwd : null;
+	}
+
+	private conversation(sent: Record<string, unknown>): string | null {
+		const { conversation } = sent;
+		if (conversation != null && typeof conversation !== "string") {
+			fail("usage", "a run's conversation is its id", {});
+		}
+		return conversation ?? null;
 	}
 
 	private key(request: Request): string {
 		return new URL(request.url).searchParams.get("key") ?? "";
 	}
 
-	private spec(sent: Record<string, unknown>): {
-		skill: string;
-		scenarios: string[];
-		agents: AgentPick[];
-		baseline: string | null;
-		reps?: number;
-	} {
+	private spec(
+		sent: Record<string, unknown>,
+	): Omit<EvalLaunchSpec, "key" | "conversation" | "cwd"> {
 		const { skill, scenarios, agents, baseline, reps } = sent;
-		if (typeof skill !== "string" || !SKILLS.includes(skill)) {
-			fail("usage", `no scenarios for skill ${String(skill)}`, {});
+		if (typeof skill !== "string" || skill === "") {
+			fail("usage", "a run names the skill or suite of its card", {});
 		}
 		if (
 			!Array.isArray(scenarios) ||
@@ -105,7 +145,7 @@ export class EvalLaunchRoutes {
 		if (!Array.isArray(agents) || agents.length === 0) {
 			fail("usage", "pick at least one agent to run on", {});
 		}
-		for (const pick of agents) {
+		for (const pick of agents as AgentPick[]) {
 			if (
 				typeof pick?.agent !== "string" ||
 				!NATIVE_AGENTS.includes(pick.agent)

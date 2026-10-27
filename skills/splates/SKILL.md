@@ -148,13 +148,16 @@ user's Allow sends `[SPLATES RUN ALLOWED]`, and only then do you run it.
 Takes about two minutes.
 ```
 
-Evals cost the user tokens, so only they start them. To ask for a run
-(splates repository only, where `splates dev eval list` names the scenarios),
-end your reply with the run card: the scenarios you picked, one `` - `id` ``
-item each, and optionally the revision the skill's change is judged against and how many
-times to run each cell (`Repetitions: <n>`, to tell a change from noise).
-The page shows it with the saved eval agents and what the run costs at most,
-and its Run button is the user's; never run `splates dev eval run` yourself.
+Evals cost the user tokens, so only they start them. To ask for a run (in
+a project whose `splates.config.ts` names `evals.list` and `evals.run`, as
+splates's own does, its list naming the scenarios), end your reply with the
+run card, the word after `run evals` naming the skill or suite: the
+scenarios you picked, one `` - `id` `` item each, and optionally the
+revision the change is judged against and how many times to run each cell
+(`Repetitions: <n>`, to tell a change from noise). The page shows it with
+the saved eval agents and, when the project prints a plan, what the run
+costs at most; it runs in your worktree, and its Run button is the user's:
+never run the eval command yourself.
 
 ```markdown
 ## 🔐 Permission: run evals splates: the resource scenarios
@@ -173,7 +176,8 @@ project's `splates.config.ts` names `evals: { results: "<dir>" }` and a
 reporter writes a `batch.json` and `results.jsonl` there in the
 `splates-evals/1` format, documented in `docs/evals.md` of the splates
 repository (https://github.com/stringsync/splates), with an example reporter.
-When asked, write that reporter for the project's framework.
+When asked, write that reporter for the project's framework, and the
+`list` and `run` commands the docs lay out, for run cards to start it.
 
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
 and the report condensed: each scenario's pass rate on each agent, and for

@@ -153,10 +153,30 @@ export interface Config {
 	evals: EvalsConfig | null;
 }
 
-/** Where a project's evals report to splates. */
+/**
+ * Where a project's evals report to splates, and the commands that start
+ * them from the page's run card (`docs/evals.md`).
+ */
 export interface EvalsConfig {
 	/** The directory holding one directory per batch. */
 	results: string;
+	/**
+	 * Prints the cases a run card can pick, one JSON object a line, as
+	 * `{"case": "refunds/partial", "group": "refunds", "about": "..."}`.
+	 */
+	list?: string;
+	/**
+	 * Runs the cases in `SPLATES_EVALS_CASES` on the targets in
+	 * `SPLATES_EVALS_TARGETS` into a new batch directory under
+	 * `SPLATES_EVALS_RESULTS`. Without it the page only shows results.
+	 */
+	run?: string;
+	/**
+	 * Told what `run` is, prints what the run comes to as
+	 * `{"cells": 12, "usd": 3.6}`, so the card shows a ceiling; exits non-zero
+	 * to refuse the run. Without it the card shows no cost.
+	 */
+	plan?: string;
 }
 
 /**

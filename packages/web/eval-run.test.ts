@@ -29,7 +29,7 @@ describe("EvalRun", () => {
 
 		await run.load();
 
-		expect(run.groups.map((each) => each.aspect)).toEqual([
+		expect(run.groups.map((each) => each.group)).toEqual([
 			"decisions",
 			"lifecycle",
 		]);
@@ -107,20 +107,18 @@ class FakeEvalServer implements EvalRunServer {
 		return [
 			{
 				id: "decisions/local-choice",
-				aspect: "decisions",
-				requirement: "r1",
-				kind: "agent",
+				group: "decisions",
+				about: "r1",
 			},
 			{
 				id: "lifecycle/merge",
-				aspect: "lifecycle",
-				requirement: "r2",
-				kind: "agent",
+				group: "lifecycle",
+				about: "r2",
 			},
 		];
 	}
 	async plan() {
-		return { cells: 4, usd: 8, output: "" };
+		return { cells: 4, usd: 8, refused: false, output: "" };
 	}
 	async start(key: string, run: unknown) {
 		this.started.push(run);

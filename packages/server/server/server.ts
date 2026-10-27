@@ -1,6 +1,5 @@
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 
-import { dirname } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
@@ -13,8 +12,7 @@ import {
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
-	evalsDirectory,
-	projectEvalsDirectory,
+	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
@@ -56,7 +54,7 @@ import {
 	type Served,
 	serveProject,
 } from "./project";
-import { RUNNING, sourceCommit } from "./release";
+import { RUNNING } from "./release";
 import { Replicas } from "./replicas";
 import { Restarts } from "./restart";
 import { Serving } from "./serving";
@@ -363,67 +361,57 @@ export async function dev(
 	const picker = new Picker(deps);
 
 	const ended = new DevOutcomes(deps);
-	const evalsCheckout =
-		(await sourceCommit(ps)) === null
-			? null
-			: dirname(dirname(dirname(import.meta.dirname)));
 	const configFiles = new ConfigFiles(fs);
-	const evals = new EvalRoutes({
-		// Read at each request, so a project that adds `evals` to its
-		// config shows its Evals page without a restart.
-		directory: async (request) => {
-			const project = await projectFor(request);
-			return projectEvalsDirectory(
-				ps,
-				project.root,
-				(await configFiles.read(project.root)).evals ?? null,
-			);
-		},
-	});
-	const evalLaunches =
-		evalsCheckout === null
-			? null
-			: new EvalLaunches({
-					ps,
-					checkout: evalsCheckout,
-					directory: evalsDirectory(ps),
-				});
-	if (evalLaunches !== null) {
-		disposer.defer(async () => evalLaunches.dispose());
-		// The agent whose card started a run hears it is done, with its report,
-		// to take the person through what to do next.
-		const unwatch = evalLaunches.events.on(
-			"finished",
-			({ launch, conversation }) => {
-				void (async () => {
-					const text = await evals.donePrompt(
-						evalsDirectory(ps),
-						launch.batch ?? "",
-					);
-					let owner = await holding(conversation);
-					if (owner === null) {
-						await everywhere.openAll();
-						owner = await holding(conversation);
-					}
-					if (text === null || owner?.conversations == null) {
-						return;
-					}
-					const told = await owner.conversations.find(conversation);
-					await told.prompt(text, [], undefined, { told: SERVER_TOLD });
-				})().catch((error: unknown) => log.error(String(error)));
-			},
+	// Read at each request, so a project that adds `evals` to its config
+	// shows its Evals page, and runs them, without a restart.
+	const evalCommandsOf = async (request: Request) => {
+		const project = await projectFor(request);
+		return projectEvalCommands(
+			ps,
+			project.root,
+			(await configFiles.read(project.root)).evals ?? null,
 		);
-		disposer.defer(async () => unwatch());
-	}
-	const evalLaunchRoutes = new EvalLaunchRoutes(evalLaunches, {
-		cwdOf: async (id) => {
-			const owner = await holding(id);
-			const conversation = await owner?.conversations
-				?.find(id)
-				.catch(() => null);
-			return conversation?.cwd ?? null;
-		},
+	};
+	const evals = new EvalRoutes({
+		directory: async (request) =>
+			(await evalCommandsOf(request))?.results ?? null,
 	});
+	const evalLaunches = new EvalLaunches(ps);
+	disposer.defer(async () => evalLaunches.dispose());
+	// The agent whose card started a run hears it is done, with its report,
+	// to take the person through what to do next.
+	const unwatch = evalLaunches.events.on(
+		"finished",
+		({ launch, results, conversation }) => {
+			void (async () => {
+				const text = await evals.donePrompt(results, launch.batch ?? "");
+				let owner = await holding(conversation);
+				if (owner === null) {
+					await everywhere.openAll();
+					owner = await holding(conversation);
+				}
+				if (text === null || owner?.conversations == null) {
+					return;
+				}
+				const told = await owner.conversations.find(conversation);
+				await told.prompt(text, [], undefined, { told: SERVER_TOLD });
+			})().catch((error: unknown) => log.error(String(error)));
+		},
+	);
+	disposer.defer(async () => unwatch());
+	const evalLaunchRoutes = new EvalLaunchRoutes(
+		evalLaunches,
+		{ commandsOf: evalCommandsOf },
+		{
+			cwdOf: async (id) => {
+				const owner = await holding(id);
+				const conversation = await owner?.conversations
+					?.find(id)
+					.catch(() => null);
+				return conversation?.cwd ?? null;
+			},
+		},
+	);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({

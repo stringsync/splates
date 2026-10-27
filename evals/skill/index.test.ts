@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import type { EvalDetail } from "@stringsync/splates-server/evals";
-import { pickOf, runId, shown, summary } from "./index";
+import { pickOf, runId, shown, summary, toldBy } from "./index";
 
 it("reads agent, model and thinking level", () => {
 	expect(pickOf("claude:sonnet@high")).toEqual({
@@ -94,4 +94,21 @@ it("shows each step of a run", () => {
 	);
 	expect(text).toContain("Held back: claimed: ran `splates claim sample`");
 	expect(text).toContain('  > Read {"file_path":"value.txt"}\n    < one');
+});
+
+it("reads the selection the Evals card tells evals.run, a line each", () => {
+	expect(
+		toldBy({
+			SPLATES_EVALS_CASES: "resources/install\nresources/whole-suite\n",
+			SPLATES_EVALS_TARGETS: "claude:opus@high\ncodex",
+			SPLATES_EVALS_REPS: "3",
+			SPLATES_EVALS_RESULTS: "/tmp/evals",
+		}),
+	).toEqual({
+		scenario: ["resources/install", "resources/whole-suite"],
+		agent: ["claude:opus@high", "codex"],
+		reps: "3",
+		directory: "/tmp/evals",
+	});
+	expect(toldBy({})).toEqual({ scenario: [], agent: [] });
 });

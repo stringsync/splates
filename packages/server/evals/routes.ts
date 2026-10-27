@@ -1,11 +1,11 @@
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { resolve, sep } from "node:path";
 import type { Ps } from "webappwiz/system";
 import type { EvalsConfig } from "../config";
 import { fail } from "../exit";
-import { splatesHome } from "../models";
 import type { Handler } from "../server/shared";
 import { evalsDonePrompt } from "./done";
+import type { EvalCommands } from "./launch";
 import { EvalStore } from "./store";
 
 /**
@@ -96,27 +96,29 @@ export class EvalRoutes {
 }
 
 /**
- * Where a project's evals report: its `evals.results`, against `root` unless
- * absolute or under `~`, or null for a project that names none.
+ * A project's eval commands from its `evals` block, `results` resolved
+ * against `root` unless absolute or under `~`; null for a project that
+ * names none.
  */
-export function projectEvalsDirectory(
+export function projectEvalCommands(
 	ps: Ps,
 	root: string,
 	evals: EvalsConfig | null,
-): string | null {
+): EvalCommands | null {
 	if (evals === null) {
 		return null;
 	}
 	const { results } = evals;
-	if (results === "~" || results.startsWith("~/")) {
-		return resolve(ps.env("HOME") ?? homedir(), results.slice(2));
-	}
-	return resolve(root, results);
-}
-
-/** Where `splates dev eval run` writes its batches, in splates's home. */
-export function evalsDirectory(ps: Ps): string {
-	return join(splatesHome(ps), "evals");
+	return {
+		root,
+		results:
+			results === "~" || results.startsWith("~/")
+				? resolve(ps.env("HOME") ?? homedir(), results.slice(2))
+				: resolve(root, results),
+		list: evals.list ?? null,
+		run: evals.run ?? null,
+		plan: evals.plan ?? null,
+	};
 }
 
 interface EvalOptions {

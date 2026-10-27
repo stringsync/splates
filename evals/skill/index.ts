@@ -14,8 +14,10 @@ import { SCENARIOS } from "./scenarios";
 
 const HELP = `splates dev eval: run the splates skill's eval scenarios on real agents.
 
-  list                       every scenario: id, aspect, requirement, kind
-  plan  [selection]          how many runs a selection comes to, and at most what it costs
+  list [--json]              every scenario: id, aspect, requirement, kind; as the
+                             evals.list contract's JSON lines with --json
+  plan  [selection] [--json] how many runs a selection comes to, and at most what it
+                             costs; as the evals.plan contract's JSON with --json
   run   [selection]          runs it into a new batch-* directory (costs tokens)
   report <batch>             each scenario's pass rate, why runs failed, and errors apart
   show <batch> <run>         one run: its message, checks, judge, every step and the reply;
@@ -31,6 +33,10 @@ Selection:
   --skill <dir>              the skill to run, this checkout's skills/splates by default
   --directory <dir>          where batches go, ~/.splates/evals by default
   --parallel <n>             runs at once, 2 by default
+
+Run from the Evals card, as splates.config.ts's evals.run, the selection is
+read from SPLATES_EVALS_CASES, SPLATES_EVALS_TARGETS, SPLATES_EVALS_REPS,
+SPLATES_EVALS_BASELINE and SPLATES_EVALS_RESULTS when its flags are absent.
 
 Each run is graded by its code checks and, where it has one, a judge.`;
 
@@ -56,7 +62,32 @@ export function pickOf(text: string): AgentPick {
 	};
 }
 
+/**
+ * The selection the Evals card tells `evals.run` and `evals.plan` in the
+ * env, standing in for each flag left out.
+ */
+export function toldBy(env: Record<string, string | undefined>): {
+	scenario: string[];
+	agent: string[];
+	reps?: string;
+	baseline?: string;
+	directory?: string;
+} {
+	const lines = (value: string | undefined) =>
+		(value ?? "").split("\n").filter((each) => each !== "");
+	const { SPLATES_EVALS_REPS, SPLATES_EVALS_BASELINE, SPLATES_EVALS_RESULTS } =
+		env;
+	return {
+		scenario: lines(env.SPLATES_EVALS_CASES),
+		agent: lines(env.SPLATES_EVALS_TARGETS),
+		...(SPLATES_EVALS_REPS ? { reps: SPLATES_EVALS_REPS } : {}),
+		...(SPLATES_EVALS_BASELINE ? { baseline: SPLATES_EVALS_BASELINE } : {}),
+		...(SPLATES_EVALS_RESULTS ? { directory: SPLATES_EVALS_RESULTS } : {}),
+	};
+}
+
 async function main(argv: string[]): Promise<number> {
+	const told = toldBy(process.env);
 	const { values, positionals } = parseArgs({
 		args: argv,
 		allowPositionals: true,
@@ -64,10 +95,14 @@ async function main(argv: string[]): Promise<number> {
 			scenario: { type: "string", multiple: true, default: [] },
 			agent: { type: "string", multiple: true, default: [] },
 			baseline: { type: "string" },
-			reps: { type: "string", default: "1" },
+			reps: { type: "string", default: told.reps ?? "1" },
 			skill: { type: "string", default: DEFAULT_SKILL },
-			directory: { type: "string", default: DEFAULT_DIRECTORY },
+			directory: {
+				type: "string",
+				default: told.directory ?? DEFAULT_DIRECTORY,
+			},
 			parallel: { type: "string", default: "2" },
+			json: { type: "boolean", default: false },
 			help: { type: "boolean", default: false },
 		},
 	});
@@ -78,7 +113,15 @@ async function main(argv: string[]): Promise<number> {
 	}
 	if (command === "list") {
 		for (const each of SCENARIOS) {
-			console.log([each.id, each.aspect, each.requirement, "agent"].join("\t"));
+			console.log(
+				values.json
+					? JSON.stringify({
+							case: each.id,
+							group: each.aspect,
+							about: each.requirement,
+						})
+					: [each.id, each.aspect, each.requirement, "agent"].join("\t"),
+			);
 		}
 		return 0;
 	}
@@ -112,7 +155,9 @@ async function main(argv: string[]): Promise<number> {
 		console.error(`no eval command ${command}\n\n${HELP}`);
 		return 2;
 	}
-	const unknown = values.scenario.filter(
+	const picked = values.scenario.length === 0 ? told.scenario : values.scenario;
+	const baseline = values.baseline ?? told.baseline;
+	const unknown = picked.filter(
 		(id) => !SCENARIOS.some((each) => each.id === id),
 	);
 	if (unknown.length > 0) {
@@ -120,23 +165,22 @@ async function main(argv: string[]): Promise<number> {
 		return 2;
 	}
 	const scenarios =
-		values.scenario.length === 0
+		picked.length === 0
 			? SCENARIOS
-			: SCENARIOS.filter((each) => values.scenario.includes(each.id));
-	const agents = (values.agent.length === 0 ? ["claude"] : values.agent).map(
-		pickOf,
-	);
+			: SCENARIOS.filter((each) => picked.includes(each.id));
+	const targets = values.agent.length === 0 ? told.agent : values.agent;
+	const agents = (targets.length === 0 ? ["claude"] : targets).map(pickOf);
 	const reps = Math.max(1, Number(values.reps) || 1);
 	const skills: { dir: string; used: SkillUsed }[] = [
 		{ dir: values.skill, used: { label: "current", revision: null } },
 	];
 	const extracted: string[] = [];
-	if (values.baseline !== undefined) {
-		const dir = await skillAt(values.skill, values.baseline);
+	if (baseline !== undefined) {
+		const dir = await skillAt(values.skill, baseline);
 		extracted.push(dir);
 		skills.push({
 			dir,
-			used: { label: values.baseline, revision: values.baseline },
+			used: { label: baseline, revision: baseline },
 		});
 	}
 	const cells: Cell[] = scenarios.flatMap((scenario) =>
@@ -152,8 +196,13 @@ async function main(argv: string[]): Promise<number> {
 		),
 	);
 	if (command === "plan") {
-		console.log(`runs ${cells.length}`);
-		console.log(`usd ${(cells.length * RUN_USD).toFixed(2)}`);
+		const usd = Number((cells.length * RUN_USD).toFixed(2));
+		if (values.json) {
+			console.log(JSON.stringify({ cells: cells.length, usd }));
+		} else {
+			console.log(`runs ${cells.length}`);
+			console.log(`usd ${usd.toFixed(2)}`);
+		}
 		await Promise.all(extracted.map((dir) => rm(dir, { recursive: true })));
 		return 0;
 	}
