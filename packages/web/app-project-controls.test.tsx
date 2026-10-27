@@ -68,22 +68,14 @@ describe("Project controls in conversation lists", () => {
 		).toBeNull();
 	});
 
-	it("offers adding a project in the inbox", async () => {
+	it("leaves adding a project out of the inbox", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
 		await shopIn(list);
-		await act(async () =>
-			fireEvent.click(
-				within(list).getByRole("button", { name: "Add a project" }),
-			),
-		);
-		const add = view.getByRole("dialog", { name: "Add a project" });
 		expect(
-			within(add).getByRole("textbox", { name: "project path" }),
-		).toBeTruthy();
-		await act(async () => fireEvent.keyDown(add, { key: "Escape" }));
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+			within(list).queryByRole("button", { name: "Add a project" }),
+		).toBeNull();
 	});
 
 	it("lists every project in the sidebar by name, those with no conversations too", async () => {
@@ -260,7 +252,7 @@ describe("Project controls in conversation lists", () => {
 			within(list).queryByText("No conversations yet. Start one below."),
 		).toBeNull();
 		expect(
-			within(list).getByRole("button", { name: "Add a project" }),
-		).toBeTruthy();
+			within(list).queryByRole("button", { name: "Add a project" }),
+		).toBeNull();
 	});
 });

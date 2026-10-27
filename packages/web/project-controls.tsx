@@ -1,6 +1,4 @@
-import { FolderPlusIcon } from "lucide-react";
-import { type JSX, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import type { JSX } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -14,20 +12,6 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddProject } from "./add-project";
-
-/** Adds a registered project from either conversation list. */
-export function AddProjectButton(): JSX.Element {
-	const [open, setOpen] = useState(false);
-	return (
-		<>
-			<Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-				<FolderPlusIcon data-icon="inline-start" />
-				Add a project
-			</Button>
-			<AddProjectDialog open={open} onOpenChange={setOpen} />
-		</>
-	);
-}
 
 /** The dialog that adds a registered project, wherever it is opened from. */
 export function AddProjectDialog({

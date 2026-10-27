@@ -46,7 +46,6 @@ import type { Nested } from "./parts";
 import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { clearUndo, useUndoOffer } from "./phone-undo";
-import { AddProjectButton } from "./project-controls";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -335,9 +334,6 @@ export function Inbox({
 							/>
 						</Placing>
 					)}
-					<div className="mx-4 mt-4 self-start">
-						<AddProjectButton />
-					</div>
 					{wide && available && (
 						<button
 							type="button"
