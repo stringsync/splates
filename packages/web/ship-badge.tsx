@@ -15,6 +15,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
+import { sendJson } from "./api";
 import { BackgroundOutput } from "./background-output";
 import { Output } from "./background-pane";
 import { useNow } from "./hooks/use-now";
@@ -53,7 +54,8 @@ export function ShipBadge({
 				className="w-[28rem] max-w-[90vw] gap-2 p-3"
 			>
 				<p className="font-medium text-sm">{headingOf(ship)}</p>
-				{ship.waiting !== null && (
+				{ship.waiting?.kind === "otp" && <OtpForm key={ship.waiting.since} />}
+				{ship.waiting !== null && ship.waiting.url !== null && (
 					<div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-sm">
 						<span className="min-w-0 flex-1">
 							{ship.waiting.kind === "login"
@@ -80,6 +82,53 @@ export function ShipBadge({
 				{open && <ShipOutput key={ship.started} project={snapshot.project} />}
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+/** A field for the one-time password npm asks for; the code is sent, not kept. */
+function OtpForm(): JSX.Element {
+	const [code, setCode] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const submit = async () => {
+		setError(null);
+		try {
+			await sendJson("/api/ship/otp", "POST", { code });
+			setCode("");
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		}
+	};
+	return (
+		<form
+			className="flex flex-col gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-sm"
+			onSubmit={(event) => {
+				event.preventDefault();
+				void submit();
+			}}
+		>
+			<span>npm asks for your one-time password.</span>
+			<div className="flex items-center gap-2">
+				<input
+					value={code}
+					onChange={(event) => setCode(event.target.value)}
+					inputMode="numeric"
+					autoComplete="one-time-code"
+					placeholder="123456"
+					aria-label="One-time password"
+					className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1"
+				/>
+				<button
+					type="submit"
+					disabled={code.trim() === ""}
+					className={buttonVariants({ size: "sm" })}
+				>
+					Send
+				</button>
+			</div>
+			{error !== null && (
+				<span className="text-destructive text-xs">{error}</span>
+			)}
+		</form>
 	);
 }
 
@@ -122,7 +171,12 @@ function pillOf(ship: Ship): {
 } {
 	if (ship.waiting !== null) {
 		return {
-			label: ship.waiting.kind === "login" ? "Sign in to npm" : "npm 2FA",
+			label:
+				ship.waiting.kind === "login"
+					? "Sign in to npm"
+					: ship.waiting.kind === "otp"
+						? "npm code"
+						: "npm 2FA",
 			icon: <KeyRoundIcon />,
 			tone: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
 		};

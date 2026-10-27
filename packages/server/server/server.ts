@@ -681,6 +681,9 @@ export async function dev(
 						// far as a conversation reaches.
 						POST: talk(scoped((project) => project.startShip)),
 					},
+					"/api/ship/otp": {
+						POST: talk(scoped((project) => project.answerShipOtp)),
+					},
 					"/api/ship/output": scoped((project) => project.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),

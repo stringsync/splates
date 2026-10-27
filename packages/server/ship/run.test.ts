@@ -82,6 +82,26 @@ describe("Shipping", () => {
 		expect(await typed).toBe("y\n");
 	});
 
+	it("types npm's one-time password into the ship once the page sends it", async () => {
+		await shipping.start();
+		const ship = await nth(ps, 0);
+		const typed = readAll(ship.received);
+		await expect(shipping.answerOtp("123456")).rejects.toBeInstanceOf(Exit);
+		ship.print("This operation requires a one-time password.\nEnter OTP: ");
+		await until(async () => (await shipping.current())?.waiting !== null);
+
+		expect((await shipping.current())?.waiting).toMatchObject({
+			kind: "otp",
+			url: null,
+		});
+
+		await shipping.answerOtp("123456");
+		expect((await shipping.current())?.waiting).toBeNull();
+		ship.exit(0);
+		await shipping.settled();
+		expect(await typed).toBe("123456\n");
+	});
+
 	it("keeps the end of the output as why a ship failed", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);

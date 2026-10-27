@@ -15,12 +15,12 @@ export type ShipStatus = "running" | "done" | "failed";
 
 /**
  * What npm waits on the person for: signing in, as `npm login --auth-type=web`
- * asks, or a publish's second factor.
+ * asks, a publish's second factor, or a one-time password typed at its prompt.
  */
 export interface ShipWait {
-	kind: "login" | "2fa";
-	/** npm's page, which the person opens from any device. */
-	url: string;
+	kind: "login" | "2fa" | "otp";
+	/** npm's page, which the person opens from any device; null for a typed code. */
+	url: string | null;
 	/** When npm began waiting, as ISO time. */
 	since: string;
 }
@@ -81,6 +81,8 @@ const AROUND_LINK =
 	/^(?:press enter|authenticate your account|login at|log in at)/i;
 /** webappwiz's release asking before it publishes. */
 const RELEASE_PROMPT = /\(y\/n\)\s*$/;
+/** npm's prompt for a typed one-time password, which ends without a newline. */
+const OTP_PROMPT = /one-time password.*:\s*$|enter otp:\s*$/i;
 
 /**
  * Runs a project's ship on the server's machine, under the person's own npm
@@ -94,6 +96,7 @@ export class Shipping implements Resource {
 	private readonly record: Document<Ship>;
 	private readonly clock: WallClock;
 	private child: Child | null = null;
+	private stdin: WritableStreamDefaultWriter<Uint8Array> | null = null;
 	private going: Promise<void> | null = null;
 	private disposed = false;
 
@@ -115,6 +118,21 @@ export class Shipping implements Resource {
 	/** Whether a ship runs here now. */
 	get running(): boolean {
 		return this.going !== null;
+	}
+
+	/**
+	 * Types `code` at npm's one-time password prompt, refused when npm asks for
+	 * none. The code goes to the child's stdin and is kept nowhere.
+	 */
+	async answerOtp(code: string): Promise<void> {
+		const ship = await this.record.read();
+		if (this.stdin === null || ship?.waiting?.kind !== "otp") {
+			fail("conflict", "npm is not asking for a one-time password", {
+				root: this.opts.root,
+			});
+		}
+		await this.update({ waiting: null });
+		await this.stdin.write(new TextEncoder().encode(`${code}\n`));
 	}
 
 	/** Starts a ship, refused while one runs or when the project names no `ship`. */
@@ -230,8 +248,10 @@ export class Shipping implements Resource {
 	private async watch(child: Child, step: Ship["step"]): Promise<number> {
 		this.child = child;
 		const stdin = child.stdin.getWriter();
+		this.stdin = stdin;
 		let pending = "";
 		let asked = false;
+		let otp = false;
 		const heard = async (text: string) => {
 			await this.opts.fs.append(this.output, text).catch(() => {});
 			pending += text.replace(ANSI, "");
@@ -245,6 +265,14 @@ export class Shipping implements Resource {
 				await stdin.write(new TextEncoder().encode("y\n")).catch(() => {});
 			} else if (!RELEASE_PROMPT.test(pending)) {
 				asked = false;
+			}
+			if (OTP_PROMPT.test(pending) && !otp) {
+				otp = true;
+				await this.update({
+					waiting: { kind: "otp", url: null, since: this.stamp() },
+				});
+			} else if (!OTP_PROMPT.test(pending)) {
+				otp = false;
 			}
 		};
 		// One reader at a time, so lines go in the order they came.
@@ -261,6 +289,7 @@ export class Shipping implements Resource {
 		if (pending.trim() !== "") {
 			await this.line(pending.trim(), step);
 		}
+		this.stdin = null;
 		await stdin.close().catch(() => {});
 		return child.exited;
 	}

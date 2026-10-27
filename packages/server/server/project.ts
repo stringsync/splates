@@ -428,6 +428,8 @@ export interface Served extends AsyncResource {
 	ship: Handler;
 	/** Starts a ship of the project. */
 	startShip: Handler;
+	/** Types npm's one-time password into the ship. */
+	answerShipOtp: Handler;
 	/** What its latest ship printed, as it prints. */
 	shipOutput: Handler;
 	listCreds: Handler;
