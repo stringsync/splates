@@ -147,6 +147,7 @@ export function DeferredBody({
 												>
 													<input
 														aria-label="answer"
+														placeholder="Your answer"
 														value={answers[i] ?? ""}
 														onChange={(event) =>
 															setAnswers({
@@ -160,6 +161,7 @@ export function DeferredBody({
 														type="submit"
 														size="sm"
 														variant="outline"
+														disabled={(answers[i] ?? "").trim() === ""}
 														className="pointer-coarse:h-10"
 													>
 														Answer and queue
@@ -169,7 +171,7 @@ export function DeferredBody({
 										</>
 									)}
 									{blocker.kind === "outside" && (
-										<div className="flex flex-wrap items-center gap-2">
+										<div className="flex flex-wrap items-start gap-2">
 											<span className={cn(done && "text-muted-foreground")}>
 												{blocker.what}
 											</span>
@@ -202,10 +204,12 @@ export function DeferredBody({
 				/>
 			</p>
 			{waiting(task) ? (
-				<p className="flex justify-end gap-3 text-muted-foreground text-xs">
-					<button
+				<p className="flex justify-end gap-2 text-xs">
+					<Button
 						type="button"
-						className="underline-offset-2 hover:underline pointer-coarse:min-h-10"
+						size="sm"
+						variant="outline"
+						className="pointer-coarse:h-10"
 						onClick={() =>
 							void act("resume", async () => {
 								await linkTodo(task.id, [], []);
@@ -214,14 +218,16 @@ export function DeferredBody({
 						}
 					>
 						Resume anyway
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className="underline-offset-2 hover:underline pointer-coarse:min-h-10"
+						size="sm"
+						variant="outline"
+						className="pointer-coarse:h-10"
 						onClick={() => void act("drop", () => removeTodo(task.id))}
 					>
 						Drop
-					</button>
+					</Button>
 				</p>
 			) : null}
 			<Refusal refusal={refusal} />
@@ -456,7 +462,7 @@ function TaskBlocker({
 			>
 				<span className="tabular-nums">#{blocker.id}</span> {blocker.subject}
 			</button>
-			<span className="text-muted-foreground text-xs">
+			<span className="whitespace-nowrap text-muted-foreground text-xs">
 				· {TASK_STATUS[status] ?? status}
 			</span>
 			{!done && (open || status === "queued") && (
