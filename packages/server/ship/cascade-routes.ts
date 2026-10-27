@@ -84,6 +84,10 @@ export class CascadeRoutes {
 	readonly retryInCascade = async (request: Request): Promise<Response> =>
 		Response.json(await this.#cascades.retry(await this.#slugOf(request)));
 
+	/** Hands the failed, stopped or hung project `?project=` names to an agent. */
+	readonly fixInCascade = async (request: Request): Promise<Response> =>
+		Response.json(await this.#cascades.fix(await this.#slugOf(request)));
+
 	/** Ends the cascade under way, as {@link Cascades.abandon} does. */
 	readonly abandonCascade = async (): Promise<Response> =>
 		Response.json(await this.#cascades.abandon());

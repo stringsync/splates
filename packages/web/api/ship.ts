@@ -109,3 +109,8 @@ export async function shipStageLog(
 export async function retryInCascade(project: string): Promise<void> {
 	await send(`/api/ship/cascade/retry?${new URLSearchParams({ project })}`, {});
 }
+
+/** Hands the failed, stopped or hung `project` of the ship cascade under way to an agent, which fixes it in a task of its own project. */
+export async function fixInCascade(project: string): Promise<void> {
+	await send(`/api/ship/cascade/fix?${new URLSearchParams({ project })}`, {});
+}

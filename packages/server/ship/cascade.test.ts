@@ -290,6 +290,52 @@ describe("Cascades", () => {
 		expect(project("mdom").bumps.added).toHaveLength(2);
 	});
 
+	it("hands a failed project to an agent, then ships it again once the fix merges", async () => {
+		await cascades.start("webappwiz");
+		project("webappwiz").end("failed");
+		await cascades.tick();
+
+		const handed = await cascades.fix("webappwiz");
+
+		expect(handed.steps[0]).toMatchObject({ status: "failed", fix: 201 });
+		expect(project("webappwiz").bumps.fixes[0]?.text).toContain("wiz dev ship");
+		expect(project("webappwiz").starts).toBe(1);
+		const twice = await cascades.fix("webappwiz").catch((error) => error);
+		expect((twice as Exit).reason).toBe("conflict");
+
+		project("webappwiz").bumps.states.set(201, "merged");
+		await cascades.tick();
+
+		expect(project("webappwiz").starts).toBe(2);
+		expect((await cascades.current())?.steps[0]).toMatchObject({
+			status: "shipping",
+			fix: null,
+		});
+	});
+
+	it("leaves a project failed, unlinked, once its fix task is removed", async () => {
+		await cascades.start("webappwiz");
+		project("webappwiz").end("failed");
+		await cascades.tick();
+		await cascades.fix("webappwiz");
+
+		project("webappwiz").bumps.states.set(201, "removed");
+		await cascades.tick();
+
+		expect((await cascades.current())?.steps[0]).toMatchObject({
+			status: "failed",
+			fix: null,
+		});
+		expect(project("webappwiz").starts).toBe(1);
+	});
+
+	it("refuses to fix a project that neither failed, stopped nor hung", async () => {
+		await cascades.start("webappwiz");
+
+		const refused = await cascades.fix("webappwiz").catch((error) => error);
+		expect((refused as Exit).reason).toBe("conflict");
+	});
+
 	it("refuses to retry a project that neither failed nor stopped", async () => {
 		await cascades.start("webappwiz");
 

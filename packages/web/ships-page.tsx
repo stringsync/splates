@@ -18,24 +18,25 @@ import { Button } from "#web/components/ui/button.tsx";
 import {
 	abandonCascade,
 	dropFromCascade,
+	fixInCascade,
 	retryInCascade,
 	reviseCascadeBump,
 	shipHistory,
 	shipHistoryEntry,
 } from "./api";
 import { cn } from "./lib/utils";
-import { LiveStream } from "./live-stream";
 import { askMachineNow } from "./machine";
 import { todoAddress } from "./page-address";
 import { useProjectList } from "./project-list";
 import { Refusal, useRefusals } from "./refusal";
-import { needsYou } from "./ship-activity";
+import { hungIn, needsYou } from "./ship-activity";
 import { ShipApproval } from "./ship-approval";
 import { ShipWaiting } from "./ship-badge";
 import { ShipBumpSelector } from "./ship-bump-selector";
 import { ShipDialog, versionOf } from "./ship-dialog";
 import { StageRow } from "./ship-stages";
 import { TopBar } from "./top-bar";
+import { type Live, useLiveShips } from "./use-live-ships";
 
 /** The statuses a project can be dropped from the run in, as the server allows. */
 const _DROPPABLE: CascadeStatus[] = [
@@ -53,9 +54,6 @@ const RETRIABLE: CascadeStatus[] = ["stopped", "failed"];
 const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
 
 const AMBER = "text-amber-600 dark:text-amber-400";
-
-/** The cascade under way, or the last to end, with the ship publishing now. */
-type Live = { cascade: Cascade | null; ship: Ship | null };
 
 /**
  * Every ship on this machine, across all its projects: what needs the
@@ -130,18 +128,6 @@ export function ShipsPage(): JSX.Element {
 	);
 }
 
-/** The cascade as the server streams it, null until it first speaks. */
-function useLiveShips(): Live | null {
-	const [live, setLive] = useState<Live | null>(null);
-	useEffect(() => {
-		const stream = new LiveStream("/api/ship/events", {
-			message: (event) => setLive(JSON.parse(event.data) as Live),
-		});
-		return () => stream.dispose();
-	}, []);
-	return live;
-}
-
 /** What waits on the person, pinned above the timeline; nothing when nothing does. */
 function NeedsYou({
 	cascade,
@@ -154,21 +140,28 @@ function NeedsYou({
 	const [abandoning, setAbandoning] = useState(false);
 	const asking = cascade.steps.filter((step) => step.status === "asking");
 	const held = cascade.steps.filter(
-		(step) => step.status === "stopped" || step.status === "failed",
+		(step) =>
+			step.status === "stopped" ||
+			step.status === "failed" ||
+			hungIn(step) !== null,
 	);
 	const act = (
 		slug: string,
-		how: "drop" | "retry",
+		how: "drop" | "retry" | "fix",
 		step: CascadeStep,
 	): void => {
-		(how === "drop" ? dropFromCascade : retryInCascade)(slug).then(
-			askMachineNow,
-			(error: unknown) =>
-				refuse(
-					slug,
-					`${step.slug} not ${how === "drop" ? "dropped" : "resumed"}`,
-					error,
-				),
+		const run = {
+			drop: dropFromCascade,
+			retry: retryInCascade,
+			fix: fixInCascade,
+		};
+		const done = {
+			drop: "dropped",
+			retry: "resumed",
+			fix: "handed to an agent",
+		};
+		run[how](slug).then(askMachineNow, (error: unknown) =>
+			refuse(slug, `${step.slug} not ${done[how]}`, error),
 		);
 	};
 	const abandon = () => {
@@ -206,10 +199,31 @@ function NeedsYou({
 					<p className="flex items-center gap-2 text-sm">
 						<CircleAlertIcon className="size-4 text-destructive" />
 						<span>
-							{step.slug} {step.status}
+							{hungIn(step) !== null
+								? `${step.slug} hung at ${hungIn(step)?.name}`
+								: `${step.slug} ${step.status}`}
 							{step.note !== null && `: ${step.note}`}
 						</span>
+						{step.fix !== null && (
+							<a
+								href={`?${new URLSearchParams({ project: step.slug })}${todoAddress(step.fix)}`}
+								title="The task an agent fixes it in; it runs again by itself once that merges"
+								className="text-xs underline-offset-2 hover:underline"
+							>
+								fix #{step.fix}
+							</a>
+						)}
 						<span className="ml-auto flex gap-1">
+							{step.fix === null && (
+								<Button
+									size="xs"
+									variant="ghost"
+									title="Starts an agent in its project with the step, its command and the end of its output; it runs again by itself once that merges"
+									onClick={() => act(step.slug, "fix", step)}
+								>
+									Fix with an agent
+								</Button>
+							)}
 							{RETRIABLE.includes(step.status) && (
 								<Button
 									size="xs"

@@ -89,6 +89,9 @@ describe("ShipsPage", () => {
 		expect(within(needs).getByRole("button", { name: "Resume" })).toBeTruthy();
 		expect(within(needs).getByRole("button", { name: "Drop" })).toBeTruthy();
 		expect(
+			within(needs).getByRole("button", { name: "Fix with an agent" }),
+		).toBeTruthy();
+		expect(
 			within(needs).getByRole("link", { name: "Open" }).getAttribute("href"),
 		).toBe("https://www.npmjs.com/auth/cli/abc");
 	});
@@ -125,6 +128,7 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 		ship: null,
 		published: [],
 		note: null,
+		fix: null,
 		stages: [],
 		...over,
 	};

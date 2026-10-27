@@ -25,6 +25,7 @@ import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
 import { ShipApproval } from "./ship-approval";
 import { ShipDialog } from "./ship-dialog";
+import { ShipLine } from "./ship-line";
 import { SplatesEvent } from "./splates-event";
 
 /**
@@ -170,6 +171,7 @@ export function RunCommandCard({
 					<code>{proposal.command}</code>
 				</pre>
 				{proposal.body !== "" && <CardBody text={proposal.body} />}
+				{choice === RUN_ALLOWED && ship !== null && <ShipLine />}
 				{choice === null && retry === null && (
 					<MachineStats
 						reading={live?.reading ?? null}

@@ -55,6 +55,25 @@ export class Bumps {
 	}
 
 	/**
+	 * Adds and queues a task to fix a ship step that failed or hung, for the
+	 * ship of `from`: the person asked for it, so an agent starts it.
+	 */
+	async addFix(
+		{ from, project }: { from: string; project: string },
+		{ title, text }: { title: string; text: string },
+	): Promise<number> {
+		const task = await this.deps.tasks.add(title, null, {
+			text,
+			origin: { project, task: null },
+			ready: true,
+		});
+		const queued = await this.deps.tasks.revise(task.id, (state) =>
+			enqueued(state, { by: "ship", project: from }),
+		);
+		return queued.id;
+	}
+
+	/**
 	 * Where bump task `id` stands: on the board, open or asking the person;
 	 * off it, merged or removed, as its finished record says.
 	 */

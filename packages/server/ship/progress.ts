@@ -44,6 +44,7 @@ export async function planned(
 				ship: null,
 				published: [],
 				note: null,
+				fix: null,
 				stages: await Promise.all(
 					[
 						...(step.takes.length === 0 ? [] : BUMP_STAGES),
@@ -196,6 +197,7 @@ export function upgraded(cascade: Cascade): Cascade {
 		steps: cascade.steps.map((step) => ({
 			...step,
 			stages: step.stages ?? [],
+			fix: step.fix ?? null,
 		})),
 	};
 }

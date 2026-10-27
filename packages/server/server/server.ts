@@ -786,6 +786,10 @@ export async function dev(
 					"/api/ship/cascade/retry": {
 						POST: talk(guarded(cascadeRoutes.retryInCascade)),
 					},
+					// It adds a queued task, so only as far as a conversation reaches.
+					"/api/ship/cascade/fix": {
+						POST: talk(guarded(cascadeRoutes.fixInCascade)),
+					},
 					// It stops a publish and removes tasks, so only as far as a
 					// conversation reaches.
 					"/api/ship/cascade/abandon": {

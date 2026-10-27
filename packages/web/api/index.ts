@@ -71,6 +71,7 @@ export {
 export {
 	abandonCascade,
 	dropFromCascade,
+	fixInCascade,
 	retryInCascade,
 	reviseCascadeBump,
 	shipHistory,
