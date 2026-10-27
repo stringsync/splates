@@ -13,7 +13,11 @@ const address = location.href;
 
 afterEach(() => {
 	cleanup();
-	history.replaceState(null, "", address);
+	// setURL, not replaceState: a test may have moved the page to another origin,
+	// which replaceState refuses to cross back from about:blank.
+	(
+		window as unknown as { happyDOM: { setURL(url: string): void } }
+	).happyDOM.setURL(address);
 	localStorage.clear();
 	sessionStorage.clear();
 });
