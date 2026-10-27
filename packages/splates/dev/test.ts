@@ -19,8 +19,8 @@ import { type ScopeCount, TestScope } from "./test-scope";
 import { TestTimings } from "./timings";
 
 /**
- * How long a test run may take. Tests should not hang this long, even under
- * load.
+ * The longest a test run may take before it is stopped. Tests should not
+ * hang this long, even under load.
  */
 // At its fewest workers, a quarter of 16 cores, with load near 40, the suite
 // took 111s, its time spread over hundreds of files rather than a few slow
@@ -150,6 +150,7 @@ export async function test(opts: TestOptions): Promise<void> {
 			? ["--test-name-pattern", opts.testNamePattern]
 			: []),
 		...args,
+		...(opts.skip ?? []).map((file) => `--path-ignore-patterns=${file}`),
 		...timings,
 		...(report
 			? ["--reporter=junit", `--reporter-outfile=${report}.${at}`]
@@ -201,7 +202,7 @@ export async function test(opts: TestOptions): Promise<void> {
 		}
 		const { phase, args, half } = run;
 		const ordered = (await timings
-			?.forRun(half, measures ? scratch.path : undefined)
+			?.forRun(half, measures ? scratch.path : undefined, opts.skip)
 			.catch(() => null)) ?? { args: [], kept: async () => {} };
 		const command = bunTest(args, at, workers, ordered.args);
 		const captured = opts.quiet || split !== null;
@@ -335,7 +336,7 @@ const TESTS_PHASE = "tests";
 // page's half still ran 1.4 to 1.7 times as long as the server's (62s to 37s
 // at 9 workers), about twice the server's worker-seconds, so the page takes
 // a little under two thirds.
-/** The part of the cores the page's half takes beside the server's. */
+/** The share of the cores the page's half runs on, side by side with the server's. */
 export const PAGE_SHARE = 0.65;
 
 /**
@@ -370,6 +371,8 @@ export interface TestOptions {
 	ci?: boolean;
 	/** Run only the test files whose path has one of these, as `bun test` filters. */
 	files?: string[];
+	/** Test files to leave out, as a gate's whole run does those its recent pass already ran. */
+	skip?: string[];
 	/**
 	 * Test files each run takes at once, the runs one after the other; when
 	 * left out, half the cores or the gate's, split between the runs side by
@@ -527,9 +530,9 @@ async function scratchDir(): Promise<{ path: string } & AsyncDisposable> {
 const CLOSING = "</testsuites>";
 
 /**
- * The runs' JUnit reports as one: the first one's root around every run's
- * suites. Empty when a run left none or one cut short, which the merge gate
- * takes as no report rather than as a run whose tests all passed.
+ * Joins the runs' JUnit reports into one report, for the merge gate's
+ * attribution. Returns an empty string when a run left none or one cut short,
+ * which the gate takes as no report rather than as all tests passed.
  */
 export function joinedReports(reports: string[]): string {
 	const xmls = reports.map((xml) => xml.trim());

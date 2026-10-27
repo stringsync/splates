@@ -30,13 +30,9 @@ export interface PremergeOptions {
 }
 
 /**
- * What the merge gate runs: `dev fix`'s checks without writing fixes, failing
- * fast, then the tests as `dev test --ci` runs them. A failed check is named
- * apart from failed tests, for the gate's attribution. Run by hand, it waits
- * for the project's premerge lock, so the whole suite runs one at a time;
- * inside a gate, which holds it already, it runs at once. An agent runs it
- * by hand only once the person approves, as the whole suite. Its tests are
- * stopped once it has run `PREMERGE_TIMEOUT_MS`, as the gate kills it then.
+ * Runs what the merge gate runs: `dev fix`'s checks without writing fixes,
+ * then the tests as `dev test --ci` runs them. Run by hand, it waits for the
+ * project's premerge lock; an agent runs it only once the person approves.
  */
 export async function premerge(opts: PremergeOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
@@ -133,10 +129,11 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		});
 	}
 	// Files that failed recent gates run first, and stop the gate when they
-	// fail again; nothing is skipped, as the whole suite follows.
+	// fail again; every test still runs once.
 	const recent = await existing(
 		(ps.env(RECENT_FAILED_FILES) ?? "").split("\n").filter(Boolean),
 	);
+	// Passed, they ran in this gate already, so the whole run leaves them out.
 	if (recent.length) {
 		await phases.time("recent", () =>
 			test({
@@ -161,6 +158,7 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		log,
 		priority,
 		phases,
+		skip: recent,
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),

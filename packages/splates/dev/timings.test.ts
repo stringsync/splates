@@ -56,4 +56,21 @@ describe("TestTimings", () => {
 		await run.kept(true);
 		expect(await fs.exists(timings.path("server"))).toBe(false);
 	});
+
+	it("keeps the old entries of the files a passing run left out", async () => {
+		const fs = new FakeFs();
+		const timings = new TestTimings(fs, "/repo/.git");
+		const old = JSON.stringify({
+			version: 1,
+			files: { "a.test.ts": 900, "b.test.ts": 700 },
+		});
+		await fs.write(timings.path("page"), old);
+		const run = await timings.forRun("page", "/scratch", ["b.test.ts"]);
+		await fs.write("/scratch/timings-page.json", MEASURED);
+		await run.kept(true);
+		expect(JSON.parse(await fs.read(timings.path("page")))).toEqual({
+			version: 1,
+			files: { "a.test.ts": 400, "b.test.ts": 700 },
+		});
+	});
 });

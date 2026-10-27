@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { joinedReports, sideBySide } from "./test";
+import { FakePs } from "webappwiz/system/testing";
+import { joinedReports, sideBySide, test } from "./test";
 
 const report = (suite: string) =>
 	`<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="1">\n  <testsuite name="${suite}"></testsuite>\n</testsuites>\n`;
@@ -35,5 +36,21 @@ describe("dev test", () => {
 	it("runs a lone run, or one on a single core, alone", () => {
 		expect(sideBySide(["server"], 8)).toBeNull();
 		expect(sideBySide(["server", "page"], 1)).toBeNull();
+	});
+
+	it("leaves the skipped files out of every run", async () => {
+		const ps = new FakePs();
+		await test({
+			ps,
+			allowed: true,
+			timings: null,
+			skip: ["packages/server/a.test.ts"],
+		});
+		const bun = ps.getCalls().filter((call) => call.startsWith("bun test"));
+		expect(
+			bun.map((call) =>
+				call.includes("--path-ignore-patterns=packages/server/a.test.ts"),
+			),
+		).toEqual([true, true]);
 	});
 });
