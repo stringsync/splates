@@ -39,10 +39,8 @@ const CHANGES = "changes";
 const TYPED_MERGE = "merge";
 
 /**
- * A review answered by keyboard alone: it comes up in its changes box, where
- * Enter sends them, and Merge is a Tab away while the box is empty. It shows
- * one button, Merge or Send, as the box is empty or not. What is written stays in the
- * panel, never the composer, until it is sent.
+ * A review for the person to merge or ask changes of. Pass the review and a
+ * way to send the reply; the panel keeps what is typed until it is sent.
  */
 export function ReviewPanel({
 	review,
@@ -139,7 +137,7 @@ export function ReviewPanel({
 						}}
 						className="min-h-9 pointer-coarse:min-h-11"
 					/>
-					<div className="flex items-center gap-2 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:px-3">
+					<div className="flex items-center gap-2">
 						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 							{!touch &&
 								(asked === "" ? (
@@ -268,9 +266,8 @@ function Details({ text }: { text: string }): JSX.Element {
 }
 
 /**
- * Renders a `data-review` part as a review panel while it is mounted in a
- * thread: apart from questions, since approving is one decision about the
- * whole task. Merge, or what to change, is sent from the panel itself.
+ * Shows a `data-review` part in a thread as a review panel, apart from
+ * questions. Merge, or what to change, is sent from the panel itself.
  */
 export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 	name: "review",

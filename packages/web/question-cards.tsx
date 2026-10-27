@@ -43,16 +43,11 @@ import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /**
- * The questions as a panel answered by keyboard alone: a letter picks a
- * choice, the arrows move between them, Enter goes on to the next question
- * and from "Anything else" sends, as ⌘Enter does from anywhere in it. What is
- * written stays in the panel, never the composer, until it is sent. Each
- * question with a `(chosen)` choice comes answered with it, the agent's
- * recommendation, so a reply says it unless the person picks another. Under a
- * proposal, once every one is answered, Approve approves the proposal, saying
- * any answer to a call the agent chose nothing for. Picking another choice,
- * or writing anything else, makes it a reply instead, saying only what
- * differs, for the agent to propose again.
+ * The panel a thread's questions are answered in, by keyboard alone. Questions
+ * with a `(chosen)` choice come answered with it; under a proposal, Approve
+ * approves it once every question is answered, and picking another choice or
+ * writing anything else sends a reply instead. What is written stays in the
+ * panel until it is sent.
  */
 export function QuestionCards({
 	questions,
@@ -528,7 +523,6 @@ export function QuestionCards({
 								variant={answer === null && approving ? "success" : "default"}
 								disabled={empty && !taking}
 								onClick={sendNow}
-								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{approving ? (
 									<CheckIcon data-icon="inline-start" />
