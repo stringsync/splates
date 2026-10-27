@@ -372,9 +372,9 @@ describe("App's question card keys", () => {
 
 	it("waits for the agent to finish writing before showing cards", async () => {
 		const view = await testing.openConversations([asking("running")]);
-		await waitFor(() =>
-			expect(view.getByText(/The header wraps now/)).toBeTruthy(),
-		);
+		await waitFor(() => expect(view.getByText("fix the header")).toBeTruthy());
+		// Held back whole, not shown as text to jump into a card.
+		expect(view.queryByText(/The header wraps now/)).toBeNull();
 		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
 
 		await testing.say(asking("idle"));

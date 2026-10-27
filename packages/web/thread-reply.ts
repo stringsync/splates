@@ -100,6 +100,37 @@ function escalatedIn(stretch: Stretch | undefined): TaskReport | null {
 }
 
 /**
+ * `text` up to where a card starts in it: a `## ` title opened by an emoji,
+ * a demo's `### 🎬 Demo`, or a list of questions that already reads as one.
+ * Fenced code is no card.
+ */
+export function beforeCard(text: string): string {
+	const lines = text.split("\n");
+	let fenced = false;
+	for (let i = 0; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (/^[ \t]*(```|~~~)/.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (fenced) {
+			continue;
+		}
+		const card =
+			/^## \P{ASCII}/u.test(line) ||
+			/^### 🎬 Demo/.test(line) ||
+			(/^1\.[ \t]/.test(line) &&
+				stretches(lines.slice(i).join("\n")).some(
+					(each) => each.type === "questions",
+				));
+		if (card) {
+			return lines.slice(0, i).join("\n").trimEnd();
+		}
+	}
+	return text;
+}
+
+/**
  * The agent's reply, its questions and review as cards once it has stopped
  * writing them: a list mid-stream may yet turn out not to ask any. An
  * escalation's questions come right after it, or after the demo they ask
@@ -113,7 +144,10 @@ export function replied(
 	turn: Turn,
 ): LikePart[] {
 	if (!settled) {
-		return [{ type: "text", text }];
+		// A card not yet whole is held back rather than drawn as the text it
+		// will stop being, so nothing jumps when it turns into one.
+		const held = beforeCard(text);
+		return held === "" ? [] : [{ type: "text", text: held }];
 	}
 	const all = stretches(text);
 	return all.flatMap((stretch, at): LikePart[] => {
