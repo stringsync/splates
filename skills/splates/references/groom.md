@@ -159,7 +159,17 @@ shows no theme it shares with others; here you see them together.
    `splates task update <id> --lane backlog`. Never leave a processed task
    in Untriaged. Backlog can be worked and queued like other lanes, but
    cannot be renamed, removed or merged away, even when empty.
-3. **Change nothing else**: no detail, link, position or readiness, and no
+3. **Prune the board** while you see it whole, as a grooming job would:
+   - **Empty lanes**: `splates lane remove <n>` each lane with no tasks
+     in it (neither queued nor started), left over from work that landed
+     or moved. Never Backlog, which is permanent, and never a lane that
+     holds a task: removing one needs the person's remove-lane card.
+   - **Obsolete tasks**: a task whose subject `git log` or the code shows
+     already done, superseded, or against a call since made, is no longer
+     needed. `splates task remove <id>` one that is plainly moot, saying why
+     in your reply. When unsure, leave it and ask the user as a numbered
+     question, as Conflicts and open questions says.
+4. **Change nothing else**: no detail, link, position or readiness, and no
    task taken, which splates refuses you. No queue card either: the user
    queues lanes from the board.
 
@@ -168,6 +178,6 @@ shows no theme it shares with others; here you see them together.
 Reply with one line per task on where it went, such as `#12: ready in lane 3
 Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and
 #16`, `#17: left in the backlog on the questions below` or, for a sort,
-`#18 and #19: into new lane 4 Auto pick`, then those questions, and nothing
+`#18 and #19: into new lane 4 Auto pick`, `lane 5 Old tests: removed, empty`, `#20: removed, already merged in a1b2c3d`, then those questions, and nothing
 more, then end your turn. Never wait, sleep or poll for the next task:
 splates tells you.
