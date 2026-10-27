@@ -4,6 +4,7 @@ import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
+	CircleCheckIcon,
 	HandIcon,
 	HourglassIcon,
 	ListPlusIcon,
@@ -36,12 +37,9 @@ import { RunCommandCard } from "./run-command-card";
 import { stageOf } from "./todo-queue";
 
 /**
- * Renders a `data-permission` part: something an agent asks the person to
- * allow because splates refuses it an agent: queue work, a lane whole or
- * tasks one by one, remove a lane with its tasks, run evals or the whole
- * test suite. Its button is the
- * person's own write to the board, never a reply the agent acts on, as is the
- * command it gives to run in a terminal instead.
+ * Shows what an agent asks you to allow, such as queueing work, removing a
+ * lane with its tasks, running evals or the whole test suite. Pressing its
+ * button is your own action; the agent never acts on it as a reply.
  */
 export const PermissionUI = makeAssistantDataUI<{
 	permission: PermissionProposal;
@@ -192,7 +190,7 @@ function OtherQueueCard({
 	return (
 		<ActionCard
 			label={`queue ${project} ${name}`}
-			Icon={TriangleAlertIcon}
+			Icon={work.queued ? CircleCheckIcon : TriangleAlertIcon}
 			title={
 				work.queued
 					? `Queued ${project} ${name}`
@@ -248,7 +246,7 @@ function OwnQueueCard({
 	return (
 		<ActionCard
 			label={`queue ${name}`}
-			Icon={TriangleAlertIcon}
+			Icon={work.queued ? CircleCheckIcon : TriangleAlertIcon}
 			title={work.queued ? `Queued ${what}` : `Add ${what} to the queue`}
 			body={proposal.body}
 			action={{
