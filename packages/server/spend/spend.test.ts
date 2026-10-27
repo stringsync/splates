@@ -174,6 +174,25 @@ describe("spend", () => {
 		]);
 	});
 
+	test("a report splits the range by project, what has none apart", async () => {
+		await spend.record(
+			entry({ project: "webappwiz", dollars: 2 }),
+			entry({ project: "splates" }),
+			entry({ project: "splates", provider: "typesafe", kind: "billed" }),
+			entry({ provider: "cloudflare", service: "workers", kind: "billed" }),
+		);
+		const report = await spendReport(spend, {
+			now: "2026-10-22T12:00:00.000Z",
+		});
+		expect(
+			report.projects.map((row) => [row.project, row.billed, row.equivalent]),
+		).toEqual([
+			["splates", 1, 1],
+			["webappwiz", 0, 2],
+			[null, 1, 0],
+		]);
+	});
+
 	test("converts a report to the display currency at each day's rate, and says when it cannot", async () => {
 		await spend.record(...euroDay());
 		const fetcher = eurRates();

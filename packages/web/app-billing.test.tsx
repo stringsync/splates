@@ -47,6 +47,10 @@ describe("App's billing spend", () => {
 					expected: 0,
 				},
 			],
+			projects: [
+				{ project: "splates", billed: 0, equivalent: 12.5, expected: 0 },
+				{ project: null, billed: 3, equivalent: 0, expected: 200 },
+			],
 			upcoming: [],
 		};
 	});
@@ -70,6 +74,18 @@ describe("App's billing spend", () => {
 		expect(view.getByText("Max 20x plan")).toBeTruthy();
 		expect(view.queryByText("opus")).toBeNull();
 		expect(view.getAllByText("expected").length).toBeGreaterThan(0);
+	});
+
+	it("splits the bill by project, provider bills and plan fees unassigned", async () => {
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
+		);
+		await waitFor(() => view.getByLabelText("by project"));
+		const rows = view.getByLabelText("by project").textContent ?? "";
+		expect(rows).toContain("splates");
+		expect(rows).toContain("$12.50 plan use");
+		expect(rows).toMatch(/Unassigned.*\$203\.00/);
 	});
 
 	it("steps the range back a month and forward again, never past today", async () => {

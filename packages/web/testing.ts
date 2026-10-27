@@ -88,9 +88,8 @@ const CHECKPOINT_EVERY = Duration.ms(50);
 const CHECKPOINT_RESTART_SHOWN = Duration.ms(300);
 
 /**
- * How long the server stays unreachable before the page says it is offline:
- * long enough for a test to bring it back first, far shorter than the page's
- * ten seconds.
+ * How long a test's server stays unreachable before the page says it is
+ * offline; a test that brings the server back sooner never sees Offline.
  */
 export const OFFLINE_AFTER = Duration.ms(200);
 
@@ -103,15 +102,17 @@ export interface Post {
 }
 
 /**
- * The server the dev page runs against, faked in place of `fetch` and
- * `EventSource` from construction until `dispose`.
- *
- * The page never touches splates: it reads a `Snapshot` the server already
- * assembled and writes todos. So the fake is the snapshot and a record of the
- * posts, and none of these tests need a repo, a worktree or the CLI.
- * `dev.test.ts` covers the half that does.
+ * A fake server for a page test: construct one, set what it serves (`served`,
+ * `spendReport` and the rest), `open()` the page, read `posts` for what the
+ * page wrote, and `dispose` it after. It stands in for `fetch` and
+ * `EventSource` until then.
  */
 export class Testing implements Resource {
+	// The page never touches splates: it reads a `Snapshot` the server already
+	// assembled and writes todos. So the fake is the snapshot and a record of
+	// the posts, and none of these tests need a repo, a worktree or the CLI.
+	// `dev.test.ts` covers the half that does.
+
 	/** What `/api/creds` says the stores keep. */
 	kept: KeptCreds = {
 		kept: [],
@@ -140,6 +141,7 @@ export class Testing implements Resource {
 		rateError: null,
 		services: [],
 		days: [],
+		projects: [],
 		upcoming: [],
 	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */

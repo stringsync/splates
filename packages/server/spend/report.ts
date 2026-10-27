@@ -1,7 +1,13 @@
 import type { Expected } from "./plans";
 import type { Rates } from "./rates";
 import type { Spend } from "./spend";
-import { type SpendEntry, type SpendTotal, totals } from "./totals";
+import {
+	type ProjectTotal,
+	projectTotals,
+	type SpendEntry,
+	type SpendTotal,
+	totals,
+} from "./totals";
 
 /** What the Billing page shows of a range: totals by service and by day. */
 export interface SpendReport {
@@ -17,6 +23,8 @@ export interface SpendReport {
 	services: SpendTotal[];
 	/** Each provider's day, oldest first. */
 	days: SpendTotal[];
+	/** Each project's share of the range, with what no project's work is recorded against as `null`. */
+	projects: ProjectTotal[];
 	/**
 	 * What is expected after the range and before the end of the month it
 	 * ends in, by service: a plan's renewal or a subscription not invoiced.
@@ -110,6 +118,7 @@ export async function spendReport(
 		rateError,
 		services: totals(entries, { by: "service" }),
 		days: totals(entries, { by: "provider", per: "day" }),
+		projects: projectTotals(entries),
 		upcoming: totals(upcoming, { by: "service" }),
 	};
 }

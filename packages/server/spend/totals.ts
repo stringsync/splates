@@ -69,6 +69,35 @@ export function totals(
 	);
 }
 
+/** One project's spend, the kinds apart. */
+export interface ProjectTotal {
+	/** The project's slug, or null for what no project's work is recorded against: provider bills and plan fees. */
+	project: string | null;
+	billed: number;
+	equivalent: number;
+	expected: number;
+}
+
+/** Totals `entries` by project, in slug order, what has no project last. */
+export function projectTotals(entries: readonly SpendEntry[]): ProjectTotal[] {
+	const rows = new Map<string | null, ProjectTotal>();
+	for (const entry of entries) {
+		let row = rows.get(entry.project);
+		if (row === undefined) {
+			row = { project: entry.project, billed: 0, equivalent: 0, expected: 0 };
+			rows.set(entry.project, row);
+		}
+		row[entry.kind] += entry.dollars;
+	}
+	return [...rows.values()].sort((one, other) =>
+		one.project === null
+			? 1
+			: other.project === null
+				? -1
+				: one.project.localeCompare(other.project),
+	);
+}
+
 export type Period = "day" | "week" | "month";
 
 export interface SpendQuery {

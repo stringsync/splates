@@ -1,4 +1,7 @@
-import type { SpendTotal } from "@stringsync/splates-server/spend";
+import type {
+	ProjectTotal,
+	SpendTotal,
+} from "@stringsync/splates-server/spend";
 import { createContext, useContext } from "react";
 
 /** The currency the Billing page's amounts are in. */
@@ -121,6 +124,27 @@ export function byProvider(services: readonly SpendTotal[]): ProviderSpend[] {
 			...sum(rows),
 		}))
 		.sort((one, other) => whole(other) - whole(one));
+}
+
+/**
+ * The report's projects that spent anything, on the bill or in plan use,
+ * the costliest on the bill first, then by plan use; what no project's work
+ * is recorded against comes last. None when no project spent anything, so a
+ * split would only say all of it is unassigned.
+ */
+export function byProject(projects: readonly ProjectTotal[]): ProjectTotal[] {
+	const spent = projects.filter(
+		(each) => whole(each) > 0 || each.equivalent > 0,
+	);
+	if (spent.every((each) => each.project === null)) {
+		return [];
+	}
+	return [...spent].sort(
+		(one, other) =>
+			Number(one.project === null) - Number(other.project === null) ||
+			whole(other) - whole(one) ||
+			other.equivalent - one.equivalent,
+	);
 }
 
 /** One day of the chart: each provider's spend that day, none where it spent nothing. */

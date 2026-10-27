@@ -11,11 +11,12 @@ export { BillingRoutes, CURRENCIES } from "./routes";
 export { Spend } from "./spend";
 export type {
 	Period,
+	ProjectTotal,
 	SpendEntry,
 	SpendKind,
 	SpendQuery,
 	SpendTotal,
 } from "./totals";
-export { periodStart, totals } from "./totals";
+export { periodStart, projectTotals, totals } from "./totals";
 export type { TurnSpend, TurnTokens, Used } from "./turn";
 export { KINDS, turnSpend } from "./turn";

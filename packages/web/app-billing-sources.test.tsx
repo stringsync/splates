@@ -63,6 +63,7 @@ describe("App's billing sources", () => {
 				},
 			],
 			days: [],
+			projects: [],
 			upcoming: [],
 		};
 	});

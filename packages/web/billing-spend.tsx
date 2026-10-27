@@ -5,10 +5,12 @@ import type {
 } from "@stringsync/splates-server/spend";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type JSX, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { Figures } from "./billing-figures";
 import { Headline } from "./billing-headline";
+import { ByProject } from "./billing-projects";
 import { Sources } from "./billing-sources";
 import { type Range, SpendController } from "./billing-spend-controller";
 import {
@@ -21,7 +23,6 @@ import {
 	type Sum,
 	shortDay,
 	spanTitle,
-	useMoney,
 	whole,
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
@@ -202,6 +203,7 @@ export function SpendSection(): JSX.Element {
 				{report !== null && providers.length > 0 && (
 					<Breakdown providers={providers} />
 				)}
+				{report !== null && <ByProject projects={report.projects} />}
 				{report !== null && span !== null && range !== "day" && (
 					<SpendTrend
 						days={report.days}
@@ -345,28 +347,6 @@ function Kind({ spent }: { spent: Sum }): JSX.Element {
 					expected
 				</span>
 			)}
-		</span>
-	);
-}
-
-/** What `part` cost and its share of `of`, then `children`, in the meter's last column. */
-function Figures({
-	part,
-	of,
-	children,
-}: {
-	part: number;
-	of: number;
-	children: ReactNode;
-}): JSX.Element {
-	const dollars = useMoney(true);
-	return (
-		<span className="flex items-baseline justify-end gap-2 tabular-nums max-md:col-start-2 max-md:row-start-1">
-			<span className="font-medium text-sm">{dollars(part)}</span>
-			<span className="w-9 text-right text-muted-foreground text-xs">
-				{of === 0 ? "" : `${Math.round((part / of) * 100)}%`}
-			</span>
-			{children}
 		</span>
 	);
 }
