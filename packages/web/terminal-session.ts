@@ -12,24 +12,52 @@ export const RECONNECT = Duration.secs(2);
 
 export type TerminalSessionEvents = { changed: undefined };
 
+/**
+ * The keys a phone's keyboard lacks, which the page offers in a bar under
+ * its terminal: what each sends, an arrow as the shell's cursor mode wants.
+ */
+export type TerminalKey =
+	| "escape"
+	| "tab"
+	| "enter"
+	| "ctrl-c"
+	| "ctrl-d"
+	| "up"
+	| "down"
+	| "left"
+	| "right";
+
+const ARROWS = { up: "A", down: "B", right: "C", left: "D" } as const;
+
+const SENDS = {
+	escape: "\x1b",
+	tab: "\t",
+	enter: "\r",
+	"ctrl-c": "\x03",
+	"ctrl-d": "\x04",
+} as const;
+
 /** Where a session's shell stands, as the page shows it. */
 export type TerminalStatus = "connecting" | "open" | "exited" | "closed";
 
 /**
- * One shell in the page: the server's, over a WebSocket, drawn by xterm.js
- * into an element of its own, which goes wherever the page mounts it and
- * keeps its screen while it is not mounted anywhere. The server keeps the
- * shell by this tab and `key`, so a socket that goes short of the shell's
- * exit, as it does while `splates server` restarts, is tried again, and the
- * shell comes back with its screen redrawn; after a reload, the same.
+ * One of the server's shells in the page: mount it with `attach` wherever it
+ * should show, type into it with `run` and `press`, and `dispose` it to end
+ * the shell. It keeps its screen while unmounted, and comes back to the same
+ * shell after a reload or a server restart.
  */
 export class TerminalSession
 	implements Eventful<TerminalSessionEvents>, Resource
 {
+	// Drawn by xterm.js over a WebSocket. The server keeps the shell by this
+	// tab and `key`, so a socket that goes short of the shell's exit is tried
+	// again, and the server redraws the screen.
 	private readonly dispatcher = new Dispatcher<TerminalSessionEvents>();
 	readonly events = this.dispatcher.events;
 
 	status: TerminalStatus = "connecting";
+	/** Whether the next letter typed goes as Control and that letter, as a phone's Ctrl key sets. */
+	control = false;
 	/** What the page draws the terminal into; mount it with `attach`. */
 	readonly element = document.createElement("div");
 
@@ -86,7 +114,9 @@ export class TerminalSession
 		// xterm's own disposables are `Resource`s already.
 		this.disposer.use(this.terminal);
 		this.disposer.use(
-			this.terminal.onData((data) => this.send(encoder.encode(data))),
+			this.terminal.onData((data) =>
+				this.send(encoder.encode(this.controlled(data))),
+			),
 		);
 		// Bytes xterm cannot put in a string unharmed, like some mouse reports.
 		this.disposer.use(
@@ -140,6 +170,24 @@ export class TerminalSession
 		this.terminal.paste(code.replace(/\r?\n$/, ""));
 		this.terminal.input("\r", true);
 		this.focus();
+	}
+
+	/** Types `key` into the shell, as though pressed on a keyboard that has it. */
+	press(key: TerminalKey): void {
+		this.setControl(false);
+		const data =
+			key in ARROWS
+				? `${this.terminal.modes.applicationCursorKeysMode ? "\x1bO" : "\x1b["}${ARROWS[key as keyof typeof ARROWS]}`
+				: SENDS[key as keyof typeof SENDS];
+		this.terminal.input(data, true);
+	}
+
+	/** Holds Control for the next letter typed, or lets it go. */
+	setControl(control: boolean): void {
+		if (this.control !== control) {
+			this.control = control;
+			this.dispatcher.dispatch("changed");
+		}
 	}
 
 	/**
@@ -251,6 +299,21 @@ export class TerminalSession
 			}, RECONNECT);
 		};
 		this.socket = socket;
+	}
+
+	/**
+	 * `data` as typed, or, while Control is held, the next letter as its
+	 * control character, as Control and C makes ^C; Control lets go on any key.
+	 */
+	private controlled(data: string): string {
+		if (!this.control) {
+			return data;
+		}
+		this.setControl(false);
+		const code = data.length === 1 ? data.toUpperCase().charCodeAt(0) : -1;
+		return code >= 0x40 && code <= 0x5f
+			? String.fromCharCode(code & 0x1f)
+			: data;
 	}
 
 	/** Answers every `front` still waiting with `command`. */

@@ -7,6 +7,7 @@ import {
 	details,
 	fireEvent,
 	message,
+	resize,
 	Testing,
 	waitFor,
 	within,
@@ -243,6 +244,56 @@ describe("App's terminal", () => {
 		);
 
 		expect(shell?.sent).toEqual([sized, "ls\r"]);
+	});
+
+	it("offers a phone the keys its keyboard lacks, Ctrl held for the next letter", async () => {
+		resize(390, 844);
+		try {
+			const view = await reading();
+			await press(TOGGLE);
+			const [shell] = testing.shells;
+			await act(async () => shell?.accept());
+			const keys = within(view.getByRole("toolbar", { name: "terminal keys" }));
+			const tap = (name: string) =>
+				act(async () => fireEvent.click(keys.getByRole("button", { name })));
+
+			await tap("Enter");
+			await tap("Control C");
+			await tap("Escape");
+			await tap("Up");
+			await tap("Control");
+			expect(
+				keys
+					.getByRole("button", { name: "Control" })
+					.getAttribute("aria-pressed"),
+			).toBe("true");
+			const input = within(view.getByTestId("terminal")).getByRole("textbox");
+			await act(async () =>
+				fireEvent.paste(input, { clipboardData: { getData: () => "r" } }),
+			);
+			await act(async () =>
+				fireEvent.paste(input, { clipboardData: { getData: () => "r" } }),
+			);
+
+			expect(shell?.sent).toEqual([
+				sized,
+				"\r",
+				"\x03",
+				"\x1b",
+				"\x1b[A",
+				"\x12",
+				"r",
+			]);
+		} finally {
+			resize(1024, 768);
+		}
+	});
+
+	it("shows no keys beside a desktop's keyboard", async () => {
+		const view = await reading();
+		await press(TOGGLE);
+
+		expect(view.queryByRole("toolbar", { name: "terminal keys" })).toBeNull();
 	});
 
 	it("hangs up on the shell, and shows no terminal, once the conversation is archived", async () => {

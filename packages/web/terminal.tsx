@@ -23,6 +23,7 @@ import { PANE_WIDTH } from "./changes";
 import { focusComposer } from "./composer-editor";
 import { useNameOf } from "./conversation-names";
 import { useShortcutLabel } from "./hooks/use-shortcut";
+import { KeyBar } from "./terminal-keys";
 import type { TerminalSession } from "./terminal-session";
 import type { Terminals } from "./terminals";
 import { type BarAction, BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
@@ -63,9 +64,8 @@ export const ShellRunning = createContext<(conversation: string) => boolean>(
 
 /**
  * `conversation`'s shell, in the pane down the right of the page (the whole
- * screen on a phone), with where it runs and how it stands above it. Unlike
- * the changes that pane also shows, Escape here is the shell's. The pane
- * hides once the shell exits.
+ * screen on a phone, with a row of keys its keyboard lacks), where it runs
+ * and how it stands shown above it. It hides once the shell exits.
  */
 export function TerminalPane({
 	terminals,
@@ -212,14 +212,14 @@ function PaneScreen({
 					status !== "open" && "opacity-60",
 				)}
 			/>
+			{phone && <KeyBar session={session} />}
 		</aside>
 	);
 }
 
 /**
- * One of the main tree's own terminals, opened from New, filling the page: a
- * shell on trunk that no conversation owns, kept running while another page
- * is up, and closed once it exits or its X is clicked.
+ * The page of `terminal`, one of the main tree's own shells opened from New.
+ * Leaving it keeps the shell running; `onClose` hangs up on it.
  */
 export function MainTerminal({
 	terminals,
@@ -483,6 +483,7 @@ function PageScreen({
 					status !== "open" && "opacity-60",
 				)}
 			/>
+			{phone && <KeyBar session={session} />}
 		</section>
 	);
 }
