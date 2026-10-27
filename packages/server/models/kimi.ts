@@ -8,12 +8,14 @@ import type { Fs, Ps } from "webappwiz/system";
  */
 const KIMI_BIN = ".kimi-code/bin/kimi";
 
+/** The shell's `kimi`: `KIMI_PATH`, else `kimi` on the PATH, else the installer's. */
+const KIMI = `"\${KIMI_PATH:-$(command -v kimi || echo "$HOME/${KIMI_BIN}")}"`;
+
 /** Kimi Code's roster `argv`, starting it as an ACP agent; set `KIMI_PATH` to run a `kimi` of your own. */
-export const KIMI_ARGV = [
-	"sh",
-	"-c",
-	`exec "\${KIMI_PATH:-$(command -v kimi || echo "$HOME/${KIMI_BIN}")}" acp`,
-];
+export const KIMI_ARGV = ["sh", "-c", `exec ${KIMI} acp`];
+
+/** `kimi` as found for {@link KIMI_ARGV}, ahead of the arguments to run it with. */
+export const KIMI_CLI = ["sh", "-c", `exec ${KIMI} "$@"`, "kimi"];
 
 /** Whether Kimi Code is installed on this machine, where {@link KIMI_ARGV} looks. */
 export async function kimiInstalled({

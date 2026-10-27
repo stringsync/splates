@@ -40,6 +40,7 @@ describe("SETUP_AREAS", () => {
 			"github",
 			"claude",
 			"codex",
+			"kimi",
 		]);
 	});
 });

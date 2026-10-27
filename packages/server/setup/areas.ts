@@ -3,7 +3,7 @@ import { DICTATION_AREA } from "./area-dictation";
 import { DROPLET_AREA } from "./area-droplet";
 import { EVALS_AREA } from "./area-evals";
 import { GITHUB_AREA } from "./area-github";
-import { CLAUDE_AREA, CODEX_AREA } from "./area-native";
+import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
 import { OPENCODE_AREA } from "./area-opencode";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { REPLICA_AREA } from "./area-replica";
@@ -27,4 +27,5 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	GITHUB_AREA,
 	CLAUDE_AREA,
 	CODEX_AREA,
+	KIMI_AREA,
 ];

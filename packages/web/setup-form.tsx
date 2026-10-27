@@ -37,7 +37,7 @@ import { SETUP_WORK } from "./setup-api";
 import { StepBar, StepRail } from "./setup-step-nav";
 
 /** The agents' areas, which the index lists first, in this order. */
-export const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
+export const AGENT_JOURNEYS = ["opencode", "claude", "codex", "kimi"];
 
 /**
  * The setup index: a plain row per area, "Set up OpenCode" and the like,
@@ -342,8 +342,8 @@ export function StepForm({
 }
 
 /**
- * A field to paste a cred into, as part of a page's form: Next saves it to
- * the device's store, so the field has no Save of its own.
+ * A field for the person to paste a cred into. Put it inside a page's form,
+ * whose Next saves the cred, since the field has no Save button.
  */
 export function CredField({
 	name,

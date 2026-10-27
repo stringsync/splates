@@ -1,4 +1,4 @@
-import { DEFAULT_AGENTS, Roster } from "../models";
+import { DEFAULT_AGENTS, KIMI_CLI, Roster } from "../models";
 import { FsStorage } from "../storage";
 import type { StepField } from "./fields";
 import type { SetupArea, SetupMachine, SetupStep, StepAnswers } from "./setup";
@@ -12,6 +12,20 @@ async function rosterAgents({ fs, home }: SetupMachine) {
 /** How long a CLI gets to answer before it counts as not answering. */
 const PROBE_MS = 10_000;
 
+/** How a CLI is run, installed and signed in, and how the person signs out of it and uninstalls it. */
+interface Cli {
+	name: string;
+	/** The command, ahead of its arguments: the id itself unless it may be off the PATH. */
+	command?: string[];
+	install: string;
+	/** The arguments that exit 0 once it is signed in, and what they print then, when exiting is not enough. */
+	signedIn: { args: string[]; says?: string };
+	signIn: string;
+	/** What the person does to sign out, as "run `x`". */
+	signOut: string;
+	uninstall: string;
+}
+
 /**
  * What each CLI is installed with, asked whether it is signed in, and
  * signed out of and uninstalled with, which only the person does.
@@ -20,18 +34,31 @@ const CLIS = {
 	claude: {
 		name: "Claude",
 		install: "curl -fsSL https://claude.ai/install.sh | bash",
-		signedIn: ["claude", "auth", "status"],
-		signOut: "claude auth logout",
+		signedIn: { args: ["auth", "status"] },
+		signIn: "claude",
+		signOut: "run `claude auth logout`",
 		uninstall: "rm -f ~/.local/bin/claude && rm -rf ~/.local/share/claude",
 	},
 	codex: {
 		name: "Codex",
 		install: "npm install --global @openai/codex",
-		signedIn: ["codex", "login", "status"],
-		signOut: "codex logout",
+		signedIn: { args: ["login", "status"] },
+		signIn: "codex",
+		signOut: "run `codex logout`",
 		uninstall: "npm uninstall --global @openai/codex",
 	},
-};
+	// Kimi has no status command, but signing out takes its provider out of
+	// its config, which `provider list` shows; its installer may leave it off the PATH.
+	kimi: {
+		name: "Kimi",
+		command: KIMI_CLI,
+		install: "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+		signedIn: { args: ["provider", "list"], says: "managed:kimi-code" },
+		signIn: "kimi login",
+		signOut: "run `kimi` and type `/logout` in it",
+		uninstall: "rm -f ~/.kimi-code/bin/kimi",
+	},
+} satisfies Record<string, Cli>;
 
 type AgentId = keyof typeof CLIS;
 
@@ -41,14 +68,17 @@ export const CLAUDE_AREA: SetupArea = agentJourney("claude");
 /** Codex, installed, signed in and on the roster. */
 export const CODEX_AREA: SetupArea = agentJourney("codex");
 
+/** Kimi Code, installed, signed in and on the roster. */
+export const KIMI_AREA: SetupArea = agentJourney("kimi");
+
 function agentJourney(id: AgentId): SetupArea {
-	const { name, install, signOut, uninstall } = CLIS[id];
+	const { name, install, signIn: login, signOut, uninstall }: Cli = CLIS[id];
 	const signIn: SetupStep = {
 		id: `${id}-signin`,
 		title: `Install and sign in to ${name}`,
 		why: `splates starts ${name} through its own CLI, which has to be installed and signed in on this machine.`,
-		user: `Press Next and splates checks that \`${id}\` answers and is signed in. If it is not, install it with \`${install}\`, then run \`${id}\` once to sign in.`,
-		agent: `Help set up only ${name}: check \`${id} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${id}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
+		user: `Press Next and splates checks that \`${id}\` answers and is signed in. If it is not, install it with \`${install}\`, then run \`${login}\` once to sign in.`,
+		agent: `Help set up only ${name}: check \`${id} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${login}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
 		optional: true,
 		after: [],
 		doing: `Checking that ${id} answers and is signed in…`,
@@ -57,11 +87,11 @@ function agentJourney(id: AgentId): SetupArea {
 			switch (await probe(machine, id)) {
 				case "missing":
 					throw new Error(
-						`${name} is not installed here: install it with ${install}, then run ${id} once to sign in.`,
+						`${name} is not installed here: install it with ${install}, then run ${login} once to sign in.`,
 					);
 				case "signed-out":
 					throw new Error(
-						`${name} is installed but not signed in: run ${id} once to sign in.`,
+						`${name} is installed but not signed in: run ${login} once to sign in.`,
 					);
 				case "ready":
 					return;
@@ -71,7 +101,7 @@ function agentJourney(id: AgentId): SetupArea {
 		undo: {
 			removes: async () => [],
 			leaves: async () => [
-				`${name} stays signed in: run \`${signOut}\` to sign out.`,
+				`${name} stays signed in: ${signOut} to sign out.`,
 				`${name} stays installed: run \`${uninstall}\` to remove it.`,
 			],
 			run: async () => {},
@@ -150,11 +180,17 @@ async function probe(
 	if (ps === undefined) {
 		return "missing";
 	}
-	const ran = async (argv: string[]) =>
-		(await ps.spawnCapture(argv, { timeoutMs: PROBE_MS }).catch(() => null))
-			?.exitCode === 0;
-	if (!(await ran([id, "--version"]))) {
+	const { command = [id], signedIn }: Cli = CLIS[id];
+	const run = (args: string[]) =>
+		ps
+			.spawnCapture([...command, ...args], { timeoutMs: PROBE_MS })
+			.catch(() => null);
+	if ((await run(["--version"]))?.exitCode !== 0) {
 		return "missing";
 	}
-	return (await ran(CLIS[id].signedIn)) ? "ready" : "signed-out";
+	const status = await run(signedIn.args);
+	return status?.exitCode === 0 &&
+		(signedIn.says === undefined || status.stdout.includes(signedIn.says))
+		? "ready"
+		: "signed-out";
 }
