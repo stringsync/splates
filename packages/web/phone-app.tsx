@@ -190,7 +190,6 @@ export function PhoneApp({
 						: 0
 				}
 				snapshot={snapshot}
-				update={pageMenu.dot}
 				onGo={go}
 			/>
 		</div>

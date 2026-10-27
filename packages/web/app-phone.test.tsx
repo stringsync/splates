@@ -1319,7 +1319,7 @@ describe("App on a phone", () => {
 		await waitFor(() => view.getByRole("button", { name: "Update" }));
 	});
 
-	it("offers Update at the drawer's foot while one waits", async () => {
+	it("keeps Update out of the drawer while one waits", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Broke" })],
 			null,
@@ -1330,7 +1330,7 @@ describe("App on a phone", () => {
 		);
 
 		const drawer = await waitFor(() => view.getByRole("dialog"));
-		expect(within(drawer).getByRole("button", { name: "Update" })).toBeTruthy();
+		expect(within(drawer).queryByRole("button", { name: "Update" })).toBeNull();
 	});
 
 	it("starts a new conversation with the same agent from a conversation's bar", async () => {
