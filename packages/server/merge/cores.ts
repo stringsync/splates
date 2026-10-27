@@ -4,16 +4,13 @@ import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 
-/**
- * The one-minute load average's time constant: a load gone this long ago
- * still shows at 1/e of its height, as the average decays by e^(-t/60s).
- */
+/** How long a load that has ended goes on showing in the one-minute load average, at 1/e of its height after this. */
 export const LOAD_LAG = Duration.mins(1);
 
 /**
- * The test workers a merge's gate may run, on `cores` with `load` the
- * person's: the cores it leaves idle, up to all but two, and never fewer
- * than half.
+ * The test workers to give a merge's gate on a machine of `cores` with
+ * `load` the person's: the cores it leaves idle, at most all but two and at
+ * least half.
  */
 export function gateCores(cores: number, load: number): number {
 	// The gate runs alone of the premerges, but beside every agent: on 16
@@ -24,6 +21,40 @@ export function gateCores(cores: number, load: number): number {
 		Math.max(half, cores - 2),
 		Math.max(half, Math.floor(cores - load)),
 	);
+}
+
+/** The most a gate's deadline may stretch to under load, as a multiple of its base. */
+// Twice `PREMERGE_TIMEOUT_MS` is `TEST_DEADLINE`, the cap `dev test` gives itself.
+export const DEADLINE_STRETCH = 2;
+
+/**
+ * How long a gate of `workers` may run on `cores` with `load` the person's:
+ * `baseMs` when they all fit the cores, and longer by the share they
+ * oversubscribe them, up to `DEADLINE_STRETCH` times.
+ */
+export function gateDeadline(
+	baseMs: number,
+	{ cores, load, workers }: GateSizing,
+): number {
+	// Each worker gets about cores / (load + workers) of a core once the
+	// cores are oversubscribed, so the suite takes that much longer: on
+	// 2026-10-26, 8 workers at load 13 to 35 on 16 cores were killed at 3
+	// minutes eight times in a row, each most of the way through, where 60
+	// to 68s is usual at load 12 to 25 and 40s on a quiet machine.
+	const stretch = Math.min(
+		DEADLINE_STRETCH,
+		Math.max(1, (load + workers) / Math.max(1, cores)),
+	);
+	return Math.round(baseMs * stretch);
+}
+
+/** What a gate starting now is sized by. */
+export interface GateSizing {
+	/** The test workers it may run. */
+	workers: number;
+	cores: number;
+	/** The one-minute load average less what the gate before still adds to it. */
+	load: number;
 }
 
 /**
@@ -54,13 +85,15 @@ interface LastGate {
 }
 
 /**
- * Sizes each gate by the load less what the gate before it still adds to
- * it: gates take turns on the premerge lock back to back, and the one-minute
- * average keeps a gate's workers for about a minute after it ends, which
- * counted as the person's would hold the next gate to half the cores. The
- * gate before ran in another process, so it is kept in `path`, the machine's
- * as the lock is (`ofMachine`).
+ * Sizes each merge gate by the person's load on the machine, leaving out
+ * what the gate before it still adds to the one-minute average. Make one
+ * with `ofMachine`, ask `sizing` for a gate about to run and tell `ran`
+ * once it has.
  */
+// Gates take turns on the premerge lock back to back, and the average keeps
+// a gate's workers for about a minute after it ends, which counted as the
+// person's would hold the next gate to half the cores. The gate before ran
+// in another process, so it is kept in `path`, the machine's as the lock is.
 export class GateTrail {
 	constructor(
 		private readonly fs: Fs,
@@ -85,6 +118,11 @@ export class GateTrail {
 
 	/** The workers a gate starting now may run. */
 	async size(): Promise<number> {
+		return (await this.sizing()).workers;
+	}
+
+	/** The workers a gate starting now may run, with the cores and load they were sized by. */
+	async sizing(): Promise<GateSizing> {
 		const last = await this.#last();
 		const gone =
 			last === null
@@ -95,7 +133,8 @@ export class GateTrail {
 						since: Duration.ms(this.wall.now() - last.endedAt),
 					});
 		const load = Math.max(0, (this.sensors.loadavg()[0] ?? 0) - gone);
-		return gateCores(this.sensors.cores(), load);
+		const cores = this.sensors.cores();
+		return { workers: gateCores(cores, load), cores, load };
 	}
 
 	/** Keeps a run of `workers` that took `ran` and has just ended, for the next gate to size by. */

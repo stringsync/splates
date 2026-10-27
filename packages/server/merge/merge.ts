@@ -1,6 +1,6 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
-import { type Clock, SystemClock } from "webappwiz/time";
+import { type Clock, Duration, SystemClock } from "webappwiz/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
@@ -34,20 +34,17 @@ import type { TrunkLanding } from "./trunk";
 
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
- * task was created with `--base`. Never a merge commit: it rebases onto the
- * base, runs the gate there, and fast-forwards the base with
- * compare-and-swap, in whichever worktree has the base checked out.
- * History stays linear.
- *
- * With a central remote, trunk is the remote's: the merge fetches it,
- * rebases onto it, runs the gate, pushes the tested `splates/<task>`, and
- * asks the server to move trunk there, which only it does.
- *
- * Merges waiting for the premerge lock at once gate as one batch: the one
- * that takes the lock stacks the others' branches on its own, gates the
- * stack's tip once, and lands them all; a failing batch is split by whose
- * commits the failing tests first fail with (see `MergeBatch`).
+ * task was created with `--base`, once the gate passes on it. Merges
+ * waiting for the gate at once land as one batch.
  */
+// Rebased onto the base, gated there and fast-forwarded by compare-and-swap
+// in whichever worktree has the base checked out: never a merge commit, so
+// history stays linear. With a central remote, trunk is the remote's: the
+// merge fetches it, rebases onto it, runs the gate, pushes the tested
+// `splates/<task>` and asks the server to move trunk there, which only it
+// does. A batch's first merge stacks the others' branches on its own and
+// gates the stack's tip once; a failing batch is split by whose commits the
+// failing tests first fail with (`MergeBatch`).
 export async function merge(
 	{
 		service,
@@ -441,7 +438,7 @@ export async function merge(
 					[
 						tail(`${gated.stdout}\n${gated.stderr}`),
 						"",
-						`\`${runner.command}\` ran past ${runner.timeout.human()} and was killed.`,
+						`\`${runner.command}\` ran past ${Duration.ms(gated.deadlineMs ?? runner.timeout.ms).human()}, its deadline at load ${(facts.gate?.load ?? 0).toFixed(1)} with ${facts.gate?.workers ?? "?"} workers, and was killed.`,
 						`${base} is untouched and ${branch} is now rebased onto ${base}@${rebasedOnto.slice(0, 8)}, the commit it was tested against. No merge attempt was spent.`,
 						"",
 						"Merge again.",

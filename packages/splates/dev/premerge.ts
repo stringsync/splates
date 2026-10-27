@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	CHECKED_COMMIT,
+	GATE_DEADLINE,
 	PREMERGE_HELD,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfProject,
@@ -111,6 +112,9 @@ async function existing(files: string[]): Promise<string[]> {
 async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const started = performance.now();
+	const deadlineMs = Number(ps.env(GATE_DEADLINE)) || PREMERGE_TIMEOUT_MS;
+	const remaining = () =>
+		Duration.ms(Math.max(1, deadlineMs - (performance.now() - started)));
 	// A premerge is the gate, or stands in for one under the lock: it keeps its priority.
 	const priority = new AgentPriority(ps, { premerge: true });
 	const phases = new PhaseTimer(ps);
@@ -146,9 +150,7 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 				priority,
 				...(opts.all === undefined ? {} : { all: opts.all }),
 				ps,
-				deadline: Duration.ms(
-					Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
-				),
+				deadline: remaining(),
 			}),
 		);
 	}
@@ -162,8 +164,6 @@ async function checkAndTest(opts: PremergeOptions, log: Logger): Promise<void> {
 		...(opts.evals === undefined ? {} : { evals: opts.evals }),
 		...(opts.all === undefined ? {} : { all: opts.all }),
 		...(opts.ps ? { ps: opts.ps } : {}),
-		deadline: Duration.ms(
-			Math.max(1, PREMERGE_TIMEOUT_MS - (performance.now() - started)),
-		),
+		deadline: remaining(),
 	});
 }

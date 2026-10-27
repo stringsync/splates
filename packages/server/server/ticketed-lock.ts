@@ -18,9 +18,10 @@ export interface PlacedLock extends Lock {
 	): Promise<void>;
 	/**
 	 * Starts over the time a holder may keep the lock, where the lock caps
-	 * it: a holder that begins another bounded step of work calls it.
+	 * it: a holder that begins another bounded step of work calls it, with
+	 * the step's bound as `holdMs` when it is longer than the lock's own.
 	 */
-	renew?(): void;
+	renew?(holdMs?: number): void;
 }
 
 export interface PlacedAcquireOptions {

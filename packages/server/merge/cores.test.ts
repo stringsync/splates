@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { GateTrail, gateCores, lingering } from "./cores";
+import { GateTrail, gateCores, gateDeadline, lingering } from "./cores";
+
+const MINUTE = 60_000;
 
 describe("gate cores", () => {
 	let fs: FakeFs;
@@ -29,6 +31,27 @@ describe("gate cores", () => {
 		expect(gateCores(16, 10)).toBe(8);
 		expect(gateCores(16, 32)).toBe(8);
 		expect(gateCores(2, 0)).toBe(1);
+	});
+
+	it("stretches the deadline by the share the workers and the load oversubscribe the cores, from the base to twice it", () => {
+		const deadline = (load: number) =>
+			gateDeadline(3 * MINUTE, {
+				cores: 16,
+				load,
+				workers: gateCores(16, load),
+			});
+
+		expect(deadline(0)).toBe(3 * MINUTE);
+		expect(deadline(8)).toBe(3 * MINUTE);
+		expect(deadline(12)).toBe(3.75 * MINUTE);
+		expect(deadline(24)).toBe(6 * MINUTE);
+		expect(deadline(35)).toBe(6 * MINUTE);
+	});
+
+	it("sizes a gate by the cores and the load its workers were sized by", async () => {
+		load = 12;
+
+		expect(await trail().sizing()).toEqual({ workers: 8, cores: 16, load: 12 });
 	});
 
 	it("counts what an ended run still adds to the load: its share built up by its end, decayed by e^(-t/60s) since", () => {

@@ -3,8 +3,10 @@ export { DEFAULT_PORT } from "./ports";
 export {
 	BESIDE_GATE_NICE,
 	CHECKED_COMMIT,
+	GATE_DEADLINE,
 	GATE_PHASES,
 	PREMERGE_HELD,
+	PREMERGE_HOLD_MS,
 	PREMERGE_TIMEOUT_MS,
 	premergeLockOfProject,
 	projectRootOf,

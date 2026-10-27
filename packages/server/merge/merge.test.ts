@@ -656,6 +656,7 @@ describe.concurrent("merge", () => {
 		expect(facts.gate).toEqual({
 			workers: expect.any(Number),
 			load: expect.any(Number),
+			deadlineMs: expect.any(Number),
 			ms: { biome: 5, setup: expect.any(Number) },
 		});
 	});

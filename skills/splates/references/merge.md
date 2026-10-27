@@ -61,8 +61,11 @@ tests first fail with your commits in the stack, and the refusal then names
 the stack commit to reproduce on when the files pass alone. The rest of a
 failing batch is gated again without the culprit, charged nothing.
 
-A gate that runs past 3 minutes is killed, and merge stops as `timeout`
-without spending an attempt: merge again. An existing Git `index.lock`
+A gate that runs past its deadline is killed, and merge stops as `timeout`
+without spending an attempt: merge again. The deadline is 3 minutes when
+the gate's workers and the machine's load fit its cores, and up to 6 when
+they oversubscribe them, so a slow gate under load finishes once rather
+than being killed into the same load again. An existing Git `index.lock`
 stops merge as `blocked` without spending an attempt. Wait for its owner to finish and merge again; never delete a lock
 held by a live operation. A failed rebase with no unmerged paths is
 `merge_failed`, not a content `conflict`.

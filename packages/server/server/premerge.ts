@@ -10,10 +10,7 @@ import {
 	TicketedLock,
 } from "./ticketed-lock";
 
-/**
- * Set for what a merge's gate runs, which holds the premerge lock already:
- * a `splates dev premerge` it runs goes ahead without waiting for it.
- */
+/** Set for what a merge's gate runs: a `splates dev premerge` that sees it runs without waiting for the premerge lock, which the gate holds. */
 export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
 /** The commit the `preLock` checks passed on, set for the gate's `dev premerge`. */
@@ -42,28 +39,23 @@ export const RECENT_FAILED_FILES = "SPLATES_RECENT_FAILED_FILES";
  */
 export const GATE_PHASES = "SPLATES_GATE_PHASES";
 
-/**
- * How long a merge's gate may run before it is killed. The whole suite takes
- * well under a minute alone, so a gate this long has hung, and the agent
- * merges again.
- */
+/** How long a merge's gate may run before it is killed, on a machine whose cores it fits. */
 export const PREMERGE_TIMEOUT_MS = 3 * 60 * 1000;
 
-/**
- * How long one holder may keep the premerge lock before it is let go of: a
- * gate that hangs, or a suite that never ends, must not wedge every other
- * merge. Far above a normal suite run.
- */
+/** Set for a merge's gate to its deadline in milliseconds, which `dev premerge` stops its tests by. */
+export const GATE_DEADLINE = "SPLATES_GATE_DEADLINE_MS";
+
+/** How long one holder may keep the premerge lock before it is let go of; a gate given a longer deadline renews it for that long. */
 export const PREMERGE_HOLD_MS = 3 * 60 * 1000;
 
 /**
- * A lock that lets itself go after `holdMs`, logging it, so a live holder
- * that never finishes cannot keep it forever; a holder that `renew`s it, as
- * a merge does at each gate run, has `holdMs` again from then. The holder's
- * own `release` after that does nothing. The wait for the lock passes
- * through to `inner`, the place in line it tells and the signal included.
+ * A lock that lets its holder go after `holdMs`. `renew` it before each
+ * bounded step of work, with the step's own bound when that is longer.
  */
 export class TimedLock implements PlacedLock {
+	// A holder that never finishes must not keep it forever; its own `release`
+	// after it has let go does nothing. The wait passes through to `inner`, the
+	// place in line it tells and the signal included.
 	#timer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
@@ -81,21 +73,21 @@ export class TimedLock implements PlacedLock {
 		this.#hold();
 	}
 
-	renew(): void {
+	renew(holdMs: number = this.holdMs): void {
 		if (this.#timer !== null) {
 			this.#stop();
-			this.#hold();
+			this.#hold(holdMs);
 		}
 	}
 
-	#hold(): void {
+	#hold(holdMs: number = this.holdMs): void {
 		this.#timer = setTimeout(() => {
 			this.#timer = null;
 			this.log.error(
-				`premerge lock held over ${Math.round(this.holdMs / 60000)} minutes: letting it go`,
+				`premerge lock held over ${Math.round(holdMs / 60000)} minutes: letting it go`,
 			);
 			void this.inner.release();
-		}, this.holdMs);
+		}, holdMs);
 		this.#timer.unref();
 	}
 

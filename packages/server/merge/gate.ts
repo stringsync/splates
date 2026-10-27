@@ -6,16 +6,18 @@ import type { Config } from "../config";
 import type { Git } from "../git";
 import {
 	CHECKED_COMMIT,
+	GATE_DEADLINE,
 	GATE_PHASES,
 	type PlacedAcquireOptions,
 	type PlacedLock,
 	PREMERGE_HELD,
+	PREMERGE_HOLD_MS,
 	PREMERGE_TIMEOUT_MS,
 	RECENT_FAILED_FILES,
 } from "../server/shared";
 import type { LivePhase } from "../tasks";
 import type { Shell } from "../terminal";
-import type { GateTrail } from "./cores";
+import { type GateTrail, gateDeadline } from "./cores";
 import { OutputFile } from "./output";
 import { TimedPhases } from "./phases";
 import type { MergeTiming } from "./timing";
@@ -28,6 +30,9 @@ export type OnPhases = (phases: LivePhase[]) => Promise<void>;
 
 /** How long a merge waits for the premerge lock before its line says it is queued. */
 export const QUEUED_AFTER_MS = 1000;
+
+/** What the premerge lock is held past a run's deadline, for the kill and the reads after it. */
+const HOLD_PAST_DEADLINE_MS = 30_000;
 /** A scratch checkout of one commit, gone once disposed of. */
 export interface Checkout extends AsyncDisposable {
 	path: string;
@@ -41,12 +46,14 @@ export interface GateRun {
 	xml: string;
 	/** Whether it ran past its timeout and was killed. */
 	timedOut?: boolean;
+	/** How long it had before it would be killed; left out when nothing ran. */
+	deadlineMs?: number;
 }
 
 /**
  * Runs merge checks on this machine, including isolated retests: one merge's
  * gate at a time, holding the machine's premerge lock, each killed past
- * `timeoutMs`.
+ * `timeoutMs`, which a whole gate stretches by its load (`gateDeadline`).
  */
 export class MergeGate {
 	constructor(
@@ -122,10 +129,10 @@ export class MergeGate {
 	}
 
 	/**
-	 * Runs the `preLock` checks in `cwd` before the merge joins the line, for
-	 * the whole gate to skip once it passed on this commit. Needs neither the
-	 * lock nor the cores, so it is not timed as the gate and holds nothing.
+	 * Runs the `preLock` checks in `cwd`: call it before the merge joins the
+	 * line, and the whole gate skips them once they passed on this commit.
 	 */
+	// Needs neither the lock nor the cores, so it is not timed as the gate and holds nothing.
 	async checkBeforeLock(
 		cwd: string,
 		task: string,
@@ -156,7 +163,7 @@ export class MergeGate {
 		return output === undefined ? null : new OutputFile(this.fs, output);
 	}
 
-	/** How long the whole gate may run before it is killed. */
+	/** How long the whole gate may run before it is killed, on a machine whose cores it fits. */
 	get timeout(): Duration {
 		return Duration.ms(this.timeoutMs);
 	}
@@ -275,9 +282,9 @@ export class MergeGate {
 	 * a batch gates its stacked tip in, removed when disposed of; throws when
 	 * git cannot make or remove it. Run the whole gate there with `run`,
 	 * which installs its dependencies as the command's `postRewrite` does.
-	 * Never inside the git directory: biome finds no `package.json` under
-	 * `.git`, so the gate's checks failed there before any test ran.
 	 */
+	// Never inside the git directory: biome finds no `package.json` under
+	// `.git`, so the gate's checks failed there before any test ran.
 	async checkout(cwd: string, at: string, name: string): Promise<Checkout> {
 		const path = `${this.config.worktreeRoot}/.gates/${basename(cwd)}-${name}`;
 		// One a crashed gate left behind would stop git adding it again.
@@ -327,9 +334,16 @@ export class MergeGate {
 						`--reporter-outfile=${quoted(report)}`,
 						...files.map((file) => quoted(`./${file}`)),
 					].join(" ");
-		const timeoutMs = files === undefined ? this.timeoutMs : 180_000;
 		const load = loadavg()[0] ?? 0;
-		const workers = await this.trail.size();
+		const sizing = await this.trail.sizing();
+		const { workers } = sizing;
+		const timeoutMs =
+			files === undefined ? gateDeadline(this.timeoutMs, sizing) : 180_000;
+		// A run given longer than the hold keeps the lock for all of it, and
+		// the kill and its reads after.
+		if (timeoutMs + HOLD_PAST_DEADLINE_MS > PREMERGE_HOLD_MS) {
+			this.premerge.renew?.(timeoutMs + HOLD_PAST_DEADLINE_MS);
+		}
 		const started = performance.now();
 		await using _watch = this.watchPhases(
 			files === undefined ? onPhases : undefined,
@@ -350,6 +364,7 @@ export class MergeGate {
 				...(files === undefined
 					? {
 							[GATE_PHASES]: phases,
+							[GATE_DEADLINE]: String(timeoutMs),
 							...(recent.length
 								? { [RECENT_FAILED_FILES]: recent.join("\n") }
 								: {}),
@@ -368,6 +383,7 @@ export class MergeGate {
 			this.timing.gated({
 				workers,
 				load,
+				deadlineMs: timeoutMs,
 				ms: timed.of(ranMs),
 				...(Object.keys(peakMb).length ? { peakMb } : {}),
 				...(Object.keys(within).length ? { within } : {}),
@@ -377,6 +393,7 @@ export class MergeGate {
 			...run,
 			xml: await this.fs.read(report).catch(() => ""),
 			timedOut: run.exitCode !== 0 && ranMs >= timeoutMs,
+			deadlineMs: timeoutMs,
 		};
 	}
 

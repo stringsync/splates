@@ -11,8 +11,8 @@ export function isEscalation(event: Event): event is Escalated {
 
 /**
  * What each action's event says beyond what every event does, keyed by the
- * action as `splates log` names it. An action with nothing of its own yet maps
- * to `None`: each slice of the Splates events lane fills in its command's.
+ * action as `splates log` names it; an action with nothing of its own maps
+ * to `None`.
  */
 export interface Facts {
 	add: {
@@ -449,31 +449,24 @@ export interface GatePhases {
 	workers: number;
 	/** The machine's one-minute load average when it started. */
 	load: number;
+	/** How long it had before it would be killed, longer under load; left out by gates before it was sized. */
+	deadlineMs?: number;
 	/**
 	 * Milliseconds by phase, in the order they ran: those the gate's command
-	 * timed through `SPLATES_GATE_PHASES`, such as `biome` or `server tests`,
-	 * then `setup`, the rest of the run: `postRewrite` and the command's own
-	 * start. Only `setup` when the command timed none. Since 2026-10-26 the
-	 * two test runs go side by side, timed each and together as `tests`, so
-	 * the phases no longer add up to the run.
+	 * timed, such as `biome`, `server tests` and `tests`, then `setup`, the
+	 * rest of the run. Phases that ran side by side add up to more than the run.
 	 */
 	ms: Record<string, number>;
-	/**
-	 * The peak memory in megabytes of each test run's process tree, by phase,
-	 * as `server tests`, or `tests` for the two runs side by side; left out
-	 * by gates before it was measured.
-	 */
+	/** The peak memory in megabytes of each test run's process tree, by phase. */
 	peakMb?: Record<string, number>;
-	/**
-	 * The phase each phase ran inside of, beside its siblings, by phase, as
-	 * `server tests` inside `tests`; left out by gates before it was kept.
-	 */
+	/** The phase each phase ran inside of, by phase. */
 	within?: Record<string, string>;
 }
 
-/** The facts each action's event records, by name, which `isCurrent` checks an event holds. */
+/** The facts each action's event records, by action name. */
 export const FACTS = {
-	// A fact an action gains is listed here too.
+	// `isCurrent` checks an event holds them, so a fact an action gains is
+	// listed here too, or its older events read as stale.
 	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
 	claim: ["goal"],
 	tell: ["to"],
@@ -561,11 +554,13 @@ const TODO_ACTIONS: Record<string, "todo" | "todos"> = {
 };
 
 /**
- * `event` as this splates names it, logged before todos became tasks: a
- * `todo ...` action as `task ...`, a todo's id as its `number`, and the todos
- * an action names as its `tasks`. A task added before tasks could be added
- * ready went in the backlog. Any other event comes back as it was.
+ * `event` as this splates names it, whatever splates logged it: read every
+ * event through it, since older logs name tasks as todos. An event already
+ * in today's names comes back as it was.
  */
+// Before todos became tasks, a `todo ...` action was logged for `task ...`, a
+// todo's id as its `number`, and the todos an action names as its `tasks`. A
+// task added before tasks could be added ready went in the backlog.
 export function renamed(event: Event): Event {
 	const named = asTask(event);
 	return named.action === "task add" && !("ready" in named)
