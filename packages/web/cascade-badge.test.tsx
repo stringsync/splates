@@ -4,6 +4,9 @@ import type {
 	CascadeStep,
 	Ship,
 } from "@stringsync/splates-server/ship";
+// Before the badge: base-ui reads the DOM as it loads, so a file run alone
+// needs it registered first.
+import "./register-dom";
 import type { MachineStatus } from "./api";
 import { CascadeBadge } from "./cascade-badge";
 import { act, cleanup, fireEvent, render, within } from "./testing-library";

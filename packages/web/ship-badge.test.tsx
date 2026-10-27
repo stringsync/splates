@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { Ship } from "@stringsync/splates-server/ship";
 import { snapshot } from "./fixtures";
+// Before the badge: base-ui reads the DOM as it loads, so a file run alone
+// needs it registered first.
+import "./register-dom";
 import { ShipBadge } from "./ship-badge";
 import { act, cleanup, fireEvent, render } from "./testing-library";
 
