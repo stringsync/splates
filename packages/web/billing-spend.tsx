@@ -3,8 +3,9 @@ import type {
 	SpendReport,
 	SpendTotal,
 } from "@stringsync/splates-server/spend";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { billing, pullBilling, setCurrency, spend } from "./api";
 import { Sources } from "./billing-sources";
@@ -12,12 +13,16 @@ import {
 	byProvider,
 	Currency,
 	colorOf,
+	dayOf,
 	monthEnd,
 	nameOf,
 	type ProviderSpend,
 	projected,
+	type Span,
 	type Sum,
 	shortDay,
+	spanOf,
+	spanTitle,
 	sum,
 	useMoney,
 	whole,
@@ -28,7 +33,7 @@ import { METER_COLUMNS, Meter } from "./meter";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 
-type Range = "day" | "week" | "month" | "custom";
+type Range = Span | "custom";
 
 const RANGES: { range: Range; label: string }[] = [
 	{ range: "day", label: "Today" },
@@ -39,32 +44,10 @@ const RANGES: { range: Range; label: string }[] = [
 
 const DAY = 86_400_000;
 
-/** The span `range` covers ending at `now`, as ISO timestamps, `until` exclusive. */
-export function spanOf(
-	range: Exclude<Range, "custom">,
-	now: number,
-): { since: string; until: string } {
-	const today = Date.parse(dayOf(now));
-	const first =
-		range === "day"
-			? today
-			: range === "week"
-				? today - 6 * DAY
-				: Date.parse(`${dayOf(now).slice(0, 7)}-01`);
-	return {
-		since: new Date(first).toISOString(),
-		until: new Date(today + DAY).toISOString(),
-	};
-}
-
-/** The UTC day `at` falls in, as `2026-10-21`, as the ledger's days are. */
-function dayOf(at: number): string {
-	return new Date(at).toISOString().slice(0, 10);
-}
-
 /**
  * The money spent in a range, from the ledger: one figure for the whole
- * range, split into what was billed and what plan use would cost at API
+ * range, stepping back or forward a day, week or month at a time, split
+ * into what was billed and what plan use would cost at API
  * list prices, with where this month is headed; then each provider's share,
  * opening onto its services; then the days; then where billed amounts come
  * from.
@@ -73,10 +56,13 @@ export function SpendSection(): JSX.Element {
 	// What it last read, kept across visits, so it opens on that and reads behind.
 	const last = useReading("spend", () => ({
 		range: "month" as Range,
+		back: 0,
 		report: null as SpendReport | null,
 		sources: null as BillingView | null,
 	}));
 	const [range, setRange] = useState<Range>(last.range);
+	// How many whole spans before the one ending today the page shows.
+	const [back, setBack] = useState(last.back);
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
 	// Held while it reads again, so a change of range never blanks the figures.
@@ -86,14 +72,14 @@ export function SpendSection(): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 	const [sources, setSources] = useState<BillingView | null>(last.sources);
 	useEffect(() => {
-		Object.assign(last, { range, report, sources });
-	}, [last, range, report, sources]);
+		Object.assign(last, { range, back, report, sources });
+	}, [last, range, back, report, sources]);
 	const [pulling, setPulling] = useState(false);
 	const [sourceError, setSourceError] = useState<string | null>(null);
 	const currency = sources?.currency ?? null;
 	const span = useMemo(() => {
 		if (range !== "custom") {
-			return spanOf(range, Date.now());
+			return spanOf(range, Date.now(), back);
 		}
 		const since = Date.parse(from);
 		const until = Date.parse(to);
@@ -103,7 +89,7 @@ export function SpendSection(): JSX.Element {
 					since: new Date(since).toISOString(),
 					until: new Date(until + DAY).toISOString(),
 				};
-	}, [range, from, to]);
+	}, [range, back, from, to]);
 	const pull = (isCurrent: () => boolean = () => true): void => {
 		setPulling(true);
 		setSourceError(null);
@@ -152,7 +138,7 @@ export function SpendSection(): JSX.Element {
 				: `${shortDay(span.since.slice(0, 10))} to ${shortDay(
 						dayOf(Date.parse(span.until) - DAY),
 					)}`
-			: RANGES.find((each) => each.range === range)?.label;
+			: spanTitle(range, Date.now(), back);
 	return (
 		<Currency.Provider value={report?.currency ?? "USD"}>
 			<section aria-label="spend" className="flex min-w-0 flex-col gap-4">
@@ -167,7 +153,10 @@ export function SpendSection(): JSX.Element {
 								key={each.range}
 								type="button"
 								aria-pressed={range === each.range}
-								onClick={() => setRange(each.range)}
+								onClick={() => {
+									setRange(each.range);
+									setBack(0);
+								}}
 								className={cn(
 									"rounded-md px-2.5 py-1 text-xs",
 									range === each.range
@@ -224,11 +213,37 @@ export function SpendSection(): JSX.Element {
 					</p>
 				)}
 				<Headline
-					title={title ?? ""}
+					title={
+						range === "custom" ? (
+							title
+						) : (
+							<>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="earlier"
+									onClick={() => setBack(back + 1)}
+								>
+									<ChevronLeftIcon />
+								</Button>
+								<span>{title}</span>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="later"
+									// Nothing is spent after today.
+									disabled={back === 0}
+									onClick={() => setBack(back - 1)}
+								>
+									<ChevronRightIcon />
+								</Button>
+							</>
+						)
+					}
 					report={report}
 					reading={report === null && error === null && span !== null}
 					picking={span === null}
-					projecting={range === "month"}
+					projecting={range === "month" && back === 0}
 				/>
 				{report !== null && providers.length > 0 && (
 					<Breakdown providers={providers} />
@@ -262,7 +277,7 @@ function Headline({
 	picking,
 	projecting,
 }: {
-	title: string;
+	title: ReactNode;
 	report: SpendReport | null;
 	reading: boolean;
 	picking: boolean;
@@ -280,7 +295,9 @@ function Headline({
 		>
 			<div className="flex flex-wrap items-end gap-x-10 gap-y-4">
 				<div className="flex flex-col gap-1">
-					<span className="text-muted-foreground text-sm">{title}</span>
+					<span className="flex items-center gap-1 text-muted-foreground text-sm">
+						{title}
+					</span>
 					{report === null ? (
 						<span
 							role={reading ? "status" : undefined}

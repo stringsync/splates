@@ -6,6 +6,8 @@ import {
 	everyDay,
 	monthEnd,
 	projected,
+	spanOf,
+	spanTitle,
 } from "./billing-sums";
 
 const row = (over: Partial<SpendTotal>): SpendTotal => ({
@@ -62,5 +64,34 @@ describe("billing sums", () => {
 	it("keeps a provider's color whatever else is in range", () => {
 		expect(colorOf("openai")).toBe("var(--series-4)");
 		expect(colorOf("somewhere")).toBe("var(--muted-foreground)");
+	});
+
+	it("steps a span back a whole span at a time", () => {
+		const now = Date.parse("2026-10-21T15:00:00Z");
+		expect(spanOf("day", now, 1)).toEqual({
+			since: "2026-10-20T00:00:00.000Z",
+			until: "2026-10-21T00:00:00.000Z",
+		});
+		expect(spanOf("week", now, 1)).toEqual({
+			since: "2026-10-08T00:00:00.000Z",
+			until: "2026-10-15T00:00:00.000Z",
+		});
+		expect(spanOf("month", now)).toEqual({
+			since: "2026-10-01T00:00:00.000Z",
+			until: "2026-10-22T00:00:00.000Z",
+		});
+		expect(spanOf("month", now, 10)).toEqual({
+			since: "2025-12-01T00:00:00.000Z",
+			until: "2026-01-01T00:00:00.000Z",
+		});
+	});
+
+	it("names a span the page has stepped back to", () => {
+		const now = Date.parse("2026-10-21T15:00:00Z");
+		expect(spanTitle("day", now, 0)).toBe("Today");
+		expect(spanTitle("day", now, 1)).toBe("Yesterday");
+		expect(spanTitle("day", now, 2)).toBe("Oct 19");
+		expect(spanTitle("week", now, 1)).toBe("Oct 8 to Oct 14");
+		expect(spanTitle("month", now, 1)).toBe("September 2026");
 	});
 });

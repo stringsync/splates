@@ -23,6 +23,62 @@ export const shortDay = (day: string): string =>
 
 const DAY = 86_400_000;
 
+/** A range the Billing page steps through, a whole one at a time. */
+export type Span = "day" | "week" | "month";
+
+/** The UTC day `at` falls in, as `2026-10-21`, as the ledger's days are. */
+export const dayOf = (at: number): string =>
+	new Date(at).toISOString().slice(0, 10);
+
+/**
+ * The `span` ending today at `now`, or `back` spans before it, as ISO
+ * timestamps, `until` exclusive: a week is the seven days to its last, a
+ * month its calendar month, whole once it is past.
+ */
+export function spanOf(
+	span: Span,
+	now: number,
+	back = 0,
+): { since: string; until: string } {
+	const today = Date.parse(dayOf(now));
+	if (span === "month") {
+		const date = new Date(today);
+		const month = date.getUTCMonth() - back;
+		const first = Date.UTC(date.getUTCFullYear(), month, 1);
+		const until =
+			back === 0 ? today + DAY : Date.UTC(date.getUTCFullYear(), month + 1, 1);
+		return {
+			since: new Date(first).toISOString(),
+			until: new Date(until).toISOString(),
+		};
+	}
+	const days = span === "day" ? 1 : 7;
+	const until = today + DAY - back * days * DAY;
+	return {
+		since: new Date(until - days * DAY).toISOString(),
+		until: new Date(until).toISOString(),
+	};
+}
+
+/** What the page calls `spanOf(span, now, back)`: Today, Yesterday, Oct 14 to Oct 20, September 2026. */
+export function spanTitle(span: Span, now: number, back: number): string {
+	if (back === 0) {
+		return { day: "Today", week: "7 days", month: "This month" }[span];
+	}
+	const { since, until } = spanOf(span, now, back);
+	if (span === "month") {
+		return new Date(since).toLocaleDateString("en-US", {
+			month: "long",
+			year: "numeric",
+			timeZone: "UTC",
+		});
+	}
+	if (span === "day") {
+		return back === 1 ? "Yesterday" : shortDay(since.slice(0, 10));
+	}
+	return `${shortDay(since.slice(0, 10))} to ${shortDay(dayOf(Date.parse(until) - DAY))}`;
+}
+
 /** What some spend adds up to, the two kinds apart. */
 export interface Sum {
 	billed: number;

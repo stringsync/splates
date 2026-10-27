@@ -57,4 +57,24 @@ describe("App's billing spend", () => {
 		expect(view.getByText("opus")).toBeTruthy();
 		expect(view.getAllByText("estimate").length).toBeGreaterThan(0);
 	});
+
+	it("steps the range back a month and forward again, never past today", async () => {
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
+		);
+		await waitFor(() => view.getByLabelText("total"));
+		const title = () => view.getByLabelText("total").textContent ?? "";
+		expect(title()).toContain("This month");
+		const later = () => view.getByRole("button", { name: "later" });
+		expect(later().hasAttribute("disabled")).toBe(true);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "earlier" })),
+		);
+		expect(title()).not.toContain("This month");
+		expect(title()).toMatch(/[A-Z][a-z]+ \d{4}/);
+		expect(later().hasAttribute("disabled")).toBe(false);
+		await act(async () => fireEvent.click(later()));
+		expect(title()).toContain("This month");
+	});
 });
