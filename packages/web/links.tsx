@@ -408,13 +408,16 @@ function LostList({
  * A search over the todos by number or words, to link one: those that would
  * make a loop are shown but cannot be picked, saying why.
  */
-function TodoPicker({
+export function TodoPicker({
 	label,
 	exclude,
 	loops,
 	onPick,
+	children,
 }: {
 	label: string;
+	/** What its button says, in place of a bare +. */
+	children?: ReactNode;
 	exclude: number[];
 	/** The loop linking `todo` would make, or null for none. */
 	loops: (todo: TaskRecord) => number[] | null;
@@ -442,16 +445,24 @@ function TodoPicker({
 		>
 			<PopoverTrigger
 				render={
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={label}
-						className="pointer-coarse:size-10"
-						title={label}
-					/>
+					children === undefined ? (
+						<Button
+							size="icon-xs"
+							variant="ghost"
+							aria-label={label}
+							className="pointer-coarse:size-10"
+							title={label}
+						/>
+					) : (
+						<Button
+							size="sm"
+							variant="outline"
+							className="pointer-coarse:h-10"
+						/>
+					)
 				}
 			>
-				<PlusIcon />
+				{children ?? <PlusIcon />}
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80 gap-2 p-2">
 				<Input

@@ -1,10 +1,12 @@
 import {
 	cleared,
+	cycle,
 	type DeferralBlocker,
 	deferralBlockers,
+	type TaskBlockerStatus,
 	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
-import { CheckIcon, CircleIcon } from "lucide-react";
+import { CheckIcon, CircleIcon, LinkIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -16,6 +18,9 @@ import {
 	removeTodo,
 } from "./api";
 import { Board } from "./board";
+import { linked } from "./board-expectations";
+import { useExpectSnapshot } from "./expecting";
+import { TodoPicker } from "./links";
 import { Refusal, useRefusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
@@ -65,30 +70,12 @@ export function DeferredBody({
 	const board = useContext(Board);
 	const deferred = task.deferred;
 	const blockers = deferralBlockers(task, board.todos);
-	const { refusal, attempt } = useRefusal();
-	// What the person did that the board has yet to show, by blocker key.
-	const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+	const { refusal, shown, act } = useActs();
 	const [answers, setAnswers] = useState<Record<number, string>>({});
 	if (deferred === undefined) {
 		return null;
 	}
-	const act = async (key: string, write: () => Promise<void>) => {
-		setShown((was) => new Set(was).add(key));
-		const ok = await attempt(write(), "Not done");
-		if (!ok) {
-			setShown((was) => {
-				const left = new Set(was);
-				left.delete(key);
-				return left;
-			});
-		}
-	};
-	const queueAfter = (id: number, queuedAlready: boolean) => async () => {
-		if (!queuedAlready) {
-			await queueTodo(id, true);
-		}
-		await queueTodo(task.id, true);
-	};
+	const queueAfter = queueingAfter(task);
 	const left = blockers.filter((each) => !cleared(each)).length;
 	let questionIndex = -1;
 	let outsideIndex = -1;
@@ -118,18 +105,7 @@ export function DeferredBody({
 						}
 						return (
 							<li key={key} className="flex items-start gap-2">
-								{done ? (
-									<CheckIcon
-										aria-label="cleared"
-										className="mt-0.5 size-4 shrink-0 text-success"
-										strokeWidth={3}
-									/>
-								) : (
-									<CircleIcon
-										aria-hidden
-										className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-									/>
-								)}
+								<Mark done={done} />
 								<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 									{blocker.kind === "task" && (
 										<TaskBlocker
@@ -208,9 +184,14 @@ export function DeferredBody({
 				</ol>
 			</section>
 			<p className="text-muted-foreground text-xs">
-				<DeferredProgress task={task} left={left} />
+				<DeferredProgress
+					task={task}
+					left={left}
+					queued={shown.has("queue")}
+					queue={() => void act("queue", () => queueTodo(task.id, true))}
+				/>
 			</p>
-			{task.stage === "backlog" || task.stage === "ready" ? (
+			{waiting(task) ? (
 				<p className="flex justify-end gap-3 text-muted-foreground text-xs">
 					<button
 						type="button"
@@ -235,6 +216,186 @@ export function DeferredBody({
 			) : null}
 			<Refusal refusal={refusal} />
 		</div>
+	);
+}
+
+/**
+ * The open task an old deferral, `task` by name, put back on the board, one
+ * recorded before deferrals kept their why and blockers; null for none.
+ */
+export function heldTask(
+	todos: readonly TaskRecord[],
+	task: string,
+): TaskRecord | null {
+	return (
+		todos.find((each) => each.slug === task && each.deferred === undefined) ??
+		null
+	);
+}
+
+/**
+ * What an old deferral's card adds under the agent's words: the tasks its
+ * board task now waits on, each with where it stands and a way to queue
+ * after it, and a Link a blocker picker for the person to say what it waits
+ * on, which the deferral never recorded.
+ */
+export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
+	const board = useContext(Board);
+	const { refusal, attempt, shown, act } = useActs();
+	const expect = useExpectSnapshot();
+	const blockers = linkedBlockers(task, board.todos);
+	const left = blockers.filter((each) => !cleared(each)).length;
+	// What blocks it as the server takes the whole list, those it lost included.
+	const held = [
+		...task.blockedBy,
+		...(task.blockersLost ?? []).map(({ id }) => id),
+	];
+	return (
+		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
+			{blockers.length > 0 && (
+				<section aria-label="to unblock">
+					<h4 className="mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+						To unblock
+					</h4>
+					<ol className="flex flex-col gap-2">
+						{blockers.map((blocker) => {
+							const key = `task:${blocker.id}`;
+							const done = cleared(blocker) || shown.has(key);
+							return (
+								<li key={key} className="flex items-start gap-2">
+									<Mark done={done} />
+									<TaskBlocker
+										blocker={blocker}
+										done={done}
+										act={(write) => act(key, write)}
+										queueAfter={queueingAfter(task)}
+									/>
+								</li>
+							);
+						})}
+					</ol>
+				</section>
+			)}
+			{waiting(task) && (
+				<div className="flex flex-wrap items-center gap-2">
+					<TodoPicker
+						label="Link a blocker"
+						exclude={[task.id, ...task.blockedBy]}
+						loops={(other) => cycle(board.todos, task.id, other.id)}
+						onPick={(other) =>
+							void attempt(
+								expect(
+									linked(task.id, [...held, other.id]),
+									linkTodo(task.id, [...held, other.id]),
+								),
+								"Not linked",
+							)
+						}
+					>
+						<LinkIcon />
+						Link a blocker
+					</TodoPicker>
+				</div>
+			)}
+			<p className="text-muted-foreground text-xs">
+				<DeferredProgress
+					task={task}
+					left={left}
+					named={blockers.length > 0}
+					queued={shown.has("queue")}
+					queue={() => void act("queue", () => queueTodo(task.id, true))}
+				/>
+			</p>
+			<Refusal refusal={refusal} />
+		</div>
+	);
+}
+
+/**
+ * The tasks `task` waits on, linked by hand rather than named by a
+ * deferral, with where each stands: those still open, then those landed.
+ */
+function linkedBlockers(
+	task: TaskRecord,
+	board: readonly TaskRecord[],
+): Extract<DeferralBlocker, { kind: "task" }>[] {
+	const open = task.blockedBy.map((id) => {
+		const other = board.find((each) => each.id === id);
+		const status: TaskBlockerStatus =
+			other === undefined
+				? "removed"
+				: other.takenBy !== null || other.stage === "running"
+					? "working"
+					: other.stage;
+		return {
+			kind: "task" as const,
+			id,
+			subject: other?.subject ?? "",
+			status,
+		};
+	});
+	const landed = (task.blockersLanded ?? []).map(({ id, subject }) => ({
+		kind: "task" as const,
+		id,
+		subject,
+		status: "merged" as const,
+	}));
+	return [...open, ...landed];
+}
+
+/** Whether `task` sits on the board waiting for the person to start it. */
+function waiting(task: TaskRecord): boolean {
+	return (
+		task.takenBy === null &&
+		(task.stage === "backlog" || task.stage === "ready")
+	);
+}
+
+/**
+ * An action for each of the card's blockers, shown done at once and undone,
+ * with the refusal said, if the server refuses it.
+ */
+function useActs() {
+	const { refusal, attempt } = useRefusal();
+	// What the person did that the board has yet to show, by blocker key.
+	const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+	const act = async (key: string, write: () => Promise<void>) => {
+		setShown((was) => new Set(was).add(key));
+		const ok = await attempt(write(), "Not done");
+		if (!ok) {
+			setShown((was) => {
+				const left = new Set(was);
+				left.delete(key);
+				return left;
+			});
+		}
+	};
+	return { refusal, attempt, shown, act };
+}
+
+/** Queues blocker `id`, unless `queuedAlready`, then `task` to run after it. */
+function queueingAfter(task: TaskRecord) {
+	return (id: number, queuedAlready: boolean) => async () => {
+		if (!queuedAlready) {
+			await queueTodo(id, true);
+		}
+		await queueTodo(task.id, true);
+	};
+}
+
+/** A blocker's check once cleared, or an empty circle while it holds. */
+function Mark({ done }: { done: boolean }): JSX.Element {
+	return done ? (
+		<CheckIcon
+			aria-label="cleared"
+			className="mt-0.5 size-4 shrink-0 text-success"
+			strokeWidth={3}
+		/>
+	) : (
+		<CircleIcon
+			aria-hidden
+			className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+		/>
 	);
 }
 
@@ -285,9 +446,17 @@ function TaskBlocker({
 function DeferredProgress({
 	task,
 	left,
+	named = true,
+	queued,
+	queue,
 }: {
 	task: TaskRecord;
 	left: number;
+	/** False for an old deferral that names nothing it waits on yet. */
+	named?: boolean;
+	/** Whether the person queued it, before the board shows it. */
+	queued: boolean;
+	queue: () => void;
 }): JSX.Element {
 	const board = useContext(Board);
 	if (task.takenBy !== null) {
@@ -304,13 +473,28 @@ function DeferredProgress({
 			</>
 		);
 	}
-	if (task.stage === "queued") {
+	if (task.stage === "queued" || queued) {
 		const waits = task.blockedBy.map((id) => `#${id}`).join(", ");
 		return <>Queued{waits === "" ? "" : ` · waits on ${waits}`}</>;
 	}
-	return left === 0 ? (
-		<>Nothing left to wait on: queue it to start.</>
-	) : (
-		<>Starts on its own once queued and unblocked.</>
+	if (left > 0) {
+		return <>Starts on its own once queued and unblocked.</>;
+	}
+	return (
+		<span className="flex flex-wrap items-center gap-2">
+			{named
+				? "Nothing left to wait on: queue it to start."
+				: "Link what it waits on, or queue it to start."}
+			{waiting(task) && (
+				<Button
+					size="sm"
+					variant="outline"
+					className="pointer-coarse:h-10"
+					onClick={queue}
+				>
+					Queue
+				</Button>
+			)}
+		</span>
 	);
 }

@@ -36,7 +36,12 @@ import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard } from "./current-task";
-import { DeferredBody, deferredTask } from "./deferred-body";
+import {
+	DeferredBody,
+	deferredTask,
+	HeldBlockers,
+	heldTask,
+} from "./deferred-body";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
 import { demoed, MergedStats, useLanded } from "./merged-stats";
@@ -93,6 +98,12 @@ export function ReportCard({
 		report.ending === "deferred"
 			? deferredTask(board.todos, report.task)
 			: null;
+	// An old deferral, recorded with no why or blockers, keeps its words and
+	// lets the person link what its task waits on.
+	const held =
+		report.ending === "deferred" && deferral === null
+			? heldTask(board.todos, report.task)
+			: null;
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
@@ -145,6 +156,7 @@ export function ReportCard({
 								</Folded>
 							)
 						)}
+						{held !== null && <HeldBlockers task={held} />}
 						{merged && <MergedStats landed={landed} />}
 						<CardArchive report={report} demo={demoed(landed)} />
 					</>
@@ -179,8 +191,11 @@ function Folded({ children }: { children: ReactNode }): JSX.Element {
 			<div
 				ref={box}
 				className={cn(
-					!open &&
-						"@max-md:max-h-32 @max-md:overflow-hidden @max-md:[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+					!open && "@max-md:max-h-32 @max-md:overflow-hidden",
+					// Faded only where words are cut, so text that fits reads whole.
+					cut &&
+						!open &&
+						"@max-md:[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
 				)}
 			>
 				{children}
