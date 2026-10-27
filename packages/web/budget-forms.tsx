@@ -1,7 +1,7 @@
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";
-import type { RoleBudget } from "./api";
+import type { RaiseOptions, RoleBudget } from "./api";
 
 /** How long a raise or a pause can last, as the CLI's `--for` takes it. */
 const SPANS = [
@@ -73,19 +73,26 @@ export function EditForm({
 	);
 }
 
-/** More tokens on each of a role's limits, for a while. */
+/**
+ * More tokens on each of a role's limits, for a while. A shared budget's
+ * raise is every project's, as the CLI's is, unless it is kept to this one.
+ */
 export function RaiseForm({
+	shared,
 	onRaise,
 	onCancel,
 }: {
-	onRaise: (tokens: string, span: string) => void;
+	/** Whether the role's budget is one every project shares. */
+	shared: boolean;
+	onRaise: (tokens: string, span: string, opts: RaiseOptions) => void;
 	onCancel: () => void;
 }): JSX.Element {
 	const [amount, setAmount] = useState("");
 	const [span, setSpan] = useState<string>("1d");
+	const [project, setProject] = useState(false);
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
-		onRaise(amount.trim(), span);
+		onRaise(amount.trim(), span, { project: shared && project });
 	};
 	return (
 		<form
@@ -106,8 +113,35 @@ export function RaiseForm({
 				<span className="text-sm">tokens for</span>
 				<SpanPicker span={span} onPick={setSpan} />
 			</div>
+			{shared && (
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="text-sm">Raise it for</span>
+					<div role="radiogroup" aria-label="raise for" className="flex gap-1">
+						{(
+							[
+								[false, "every project"],
+								[true, "this project"],
+							] as const
+						).map(([value, label]) => (
+							<Button
+								key={label}
+								type="button"
+								role="radio"
+								aria-checked={project === value}
+								variant={project === value ? "secondary" : "ghost"}
+								size="sm"
+								onClick={() => setProject(value)}
+							>
+								{label}
+							</Button>
+						))}
+					</div>
+				</div>
+			)}
 			<p className="text-muted-foreground text-xs">
-				Added to each of its limits until the raise ends.
+				{shared && !project
+					? "Added to the limits every project shares until the raise ends."
+					: "Added to each of its limits until the raise ends."}
 			</p>
 			<div className="flex items-center justify-end gap-2">
 				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>

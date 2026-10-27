@@ -4,6 +4,7 @@ import {
 	PencilIcon,
 	PlayIcon,
 	TrendingUpIcon,
+	UsersIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
@@ -255,6 +256,7 @@ function RoleCard({
 							>
 								<TrendingUpIcon className="size-3.5 text-primary" />
 								<span>+{tokens(raise.tokens)}</span>
+								{role.shared && <Reach shared={raise.shared} />}
 								<span className="text-muted-foreground text-xs">
 									ends {ends(raise.until, now)}
 								</span>
@@ -280,8 +282,9 @@ function RoleCard({
 				)}
 				{form === "raise" && (
 					<RaiseForm
-						onRaise={(amount, span) =>
-							act(raiseBudget(role.role, amount, span))
+						shared={role.shared}
+						onRaise={(amount, span, opts) =>
+							act(raiseBudget(role.role, amount, span, opts))
 						}
 						onCancel={() => setForm(null)}
 					/>
@@ -299,10 +302,14 @@ function RoleCard({
 				)}
 				<p className="text-muted-foreground text-xs">
 					{role.set
-						? "Set here, over the configs."
+						? role.shared
+							? "Set here, over the configs, and held to the limits every project shares too."
+							: "Set here, over the configs."
 						: role.from === null
 							? "No config declares it."
-							: `From ${home(role.from)}.`}
+							: role.shared
+								? `From ${home(role.from)}, shared by every project.`
+								: `From ${home(role.from)}.`}
 				</p>
 			</div>
 		</li>
@@ -333,13 +340,15 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 				const used = each.tokens === 0 ? 1 : each.spent / each.tokens;
 				const tone = toneOf(used);
 				return (
+					// a role set here over a shared budget has each window twice
 					<li
-						key={each.window}
-						aria-label={each.window}
+						key={`${each.shared}:${each.window}`}
+						aria-label={each.shared ? `${each.window}, shared` : each.window}
 						className="col-span-full grid grid-cols-subgrid items-center text-sm max-md:gap-y-2 tabular-nums"
 					>
-						<span className="whitespace-nowrap first-letter:uppercase">
-							{each.window}
+						<span className="flex items-center gap-1.5 whitespace-nowrap">
+							<span className="first-letter:uppercase">{each.window}</span>
+							{each.shared && <Reach shared />}
 						</span>
 						<Meter
 							used={used}
@@ -365,6 +374,23 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 				);
 			})}
 		</ul>
+	);
+}
+
+/** Whom a shared budget's window or raise counts: every project, or this one. */
+function Reach({ shared }: { shared: boolean }): JSX.Element {
+	return (
+		<span
+			title={
+				shared
+					? "Shared by every project, from your own config"
+					: "For this project only"
+			}
+			className="inline-flex items-center gap-1 text-muted-foreground text-xs"
+		>
+			{shared && <UsersIcon className="size-3" />}
+			{shared ? "every project" : "this project"}
+		</span>
 	);
 }
 

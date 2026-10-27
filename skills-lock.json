@@ -3,10 +3,10 @@
 	"skills": {
 		"scry": {
 			"source": "jaredjj3/webappwiz",
-			"ref": "v0.0.50",
+			"ref": "v0.0.51",
 			"sourceType": "github",
 			"skillPath": "skills/scry/SKILL.md",
-			"computedHash": "309daf977d91cc1bd50392032783076a865453de4150d172687fd29e25661d4e"
+			"computedHash": "aedaac00be5a98425477335663599c0b7c55e46eefbaf88cc446074be3605999"
 		},
 		"shadcn": {
 			"source": "shadcn/ui",
@@ -16,10 +16,10 @@
 		},
 		"webappwiz": {
 			"source": "jaredjj3/webappwiz",
-			"ref": "v0.0.50",
+			"ref": "v0.0.51",
 			"sourceType": "github",
 			"skillPath": "skills/webappwiz/SKILL.md",
-			"computedHash": "1514a81493d6cca6f9bc78c7769acdb6bc4db94ed62f5cc1c656e72c21611ecc"
+			"computedHash": "a03fb13d0a683158fd62bdb21f2ec69c18b09228f40e1cee61dedb7f0124decf"
 		}
 	}
 }

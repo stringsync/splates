@@ -105,7 +105,56 @@ describe("App's budget", () => {
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/budgets/som/raises",
 			method: "POST",
-			body: JSON.stringify({ tokens: "500k", for: "4h" }),
+			body: JSON.stringify({ tokens: "500k", for: "4h", project: false }),
+		});
+		expect(
+			within(som).queryByRole("radiogroup", { name: "raise for" }),
+		).toBeNull();
+	});
+
+	it("marks a shared budget's windows and raises, a window set here beside its shared one", async () => {
+		testing.budgets = setOverShared();
+		const view = await openBudget();
+
+		const som = await card(view, "som");
+		expect(
+			within(som).getByRole("listitem", { name: "today" }).textContent,
+		).toBe("today1m of 3m");
+		expect(
+			within(som).getByRole("listitem", { name: "today, shared" }).textContent,
+		).toBe("todayevery project9m of 20m (+5m)");
+		expect(
+			within(som).getByRole("list", { name: "raises" }).textContent,
+		).toContain("+5mevery project");
+		expect(som.textContent).toContain(
+			"held to the limits every project shares too.",
+		);
+	});
+
+	it("raises a shared budget for every project, or for this project only", async () => {
+		testing.budgets = setOverShared();
+		const view = await openBudget();
+		const som = await card(view, "som");
+		await act(async () =>
+			fireEvent.click(within(som).getByRole("button", { name: "Raise" })),
+		);
+		fireEvent.change(within(som).getByLabelText("tokens"), {
+			target: { value: "1m" },
+		});
+		const reach = within(som).getByRole("radiogroup", { name: "raise for" });
+		expect(
+			within(reach).getByRole("radio", { checked: true }).textContent,
+		).toBe("every project");
+		fireEvent.click(within(reach).getByRole("radio", { name: "this project" }));
+		testing.reply = setOverShared();
+
+		await act(async () =>
+			fireEvent.submit(within(som).getByRole("form", { name: "raise" })),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/budgets/som/raises",
+			body: JSON.stringify({ tokens: "1m", for: "1d", project: true }),
 		});
 	});
 
@@ -238,8 +287,10 @@ function declared(paused: RoleBudget["paused"] = null): Budgets {
 				spend: "5m/day",
 				from: "scry.config.ts",
 				set: false,
+				shared: false,
 				standing: [
 					{
+						shared: false,
 						window: "today",
 						tokens: 7_000_000,
 						raised: 2_000_000,
@@ -253,6 +304,7 @@ function declared(paused: RoleBudget["paused"] = null): Budgets {
 						tokens: 2_000_000,
 						from: Date.now(),
 						until: Date.now() + 86_400_000,
+						shared: false,
 					},
 				],
 				paused,
@@ -262,10 +314,58 @@ function declared(paused: RoleBudget["paused"] = null): Budgets {
 				spend: "nothing",
 				from: "scry.config.ts",
 				set: false,
+				shared: false,
 				standing: [],
 				raises: [],
 				paused: null,
 			},
+		],
+	};
+}
+
+/**
+ * A som set to `3m/day` here over the user's shared `20m/day`, held to
+ * both, with a shared raise of 5m; an llm that spends nothing.
+ */
+function setOverShared(): Budgets {
+	const [som, llm] = declared().roles as [RoleBudget, RoleBudget];
+	return {
+		declared: true,
+		roles: [
+			{
+				...som,
+				spend: "3m/day",
+				set: true,
+				shared: true,
+				standing: [
+					{
+						shared: false,
+						window: "today",
+						tokens: 3_000_000,
+						raised: 0,
+						spent: 1_000_000,
+						left: 2_000_000,
+					},
+					{
+						shared: true,
+						window: "today",
+						tokens: 20_000_000,
+						raised: 5_000_000,
+						spent: 9_000_000,
+						left: 11_000_000,
+					},
+				],
+				raises: [
+					{
+						id: 4,
+						tokens: 5_000_000,
+						from: Date.now(),
+						until: Date.now() + 86_400_000,
+						shared: true,
+					},
+				],
+			},
+			llm,
 		],
 	};
 }

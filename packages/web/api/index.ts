@@ -4,6 +4,7 @@ export {
 	endRaise,
 	type ModelChoice,
 	pauseBudget,
+	type RaiseOptions,
 	type RoleBudget,
 	raiseBudget,
 	resumeBudget,

@@ -4,9 +4,8 @@ import { body } from "../server/shared";
 import { ScryModelsReader } from "./scry-models";
 
 /**
- * The routes a project's Budget page reads and changes its scry budgets
- * through, each answering with the report `scry budgets` prints. Spread one
- * into a project's routes.
+ * The API a project's Budget page reads and changes its scry budgets with.
+ * Spread one into the project's routes.
  */
 export class BudgetRoutes {
 	// each route runs `scry budgets` through the repo's `wiz` command, so the
@@ -29,14 +28,19 @@ export class BudgetRoutes {
 			: this.#run(["set", role, String(spend)]);
 	};
 
+	/**
+	 * Raises a role's limits by `tokens` `for` a while. Send `project: true`
+	 * to raise a budget every project shares for this project alone.
+	 */
 	readonly raiseBudget = async (request: Request): Promise<Response> => {
 		const role = roleIn(request);
-		const { tokens, for: span } = await body(request);
+		const { tokens, for: span, project } = await body(request);
 		return this.#run([
 			"raise",
 			role,
 			String(tokens),
 			...(span === undefined ? [] : ["--for", String(span)]),
+			...(project === true ? ["--project"] : []),
 		]);
 	};
 
@@ -112,6 +116,7 @@ function reportOf(stdout: string): unknown {
 				spend: null,
 				from: null,
 				set: false,
+				shared: false,
 				standing: [],
 				raises: [],
 				paused: null,
