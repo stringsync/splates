@@ -215,6 +215,7 @@ function OtherQueueCard({
 			done={snapshot !== null && !work.gone && work.queued}
 			gone={work.gone ? `No longer on ${project}'s board` : null}
 			tone="warning"
+			doneTone="warning"
 		>
 			{todos.length > 0 && snapshot !== null && (
 				<QueuePanel
@@ -267,6 +268,7 @@ function OwnQueueCard({
 			gone={work.gone ? "No longer on the board" : null}
 			note={whole ? "Each task joins once nothing blocks it." : undefined}
 			tone="warning"
+			doneTone="warning"
 		>
 			{todos.length > 0 && (
 				<QueuePanel

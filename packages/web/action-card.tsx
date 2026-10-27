@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, type Tone } from "./card-shell";
@@ -48,6 +49,7 @@ export function ActionCard({
 	gone,
 	note,
 	tone = "info",
+	doneTone = "success",
 	children,
 }: {
 	label: string;
@@ -63,6 +65,8 @@ export function ActionCard({
 	note?: string;
 	/** Its header's tint while still to do, `destructive` for what it takes away. */
 	tone?: Tone;
+	/** Its header's tint once done, `warning` for a card that only queues. */
+	doneTone?: Tone;
 	/** What it acts on, between its body and its foot. */
 	children?: ReactNode;
 }): JSX.Element {
@@ -74,7 +78,7 @@ export function ActionCard({
 			label={label}
 			Icon={Icon}
 			title={title}
-			tone={done ? "success" : tone}
+			tone={done ? doneTone : tone}
 		>
 			{body !== "" && <CardBody text={body} />}
 			{children}
@@ -86,7 +90,12 @@ export function ActionCard({
 					<span className="text-muted-foreground text-xs">{gone}</span>
 				) : done ? (
 					<>
-						<span className="flex items-center gap-1 text-success text-xs">
+						<span
+							className={cn(
+								"flex items-center gap-1 text-xs",
+								doneTone === "warning" ? "text-warning" : "text-success",
+							)}
+						>
 							<CheckIcon className="size-3.5" strokeWidth={3} />
 							{action.done}
 						</span>
