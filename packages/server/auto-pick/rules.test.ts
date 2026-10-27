@@ -45,6 +45,17 @@ describe("checkRules", () => {
 		});
 	});
 
+	it("keeps Kimi after Claude and Codex in every default rule", () => {
+		expect(DEFAULT_RULES.rules.map((each) => each.picks.at(-1))).toEqual([
+			{ agent: "kimi", model: "kimi-code/k3", effort: "low" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "medium" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "medium" },
+		]);
+	});
+
 	it("refuses rules whose last is not * *, saying where", () => {
 		expect(
 			checkRules({

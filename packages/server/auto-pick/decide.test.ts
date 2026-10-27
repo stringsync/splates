@@ -115,6 +115,39 @@ describe("decide", () => {
 		});
 	});
 
+	it.each(["five_hour", "seven_day", "month"])(
+		"passes over Kimi when its %s plan window is spent",
+		(window) => {
+			const rules: AutoPickRules = {
+				...DEFAULT_RULES,
+				rules: [
+					{
+						kind: "*",
+						depth: "*",
+						picks: [
+							{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+							{ agent: "claude", model: "opus", effort: "high" },
+						],
+					},
+				],
+			};
+			const limits = {
+				kimi: [{ window, used: 0.96, resets: LATER, at: null }],
+			};
+			expect(
+				decide({ ...BASE, rules, limits, classification: DESIGN }),
+			).toMatchObject({
+				pick: { agent: "claude", model: "opus", effort: "high" },
+				reasons: [
+					"Opus 5.5, high effort",
+					expect.any(String),
+					expect.any(String),
+					`passed over Kimi: 96% of ${window} used`,
+				],
+			});
+		},
+	);
+
 	it("passes over an OpenCode model whose Go cap was refused, not its other models", () => {
 		const opencode = {
 			id: "opencode",
@@ -170,6 +203,7 @@ describe("decide", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.98, resets: LATER, at: null }],
 			codex: [{ window: "primary", used: 0.96, resets: LATER, at: null }],
+			kimi: [{ window: "month", used: 0.97, resets: LATER, at: null }],
 		};
 		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
 			pick: { agent: "codex", model: "gpt-6-astra" },
@@ -251,6 +285,7 @@ describe("decide", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
 			codex: [{ window: "five_hour", used: 0.7, resets: LATER, at: null }],
+			kimi: [{ window: "five_hour", used: 0.8, resets: LATER, at: null }],
 		};
 		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "fable" },
@@ -342,6 +377,7 @@ describe("decide", () => {
 				"rule 5: any kind, Deep",
 				"passed over Claude: can't run here",
 				"passed over Claude: can't run here",
+				"passed over Kimi: can't run here",
 			],
 		});
 	});
@@ -386,7 +422,7 @@ describe("decide", () => {
 			decide({
 				...BASE,
 				images: true,
-				sights: { claude: false, codex: false },
+				sights: { claude: false, codex: false, kimi: false },
 				classification: DESIGN,
 			}),
 		).toMatchObject({
@@ -450,6 +486,23 @@ describe("decide", () => {
 			agent: "codex",
 			model: "gpt-6.1-sol",
 			effort: "low",
+		});
+	});
+
+	it("falls back to Kimi when Claude and Codex are spent", () => {
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.98, resets: LATER, at: null }],
+			codex: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
+		};
+		expect(decide({ ...BASE, limits, classification: SHALLOW }).pick).toEqual({
+			agent: "kimi",
+			model: "kimi-code/k3",
+			effort: "low",
+		});
+		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
+			agent: "kimi",
+			model: "kimi-code/k3.1-pro",
+			effort: "high",
 		});
 	});
 });

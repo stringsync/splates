@@ -1,30 +1,31 @@
 import { ANY, DEFAULT_PACE, RULES_FORMAT } from "./rule-names";
 import type { AutoPickRules, Rule } from "./rules";
 
-/** Depth sets effort; deep work starts on Opus when settled or a bugfix, otherwise Fable. */
+/** The Auto pick rules used until the person saves their own, and restored by Reset. */
 export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
 	threshold: 0.5,
 	rules: [
-		rule("shallow", ["sonnet", "gpt-6.1-sol"], "low"),
-		rule("moderate", ["sonnet", "gpt-6.1-sol"], "medium"),
+		rule("shallow", ["sonnet", "gpt-6.1-sol", "kimi-code/k3"], "low"),
+		rule("moderate", ["sonnet", "gpt-6.1-sol", "kimi-code/k3.1-pro"], "medium"),
 		deepBugfix(),
 		settledDeep(),
 		deep(),
-		rule(ANY, ["opus", "gpt-6-astra"], "medium"),
+		rule(ANY, ["opus", "gpt-6-astra", "kimi-code/k3.1-pro"], "medium"),
 	],
 	pace: DEFAULT_PACE,
 };
 
-/** A default rule: Claude first, then Codex, each at `effort`. */
+/** A default rule: Claude first, then Codex, then Kimi, each at `effort`. */
 function rule(
 	depth: Rule["depth"],
-	[claude, codex]: [string, string],
+	[claude, codex, kimi]: [string, string, string],
 	effort: string,
 ): Rule {
 	const picks = [
 		{ agent: "claude", model: claude, effort },
 		{ agent: "codex", model: codex, effort },
+		{ agent: "kimi", model: kimi, effort },
 	];
 	return {
 		kind: ANY,
@@ -34,9 +35,8 @@ function rule(
 }
 
 /**
- * Deep work starts on Fable, the top of Claude, then Astra, Codex's best; each
- * is passed over when its plan is spent or used too fast, and Opus is what
- * remains.
+ * Deep work starts on Fable, falls back through Astra and Opus, then K3.1 Pro;
+ * each is passed over when its plan is spent or used too fast.
  */
 function deep(): Rule {
 	return {
@@ -46,11 +46,12 @@ function deep(): Rule {
 			{ agent: "claude", model: "fable", effort: "high" },
 			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
 			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 		],
 	};
 }
 
-/** A deep bugfix starts on Opus, sparing Fable's cost for the rest of deep work, then fall back to Fable and Astra. */
+/** A deep bugfix starts on Opus, sparing Fable's cost for the rest of deep work, then falls back to Fable, Astra and K3.1 Pro. */
 function deepBugfix(): Rule {
 	return {
 		kind: "bugfix",
@@ -59,6 +60,7 @@ function deepBugfix(): Rule {
 			{ agent: "claude", model: "opus", effort: "high" },
 			{ agent: "claude", model: "fable", effort: "high" },
 			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 		],
 	};
 }
