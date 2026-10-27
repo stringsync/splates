@@ -168,6 +168,13 @@ Baseline: `main`
 Repetitions: 3
 ```
 
+In another project, evals from any framework show on the Evals page when the
+project's `splates.config.ts` names `evals: { results: "<dir>" }` and a
+reporter writes a `batch.json` and `results.jsonl` there in the
+`splates-evals/1` format, documented in `docs/evals.md` of the splates
+repository (https://github.com/stringsync/splates), with an example reporter.
+When asked, write that reporter for the project's framework.
+
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
 and the report condensed: each scenario's pass rate on each agent, and for
 each run that failed, the checks that failed, the judge's reason and the
