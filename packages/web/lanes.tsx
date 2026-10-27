@@ -121,9 +121,9 @@ export function Untriaged({
 }
 
 /**
- * One lane: a named group of todos, top first. The header says whether an
- * agent is at work on it and whether it is queued, and moves the lane: dragged by it, the
- * lane takes the place of the one it is let go on, as a Trello list does.
+ * A lane on the board: a named group of tasks, top first. Its header shows
+ * whether an agent is working on it and whether it is queued; a queued lane
+ * that cannot go on gets an amber border. Drag the header to move the lane.
  */
 export function Lane({
 	lane,
@@ -192,6 +192,10 @@ export function Lane({
 					"min-h-0 w-full shrink max-md:w-full",
 					// A glint running around its edge, while the lane can go on.
 					running && lane.stalled === undefined && "running-outline",
+					// A queued lane that cannot go on: blocked by a task elsewhere, or stalled.
+					lane.queued &&
+						(blocked || lane.stalled !== undefined) &&
+						"border-amber-500 ring-2 ring-amber-500/60",
 					opened && "ring-1 ring-primary/40",
 					// The slot it leaves while it is in hand, where it will land.
 					isDragging && "bg-muted ring-1 ring-border *:invisible",
