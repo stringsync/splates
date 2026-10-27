@@ -15,6 +15,7 @@ export type {
 	ElsewhereBoards,
 	ElsewhereFollower,
 	ElsewhereOnBoard,
+	ElsewhereOpen,
 	ElsewhereTask,
 } from "./elsewhere";
 export {

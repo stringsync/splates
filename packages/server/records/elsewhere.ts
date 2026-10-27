@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import {
 	type ElsewhereBoards,
 	type ElsewhereFollower,
+	type ElsewhereOpen,
 	type ElsewhereTask,
 	TaskStore,
 	Tasks,
@@ -107,6 +108,26 @@ export class OpenBoards implements ElsewhereBoards, Disposable {
 						stage: task.state.stage,
 					});
 				}
+			}
+		}
+		return found;
+	}
+
+	async openTasks(root: string): Promise<ElsewhereOpen[]> {
+		const found: ElsewhereOpen[] = [];
+		for (const project of await this.projects.list()) {
+			if (project.gone || project.root === root) {
+				continue;
+			}
+			const opened = await this.open(project.root);
+			for (const task of (await opened?.tasks.all()) ?? []) {
+				found.push({
+					project: project.root,
+					slug: project.slug,
+					id: task.id,
+					subject: task.subject,
+					lane: task.lane,
+				});
 			}
 		}
 		return found;

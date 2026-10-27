@@ -1,5 +1,6 @@
+import type { ElsewhereOpen } from "@stringsync/splates-server/board/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { scoped, send, sendJson } from "./request";
+import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /** A todo's files: new ones to add, and the stored ones to keep. */
 export interface FilesForm {
@@ -200,4 +201,13 @@ function filesForm({ files, keep }: FilesForm): FormData {
 		form.append("keep", path);
 	}
 	return form;
+}
+
+/** The open tasks of the other projects, which a todo may be blocked by. */
+export async function elsewhereTasks(): Promise<ElsewhereOpen[]> {
+	const response = await answered(scoped("/api/elsewhere/tasks"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/elsewhere/tasks: ${response.status}`);
+	}
+	return (await response.json()) as ElsewhereOpen[];
 }

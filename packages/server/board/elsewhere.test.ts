@@ -115,5 +115,6 @@ function fakeBoards(there: Map<number, ElsewhereTask>): ElsewhereBoards {
 		slug: async () => "webappwiz",
 		find: async (_root, id) => there.get(id) ?? null,
 		following: async () => [],
+		openTasks: async () => [],
 	};
 }

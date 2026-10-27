@@ -1,4 +1,7 @@
-import type { GoneBlocker, TaskRecord } from "@stringsync/splates-server/board";
+import type {
+	ElsewhereBlocker,
+	TaskRecord,
+} from "@stringsync/splates-server/board";
 import { cycle, followers } from "@stringsync/splates-server/board/browser";
 import {
 	CornerDownRightIcon,
@@ -36,8 +39,10 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { arrangeTodo, linkTodo } from "./api";
 import { Board } from "./board";
-import { arranged, linked } from "./board-expectations";
+import { arranged, linked, linkedElsewhere } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
+import { ElsewhereList, ElsewherePicker } from "./links-elsewhere";
+import { LostList } from "./lost-blockers";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -70,6 +75,17 @@ export function Links({
 	/** Has todo `id` blocked by `blockedBy`, shown so at once. */
 	const link = (id: number, blockedBy: number[]) =>
 		expect(linked(id, blockedBy), linkTodo(id, blockedBy));
+	// Its blockers in other projects still waiting, which the server is told
+	// whole with the todos blocking it.
+	const waiting = (todo.blockedElsewhere ?? []).filter(
+		(blocker) => blocker.landed === undefined,
+	);
+	/** Has the todo blocked by exactly `elsewhere` in other projects, shown so at once. */
+	const linkElsewhere = (elsewhere: ElsewhereBlocker[]) =>
+		expect(
+			linkedElsewhere(todo.id, elsewhere),
+			linkTodo(todo.id, held, elsewhere),
+		);
 	return (
 		<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1">
 			{children}
@@ -109,6 +125,32 @@ export function Links({
 					loops={(other) => cycle(todos, todo.id, other.id)}
 					onPick={(other) =>
 						blockedBy.attempt(link(todo.id, [...held, other.id]), "Not linked")
+					}
+				/>
+				<ElsewhereList
+					todoId={todo.id}
+					waiting={waiting}
+					onRemove={(gone) =>
+						blockedBy.attempt(
+							linkElsewhere(waiting.filter((blocker) => blocker !== gone)),
+							"Not unlinked",
+						)
+					}
+				/>
+				<ElsewherePicker
+					exclude={waiting}
+					onPick={(other) =>
+						blockedBy.attempt(
+							linkElsewhere([
+								...waiting,
+								{
+									project: other.project,
+									id: other.id,
+									subject: other.subject,
+								},
+							]),
+							"Not linked",
+						)
 					}
 				/>
 				<Refusal refusal={blockedBy.refusal} className="w-full" />
@@ -347,53 +389,6 @@ function LinkList({
 						type="button"
 						aria-label={`unlink #${other.id}`}
 						onClick={() => onRemove(other)}
-						className="flex h-full cursor-pointer items-center rounded-md px-1 pointer-coarse:px-3 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
-					>
-						<XIcon className="size-3" />
-					</button>
-				</li>
-			))}
-		</ul>
-	);
-}
-
-/**
- * The todos it was blocked by that were removed without merging, which hold
- * it back until the person lets each go with its ×, once it still makes
- * sense without them.
- */
-function LostList({
-	lost,
-	onRemove,
-}: {
-	lost: GoneBlocker[];
-	onRemove: (gone: GoneBlocker) => void;
-}): JSX.Element | null {
-	if (lost.length === 0) {
-		return null;
-	}
-	return (
-		<ul aria-label="Removed blockers" className="contents">
-			{lost.map((gone) => (
-				<li
-					key={gone.id}
-					className="group/link inline-flex h-6 pointer-coarse:h-10 items-center rounded-md bg-muted/70 text-sm"
-				>
-					<Tooltip>
-						<TooltipTrigger
-							render={<span />}
-							className="cursor-default pl-2 text-warning tabular-nums line-through"
-						>
-							#{gone.id}
-						</TooltipTrigger>
-						<TooltipContent>
-							{`${gone.subject}: removed without merging, so this waits on you. Let it go to start this anyway.`}
-						</TooltipContent>
-					</Tooltip>
-					<button
-						type="button"
-						aria-label={`let go of removed #${gone.id}`}
-						onClick={() => onRemove(gone)}
 						className="flex h-full cursor-pointer items-center rounded-md px-1 pointer-coarse:px-3 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
 					>
 						<XIcon className="size-3" />

@@ -38,6 +38,7 @@ export {
 	arrangeTodo,
 	assignTodo,
 	dropLane,
+	elsewhereTasks,
 	type FilesForm,
 	fileUrl,
 	finishOutside,

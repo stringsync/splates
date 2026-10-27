@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { post, serving, taskForm } from "../server/testing";
+import { json, post, serving, taskForm } from "../server/testing";
 import { Testing } from "../testing";
 
 describe("dev tasks", () => {
@@ -276,6 +276,27 @@ describe("dev tasks", () => {
 				200,
 			);
 			expect((await state())?.blockedElsewhere).toBeUndefined();
+		});
+	});
+
+	it("lists no other projects' tasks, and refuses a blocker it cannot read", async () => {
+		await deps.tasks.add("prices", null);
+
+		await serving(deps, async (snapshot, port) => {
+			const listed = await fetch(
+				`http://127.0.0.1:${port}/api/elsewhere/tasks`,
+			);
+			expect(await listed.json()).toEqual([]);
+
+			const response = await json(port, "/api/todos/1/blocked-by", "PUT", {
+				blockedBy: [],
+				blockedElsewhere: [{ project: "/repos/webappwiz", id: 404 }],
+			});
+			expect(response.status).toBe(404);
+			expect(
+				(await snapshot()).todos.find((task) => task.id === 1)
+					?.blockedElsewhere,
+			).toBeUndefined();
 		});
 	});
 

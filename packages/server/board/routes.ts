@@ -5,7 +5,11 @@ import { QueueMoves, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { protectBacklog } from "./backlog";
-import { sameBlocker } from "./elsewhere";
+import {
+	type ElsewhereBlocker,
+	type ElsewhereBoards,
+	sameBlocker,
+} from "./elsewhere";
 import { laneRemove, laneUpdated, recordLaneRemove } from "./lane";
 import { tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
@@ -22,12 +26,17 @@ export class BoardRoutes {
 	readonly #project: Project;
 	readonly #conversations: ConversationRoutes;
 	readonly #watch: ProjectWatch;
+	readonly #boards: ElsewhereBoards | undefined;
+	readonly #root: string;
 
 	constructor(
 		project: Project,
 		conversations: ConversationRoutes,
 		watch: ProjectWatch,
+		elsewhere: { boards?: ElsewhereBoards; root: string },
 	) {
+		this.#boards = elsewhere.boards;
+		this.#root = elsewhere.root;
 		this.#project = project;
 		this.#conversations = conversations;
 		this.#watch = watch;
@@ -109,18 +118,51 @@ export class BoardRoutes {
 				),
 				drop: [...found.blockedBy, ...lost].filter((id) => !ids.includes(id)),
 			});
-			// Only those already linked are kept: the page links none new there.
-			return Array.isArray(blockedElsewhere)
-				? linked.update({
-						blockedElsewhere: linked.blockedElsewhere.filter((blocker) =>
-							blockedElsewhere.some((kept) => sameBlocker(kept, blocker)),
-						),
-					})
-				: linked;
+			if (!Array.isArray(blockedElsewhere)) {
+				return linked;
+			}
+			// Those already linked stay while named; any other it names is
+			// read from its project's board, which has to hold it open.
+			const kept = linked.blockedElsewhere.filter((blocker) =>
+				blockedElsewhere.some((named) => sameBlocker(named, blocker)),
+			);
+			const added: ElsewhereBlocker[] = [];
+			for (const named of blockedElsewhere as ElsewhereBlocker[]) {
+				if (!kept.some((blocker) => sameBlocker(named, blocker))) {
+					added.push(await this.openElsewhere(named));
+				}
+			}
+			return linked.update({ blockedElsewhere: [...kept, ...added] });
 		});
 		this.#watch.tick();
 		return Response.json(task.state);
 	};
+
+	// The open tasks of the other projects, to pick a blocker from.
+	readonly elsewhereTasks = async (): Promise<Response> =>
+		Response.json(
+			(await this.#boards?.openTasks(this.#root).catch(() => [])) ?? [],
+		);
+
+	/** `named` as its project's board holds it, or refuses one that is gone. */
+	private async openElsewhere(named: {
+		project?: unknown;
+		id?: unknown;
+	}): Promise<ElsewhereBlocker> {
+		const project = String(named.project ?? "");
+		const id = Number(named.id);
+		const found =
+			this.#boards === undefined || project === this.#root
+				? null
+				: await this.#boards.find(project, id).catch(() => null);
+		if (found === null || found.status === "merged") {
+			fail("not_found", `no open task #${id} in ${project}`, { project, id });
+		}
+		if (found.status === "removed") {
+			fail("not_found", `#${id} in ${project} was removed`, { project, id });
+		}
+		return { project, id, subject: found.subject };
+	}
 
 	// Into a lane, or none, above the task `before` or at the bottom of it.
 	readonly arrangeQueued = async (request: Request): Promise<Response> => {

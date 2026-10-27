@@ -12,6 +12,7 @@ export type {
 	ElsewhereBlockerNow,
 	ElsewhereFollower,
 	ElsewhereOnBoard,
+	ElsewhereOpen,
 } from "./elsewhere";
 export { elsewhereName, holding } from "./elsewhere";
 export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";

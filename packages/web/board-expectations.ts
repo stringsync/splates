@@ -1,14 +1,16 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type {
+	ElsewhereBlocker,
+	TaskRecord,
+} from "@stringsync/splates-server/board";
 import { isReady } from "@stringsync/splates-server/board/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 
 /**
- * What each board write is to make of the snapshot, for `Feed.expect` to show
- * at the click: each turns the snapshot as the server last said it into what
- * it will say once the write lands, as near as the page can tell. Kept here,
- * apart from the controls, so how the board guesses lives in one place.
+ * What each board write makes of the snapshot, for `Feed.expect` to show at
+ * the click: each turns the snapshot as the server last said it into what it
+ * will say once the write lands, as near as the page can tell.
  */
 
 /** Todo `id` for `assignee` to work, or nobody in particular for null. */
@@ -28,8 +30,8 @@ export function manualOf(id: number, manual: boolean) {
 }
 
 /**
- * Todo `id` blocked by `blockedBy`, sorted as the server keeps them; a
- * blocker removed without merging that it leaves out is let go of.
+ * Todo `id` blocked by `blockedBy`; a blocker removed without merging that
+ * it leaves out is let go of.
  */
 export function linked(id: number, blockedBy: readonly number[]) {
 	return (snapshot: Snapshot): Snapshot =>
@@ -45,6 +47,18 @@ export function linked(id: number, blockedBy: readonly number[]) {
 				...(lost.length === 0 ? {} : { blockersLost: lost }),
 			};
 		});
+}
+
+/** Todo `id` blocked by exactly the tasks of other projects in `blockers`. */
+export function linkedElsewhere(
+	id: number,
+	blockers: readonly ElsewhereBlocker[],
+) {
+	return (snapshot: Snapshot): Snapshot =>
+		changed(snapshot, id, ({ blockedElsewhere: _, ...todo }) => ({
+			...todo,
+			...(blockers.length === 0 ? {} : { blockedElsewhere: [...blockers] }),
+		}));
 }
 
 /**

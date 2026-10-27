@@ -169,7 +169,10 @@ export async function serveProject(
 	);
 	return {
 		...new TaskRoutes(project, conversations, watch),
-		...new BoardRoutes(project, talks, watch),
+		...new BoardRoutes(project, talks, watch, {
+			boards: context.boards,
+			root: service.git.root,
+		}),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...automations.routes,
@@ -425,6 +428,7 @@ export interface Served extends AsyncResource {
 	updateQueued: Handler;
 	moveQueued: Handler;
 	linkQueued: Handler;
+	elsewhereTasks: Handler;
 	arrangeQueued: Handler;
 	assignQueued: Handler;
 	manualQueued: Handler;

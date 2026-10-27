@@ -750,6 +750,9 @@ export async function dev(
 					"/api/todos/:id/blocked-by": {
 						PUT: scoped((project) => project.linkQueued),
 					},
+					"/api/elsewhere/tasks": {
+						GET: scoped((project) => project.elsewhereTasks),
+					},
 					"/api/todos/:id/lane": {
 						PUT: scoped((project) => project.arrangeQueued),
 					},

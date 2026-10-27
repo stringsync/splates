@@ -187,4 +187,17 @@ export interface ElsewhereBoards {
 	find(root: string, id: number): Promise<ElsewhereTask | null>;
 	/** The open tasks of every other project blocked by a task of `root`'s. */
 	following(root: string): Promise<ElsewhereFollower[]>;
+	/** The open tasks of every project but the one at `root`, to pick a blocker from. */
+	openTasks(root: string): Promise<ElsewhereOpen[]>;
+}
+
+/** An open task of another project, which a task here may wait on. */
+export interface ElsewhereOpen {
+	/** That project's main tree. */
+	project: string;
+	/** Its slug. */
+	slug: string;
+	id: number;
+	subject: string;
+	lane: number | null;
 }
