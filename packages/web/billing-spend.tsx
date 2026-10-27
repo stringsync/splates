@@ -3,13 +3,14 @@ import type {
 	SpendReport,
 	SpendTotal,
 } from "@stringsync/splates-server/spend";
+import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { billing, pullBilling, setCurrency, spend } from "./api";
 import { Headline } from "./billing-headline";
 import { Sources } from "./billing-sources";
+import { type Range, SpendController } from "./billing-spend-controller";
 import {
 	byProvider,
 	Currency,
@@ -17,10 +18,8 @@ import {
 	dayOf,
 	nameOf,
 	type ProviderSpend,
-	type Span,
 	type Sum,
 	shortDay,
-	spanOf,
 	spanTitle,
 	useMoney,
 	whole,
@@ -33,8 +32,6 @@ import {
 import { METER_COLUMNS, Meter } from "./meter";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
-
-type Range = Span | "custom";
 
 const RANGES: { range: Range; label: string }[] = [
 	{ range: "day", label: "Today" },
@@ -61,76 +58,38 @@ export function SpendSection(): JSX.Element {
 		report: null as SpendReport | null,
 		sources: null as BillingView | null,
 	}));
-	const [range, setRange] = useState<Range>(last.range);
-	// How many whole spans before the one ending today the page shows.
-	const [back, setBack] = useState(last.back);
-	const [from, setFrom] = useState("");
-	const [to, setTo] = useState("");
-	// Held while it reads again, so a change of range never blanks the figures.
-	const [report, setReport] = useState<SpendReport | null>(
-		range === "custom" ? null : last.report,
+	const [controller] = useState(() => new SpendController(last));
+	useEffect(() => {
+		controller.open();
+		return () => controller.dispose();
+	}, [controller]);
+	const {
+		range,
+		back,
+		from,
+		to,
+		report,
+		error,
+		sources,
+		pulling,
+		sourceError,
+		span,
+	} = useReactive(
+		controller,
+		(each) => ({
+			range: each.range,
+			back: each.back,
+			from: each.from,
+			to: each.to,
+			report: each.report,
+			error: each.error,
+			sources: each.sources,
+			pulling: each.pulling,
+			sourceError: each.sourceError,
+			span: each.span,
+		}),
+		["changed"],
 	);
-	const [error, setError] = useState<string | null>(null);
-	const [sources, setSources] = useState<BillingView | null>(last.sources);
-	useEffect(() => {
-		Object.assign(last, { range, back, report, sources });
-	}, [last, range, back, report, sources]);
-	const [pulling, setPulling] = useState(false);
-	const [sourceError, setSourceError] = useState<string | null>(null);
-	const currency = sources?.currency ?? null;
-	const span = useMemo(() => {
-		if (range !== "custom") {
-			return spanOf(range, Date.now(), back);
-		}
-		const since = Date.parse(from);
-		const until = Date.parse(to);
-		return Number.isNaN(since) || Number.isNaN(until) || until < since
-			? null
-			: {
-					since: new Date(since).toISOString(),
-					until: new Date(until + DAY).toISOString(),
-				};
-	}, [range, back, from, to]);
-	const pull = (isCurrent: () => boolean = () => true): void => {
-		setPulling(true);
-		setSourceError(null);
-		pullBilling()
-			.then((read) => isCurrent() && setSources(read))
-			.catch((caught: Error) => isCurrent() && setSourceError(caught.message))
-			.finally(() => isCurrent() && setPulling(false));
-	};
-	// Read what was last pulled at once, then pull again, so the figures catch up.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: pulls once, on opening
-	useEffect(() => {
-		let current = true;
-		billing()
-			.then((read) => current && setSources(read))
-			.catch((caught: Error) => current && setSourceError(caught.message));
-		pull(() => current);
-		return () => {
-			current = false;
-		};
-	}, []);
-	const pulledAt = sources?.pulledAt ?? null;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: a new currency or pull is when to read again
-	useEffect(() => {
-		if (span === null) {
-			return;
-		}
-		let current = true;
-		spend(span.since, span.until).then(
-			(read) => {
-				if (current) {
-					setReport(read);
-					setError(null);
-				}
-			},
-			(caught: Error) => current && setError(caught.message),
-		);
-		return () => {
-			current = false;
-		};
-	}, [span, currency, pulledAt]);
 	const providers = useMemo(() => byProvider(report?.services ?? []), [report]);
 	const title =
 		range === "custom"
@@ -154,10 +113,7 @@ export function SpendSection(): JSX.Element {
 								key={each.range}
 								type="button"
 								aria-pressed={range === each.range}
-								onClick={() => {
-									setRange(each.range);
-									setBack(0);
-								}}
+								onClick={() => controller.setRange(each.range)}
 								className={cn(
 									"rounded-md px-2.5 py-1 text-xs",
 									range === each.range
@@ -175,10 +131,7 @@ export function SpendSection(): JSX.Element {
 							aria-label="currency"
 							value={sources.currency}
 							onChange={(event) =>
-								setCurrency(event.target.value).then(
-									setSources,
-									(caught: Error) => setSourceError(caught.message),
-								)
+								controller.changeCurrency(event.target.value)
 							}
 						>
 							{sources.currencies.map((each) => (
@@ -195,7 +148,7 @@ export function SpendSection(): JSX.Element {
 							type="date"
 							aria-label="from"
 							value={from}
-							onChange={(event) => setFrom(event.target.value)}
+							onChange={(event) => controller.setFrom(event.target.value)}
 							className="rounded-md border bg-transparent px-2 py-1"
 						/>
 						to
@@ -203,7 +156,7 @@ export function SpendSection(): JSX.Element {
 							type="date"
 							aria-label="to"
 							value={to}
-							onChange={(event) => setTo(event.target.value)}
+							onChange={(event) => controller.setTo(event.target.value)}
 							className="rounded-md border bg-transparent px-2 py-1"
 						/>
 					</div>
@@ -223,7 +176,7 @@ export function SpendSection(): JSX.Element {
 									variant="ghost"
 									size="icon-xs"
 									aria-label="earlier"
-									onClick={() => setBack(back + 1)}
+									onClick={() => controller.earlier()}
 								>
 									<ChevronLeftIcon />
 								</Button>
@@ -234,7 +187,7 @@ export function SpendSection(): JSX.Element {
 									aria-label="later"
 									// Nothing is spent after today.
 									disabled={back === 0}
-									onClick={() => setBack(back - 1)}
+									onClick={() => controller.later()}
 								>
 									<ChevronRightIcon />
 								</Button>
@@ -260,7 +213,7 @@ export function SpendSection(): JSX.Element {
 					sources={sources}
 					pulling={pulling}
 					error={sourceError}
-					onPull={() => pull()}
+					onPull={() => controller.pull()}
 				/>
 			</section>
 		</Currency.Provider>
