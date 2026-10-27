@@ -376,9 +376,6 @@ function Conversation({
 																					<ThreadControls
 																						conversation={conversation}
 																						refused={refused}
-																						widgets={
-																							onBack === null ? null : widgets
-																						}
 																					/>
 																				}
 																				above={

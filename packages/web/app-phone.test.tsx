@@ -1221,13 +1221,13 @@ describe("App on a phone", () => {
 		expect(drawer.textContent).not.toContain("/work/demo-repo");
 	});
 
-	it("opens phone widgets from beside the composer, with a visible close control, and returns focus there", async () => {
+	it("opens phone widgets from the header, with a visible close control, and returns focus there", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Look around" })],
 			"c1",
 		);
 		const toggle = view.getByRole("button", { name: "Widgets" });
-		expect(toggle.closest("header")).toBeNull();
+		expect(toggle.closest("header")).not.toBeNull();
 		toggle.focus();
 		await act(async () => fireEvent.click(toggle));
 		const widgets = view.getByRole("region", { name: "widgets" });
