@@ -275,6 +275,23 @@ describe("App's composer queue", () => {
 		expect(reply("Working")).toBe(reply("On it."));
 	});
 
+	it("interrupts the running turn from the queued row without sending or dropping the follow-up", async () => {
+		const view = await testing.openConversations([working], "c1");
+		const thread = view.getByRole("region", { name: "Fix login" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(thread).getByRole("button", { name: "Interrupt" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c1/cancel")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
+		expect(within(thread).getByText("the second note")).toBeTruthy();
+	});
+
 	it("shows a message sent mid-turn under the same Queued row at once, and sends nothing now on Enter with nothing typed", async () => {
 		const view = await testing.openConversations([working], "c1");
 		const thread = view.getByRole("region", { name: "Fix login" });

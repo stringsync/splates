@@ -197,6 +197,7 @@ export function useThreadMessages(
 								lastWaiting?.at !== null
 								? id
 								: undefined,
+							running ? id : undefined,
 						),
 					];
 		// What the server refused, after all of it, as it would go if sent again.
