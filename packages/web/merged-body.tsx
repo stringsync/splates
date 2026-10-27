@@ -3,9 +3,9 @@ import { CardBody } from "./card-shell";
 
 /**
  * A merged card's one body: the first paragraph of the agent's report, or of
- * the task's `## Outcome` when the report says nothing, set large under a
- * Summary heading, then the rest of both in full and muted under a rule, the
- * outcome's demo and verification among them. It is the last thing in a
+ * the task's `## Outcome` when the report says nothing, under a Summary
+ * heading, then the rest of both, the outcome's demo and verification among
+ * them, all in one text color with no rule between. It is the last thing in a
  * conversation, so nothing of it is folded away.
  */
 export function MergedBody({
@@ -27,13 +27,10 @@ export function MergedBody({
 		<div>
 			<CardBody
 				text={`### Summary\n\n${first}`}
-				className="[&_p]:font-semibold [&_p]:text-base [&_p]:leading-snug [&_p]:first-letter:uppercase"
+				className="[&_p]:first-letter:uppercase"
 			/>
 			{more.length > 0 && (
-				<section
-					aria-label="outcome"
-					className="border-t text-muted-foreground"
-				>
+				<section aria-label="outcome">
 					{more.map((each) => (
 						<CardBody key={each} text={each} />
 					))}
