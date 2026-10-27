@@ -5,7 +5,7 @@ import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
 import { Machine, type MachineSensors, type ProcessUse } from "./load";
-import { OsSensors, parseTable } from "./os-sensors";
+import { OsSensors, ownPids, parseTable } from "./os-sensors";
 
 describe("machine", () => {
 	it("reads the CPU share busy since the reading before", async () => {
@@ -78,19 +78,42 @@ describe("machine", () => {
 		expect(
 			parseTable(
 				[
-					"    1     0   0:34.88  1024",
-					"  200     1 123:04.50  2048",
-					"  300     1 01:02:03   1",
-					"  400     1 2-00:00:01 1",
+					"    1     0     1   0:34.88  1024",
+					"  200     1   200 123:04.50  2048",
+					"  300     1   300 01:02:03   1",
+					"  400     1   400 2-00:00:01 1",
 					"",
 				].join("\n"),
 			),
 		).toEqual([
-			{ pid: 1, ppid: 0, cpu: 34.88, rss: 1024 * 1024 },
-			{ pid: 200, ppid: 1, cpu: 7384.5, rss: 2048 * 1024 },
-			{ pid: 300, ppid: 1, cpu: 3723, rss: 1024 },
-			{ pid: 400, ppid: 1, cpu: 172_801, rss: 1024 },
+			{ pid: 1, ppid: 0, pgid: 1, cpu: 34.88, rss: 1024 * 1024 },
+			{ pid: 200, ppid: 1, pgid: 200, cpu: 7384.5, rss: 2048 * 1024 },
+			{ pid: 300, ppid: 1, pgid: 300, cpu: 3723, rss: 1024 },
+			{ pid: 400, ppid: 1, pgid: 400, cpu: 172_801, rss: 1024 },
 		]);
+	});
+
+	it("counts a worker reparented out of the supervisor's tree, by its group", () => {
+		const row = (pid: number, ppid: number, pgid: number) => ({
+			pid,
+			ppid,
+			pgid,
+			cpu: 0,
+			rss: 0,
+		});
+		const table = [
+			row(1, 0, 1),
+			row(50, 1, 50), // the shell
+			row(100, 50, 100), // the supervisor
+			row(110, 100, 100), // the server
+			row(120, 1, 100), // a worker the last server started, reparented
+			row(130, 120, 130), // its agent, in a terminal of its own
+			row(140, 50, 100), // a pipe the shell started the supervisor into
+			row(150, 1, 150), // someone else's
+		];
+		expect(
+			[...ownPids(table, 100)].sort((left, right) => left - right),
+		).toEqual([100, 110, 120, 130]);
 	});
 
 	it.if(process.platform !== "win32")(

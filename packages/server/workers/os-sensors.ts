@@ -64,7 +64,7 @@ export class OsSensors implements MachineSensors {
 		const { exitCode, stdout } = await ps.spawnCapture([
 			"ps",
 			"-axo",
-			"pid=,ppid=,time=,rss=",
+			"pid=,ppid=,pgid=,time=,rss=",
 		]);
 		if (exitCode !== 0) {
 			return null;
@@ -72,7 +72,7 @@ export class OsSensors implements MachineSensors {
 		const table = parseTable(stdout);
 		const self = table.find((each) => each.pid === ps.pid);
 		const root = this.supervised && self ? self.ppid : ps.pid;
-		const pids = new Set([root, ...descendants(table, root)]);
+		const pids = ownPids(table, root);
 		return table
 			.filter((each) => pids.has(each.pid))
 			.map(({ pid, cpu, rss }) => ({
@@ -107,32 +107,67 @@ export class OsSensors implements MachineSensors {
 	}
 }
 
-/** A row of `ps -axo pid=,ppid=,time=,rss=`. */
+/**
+ * The pids of the process table that count as `root`'s: itself, every
+ * process under it, and the processes orphaned in its group and theirs.
+ */
+export function ownPids(table: Row[], root: number): Set<number> {
+	// A worker `splates server` starts on its own outlives the server's
+	// restart, reparented away from the tree but still in the group it was
+	// spawned in.
+	const pids = new Set([root, ...descendants(table, root)]);
+	const group = table.find((each) => each.pid === root)?.pgid;
+	const listed = new Set(table.map((each) => each.pid));
+	for (const each of table) {
+		// Only orphans: a process beside the root in its group, such as a
+		// pipe the shell started it into, keeps its own parent.
+		const orphaned =
+			each.pid !== 1 && (each.ppid === 1 || !listed.has(each.ppid));
+		if (each.pgid === group && orphaned && !pids.has(each.pid)) {
+			pids.add(each.pid);
+			for (const under of descendants(table, each.pid)) {
+				pids.add(under);
+			}
+		}
+	}
+	return pids;
+}
+
+/** A row of `ps -axo pid=,ppid=,pgid=,time=,rss=`. */
 interface Row {
 	pid: number;
 	ppid: number;
+	pgid: number;
 	/** CPU seconds. */
 	cpu: number;
 	/** Resident bytes. */
 	rss: number;
 }
 
-/** The rows of `ps -axo pid=,ppid=,time=,rss=`. */
+/** The rows of `ps -axo pid=,ppid=,pgid=,time=,rss=`. */
 export function parseTable(stdout: string): Row[] {
 	const rows: Row[] = [];
 	for (const line of stdout.split("\n")) {
-		const [pid, ppid, time, rss] = line.trim().split(/\s+/);
-		if (pid === undefined || ppid === undefined || time === undefined) {
+		const [pid, ppid, pgid, time, rss] = line.trim().split(/\s+/);
+		if (
+			pid === undefined ||
+			ppid === undefined ||
+			pgid === undefined ||
+			time === undefined
+		) {
 			continue;
 		}
 		rows.push({
 			pid: Number(pid),
 			ppid: Number(ppid),
+			pgid: Number(pgid),
 			cpu: secondsOf(time),
 			rss: Number(rss) * 1024,
 		});
 	}
-	return rows.filter((row) => Number.isFinite(row.pid + row.cpu + row.rss));
+	return rows.filter((row) =>
+		Number.isFinite(row.pid + row.pgid + row.cpu + row.rss),
+	);
 }
 
 /**
