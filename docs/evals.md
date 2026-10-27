@@ -112,7 +112,7 @@ target. A cell passes when every scorer's value, read as Inspect reads it (`C`
 score is the scorers' mean and its reason their explanations. A sample that
 errored is an `error`. Each cell's detail holds the input, the target as its
 rubric, the completion as its reply, a check per scorer, and the conversation
-with its tool calls.
+with its tool calls. It is checked against logs inspect-ai 0.3.285 writes.
 
 ## Example reporter
 

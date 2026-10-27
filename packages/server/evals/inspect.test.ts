@@ -67,6 +67,31 @@ describe("an Inspect log imported", () => {
 		expect((await store.run("nightly#c1")).input).toBe("What is 3 * 3?");
 	});
 
+	it("reads a log inspect-ai 0.3.285 wrote, tool call and all", async () => {
+		const log: InspectLog = await Bun.file(
+			join(import.meta.dir, "inspect.fixture.json"),
+		).json();
+		await writeImported(join(directory, "real"), inspectBatch(log, 1));
+
+		expect((await store.grid("real"))?.grid[0]?.run).toMatchObject({
+			status: "pass",
+			tokens: 260,
+			milliseconds: 350,
+		});
+		expect(await store.run("real#c0")).toMatchObject({
+			input: "What is 2+2?",
+			rubric: "4",
+			reply: "The answer is 4",
+			checks: [{ id: "includes", pass: true }],
+			transcript: [
+				{ kind: "text", text: "user: What is 2+2?" },
+				{ kind: "text", text: "assistant: tool call for tool add" },
+				{ kind: "tool", name: "add", input: '{"x":2,"y":2}', output: "4" },
+				{ kind: "text", text: "assistant: The answer is 4" },
+			],
+		});
+	});
+
 	it("passes a scaled score at --pass-at", () => {
 		const graded = inspectBatch(
 			{

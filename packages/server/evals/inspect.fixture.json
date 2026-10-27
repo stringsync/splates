@@ -1,0 +1,113 @@
+{
+	"version": 2,
+	"status": "success",
+	"eval": {
+		"task": "task",
+		"model": "mockllm/model",
+		"created": "2026-10-27T09:34:15+00:00"
+	},
+	"stats": {
+		"started_at": "2026-10-27T09:34:15+00:00",
+		"completed_at": "2026-10-27T09:34:16+00:00",
+		"model_usage": {
+			"mockllm/model": {
+				"input_tokens": 223,
+				"output_tokens": 37,
+				"total_tokens": 260
+			}
+		}
+	},
+	"samples": [
+		{
+			"id": "sum",
+			"epoch": 1,
+			"input": "What is 2+2?",
+			"target": "4",
+			"messages": [
+				{
+					"id": "nsjvn7thUPBu2CKdkPMxLb",
+					"content": "What is 2+2?",
+					"source": "input",
+					"role": "user"
+				},
+				{
+					"id": "jd4d3WeHAGoDYZSybphmeu",
+					"content": "tool call for tool add",
+					"source": "generate",
+					"role": "assistant",
+					"tool_calls": [
+						{
+							"id": "for_tool_call_6fcceda5-f24c-41c1-8360-d2ba51a00bfb",
+							"function": "add",
+							"arguments": {
+								"x": 2,
+								"y": 2
+							},
+							"type": "function"
+						}
+					],
+					"model": "mockllm/model"
+				},
+				{
+					"id": "SDj5UBRjnmRZipHrqYazRu",
+					"content": "4",
+					"role": "tool",
+					"tool_call_id": "for_tool_call_6fcceda5-f24c-41c1-8360-d2ba51a00bfb",
+					"function": "add"
+				},
+				{
+					"id": "WLPtFdefAedQMNUbhTKLRk",
+					"content": "The answer is 4",
+					"source": "generate",
+					"role": "assistant",
+					"model": "mockllm/model"
+				}
+			],
+			"output": {
+				"model": "mockllm/model",
+				"choices": [
+					{
+						"message": {
+							"id": "WLPtFdefAedQMNUbhTKLRk",
+							"content": "The answer is 4",
+							"source": "generate",
+							"role": "assistant",
+							"model": "mockllm/model"
+						},
+						"stop_reason": "stop"
+					}
+				],
+				"completion": "The answer is 4",
+				"usage": {
+					"input_tokens": 123,
+					"output_tokens": 15,
+					"total_tokens": 138
+				},
+				"input_context_tokens": 123,
+				"time": 0.00012158400204498321
+			},
+			"scores": {
+				"includes": {
+					"value": "C",
+					"answer": "the answer is 4",
+					"explanation": "The answer is 4",
+					"history": []
+				}
+			},
+			"model_usage": {
+				"mockllm/model": {
+					"input_tokens": 223,
+					"output_tokens": 37,
+					"total_tokens": 260
+				}
+			},
+			"role_usage": {},
+			"started_at": "2026-10-27T09:34:15.889464+00:00",
+			"completed_at": "2026-10-27T09:34:16.239600+00:00",
+			"total_time": 0.35,
+			"working_time": 0.35,
+			"error_retries": [],
+			"turn_count": 2
+		}
+	]
+}
