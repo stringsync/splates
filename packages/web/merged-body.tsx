@@ -1,22 +1,20 @@
-import { ChevronDownIcon } from "lucide-react";
-import { type JSX, useState } from "react";
+import type { JSX } from "react";
 import { CardBody } from "./card-shell";
 
 /**
  * A merged card's one body: the first paragraph of the agent's report, or of
- * the task's `## Outcome` when the report says nothing, with More opening the
- * rest of both, the outcome's demo and verification among them.
+ * the task's `## Outcome` when the report says nothing, set large under a
+ * Summary heading, then the rest of both in full and muted under a rule, the
+ * outcome's demo and verification among them. It is the last thing in a
+ * conversation, so nothing of it is folded away.
  */
 export function MergedBody({
 	text,
 	outcome,
-	lead,
 }: {
 	text: string;
 	outcome: string | undefined;
-	lead: boolean;
 }): JSX.Element | null {
-	const [open, setOpen] = useState(false);
 	const [first, ...rest] = paragraphs(text !== "" ? text : (outcome ?? ""));
 	if (first === undefined) {
 		return null;
@@ -27,24 +25,19 @@ export function MergedBody({
 	].filter((each) => each !== "");
 	return (
 		<div>
-			<CardBody text={first} lead={lead} />
-			{open ? (
-				<section aria-label="outcome" className="-mt-2">
+			<CardBody
+				text={`### Summary\n\n${first}`}
+				className="[&_p]:font-semibold [&_p]:text-base [&_p]:leading-snug [&_p]:first-letter:uppercase"
+			/>
+			{more.length > 0 && (
+				<section
+					aria-label="outcome"
+					className="border-t text-muted-foreground"
+				>
 					{more.map((each) => (
 						<CardBody key={each} text={each} />
 					))}
 				</section>
-			) : (
-				more.length > 0 && (
-					<button
-						type="button"
-						onClick={() => setOpen(true)}
-						className="flex h-10 pointer-coarse:h-11 w-full items-center justify-center gap-1 border-t font-medium text-muted-foreground text-sm hover:bg-muted active:bg-muted"
-					>
-						More
-						<ChevronDownIcon className="size-4" />
-					</button>
-				)
 			)}
 		</div>
 	);

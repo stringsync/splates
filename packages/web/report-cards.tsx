@@ -144,11 +144,7 @@ export function ReportCard({
 							/>
 						)}
 						{merged ? (
-							<MergedBody
-								text={text}
-								outcome={landed?.outcome.outcome}
-								lead={report.reason !== null}
-							/>
+							<MergedBody text={text} outcome={landed?.outcome.outcome} />
 						) : (
 							text !== "" && (
 								<Folded>

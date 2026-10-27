@@ -94,7 +94,7 @@ describe("App's merged card actions", () => {
 		expect(within(went).queryByText(/by agent/)).toBeNull();
 	});
 
-	it("shows the outcome the plan ended on, and asks the conversation's own agent to demo it from the card's foot", async () => {
+	it("shows the outcome the plan ended on in full under the report's summary, and asks the conversation's own agent to demo it from the card's foot", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -108,14 +108,13 @@ describe("App's merged card actions", () => {
 			}),
 		]);
 		const card = view.getByRole("region", { name: "merged header" });
+		expect(
+			within(card).getByRole("heading", { name: "Summary" }),
+		).not.toBeNull();
 		expect(within(card).getByText("Done.")).not.toBeNull();
-		expect(within(card).queryByText("Moved the header.")).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => within(card).getByRole("button", { name: "More" })),
-			),
+		const outcome = await waitFor(() =>
+			view.getByRole("region", { name: "outcome" }),
 		);
-		const outcome = view.getByRole("region", { name: "outcome" });
 		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
 		expect(within(outcome).queryByRole("button")).toBeNull();
 		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
@@ -145,7 +144,7 @@ describe("App's merged card actions", () => {
 		);
 	});
 
-	it("leads with the outcome's first paragraph when the report says nothing, and offers no More when there is no more", async () => {
+	it("leads with the outcome's first paragraph when the report says nothing, with nothing under it when there is no more", async () => {
 		testing.landed.header = {
 			outcome: { ...header(), outcome: "Moved the header." },
 			baseline: null,
@@ -158,7 +157,7 @@ describe("App's merged card actions", () => {
 		const card = view.getByRole("region", { name: "merged header" });
 
 		await waitFor(() => within(card).getByText("Moved the header."));
-		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
+		expect(within(card).queryByRole("region", { name: "outcome" })).toBeNull();
 	});
 
 	it("offers no demo for an outcome that says none, nor on a merge the conversation carried on past", async () => {
@@ -189,7 +188,7 @@ describe("App's merged card actions", () => {
 					.getAllByRole("region", { name: /^merged / })
 					.map(
 						(card) =>
-							within(card).queryByRole("button", { name: "More" }) !== null,
+							within(card).queryByRole("region", { name: "outcome" }) !== null,
 					),
 			).toEqual([true, true]),
 		);
