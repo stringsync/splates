@@ -193,6 +193,63 @@ describe("App's pages and the project switcher", () => {
 			"#conversations",
 		]);
 	});
+
+	it("keeps the board when the switcher picks a project last left in a thread", async () => {
+		sessionStorage.setItem(
+			"splates.places",
+			JSON.stringify({ shop: { hash: "#conversations/abc" } }),
+		);
+		const view = await testing.open({ repo: "webappwiz" });
+		await act(async () =>
+			fireEvent.click(
+				view.getAllByRole("button", {
+					name: /^Switch project/,
+				})[0] as HTMLElement,
+			),
+		);
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
+		);
+
+		expect([location.search, location.hash]).toEqual([
+			"?project=shop",
+			"#todos",
+		]);
+	});
+
+	it("keeps a phone on the board when the switcher picks a project last left in a thread", async () => {
+		resize(390, 844);
+		sessionStorage.setItem(
+			"splates.places",
+			JSON.stringify({ shop: { hash: "#conversations/abc" } }),
+		);
+		const view = await testing.open({ repo: "webappwiz" });
+		const drawer = await openDrawer(view);
+		await act(async () =>
+			fireEvent.click(within(drawer).getByRole("button", { name: "Board" })),
+		);
+		await waitFor(() => expect(location.hash).toBe(""));
+		const bar = await waitFor(() => {
+			const header = view.container.querySelector("header");
+			expect(header).not.toBeNull();
+			return header as HTMLElement;
+		});
+		await act(async () =>
+			fireEvent.click(
+				within(bar).getByRole("button", { name: /^Switch project/ }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
+		);
+
+		await waitFor(() =>
+			expect([location.search, location.hash]).toEqual([
+				"?project=shop",
+				"#todos",
+			]),
+		);
+	});
 });
 
 /** Goes to the page whose sidebar tab is `name`. */
