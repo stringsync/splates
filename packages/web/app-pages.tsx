@@ -20,7 +20,7 @@ import type { Terminals } from "./terminals";
 import type { TodoView } from "./todo-view";
 import { TreesContext } from "./work-row";
 
-/** Cache page bodies independently of conversation stream consumers. */
+/** The bodies of the app's pages, for `App` to show the one open. */
 export function useAppPages({
 	snapshot,
 	drafts,
@@ -144,6 +144,7 @@ export function useAppPages({
 									todos={snapshot.todos}
 									lanes={snapshot.lanes}
 									trunk={snapshot.trunk}
+									here={{ root: snapshot.root, repo: snapshot.repo }}
 									open={open}
 									onOpen={openConversation}
 									onLane={(id) => {

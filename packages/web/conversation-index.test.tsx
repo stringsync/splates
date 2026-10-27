@@ -200,6 +200,7 @@ describe("conversation render subscriptions", () => {
 								todos={[]}
 								lanes={[]}
 								trunk="main"
+								here={{ root: "/repo", repo: "repo" }}
 								open="two"
 								onOpen={open}
 								onTodos={open}

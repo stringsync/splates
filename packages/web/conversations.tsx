@@ -40,14 +40,21 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { Home } from "./conversation-home";
-import { useConversation, useConversationIndex } from "./conversation-index";
+import {
+	conversationIndex,
+	useConversation,
+	useConversationIndex,
+} from "./conversation-index";
 import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import { useEverywhere } from "./everywhere-context";
 import { useExpect } from "./expecting";
 import { FinishedByName } from "./finished-tasks";
 import { Locked } from "./freshness";
 import { useNow } from "./hooks/use-now";
+import { NavigationContext } from "./navigation";
+import { newConversationUrl } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { ago } from "./plan-limits";
@@ -77,6 +84,7 @@ export const Conversations = memo(function Conversations({
 	todos,
 	lanes,
 	trunk,
+	here,
 	open,
 	onOpen,
 	onTodos,
@@ -97,6 +105,8 @@ export const Conversations = memo(function Conversations({
 	lanes: LaneRecord[];
 	/** The main tree's branch. */
 	trunk: string;
+	/** The project the page shows, to file its archived conversations under. */
+	here: { root: string; repo: string };
 	open: string | null;
 	/** Opens `id`, or the list for null, in place of what is open for `replace`. */
 	onOpen: (id: string | null, how?: Move) => void;
@@ -267,6 +277,7 @@ export const Conversations = memo(function Conversations({
 					<Archived
 						tasks={tasks}
 						conversations={conversations.filter((each) => each.archived)}
+						here={here}
 						agents={agents}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
@@ -375,21 +386,55 @@ function useRead(conversation: ConversationState | null): void {
 function Archived({
 	tasks,
 	conversations,
+	here,
 	agents,
 	onOpen,
 	onBack,
 }: {
 	tasks: Details[];
 	conversations: ConversationState[];
+	here: { root: string; repo: string };
 	agents: AgentChoice[];
 	onOpen: (id: string) => void;
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const now = useNow(true, Duration.mins(1));
-	const sorted = useMemo(
-		() => conversations.toSorted(byArchivedAt),
-		[conversations],
-	);
+	const navigation = useContext(NavigationContext);
+	const everywhere = useEverywhere((feed) => ({
+		available: feed.available,
+		projects: feed.projects,
+		conversations: conversationIndex(feed),
+	}));
+	// A section per project by name, the page's own from the live feed, which
+	// shows an archive at once, and the rest from the feed of every project.
+	const sections = useMemo(() => {
+		const own = {
+			key: "",
+			project: null as string | null,
+			name: here.repo,
+			conversations: conversations.toSorted(byArchivedAt),
+		};
+		if (!everywhere.available) {
+			return [own];
+		}
+		const listed = everywhere.projects
+			.filter((each) => each.root !== here.root)
+			.map((each) => ({
+				key: each.project,
+				project: each.project as string | null,
+				name: each.repo,
+				conversations: everywhere.conversations
+					.filter((state) => state.project === each.project && state.archived)
+					.toSorted(byArchivedAt),
+			}));
+		return [own, ...listed]
+			.filter((each) => each.conversations.length > 0)
+			.sort(
+				(one, other) =>
+					one.name.localeCompare(other.name) ||
+					one.key.localeCompare(other.key),
+			);
+	}, [conversations, here, everywhere]);
 	return (
 		<section
 			aria-label="archived conversations"
@@ -408,25 +453,40 @@ function Archived({
 			{conversations.length === 0 ? (
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
-				<ul className="flex min-h-0 flex-col overflow-y-auto overscroll-contain">
-					{sorted.map((each) => (
-						<li key={each.id}>
-							<Item
-								conversation={each}
-								agent={agentName(agents, each.agent)}
-								need={needOf(tasks, each)}
-								current={false}
-								onOpen={() => onOpen(each.id)}
-								where
-								ago={
-									each.archivedAt === null
-										? null
-										: ago(Date.parse(each.archivedAt), now)
-								}
-							/>
-						</li>
+				<div className="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain">
+					{sections.map((section) => (
+						<section key={section.key} aria-label={section.name}>
+							<h2 className="px-2 pb-1 font-medium text-muted-foreground text-xs">
+								{section.name}
+							</h2>
+							<ul className="flex flex-col">
+								{section.conversations.map((each) => (
+									<li key={each.id}>
+										<Item
+											conversation={each}
+											agent={agentName(agents, each.agent)}
+											need={needOf(section.project === null ? tasks : [], each)}
+											current={false}
+											onOpen={() =>
+												section.project === null
+													? onOpen(each.id)
+													: navigation.show(
+															newConversationUrl(section.project, each.id),
+														)
+											}
+											where
+											ago={
+												each.archivedAt === null
+													? null
+													: ago(Date.parse(each.archivedAt), now)
+											}
+										/>
+									</li>
+								))}
+							</ul>
+						</section>
 					))}
-				</ul>
+				</div>
 			)}
 		</section>
 	);
