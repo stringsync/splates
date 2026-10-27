@@ -28,10 +28,9 @@ const WATCH_EVERY = Duration.secs(2);
 /**
  * One process a `process` channel started on the worker, such as an agent:
  * its stdout as the channel's bytes, its stdin from them, and its pid,
- * stderr and exit code as messages. Its stdout is read only while the
- * session has room, so a server away for long stalls the process
- * rather than losing what it says. Closing the channel kills it, and
- * everything it started.
+ * stderr and exit code as messages. A server away for long stalls the
+ * process rather than losing what it says. Closing the channel kills it,
+ * and everything it started.
  */
 export class WorkerProcessHost implements Resource {
 	private readonly child: Child;
@@ -211,7 +210,10 @@ export interface WorkerProcessHostOptions {
 }
 
 /** Every process under `pid` in `table`, children first. */
-export function descendants(table: ProcessEntry[], pid: number): number[] {
+export function descendants(
+	table: Pick<ProcessEntry, "pid" | "ppid">[],
+	pid: number,
+): number[] {
 	const children = new Map<number, number[]>();
 	for (const each of table) {
 		children.set(each.ppid, [...(children.get(each.ppid) ?? []), each.pid]);

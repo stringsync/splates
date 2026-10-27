@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { NodePs, OpenPortProvider } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
-import { Machine, type MachineSensors } from "./load";
-import { OsSensors } from "./os-sensors";
+import { Machine, type MachineSensors, type ProcessUse } from "./load";
+import { OsSensors, parseTable } from "./os-sensors";
 
 describe("machine", () => {
 	it("reads the CPU share busy since the reading before", async () => {
@@ -39,8 +39,69 @@ describe("machine", () => {
 			load: 1.5,
 			cores: 2,
 			temperature: 71.5,
+			splates: { cpu: 0, memory: 0, bytes: 0 },
 		});
 	});
+
+	it("reads splates' share of memory, and of CPU since the reading before", async () => {
+		const sensors = new FakeSensors();
+		const machine = new Machine(sensors);
+		sensors.busy = 30;
+		sensors.idle = 70;
+		sensors.processes = [{ pid: 1, cpu: 1, memory: 8 }];
+		expect((await machine.read()).splates).toEqual({
+			cpu: 0,
+			memory: 0.125,
+			bytes: 8,
+		});
+
+		// 100 ms of CPU over 200 ms of both cores: 20 ms by the one there
+		// before, 20 ms by one started since.
+		sensors.busy = 130;
+		sensors.idle = 70;
+		sensors.processes = [
+			{ pid: 1, cpu: 1.02, memory: 8 },
+			{ pid: 2, cpu: 0.02, memory: 8 },
+		];
+		const { splates } = await machine.read();
+		expect(splates?.cpu).toBeCloseTo(0.2);
+		expect(splates?.memory).toBe(0.25);
+	});
+
+	it("reads no share for splates where its processes cannot be listed", async () => {
+		const sensors = new FakeSensors();
+		sensors.splates = () => Promise.resolve(null);
+		expect((await new Machine(sensors).read()).splates).toBeNull();
+	});
+
+	it("parses the process table, CPU times as macOS and Linux write them", () => {
+		expect(
+			parseTable(
+				[
+					"    1     0   0:34.88  1024",
+					"  200     1 123:04.50  2048",
+					"  300     1 01:02:03   1",
+					"  400     1 2-00:00:01 1",
+					"",
+				].join("\n"),
+			),
+		).toEqual([
+			{ pid: 1, ppid: 0, cpu: 34.88, rss: 1024 * 1024 },
+			{ pid: 200, ppid: 1, cpu: 7384.5, rss: 2048 * 1024 },
+			{ pid: 300, ppid: 1, cpu: 3723, rss: 1024 },
+			{ pid: 400, ppid: 1, cpu: 172_801, rss: 1024 },
+		]);
+	});
+
+	it.if(process.platform !== "win32")(
+		"counts this process among splates' own",
+		async () => {
+			const ps = new NodePs();
+			const own = await new OsSensors(new FakeFs(), { ps }).splates();
+			const self = own?.find((each) => each.pid === ps.pid);
+			expect(self?.memory).toBeGreaterThan(0);
+		},
+	);
 
 	it("calls a machine other than a Mac a machine", async () => {
 		const sensors = new FakeSensors();
@@ -62,12 +123,14 @@ describe("machine", () => {
 		await fs.write("/thermal/thermal_zone0/temp", "48000\n");
 		await fs.write("/thermal/thermal_zone1/temp", "61500\n");
 		await fs.write("/thermal/cooling_device0/temp", "99000\n");
-		expect(await new OsSensors(fs, "/thermal").thermalZones()).toBe(61.5);
+		expect(
+			await new OsSensors(fs, { thermal: "/thermal" }).thermalZones(),
+		).toBe(61.5);
 	});
 
 	it("reads none without thermal zones", async () => {
 		expect(
-			await new OsSensors(new FakeFs(), "/thermal").thermalZones(),
+			await new OsSensors(new FakeFs(), { thermal: "/thermal" }).thermalZones(),
 		).toBeNull();
 	});
 
@@ -123,5 +186,9 @@ class FakeSensors implements MachineSensors {
 	}
 	async temperature() {
 		return this.hot;
+	}
+	processes: ProcessUse[] = [];
+	splates(): Promise<ProcessUse[] | null> {
+		return Promise.resolve(this.processes);
 	}
 }

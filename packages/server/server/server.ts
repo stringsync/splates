@@ -61,6 +61,7 @@ import { Replicas } from "./replicas";
 import { Restarts } from "./restart";
 import { Serving } from "./serving";
 import { CONNECTIONS, type Connection } from "./sockets";
+import { SERVING } from "./supervise";
 import { Versions } from "./versions";
 
 export type { DevOptions } from "./options";
@@ -457,7 +458,10 @@ export async function dev(
 	);
 
 	// Not any project's: every page on this server shares one machine.
-	const machine = new Machine(sensors ?? new OsSensors(fs));
+	const machine = new Machine(
+		sensors ??
+			new OsSensors(fs, { ps, supervised: ps.env(SERVING) !== undefined }),
+	);
 	const opencode = new OpenCodeSetupRoutes(
 		new OpenCodeSetup({
 			fs,

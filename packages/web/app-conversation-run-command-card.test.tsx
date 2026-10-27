@@ -219,6 +219,7 @@ function reading(overrides: Partial<MachineStatus> = {}): MachineStatus {
 		load: 3.2,
 		cores: 16,
 		temperature: null,
+		splates: null,
 		queue: [],
 		...overrides,
 	};

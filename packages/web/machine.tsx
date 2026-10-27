@@ -113,9 +113,9 @@ export function strained(reading: MachineStatus): boolean {
 
 /**
  * The machine's CPU, memory and, where it can be read, temperature, as bars
- * the way Plan limits draws them: yellow from 80%, red from 90%. With no
- * reading, dashes. Given `at` and `now`, a reading older than a few seconds
- * says how old, so a stale number never passes for live.
+ * yellow from 80% and red from 90%, splates' own part of CPU and memory in
+ * blue, with dashes for no reading. Give `at` and `now` to have a reading
+ * older than a few seconds say how old.
  */
 export function MachineStats({
 	reading,
@@ -157,18 +157,20 @@ export function MachineStats({
 }
 
 function Readings({ reading }: { reading: MachineStatus }): JSX.Element {
-	const { cpu, memory, temperature } = reading;
+	const { cpu, memory, temperature, splates } = reading;
 	return (
 		<>
 			<Meter
 				name="CPU"
 				share={cpu}
+				ours={splates?.cpu}
 				tone={toneOf(cpu, SHARE)}
 				shown={`${Math.round(cpu * 100)}%`}
 			/>
 			<Meter
 				name="Memory"
 				share={memory}
+				ours={splates?.memory}
 				tone={toneOf(memory, SHARE)}
 				shown={`${Math.round(memory * 100)}%`}
 			/>
@@ -181,8 +183,23 @@ function Readings({ reading }: { reading: MachineStatus }): JSX.Element {
 					shown={`${Math.round(temperature)}°`}
 				/>
 			)}
+			{splates !== null && (
+				<li
+					aria-label="splates"
+					className="col-span-full flex items-center gap-1.5 text-muted-foreground text-xs"
+				>
+					<span aria-hidden className="size-1.5 rounded-full bg-info" />
+					splates {Math.round(splates.cpu * 100)}% CPU,{" "}
+					{gigabytes(splates.bytes)}
+				</li>
+			)}
 		</>
 	);
+}
+
+/** Bytes as gigabytes, to a tenth: `4.8 GB`. */
+function gigabytes(bytes: number): string {
+	return `${(bytes / 2 ** 30).toFixed(1)} GB`;
 }
 
 /** How old a reading is: `4s ago`, `3m ago`. */
@@ -191,14 +208,17 @@ function secondsAgo(ms: number): string {
 	return seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`;
 }
 
+/** A bar of `share`, its first `ours` of it splates' own, when given. */
 function Meter({
 	name,
 	share,
+	ours,
 	tone,
 	shown,
 }: {
 	name: string;
 	share: number;
+	ours?: number;
 	tone: Tone;
 	shown: string;
 }): JSX.Element {
@@ -220,6 +240,12 @@ function Meter({
 					)}
 					style={{ width: `${Math.min(share, 1) * 100}%` }}
 				/>
+				{ours !== undefined && (
+					<span
+						className="absolute inset-y-0 left-0 rounded-full bg-info"
+						style={{ width: `${Math.min(ours, share, 1) * 100}%` }}
+					/>
+				)}
 			</span>
 			<span
 				className={cn(

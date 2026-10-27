@@ -39,6 +39,23 @@ describe("App's machine stats", () => {
 		expect(view.queryByRole("status", { name: /busy/ })).toBeNull();
 	});
 
+	it("shows how much of the CPU and memory splates' own processes take", async () => {
+		testing.machine = reading({
+			splates: { cpu: 0.12, memory: 0.075, bytes: 4.8 * 2 ** 30 },
+		});
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+
+		const stats = await waitFor(() =>
+			view.getByRole("region", { name: "This Mac" }),
+		);
+		expect(within(stats).getByLabelText("splates").textContent).toBe(
+			"splates 12% CPU, 4.8 GB",
+		);
+	});
+
 	it("shows the temperature where a sensor reads one", async () => {
 		testing.machine = reading({ kind: "machine", temperature: 52.4 });
 		const view = await testing.open();
@@ -140,6 +157,7 @@ function reading(over: Partial<MachineStatus> = {}): MachineStatus {
 		load: 3.2,
 		cores: 16,
 		temperature: null,
+		splates: null,
 		queue: [],
 		...over,
 	};
