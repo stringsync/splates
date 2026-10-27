@@ -261,7 +261,7 @@ function Meter({
 }
 
 /**
- * "Mac busy" in the header while the machine is strained, and nothing
+ * "Busy" in the header while the machine is strained, and nothing
  * otherwise, as Offline is silent while connected; tapped, the numbers.
  */
 export function MachineBadge({
@@ -279,7 +279,7 @@ export function MachineBadge({
 				className={`${STATUS_PILL} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400`}
 			>
 				<span className="size-1.5 rounded-full bg-amber-500" />
-				{reading.kind} busy
+				Busy
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-64">
 				<MachineStats reading={reading} />

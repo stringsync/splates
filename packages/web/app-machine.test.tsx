@@ -69,11 +69,11 @@ describe("App's machine stats", () => {
 		expect(within(stats).getByLabelText("Temp").textContent).toContain("52°");
 	});
 
-	it("says the Mac is busy in the header while it is strained, with the numbers a tap away", async () => {
+	it("says Busy in the header while the Mac is strained, with the numbers a tap away", async () => {
 		testing.machine = reading({ cpu: 0.94, load: 15.1 });
 		const view = await testing.open();
 
-		const badge = await waitFor(() => view.getByText("Mac busy"));
+		const badge = await waitFor(() => view.getByText("Busy"));
 		await act(async () => fireEvent.click(badge));
 
 		expect(
