@@ -367,6 +367,7 @@ export async function dev(
 
 	const ended = new DevOutcomes(deps);
 	const configFiles = new ConfigFiles(fs);
+	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
 	// Read at each request, so a project that adds `evals` to its config
 	// shows its Evals page, and runs them, without a restart.
 	const evalCommandsOf = async (request: Request) => {
@@ -381,7 +382,7 @@ export async function dev(
 		directory: async (request) =>
 			(await evalCommandsOf(request))?.results ?? null,
 	});
-	const evalLaunches = new EvalLaunches(ps);
+	const evalLaunches = new EvalLaunches(ps, machineStorage);
 	disposer.defer(async () => evalLaunches.dispose());
 	// The agent whose card started a run hears it is done, with its report,
 	// to take the person through what to do next.
@@ -417,6 +418,32 @@ export async function dev(
 			},
 		},
 	);
+	const evalCommands = await Promise.all(
+		(await projects.list()).map(async (project) =>
+			project.gone
+				? null
+				: projectEvalCommands(
+						ps,
+						project.root,
+						(await configFiles.read(project.root)).evals ?? null,
+					),
+		),
+	);
+	await Promise.all(
+		evalCommands.flatMap((commands) =>
+			commands === null
+				? []
+				: [
+						evalLaunches
+							.resume([commands])
+							.catch((error: unknown) =>
+								log.error(
+									`resuming evals at ${commands.root}: ${String(error)}`,
+								),
+							),
+					],
+		),
+	);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({
@@ -427,7 +454,6 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
 	const cascades = new Cascades({
 		storage: machineStorage,
 		fs,

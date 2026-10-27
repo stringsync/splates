@@ -4,6 +4,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Child, Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
+import type { Document, Storage } from "../storage";
 
 /** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
 export function targetOf(pick: AgentPick): string {
@@ -85,17 +86,23 @@ const TAIL = 20;
  * Starts, follows and stops the paid runs the Evals card asks for, through
  * the `list`, `plan` and `run` commands a project names, and says `finished`
  * when one started from a conversation's card is done, for that
- * conversation to be told. A restart forgets which launch was whose, though
- * the batch it wrote stays on the Evals page.
+ * conversation to be told. Launches are kept in the machine's storage, and a
+ * restart runs again each one left in progress.
  */
 export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<EvalLaunchesEvents>();
 	readonly events = this.dispatcher.events;
 	/** By project root and card key. */
 	private readonly launches = new Map<string, Launched>();
+	private readonly record: Document<Record<string, SavedLaunch>>;
+	private writing: Promise<void> = Promise.resolve();
 
-	// Each run is the project's `run` command as a child; launches are held in memory.
-	constructor(private readonly ps: Ps) {}
+	constructor(
+		private readonly ps: Ps,
+		storage: Storage,
+	) {
+		this.record = storage.document("eval-launches.json");
+	}
 
 	/** Every case the project's `list` prints. */
 	async scenarios(
@@ -184,21 +191,51 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			status: "running",
 			batch: null,
 			output: "",
+			recordId: id,
+			commands,
+			spec,
 			child,
-			results: commands.results,
 			known,
 			stopping: false,
-			conversation: spec.conversation ?? null,
 		};
 		this.launches.set(id, launch);
+		try {
+			await this.save(launch, true);
+		} catch (error) {
+			this.launches.delete(id);
+			launch.child.kill();
+			throw error;
+		}
 		void this.watch(launch);
 		return this.read(launch);
 	}
 
-	/** The run of the card `key` names, or null when it has none here. */
+	/** Runs again each launch a stopped server left in progress. */
+	async resume(commands: EvalCommands[]): Promise<void> {
+		const current = new Map(commands.map((each) => [each.root, each]));
+		for (const [id, saved] of Object.entries(
+			(await this.record.read()) ?? {},
+		)) {
+			if (
+				saved.launch.status !== "running" ||
+				this.launches.get(id)?.status === "running"
+			) {
+				continue;
+			}
+			const commandsNow = current.get(saved.commands.root);
+			if (commandsNow?.run != null) {
+				await this.start(commandsNow, saved.spec);
+			}
+		}
+	}
+
+	/** The run of the card `key` names, or null when it has none. */
 	async get(commands: EvalCommands, key: string): Promise<EvalLaunch | null> {
-		const launch = this.launches.get(idOf(commands, key));
-		return launch === undefined ? null : this.read(launch);
+		const id = idOf(commands, key);
+		const launch = this.launches.get(id);
+		return launch === undefined
+			? ((await this.record.read())?.[id]?.launch ?? null)
+			: this.read(launch);
 	}
 
 	/** Stops the run of the card `key` names; its landed cells stay on the Evals page. */
@@ -242,15 +279,16 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 				: launch.batch === null
 					? "refused"
 					: "done";
+		await this.save(launch);
 		if (
 			launch.status === "done" &&
 			launch.batch !== null &&
-			launch.conversation !== null
+			launch.spec.conversation != null
 		) {
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
-				results: launch.results,
-				conversation: launch.conversation,
+				results: launch.commands.results,
+				conversation: launch.spec.conversation,
 			});
 		}
 	}
@@ -258,12 +296,34 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	/** The launch, its batch found if the runner has made one since it started. */
 	private async read(launch: Launched): Promise<EvalLaunch> {
 		if (launch.batch === null) {
-			const made = (await batchesIn(launch.results)).filter(
+			const made = (await batchesIn(launch.commands.results)).filter(
 				(each) => !launch.known.has(each),
 			);
 			launch.batch = made.sort().at(-1) ?? null;
+			if (launch.batch !== null) {
+				await this.save(launch);
+			}
 		}
 		return viewOf(launch);
+	}
+
+	private save(launch: Launched, replace = false): Promise<void> {
+		const saved: SavedLaunch = {
+			launch: viewOf(launch),
+			commands: launch.commands,
+			spec: launch.spec,
+		};
+		const writing = this.writing.then(async () => {
+			await this.record.update((current) => {
+				const all = current ?? {};
+				if (!replace && all[launch.recordId]?.launch.id !== launch.id) {
+					return all;
+				}
+				return { ...all, [launch.recordId]: saved };
+			});
+		});
+		this.writing = writing.catch(() => {});
+		return writing;
 	}
 }
 
@@ -332,12 +392,19 @@ export interface EvalFinished {
 
 export type EvalLaunchesEvents = { finished: EvalFinished };
 
+interface SavedLaunch {
+	launch: EvalLaunch;
+	commands: EvalCommands;
+	spec: EvalLaunchSpec;
+}
+
 interface Launched extends EvalLaunch {
+	recordId: string;
+	commands: EvalCommands;
+	spec: EvalLaunchSpec;
 	child: Child;
-	results: string;
 	known: Set<string>;
 	stopping: boolean;
-	conversation: string | null;
 }
 
 async function* decoded(

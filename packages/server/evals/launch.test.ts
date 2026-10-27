@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { eventually } from "../server/testing";
 import { Testing } from "../testing";
 import { type EvalCommands, type EvalFinished, EvalLaunches } from "./launch";
 
@@ -24,7 +25,7 @@ describe("EvalLaunches", () => {
 			run: `mkdir -p "$SPLATES_EVALS_RESULTS/nightly" && printf '%s|%s|%s|%s\\n' "$SPLATES_EVALS_CASES" "$SPLATES_EVALS_TARGETS" "$SPLATES_EVALS_REPS" "$PWD"`,
 			plan: null,
 		};
-		launches = new EvalLaunches(deps.ps);
+		launches = new EvalLaunches(deps.ps, deps.machine);
 		finished = [];
 		launches.events.on("finished", (each) => finished.push(each));
 	});
@@ -69,7 +70,9 @@ describe("EvalLaunches", () => {
 		await launches.start(commands, { ...spec, conversation: "c-1" });
 		await done(launches, commands);
 
-		expect(finished).toHaveLength(1);
+		expect(await eventually(async () => finished.length === 1, 2_000)).toBe(
+			true,
+		);
 		expect(finished[0]?.conversation).toBe("c-1");
 		expect(finished[0]?.results).toBe(commands.results);
 		expect(finished[0]?.launch.batch).toBe("nightly");
@@ -131,6 +134,37 @@ describe("EvalLaunches", () => {
 			refused: true,
 			output: "over budget",
 		});
+	});
+
+	it("resumes an in-progress run with its card and conversation through a restart", async () => {
+		const run = `count=$(cat "$SPLATES_EVALS_RESULTS/attempt" 2>/dev/null || printf 0); count=$((count + 1)); printf %s "$count" > "$SPLATES_EVALS_RESULTS/attempt"; if [ "$count" -eq 1 ]; then mkdir -p "$SPLATES_EVALS_RESULTS/first"; sleep 30; else mkdir -p "$SPLATES_EVALS_RESULTS/second"; printf resumed; fi`;
+		commands = { ...commands, run };
+		await launches.start(commands, { ...spec, conversation: "c-1" });
+		expect(
+			await eventually(
+				async () => (await launches.get(commands, "card-1"))?.batch === "first",
+				2_000,
+			),
+		).toBe(true);
+		launches.dispose();
+
+		launches = new EvalLaunches(deps.ps, deps.machine);
+		launches.events.on("finished", (each) => finished.push(each));
+		expect(await launches.get(commands, "card-1")).toMatchObject({
+			status: "running",
+		});
+		await launches.resume([commands]);
+		await done(launches, commands);
+
+		expect(await launches.get(commands, "card-1")).toMatchObject({
+			status: "done",
+			batch: "second",
+			output: "resumed",
+		});
+		expect(await eventually(async () => finished.length === 1, 2_000)).toBe(
+			true,
+		);
+		expect(finished[0]?.conversation).toBe("c-1");
 	});
 });
 
