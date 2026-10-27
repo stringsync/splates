@@ -108,3 +108,33 @@ get it through, and end your turn:
 refused merge's Grant, so it may come before you ask: merge again. A Deny
 (`[SPLATES RUN DENIED]`) means `splates remove <task> --reason redo` with a
 task added for the redo, unless the user's note says otherwise.
+
+## Unmerging
+
+`[SPLATES UNMERGE <task>]` asks you to take merged `<task>` back off its
+base, as the merged card's Unmerge sends once the user confirms; anything
+they wrote in its dialog follows it, as their word on why or what to keep.
+A merge lands as one commit, so undoing it is a revert, never a reset or a
+rewrite of the base's history:
+
+1. `splates add unmerge-<task> --goal "Revert <task> from <base>"`, then
+   `splates show <task>` for its base and the commit it landed as.
+2. Check that it can be undone before you revert anything:
+   - what landed since (`git log <commit>..<base>`) and touches the same
+     files or calls what it added, which a revert would break or conflict
+     with;
+   - whether it went out in a release (`git tag --contains <commit>`, or a
+     ship since), which a revert takes out of the next one but never
+     unpublishes;
+   - whether it did anything outside the code that the revert leaves done:
+     a migration that ran, data written or reshaped, state or settings on
+     the machine, anything sent to another service.
+3. When all of it is clear, `git revert --no-edit <commit>` in the worktree,
+   run the project's checks, commit, and land it with
+   `splates merge --message "<task>'s change comes back out: <why>"`; then
+   report it as any merge, saying in its line what is gone again.
+4. When any of it is not, revert nothing yet: ask, a question saying what
+   would stay done or break and the choices you see (revert with the work
+   after it adjusted, revert only part, or undo it by hand with a forward
+   fix), and go on from the answer. A later task that builds on it is one
+   to name, never to revert along with it unasked.

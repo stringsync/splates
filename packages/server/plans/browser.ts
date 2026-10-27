@@ -37,6 +37,7 @@ export {
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,
+	unmergeReference,
 } from "./prompts";
 export type { Answer } from "./reply";
 export {

@@ -16,6 +16,7 @@ import { cn } from "#web/lib/utils.ts";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
 import { demoed, useLanded } from "./merged-stats";
+import { UnmergeIt } from "./unmerge-it";
 
 /**
  * Putting the conversation away once its last word reports a task that is
@@ -72,10 +73,13 @@ export function useArchivable(report: TaskReport): boolean {
 export function CardArchive({
 	report,
 	demo = false,
+	unmerge = false,
 }: {
 	report: TaskReport;
 	/** Whether to offer Demo it beside Archive, for a merge that says how. */
 	demo?: boolean;
+	/** Whether to offer Unmerge apart from them, for a merge. */
+	unmerge?: boolean;
 }): JSX.Element | null {
 	const offer = useContext(ArchiveOfferContext);
 	const button = useRef<HTMLButtonElement>(null);
@@ -106,6 +110,7 @@ export function CardArchive({
 	}
 	return (
 		<footer className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-2.5">
+			{unmerge && <UnmergeIt task={report.task} className="mr-auto" />}
 			{demo && <DemoIt task={report.task} />}
 			<Button
 				ref={button}

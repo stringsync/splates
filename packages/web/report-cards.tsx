@@ -154,7 +154,11 @@ export function ReportCard({
 						)}
 						{held !== null && <HeldBlockers task={held} />}
 						{merged && <MergedStats landed={landed} />}
-						<CardArchive report={report} demo={demoed(landed)} />
+						<CardArchive
+							report={report}
+							demo={demoed(landed)}
+							unmerge={merged}
+						/>
 					</>
 				)}
 			</CardShell>

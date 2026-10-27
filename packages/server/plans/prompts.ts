@@ -67,6 +67,18 @@ export function demoReference(task: string, point: DemoPoint): string {
 }
 
 /**
+ * What asks an agent to take merged `task` back off its base, as the merged
+ * card's Unmerge sends, with what the person wrote in its dialog after it:
+ * the splates skill says what it means, checking first that it can be undone.
+ */
+export function unmergeReference(task: string, note: string): string {
+	const said = note.trim();
+	return said === ""
+		? `[SPLATES UNMERGE ${task}]`
+		: `[SPLATES UNMERGE ${task}]\n\n${said}`;
+}
+
+/**
  * What a chat with an agent takes to mean "claim `task` and carry on with
  * it" from an agent that stopped on it without handing it over, whose last
  * turns are at `transcript`.
@@ -116,9 +128,9 @@ export const CHECKPOINT = "[SPLATES CHECKPOINT]";
 export const RESUME = "[SPLATES RESUME]";
 
 /**
- * What asks an agent to carry on with a turn a lost connection cut short, as
- * the page's Reconnect button sends, and splates does by itself once the
- * agent's process is lost: the splates skill says what it means.
+ * What asks an agent to carry on with a turn a lost connection cut short:
+ * send it from the page's Reconnect button, or once the agent's process is
+ * lost. The splates skill says what it means.
  */
 export const RECONNECT = "[SPLATES RECONNECT]";
 
@@ -214,11 +226,7 @@ const LEGACY_DIRECTIVE = "[ARBOR ";
 /** A todo's directive from before todos became tasks, read as a task's. */
 const LEGACY_TODO = /^\[SPLATES TODO (?=(?:(?:DONE|OPEN|ADDED) )?#\d+\]$)/;
 
-/**
- * `text` trimmed, read as splates's directive when it is one of arbor's, and
- * as a task's when it is a todo's, as a conversation from before either
- * rename holds.
- */
+/** Directive `text` trimmed, in the words splates uses for it today. */
 export function directive(text: string): string {
 	const trimmed = text.trim();
 	const splates = trimmed.startsWith(LEGACY_DIRECTIVE)
