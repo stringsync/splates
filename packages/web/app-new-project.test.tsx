@@ -26,6 +26,7 @@ describe("App's New, by project", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 			{
 				slug: "shop",
@@ -34,6 +35,7 @@ describe("App's New, by project", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 		];
 		view = await testing.openConversations(

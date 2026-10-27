@@ -65,4 +65,5 @@ const here = (conversations: ProjectConversation[] = []) => ({
 	focused: true,
 	conversations,
 	waiting: 0,
+	ships: false,
 });

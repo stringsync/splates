@@ -36,6 +36,7 @@ describe("App's projects", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 			{
 				slug: "shop",
@@ -44,6 +45,7 @@ describe("App's projects", () => {
 				focused: false,
 				conversations: [],
 				waiting: 2,
+				ships: true,
 			},
 			{
 				slug: "old",
@@ -52,6 +54,7 @@ describe("App's projects", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 		];
 	});
@@ -311,6 +314,19 @@ describe("App's projects", () => {
 		expect(
 			await waitFor(() => view.getByRole("dialog", { name: "Ship shop" })),
 		).toBeTruthy();
+	});
+
+	it("offers no Ship on a project that names no ship command", async () => {
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		await openMenu(view, "webappwiz");
+		await waitFor(() =>
+			view.getByRole("menuitem", { name: "Remove project webappwiz" }),
+		);
+		expect(
+			view.queryByRole("menuitem", { name: "Ship webappwiz…" }),
+		).toBeNull();
 	});
 
 	it("forgets a project that is gone", async () => {

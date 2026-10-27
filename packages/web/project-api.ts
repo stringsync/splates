@@ -173,6 +173,8 @@ export interface ProjectChoice {
 	conversations: ProjectConversation[];
 	/** How many of its agents wait on you. */
 	waiting: number;
+	/** Whether it names a `ship` command and publishes a public package: what Ship can run. */
+	ships: boolean;
 }
 
 /** A conversation a checkpoint of its project asks, or has asked. */

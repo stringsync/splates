@@ -7,6 +7,7 @@ import { realName } from "../conversations";
 import { fail } from "../exit";
 import { RESUME } from "../plans";
 import type { Projects } from "../projects";
+import { shipsFrom } from "../ship";
 import type { Document, Storage } from "../storage";
 import { tasksOf } from "../tasks";
 import type { Terminals } from "../terminal";
@@ -160,6 +161,7 @@ export class Restarts {
 					focused: each.root === focused?.root,
 					conversations: await this.checkpointable(each.root),
 					waiting: each.gone ? 0 : await this.waitingIn(each.root),
+					ships: each.gone ? false : await shipsFrom(this.home, each.root),
 				})),
 			),
 			servers: await this.opts.servers(),

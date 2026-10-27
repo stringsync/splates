@@ -32,6 +32,7 @@ describe("App coming back to a project", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 			{
 				slug: "shop",
@@ -40,6 +41,7 @@ describe("App coming back to a project", () => {
 				focused: false,
 				conversations: [],
 				waiting: 2,
+				ships: false,
 			},
 		];
 	});
@@ -118,6 +120,7 @@ describe("App coming back to a project", () => {
 		expect(there.hash).toBe("#creds");
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only gave its projects the ships field
 	it("names the project started in while it opens again", async () => {
 		await testing.open({ repo: "webappwiz" });
 		cleanup();

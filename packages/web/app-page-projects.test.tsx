@@ -32,6 +32,7 @@ describe("App's pages and the project switcher", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 			{
 				slug: "shop",
@@ -40,6 +41,7 @@ describe("App's pages and the project switcher", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 		];
 	});

@@ -71,7 +71,7 @@ export function ProjectMenu({
 					<CopyIcon />
 					Copy path
 				</DropdownMenuItem>
-				{!project.gone && (
+				{project.ships && (
 					<DropdownMenuItem
 						title="Shows what the ship would publish, downstream too, before anything runs"
 						onClick={onShip}

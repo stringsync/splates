@@ -23,6 +23,7 @@ describe("App at a project's address", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 			{
 				slug: "shop",
@@ -31,6 +32,7 @@ describe("App at a project's address", () => {
 				focused: false,
 				conversations: [],
 				waiting: 2,
+				ships: false,
 			},
 		];
 	});

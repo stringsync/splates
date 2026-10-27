@@ -227,6 +227,28 @@ function cascadeTable(cascade: Cascade): string {
 }
 
 /**
+ * Whether the project at `root` can be shipped: its `splates.config.ts`
+ * names a `ship` command and it publishes a public package, the two things
+ * `planShip` refuses a start for. One whose config does not load ships
+ * nothing, as in `registeredGraph`.
+ */
+export async function shipsFrom(
+	ctx: Pick<ShipContext, "fs" | "configs">,
+	root: string,
+): Promise<boolean> {
+	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
+	const ship = await files.read(root).then(
+		(config) => config.ship ?? null,
+		() => null,
+	);
+	if (ship === null) {
+		return false;
+	}
+	const graph = await readGraph(ctx.fs, [{ slug: "", root, ship }]);
+	return graph.projects.some((each) => !each.private);
+}
+
+/**
  * The graph of every registered project still on disk, each with the `ship`
  * its `splates.config.ts` names. One whose config does not load is warned of
  * and drawn as never shipped, rather than leaving every plan without it.

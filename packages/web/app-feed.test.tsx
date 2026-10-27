@@ -105,6 +105,7 @@ describe("App's feed", () => {
 					},
 				],
 				waiting: 0,
+				ships: false,
 			},
 		];
 		const view = await testing.open();

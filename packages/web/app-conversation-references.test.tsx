@@ -214,6 +214,7 @@ describe("App's composer references", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
+				ships: false,
 			},
 		];
 		const { view, box } = await opened();
