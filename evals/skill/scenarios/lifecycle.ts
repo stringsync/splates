@@ -305,11 +305,9 @@ const recoveries: Scenario[] = [
 			},
 			{
 				id: "landed",
-				about: "main holds the task's commit",
+				about: "main's value.txt is two",
 				test: async ({ repo }) =>
-					(await repo.run(["git", "log", "--format=%s", "main"])).includes(
-						goal,
-					),
+					(await repo.run(["git", "show", "main:value.txt"])) === "two\n",
 			},
 		],
 		judge:
