@@ -9,13 +9,7 @@ import { cn } from "#web/lib/utils.ts";
 import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { ORDER, StatusChip, spent } from "./eval-status";
 
-/**
- * A batch of evals as one card: its totals, then a grid of its scenarios,
- * grouped by aspect, against the agents it ran on, each cell a run's outcome
- * or pending until it lands. Narrowed to one aspect, it shows only that part
- * of the skill. A landed cell opens its run. Below the md breakpoint the grid
- * stacks, each scenario listing its agents, rather than scrolling sideways.
- */
+/** Shows an eval batch's totals and results; select a landed cell to open its run. */
 export function EvalReport({
 	grid,
 	onOpen,
@@ -197,7 +191,7 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 							{grid.targets.map((target) => (
 								<th
 									key={target.key}
-									className="px-1.5 pb-1 text-left font-normal text-muted-foreground whitespace-nowrap"
+									className="px-1.5 pb-1 text-left align-top font-normal text-muted-foreground"
 								>
 									{targetName(target)}
 								</th>
