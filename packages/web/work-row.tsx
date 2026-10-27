@@ -10,7 +10,7 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	FoldVerticalIcon,
-	LoaderIcon,
+	LoaderCircleIcon,
 	PowerIcon,
 	ShieldIcon,
 	SquareIcon,
@@ -240,25 +240,27 @@ function Flags({
 /** The agent's plan as a checklist. */
 function Plan({ steps }: { steps: Step[] }): JSX.Element {
 	return (
-		<ul aria-label="plan" className="flex flex-col gap-0.5 text-xs">
+		<ul aria-label="plan" className="flex flex-col gap-1 text-sm">
 			{steps.map((step, index) => (
 				<li
 					// biome-ignore lint/suspicious/noArrayIndexKey: a plan is sent whole
 					key={index}
 					className={cn(
-						"flex items-center gap-1.5 text-muted-foreground [&_svg]:size-3",
-						step.status === "in_progress" && "text-foreground",
-						step.status === "completed" && "line-through",
+						"flex items-start gap-2 text-muted-foreground",
+						step.status === "in_progress" && "font-medium text-foreground",
+						step.status === "completed" && "text-muted-foreground/70",
 					)}
 				>
-					{step.status === "completed" ? (
-						<CheckIcon className="size-3 shrink-0" />
-					) : step.status === "in_progress" ? (
-						<LoaderIcon className="size-3 shrink-0" />
-					) : (
-						<CircleIcon className="size-3 shrink-0" />
-					)}
-					{step.text}
+					<span className="flex h-5 shrink-0 items-center">
+						{step.status === "completed" ? (
+							<CheckIcon className="size-3.5" />
+						) : step.status === "in_progress" ? (
+							<LoaderCircleIcon className="size-3.5 animate-spin" />
+						) : (
+							<CircleIcon className="size-3.5 opacity-60" />
+						)}
+					</span>
+					<span className="min-w-0 leading-5">{step.text}</span>
 				</li>
 			))}
 		</ul>
