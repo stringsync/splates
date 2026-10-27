@@ -38,11 +38,6 @@ export function useLanded(task: string | null): Landed | null {
 	return landed;
 }
 
-/** Whether `landed`'s outcome says how to demo it, under a `### Demo`. */
-export function demoed(landed: Landed | null): boolean {
-	return /^#{3,4}\s+demo\b/im.test(landed?.outcome.outcome ?? "");
-}
-
 /**
  * How a task went once it merged, as its card's footer: its time, cost,
  * size and the calls the person made beside its project's usual, what the

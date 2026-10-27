@@ -94,7 +94,7 @@ describe("App's merged card actions", () => {
 		expect(within(went).queryByText(/by agent/)).toBeNull();
 	});
 
-	it("shows the outcome the plan ended on in full under the report's summary, and asks the conversation's own agent to demo it from the card's foot", async () => {
+	it("shows the outcome the plan ended on in full under the report's summary, without a demo action on the card", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -119,29 +119,13 @@ describe("App's merged card actions", () => {
 		expect(within(outcome).queryByRole("button")).toBeNull();
 		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
 
-		// The bar above the composer offers it too while the card's foot is
-		// out of sight.
-		await waitFor(() =>
-			within(view.getByRole("region", { name: "archive" })).getByRole(
+		expect(within(card).queryByRole("button", { name: "Demo it" })).toBeNull();
+		expect(
+			within(view.getByRole("region", { name: "archive" })).queryByRole(
 				"button",
 				{ name: "Demo it" },
 			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(card).getByRole("button", { name: "Demo it" }),
-				),
-			),
-		);
-
-		await waitFor(() =>
-			expect(
-				testing
-					.posted("/api/conversations/c1/prompt")
-					.map((post) => JSON.stringify(post)),
-			).toEqual([expect.stringContaining("[SPLATES DEMO header after]")]),
-		);
+		).toBeNull();
 	});
 
 	it("leads with the outcome's first paragraph when the report says nothing, with nothing under it when there is no more", async () => {

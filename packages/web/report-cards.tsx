@@ -44,7 +44,7 @@ import {
 } from "./deferred-body";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
-import { demoed, MergedStats, useLanded } from "./merged-stats";
+import { MergedStats, useLanded } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
 import { ReportAside } from "./report-header";
 import { TaskIcon } from "./task-icon";
@@ -154,11 +154,7 @@ export function ReportCard({
 						)}
 						{held !== null && <HeldBlockers task={held} />}
 						{merged && <MergedStats landed={landed} />}
-						<CardArchive
-							report={report}
-							demo={demoed(landed)}
-							unmerge={merged}
-						/>
+						<CardArchive report={report} unmerge={merged} />
 					</>
 				)}
 			</CardShell>

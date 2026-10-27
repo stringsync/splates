@@ -1,6 +1,5 @@
 import type { TaskReport } from "@stringsync/splates-server/plans";
-import { demoReference } from "@stringsync/splates-server/plans/browser";
-import { ArchiveIcon, PlayIcon } from "lucide-react";
+import { ArchiveIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -13,9 +12,7 @@ import {
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
-import { demoed, useLanded } from "./merged-stats";
 import { UnmergeIt } from "./unmerge-it";
 
 /**
@@ -72,13 +69,10 @@ export function useArchivable(report: TaskReport): boolean {
  */
 export function CardArchive({
 	report,
-	demo = false,
 	unmerge = false,
 }: {
 	report: TaskReport;
-	/** Whether to offer Demo it beside Archive, for a merge that says how. */
-	demo?: boolean;
-	/** Whether to offer Unmerge apart from them, for a merge. */
+	/** Whether to offer Unmerge beside Archive, for a merge. */
 	unmerge?: boolean;
 }): JSX.Element | null {
 	const offer = useContext(ArchiveOfferContext);
@@ -111,7 +105,6 @@ export function CardArchive({
 	return (
 		<footer className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-2.5">
 			{unmerge && <UnmergeIt task={report.task} className="mr-auto" />}
-			{demo && <DemoIt task={report.task} />}
 			<Button
 				ref={button}
 				size="sm"
@@ -129,14 +122,11 @@ export function CardArchive({
 /**
  * A bar above the composer while the conversation's last word is the report
  * of a task that is over and its card's Archive is out of sight, offering to
- * put the conversation away: what to do once nothing is left to say, and,
- * as the card does, to demo a merge that says how. It goes as the
- * conversation carries on.
+ * put the conversation away. It goes as the conversation carries on.
  */
 export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	const { report, archive } = offer;
 	const { title, Icon, tone } = ENDINGS[report.ending];
-	const landed = useLanded(report.ending === "merged" ? report.task : null);
 	return (
 		<section
 			aria-label="archive"
@@ -146,47 +136,15 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 			<span className="min-w-0 truncate">
 				{title} <span className="font-mono text-xs">{report.task}</span>
 			</span>
-			<div className="ml-auto flex gap-2">
-				{demoed(landed) && <DemoIt task={report.task} className="h-7" />}
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={archive}
-					className="gap-1.5 bg-background"
-				>
-					<ArchiveIcon data-icon="inline-start" />
-					Archive
-				</Button>
-			</div>
+			<Button
+				size="sm"
+				variant="outline"
+				onClick={archive}
+				className="ml-auto gap-1.5 bg-background"
+			>
+				<ArchiveIcon data-icon="inline-start" />
+				Archive
+			</Button>
 		</section>
-	);
-}
-
-/**
- * Demo it, for a merged task's offer: asks the conversation's own agent, who
- * did the work, to set up a demo of `task` with its change in. None where
- * nothing can be sent from the page, as to an external agent.
- */
-function DemoIt({
-	task,
-	className,
-}: {
-	task: string;
-	className?: string;
-}): JSX.Element | null {
-	const send = useContext(ReplyContext)?.send ?? null;
-	if (send === null) {
-		return null;
-	}
-	return (
-		<Button
-			size="sm"
-			variant="ghost"
-			onClick={() => void send(demoReference(task, "after"))}
-			className={cn("gap-1.5", className)}
-		>
-			<PlayIcon data-icon="inline-start" />
-			Demo it
-		</Button>
 	);
 }
