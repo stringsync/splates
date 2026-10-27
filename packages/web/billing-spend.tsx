@@ -26,6 +26,10 @@ import {
 	whole,
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "./components/ui/native-select";
 import { METER_COLUMNS, Meter } from "./meter";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
@@ -166,7 +170,8 @@ export function SpendSection(): JSX.Element {
 						))}
 					</fieldset>
 					{sources !== null && (
-						<select
+						<NativeSelect
+							size="sm"
 							aria-label="currency"
 							value={sources.currency}
 							onChange={(event) =>
@@ -175,14 +180,13 @@ export function SpendSection(): JSX.Element {
 									(caught: Error) => setSourceError(caught.message),
 								)
 							}
-							className="rounded-md border bg-transparent px-2 py-1 text-xs"
 						>
 							{sources.currencies.map((each) => (
-								<option key={each} value={each}>
+								<NativeSelectOption key={each} value={each}>
 									{each}
-								</option>
+								</NativeSelectOption>
 							))}
-						</select>
+						</NativeSelect>
 					)}
 				</header>
 				{range === "custom" && (
