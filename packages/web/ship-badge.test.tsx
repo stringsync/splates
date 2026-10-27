@@ -6,6 +6,13 @@ import { act, cleanup, fireEvent, render } from "./testing-library";
 
 afterEach(cleanup);
 
+/** Puts the page at `url`, which `history` cannot do from `about:blank`. */
+function visit(url: string): void {
+	(
+		window as unknown as { happyDOM: { setURL(url: string): void } }
+	).happyDOM.setURL(url);
+}
+
 describe("ShipBadge", () => {
 	it("shows nothing for a project that never shipped, or shipped over an hour ago", () => {
 		expect(badge(null).container.textContent).toBe("");
@@ -47,6 +54,30 @@ describe("ShipBadge", () => {
 		expect(view.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
 			"https://www.npmjs.com/login?next=/login/cli/abc",
 		);
+	});
+
+	it("opens on the npm page a ship's push asks for, then leaves the address without it", () => {
+		visit("http://localhost/?project=mdom&ship=open#board");
+		try {
+			const view = badge(
+				ship({
+					step: "ship",
+					waiting: {
+						kind: "2fa",
+						url: "https://www.npmjs.com/auth/cli/abc",
+						since: ago(0),
+					},
+				}),
+			);
+
+			expect(
+				view.getByText("npm waits for your second factor to publish."),
+			).toBeTruthy();
+			expect(location.search).toBe("?project=mdom");
+			expect(location.hash).toBe("#board");
+		} finally {
+			visit("about:blank");
+		}
 	});
 
 	it("says a ship failed", () => {

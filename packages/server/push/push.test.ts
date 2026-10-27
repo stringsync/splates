@@ -5,6 +5,7 @@ import type { ConversationState } from "../conversations";
 import { conversation } from "../fixtures";
 import { type Needing, need } from "../plans";
 import type { Served } from "../server/shared";
+import type { Ship } from "../ship";
 import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import type { Pushed } from "./push";
@@ -14,6 +15,7 @@ describe("Pushes", () => {
 	let deps: Testing;
 	let pusher: FakePusher;
 	let rows: Needing[];
+	let ship: Ship | null;
 	let pushes: Pushes;
 
 	const runs = conversation({ id: "c1", title: "Fix", status: "running" });
@@ -42,6 +44,7 @@ describe("Pushes", () => {
 					Promise.resolve({
 						root: deps.root,
 						needing: async () => ({ rows, lanes: [] }),
+						current: async () => ({ ship }),
 					} as unknown as Served),
 				],
 			]),
@@ -54,6 +57,7 @@ describe("Pushes", () => {
 		await deps.projects.register(deps.root);
 		pusher = new FakePusher();
 		rows = [row(runs)];
+		ship = null;
 		pushes = await start();
 	});
 
@@ -176,6 +180,60 @@ describe("Pushes", () => {
 		expect(kept.keys.publicKey).toBe(key.publicKey);
 	});
 
+	it("pushes a ship that came to wait on npm, opening its badge", async () => {
+		await pushes.subscribe(
+			subscribing({
+				subscription: subscription("https://push.example/a"),
+				wants: WANTS,
+			}),
+		);
+		ship = shipping(null);
+		await pushes.look();
+		ship = shipping({
+			kind: "2fa",
+			url: "https://www.npmjs.com/auth/cli/abc",
+			since: "2026-10-27T10:00:00.000Z",
+		});
+
+		await pushes.look();
+		await pushes.look();
+
+		const slug = (await deps.projects.list()).find(
+			(each) => each.root === deps.root,
+		)?.slug;
+		expect(
+			pusher.pushed.map((each) => JSON.parse(each.payload) as Pushed),
+		).toEqual([
+			{
+				title: "Shipping splates",
+				body: "npm waits for your second factor to publish",
+				key: "ship",
+				url: `?project=${slug}&ship=open`,
+				inFront: false,
+			},
+		]);
+	});
+
+	it("pushes a ship's wait only to a device that wants waiting notices", async () => {
+		await pushes.subscribe(
+			subscribing({
+				subscription: subscription("https://push.example/a"),
+				wants: { ...WANTS, waiting: false },
+			}),
+		);
+		ship = shipping(null);
+		await pushes.look();
+		ship = shipping({
+			kind: "login",
+			url: "https://www.npmjs.com/login?next=x",
+			since: "2026-10-27T10:00:00.000Z",
+		});
+
+		await pushes.look();
+
+		expect(pusher.pushed).toEqual([]);
+	});
+
 	it("refuses a body that is not a subscription", async () => {
 		await expect(
 			pushes.subscribe(subscribing({ subscription: { endpoint: "nope" } })),
@@ -190,6 +248,20 @@ const WANTS = {
 	quietAfter: 10,
 	inFront: false,
 };
+
+const shipping = (waiting: Ship["waiting"]): Ship => ({
+	project: "splates",
+	command: "bun run ship",
+	status: "running",
+	step: waiting?.kind === "login" ? "login" : "ship",
+	from: "0.0.58",
+	to: null,
+	started: "2026-10-27T09:59:00.000Z",
+	ended: null,
+	waiting,
+	error: null,
+	resumed: 0,
+});
 
 const subscription = (endpoint: string) => ({
 	endpoint,

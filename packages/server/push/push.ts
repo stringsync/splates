@@ -14,8 +14,9 @@ import { type Needing, openedBy } from "../plans";
 import type { Projects } from "../projects";
 import type { Handler, Served } from "../server/shared";
 import { body } from "../server/shared";
+import type { ShipWait } from "../ship";
 import type { Document, Storage } from "../storage";
-import { keyOf, Notices } from "./notices";
+import { keyOf, Notices, SHIP_KEY } from "./notices";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);
@@ -78,6 +79,11 @@ export class Pushes {
 	private readonly pusher: Pusher;
 	/** By device and project, what the last look saw. */
 	private readonly notices = new Map<string, Notices>();
+	/**
+	 * By project root, what the last look saw its ship wait on npm for, by
+	 * its kind and since, or null for nothing; none before the first look.
+	 */
+	private readonly waits = new Map<string, string | null>();
 	private readonly tick: { dispose(): void };
 	private looking: Promise<void> | null = null;
 
@@ -179,6 +185,7 @@ export class Pushes {
 			if (slug === undefined) {
 				continue;
 			}
+			const fresh = await this.shipWait(project);
 			const { rows, lanes } = await project.needing();
 			const name = (row: Needing) =>
 				row.conversation !== null
@@ -201,8 +208,35 @@ export class Pushes {
 					};
 					await this.push(device, pushed);
 				}
+				if (fresh !== null && device.wants.waiting) {
+					await this.push(device, {
+						title: `Shipping ${fresh.project}`,
+						body: waitedFor(fresh.wait),
+						key: SHIP_KEY,
+						url: `?project=${encodeURIComponent(slug)}&${SHIP_KEY}=open`,
+						inFront: device.wants.inFront,
+					});
+				}
 			}
 		}
+	}
+
+	/**
+	 * What `project`'s ship came to wait on npm for since the last look, or
+	 * null: npm's links expire within minutes, so the person hears of each
+	 * at once. The first look tells nothing, since it has nothing to compare.
+	 */
+	private async shipWait(
+		project: Served,
+	): Promise<{ project: string; wait: ShipWait } | null> {
+		const ship = (await project.current()).ship;
+		const wait = ship?.waiting ?? null;
+		const was = this.waits.get(project.root);
+		const is = wait === null ? null : `${wait.kind} ${wait.since}`;
+		this.waits.set(project.root, is);
+		return ship != null && wait !== null && was !== undefined && was !== is
+			? { project: ship.project, wait }
+			: null;
 	}
 
 	/**
@@ -278,6 +312,18 @@ export async function forgetDevices(storage: Storage): Promise<void> {
 		return;
 	}
 	await file.update((kept) => ({ ...kept, devices: [] }));
+}
+
+/** One line on what npm waits on the person for. */
+function waitedFor(wait: ShipWait): string {
+	switch (wait.kind) {
+		case "login":
+			return "npm waits for you to sign in";
+		case "2fa":
+			return "npm waits for your second factor to publish";
+		case "otp":
+			return "npm asks for your one-time password";
+	}
 }
 
 /** What the server pushes for a notice, as `Pushes` sends it. */

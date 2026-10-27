@@ -1,3 +1,4 @@
+import { SHIP_KEY } from "@stringsync/splates-server/push/browser";
 import type { Ship } from "@stringsync/splates-server/ship";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
@@ -21,6 +22,7 @@ import { Output } from "./background-pane";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { STATUS_PILL } from "./status-pill";
+import type { Opened } from "./worker";
 
 /** How long a ship that ended still shows, for the person to see how it went. */
 const SHOWN_AFTER = Duration.mins(60);
@@ -38,7 +40,26 @@ export function ShipBadge({
 }): JSX.Element | null {
 	const ship = snapshot?.ship ?? null;
 	const now = useNow(ship !== null, Duration.mins(1));
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(openedByAddress);
+	useEffect(() => {
+		// Taken out once read, so a reload leaves the ship shut.
+		const url = new URL(location.href);
+		if (url.searchParams.has(SHIP_KEY)) {
+			url.searchParams.delete(SHIP_KEY);
+			history.replaceState(history.state, "", url);
+		}
+		const workers = navigator.serviceWorker;
+		if (workers === undefined) {
+			return;
+		}
+		const heard = (event: MessageEvent<Opened>) => {
+			if (event.data?.type === "splates:open" && event.data.key === SHIP_KEY) {
+				setOpen(true);
+			}
+		};
+		workers.addEventListener("message", heard);
+		return () => workers.removeEventListener("message", heard);
+	}, []);
 	if (snapshot === null || ship === null || !shown(ship, now)) {
 		return null;
 	}
@@ -130,6 +151,11 @@ function OtpForm(): JSX.Element {
 			)}
 		</form>
 	);
+}
+
+/** Whether the address asks for the ship open, as a ship's push opens a new window with `?ship=open`. */
+function openedByAddress(): boolean {
+	return new URL(location.href).searchParams.get(SHIP_KEY) === "open";
 }
 
 /** What the project's latest ship prints, followed while it runs. */

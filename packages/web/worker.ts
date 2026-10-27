@@ -107,13 +107,13 @@ scope.addEventListener("notificationclick", (event) => {
 	event.waitUntil(
 		(async () => {
 			// One server holds every project, each at its own `?project=`.
-			const project = new URL(opening.url).search;
+			const project = projectOf(opening.url);
 			const open = (
 				await scope.clients.matchAll({
 					type: "window",
 					includeUncontrolled: true,
 				})
-			).find((window) => new URL(window.url).search === project);
+			).find((window) => projectOf(window.url) === project);
 			if (open === undefined) {
 				await scope.clients.openWindow(opening.url);
 				return;
@@ -123,6 +123,11 @@ scope.addEventListener("notificationclick", (event) => {
 		})(),
 	);
 });
+
+/** The project `url` is on, by its `?project=`, whatever else it asks. */
+function projectOf(url: string): string | null {
+	return new URL(url).searchParams.get("project");
+}
 
 scope.addEventListener("push", (event) => {
 	const pushed = event.data?.json() as Pushed | undefined;

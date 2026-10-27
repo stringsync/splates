@@ -99,6 +99,12 @@ export class Notices {
 	}
 }
 
+/**
+ * The key of a ship's push, which the page's ship badge opens on, from a
+ * click or as the `?ship=open` its address carries.
+ */
+export const SHIP_KEY = "ship";
+
 /** What tells `row` apart from the others, in a notification and its click. */
 export function keyOf(row: Needing): string {
 	return row.conversation !== null
