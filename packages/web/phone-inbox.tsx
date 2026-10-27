@@ -61,31 +61,9 @@ import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
 
 /**
- * The phone's home: every agent, sorted by what it asks of you. Those waiting
- * on you come first, then those at work, then the rest, newest first in each,
- * each row a finger's height saying what it waits on. The agents one handed
- * out, its subagents and parts, sit under it, in its group, since they answer
- * to it rather than to you. A tap on one waiting goes straight to what it
- * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
- * left archives it, asking first as Archive does. The project's name, the
- * bar's title, switches projects, its shortcut too, the pen starts a new
- * conversation in the project shown, and `chips` under the bar go to the
- * project's pages. Under each conversation, as in
- * the sidebar, sit its terminal while its shell is up and each command its
- * agent left running, each opening the conversation with it on the screen.
- * The main tree's terminals come last, to go back to or close.
- *
- * With the feed of every project to be had, the groups are the sidebar's: a
- * folder per project by name, the page's own marked, each with those
- * waiting on you on top, then every other. A folder folds away as the
- * sidebar's does, and its + starts a conversation there. Another project's
- * row opens by switching the page to that project, which becomes the one
- * shown everywhere.
- *
- * Beside a sidebar, `onMenu` null, it is the page the sidebar's Inbox opens:
- * under the shell's bar, with no menu and no composer along the bottom, the
- * sidebar having New. The archived conversations are at its foot, on a phone
- * too, where the drawer has them as well.
+ * Lists every agent by what it asks of you, to open, rename, mark unread or
+ * archive. Render it as the phone's home with `onMenu` opening the drawer,
+ * or with `onMenu` null as the page the sidebar's Inbox opens.
  */
 export function Inbox({
 	feed,
@@ -116,6 +94,21 @@ export function Inbox({
 	onMenu: (() => void) | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
+	// Those waiting on you come first, then those at work, then the rest,
+	// newest first in each, each row saying what it waits on. The agents one
+	// handed out sit under it in its group, since they answer to it. A tap on
+	// one waiting goes straight to what it asks, a long press offers Rename,
+	// Mark as unread and Archive, and a swipe left archives it, asking first.
+	// The bar's title switches projects, the pen starts a conversation in the
+	// project shown, and `chips` under the bar go to its pages. Under each
+	// conversation sit its terminal while its shell is up and each command its
+	// agent left running; the main tree's terminals come last.
+	//
+	// With the feed of every project to be had, the groups are the sidebar's:
+	// a folder per project by name, the page's own marked, each foldable with a
+	// + to start a conversation there, and another project's row switches the
+	// page to it. Beside a sidebar there is no menu and no composer, the
+	// sidebar having New. Archived is at its foot.
 	const conversations = useConversationIndex(feed);
 	const { agents, pending, available } = useReactive(
 		feed,
@@ -214,7 +207,6 @@ export function Inbox({
 	// flat list without them has an empty state.
 	const empty = grouped === null && trees.length === 0;
 	const wide = onMenu === null;
-	const archived = conversations.filter((each) => each.archived).length;
 	return (
 		<section
 			aria-label="inbox"
@@ -344,7 +336,6 @@ export function Inbox({
 						>
 							<ArchiveIcon className="size-3.5" />
 							<span>Archived</span>
-							{archived > 0 && <span className="tabular-nums">{archived}</span>}
 						</button>
 					)}
 				</StaleRows>

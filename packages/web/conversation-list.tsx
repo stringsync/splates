@@ -347,27 +347,15 @@ export const ConversationList = memo(function ConversationList({
 	);
 });
 
-/**
- * The sidebar's menu item for the archived conversations, with how many
- * there are, pinned at its foot under the list.
- */
+/** The sidebar's menu item for the archived conversations, pinned at its foot under the list. */
 export function ArchivedEntry({
-	feed,
 	open,
 	onOpen,
 }: {
-	feed: ConversationFeed;
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const { archived } = useReactive(
-		feed,
-		(feed) => ({
-			archived: feed.conversations.filter((each) => each.archived).length,
-		}),
-		["changed"],
-	);
 	return (
 		<button
 			type="button"
@@ -382,11 +370,6 @@ export function ArchivedEntry({
 		>
 			<ArchiveIcon />
 			<span className="flex-1">Archived</span>
-			{archived > 0 && (
-				<span className="text-muted-foreground text-xs tabular-nums">
-					{archived}
-				</span>
-			)}
 		</button>
 	);
 }

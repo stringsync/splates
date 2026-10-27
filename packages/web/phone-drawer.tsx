@@ -16,12 +16,9 @@ import { SetupDot } from "./setup-state";
 import { NAV_HEADING } from "./top-bar";
 
 /**
- * The phone's way to every page, slid in from the left as in the Claude and
- * ChatGPT apps: the server's header up top, the inbox of every project first,
- * then the project's pages under its switcher, then those of every project
- * under Everywhere, then Add a project, and the archived conversations last. The
- * pages it opens take each other's place in history above the inbox, even while it loads, so back from any of them goes home, as Android's
- * top-level destinations do.
+ * The phone's menu of every page, project and the archived conversations:
+ * render it with `open` and `onOpenChange` to slide it in from the left, and
+ * `onGo` to go where it is tapped.
  */
 export function Drawer({
 	open,
@@ -32,7 +29,6 @@ export function Drawer({
 	conversation,
 	available,
 	waiting,
-	archived,
 	orphans,
 	snapshot,
 	onGo,
@@ -50,14 +46,16 @@ export function Drawer({
 	available: boolean;
 	/** The agents waiting on you. */
 	waiting: number;
-	/** How many conversations are archived. */
-	archived: number;
 	/** How many tasks no agent is left on. */
 	orphans: number;
 	snapshot: Snapshot | null;
 	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
+	// The server's header up top, the inbox first, the project's pages under
+	// its switcher, Everywhere's, Add a project, and Archived last. The pages
+	// it opens take each other's place in history above the inbox, even while
+	// it loads, so back from any goes home, as Android's top-level ones do.
 	const pages = useNavPages();
 	const home = (page: Page, conversation: string | null) =>
 		page === "conversations" && conversation === null;
@@ -136,7 +134,6 @@ export function Drawer({
 								label="Add a project"
 							/>
 						</nav>
-						{/* Archived stays at the foot. */}
 						<div className="mt-auto">
 							{available && (
 								<div className="border-t p-2">
@@ -145,7 +142,6 @@ export function Drawer({
 										onClick={() => go("conversations", ARCHIVED)}
 										icon={<ArchiveIcon />}
 										label="Archived"
-										count={archived}
 									/>
 								</div>
 							)}

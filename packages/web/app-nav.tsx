@@ -27,12 +27,8 @@ import { NAV_HEADING } from "./top-bar";
 export const WIDE = "(min-width: 768px)";
 
 /**
- * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held: the project's, whose switcher heads the
- * sidebar, then those of every project under Everywhere. The agents of every project are under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
- * unless it is hidden. A button on the border between the tabs and the
- * agents folds the tabs away, for more room for the agents. A phone has
- * its own layout, `PhoneApp`, in place of it.
+ * The wide screen's sidebar: render it beside the page to move between its
+ * tabs and agents. A phone uses `PhoneApp` instead.
  */
 export function AppNav({
 	available,
@@ -59,6 +55,10 @@ export function AppNav({
 	drafts: Drafts;
 	sidebar: Sidebar;
 }): JSX.Element {
+	// The project's tabs, under New with each shortcut while ⌥⌘ is held, then
+	// Everywhere's; the agents of every project under them with a line to the
+	// next waiting atop, Archived at the foot, and a handle to drag it wider.
+	// A button on the border folds the tabs away for room for the agents.
 	const held = useHeld();
 	const pages = useNavPages();
 	const { shown, pagesShown } = useReactive(
@@ -165,7 +165,6 @@ export function AppNav({
 				{available && snapshot !== null && (
 					<div className="-mx-3 border-t px-3 py-2">
 						<ArchivedEntry
-							feed={talk}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>

@@ -20,17 +20,8 @@ import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
 
 /**
- * The page on a phone, a layout of its own beside the sidebar's: the inbox of
- * agents is home, an open conversation takes the whole screen with its own way
- * back, and every other page sits under a bar whose menu opens the drawer.
- * How many agents wait on you marks the way out of every screen but the
- * inbox, which lists them: a conversation's way back, and a page's menu.
- * The project is the inbox's and every page's title, which switches it, with
- * a row of the project's pages under it and a pen to start a conversation at
- * the bar's end; a conversation names it under its own name. Every bar's
- * kebab holds the page menu; the server's status beyond being offline, as
- * what merges, is the drawer's.
- * What each page shows, `body`, is the same as on a wide screen.
+ * The page on a phone, in place of the sidebar's layout: render it with the
+ * page's `body`, which it shows as a wide screen does, under its own bars.
  */
 export function PhoneApp({
 	page,
@@ -70,6 +61,13 @@ export function PhoneApp({
 	terminals: Terminals;
 	pageMenu: PageMenu;
 }): JSX.Element {
+	// The inbox is home; an open conversation takes the whole screen with its
+	// own way back, and every other page sits under a bar whose menu opens the
+	// drawer. How many agents wait on you marks the way out of every screen but
+	// the inbox. The project is every bar's title, which switches it, with a
+	// row of its pages under it and a pen to start a conversation; every bar's
+	// kebab holds the page menu, and the server's status past offline is the
+	// drawer's.
 	const [drawer, setDrawer] = useState(false);
 	const openNew = (open: string = NEW) => go("conversations", open);
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -183,7 +181,6 @@ export function PhoneApp({
 				conversation={open}
 				available={available}
 				waiting={waiting}
-				archived={conversations.filter((each) => each.archived).length}
 				orphans={
 					available && snapshot !== null
 						? orphanCount(snapshot.tasks, conversations)

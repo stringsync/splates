@@ -21,7 +21,6 @@ import {
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
-import { Duration } from "webappwiz/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
 import { Board, takenTask } from "./board";
 import {
@@ -37,30 +36,17 @@ import {
 	withDraft,
 } from "./conversation-address";
 import { markUnread } from "./conversation-api";
-import {
-	type AgentChoice,
-	agentName,
-	type ConversationFeed,
-} from "./conversation-feed";
+import { Archived } from "./conversation-archived";
+import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Home } from "./conversation-home";
-import {
-	conversationIndex,
-	useConversation,
-	useConversationIndex,
-} from "./conversation-index";
-import { Item } from "./conversation-item";
-import { goOn, needOf, rowsOf } from "./conversation-rows";
+import { useConversation, useConversationIndex } from "./conversation-index";
+import { goOn, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
-import { useEverywhere } from "./everywhere-context";
 import { useExpect } from "./expecting";
 import { FinishedByName } from "./finished-tasks";
 import { Locked } from "./freshness";
-import { useNow } from "./hooks/use-now";
-import { NavigationContext } from "./navigation";
-import { newConversationUrl } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
-import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
 import { Task } from "./task-dialog";
 import {
@@ -393,138 +379,6 @@ function useRead(conversation: ConversationState | null): void {
 			});
 		}
 	}, [id, unread, inFront, expect]);
-}
-
-/**
- * The archived conversations across projects, newest first, each with how long
- * ago it was archived, its project and latest message, to read or bring back:
- * every one kept, since splates deletes the older ones.
- */
-function Archived({
-	tasks,
-	conversations,
-	here,
-	agents,
-	onOpen,
-	onBack,
-}: {
-	tasks: Details[];
-	conversations: ConversationState[];
-	here: { root: string; repo: string };
-	agents: AgentChoice[];
-	onOpen: (id: string) => void;
-	onBack: (() => void) | null;
-}): JSX.Element {
-	const now = useNow(true, Duration.mins(1));
-	const navigation = useContext(NavigationContext);
-	const everywhere = useEverywhere((feed) => ({
-		available: feed.available,
-		projects: feed.projects,
-		conversations: conversationIndex(feed),
-	}));
-	// One list across projects, the page's own from the live feed, which shows
-	// an archive at once, and the rest from the feed of every project.
-	const entries = useMemo(() => {
-		const own = conversations.map((conversation) => ({
-			conversation,
-			project: null as string | null,
-			name: here.repo,
-		}));
-		if (!everywhere.available) {
-			return own.toSorted((one, other) =>
-				byArchivedAt(one.conversation, other.conversation),
-			);
-		}
-		const elsewhere = everywhere.projects
-			.filter((each) => each.root !== here.root)
-			.flatMap((each) =>
-				everywhere.conversations
-					.filter((state) => state.project === each.project && state.archived)
-					.map((conversation) => ({
-						conversation,
-						project: each.project as string | null,
-						name: each.repo,
-					})),
-			);
-		return [...own, ...elsewhere].toSorted((one, other) =>
-			byArchivedAt(one.conversation, other.conversation),
-		);
-	}, [conversations, here, everywhere]);
-	return (
-		<section
-			aria-label="archived conversations"
-			className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-2"
-		>
-			<TopBar
-				leading={
-					onBack !== null && (
-						<BarButton label="Back to conversations" onClick={onBack}>
-							<ChevronLeftIcon />
-						</BarButton>
-					)
-				}
-				title="Archived"
-			/>
-			{entries.length === 0 ? (
-				<p className="text-muted-foreground text-sm">Nothing archived.</p>
-			) : (
-				<div className="min-h-0 overflow-y-auto overscroll-contain">
-					<ul className="flex flex-col gap-1">
-						{entries.map(({ conversation, project, name }) => (
-							<li key={conversation.id}>
-								<Item
-									conversation={conversation}
-									agent={agentName(agents, conversation.agent)}
-									need={needOf(project === null ? tasks : [], conversation)}
-									current={false}
-									onOpen={() =>
-										project === null
-											? onOpen(conversation.id)
-											: navigation.show(
-													newConversationUrl(project, conversation.id),
-												)
-									}
-									project={name}
-									preview={latestText(conversation)}
-									ago={
-										conversation.archivedAt === null
-											? null
-											: ago(Date.parse(conversation.archivedAt), now)
-									}
-								/>
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
-		</section>
-	);
-}
-
-/** The latest thing said, on one line, leaving out tool calls and thoughts. */
-function latestText(conversation: ConversationState): string | null {
-	for (const message of conversation.messages.toReversed()) {
-		const text = message.parts
-			.filter((part) => part.type === "text")
-			.map((part) => part.text)
-			.join(" ")
-			.replace(/\s+/g, " ")
-			.trim();
-		if (text !== "") {
-			return text;
-		}
-	}
-	return null;
-}
-
-/** Archived last first, by when it started for a log too old to say. */
-function byArchivedAt(
-	one: ConversationState,
-	other: ConversationState,
-): number {
-	return (other.archivedAt ?? other.createdAt).localeCompare(
-		one.archivedAt ?? one.createdAt,
-	);
 }
 
 /** In place of a conversation the address names and the page has none of. */

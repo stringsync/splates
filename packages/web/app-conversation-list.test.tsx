@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ARCHIVED_PAGE } from "./conversation-archived";
 import {
 	act,
 	type ConversationsView,
@@ -253,6 +254,55 @@ describe("App's conversation list", () => {
 		expect(within(archived).getAllByRole("listitem")).toHaveLength(1);
 		expect(archived.textContent).toContain("Put away");
 		expect(archived.textContent).not.toContain("Older");
+	});
+
+	it("draws archived conversations a page at a time, the next on Show more", async () => {
+		const view = await testing.openConversations(
+			Array.from({ length: ARCHIVED_PAGE + 3 }, (_, index) =>
+				conversation({
+					id: `a${index}`,
+					title: `Put away ${index}`,
+					archived: true,
+					archivedAt: hoursAgo(index + 1),
+				}),
+			),
+			null,
+		);
+		await openArchived(view);
+		const archived = view.getByRole("region", {
+			name: "archived conversations",
+		});
+
+		expect(within(archived).getAllByRole("listitem")).toHaveLength(
+			ARCHIVED_PAGE,
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(archived).getByRole("button", { name: "Show more" }),
+			),
+		);
+
+		expect(within(archived).getAllByRole("listitem")).toHaveLength(
+			ARCHIVED_PAGE + 3,
+		);
+		expect(
+			within(archived).queryByRole("button", { name: "Show more" }),
+		).toBeNull();
+	});
+
+	it("says no count on the Archived entry", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "live", title: "Live" }),
+				conversation({ id: "a1", title: "Put away", archived: true }),
+			],
+			null,
+		);
+
+		expect(
+			within(view.getByRole("tablist")).getAllByRole("button").at(-1)
+				?.textContent,
+		).toBe("Archived");
 	});
 
 	it("names the branch atop an open conversation's widgets, the trunk's for the main tree", async () => {
