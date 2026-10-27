@@ -32,12 +32,16 @@ the rest:
    - An unscoped `splates dev test` or `dev premerge`, or a scoped run
      reaching half the test files, is refused (`not_granted`) until the
      person allows one run.
-   - Anything heavy (the whole suite, an install, a build, docker, a
-     benchmark, anything long or CPU-hungry), or any cost that is not compute
-     (tokens, a write outside the repository, a deploy): ask with a
-     run-command card (`## 🔐 Permission: run command: <why>`, the command
-     alone on a line in backticks, the why under it), end your turn, and run
-     it only on `[SPLATES RUN ALLOWED]`.
+   - Heavy means a lot of CPU or memory: the whole suite, a full build,
+     docker, a benchmark, a profile, a browser test run, anything that keeps
+     cores busy for more than a minute. That, or any
+     cost that is not compute (tokens, a write outside the repository, a
+     deploy): ask with a run-command card
+     (`## 🔐 Permission: run command: <why>`, the command alone on a line in
+     backticks, the why under it), end your turn, and run it only on
+     `[SPLATES RUN ALLOWED]`.
+   - Run anything else without a card: an install, a typecheck, a lint, a
+     test file or two, a commit, a short script.
 4. **Commit as you go**, in plain messages with no attribution.
 5. **Queue what you would offer.** Each follow-up you would suggest, or ask
    about, once the work lands, `splates task add` (or `defer`) before merging.
@@ -130,11 +134,11 @@ the user to queue):
 <A line on what the tasks add up to.>
 ```
 
-Anything heavy that is not a scoped test run (a build, an install, docker, a
-benchmark, anything long or CPU-hungry) is asked with the run-command card: the
-command alone on the first backticked line, and what it costs under it. End
-your turn after it; the user's Allow sends `[SPLATES RUN ALLOWED]`, and only
-then do you run it.
+Anything heavy that is not a scoped test run (a lot of CPU or memory: a full
+build, docker, a benchmark, anything that keeps cores busy for more than a
+minute) is asked with the run-command card: the command alone on the first
+backticked line, and what it costs under it. End your turn after it; the
+user's Allow sends `[SPLATES RUN ALLOWED]`, and only then do you run it.
 
 ```markdown
 ## 🔐 Permission: run command: build the web app

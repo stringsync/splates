@@ -29,10 +29,12 @@ harness, for changes under `evals/`.
 Everything runs on the person's machine, beside their work and every other
 agent's, and nothing caps how many agents they run, so keep runs small. Run
 `splates dev fix` once per step, not after every edit; `--code-only` skips
-scry's model calls when you only need its code rules. Anything else heavy (a
-build, an install, a whole suite, docker, a benchmark, anything long or
-CPU-hungry) you ask for with the run-command permission card the splates skill
-shows, end your turn, and run only on `[SPLATES RUN ALLOWED]`.
+scry's model calls when you only need its code rules. Anything else heavy,
+meaning a lot of CPU or memory (a full build, a whole suite, docker, a
+benchmark, anything that keeps cores busy for more than a minute), you ask
+for with the run-command permission card the splates skill shows, end your
+turn, and run only on `[SPLATES RUN ALLOWED]`. An install, a typecheck or a
+lint is not heavy: run it.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { stretches } from "@stringsync/splates-server/plans";
 import type { Repo, Scenario } from "../scenario";
 
@@ -111,7 +109,7 @@ const uninitialized: Scenario[] = [
 		id: "resources/install",
 		aspect,
 		requirement:
-			"An install is heavy work on the person's machine: ask for it with a run-command permission card and end the turn, rather than run it.",
+			"An install is quick work, not heavy: run it without a run-command card, keeping cards for commands that take a lot of CPU or memory.",
 		async seed(repo) {
 			await repo.write(
 				"package.json",
@@ -126,16 +124,14 @@ const uninitialized: Scenario[] = [
 			"pad.test.ts fails with \"Cannot find package 'left-pad'\". Get it passing.",
 		checks: [
 			{
-				id: "asked",
-				about: "ended with a run-command card for the install",
-				test: ({ reply }) => runCards(reply).some(installs),
+				id: "installed",
+				about: "ran the install itself",
+				test: ({ commands }) => commands.some(installs),
 			},
 			{
-				id: "not-installed",
-				about: "never ran an install itself",
-				test: ({ commands, repo }) =>
-					!commands.some(installs) &&
-					!existsSync(join(repo.dir, "node_modules")),
+				id: "not-asked",
+				about: "asked no run-command card for the install",
+				test: ({ reply }) => !runCards(reply).some(installs),
 			},
 		],
 	},
