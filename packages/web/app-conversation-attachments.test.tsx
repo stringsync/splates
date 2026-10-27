@@ -258,6 +258,26 @@ describe("App's attachments", () => {
 		).toBeTruthy();
 	});
 
+	it("takes a chip out whole on Backspace, unattaching its image", async () => {
+		const { box } = await openEmpty();
+		await act(async () => box.focus());
+		await paste(box, [new File(["png"], "one.png", { type: "image/png" })]);
+		await waitFor(() => expect(textIn(box)).toBe("[Image 1] "));
+
+		// The space after it goes first, then the chip in one press.
+		await typeAtCaret(box, "");
+		await act(async () => fireEvent.keyDown(box, { key: "Backspace" }));
+		await waitFor(() => expect(textIn(box)).toBe(""));
+		await typeAtCaret(box, "hi");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "hi" } },
+			]),
+		);
+	});
+
 	it("hints from an image's chip that ⌘B marks it up while the caret is just after it", async () => {
 		const { box } = await openEmpty();
 		await act(async () => box.focus());

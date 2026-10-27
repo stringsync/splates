@@ -20,6 +20,7 @@ import {
 	useState,
 } from "react";
 import { ForgetAttachment } from "#web/attachment-chips.tsx";
+import { ChipKeysPlugin } from "#web/chip-keys.tsx";
 import { ComposerAddAttachment } from "#web/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadExtrasContext } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
 import {
@@ -135,6 +136,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							<ChipWriterPlugin writer={writer} />
 							<PasteFilesPlugin />
 							<AttachmentChipsPlugin />
+							<ChipKeysPlugin />
 							<TypedDirectivesPlugin />
 							<KeyboardDownOnTouchPlugin />
 							<CaretInPlacePlugin />
