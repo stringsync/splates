@@ -85,6 +85,7 @@ function defaults(root: string, trunk: string): Config {
 		tunnel: null,
 		platform: null,
 		replica: null,
+		dictationWords: [],
 	};
 }
 

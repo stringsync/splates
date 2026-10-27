@@ -1,7 +1,9 @@
 import { basename } from "node:path";
 import type { Transcriber } from "webappwiz/dictate";
 import { OpenAiTranscriber } from "webappwiz/dictate/server";
+import { splatesHome } from "../models";
 import type { Project } from "../server/shared";
+import { PersonalWords, personalWordsPath } from "./personal";
 import { vocabulary, words } from "./vocabulary";
 
 /** The cred a dictation transcribes with. */
@@ -25,7 +27,8 @@ export type TranscriberFor = (
 
 /**
  * What a dictation in `project` transcribes with: OpenAI on the key the
- * project's or the device's store keeps, told the project's own words so it
+ * project's or the device's store keeps, told splates's, the project's and
+ * the person's words (`dictationWords`, `~/.splates/dictation.json`) so it
  * spells them its way, read afresh for each take. Null, after asking for the
  * key on the Creds page, when neither store keeps one.
  */
@@ -48,9 +51,19 @@ export const transcriberFor: TranscriberFor = async (project, tick) => {
 		return null;
 	}
 	const root = project.service.git.root;
-	const name = basename(root);
+	const personal = await new PersonalWords(
+		personalWordsPath(splatesHome(project.ps)),
+		project,
+	)
+		.words()
+		.catch((error: unknown) => {
+			// A broken list costs the take its spellings, not the take.
+			project.log.error(error instanceof Error ? error.message : String(error));
+			return [];
+		});
+	const listed = words(basename(root), project.config.dictationWords, personal);
 	return new OpenAiTranscriber(key, {
-		prompt: vocabulary(name),
-		keywords: words(name),
+		prompt: vocabulary(listed),
+		keywords: listed,
 	});
 };

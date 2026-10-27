@@ -70,7 +70,7 @@ describe("splates cli", () => {
 		expect(
 			progress.areas.find((area: { id: string }) => area.id === "dictation")
 				.skipped,
-		).toBe(1);
+		).toBe(2);
 	});
 
 	it("prints what undoing an area would forget, and undoes nothing", async () => {

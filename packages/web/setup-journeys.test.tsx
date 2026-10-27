@@ -129,7 +129,11 @@ describe("Setup journeys", () => {
 	});
 
 	it("opens a journey at its first step not done, and a finished one at its first", async () => {
-		progress = with_({ "codex-signin": "done", dictation: "done" });
+		progress = with_({
+			"codex-signin": "done",
+			dictation: "done",
+			"dictation-words": "done",
+		});
 		const view = open();
 		await click(view, "Set up Codex");
 		expect(view.getByRole("form", { name: "Choose Codex models" }));
@@ -167,9 +171,9 @@ describe("Setup journeys", () => {
 		fireEvent.change(view.getByLabelText("OpenAI API key"), {
 			target: { value: " sk-secret " },
 		});
-		testing.reply = with_({ dictation: "done" });
+		testing.reply = with_({ dictation: "done", "dictation-words": "done" });
 
-		await click(view, "Finish");
+		await click(view, "Next");
 
 		await waitFor(() => view.getByText("Dictation is set up"));
 		expect(testing.posted("/api/creds/OPENAI_API_KEY")[0]?.body).toEqual({

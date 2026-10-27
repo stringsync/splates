@@ -136,6 +136,13 @@ export interface Config {
 	 * another machine. Null keeps none.
 	 */
 	replica: ReplicaPlace | null;
+	/**
+	 * Words the composer's mic should spell as written, for everyone who
+	 * dictates in the project: its tools, modules and names, as
+	 * `["webappwiz", "scry"]`. Splates and the project's name are always
+	 * told; each person adds their own on the Setup page.
+	 */
+	dictationWords: string[];
 }
 
 /**

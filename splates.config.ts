@@ -7,4 +7,5 @@ export default {
 	preLock: "./bin/splates dev premerge --checks",
 	preMerge: "./bin/splates dev premerge",
 	remote: null,
+	dictationWords: ["webappwiz", "scry", "premerge", "worktree", "Bun"],
 } satisfies ConfigFile;

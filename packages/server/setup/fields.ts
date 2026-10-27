@@ -22,6 +22,7 @@ export async function fieldsOf(
 				fields.push({
 					...field,
 					placeholder: field.placeholder ?? null,
+					value: field.value ?? null,
 					optional: field.optional ?? false,
 				});
 				break;
@@ -72,6 +73,8 @@ export type StepField =
 			name: string;
 			label: string;
 			placeholder?: string;
+			/** What the box holds to start with, as a list saved before, to edit. */
+			value?: string;
 			/** May be left empty, as a team name only some accounts need. */
 			optional?: boolean;
 	  }
@@ -104,6 +107,7 @@ export type FieldProgress =
 			name: string;
 			label: string;
 			placeholder: string | null;
+			value: string | null;
 			optional: boolean;
 	  }
 	| { kind: "yes-no"; name: string; label: string }

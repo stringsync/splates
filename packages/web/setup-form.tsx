@@ -439,6 +439,7 @@ export function StepField({ field }: { field: FieldProgress }): JSX.Element {
 						id={field.name}
 						name={field.name}
 						placeholder={field.placeholder ?? undefined}
+						defaultValue={field.value ?? undefined}
 					/>
 				</Field>
 			);

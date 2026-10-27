@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { OPENAI_KEY } from "../dictate";
+import { OPENAI_KEY, PersonalWords } from "../dictate";
 import { DICTATION_AREA } from "./area-dictation";
 import { Setup, type SetupArea, type SetupMachine } from "./setup";
 
@@ -32,6 +32,7 @@ describe("DICTATION_AREA", () => {
 
 		expect(await statuses(machine, DICTATION_AREA)).toEqual({
 			dictation: "done",
+			"dictation-words": "ready",
 		});
 		await setup.submit("dictation", {});
 	});
@@ -57,7 +58,31 @@ describe("DICTATION_AREA", () => {
 		expect(await machine.device.get(OPENAI_KEY)).toBeUndefined();
 		expect(await statuses(machine, DICTATION_AREA)).toEqual({
 			dictation: "ready",
+			"dictation-words": "waiting",
 		});
 		await setup.undo("dictation", null);
+	});
+
+	it("saves the person's words, shows them to edit, and forgets them on undo", async () => {
+		await machine.device.set(OPENAI_KEY, "key");
+		const setup = new Setup(machine, [DICTATION_AREA]);
+		const words = new PersonalWords(`${HOME}/dictation.json`, machine);
+
+		await setup.submit("dictation-words", { words: "Pulumi, Fly\nAna" });
+		expect(await words.words()).toEqual(["Pulumi", "Fly", "Ana"]);
+		expect(await statuses(machine, DICTATION_AREA)).toEqual({
+			dictation: "done",
+			"dictation-words": "done",
+		});
+		const read = await setup.read();
+		expect(
+			read.areas[0]?.steps.find((step) => step.id === "dictation-words"),
+		).toMatchObject({ fields: [{ name: "words", value: "Pulumi, Fly, Ana" }] });
+
+		await setup.submit("dictation-words", { words: "" });
+		expect(await words.words()).toEqual([]);
+
+		await setup.undo("dictation", null);
+		expect(await words.saved()).toBe(false);
 	});
 });
