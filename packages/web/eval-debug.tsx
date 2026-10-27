@@ -12,6 +12,7 @@ import { ReadingNow } from "./countdown";
 import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
+import { HEADING } from "./markdown";
 
 /**
  * One run opened to see why it went as it did: what it asked, what broke if
@@ -207,9 +208,7 @@ function Part({
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2">
-			<h3 className="font-medium text-muted-foreground text-xs uppercase">
-				{title}
-			</h3>
+			<h3 className={HEADING}>{title}</h3>
 			{children}
 		</div>
 	);
