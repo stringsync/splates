@@ -12,6 +12,7 @@ import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import type { Bumps, BumpTake } from "./bumps";
 import { type Pin, publishedPins } from "./graph";
+import { ShipHistory } from "./history";
 import {
 	nextVersion,
 	type ShipBump,
@@ -19,7 +20,19 @@ import {
 	ShipPlanError,
 	type ShipStep,
 } from "./plan";
+import {
+	bumpAdded,
+	bumpRead,
+	closeOut,
+	planned,
+	publishRead,
+	retried,
+	shipRefused,
+	shownCascade,
+	upgraded,
+} from "./progress";
 import type { Ship, Shipping } from "./run";
+import type { Stage, StageKey } from "./stages";
 
 /** Where the machine's records keep the cascade, under way or the last to end. */
 export function cascadeRecord(storage: Storage): Document<Cascade> {
@@ -30,9 +43,10 @@ export function cascadeRecord(storage: Storage): Document<Cascade> {
  * Where one project of a cascade stands: `waiting` on the projects it takes
  * from, `bumping` while its bump task is open, `asking` while that task
  * waits on the person, `stopped` once that task was removed unmerged,
- * `shipping` while its ship runs, `failed` once the ship failed, `done`, or
- * `dropped` by the person from the run. A stopped or failed one holds up
- * those after it until the person retries or drops it.
+ * `shipping` while its ship runs, `failed` once the ship failed, `done`,
+ * `dropped` by the person from the run, or `abandoned` with the whole run.
+ * A stopped or failed one holds up those after it until the person retries
+ * or drops it.
  */
 export type CascadeStatus =
 	| "waiting"
@@ -42,7 +56,8 @@ export type CascadeStatus =
 	| "shipping"
 	| "failed"
 	| "done"
-	| "dropped";
+	| "dropped"
+	| "abandoned";
 
 /** One project's part in a cascade, as its plan named it and how far it came. */
 export interface CascadeStep extends ShipStep {
@@ -55,6 +70,8 @@ export interface CascadeStep extends ShipStep {
 	published: Pin[];
 	/** Why it stopped, failed or was dropped; null otherwise. */
 	note: string | null;
+	/** Its steps in the order it takes them, each with its times, last check and log. */
+	stages: Stage[];
 }
 
 /**
@@ -63,10 +80,15 @@ export interface CascadeStep extends ShipStep {
  * carries on from where it stopped.
  */
 export interface Cascade {
+	/** What history keeps it under. */
+	id: string;
 	/** The project it started from. */
 	from: string;
-	/** `done` once every project is done or dropped. */
-	status: "running" | "done";
+	/**
+	 * `done` once every project is done or dropped, `abandoned` once the
+	 * person ended it, whatever had shipped staying shipped.
+	 */
+	status: "running" | "done" | "abandoned";
 	started: string;
 	ended: string | null;
 	/** In dependency order, as the plan the person approved had them. */
@@ -79,8 +101,8 @@ export interface CascadeProject {
 	root: string;
 	/** Its config's `afterBump`: what a project taking its packages runs next. */
 	afterBump: string | null;
-	shipping: Pick<Shipping, "start" | "current">;
-	bumps: Pick<Bumps, "add" | "state">;
+	shipping: Pick<Shipping, "start" | "current" | "stop">;
+	bumps: Pick<Bumps, "add" | "state" | "remove">;
 }
 
 /** What {@link Cascades} works with. */
@@ -93,6 +115,8 @@ export interface CascadesOptions {
 	plan: (slug: string, bump: ShipBump) => Promise<ShipPlan>;
 	/** The project `slug` names, opened and served. */
 	reach: (slug: string) => Promise<CascadeProject>;
+	/** The cascades kept with their logs; under `ship-history` in `storage` by default. */
+	history?: ShipHistory;
 	timer?: Timer;
 	clock?: WallClock;
 }
@@ -101,7 +125,7 @@ export interface CascadesOptions {
 const EVERY = Duration.secs(5);
 
 /** The statuses a project ends in, holding up nothing after it. */
-const ENDED: CascadeStatus[] = ["done", "dropped"];
+const ENDED: CascadeStatus[] = ["done", "dropped", "abandoned"];
 
 /** The statuses whose publish has not started, so its bump can still change. */
 const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
@@ -117,6 +141,8 @@ const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
  */
 export class Cascades implements Resource {
 	private readonly record: Document<Cascade>;
+	/** The cascades kept with their logs, the one under way among them. */
+	readonly history: ShipHistory;
 	private readonly timer: Timer;
 	private readonly clock: WallClock;
 	private order: Promise<unknown> = Promise.resolve();
@@ -125,27 +151,66 @@ export class Cascades implements Resource {
 
 	constructor(private readonly opts: CascadesOptions) {
 		this.record = cascadeRecord(opts.storage);
+		this.history = opts.history ?? new ShipHistory(opts.storage, opts.fs);
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemWallClock();
 	}
 
 	/** The cascade under way, or the last to end, or null when none ever ran. */
-	current(): Promise<Cascade | null> {
-		return this.record.read();
+	async current(): Promise<Cascade | null> {
+		const cascade = await this.record.read();
+		return cascade === null ? null : upgraded(cascade);
 	}
 
 	/**
 	 * The cascade under way, or the last to end, with the ship of the project
 	 * publishing now, which says what npm waits on; null for each when none.
+	 * Its steps are as the page shows them now: the ship's own as it last
+	 * wrote them, and any under way past its deadline hung.
 	 */
 	async shown(): Promise<{ cascade: Cascade | null; ship: Ship | null }> {
-		const cascade = await this.record.read();
-		const step = cascade?.steps.find((each) => each.status === "shipping");
-		if (cascade?.status !== "running" || step === undefined) {
-			return { cascade, ship: null };
+		const cascade = await this.current();
+		return cascade === null ? { cascade, ship: null } : this.view(cascade);
+	}
+
+	/** The cascade history keeps as `id`, shown as {@link shown} shows one; null for none. */
+	async kept(
+		id: string,
+	): Promise<{ cascade: Cascade; ship: Ship | null } | null> {
+		const going = await this.current();
+		const cascade = going?.id === id ? going : await this.history.read(id);
+		return cascade === null ? null : this.view(upgraded(cascade));
+	}
+
+	/**
+	 * What step `key` of `slug`'s part in the cascade `id` printed, or null
+	 * when it has no slice of a log.
+	 */
+	async stageLog(
+		id: string,
+		slug: string,
+		key: StageKey,
+	): Promise<string | null> {
+		const shown = await this.kept(id);
+		const stage = shown?.cascade.steps
+			.find((step) => step.slug === slug)
+			?.stages.find((each) => each.key === key);
+		return stage?.log == null ? null : this.history.slice(id, slug, stage.log);
+	}
+
+	/** `cascade` with the live steps of its ship under way, each as shown now. */
+	private async view(
+		cascade: Cascade,
+	): Promise<{ cascade: Cascade; ship: Ship | null }> {
+		const step = cascade.steps.find((each) => each.status === "shipping");
+		let ship: Ship | null = null;
+		if (cascade.status === "running" && step !== undefined) {
+			const current = await (
+				await this.opts.reach(step.slug)
+			).shipping.current();
+			ship = current?.started === step.ship ? current : null;
 		}
-		const ship = await (await this.opts.reach(step.slug)).shipping.current();
-		return { cascade, ship: ship?.started === step.ship ? ship : null };
+		return { cascade: shownCascade(cascade, ship, this.clock.now()), ship };
 	}
 
 	/**
@@ -177,22 +242,13 @@ export class Cascades implements Resource {
 			if (going?.status === "running") {
 				return { cascade: going, started: false };
 			}
-			const plan = await this.plan(slug, bump);
-			const cascade: Cascade = {
-				from: plan.from,
-				status: "running",
-				started: this.stamp(),
-				ended: null,
-				steps: plan.steps.map((step) => ({
-					...step,
-					status: "waiting",
-					task: null,
-					ship: null,
-					published: [],
-					note: null,
-				})),
-			};
-			await this.record.write(cascade);
+			const cascade = await planned(
+				await this.plan(slug, bump),
+				this.stamp(),
+				this.history,
+			);
+			await this.keep(cascade);
+			await this.history.prune();
 			this.opts.log.info(
 				`shipping ${slug}, then ${cascade.steps.length - 1} project(s) downstream`,
 			);
@@ -204,7 +260,7 @@ export class Cascades implements Resource {
 	revise(slug: string, bump: ShipBump): Promise<Cascade> {
 		return this.serially(async () => {
 			const cascade =
-				(await this.record.read()) ??
+				(await this.current()) ??
 				fail("not_found", "no ship is under way", { project: slug });
 			const step =
 				cascade.steps.find((each) => each.slug === slug) ??
@@ -226,7 +282,7 @@ export class Cascades implements Resource {
 			step.bump = bump;
 			step.to = step.from === null ? null : nextVersion(step.from, bump);
 			this.opts.log.info(`changed ${slug} to a ${bump} release`);
-			await this.record.write(cascade);
+			await this.keep(cascade);
 			return cascade;
 		});
 	}
@@ -238,7 +294,7 @@ export class Cascades implements Resource {
 	drop(slug: string): Promise<Cascade> {
 		return this.serially(async () => {
 			const cascade =
-				(await this.record.read()) ??
+				(await this.current()) ??
 				fail("not_found", "no ship is under way", { project: slug });
 			const step =
 				cascade.steps.find((each) => each.slug === slug) ??
@@ -257,6 +313,7 @@ export class Cascades implements Resource {
 			}
 			step.status = "dropped";
 			step.note = "dropped from the run by the person";
+			closeOut(step, this.stamp());
 			return this.advance(cascade);
 		});
 	}
@@ -270,7 +327,7 @@ export class Cascades implements Resource {
 	retry(slug: string): Promise<Cascade> {
 		return this.serially(async () => {
 			const cascade =
-				(await this.record.read()) ??
+				(await this.current()) ??
 				fail("not_found", "no ship is under way", { project: slug });
 			const step =
 				cascade.steps.find((each) => each.slug === slug) ??
@@ -290,12 +347,63 @@ export class Cascades implements Resource {
 			if (step.status === "stopped") {
 				step.task = null;
 			}
+			retried(step);
 			// A merged bump ships again from bumping, and one with none from waiting.
 			step.status = step.task === null ? "waiting" : "bumping";
 			step.note = null;
 			this.opts.log.info(`retrying ${slug} in the ship of ${cascade.from}`);
 			return this.advance(cascade);
 		}).finally(() => this.schedule());
+	}
+
+	/**
+	 * Ends the cascade under way at the person's word: whatever shipped stays
+	 * published, the ship running now is stopped, every open bump task is
+	 * removed from its project, and nothing more ships. History keeps it as
+	 * abandoned.
+	 */
+	abandon(): Promise<Cascade> {
+		return this.serially(async () => {
+			const cascade = await this.current();
+			if (cascade?.status !== "running") {
+				fail("conflict", "no ship is under way to abandon");
+			}
+			for (const step of cascade.steps) {
+				if (ENDED.includes(step.status)) {
+					continue;
+				}
+				await this.end(step).catch((error: unknown) => {
+					this.opts.log.error(
+						`abandoning the ship at ${step.slug}: ${messageOf(error)}`,
+					);
+				});
+				closeOut(step, this.stamp());
+				step.status = "abandoned";
+				step.note ??= "the person abandoned the ship";
+			}
+			cascade.status = "abandoned";
+			cascade.ended = this.stamp();
+			this.opts.log.info(`abandoned the ship of ${cascade.from}`);
+			await this.keep(cascade);
+			return cascade;
+		});
+	}
+
+	/** Stops what `step` has going: its ship, or its open bump task. */
+	private async end(step: CascadeStep): Promise<void> {
+		const project = await this.opts.reach(step.slug);
+		if (step.status === "shipping") {
+			await project.shipping.stop();
+			await this.shipped(step);
+			return;
+		}
+		if (step.task !== null && ["bumping", "asking"].includes(step.status)) {
+			const state = await project.bumps.state(step.task);
+			if (state !== "merged" && state !== "removed") {
+				await project.bumps.remove(step.task);
+				step.note = `the person abandoned the ship; its bump task ${step.task} was removed`;
+			}
+		}
 	}
 
 	/** Carries on a cascade a stopped server left under way. */
@@ -309,7 +417,7 @@ export class Cascades implements Resource {
 	/** Reads every project of the cascade under way again, moving it on. */
 	tick(): Promise<Cascade | null> {
 		return this.serially(async () => {
-			const cascade = await this.record.read();
+			const cascade = await this.current();
 			return cascade?.status === "running" ? this.advance(cascade) : cascade;
 		});
 	}
@@ -333,8 +441,14 @@ export class Cascades implements Resource {
 			cascade.ended = this.stamp();
 			this.opts.log.info(`the ship of ${cascade.from} is done`);
 		}
-		await this.record.write(cascade);
+		await this.keep(cascade);
 		return cascade;
+	}
+
+	/** Writes `cascade` as the one under way, and into history. */
+	private async keep(cascade: Cascade): Promise<void> {
+		await this.record.write(cascade);
+		await this.history.file(cascade);
 	}
 
 	private async move(cascade: Cascade, step: CascadeStep): Promise<void> {
@@ -391,6 +505,7 @@ export class Cascades implements Resource {
 			takes,
 		);
 		step.status = "bumping";
+		bumpAdded(step, this.stamp());
 		this.opts.log.info(`${step.slug} takes its bump as task ${step.task}`);
 	}
 
@@ -403,8 +518,10 @@ export class Cascades implements Resource {
 		const state = await (await this.opts.reach(step.slug)).bumps.state(
 			step.task,
 		);
+		bumpRead(step, state, this.stamp());
 		switch (state) {
 			case "open":
+			case "gating":
 				step.status = "bumping";
 				step.note = null;
 				return;
@@ -431,10 +548,15 @@ export class Cascades implements Resource {
 		}
 		const project = await this.opts.reach(step.slug);
 		try {
-			step.ship = (await project.shipping.start(step.bump ?? "patch")).started;
+			step.ship = (
+				await project.shipping.start(step.bump ?? "patch", {
+					log: this.history.logOf(cascade.id, step.slug),
+				})
+			).started;
 		} catch (error) {
 			step.status = "failed";
 			step.note = messageOf(error);
+			shipRefused(step, this.stamp(), step.note);
 			return;
 		}
 		step.status = "shipping";
@@ -448,12 +570,15 @@ export class Cascades implements Resource {
 		if (ship === null || ship.started !== step.ship) {
 			return;
 		}
-		if (ship.status === "done") {
-			if (step.to !== null && ship.to !== step.to) {
-				step.status = "failed";
-				step.note = `its ship published ${ship.to ?? "an unknown version"}, not the approved ${step.to}`;
-				return;
-			}
+		const unplanned =
+			ship.status === "done" && step.to !== null && ship.to !== step.to
+				? `its ship published ${ship.to ?? "an unknown version"}, not the approved ${step.to}`
+				: null;
+		publishRead(step, ship, this.stamp(), unplanned);
+		if (unplanned !== null) {
+			step.status = "failed";
+			step.note = unplanned;
+		} else if (ship.status === "done") {
 			step.status = "done";
 			step.published = await publishedPins(this.opts.fs, project.root);
 			if (ship.to !== null) {

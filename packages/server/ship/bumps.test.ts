@@ -19,7 +19,7 @@ describe("Bumps", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		bumps = new Bumps(deps);
+		bumps = new Bumps({ ...deps, removeTaken: async () => {} });
 	});
 
 	afterEach(() => deps.disposeAsync());

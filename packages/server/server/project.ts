@@ -167,8 +167,9 @@ export async function serveProject(
 		conversations,
 		context.everywhere,
 	);
+	const taskRoutes = new TaskRoutes(project, conversations, watch);
 	return {
-		...new TaskRoutes(project, conversations, watch),
+		...taskRoutes,
 		...new BoardRoutes(project, talks, watch, {
 			boards: context.boards,
 			root: service.git.root,
@@ -178,7 +179,12 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
-		bumps: new Bumps({ tasks: project.tasks, service, fs: project.fs }),
+		bumps: new Bumps({
+			tasks: project.tasks,
+			service,
+			fs: project.fs,
+			removeTaken: taskRoutes.removeNamed,
+		}),
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {

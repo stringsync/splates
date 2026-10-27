@@ -26,7 +26,7 @@ export class ShipRoutes {
 	readonly ship = async (): Promise<Response> =>
 		Response.json(await this.#shipping.current());
 
-	/** Types the one-time password npm asks for into the ship; the code is not kept. */
+	/** Sends the person's one-time password to npm's prompt in the ship under way. */
 	readonly answerShipOtp = async (request: Request): Promise<Response> => {
 		const { code } = (await request.json().catch(() => ({}))) as {
 			code?: unknown;
@@ -41,7 +41,7 @@ export class ShipRoutes {
 	/** What the latest ship printed, then more as it prints, ending with it. */
 	readonly shipOutput = async (): Promise<Response> => {
 		const [shipping, fs, timer] = [this.#shipping, this.#fs, this.#timer];
-		const path = shipping.output;
+		const path = await shipping.outputOf();
 		let read = 0;
 		let cancelled = false;
 		let waiting: Resource | null = null;

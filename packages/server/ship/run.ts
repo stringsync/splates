@@ -5,6 +5,13 @@ import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import type { ShipBump } from "./plan";
+import {
+	begun,
+	ended,
+	pendingStage,
+	type Stage,
+	type StageKey,
+} from "./stages";
 
 /** Where a project's records keep its latest ship. */
 export function shipRecord(storage: Storage): Document<Ship> {
@@ -52,7 +59,14 @@ export interface Ship {
 	error: string | null;
 	/** How many times a restart ran it again to finish it. */
 	resumed: number;
+	/** Where its output is; the project's own `ship.log` unless its cascade named one. */
+	log?: string;
+	/** Its steps (npm sign-in, 2FA, the ship command), each with its slice of the log; absent from older ships. */
+	stages?: Stage[];
 }
+
+/** The steps a ship takes itself, as {@link Ship.stages} keeps them. */
+export const SHIP_STAGES: StageKey[] = ["login", "otp", "command"];
 
 /** What a {@link Shipping} works with. */
 export interface ShippingOptions {
@@ -71,6 +85,9 @@ export interface ShippingOptions {
 	slug: () => Promise<string>;
 	clock?: WallClock;
 }
+
+/** The error of a ship the person stopped. */
+const STOPPED = "stopped: the person abandoned the ship";
 
 /** How many lines of output a failed ship keeps as its error. */
 const TAIL = 20;
@@ -102,15 +119,28 @@ export class Shipping implements Resource {
 	private stdin: WritableStreamDefaultWriter<Uint8Array> | null = null;
 	private going: Promise<void> | null = null;
 	private disposed = false;
+	/** Whether the person stopped the ship under way. */
+	private stopped = false;
+	/** Where the ship under way writes its output. */
+	private log: string | null = null;
+	/** How many bytes its log holds, where the next step's slice begins. */
+	private bytes = 0;
+	/** Where in the log what the child printed last began. */
+	private heardFrom = 0;
 
 	constructor(private readonly opts: ShippingOptions) {
 		this.record = shipRecord(opts.storage);
 		this.clock = opts.clock ?? new SystemWallClock();
 	}
 
-	/** Where the output of the latest ship is. */
+	/** Where the output of a ship whose cascade names no log goes. */
 	get output(): string {
 		return `${this.opts.dir}/ship.log`;
+	}
+
+	/** Where the output of the latest ship is. */
+	async outputOf(): Promise<string> {
+		return this.log ?? (await this.record.read())?.log ?? this.output;
 	}
 
 	/** The latest ship, going or ended, or null when the project never shipped. */
@@ -138,8 +168,16 @@ export class Shipping implements Resource {
 		await this.stdin.write(new TextEncoder().encode(`${code}\n`));
 	}
 
-	/** Starts a ship at `bump`, refused while one runs or when the project names no `ship`. */
-	async start(bump: ShipBump = "patch"): Promise<Ship> {
+	/**
+	 * Starts a ship at `bump`, refused while one runs or when the project
+	 * names no `ship`. Its output goes to `log`, added to what is there, as a
+	 * retry in a cascade's history adds to it, or else to {@link output},
+	 * written afresh.
+	 */
+	async start(
+		bump: ShipBump = "patch",
+		{ log }: { log?: string } = {},
+	): Promise<Ship> {
 		const command =
 			this.opts.command ??
 			fail(
@@ -165,9 +203,18 @@ export class Shipping implements Resource {
 			waiting: null,
 			error: null,
 			resumed: 0,
+			log: log ?? this.output,
+			stages: SHIP_STAGES.map((key) => pendingStage(key)),
 		};
-		await this.opts.fs.mkdir(this.opts.dir, { recursive: true });
-		await this.opts.fs.write(this.output, "");
+		const { fs } = this.opts;
+		const path = ship.log as string;
+		await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+		if (log === undefined || !(await fs.exists(path))) {
+			await fs.write(path, "");
+		}
+		this.log = path;
+		this.bytes = (await fs.readBytes(path)).byteLength;
+		this.stopped = false;
 		await this.record.write(ship);
 		this.run(command, bump);
 		return ship;
@@ -183,25 +230,49 @@ export class Shipping implements Resource {
 			return;
 		}
 		const command = this.opts.command ?? left.command;
+		this.log = left.log ?? this.output;
+		this.bytes = await this.opts.fs
+			.readBytes(this.log)
+			.then((bytes) => bytes.byteLength)
+			.catch(() => 0);
+		this.stopped = false;
 		await this.record.write({
 			...left,
 			command,
 			step: "login",
 			waiting: null,
 			resumed: left.resumed + 1,
+			// What did not end runs again; what ended stays as it was.
+			...(left.stages === undefined
+				? {}
+				: {
+						stages: left.stages.map((stage) =>
+							stage.ended === null ? { ...stage, state: "pending" } : stage,
+						),
+					}),
 		});
-		await this.opts.fs
-			.append(
-				this.output,
-				"\n[splates server restarted: running the ship again to finish it]\n",
-			)
-			.catch(() => {});
+		await this.say(
+			"\n[splates server restarted: running the ship again to finish it]\n",
+		);
 		this.opts.log.info(`resuming the ship of ${left.project}`);
 		this.run(command, left.bump ?? "patch");
 	}
 
 	/** Waits for the ship under way, if any, to end. */
 	async settled(): Promise<void> {
+		await this.going;
+	}
+
+	/**
+	 * Stops the ship under way, as abandoning its cascade does: its command is
+	 * killed and the ship ends failed. What it published stays published.
+	 */
+	async stop(): Promise<void> {
+		if (this.going === null) {
+			return;
+		}
+		this.stopped = true;
+		this.child?.kill();
 		await this.going;
 	}
 
@@ -223,17 +294,42 @@ export class Shipping implements Resource {
 
 	private async steps(command: string, bump: ShipBump): Promise<void> {
 		const { ps, root } = this.opts;
-		if ((await ps.spawnCapture(["npm", "whoami"], { cwd: root })).exitCode) {
+		const at = this.stamp();
+		await this.stage("login", (stage) => ({
+			...begun(stage, at, "checking"),
+			log: { from: this.bytes, to: null },
+		}));
+		const whoami = await ps.spawnCapture(["npm", "whoami"], { cwd: root });
+		const signedIn = whoami.exitCode === 0;
+		await this.stage("login", (stage) => ({
+			...stage,
+			check: {
+				at: this.stamp(),
+				result: signedIn
+					? `npm whoami: ${whoami.stdout.trim() || "signed in"}`
+					: "npm whoami: not signed in",
+			},
+		}));
+		if (!signedIn) {
+			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
 			const code = await this.watch(
 				ps.start(["npm", "login", "--auth-type=web"], { cwd: root }),
 				"login",
 			);
-			if (code !== 0) {
-				await this.end("failed", await this.tail(`npm login exited ${code}`));
+			if (code !== 0 || this.stopped) {
+				await this.end(
+					"failed",
+					this.stopped ? STOPPED : await this.tail(`npm login exited ${code}`),
+				);
 				return;
 			}
 		}
+		await this.stage("login", (stage) => this.closed(stage, "done"));
 		await this.update({ step: "ship", waiting: null });
+		await this.stage("command", (stage) => ({
+			...begun(stage, this.stamp()),
+			log: { from: this.bytes, to: null },
+		}));
 		const code = await this.watch(
 			ps.start(["sh", "-c", command], {
 				cwd: root,
@@ -242,8 +338,12 @@ export class Shipping implements Resource {
 			"ship",
 		);
 		await this.end(
-			code === 0 ? "done" : "failed",
-			code === 0 ? null : await this.tail(`${command} exited ${code}`),
+			code === 0 && !this.stopped ? "done" : "failed",
+			this.stopped
+				? STOPPED
+				: code === 0
+					? null
+					: await this.tail(`${command} exited ${code}`),
 		);
 	}
 
@@ -260,7 +360,8 @@ export class Shipping implements Resource {
 		let asked = false;
 		let otp = false;
 		const heard = async (text: string) => {
-			await this.opts.fs.append(this.output, text).catch(() => {});
+			this.heardFrom = this.bytes;
+			await this.say(text);
 			pending += text.replace(ANSI, "");
 			const lines = pending.split(/\r?\n/);
 			pending = lines.pop() ?? "";
@@ -278,6 +379,7 @@ export class Shipping implements Resource {
 				await this.update({
 					waiting: { kind: "otp", url: null, since: this.stamp() },
 				});
+				await this.asked();
 			} else if (!OTP_PROMPT.test(pending)) {
 				otp = false;
 			}
@@ -308,10 +410,16 @@ export class Shipping implements Resource {
 			await this.update({
 				waiting: { kind, url, since: this.stamp() },
 			});
+			if (kind === "login") {
+				await this.stage("login", (stage) => ({ ...stage, state: "asking" }));
+			} else {
+				await this.asked();
+			}
 		} else if (line !== "" && !AROUND_LINK.test(line)) {
 			const ship = await this.record.read();
 			if (ship?.waiting != null) {
 				await this.update({ waiting: null });
+				await this.answered(ship.waiting.kind);
 			}
 		}
 	}
@@ -321,13 +429,73 @@ export class Shipping implements Resource {
 			// The server is stopping: left running, to finish as it starts again.
 			return;
 		}
+		const at = this.stamp();
 		await this.update({
 			status,
 			waiting: null,
-			ended: this.stamp(),
+			ended: at,
 			error,
 			to: status === "done" ? await this.version() : null,
 		});
+		for (const key of SHIP_STAGES) {
+			await this.stage(key, (stage) =>
+				stage.ended !== null
+					? stage
+					: stage.started === null
+						? // npm never asked for a second factor, or the ship never got there.
+							{ ...stage, state: "skipped", ended: at }
+						: this.closed(stage, status === "done" ? "done" : "failed"),
+			);
+		}
+	}
+
+	/** npm asked for a publish's second factor: its step waits on the person. */
+	private async asked(): Promise<void> {
+		await this.stage("otp", (stage) => ({
+			...begun(stage, this.stamp(), "asking"),
+			log: stage.log ?? { from: this.heardFrom, to: null },
+		}));
+	}
+
+	/** npm moved on from what it waited on the person for. */
+	private async answered(kind: ShipWait["kind"]): Promise<void> {
+		await this.stage(kind === "login" ? "login" : "otp", (stage) =>
+			stage.state === "asking" ? { ...stage, state: "running" } : stage,
+		);
+	}
+
+	/** `stage` ended now in `state`, its log slice closed where the log is. */
+	private closed(stage: Stage, state: "done" | "failed"): Stage {
+		return {
+			...ended(stage, this.stamp(), state),
+			log: stage.log === null ? null : { ...stage.log, to: this.bytes },
+		};
+	}
+
+	/** Changes the step `key` of the ship under way, kept by a ship that has steps. */
+	private async stage(
+		key: StageKey,
+		change: (stage: Stage) => Stage,
+	): Promise<void> {
+		await this.record.update((ship) => {
+			if (ship === null) {
+				throw new Error("the ship's record is gone");
+			}
+			return ship.stages === undefined
+				? ship
+				: {
+						...ship,
+						stages: ship.stages.map((stage) =>
+							stage.key === key ? change(stage) : stage,
+						),
+					};
+		});
+	}
+
+	/** Adds `text` to the ship's log, counting where the next slice begins. */
+	private async say(text: string): Promise<void> {
+		this.bytes += new TextEncoder().encode(text).byteLength;
+		await this.opts.fs.append(this.log ?? this.output, text).catch(() => {});
 	}
 
 	private async update(change: Partial<Ship>): Promise<void> {
@@ -353,7 +521,9 @@ export class Shipping implements Resource {
 
 	/** The last lines of the output, or `otherwise` when it printed nothing. */
 	private async tail(otherwise: string): Promise<string> {
-		const output = await this.opts.fs.read(this.output).catch(() => "");
+		const output = await this.opts.fs
+			.read(await this.outputOf())
+			.catch(() => "");
 		const last = output
 			.replace(ANSI, "")
 			.trim()

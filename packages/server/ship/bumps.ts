@@ -3,8 +3,8 @@ import { enqueued, type Tasks } from "../board";
 import { asking, type WorktreeService } from "../tasks";
 import type { Pin } from "./graph";
 
-/** Where a bump task stands, as a cascade reads it. */
-export type BumpState = "open" | "asking" | "merged" | "removed";
+/** Where a bump task stands, as a cascade reads it: `gating` while its merge gate runs. */
+export type BumpState = "open" | "asking" | "gating" | "merged" | "removed";
 
 /** What a bump task moves: another project's packages, to the versions it shipped. */
 export interface BumpTake {
@@ -27,6 +27,8 @@ export class Bumps {
 			tasks: Tasks;
 			service: Pick<WorktreeService, "find" | "finished">;
 			fs: Fs;
+			/** Removes the task an agent took, as the page's remove does. */
+			removeTaken: (task: string) => Promise<void>;
 		},
 	) {}
 
@@ -63,6 +65,9 @@ export class Bumps {
 				return "open";
 			}
 			const worktree = await this.deps.service.find(listed.takenBy);
+			if (worktree.status === "merging") {
+				return "gating";
+			}
 			return (await asking(worktree, this.deps.fs, Date.now())) === null
 				? "open"
 				: "asking";
@@ -71,6 +76,22 @@ export class Bumps {
 			(each) => each.id === id || each.took.some((took) => took.id === id),
 		);
 		return ended?.ended === "merged" ? "merged" : "removed";
+	}
+
+	/**
+	 * Removes bump task `id`, as abandoning its cascade does: off the board
+	 * when no agent took it, else its task, the agent stopped.
+	 */
+	async remove(id: number): Promise<void> {
+		const listed = (await this.deps.tasks.all()).find((each) => each.id === id);
+		if (listed === undefined) {
+			return;
+		}
+		if (listed.takenBy === null) {
+			await (await this.deps.tasks.find(id)).discard();
+			return;
+		}
+		await this.deps.removeTaken(listed.takenBy);
 	}
 }
 

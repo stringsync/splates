@@ -786,6 +786,15 @@ export async function dev(
 					"/api/ship/cascade/retry": {
 						POST: talk(guarded(cascadeRoutes.retryInCascade)),
 					},
+					// It stops a publish and removes tasks, so only as far as a
+					// conversation reaches.
+					"/api/ship/cascade/abandon": {
+						POST: talk(guarded(cascadeRoutes.abandonCascade)),
+					},
+					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
+					"/api/ship/history": guarded(cascadeRoutes.history),
+					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
+					"/api/ship/history/:id/log": guarded(cascadeRoutes.historyLog),
 					"/api/ship/otp": {
 						POST: talk(scoped((project) => project.answerShipOtp)),
 					},

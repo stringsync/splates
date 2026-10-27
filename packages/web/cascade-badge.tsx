@@ -272,6 +272,7 @@ const STATUSES: Record<CascadeStatus, string> = {
 	failed: "failed",
 	done: "done",
 	dropped: "dropped",
+	abandoned: "abandoned",
 };
 
 const DOTS: Record<CascadeStatus, string> = {
@@ -283,6 +284,7 @@ const DOTS: Record<CascadeStatus, string> = {
 	failed: "bg-destructive",
 	done: "bg-emerald-500",
 	dropped: "bg-muted-foreground/40",
+	abandoned: "bg-muted-foreground/40",
 };
 
 function shown(cascade: Cascade, now: number): boolean {
@@ -299,7 +301,9 @@ function headingOf(cascade: Cascade): string {
 			: ` and ${downstream} project${downstream === 1 ? "" : "s"} downstream`;
 	return cascade.status === "running"
 		? `Shipping ${cascade.from}${rest}`
-		: `Shipped ${cascade.from}${rest}`;
+		: cascade.status === "abandoned"
+			? `Abandoned the ship of ${cascade.from}${rest}`
+			: `Shipped ${cascade.from}${rest}`;
 }
 
 function pillOf(
@@ -310,6 +314,13 @@ function pillOf(
 		return {
 			label: `Shipped ${cascade.from}`,
 			icon: <PackageCheckIcon />,
+			tone: MUTED,
+		};
+	}
+	if (cascade.status === "abandoned") {
+		return {
+			label: `Abandoned ${cascade.from}`,
+			icon: <PackageIcon />,
 			tone: MUTED,
 		};
 	}

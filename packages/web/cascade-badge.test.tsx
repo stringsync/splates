@@ -204,6 +204,7 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 		ship: null,
 		published: [],
 		note: null,
+		stages: [],
 		...over,
 	};
 }
@@ -214,6 +215,7 @@ function cascadeStep(over: Partial<CascadeStep>): CascadeStep {
 
 function cascade(steps: CascadeStep[]): Cascade {
 	return {
+		id: "2026-10-27T12-00-00-000Z-webappwiz",
 		from: steps[0]?.slug ?? "webappwiz",
 		status: "running",
 		started: "2026-10-27T12:00:00.000Z",

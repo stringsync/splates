@@ -77,6 +77,33 @@ credentials.
   dialog the project menu does; Approve starts the ship and then tells the
   agent `[SPLATES RUN ALLOWED]`, and closing it leaves the card unanswered.
 
+## Settled (2026-10-27): ship history and steps
+
+- **History keeps the last 20 cascades,** a lone ship being a cascade of one
+  project, each with its projects' ship logs; older ones go with their logs.
+- **Each project's part is a list of steps in one shape:** name, state
+  (pending, running, waiting on a check, waiting on the person, hung, done,
+  failed or skipped), started, ended, expected time, deadline, the last check
+  tried and what it said, and its slice of the log. A project that takes a
+  bump has its bump task, that task's merge gate, and its merge; one that
+  ships has npm sign-in, 2FA, the ship command (one step until webappwiz #20
+  splits it), and the versions checked against the plan.
+- **Expected time comes from the step's last few ships,** else a declared
+  default. The deadline is three times that, or ten minutes the first time.
+  Past its deadline a step shows hung but keeps going.
+- **Abandon ends the whole cascade.** Whatever was published stays; nothing
+  more ships; a ship running then is stopped; open bump tasks in dependents
+  are removed; history keeps the cascade as abandoned.
+
+Settled in the work, not with the person:
+
+- Hung is shown, never stored, and only for a step running or waiting on a
+  check: one waiting on the person is waiting, not hung.
+- 2FA is a step inside the ship command's run, from npm's first ask to the
+  command's end, and skipped when npm never asked.
+- A retried ship adds to the same log in history, so each step's slice of an
+  earlier try still reads true.
+
 ## Not settled
 - Whether a project outside the registered set, such as one on another
   machine, should hear of a release; this covers only the projects

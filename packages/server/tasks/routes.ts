@@ -186,10 +186,15 @@ export class TaskRoutes {
 	// the task, so it goes past an external agent's lease. Each conversation
 	// in its tree stops before the tree goes, and carries on in the main tree.
 	readonly removeTask = async (request: Request): Promise<Response> => {
-		const { journal, service, log, tasks: queue, slots, creds } = this.#project;
-		const task = decodeURIComponent(
-			new URL(request.url).pathname.split("/")[3] ?? "",
+		await this.removeNamed(
+			decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? ""),
 		);
+		return Response.json({});
+	};
+
+	/** Removes `task` as the page's remove does, stopping each conversation in it. */
+	readonly removeNamed = async (task: string): Promise<void> => {
+		const { journal, service, log, tasks: queue, slots, creds } = this.#project;
 		const on = (await (this.#conversations?.list() ?? [])).filter(
 			(each) => each.state.task === task,
 		);
@@ -222,6 +227,5 @@ export class TaskRoutes {
 			conversation.move(null, service.git.root);
 		}
 		this.#watch.tick();
-		return Response.json({});
 	};
 }

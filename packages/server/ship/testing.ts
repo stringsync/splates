@@ -4,6 +4,7 @@ import type { CascadeProject } from "./cascade";
 import type { ShipSource } from "./graph";
 import type { ShipBump } from "./plan";
 import type { Ship } from "./run";
+import type { Stage } from "./stages";
 
 /** A `package.json` a fixture writes. */
 type Manifest = Record<string, unknown>;
@@ -119,14 +120,26 @@ export class FakeProject implements CascadeProject {
 			return id;
 		},
 		state: async (id: number) => this.bumps.states.get(id) ?? "removed",
+		removed: [] as number[],
+		remove: async (id: number) => {
+			this.bumps.removed.push(id);
+			this.bumps.states.set(id, "removed");
+		},
 	};
+	/** The logs each ship was told to write to. */
+	logs: (string | undefined)[] = [];
+	stops = 0;
 	shipping = {
-		start: async (bump: ShipBump = "patch"): Promise<Ship> => {
+		start: async (
+			bump: ShipBump = "patch",
+			{ log }: { log?: string } = {},
+		): Promise<Ship> => {
 			if (this.refuse !== null) {
 				throw new Error(this.refuse);
 			}
 			this.starts++;
 			this.releaseBumps.push(bump);
+			this.logs.push(log);
 			this.ship = {
 				project: this.root.slice(1),
 				command: "wiz dev ship",
@@ -140,11 +153,20 @@ export class FakeProject implements CascadeProject {
 				waiting: null,
 				error: null,
 				resumed: 0,
+				log,
+				stages: this.stages,
 			};
 			return this.ship;
 		},
 		current: async () => this.ship,
+		stop: async () => {
+			this.stops++;
+			this.end("failed");
+		},
 	};
+
+	/** The ship's own steps as its next ship starts them, which a test may set. */
+	stages: Stage[] | undefined = undefined;
 
 	constructor(readonly root: string) {}
 

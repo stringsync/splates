@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import type { FakeFs } from "webappwiz/system/testing";
+import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { MemoryStorage } from "../storage/testing";
@@ -15,6 +16,7 @@ describe("Cascades", () => {
 	let projects: Map<string, FakeProject>;
 	let cascades: Cascades;
 	let timer: FakeTimer;
+	let clock: FakeWallClock;
 
 	const project = (slug: string) => projects.get(slug) as FakeProject;
 	const statuses = async () =>
@@ -53,6 +55,7 @@ describe("Cascades", () => {
 		fs = served.fs;
 		storage = new MemoryStorage();
 		timer = new FakeTimer();
+		clock = new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z"));
 		projects = new Map(
 			served.sources.map((each) => [each.slug, new FakeProject(each.root)]),
 		);
@@ -70,7 +73,7 @@ describe("Cascades", () => {
 				return found;
 			},
 			timer,
-			clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
+			clock,
 		});
 	});
 
@@ -396,5 +399,242 @@ describe("Cascades", () => {
 			webappwiz: "done",
 			mdom: "bumping",
 		});
+	});
+
+	const stagesOf = async (slug: string) =>
+		Object.fromEntries(
+			(
+				(await cascades.current())?.steps.find((step) => step.slug === slug)
+					?.stages ?? []
+			).map((stage) => [stage.key, stage.state]),
+		);
+
+	it("keeps each project's steps, filed in history under its id, its ship logging there", async () => {
+		const { cascade } = await cascades.start("webappwiz");
+
+		expect(cascade.id).toBe("2026-10-27T12-00-00-000Z-webappwiz");
+		expect(await stagesOf("webappwiz")).toEqual({
+			login: "pending",
+			otp: "pending",
+			command: "pending",
+			versions: "pending",
+		});
+		expect(Object.keys(await stagesOf("mdom"))).toEqual([
+			"bump",
+			"gate",
+			"merged",
+			"login",
+			"otp",
+			"command",
+			"versions",
+		]);
+		expect(Object.keys(await stagesOf("sound2score"))).toEqual([
+			"bump",
+			"gate",
+			"merged",
+		]);
+		expect(project("webappwiz").logs).toEqual([
+			cascades.history.logOf(cascade.id, "webappwiz"),
+		]);
+
+		await shipped("webappwiz", "0.0.51");
+		const webappwiz = (await cascades.history.read(cascade.id))?.steps[0];
+		expect(
+			webappwiz?.stages.find((stage) => stage.key === "versions"),
+		).toMatchObject({
+			state: "done",
+			check: { result: "published 0.0.51, as planned" },
+		});
+		expect(await cascades.history.summaries()).toMatchObject([
+			{ id: cascade.id, from: "webappwiz", status: "running" },
+		]);
+	});
+
+	it("follows a bump task through its merge gate to its merge", async () => {
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+		expect(await stagesOf("mdom")).toMatchObject({
+			bump: "running",
+			gate: "pending",
+		});
+
+		project("mdom").bumps.states.set(project("mdom").bump(), "gating");
+		await cascades.tick();
+		expect(await stagesOf("mdom")).toMatchObject({
+			bump: "done",
+			gate: "checking",
+		});
+
+		await merge("mdom");
+		expect(await stagesOf("mdom")).toMatchObject({
+			bump: "done",
+			gate: "done",
+			merged: "done",
+		});
+		expect(await statuses()).toMatchObject({ mdom: "shipping" });
+	});
+
+	it("abandons the cascade: what shipped stays, open bump tasks go, nothing more ships", async () => {
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+		project("splates").bumps.states.set(project("splates").bump(), "asking");
+		await cascades.tick();
+
+		const abandoned = await cascades.abandon();
+
+		expect(abandoned.status).toBe("abandoned");
+		expect(await statuses()).toEqual({
+			webappwiz: "done",
+			splates: "abandoned",
+			mdom: "abandoned",
+			vexml: "abandoned",
+			sound2score: "abandoned",
+		});
+		expect(project("splates").bumps.removed).toEqual([101]);
+		expect(project("mdom").bumps.removed).toEqual([101]);
+		expect(await stagesOf("mdom")).toMatchObject({
+			bump: "failed",
+			gate: "skipped",
+			command: "skipped",
+		});
+		expect((await cascades.history.read(abandoned.id))?.status).toBe(
+			"abandoned",
+		);
+		await cascades.tick();
+		expect(project("mdom").starts).toBe(0);
+		await expect(cascades.abandon()).rejects.toMatchObject({
+			reason: "conflict",
+		});
+	});
+
+	it("stops the ship running as the cascade is abandoned", async () => {
+		await cascades.start("webappwiz");
+
+		await cascades.abandon();
+
+		expect(project("webappwiz").stops).toBe(1);
+		expect(await statuses()).toMatchObject({ webappwiz: "abandoned" });
+	});
+
+	it("expects a step to take what it took lately, and shows it hung past three times that", async () => {
+		const before = {
+			...(await cascades.start("webappwiz")).cascade,
+		};
+		await cascades.abandon();
+		const command = before.steps[0]?.stages.find(
+			(stage) => stage.key === "command",
+		);
+		await cascades.history.file({
+			...before,
+			id: "2026-10-26T12-00-00-000Z-webappwiz",
+			status: "done",
+			steps: [
+				{
+					...(before.steps[0] as (typeof before.steps)[number]),
+					stages: [
+						{
+							...(command as NonNullable<typeof command>),
+							state: "done",
+							started: "2026-10-26T12:00:00.000Z",
+							ended: "2026-10-26T12:02:00.000Z",
+						},
+					],
+				},
+			],
+		});
+		project("webappwiz").stages = [
+			{
+				...(command as NonNullable<typeof command>),
+				state: "running",
+				started: "2026-10-27T12:00:00.000Z",
+			},
+		];
+		clock.advance(Duration.mins(1));
+		await cascades.start("webappwiz");
+		const stage = async () =>
+			(await cascades.shown()).cascade?.steps[0]?.stages.find(
+				(each) => each.key === "command",
+			);
+
+		expect(await stage()).toMatchObject({
+			expected: 120_000,
+			known: true,
+			state: "running",
+			deadline: "2026-10-27T12:06:00.000Z",
+		});
+		expect(
+			(await cascades.current())?.steps[0]?.stages.find(
+				(each) => each.key === "login",
+			),
+		).toMatchObject({ known: false, expected: 120_000 });
+
+		clock.advance(Duration.mins(6));
+		expect((await stage())?.state).toBe("hung");
+	});
+
+	it("gives what a step printed, from its slice of its project's log", async () => {
+		const { cascade } = await cascades.start("webappwiz");
+		await fs.write(
+			cascades.history.logOf(cascade.id, "webappwiz"),
+			"signed in\npublished\n",
+		);
+		const command = cascade.steps[0]?.stages.find(
+			(stage) => stage.key === "command",
+		);
+		project("webappwiz").ship = {
+			...(project("webappwiz").ship as NonNullable<FakeProject["ship"]>),
+			stages: [
+				{
+					...(command as NonNullable<typeof command>),
+					state: "running",
+					started: "2026-10-27T12:00:00.000Z",
+					log: { from: 10, to: null },
+				},
+			],
+		};
+
+		expect(await cascades.stageLog(cascade.id, "webappwiz", "command")).toBe(
+			"published\n",
+		);
+		expect(
+			await cascades.stageLog(cascade.id, "webappwiz", "login"),
+		).toBeNull();
+		expect(
+			await cascades.stageLog("nowhere", "webappwiz", "command"),
+		).toBeNull();
+	});
+
+	it("keeps the last 20 cascades in history, the older going with their logs", async () => {
+		const { cascade } = await cascades.start("webappwiz");
+		const days = Array.from(
+			{ length: 20 },
+			(_, i) =>
+				`2026-09-${String(i + 1).padStart(2, "0")}T12-00-00-000Z-webappwiz`,
+		);
+		await Promise.all(
+			days.map((id) =>
+				cascades.history.file({ ...cascade, id, status: "done" }),
+			),
+		);
+		const oldest = cascades.history.logOf(days[0] as string, "webappwiz");
+		await fs.mkdir(oldest.slice(0, oldest.lastIndexOf("/")), {
+			recursive: true,
+		});
+		await fs.write(oldest, "old\n");
+
+		await cascades.history.prune();
+
+		const kept = await cascades.history.summaries();
+		expect(kept).toHaveLength(20);
+		expect(kept[0]?.id).toBe(cascade.id);
+		expect(kept.at(-1)?.id).toBe("2026-09-02T12-00-00-000Z-webappwiz");
+		expect(
+			await fs.exists(
+				cascades.history.logOf(
+					"2026-09-01T12-00-00-000Z-webappwiz",
+					"webappwiz",
+				),
+			),
+		).toBe(false);
 	});
 });

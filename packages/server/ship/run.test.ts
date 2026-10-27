@@ -135,6 +135,82 @@ describe("Shipping", () => {
 		expect((refused as Exit).reason).toBe("not_found");
 	});
 
+	it("records its steps, each with its slice of the log, 2FA skipped when npm never asked", async () => {
+		ps.setCaptureOutput("someone\n", "");
+		await shipping.start();
+		const ship = await nth(ps, 0);
+		ship.print("building\npublished 0.0.58\n");
+		ship.exit(0);
+		await shipping.settled();
+
+		const stages = (await shipping.current())?.stages ?? [];
+		expect(stages.map((stage) => [stage.key, stage.state])).toEqual([
+			["login", "done"],
+			["otp", "skipped"],
+			["command", "done"],
+		]);
+		expect(stages[0]?.check?.result).toBe("npm whoami: someone");
+		expect(stages[2]).toMatchObject({
+			started: "2026-10-27T12:00:00.000Z",
+			ended: "2026-10-27T12:00:00.000Z",
+			log: { from: 0, to: 26 },
+		});
+	});
+
+	it("waits on the person at a publish's second factor, then carries on", async () => {
+		await shipping.start();
+		const ship = await nth(ps, 0);
+		ship.print(
+			"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
+		);
+		await until(async () => (await shipping.current())?.waiting !== null);
+
+		const otp = () =>
+			shipping
+				.current()
+				.then((ship) => ship?.stages?.find((each) => each.key === "otp"));
+		expect((await otp())?.state).toBe("asking");
+
+		ship.print("+ demo@0.0.58\n");
+		await until(async () => (await otp())?.state === "running");
+		ship.exit(0);
+		await shipping.settled();
+		expect(await otp()).toMatchObject({ state: "done", log: { from: 0 } });
+	});
+
+	it("adds to a log its cascade names, its slices counted from what was there", async () => {
+		await fs.mkdir("/history/one", { recursive: true });
+		await fs.write("/history/one/demo.log", "before\n");
+		await shipping.start("patch", { log: "/history/one/demo.log" });
+		const ship = await nth(ps, 0);
+		ship.print("again\n");
+		ship.exit(0);
+		await shipping.settled();
+
+		expect(await fs.read("/history/one/demo.log")).toBe("before\nagain\n");
+		expect(await shipping.outputOf()).toBe("/history/one/demo.log");
+		expect(
+			(await shipping.current())?.stages?.find((each) => each.key === "command")
+				?.log,
+		).toEqual({ from: 7, to: 13 });
+	});
+
+	it("stops the ship under way at the person's word, failed", async () => {
+		await shipping.start();
+		const ship = await nth(ps, 0);
+		const stopping = shipping.stop();
+		ship.exit(143);
+		await stopping;
+
+		expect(await shipping.current()).toMatchObject({
+			status: "failed",
+			error: "stopped: the person abandoned the ship",
+		});
+		expect(
+			(await shipping.current())?.stages?.map((stage) => stage.state),
+		).toEqual(["done", "skipped", "failed"]);
+	});
+
 	it("runs again a stopped server's ship at the bump it recorded", async () => {
 		await shipping.start("major");
 		await nth(ps, 0);
