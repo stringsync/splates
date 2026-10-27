@@ -1,6 +1,6 @@
 ---
 name: splates
-description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
+description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
 version: 0.0.58
 ---
 
@@ -25,14 +25,18 @@ the rest:
    ending at its `?`, as in Formats below.
 3. **Keep heavy work off the machine.** The person works on it beside many
    other agents, so do exactly this:
-   - Check a change with `bun test --changed` or explicit test files, never
-     the whole suite, which runs only in the merge gate. In splates's own
-     repo: `splates dev test --changed`, `--since main` or file paths, and
-     `splates dev fix` once per step (`--code-only` skips scry's model calls).
+   - Never run the whole suite yourself (a bare `bun test` or `npm test`),
+     however small or quick: it runs only in the merge gate. When the user
+     asks for every test to pass, that ask is not their Allow: run the test
+     files the change reaches and end with a run-command card for the whole
+     suite.
+   - Check a change with `bun test --changed` or explicit test files. In
+     splates's own repo: `splates dev test --changed`, `--since main` or
+     file paths, and `splates dev fix` once per step (`--code-only` skips scry's model calls).
    - An unscoped `splates dev test` or `dev premerge`, or a scoped run
      reaching half the test files, is refused (`not_granted`) until the
      person allows one run.
-   - Heavy means a lot of CPU or memory: the whole suite, a full build,
+   - Heavy means a lot of CPU or memory: a full build,
      docker, a benchmark, a profile, a browser test run, anything that keeps
      cores busy for more than a minute. That, or any
      cost that is not compute (tokens, a write outside the repository, a
