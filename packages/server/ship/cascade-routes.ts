@@ -1,12 +1,13 @@
 import type { Cascades } from "./cascade";
 
 /**
- * The machine's ship cascade over HTTP: the one under way or the last to
- * end, starting one from a project, and dropping a project from it. Only
- * the person starts a ship: `splates ship` refuses an agent before it asks,
- * and the page's Approve is the person's own.
+ * The machine's ship cascade over HTTP, for `splates ship` and the page:
+ * the one under way or the last to end, starting one from a project, and
+ * retrying or dropping a project in it.
  */
 export class CascadeRoutes {
+	// Only the person starts a ship: `splates ship` refuses an agent before
+	// it asks, and the page's Approve is the person's own.
 	readonly #cascades: Cascades;
 	readonly #slugOf: (request: Request) => Promise<string>;
 
@@ -41,4 +42,8 @@ export class CascadeRoutes {
 	/** Drops the project `?project=` names from the cascade under way. */
 	readonly dropFromCascade = async (request: Request): Promise<Response> =>
 		Response.json(await this.#cascades.drop(await this.#slugOf(request)));
+
+	/** Runs the project `?project=` names again where it failed or stopped. */
+	readonly retryInCascade = async (request: Request): Promise<Response> =>
+		Response.json(await this.#cascades.retry(await this.#slugOf(request)));
 }

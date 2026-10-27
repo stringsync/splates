@@ -243,6 +243,57 @@ describe("Cascades", () => {
 		});
 	});
 
+	it("ships a failed project again on a retry", async () => {
+		await cascades.start("webappwiz");
+		project("webappwiz").end("failed");
+		await cascades.tick();
+
+		const again = await cascades.retry("webappwiz");
+
+		expect(project("webappwiz").starts).toBe(2);
+		expect(again.steps[0]).toMatchObject({ status: "shipping", note: null });
+		await shipped("webappwiz", "0.0.51");
+		expect(await statuses()).toMatchObject({ splates: "bumping" });
+	});
+
+	it("ships a bumped project again on a retry, without another bump task", async () => {
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+		await merge("splates");
+		project("splates").end("failed");
+		await cascades.tick();
+
+		await cascades.retry("splates");
+
+		expect(await statuses()).toMatchObject({ splates: "shipping" });
+		expect(project("splates").bumps.added).toHaveLength(1);
+		expect(project("splates").starts).toBe(2);
+	});
+
+	it("adds a new bump task on a retry of a project whose bump was removed", async () => {
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+		project("mdom").bumps.states.set(project("mdom").bump(), "removed");
+		await cascades.tick();
+
+		const again = await cascades.retry("mdom");
+
+		expect(again.steps.find((step) => step.slug === "mdom")).toMatchObject({
+			status: "bumping",
+			task: 102,
+			note: null,
+		});
+		expect(project("mdom").bumps.added).toHaveLength(2);
+	});
+
+	it("refuses to retry a project that neither failed nor stopped", async () => {
+		await cascades.start("webappwiz");
+
+		const refused = await cascades.retry("splates").catch((error) => error);
+		expect((refused as Exit).reason).toBe("conflict");
+		expect(project("splates").bumps.added).toHaveLength(0);
+	});
+
 	it("answers with the cascade under way rather than starting another", async () => {
 		await cascades.start("webappwiz");
 		const again = await cascades.start("mdom");

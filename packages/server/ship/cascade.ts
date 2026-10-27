@@ -26,7 +26,7 @@ export function cascadeRecord(storage: Storage): Document<Cascade> {
  * waits on the person, `stopped` once that task was removed unmerged,
  * `shipping` while its ship runs, `failed` once the ship failed, `done`, or
  * `dropped` by the person from the run. A stopped or failed one holds up
- * those after it until the person drops it.
+ * those after it until the person retries or drops it.
  */
 export type CascadeStatus =
 	| "waiting"
@@ -218,6 +218,43 @@ export class Cascades implements Resource {
 		});
 	}
 
+	/**
+	 * Runs `slug`'s part of the cascade under way again where it stopped: a
+	 * failed ship starts again, and a stopped one, whose bump task was
+	 * removed, takes a new bump task. Refused for a project that neither
+	 * failed nor stopped.
+	 */
+	retry(slug: string): Promise<Cascade> {
+		return this.serially(async () => {
+			const cascade =
+				(await this.record.read()) ??
+				fail("not_found", "no ship is under way", { project: slug });
+			const step =
+				cascade.steps.find((each) => each.slug === slug) ??
+				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
+					project: slug,
+				});
+			if (
+				cascade.status !== "running" ||
+				(step.status !== "failed" && step.status !== "stopped")
+			) {
+				fail(
+					"conflict",
+					`${slug} is ${step.status} in the ship: only a failed or stopped project is retried`,
+					{ project: slug },
+				);
+			}
+			if (step.status === "stopped") {
+				step.task = null;
+			}
+			// A merged bump ships again from bumping, and one with none from waiting.
+			step.status = step.task === null ? "waiting" : "bumping";
+			step.note = null;
+			this.opts.log.info(`retrying ${slug} in the ship of ${cascade.from}`);
+			return this.advance(cascade);
+		}).finally(() => this.schedule());
+	}
+
 	/** Carries on a cascade a stopped server left under way. */
 	async resume(): Promise<void> {
 		if ((await this.record.read())?.status === "running") {
@@ -267,7 +304,7 @@ export class Cascades implements Resource {
 			case "shipping":
 				return this.shipped(step);
 			default:
-				// Done or dropped; or stopped or failed, until the person drops it.
+				// Done or dropped; or stopped or failed, until the person retries or drops it.
 				return;
 		}
 	}

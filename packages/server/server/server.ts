@@ -720,6 +720,9 @@ export async function dev(
 						GET: guarded(cascadeRoutes.cascade),
 						DELETE: talk(guarded(cascadeRoutes.dropFromCascade)),
 					},
+					"/api/ship/cascade/retry": {
+						POST: talk(guarded(cascadeRoutes.retryInCascade)),
+					},
 					"/api/ship/otp": {
 						POST: talk(scoped((project) => project.answerShipOtp)),
 					},

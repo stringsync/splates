@@ -98,6 +98,21 @@ describe("ship", () => {
 		]);
 	});
 
+	it("retries a project in the cascade under way", async () => {
+		const { ctx, log } = await served();
+		const { calls, fetch } = server({});
+
+		await ship(
+			{ ...ctx, fetch },
+			{ retry: "vexml", dev: "http://localhost:4310" },
+		);
+
+		expect(calls).toEqual([
+			"POST http://localhost:4310/api/ship/cascade/retry?project=vexml",
+		]);
+		expect(String(log.entries.at(-2)?.message)).toContain("retrying vexml");
+	});
+
 	it("refuses an agent a ship before it asks the server", async () => {
 		const { ctx, ps } = await served();
 		const { calls, fetch } = server({ status: "done" });

@@ -19,7 +19,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
-import { dropFromCascade, type MachineStatus } from "./api";
+import { dropFromCascade, type MachineStatus, retryInCascade } from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
@@ -41,6 +41,18 @@ const DROPPABLE: CascadeStatus[] = [
 	"failed",
 ];
 
+/** The statuses a step can be run again in, as the server allows. */
+const RETRIABLE: CascadeStatus[] = ["stopped", "failed"];
+
+/**
+ * A drop or retry the person asked for and the server has yet to show: the
+ * step shows `to` while it still stands at `from`.
+ */
+interface Asked {
+	from: CascadeStatus;
+	to: CascadeStatus;
+}
+
 const AMBER =
 	"border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
 const MUTED = "bg-muted text-muted-foreground";
@@ -51,7 +63,7 @@ const RED = "border-destructive/30 bg-destructive/10 text-destructive";
  * is, while it runs and for an hour after it ends: amber while npm waits on
  * the person, or a bump task asks them, red where it stopped. It opens each
  * project in the order they go, with where each stands, its bump task, why
- * it stopped, a way to drop it from the run, and npm's page or a field for
+ * it stopped, ways to retry it or drop it from the run, and npm's page or a field for
  * its code while a publish waits on the person, then what that ship prints.
  */
 export function CascadeBadge({
@@ -63,21 +75,34 @@ export function CascadeBadge({
 	const ship = machine?.ship?.ship ?? null;
 	const now = useNow(cascade !== null, Duration.mins(1));
 	const [open, setOpen] = useShipOpen();
-	const [dropping, setDropping] = useState<ReadonlySet<string>>(new Set());
+	const [asked, setAsked] = useState<ReadonlyMap<string, Asked>>(new Map());
 	const { refusals, refuse } = useRefusals<string>();
 	if (cascade === null || !shown(cascade, now)) {
 		return null;
 	}
-	const drop = (slug: string) => {
-		setDropping((was) => new Set(was).add(slug));
-		dropFromCascade(slug).then(askMachineNow, (error: unknown) => {
-			setDropping((was) => {
-				const left = new Set(was);
-				left.delete(slug);
-				return left;
-			});
-			refuse(slug, `${slug} not dropped`, error);
-		});
+	const change = (step: CascadeStep, how: "drop" | "retry") => {
+		const slug = step.slug;
+		setAsked((was) =>
+			new Map(was).set(slug, {
+				from: step.status,
+				to: how === "drop" ? "dropped" : "waiting",
+			}),
+		);
+		(how === "drop" ? dropFromCascade : retryInCascade)(slug).then(
+			askMachineNow,
+			(error: unknown) => {
+				setAsked((was) => {
+					const left = new Map(was);
+					left.delete(slug);
+					return left;
+				});
+				refuse(
+					slug,
+					`${slug} not ${how === "drop" ? "dropped" : "retried"}`,
+					error,
+				);
+			},
+		);
 	};
 	const { label, icon, tone } = pillOf(cascade, ship);
 	return (
@@ -96,19 +121,31 @@ export function CascadeBadge({
 				<p className="font-medium text-sm">{headingOf(cascade)}</p>
 				{ship !== null && <ShipWaiting ship={ship} />}
 				<ol aria-label="Ship cascade" className="flex flex-col divide-y">
-					{cascade.steps.map((step) => (
-						<StepRow
-							key={step.slug}
-							step={step}
-							dropping={dropping.has(step.slug)}
-							onDrop={
-								cascade.status === "running" && DROPPABLE.includes(step.status)
-									? () => drop(step.slug)
-									: null
-							}
-							refusal={refusals.get(step.slug) ?? null}
-						/>
-					))}
+					{cascade.steps.map((step) => {
+						const pending = asked.get(step.slug);
+						const shownAs =
+							pending?.from === step.status ? pending.to : step.status;
+						const running =
+							cascade.status === "running" && shownAs === step.status;
+						return (
+							<StepRow
+								key={step.slug}
+								step={step}
+								status={shownAs}
+								onRetry={
+									running && RETRIABLE.includes(step.status)
+										? () => change(step, "retry")
+										: null
+								}
+								onDrop={
+									running && DROPPABLE.includes(step.status)
+										? () => change(step, "drop")
+										: null
+								}
+								refusal={refusals.get(step.slug) ?? null}
+							/>
+						);
+					})}
 				</ol>
 				{/* Afresh for each project's ship as the cascade moves on. */}
 				{open && ship !== null && (
@@ -122,18 +159,20 @@ export function CascadeBadge({
 /** One project of the cascade: where it stands, its bump task, and why it stopped. */
 function StepRow({
 	step,
-	dropping,
+	status,
+	onRetry,
 	onDrop,
 	refusal,
 }: {
 	step: CascadeStep;
-	/** Whether the person dropped it and the server has yet to say so. */
-	dropping: boolean;
+	/** Where it stands, or where the person moved it before the server says so. */
+	status: CascadeStatus;
+	/** Runs it again where it failed or stopped, or null where it cannot be. */
+	onRetry: (() => void) | null;
 	/** Drops it from the run, or null where it cannot be. */
 	onDrop: (() => void) | null;
 	refusal: string | null;
 }): JSX.Element {
-	const status = dropping ? "dropped" : step.status;
 	return (
 		<li aria-label={step.slug} className="flex flex-col gap-0.5 py-1.5">
 			<p className="flex items-center gap-2 text-sm">
@@ -157,7 +196,21 @@ function StepRow({
 						#{step.task}
 					</a>
 				)}
-				{onDrop !== null && !dropping && (
+				{onRetry !== null && (
+					<Button
+						size="xs"
+						variant="ghost"
+						title={
+							step.status === "failed"
+								? "Runs its ship again"
+								: "Queues a new bump task in its place"
+						}
+						onClick={onRetry}
+					>
+						Retry
+					</Button>
+				)}
+				{onDrop !== null && (
 					<Button
 						size="xs"
 						variant="ghost"
@@ -168,7 +221,7 @@ function StepRow({
 					</Button>
 				)}
 			</p>
-			{step.note !== null && !dropping && (
+			{step.note !== null && status === step.status && (
 				<p className="pl-3.5 text-muted-foreground text-xs">{step.note}</p>
 			)}
 			<Refusal refusal={refusal} className="pl-3.5" />

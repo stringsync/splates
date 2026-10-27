@@ -68,7 +68,12 @@ export {
 	sendJson,
 	WAITS,
 } from "./request";
-export { dropFromCascade, shipPlan, startShip } from "./ship";
+export {
+	dropFromCascade,
+	retryInCascade,
+	shipPlan,
+	startShip,
+} from "./ship";
 export {
 	billing,
 	pullBilling,

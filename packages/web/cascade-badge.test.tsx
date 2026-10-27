@@ -96,6 +96,42 @@ describe("CascadeBadge", () => {
 		expect(asked).toContain("DELETE /api/ship/cascade?project=mdom");
 	});
 
+	it("retries a failed project, showing it waiting until the server moves it", async () => {
+		const view = await opened({
+			cascade: cascade([
+				cascadeStep({
+					slug: "webappwiz",
+					status: "failed",
+					note: "npm error 403",
+				}),
+			]),
+			ship: null,
+		});
+		const webappwiz = view.getByRole("listitem", { name: "webappwiz" });
+		const fetch = globalThis.fetch;
+		const asked: string[] = [];
+		globalThis.fetch = (async (input: string, init?: RequestInit) => {
+			asked.push(`${init?.method ?? "GET"} ${input}`);
+			return Response.json(null);
+		}) as typeof globalThis.fetch;
+		try {
+			await act(async () =>
+				fireEvent.click(
+					within(webappwiz).getByRole("button", { name: "Retry" }),
+				),
+			);
+		} finally {
+			globalThis.fetch = fetch;
+		}
+
+		expect(webappwiz.textContent).toContain("waiting");
+		expect(webappwiz.textContent).not.toContain("npm error 403");
+		expect(
+			within(webappwiz).queryByRole("button", { name: "Retry" }),
+		).toBeNull();
+		expect(asked).toContain("POST /api/ship/cascade/retry?project=webappwiz");
+	});
+
 	it("says it shipped once every project is through", () => {
 		const view = badge({
 			cascade: {

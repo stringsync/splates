@@ -42,3 +42,8 @@ export async function dropFromCascade(project: string): Promise<void> {
 		method: "DELETE",
 	});
 }
+
+/** Runs `project` again where it failed or stopped in the ship cascade under way. */
+export async function retryInCascade(project: string): Promise<void> {
+	await send(`/api/ship/cascade/retry?${new URLSearchParams({ project })}`, {});
+}

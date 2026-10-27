@@ -31,7 +31,7 @@ export interface ShipContext {
  * following the first ship to its end; while a cascade is under way, prints
  * it instead of starting another. With `plan`, prints what shipping it would
  * do, running nothing; with `drop`, takes that project out of the cascade
- * under way. A ship is the person's to start, so an agent is refused even
+ * under way, and with `retry`, runs its part again where it failed or stopped. A ship is the person's to start, so an agent is refused even
  * the plan and told to ask with a card, whose Ship on the page starts it.
  */
 export async function ship(
@@ -42,12 +42,14 @@ export async function ship(
 		json = false,
 		dev = "",
 		drop,
+		retry,
 	}: {
 		project?: string;
 		plan?: boolean;
 		json?: boolean;
 		dev?: string;
 		drop?: string;
+		retry?: string;
 	},
 ): Promise<void> {
 	const asking =
@@ -59,11 +61,15 @@ export async function ship(
 			{ caller: asking },
 		);
 	}
+	if (drop !== undefined && retry !== undefined) {
+		fail("usage", "--drop and --retry each name a project: give one");
+	}
 	if (!plan) {
 		await shipOnServer(ctx, {
-			slug: drop ?? project ?? (await thisProject(ctx)),
+			slug: drop ?? retry ?? project ?? (await thisProject(ctx)),
 			dev,
-			drop: drop !== undefined,
+			change:
+				drop !== undefined ? "drop" : retry !== undefined ? "retry" : null,
 		});
 		return;
 	}
@@ -123,11 +129,15 @@ async function thisProject(ctx: ShipContext): Promise<string> {
  * on its machine under the person's npm sign-in, and prints the first
  * ship's output until it ends: npm's links are in it, and on the page as
  * well, for any device. Prints the cascade under way instead when there is
- * one; with `drop`, drops `slug` from it.
+ * one; with `change`, drops `slug` from it or retries it there.
  */
 async function shipOnServer(
 	ctx: ShipContext,
-	{ slug, dev, drop }: { slug: string; dev: string; drop: boolean },
+	{
+		slug,
+		dev,
+		change,
+	}: { slug: string; dev: string; change: "drop" | "retry" | null },
 ): Promise<void> {
 	const url =
 		dev || ctx.ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
@@ -155,7 +165,7 @@ async function shipOnServer(
 		}
 		return response;
 	};
-	if (drop) {
+	if (change === "drop") {
 		const left = (await (
 			await ask("DELETE", "/api/ship/cascade")
 		).json()) as Cascade;
@@ -163,11 +173,21 @@ async function shipOnServer(
 		ctx.log.info(cascadeTable(left));
 		return;
 	}
+	if (change === "retry") {
+		const again = (await (
+			await ask("POST", "/api/ship/cascade/retry")
+		).json()) as Cascade;
+		ctx.log.info(
+			`retrying ${slug} in the ship of ${again.from}; the page shows npm's sign-in and 2FA links as it publishes`,
+		);
+		ctx.log.info(cascadeTable(again));
+		return;
+	}
 	const response = await ask("POST", "/api/ship");
 	const cascade = (await response.json()) as Cascade;
 	if (response.status !== 201) {
 		ctx.log.info(
-			`the ship of ${cascade.from} is under way, so no other starts until it is done; \`splates ship --drop <project>\` takes a stopped project out of it`,
+			`the ship of ${cascade.from} is under way, so no other starts until it is done; \`splates ship --retry <project>\` runs a failed or stopped project again, and \`splates ship --drop <project>\` takes it out of the run`,
 		);
 		ctx.log.info(cascadeTable(cascade));
 		return;
@@ -228,14 +248,14 @@ function cascadeTable(cascade: Cascade): string {
 
 /**
  * Whether the project at `root` can be shipped: its `splates.config.ts`
- * names a `ship` command and it publishes a public package, the two things
- * `planShip` refuses a start for. One whose config does not load ships
- * nothing, as in `registeredGraph`.
+ * names a `ship` command and it publishes a public package.
  */
 export async function shipsFrom(
 	ctx: Pick<ShipContext, "fs" | "configs">,
 	root: string,
 ): Promise<boolean> {
+	// The two things `planShip` refuses a start for. One whose config does
+	// not load ships nothing, as in `registeredGraph`.
 	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
 	const ship = await files.read(root).then(
 		(config) => config.ship ?? null,
@@ -249,13 +269,14 @@ export async function shipsFrom(
 }
 
 /**
- * The graph of every registered project still on disk, each with the `ship`
- * its `splates.config.ts` names. One whose config does not load is warned of
- * and drawn as never shipped, rather than leaving every plan without it.
+ * The graph of every registered project still on disk, to plan a ship
+ * across them, each with the `ship` its `splates.config.ts` names.
  */
 export async function registeredGraph(
 	ctx: Pick<ShipContext, "projects" | "fs" | "log" | "configs">,
 ): Promise<ShipGraph> {
+	// One whose config does not load is warned of and drawn as never
+	// shipped, rather than leaving every plan without it.
 	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
 	const sources = await Promise.all(
 		(await ctx.projects.list())

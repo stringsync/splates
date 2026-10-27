@@ -90,8 +90,11 @@ one ship at a time, each asking you on npm's pages as the first did.
 
 When a bump task asks you a question, or is removed without merging, or a
 ship fails, the cascade stops at that project, and at the projects after it,
-while the rest goes on. Answer the task and it carries on; or take the
-project out of the run with Drop in the badge's popover, or
+while the rest goes on. Answer the task and it carries on. Retry in the
+badge's popover, or `splates ship --retry <project>`, runs that project again
+in place: a failed ship starts again, as after npm's 2FA timed out or the
+network dropped, and a project whose bump task was removed takes a new one.
+Or take the project out of the run with Drop, or
 `splates ship --drop <project>`, and those after
 it go on without its new version.
 
@@ -104,7 +107,8 @@ Every project's page shows the cascade as a badge in its bars, whichever
 project ships, for an hour after it ends too: how many projects are through,
 amber while npm waits on you or a bump task asks you, red where it stopped.
 Its popover lists each project with where it stands, a link to its bump
-task, why it stopped and a Drop that takes it out of the run, and, while a
+task, why it stopped, a Retry that runs it again and a Drop that takes it
+out of the run, and, while a
 publish waits on you, npm's page or a field for its code, then that ship's
 output.
 
