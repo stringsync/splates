@@ -373,12 +373,11 @@ export async function dev(
 		// config shows its Evals page without a restart.
 		directory: async (request) => {
 			const project = await projectFor(request);
-			const named = projectEvalsDirectory(
+			return projectEvalsDirectory(
 				ps,
 				project.root,
 				(await configFiles.read(project.root)).evals ?? null,
 			);
-			return named ?? (evalsCheckout === null ? null : evalsDirectory(ps));
 		},
 	});
 	const evalLaunches =

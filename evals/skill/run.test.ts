@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
+import {
+	type ContractBatch,
+	type EvalDetail,
+	EvalStore,
+} from "@stringsync/splates-server/evals";
 import type { Verdict } from "./judge";
-import { type Batch, type Result, type Runners, runBatch } from "./run";
+import { type Runners, runBatch } from "./run";
 import type { Scenario } from "./scenario";
 
 const SKILL = resolve(import.meta.dir, "../../skills/splates");
@@ -73,7 +78,10 @@ process.exit(${exit});
 		judge: "Pass when it ran a focused check.",
 	};
 
-	async function run(): Promise<{ batch: Batch; result: Result }> {
+	async function run(): Promise<{
+		batch: ContractBatch;
+		result: EvalDetail;
+	}> {
 		const dir = await runBatch(
 			[
 				{
@@ -85,12 +93,10 @@ process.exit(${exit});
 			],
 			{ directory, skill: "splates", runners },
 		);
-		const run = (await readdir(dir)).find((each) => each.startsWith("run-"));
+		const id = basename(dir);
 		return {
 			batch: JSON.parse(await readFile(join(dir, "batch.json"), "utf8")),
-			result: JSON.parse(
-				await readFile(join(dir, run ?? "", "result.json"), "utf8"),
-			),
+			result: await new EvalStore(directory).run(`${id}#run-000`),
 		};
 	}
 
@@ -99,7 +105,19 @@ process.exit(${exit});
 
 		const { batch, result } = await run();
 
-		expect(batch.cells).toHaveLength(1);
+		expect(batch).toMatchObject({
+			format: "splates-evals/1",
+			title: "splates",
+			cells: [
+				{
+					id: "run-000",
+					case: "test/focused",
+					group: "test",
+					about: "Run only the tests it reaches.",
+					target: { agent: "claude", model: "sonnet" },
+				},
+			],
+		});
 		expect(result.status).toBe("pass");
 		expect(result.checks.map((check) => check.pass)).toEqual([true, true]);
 		expect(result.transcript[0]).toMatchObject({
@@ -108,7 +126,7 @@ process.exit(${exit});
 			output: expect.stringContaining("SKILL.md"),
 		});
 		expect(result.reply).toBe("Checked.");
-		expect(result.usage).toMatchObject({ usd: 0.02, tokens: 120, turns: 2 });
+		expect(result).toMatchObject({ costUsd: 0.02, tokens: 120 });
 		expect(judged[0]).toContain("Pass when it ran a focused check.");
 		expect(judged[0]).toContain("TOOL Bash");
 	});

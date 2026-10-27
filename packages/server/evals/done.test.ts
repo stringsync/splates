@@ -40,7 +40,7 @@ describe("evalsDonePrompt", () => {
 				requirement: "host-heavy-work",
 				target: claude.key,
 				repetition: 0,
-				run: run("batch-abc/run-1/result.json", "fail"),
+				run: run("batch-abc#run-1", "fail"),
 			},
 			{
 				scenario: "resources/install",
@@ -48,12 +48,12 @@ describe("evalsDonePrompt", () => {
 				requirement: "host-heavy-work",
 				target: codex.key,
 				repetition: 0,
-				run: run("batch-abc/run-2/result.json", "pass"),
+				run: run("batch-abc#run-2", "pass"),
 			},
 		],
 	};
 	const failed: EvalDetail = {
-		...run("batch-abc/run-1/result.json", "fail"),
+		...run("batch-abc#run-1", "fail"),
 		scenario: "resources/install",
 		aspect: "resource-control",
 		requirement: "Ask before installing.",
@@ -81,7 +81,7 @@ describe("evalsDonePrompt", () => {
 		expect(text).toContain("Judge: it installed without asking");
 		expect(text).toContain('Reply: "Installed."');
 		expect(text).toContain(
-			"Run: `batch-abc/run-1/result.json`, in full with `splates dev eval show batch-abc/run-1/result.json`",
+			"Run: `batch-abc#run-1`, in full with `splates dev eval show batch-abc#run-1`",
 		);
 	});
 
@@ -93,7 +93,7 @@ describe("evalsDonePrompt", () => {
 			target: claude.key,
 			repetition,
 			run: {
-				...run(`batch-abc/run-${repetition}/result.json`, "pass"),
+				...run(`batch-abc#run-${repetition}`, "pass"),
 				status,
 			},
 		});
@@ -107,7 +107,7 @@ describe("evalsDonePrompt", () => {
 				failed,
 				{
 					...failed,
-					id: "batch-abc/run-2/result.json",
+					id: "batch-abc#run-2",
 					status: "error",
 					error: "model not found",
 					repetition: 2,

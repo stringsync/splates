@@ -7,5 +7,7 @@ export default {
 	preLock: "./bin/splates dev premerge --checks",
 	preMerge: "./bin/splates dev premerge",
 	remote: null,
+	// Where `splates dev eval run` writes its batches, as the Evals page reads them.
+	evals: { results: "~/.splates/evals" },
 	dictationWords: ["webappwiz", "scry", "premerge", "worktree", "Bun"],
 } satisfies ConfigFile;

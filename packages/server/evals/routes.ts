@@ -9,11 +9,9 @@ import { evalsDonePrompt } from "./done";
 import { EvalStore } from "./store";
 
 /**
- * The saved eval batches the Evals page and the report card read: from the
+ * The saved eval batches the Evals page and the report card read, from the
  * directory a project's `evals.results` names, which any framework writes in
- * the public format, or, for a project that names none on a server run from
- * a checkout, from `evals` in splates's home, as `splates dev eval run`
- * graded them. With neither, the routes answer 404.
+ * the public format. For a project that names none, the routes answer 404.
  */
 export class EvalRoutes {
 	private readonly stores = new Map<string, EvalStore>();
@@ -38,10 +36,9 @@ export class EvalRoutes {
 		const id = new URL(request.url).searchParams.get("id") ?? "";
 		const { directory, store } = await this.opened(request);
 		const hash = id.lastIndexOf("#");
-		const path = resolve(directory, hash === -1 ? id : id.slice(0, hash));
 		if (
-			!path.startsWith(directory + sep) ||
-			(hash === -1 && !path.endsWith(`${sep}result.json`))
+			hash === -1 ||
+			!resolve(directory, id.slice(0, hash)).startsWith(directory + sep)
 		) {
 			fail("usage", `no eval run ${id}`, { id });
 		}

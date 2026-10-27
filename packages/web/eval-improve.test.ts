@@ -4,7 +4,7 @@ import { improvable, improvePrompt } from "./eval-improve";
 
 describe("improvePrompt", () => {
 	const run: EvalDetail = {
-		id: "batch-a/run-000/result.json",
+		id: "batch-a#run-000",
 		status: "fail",
 		tokens: null,
 		costUsd: null,
@@ -38,7 +38,7 @@ describe("improvePrompt", () => {
 		expect(text).not.toContain("`ok`");
 		expect(text).toContain("Judge: installed without asking");
 		expect(text).toContain("Installed.");
-		expect(text).toContain("batch-a/run-000/result.json");
+		expect(text).toContain("batch-a#run-000");
 	});
 });
 

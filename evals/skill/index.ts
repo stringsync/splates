@@ -1,8 +1,14 @@
-import { mkdtemp, readdir, readFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import {
+	type EvalDetail,
+	EvalStore,
+	targetName,
+} from "@stringsync/splates-server/evals";
 import { AGENTS, type AgentPick } from "./agents";
+import { migrate } from "./migrate";
 import { type Cell, type Result, runBatch, type SkillUsed } from "./run";
 import { SCENARIOS } from "./scenarios";
 
@@ -13,7 +19,8 @@ const HELP = `splates dev eval: run the splates skill's eval scenarios on real a
   run   [selection]          runs it into a new batch-* directory (costs tokens)
   report <batch>             each scenario's pass rate, why runs failed, and errors apart
   show <batch> <run>         one run: its message, checks, judge, every step and the reply;
-                             also takes a run id, batch-x/run-003/result.json
+                             also takes a run id, batch-x#run-003
+  migrate                    rewrites batches saved before splates-evals/1 in that format
 
 Selection:
   --scenario <id>            a scenario, repeatable; all when none
@@ -81,24 +88,24 @@ async function main(argv: string[]): Promise<number> {
 			console.error("report names a batch directory");
 			return 2;
 		}
-		console.log(await report(resolve(values.directory, batch)));
+		console.log(await report(new EvalStore(values.directory), batch));
 		return 0;
 	}
 	if (command === "show") {
-		const path = runPath(rest);
-		if (path === null) {
+		const id = runId(rest);
+		if (id === null) {
 			console.error(
-				"show names a run: a batch and its run (run-003 or 3), or a run id as batch-x/run-003/result.json",
+				"show names a run: a batch and its run (run-003 or 3), or a run id as batch-x#run-003",
 			);
 			return 2;
 		}
-		console.log(
-			shown(
-				JSON.parse(
-					await readFile(resolve(values.directory, path), "utf8"),
-				) as Result,
-			),
-		);
+		console.log(shown(await new EvalStore(values.directory).run(id)));
+		return 0;
+	}
+	if (command === "migrate") {
+		for (const batch of await migrate(values.directory)) {
+			console.log(`migrated ${batch}`);
+		}
 		return 0;
 	}
 	if (command !== "plan" && command !== "run") {
@@ -157,7 +164,7 @@ async function main(argv: string[]): Promise<number> {
 			parallel: Number(values.parallel) || 2,
 			landed: (result) =>
 				console.log(
-					`${result.status}\t${result.scenario.id}\t${label(result)}${result.error === null ? "" : `\t${result.error}`}`,
+					`${result.status}\t${result.scenario.id}\t${pickLabel(result)}${result.error === null ? "" : `\t${result.error}`}`,
 				),
 		});
 		console.log(`batch ${batch}`);
@@ -213,53 +220,45 @@ async function output(argv: string[]): Promise<string> {
 	return text;
 }
 
-/** A batch's results, read from each `run-*` directory, as `report` and `show` name them. */
-async function report(batch: string): Promise<string> {
-	const runs = (await readdir(batch)).filter((each) => each.startsWith("run-"));
+/** Batch `id`'s landed runs, opened, summed up as `summary` does. */
+async function report(store: EvalStore, id: string): Promise<string> {
+	const grid = await store.grid(id);
+	if (grid === null) {
+		throw new Error(`no eval batch ${id}`);
+	}
 	return summary(
 		await Promise.all(
-			runs.sort().map(async (run) => ({
-				run,
-				result: JSON.parse(
-					await readFile(join(batch, run, "result.json"), "utf8"),
-				) as Result,
-			})),
+			grid.grid.flatMap((cell) =>
+				cell.run === null ? [] : [store.run(cell.run.id)],
+			),
 		),
 	);
 }
 
 /**
- * Each scenario's pass rate on each agent and skill, with why each failing
- * run failed under it; then the runs that errored, apart, since an error is
- * the harness's or the setup's, never the skill's.
+ * Each scenario's pass rate on each target, with why each failing run
+ * failed under it; then the runs that errored, apart, since an error is the
+ * harness's or the setup's, never the skill's.
  */
-export function summary(
-	runs: readonly { run: string; result: Result }[],
-): string {
-	const failed = runs.filter(({ result }) => result.status !== "error");
-	const errored = runs.filter(({ result }) => result.status === "error");
+export function summary(runs: readonly EvalDetail[]): string {
+	const failed = runs.filter((run) => run.status !== "error");
+	const errored = runs.filter((run) => run.status === "error");
 	const lines: string[] = [];
-	for (const scenario of [
-		...new Set(failed.map(({ result }) => result.scenario.id)),
-	]) {
+	for (const scenario of [...new Set(failed.map((run) => run.scenario))]) {
 		lines.push(scenario);
-		const ofScenario = failed.filter(
-			({ result }) => result.scenario.id === scenario,
-		);
+		const ofScenario = failed.filter((run) => run.scenario === scenario);
 		for (const who of [
-			...new Set(ofScenario.map(({ result }) => label(result))),
+			...new Set(ofScenario.map((run) => targetName(run.target))),
 		]) {
-			const cell = ofScenario.filter(({ result }) => label(result) === who);
-			const passed = cell.filter(
-				({ result }) => result.status === "pass",
-			).length;
+			const cell = ofScenario.filter((run) => targetName(run.target) === who);
+			const passed = cell.filter((run) => run.status === "pass").length;
 			lines.push(`  ${who}\t${passed}/${cell.length} pass`);
-			for (const { run, result } of cell) {
-				if (result.status === "pass") {
+			for (const run of cell) {
+				if (run.status === "pass") {
 					continue;
 				}
-				lines.push(`    ${run} ${result.status}`);
-				for (const reason of held(result)) {
+				lines.push(`    ${cellOf(run.id)} ${run.status}`);
+				for (const reason of held(run)) {
 					lines.push(`      ${reason}`);
 				}
 			}
@@ -270,8 +269,8 @@ export function summary(
 			"",
 			"Errors, the harness's or the setup's, not the skill's:",
 			...errored.map(
-				({ run, result }) =>
-					`  ${run} ${result.scenario.id} ${label(result)}: ${result.error ?? "no error saved"}`,
+				(run) =>
+					`  ${cellOf(run.id)} ${run.scenario} ${targetName(run.target)}: ${run.error ?? "no error saved"}`,
 			),
 		);
 	}
@@ -279,33 +278,35 @@ export function summary(
 }
 
 /** What held a run back: each failing check, and the judge's reason when it failed it. */
-function held(result: Result): string[] {
+function held(run: EvalDetail): string[] {
 	return [
-		...result.checks
+		...run.checks
 			.filter((check) => !check.pass)
 			.map((check) => `${check.id}: ${check.about}`),
-		...(result.judge?.pass === false ? [`judge: ${result.judge.reason}`] : []),
+		...(run.judge?.pass === false ? [`judge: ${run.judge.reason}`] : []),
 	];
 }
 
+/** `run-003` of the run id `batch-x#run-003`. */
+function cellOf(id: string): string {
+	return id.slice(id.lastIndexOf("#") + 1);
+}
+
 /**
- * A run's `result.json`, under the batches directory, from `show`'s
- * arguments: a batch and its run as `run-003` or `3`, or a run id as the
- * Evals page and `[SPLATES EVALS DONE]` name it; null for neither.
+ * A run's id from `show`'s arguments: a batch and its run as `run-003` or
+ * `3`, or a run id as the Evals page and `[SPLATES EVALS DONE]` name it,
+ * `batch-x#run-003`; null for neither.
  */
-export function runPath(args: readonly string[]): string | null {
+export function runId(args: readonly string[]): string | null {
 	const [first, run] = args;
 	if (first === undefined) {
 		return null;
 	}
 	if (run === undefined) {
-		const parts = first.split("/").filter((part) => part !== "");
-		return parts.length >= 2
-			? join(parts[0] ?? "", parts[1] ?? "", "result.json")
-			: null;
+		return first.includes("#") ? first : null;
 	}
 	const name = /^\d+$/.test(run) ? `run-${run.padStart(3, "0")}` : run;
-	return join(first, name, "result.json");
+	return `${first}#${name}`;
 }
 
 /** How long one step's input or output is let run in `show`. */
@@ -316,7 +317,7 @@ const STEP_CUT = 600;
  * it back, each step the agent took (its words, each tool call and what came
  * back, cut short), and the reply.
  */
-export function shown(result: Result): string {
+export function shown(run: EvalDetail): string {
 	const cut = (text: string) =>
 		text.length <= STEP_CUT ? text : `${text.slice(0, STEP_CUT)}…`;
 	const indent = (text: string, by: string) =>
@@ -325,33 +326,32 @@ export function shown(result: Result): string {
 			.map((line) => by + line)
 			.join("\n");
 	const reasons = [
-		...held(result),
-		...(result.error === null ? [] : [result.error]),
+		...held(run),
+		...(run.error === undefined ? [] : [run.error]),
 	];
 	return [
-		`${result.status}\t${result.scenario.id}\t${label(result)}, repetition ${result.repetition + 1}`,
-		`Requirement: ${result.scenario.requirement}`,
+		`${run.status}\t${run.scenario}\t${targetName(run.target)}, repetition ${run.repetition + 1}`,
+		`Requirement: ${run.requirement}`,
 		...reasons.map((reason) => `Held back: ${reason}`),
-		...(result.judge?.pass === true
-			? [`Judge passed: ${result.judge.reason}`]
-			: []),
+		...(run.judge?.pass === true ? [`Judge passed: ${run.judge.reason}`] : []),
 		"",
 		"Message:",
-		indent(result.scenario.message, "  "),
+		indent(run.input, "  "),
 		"",
 		"Steps:",
-		...result.transcript.map((step) =>
+		...run.transcript.map((step) =>
 			step.kind === "text"
 				? indent(cut(step.text), "  ")
 				: `  > ${step.name} ${cut(step.input)}\n${indent(cut(step.output ?? "(no output)"), "    < ")}`,
 		),
 		"",
 		"Reply:",
-		indent(result.reply || "(none)", "  "),
+		indent(run.reply || "(none)", "  "),
 	].join("\n");
 }
 
-function label(result: Result): string {
+/** A run's agent as `run` prints each as it lands. */
+function pickLabel(result: Result): string {
 	return [
 		result.agent.agent,
 		result.agent.model,

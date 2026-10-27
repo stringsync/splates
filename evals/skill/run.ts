@@ -1,5 +1,13 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import {
+	CONTRACT_FORMAT,
+	type ContractBatch,
+	type ContractDetail,
+	type ContractResult,
+	type ContractTarget,
+	RESULTS_FILE,
+} from "@stringsync/splates-server/evals";
 import {
 	type AgentPick,
 	type AgentRun,
@@ -25,7 +33,6 @@ export async function runOne(
 	const startedAt = new Date().toISOString();
 	const start = performance.now();
 	const result: Result = {
-		schema: 2,
 		scenario: {
 			id: scenario.id,
 			aspect: scenario.aspect,
@@ -154,9 +161,8 @@ export interface SkillUsed {
 	revision: string | null;
 }
 
-/** A run as saved in its `result.json`, all the Evals page reads of it. */
+/** How a run went, saved as its cell's result line and detail file. */
 export interface Result {
-	schema: 2;
 	scenario: {
 		id: string;
 		aspect: string;
@@ -183,21 +189,6 @@ export interface Result {
 	};
 }
 
-/** What a batch planned, saved as `batch.json` before any run starts. */
-export interface Batch {
-	schema: 2;
-	skill: string;
-	startedAt: string;
-	cells: {
-		scenario: string;
-		aspect: string;
-		requirement: string;
-		agent: AgentPick;
-		skill: SkillUsed;
-		repetition: number;
-	}[];
-}
-
 /** What runs the agent and the judge; tests stand in for both. */
 export interface Runners {
 	command(
@@ -220,8 +211,9 @@ export interface Cell {
 
 /**
  * Runs `cells`, `parallel` at a time, into a new `batch-*` directory under
- * `directory`: `batch.json` first, then each run's `run-<n>/result.json` as it
- * lands. Returns the batch's directory.
+ * `directory`, in the `splates-evals/1` format (`designs/evals-contract.md`):
+ * `batch.json` first, then as each run lands its `run-<n>.json` detail and a
+ * line in `results.jsonl`. Returns the batch's directory.
  */
 export async function runBatch(
 	cells: readonly Cell[],
@@ -229,16 +221,16 @@ export async function runBatch(
 ): Promise<string> {
 	await mkdir(opts.directory, { recursive: true });
 	const dir = await mkdtemp(join(opts.directory, "batch-"));
-	const batch: Batch = {
-		schema: 2,
-		skill: opts.skill,
+	const batch: ContractBatch = {
+		format: CONTRACT_FORMAT,
 		startedAt: new Date().toISOString(),
-		cells: cells.map((cell) => ({
-			scenario: cell.scenario.id,
-			aspect: cell.scenario.aspect,
-			requirement: cell.scenario.requirement,
-			agent: cell.agent,
-			skill: cell.skill.used,
+		title: opts.skill,
+		cells: cells.map((cell, index) => ({
+			id: cellId(index),
+			case: cell.scenario.id,
+			group: cell.scenario.aspect,
+			about: cell.scenario.requirement,
+			target: contractTarget(cell.agent, cell.skill.used),
 			repetition: cell.repetition,
 		})),
 	};
@@ -253,12 +245,7 @@ export async function runBatch(
 				repetition: cell.repetition,
 				runners: opts.runners,
 			});
-			const at = join(dir, `run-${String(index).padStart(3, "0")}`);
-			await mkdir(at, { recursive: true });
-			await writeFile(
-				join(at, "result.json"),
-				JSON.stringify(result, null, "\t"),
-			);
+			await saveResult(dir, cellId(index), result);
 			opts.landed?.(result);
 		}
 	};
@@ -266,6 +253,59 @@ export async function runBatch(
 		Array.from({ length: Math.max(1, opts.parallel ?? 2) }, work),
 	);
 	return dir;
+}
+
+/** Cell `index` of a batch, in plan order, as its result line names it. */
+export function cellId(index: number): string {
+	return `run-${String(index).padStart(3, "0")}`;
+}
+
+/** What a cell on `pick` with the skill `used` ran on, as `batch.json` names it. */
+export function contractTarget(
+	pick: AgentPick,
+	used: SkillUsed,
+): ContractTarget {
+	return {
+		agent: pick.agent,
+		model: pick.model ?? "",
+		...(pick.effort === undefined ? {} : { effort: pick.effort }),
+		...(used.revision === null ? {} : { variant: used.revision }),
+	};
+}
+
+/** Saves how cell `cell` of the batch in `dir` went: its detail file, then its result line. */
+export async function saveResult(
+	dir: string,
+	cell: string,
+	result: Result,
+): Promise<void> {
+	const detail: ContractDetail = {
+		input: result.scenario.message,
+		...(result.scenario.rubric === null
+			? {}
+			: { rubric: result.scenario.rubric }),
+		reply: result.reply,
+		checks: result.checks,
+		...(result.judge === null
+			? {}
+			: { judge: { pass: result.judge.pass, reason: result.judge.reason } }),
+		transcript: result.transcript,
+	};
+	await writeFile(
+		join(dir, `${cell}.json`),
+		JSON.stringify(detail, null, "\t"),
+	);
+	const reason = result.error ?? result.judge?.reason;
+	const line: ContractResult = {
+		cell,
+		status: result.status,
+		...(reason === undefined ? {} : { reason }),
+		...(result.usage.tokens === null ? {} : { tokens: result.usage.tokens }),
+		...(result.usage.usd === null ? {} : { costUsd: result.usage.usd }),
+		milliseconds: result.usage.milliseconds,
+		detail: `${cell}.json`,
+	};
+	await appendFile(join(dir, RESULTS_FILE), `${JSON.stringify(line)}\n`);
 }
 
 /** How `runBatch` runs its cells. */

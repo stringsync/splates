@@ -2,17 +2,19 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EvalStore, runName } from "./store";
+import { EvalStore } from "@stringsync/splates-server/evals";
+import { migrate } from "./migrate";
+import { cellId } from "./run";
 
-describe("EvalStore", () => {
+describe("migrate", () => {
 	let directory: string;
 	let store: EvalStore;
 
 	beforeEach(async () => {
-		directory = await mkdtemp(join(tmpdir(), "eval-store-test-"));
+		directory = await mkdtemp(join(tmpdir(), "eval-migrate-test-"));
 		store = new EvalStore(directory);
 		const batch = join(directory, "batch-one");
-		await mkdir(join(batch, runName(0)), { recursive: true });
+		await mkdir(join(batch, cellId(0)), { recursive: true });
 		const cell = {
 			scenario: "resources/install",
 			aspect: "resource-control",
@@ -40,7 +42,7 @@ describe("EvalStore", () => {
 			}),
 		);
 		await writeFile(
-			join(batch, runName(0), "result.json"),
+			join(batch, cellId(0), "result.json"),
 			JSON.stringify({
 				schema: 2,
 				scenario: {
@@ -67,7 +69,14 @@ describe("EvalStore", () => {
 
 	afterEach(() => rm(directory, { recursive: true, force: true }));
 
-	it("reads a batch's planned cells, each landed run's outcome and the totals", async () => {
+	it("leaves a schema-2 batch unread until it is migrated", async () => {
+		expect(await store.grid("batch-one")).toBeNull();
+		expect(await migrate(directory)).toEqual(["batch-one"]);
+		expect(await migrate(directory)).toEqual([]);
+	});
+
+	it("keeps a batch's planned cells, each landed run's outcome and the totals", async () => {
+		await migrate(directory);
 		const grid = await store.grid("batch-one");
 
 		expect(grid?.targets.map((target) => target.key)).toEqual([
@@ -85,8 +94,9 @@ describe("EvalStore", () => {
 		]);
 	});
 
-	it("opens a run with its message, checks, reply and transcript", async () => {
-		const run = await store.run(`batch-one/${runName(0)}/result.json`);
+	it("opens a migrated run with its message, checks, reply and transcript", async () => {
+		await migrate(directory);
+		const run = await store.run("batch-one#run-000");
 
 		expect(run).toMatchObject({
 			scenario: "resources/install",
@@ -95,9 +105,5 @@ describe("EvalStore", () => {
 			reply: "Installed.",
 			target: { agent: "claude", model: "sonnet", skill: null },
 		});
-	});
-
-	it("knows no batch it never wrote", async () => {
-		expect(await store.grid("batch-none")).toBeNull();
 	});
 });

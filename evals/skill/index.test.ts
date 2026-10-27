@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
-import { pickOf, runPath, shown, summary } from "./index";
-import type { Result } from "./run";
+import type { EvalDetail } from "@stringsync/splates-server/evals";
+import { pickOf, runId, shown, summary } from "./index";
 
 it("reads agent, model and thinking level", () => {
 	expect(pickOf("claude:sonnet@high")).toEqual({
@@ -12,22 +12,29 @@ it("reads agent, model and thinking level", () => {
 	expect(() => pickOf("cursor:x")).toThrow("no eval runner");
 });
 
-function result(status: Result["status"], extra: Partial<Result> = {}): Result {
+function result(
+	status: EvalDetail["status"],
+	extra: Partial<EvalDetail> = {},
+): EvalDetail {
 	return {
-		schema: 2,
-		scenario: {
-			id: "lifecycle/claim",
-			aspect: "lifecycle",
-			requirement: "Claim it.",
-			message: "[SPLATES TASK sample]",
-			rubric: null,
-		},
-		agent: { agent: "claude", model: "sonnet" },
-		skill: { label: "current", revision: null },
-		repetition: 0,
-		startedAt: "2026-10-26T00:00:00.000Z",
+		id: "batch-a#run-000",
 		status,
-		error: null,
+		tokens: null,
+		costUsd: null,
+		milliseconds: 0,
+		scenario: "lifecycle/claim",
+		aspect: "lifecycle",
+		requirement: "Claim it.",
+		target: {
+			key: "claude/sonnet",
+			agent: "claude",
+			model: "sonnet",
+			effort: null,
+			skill: null,
+		},
+		repetition: 0,
+		input: "[SPLATES TASK sample]",
+		rubric: null,
 		checks: [
 			{
 				id: "claimed",
@@ -38,7 +45,6 @@ function result(status: Result["status"], extra: Partial<Result> = {}): Result {
 		judge: null,
 		reply: "Done.",
 		transcript: [],
-		usage: { usd: null, tokens: null, turns: null, milliseconds: 0 },
 		...extra,
 	};
 }
@@ -46,9 +52,9 @@ function result(status: Result["status"], extra: Partial<Result> = {}): Result {
 it("gives each scenario's pass rate, why a run failed, and errors apart", () => {
 	expect(
 		summary([
-			{ run: "run-000", result: result("pass") },
-			{ run: "run-001", result: result("fail") },
-			{ run: "run-002", result: result("error", { error: "model not found" }) },
+			result("pass"),
+			result("fail", { id: "batch-a#run-001" }),
+			result("error", { id: "batch-a#run-002", error: "model not found" }),
 		]),
 	).toBe(
 		[
@@ -63,18 +69,13 @@ it("gives each scenario's pass rate, why a run failed, and errors apart", () => 
 	);
 });
 
-it("finds a run by batch and number or directory, or by its id", () => {
+it("finds a run by batch and number or name, or by its id", () => {
 	expect([
-		runPath(["batch-a", "3"]),
-		runPath(["batch-a", "run-012"]),
-		runPath(["batch-a/run-012/result.json"]),
-		runPath(["batch-a"]),
-	]).toEqual([
-		"batch-a/run-003/result.json",
-		"batch-a/run-012/result.json",
-		"batch-a/run-012/result.json",
-		null,
-	]);
+		runId(["batch-a", "3"]),
+		runId(["batch-a", "run-012"]),
+		runId(["batch-a#run-012"]),
+		runId(["batch-a"]),
+	]).toEqual(["batch-a#run-003", "batch-a#run-012", "batch-a#run-012", null]);
 });
 
 it("shows each step of a run", () => {

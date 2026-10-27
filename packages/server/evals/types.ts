@@ -32,7 +32,7 @@ export interface EvalBatch {
 
 /** One saved run, as a cell shows it. */
 export interface EvalRun {
-	/** Its `result.json`, relative to the results directory. */
+	/** `<batch>#<cell>`: its batch's directory under the results directory, and its cell. */
 	id: string;
 	status: EvalStatus;
 	tokens: number | null;
