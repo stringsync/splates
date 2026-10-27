@@ -105,6 +105,18 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		this.server = opts.server ?? HTTP_EVAL_RUN;
 		this.timer = opts.timer ?? new SystemTimer();
 		this.conversation = opts.conversation ?? null;
+		const shown = SHOWN.get(key);
+		if (shown !== undefined) {
+			// Reopening a conversation: show the card as it was, and read it
+			// again behind it, rather than hold a placeholder of another height.
+			this.agents = shown.agents.map((each) => ({ ...each }));
+			this.groups = shown.groups;
+			this.unknown = shown.unknown;
+			this.plan = shown.plan;
+			this.launch = shown.launch;
+			this.grid = shown.grid;
+			this.loaded = true;
+		}
 	}
 
 	static of(proposal: PermissionProposal, opts?: EvalRunOptions): EvalRun {
@@ -278,8 +290,35 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	}
 
 	private changed(): void {
+		if (this.loaded && this.refusal === null) {
+			SHOWN.set(this.key, {
+				agents: this.agents.map((each) => ({ ...each })),
+				groups: this.groups,
+				unknown: this.unknown,
+				plan: this.plan,
+				launch: this.launch,
+				grid: this.grid,
+			});
+		}
 		this.dispatcher.dispatch("changed");
 	}
+}
+
+/** What a card last showed, kept so reopening its conversation paints it at once. */
+interface Shown {
+	agents: { pick: AgentPick; on: boolean }[];
+	groups: ScenarioGroup[];
+	unknown: string[];
+	plan: EvalPlan | null;
+	launch: EvalLaunch | null;
+	grid: EvalGrid | null;
+}
+
+const SHOWN = new Map<string, Shown>();
+
+/** Forgets what cards showed, for a test that starts clean. */
+export function forgetShownEvals(): void {
+	SHOWN.clear();
 }
 
 function groupsOf(scenarios: EvalScenario[]): ScenarioGroup[] {

@@ -5,7 +5,7 @@ import type {
 } from "@stringsync/splates-server/evals/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { FakeTimer } from "webappwiz/time/testing";
-import { EvalRun, type EvalRunServer } from "./eval-run";
+import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
 
 describe("EvalRun", () => {
 	const proposal = () => ({
@@ -20,6 +20,7 @@ describe("EvalRun", () => {
 	let timer: FakeTimer;
 
 	beforeEach(() => {
+		forgetShownEvals();
 		server = new FakeEvalServer();
 		timer = new FakeTimer();
 	});
@@ -89,6 +90,24 @@ describe("EvalRun", () => {
 			{ loaded: false, status: "running", cells: 4 },
 			{ loaded: true, status: "running", cells: 4 },
 		]);
+	});
+
+	it("shows a reopened card as it was while reading it again", async () => {
+		server.launched = {
+			id: "1",
+			key: "run-key",
+			status: "running",
+			batch: "batch-a",
+			output: "",
+		};
+		const opts = { server, timer, conversation: "c-9", message: "m-9" };
+		await EvalRun.of(proposal(), opts).load();
+
+		const reopened = EvalRun.of(proposal(), opts);
+
+		expect(reopened.loaded).toBe(true);
+		expect(reopened.launch?.status).toBe("running");
+		expect(reopened.grid?.cells).toBe(4);
 	});
 
 	it("starts only on run, with the agents left in and its conversation, and follows until it ends", async () => {
