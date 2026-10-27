@@ -58,12 +58,13 @@ export function ShipDialog({
 	};
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent className="sm:max-w-2xl">
+			<DialogContent className="sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>Ship {project}</DialogTitle>
 					<DialogDescription>
 						Publishes {project}, then carries the release through every project
-						that depends on it, in this order. npm asks you at each publish.
+						that depends on it, as a dependency tree. npm asks you at each
+						publish.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-wrap items-center justify-between gap-2">
@@ -104,53 +105,113 @@ export function ShipDialog({
 	);
 }
 
-/** The plan's projects, one row each, numbered in the order they go. */
+interface PlanTreeNode {
+	step: ShipStep;
+	children: PlanTreeNode[];
+}
+
+/** The plan as a tree, each project beneath its first dependency in the plan. */
 function PlanSteps({ steps }: { steps: ShipStep[] }): JSX.Element {
+	const nodes = new Map<string, PlanTreeNode>();
+	const roots: PlanTreeNode[] = [];
+	for (const step of steps) {
+		const node = { step, children: [] };
+		nodes.set(step.slug, node);
+		const parent = step.takes
+			.map((use) => nodes.get(use.project))
+			.find((each) => each !== undefined);
+		if (parent === undefined) {
+			roots.push(node);
+		} else {
+			parent.children.push(node);
+		}
+	}
 	return (
-		<ol aria-label="Ship plan" className="flex flex-col divide-y">
-			{steps.map((step, index) => (
-				<li key={step.slug} className="flex gap-3 py-2">
-					<span className="w-5 shrink-0 text-right text-muted-foreground tabular-nums">
-						{index + 1}
-					</span>
-					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<p className="flex flex-wrap items-baseline gap-x-2">
-							<span className="font-medium">{step.slug}</span>
-							<span
-								className={cn(
-									"rounded-full px-1.5 text-[11px]",
-									step.action === "ship"
-										? "bg-primary/10 text-primary"
-										: "bg-muted text-muted-foreground",
-								)}
-							>
-								{step.action === "ship" ? "ships" : "takes its bump"}
-							</span>
-							<span className="text-muted-foreground text-xs tabular-nums">
-								{versionOf(step)}
-							</span>
-						</p>
-						{step.publishes.length > 0 && (
-							<p className="text-muted-foreground text-xs">
-								Publishes {step.publishes.join(", ")}
-							</p>
-						)}
-						{step.takes.length > 0 && (
-							<p className="text-muted-foreground text-xs">
-								Takes{" "}
-								{step.takes
-									.map(
-										(use) =>
-											`${use.pins.map((pin) => pin.name).join(", ")} from ${use.project}`,
-									)
-									.join("; ")}
-							</p>
-						)}
-						<p className="text-muted-foreground text-xs">{whyOf(step)}</p>
-					</div>
-				</li>
+		<ol
+			aria-label="Ship plan"
+			className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto pr-1"
+		>
+			{roots.map((node) => (
+				<PlanProject key={node.step.slug} node={node} nested={false} />
 			))}
 		</ol>
+	);
+}
+
+function PlanProject({
+	node,
+	nested,
+}: {
+	node: PlanTreeNode;
+	nested: boolean;
+}): JSX.Element {
+	const { step } = node;
+	return (
+		<li
+			aria-label={step.slug}
+			className={cn(
+				"relative flex flex-col gap-2",
+				nested &&
+					"before:absolute before:-left-4 before:top-6 before:h-px before:w-4 before:bg-border",
+			)}
+		>
+			<div
+				className={cn(
+					"flex flex-col gap-1 rounded-lg border bg-card p-3",
+					step.takes.length === 0 && "border-primary/25 bg-primary/5",
+				)}
+			>
+				<p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+					<PackageIcon className="size-3.5 text-muted-foreground" />
+					<span className="font-medium">{step.slug}</span>
+					<span
+						className={cn(
+							"rounded-full px-1.5 text-[11px]",
+							step.action === "ship"
+								? "bg-primary/10 text-primary"
+								: "bg-muted text-muted-foreground",
+						)}
+					>
+						{step.action === "ship" ? "ships" : "takes its bump"}
+					</span>
+					{step.takes.length > 1 && (
+						<span className="text-muted-foreground text-[11px]">
+							shared dependent
+						</span>
+					)}
+					<span className="ml-auto text-muted-foreground text-xs tabular-nums">
+						{versionOf(step)}
+					</span>
+				</p>
+				{step.publishes.length > 0 && (
+					<p className="pl-5.5 text-muted-foreground text-xs">
+						Publishes {step.publishes.join(", ")}
+					</p>
+				)}
+				{step.takes.length > 0 && (
+					<p className="pl-5.5 text-muted-foreground text-xs">
+						Takes{" "}
+						{step.takes
+							.map(
+								(use) =>
+									`${use.pins.map((pin) => pin.name).join(", ")} from ${use.project}`,
+							)
+							.join("; ")}
+					</p>
+				)}
+				<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
+			</div>
+			{node.children.length > 0 && (
+				<ol
+					aria-label={`${step.slug} dependents`}
+					className="ml-4 flex flex-col gap-2 border-l pl-4"
+				>
+					{node.children.map((child) => (
+						<PlanProject key={child.step.slug} node={child} nested />
+					))}
+				</ol>
+			)}
+		</li>
 	);
 }
 

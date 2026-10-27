@@ -5,6 +5,8 @@ import type {
 	ShipStep,
 } from "@stringsync/splates-server/ship";
 import { ApiError } from "./api";
+// Base UI reads the DOM as it loads, so a file run alone needs it registered first.
+import "./register-dom";
 import { ShipApproval } from "./ship-approval";
 import { ShipDialog } from "./ship-dialog";
 import {
@@ -65,6 +67,72 @@ describe("ShipDialog", () => {
 		expect(started).toEqual([{ project: "webappwiz", bump: "patch" }]);
 	});
 
+	it("nests each project under its first dependency and names every shared input", async () => {
+		const [rootStep, mdomStep, soundStep] = PLAN.steps;
+		const view = open(async () => ({
+			...PLAN,
+			steps: [
+				rootStep,
+				step({
+					slug: "splates",
+					takes: [
+						{
+							project: "webappwiz",
+							pins: [{ name: "webappwiz", version: "0.0.53" }],
+						},
+					],
+				}),
+				mdomStep,
+				step({
+					slug: "vexml",
+					takes: [
+						{
+							project: "mdom",
+							pins: [{ name: "@stringsync/mdom", version: "1.4.2" }],
+						},
+					],
+				}),
+				{
+					...soundStep,
+					takes: [
+						{
+							project: "webappwiz",
+							pins: [{ name: "webappwiz", version: "0.0.53" }],
+						},
+						...soundStep.takes,
+						{
+							project: "vexml",
+							pins: [{ name: "vexml", version: "0.9.7" }],
+						},
+					],
+				},
+			],
+		}));
+		const list = await waitFor(() =>
+			view.getByRole("list", { name: "Ship plan" }),
+		);
+		const direct = within(list).getByRole("list", {
+			name: "webappwiz dependents",
+		});
+		expect(
+			within(direct).getByRole("listitem", { name: "splates" }),
+		).toBeTruthy();
+		const mdom = within(direct).getByRole("listitem", { name: "mdom" });
+		expect(
+			within(mdom).getByRole("list", { name: "mdom dependents" }),
+		).toBeTruthy();
+		const shared = within(direct).getByRole("listitem", {
+			name: "sound2score",
+		});
+		expect(shared.textContent).toContain("shared dependent");
+		expect(shared.textContent).toContain("from webappwiz");
+		expect(shared.textContent).toContain("from mdom");
+		expect(shared.textContent).toContain("from vexml");
+		expect(
+			within(list).getAllByRole("listitem", { name: "sound2score" }),
+		).toHaveLength(1);
+	});
+
 	it("redraws at the selected release type and approves that bump", async () => {
 		const view = open(async (_, bump) => ({
 			...PLAN,
@@ -110,7 +178,7 @@ describe("ShipDialog", () => {
 	});
 });
 
-const PLAN: ShipPlan = {
+const PLAN: ShipPlan & { steps: [ShipStep, ShipStep, ShipStep] } = {
 	from: "webappwiz",
 	steps: [
 		step({ slug: "webappwiz", publishes: ["webappwiz"] }),
