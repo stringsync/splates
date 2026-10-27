@@ -28,7 +28,20 @@ export class WorktreeCheckouts {
 			removed.code !== 0 &&
 			removed.stderr.includes(`'${path}' is not a working tree`)
 		) {
-			await this.fs.rm(path, { recursive: true, force: true });
+			for (let attempt = 0; ; attempt++) {
+				try {
+					await this.fs.rm(path, { recursive: true, force: true });
+					break;
+				} catch (error) {
+					if (
+						(error as { code?: string }).code !== "ENOTEMPTY" ||
+						attempt === 5
+					) {
+						throw error;
+					}
+					await Bun.sleep(100);
+				}
+			}
 			removed = await this.git.pruneWorktrees();
 		}
 		if (removed.code !== 0 || !(await this.git.branchExists(branch))) {
