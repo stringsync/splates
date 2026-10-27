@@ -3,12 +3,18 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually } from "../server/testing";
 import { Testing } from "../testing";
-import { type EvalCommands, type EvalFinished, EvalLaunches } from "./launch";
+import {
+	type EvalCommands,
+	type EvalFinished,
+	EvalLaunches,
+	type EvalRunning,
+} from "./launch";
 
 describe("EvalLaunches", () => {
 	let deps: Testing;
 	let launches: EvalLaunches;
 	let finished: EvalFinished[];
+	let running: EvalRunning[];
 	let commands: EvalCommands;
 
 	beforeEach(async () => {
@@ -28,6 +34,8 @@ describe("EvalLaunches", () => {
 		launches = new EvalLaunches(deps.ps, deps.machine);
 		finished = [];
 		launches.events.on("finished", (each) => finished.push(each));
+		running = [];
+		launches.events.on("running", (each) => running.push(each));
 	});
 
 	afterEach(async () => {
@@ -83,6 +91,31 @@ describe("EvalLaunches", () => {
 		await done(launches, commands);
 
 		expect(finished).toEqual([]);
+		expect(running).toEqual([]);
+	});
+
+	it("says a conversation's run is going, leaving its end to whoever tells it the run is done", async () => {
+		await launches.start(commands, { ...spec, conversation: "c-1" });
+
+		expect(running).toEqual([{ conversation: "c-1", running: true }]);
+		await done(launches, commands);
+		expect(await eventually(async () => finished.length === 1, 2_000)).toBe(
+			true,
+		);
+		expect(running).toEqual([{ conversation: "c-1", running: true }]);
+	});
+
+	it("says a conversation's run has ended when it ends with no batch to report", async () => {
+		await launches.start(
+			{ ...commands, run: "echo no key >&2; exit 1" },
+			{ ...spec, conversation: "c-1" },
+		);
+		await done(launches, commands);
+
+		expect(await eventually(async () => running.length === 2, 2_000)).toBe(
+			true,
+		);
+		expect(running[1]).toEqual({ conversation: "c-1", running: false });
 	});
 
 	it("runs in the task worktree it is given, writing batches where the page reads", async () => {

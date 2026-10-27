@@ -1029,6 +1029,19 @@ export class Conversation
 		this.set(unread ? { unread } : { unread, seen: sent(this.state.messages) });
 	}
 
+	/** Marks whether a run its eval card started is going. */
+	evaluate(running: boolean): void {
+		if ((this.state.evaluating ?? false) === running) {
+			return;
+		}
+		if (running) {
+			this.state.evaluating = true;
+		} else {
+			delete this.state.evaluating;
+		}
+		this.changed();
+	}
+
 	/** Back to idle once a turn ends, then on to what was queued meanwhile. */
 	ended(error: string | null): void {
 		if (error === null) {

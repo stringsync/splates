@@ -24,4 +24,17 @@ describe("statusOf", () => {
 			"Waiting to merge · 3rd in line",
 		]);
 	});
+
+	it("says an agent whose eval run goes is running evals", () => {
+		const row: Needing = {
+			conversation: null,
+			task: null,
+			need: { kind: "working", subject: "Tighten the wording", evals: true },
+		};
+
+		expect(statusOf(row, "alpha", "main")).toEqual({
+			text: "Running evals",
+			urgent: false,
+		});
+	});
 });

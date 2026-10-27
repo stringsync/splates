@@ -3,6 +3,7 @@ import {
 	CircleCheckIcon,
 	CirclePauseIcon,
 	CircleXIcon,
+	FlaskConicalIcon,
 	GitMergeIcon,
 	HourglassIcon,
 	Loader2Icon,
@@ -72,6 +73,18 @@ export function Mark({
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
 				<HourglassIcon className="size-3.5 text-muted-foreground" />
+			</span>
+		);
+	}
+	if (need.kind === "working" && need.evals === true) {
+		return (
+			<span
+				role="status"
+				aria-label="running evals"
+				title="Running evals"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<FlaskConicalIcon className="size-3.5 animate-pulse text-muted-foreground" />
 			</span>
 		);
 	}

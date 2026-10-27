@@ -84,10 +84,9 @@ const TAIL = 20;
 
 /**
  * Starts, follows and stops the paid runs the Evals card asks for, through
- * the `list`, `plan` and `run` commands a project names, and says `finished`
- * when one started from a conversation's card is done, for that
- * conversation to be told. Launches are kept in the machine's storage, and a
- * restart runs again each one left in progress.
+ * the `list`, `plan` and `run` commands a project names. Listen to `running`
+ * to show a conversation's card run as going, and to `finished` to tell the
+ * conversation its results. A restart runs again each launch left in progress.
  */
 export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<EvalLaunchesEvents>();
@@ -206,6 +205,7 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			launch.child.kill();
 			throw error;
 		}
+		this.running(launch);
 		void this.watch(launch);
 		return this.read(launch);
 	}
@@ -285,12 +285,30 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			launch.batch !== null &&
 			launch.spec.conversation != null
 		) {
+			// Whoever tells the conversation ends its run once it has.
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
 				results: launch.commands.results,
 				conversation: launch.spec.conversation,
 			});
+		} else {
+			this.running(launch);
 		}
+	}
+
+	/** Says whether any run from `launch`'s conversation is still going. */
+	private running(launch: Launched): void {
+		const conversation = launch.spec.conversation;
+		if (conversation == null) {
+			return;
+		}
+		this.dispatcher.dispatch("running", {
+			conversation,
+			running: [...this.launches.values()].some(
+				(each) =>
+					each.status === "running" && each.spec.conversation === conversation,
+			),
+		});
 	}
 
 	/** The launch, its batch found if the runner has made one since it started. */
@@ -390,7 +408,17 @@ export interface EvalFinished {
 	conversation: string;
 }
 
-export type EvalLaunchesEvents = { finished: EvalFinished };
+/** Whether a conversation has a run its card started going, as one starts or ends. */
+export interface EvalRunning {
+	conversation: string;
+	running: boolean;
+}
+
+export type EvalLaunchesEvents = {
+	// No `running` follows it: whoever tells the conversation ends its run.
+	finished: EvalFinished;
+	running: EvalRunning;
+};
 
 interface SavedLaunch {
 	launch: EvalLaunch;

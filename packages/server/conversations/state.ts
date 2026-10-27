@@ -180,6 +180,11 @@ export interface ConversationState {
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
 	/**
+	 * A run its `run evals` card started is going, which the agent hears of
+	 * once it is done: set by the server while it runs, kept in no log.
+	 */
+	evaluating?: true;
+	/**
 	 * Set when this is only a summary, as a listing sends every conversation:
 	 * read `GET /api/conversations/<id>` for its tool calls, thoughts and
 	 * commands.

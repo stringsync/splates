@@ -90,6 +90,8 @@ export type Need =
 			mergeSince?: string;
 			/** A queued merge's place in line for the lock, 1 being next. */
 			mergePlace?: number;
+			/** Its turn is over and a run its eval card started goes on. */
+			evals?: true;
 	  }
 	| { kind: "idle" };
 
@@ -202,7 +204,7 @@ export function orphaned(
 export const ASKED_QUIET = Duration.mins(3);
 
 /** What an agent at work on `task` needs: nothing yet, while merging or not. */
-function working(task: Details | null): Need {
+function working(task: Details | null): Extract<Need, { kind: "working" }> {
 	const subject = task?.plan ? doing(task.plan) : null;
 	const since = task?.mergeSince ? { mergeSince: task.mergeSince } : {};
 	if (task?.status === "merging" || task?.gate === "running") {
@@ -270,6 +272,13 @@ export function need(
 	// merge is the work under way, as it is while the turn waits on it.
 	if (task?.mergeSince != null) {
 		return working(task);
+	}
+	// The run its card started is the work under way, the card done with
+	// until the agent reports on it.
+	if (conversation.evaluating === true) {
+		return first !== undefined
+			? { kind: "assuming", subject: first.text, questions: open }
+			: { ...working(task), evals: true };
 	}
 	const last = conversation.messages.at(-1);
 	const ended = last?.until ?? last?.at ?? null;

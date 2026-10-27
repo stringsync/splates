@@ -207,6 +207,9 @@ export function statusOf(
 			need.mergePlace === undefined ? "" : ` · ${placeInLine(need.mergePlace)}`;
 		return { text: `Waiting to merge${place}`, urgent: false };
 	}
+	if (need.kind === "working" && need.evals === true) {
+		return { text: "Running evals", urgent: false };
+	}
 	if (conversation?.queued != null) {
 		return { text: "Queued", urgent: false };
 	}

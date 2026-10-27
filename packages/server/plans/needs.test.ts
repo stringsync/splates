@@ -137,6 +137,38 @@ describe("needs", () => {
 		});
 	});
 
+	it("works while the run its eval card started goes, not waiting on the card", () => {
+		const at = "2026-10-11T10:07:00.000Z";
+		const running = talk({
+			status: "idle",
+			evaluating: true,
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{
+							type: "text",
+							text: "## 🔐 Permission: run evals splates: the resource scenarios\n\nChecks the wording.\n\n- `resources/focused-tests`",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
+
+		expect(need(null, running)).toEqual({
+			kind: "working",
+			subject: null,
+			evals: true,
+		});
+		expect(need(null, { ...running, evaluating: undefined })).toMatchObject({
+			kind: "waiting",
+			why: "ask",
+		});
+	});
+
 	it("waits on a review its last reply asks for, once its turn ends", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const reviewing = talk({

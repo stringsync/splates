@@ -396,15 +396,42 @@ export async function dev(
 					await everywhere.openAll();
 					owner = await holding(conversation);
 				}
-				if (text === null || owner?.conversations == null) {
+				if (owner?.conversations == null) {
 					return;
 				}
 				const told = await owner.conversations.find(conversation);
-				await told.prompt(text, [], undefined, { told: SERVER_TOLD });
+				if (text === null) {
+					told.evaluate(false);
+					return;
+				}
+				// Its turn on the report takes over from the run, with no wait between.
+				const prompting = told.prompt(text, [], undefined, {
+					told: SERVER_TOLD,
+				});
+				told.evaluate(false);
+				await prompting;
 			})().catch((error: unknown) => log.error(String(error)));
 		},
 	);
 	disposer.defer(async () => unwatch());
+	// Its row shows it at work while the run goes, not waiting on its card.
+	const unwatchRunning = evalLaunches.events.on(
+		"running",
+		({ conversation, running }) => {
+			void (async () => {
+				let owner = await holding(conversation);
+				if (owner === null) {
+					await everywhere.openAll();
+					owner = await holding(conversation);
+				}
+				const found = await owner?.conversations
+					?.find(conversation)
+					.catch(() => null);
+				found?.evaluate(running);
+			})().catch((error: unknown) => log.error(String(error)));
+		},
+	);
+	disposer.defer(async () => unwatchRunning());
 	const evalLaunchRoutes = new EvalLaunchRoutes(
 		evalLaunches,
 		{ commandsOf: evalCommandsOf },
