@@ -1,25 +1,25 @@
 {
-  "version": 1,
-  "skills": {
-    "scry": {
-      "source": "jaredjj3/webappwiz",
-      "ref": "v0.0.53",
-      "sourceType": "github",
-      "skillPath": "skills/scry/SKILL.md",
-      "computedHash": "cf1d82cc56cf15c551446cbf1d7c4997bf3c87bb5acf698e9a02f19d0554661e"
-    },
-    "shadcn": {
-      "source": "shadcn/ui",
-      "sourceType": "github",
-      "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "b864a958765563321f485a96f4d59c0bb6539f4286ab6d8b8b66895b7ebd302d"
-    },
-    "webappwiz": {
-      "source": "jaredjj3/webappwiz",
-      "ref": "v0.0.53",
-      "sourceType": "github",
-      "skillPath": "skills/webappwiz/SKILL.md",
-      "computedHash": "0c843a7a5a52e9f8cfb196cb1bdd54ce26a6a84243c4486f520fcc14e6aa72e5"
-    }
-  }
+	"version": 1,
+	"skills": {
+		"scry": {
+			"source": "jaredjj3/webappwiz",
+			"ref": "v0.0.53",
+			"sourceType": "github",
+			"skillPath": "skills/scry/SKILL.md",
+			"computedHash": "cf1d82cc56cf15c551446cbf1d7c4997bf3c87bb5acf698e9a02f19d0554661e"
+		},
+		"shadcn": {
+			"source": "shadcn/ui",
+			"sourceType": "github",
+			"skillPath": "skills/shadcn/SKILL.md",
+			"computedHash": "b864a958765563321f485a96f4d59c0bb6539f4286ab6d8b8b66895b7ebd302d"
+		},
+		"webappwiz": {
+			"source": "jaredjj3/webappwiz",
+			"ref": "v0.0.53",
+			"sourceType": "github",
+			"skillPath": "skills/webappwiz/SKILL.md",
+			"computedHash": "0c843a7a5a52e9f8cfb196cb1bdd54ce26a6a84243c4486f520fcc14e6aa72e5"
+		}
+	}
 }
