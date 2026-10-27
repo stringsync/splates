@@ -1,13 +1,21 @@
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
-/**
- * Where a project's scry budgets stand, as `scry budgets --format json`
- * prints it; splates only passes it on, so this mirrors the CLI's type.
- */
+/** Where a project's scry budgets stand, and the models scry asks. */
 export interface Budgets {
 	/** Whether any config or change declares budgets. */
 	declared: boolean;
 	roles: RoleBudget[];
+	/** The models scry asks, per role, with the config naming each. */
+	models?: Record<RoleBudget["role"], ModelChoice[]>;
+}
+
+/** The model scry asks at one effort. */
+export interface ModelChoice {
+	effort: string;
+	/** None when no config names one and scry has no default. */
+	model: string | null;
+	/** The config naming it; none when it is scry's own default. */
+	from: string | null;
 }
 
 /** Where one model's budget stands. */

@@ -1,6 +1,7 @@
 import { fail } from "../exit";
 import type { Project } from "../server/shared";
 import { body } from "../server/shared";
+import { ScryModelsReader } from "./scry-models";
 
 /**
  * The routes a project's Budget page reads and changes its scry budgets
@@ -91,7 +92,8 @@ export class BudgetRoutes {
 					?.replace(/^error: /, "") || `scry budgets exited ${exitCode}`;
 			fail("usage", message);
 		}
-		return Response.json(reportOf(stdout));
+		const models = await new ScryModelsReader(service.git.root).read();
+		return Response.json({ ...(reportOf(stdout) as object), models });
 	}
 }
 

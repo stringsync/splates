@@ -13,6 +13,7 @@ import { AgentBrand } from "./agent-icons";
 import {
 	type Budgets,
 	endRaise,
+	type ModelChoice,
 	pauseBudget,
 	type RoleBudget,
 	raiseBudget,
@@ -45,12 +46,10 @@ const PLANS = [
 ];
 
 /**
- * The Billing page: the dollars spent by provider and service, then how
- * much of the agent plans is used, then what scry's checks may spend on each
- * model in this project, with how much of each window is gone and a form to
- * change it, raise it or pause it for a while. Plan limits come first since their cards keep one shape, while the
- * budgets arrive from the CLI a moment later and would shift anything below
- * them.
+ * The Billing page: the dollars spent by provider and service, how much of
+ * the agent plans is used, and, for each scry model in this project, which
+ * model it asks, what its checks may spend, how much of each window is
+ * gone, and forms to change the spend, raise it or pause it for a while.
  */
 export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	const reading = useReading("budgets", () => new BudgetReading());
@@ -59,6 +58,8 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 		({ budgets, error }) => ({ budgets, error }),
 		["changed"],
 	);
+	// Plan limits come first because their cards keep one shape, while the
+	// budgets arrive from the CLI a moment later and would shift what is below.
 	// Read each time the page is shown, behind the last answer.
 	useEffect(() => void reading.refresh(), [reading]);
 	const changed = (change: Promise<Budgets>) => reading.changed(change);
@@ -96,7 +97,12 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 				{budgets !== null && (
 					<ul className="flex flex-col gap-4">
 						{budgets.roles.map((role) => (
-							<RoleCard key={role.role} role={role} onChange={changed} />
+							<RoleCard
+								key={role.role}
+								role={role}
+								models={budgets.models?.[role.role]}
+								onChange={changed}
+							/>
 						))}
 					</ul>
 				)}
@@ -106,14 +112,50 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 }
 
 /**
+ * The models a role asks at each effort and the config naming each, or that
+ * none does and scry's own is used, so nothing is left to guess.
+ */
+function ModelList({ models }: { models?: ModelChoice[] }): JSX.Element | null {
+	if (models === undefined) {
+		return null;
+	}
+	return (
+		<dl
+			aria-label="models"
+			className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-b px-4 py-3 text-xs"
+		>
+			{models.map(({ effort, model, from }) => (
+				<div key={effort} className="contents">
+					<dt className="text-muted-foreground">{effort}</dt>
+					<dd className="min-w-0 truncate">
+						{model === null ? (
+							<span className="text-muted-foreground">Not set</span>
+						) : (
+							<>
+								<code className="font-mono">{model}</code>{" "}
+								<span className="text-muted-foreground">
+									{from === null ? "scry's default, none set" : `from ${from}`}
+								</span>
+							</>
+						)}
+					</dd>
+				</div>
+			))}
+		</dl>
+	);
+}
+
+/**
  * One model's budget: its spend and where it came from, its windows, its
  * raises, and its pause.
  */
 function RoleCard({
 	role,
+	models,
 	onChange,
 }: {
 	role: RoleBudget;
+	models?: ModelChoice[];
 	onChange: (change: Promise<Budgets>) => Promise<void>;
 }): JSX.Element {
 	const now = useMinute();
@@ -189,6 +231,7 @@ function RoleCard({
 					</Button>
 				</div>
 			</header>
+			<ModelList models={models} />
 			<div className="flex flex-col gap-3 px-4 py-3">
 				{role.paused !== null && (
 					<p

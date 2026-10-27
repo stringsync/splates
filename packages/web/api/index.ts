@@ -2,6 +2,7 @@ export {
 	type Budgets,
 	budgets,
 	endRaise,
+	type ModelChoice,
 	pauseBudget,
 	type RoleBudget,
 	raiseBudget,
