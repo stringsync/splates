@@ -7,7 +7,7 @@ import {
 	type TaskBlockerStatus,
 	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
-import { CheckIcon, CircleIcon, LinkIcon } from "lucide-react";
+import { CheckIcon, CircleIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -225,9 +225,11 @@ export function DeferredBody({
 						size="sm"
 						variant="outline"
 						className="pointer-coarse:h-10"
-						onClick={() => void act("drop", () => removeTodo(task.id))}
+						title="Takes the task off the board, so it never starts"
+						onClick={() => void act("remove", () => removeTodo(task.id))}
 					>
-						Drop
+						<Trash2Icon data-icon="inline-start" />
+						Remove
 					</Button>
 				</p>
 			) : null}
