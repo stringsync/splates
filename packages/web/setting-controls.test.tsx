@@ -152,7 +152,7 @@ describe("composer setting controls", () => {
 			/>,
 		);
 		const combobox = view.getByRole("combobox");
-		expect(combobox.querySelector("svg svg")).not.toBeNull();
+		expect(combobox.querySelector('path[fill^="url(#"]')).not.toBeNull();
 		expect(combobox.querySelector('path[fill="#D97757"]')).toBeTruthy();
 	});
 	it("names Claude's auto mode as a mode, apart from Auto pick's Auto beside it", () => {

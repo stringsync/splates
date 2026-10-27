@@ -79,7 +79,7 @@ describe("App's Auto pick in the composer's settings", () => {
 			// Claude's mark, in its maker's orange, carries the sparkles as a badge.
 			const claude = 'path[fill="#D97757"]';
 			expect(settings.querySelector(claude)).not.toBeNull();
-			expect(settings.querySelector("svg svg")).not.toBeNull();
+			expect(settings.querySelector('path[fill^="url(#"]')).not.toBeNull();
 			await act(async () => fireEvent.click(settings));
 			const dialog = await waitFor(() => view.getByRole("dialog"));
 			const auto = within(dialog).getByRole("switch", { name: "Auto pick" });
@@ -88,7 +88,7 @@ describe("App's Auto pick in the composer's settings", () => {
 
 			expect(auto.getAttribute("aria-checked")).toBe("false");
 			expect(settings.querySelector(claude)).not.toBeNull();
-			expect(settings.querySelector("svg svg")).toBeNull();
+			expect(settings.querySelector('path[fill^="url(#"]')).toBeNull();
 			expect(testing.posted("/api/conversations/c1/auto-pick")).toEqual([
 				{ method: "PUT", body: { on: false } },
 			]);

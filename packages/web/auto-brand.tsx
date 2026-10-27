@@ -47,9 +47,13 @@ function ColoredSparkles(props: SVGProps<SVGSVGElement>): JSX.Element {
 	);
 }
 
+/** The four-point star of the sparkles icon, on a 24 box. */
+const STAR =
+	"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z";
+
 /**
  * Auto pick's mark once it has picked: the agent's colored mark with Auto
- * pick's sparkles as a badge in the top right corner, so the composer says
+ * pick's sparkles as a badge in the bottom right corner, so the composer says
  * both whom Auto pick chose and that it did; sparkles alone for an agent with
  * no colors here.
  */
@@ -60,6 +64,7 @@ export function AutoAgentMark({
 	agent: string;
 	className?: string;
 }): JSX.Element {
+	const gradient = useId();
 	if (!hasColors(agent)) {
 		return <AutoIcon colored className={className} />;
 	}
@@ -69,10 +74,24 @@ export function AutoAgentMark({
 			viewBox="0 0 24 24"
 			className={cn("size-4 shrink-0", className)}
 		>
-			<g transform="translate(0 5) scale(0.79)">
+			<defs>
+				<linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0%" stopColor="#3b82f6" />
+					<stop offset="50%" stopColor="#8b5cf6" />
+					<stop offset="100%" stopColor="#ec4899" />
+				</linearGradient>
+			</defs>
+			<g transform="scale(0.8)">
 				<ColoredMark agent={agent} />
 			</g>
-			<ColoredSparkles x={11} y={0} width={13} height={13} />
+			<path
+				transform="translate(13 13) scale(0.46)"
+				d={STAR}
+				fill={`url(#${gradient})`}
+				stroke="var(--background)"
+				strokeWidth={2}
+				paintOrder="stroke"
+			/>
 		</svg>
 	);
 }
