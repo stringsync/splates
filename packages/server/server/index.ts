@@ -21,5 +21,5 @@ export { rosterOf, savedTunnelOf, seeded } from "./start-settings";
 export { SUITE_GRANT_MS, SuiteGrants } from "./suite-grant";
 export { SERVING } from "./supervise";
 export type { PlacedAcquireOptions, PlacedLock } from "./ticketed-lock";
-export { update } from "./update";
+export { refreshHere, update } from "./update";
 export { recordsFirst } from "./update-records";

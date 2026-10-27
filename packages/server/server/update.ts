@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { lanesFromTags } from "../board";
 import { LEGACY, removeLegacySkill, renameLegacyFiles } from "../config";
 import { typeConfig } from "../config/type-config";
+import { fail } from "../exit";
 import { isNewer, RUNNING } from "./release";
 import { projectSkills } from "./skills";
 
@@ -64,6 +65,31 @@ export async function update({
 	if (records === "current") {
 		await lanesFromTags({ dir: root, fs, ps, log });
 	}
+	await refresh({ root, fs, ps, log, release });
+	return 0;
+}
+
+/**
+ * Brings what the tree at `root` holds of splates up to `release`, this one
+ * by default: its splates skill, through `bunx skills add` from the
+ * release's tag, and an older config moved to where this one reads it. The
+ * records and any server serving them are left alone, so it suits a task's
+ * worktree, where a ship's bump runs it once the new splates is installed.
+ */
+export async function refresh({
+	root,
+	fs,
+	ps,
+	log,
+	release,
+}: {
+	/** The tree to bring up: the main tree, or a task's worktree. */
+	root: string;
+	fs: Fs;
+	ps: Ps;
+	log: Logger;
+	release?: string;
+}): Promise<void> {
 	// Before the skill, whose download can fail, so the config is read by its
 	// new name either way.
 	await renameLegacyFiles({ root, fs, ps, log });
@@ -72,5 +98,24 @@ export async function update({
 	// Only once splates's is in, so a project is never left with neither.
 	await removeLegacySkill(`${root}/${skills.path(LEGACY)}`, { fs, log });
 	await typeConfig({ root, fs, log });
-	return 0;
+}
+
+/** {@link refresh}es the tree the process stands in, a task's worktree included. */
+export async function refreshHere(deps: {
+	fs: Fs;
+	ps: Ps;
+	log: Logger;
+}): Promise<void> {
+	const cwd = deps.ps.cwd();
+	const { exitCode, stdout } = await deps.ps.spawnCapture([
+		"git",
+		"-C",
+		cwd,
+		"rev-parse",
+		"--show-toplevel",
+	]);
+	if (exitCode !== 0) {
+		fail("usage", `not a git repository: ${cwd}`, { cwd });
+	}
+	await refresh({ ...deps, root: stdout.trim() });
 }

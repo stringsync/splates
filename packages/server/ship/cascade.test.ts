@@ -89,6 +89,7 @@ describe("Cascades", () => {
 	});
 
 	it("adds a bump task in each dependent once its ship is done, at the versions it published", async () => {
+		project("webappwiz").afterBump = "bunx @webappwiz/cli update";
 		await cascades.start("webappwiz");
 		await shipped("webappwiz", "0.0.51");
 
@@ -110,6 +111,7 @@ describe("Cascades", () => {
 							{ name: "@webappwiz/cli", version: "0.0.51" },
 							{ name: "webappwiz", version: "0.0.51" },
 						],
+						afterBump: "bunx @webappwiz/cli update",
 					},
 				],
 			},

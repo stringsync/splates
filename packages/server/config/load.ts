@@ -70,6 +70,7 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		preLock: null,
 		ship: null,
+		afterBump: null,
 		on: {},
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 5,

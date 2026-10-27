@@ -20,6 +20,7 @@ import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	newest,
 	recordsFirst,
+	refreshHere,
 	rosterOf,
 	seeded,
 	update,
@@ -128,6 +129,13 @@ splates
 			ctx.ps.exit(code);
 		}
 	});
+
+splates
+	.command("refresh")
+	.description(
+		"bring the tree you stand in, a task's worktree included, up to this splates: install its splates skill with `bunx skills add` over the copy there and move what an older config holds to where it reads it, leaving the records and any `splates server` alone; what a project runs once a ship's bump task has installed a newer splates, as splates's `afterBump` names; commit what changed",
+	)
+	.action((_opts, ctx) => refreshHere(ctx));
 
 splates
 	.command("forget")

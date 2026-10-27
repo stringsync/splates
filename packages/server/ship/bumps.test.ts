@@ -9,6 +9,7 @@ const takes = [
 			{ name: "webappwiz", version: "0.0.51" },
 			{ name: "@webappwiz/cli", version: "0.0.51" },
 		],
+		afterBump: null,
 	},
 ];
 
@@ -42,6 +43,26 @@ describe("Bumps", () => {
 			origin: { project: "/webappwiz", task: null },
 		});
 		expect(await bumps.state(id)).toBe("open");
+		expect(task.text).not.toContain("run each of these");
+	});
+
+	it("lists the command each shipped project asks for after the install", async () => {
+		const id = await bumps.add({ from: "splates", origin: "/splates" }, [
+			...takes,
+			{
+				project: "splates",
+				pins: [{ name: "@stringsync/splates", version: "0.4.0" }],
+				afterBump: "bunx @stringsync/splates refresh",
+			},
+		]);
+
+		const { text } = await deps.tasks.find(id);
+		expect(text).toContain(
+			"After `bun install`, run each of these from the worktree's root and commit what it changes:",
+		);
+		expect(text).toContain(
+			"- `bunx @stringsync/splates refresh`, as splates asks",
+		);
 	});
 
 	it("reads a bump off the board as merged or removed, as its finished record says", async () => {

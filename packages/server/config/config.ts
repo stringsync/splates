@@ -61,6 +61,14 @@ export interface Config {
 	 */
 	ship: string | null;
 	/**
+	 * Command a project that pins this one's packages runs once a ship's
+	 * cascade has moved its pins to the versions this one shipped, after `bun
+	 * install`: its bump task lists it as a step for the agent to run in the
+	 * task's worktree and commit what it changed, as `"bunx
+	 * @stringsync/splates refresh"`. Null asks nothing past the install.
+	 */
+	afterBump: string | null;
+	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
 	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:

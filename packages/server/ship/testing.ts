@@ -101,6 +101,7 @@ export async function until(done: () => Promise<boolean>): Promise<void> {
 /** A project as a cascade reaches it, its ship and bump tasks driven by the test. */
 export class FakeProject implements CascadeProject {
 	ship: Ship | null = null;
+	afterBump: string | null = null;
 	starts = 0;
 	refuse: string | null = null;
 	bumps = {

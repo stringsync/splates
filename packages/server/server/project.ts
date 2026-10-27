@@ -184,6 +184,7 @@ export async function serveProject(
 			return new Response(null, { status: 204 });
 		},
 		root: service.git.root,
+		afterBump: project.config.afterBump,
 		format,
 		conversations,
 		replica: async () =>
@@ -375,6 +376,8 @@ export type Handler = (request: Request) => Promise<Response>;
 /** One project as the server holds it: what each of its routes does. */
 export interface Served extends AsyncResource {
 	root: string;
+	/** Its config's `afterBump`, for the bump tasks of a ship's cascade. */
+	afterBump: string | null;
 	format: Format;
 	conversations: Conversations | null;
 	/** Reads the repo again soon, telling its pages if anything moved. */

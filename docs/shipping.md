@@ -19,6 +19,22 @@ release committed and tagged on the base branch. A webappwiz project's is
 `wiz dev ship`. Leave it out, or set it to null, for a project never shipped
 from splates.
 
+## What dependents run after a bump
+
+A project whose dependents should run something once they take its new
+versions names it in its own `splates.config.ts`, so no dependent has to:
+
+```ts
+afterBump: "bunx @stringsync/splates refresh",
+```
+
+Each bump task that takes the project's packages lists the command as a
+step after `bun install`, for the agent to run from the task's worktree and
+commit what it changes. splates names `splates refresh`, which installs the
+new release's skill and moves an older config to where it reads it, and,
+unlike `splates update`, leaves the records and a running `splates server`
+alone, since the server is running the cascade.
+
 ## Who depends on whom
 
 splates draws the dependency graph from every registered project's

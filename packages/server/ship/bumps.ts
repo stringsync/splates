@@ -11,6 +11,8 @@ export interface BumpTake {
 	/** The project that shipped them. */
 	project: string;
 	pins: Pin[];
+	/** What that project's config says to run after taking them, if anything. */
+	afterBump: string | null;
 }
 
 /**
@@ -84,7 +86,25 @@ function bumpText(from: string, takes: BumpTake[]): string {
 		),
 		"",
 		"Move every pin of them in each `package.json` (the root's and each workspace member's) to these versions, run `bun install`, fix what breaks, and land it through the merge gate.",
+		...afterBumpSteps(takes),
 		"",
 		"Publish nothing: when this project ships too, the cascade ships it once this task merges. When a break is past fixing, ask the person: the cascade waits on this project until it merges or the person drops the project from the run.",
 	].join("\n");
+}
+
+/** The commands the shipped projects ask to be run once their versions are in. */
+function afterBumpSteps(takes: BumpTake[]): string[] {
+	const runs = takes.flatMap((take) =>
+		take.afterBump === null
+			? []
+			: [`- \`${take.afterBump}\`, as ${take.project} asks`],
+	);
+	return runs.length === 0
+		? []
+		: [
+				"",
+				"After `bun install`, run each of these from the worktree's root and commit what it changes:",
+				"",
+				...runs,
+			];
 }

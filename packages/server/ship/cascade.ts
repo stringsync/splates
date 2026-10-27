@@ -71,6 +71,8 @@ export interface Cascade {
 export interface CascadeProject {
 	/** Its main tree. */
 	root: string;
+	/** Its config's `afterBump`: what a project taking its packages runs next. */
+	afterBump: string | null;
 	shipping: Pick<Shipping, "start" | "current">;
 	bumps: Pick<Bumps, "add" | "state">;
 }
@@ -283,6 +285,7 @@ export class Cascades implements Resource {
 			}
 			takes.push({
 				project: use.project,
+				afterBump: (await this.opts.reach(use.project)).afterBump,
 				pins: use.pins.map((pin) => ({
 					name: pin.name,
 					version:
