@@ -91,7 +91,30 @@ export class BudgetRoutes {
 					?.replace(/^error: /, "") || `scry budgets exited ${exitCode}`;
 			fail("usage", message);
 		}
-		return Response.json(JSON.parse(stdout));
+		return Response.json(reportOf(stdout));
+	}
+}
+
+/**
+ * The report `scry budgets` printed. With no budget set up it may print
+ * nothing, or not JSON, which reads as nothing declared rather than a failure.
+ */
+function reportOf(stdout: string): unknown {
+	try {
+		return JSON.parse(stdout);
+	} catch {
+		return {
+			declared: false,
+			roles: (["som", "llm"] as const).map((role) => ({
+				role,
+				spend: null,
+				from: null,
+				set: false,
+				standing: [],
+				raises: [],
+				paused: null,
+			})),
+		};
 	}
 }
 

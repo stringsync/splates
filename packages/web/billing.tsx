@@ -84,10 +84,14 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 					<ReadingNow label="Reading budgets…" />
 				)}
 				{budgets !== null && !budgets.declared && (
-					<p className="text-muted-foreground text-sm">
-						No budget declared, so scry checks only what code decides. Set one
-						below.
-					</p>
+					<div className="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm">
+						<p className="font-medium">No Scry budget yet</p>
+						<p className="text-muted-foreground">
+							With no budget, scry checks only what code decides and asks no
+							model. Choose Edit on a model below and give it an allowance, like
+							5m/day, to let its checks run.
+						</p>
+					</div>
 				)}
 				{budgets !== null && (
 					<ul className="flex flex-col gap-4">

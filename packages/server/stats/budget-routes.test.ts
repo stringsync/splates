@@ -73,6 +73,21 @@ describe("dev budgets", () => {
 		});
 	});
 
+	it("reads an empty report as no budget declared", async () => {
+		deps.config.wiz = "true; :";
+
+		await serving(deps, async (_snapshot, port) => {
+			const answer = await fetch(`http://127.0.0.1:${port}/api/budgets`);
+			const body = await answer.json();
+
+			expect([answer.status, body.declared, body.roles.length]).toEqual([
+				200,
+				false,
+				2,
+			]);
+		});
+	});
+
 	it("refuses a role that is not som or llm", async () => {
 		await serving(deps, async (_snapshot, port) => {
 			const answer = await json(port, "/api/budgets/gpt/raises", "POST", {
