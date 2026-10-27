@@ -56,6 +56,7 @@ describe("GITHUB_AREA", () => {
 					trunk: "main",
 					remote,
 					replica: null,
+					evals: null,
 				}),
 				remoteUrl: async (name) => (name === "origin" ? url : null),
 			},

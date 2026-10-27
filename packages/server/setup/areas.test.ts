@@ -35,6 +35,7 @@ describe("SETUP_AREAS", () => {
 			"replica",
 			"dictation",
 			"droplet",
+			"evals",
 			"auto-pick",
 			"github",
 			"claude",

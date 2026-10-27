@@ -42,6 +42,7 @@ describe("REPLICA_AREA", () => {
 					trunk: "main",
 					remote: null,
 					replica: place,
+					evals: null,
 				}),
 				remoteUrl: async () => null,
 				replica: async () => status,
