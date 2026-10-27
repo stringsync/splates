@@ -283,6 +283,28 @@ describe("remove", () => {
 		);
 	});
 
+	it("cleans up leftovers when the worktree registration is already gone", async () => {
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		const record = await deps.recordOf("alpha");
+		const registration = (await deps.fs.read(`${worktree}/.git`))
+			.slice("gitdir: ".length)
+			.trim();
+		await deps.fs.rm(registration, { recursive: true, force: true });
+
+		await remove(deps, "alpha");
+
+		expect(await deps.fs.exists(worktree)).toBe(false);
+		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
+			"",
+		);
+		expect(
+			await deps.storage
+				.collection("tasks")
+				.read(record.slice("tasks/".length)),
+		).toBeNull();
+	});
+
 	it("refuses a tree another agent is driving, unless forced", async () => {
 		await add(deps, "alpha");
 		const worktree = await (await deps.service.find("alpha")).save({

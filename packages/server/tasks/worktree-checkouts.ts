@@ -18,10 +18,19 @@ export class WorktreeCheckouts {
 	}
 
 	async remove(path: string, branch: string): Promise<GitResult> {
-		const removed = (await this.fs.exists(path))
+		const exists = await this.fs.exists(path);
+		let removed = exists
 			? await this.git.removeWorktree(path)
 			: // Directory gone by other means: drop the metadata git still holds.
 				await this.git.pruneWorktrees();
+		if (
+			exists &&
+			removed.code !== 0 &&
+			removed.stderr.includes(`'${path}' is not a working tree`)
+		) {
+			await this.fs.rm(path, { recursive: true, force: true });
+			removed = await this.git.pruneWorktrees();
+		}
 		if (removed.code !== 0 || !(await this.git.branchExists(branch))) {
 			return removed;
 		}
