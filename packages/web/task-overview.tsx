@@ -1,4 +1,10 @@
-import type { JSX, ReactNode } from "react";
+import {
+	cleared,
+	deferralBlockers,
+} from "@stringsync/splates-server/board/browser";
+import { type JSX, type ReactNode, useContext } from "react";
+import { Board } from "./board";
+import { deferredTask } from "./deferred-body";
 import { Markdown } from "./markdown";
 import type { PlanParts } from "./task-plan-parts";
 import { stepsIn } from "./task-plan-parts";
@@ -25,8 +31,37 @@ export function Overview({
 	ports?: boolean;
 }): JSX.Element {
 	const steps = stepsIn(plan?.steps ?? "");
+	const board = useContext(Board);
+	const deferredRecord = deferredTask(board.todos, task);
+	const deferred = deferredRecord?.deferred;
+	const open =
+		deferredRecord === null
+			? []
+			: deferralBlockers(deferredRecord, board.todos).filter(
+					(each) => !cleared(each),
+				);
 	return (
 		<div className="flex min-w-0 flex-col gap-4 text-sm">
+			{deferred !== undefined && (
+				<section aria-label="deferral" className="flex flex-col gap-1">
+					<SectionHeading>Deferred</SectionHeading>
+					<p>{deferred.why}</p>
+					{open.length > 0 && (
+						<ul className="list-disc pl-5 text-muted-foreground">
+							{open.map((each, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of strings
+								<li key={i}>
+									{each.kind === "task"
+										? `#${each.id} ${each.subject}`
+										: each.kind === "question"
+											? each.text.split("\n")[0]
+											: each.what}
+								</li>
+							))}
+						</ul>
+					)}
+				</section>
+			)}
 			{plan === null ? (
 				<p className="text-muted-foreground">{none}</p>
 			) : plan.goal === "" && plan.steps === "" ? (

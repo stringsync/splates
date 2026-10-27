@@ -2,6 +2,7 @@ import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import {
 	blockerLabel,
+	type DeferralBlocker,
 	isSkipped,
 } from "@stringsync/splates-server/board/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
@@ -31,6 +32,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Elsewhere, heldElsewhere } from "./blocked-elsewhere";
 import { Board, still, touchArea } from "./board";
+import { openForPerson } from "./deferred-body";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
@@ -70,6 +72,9 @@ export function Card({
 			todo.blockedBy.includes(other.id) &&
 			(todo.lane === null || other.lane !== todo.lane),
 	);
+	// What a deferral waits on that is no task: the person's answers or something outside.
+	const awaited =
+		todo.deferred === undefined ? [] : openForPerson(todo, board.todos);
 	// The blockers the queue let it go for that still block it, to queue first.
 	const leftFor =
 		todo.stage === "queued"
@@ -163,6 +168,9 @@ export function Card({
 						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
 					<Elsewhere todo={todo} />
+					{blockers.length === 0 && awaited.length > 0 && (
+						<Awaited on={awaited} />
+					)}
 					{(todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
 							<span className="text-warning">needs you</span>
@@ -241,6 +249,26 @@ export function Card({
 function Blocked({ by }: { by: TaskRecord[] }): JSX.Element {
 	const { lanes } = useContext(Board);
 	const label = `Blocked by ${by.map((other) => blockerLabel(other, lanes)).join(", ")}`;
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={<span {...still} />}
+				aria-label={label}
+				className="relative inline-flex cursor-default rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			>
+				<HourglassIcon aria-hidden className="size-3 text-warning" />
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	);
+}
+
+/**
+ * A lone hourglass on a deferred card waiting on no other task: the
+ * questions and outside things it waits on are in its label.
+ */
+function Awaited({ on }: { on: DeferralBlocker[] }): JSX.Element {
+	const label = `Waiting on ${on.map((each) => (each.kind === "question" ? `your answer: ${each.text.split("\n")[0]}` : each.kind === "outside" ? each.what : "")).join("; ")}`;
 	return (
 		<Tooltip>
 			<TooltipTrigger

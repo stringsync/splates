@@ -15,6 +15,7 @@ import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
 import { flatten, nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
+import { openForPerson } from "./deferred-body";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
@@ -32,12 +33,10 @@ type Waiting = {
 };
 
 /**
- * A line atop the sidebar's agents saying how many wait on you, in every
- * project when the feed of every project is to be had, which opens the next
- * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting here, then another
- * project's, on its page, or else the next merged, then unread, one here,
- * lighting the line when there is none. Here, one on the open one's lane
- * comes first.
+ * A line atop the sidebar's agents saying how many wait on you, counting
+ * deferred tasks whose questions or outside blockers are yours to clear.
+ * Click it, or press ⌥⌘M (Ctrl+Alt+M off a Mac), to open the next one
+ * waiting, then the next merged, then unread; it lights when there is none.
  */
 export function NextWaiting({
 	open,
@@ -51,7 +50,17 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const { rows, waiting, others } = useWaitingEverywhere(given);
+	const everywhere = useWaitingEverywhere(given);
+	const { rows, others } = everywhere;
+	// A deferral with a question or outside blocker waits on you too, though no agent does.
+	const waiting =
+		everywhere.waiting +
+		todos.filter(
+			(todo) =>
+				todo.takenBy === null &&
+				todo.deferred !== undefined &&
+				openForPerson(todo, todos).length > 0,
+		).length;
 	const navigation = useContext(NavigationContext);
 	const held = useHeld();
 	const waitingKey = useHeldKey("shortcuts.waiting");

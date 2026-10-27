@@ -540,3 +540,16 @@ function DeferredProgress({
 		</span>
 	);
 }
+
+/**
+ * The blockers of a deferred task that only the person can clear and have
+ * not: its open questions and outside things not yet marked done.
+ */
+export function openForPerson(
+	task: TaskRecord,
+	board: readonly TaskRecord[],
+): DeferralBlocker[] {
+	return deferralBlockers(task, board).filter(
+		(each) => each.kind !== "task" && !cleared(each),
+	);
+}
