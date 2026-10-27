@@ -8,7 +8,6 @@ import {
 	targetName,
 } from "@stringsync/splates-server/evals";
 import { AGENTS, type AgentPick } from "./agents";
-import { migrate } from "./migrate";
 import { type Cell, type Result, runBatch, type SkillUsed } from "./run";
 import { SCENARIOS } from "./scenarios";
 
@@ -22,7 +21,6 @@ const HELP = `splates dev eval: run the splates skill's eval scenarios on real a
   report <batch>             each scenario's pass rate, why runs failed, and errors apart
   show <batch> <run>         one run: its message, checks, judge, every step and the reply;
                              also takes a run id, batch-x#run-003
-  migrate                    rewrites batches saved before splates-evals/1 in that format
 
 Selection:
   --scenario <id>            a scenario, repeatable; all when none
@@ -143,12 +141,6 @@ async function main(argv: string[]): Promise<number> {
 			return 2;
 		}
 		console.log(shown(await new EvalStore(values.directory).run(id)));
-		return 0;
-	}
-	if (command === "migrate") {
-		for (const batch of await migrate(values.directory)) {
-			console.log(`migrated ${batch}`);
-		}
 		return 0;
 	}
 	if (command !== "plan" && command !== "run") {
