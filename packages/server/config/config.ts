@@ -53,6 +53,14 @@ export interface Config {
 	 */
 	preLock: string | null;
 	/**
+	 * Command `splates ship` runs from the root, via `sh -c`, to release the
+	 * project: publish its public packages at their next version and leave the
+	 * release committed and tagged on the trunk, as `"wiz dev ship"`. Null
+	 * means the project is never shipped from splates, though it still takes
+	 * the bumps of those it depends on.
+	 */
+	ship: string | null;
+	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
 	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:

@@ -1,0 +1,209 @@
+import type { Fs } from "webappwiz/system";
+
+/**
+ * Draws the graph of `sources` from each one's root and workspace
+ * `package.json` files: the public packages each publishes, and the versions
+ * each pins of the others'. A `workspace:` pin is the project's own and
+ * draws no edge.
+ */
+export async function readGraph(
+	fs: Fs,
+	sources: ShipSource[],
+): Promise<ShipGraph> {
+	const read = await Promise.all(
+		sources.map(async (source) => ({
+			source,
+			manifests: await manifestsOf(fs, source.root),
+		})),
+	);
+	const owner = new Map<string, string>();
+	for (const { source, manifests } of read) {
+		for (const manifest of manifests) {
+			if (manifest.name !== undefined && manifest.private !== true) {
+				owner.set(manifest.name, source.slug);
+			}
+		}
+	}
+	const rank = new Map(sources.map((each, i) => [each.slug, i]));
+	const projects: ShipProject[] = read.map(({ source, manifests }) => {
+		const packages = manifests
+			.filter((each) => each.name !== undefined && each.private !== true)
+			.map((each) => each.name as string);
+		return {
+			...source,
+			version: manifests[0]?.version ?? null,
+			packages,
+			private: packages.length === 0,
+			uses: usesOf(manifests, source.slug, owner).sort(
+				(one, other) =>
+					(rank.get(one.project) ?? 0) - (rank.get(other.project) ?? 0),
+			),
+			dependents: [],
+		};
+	});
+	const bySlug = new Map(projects.map((each) => [each.slug, each]));
+	for (const project of projects) {
+		for (const use of project.uses) {
+			bySlug
+				.get(use.project)
+				?.dependents.push({ project: project.slug, pins: use.pins });
+		}
+	}
+	return { projects };
+}
+
+/** A registered project the graph is drawn over. */
+export interface ShipSource {
+	slug: string;
+	root: string;
+	/** Its `splates.config.ts`'s `ship`, null when it is never shipped. */
+	ship: string | null;
+}
+
+/** A package one project pins of another's, at the version it pins. */
+export interface Pin {
+	name: string;
+	version: string;
+}
+
+/** One project's use of another's packages. */
+export interface Use {
+	/** The other project's slug. */
+	project: string;
+	/** The other's packages it pins, by name. */
+	pins: Pin[];
+}
+
+/** A registered project, as shipping sees it. */
+export interface ShipProject extends ShipSource {
+	/** The root manifest's version, null when it names none. */
+	version: string | null;
+	/** The public packages it publishes, by name. */
+	packages: string[];
+	/** It publishes nothing: every package it has is private. */
+	private: boolean;
+	/** The projects whose packages it pins. */
+	uses: Use[];
+	/** The projects pinning its packages. */
+	dependents: Use[];
+}
+
+/** Every registered project and who pins whose packages, in registration order. */
+export interface ShipGraph {
+	projects: ShipProject[];
+}
+
+/**
+ * The other projects' packages `manifests` pin, grouped by their project, in
+ * the order first pinned.
+ */
+function usesOf(
+	manifests: Manifest[],
+	slug: string,
+	owner: Map<string, string>,
+): Use[] {
+	const pins = new Map<string, Map<string, string>>();
+	for (const manifest of manifests) {
+		for (const field of DEPENDENCY_FIELDS) {
+			for (const [name, version] of Object.entries(manifest[field] ?? {})) {
+				const from = owner.get(name);
+				if (
+					from === undefined ||
+					from === slug ||
+					version.startsWith("workspace:")
+				) {
+					continue;
+				}
+				const of = pins.get(from) ?? new Map<string, string>();
+				of.set(name, of.get(name) ?? version);
+				pins.set(from, of);
+			}
+		}
+	}
+	return [...pins].map(([project, of]) => ({
+		project,
+		pins: [...of].map(([name, version]) => ({ name, version })),
+	}));
+}
+
+/**
+ * The root's manifest, then each workspace member's, those missing skipped:
+ * a project with no `package.json` publishes and pins nothing.
+ */
+async function manifestsOf(fs: Fs, root: string): Promise<Manifest[]> {
+	const rootManifest = await manifestAt(fs, root);
+	if (rootManifest === null) {
+		return [];
+	}
+	const patterns = Array.isArray(rootManifest.workspaces)
+		? rootManifest.workspaces
+		: (rootManifest.workspaces?.packages ?? []);
+	const members: Manifest[] = [];
+	for (const dir of await workspaceDirs(fs, root, patterns)) {
+		const manifest = await manifestAt(fs, dir);
+		if (manifest !== null) {
+			members.push(manifest);
+		}
+	}
+	return [rootManifest, ...members];
+}
+
+/**
+ * The directories `patterns` name under `root`: each a path, or a path
+ * ending in `/*` for every directory in it, as workspaces are declared.
+ */
+async function workspaceDirs(
+	fs: Fs,
+	root: string,
+	patterns: string[],
+): Promise<string[]> {
+	const dirs: string[] = [];
+	for (const pattern of patterns) {
+		const path = `${root}/${pattern.replace(/^\.\//, "").replace(/\/$/, "")}`;
+		if (!path.endsWith("/*")) {
+			dirs.push(path);
+			continue;
+		}
+		const parent = path.slice(0, -2);
+		if (!(await fs.exists(parent))) {
+			continue;
+		}
+		for (const entry of (await fs.readdir(parent)).sort()) {
+			dirs.push(`${parent}/${entry}`);
+		}
+	}
+	return dirs;
+}
+
+/** The `package.json` in `dir`, or null when it has none or it does not parse. */
+async function manifestAt(fs: Fs, dir: string): Promise<Manifest | null> {
+	const path = `${dir}/package.json`;
+	if (!(await fs.exists(path))) {
+		return null;
+	}
+	try {
+		return JSON.parse(await fs.read(path)) as Manifest;
+	} catch {
+		return null;
+	}
+}
+
+/** The fields of a `package.json` the graph reads. */
+interface Manifest {
+	name?: string;
+	version?: string;
+	private?: boolean;
+	workspaces?: string[] | { packages?: string[] };
+	dependencies?: Record<string, string>;
+	devDependencies?: Record<string, string>;
+	peerDependencies?: Record<string, string>;
+	optionalDependencies?: Record<string, string>;
+}
+
+/** Where each dependency of a manifest is declared. */
+const DEPENDENCY_FIELDS = [
+	"dependencies",
+	"devDependencies",
+	"peerDependencies",
+	"optionalDependencies",
+] as const;

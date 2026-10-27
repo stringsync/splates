@@ -6,6 +6,8 @@ export default {
 	postRewrite: "bun install",
 	preLock: "./bin/splates dev premerge --checks",
 	preMerge: "./bin/splates dev premerge",
+	// What `splates ship` runs to release this repository's packages.
+	ship: "./bin/splates dev ship",
 	remote: null,
 	// Where `splates dev eval run` writes its batches, as the Evals page reads
 	// them, and how the page's run card lists, plans and starts them.

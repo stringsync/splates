@@ -72,7 +72,7 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
-	/** The premerge lock a merge under test holds, never the machine's. */
+	/** The premerge lock a merge under test holds, apart from the machine's own. */
 	readonly premerge: FileLock;
 	/** Where merges under test form batches, polled fast. */
 	readonly batch: MergeBatch;
@@ -126,6 +126,7 @@ export class Testing implements AsyncDisposable {
 			// Keeps merge's gate green unless a test asks otherwise.
 			preMerge: "true",
 			preLock: null,
+			ship: null,
 			on: {},
 			leaseStalenessMs: 90_000,
 			removedCapacity: 50,

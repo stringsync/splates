@@ -24,6 +24,7 @@ import {
 	seeded,
 	update,
 } from "@stringsync/splates-server/server";
+import { ship } from "@stringsync/splates-server/ship";
 import { addFactTasks } from "@stringsync/splates-server/stats";
 import {
 	add,
@@ -531,6 +532,29 @@ splates
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) => recordRetry(ctx, opts.task));
+
+splates
+	.command("ship")
+	.use(repository({ needs: "read" }))
+	.description(
+		"ship a project and every registered project that depends on it, in dependency order: each public one with a `ship` command in its splates.config.ts and dependents of its own publishes, the rest only take their bumps; `--plan` prints that plan and runs nothing. The person's alone to start, refused an agent, which asks with a run-command card",
+	)
+	.arg("project", z.string(), {
+		default: "",
+		description: "the registered project's slug; this one by default",
+	})
+	.option("plan", z.boolean(), {
+		default: false,
+		description: "print the plan without running anything",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) =>
+		ship(ctx, {
+			project: opts.project || undefined,
+			plan: opts.plan,
+			json: opts.json,
+		}),
+	);
 
 splates
 	.mount("artifact", splatesArtifact)

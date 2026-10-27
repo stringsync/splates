@@ -29,6 +29,7 @@ describe("WorktreeService", () => {
 			postRewrite: null,
 			preMerge: "true",
 			preLock: null,
+			ship: null,
 			on: {},
 			leaseStalenessMs: 90_000,
 			mergeRetryCount: 2,
