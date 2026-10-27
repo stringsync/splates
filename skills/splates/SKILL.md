@@ -230,7 +230,8 @@ the person rather than remove the task, and say in the question that the
 ship waits on it. A removed bump task, or a failed ship, stops the cascade
 at that project until the person retries it with `splates ship --retry
 <project>`, which ships it again or queues a new bump task, or drops it from
-the run with `splates ship --drop <project>`: commands of theirs, never yours.
+the run with `splates ship --drop <project>`, or ends the whole run with
+`splates ship --abandon` (what shipped stays published): commands of theirs, never yours.
 
 ```markdown
 ## 🔐 Permission: run command: ship webappwiz

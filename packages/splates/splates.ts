@@ -617,6 +617,11 @@ splates
 		description:
 			"run this registered project's part of the cascade under way again: its ship again when that failed, or a new bump task when its last was removed",
 	})
+	.option("abandon", z.boolean(), {
+		default: false,
+		description:
+			"end the cascade under way: what shipped stays published, a running ship is stopped, its open bump tasks are removed, and history files it as abandoned",
+	})
 	.action((opts, ctx) =>
 		ship(ctx, {
 			project: opts.project || undefined,
@@ -626,6 +631,7 @@ splates
 			bump: opts.bump,
 			drop: opts.drop || undefined,
 			retry: opts.retry || undefined,
+			abandon: opts.abandon,
 		}),
 	);
 

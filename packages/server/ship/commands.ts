@@ -44,6 +44,7 @@ export async function ship(
 		bump,
 		drop,
 		retry,
+		abandon = false,
 	}: {
 		project?: string;
 		plan?: boolean;
@@ -52,6 +53,7 @@ export async function ship(
 		bump?: ShipBump;
 		drop?: string;
 		retry?: string;
+		abandon?: boolean;
 	},
 ): Promise<void> {
 	const asking =
@@ -69,13 +71,28 @@ export async function ship(
 	if (bump !== undefined && (drop !== undefined || retry !== undefined)) {
 		fail("usage", "--bump cannot be combined with --drop or --retry");
 	}
+	if (
+		abandon &&
+		(drop !== undefined ||
+			retry !== undefined ||
+			bump !== undefined ||
+			project !== undefined ||
+			plan)
+	) {
+		fail("usage", "--abandon ends the whole cascade under way: give it alone");
+	}
 	if (!plan) {
 		await shipOnServer(ctx, {
 			slug: drop ?? retry ?? project ?? (await thisProject(ctx)),
 			dev,
 			bump,
-			change:
-				drop !== undefined ? "drop" : retry !== undefined ? "retry" : null,
+			change: abandon
+				? "abandon"
+				: drop !== undefined
+					? "drop"
+					: retry !== undefined
+						? "retry"
+						: null,
 		});
 		return;
 	}
@@ -135,7 +152,7 @@ async function thisProject(ctx: ShipContext): Promise<string> {
  * on its machine under the person's npm sign-in, and prints the first
  * ship's output until it ends: npm's links are in it, and on the page as
  * well, for any device. Prints the cascade under way instead when there is
- * one; with `change`, drops `slug` from it or retries it there.
+ * one; with `change`, drops `slug` from it retries it there, or abandons the whole cascade.
  */
 async function shipOnServer(
 	ctx: ShipContext,
@@ -148,7 +165,7 @@ async function shipOnServer(
 		slug: string;
 		dev: string;
 		bump?: ShipBump;
-		change: "drop" | "retry" | null;
+		change: "drop" | "retry" | "abandon" | null;
 	},
 ): Promise<void> {
 	const url =
@@ -191,6 +208,16 @@ async function shipOnServer(
 		).json()) as Cascade;
 		ctx.log.info(`dropped ${slug} from the ship of ${left.from}`);
 		ctx.log.info(cascadeTable(left));
+		return;
+	}
+	if (change === "abandon") {
+		const ended = (await (
+			await ask("POST", "/api/ship/cascade/abandon")
+		).json()) as Cascade;
+		ctx.log.info(
+			`abandoned the ship of ${ended.from}: what shipped stays published, a running ship is stopped and its open bump tasks are removed`,
+		);
+		ctx.log.info(cascadeTable(ended));
 		return;
 	}
 	if (change === "retry") {

@@ -131,6 +131,22 @@ describe("ship", () => {
 		expect(String(log.entries.at(-2)?.message)).toContain("retrying vexml");
 	});
 
+	it("abandons the cascade under way", async () => {
+		const { ctx, log } = await served();
+		const { calls, fetch } = server({});
+
+		await ship(
+			{ ...ctx, fetch },
+			{ abandon: true, project: undefined, dev: "http://localhost:4310" },
+		);
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain(
+			"POST http://localhost:4310/api/ship/cascade/abandon",
+		);
+		expect(String(log.entries.at(-2)?.message)).toContain("abandoned");
+	});
+
 	it("refuses an agent a ship before it asks the server", async () => {
 		const { ctx, ps } = await served();
 		const { calls, fetch } = server({ status: "done" });
