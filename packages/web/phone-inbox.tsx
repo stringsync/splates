@@ -84,8 +84,8 @@ import { BarButton, TopBar } from "./top-bar";
  *
  * Beside a sidebar, `onMenu` null, it is the page the sidebar's Inbox opens:
  * under the shell's bar, with no menu and no composer along the bottom, the
- * sidebar having New, and the archived conversations at its foot, as the
- * drawer has them on a phone.
+ * sidebar having New. The archived conversations are at its foot, on a phone
+ * too, where the drawer has them as well.
  */
 export function Inbox({
 	feed,
@@ -334,7 +334,7 @@ export function Inbox({
 							/>
 						</Placing>
 					)}
-					{wide && available && (
+					{available && (
 						<button
 							type="button"
 							onClick={() => onOpen(ARCHIVED)}
