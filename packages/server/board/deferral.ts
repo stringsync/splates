@@ -60,7 +60,13 @@ export type DeferralBlocker =
 			project?: string;
 			slug?: string;
 	  }
-	| { kind: "question"; text: string; status: "open" | "answered" }
+	| {
+			kind: "question";
+			text: string;
+			status: "open" | "answered";
+			/** What the person answered; absent while it is open. */
+			answer?: string;
+	  }
 	| { kind: "outside"; what: string; status: "open" | "done" };
 
 /**
@@ -152,6 +158,7 @@ export function deferralBlockers(
 				kind: "question",
 				text,
 				status: answer === undefined ? "open" : "answered",
+				...(answer === undefined ? {} : { answer }),
 			}),
 		),
 		...deferred.outside.map(

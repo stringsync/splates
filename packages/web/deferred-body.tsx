@@ -130,6 +130,11 @@ export function DeferredBody({
 											<p className={cn(done && "text-muted-foreground")}>
 												{blocker.text.split("\n")[0]}
 											</p>
+											{blocker.answer !== undefined && (
+												<p className="whitespace-pre-wrap rounded-md bg-muted px-2 py-1">
+													{blocker.answer}
+												</p>
+											)}
 											{!done && (
 												<form
 													className="flex flex-wrap items-center gap-2"
