@@ -110,7 +110,8 @@ export function commandFor(
 	}
 	if (pick.agent === "kimi") {
 		// Kimi takes its thinking level and step cap from the env alone, and
-		// may live off the PATH, where the roster looks for it too.
+		// may live off the PATH, where the roster looks for it too. Its prompt
+		// mode never asks, and refuses --auto.
 		const env = [
 			`KIMI_LOOP_MAX_STEPS_PER_TURN=${limits.turns ?? TURNS}`,
 			"KIMI_CODE_NO_AUTO_UPDATE=1",
@@ -124,7 +125,6 @@ export function commandFor(
 				"env",
 				...env,
 				...KIMI_CLI,
-				"--auto",
 				"--output-format",
 				"stream-json",
 				...(pick.model === undefined ? [] : ["--model", pick.model]),

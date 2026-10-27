@@ -178,7 +178,7 @@ describe("agents", () => {
 		expect(format).toBe("kimi");
 		expect(argv).toContain("KIMI_MODEL_THINKING_EFFORT=high");
 		expect(argv).toContain("KIMI_LOOP_MAX_STEPS_PER_TURN=5");
-		expect(argv).toContain("--auto");
+		expect(argv).not.toContain("--auto");
 		expect(argv.slice(-4)).toEqual([
 			"--model",
 			"kimi-code/k3.1-pro",
