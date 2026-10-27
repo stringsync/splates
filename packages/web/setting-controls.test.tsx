@@ -143,7 +143,7 @@ describe("composer setting controls", () => {
 		const mark = view.getByRole("combobox").querySelector("svg path");
 		expect(mark?.getAttribute("fill")).toBe("#D97757");
 	});
-	it("badges the model picker's mark with Auto pick's sparkles while Auto pick picks", () => {
+	it("splits the model picker's mark with Auto pick's sparkles while Auto pick picks", () => {
 		view.rerender(
 			<SettingControls
 				{...props}
@@ -152,7 +152,7 @@ describe("composer setting controls", () => {
 			/>,
 		);
 		const combobox = view.getByRole("combobox");
-		expect(combobox.querySelector('path[fill^="url(#"]')).not.toBeNull();
+		expect(combobox.querySelectorAll("clipPath")).toHaveLength(2);
 		expect(combobox.querySelector('path[fill="#D97757"]')).toBeTruthy();
 	});
 	it("names Claude's auto mode as a mode, apart from Auto pick's Auto beside it", () => {

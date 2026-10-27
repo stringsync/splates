@@ -47,15 +47,18 @@ function ColoredSparkles(props: SVGProps<SVGSVGElement>): JSX.Element {
 	);
 }
 
+/** How far apart, on the 24 box, the split mark's halves sit either side of its slash. */
+const SPLIT_GAP = 1.5;
+
 /** The four-point star of the sparkles icon, on a 24 box. */
 const STAR =
 	"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z";
 
 /**
- * Auto pick's mark once it has picked: the agent's colored mark with Auto
- * pick's sparkles as a badge in the bottom right corner, so the composer says
- * both whom Auto pick chose and that it did; sparkles alone for an agent with
- * no colors here.
+ * Auto pick's mark once it has picked, so the composer says both whom it chose
+ * and that it did: for Claude, its sparkles and Claude's mark split by a
+ * slash; for another agent with colors here, its mark with a star badge at the
+ * bottom right; sparkles alone for an agent with no colors here.
  */
 export function AutoAgentMark({
 	agent,
@@ -65,8 +68,34 @@ export function AutoAgentMark({
 	className?: string;
 }): JSX.Element {
 	const gradient = useId();
+	const clip = useId();
 	if (!hasColors(agent)) {
 		return <AutoIcon colored className={className} />;
+	}
+	if (agent === "claude") {
+		const edge = 24 - SPLIT_GAP;
+		return (
+			<svg
+				aria-hidden="true"
+				viewBox="0 0 24 24"
+				className={cn("size-4 shrink-0", className)}
+			>
+				<defs>
+					<clipPath id={`${clip}auto`}>
+						<polygon points={`0,0 ${edge},0 0,${edge}`} />
+					</clipPath>
+					<clipPath id={`${clip}agent`}>
+						<polygon points={`24,${SPLIT_GAP} 24,24 ${SPLIT_GAP},24`} />
+					</clipPath>
+				</defs>
+				<g clipPath={`url(#${clip}auto)`}>
+					<ColoredSparkles width={24} height={24} />
+				</g>
+				<g clipPath={`url(#${clip}agent)`}>
+					<ColoredMark agent={agent} />
+				</g>
+			</svg>
+		);
 	}
 	return (
 		<svg

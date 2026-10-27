@@ -63,7 +63,7 @@ describe("App's Auto pick in the composer's settings", () => {
 		]);
 	});
 
-	it("switches Auto pick off from the settings sheet on a phone, its button's mark losing the sparkles badge", async () => {
+	it("switches Auto pick off from the settings sheet on a phone, its button's mark losing the sparkles' half", async () => {
 		// happy-dom's own handle on its window, which sizes what `matchMedia` reads.
 		const { happyDOM } = window as unknown as {
 			happyDOM: { setInnerWidth: (width: number) => void };
@@ -76,10 +76,10 @@ describe("App's Auto pick in the composer's settings", () => {
 			]);
 
 			const settings = view.getByRole("button", { name: "settings" });
-			// Claude's mark, in its maker's orange, carries the sparkles as a badge.
+			// Claude's mark, in its maker's orange, shares a split with the sparkles.
 			const claude = 'path[fill="#D97757"]';
 			expect(settings.querySelector(claude)).not.toBeNull();
-			expect(settings.querySelector('path[fill^="url(#"]')).not.toBeNull();
+			expect(settings.querySelectorAll("clipPath")).toHaveLength(2);
 			await act(async () => fireEvent.click(settings));
 			const dialog = await waitFor(() => view.getByRole("dialog"));
 			const auto = within(dialog).getByRole("switch", { name: "Auto pick" });
@@ -88,7 +88,7 @@ describe("App's Auto pick in the composer's settings", () => {
 
 			expect(auto.getAttribute("aria-checked")).toBe("false");
 			expect(settings.querySelector(claude)).not.toBeNull();
-			expect(settings.querySelector('path[fill^="url(#"]')).toBeNull();
+			expect(settings.querySelector("clipPath")).toBeNull();
 			expect(testing.posted("/api/conversations/c1/auto-pick")).toEqual([
 				{ method: "PUT", body: { on: false } },
 			]);
