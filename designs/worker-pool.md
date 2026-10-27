@@ -75,6 +75,10 @@ preferring the worker with its checkout), provisioning on the queue, and
   limits with warnings and a hard stop) on the Billing page, which becomes
   the runner budget.
 - **Rollouts**: a worker on another build than the coordinator's drains and
-  is brought to it, one at a time.
+  is brought to it, one at a time. Settled 2026-10-27: as this machine's own
+  drains, the server starts a handoff worker, `local-<build>`, on its build
+  beside it, tied to the supervisor as its own is, and new agents go there,
+  so a release never holds them up. Once `local` is back on the build, the
+  handoff worker takes no new agents and stops once its last one ends.
 - **Slots**: the local worker's slots cap the agents other agents start;
   an agent the person starts takes none.

@@ -18,6 +18,7 @@ export type {
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
 export { Machine } from "./load";
+export { LOCAL_WORKER } from "./local-id";
 export { LocalWorkerUpdate } from "./local-update";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
@@ -32,10 +33,7 @@ export { listQueue, moveQueued, queueListing } from "./queue";
 export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { DevWorkersOptions } from "./routes";
-export {
-	DevWorkers,
-	LOCAL_WORKER,
-} from "./routes";
+export { DevWorkers } from "./routes";
 export { workerRun, workerSocketPath } from "./run";
 export type { Grant, PlacedAgent, PoolWorker, QueueEntry } from "./scheduler";
 export { Scheduler, type StartRequest } from "./scheduler";

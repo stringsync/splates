@@ -6,6 +6,7 @@ import { RUNNING, refuse } from "../server/shared";
 import { CoordinatorIdentity } from "./identity";
 import type { HeldListing, WorkerPool } from "./list";
 import { workerList } from "./list";
+import { isHandoffWorker, isLocalWorker, LOCAL_WORKER } from "./local-id";
 import { LocalWorkerUpdate } from "./local-update";
 import { AgentPlacement } from "./placement";
 import { queueListing } from "./queue";
@@ -13,9 +14,6 @@ import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import { UnixWorkerListener } from "./unix-listener";
 import type { ConnectedWorker } from "./worker";
-
-/** What the worker the supervisor starts beside the server is known by. */
-export const LOCAL_WORKER = "local";
 
 /** What `PUT /api/queue/:id/position` is sent. */
 const QueueMove = z.object({ position: z.number().int() });
@@ -53,6 +51,7 @@ export class DevWorkers implements AsyncResource {
 			protocol,
 			records = WorkerRecords.memory(),
 			identity,
+			startWorker,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
@@ -68,6 +67,13 @@ export class DevWorkers implements AsyncResource {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
+		// Taking over while this machine's own updated when the last run
+		// stopped, each is known again so what it runs is taken back.
+		for (const record of records.all) {
+			if (isHandoffWorker(record.id)) {
+				this.registry.expect(record.id, "local");
+			}
+		}
 		this.placement = new AgentPlacement(this.registry, {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
@@ -82,6 +88,8 @@ export class DevWorkers implements AsyncResource {
 			used: () => this.used(),
 			pooled: (id) => this.pooled(id),
 			poke: () => this.placement.scheduler.poke(),
+			forget: (id) => this.forgetHandoff(id),
+			...(startWorker === undefined ? {} : { start: startWorker }),
 			log,
 		});
 		this.placement.scheduler.events.on(
@@ -95,9 +103,20 @@ export class DevWorkers implements AsyncResource {
 		return this.placement.used();
 	}
 
-	/** Whether this machine's worker takes agents. */
+	/** Whether this machine's worker takes agents, or one taking over while it updates. */
 	private pooled(id: string): boolean {
-		return id === LOCAL_WORKER && this.records.localOn;
+		return (
+			this.records.localOn &&
+			(id === LOCAL_WORKER ||
+				(isHandoffWorker(id) && this.records.of(id) !== undefined))
+		);
+	}
+
+	/** Hangs up on handoff worker `id`, once it is empty and told to stop, and forgets its record. */
+	private async forgetHandoff(id: string): Promise<void> {
+		this.registry.forget(id);
+		await this.records.drop(id);
+		this.placement.scheduler.poke();
 	}
 
 	/**
@@ -132,7 +151,7 @@ export class DevWorkers implements AsyncResource {
 					socket.dispose();
 					return;
 				}
-				void this.registry.accept(socket, "local", LOCAL_WORKER);
+				void this.registry.accept(socket, "local", isLocalWorker);
 			});
 			this.listener = listener;
 		} catch (error) {
@@ -352,4 +371,10 @@ export interface DevWorkersOptions {
 	records?: WorkerRecords;
 	/** What signs a worker's challenge, so it knows this server from one answering for its host; new, and kept nowhere, by default. */
 	identity?: CoordinatorIdentity;
+	/**
+	 * Starts a worker known by `id` beside this machine's own, to take new
+	 * agents while its own updates, answering whether it could; with none,
+	 * this machine's own takes none while it updates.
+	 */
+	startWorker?: (id: string) => boolean;
 }

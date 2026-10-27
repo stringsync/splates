@@ -18,7 +18,7 @@ function workersArea(): SetupArea {
 		after: [],
 		check: async (machine) => {
 			const local = (await pool(machine)).find(
-				(worker) => worker.kind === "local",
+				(worker) => worker.id === LOCAL_WORKER,
 			);
 			return local !== undefined && !local.draining && !local.removing;
 		},
@@ -29,7 +29,8 @@ function workersArea(): SetupArea {
 				`This Mac's worker, \`${LOCAL_WORKER}\`, its agents running to their end first`,
 			],
 			refused: noRemoving,
-			run: (machine) => removeWorkers(machine, (each) => each.kind === "local"),
+			run: (machine) =>
+				removeWorkers(machine, (each) => each.id === LOCAL_WORKER),
 		},
 	};
 

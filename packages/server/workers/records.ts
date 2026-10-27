@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Document } from "../storage";
+import { isLocalWorker } from "./local-id";
 
 /** Settings for this machine's worker, kept across server restarts. */
 const Record = z.object({
@@ -31,7 +32,7 @@ export class WorkerRecords {
 			const read = await document.read();
 			if (read !== null) {
 				kept = Kept.parse(read);
-				kept.workers = kept.workers.filter((each) => each.id === "local");
+				kept.workers = kept.workers.filter((each) => isLocalWorker(each.id));
 			}
 		} catch {
 			/* Unreadable settings use the local defaults. */
@@ -71,6 +72,13 @@ export class WorkerRecords {
 			workers: [...this.kept.workers.filter((each) => each.id !== id), record],
 		});
 		return record;
+	}
+	/** Forgets worker `id`'s settings, as for a handoff worker once it has stopped. */
+	async drop(id: string): Promise<void> {
+		await this.change({
+			...this.kept,
+			workers: this.kept.workers.filter((each) => each.id !== id),
+		});
 	}
 	private change(kept: KeptFile): Promise<void> {
 		this.kept = kept;

@@ -135,14 +135,16 @@ export class WorkerRegistry
 	 * Takes a worker's new connection, hanging up on one that says nothing in
 	 * time. `kind` is how it reached us: `local` over this machine's socket.
 	 * `identity`, when a string, is the worker its key proved it to be, and a
-	 * hello saying it is another is hung up on; null, the worker proves
+	 * hello saying it is another is hung up on; when a function, it says
+	 * which ids a hello may name, as this machine's socket takes its own
+	 * workers alone; null, the worker proves
 	 * itself in its hello, with the key it joined with, once it has had this
 	 * server sign its nonce.
 	 */
 	async accept(
 		socket: WorkerSocket,
 		kind: WorkerKind = "registered",
-		identity?: string | null,
+		identity?: string | null | ((id: string) => boolean),
 	): Promise<void> {
 		const { identity: signer } = this.opts;
 		const hello = WorkerSession.hello(
@@ -178,6 +180,12 @@ export class WorkerRegistry
 				this.log.error(
 					`a worker said it was ${said.id} without the key it joined with: hung up`,
 				);
+				return;
+			}
+		} else if (typeof identity === "function") {
+			if (!identity(said.id)) {
+				socket.dispose();
+				this.log.error(`a worker said it was ${said.id}: hung up`);
 				return;
 			}
 		} else if (identity !== undefined && said.id !== identity) {

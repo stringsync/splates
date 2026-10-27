@@ -34,6 +34,7 @@ import {
 	DevWorkers,
 	FileLogger,
 	LOCAL_WORKER,
+	SUPERVISOR,
 	WorkerRecords,
 	workerGit,
 	workerSocketPath,
@@ -261,11 +262,32 @@ async function start(
 	const identity = await CoordinatorIdentity.open(device).catch(
 		(error: unknown) => fail("no_secret_store", cannotReach(device, error)),
 	);
+	// The supervisor this server runs under, which ends a worker started
+	// beside its own once it is gone, as it ends its own.
+	const supervisor = (await ctx.ps.processes().catch(() => [])).find(
+		(each) => each.pid === ctx.ps.pid,
+	)?.ppid;
 	const workers = new DevWorkers(ctx.log, {
 		identity,
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		records,
+		startWorker: (id) => {
+			if (supervisor === undefined) {
+				return false;
+			}
+			// Not the server's child to keep: it outlives a restart, as the
+			// supervisor's own does, and ends once its last agent has.
+			ctx.ps
+				.spawn([...ctx.ps.self, "worker", "run", "--id", id, "--quiet"], {
+					env: { [SUPERVISOR]: String(supervisor) },
+					unset: [SERVING, UNBUILT],
+				})
+				.catch((error: unknown) => {
+					ctx.log.error(`worker ${id} could not run: ${String(error)}`);
+				});
+			return true;
+		},
 	});
 	const worker = workers.local;
 	const { placement } = workers;

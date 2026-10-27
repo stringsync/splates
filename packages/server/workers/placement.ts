@@ -9,6 +9,7 @@ import {
 import type { ConversationPlacer, PlaceRequest } from "../conversations";
 import { RUNNING } from "../server/shared";
 import { GoneWorkers } from "./gone";
+import { isHandoffWorker } from "./local-id";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import {
@@ -163,8 +164,9 @@ function spotOf(entry: QueueEntry, of: number) {
 /**
  * This machine's `worker` as placement sees it, from its last hello and
  * what was set on it: always awake, since what it is sent waits for it to
- * join, unless it drains, taking nothing new. On another build than
- * `build`, it waits on an update.
+ * join, unless it drains, taking nothing new; one taking over while it
+ * updates only while connected, since nothing starts it again. On another
+ * build than `build`, it waits on an update.
  */
 function poolWorker(
 	worker: ConnectedWorker,
@@ -174,7 +176,9 @@ function poolWorker(
 	const { info } = worker;
 	return {
 		id: worker.id,
-		awake: record?.draining !== true,
+		awake:
+			record?.draining !== true &&
+			(!isHandoffWorker(worker.id) || worker.connected),
 		draining: record?.draining === true,
 		outdated: typeof info.build === "string" && info.build !== build,
 		replacing: record?.updating === true,

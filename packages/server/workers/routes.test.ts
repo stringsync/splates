@@ -25,6 +25,25 @@ describe("DevWorkers", () => {
 		expect(response.status).toBe(404);
 	});
 
+	it("knows a kept handoff worker again after a restart, pooling it only once it joins", async () => {
+		await workers.records.set("local-2.0.0", { draining: false });
+		const again = new DevWorkers(new MemoryLogger(), {
+			records: workers.records,
+		});
+		expect(again.registry.worker("local-2.0.0")).toBeDefined();
+		expect(
+			again.placement.pool.workers().find((each) => each.id === "local-2.0.0"),
+		).toMatchObject({ awake: false });
+		await again.disposeAsync();
+	});
+
+	it("pools no handoff worker its records do not keep", () => {
+		workers.registry.expect("local-9.9.9", "local");
+		expect(
+			workers.placement.pool.workers().map((each) => each.id),
+		).not.toContain("local-9.9.9");
+	});
+
 	it("places nothing new on a drained worker", async () => {
 		await workers.update(put("local", { draining: true }));
 		const placed = workers.placement.scheduler.take(request("one"));

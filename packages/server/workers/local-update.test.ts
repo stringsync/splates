@@ -20,6 +20,9 @@ describe("LocalWorkerUpdate", () => {
 	/** The builds each worker was asked to restart on, by its id. */
 	let told: Map<string, string[]>;
 	let rollout: LocalWorkerUpdate | undefined;
+	/** The handoff workers started, and those stopped and forgotten. */
+	let started: string[];
+	let forgot: string[];
 	const sessions: WorkerSession[] = [];
 
 	beforeEach(() => {
@@ -30,10 +33,16 @@ describe("LocalWorkerUpdate", () => {
 		records = WorkerRecords.memory();
 		used = new Map();
 		told = new Map();
+		started = [];
+		forgot = [];
 	});
 
-	/** Starts the rollout over the workers joined so far, as a server does as it comes up. */
-	function start(): LocalWorkerUpdate {
+	/**
+	 * Starts the rollout over the workers joined so far, as a server does as
+	 * it comes up; with `handoff`, starting a worker beside the local one
+	 * answers it.
+	 */
+	function start({ handoff }: { handoff?: boolean } = {}): LocalWorkerUpdate {
 		rollout = new LocalWorkerUpdate({
 			registry,
 			records,
@@ -41,6 +50,19 @@ describe("LocalWorkerUpdate", () => {
 			used: () => used,
 			pooled: () => true,
 			poke: () => {},
+			...(handoff === undefined
+				? {}
+				: {
+						start: (id: string) => {
+							started.push(id);
+							return handoff;
+						},
+						forget: async (id: string) => {
+							forgot.push(id);
+							registry.forget(id);
+							await records.drop(id);
+						},
+					}),
 			log,
 		});
 		return rollout;
@@ -150,5 +172,63 @@ describe("LocalWorkerUpdate", () => {
 		).toContain(
 			"worker local restarted on 1.0.0, not 2.0.0: update it by hand",
 		);
+	});
+
+	it("starts a handoff worker on the build as the local worker drains, once", async () => {
+		await join("local", "1.0.0");
+		used.set("local", ["task"]);
+		const rollout = start({ handoff: true });
+		await rollout.look();
+		await rollout.look();
+
+		expect(started).toEqual(["local-2.0.0"]);
+		expect(records.of("local-2.0.0")).toMatchObject({ draining: false });
+		expect(records.of("local")).toMatchObject({
+			draining: true,
+			updating: true,
+		});
+	});
+
+	it("drains the local worker as today when no handoff worker can start", async () => {
+		await join("local", "1.0.0");
+		const rollout = start({ handoff: false });
+		await rollout.look();
+
+		expect(started).toEqual(["local-2.0.0"]);
+		expect(records.of("local-2.0.0")).toBeUndefined();
+		expect(records.of("local")).toMatchObject({ draining: true });
+	});
+
+	it("has the handoff worker take agents until the local worker is back on the build, then stops once its own end", async () => {
+		await join("local", "1.0.0");
+		const rollout = start({ handoff: true });
+		await rollout.look();
+		await join("local-2.0.0", "2.0.0");
+		used.set("local-2.0.0", ["task"]);
+		await rollout.look();
+		expect(records.of("local-2.0.0")).toMatchObject({ draining: false });
+
+		await join("local", "2.0.0");
+		await rollout.look();
+		expect(records.of("local-2.0.0")).toMatchObject({ draining: true });
+		expect(forgot).toEqual([]);
+
+		used.delete("local-2.0.0");
+		await rollout.look();
+		await Bun.sleep(0);
+		expect(forgot).toEqual(["local-2.0.0"]);
+		expect(told.get("local-2.0.0")).toEqual(["2.0.0"]);
+		expect(records.of("local-2.0.0")).toBeUndefined();
+	});
+
+	it("stops a handoff worker no record keeps as it joins", async () => {
+		await join("local", "2.0.0");
+		const rollout = start({ handoff: true });
+		await join("local-1.0.0", "1.0.0");
+		await rollout.look();
+		await Bun.sleep(0);
+
+		expect(forgot).toEqual(["local-1.0.0"]);
+		expect(told.get("local-1.0.0")).toEqual(["2.0.0"]);
 	});
 });

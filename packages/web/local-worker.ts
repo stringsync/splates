@@ -11,7 +11,7 @@ export const LOCAL = "local";
 
 /** This machine's own worker, or null while it is none. */
 export function localWorker(pool: WorkerPool): WorkerListing | null {
-	return pool.workers.find((worker) => worker.kind === "local") ?? null;
+	return pool.workers.find((worker) => worker.id === LOCAL) ?? null;
 }
 
 /** Whether this machine takes new agents as a worker. */
