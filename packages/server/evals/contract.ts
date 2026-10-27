@@ -73,6 +73,7 @@ export async function contractDetail(
 	const detail = await detailOf(dir, result.detail);
 	return {
 		...runOf(contractRunId(id, cell), result),
+		producer: batch.producer ?? null,
 		scenario: planned.case,
 		aspect: planned.group ?? "",
 		requirement: planned.about ?? "",
@@ -182,6 +183,8 @@ export interface ContractBatch {
 	/** As ISO 8601. */
 	startedAt: string;
 	title?: string;
+	/** Who wrote the batch; `splates` for splates's own harness, which the page gives its skill controls. */
+	producer?: string;
 	cells: ContractCell[];
 }
 

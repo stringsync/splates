@@ -27,6 +27,7 @@ describe("evalsDonePrompt", () => {
 	const grid: EvalGrid = {
 		id: "batch-abc",
 		skill: "splates",
+		producer: "splates",
 		startedAt: "2026-10-25T00:00:00.000Z",
 		targets: [claude, codex],
 		tally: { pass: 1, fail: 1 },
@@ -54,6 +55,7 @@ describe("evalsDonePrompt", () => {
 	};
 	const failed: EvalDetail = {
 		...run("batch-abc#run-1", "fail"),
+		producer: "splates",
 		scenario: "resources/install",
 		aspect: "resource-control",
 		requirement: "Ask before installing.",

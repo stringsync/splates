@@ -17,6 +17,11 @@ import { evalRun } from "./api";
 import { still, touchItems } from "./board";
 import { Dispatching } from "./dispatching";
 
+/** Whether a batch is splates's own, whose scenarios test the splates skill; a framework's batch has nothing here to improve. */
+export function ownBatch(producer: string | null): boolean {
+	return producer === "splates";
+}
+
 /** Whether a run's outcome is one worth improving: the agent did not do what the skill asks. */
 export function improvable(status: string): boolean {
 	return status === "fail";

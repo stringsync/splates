@@ -39,7 +39,14 @@ export class EvalStore {
 			return null;
 		}
 		const { targets, grid } = await contractCells(dir, id, saved);
-		return gridOf(id, saved.title ?? null, saved.startedAt, targets, grid);
+		return gridOf(
+			id,
+			saved.title ?? null,
+			saved.producer ?? null,
+			saved.startedAt,
+			targets,
+			grid,
+		);
 	}
 
 	/** The run `id` names, `<batch>#<cell>`, opened whole. */
@@ -73,6 +80,7 @@ export class EvalStore {
 function gridOf(
 	id: string,
 	skill: string | null,
+	producer: string | null,
 	startedAt: string,
 	targets: EvalTarget[],
 	grid: EvalCell[],
@@ -86,6 +94,7 @@ function gridOf(
 	return {
 		id,
 		skill,
+		producer,
 		startedAt,
 		targets,
 		tally,

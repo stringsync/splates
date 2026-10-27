@@ -50,7 +50,10 @@ splates's own.
 
 Only `format`, `startedAt` and each cell's `id`, `case` and
 `target.model` are required. `target` labels are free-form; `variant` names
-anything else the run varied, such as a prompt's revision.
+anything else the run varied, such as a prompt's revision. An optional
+batch `producer` names who wrote it; only `"splates"`, set by splates's own
+harness, shows the page's "Improve this" controls, which ask an agent to
+change the splates skill.
 
 `<results>/<batch>/results.jsonl`, a line appended as each cell finishes;
 a later line for the same cell replaces an earlier one, and a cell with no

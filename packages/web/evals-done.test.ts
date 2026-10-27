@@ -6,6 +6,7 @@ import { evalsDoneLine, evalsDoneOf } from "./evals-done";
 const grid: EvalGrid = {
 	id: "batch-abc",
 	skill: "splates",
+	producer: "splates",
 	startedAt: "2026-10-25T00:00:00.000Z",
 	targets: [],
 	tally: { pass: 2 },

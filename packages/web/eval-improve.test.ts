@@ -5,6 +5,7 @@ import { improvable, improvePrompt } from "./eval-improve";
 describe("improvePrompt", () => {
 	const run: EvalDetail = {
 		id: "batch-a#run-000",
+		producer: "splates",
 		status: "fail",
 		tokens: null,
 		costUsd: null,

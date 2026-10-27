@@ -145,6 +145,7 @@ class FakeEvalServer implements EvalRunServer {
 		return {
 			id: "batch-a",
 			skill: "splates",
+			producer: "splates",
 			startedAt: "",
 			targets: [],
 			tally: { pass: 4 - this.pending, pending: this.pending },

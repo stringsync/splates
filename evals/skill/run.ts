@@ -225,6 +225,7 @@ export async function runBatch(
 		format: CONTRACT_FORMAT,
 		startedAt: new Date().toISOString(),
 		title: opts.skill,
+		producer: "splates",
 		cells: cells.map((cell, index) => ({
 			id: cellId(index),
 			case: cell.scenario.id,

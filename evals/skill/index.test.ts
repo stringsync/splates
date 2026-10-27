@@ -18,6 +18,7 @@ function result(
 ): EvalDetail {
 	return {
 		id: "batch-a#run-000",
+		producer: "splates",
 		status,
 		tokens: null,
 		costUsd: null,

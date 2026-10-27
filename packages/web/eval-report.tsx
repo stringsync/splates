@@ -6,7 +6,7 @@ import { targetName } from "@stringsync/splates-server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ImproveMenu, improvable } from "./eval-improve";
+import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { ORDER, StatusChip, spent } from "./eval-status";
 
 /**
@@ -107,7 +107,7 @@ export function EvalReport({
 										<div className="text-muted-foreground text-xs">
 											{row.requirement}
 										</div>
-										{worst(row.cells) !== null && (
+										{ownBatch(grid.producer) && worst(row.cells) !== null && (
 											<ImproveMenu
 												run={worst(row.cells) ?? ""}
 												className="mt-1"
@@ -161,7 +161,7 @@ export function EvalReport({
 									/>
 								</div>
 							))}
-							{worst(row.cells) !== null && (
+							{ownBatch(grid.producer) && worst(row.cells) !== null && (
 								<ImproveMenu run={worst(row.cells) ?? ""} className="mt-1" />
 							)}
 						</div>

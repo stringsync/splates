@@ -9,7 +9,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
 import { ReadingNow } from "./countdown";
-import { ImproveMenu, improvable } from "./eval-improve";
+import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
 
@@ -92,7 +92,9 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 						Open in its framework
 					</a>
 				)}
-				{improvable(run.status) && <ImproveMenu run={run} className="mt-1" />}
+				{ownBatch(run.producer) && improvable(run.status) && (
+					<ImproveMenu run={run} className="mt-1" />
+				)}
 			</header>
 			{run.error !== undefined && (
 				<p role="alert" className="text-destructive text-sm">

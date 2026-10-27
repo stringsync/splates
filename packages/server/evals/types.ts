@@ -19,6 +19,8 @@ export interface EvalBatch {
 	id: string;
 	/** The skill it ran, or a framework batch's title, when it says. */
 	skill: string | null;
+	/** Who wrote it: `splates` for `splates dev eval run`, else its framework when it says. */
+	producer: string | null;
 	/** When it started, as ISO 8601. */
 	startedAt: string;
 	targets: EvalTarget[];
@@ -87,6 +89,8 @@ export type EvalStep =
 
 /** A run opened: what it asked, each check, the judge's verdict and what the agent did. */
 export interface EvalDetail extends EvalRun {
+	/** Who wrote its batch, as `EvalBatch.producer`. */
+	producer: string | null;
 	scenario: string;
 	aspect: string;
 	requirement: string;
