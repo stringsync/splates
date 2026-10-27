@@ -99,6 +99,7 @@ function ship(change: Partial<Ship>): Ship {
 	return {
 		project: "mdom",
 		command: "wiz dev ship",
+		bump: "patch",
 		status: "running",
 		step: "ship",
 		from: "1.4.2",

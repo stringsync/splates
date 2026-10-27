@@ -84,6 +84,24 @@ describe("ship", () => {
 		expect(printed).toContain("waiting");
 	});
 
+	it("changes a pending project's bump in the cascade under way", async () => {
+		const { ctx, log } = await served();
+		const { calls, fetch } = server({ status: "done" }, true);
+
+		await ship(
+			{ ...ctx, fetch },
+			{ project: "vexml", bump: "major", dev: "http://localhost:4310" },
+		);
+
+		expect(calls).toEqual([
+			"POST http://localhost:4310/api/ship?project=vexml&bump=major",
+			"PATCH http://localhost:4310/api/ship/cascade?project=vexml&bump=major",
+		]);
+		expect(log.entries.map((entry) => String(entry.message))).toContain(
+			"changed vexml to a major release",
+		);
+	});
+
 	it("drops a project from the cascade under way", async () => {
 		const { ctx } = await served();
 		const { calls, fetch } = server({});
@@ -163,7 +181,9 @@ function server(ended: Record<string, unknown>, underWay = false) {
 				"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
 			);
 		}
-		return init?.method === "POST" || init?.method === "DELETE"
+		return init?.method === "POST" ||
+			init?.method === "PATCH" ||
+			init?.method === "DELETE"
 			? Response.json(cascade, { status: underWay ? 200 : 201 })
 			: Response.json({
 					status: "running",

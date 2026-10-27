@@ -12,7 +12,13 @@ import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import type { Bumps, BumpTake } from "./bumps";
 import { type Pin, publishedPins } from "./graph";
-import { type ShipPlan, ShipPlanError, type ShipStep } from "./plan";
+import {
+	nextVersion,
+	type ShipBump,
+	type ShipPlan,
+	ShipPlanError,
+	type ShipStep,
+} from "./plan";
 import type { Ship, Shipping } from "./run";
 
 /** Where the machine's records keep the cascade, under way or the last to end. */
@@ -83,8 +89,8 @@ export interface CascadesOptions {
 	storage: Storage;
 	fs: Fs;
 	log: Logger;
-	/** The plan to ship `slug`; throws a {@link ShipPlanError} for none. */
-	plan: (slug: string) => Promise<ShipPlan>;
+	/** The plan to ship `slug` at `bump`; throws a {@link ShipPlanError} for none. */
+	plan: (slug: string, bump: ShipBump) => Promise<ShipPlan>;
 	/** The project `slug` names, opened and served. */
 	reach: (slug: string) => Promise<CascadeProject>;
 	timer?: Timer;
@@ -96,6 +102,9 @@ const EVERY = Duration.secs(5);
 
 /** The statuses a project ends in, holding up nothing after it. */
 const ENDED: CascadeStatus[] = ["done", "dropped"];
+
+/** The statuses whose publish has not started, so its bump can still change. */
+const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
 
 /**
  * Carries a ship through the projects that depend on it: ships the project
@@ -140,12 +149,12 @@ export class Cascades implements Resource {
 	}
 
 	/**
-	 * The plan to ship `slug`, as {@link start} would draw it now; refused
-	 * as the reason a {@link ShipPlanError} names when there is none.
+	 * The plan to ship `slug` at `bump`, as {@link start} would draw it now;
+	 * refused as the reason a {@link ShipPlanError} names when there is none.
 	 */
-	async plan(slug: string): Promise<ShipPlan> {
+	async plan(slug: string, bump: ShipBump = "patch"): Promise<ShipPlan> {
 		try {
-			return await this.opts.plan(slug);
+			return await this.opts.plan(slug, bump);
 		} catch (error) {
 			if (error instanceof ShipPlanError) {
 				fail(error.reason, error.message, { project: slug });
@@ -155,17 +164,20 @@ export class Cascades implements Resource {
 	}
 
 	/**
-	 * Starts the cascade of `slug`'s ship, from the plan drawn now. While
-	 * another is under way, answers with that one, started false, rather
+	 * Starts the cascade of `slug`'s ship at `bump`, from the plan drawn now.
+	 * While another is under way, answers with that one, started false, rather
 	 * than starting a second.
 	 */
-	start(slug: string): Promise<{ cascade: Cascade; started: boolean }> {
+	start(
+		slug: string,
+		bump: ShipBump = "patch",
+	): Promise<{ cascade: Cascade; started: boolean }> {
 		return this.serially(async () => {
 			const going = await this.record.read();
 			if (going?.status === "running") {
 				return { cascade: going, started: false };
 			}
-			const plan = await this.plan(slug);
+			const plan = await this.plan(slug, bump);
 			const cascade: Cascade = {
 				from: plan.from,
 				status: "running",
@@ -186,6 +198,37 @@ export class Cascades implements Resource {
 			);
 			return { cascade: await this.advance(cascade), started: true };
 		}).finally(() => this.schedule());
+	}
+
+	/** Changes a pending publish to `bump`, preserving its task and place in the run. */
+	revise(slug: string, bump: ShipBump): Promise<Cascade> {
+		return this.serially(async () => {
+			const cascade =
+				(await this.record.read()) ??
+				fail("not_found", "no ship is under way", { project: slug });
+			const step =
+				cascade.steps.find((each) => each.slug === slug) ??
+				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
+					project: slug,
+				});
+			if (step.action !== "ship") {
+				fail("usage", `${slug} only takes its dependency bump`, {
+					project: slug,
+				});
+			}
+			if (cascade.status !== "running" || !REVISABLE.includes(step.status)) {
+				fail(
+					"conflict",
+					`${slug} is ${step.status}: only a publish that has not started can change its bump`,
+					{ project: slug },
+				);
+			}
+			step.bump = bump;
+			step.to = step.from === null ? null : nextVersion(step.from, bump);
+			this.opts.log.info(`changed ${slug} to a ${bump} release`);
+			await this.record.write(cascade);
+			return cascade;
+		});
 	}
 
 	/**
@@ -388,7 +431,7 @@ export class Cascades implements Resource {
 		}
 		const project = await this.opts.reach(step.slug);
 		try {
-			step.ship = (await project.shipping.start()).started;
+			step.ship = (await project.shipping.start(step.bump ?? "patch")).started;
 		} catch (error) {
 			step.status = "failed";
 			step.note = messageOf(error);
@@ -406,6 +449,11 @@ export class Cascades implements Resource {
 			return;
 		}
 		if (ship.status === "done") {
+			if (step.to !== null && ship.to !== step.to) {
+				step.status = "failed";
+				step.note = `its ship published ${ship.to ?? "an unknown version"}, not the approved ${step.to}`;
+				return;
+			}
 			step.status = "done";
 			step.published = await publishedPins(this.opts.fs, project.root);
 			if (ship.to !== null) {

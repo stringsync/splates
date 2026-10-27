@@ -210,7 +210,8 @@ under their own npm sign-in, and splates refuses it, `--plan` included, to an
 agent. Never run `npm login` or `npm publish` either. When you think a
 release is due (a fix on the base that users are waiting on), end your reply
 with a run-command card naming `splates ship <project>`, the why under it
-saying what the release carries; its Ship button starts the ship on
+saying what the release carries; its Ship button opens the plan, where the
+person picks patch, minor or major and approves, which starts the ship on
 `splates server`, so on `[SPLATES RUN ALLOWED]` it is already running: carry
 on without running it. A merge is never a release.
 
@@ -220,7 +221,10 @@ versions. Take it as `[SPLATES TASK #N]` says: move every pin it names in
 each `package.json`, `bun install`, run each command it lists after the
 install (such as `splates refresh`) and commit what it changes, fix what
 breaks, and land it through the merge gate. Publish nothing, even when the project ships too: the cascade
-ships it once your task merges. The cascade waits on your project, and on
+ships it once your task merges, at a patch unless the person changes it.
+When your fixes change your project's own public API, ask the person whether
+its release should be minor or major instead, for them to change in the
+cascade. The cascade waits on your project, and on
 those after it, while the task is open, so when a break is past fixing, ask
 the person rather than remove the task, and say in the question that the
 ship waits on it. A removed bump task, or a failed ship, stops the cascade

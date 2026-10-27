@@ -1,5 +1,8 @@
 import type { ShipGraph, ShipProject, Use } from "./graph";
 
+/** How far a publish moves its project's version. */
+export type ShipBump = "patch" | "minor" | "major";
+
 /** One project's part in a ship. */
 export interface ShipStep {
 	slug: string;
@@ -10,7 +13,9 @@ export interface ShipStep {
 	action: "ship" | "bump";
 	/** The version it is at, null when its root manifest names none. */
 	from: string | null;
-	/** The version a ship takes it to, the next patch; null for a bump. */
+	/** How far a ship moves the version; null for a dependency-only bump. */
+	bump: ShipBump | null;
+	/** The version a ship takes it to; null for a bump or an invalid version. */
 	to: string | null;
 	/** The packages a ship publishes; none for a bump. */
 	publishes: string[];
@@ -39,12 +44,16 @@ export class ShipPlanError extends Error {
 }
 
 /**
- * The plan to ship `slug`: it, then each project pinning a package shipped
- * before it, in dependency order. A dependent ships in turn when it is
- * public, names a `ship` command and has dependents of its own to pass its
- * new version on to; otherwise it only takes its bump.
+ * The plan to ship `slug` at `bump`, then each project pinning a package shipped
+ * before it, in dependency order. A dependent ships at the next patch in turn
+ * when it is public, names a `ship` command and has dependents of its own to
+ * pass its new version on to; otherwise it only takes its bump.
  */
-export function planShip(graph: ShipGraph, slug: string): ShipPlan {
+export function planShip(
+	graph: ShipGraph,
+	slug: string,
+	bump: ShipBump = "patch",
+): ShipPlan {
 	const start = graph.projects.find((each) => each.slug === slug);
 	if (start === undefined) {
 		throw new ShipPlanError(
@@ -64,7 +73,7 @@ export function planShip(graph: ShipGraph, slug: string): ShipPlan {
 	const steps: ShipStep[] = [];
 	for (const project of dependencyOrder(graph)) {
 		if (project.slug === slug) {
-			steps.push(shipStep(project, [], "the project shipped"));
+			steps.push(shipStep(project, [], "the project shipped", bump));
 			continue;
 		}
 		const takes = project.uses.filter((use) => shipping.has(use.project));
@@ -77,6 +86,7 @@ export function planShip(graph: ShipGraph, slug: string): ShipPlan {
 				slug: project.slug,
 				action: "bump",
 				from: project.version,
+				bump: null,
 				to: null,
 				publishes: [],
 				takes,
@@ -105,26 +115,43 @@ function bumpOnly(project: ShipProject): string | null {
 	return null;
 }
 
-function shipStep(project: ShipProject, takes: Use[], why: string): ShipStep {
+function shipStep(
+	project: ShipProject,
+	takes: Use[],
+	why: string,
+	bump: ShipBump = "patch",
+): ShipStep {
 	return {
 		slug: project.slug,
 		action: "ship",
 		from: project.version,
-		to: project.version === null ? null : nextPatch(project.version),
+		bump,
+		to: project.version === null ? null : nextVersion(project.version, bump),
 		publishes: project.packages,
 		takes,
 		why,
 	};
 }
 
-/** `version` a patch on, as a release bumps it; null when it is not `x.y.z`. */
-export function nextPatch(version: string): string | null {
+/** `version` moved by `bump`; null when it is not `x.y.z`. */
+export function nextVersion(version: string, bump: ShipBump): string | null {
 	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
 	if (match === null) {
 		return null;
 	}
-	const [, major, minor, patch] = match;
-	return `${major}.${minor}.${Number(patch) + 1}`;
+	const [major = 0, minor = 0, patch = 0] = match.slice(1).map(Number);
+	if (bump === "major") {
+		return `${major + 1}.0.0`;
+	}
+	if (bump === "minor") {
+		return `${major}.${minor + 1}.0`;
+	}
+	return `${major}.${minor}.${patch + 1}`;
+}
+
+/** `version` a patch on, as a release bumps it; null when it is not `x.y.z`. */
+export function nextPatch(version: string): string | null {
+	return nextVersion(version, "patch");
 }
 
 /**

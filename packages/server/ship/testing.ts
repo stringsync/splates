@@ -2,6 +2,7 @@ import { FakeFs, type FakePs } from "webappwiz/system/testing";
 import type { BumpState, BumpTake } from "./bumps";
 import type { CascadeProject } from "./cascade";
 import type { ShipSource } from "./graph";
+import type { ShipBump } from "./plan";
 import type { Ship } from "./run";
 
 /** A `package.json` a fixture writes. */
@@ -103,6 +104,7 @@ export class FakeProject implements CascadeProject {
 	ship: Ship | null = null;
 	afterBump: string | null = null;
 	starts = 0;
+	releaseBumps: ShipBump[] = [];
 	refuse: string | null = null;
 	bumps = {
 		added: [] as { from: string; origin: string; takes: BumpTake[] }[],
@@ -119,14 +121,16 @@ export class FakeProject implements CascadeProject {
 		state: async (id: number) => this.bumps.states.get(id) ?? "removed",
 	};
 	shipping = {
-		start: async (): Promise<Ship> => {
+		start: async (bump: ShipBump = "patch"): Promise<Ship> => {
 			if (this.refuse !== null) {
 				throw new Error(this.refuse);
 			}
 			this.starts++;
+			this.releaseBumps.push(bump);
 			this.ship = {
 				project: this.root.slice(1),
 				command: "wiz dev ship",
+				bump,
 				status: "running",
 				step: "login",
 				from: null,

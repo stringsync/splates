@@ -4,6 +4,7 @@ import type { Child, Fs, Ps } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
+import type { ShipBump } from "./plan";
 
 /** Where a project's records keep its latest ship. */
 export function shipRecord(storage: Storage): Document<Ship> {
@@ -34,6 +35,8 @@ export interface Ship {
 	project: string;
 	/** The `ship` command from its `splates.config.ts`. */
 	command: string;
+	/** The approved release type, passed to the command and kept across restarts. */
+	bump: ShipBump;
 	status: ShipStatus;
 	/** Signing in to npm first, or running the ship command. */
 	step: "login" | "ship";
@@ -135,8 +138,8 @@ export class Shipping implements Resource {
 		await this.stdin.write(new TextEncoder().encode(`${code}\n`));
 	}
 
-	/** Starts a ship, refused while one runs or when the project names no `ship`. */
-	async start(): Promise<Ship> {
+	/** Starts a ship at `bump`, refused while one runs or when the project names no `ship`. */
+	async start(bump: ShipBump = "patch"): Promise<Ship> {
 		const command =
 			this.opts.command ??
 			fail(
@@ -152,6 +155,7 @@ export class Shipping implements Resource {
 		const ship: Ship = {
 			project: await this.opts.slug(),
 			command,
+			bump,
 			status: "running",
 			step: "login",
 			from: await this.version(),
@@ -165,7 +169,7 @@ export class Shipping implements Resource {
 		await this.opts.fs.mkdir(this.opts.dir, { recursive: true });
 		await this.opts.fs.write(this.output, "");
 		await this.record.write(ship);
-		this.run(command);
+		this.run(command, bump);
 		return ship;
 	}
 
@@ -193,7 +197,7 @@ export class Shipping implements Resource {
 			)
 			.catch(() => {});
 		this.opts.log.info(`resuming the ship of ${left.project}`);
-		this.run(command);
+		this.run(command, left.bump ?? "patch");
 	}
 
 	/** Waits for the ship under way, if any, to end. */
@@ -206,8 +210,8 @@ export class Shipping implements Resource {
 		this.child?.kill();
 	}
 
-	private run(command: string): void {
-		this.going = this.steps(command)
+	private run(command: string, bump: ShipBump): void {
+		this.going = this.steps(command, bump)
 			.catch(async (error: unknown) => {
 				await this.end("failed", String(error));
 			})
@@ -217,7 +221,7 @@ export class Shipping implements Resource {
 			});
 	}
 
-	private async steps(command: string): Promise<void> {
+	private async steps(command: string, bump: ShipBump): Promise<void> {
 		const { ps, root } = this.opts;
 		if ((await ps.spawnCapture(["npm", "whoami"], { cwd: root })).exitCode) {
 			const code = await this.watch(
@@ -231,7 +235,10 @@ export class Shipping implements Resource {
 		}
 		await this.update({ step: "ship", waiting: null });
 		const code = await this.watch(
-			ps.start(["sh", "-c", command], { cwd: root }),
+			ps.start(["sh", "-c", command], {
+				cwd: root,
+				env: { SPLATES_SHIP_BUMP: bump },
+			}),
 			"ship",
 		);
 		await this.end(

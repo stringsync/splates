@@ -15,27 +15,32 @@ import { cn } from "#web/lib/utils.ts";
 import { askMachineNow } from "./machine";
 import { Refusal } from "./refusal";
 import type { ShipApproval } from "./ship-approval";
+import { ShipBumpSelector } from "./ship-bump-selector";
 
 /**
- * The plan to ship the project `approval` names, drawn by the server as it opens: each project
- * in dependency order, the version it goes to, what it publishes, which
- * packages of those before it it takes, and why it ships or only takes its
- * bump. Approve starts the whole cascade on the server, the person's alone,
- * and the bars' ship badge follows it from there; npm still asks the person
- * at each publish.
+ * The plan to ship the project `approval` names at its selected bump, drawn by
+ * the server as it opens: each project in dependency order, the version it goes
+ * to, what it publishes, which packages of those before it it takes, and why it
+ * ships or only takes its bump. Approve starts the whole cascade on the server,
+ * the person's alone, and the bars' ship badge follows it from there; npm still
+ * asks the person at each publish.
  */
 export function ShipDialog({
 	approval,
 	onClose,
+	onApproved,
 }: {
 	approval: ShipApproval;
 	onClose: () => void;
+	/** Called after the ship starts, such as to tell the agent that asked for it. */
+	onApproved?: () => void;
 }): JSX.Element {
 	const project = approval.project;
-	const { plan, refusal, starting } = useReactive(
+	const { plan, bump, refusal, starting } = useReactive(
 		approval,
 		(each) => ({
 			plan: each.plan,
+			bump: each.bump,
 			refusal: each.refusal,
 			starting: each.starting,
 		}),
@@ -46,6 +51,7 @@ export function ShipDialog({
 	}, [approval]);
 	const approve = async () => {
 		if (await approval.approve()) {
+			onApproved?.();
 			askMachineNow();
 			onClose();
 		}
@@ -60,6 +66,15 @@ export function ShipDialog({
 						that depends on it, in this order. npm asks you at each publish.
 					</DialogDescription>
 				</DialogHeader>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<span className="text-sm font-medium">Release type</span>
+					<ShipBumpSelector
+						label="Release type"
+						value={bump}
+						onChange={(chosen) => void approval.choose(chosen)}
+						disabled={starting}
+					/>
+				</div>
 				{plan === null && refusal === null && (
 					<p className="flex items-center gap-2 text-muted-foreground">
 						<LoaderCircleIcon className="size-4 animate-spin" />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { readGraph } from "./graph";
-import { nextPatch, planShip, ShipPlanError } from "./plan";
+import { nextPatch, nextVersion, planShip, ShipPlanError } from "./plan";
 import { servedProjects } from "./testing";
 
 describe("planShip", () => {
@@ -85,8 +85,20 @@ describe("planShip", () => {
 		expect(reason("nowhere")).toBe("not_found");
 	});
 
-	it("bumps the patch of a plain version, and gives up on any other", () => {
+	it("plans the starting project's chosen bump and patch releases downstream", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = await readGraph(fs, sources);
+
+		const plan = planShip(graph, "webappwiz", "major");
+
+		expect(plan.steps[0]).toMatchObject({ bump: "major", to: "1.0.0" });
+		expect(plan.steps[1]).toMatchObject({ bump: "patch", to: "0.0.58" });
+	});
+
+	it("moves plain versions by each release type, and gives up on any other", () => {
 		expect(nextPatch("0.0.9")).toBe("0.0.10");
+		expect(nextVersion("1.2.3", "minor")).toBe("1.3.0");
+		expect(nextVersion("1.2.3", "major")).toBe("2.0.0");
 		expect(nextPatch("1.0.0-rc.1")).toBeNull();
 	});
 });

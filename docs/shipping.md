@@ -15,7 +15,10 @@ ship: "./bin/splates dev ship",
 
 It is a shell command, run from the project's main tree as `preMerge` is. It
 publishes the project's public packages at their next version and leaves the
-release committed and tagged on the base branch. A webappwiz project's is
+release committed and tagged on the base branch. splates sets
+`SPLATES_SHIP_BUMP` to `patch`, `minor` or `major`, the release type you
+approved, and the command releases at that type; after it, splates checks that
+the version published is the one the plan named. A webappwiz project's is
 `wiz dev ship`. Leave it out, or set it to null, for a project never shipped
 from splates.
 
@@ -48,18 +51,21 @@ running nothing: it first, then each dependent in dependency order, with the
 version each goes to, what it publishes and what it takes. A dependent that is
 public, names a `ship` command and has dependents of its own ships at its next
 patch, so they get its new version; any other only takes its bump.
+`--bump minor` or `--bump major` moves the project you ship further than a
+patch.
 
 ## Shipping
 
 On the page, a project's menu in the project switcher has **Ship
 <project>…**, which opens the plan, as `--plan` prints it: each project in
 order, the version it goes to, what it publishes, what it takes and why it
-ships or only takes its bump. **Approve** starts the whole cascade on the
-server. Nothing runs before you approve, and npm still asks you at each
+ships or only takes its bump. Its **Release type** picks Patch, Minor or
+Major for the project you ship, redrawing the plan at that version.
+**Approve** starts the whole cascade on the server at the type you chose. Nothing runs before you approve, and npm still asks you at each
 publish.
 
-From a terminal of yours, `splates ship [<project>]` asks `splates server` to
-ship the project (the one you stand in, by default) and prints its output to
+From a terminal of yours, `splates ship [<project>] [--bump <type>]` asks
+`splates server` to ship the project (the one you stand in, by default) and prints its output to
 the end. Give the server's URL with `--dev` when it is not this machine's.
 
 The server runs the ship on its own machine, under your npm sign-in:
@@ -98,6 +104,13 @@ Or take the project out of the run with Drop, or
 `splates ship --drop <project>`, and those after
 it go on without its new version.
 
+A dependent ships at a patch unless you change it. Until its publish starts,
+its row in the badge's popover offers Patch, Minor and Major, as does
+`splates ship <project> --bump <type>` while the cascade runs, and the
+change is kept with the cascade. Its bump task carries on as it was. When an
+agent's fixes in a bump task change that project's own public API, it asks
+you which type to release, and the cascade waits on your answer.
+
 One cascade runs on the machine at a time, kept in the machine's records
 (`ship-cascade.json`), so a restarted server carries on from where it stopped.
 `splates ship` while one is under way prints where each project stands
@@ -125,9 +138,11 @@ release is due, it ends its reply with a run-command card:
 The log rotation fix is on main and unreleased.
 ```
 
-The page shows it as a ship card, whose Ship button starts the ship on the
-server as `splates ship` would. The agent hears `[SPLATES RUN ALLOWED]` and
-carries on without running anything.
+The page shows it as a ship card, whose Ship button opens the same plan as
+the project menu's **Ship <project>…**, release type and all. Approve starts
+the ship on the server as `splates ship` would, and only then does the agent
+hear `[SPLATES RUN ALLOWED]`, carrying on without running anything. Closing
+the plan leaves the card unanswered.
 
 The cascade's bump tasks move a project's pins to the new versions, run
 `bun install` and fix what breaks. These are ordinary tasks: an agent takes one as any queued task and lands it

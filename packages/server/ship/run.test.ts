@@ -17,23 +17,28 @@ describe("Shipping", () => {
 		({ shipping, ps, fs, storage } = await project());
 	});
 
-	it("runs the ship command in the root once npm says who is signed in", async () => {
-		const started = await shipping.start();
+	it("runs the ship command in the root with its approved bump", async () => {
+		const started = await shipping.start("minor");
 		const child = await nth(ps, 0);
-		child.print("published 0.0.58\n");
+		child.print("published 0.1.0\n");
 		child.exit(0);
 		await shipping.settled();
 
-		expect(started).toMatchObject({ project: "demo", status: "running" });
+		expect(started).toMatchObject({
+			project: "demo",
+			status: "running",
+			bump: "minor",
+		});
 		expect(ps.getCalls()).toEqual(["npm whoami", "sh -c wiz dev ship"]);
 		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
+		expect(ps.getCallEnvs()).toEqual([{}, { SPLATES_SHIP_BUMP: "minor" }]);
 		expect(await shipping.current()).toMatchObject({
 			status: "done",
 			step: "ship",
 			from: "0.0.57",
 			ended: "2026-10-27T12:00:00.000Z",
 		});
-		expect(await fs.read(shipping.output)).toBe("published 0.0.58\n");
+		expect(await fs.read(shipping.output)).toBe("published 0.1.0\n");
 	});
 
 	it("signs in through npm's web page first, showing its link until npm moves on", async () => {
@@ -130,8 +135,8 @@ describe("Shipping", () => {
 		expect((refused as Exit).reason).toBe("not_found");
 	});
 
-	it("runs again a ship a stopped server left running, to finish it", async () => {
-		await shipping.start();
+	it("runs again a stopped server's ship at the bump it recorded", async () => {
+		await shipping.start("major");
 		await nth(ps, 0);
 		shipping.dispose();
 		await shipping.settled();
@@ -142,8 +147,10 @@ describe("Shipping", () => {
 		(await nth(after, 0)).exit(0);
 		await restarted.settled();
 
+		expect(after.getCallEnvs()[1]).toEqual({ SPLATES_SHIP_BUMP: "major" });
 		expect(await restarted.current()).toMatchObject({
 			status: "done",
+			bump: "major",
 			resumed: 1,
 		});
 	});

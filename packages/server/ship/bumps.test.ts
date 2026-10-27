@@ -44,6 +44,9 @@ describe("Bumps", () => {
 		});
 		expect(await bumps.state(id)).toBe("open");
 		expect(task.text).not.toContain("run each of these");
+		expect(task.text).toContain(
+			"ask the person to choose and change it in the cascade",
+		);
 	});
 
 	it("lists the command each shipped project asks for after the install", async () => {

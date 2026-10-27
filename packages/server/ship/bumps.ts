@@ -89,6 +89,7 @@ function bumpText(from: string, takes: BumpTake[]): string {
 		...afterBumpSteps(takes),
 		"",
 		"Publish nothing: when this project ships too, the cascade ships it once this task merges. When a break is past fixing, ask the person: the cascade waits on this project until it merges or the person drops the project from the run.",
+		"If the fixes change this project's own public API so its pending release should be minor or major rather than patch, ask the person to choose and change it in the cascade; the task and cascade wait while you ask.",
 	].join("\n");
 }
 

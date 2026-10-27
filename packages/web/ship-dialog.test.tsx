@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ShipPlan, ShipStep } from "@stringsync/splates-server/ship";
+import type {
+	ShipBump,
+	ShipPlan,
+	ShipStep,
+} from "@stringsync/splates-server/ship";
 import { ApiError } from "./api";
 import { ShipApproval } from "./ship-approval";
 import { ShipDialog } from "./ship-dialog";
@@ -15,7 +19,7 @@ import {
 afterEach(cleanup);
 
 describe("ShipDialog", () => {
-	let started: string[];
+	let started: { project: string; bump: ShipBump }[];
 	let closed: boolean;
 
 	beforeEach(() => {
@@ -23,14 +27,14 @@ describe("ShipDialog", () => {
 		closed = false;
 	});
 
-	const open = (plan: () => Promise<ShipPlan>) =>
+	const open = (plan: (project: string, bump: ShipBump) => Promise<ShipPlan>) =>
 		render(
 			<ShipDialog
 				approval={
 					new ShipApproval("webappwiz", {
 						shipPlan: plan,
-						startShip: async (project) => {
-							started.push(project);
+						startShip: async (project, bump) => {
+							started.push({ project, bump });
 						},
 					})
 				}
@@ -58,7 +62,35 @@ describe("ShipDialog", () => {
 		);
 
 		await waitFor(() => expect(closed).toBe(true));
-		expect(started).toEqual(["webappwiz"]);
+		expect(started).toEqual([{ project: "webappwiz", bump: "patch" }]);
+	});
+
+	it("redraws at the selected release type and approves that bump", async () => {
+		const view = open(async (_, bump) => ({
+			...PLAN,
+			steps: PLAN.steps.map((step, index) =>
+				index === 0
+					? { ...step, bump, to: bump === "major" ? "2.0.0" : "1.4.3" }
+					: step,
+			),
+		}));
+		await waitFor(() => view.getByRole("list", { name: "Ship plan" }));
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Major" })),
+		);
+		await waitFor(() => {
+			const rows = within(
+				view.getByRole("list", { name: "Ship plan" }),
+			).getAllByRole("listitem");
+			expect(rows[0]?.textContent).toContain("1.4.2 → 2.0.0");
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+
+		await waitFor(() => expect(closed).toBe(true));
+		expect(started).toEqual([{ project: "webappwiz", bump: "major" }]);
 	});
 
 	it("says why there is no plan, and offers no Approve", async () => {
@@ -114,6 +146,7 @@ function step(over: Partial<ShipStep>): ShipStep {
 		slug: "webappwiz",
 		action: "ship",
 		from: "1.4.2",
+		bump: "patch",
 		to: "1.4.3",
 		publishes: [],
 		takes: [],

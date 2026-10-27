@@ -71,6 +71,7 @@ export {
 export {
 	dropFromCascade,
 	retryInCascade,
+	reviseCascadeBump,
 	shipPlan,
 	startShip,
 } from "./ship";

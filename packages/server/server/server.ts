@@ -458,8 +458,8 @@ export async function dev(
 		storage: machineStorage,
 		fs,
 		log,
-		plan: async (slug) =>
-			planShip(await registeredGraph({ projects, fs, log }), slug),
+		plan: async (slug, bump) =>
+			planShip(await registeredGraph({ projects, fs, log }), slug, bump),
 		reach: projectNamed,
 	});
 	disposer.defer(async () => cascades.dispose());
@@ -753,6 +753,7 @@ export async function dev(
 					"/api/ship/plan": guarded(cascadeRoutes.plan),
 					"/api/ship/cascade": {
 						GET: guarded(cascadeRoutes.cascade),
+						PATCH: talk(guarded(cascadeRoutes.reviseCascadeBump)),
 						DELETE: talk(guarded(cascadeRoutes.dropFromCascade)),
 					},
 					"/api/ship/cascade/retry": {

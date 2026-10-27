@@ -60,7 +60,8 @@ describe("Cascades", () => {
 			storage,
 			fs,
 			log: new MemoryLogger(),
-			plan: async (slug) => planShip(await readGraph(fs, served.sources), slug),
+			plan: async (slug, bump) =>
+				planShip(await readGraph(fs, served.sources), slug, bump),
 			reach: async (slug) => {
 				const found = projects.get(slug);
 				if (found === undefined) {
@@ -292,6 +293,40 @@ describe("Cascades", () => {
 		const refused = await cascades.retry("splates").catch((error) => error);
 		expect((refused as Exit).reason).toBe("conflict");
 		expect(project("splates").bumps.added).toHaveLength(0);
+	});
+
+	it("keeps the starting bump and revises a pending descendant before it ships", async () => {
+		await cascades.start("webappwiz", "major");
+		expect(project("webappwiz").releaseBumps).toEqual(["major"]);
+		expect((await cascades.current())?.steps[0]).toMatchObject({
+			bump: "major",
+			to: "1.0.0",
+		});
+		await shipped("webappwiz", "1.0.0");
+
+		const revised = await cascades.revise("mdom", "minor");
+		expect(revised.steps.find((step) => step.slug === "mdom")).toMatchObject({
+			status: "bumping",
+			bump: "minor",
+			to: "1.5.0",
+		});
+		await merge("mdom");
+
+		expect(project("mdom").releaseBumps).toEqual(["minor"]);
+		await expect(cascades.revise("mdom", "major")).rejects.toMatchObject({
+			reason: "conflict",
+		});
+	});
+
+	it("stops the cascade when a ship's actual version is not the approved one", async () => {
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.1.0");
+
+		expect((await cascades.current())?.steps[0]).toMatchObject({
+			status: "failed",
+			note: "its ship published 0.1.0, not the approved 0.0.51",
+		});
+		expect(await statuses()).toMatchObject({ mdom: "waiting" });
 	});
 
 	it("answers with the cascade under way rather than starting another", async () => {

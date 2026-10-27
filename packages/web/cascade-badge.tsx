@@ -3,6 +3,7 @@ import type {
 	CascadeStatus,
 	CascadeStep,
 	Ship,
+	ShipBump,
 } from "@stringsync/splates-server/ship";
 import {
 	CircleAlertIcon,
@@ -19,13 +20,19 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
-import { dropFromCascade, type MachineStatus, retryInCascade } from "./api";
+import {
+	dropFromCascade,
+	type MachineStatus,
+	retryInCascade,
+	reviseCascadeBump,
+} from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { todoAddress } from "./page-address";
 import { Refusal, useRefusals } from "./refusal";
 import { ShipOutput, ShipWaiting, useShipOpen } from "./ship-badge";
+import { ShipBumpSelector } from "./ship-bump-selector";
 import { versionOf } from "./ship-dialog";
 import { STATUS_PILL } from "./status-pill";
 
@@ -43,6 +50,9 @@ const DROPPABLE: CascadeStatus[] = [
 
 /** The statuses a step can be run again in, as the server allows. */
 const RETRIABLE: CascadeStatus[] = ["stopped", "failed"];
+
+/** The statuses whose publish has not started, so its release type can change. */
+const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
 
 /**
  * A drop or retry the person asked for and the server has yet to show: the
@@ -104,6 +114,11 @@ export function CascadeBadge({
 			},
 		);
 	};
+	const revise = (step: CascadeStep, bump: ShipBump) => {
+		reviseCascadeBump(step.slug, bump).then(askMachineNow, (error: unknown) =>
+			refuse(step.slug, `${step.slug} not changed to ${bump}`, error),
+		);
+	};
 	const { label, icon, tone } = pillOf(cascade, ship);
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -142,6 +157,13 @@ export function CascadeBadge({
 										? () => change(step, "drop")
 										: null
 								}
+								onRevise={
+									running &&
+									step.action === "ship" &&
+									REVISABLE.includes(step.status)
+										? (bump) => revise(step, bump)
+										: null
+								}
 								refusal={refusals.get(step.slug) ?? null}
 							/>
 						);
@@ -162,6 +184,7 @@ function StepRow({
 	status,
 	onRetry,
 	onDrop,
+	onRevise,
 	refusal,
 }: {
 	step: CascadeStep;
@@ -171,6 +194,8 @@ function StepRow({
 	onRetry: (() => void) | null;
 	/** Drops it from the run, or null where it cannot be. */
 	onDrop: (() => void) | null;
+	/** Changes its release type before publishing, or null once that is fixed. */
+	onRevise: ((bump: ShipBump) => void) | null;
 	refusal: string | null;
 }): JSX.Element {
 	return (
@@ -221,6 +246,14 @@ function StepRow({
 					</Button>
 				)}
 			</p>
+			{onRevise !== null && (
+				<ShipBumpSelector
+					label={`${step.slug} release type`}
+					value={step.bump ?? "patch"}
+					onChange={onRevise}
+					className="mt-1 ml-3.5"
+				/>
+			)}
 			{step.note !== null && status === step.status && (
 				<p className="pl-3.5 text-muted-foreground text-xs">{step.note}</p>
 			)}

@@ -252,6 +252,7 @@ const WANTS = {
 const shipping = (waiting: Ship["waiting"]): Ship => ({
 	project: "splates",
 	command: "bun run ship",
+	bump: "patch",
 	status: "running",
 	step: waiting?.kind === "login" ? "login" : "ship",
 	from: "0.0.58",

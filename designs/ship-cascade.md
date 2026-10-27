@@ -57,11 +57,27 @@ credentials.
   stopped: webappwiz's release leaves a RELEASE file for its own packages, and
   splates keeps the cascade's state in its records.
 
-## Not settled
+## Settled (2026-10-27): release types
 
-- Whether to offer a minor or major bump from the plan; webappwiz's release
-  bumps a patch unless a RELEASE file says otherwise, and the first version
-  of this does the same.
+- **The person picks patch, minor or major.** The plan offers all three for
+  the project shipped, patch by default, and redraws at the one picked;
+  `splates ship --bump <type>` does the same from a terminal. Every
+  dependent that ships defaults to patch, and the person can change any whose
+  publish has not started, from the cascade badge or `splates ship <project>
+  --bump <type>`, without restarting its bump task. Each choice is kept with
+  the cascade.
+- **A bump agent asks when its repairs change the API.** When fixing a
+  dependent changes that project's own public API, the agent asks the person
+  which type to release, and the cascade waits on the answer.
+- **The ship command is told the type.** splates runs each `ship` command
+  with `SPLATES_SHIP_BUMP=patch|minor|major`; splates's own `dev ship` and
+  webappwiz's `wiz dev ship` release at it, and splates checks the version
+  published is the one planned.
+- **An agent's ship card opens the same plan.** Its Ship button opens the
+  dialog the project menu does; Approve starts the ship and then tells the
+  agent `[SPLATES RUN ALLOWED]`, and closing it leaves the card unanswered.
+
+## Not settled
 - Whether a project outside the registered set, such as one on another
   machine, should hear of a release; this covers only the projects
   `splates server` serves.

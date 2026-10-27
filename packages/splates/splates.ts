@@ -587,7 +587,7 @@ splates
 	.command("ship")
 	.use(repository({ needs: "read" }))
 	.description(
-		"ship a project and its cascade: `splates server` runs its `ship` command from splates.config.ts on its machine, under your own npm sign-in, signing in with `npm login --auth-type=web` first when npm knows no one, and shows npm's sign-in and 2FA links on the page for any device; this prints that ship's output until it ends. The server then carries the release through every registered project that depends on it, in dependency order: a bump task queued in each once all it takes from are shipped, and, once that merges, each public one with a `ship` command and dependents of its own ships in turn. A bump that asks you, or is removed, stops the cascade at that project until it merges or you retry or drop it, as does a failed ship. While a cascade is under way, this prints where it stands instead of starting another. `--plan` prints the cascade and runs nothing. The person's alone to start, refused an agent, which asks with a run-command card",
+		"ship a project and its cascade: `splates server` runs its `ship` command from splates.config.ts on its machine, under your own npm sign-in, signing in with `npm login --auth-type=web` first when npm knows no one, and shows npm's sign-in and 2FA links on the page for any device; this prints that ship's output until it ends. The server then carries the release through every registered project that depends on it, in dependency order: a bump task queued in each once all it takes from are shipped, and, once that merges, each public one with a `ship` command and dependents of its own ships in turn. A bump that asks you, or is removed, stops the cascade at that project until it merges or you retry or drop it, as does a failed ship. While a cascade is under way, this prints where it stands instead of starting another, or changes one of its pending publishes with `--bump`. `--plan` prints the cascade and runs nothing. The person's alone to start, refused an agent, which asks with a run-command card",
 	)
 	.arg("project", z.string(), {
 		default: "",
@@ -602,6 +602,10 @@ splates
 		default: "",
 		description:
 			"the `splates server` to run the ship on, a URL such as http://localhost:4310; by default the one from SPLATES_DEV, else this machine's on its default port",
+	})
+	.option("bump", z.optional(z.enum(["patch", "minor", "major"])), {
+		description:
+			"how far to move the starting project's version, patch by default; while its cascade runs, change this pending publish instead",
 	})
 	.option("drop", z.string(), {
 		default: "",
@@ -619,6 +623,7 @@ splates
 			plan: opts.plan,
 			json: opts.json,
 			dev: opts.dev,
+			bump: opts.bump,
 			drop: opts.drop || undefined,
 			retry: opts.retry || undefined,
 		}),

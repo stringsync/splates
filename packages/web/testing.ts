@@ -150,6 +150,22 @@ export class Testing implements Resource {
 	served: Snapshot = snapshot();
 	/** What the page reads of another project's, by the slug `?project=` names. */
 	servedOf: Record<string, Snapshot> = {};
+	/** What `/api/ship/plan` draws for a ship approval. */
+	shipPlan = {
+		from: "webappwiz",
+		steps: [
+			{
+				slug: "webappwiz",
+				action: "ship",
+				from: "0.0.50",
+				bump: "patch",
+				to: "0.0.51",
+				publishes: ["webappwiz"],
+				takes: [],
+				why: "the project shipped",
+			},
+		],
+	};
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
 	/** What `/api/paths` waits on, for a test to hold them back. */
@@ -363,6 +379,9 @@ export class Testing implements Resource {
 				return this.workers === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
+			}
+			if (route === "/api/ship/plan") {
+				return Response.json(this.shipPlan);
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

@@ -40,6 +40,33 @@ describe("CascadeBadge", () => {
 		).toBe("?project=mdom#todos/12");
 	});
 
+	it("changes a pending project's release type without restarting its task", async () => {
+		const view = await opened({
+			cascade: cascade([
+				cascadeStep({ slug: "webappwiz", status: "done" }),
+				cascadeStep({ slug: "mdom", status: "bumping", task: 12 }),
+			]),
+			ship: null,
+		});
+		const mdom = view.getByRole("listitem", { name: "mdom" });
+		const fetch = globalThis.fetch;
+		const asked: string[] = [];
+		globalThis.fetch = (async (input: string, init?: RequestInit) => {
+			asked.push(`${init?.method ?? "GET"} ${input}`);
+			return Response.json(null);
+		}) as typeof globalThis.fetch;
+		try {
+			await act(async () =>
+				fireEvent.click(within(mdom).getByRole("button", { name: "Major" })),
+			);
+		} finally {
+			globalThis.fetch = fetch;
+		}
+
+		expect(asked).toContain("PATCH /api/ship/cascade?project=mdom&bump=major");
+		expect(within(mdom).getByRole("link", { name: "#12" })).toBeTruthy();
+	});
+
 	it("goes amber while npm waits on the person, opening npm's page", async () => {
 		const view = await opened({
 			cascade: cascade([
@@ -167,6 +194,7 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 		slug: "webappwiz",
 		action: "ship",
 		from: "1.4.2",
+		bump: "patch",
 		to: "1.4.3",
 		publishes: [],
 		takes: [],
@@ -198,6 +226,7 @@ function ship(over: Partial<Ship>): Ship {
 	return {
 		project: "webappwiz",
 		command: "wiz dev ship",
+		bump: "patch",
 		status: "running",
 		step: "ship",
 		from: "0.0.50",

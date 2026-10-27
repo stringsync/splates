@@ -8,7 +8,7 @@ import { DEFAULT_PORT } from "../server/shared";
 import { table } from "../table";
 import type { Cascade } from "./cascade";
 import { readGraph, type ShipGraph } from "./graph";
-import { planShip, ShipPlanError, type ShipStep } from "./plan";
+import { planShip, type ShipBump, ShipPlanError, type ShipStep } from "./plan";
 import type { Ship } from "./run";
 
 /** What `shipPlan` works with. */
@@ -41,6 +41,7 @@ export async function ship(
 		plan = false,
 		json = false,
 		dev = "",
+		bump,
 		drop,
 		retry,
 	}: {
@@ -48,6 +49,7 @@ export async function ship(
 		plan?: boolean;
 		json?: boolean;
 		dev?: string;
+		bump?: ShipBump;
 		drop?: string;
 		retry?: string;
 	},
@@ -57,17 +59,21 @@ export async function ship(
 	if (asking !== undefined) {
 		fail(
 			"not_granted",
-			`a ship is the person's to start: ask for one with a \`## 🔐 Permission: run command: <why>\` card naming \`splates ship${project === undefined ? "" : ` ${project}`}\`, whose Ship starts it on splates server, and end your turn; on [SPLATES RUN ALLOWED] it is already running, so do not run it`,
+			`a ship is the person's to start: ask for one with a \`## 🔐 Permission: run command: <why>\` card naming \`splates ship${project === undefined ? "" : ` ${project}`}\`, whose Ship opens its plan on splates server, and end your turn; on [SPLATES RUN ALLOWED] it is already running, so do not run it`,
 			{ caller: asking },
 		);
 	}
 	if (drop !== undefined && retry !== undefined) {
 		fail("usage", "--drop and --retry each name a project: give one");
 	}
+	if (bump !== undefined && (drop !== undefined || retry !== undefined)) {
+		fail("usage", "--bump cannot be combined with --drop or --retry");
+	}
 	if (!plan) {
 		await shipOnServer(ctx, {
 			slug: drop ?? retry ?? project ?? (await thisProject(ctx)),
 			dev,
+			bump,
 			change:
 				drop !== undefined ? "drop" : retry !== undefined ? "retry" : null,
 		});
@@ -82,7 +88,7 @@ export async function ship(
 		});
 	let steps: ShipStep[];
 	try {
-		steps = planShip(graph, slug).steps;
+		steps = planShip(graph, slug, bump).steps;
 	} catch (error) {
 		if (error instanceof ShipPlanError) {
 			fail(error.reason, error.message, { project: slug });
@@ -136,20 +142,34 @@ async function shipOnServer(
 	{
 		slug,
 		dev,
+		bump,
 		change,
-	}: { slug: string; dev: string; change: "drop" | "retry" | null },
+	}: {
+		slug: string;
+		dev: string;
+		bump?: ShipBump;
+		change: "drop" | "retry" | null;
+	},
 ): Promise<void> {
 	const url =
 		dev || ctx.ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
 	const send = ctx.fetch ?? fetch;
-	const ask = async (method: string, path: string): Promise<Response> => {
+	const ask = async (
+		method: string,
+		path: string,
+		bump?: ShipBump,
+	): Promise<Response> => {
 		let response: Response;
 		try {
+			const query = new URLSearchParams({
+				project: slug,
+				...(bump === undefined ? {} : { bump }),
+			});
 			// The server refuses a request from any other origin than its own.
-			response = await send(
-				new URL(`${path}?project=${encodeURIComponent(slug)}`, url).toString(),
-				{ method, headers: { origin: url } },
-			);
+			response = await send(new URL(`${path}?${query}`, url).toString(), {
+				method,
+				headers: { origin: url },
+			});
 		} catch (error) {
 			fail(
 				"not_found",
@@ -183,12 +203,19 @@ async function shipOnServer(
 		ctx.log.info(cascadeTable(again));
 		return;
 	}
-	const response = await ask("POST", "/api/ship");
-	const cascade = (await response.json()) as Cascade;
+	const response = await ask("POST", "/api/ship", bump);
+	let cascade = (await response.json()) as Cascade;
 	if (response.status !== 201) {
-		ctx.log.info(
-			`the ship of ${cascade.from} is under way, so no other starts until it is done; \`splates ship --retry <project>\` runs a failed or stopped project again, and \`splates ship --drop <project>\` takes it out of the run`,
-		);
+		if (bump !== undefined) {
+			cascade = (await (
+				await ask("PATCH", "/api/ship/cascade", bump)
+			).json()) as Cascade;
+			ctx.log.info(`changed ${slug} to a ${bump} release`);
+		} else {
+			ctx.log.info(
+				`the ship of ${cascade.from} is under way, so no other starts until it is done; \`splates ship --retry <project>\` runs a failed or stopped project again, and \`splates ship --drop <project>\` takes it out of the run`,
+			);
+		}
 		ctx.log.info(cascadeTable(cascade));
 		return;
 	}

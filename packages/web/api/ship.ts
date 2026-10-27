@@ -1,27 +1,31 @@
-import type { ShipPlan } from "@stringsync/splates-server/ship";
+import type { ShipBump, ShipPlan } from "@stringsync/splates-server/ship";
 import { ApiError, answered, send } from "./request";
 
 /**
- * Starts a ship of `project`, the page's own for "", on the server, under
- * the person's own npm sign-in: the page's part of a ship card's Allow.
+ * Starts a ship of `project` at `bump`, the page's own for "", on the server,
+ * under the person's own npm sign-in: what the shared plan's Approve does.
  */
-export async function startShip(project: string): Promise<void> {
-	await send(
-		project === ""
-			? "/api/ship"
-			: `/api/ship?${new URLSearchParams({ project })}`,
-		{},
+export async function startShip(
+	project: string,
+	bump: ShipBump = "patch",
+): Promise<void> {
+	const query = new URLSearchParams(
+		project === "" ? { bump } : { project, bump },
 	);
+	await send(`/api/ship?${query}`, {});
 }
 
 /**
- * The plan to ship `project`: it, then each project downstream in
+ * The plan to ship `project` at `bump`: it, then each project downstream in
  * dependency order, what Approve starts; throws the server's refusal, as for
  * a project that names no ship command.
  */
-export async function shipPlan(project: string): Promise<ShipPlan> {
+export async function shipPlan(
+	project: string,
+	bump: ShipBump = "patch",
+): Promise<ShipPlan> {
 	const response = await answered(
-		`/api/ship/plan?${new URLSearchParams({ project })}`,
+		`/api/ship/plan?${new URLSearchParams({ project, bump })}`,
 	);
 	const body = (await response.json().catch(() => ({}))) as
 		| ShipPlan
@@ -34,6 +38,16 @@ export async function shipPlan(project: string): Promise<ShipPlan> {
 		);
 	}
 	return body;
+}
+
+/** Changes a pending publish in the cascade under way to `bump`. */
+export async function reviseCascadeBump(
+	project: string,
+	bump: ShipBump,
+): Promise<void> {
+	await send(`/api/ship/cascade?${new URLSearchParams({ project, bump })}`, {
+		method: "PATCH",
+	});
 }
 
 /** Takes `project` out of the ship cascade under way, so those after it go on without it. */
