@@ -47,13 +47,11 @@ function ColoredSparkles(props: SVGProps<SVGSVGElement>): JSX.Element {
 	);
 }
 
-/** How far apart, on the 24 box, the split mark's halves sit either side of its slash. */
-const SPLIT_GAP = 1.5;
-
 /**
- * Auto pick's mark once it has picked: its sparkles and the agent's colored
- * mark, split by a slash, so the composer says both that Auto pick chose and
- * whom; sparkles alone for an agent with no colors here.
+ * Auto pick's mark once it has picked: the agent's colored mark with Auto
+ * pick's sparkles as a badge in the top right corner, so the composer says
+ * both whom Auto pick chose and that it did; sparkles alone for an agent with
+ * no colors here.
  */
 export function AutoAgentMark({
 	agent,
@@ -62,31 +60,19 @@ export function AutoAgentMark({
 	agent: string;
 	className?: string;
 }): JSX.Element {
-	const clip = useId();
 	if (!hasColors(agent)) {
 		return <AutoIcon colored className={className} />;
 	}
-	const edge = 24 - SPLIT_GAP;
 	return (
 		<svg
 			aria-hidden="true"
 			viewBox="0 0 24 24"
 			className={cn("size-4 shrink-0", className)}
 		>
-			<defs>
-				<clipPath id={`${clip}auto`}>
-					<polygon points={`0,0 ${edge},0 0,${edge}`} />
-				</clipPath>
-				<clipPath id={`${clip}agent`}>
-					<polygon points={`24,${SPLIT_GAP} 24,24 ${SPLIT_GAP},24`} />
-				</clipPath>
-			</defs>
-			<g clipPath={`url(#${clip}auto)`}>
-				<ColoredSparkles width={24} height={24} />
-			</g>
-			<g clipPath={`url(#${clip}agent)`}>
+			<g transform="translate(0 5) scale(0.79)">
 				<ColoredMark agent={agent} />
 			</g>
+			<ColoredSparkles x={11} y={0} width={13} height={13} />
 		</svg>
 	);
 }
