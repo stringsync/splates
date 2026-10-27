@@ -70,7 +70,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 						"cost",
 						"Cost",
 						dollars(outcome.usage.cost.amount),
-						// Codex and OpenCode say no API cost, so splates priced their tokens.
+						// Codex, Kimi and OpenCode say no API cost, so splates priced their tokens.
 						outcome.usage.cost.listPrice ? `${read} · at API list price` : read,
 					),
 		);

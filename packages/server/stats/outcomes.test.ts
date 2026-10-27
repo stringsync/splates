@@ -357,6 +357,32 @@ describe.concurrent("outcomes", () => {
 		});
 	});
 
+	it("prices a Kimi task's wire-log tokens at Moonshot's API list price", async () => {
+		await using deps = await Testing.open();
+
+		const usage = await listPriced(deps, "kimi", (at) => [
+			picked("kimi-code/k3"),
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("on it", at(1)),
+			{
+				kind: "usage",
+				usage: {
+					inputTokens: 1_000_000,
+					cachedReadTokens: 100_000,
+					cachedWriteTokens: 0,
+					outputTokens: 100_000,
+				},
+			},
+		]);
+
+		expect(usage).toEqual({
+			input: 1_100_000,
+			cached: 100_000,
+			output: 100_000,
+			cost: { amount: 4.53, currency: "USD", listPrice: true },
+		});
+	});
+
 	it("prices an OpenCode task's turns at the confirmed model's API list price, not its plan's", async () => {
 		await using deps = await Testing.open();
 
@@ -546,6 +572,7 @@ async function listPrices(deps: Testing): Promise<void> {
 				"openai/gpt-6-astra": rate(10, 50, 1),
 				"openai/gpt-6.1-sol": rate(2, 10, 0.1),
 				"opencode-go/kimi-k3": rate(3, 15, 0.3),
+				"moonshotai/kimi-k3": rate(3, 15, 0.3),
 			},
 		}),
 	);

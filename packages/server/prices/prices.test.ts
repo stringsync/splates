@@ -62,6 +62,20 @@ describe("prices", () => {
 		expect(catalogKey("codex", null)).toBeNull();
 	});
 
+	it("finds Kimi Code's models under Moonshot, leaving an unknown id unpriceable", () => {
+		expect(catalogKey("kimi", "kimi-code/kimi-for-coding")).toBe(
+			"moonshotai/kimi-k2.8",
+		);
+		expect(catalogKey("kimi", "kimi-code/kimi-for-coding-highspeed")).toBe(
+			"moonshotai/kimi-k2.7-code-highspeed",
+		);
+		expect(catalogKey("kimi", "kimi-code/k3-256k")).toBe("moonshotai/kimi-k3");
+		expect(catalogKey("kimi", "kimi-code/k3.1-pro-highspeed")).toBe(
+			"moonshotai/kimi-k3.1-pro-highspeed",
+		);
+		expect(catalogKey("kimi", "kimi-code/future")).toBeNull();
+	});
+
 	it("finds Claude's models for their inputs by their roster name", () => {
 		expect(inputKey("claude", "opus", "Opus 5.5")).toBe(
 			"anthropic/claude-opus-5-5",

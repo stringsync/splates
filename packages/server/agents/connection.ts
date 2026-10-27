@@ -1,4 +1,5 @@
 // scry-ignore-file compact-files: ACP requests, replay, asks, and reattachment share one connection state machine.
+import { homedir } from "node:os";
 import * as acp from "@agentclientprotocol/sdk";
 import { Disposer } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
@@ -12,7 +13,14 @@ import type {
 } from "../conversations";
 import { type Live, LOG_FORMAT, said } from "../conversations";
 import { fail } from "../exit";
-import { modelOption, renamedModelOption, safeOpenCodeUpdate } from "../models";
+import {
+	kimiTurnUsage,
+	kimiUsage,
+	kimiUsageIn,
+	modelOption,
+	renamedModelOption,
+	safeOpenCodeUpdate,
+} from "../models";
 import {
 	ASYNC_TASK_STOP,
 	ASYNC_TASK_UPDATE,
@@ -111,6 +119,8 @@ export class AgentConnection {
 	/** The model asked for before the session opened, picked once it has. */
 	private model: string | null;
 	private sessionCwd: string | null;
+	/** Whether the next prompt is the session's first, whose missing log starts at zero. */
+	private kimiNewSession = false;
 
 	constructor(
 		private readonly host: ConversationHost,
@@ -187,6 +197,7 @@ export class AgentConnection {
 	 */
 	async open(agent: Agent, cwd: string, launch?: Launch): Promise<void> {
 		const { host } = this;
+		this.kimiNewSession = this.session === null;
 		host.set({ status: "starting", error: null, stoppedIdle: null });
 		const _attempt = ++this.opens;
 		const previous = host.state.settings;
@@ -640,6 +651,9 @@ export class AgentConnection {
 	): Promise<acp.PromptResponse | undefined> {
 		this.validateModel();
 		this.finishing = false;
+		const fresh = this.kimiNewSession;
+		this.kimiNewSession = false;
+		const before = await this.kimiTotal();
 		const report = this.host.state.usage.opencode;
 		if (report !== undefined && this.connection !== null) {
 			const turn = {
@@ -663,7 +677,33 @@ export class AgentConnection {
 		// A steer sent as the turn ended says whether the agent ran on into a
 		// turn of its own, which this answer does not end (see `detached`).
 		await this.steered;
+		if (response !== undefined && response.usage == null) {
+			const usage = kimiTurnUsage(
+				before ?? (fresh ? kimiUsageIn("") : null),
+				await this.kimiTotal(),
+			);
+			if (usage !== null) {
+				return { ...response, usage };
+			}
+		}
 		return response;
+	}
+
+	/** Kimi's cumulative model-call tokens, which its ACP response leaves out. */
+	private async kimiTotal(): Promise<acp.Usage | null> {
+		if (
+			this.host.state.agent !== "kimi" ||
+			this.session === null ||
+			this.sessionCwd === null
+		) {
+			return null;
+		}
+		return kimiUsage({
+			fs: this.deps.fs,
+			home: this.deps.kimiHome ?? `${homedir()}/.kimi-code`,
+			cwd: this.sessionCwd,
+			session: this.session,
+		});
 	}
 
 	/** Whether the agent runs a turn it started for a steer, which no prompt's answer ends. */

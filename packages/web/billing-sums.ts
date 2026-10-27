@@ -212,6 +212,7 @@ export function monthEnd(now: number): string {
 const ORDER = [
 	"claude",
 	"codex",
+	"kimi",
 	"opencode",
 	"openai",
 	"cloudflare",
@@ -226,6 +227,7 @@ export function colorOf(provider: string): string {
 const NAMES: Record<string, string> = {
 	claude: "Claude",
 	codex: "Codex",
+	kimi: "Kimi",
 	opencode: "OpenCode",
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",

@@ -1,6 +1,6 @@
 export type { BillingOptions, ProviderStatus } from "./billing";
 export { pullBilling } from "./billing";
-export type { Expected, Plan } from "./plans";
+export type { Expected, Plan, PlansOptions } from "./plans";
 export { readPlans, renewals } from "./plans";
 export { PROVIDERS } from "./providers";
 export { Rates } from "./rates";

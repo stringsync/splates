@@ -6,6 +6,7 @@ import {
 	colorOf,
 	everyDay,
 	monthEnd,
+	nameOf,
 	projected,
 	spanOf,
 	spanTitle,
@@ -84,7 +85,9 @@ describe("billing sums", () => {
 	});
 
 	it("keeps a provider's color whatever else is in range", () => {
-		expect(colorOf("openai")).toBe("var(--series-4)");
+		expect(colorOf("kimi")).toBe("var(--series-3)");
+		expect(colorOf("openai")).toBe("var(--series-5)");
+		expect(nameOf("kimi")).toBe("Kimi");
 		expect(colorOf("somewhere")).toBe("var(--muted-foreground)");
 	});
 

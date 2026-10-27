@@ -78,7 +78,7 @@ export interface Tally {
 	/** Of the `used` tasks, tokens read, those from cache among them, and written. */
 	inputTokens: number;
 	outputTokens: number;
-	/** Of the `used` tasks, those whose agent said what they cost; Codex does not. */
+	/** Of the `used` tasks, those with a said or list-priced cost. */
 	costed: number;
 	/** Of the `costed` tasks, what they cost, summed. */
 	cost: number;
@@ -166,9 +166,8 @@ export interface SummarizeOptions {
 }
 
 /**
- * Sums the outcomes written so far for the page, over `period`. A part,
- * which lands on its caller's branch rather than trunk, is left out: it is a
- * piece of a task that is counted when its caller ends.
+ * Sums the outcomes written so far for the Stats page, over `period`. Parts
+ * are left out, since each is counted with the task that called it.
  */
 export function summarize(
 	outcomes: Outcome[],

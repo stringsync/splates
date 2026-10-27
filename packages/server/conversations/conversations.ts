@@ -51,15 +51,16 @@ export const ARCHIVED_KEPT = 200;
 
 /**
  * Every conversation in the repo: the live ones this process started, and
- * the stopped ones read back from their logs, one JSON-lines file each under
- * `.git/splates/conversations`.
+ * the stopped ones read back from their logs.
  */
 export class Conversations implements Eventful<ConversationsEvents>, Resource {
+	// Each log is one JSON-lines file under `.git/splates/conversations`.
 	private readonly dispatcher = new Dispatcher<ConversationsEvents>();
 	readonly events = this.dispatcher.events;
 
 	private readonly known = new Map<string, Conversation>();
 	private readonly fs: Fs;
+	private readonly kimiHome: string | undefined;
 	/** Where the conversations are kept, each log `<id>.jsonl` in it. */
 	private readonly storage: Storage;
 	private readonly ids: IdProvider;
@@ -105,6 +106,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		opts: ConversationsOptions = {},
 	) {
 		this.fs = opts.fs ?? new NodeFs();
+		this.kimiHome = opts.kimiHome;
 		this.storage = opts.storage ?? new FsStorage(dir, this.fs);
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
@@ -149,6 +151,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				return conversations.lift;
 			},
 			fs: this.fs,
+			kimiHome: this.kimiHome,
 			storage: this.storage,
 			dir: this.dir,
 			ids: this.ids,

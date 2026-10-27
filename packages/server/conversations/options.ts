@@ -15,6 +15,8 @@ export interface ConversationsOptions {
 	/** The ledger each finished turn's dollars are added to, priced at `prices`; none keeps no ledger. */
 	spend?: { ledger: Spend; prices: Prices };
 	fs?: Fs;
+	/** Kimi Code's home (`~/.kimi-code`), whose session logs supply its tokens. */
+	kimiHome?: string;
 	/** Where the conversations are kept; the files in `dir`, on `fs`, by default. */
 	storage?: Storage;
 	/** How many bytes of artifacts each may keep; `ARTIFACT_LIMITS` by default. */

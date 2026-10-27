@@ -21,8 +21,8 @@ export interface TaskUsage {
 	cached: number;
 	output: number;
 	/**
-	 * What it cost at the API's list price: as Claude says, or for Codex and
-	 * OpenCode, which say none or their plan's, its tokens at the model's
+	 * What it cost at the API's list price: as Claude says, or for Codex, Kimi
+	 * and OpenCode, which say none or their plan's, its tokens at the model's
 	 * public price. Null when neither is known.
 	 */
 	cost: {
@@ -63,11 +63,10 @@ export interface TaskLog {
 }
 
 /**
- * Reads the conversation logged in `log` from `since` to `until`: a
- * conversation can outlive the task, or come to it already under way. Null
- * when there is no such log. Read raw rather than replayed, since the agent
- * merging is still writing it. An agent that says no API cost of its own has
- * its turns priced from `opts.catalog`.
+ * What the conversation logged in `log` did for a task from `since` to
+ * `until`, since a conversation can outlive the task or come to it already
+ * under way; null when there is no such log. Turns of an agent that says no
+ * API cost of its own are priced from `opts.catalog`.
  */
 export async function taskLog(
 	log: Log<Entry>,
@@ -160,7 +159,7 @@ export interface TaskLogOptions {
 }
 
 /** Agents that say no API cost of their own, so splates prices their tokens. */
-const LISTED = ["codex", "opencode"];
+const LISTED = ["codex", "kimi", "opencode"];
 
 /**
  * OpenCode's turns from `since` to `until` that said their tokens, as it
@@ -190,7 +189,7 @@ function observedTurns(
 	);
 }
 
-/** The model Codex's turn ran on: the one its settings show, else the one asked for. */
+/** The model Codex's or Kimi's turn ran on: the one its settings show, else the one asked for. */
 function turnModel(
 	state: ConversationState,
 	requested: string | null,

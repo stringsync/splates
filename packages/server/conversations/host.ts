@@ -62,6 +62,8 @@ export type ConversationEvents = { changed: undefined; chosen: string };
 /** What every conversation in a repo is made with. */
 export interface ConversationDeps {
 	fs: Fs;
+	/** Kimi Code's home (`~/.kimi-code`), whose session logs supply its tokens. */
+	kimiHome?: string;
 	/**
 	 * Where every conversation of the repo is kept: its log as `<id>.jsonl`,
 	 * the files the person sent in it as the collection `<id>`.

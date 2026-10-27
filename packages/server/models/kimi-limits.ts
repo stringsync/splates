@@ -63,6 +63,101 @@ export async function kimiLimits(deps: {
 	}
 }
 
+/** A Kimi membership's next renewal at its monthly list price. */
+export interface KimiSubscription {
+	service: string;
+	since: string;
+	amount: number;
+	currency: string;
+	everyMonths: number;
+}
+
+/** Kimi's plan and next renewal at its monthly list price; null for anything it cannot confirm. */
+export async function kimiSubscription(deps: {
+	fs: Fs;
+	now: () => number;
+	home: string;
+	baseUrl?: string;
+	fetcher?: typeof fetch;
+}): Promise<KimiSubscription | null> {
+	const token = await accessToken(deps);
+	if (token === null) {
+		return null;
+	}
+	const base = deps.baseUrl ?? (await configuredBase(deps)) ?? BASE_URL;
+	const currency = currencyOf(base);
+	return currency === null
+		? null
+		: listedSubscription(deps, token, base, currency);
+}
+
+/** Monthly list prices from Kimi's international and China membership pages. */
+const MONTHLY: Record<string, Record<string, number>> = {
+	USD: { Plus: 19, Pro: 39, Max: 99, Ultra: 199 },
+	CNY: { Plus: 99, Pro: 199, Max: 699, Ultra: 1399 },
+};
+
+/** A CLI login's plan at its monthly list price. */
+async function listedSubscription(
+	deps: {
+		now: () => number;
+		baseUrl?: string;
+		fetcher?: typeof fetch;
+	},
+	token: string,
+	base: string,
+	currency: string,
+): Promise<KimiSubscription | null> {
+	const ask = async (path: string): Promise<unknown> => {
+		const res = await (deps.fetcher ?? fetch)(
+			`${base.replace(/\/+$/, "")}/${path}`,
+			{
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+				signal: AbortSignal.timeout(WAIT_MS),
+			},
+		);
+		return res.ok ? await res.json() : null;
+	};
+	try {
+		const [profile, usage] = await Promise.all([ask("me"), ask("usages")]);
+		const name = record(profile)?.user_level_name;
+		const reset = record(
+			record(record(usage)?.usages)?.limit_month_total,
+		)?.reset_time;
+		const amount = typeof name === "string" ? MONTHLY[currency]?.[name] : null;
+		return amount !== undefined &&
+			amount !== null &&
+			typeof reset === "string" &&
+			Number.isFinite(Date.parse(reset))
+			? {
+					service: `${name} plan`,
+					since: new Date(reset).toISOString(),
+					amount,
+					currency,
+					everyMonths: 1,
+				}
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+function currencyOf(base: string): string | null {
+	try {
+		const host = new URL(base).hostname;
+		return host === "api.kimi.ai"
+			? "USD"
+			: host === "api.kimi.com"
+				? "CNY"
+				: null;
+	} catch {
+		return null;
+	}
+}
+
 /** The windows in a `/usages` answer that say how much is used and when it resets. */
 export function limitsIn(payload: unknown, at: string): Limit[] {
 	const usages = record(record(payload)?.usages);

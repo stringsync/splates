@@ -313,6 +313,9 @@ async function start(
 			conversations: ({ dir, storage, git, config }) => {
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,
+					kimiHome:
+						ctx.ps.env("KIMI_CODE_HOME") ??
+						`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
 					storage: storage.within("conversations"),
 					artifacts: artifactLimits(config),
 					launcher: worker,

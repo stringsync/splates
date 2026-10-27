@@ -139,6 +139,29 @@ describe("spend", () => {
 		).toBeNull();
 	});
 
+	test("prices Kimi as plan use, leaving a model without a catalog price unknown", () => {
+		const catalog = {
+			"moonshotai/kimi-k3": {
+				input: 3,
+				output: 15,
+				cacheRead: 0.3,
+				cacheWrite: 3,
+				tiers: [],
+			},
+		};
+		const after = used({
+			input: 1_100_000,
+			cached: 100_000,
+			output: 100_000,
+		});
+		expect(turnSpend("kimi", "kimi-code/k3", used({}), after, catalog)).toEqual(
+			{ dollars: 4.53, kind: "equivalent" },
+		);
+		expect(
+			turnSpend("kimi", "kimi-code/kimi-for-coding", used({}), after, catalog),
+		).toBeNull();
+	});
+
 	test("converts, dedupes, and reports what it cannot reach when pulling billing", async () => {
 		const options = billingOptions();
 		const statuses = await pullBilling(spend, options);

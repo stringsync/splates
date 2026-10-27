@@ -4,6 +4,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { FakeAgent, say } from "../agents/testing";
+import { kimiUsagePath } from "../models";
 import { RECONNECT } from "../plans";
 import { type Conversation, Conversations } from "./index";
 import {
@@ -180,6 +181,70 @@ describe("Conversation turns", () => {
 				],
 			},
 		]);
+	});
+
+	it("tallies only the Kimi turn's new wire-log tokens", async () => {
+		const cwd = "/repo-splates/login";
+		const path = kimiUsagePath({ home: "/kimi", cwd, session: "s1" });
+		await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+		const record = (input: number, cached: number, output: number) =>
+			`${JSON.stringify({
+				type: "usage.record",
+				agentId: "main",
+				usageScope: "turn",
+				usage: {
+					inputOther: input,
+					inputCacheRead: cached,
+					inputCacheCreation: 0,
+					output,
+				},
+			})}\n`;
+		const old = record(1, 2, 3);
+		await fs.write(path, old);
+		const talk = new Conversations(
+			"/repo/.git/splates/kimi-conversations",
+			[{ ...AGENT, id: "kimi" }],
+			{
+				fs,
+				kimiHome: "/kimi",
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+			},
+		);
+		try {
+			const conversation = await talk.start("kimi", { task: "login", cwd });
+			await until(conversation, "idle");
+			agent.turn = async () => {
+				await fs.write(
+					path,
+					`${old}${record(10, 20, 7)}${JSON.stringify({
+						type: "context.append_loop_event",
+						event: {
+							usage: {
+								inputOther: 10,
+								inputCacheRead: 20,
+								inputCacheCreation: 0,
+								output: 7,
+							},
+						},
+					})}\n`,
+				);
+				return "end_turn";
+			};
+
+			await conversation.prompt("price this");
+			await until(conversation, "idle");
+
+			expect(conversation.state.usage).toMatchObject({
+				input: 30,
+				cached: 20,
+				output: 7,
+			});
+		} finally {
+			await talk.disposeAsync();
+		}
 	});
 
 	it("keeps why a turn failed until the next turn starts", async () => {

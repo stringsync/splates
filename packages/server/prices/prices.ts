@@ -19,7 +19,7 @@ export interface Rate {
 
 /** A model's API list price, and the dearer tiers past a context size some models have. */
 export interface Price extends Rate {
-	/** The kinds of input the model takes (`text`, `image`); unsaid for a catalog fetched before they were kept. */
+	/** The kinds of input the model takes, such as `text` or `image`; absent when unknown. */
 	inputs?: string[];
 	tiers: (Rate & { context: number })[];
 }
@@ -50,11 +50,12 @@ export interface PricesOptions {
 }
 
 /**
- * The machine's copy of the API list price of every model, kept in
- * `~/.splates/prices.json` and fetched again once a day, so a merge
- * offline still prices its task at what it last heard.
+ * The API list price of every model, for pricing a turn's tokens; still
+ * answers offline with the prices it last fetched.
  */
 export class Prices {
+	// Kept in `~/.splates/prices.json` and fetched again once a day, so a
+	// merge offline prices its task at what it last heard.
 	private readonly saved: Document<Saved>;
 	private readonly fetcher: typeof fetch;
 	private readonly clock: WallClock;
@@ -142,10 +143,20 @@ export function catalogOf(raw: unknown): Catalog {
 	return catalog;
 }
 
+/** Kimi Code's model ids as Moonshot's catalog names them; K2.8 is not priced there yet. */
+const KIMI_MODELS: Record<string, string> = {
+	"kimi-for-coding": "kimi-k2.8",
+	"kimi-for-coding-highspeed": "kimi-k2.7-code-highspeed",
+	k3: "kimi-k3",
+	"k3-256k": "kimi-k3",
+	"k3.1-pro": "kimi-k3.1-pro",
+	"k3.1-pro-highspeed": "kimi-k3.1-pro-highspeed",
+};
+
 /**
  * Where `agent` running `model` is in the catalog: Codex runs OpenAI's
- * models, OpenCode names each by its provider already. Null for an agent
- * that says its own API cost, as Claude does.
+ * models, Kimi Code runs Moonshot's, and OpenCode names each by its provider
+ * already. Null for an agent that says its own API cost, as Claude does.
  */
 export function catalogKey(agent: string, model: string | null): string | null {
 	if (model === null) {
@@ -153,6 +164,11 @@ export function catalogKey(agent: string, model: string | null): string | null {
 	}
 	if (agent === "codex") {
 		return `openai/${model}`;
+	}
+	if (agent === "kimi") {
+		const id = model.startsWith("kimi-code/") ? model.slice(10) : null;
+		const named = id === null ? undefined : KIMI_MODELS[id];
+		return named === undefined ? null : `moonshotai/${named}`;
 	}
 	if (agent === "opencode") {
 		return model.includes("/") ? model : null;
@@ -181,12 +197,10 @@ export function inputKey(
 	return catalogKey(agent, model);
 }
 
-/**
- * What `tokens` cost at `price`, in dollars, at the dearest tier the turn's
- * context reached: the requests that fill a turn read it over and over, so
- * its last size stands for them.
- */
+/** What `tokens` cost at `price`, in dollars, at the dearest tier the turn's context reached. */
 export function priced(price: Price, tokens: TurnTokens): number {
+	// The requests that fill a turn read its context over and over, so its
+	// last size stands for them.
 	const rate =
 		price.tiers
 			.filter(

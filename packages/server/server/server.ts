@@ -479,7 +479,16 @@ export async function dev(
 		(name) => (deps.secrets ?? SYSTEM_STORES).device.get(name),
 		{
 			...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
-			plans: () => readPlans(fs, ps.env("HOME") ?? homedir()),
+			plans: () =>
+				readPlans(fs, ps.env("HOME") ?? homedir(), {
+					kimi: {
+						home:
+							ps.env("KIMI_CODE_HOME") ??
+							`${ps.env("HOME") ?? homedir()}/.kimi-code`,
+						baseUrl: ps.env("KIMI_CODE_BASE_URL"),
+						...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
+					},
+				}),
 		},
 	);
 

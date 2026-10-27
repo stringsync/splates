@@ -23,13 +23,14 @@ export interface TurnTokens {
 }
 
 /**
- * How each agent's use is paid for: Claude and Codex are used through a
+ * How each agent's use is paid for: Claude, Codex and Kimi are used through a
  * subscription, so their dollars are what the API would have charged;
  * OpenCode bills by use.
  */
 export const KINDS: Record<string, SpendKind> = {
 	claude: "equivalent",
 	codex: "equivalent",
+	kimi: "equivalent",
 	opencode: "billed",
 };
 

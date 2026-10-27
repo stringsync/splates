@@ -10,7 +10,9 @@ const jwt = (claims: object) =>
 const max = {
 	provider: "claude",
 	service: "Max 20x plan",
-	dollars: 200,
+	amount: 200,
+	currency: "USD",
+	everyMonths: 1,
 	since: "2025-05-31T19:08:09Z",
 };
 
@@ -44,11 +46,69 @@ describe("plans", () => {
 			{
 				provider: "codex",
 				service: "Pro Lite plan",
-				dollars: 100,
+				amount: 100,
+				currency: "USD",
+				everyMonths: 1,
 				since: "2026-08-31T00:26:14+00:00",
 			},
 		]);
 		expect(await readPlans(new FakeFs(), "/home")).toEqual([]);
+	});
+
+	test("reads the CLI profile's plan at its monthly list price", async () => {
+		const fs = new FakeFs();
+		await fs.mkdir("/kimi/credentials", { recursive: true });
+		await fs.write(
+			"/kimi/credentials/kimi-code.json",
+			JSON.stringify({
+				access_token: jwt({}),
+				expires_at: Date.parse("2026-10-27T13:00:00Z") / 1000,
+			}),
+		);
+		const asked: string[] = [];
+		const fetcher = (async (url: string) => {
+			asked.push(url);
+			return Response.json(
+				url.endsWith("/me")
+					? { user_level_name: "Pro" }
+					: {
+							usages: {
+								limit_month_total: { reset_time: "2026-11-28T00:00:00Z" },
+							},
+						},
+			);
+		}) as unknown as typeof fetch;
+
+		expect(
+			await readPlans(fs, "/home", {
+				kimi: {
+					home: "/kimi",
+					baseUrl: "https://api.kimi.ai/coding/v1",
+					now: () => Date.parse("2026-10-27T12:00:00Z"),
+					fetcher,
+				},
+			}),
+		).toEqual([
+			{
+				provider: "kimi",
+				service: "Pro plan",
+				amount: 39,
+				currency: "USD",
+				everyMonths: 1,
+				since: "2026-11-28T00:00:00.000Z",
+			},
+		]);
+		expect(asked).toEqual([
+			"https://api.kimi.ai/coding/v1/me",
+			"https://api.kimi.ai/coding/v1/usages",
+		]);
+	});
+
+	test("renews at the plan's own interval", () => {
+		const annual = { ...max, everyMonths: 12, since: "2026-01-31T00:00:00Z" };
+		expect(
+			renewals([annual], "2026-11-01", "2028-02-01").map((each) => each.day),
+		).toEqual(["2027-01-31", "2028-01-31"]);
 	});
 
 	test("a plan renews each month on the day it began, or the month's last", () => {

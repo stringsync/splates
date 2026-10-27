@@ -7,7 +7,14 @@ export {
 	thinkingOf,
 } from "./effort";
 export { KIMI_CLI, kimiInstalled } from "./kimi";
-export { isKimi, kimiLimits } from "./kimi-limits";
+export type { KimiSubscription } from "./kimi-limits";
+export { isKimi, kimiLimits, kimiSubscription } from "./kimi-limits";
+export {
+	kimiTurnUsage,
+	kimiUsage,
+	kimiUsageIn,
+	kimiUsagePath,
+} from "./kimi-usage";
 export { Limits } from "./limits";
 export {
 	modelOption,

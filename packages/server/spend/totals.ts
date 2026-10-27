@@ -5,7 +5,7 @@ export type SpendKind = "billed" | "equivalent" | "expected";
 export interface SpendEntry {
 	/** When it was spent, as an ISO timestamp. */
 	at: string;
-	/** Who was paid or whose plan was used: `claude`, `codex`, `opencode`, `openai`, `cloudflare`. */
+	/** Who was paid or whose plan was used: `claude`, `codex`, `kimi`, `opencode`, `openai`, `cloudflare`. */
 	provider: string;
 	/** What of the provider's was used: a model, or a product such as `transcription`. */
 	service: string;

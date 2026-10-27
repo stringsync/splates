@@ -1,4 +1,5 @@
 import type { Fs } from "webappwiz/system";
+import { kimiSubscription } from "../models";
 
 /**
  * A charge on the bill that no provider has billed yet as splates sees it:
@@ -14,14 +15,16 @@ export interface Expected {
 	currency: string;
 }
 
-/** A plan that renews each month on the day of the month it began. */
+/** A plan and how much it charges each renewal. */
 export interface Plan {
 	provider: string;
 	/** The plan's name, as the Billing page shows it: `Max 20x plan`. */
 	service: string;
-	/** Its monthly list price in dollars. */
-	dollars: number;
-	/** When it began, as an ISO timestamp; it renews on that day of each month. */
+	amount: number;
+	currency: string;
+	/** How many months pass between renewals. */
+	everyMonths: number;
+	/** When it began, or the earliest renewal its source confirms, as an ISO timestamp. */
 	since: string;
 }
 
@@ -29,29 +32,34 @@ export interface Plan {
  * Claude's plans by the rate limit tier its login keeps, at their list
  * prices (https://claude.com/pricing).
  */
-const CLAUDE_TIERS: Record<string, { service: string; dollars: number }> = {
-	default_claude_max_20x: { service: "Max 20x plan", dollars: 200 },
-	default_claude_max_5x: { service: "Max 5x plan", dollars: 100 },
-	default_claude_ai: { service: "Pro plan", dollars: 20 },
+const CLAUDE_TIERS: Record<string, { service: string; amount: number }> = {
+	default_claude_max_20x: { service: "Max 20x plan", amount: 200 },
+	default_claude_max_5x: { service: "Max 5x plan", amount: 100 },
+	default_claude_ai: { service: "Pro plan", amount: 20 },
 };
 
 /**
  * ChatGPT's plans by the plan type Codex's login keeps, at their list
  * prices (https://chatgpt.com/pricing).
  */
-const CHATGPT_PLANS: Record<string, { service: string; dollars: number }> = {
-	pro: { service: "Pro plan", dollars: 200 },
-	prolite: { service: "Pro Lite plan", dollars: 100 },
-	plus: { service: "Plus plan", dollars: 20 },
-	go: { service: "Go plan", dollars: 8 },
+const CHATGPT_PLANS: Record<string, { service: string; amount: number }> = {
+	pro: { service: "Pro plan", amount: 200 },
+	prolite: { service: "Pro Lite plan", amount: 100 },
+	plus: { service: "Plus plan", amount: 20 },
+	go: { service: "Go plan", amount: 8 },
 };
 
 /**
- * The agent plans this machine is signed in to, read from Claude's and
- * Codex's own logins under `home`; one that cannot be read is left out.
+ * The agent plans this machine is signed in to, read from their own logins;
+ * one that cannot be read or fully priced is left out.
  */
-export async function readPlans(fs: Fs, home: string): Promise<Plan[]> {
+export async function readPlans(
+	fs: Fs,
+	home: string,
+	opts: PlansOptions = {},
+): Promise<Plan[]> {
 	const plans: Plan[] = [];
+	const monthly = { currency: "USD", everyMonths: 1 };
 	const claude = await readJson(fs, `${home}/.claude.json`);
 	const account = claude?.oauthAccount;
 	const tier = CLAUDE_TIERS[account?.organizationRateLimitTier];
@@ -62,6 +70,7 @@ export async function readPlans(fs: Fs, home: string): Promise<Plan[]> {
 		plans.push({
 			provider: "claude",
 			...tier,
+			...monthly,
 			since: account.subscriptionCreatedAt,
 		});
 	}
@@ -77,16 +86,37 @@ export async function readPlans(fs: Fs, home: string): Promise<Plan[]> {
 		plans.push({
 			provider: "codex",
 			...plan,
+			...monthly,
 			since: claims.chatgpt_subscription_active_start,
 		});
+	}
+	if (opts.kimi !== undefined) {
+		const { now, ...kimi } = opts.kimi;
+		const subscription = await kimiSubscription({
+			fs,
+			...kimi,
+			now: now ?? (() => Date.now()),
+		});
+		if (subscription !== null) {
+			plans.push({ provider: "kimi", ...subscription });
+		}
 	}
 	return plans;
 }
 
+export interface PlansOptions {
+	/** Where Kimi Code keeps its login and how to ask for its subscription. */
+	kimi?: {
+		home: string;
+		baseUrl?: string;
+		fetcher?: typeof fetch;
+		now?: () => number;
+	};
+}
+
 /**
  * Each renewal of `plans` from `since` to `until` (`2026-10-01`, exclusive),
- * on the day of the month each began, or that month's last day when it has
- * fewer.
+ * at each plan's own interval, on its anchor day or that month's last day.
  */
 export function renewals(
 	plans: readonly Plan[],
@@ -97,6 +127,8 @@ export function renewals(
 	for (const plan of plans) {
 		const began = plan.since.slice(0, 10);
 		const anchor = Number(began.slice(8, 10));
+		const anchorMonth =
+			Number(began.slice(0, 4)) * 12 + Number(began.slice(5, 7)) - 1;
 		const from = new Date(`${since.slice(0, 7)}-01T00:00:00Z`);
 		for (
 			let month = from;
@@ -105,6 +137,11 @@ export function renewals(
 				Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1),
 			)
 		) {
+			const elapsed =
+				month.getUTCFullYear() * 12 + month.getUTCMonth() - anchorMonth;
+			if (elapsed < 0 || elapsed % plan.everyMonths !== 0) {
+				continue;
+			}
 			const last = new Date(
 				Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0),
 			).getUTCDate();
@@ -122,8 +159,8 @@ export function renewals(
 					provider: plan.provider,
 					service: plan.service,
 					day,
-					amount: plan.dollars,
-					currency: "USD",
+					amount: plan.amount,
+					currency: plan.currency,
 				});
 			}
 		}
