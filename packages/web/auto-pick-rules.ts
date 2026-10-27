@@ -55,6 +55,8 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 	fileProblem: string | null = null;
 	/** Why the rules could not be read at all; null once they were, or before. */
 	loadProblem: string | null = null;
+	/** Whether a save is still waiting on the server. */
+	saving = false;
 
 	constructor(private readonly store: RulesStore = HTTP_RULES) {}
 
@@ -290,8 +292,8 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 	}
 
 	/**
-	 * Saves the draft, shown as saved at once; throws, the saved rules put
-	 * back, when it does not check out or the server refuses it.
+	 * Saves the draft, marked saving until the server answers; throws, the
+	 * saved rules put back, when it does not check out or the server refuses it.
 	 */
 	async save(): Promise<void> {
 		const problem = this.problem;
@@ -299,7 +301,14 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 			throw new Error(problem);
 		}
 		const draft = this.draft;
-		await this.write(draft, () => this.store.save(draft));
+		this.saving = true;
+		this.changed();
+		try {
+			await this.write(draft, () => this.store.save(draft));
+		} finally {
+			this.saving = false;
+			this.changed();
+		}
 	}
 
 	/** Saves the draft when it differs from what the server holds, as Next does. */

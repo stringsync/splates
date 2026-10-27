@@ -76,9 +76,11 @@ describe("App's Auto pick setup", () => {
 		expect(within(rules).getByLabelText("rule 1 pick 1").textContent).toContain(
 			"1ClaudeHaiku · low",
 		);
-		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
-			"Saved",
-		);
+		expect(
+			view
+				.getByRole("button", { name: /^(Saved|Save rules)$/ })
+				.textContent?.trim(),
+		).toBe("Saved");
 	});
 
 	it("saves what was edited, shown saved at once", async () => {
@@ -110,9 +112,11 @@ describe("App's Auto pick setup", () => {
 				target: { value: "70" },
 			}),
 		);
-		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
-			"Unsaved changes",
-		);
+		expect(
+			view
+				.getByRole("button", { name: /^(Saved|Save rules)$/ })
+				.textContent?.trim(),
+		).toBe("Save rules");
 		const edited: AutoPickRules = {
 			format: 2,
 			threshold: 0.7,
@@ -134,9 +138,11 @@ describe("App's Auto pick setup", () => {
 		await press(view.getByRole("button", { name: "Save rules" }));
 
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
-		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
-			"Saved",
-		);
+		expect(
+			view
+				.getByRole("button", { name: /^(Saved|Save rules)$/ })
+				.textContent?.trim(),
+		).toBe("Saved");
 	});
 
 	it("reorders agents down a rule with a grip", async () => {
@@ -243,9 +249,11 @@ describe("App's Auto pick setup", () => {
 				"Not saved: not Auto pick rules: the file moved",
 			),
 		);
-		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
-			"Unsaved changes",
-		);
+		expect(
+			view
+				.getByRole("button", { name: /^(Saved|Save rules)$/ })
+				.textContent?.trim(),
+		).toBe("Save rules");
 		expect(
 			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
 		).toBe("design");

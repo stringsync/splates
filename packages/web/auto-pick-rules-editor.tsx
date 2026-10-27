@@ -10,6 +10,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArrowDownIcon,
 	ArrowUpIcon,
+	CheckIcon,
 	PlusIcon,
 	RotateCcwIcon,
 	XIcon,
@@ -60,6 +61,7 @@ export function RulesEditorView({
 		fileProblem,
 		loadProblem,
 		saved,
+		saving,
 		percent,
 		pace,
 	} = useReactive(
@@ -71,6 +73,7 @@ export function RulesEditorView({
 			fileProblem: each.fileProblem,
 			loadProblem: each.loadProblem,
 			saved: each.saved,
+			saving: each.saving,
 			percent: each.percent,
 			pace: each.pace,
 		}),
@@ -191,23 +194,29 @@ export function RulesEditorView({
 			<div className="flex flex-wrap items-center gap-3">
 				<Button
 					type="button"
-					disabled={!dirty || problem !== null}
+					disabled={saving || !dirty || problem !== null}
 					onClick={() => void attempt(editor.save(), "Not saved")}
 				>
-					Save rules
+					{saving ? (
+						"Saving..."
+					) : dirty ? (
+						"Save rules"
+					) : (
+						<>
+							<CheckIcon data-icon="inline-start" /> Saved
+						</>
+					)}
 				</Button>
 				<Button
 					type="button"
 					variant="ghost"
+					disabled={saving}
 					onClick={() =>
 						void attempt(editor.reset(), "Not reset to the defaults")
 					}
 				>
 					<RotateCcwIcon data-icon="inline-start" /> Reset to defaults
 				</Button>
-				<span role="status" className="text-muted-foreground text-sm">
-					{dirty ? "Unsaved changes" : "Saved"}
-				</span>
 			</div>
 			<Refusal refusal={refusal} className="text-sm" />
 		</div>

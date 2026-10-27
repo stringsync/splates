@@ -62,12 +62,14 @@ describe("App's Auto pick page", () => {
 			},
 		];
 		// The page read none on opening; leave it and come back.
-		for (const hash of ["#automations", "#automations/auto-pick"]) {
-			await act(async () => {
-				location.hash = hash;
-				window.dispatchEvent(new HashChangeEvent("hashchange"));
-			});
-		}
+		await act(async () => {
+			location.hash = "#automations";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		await act(async () => {
+			location.hash = "#automations/auto-pick";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		await waitFor(() => view.getByText("Rule 2"));
 		const overrides = view.getByRole("region", { name: "Overrides" });
 		expect(overrides.textContent).toContain("3 times");
@@ -92,6 +94,60 @@ describe("App's Auto pick page", () => {
 
 		expect(location.hash).toBe("#automations/auto-pick");
 		await waitFor(() => view.getByText(/Log of picks/));
+	});
+
+	it("shows Saving then Saved with a check on the save button", async () => {
+		const kind = await waitFor(() => view.getByLabelText("rule 1 kind"));
+		await act(async () =>
+			fireEvent.change(kind, { target: { value: "bugfix" } }),
+		);
+		testing.reply = RULES;
+		testing.holdWrites();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Save rules" })),
+		);
+		expect(view.getByRole("button", { name: "Saving..." })).toHaveProperty(
+			"disabled",
+			true,
+		);
+
+		await act(async () => testing.release());
+		await waitFor(() => view.getByRole("button", { name: "Saved" }));
+	});
+
+	it("asks before leaving with unsaved changes, keeping them or leaving", async () => {
+		const kind = await waitFor(() => view.getByLabelText("rule 1 kind"));
+		await act(async () =>
+			fireEvent.change(kind, { target: { value: "bugfix" } }),
+		);
+		const back = () =>
+			view.getByRole("button", { name: "Back to automations" });
+		const unloading = new Event("beforeunload", { cancelable: true });
+		window.dispatchEvent(unloading);
+		expect(unloading.defaultPrevented).toBe(true);
+
+		await act(async () => fireEvent.click(back()));
+		expect(
+			view.getByRole("dialog", { name: "Leave Auto pick?" }),
+		).toBeDefined();
+		expect(location.hash).toBe("#automations/auto-pick");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Keep editing" })),
+		);
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect((kind as HTMLSelectElement).value).toBe("bugfix");
+
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		expect(location.hash).toBe("#automations/auto-pick");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Leave page" })),
+		);
+		expect(location.hash).toBe("#tasks");
 	});
 });
 

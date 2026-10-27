@@ -2,6 +2,7 @@ import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { conversationIn, TASK } from "./conversation-address";
 import { followShown } from "./navigation";
+import { attemptNavigation } from "./navigation-guard";
 import type { Page } from "./page-route";
 import { isMain } from "./terminals";
 
@@ -55,6 +56,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.setup.area === null ? null : this.setup;
 	/** The window's scroll to put back once the entry returned to is drawn. */
 	private scroll: number | null = null;
+	/** The last address accepted, to put back when a guard refuses a move. */
+	private href = location.href;
 
 	/**
 	 * Follows the address as the browser moves it, by its back and forward or
@@ -79,9 +82,13 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	 * entry of its own unless `how` is `replace`.
 	 */
 	go(next: Page, conversation = this.open, how: Move = "push"): void {
+		this.attempt(() => this.goNow(next, conversation, how));
+	}
+
+	private goNow(next: Page, conversation: string | null, how: Move): void {
 		// A task whose agent runs outside the page opens as the task it is.
 		if (next === "conversations" && conversation?.startsWith(TASK)) {
-			this.openTask(conversation.slice(TASK.length));
+			this.openTaskNow(conversation.slice(TASK.length));
 			return;
 		}
 		this.page = next;
@@ -109,6 +116,10 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 
 	/** Opens task `name` on the Tasks page, or closes the one open for null. */
 	openTask(name: string | null): void {
+		this.attempt(() => this.openTaskNow(name));
+	}
+
+	private openTaskNow(name: string | null): void {
 		this.task = name;
 		// A dialog closing on its way elsewhere must not pull the page back.
 		if (name === null && taskIn(location.hash) === null) {
@@ -121,26 +132,32 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 
 	/** Opens the board on lane `id`, scrolled to its column. */
 	openLane(id: number): void {
-		this.page = "todos";
-		this.open = null;
-		this.task = null;
-		this.cred = null;
-		this.lane = id;
-		this.move(laneAddress(id));
+		this.attempt(() => {
+			this.page = "todos";
+			this.open = null;
+			this.task = null;
+			this.cred = null;
+			this.lane = id;
+			this.move(laneAddress(id));
+		});
 	}
 
 	/** Sets the Creds page on cred `name`, or on none for null. */
 	openCred(name: string | null): void {
-		this.page = "creds";
-		this.cred = name;
-		this.move(name === null ? "#creds" : credAddress(name));
+		this.attempt(() => {
+			this.page = "creds";
+			this.cred = name;
+			this.move(name === null ? "#creds" : credAddress(name));
+		});
 	}
 
 	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
 	openEval(batch: string | null, run: string | null = null): void {
-		this.page = "evals";
-		this.evals = { batch, run: batch === null ? null : run };
-		this.move(evalsAddress(this.evals));
+		this.attempt(() => {
+			this.page = "evals";
+			this.evals = { batch, run: batch === null ? null : run };
+			this.move(evalsAddress(this.evals));
+		});
 	}
 
 	/**
@@ -152,10 +169,12 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		step: string | null = null,
 		how: Move = "push",
 	): void {
-		this.page = "setup";
-		this.setup = area === null ? NO_SETUP : { area, step: step };
-		this.leftSetup = area === null ? null : this.setup;
-		this.move(setupAddress(this.setup), how);
+		this.attempt(() => {
+			this.page = "setup";
+			this.setup = area === null ? NO_SETUP : { area, step: step };
+			this.leftSetup = area === null ? null : this.setup;
+			this.move(setupAddress(this.setup), how);
+		});
 	}
 
 	/**
@@ -175,19 +194,42 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		}
 	}
 
+	/** Asks the current page's guard before leaving it. */
+	private attempt(proceed: () => void): boolean {
+		if (this.page !== "auto-pick") {
+			proceed();
+			return true;
+		}
+		return attemptNavigation(proceed);
+	}
+
 	private follow = () => {
-		this.page = pageIn(location.hash);
-		this.open = openIn(location.hash);
-		this.task = taskIn(location.hash);
-		this.lane = laneIn(location.hash);
-		this.todo = todoIn(location.hash);
-		this.cred = credIn(location.hash);
-		this.rule = ruleIn(location.hash);
-		this.evals = evalsIn(location.hash);
-		this.setup = setupIn(location.hash);
-		this.remember();
-		this.scroll = entry()?.scroll ?? 0;
-		this.dispatcher.dispatch("changed");
+		const href = location.href;
+		const state = history.state;
+		const proceed = () => {
+			// A refused browser move was put back; the confirmed one goes forward.
+			if (location.href !== href) {
+				history.pushState(state, "", href);
+			}
+			this.href = href;
+			this.page = pageIn(location.hash);
+			this.open = openIn(location.hash);
+			this.task = taskIn(location.hash);
+			this.lane = laneIn(location.hash);
+			this.todo = todoIn(location.hash);
+			this.cred = credIn(location.hash);
+			this.rule = ruleIn(location.hash);
+			this.evals = evalsIn(location.hash);
+			this.setup = setupIn(location.hash);
+			this.remember();
+			this.scroll = entry()?.scroll ?? 0;
+			this.dispatcher.dispatch("changed");
+		};
+		if (href === this.href) {
+			proceed();
+		} else if (!this.attempt(proceed)) {
+			history.replaceState(history.state, "", this.href);
+		}
 	};
 
 	/** Moves the address to `hash`, or to none for the board's "". */
@@ -197,6 +239,9 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			return;
 		}
 		const url = hash === "" ? `${location.pathname}${location.search}` : hash;
+		const target = new URL(location.href);
+		target.hash = hash;
+		this.href = target.href;
 		const here = entry();
 		if (how === "replace") {
 			history.replaceState(
