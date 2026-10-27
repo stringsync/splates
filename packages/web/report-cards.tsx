@@ -36,6 +36,7 @@ import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard } from "./current-task";
+import { DeferredBody, deferredTask } from "./deferred-body";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
 import { demoed, MergedStats, useLanded } from "./merged-stats";
@@ -46,9 +47,9 @@ import { TaskOnto } from "./task-onto";
 import type { ReportTiming } from "./working-report-time";
 
 /**
- * Renders a `data-report` part: how a task ended, or what it waits on, as the
- * agent reported it then. It never follows the task afterwards, so a report
- * reads the same however the task has moved on since.
+ * Renders a `data-report` part as a card: how a task ended, or what it waits
+ * on, as the agent reported it. A Deferred card also shows where its task
+ * stands now and what is left to unblock it.
  */
 export const ReportUI = makeAssistantDataUI<{
 	report: TaskReport;
@@ -86,6 +87,12 @@ export function ReportCard({
 	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
 	const landed = useLanded(merged ? report.task : null);
+	// A deferral follows the board record of its task, when it has one.
+	const board = useContext(Board);
+	const deferral =
+		report.ending === "deferred"
+			? deferredTask(board.todos, report.task)
+			: null;
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
@@ -109,6 +116,8 @@ export function ReportCard({
 						<Source text={report.source} />
 						<CardArchive report={report} />
 					</>
+				) : deferral !== null ? (
+					<DeferredBody task={deferral} />
 				) : text === "" && !merged ? (
 					archivable ? (
 						<CardArchive report={report} />

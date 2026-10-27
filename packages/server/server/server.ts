@@ -70,17 +70,18 @@ export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./ports";
 const BIND_ATTEMPTS = 5;
 
 /**
- * Serves what `task list`, `list` and `show` print as one page that refetches
- * when the repo changes, where a person adds, edits, reorders and removes
- * queued tasks. Anything that moves a started task (merge, claim) stays in
- * the CLI, and removing one answers only to this machine's own names, so a page that
- * should not have been reachable can at worst change a queued task.
- *
- * Given `conversations`, the page also talks to agents, which run commands on
- * this machine. Those routes answer only to this machine's own names, or,
- * given `access`, to a host `hosts` lets in once Cloudflare Access verified
- * who is asking; without it, a tunnel still reaches no further than the queued tasks.
+ * Serves the splates page, which shows what `task list`, `list` and `show`
+ * print and stays current as the repo changes, for a person to add, edit,
+ * reorder and remove queued tasks. Given `conversations`, it also talks to
+ * agents. Pass `hosts` and `access` to let in hosts other than this machine
+ * once Cloudflare Access verified who is asking.
  */
+// Anything that moves a started task (merge, claim) stays in the CLI, and
+// removing one answers only to this machine's own names, so a page that
+// should not have been reachable can at worst change a queued task. The
+// conversation routes, which run commands on this machine, answer only to
+// its own names or, given `access`, to a verified host; without it, a tunnel
+// reaches no further than the queued tasks.
 export async function dev(
 	deps: DevMachine,
 	{
@@ -755,6 +756,12 @@ export async function dev(
 					},
 					"/api/todos/:id/queued": {
 						PUT: scoped((project) => project.queueQueued),
+					},
+					"/api/todos/:id/deferral/answer": {
+						PUT: scoped((project) => project.answerDeferred),
+					},
+					"/api/todos/:id/deferral/outside": {
+						PUT: scoped((project) => project.doneOutside),
 					},
 					"/api/todos/:id/queue-position": {
 						PUT: scoped((project) => project.moveInQueue),

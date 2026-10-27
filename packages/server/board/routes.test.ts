@@ -290,4 +290,50 @@ describe("dev tasks", () => {
 			expect((await write("DELETE", "/api/todos/nope")).status).toBe(400);
 		});
 	});
+
+	it("records an answer and marks an outside blocker done from the page", async () => {
+		const task = await deps.tasks.add("Retry on 413", null);
+		await task.defer(
+			{
+				why: "Needs the new client.",
+				blockedBy: [],
+				questions: ["Keep the retry?"],
+				outside: ["an upstream release"],
+			},
+			{ task: "alpha" },
+		);
+
+		await serving(deps, async (snapshot, port) => {
+			const put = (path: string, body: unknown) =>
+				fetch(`http://127.0.0.1:${port}${path}`, {
+					method: "PUT",
+					headers: {
+						origin: `http://127.0.0.1:${port}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				});
+
+			expect(
+				(await put(`/api/todos/${task.id}/deferral/answer`, { index: 0 }))
+					.status,
+			).toBe(400);
+			expect(
+				(
+					await put(`/api/todos/${task.id}/deferral/answer`, {
+						index: 0,
+						answer: "Yes",
+					})
+				).status,
+			).toBe(200);
+			expect(
+				(await put(`/api/todos/${task.id}/deferral/outside`, { index: 0 }))
+					.status,
+			).toBe(200);
+			const [found] = (await snapshot()).todos;
+			expect(found?.deferred?.questions[0]?.answer).toBe("Yes");
+			expect(found?.deferred?.outside[0]?.done).toBe(true);
+			expect(found?.text).toContain("Yes");
+		});
+	});
 });

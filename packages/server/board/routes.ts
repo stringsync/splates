@@ -10,12 +10,13 @@ import { recordUpdate, tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
 
 /**
- * How a project's page writes its tasks and lanes, each write journaled and
- * read back for the pages listening. Each handler is a property, so
- * `serveProject` spreads them into the project's routes; what they work on
- * stays private, out of the spread.
+ * Answers the page's requests to add, edit, queue and remove a project's
+ * tasks and lanes.
  */
 export class BoardRoutes {
+	// Each handler is a property, so `serveProject` spreads them into the
+	// project's routes; each write is journaled and ticks the watch, so pages
+	// listening read it back.
 	readonly #project: Project;
 	readonly #conversations: ConversationRoutes;
 	readonly #watch: ProjectWatch;
@@ -186,9 +187,8 @@ export class BoardRoutes {
 	};
 
 	/**
-	 * Has only the person queue the task, `{manual: true}`, a queued lane
-	 * passing over it, or lets a lane queue it again, as `splates task update
-	 * --manual` and `--auto` do.
+	 * Sets whether only the person may queue the task: send `{manual: true}`
+	 * to keep queued lanes from queueing it, or `false` to let them.
 	 */
 	readonly manualQueued = async (request: Request): Promise<Response> => {
 		const found = await this.taskAt(request);
@@ -230,6 +230,46 @@ export class BoardRoutes {
 		return Response.json(task?.state ?? found.state);
 	};
 
+	/**
+	 * Records the person's answer, `{answer}`, to question `{index}` of the
+	 * task's deferral, which adds it to the task's detail.
+	 */
+	readonly answerDeferred = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const found = await this.taskAt(request);
+		const { index, answer } = await body(request);
+		if (
+			typeof index !== "number" ||
+			typeof answer !== "string" ||
+			!answer.trim()
+		) {
+			fail(
+				"usage",
+				"say which question and the answer, as `index` and `answer`",
+			);
+		}
+		const task = await recordUpdate(journal, tasks, found.id, () =>
+			found.answer(index, answer),
+		);
+		this.#watch.tick();
+		return Response.json(task.state);
+	};
+
+	/** Marks what the task's deferral waits on outside splates, `{index}`, as done. */
+	readonly doneOutside = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const found = await this.taskAt(request);
+		const { index } = await body(request);
+		if (typeof index !== "number") {
+			fail("usage", "say which blocker is done, as `index`");
+		}
+		const task = await recordUpdate(journal, tasks, found.id, () =>
+			found.outsideDone(index),
+		);
+		this.#watch.tick();
+		return Response.json(task.state);
+	};
+
 	/** Moves a queued task to `{position}` in the queue, from 1 for the next to start. */
 	readonly moveInQueue = async (request: Request): Promise<Response> => {
 		const found = await this.taskAt(request);
@@ -242,11 +282,10 @@ export class BoardRoutes {
 		return Response.json((await this.#project.tasks.find(found.id)).state);
 	};
 
-	/**
-	 * Removes a lane and the tasks in it, each kept as removing it from its
-	 * dialog keeps it: the person never wants a lane gone but its tasks left.
-	 */
+	/** Removes a lane with the tasks in it, which can be put back. */
 	readonly dropLane = async (request: Request): Promise<Response> => {
+		// Each task is kept as removing it from its dialog keeps it: the person
+		// never wants a lane gone but its tasks left.
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
 		protectBacklog(id);

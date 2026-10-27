@@ -420,6 +420,8 @@ export interface Served extends AsyncResource {
 	assignQueued: Handler;
 	manualQueued: Handler;
 	queueQueued: Handler;
+	answerDeferred: Handler;
+	doneOutside: Handler;
 	moveInQueue: Handler;
 	/** Tries a queued task's refused start again. */
 	retryQueued: Handler;
@@ -519,9 +521,8 @@ export interface ProjectHeard extends ConversationsHeard {
 }
 
 /**
- * How many agents wait on the person, as the page's own waiting line counts
- * them, but for an external agent whose reply the page copied: only the page
- * knows that.
+ * How many agents wait on the person, counted as the page's waiting line
+ * counts them, including an external agent whose reply the page copied.
  */
 export function waitingOn(
 	tasks: Details[],

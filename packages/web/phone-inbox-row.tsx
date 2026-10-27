@@ -1,3 +1,4 @@
+import { deferralBlockers } from "@stringsync/splates-server/board/browser";
 import {
 	answersTo,
 	type Needing,
@@ -5,8 +6,10 @@ import {
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { Board } from "./board";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { automated } from "./conversation-rows";
+import { blockersLeft, deferredTask } from "./deferred-body";
 import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
@@ -53,7 +56,23 @@ export function Row({
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const quiet = useQuiet(conversation);
-	const { text, urgent } = statusOf(row, name, trunk, quiet, queued);
+	const board = useContext(Board);
+	const last = conversation === null ? null : lastReport(conversation);
+	const deferral =
+		last?.ending === "deferred" ? deferredTask(board.todos, last.task) : null;
+	const { text, urgent } = statusOf(
+		row,
+		name,
+		trunk,
+		quiet,
+		queued,
+		deferral === null
+			? null
+			: {
+					left: blockersLeft(deferral, board.todos),
+					total: deferralBlockers(deferral, board.todos).length,
+				},
+	);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -169,6 +188,8 @@ export function statusOf(
 	quiet: Quiet | null = null,
 	// Its last card asked to queue its work, which the board has queued.
 	queued = false,
+	// How many blockers its deferred task still waits on, of all it named.
+	blockers: { left: number; total: number } | null = null,
 ): { text: string; urgent: boolean } {
 	if (need.kind === "working" && need.merge === "running") {
 		return {
@@ -235,7 +256,10 @@ export function statusOf(
 			merged: `Merged onto ${report.base ?? "main"}`,
 			done: "Done",
 			removed: "Removed",
-			deferred: "Deferred",
+			deferred:
+				blockers !== null && blockers.left > 0
+					? `Deferred · ${blockers.left} of ${blockers.total} left`
+					: "Deferred",
 			// From before escalating was retired.
 			escalated: "Escalated",
 			working: "Working",
