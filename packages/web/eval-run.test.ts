@@ -61,6 +61,36 @@ describe("EvalRun", () => {
 		expect(server.started).toEqual([]);
 	});
 
+	it("publishes an ongoing run only after its progress has loaded", async () => {
+		server.launched = {
+			id: "1",
+			key: "run-key",
+			status: "running",
+			batch: "batch-a",
+			output: "",
+		};
+		const run = EvalRun.of(proposal(), { server, timer });
+		const shown: {
+			loaded: boolean;
+			status: string | undefined;
+			cells: number | undefined;
+		}[] = [];
+		run.events.on("changed", () => {
+			shown.push({
+				loaded: run.loaded,
+				status: run.launch?.status,
+				cells: run.grid?.cells,
+			});
+		});
+
+		await run.load();
+
+		expect(shown).toEqual([
+			{ loaded: false, status: "running", cells: 4 },
+			{ loaded: true, status: "running", cells: 4 },
+		]);
+	});
+
 	it("starts only on run, with the agents left in and its conversation, and follows until it ends", async () => {
 		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
 		await run.load();

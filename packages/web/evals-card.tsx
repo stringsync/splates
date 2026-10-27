@@ -73,6 +73,16 @@ export function EvalsCard({
 	const send = reply?.send ?? null;
 	const turnedDown = rejected || (sent?.includes(RUN_DENIED) ?? false);
 	const open = launch === null && !turnedDown;
+	if (!state.loaded) {
+		return (
+			<CardShell
+				label={`run evals ${run.ask.skill}`}
+				Icon={FlaskConicalIcon}
+				title="Loading evals"
+				tone="info"
+			/>
+		);
+	}
 	const note = (): string => written.current.trim();
 	const reject = (): void => {
 		if (send === null) {

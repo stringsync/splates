@@ -144,17 +144,17 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			const known = new Set(scenarios.map((each) => each.id));
 			this.unknown = this.ask.scenarios.filter((each) => !known.has(each));
 			this.launch = launch;
-			this.loaded = true;
 			this.refusal = null;
+			if (this.launch !== null) {
+				await this.follow();
+			} else {
+				await this.replan();
+			}
 		} catch (error) {
 			this.refusal = refusalOf("Could not read the evals", error);
 		}
+		this.loaded = true;
 		this.changed();
-		if (this.launch !== null) {
-			await this.follow();
-		} else {
-			await this.replan();
-		}
 	}
 
 	/** Leaves a saved agent in or out of this run, and asks the plan again. */
