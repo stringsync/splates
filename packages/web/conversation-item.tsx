@@ -48,7 +48,8 @@ import { useRowRefusal } from "./row-refusal";
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
  * needs you, its name muted for one that answers to another, and a pin while
- * pinned, all on green while its task lands. Hovered or focused, it offers a
+ * pinned, all on green while its task lands. An archived one can put its project
+ * and latest message on a second line. Hovered or focused, it offers a
  * menu, Move under… among it, Archive (or Unarchive), Stop turn while its
  * agent may be stuck, and Pin (or Unpin), but for one nested under another,
  * which moves with that one.
@@ -63,6 +64,7 @@ export function Item({
 	where = false,
 	ago = null,
 	project = null,
+	preview,
 	hint = null,
 	hosting = false,
 	nested = false,
@@ -78,8 +80,10 @@ export function Item({
 	where?: boolean;
 	/** How long ago it was archived, as `3h ago`, said after where it ran. */
 	ago?: string | null;
-	/** The project it is in, said after its name, as Needs you names each. */
+	/** The project it is in, said after its name, or above its preview. */
 	project?: string | null;
+	/** Its latest message, on a second line under its name. */
+	preview?: string | null;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
 	hint?: string | null;
 	/** Whether an agent it handed a task to is at work. */
@@ -159,15 +163,34 @@ export function Item({
 					name={agent}
 					className="size-3.5 text-foreground/70"
 				/>
-				<span className="flex min-w-0 flex-1 items-center gap-1.5">
-					<span
-						className={cn(
-							"min-w-0 truncate text-sm",
-							unnamed(conversation) && "text-muted-foreground italic",
+				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span className="flex items-center gap-1.5">
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate text-sm",
+								unnamed(conversation) && "text-muted-foreground italic",
+							)}
+						>
+							{nameOf(conversation)}
+						</span>
+						{preview !== undefined && ago !== null && (
+							<span className="shrink-0 text-muted-foreground text-xs">
+								{ago}
+							</span>
 						)}
-					>
-						{nameOf(conversation)}
 					</span>
+					{preview !== undefined && (
+						<span className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
+							{project !== null && (
+								<span className="max-w-[40%] shrink-0 truncate font-medium">
+									{project}
+								</span>
+							)}
+							{preview !== null && preview !== "" && (
+								<span className="min-w-0 flex-1 truncate">· {preview}</span>
+							)}
+						</span>
+					)}
 				</span>
 				{pinned && (
 					<PinIcon
@@ -184,10 +207,10 @@ export function Item({
 						{whereOf(conversation, trunk)}
 					</span>
 				)}
-				{ago !== null && (
+				{preview === undefined && ago !== null && (
 					<span className="shrink-0 text-muted-foreground text-xs">{ago}</span>
 				)}
-				{project !== null && (
+				{preview === undefined && project !== null && (
 					<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
 						{project}
 					</span>

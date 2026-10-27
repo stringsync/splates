@@ -396,9 +396,9 @@ function useRead(conversation: ConversationState | null): void {
 }
 
 /**
- * The archived conversations, newest first, each with how long ago it was
- * archived, to read or bring back: every one kept, since splates deletes the
- * older ones.
+ * The archived conversations across projects, newest first, each with how long
+ * ago it was archived, its project and latest message, to read or bring back:
+ * every one kept, since splates deletes the older ones.
  */
 function Archived({
 	tasks,
@@ -422,35 +422,33 @@ function Archived({
 		projects: feed.projects,
 		conversations: conversationIndex(feed),
 	}));
-	// A section per project by name, the page's own from the live feed, which
-	// shows an archive at once, and the rest from the feed of every project.
-	const sections = useMemo(() => {
-		const own = {
-			key: "",
+	// One list across projects, the page's own from the live feed, which shows
+	// an archive at once, and the rest from the feed of every project.
+	const entries = useMemo(() => {
+		const own = conversations.map((conversation) => ({
+			conversation,
 			project: null as string | null,
 			name: here.repo,
-			conversations: conversations.toSorted(byArchivedAt),
-		};
+		}));
 		if (!everywhere.available) {
-			return [own];
-		}
-		const listed = everywhere.projects
-			.filter((each) => each.root !== here.root)
-			.map((each) => ({
-				key: each.project,
-				project: each.project as string | null,
-				name: each.repo,
-				conversations: everywhere.conversations
-					.filter((state) => state.project === each.project && state.archived)
-					.toSorted(byArchivedAt),
-			}));
-		return [own, ...listed]
-			.filter((each) => each.conversations.length > 0)
-			.sort(
-				(one, other) =>
-					one.name.localeCompare(other.name) ||
-					one.key.localeCompare(other.key),
+			return own.toSorted((one, other) =>
+				byArchivedAt(one.conversation, other.conversation),
 			);
+		}
+		const elsewhere = everywhere.projects
+			.filter((each) => each.root !== here.root)
+			.flatMap((each) =>
+				everywhere.conversations
+					.filter((state) => state.project === each.project && state.archived)
+					.map((conversation) => ({
+						conversation,
+						project: each.project as string | null,
+						name: each.repo,
+					})),
+			);
+		return [...own, ...elsewhere].toSorted((one, other) =>
+			byArchivedAt(one.conversation, other.conversation),
+		);
 	}, [conversations, here, everywhere]);
 	return (
 		<section
@@ -467,46 +465,56 @@ function Archived({
 				}
 				title="Archived"
 			/>
-			{conversations.length === 0 ? (
+			{entries.length === 0 ? (
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
-				<div className="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain">
-					{sections.map((section) => (
-						<section key={section.key} aria-label={section.name}>
-							<h2 className="px-2 pb-1 font-medium text-muted-foreground text-xs">
-								{section.name}
-							</h2>
-							<ul className="flex flex-col">
-								{section.conversations.map((each) => (
-									<li key={each.id}>
-										<Item
-											conversation={each}
-											agent={agentName(agents, each.agent)}
-											need={needOf(section.project === null ? tasks : [], each)}
-											current={false}
-											onOpen={() =>
-												section.project === null
-													? onOpen(each.id)
-													: navigation.show(
-															newConversationUrl(section.project, each.id),
-														)
-											}
-											where
-											ago={
-												each.archivedAt === null
-													? null
-													: ago(Date.parse(each.archivedAt), now)
-											}
-										/>
-									</li>
-								))}
-							</ul>
-						</section>
-					))}
+				<div className="min-h-0 overflow-y-auto overscroll-contain">
+					<ul className="flex flex-col gap-1">
+						{entries.map(({ conversation, project, name }) => (
+							<li key={conversation.id}>
+								<Item
+									conversation={conversation}
+									agent={agentName(agents, conversation.agent)}
+									need={needOf(project === null ? tasks : [], conversation)}
+									current={false}
+									onOpen={() =>
+										project === null
+											? onOpen(conversation.id)
+											: navigation.show(
+													newConversationUrl(project, conversation.id),
+												)
+									}
+									project={name}
+									preview={latestText(conversation)}
+									ago={
+										conversation.archivedAt === null
+											? null
+											: ago(Date.parse(conversation.archivedAt), now)
+									}
+								/>
+							</li>
+						))}
+					</ul>
 				</div>
 			)}
 		</section>
 	);
+}
+
+/** The latest thing said, on one line, leaving out tool calls and thoughts. */
+function latestText(conversation: ConversationState): string | null {
+	for (const message of conversation.messages.toReversed()) {
+		const text = message.parts
+			.filter((part) => part.type === "text")
+			.map((part) => part.text)
+			.join(" ")
+			.replace(/\s+/g, " ")
+			.trim();
+		if (text !== "") {
+			return text;
+		}
+	}
+	return null;
 }
 
 /** Archived last first, by when it started for a log too old to say. */

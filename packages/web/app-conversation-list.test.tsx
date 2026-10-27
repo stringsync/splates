@@ -6,6 +6,7 @@ import {
 	clickShown,
 	conversation,
 	fireEvent,
+	message,
 	newestFirst,
 	openRow,
 	resize,
@@ -155,7 +156,7 @@ describe("App's conversation list", () => {
 	});
 
 	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
-	it("lists archived conversations by when each was archived, last first", async () => {
+	it("lists archived conversations last first, each with its project and latest message", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -171,6 +172,10 @@ describe("App's conversation list", () => {
 					createdAt: "2026-10-11T10:01:00.000Z",
 					archived: true,
 					archivedAt: hoursAgo(1),
+					messages: [
+						message("agent", "Earlier reply"),
+						message("user", "Latest\nreply"),
+					],
 				}),
 				conversation({
 					id: "a3",
@@ -192,9 +197,9 @@ describe("App's conversation list", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			"Archived lastmain1h ago",
-			"Archived betweenmain2h ago",
-			"Archived firstmain3h ago",
+			"Archived last1h agowebappwiz· Latest reply",
+			"Archived between2h agowebappwiz",
+			"Archived first3h agowebappwiz",
 		]);
 	});
 
@@ -226,7 +231,7 @@ describe("App's conversation list", () => {
 			within(archived)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Latelymain3h ago", "Too old to saymain"]);
+		).toEqual(["Lately3h agowebappwiz", "Too old to saywebappwiz"]);
 	});
 
 	it("drops an archived conversation once the server deletes it", async () => {
