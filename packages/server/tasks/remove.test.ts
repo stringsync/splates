@@ -34,6 +34,21 @@ describe("remove", () => {
 		);
 	});
 
+	it("releases the slot server before deleting its worktree", async () => {
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		const release = deps.slots.release.bind(deps.slots);
+		const existsAtRelease: boolean[] = [];
+		deps.slots.release = async (tree) => {
+			existsAtRelease.push(await deps.fs.exists(worktree));
+			return release(tree);
+		};
+
+		await remove(deps, "alpha");
+
+		expect(existsAtRelease).toEqual([true]);
+	});
+
 	it("keeps the removed task, and why, among the finished", async () => {
 		await add(deps, "alpha");
 

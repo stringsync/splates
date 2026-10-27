@@ -123,6 +123,7 @@ export async function remove(
 		}
 	}
 
+	const freed = await slots.release(worktree.path);
 	const discarded = await worktree.discard("removed", {
 		conversation,
 		reason,
@@ -134,7 +135,6 @@ export async function remove(
 		});
 	}
 
-	const freed = await slots.release(worktree.path);
 	const deleted = pushedLine(await branches.delete(task), "deleted");
 
 	const taken = await queue.takenBy(task);
