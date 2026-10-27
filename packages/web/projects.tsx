@@ -313,6 +313,14 @@ export function ProjectSwitcher({
 					</div>
 					<div className="flex max-h-80 flex-col overflow-y-auto">
 						<ul aria-label="projects" className="flex flex-col p-1.5">
+							{projects === null && (
+								<li
+									role="status"
+									className="px-2 py-1.5 text-muted-foreground text-sm"
+								>
+									Loading projects…
+								</li>
+							)}
 							{projects !== null && matching.length === 0 && (
 								<li className="px-2 py-1.5 text-muted-foreground text-sm">
 									No project matches
