@@ -11,15 +11,21 @@ import { EvalStore } from "./store";
 /**
  * The saved eval batches the Evals page and the report card read, from the
  * directory a project's `evals.results` names, which any framework writes in
- * the public format. For a project that names none, the routes answer 404.
+ * the public format. For a project that names none, the list answers null and
+ * the other routes 404.
  */
 export class EvalRoutes {
 	private readonly stores = new Map<string, EvalStore>();
 
 	constructor(private readonly opts: EvalOptions) {}
 
-	readonly list: Handler = async (request) =>
-		Response.json(await (await this.opened(request)).store.batches());
+	/** The batches, or null when the project names no results. */
+	readonly list: Handler = async (request) => {
+		const directory = await this.opts.directory(request);
+		return Response.json(
+			directory === null ? null : await this.storeOf(directory).batches(),
+		);
+	};
 
 	/** `?id=` names the batch, as `EvalBatch.id` does. */
 	readonly batch: Handler = async (request) => {

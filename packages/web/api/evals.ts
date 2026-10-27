@@ -11,18 +11,14 @@ import { ApiError, answered, scoped, sendJson } from "./request";
 
 /**
  * Every saved eval batch of the project this page shows, newest first; null
- * when it has none to read: it names no `evals.results`, and this server
- * runs from a release, which has no eval harness of its own.
+ * when it has none to read: it names no `evals.results`.
  */
 export async function evalBatches(): Promise<EvalBatch[] | null> {
 	const response = await answered(scoped("/api/evals"));
-	if (response.status === 404) {
-		return null;
-	}
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals: ${response.status}`);
 	}
-	return (await response.json()) as EvalBatch[];
+	return (await response.json()) as EvalBatch[] | null;
 }
 
 /** The batch `id` names, with every cell, planned or landed. */

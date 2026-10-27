@@ -6,10 +6,14 @@ import { EvalRoutes, projectEvalCommands } from "./routes";
 const request = (path: string) => new Request(`http://localhost${path}`);
 
 describe("EvalRoutes", () => {
-	it("is not there for a project that names no results directory", async () => {
+	it("lists null for a project that names no results directory", async () => {
 		const routes = new EvalRoutes({ directory: async () => null });
 
-		await expect(routes.list(request("/api/evals"))).rejects.toThrow(
+		const response = await routes.list(request("/api/evals"));
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toBeNull();
+		await expect(routes.batch(request("/api/evals/batch"))).rejects.toThrow(
 			"evals.results",
 		);
 	});
