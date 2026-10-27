@@ -79,18 +79,24 @@ export function spanTitle(span: Span, now: number, back: number): string {
 	return `${shortDay(since.slice(0, 10))} to ${shortDay(dayOf(Date.parse(until) - DAY))}`;
 }
 
-/** What some spend adds up to, the two kinds apart. */
+/** What some spend adds up to, the kinds apart. */
 export interface Sum {
 	billed: number;
 	equivalent: number;
+	expected: number;
 }
 
 export const sum = (rows: readonly Sum[]): Sum => ({
 	billed: rows.reduce((all, row) => all + row.billed, 0),
 	equivalent: rows.reduce((all, row) => all + row.equivalent, 0),
+	expected: rows.reduce((all, row) => all + row.expected, 0),
 });
 
-export const whole = (row: Sum): number => row.billed + row.equivalent;
+/**
+ * What it comes to on the bill: billed and expected charges, never plan use
+ * priced at API list prices, which the plans' own fees cover.
+ */
+export const whole = (row: Sum): number => row.billed + row.expected;
 
 /** One provider's spend in the range, with its services, the costliest first. */
 export interface ProviderSpend extends Sum {
@@ -98,10 +104,13 @@ export interface ProviderSpend extends Sum {
 	services: SpendTotal[];
 }
 
-/** The report's services grouped by provider, the costliest provider first. */
+/**
+ * The report's services on the bill grouped by provider, the costliest
+ * provider first; a service that only priced plan use is left out.
+ */
 export function byProvider(services: readonly SpendTotal[]): ProviderSpend[] {
 	const grouped = new Map<string, SpendTotal[]>();
-	for (const row of services) {
+	for (const row of services.filter((each) => whole(each) > 0)) {
 		const provider = row.provider ?? "";
 		grouped.set(provider, [...(grouped.get(provider) ?? []), row]);
 	}

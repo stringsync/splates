@@ -1,3 +1,4 @@
+import type { Expected } from "./plans";
 import {
 	type Charge,
 	PROVIDERS,
@@ -27,6 +28,8 @@ export interface ProviderStatus {
 	message: string;
 	/** How many new charges the pull added. */
 	added: number;
+	/** What the provider says it will charge next, not billed yet. */
+	expected?: Expected[];
 }
 
 export interface BillingOptions {
@@ -118,7 +121,8 @@ export async function pullBilling(
 				kept.add(charge.ref);
 			}
 			await spend.record(...entries);
-			statuses.push(status("ok", "", entries.length));
+			const expected = (await provider.upcoming?.(sources, token)) ?? [];
+			statuses.push({ ...status("ok", "", entries.length), expected });
 		} catch (error) {
 			statuses.push(
 				status(

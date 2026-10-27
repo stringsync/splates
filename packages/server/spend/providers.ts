@@ -1,4 +1,5 @@
 import { cloudflare, openai } from "./adapters";
+import type { Expected } from "./plans";
 
 /** One amount a provider billed, in its own currency. */
 export interface Charge {
@@ -44,6 +45,8 @@ export interface Provider {
 	/** Where the provider's own billing page is, for a row to link to. */
 	dashboard?: string;
 	pull?(sources: Sources, token: string): Promise<Charge[]>;
+	/** What the provider says it will charge next and has not billed yet. */
+	upcoming?(sources: Sources, token: string): Promise<Expected[]>;
 }
 
 /** Every provider billed outside splates, those not counted yet said so. */
@@ -54,6 +57,7 @@ export const PROVIDERS: readonly Provider[] = [
 		id: "typesafe",
 		cred: null,
 		counted:
-			"Priced from the tokens each of splates's own Jev calls uses; other apps on the same key are not counted",
+			"Only splates's own Jev calls, priced from their tokens since splates began recording them; TypeSafe has no billing API, so use by other apps on the same key shows only in its console",
+		dashboard: "https://console.typesafe.ai",
 	},
 ];

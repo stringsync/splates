@@ -140,6 +140,7 @@ export class Testing implements Resource {
 		rateError: null,
 		services: [],
 		days: [],
+		upcoming: [],
 	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();

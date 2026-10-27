@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
@@ -29,7 +30,7 @@ import {
 	setupProjectAt,
 } from "../setup";
 import { CascadeRoutes, Cascades, planShip, registeredGraph } from "../ship";
-import { BillingRoutes, Spend } from "../spend";
+import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
@@ -447,7 +448,10 @@ export async function dev(
 		machineStorage,
 		ledger,
 		(name) => (deps.secrets ?? SYSTEM_STORES).device.get(name),
-		deps.fetch === undefined ? {} : { fetcher: deps.fetch },
+		{
+			...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
+			plans: () => readPlans(fs, ps.env("HOME") ?? homedir()),
+		},
 	);
 
 	// Not any project's: every page on this server shares one machine.

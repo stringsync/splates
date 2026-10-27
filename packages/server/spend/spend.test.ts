@@ -35,7 +35,14 @@ describe("spend", () => {
 			entry({ dollars: 0 }),
 		);
 		expect(await spend.totals()).toEqual([
-			{ provider: null, service: null, period: null, billed: 4, equivalent: 3 },
+			{
+				provider: null,
+				service: null,
+				period: null,
+				billed: 4,
+				equivalent: 3,
+				expected: 0,
+			},
 		]);
 		expect(await spend.totals({ by: "provider" })).toEqual([
 			{
@@ -44,6 +51,7 @@ describe("spend", () => {
 				period: null,
 				billed: 0,
 				equivalent: 3,
+				expected: 0,
 			},
 			{
 				provider: "opencode",
@@ -51,6 +59,7 @@ describe("spend", () => {
 				period: null,
 				billed: 4,
 				equivalent: 0,
+				expected: 0,
 			},
 		]);
 		const weekly = await spend.totals({ per: "week", by: "service" });
@@ -65,6 +74,7 @@ describe("spend", () => {
 				period: "2026-10-01",
 				billed: 0,
 				equivalent: 3,
+				expected: 0,
 			},
 		]);
 	});
@@ -78,7 +88,14 @@ describe("spend", () => {
 		await spend.record(entry());
 		expect(await spend.entries()).toEqual([entry()]);
 		expect(await spend.totals()).toEqual([
-			{ provider: null, service: null, period: null, billed: 0, equivalent: 1 },
+			{
+				provider: null,
+				service: null,
+				period: null,
+				billed: 0,
+				equivalent: 1,
+				expected: 0,
+			},
 		]);
 		expect(await log.replay()).toHaveLength(3);
 	});

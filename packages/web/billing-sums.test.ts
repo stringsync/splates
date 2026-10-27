@@ -16,32 +16,35 @@ const row = (over: Partial<SpendTotal>): SpendTotal => ({
 	period: null,
 	billed: 0,
 	equivalent: 0,
+	expected: 0,
 	...over,
 });
 
 describe("billing sums", () => {
-	it("groups services by provider, the costliest of each first", () => {
+	it("groups services on the bill by provider, the costliest of each first", () => {
 		const grouped = byProvider([
-			row({ service: "haiku", equivalent: 1 }),
+			row({ service: "Pro plan", expected: 20 }),
 			row({ provider: "openai", service: "whisper", billed: 5 }),
+			row({ service: "Max 20x plan", expected: 200 }),
 			row({ service: "opus", equivalent: 3 }),
 		]);
 		expect(
-			grouped.map((each) => [each.provider, each.billed, each.equivalent]),
+			grouped.map((each) => [each.provider, each.billed, each.expected]),
 		).toEqual([
+			["claude", 0, 220],
 			["openai", 5, 0],
-			["claude", 0, 4],
 		]);
-		expect(grouped[1]?.services.map((each) => each.service)).toEqual([
-			"opus",
-			"haiku",
+		expect(grouped[0]?.services.map((each) => each.service)).toEqual([
+			"Max 20x plan",
+			"Pro plan",
 		]);
 	});
 
-	it("gives every day of the range its place, spent or not", () => {
+	it("gives every day of the range its place, with what it put on the bill", () => {
 		const days = everyDay(
 			[
-				row({ period: "2026-10-02", equivalent: 2 }),
+				row({ period: "2026-10-02", expected: 2 }),
+				row({ period: "2026-10-02", equivalent: 9 }),
 				row({ provider: "openai", period: "2026-10-02", billed: 1 }),
 			],
 			"2026-10-01T00:00:00.000Z",

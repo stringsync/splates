@@ -1,3 +1,4 @@
+import type { Expected } from "./plans";
 import type { Charge, Provider, Sources } from "./providers";
 
 /** Organization costs by day and line item; needs an admin key. */
@@ -66,6 +67,41 @@ export const cloudflare: Provider = {
 			currency: item.currency,
 			ref: `cloudflare:${item.id}`,
 		}));
+	},
+	/** Each paid subscription's charge at the end of its current period, invoiced then. */
+	async upcoming(sources, token) {
+		const accounts = (await getJson(
+			sources,
+			"https://api.cloudflare.com/client/v4/accounts",
+			token,
+		)) as { result?: { id: string }[] };
+		const due: Expected[] = [];
+		for (const account of accounts.result ?? []) {
+			const body = (await getJson(
+				sources,
+				`https://api.cloudflare.com/client/v4/accounts/${account.id}/subscriptions`,
+				token,
+			)) as {
+				result?: {
+					price: number;
+					currency: string;
+					current_period_end?: string;
+					rate_plan?: { public_name?: string };
+				}[];
+			};
+			for (const each of body.result ?? []) {
+				if (each.price > 0 && each.current_period_end !== undefined) {
+					due.push({
+						provider: "cloudflare",
+						service: each.rate_plan?.public_name ?? "subscription",
+						day: day(each.current_period_end),
+						amount: each.price,
+						currency: each.currency,
+					});
+				}
+			}
+		}
+		return due.filter((each) => each.day >= sources.today);
 	},
 };
 

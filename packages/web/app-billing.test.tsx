@@ -18,6 +18,15 @@ describe("App's billing spend", () => {
 					period: null,
 					billed: 0,
 					equivalent: 12.5,
+					expected: 0,
+				},
+				{
+					provider: "claude",
+					service: "Max 20x plan",
+					period: null,
+					billed: 0,
+					equivalent: 0,
+					expected: 200,
 				},
 				{
 					provider: "openai",
@@ -25,6 +34,7 @@ describe("App's billing spend", () => {
 					period: null,
 					billed: 3,
 					equivalent: 0,
+					expected: 0,
 				},
 			],
 			days: [
@@ -34,8 +44,10 @@ describe("App's billing spend", () => {
 					period: "2026-10-21",
 					billed: 0,
 					equivalent: 12.5,
+					expected: 0,
 				},
 			],
+			upcoming: [],
 		};
 	});
 
@@ -44,18 +56,20 @@ describe("App's billing spend", () => {
 		testing.dispose();
 	});
 
-	it("totals billed apart from estimates, and opens a provider onto its services", async () => {
+	it("totals the bill, plan use at API prices apart, and opens a provider onto its services", async () => {
 		const view = await testing.open();
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		await waitFor(() => view.getByLabelText("range"));
 		await waitFor(() => view.getByText("Updated", { exact: false }));
-		expect(view.getAllByText("$12.50").length).toBeGreaterThan(0);
-		expect(view.queryByText("opus")).toBeNull();
+		expect(view.getByLabelText("total").textContent).toContain("$203");
+		expect(view.getByText(/\$12\.50 of plan use at API prices/)).toBeTruthy();
+		expect(view.queryByText("Max 20x plan")).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: /Claude/ }));
-		expect(view.getByText("opus")).toBeTruthy();
-		expect(view.getAllByText("estimate").length).toBeGreaterThan(0);
+		expect(view.getByText("Max 20x plan")).toBeTruthy();
+		expect(view.queryByText("opus")).toBeNull();
+		expect(view.getAllByText("expected").length).toBeGreaterThan(0);
 	});
 
 	it("steps the range back a month and forward again, never past today", async () => {

@@ -1,10 +1,12 @@
 export type { BillingOptions, ProviderStatus } from "./billing";
 export { pullBilling } from "./billing";
+export type { Expected, Plan } from "./plans";
+export { readPlans, renewals } from "./plans";
 export { PROVIDERS } from "./providers";
 export { Rates } from "./rates";
 export type { SpendReport } from "./report";
 export { spendReport } from "./report";
-export type { BillingView } from "./routes";
+export type { BillingRoutesOptions, BillingView } from "./routes";
 export { BillingRoutes, CURRENCIES } from "./routes";
 export { Spend } from "./spend";
 export type {

@@ -3,6 +3,7 @@ import { fail } from "../exit";
 import { body } from "../server/shared";
 import type { Storage } from "../storage";
 import { type ProviderStatus, pullBilling, unpulledStatus } from "./billing";
+import { type Plan, renewals } from "./plans";
 import { PROVIDERS } from "./providers";
 import { Rates } from "./rates";
 import { type SpendReport, spendReport } from "./report";
@@ -30,6 +31,8 @@ export interface BillingView {
 /** What a `BillingRoutes` reads beyond the ledger. */
 export interface BillingRoutesOptions {
 	fetcher?: typeof fetch;
+	/** The agent plans this machine is signed in to, whose renewals the bill expects; none unsaid. */
+	plans?: () => Promise<Plan[]>;
 }
 
 /**
@@ -41,6 +44,7 @@ export class BillingRoutes {
 	#pulled: { at: string; statuses: ProviderStatus[] } | null = null;
 	#pulling: Promise<void> | null = null;
 	private readonly fetcher: typeof fetch;
+	private readonly plans: () => Promise<Plan[]>;
 
 	constructor(
 		storage: Storage,
@@ -49,6 +53,7 @@ export class BillingRoutes {
 		opts: BillingRoutesOptions = {},
 	) {
 		this.fetcher = opts.fetcher ?? fetch;
+		this.plans = opts.plans ?? (async () => []);
 		this.#settings = storage.document("billing.json", { schema: SETTINGS });
 	}
 
@@ -111,11 +116,25 @@ export class BillingRoutes {
 	/** The spend in the display currency. */
 	readonly spend = async (request: Request): Promise<Response> => {
 		const { searchParams } = new URL(request.url);
+		const now = new Date().toISOString();
+		const since = searchParams.get("since") ?? undefined;
+		const until = searchParams.get("until") ?? undefined;
+		// Renewals from the range's start to a month past its end, which covers what is upcoming.
+		const from = since ?? (await this.ledger.entries())[0]?.at ?? now;
+		const to = new Date(
+			Date.parse(until ?? now) + 32 * 86_400_000,
+		).toISOString();
 		const report: SpendReport = await spendReport(this.ledger, {
-			since: searchParams.get("since") ?? undefined,
-			until: searchParams.get("until") ?? undefined,
-			now: new Date().toISOString(),
+			since,
+			until,
+			now,
 			rates: new Rates(await this.currency(), this.fetcher),
+			expected: [
+				...renewals(await this.plans(), from, to),
+				...(this.#pulled?.statuses ?? []).flatMap(
+					(status) => status.expected ?? [],
+				),
+			],
 		});
 		return Response.json(report);
 	};

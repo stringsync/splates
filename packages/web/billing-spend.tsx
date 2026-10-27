@@ -8,27 +8,24 @@ import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { billing, pullBilling, setCurrency, spend } from "./api";
+import { Headline } from "./billing-headline";
 import { Sources } from "./billing-sources";
 import {
 	byProvider,
 	Currency,
 	colorOf,
 	dayOf,
-	monthEnd,
 	nameOf,
 	type ProviderSpend,
-	projected,
 	type Span,
 	type Sum,
 	shortDay,
 	spanOf,
 	spanTitle,
-	sum,
 	useMoney,
 	whole,
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
-import { StillWaiting } from "./countdown";
 import { METER_COLUMNS, Meter } from "./meter";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
@@ -267,100 +264,6 @@ export function SpendSection(): JSX.Element {
 }
 
 /**
- * The range's one figure, all it cost, what was billed and what is an
- * estimate under it, and for this month where it is headed at this pace.
- */
-function Headline({
-	title,
-	report,
-	reading,
-	picking,
-	projecting,
-}: {
-	title: ReactNode;
-	report: SpendReport | null;
-	reading: boolean;
-	picking: boolean;
-	projecting: boolean;
-}): JSX.Element {
-	const dollars = useMoney();
-	const total = sum(report?.services ?? []);
-	const all = whole(total);
-	const ahead =
-		projecting && report !== null ? projected(all, Date.now()) : null;
-	return (
-		<section
-			aria-label="total"
-			className="flex flex-col gap-4 rounded-xl border bg-card px-5 py-5 shadow-xs"
-		>
-			<div className="flex flex-wrap items-end gap-x-10 gap-y-4">
-				<div className="flex flex-col gap-1">
-					<span className="flex items-center gap-1 text-muted-foreground text-sm">
-						{title}
-					</span>
-					{report === null ? (
-						<span
-							role={reading ? "status" : undefined}
-							className="flex h-12 items-center gap-3 text-muted-foreground text-sm"
-						>
-							{picking
-								? "Pick the first and last day to total."
-								: reading
-									? "Reading spend…"
-									: "Not read"}
-							{!picking && reading && <StillWaiting />}
-						</span>
-					) : (
-						<span className="font-semibold text-5xl leading-none tracking-tight">
-							{dollars(all)}
-						</span>
-					)}
-				</div>
-				{ahead !== null && (
-					<div className="flex flex-col gap-1">
-						<span className="text-muted-foreground text-sm">
-							Projected by {monthEnd(Date.now())}
-						</span>
-						<span className="font-medium text-2xl leading-none tracking-tight text-muted-foreground">
-							{dollars(Math.round(ahead * 100) / 100)}
-						</span>
-					</div>
-				)}
-			</div>
-			{report !== null && (
-				<div className="flex flex-col gap-1 border-t pt-3 text-sm">
-					<p className="flex flex-wrap gap-x-4 gap-y-1">
-						<span>
-							<span className="font-medium">{dollars(total.billed)}</span>{" "}
-							<span className="text-muted-foreground">billed</span>
-						</span>
-						<span title="What plan use would cost at API list prices, not money paid">
-							<span className="font-medium">{dollars(total.equivalent)}</span>{" "}
-							<span className="text-muted-foreground">
-								estimated at API list prices
-							</span>
-						</span>
-					</p>
-					<p className="text-muted-foreground text-xs">
-						{all === 0
-							? "Nothing spent in this range yet. Agents' turns and pulled provider bills land here. "
-							: ""}
-						Updated {new Date(report.updated).toLocaleTimeString()}
-						{report.rateDate !== null &&
-							`. Converted to ${report.currency} at the rate of each day, the latest from ${report.rateDate}.`}
-					</p>
-					{report.rateError !== null && (
-						<p role="alert" className="text-destructive text-xs">
-							Shown in USD: {report.rateError}
-						</p>
-					)}
-				</div>
-			)}
-		</section>
-	);
-}
-
-/**
  * Each provider's share of the range, the costliest first, each opening onto
  * its services: laid out in `METER_COLUMNS`, so every bar has the page's
  * other meters' x, width and thickness.
@@ -474,15 +377,15 @@ function ServiceRow({
 	);
 }
 
-/** Whether a figure is money billed, an estimate at list prices, or both. */
+/** Whether a figure is money billed, expected with no bill yet, or both. */
 function Kind({ spent }: { spent: Sum }): JSX.Element {
 	return (
 		<span className="flex gap-1 text-muted-foreground text-xs">
 			{spent.billed > 0 && <span>billed</span>}
-			{spent.billed > 0 && spent.equivalent > 0 && <span>+</span>}
-			{spent.equivalent > 0 && (
-				<span title="What plan use would cost at API list prices, not money paid">
-					estimate
+			{spent.billed > 0 && spent.expected > 0 && <span>+</span>}
+			{spent.expected > 0 && (
+				<span title="A plan's renewal at list price, or a subscription not invoiced yet">
+					expected
 				</span>
 			)}
 		</span>

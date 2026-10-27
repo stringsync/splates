@@ -59,9 +59,11 @@ describe("App's billing sources", () => {
 					period: null,
 					billed: 3,
 					equivalent: 0,
+					expected: 0,
 				},
 			],
 			days: [],
+			upcoming: [],
 		};
 	});
 
