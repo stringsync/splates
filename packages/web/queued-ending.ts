@@ -12,7 +12,11 @@ export function useEnding(conversation: ConversationState | null): {
 } {
 	const board = useContext(Board);
 	const reported = conversation === null ? null : reportedAs(conversation);
-	const asked = conversation === null ? null : queueAsked(conversation);
+	// Still in a task's worktree, it has changes yet to merge: not done.
+	const asked =
+		conversation === null || conversation.task !== null
+			? null
+			: queueAsked(conversation);
 	if (reported !== null || asked === null) {
 		return { reported, queued: false };
 	}
