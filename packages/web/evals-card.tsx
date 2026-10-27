@@ -1,3 +1,4 @@
+import { useAuiState } from "@assistant-ui/react";
 import type { EvalPlan } from "@stringsync/splates-server/evals/browser";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
@@ -39,7 +40,8 @@ export function EvalsCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	const conversation = useContext(EvalsConversation);
-	const [run] = useState(() => EvalRun.of(proposal, { conversation }));
+	const message = useAuiState((state) => state.message.id);
+	const [run] = useState(() => EvalRun.of(proposal, { conversation, message }));
 	useEffect(() => {
 		void run.load();
 		return () => run.dispose();

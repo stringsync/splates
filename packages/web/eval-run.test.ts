@@ -24,6 +24,30 @@ describe("EvalRun", () => {
 		timer = new FakeTimer();
 	});
 
+	it("keys identical proposals by their card, stable across reloads", () => {
+		const first = EvalRun.of(proposal(), {
+			server,
+			timer,
+			conversation: "c-1",
+			message: "m-1",
+		});
+		const reloaded = EvalRun.of(proposal(), {
+			server,
+			timer,
+			conversation: "c-1",
+			message: "m-1",
+		});
+		const resent = EvalRun.of(proposal(), {
+			server,
+			timer,
+			conversation: "c-1",
+			message: "m-2",
+		});
+
+		expect(reloaded.key).toBe(first.key);
+		expect(resent.key).not.toBe(first.key);
+	});
+
 	it("groups the scenarios and plans on the saved agents without starting", async () => {
 		const run = EvalRun.of(proposal(), { server, timer });
 

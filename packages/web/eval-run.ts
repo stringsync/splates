@@ -51,6 +51,8 @@ export interface EvalRunOptions {
 	timer?: Timer;
 	/** The conversation the card is in, told by the server once the run is done. */
 	conversation?: string | null;
+	/** The message the card is in, which sets its run apart from identical cards. */
+	message?: string | null;
 }
 
 export type EvalRunEvents = { changed: undefined };
@@ -109,7 +111,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		const ask = proposal.evals as EvalAsk;
 		return new EvalRun(
 			ask,
-			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}`,
+			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`,
 			opts,
 		);
 	}
