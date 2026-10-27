@@ -28,6 +28,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
+import { CascadeRoutes, Cascades, planShip, registeredGraph } from "../ship";
 import { BillingRoutes, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -423,6 +424,24 @@ export async function dev(
 	});
 	disposer.defer(async () => pushes.dispose());
 	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
+	const cascades = new Cascades({
+		storage: machineStorage,
+		fs,
+		log,
+		plan: async (slug) =>
+			planShip(await registeredGraph({ projects, fs, log }), slug),
+		reach: projectNamed,
+	});
+	disposer.defer(async () => cascades.dispose());
+	// A cascade the server stopped in the middle of carries on as it serves again.
+	void cascades
+		.resume()
+		.catch((error: unknown) =>
+			log.error(`resuming the ship cascade: ${error}`),
+		);
+	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
+		context.everywhere.slug((await projectFor(request)).root),
+	);
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(
 		machineStorage,
@@ -679,7 +698,11 @@ export async function dev(
 						GET: scoped((project) => project.ship),
 						// It publishes under the person's npm sign-in, so only as
 						// far as a conversation reaches.
-						POST: talk(scoped((project) => project.startShip)),
+						POST: talk(guarded(cascadeRoutes.startCascade)),
+					},
+					"/api/ship/cascade": {
+						GET: guarded(cascadeRoutes.cascade),
+						DELETE: talk(guarded(cascadeRoutes.dropFromCascade)),
 					},
 					"/api/ship/otp": {
 						POST: talk(scoped((project) => project.answerShipOtp)),

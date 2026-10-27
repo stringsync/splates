@@ -54,6 +54,28 @@ token that lets an agent, or anything running later, publish without you.
 The ship is kept in the project's records: a server restarted partway runs it
 again to finish it.
 
+## The cascade
+
+A ship carries on through the plan `--plan` prints. As each project's ship
+is done, the server reads the versions it published and, in each dependent
+whose every shipping dependency is now done, adds a bump task: groomed, in
+the project's untriaged lane, and queued, since you approved the plan that
+named it. A project taking from several in the run, such as vexml from
+webappwiz and mdom, waits for all of them and takes the bumps in one task.
+Once a bump task merges, a dependent the plan says ships is shipped in turn,
+one ship at a time, each asking you on npm's pages as the first did.
+
+When a bump task asks you a question, or is removed without merging, or a
+ship fails, the cascade stops at that project, and at the projects after it,
+while the rest goes on. Answer the task and it carries on; or take the
+project out of the run with `splates ship --drop <project>`, and those after
+it go on without its new version.
+
+One cascade runs on the machine at a time, kept in the machine's records
+(`ship-cascade.json`), so a restarted server carries on from where it stopped.
+`splates ship` while one is under way prints where each project stands
+rather than starting another, and `GET /api/ship/cascade` answers the same.
+
 ## What agents do
 
 An agent is refused `splates ship`, the plan included. When it thinks a
@@ -71,8 +93,7 @@ The page shows it as a ship card, whose Ship button starts the ship on the
 server as `splates ship` would. The agent hears `[SPLATES RUN ALLOWED]` and
 carries on without running anything.
 
-Once a package is on npm, splates queues a task in each project that depends
-on it, to move its pins to the new version, `bun install` and fix what breaks.
-These are ordinary tasks: an agent takes one as any queued task and lands it
+The cascade's bump tasks move a project's pins to the new versions, run
+`bun install` and fix what breaks. These are ordinary tasks: an agent takes one as any queued task and lands it
 through the merge gate, with no npm credentials needed. A merge is never a
 release.

@@ -186,6 +186,7 @@ export const STATUS: Partial<Record<Reason, number>> = {
 	usage: 400,
 	not_found: 404,
 	not_granted: 403,
+	conflict: 409,
 	lease_held: 409,
 	exists: 409,
 	cycle: 409,

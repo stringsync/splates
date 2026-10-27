@@ -8,9 +8,8 @@ import type { Shipping } from "./run";
 const OUTPUT_EVERY = Duration.ms(250);
 
 /**
- * A project's ship over HTTP: the latest one, starting one, and its output
- * as it prints. Only the person starts a ship: `splates ship` refuses an
- * agent before it asks, as the page's own action will.
+ * A project's ship over HTTP: the latest one, and its output as it prints.
+ * A ship starts as the first step of a cascade, through {@link CascadeRoutes}.
  */
 export class ShipRoutes {
 	readonly #shipping: Shipping;
@@ -26,10 +25,6 @@ export class ShipRoutes {
 	/** The latest ship, or null when the project never shipped. */
 	readonly ship = async (): Promise<Response> =>
 		Response.json(await this.#shipping.current());
-
-	/** Starts a ship, answering with it once it runs. */
-	readonly startShip = async (): Promise<Response> =>
-		Response.json(await this.#shipping.start(), { status: 201 });
 
 	/** Types the one-time password npm asks for into the ship; the code is not kept. */
 	readonly answerShipOtp = async (request: Request): Promise<Response> => {

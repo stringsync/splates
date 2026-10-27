@@ -52,6 +52,20 @@ export async function readGraph(
 	return { projects };
 }
 
+/**
+ * The public packages the project at `root` publishes, each at the version
+ * its manifest names now: what a ship that ended there published.
+ */
+export async function publishedPins(fs: Fs, root: string): Promise<Pin[]> {
+	return (await manifestsOf(fs, root)).flatMap((manifest) =>
+		manifest.name === undefined ||
+		manifest.private === true ||
+		manifest.version === undefined
+			? []
+			: [{ name: manifest.name, version: manifest.version }],
+	);
+}
+
 /** A registered project the graph is drawn over. */
 export interface ShipSource {
 	slug: string;

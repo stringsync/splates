@@ -6,6 +6,7 @@ import type { Git } from "../git";
 import type { Projects } from "../projects";
 import { DEFAULT_PORT } from "../server/shared";
 import { table } from "../table";
+import type { Cascade } from "./cascade";
 import { readGraph, type ShipGraph } from "./graph";
 import { planShip, ShipPlanError, type ShipStep } from "./plan";
 import type { Ship } from "./run";
@@ -26,10 +27,12 @@ export interface ShipContext {
 /**
  * `splates ship`: asks `splates server` (`dev`, else the one SPLATES_DEV
  * names, else this machine's on its default port) to ship `project`, the one
- * `git` is in for none, and follows it to its end; with `plan`, prints what
- * shipping it would do, running nothing. A ship is the person's to start, so
- * an agent is refused even the plan and told to ask with a card, whose Ship
- * on the page starts it.
+ * `git` is in for none, and its cascade through the projects downstream,
+ * following the first ship to its end; while a cascade is under way, prints
+ * it instead of starting another. With `plan`, prints what shipping it would
+ * do, running nothing; with `drop`, takes that project out of the cascade
+ * under way. A ship is the person's to start, so an agent is refused even
+ * the plan and told to ask with a card, whose Ship on the page starts it.
  */
 export async function ship(
 	ctx: ShipContext,
@@ -38,7 +41,14 @@ export async function ship(
 		plan = false,
 		json = false,
 		dev = "",
-	}: { project?: string; plan?: boolean; json?: boolean; dev?: string },
+		drop,
+	}: {
+		project?: string;
+		plan?: boolean;
+		json?: boolean;
+		dev?: string;
+		drop?: string;
+	},
 ): Promise<void> {
 	const asking =
 		ctx.ps.env("SPLATES_CONVERSATION") ?? ctx.ps.env("SPLATES_STARTED_BY");
@@ -51,8 +61,9 @@ export async function ship(
 	}
 	if (!plan) {
 		await shipOnServer(ctx, {
-			slug: project ?? (await thisProject(ctx)),
+			slug: drop ?? project ?? (await thisProject(ctx)),
 			dev,
+			drop: drop !== undefined,
 		});
 		return;
 	}
@@ -108,13 +119,15 @@ async function thisProject(ctx: ShipContext): Promise<string> {
 }
 
 /**
- * Starts the ship of `slug` on the server, which runs it on its machine
- * under the person's npm sign-in, and prints its output until it ends:
- * npm's links are in it, and on the page as well, for any device.
+ * Starts the cascade of `slug`'s ship on the server, which runs each ship
+ * on its machine under the person's npm sign-in, and prints the first
+ * ship's output until it ends: npm's links are in it, and on the page as
+ * well, for any device. Prints the cascade under way instead when there is
+ * one; with `drop`, drops `slug` from it.
  */
 async function shipOnServer(
 	ctx: ShipContext,
-	{ slug, dev }: { slug: string; dev: string },
+	{ slug, dev, drop }: { slug: string; dev: string; drop: boolean },
 ): Promise<void> {
 	const url =
 		dev || ctx.ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
@@ -142,9 +155,26 @@ async function shipOnServer(
 		}
 		return response;
 	};
-	const started = (await (await ask("POST", "/api/ship")).json()) as Ship;
+	if (drop) {
+		const left = (await (
+			await ask("DELETE", "/api/ship/cascade")
+		).json()) as Cascade;
+		ctx.log.info(`dropped ${slug} from the ship of ${left.from}`);
+		ctx.log.info(cascadeTable(left));
+		return;
+	}
+	const response = await ask("POST", "/api/ship");
+	const cascade = (await response.json()) as Cascade;
+	if (response.status !== 201) {
+		ctx.log.info(
+			`the ship of ${cascade.from} is under way, so no other starts until it is done; \`splates ship --drop <project>\` takes a stopped project out of it`,
+		);
+		ctx.log.info(cascadeTable(cascade));
+		return;
+	}
+	const downstream = cascade.steps.length - 1;
 	ctx.log.info(
-		`shipping ${slug} from ${started.from ?? "its current version"} on ${url}, which shows npm's sign-in and 2FA links too`,
+		`shipping ${slug} from ${cascade.steps[0]?.from ?? "its current version"} on ${url}, which shows npm's sign-in and 2FA links too${downstream === 0 ? "" : `, then ${downstream} project(s) downstream`}`,
 	);
 	const output = (await ask("GET", "/api/ship/output")).body;
 	if (output !== null) {
@@ -174,6 +204,26 @@ async function shipOnServer(
 			? `shipped ${slug}${ended.to === null ? "" : ` ${ended.to}`}`
 			: `the ship of ${slug} goes on in splates server; the page shows it`,
 	);
+	if (downstream > 0) {
+		ctx.log.info(
+			`the cascade goes on in splates server, through bump tasks queued in each project downstream: \`splates ship\` shows where it stands`,
+		);
+	}
+}
+
+/** Each project of `cascade` and where it stands. */
+function cascadeTable(cascade: Cascade): string {
+	return table(
+		["#", "PROJECT", "ACTION", "STATUS", "TASK", "NOTE"],
+		cascade.steps.map((step, i) => [
+			String(i + 1),
+			step.slug,
+			step.action,
+			step.status,
+			step.task === null ? "-" : `#${step.task}`,
+			step.note ?? "",
+		]),
+	);
 }
 
 /**
@@ -181,7 +231,9 @@ async function shipOnServer(
  * its `splates.config.ts` names. One whose config does not load is warned of
  * and drawn as never shipped, rather than leaving every plan without it.
  */
-export async function registeredGraph(ctx: ShipContext): Promise<ShipGraph> {
+export async function registeredGraph(
+	ctx: Pick<ShipContext, "projects" | "fs" | "log" | "configs">,
+): Promise<ShipGraph> {
 	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
 	const sources = await Promise.all(
 		(await ctx.projects.list())

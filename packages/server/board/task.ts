@@ -320,8 +320,14 @@ export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
 	} as T;
 }
 
-/** Who put a task in the queue: the person, or a lane the person queued whole. */
-export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
+/**
+ * Who put a task in the queue: the person, a lane the person queued whole,
+ * or the ship of another project, whose plan the person approved.
+ */
+export type QueuedBy =
+	| { by: "person" }
+	| { by: "lane"; lane: number }
+	| { by: "ship"; project: string };
 
 /**
  * `state` taken out of the queue: back in ready when it was groomed, else

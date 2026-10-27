@@ -55,7 +55,8 @@ describe("ship", () => {
 		]);
 		const printed = log.entries.map((entry) => String(entry.message));
 		expect(printed).toContain("https://www.npmjs.com/auth/cli/xyz");
-		expect(printed.at(-1)).toBe("shipped mdom 1.4.3");
+		expect(printed).toContain("shipped mdom 1.4.3");
+		expect(printed.at(-1)).toContain("`splates ship` shows where it stands");
 	});
 
 	it("fails with the end of the output when the ship failed", async () => {
@@ -71,6 +72,32 @@ describe("ship", () => {
 		expect((failed as Exit).message).toBe("npm error 403");
 	});
 
+	it("prints the cascade under way rather than starting another", async () => {
+		const { ctx, log } = await served();
+		const { calls, fetch } = server({ status: "done" }, true);
+
+		await ship({ ...ctx, fetch }, { dev: "http://localhost:4310" });
+
+		expect(calls).toEqual(["POST http://localhost:4310/api/ship?project=mdom"]);
+		const printed = String(log.entries.at(-1)?.message);
+		expect(printed).toContain("vexml");
+		expect(printed).toContain("waiting");
+	});
+
+	it("drops a project from the cascade under way", async () => {
+		const { ctx } = await served();
+		const { calls, fetch } = server({});
+
+		await ship(
+			{ ...ctx, fetch },
+			{ drop: "vexml", dev: "http://localhost:4310" },
+		);
+
+		expect(calls).toEqual([
+			"DELETE http://localhost:4310/api/ship/cascade?project=vexml",
+		]);
+	});
+
 	it("refuses an agent a ship before it asks the server", async () => {
 		const { ctx, ps } = await served();
 		const { calls, fetch } = server({ status: "done" });
@@ -83,11 +110,36 @@ describe("ship", () => {
 	});
 });
 
+/** The cascade of mdom's ship, as the server answers with it. */
+const cascade = {
+	from: "mdom",
+	status: "running",
+	steps: [
+		{
+			slug: "mdom",
+			action: "ship",
+			from: "1.4.2",
+			status: "shipping",
+			task: null,
+			note: null,
+		},
+		{
+			slug: "vexml",
+			action: "ship",
+			from: "2.0.9",
+			status: "waiting",
+			task: null,
+			note: null,
+		},
+	],
+};
+
 /**
- * A `splates server` that starts a ship from 1.4.2, prints a 2FA link as
+ * A `splates server` that starts a ship from 1.4.2, or answers with the
+ * cascade under way, prints a 2FA link as
  * its output, and ends it as `ended` says.
  */
-function server(ended: Record<string, unknown>) {
+function server(ended: Record<string, unknown>, underWay = false) {
 	const calls: string[] = [];
 	const fetch = async (url: string, init?: RequestInit) => {
 		calls.push(`${init?.method ?? "GET"} ${url}`);
@@ -96,11 +148,15 @@ function server(ended: Record<string, unknown>) {
 				"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
 			);
 		}
-		return Response.json(
-			init?.method === "POST"
-				? { status: "running", from: "1.4.2" }
-				: { status: "running", from: "1.4.2", to: null, error: null, ...ended },
-		);
+		return init?.method === "POST" || init?.method === "DELETE"
+			? Response.json(cascade, { status: underWay ? 200 : 201 })
+			: Response.json({
+					status: "running",
+					from: "1.4.2",
+					to: null,
+					error: null,
+					...ended,
+				});
 	};
 	return { calls, fetch };
 }

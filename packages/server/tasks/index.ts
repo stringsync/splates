@@ -23,7 +23,7 @@ export type { Details } from "./show";
 export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";
 export { fingerprint, snapshot, tasksOf } from "./snapshot";
-export { DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
+export { asking, DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
 export type {
 	DiffSize,
 	FailedTest,

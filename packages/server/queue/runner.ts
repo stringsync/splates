@@ -493,7 +493,9 @@ export function queuePrompt(queued: TaskRecord): string {
 	const lane =
 		queued.queuedBy?.by === "lane"
 			? `, which lane ${queued.queuedBy.lane} queued`
-			: "";
+			: queued.queuedBy?.by === "ship"
+				? `, which the ship of ${queued.queuedBy.project} queued`
+				: "";
 	return [
 		`splates server started this task for queued task #${queued.id} from the queue${lane}: nothing it is blocked by is left open.`,
 		...(queued.blockersLanded ?? []).map(

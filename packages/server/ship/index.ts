@@ -1,7 +1,17 @@
+export type { BumpState, BumpTake } from "./bumps";
+export { Bumps } from "./bumps";
+export type {
+	Cascade,
+	CascadeProject,
+	CascadeStatus,
+	CascadeStep,
+} from "./cascade";
+export { Cascades, cascadeRecord } from "./cascade";
+export { CascadeRoutes } from "./cascade-routes";
 export type { ShipContext } from "./commands";
 export { registeredGraph, ship } from "./commands";
 export type { Pin, ShipGraph, ShipProject, ShipSource, Use } from "./graph";
-export { readGraph } from "./graph";
+export { publishedPins, readGraph } from "./graph";
 export type { ShipPlan, ShipStep } from "./plan";
 export { nextPatch, planShip, ShipPlanError } from "./plan";
 export { ShipRoutes } from "./routes";

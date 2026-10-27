@@ -81,7 +81,7 @@ export async function wait(
  * The first open question `worktree`'s agent went quiet on, so it waits on a
  * person to answer it; null while it works, or asks nothing.
  */
-async function asking(
+export async function asking(
 	worktree: Worktree,
 	fs: Fs | undefined,
 	now: number,

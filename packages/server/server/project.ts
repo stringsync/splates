@@ -25,7 +25,7 @@ import type { Everywhere, Projects } from "../projects";
 import { letGo, QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import { Shipping, ShipRoutes } from "../ship";
+import { Bumps, Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
@@ -170,6 +170,8 @@ export async function serveProject(
 		...new BudgetRoutes(project),
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
+		shipping,
+		bumps: new Bumps({ tasks: project.tasks, service, fs: project.fs }),
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
@@ -426,8 +428,10 @@ export interface Served extends AsyncResource {
 	restoreQueued: Handler;
 	/** The project's latest ship. */
 	ship: Handler;
-	/** Starts a ship of the project. */
-	startShip: Handler;
+	/** Runs the project's ship, as a cascade's step. */
+	shipping: Shipping;
+	/** The project's bump tasks in a cascade. */
+	bumps: Bumps;
 	/** Types npm's one-time password into the ship. */
 	answerShipOtp: Handler;
 	/** What its latest ship printed, as it prints. */
