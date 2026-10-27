@@ -11,7 +11,6 @@ import {
 	ArrowRightIcon,
 	CheckIcon,
 	ChevronDownIcon,
-	CopyIcon,
 	HourglassIcon,
 	ListPlusIcon,
 	ListTodoIcon,
@@ -32,7 +31,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { CardArchive, useArchivable } from "./archive-offer";
 import { Board } from "./board";
-import { Badge, copiedLabel, useCopy } from "./card";
+import { Badge } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard } from "./current-task";
@@ -85,9 +84,6 @@ export function ReportCard({
 				? "Done"
 				: ENDINGS[report.ending].title;
 	const text = reportText(report);
-	// Shows the markdown the agent wrote in place of the card's body, until
-	// toggled back; never kept, so the card opens rendered.
-	const [showing, setShowing] = useState(false);
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
@@ -117,17 +113,10 @@ export function ReportCard({
 				aside={
 					<ReportAside
 						timing={report.ending === "working" ? timing : undefined}
-						showing={showing}
-						toggle={() => setShowing(!showing)}
 					/>
 				}
 			>
-				{showing ? (
-					<>
-						<Source text={report.source} />
-						<CardArchive report={report} />
-					</>
-				) : deferral !== null ? (
+				{deferral !== null ? (
 					<DeferredBody task={deferral} />
 				) : text === "" && !merged ? (
 					archivable ? (
@@ -206,32 +195,6 @@ function Folded({ children }: { children: ReactNode }): JSX.Element {
 					<ChevronDownIcon className="size-4" />
 				</button>
 			)}
-		</div>
-	);
-}
-
-/** A report's markdown as the agent wrote it, to read or copy. */
-function Source({ text }: { text: string }): JSX.Element {
-	const { copied, copy } = useCopy();
-	return (
-		<div className="relative">
-			<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words px-4 py-3.5 pr-24 font-mono text-[12px] leading-relaxed">
-				{text}
-			</pre>
-			<Button
-				size="sm"
-				variant="outline"
-				title={copied.state === "failed" ? copied.error : undefined}
-				onClick={() => copy(text)}
-				className="absolute top-2.5 right-2.5 h-7 pointer-coarse:h-10 gap-1.5 bg-background"
-			>
-				{copied.state === "copied" ? (
-					<CheckIcon data-icon="inline-start" />
-				) : (
-					<CopyIcon data-icon="inline-start" />
-				)}
-				<span aria-live="polite">{copiedLabel(copied, "Copy")}</span>
-			</Button>
 		</div>
 	);
 }

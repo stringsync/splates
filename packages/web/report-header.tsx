@@ -1,40 +1,17 @@
-import { CodeIcon } from "lucide-react";
 import type { JSX } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
-import { touchArea } from "./board";
 import { useNow } from "./hooks/use-now";
 import { span } from "./work";
 import type { ReportTiming } from "./working-report-time";
 
-/** The report header's clock and source toggle. */
+/** The report header's clock. */
 export function ReportAside({
 	timing,
-	showing,
-	toggle,
 }: {
 	timing: ReportTiming | undefined;
-	showing: boolean;
-	toggle: () => void;
 }): JSX.Element {
 	return (
 		<span className="inline-flex items-center gap-2">
 			{timing !== undefined && <WorkingElapsed timing={timing} />}
-			<Button
-				size="icon-xs"
-				variant="ghost"
-				aria-label="Show source"
-				aria-pressed={showing}
-				title={showing ? "Hide source" : "Show source"}
-				onClick={toggle}
-				className={cn(
-					"relative",
-					touchArea,
-					showing && "bg-accent text-accent-foreground",
-				)}
-			>
-				<CodeIcon />
-			</Button>
 		</span>
 	);
 }

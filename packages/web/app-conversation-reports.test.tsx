@@ -232,65 +232,20 @@ describe("App's report cards", () => {
 			const composer = within(view.container).getByRole("textbox", {
 				name: "Message input",
 			});
-			const source = await waitFor(() =>
-				within(view.getByRole("region", { name: "merged footer" })).getByRole(
-					"button",
-					{ name: "Show source" },
-				),
+			const button = await waitFor(
+				() =>
+					within(
+						view.getByRole("region", { name: "merged footer" }),
+					).getAllByRole("button")[0] as HTMLElement,
 			);
 
 			act(() => composer.focus());
 			expect(thread.style.scrollPaddingBottom).toBe("0px");
-			act(() => source.focus());
+			act(() => button.focus());
 			expect(thread.style.scrollPaddingBottom).toBe("120px");
 		} finally {
 			Object.defineProperty(HTMLElement.prototype, "offsetHeight", height);
 		}
-	});
-
-	it("shows a report's markdown as the agent wrote it in place of its body, to copy, until toggled back", async () => {
-		const written = [
-			"## ✅ Merged header onto main",
-			"",
-			"The header **wraps** now.",
-		].join("\n");
-		const view = await testing.openConversations([
-			conversation({
-				messages: [
-					message(
-						"agent",
-						`${written}\n\n### 📝 Fold the sidebar [#7]\n\nNext.`,
-					),
-				],
-			}),
-		]);
-		const copied: string[] = [];
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async (text: string) => void copied.push(text) },
-		});
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "merged header" }),
-		);
-		const toggle = within(card).getByRole("button", { name: "Show source" });
-		expect(toggle.getAttribute("aria-pressed")).toBe("false");
-		expect(card.querySelector("pre")).toBeNull();
-
-		act(() => fireEvent.click(toggle));
-
-		expect(toggle.getAttribute("aria-pressed")).toBe("true");
-		expect(card.querySelector("pre")?.textContent).toBe(written);
-		expect(card.querySelector("strong")).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Copy" })),
-		);
-		expect(copied).toEqual([written]);
-		expect(within(card).getByRole("button", { name: "Copied" })).not.toBeNull();
-
-		act(() => fireEvent.click(toggle));
-
-		expect(card.querySelector("pre")).toBeNull();
-		expect(card.querySelector("strong")?.textContent).toBe("wraps");
 	});
 
 	it("opens a merged card with how its task went already in it, so it never grows", async () => {
