@@ -6,6 +6,7 @@ export {
 	pickSettings,
 	thinkingOf,
 } from "./effort";
+export { kimiInstalled } from "./kimi";
 export { Limits } from "./limits";
 export {
 	modelOption,

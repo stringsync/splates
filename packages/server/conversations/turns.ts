@@ -343,18 +343,20 @@ export class ConversationTurns {
 	}
 
 	/**
-	 * Asks the agent to bring its `SPLATES.md` up to date and stop, cancelling
-	 * the turn it is on first, unless that turn is `merging`, which it says
-	 * the checkpoint into, or queues it after. An idle agent is not asked,
-	 * having ended its turn already. What the person queued stays queued, for
-	 * the next prompt to send. A `pause` is forgotten once it ends, so
-	 * nothing resumes it; a `budget` stop is kept with its reason, for the
-	 * worker budget to resume once it allows again.
+	 * Asks the agent to bring its `SPLATES.md` up to date and stop, as before
+	 * a restart. Pass `merging` when its turn is landing a task, and say why
+	 * it stops: a `budget` stop resumes once the worker budget allows again,
+	 * a `pause` never does. What the person queued stays queued.
 	 */
 	async checkpoint(
 		merging: boolean,
 		{ pause = false, budget = null }: CheckpointCause = {},
 	): Promise<void> {
+		// The turn it is on is cancelled first, unless it is merging, which
+		// it says the checkpoint into, or queues it after; an idle agent is
+		// not asked, having ended its turn already. A pause is forgotten once
+		// it ends; a budget stop is kept with its reason, for the worker
+		// budget to resume it.
 		const { host } = this;
 		const { state } = host;
 		await host.opening;
@@ -603,7 +605,7 @@ export class ConversationTurns {
 						this.ended(null);
 					}
 				},
-				(error: unknown) => this.ended(requestError(error)),
+				(error: unknown) => this.ended(requestError(error, host.state.agent)),
 			);
 	}
 

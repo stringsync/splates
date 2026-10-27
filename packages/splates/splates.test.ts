@@ -52,6 +52,7 @@ describe("splates cli", () => {
 		expect(roster.map((agent: { id: string }) => agent.id)).toEqual([
 			"claude",
 			"codex",
+			"kimi",
 		]);
 		expect(await env.fs.exists(join(env.splatesHome, "agents.json"))).toBe(
 			true,

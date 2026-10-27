@@ -58,11 +58,12 @@ type Options = Extract<Asked, { type: "permission" }>["options"];
 /**
  * A conversation's side of ACP: the agent's process and the connection to
  * it, what the agent asks of this side, routed to the person, and the calls
- * the conversation makes on it. Opened anew each time the agent starts or
- * comes back, with the same session, or reattached to a process a worker
- * kept running while the server restarted.
+ * the conversation makes on it.
  */
 export class AgentConnection {
+	// Opened anew each time the agent starts or comes back, with the same
+	// session, or reattached to a process a worker kept running while the
+	// server restarted.
 	private connection: acp.ClientSideConnection | null = null;
 	private process: AgentProcess | null = null;
 	private stream: AgentStream | null = null;
@@ -417,7 +418,9 @@ export class AgentConnection {
 			}
 			// The connection closes as the process dies, ahead of its exit, so
 			// its stderr, which says why, is waited for.
-			await host.close((await this.diedSaying(process)) ?? requestError(error));
+			await host.close(
+				(await this.diedSaying(process)) ?? requestError(error, agent.id),
+			);
 		}
 	}
 
@@ -447,7 +450,7 @@ export class AgentConnection {
 						return;
 					}
 					if ("error" in response) {
-						host.ended(requestError(response.error));
+						host.ended(requestError(response.error, agent.id));
 						return;
 					}
 					const { usage } = response.result as acp.PromptResponse;
@@ -840,7 +843,7 @@ export class AgentConnection {
 	}
 
 	// scry-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
-	/** Ends the process, dismissing whatever the agent was asking. */
+	/** Stops the agent, dismissing any question it was asking the person. */
 	close(): void {
 		this.settled({ type: "dismiss" });
 		this.listening?.dispose();

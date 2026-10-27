@@ -144,8 +144,9 @@ describe("OpenCode model setup", () => {
 	it("adds an entry to the default roster, the main model building and the auxiliary titling", async () => {
 		await save();
 		const roster = JSON.parse(await fs.read("/splates/agents.json"));
-		expect(roster.agents.slice(0, 2)).toEqual(DEFAULT_AGENTS);
-		const [env, off, content, ...rest] = roster.agents[2].argv;
+		const ours = DEFAULT_AGENTS.length;
+		expect(roster.agents.slice(0, ours)).toEqual(DEFAULT_AGENTS);
+		const [env, off, content, ...rest] = roster.agents[ours].argv;
 		expect([env, off, ...rest]).toEqual([
 			"env",
 			"OPENCODE_CONFIG_PROJECT_DISABLE=1",

@@ -48,6 +48,32 @@ describe("Roster", () => {
 		expect(await roster.adopt(offered)).toBe(false);
 	});
 
+	it("gains Kimi on a roster written before it, once", async () => {
+		const storage = new MemoryStorage();
+		const roster = Roster.in(storage);
+		expect(await roster.gain("kimi")).toBe(false);
+		await storage
+			.document("agents.json")
+			.write({ agents: DEFAULT_AGENTS.slice(0, 2) });
+		expect(await roster.gain("kimi")).toBe(true);
+		expect((await roster.agents()).map((each) => each.id)).toEqual([
+			"claude",
+			"codex",
+			"kimi",
+		]);
+		// Taken off, it stays off.
+		await roster.remove("kimi");
+		expect(await roster.gain("kimi")).toBe(false);
+		expect((await roster.agents()).map((each) => each.id)).not.toContain(
+			"kimi",
+		);
+		// A roster seeded with it has seen it, so it never comes back either.
+		const seeded = Roster.in(new MemoryStorage());
+		await seeded.seed();
+		await seeded.remove("kimi");
+		expect(await seeded.gain("kimi")).toBe(false);
+	});
+
 	it("serializes document edits and retains unrecognized fields", async () => {
 		const storage = new MemoryStorage();
 		const roster = Roster.in(storage);
@@ -63,7 +89,7 @@ describe("Roster", () => {
 			})),
 		]);
 		expect(await roster.read()).toEqual({
-			agents: DEFAULT_AGENTS,
+			agents: DEFAULT_AGENTS.slice(0, 2),
 			extra: "keep",
 		});
 	});
@@ -163,9 +189,11 @@ describe("Roster", () => {
 
 		expect((await deps.roster.agents()).map((agent) => agent.id)).toEqual([
 			"codex",
+			"kimi",
 		]);
 		expect(await deps.fs.read(deps.roster.path)).toBe(left);
 		await deps.roster.remove("codex");
+		await deps.roster.remove("kimi");
 		expect(await deps.roster.agents()).toEqual([]);
 	});
 
@@ -207,6 +235,7 @@ describe("Roster", () => {
 		expect(DEFAULT_AGENTS.map((agent) => agent.id)).toEqual([
 			"claude",
 			"codex",
+			"kimi",
 		]);
 	});
 

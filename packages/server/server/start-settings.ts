@@ -1,5 +1,11 @@
 import { SYSTEM_STORES } from "../creds";
-import { type Offered, Roster, type RosterAgent, splatesHome } from "../models";
+import {
+	kimiInstalled,
+	type Offered,
+	Roster,
+	type RosterAgent,
+	splatesHome,
+} from "../models";
 import { FsStorage } from "../storage";
 import { SavedPortsHost, SavedTunnel } from "../tunnel";
 import type { SplatesDeps } from "./runtime-deps";
@@ -28,12 +34,20 @@ export function savedTunnelOf({
 	);
 }
 
-/** Seeds default agents, and adds the default models agents offer that the roster lacks, before reading it. */
+/**
+ * The roster's agents, seeded with the defaults when there is none, with Kimi
+ * added once when it is installed here, and with the default models agents
+ * offer that the roster lacks.
+ */
 export async function seeded(
 	roster: Roster,
 	offered?: Offered,
+	machine?: Pick<SplatesDeps, "fs" | "ps">,
 ): Promise<RosterAgent[]> {
 	await roster.seed();
+	if (machine !== undefined && (await kimiInstalled(machine))) {
+		await roster.gain("kimi");
+	}
 	if (offered !== undefined) {
 		await roster.adopt(await offered.all());
 	}

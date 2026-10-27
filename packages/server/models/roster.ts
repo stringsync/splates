@@ -5,12 +5,13 @@ import { LEGACY_DIR, unmigrated } from "../config";
 import type { Agent, Setting } from "../conversations";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
+import { KIMI_ARGV } from "./kimi";
 import { modelOption } from "./models";
 
 /**
- * The agents splates can start, and the models each runs, kept in one file
- * under the user's home rather than per project: an orchestrator in any
- * project, of any model family, can read it to delegate to any other.
+ * The agents splates can start and the models each runs, from
+ * `~/.splates/agents.json`, which an orchestrator in any project, of any
+ * model family, reads to delegate to any other.
  */
 export class Roster {
 	constructor(
@@ -66,7 +67,40 @@ export class Roster {
 		if ((await this.doc.read().catch(() => ({}))) !== null) {
 			return false;
 		}
-		await this.doc.write({ format: FORMAT, agents: DEFAULT_AGENTS });
+		await this.doc.write({
+			format: FORMAT,
+			agents: DEFAULT_AGENTS,
+			seen: DEFAULT_AGENTS.map((each) => each.id),
+		});
+		return true;
+	}
+
+	/**
+	 * Adds default agent `agent` to a roster written before it joined the
+	 * defaults, once: an agent the roster has seen, as one it was seeded with,
+	 * stays off it once the person takes it off. Returns whether it changed.
+	 */
+	async gain(agent: string): Promise<boolean> {
+		const base = DEFAULT_AGENTS.find((each) => each.id === agent);
+		// Read first, so a roster that will not parse is reported, not overwritten.
+		await this.agents();
+		const file = (await this.doc.read().catch(() => null)) as {
+			format?: number;
+			agents: RosterEntry[];
+			seen?: string[];
+		} | null;
+		if (base === undefined || file === null) {
+			return false;
+		}
+		const seen = file.seen ?? FIRST_AGENTS;
+		if (seen.includes(agent)) {
+			return false;
+		}
+		file.seen = [...seen, agent];
+		if (!file.agents.some((each) => each.id === agent)) {
+			file.agents = [...file.agents, { ...base }];
+		}
+		await this.write(file);
 		return true;
 	}
 
@@ -244,6 +278,9 @@ export interface RosterFile {
 /** The roster's own format. */
 const FORMAT = 1;
 
+/** The default agents a roster that lists none it has seen was written with. */
+const FIRST_AGENTS = ["claude", "codex"];
+
 /** A model an agent can run, and what picking it buys. */
 export interface RosterModel {
 	/** What the agent's Model setting takes: `opus`, `gpt-6-luna`. */
@@ -292,10 +329,12 @@ const schema = z.object({
 });
 
 /**
- * The roster a machine starts with: each agent is the ACP adapter its maker
- * publishes, fetched by `bunx` on first use, and its models are those the
- * adapter offers, by the ids its Model setting takes.
+ * The agents a machine's roster starts with, and what it lists while there is
+ * no `agents.json`: each with the models it offers, by the ids its Model
+ * setting takes.
  */
+// Each starts as the ACP adapter its maker publishes, fetched by `bunx` on
+// first use, or as its own CLI where that speaks ACP, as Kimi's does.
 export const DEFAULT_AGENTS: RosterAgent[] = [
 	{
 		id: "claude",
@@ -367,6 +406,67 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 				id: "gpt-6-luna",
 				name: "6 Luna",
 				strengths: "easier tasks, fast",
+				cost: "low",
+				tier: 1,
+				speed: "fast",
+				costRank: 1,
+			},
+		],
+	},
+	{
+		id: "kimi",
+		name: "Kimi",
+		argv: KIMI_ARGV,
+		models: [
+			{
+				id: "kimi-code/k3.1-pro",
+				name: "K3.1 Pro",
+				strengths: "Kimi's strongest, for complex work",
+				cost: "medium",
+				tier: 3,
+				speed: "medium",
+				costRank: 2,
+			},
+			{
+				id: "kimi-code/k3.1-pro-highspeed",
+				name: "K3.1 Pro Highspeed",
+				strengths: "K3.1 Pro at twice the speed, for twice the usage",
+				cost: "high",
+				tier: 3,
+				speed: "fast",
+				costRank: 3,
+			},
+			{
+				id: "kimi-code/k3",
+				name: "K3",
+				strengths: "everyday coding work",
+				cost: "low",
+				tier: 2,
+				speed: "medium",
+				costRank: 1,
+			},
+			{
+				id: "kimi-code/k3-256k",
+				name: "K3 256K",
+				strengths: "everyday work across a large codebase, with a long context",
+				cost: "low",
+				tier: 2,
+				speed: "medium",
+				costRank: 2,
+			},
+			{
+				id: "kimi-code/kimi-for-coding",
+				name: "K2.8 Preview",
+				strengths: "simpler, well-specified tasks",
+				cost: "low",
+				tier: 2,
+				speed: "medium",
+				costRank: 1,
+			},
+			{
+				id: "kimi-code/kimi-for-coding-highspeed",
+				name: "K2.7 Code Highspeed",
+				strengths: "quick answers and mechanical edits",
 				cost: "low",
 				tier: 1,
 				speed: "fast",

@@ -281,6 +281,16 @@ better or worse, and say what to change when one stands out. Fixed rules over
 the counts make those calls, not a model, so the same outcomes always read
 the same.
 
+### Kimi Code
+
+Kimi Code is on the default roster beside Claude and Codex, started as
+`kimi acp`, Kimi's own ACP server. Its installer leaves `kimi` off the PATH,
+so splates runs `KIMI_PATH` when set, else `kimi` on the PATH, else
+`~/.kimi-code/bin/kimi`. A roster written before Kimi joined gains it once,
+when the server starts on a machine with Kimi installed; take it off and it
+stays off. Its models go by their full ids, such as `kimi-code/k3.1-pro`.
+Sign in first with `kimi login`: splates never signs in for it.
+
 ### Optional OpenCode ACP agent
 
 Open **Settings → Setup** and visit the optional OpenCode steps. Check this

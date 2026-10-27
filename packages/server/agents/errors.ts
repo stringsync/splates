@@ -16,11 +16,18 @@ export function agentError(message: string): string {
 	);
 }
 
+/** ACP's code for a request refused until the agent is signed in. */
+const AUTH_REQUIRED = -32000;
+
+/** How the person signs in to an agent that refuses until they do, by its id. */
+const SIGN_IN: Record<string, string> = { kimi: "kimi login" };
+
 /**
  * What an agent's failed request says, redacted: its message, and the detail
  * an ACP error carries in `data`, without which most say only "Internal error".
+ * An agent `agent` names that refuses for want of a sign-in says how to sign in.
  */
-export function requestError(error: unknown): string {
+export function requestError(error: unknown, agent?: string): string {
 	const message = messageOf(error);
 	const data =
 		typeof error === "object" && error !== null && "data" in error
@@ -36,9 +43,18 @@ export function requestError(error: unknown): string {
 						typeof data.details === "string"
 					? data.details
 					: JSON.stringify(data);
-	return agentError(
+	const said =
 		detail === null || message.includes(detail)
 			? message
-			: `${message}: ${detail}`,
+			: `${message}: ${detail}`;
+	const code =
+		typeof error === "object" && error !== null && "code" in error
+			? error.code
+			: undefined;
+	const signIn = agent === undefined ? undefined : SIGN_IN[agent];
+	return agentError(
+		code === AUTH_REQUIRED && signIn !== undefined
+			? `${said}. Run \`${signIn}\` in a terminal to sign in, then try again.`
+			: said,
 	);
 }
