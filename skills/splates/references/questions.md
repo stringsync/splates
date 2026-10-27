@@ -26,6 +26,14 @@ passing: the page shows none asked in prose, a bold line or a "my lean", or
 through your harness's own question tool. When an answer overturns a pick you built on, redo
 that part.
 
+Write each question to be answered from the card alone. The user taps on a
+phone and should not have to leave the card to find out what they are
+choosing: put every fact the choice turns on under the question or its
+choices (what each option is, who or what it touches, sizes, dates, the
+tradeoff), the ones you found in the code or docs included. Never send them to
+a file, a diff or an earlier message for it, and never write a question or
+choice that only makes sense with that context in view.
+
 Number questions 1, 2, … in the order you write them. A question's line is
 its subject, short enough to scan and ending at its `?`, with nothing after
 it; everything else, the why included, goes in markdown lines indented under

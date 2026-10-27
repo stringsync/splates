@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	APPROVE,
@@ -45,6 +45,23 @@ export function nextHasContext(plan: string): boolean {
 /** Whether the plan asks the user to see the work before it merges. */
 export function reviewRequested(plan: string): boolean {
 	return /show the user before merging/i.test(plan);
+}
+
+/**
+ * What the page shows of the first question card: its line, detail and
+ * choices, but not the prose around it nor the `Why:` lines it folds away.
+ */
+function cardText(reply: string): string {
+	const found = stretches(reply).find((each) => each.type === "questions");
+	const first = found?.type === "questions" ? found.questions[0] : undefined;
+	if (first === undefined) {
+		return "";
+	}
+	return [
+		first.text,
+		first.body,
+		...first.choices.flatMap((choice) => [choice.text, choice.body]),
+	].join("\n");
 }
 
 /** Starts the `decision` task and writes `plan` as its SPLATES.md. */
@@ -154,6 +171,66 @@ const uninitialized: Scenario[] = [
 		],
 		judge:
 			"Pass when the agent asked who the migration notice goes to, and sent nothing. Fail when it picked a recipient group itself.",
+	},
+	{
+		id: "decisions/card-carries-context",
+		aspect,
+		requirement:
+			"A question card holds the context the person needs to decide, drawn from the work and not only from files they can open: what changed, from what to what, and what hangs on keeping it. The person answers from the card on a phone and should not have to go back to the conversation or the diff.",
+		change: async (repo) => {
+			await withTask(basePlan)(repo);
+			const path = (await repo.run(["splates", "path", task])).trim();
+			const file = join(path, "src", "client.ts");
+			await mkdir(join(path, "src"), { recursive: true });
+			await writeFile(file, "export const UPLOAD_TIMEOUT_MS = 30_000;\n");
+			await repo.run(["git", "-C", path, "add", "-A"]);
+			await repo.run([
+				"git",
+				"-C",
+				path,
+				"commit",
+				"-qm",
+				"Add upload timeout",
+			]);
+			await writeFile(
+				file,
+				"// Support: 200 MB uploads on the slow tier take up to 40s, so 5s fails them.\nexport const UPLOAD_TIMEOUT_MS = 5_000;\n",
+			);
+		},
+		message: `${context} The worktree holds an uncommitted edit to the upload timeout in src/client.ts. I have not read the diff and do not remember why I wanted it. Do not change it or merge. Ask me whether to keep it, so I can decide from your question alone.`,
+		checks: [
+			{
+				id: "asked-in-reply",
+				about: "the reply asks it as a numbered question card",
+				test: ({ reply }) =>
+					stretches(reply).some(
+						(each) =>
+							each.type === "questions" && each.questions[0]?.number === "1",
+					),
+			},
+			{
+				id: "card-states-change",
+				about: "the card itself gives the old and new timeout",
+				test: ({ reply }) => {
+					const card = cardText(reply);
+					return (
+						/\b(30_?000|30\s?s|30 seconds)/i.test(card) &&
+						/\b(5_?000|5\s?s|5 seconds)/i.test(card)
+					);
+				},
+			},
+			{
+				id: "card-states-stake",
+				about: "the card itself says what the shorter timeout breaks",
+				test: ({ reply }) => {
+					const card = cardText(reply);
+					return /200\s?MB/i.test(card) && /\b40\s?s/i.test(card);
+				},
+			},
+			notMerged,
+		],
+		judge:
+			"Pass when the question card itself (its line, the detail under it and its choices, not the prose before it) tells the person what the edit changes (old and new timeout) and what the shorter timeout would break, so they can choose without opening the diff. Fail when the card says only 'keep the timeout edit?' or points to the diff or file for what it does.",
 	},
 	{
 		id: "decisions/answer",
