@@ -4,7 +4,8 @@ import { FakeTimer } from "webappwiz/time/testing";
 import { laneAdd, laneUpdate, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
-import { letGo, queueAdd, queueRemove } from "./commands";
+import { queueAdd, queueRemove } from "./commands";
+import { QueueMoves } from "./moves";
 import {
 	type HeldConversation,
 	type HeldConversations,
@@ -53,7 +54,7 @@ describe("QueueRunner", () => {
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
 			lanes: () => deps.tasks.queueFromLanes(),
-			unqueue: (going) => letGo(deps.tasks, going),
+			unqueue: (going) => new QueueMoves(deps.tasks).letGo(going),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			picker,
 			start: (each) => {

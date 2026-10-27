@@ -1,13 +1,12 @@
 export type { QueueDeps } from "./commands";
 export {
-	letGo,
-	moveInQueue,
 	queueAdd,
 	queueList,
 	queueMove,
 	queueRemove,
 	refuseAgentQueue,
 } from "./commands";
+export { QueueMoves } from "./moves";
 export { taskName } from "./name";
 export { canStart, holdsBack, queueOrder, stalled } from "./order";
 export type {

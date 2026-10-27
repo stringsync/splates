@@ -4,6 +4,13 @@ import { pickLabel } from "../models";
 import { table } from "../table";
 import { cleared, deferralBlockers } from "./deferral";
 import {
+	type ElsewhereBlockerNow,
+	type ElsewhereBoards,
+	ElsewhereStanding,
+	elsewhereLine,
+	elsewhereName,
+} from "./elsewhere";
+import {
 	blockersOf,
 	followers,
 	isReady,
@@ -79,7 +86,12 @@ export async function taskList(
 				project === undefined ? String(task.id) : `${project} #${task.id}`,
 				task.subject,
 				task.state.stage,
-				task.blockedBy.join(","),
+				[
+					...task.blockedBy,
+					...task.blockedElsewhere
+						.filter((blocker) => blocker.landed === undefined)
+						.map((blocker) => elsewhereName(blocker).replace(" ", "")),
+				].join(","),
 				task.lane === null ? "" : String(task.lane),
 				cameFrom(task.state) ?? "",
 				age(task.state.createdAt),
@@ -97,17 +109,54 @@ export interface TaskShowOptions {
 	others?: readonly string[];
 	/** This project's slug, when shown from another: the task is then written `slug #N`. */
 	project?: string;
+	/**
+	 * The other projects' boards, to say where its blockers there stand and
+	 * which of their tasks wait on it; without them, as its record says.
+	 */
+	boards?: ElsewhereBoards;
+	/** This project's main tree, which the other projects' tasks name it by. */
+	root?: string;
 }
 
 /** One task in full: what `task list` shows of it, its files, and its detail. */
 export async function taskShow(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ json = false, others = [], project }: TaskShowOptions = {},
+	{ json = false, others = [], project, boards, root }: TaskShowOptions = {},
 ): Promise<void> {
 	const task = await tasks.find(id);
+	const elsewhere =
+		boards === undefined
+			? task.blockedElsewhere.map(
+					(blocker): ElsewhereBlockerNow => ({
+						...blocker,
+						slug: elsewhereName(blocker).split(" ")[0] ?? "",
+						status: blocker.landed
+							? "merged"
+							: blocker.lost
+								? "removed"
+								: "unknown",
+					}),
+				)
+			: await new ElsewhereStanding(boards).of(task.state);
+	const following =
+		boards === undefined || root === undefined
+			? []
+			: (await boards.following(root).catch(() => [])).filter(
+					(other) => other.blocker === task.id,
+				);
 	if (json) {
-		log.info(JSON.stringify(task.state, null, "\t"));
+		log.info(
+			JSON.stringify(
+				{
+					...task.state,
+					...(elsewhere.length === 0 ? {} : { blockedElsewhere: elsewhere }),
+					...(following.length === 0 ? {} : { blockingElsewhere: following }),
+				},
+				null,
+				"\t",
+			),
+		);
 		return;
 	}
 	const states = (await tasks.all()).map((each) => each.state);
@@ -165,12 +214,17 @@ export async function taskShow(
 		...((task.state.blockersLost ?? []).length === 0
 			? []
 			: [`  held:      ${lostLine(task.state)}`]),
+		...elsewhere.map((blocker) => `  blocked by: ${elsewhereLine(blocker)}`),
 		...followers(states, task.id).map(
 			(other) => `  blocking:  ${named(other)}`,
 		),
+		...following.map(
+			(other) =>
+				`  blocking:  ${elsewhereName(other)} ${other.subject} (${other.stage}, in another project)`,
+		),
 		`  age:       ${age(task.state.createdAt)}`,
 		...task.files.map((path) => `  file:      ${path}`),
-		...deferredLines(task.state, states),
+		...deferredLines(task.state, states, elsewhere),
 	];
 	// A mention of a task that has gone reads as if it were still there, so
 	// each is said to be open or gone: ids never come back, and a gone one has
@@ -194,14 +248,18 @@ export async function taskShow(
  * Why `task`'s work was last deferred and each blocker it named, checked off
  * once cleared, so whoever takes it again starts from there.
  */
-function deferredLines(task: TaskRecord, states: TaskRecord[]): string[] {
+function deferredLines(
+	task: TaskRecord,
+	states: TaskRecord[],
+	elsewhere: readonly ElsewhereBlockerNow[],
+): string[] {
 	if (task.deferred === undefined) {
 		return [];
 	}
-	const blockers = deferralBlockers(task, states).map((blocker) => {
+	const blockers = deferralBlockers(task, states, elsewhere).map((blocker) => {
 		const what =
 			blocker.kind === "task"
-				? `#${blocker.id} ${blocker.subject}`
+				? `${blocker.project === undefined ? `#${blocker.id}` : elsewhereName({ ...blocker, project: blocker.project })} ${blocker.subject}`
 				: blocker.kind === "question"
 					? `the person: ${blocker.text.split("\n")[0]}`
 					: blocker.what;

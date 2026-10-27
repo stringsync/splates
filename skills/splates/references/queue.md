@@ -152,6 +152,19 @@ call, the flag repeated or a comma list: `--blocked-by 12 --blocked-by 13`, or
 Link only for a real order (one needs the other's code or data), never for
 priority, which is the position's job.
 
+A task that waits on another project's task links it the same way, with
+that project's slug before the number: `--blocked-by webappwiz#404` (or
+`'webappwiz #404'`), mixed freely with numbers here. The task there has to
+be open; when there is none yet, `splates --project webappwiz task defer`
+it first (see [projects.md](projects.md)). The queue holds this task until
+that one merges there, and the board, `splates task show` and `splates
+queue list` name it with where it stands, while `task show` there lists
+this task under `blocking:`. A blocker removed there without merging holds
+the task for the person, as one here does; `--remove-blocked-by
+webappwiz#404` lets go of it. Never leave such a wait only in a task's
+detail or a deferral's `--waiting-on`: unlinked, the person cannot see what
+holds the work up.
+
 ## Lanes
 
 A lane is a named group of related tasks, for the user to see them together

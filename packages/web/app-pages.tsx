@@ -73,7 +73,6 @@ export function useAppPages({
 		how?: import("./page-address").Move,
 	) => void;
 }): Record<Page, ReactNode> | null {
-	// What each page shows, laid out by the sidebar's tabs or the phone's own.
 	return useMemo<Record<Page, ReactNode> | null>(
 		() =>
 			snapshot === null
@@ -143,6 +142,7 @@ export function useAppPages({
 									tasks={snapshot.tasks}
 									todos={snapshot.todos}
 									lanes={snapshot.lanes}
+									elsewhere={snapshot.elsewhere}
 									trunk={snapshot.trunk}
 									here={{ root: snapshot.root, repo: snapshot.repo }}
 									open={open}

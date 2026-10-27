@@ -9,7 +9,7 @@ import { eventually } from "../conversations/testing";
 import {
 	type HeldConversation,
 	type HeldConversations,
-	letGo,
+	QueueMoves,
 	QueueRunner,
 	type QueueStart,
 	queueAdd,
@@ -115,7 +115,7 @@ describe("QueueAutoPick", () => {
 		held = heldList();
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
-			unqueue: (going) => letGo(deps.tasks, going),
+			unqueue: (going) => new QueueMoves(deps.tasks).letGo(going),
 			tasks: async () => [],
 			picker,
 			start: async (each) => {

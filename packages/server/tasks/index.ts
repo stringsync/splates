@@ -9,6 +9,7 @@ export { startDispatched } from "./dispatched";
 export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
 export type { FinishedPlan, FinishedTask } from "./finished";
+export { Finished } from "./finished";
 export { follow, SERVER_WAIT_MS, serveProject } from "./follow";
 export type { Landing } from "./landings";
 export { landingNotice, landingsOverlapping } from "./landings";

@@ -1,4 +1,7 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type {
+	ElsewhereOnBoard,
+	TaskRecord,
+} from "@stringsync/splates-server/board";
 import {
 	type LaneRecord,
 	lanesTaken,
@@ -83,6 +86,7 @@ export const Conversations = memo(function Conversations({
 	tasks,
 	todos,
 	lanes,
+	elsewhere,
 	trunk,
 	here,
 	open,
@@ -103,6 +107,8 @@ export const Conversations = memo(function Conversations({
 	/** What a todo an agent proposes is read from, live. */
 	todos: TaskRecord[];
 	lanes: LaneRecord[];
+	/** Where its todos' blockers in other projects stand; absent unread. */
+	elsewhere?: ElsewhereOnBoard;
 	/** The main tree's branch. */
 	trunk: string;
 	/** The project the page shows, to file its archived conversations under. */
@@ -148,6 +154,7 @@ export const Conversations = memo(function Conversations({
 			linked: true,
 			todos,
 			lanes: named(todos, lanes),
+			elsewhere,
 			open: (id: number) => {
 				const task = takenTask(todos, tasks, id);
 				if (task === null) {
@@ -167,7 +174,17 @@ export const Conversations = memo(function Conversations({
 			refuseLane: () => {},
 			drafts,
 		}),
-		[todos, lanes, drafts, tasks, onTodos, onLane, refusedTodos, refuseTodo],
+		[
+			todos,
+			lanes,
+			elsewhere,
+			drafts,
+			tasks,
+			onTodos,
+			onLane,
+			refusedTodos,
+			refuseTodo,
+		],
 	);
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);

@@ -11,7 +11,7 @@ import {
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { fail } from "@stringsync/splates-server/exit";
-import { repository } from "@stringsync/splates-server/records";
+import { OpenBoards, repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	DEFAULT_TIMEOUT,
@@ -21,7 +21,8 @@ import {
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { assigneeIn, here, laneIn, position, taskIds } from "./flags";
+import { blockerFlags } from "./blockers";
+import { assigneeIn, here, laneIn, position } from "./flags";
 
 /** `splates task`, the queue, which the root cli mounts after the commands for the task you work on. */
 export const splatesTask = cli<SplatesDeps>("task").description(
@@ -75,7 +76,7 @@ function adding(name: string, description: string, ready: boolean) {
 		})
 		.repeated("blocked-by", z.string(), {
 			description:
-				"numbers of the tasks blocking it, comma separated or the flag repeated: each has to merge before this one starts",
+				"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`webappwiz#404`); each has to merge before this one starts",
 		})
 		.option("lane", z.string(), {
 			default: "",
@@ -125,6 +126,12 @@ function adding(name: string, description: string, ready: boolean) {
 										),
 						};
 			const project = await projectFrom(ctx);
+			using boards = new OpenBoards(ctx, ctx.projects);
+			const { blockedBy, blockedElsewhere } = await blockerFlags({
+				boards,
+				here: ctx.git.root,
+				blockedBy: opts["blocked-by"],
+			});
 			await ctx.journal.record(
 				"task add",
 				from,
@@ -134,12 +141,14 @@ function adding(name: string, description: string, ready: boolean) {
 						text: opts.text,
 						position: opts.position,
 						files: commaList(opts.file.join(",")),
-						blockedBy: taskIds(opts["blocked-by"].join(",")),
+						blockedBy,
+						blockedElsewhere,
 						lane: laneIn(opts.lane) ?? null,
 						assignee,
 						origin,
 						ready,
 						project,
+						boards,
 					}),
 				addedFacts,
 			);
@@ -190,15 +199,18 @@ splatesTask
 	.description("one task in full: where it stands, its files, and its detail")
 	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action(async (opts, ctx) =>
-		taskShow(ctx, opts.id, {
+	.action(async (opts, ctx) => {
+		using boards = new OpenBoards(ctx, ctx.projects);
+		await taskShow(ctx, opts.id, {
 			json: opts.json,
 			project: await projectFrom(ctx),
 			others: (await ctx.projects.list())
 				.filter((project) => project.root !== ctx.git.root)
 				.map((project) => project.slug),
-		}),
-	);
+			boards,
+			root: ctx.git.root,
+		});
+	});
 
 splatesTask
 	.command("update")
@@ -234,11 +246,11 @@ splatesTask
 	})
 	.repeated("blocked-by", z.string(), {
 		description:
-			"numbers of more tasks blocking it, comma separated or the flag repeated: each has to merge before this one starts; refused when that makes a loop",
+			"more tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`webappwiz#404`); each has to merge before this one starts; refused when that makes a loop",
 	})
 	.repeated("remove-blocked-by", z.string(), {
 		description:
-			"numbers of tasks no longer blocking it, comma separated or the flag repeated",
+			"tasks no longer blocking it, as --blocked-by names them, comma separated or the flag repeated",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -283,6 +295,13 @@ splatesTask
 			await ctx.tasks.find(opts.id),
 		);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
+		using boards = new OpenBoards(ctx, ctx.projects);
+		const { blockedBy, blockedElsewhere, unblocked } = await blockerFlags({
+			boards,
+			here: ctx.git.root,
+			blockedBy: opts["blocked-by"],
+			removeBlockedBy: opts["remove-blocked-by"],
+		});
 		await recordUpdate(ctx.journal, ctx.tasks, opts.id, () =>
 			taskUpdate(ctx, opts.id, {
 				subject: opts.subject,
@@ -291,12 +310,15 @@ splatesTask
 				position: opts.position,
 				files: commaList(opts.file.join(",")),
 				removeFiles: commaList(opts["remove-file"].join(",")),
-				blockedBy: taskIds(opts["blocked-by"].join(",")),
-				removeBlockedBy: taskIds(opts["remove-blocked-by"].join(",")),
+				blockedBy,
+				removeBlockedBy: unblocked.ids,
+				blockedElsewhere,
+				removeElsewhere: unblocked.elsewhere,
 				lane: laneIn(opts.lane),
 				assignee,
 				ready: opts.ready,
 				manual: opts.manual ? true : opts.auto ? false : undefined,
+				boards,
 			}),
 		);
 	});

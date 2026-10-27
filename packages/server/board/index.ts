@@ -9,6 +9,22 @@ export type {
 	TaskBlockerStatus,
 } from "./deferral";
 export { cleared, deferralBlockers, deferralProblem } from "./deferral";
+export type {
+	ElsewhereBlocker,
+	ElsewhereBlockerNow,
+	ElsewhereBoards,
+	ElsewhereFollower,
+	ElsewhereOnBoard,
+	ElsewhereTask,
+} from "./elsewhere";
+export {
+	ElsewhereStanding,
+	elsewhereLine,
+	elsewhereName,
+	holding,
+	sameBlocker,
+} from "./elsewhere";
+export { ElsewhereLinks } from "./elsewhere-links";
 export {
 	laneAdd,
 	laneList,
@@ -48,12 +64,12 @@ export type {
 export {
 	checkSlug,
 	enqueued,
-	recordUpdate,
 	tasksNamed,
 	unqueued,
 	wording,
 } from "./task";
 export { addedFacts, taskAdd, taskRemove, taskUpdate } from "./task-edit";
 export { decodeTask, encodeTask, TASK_FILE } from "./task-file";
+export { recordUpdate } from "./task-journal";
 export { taskList, taskShow } from "./task-list";
 export { Tasks } from "./tasks";

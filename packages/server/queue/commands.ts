@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { age } from "../age";
 import {
+	elsewhereName,
 	enqueued,
 	type Task,
 	type TaskRecord,
@@ -11,6 +12,7 @@ import { fail } from "../exit";
 import { pickLabel } from "../models";
 import { table } from "../table";
 import type { WorktreeService } from "../tasks";
+import { QueueMoves } from "./moves";
 import { holdsBack, queueOrder } from "./order";
 
 /** What the queue commands work with. */
@@ -128,29 +130,6 @@ export async function queueRemove(
 }
 
 /**
- * Takes each task in `going` out of the queue, as `stalled` finds them,
- * noting the blockers it was let go for; passes over one taken or
- * unqueued meanwhile. A queued lane queues it again once nothing blocks it.
- */
-export async function letGo(
-	tasks: Tasks,
-	going: ReadonlyMap<number, readonly number[]>,
-): Promise<Task[]> {
-	const gone: Task[] = [];
-	for (const [id, blockers] of going) {
-		let went = false;
-		const task = await tasks.revise(id, (state) => {
-			went = state.stage === "queued" && state.takenBy === null;
-			return went ? { ...unqueued(state), unqueuedFor: [...blockers] } : state;
-		});
-		if (went) {
-			gone.push(task);
-		}
-	}
-	return gone;
-}
-
-/**
  * Moves queued task `id` to `position` in the queue, from 1 for the next to
  * start, past the end meaning the end. What it is blocked by still goes
  * first, so it lands as near there as its links allow; prints the queue.
@@ -160,56 +139,30 @@ export async function queueMove(
 	id: number,
 	position: number,
 ): Promise<void> {
-	await moveInQueue(deps.tasks, id, position);
+	await new QueueMoves(deps.tasks).move(id, position);
 	await queueList(deps);
-}
-
-/**
- * Moves queued task `id` to `position` in the queue, from 1, as
- * `queueMove` does, saying nothing.
- */
-export async function moveInQueue(
-	tasks: Tasks,
-	id: number,
-	position: number,
-): Promise<void> {
-	if (!Number.isInteger(position) || position <= 0) {
-		fail("usage", `'${position}' is not a position: 1 is the next to start`, {
-			number: id,
-			position,
-		});
-	}
-	const all = (await tasks.all()).map((task) => task.state);
-	const task = all.find((each) => each.id === id);
-	if (task?.stage !== "queued" || task.takenBy !== null) {
-		fail("not_found", `task ${id} is not waiting in the queue`, { number: id });
-	}
-	const order = queueOrder(all).filter((each) => each.id !== id);
-	const at = order[position - 1];
-	const last = order.at(-1);
-	const target = at === undefined ? (last?.position ?? 0) + 1 : at.position;
-	// Moving down, the task leaves its place first, so every one between
-	// moves up one: what was at `target` is then one higher.
-	await tasks.move(id, task.position < target ? target - 1 : target);
 }
 
 /** What `task` waits on among `all`, as the queue lists it. */
 function waitsOn(task: TaskRecord, all: readonly TaskRecord[]): string {
-	const { open, lost } = holdsBack(task, all);
+	const { open, lost, elsewhere } = holdsBack(task, all);
 	return [
 		...open.map(
 			(other) =>
 				`#${other.id}${other.takenBy !== null ? " (under way)" : other.stage === "queued" ? "" : ` (${other.stage})`}`,
 		),
 		...lost.map((gone) => `#${gone} (removed)`),
+		...elsewhere.map(
+			(blocker) =>
+				`${elsewhereName(blocker)}${blocker.lost ? " (removed)" : " (another project)"}`,
+		),
 	].join(", ");
 }
 
 /**
- * Refuses a command that changes the queue when an agent runs it: only the
- * person queues, unqueues or orders work, as `splates add --agent` is
- * refused, and an agent asks them to through the queue card its reply ends
- * with. The server starts its tasks with neither variable set.
+ * Call it first in a command that changes the queue: it refuses an agent,
+ * since only the person queues, unqueues or orders work, telling the agent
+ * to end its reply with a queue card instead.
  */
 export function refuseAgentQueue(
 	service: Pick<WorktreeService, "ps">,

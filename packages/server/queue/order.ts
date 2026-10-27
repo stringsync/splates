@@ -1,10 +1,8 @@
-import type { TaskRecord } from "../board";
+import type { ElsewhereBlocker, TaskRecord } from "../board";
 
 /**
- * The queue: every queued task no agent has taken, each after every queued
- * task it is blocked by, and otherwise in list order. Worked out from the
- * tasks on every read, so it reorders itself whenever one is queued,
- * linked, moved or lands.
+ * The queued tasks of `all` no agent has taken, in the order the queue
+ * starts them: each after what blocks it, otherwise in list order.
  */
 export function queueOrder(all: readonly TaskRecord[]): TaskRecord[] {
 	const left = all
@@ -29,15 +27,19 @@ export function queueOrder(all: readonly TaskRecord[]): TaskRecord[] {
 /**
  * Why queued task `task` cannot start yet, among `all`: the open tasks it
  * is blocked by, and those removed without merging, which the person has
- * to let go of; none when it can start.
+ * to let go of, and `elsewhere`, those of other projects yet to merge or
+ * removed there; none when it can start.
  */
 export function holdsBack(
 	task: TaskRecord,
 	all: readonly TaskRecord[],
-): { open: TaskRecord[]; lost: number[] } {
+): { open: TaskRecord[]; lost: number[]; elsewhere: ElsewhereBlocker[] } {
 	return {
 		open: all.filter((other) => task.blockedBy.includes(other.id)),
 		lost: (task.blockersLost ?? []).map((gone) => gone.id),
+		elsewhere: (task.blockedElsewhere ?? []).filter(
+			(blocker) => blocker.landed === undefined,
+		),
 	};
 }
 
@@ -46,21 +48,28 @@ export function canStart(
 	task: TaskRecord,
 	all: readonly TaskRecord[],
 ): boolean {
-	const { open, lost } = holdsBack(task, all);
-	return task.takenBy === null && open.length === 0 && lost.length === 0;
+	const { open, lost, elsewhere } = holdsBack(task, all);
+	return (
+		task.takenBy === null &&
+		open.length === 0 &&
+		lost.length === 0 &&
+		elsewhere.length === 0
+	);
 }
 
 /**
- * The queued tasks the queue lets go, by id, each with the tasks it is
- * blocked by that will never start from the queue: neither queued nor
- * running, or removed without merging. One blocked only by another let go
- * goes too, so a chain leaves whole rather than a link a sweep.
+ * The queued tasks of `all` the queue should let go, by id, each with the
+ * blockers that will never start from the queue; give it to
+ * `QueueMoves.letGo`. A task waiting on another project stays queued.
  */
 export function stalled(all: readonly TaskRecord[]): Map<number, number[]> {
 	const going = new Map<number, number[]>();
 	const queued = all.filter(
 		(task) => task.stage === "queued" && task.takenBy === null,
 	);
+	// One blocked only by another let go goes too, so a chain leaves whole
+	// rather than a link a sweep. Blockers that never start from here are
+	// those neither queued nor running, or removed without merging.
 	let changed = true;
 	while (changed) {
 		changed = false;

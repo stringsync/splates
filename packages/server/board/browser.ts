@@ -7,6 +7,13 @@ export type {
 	TaskBlockerStatus,
 } from "./deferral";
 export { cleared, deferralBlockers } from "./deferral";
+export type {
+	ElsewhereBlocker,
+	ElsewhereBlockerNow,
+	ElsewhereFollower,
+	ElsewhereOnBoard,
+} from "./elsewhere";
+export { elsewhereName, holding } from "./elsewhere";
 export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";
 export {
 	APPROVAL,

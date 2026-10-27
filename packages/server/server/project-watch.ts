@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import type { Resource } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
+import { ElsewhereStanding } from "../board";
 import { LEGACY_PLAN_FILE } from "../config";
 import { PLAN_FILE } from "../plans";
 import { shipRecord } from "../ship";
@@ -65,9 +66,8 @@ export class ProjectWatch implements StreamWatcher {
 	}
 
 	/**
-	 * The whole repo, as a page shows it: the one kept since nothing moved,
-	 * or read again. Only a worktree's edits can lag, by as long as they take
-	 * to settle, or while no page listens, until one does.
+	 * The whole repo, as a page shows it. A worktree's edits may lag by as
+	 * long as they take to settle.
 	 */
 	async current(): Promise<Snapshot> {
 		const kept = this.kept;
@@ -82,12 +82,11 @@ export class ProjectWatch implements StreamWatcher {
 	}
 
 	/**
-	 * Marks the repo moved after a page's own write and reads it again behind
-	 * the answer, telling its pages. The write need not wait for the read:
-	 * the page's refetch shares it, and the move already makes that refetch
-	 * read fresh.
+	 * Call it after a page's own write: the repo is read again behind the
+	 * answer, and its pages told.
 	 */
 	tick(): void {
+		// The write need not wait for the read: the page's refetch shares it.
 		this.moves++;
 		this.push().catch((error: unknown) =>
 			this.project.log.error(String(error)),
@@ -173,6 +172,7 @@ export class ProjectWatch implements StreamWatcher {
 		if (!this.watching) {
 			details.moved();
 		}
+		const { boards } = this.context;
 		const [read, ship] = await Promise.all([
 			snapshot({
 				project: await this.context.everywhere.slug(service.git.root),
@@ -185,7 +185,16 @@ export class ProjectWatch implements StreamWatcher {
 			}),
 			shipRecord(this.project.storage).read(),
 		]);
-		return { ...read, ship };
+		return boards === undefined
+			? { ...read, ship }
+			: {
+					...read,
+					ship,
+					elsewhere: await new ElsewhereStanding(boards).onBoard(
+						read.todos,
+						service.git.root,
+					),
+				};
 	}
 
 	/** `snapshot` with what the server says of itself now, which it may have learned since. */

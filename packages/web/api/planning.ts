@@ -44,9 +44,20 @@ export async function moveTodo(id: number, position: number): Promise<void> {
 	await sendJson(`/api/todos/${id}/position`, "PUT", { position });
 }
 
-/** Says `id` is blocked by exactly the todos in `blockedBy`, no more and no fewer. */
-export async function linkTodo(id: number, blockedBy: number[]): Promise<void> {
-	await sendJson(`/api/todos/${id}/blocked-by`, "PUT", { blockedBy });
+/**
+ * Says `id` is blocked by exactly the todos in `blockedBy`, no more and no
+ * fewer, and with `elsewhere`, by exactly those tasks of other projects; its
+ * blockers there stay as they are without it.
+ */
+export async function linkTodo(
+	id: number,
+	blockedBy: number[],
+	elsewhere?: { project: string; id: number }[],
+): Promise<void> {
+	await sendJson(`/api/todos/${id}/blocked-by`, "PUT", {
+		blockedBy,
+		...(elsewhere === undefined ? {} : { blockedElsewhere: elsewhere }),
+	});
 }
 
 /**

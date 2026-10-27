@@ -14,6 +14,7 @@ import {
 	MIGRATING,
 	MIGRATION_LIMIT,
 	migrateRecords,
+	OpenBoards,
 	repository,
 } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -47,6 +48,7 @@ import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
+import { blockerFlags } from "./blockers";
 import { splatesCreds } from "./creds";
 import { splatesEvals } from "./evals";
 import { effortIn, here, offeredOf, taskIds } from "./flags";
@@ -341,7 +343,7 @@ splates
 	})
 	.repeated("blocked-by", z.string(), {
 		description:
-			"with --reason blocked: numbers of the tasks it waits on to merge, comma separated or the flag repeated",
+			"with --reason blocked: the tasks it waits on to merge, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project",
 	})
 	.repeated("ask", z.string(), {
 		description:
@@ -357,6 +359,12 @@ splates
 			"with --reason blocked: the task's detail rewritten for whoever takes it next: why it stopped, what you found, the steps done and left, and where any pushed work is",
 	})
 	.action(async (opts, ctx) => {
+		using boards = new OpenBoards(ctx, ctx.projects);
+		const { blockedBy, blockedElsewhere } = await blockerFlags({
+			boards,
+			here: ctx.git.root,
+			blockedBy: opts["blocked-by"],
+		});
 		await ctx.journal.record(
 			"remove",
 			opts.task,
@@ -366,7 +374,8 @@ splates
 					reason: opts.reason,
 					deferral: {
 						why: opts.why,
-						blockedBy: taskIds(opts["blocked-by"].join(",")),
+						blockedBy,
+						blockedElsewhere,
 						questions: opts.ask,
 						outside: opts["waiting-on"],
 						detail: opts.detail === "" ? undefined : opts.detail,

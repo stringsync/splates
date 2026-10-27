@@ -243,6 +243,42 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("keeps only the blockers in other projects the page's list names", async () => {
+		const wiz = { project: "/repos/webappwiz", subject: "locale" };
+		await deps.tasks.add("prices", null, {
+			blockedElsewhere: [
+				{ ...wiz, id: 404 },
+				{ ...wiz, id: 405 },
+			],
+		});
+
+		await serving(deps, async (snapshot, port) => {
+			const link = (body: unknown) =>
+				fetch(`http://127.0.0.1:${port}/api/todos/1/blocked-by`, {
+					method: "PUT",
+					headers: {
+						origin: `http://127.0.0.1:${port}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				});
+			const state = async () =>
+				(await snapshot()).todos.find((task) => task.id === 1);
+
+			expect((await link({ blockedBy: [] })).status).toBe(200);
+			expect((await state())?.blockedElsewhere).toHaveLength(2);
+			const kept = { blockedBy: [], blockedElsewhere: [{ ...wiz, id: 405 }] };
+			expect((await link(kept)).status).toBe(200);
+			expect(
+				(await state())?.blockedElsewhere?.map((blocker) => blocker.id),
+			).toEqual([405]);
+			expect((await link({ blockedBy: [], blockedElsewhere: [] })).status).toBe(
+				200,
+			);
+			expect((await state())?.blockedElsewhere).toBeUndefined();
+		});
+	});
+
 	it("updates, removes and puts back a task", async () => {
 		const task = await deps.tasks.add("write docs", null, {
 			files: [

@@ -20,7 +20,7 @@ import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
-import { openRepository } from "../records";
+import { OpenBoards, openRepository } from "../records";
 import {
 	OpenCodeSetup,
 	OpenCodeSetupRoutes,
@@ -169,6 +169,7 @@ export async function dev(
 			}) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
+		boards: new OpenBoards({ fs, ps, log }, projects),
 		onWorkerRoom: (listener) =>
 			workers.placement.scheduler.events.on("changed", listener),
 		paused: () => workers.records.paused,

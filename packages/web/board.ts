@@ -1,37 +1,10 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
+import type {
+	ElsewhereOnBoard,
+	LaneRecord,
+	TaskRecord,
+} from "@stringsync/splates-server/board";
 import { createContext } from "react";
 import { Drafts } from "./drafts";
-
-/**
- * What any card on the board can reach: every todo and lane, to name the
- * ones blocking it, and the page's ways to open a todo or a task.
- */
-export interface BoardContext {
-	/** Whether this is a board at all, rather than the empty default. */
-	linked: boolean;
-	todos: TaskRecord[];
-	/** Every lane, in board order, to call each by its name. */
-	lanes: LaneRecord[];
-	open: (id: number) => void;
-	openTask: (task: string) => void;
-	/** Opens the board on lane `id`, scrolled to its column. */
-	openLane: (id: number) => void;
-	/** Opens the todo board showing only the todos in `ids`. */
-	openTodos: (ids: readonly number[]) => void;
-	/** Every live task, by name: those a chip naming one opens. */
-	tasks: readonly string[];
-	/** Puts a lane at a position among the lanes, 1 the first column. */
-	moveLane: (id: number, position: number) => void;
-	/** What was refused of each card, by its id, said on the card. */
-	refusedTodos: ReadonlyMap<number, string>;
-	/** Says on todo `id`'s card that a write to it was refused. */
-	refuseTodo: (id: number, title: string, error: unknown) => void;
-	/** What was refused of each lane, by its id, under its header; null for Untriaged. */
-	refusedLanes: ReadonlyMap<number | null, string>;
-	refuseLane: (id: number | null, title: string, error: unknown) => void;
-	/** Todos being added or edited and not yet sent, kept across pages. */
-	drafts: Drafts;
-}
 
 /** No board, as outside one: nothing to name and nothing to open. */
 export const NO_BOARD: BoardContext = {
@@ -52,6 +25,39 @@ export const NO_BOARD: BoardContext = {
 };
 
 export const Board = createContext<BoardContext>(NO_BOARD);
+
+/**
+ * What any card on the board can reach: every todo and lane, to name the
+ * ones blocking it, and the page's ways to open a todo or a task.
+ */
+export interface BoardContext {
+	/** Whether this is a board at all, rather than the empty default. */
+	linked: boolean;
+	todos: TaskRecord[];
+	/** Every lane, in board order, to call each by its name. */
+	lanes: LaneRecord[];
+	/** Where its todos' blockers in other projects stand, and theirs it blocks; absent unread. */
+	elsewhere?: ElsewhereOnBoard;
+	open: (id: number) => void;
+	openTask: (task: string) => void;
+	/** Opens the board on lane `id`, scrolled to its column. */
+	openLane: (id: number) => void;
+	/** Opens the todo board showing only the todos in `ids`. */
+	openTodos: (ids: readonly number[]) => void;
+	/** Every live task, by name: those a chip naming one opens. */
+	tasks: readonly string[];
+	/** Puts a lane at a position among the lanes, 1 the first column. */
+	moveLane: (id: number, position: number) => void;
+	/** What was refused of each card, by its id, said on the card. */
+	refusedTodos: ReadonlyMap<number, string>;
+	/** Says on todo `id`'s card that a write to it was refused. */
+	refuseTodo: (id: number, title: string, error: unknown) => void;
+	/** What was refused of each lane, by its id, under its header; null for Untriaged. */
+	refusedLanes: ReadonlyMap<number | null, string>;
+	refuseLane: (id: number | null, title: string, error: unknown) => void;
+	/** Todos being added or edited and not yet sent, kept across pages. */
+	drafts: Drafts;
+}
 
 /**
  * Spread onto a button inside a draggable card so pressing it never starts
@@ -84,9 +90,8 @@ export const lineCardHeight =
 export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5 pointer-coarse:py-2.5 pointer-coarse:pr-2.5`;
 
 /**
- * A small control in a line of text, its tap target stretched to a finger's
- * height on a touch screen without moving the text around it. The control
- * has to be `relative`.
+ * Put it on a small `relative` control in a line of text to stretch its tap
+ * target to a finger's height on a touch screen, the text left in place.
  */
 export const touchArea =
 	"pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3";

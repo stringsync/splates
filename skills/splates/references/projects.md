@@ -19,6 +19,10 @@ Name another project's task with its slug before the number, as
 `webappwiz #404`: the page links it to that project's board, where a bare
 `#404` is this project's.
 
+When work here cannot go on before a task there merges, link it:
+`--blocked-by webappwiz#404` on `splates task add`, `task update` or
+`remove --reason blocked`, as Links in [queue.md](queue.md) says.
+
 You never start or take a task in another project yourself: you do not
 `add`, `claim`, merge or remove one there. Queue it, and that project's
 queue starts it. A command that needs more than the project granted stops

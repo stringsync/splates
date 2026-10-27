@@ -1,15 +1,15 @@
 import type { TaskRecord } from "./task";
 
 /**
- * What blocks which tasks, and the lanes they run in, worked out from the
- * tasks alone. Nothing here reads or writes the disk, so the CLI and the
- * `splates server` page draw the same lanes from the same list.
+ * Use these to say what blocks which tasks and which lane each runs in,
+ * given the task records: the CLI and the `splates server` page both call
+ * them, so each draws the same lanes from the same list.
  */
 
 /**
- * Every lane, in the order `records` keeps them, each with its tasks in list
- * order. A lane some task is in but `records` lacks, as one written before
- * lanes had names, comes last, called by its number.
+ * Every lane to show, in the order `records` keeps them, each with its
+ * tasks in list order; one a task names but `records` lacks comes last,
+ * called by its number.
  */
 export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
 	const all = named(tasks, records);
@@ -34,10 +34,8 @@ export interface LaneRecord {
 	 */
 	skip?: number[];
 	/**
-	 * How many more tasks the lane may queue on its own before it stops for
-	 * the person to approve more: each one `queueFromLanes` queues takes one.
-	 * Set when the lane is queued; absent for a lane queued before budgets,
-	 * which has no limit.
+	 * How many more tasks the lane may queue on its own before it waits for
+	 * the person to approve more; absent for no limit.
 	 */
 	budget?: number;
 }
@@ -314,14 +312,17 @@ export function followers(tasks: TaskRecord[], id: number): TaskRecord[] {
 }
 
 /**
- * Nothing blocking it is still open, none was removed from under it, and
- * nobody has it: free to start.
+ * Nothing blocking it is still open, here or in another project, none was
+ * removed from under it, and nobody has it: free to start.
  */
 export function isReady(task: TaskRecord): boolean {
 	return (
 		task.takenBy === null &&
 		task.blockedBy.length === 0 &&
-		(task.blockersLost ?? []).length === 0
+		(task.blockersLost ?? []).length === 0 &&
+		(task.blockedElsewhere ?? []).every(
+			(blocker) => blocker.landed !== undefined,
+		)
 	);
 }
 

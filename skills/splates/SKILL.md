@@ -99,8 +99,9 @@ The task set out to stop uploads retrying a 413.
 ```
 
 When the work is blocked and only set aside for later, remove it with
-`--reason blocked`, which asks why it stopped and what it waits on, and
-report it deferred, the blockers in short after the colon, not removed:
+`--reason blocked`, which asks why it stopped and what it waits on (a task
+in another project as `--blocked-by webappwiz#404`), and report it
+deferred, the blockers in short after the colon, not removed:
 
 ```markdown
 ## ⏸ Deferred <task>: waiting on #812 and your call on old clients

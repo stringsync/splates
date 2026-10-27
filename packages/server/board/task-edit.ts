@@ -5,6 +5,12 @@ import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts } from "../records";
+import {
+	type ElsewhereBlocker,
+	type ElsewhereBoards,
+	elsewhereName,
+	sameBlocker,
+} from "./elsewhere";
 import { byHandLine, type Task, type TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
 
@@ -22,6 +28,8 @@ export interface TaskAddOptions extends TaskFileOptions {
 	position?: number;
 	/** The tasks blocking it: each has to merge before it starts. */
 	blockedBy?: number[];
+	/** The tasks of other projects blocking it, each to merge there first. */
+	blockedElsewhere?: ElsewhereBlocker[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
 	/** The agent that should work it; none by default. */
@@ -32,6 +40,8 @@ export interface TaskAddOptions extends TaskFileOptions {
 	ready?: boolean;
 	/** This project's slug, when added from another: the task is then written `slug #N`. */
 	project?: string;
+	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
+	boards?: Pick<ElsewhereBoards, "slug">;
 }
 
 export async function taskAdd(
@@ -44,11 +54,13 @@ export async function taskAdd(
 		files = [],
 		position,
 		blockedBy,
+		blockedElsewhere,
 		lane,
 		assignee,
 		origin,
 		ready,
 		project,
+		boards,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.add(subject, from, {
@@ -57,6 +69,7 @@ export async function taskAdd(
 		files: await readFiles(deps, files),
 		position,
 		blockedBy,
+		blockedElsewhere,
 		lane,
 		assignee,
 		origin,
@@ -64,6 +77,7 @@ export async function taskAdd(
 	});
 	const named =
 		project === undefined ? `task ${task.id}` : `${project} #${task.id}`;
+	const blockers = await blockersSaid(task, boards);
 	deps.log.info(
 		[
 			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
@@ -72,9 +86,9 @@ export async function taskAdd(
 			// there from the card the agent's reply ends with.
 			project !== undefined
 				? `  offer it to the user to queue there: end your reply with \`## 🔐 Permission: queue ${project} #${task.id}: ${task.subject}\``
-				: task.blockedBy.length === 0
+				: blockers === ""
 					? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
-					: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
+					: `  blocked by: ${blockers}, which merge first`,
 		].join("\n"),
 	);
 	return task;
@@ -106,6 +120,10 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	blockedBy?: number[];
 	/** Tasks no longer blocking it. */
 	removeBlockedBy?: number[];
+	/** Tasks of other projects blocking it from now on, besides those that already do. */
+	blockedElsewhere?: ElsewhereBlocker[];
+	/** Tasks of other projects no longer blocking it. */
+	removeElsewhere?: Pick<ElsewhereBlocker, "project" | "id">[];
 	/** The lane it moves to, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
@@ -114,6 +132,8 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	ready?: boolean;
 	/** Whether only the person queues it, as `TaskRecord.manual`; absent leaves it as it is. */
 	manual?: boolean;
+	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
+	boards?: Pick<ElsewhereBoards, "slug">;
 }
 
 export async function taskUpdate(
@@ -128,13 +148,27 @@ export async function taskUpdate(
 		removeFiles = [],
 		blockedBy = [],
 		removeBlockedBy = [],
+		blockedElsewhere = [],
+		removeElsewhere = [],
 		lane,
 		assignee,
 		ready,
 		manual,
+		boards,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.find(id);
+	const notElsewhere = removeElsewhere.find(
+		(each) =>
+			!task.blockedElsewhere.some((blocker) => sameBlocker(blocker, each)),
+	);
+	if (notElsewhere !== undefined) {
+		fail(
+			"not_found",
+			`task ${id} is not blocked by ${elsewhereName(notElsewhere)}: nothing was changed`,
+			{ number: id, blockedBy: elsewhereName(notElsewhere) },
+		);
+	}
 	// A blocker removed without merging is let go of as one still linked is.
 	const lost = removeBlockedBy.filter((each) =>
 		task.state.blockersLost?.some((gone) => gone.id === each),
@@ -181,24 +215,48 @@ export async function taskUpdate(
 				: [...task.blockedBy, ...blockedBy].filter(
 						(each) => !removeBlockedBy.includes(each),
 					),
+		blockedElsewhere:
+			blockedElsewhere.length === 0 && removeElsewhere.length === 0
+				? undefined
+				: [...task.blockedElsewhere, ...blockedElsewhere].filter(
+						(blocker) =>
+							!removeElsewhere.some((each) => sameBlocker(each, blocker)),
+					),
 		lane,
 		assignee,
 		ready,
 		manual,
 	});
+	const blockers = await blockersSaid(updated, boards);
 	deps.log.info(
 		[
 			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}, ${updated.state.stage}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
-			...(updated.blockedBy.length === 0
-				? []
-				: [
-						`  blocked by: ${updated.blockedBy.map((each) => `task ${each}`).join(", ")}`,
-					]),
+			...(blockers === "" ? [] : [`  blocked by: ${blockers}`]),
 			...(manual === undefined ? [] : [`  ${byHandLine(updated.state)}`]),
 		].join("\n"),
 	);
 	return updated;
+}
+
+/** What blocks `task` and has yet to merge, here or in another project. */
+async function blockersSaid(
+	task: Task,
+	boards: Pick<ElsewhereBoards, "slug"> | undefined,
+): Promise<string> {
+	const elsewhere = await Promise.all(
+		task.blockedElsewhere
+			.filter((blocker) => blocker.landed === undefined)
+			.map(async (blocker) =>
+				elsewhereName({
+					...blocker,
+					slug: await boards?.slug(blocker.project),
+				}),
+			),
+	);
+	return [...task.blockedBy.map((each) => `task ${each}`), ...elsewhere].join(
+		", ",
+	);
 }
 
 export async function taskRemove(

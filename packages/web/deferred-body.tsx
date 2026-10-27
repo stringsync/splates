@@ -3,6 +3,7 @@ import {
 	cycle,
 	type DeferralBlocker,
 	deferralBlockers,
+	type ElsewhereOnBoard,
 	type TaskBlockerStatus,
 	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
@@ -21,6 +22,7 @@ import { Board } from "./board";
 import { linked } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
+import { ElsewhereMention } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
@@ -32,6 +34,7 @@ const TASK_STATUS: Record<string, string> = {
 	merged: "merged",
 	removed: "removed without merging",
 	unlinked: "no longer waited on",
+	unknown: "in another project",
 };
 
 /** The deferred task on the board, `task` by name, or null once it is gone. */
@@ -52,8 +55,11 @@ export function deferredTask(
 export function blockersLeft(
 	task: TaskRecord,
 	board: readonly TaskRecord[],
+	elsewhere?: ElsewhereOnBoard,
 ): number {
-	return deferralBlockers(task, board).filter((each) => !cleared(each)).length;
+	return deferralBlockers(task, board, elsewhere?.blockers[task.id]).filter(
+		(each) => !cleared(each),
+	).length;
 }
 
 /**
@@ -69,7 +75,11 @@ export function DeferredBody({
 }): JSX.Element | null {
 	const board = useContext(Board);
 	const deferred = task.deferred;
-	const blockers = deferralBlockers(task, board.todos);
+	const blockers = deferralBlockers(
+		task,
+		board.todos,
+		board.elsewhere?.blockers[task.id],
+	);
 	const { refusal, shown, act } = useActs();
 	const [answers, setAnswers] = useState<Record<number, string>>({});
 	if (deferred === undefined) {
@@ -198,7 +208,7 @@ export function DeferredBody({
 						className="underline-offset-2 hover:underline pointer-coarse:min-h-10"
 						onClick={() =>
 							void act("resume", async () => {
-								await linkTodo(task.id, []);
+								await linkTodo(task.id, [], []);
 								await queueTodo(task.id, true);
 							})
 						}
@@ -220,8 +230,8 @@ export function DeferredBody({
 }
 
 /**
- * The open task an old deferral, `task` by name, put back on the board, one
- * recorded before deferrals kept their why and blockers; null for none.
+ * The open task on the board that an old deferral of `task` put back, for
+ * a Deferred card to show when the task has no `deferred` record; null for none.
  */
 export function heldTask(
 	todos: readonly TaskRecord[],
@@ -413,6 +423,27 @@ function TaskBlocker({
 	const board = useContext(Board);
 	const status = blocker.status;
 	const open = status === "backlog" || status === "ready";
+	// Another project's task is queued from its own board, which the link opens.
+	if (blocker.project !== undefined) {
+		return (
+			<div className="flex flex-wrap items-center gap-2">
+				<ElsewhereMention
+					project={
+						blocker.slug ??
+						blocker.project.split("/").filter(Boolean).at(-1) ??
+						blocker.project
+					}
+					id={blocker.id}
+				/>
+				<span className={cn(done && "text-muted-foreground")}>
+					{blocker.subject}
+				</span>
+				<span className="text-muted-foreground text-xs">
+					· {TASK_STATUS[status] ?? status}
+				</span>
+			</div>
+		);
+	}
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			<button

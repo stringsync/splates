@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { TaskRecord } from "../board";
-import { canStart, holdsBack, queueOrder } from "./order";
+import { canStart, holdsBack, queueOrder, stalled } from "./order";
 
 describe("the queue's order", () => {
 	it("takes queued tasks no agent has, in list order", () => {
@@ -50,7 +50,31 @@ describe("the queue's order", () => {
 		expect(holdsBack(all[0] as TaskRecord, all)).toEqual({
 			open: [all[1] as TaskRecord],
 			lost: [9],
+			elsewhere: [],
 		});
+	});
+
+	it("holds a task until its blockers in other projects merge there", () => {
+		const open = { project: "/repos/webappwiz", id: 404, subject: "locale" };
+		const waiting = task({ id: 1, stage: "queued", blockedElsewhere: [open] });
+		const lost = task({
+			id: 2,
+			stage: "queued",
+			blockedElsewhere: [{ ...open, lost: true }],
+		});
+		const landed = task({
+			id: 3,
+			stage: "queued",
+			blockedElsewhere: [{ ...open, landed: "abc123" }],
+		});
+		const all = [waiting, lost, landed];
+
+		expect(holdsBack(waiting, all).elsewhere).toEqual([open]);
+		expect(canStart(waiting, all)).toBe(false);
+		expect(canStart(lost, all)).toBe(false);
+		expect(canStart(landed, all)).toBe(true);
+		// The other project's queue starts its task, so this one stays queued.
+		expect(stalled(all).size).toBe(0);
 	});
 });
 

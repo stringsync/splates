@@ -3,6 +3,7 @@ import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
 import { changeLane } from "./change-lane";
+import { distinct } from "./elsewhere-links";
 import type { LaneUpdateOptions } from "./lane";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
@@ -19,8 +20,8 @@ import { parseTaskFile, TASK_FILE } from "./task-file";
 import { TaskLanes } from "./task-lanes";
 
 /**
- * The list of tasks: every queued one, and each started one that was queued
- * first, in the store under `.git/splates/tasks`.
+ * A project's board: add, find, link, place and remove its tasks and
+ * lanes. Open it on the project's `TaskStore`.
  */
 export class Tasks {
 	private readonly ids: IdProvider;
@@ -71,6 +72,7 @@ export class Tasks {
 			files = [],
 			position,
 			blockedBy = [],
+			blockedElsewhere = [],
 			lane = null,
 			assignee = null,
 			origin,
@@ -104,6 +106,9 @@ export class Tasks {
 				takenBy: null,
 				files: await this.attachments(id).store(files),
 				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
+				...(blockedElsewhere.length === 0
+					? {}
+					: { blockedElsewhere: distinct(blockedElsewhere) }),
 				lane: null,
 				stage: ready ? "ready" : "backlog",
 				...(origin === undefined ? {} : { origin }),
@@ -122,13 +127,10 @@ export class Tasks {
 		});
 	}
 
-	/**
-	 * Top of the list first. A file that will not parse is skipped rather than
-	 * fatal, and positions are counted again from 1 as they are read, so a
-	 * gap or a tie left by a crash, or a task saved before they had any (it
-	 * goes below those that do, oldest first), never shows.
-	 */
+	/** Every task on the board, top of the list first, numbered from 1. */
 	async all(): Promise<Task[]> {
+		// A record that will not parse is skipped, and positions are counted
+		// again as read, so a gap or tie left by a crash never shows.
 		return (await this.stored()).map(
 			(state, i) => new Task(this, { ...state, position: i + 1 }),
 		);

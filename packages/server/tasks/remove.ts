@@ -58,6 +58,7 @@ export async function remove(
 	const ask: DeferralAsk = {
 		why: deferral.why ?? "",
 		blockedBy: deferral.blockedBy ?? [],
+		blockedElsewhere: deferral.blockedElsewhere ?? [],
 		questions: deferral.questions ?? [],
 		outside: deferral.outside ?? [],
 	};

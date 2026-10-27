@@ -1,13 +1,15 @@
 import type { ConversationRoutes } from "../conversations";
 import { fail } from "../exit";
 import { type AgentPick, modelsOf, pickAgent, pickEffort } from "../models";
-import { moveInQueue, queueAdd, queueRemove } from "../queue";
+import { QueueMoves, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { protectBacklog } from "./backlog";
+import { sameBlocker } from "./elsewhere";
 import { laneRemove, laneUpdated, recordLaneRemove } from "./lane";
-import { recordUpdate, tasksNamed } from "./task";
+import { tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
+import { recordUpdate } from "./task-journal";
 
 /**
  * Answers the page's requests to add, edit, queue and remove a project's
@@ -97,17 +99,25 @@ export class BoardRoutes {
 	readonly linkQueued = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const found = await this.taskAt(request);
-		const { blockedBy } = await body(request);
+		const { blockedBy, blockedElsewhere } = await body(request);
 		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
 		const lost = (found.state.blockersLost ?? []).map((gone) => gone.id);
-		const task = await recordUpdate(journal, tasks, found.id, () =>
-			tasks.link(found.id, {
+		const task = await recordUpdate(journal, tasks, found.id, async () => {
+			const linked = await tasks.link(found.id, {
 				add: ids.filter(
 					(id) => !found.blockedBy.includes(id) && !lost.includes(id),
 				),
 				drop: [...found.blockedBy, ...lost].filter((id) => !ids.includes(id)),
-			}),
-		);
+			});
+			// Only those already linked are kept: the page links none new there.
+			return Array.isArray(blockedElsewhere)
+				? linked.update({
+						blockedElsewhere: linked.blockedElsewhere.filter((blocker) =>
+							blockedElsewhere.some((kept) => sameBlocker(kept, blocker)),
+						),
+					})
+				: linked;
+		});
 		this.#watch.tick();
 		return Response.json(task.state);
 	};
@@ -277,7 +287,7 @@ export class BoardRoutes {
 		if (typeof position !== "number") {
 			fail("usage", "say where in the queue, as `position`, from 1");
 		}
-		await moveInQueue(this.#project.tasks, found.id, position);
+		await new QueueMoves(this.#project.tasks).move(found.id, position);
 		this.#watch.tick();
 		return Response.json((await this.#project.tasks.find(found.id)).state);
 	};

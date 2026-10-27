@@ -6,8 +6,8 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
-import type { LaneRecord } from "../board";
-import { BoardRoutes, tasksNamed } from "../board";
+import type { ElsewhereBoards, LaneRecord } from "../board";
+import { BoardRoutes, ElsewhereLinks, tasksNamed } from "../board";
 import type {
 	ConversationState,
 	Conversations,
@@ -22,7 +22,7 @@ import type { AgentPick } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
-import { letGo, QUEUE_SWEEP, QueueRunner } from "../queue";
+import { QUEUE_SWEEP, QueueMoves, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
 import { Bumps, Shipping, ShipRoutes } from "../ship";
@@ -81,6 +81,10 @@ export async function serveProject(
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
 			lanes: async () => {
+				// A blocker in another project that merged there lets its task go on.
+				if (context.boards !== undefined) {
+					await new ElsewhereLinks(project.tasks).settle(context.boards);
+				}
 				const queued = await project.tasks.queueFromLanes();
 				if (queued.length > 0) {
 					await journal.record(
@@ -97,7 +101,7 @@ export async function serveProject(
 				journal.record(
 					"queue remove",
 					null,
-					() => letGo(project.tasks, going),
+					() => new QueueMoves(project.tasks).letGo(going),
 					(gone) => ({ tasks: tasksNamed(gone) }),
 				),
 			tasks: async () => (await service.list()).map(({ task }) => task),
@@ -362,6 +366,11 @@ export interface DevContext {
 	conversationsFor(project: Project): Conversations | null;
 	/** Every served project's conversations, where a caller of one may be. */
 	readonly everywhere: Everywhere;
+	/**
+	 * The other projects' boards, which its tasks may wait on; absent, as in
+	 * a test of one project, none is read.
+	 */
+	readonly boards?: ElsewhereBoards;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
 	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */

@@ -69,8 +69,12 @@ export function Row({
 		deferral === null
 			? null
 			: {
-					left: blockersLeft(deferral, board.todos),
-					total: deferralBlockers(deferral, board.todos).length,
+					left: blockersLeft(deferral, board.todos, board.elsewhere),
+					total: deferralBlockers(
+						deferral,
+						board.todos,
+						board.elsewhere?.blockers[deferral.id],
+					).length,
 				},
 	);
 	const moved = movedAt(row);

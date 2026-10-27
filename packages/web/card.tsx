@@ -29,6 +29,7 @@ import {
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { Elsewhere, heldElsewhere } from "./blocked-elsewhere";
 import { Board, still, touchArea } from "./board";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
@@ -161,6 +162,7 @@ export function Card({
 							</span>
 						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
+					<Elsewhere todo={todo} />
 					{(todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
 							<span className="text-warning">needs you</span>
@@ -186,7 +188,8 @@ export function Card({
 					{todo.takenBy === null &&
 						todo.assignee &&
 						blockers.length === 0 &&
-						(todo.blockersLost ?? []).length === 0 && (
+						(todo.blockersLost ?? []).length === 0 &&
+						!heldElsewhere(todo) && (
 							<StartAssigned
 								assignment={{ kind: "todo", id: todo.id }}
 								assignee={todo.assignee}

@@ -3,14 +3,14 @@ import type { Attachment, Attachments } from "../artifacts";
 import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import type { Facts, Journal } from "../records";
 import type { Deferral, DeferralAsk } from "./deferral";
+import { type ElsewhereBlocker, sameBlocker } from "./elsewhere";
+import { ElsewhereLinks } from "./elsewhere-links";
 import type { Tasks } from "./tasks";
 
 /**
- * Work deferred for later: what an agent notes when something outside its
- * task comes up, so it can move on instead of growing the task. Every
- * worktree sees a new one at once, with nothing to commit or merge.
+ * One numbered task on the board: read its words and links, and take,
+ * update, defer or remove it. Get one from `Tasks`.
  */
 export class Task {
 	// Kept under the shared `.git`, which every worktree reads.
@@ -108,8 +108,8 @@ export class Task {
 	}
 
 	/**
-	 * Marks it as looked at for a lane, saying whether this marked it: false
-	 * for one taken or in a lane. Older runs may have left a sorted task in Untriaged.
+	 * Marks it as looked at for a lane, so no sort looks again; says whether
+	 * it did, false for one taken or already in a lane.
 	 */
 	async sort(): Promise<boolean> {
 		let marked = false;
@@ -148,6 +148,11 @@ export class Task {
 		return this.state.blockedBy;
 	}
 
+	/** The tasks of other projects that have to merge before it starts. */
+	get blockedElsewhere(): ElsewhereBlocker[] {
+		return this.state.blockedElsewhere ?? [];
+	}
+
 	get lane(): number | null {
 		return this.state.lane;
 	}
@@ -168,6 +173,7 @@ export class Task {
 		files = [],
 		keep,
 		blockedBy,
+		blockedElsewhere,
 		lane,
 		assignee,
 		ready,
@@ -215,6 +221,12 @@ export class Task {
 				drop: updated.blockedBy.filter((id) => !blockedBy.includes(id)),
 			});
 		}
+		if (blockedElsewhere !== undefined) {
+			linked = await new ElsewhereLinks(this.tasks).link(
+				this.id,
+				blockedElsewhere,
+			);
+		}
 		if (lane !== undefined && lane !== linked.lane) {
 			linked = await this.tasks.arrange(this.id, lane);
 		}
@@ -240,12 +252,29 @@ export class Task {
 		if (add.length > 0) {
 			await this.tasks.link(this.id, { add });
 		}
+		const elsewhere = ask.blockedElsewhere ?? [];
+		if (elsewhere.length > 0) {
+			await new ElsewhereLinks(this.tasks).link(this.id, [
+				...this.blockedElsewhere,
+				...elsewhere.filter(
+					(blocker) =>
+						!this.blockedElsewhere.some((each) => sameBlocker(each, blocker)),
+				),
+			]);
+		}
 		const deferred: Deferral = {
 			why: ask.why.trim(),
 			at: new Date().toISOString(),
 			task,
 			...(conversation === undefined ? {} : { conversation }),
-			tasks: named.map(({ id, subject }) => ({ id, subject })),
+			tasks: [
+				...named.map(({ id, subject }) => ({ id, subject })),
+				...elsewhere.map(({ project, id, subject }) => ({
+					project,
+					id,
+					subject,
+				})),
+			],
 			questions: ask.questions
 				.map((text) => text.trim())
 				.filter(Boolean)
@@ -361,12 +390,9 @@ export interface TaskRecord {
 	slug?: string;
 	/** The task working on it now, or null while it waits to be picked up. */
 	takenBy: string | null;
-	/** Absolute paths of the files attached, in `tasks/<id>/`. */
+	/** The files attached to it, by absolute path, to read or show. */
 	files: string[];
-	/**
-	 * The tasks that have to merge before this one starts, sorted. A task
-	 * that merges or is removed drops out of it.
-	 */
+	/** The tasks here that have to merge before this one starts, by number. */
 	blockedBy: number[];
 	/** The lane it runs in, or null for none. */
 	lane: number | null;
@@ -398,6 +424,11 @@ export interface TaskRecord {
 	 * the person's call, made by unlinking each. Absent for none.
 	 */
 	blockersLost?: GoneBlocker[];
+	/**
+	 * Tasks of other projects that have to merge before this one starts,
+	 * kept once they merge, with the commit each landed as; absent for none.
+	 */
+	blockedElsewhere?: ElsewhereBlocker[];
 	/** Its last Auto pick, with what the judge said of its words; absent for none. */
 	autoPick?: AutoPicked;
 	/** Who queued it, kept while it is queued or running; absent for one never queued. */
@@ -454,9 +485,8 @@ export function unqueued<T extends TaskRecord>(
 }
 
 /**
- * `state` as it is saved, `running` when it has started: a running task
- * stays out of the queue, and ready means groomed, whether it names an
- * agent or not, which it stays once it moves on.
+ * `state` as it is to be saved: pass whether it has started, which makes it
+ * `running`. A task once ready stays groomed.
  */
 export function staged(state: TaskRecord, running: boolean): TaskRecord {
 	const { groomed: _, grooming, ...rest } = state;
@@ -494,6 +524,8 @@ export interface TaskChange {
 	keep?: string[];
 	/** Every task blocking it from now on; the old stay when this is absent. */
 	blockedBy?: number[];
+	/** Every task of another project blocking it from now on; the old stay when this is absent. */
+	blockedElsewhere?: ElsewhereBlocker[];
 	/** The lane it runs in, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
@@ -539,6 +571,8 @@ export interface TaskNew {
 	position?: number;
 	/** The tasks blocking it: each has to merge before it starts. */
 	blockedBy?: number[];
+	/** The tasks of other projects blocking it, each to merge there first. */
+	blockedElsewhere?: ElsewhereBlocker[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
 	/** The agent that should work it; none by default. */
@@ -606,64 +640,6 @@ export function wording(
 	};
 }
 
-/**
- * Runs `update`, which changes task `id`, and journals what it moved; a
- * refused one is journaled with nothing moved.
- */
-export async function recordUpdate(
-	journal: Journal,
-	tasks: Tasks,
-	id: number,
-	update: () => Promise<Task>,
-): Promise<Task> {
-	let before: TaskRecord | undefined;
-	return journal.record(
-		"task update",
-		null,
-		async () => {
-			before = (await tasks.find(id)).state;
-			return update();
-		},
-		(after) => updated(before ?? after.state, after.state),
-	);
-}
-
-/** What moved between `before` and `after`, of one task. */
-function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
-	const named = (paths: string[]) => paths.map((path) => basename(path));
-	const attached = after.files.filter((path) => !before.files.includes(path));
-	const detached = before.files.filter((path) => !after.files.includes(path));
-	const blocked = after.blockedBy.filter(
-		(id) => !before.blockedBy.includes(id),
-	);
-	const unblocked = before.blockedBy.filter(
-		(id) => !after.blockedBy.includes(id),
-	);
-	const same = (old?: AgentPick, now?: AgentPick) =>
-		old?.agent === now?.agent &&
-		old?.model === now?.model &&
-		old?.effort === now?.effort;
-	const changed: Facts["task update"]["changed"] = {
-		...(after.subject === before.subject ? {} : { subject: after.subject }),
-		...(after.slug === before.slug ? {} : { slug: after.slug }),
-		...(after.text === before.text ? {} : { text: true as const }),
-		...(after.position === before.position ? {} : { position: after.position }),
-		...(after.lane === before.lane ? {} : { lane: after.lane }),
-		...(blocked.length === 0 ? {} : { blocked }),
-		...(unblocked.length === 0 ? {} : { unblocked }),
-		...(attached.length === 0 ? {} : { attached: named(attached) }),
-		...(detached.length === 0 ? {} : { detached: named(detached) }),
-		...(same(before.assignee, after.assignee)
-			? {}
-			: { assignee: after.assignee ?? null }),
-		...(after.groomed && !before.groomed ? { ready: true as const } : {}),
-		...(Boolean(after.manual) === Boolean(before.manual)
-			? {}
-			: { manual: after.manual === true }),
-	};
-	return { number: after.id, subject: after.subject, changed };
-}
-
 /** `tasks` as an event names them: each by its id and subject. */
 export function tasksNamed(
 	tasks: readonly Task[],
@@ -675,6 +651,8 @@ export function tasksNamed(
 export interface GoneBlocker {
 	id: number;
 	subject: string;
+	/** The other project's main tree, for a task of another project; absent for one here. */
+	project?: string;
 }
 
 /** A blocker that merged, as the commit it landed as. */

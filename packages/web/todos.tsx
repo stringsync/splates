@@ -28,13 +28,10 @@ import type { TodoView } from "./todo-view";
 import { TopBar } from "./top-bar";
 
 /**
- * Work deferred for later as a board, a Trello lite: the untriaged todos
- * first, where new ones land, then a column for each lane, a named group
- * of them, then a way to add another. Picking one up takes an agent
- * (`splates add <task> --todo <id>`), and `merge` recommends the highest open one, so
- * the order is the priority: drag a card up or down, or into a lane, or tap
- * one to reword, link, place or remove it. A lane moves by its header, as a
- * Trello list does.
+ * The board page: Untriaged first, where new todos land, then a column for
+ * each lane and a way to add one. Drag a card up or down or into a lane,
+ * since the order is the priority, or tap one to reword, link, place or
+ * remove it; drag a lane by its header.
  */
 export function Todos({
 	snapshot,
@@ -101,6 +98,7 @@ export function Todos({
 			linked: true,
 			todos: all,
 			lanes: records,
+			elsewhere: snapshot.elsewhere,
 			open: (id: number) => {
 				const task = takenTask(all, snapshot.tasks, id);
 				if (task === null) {

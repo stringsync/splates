@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
-import type { LaneRecord, TaskRecord, Tasks } from "../board";
+import type * as Board from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { BatchGroups } from "../merge";
@@ -27,16 +27,18 @@ export interface Snapshot {
 	worktreeRoot: string;
 	/** Past this age a queued task is offered for removal rather than recommended. */
 	taskStalenessMs: number;
-	todos: TaskRecord[];
+	todos: Board.TaskRecord[];
+	/** Its tasks' blockers in other projects, and theirs it blocks; absent unread. */
+	elsewhere?: Board.ElsewhereOnBoard;
 	/** Every lane, in board order, empty ones too. */
-	lanes: LaneRecord[];
+	lanes: Board.LaneRecord[];
 	/**
 	 * The name of every lane there has been, those on the board first, to
 	 * name a lane's orchestrator after it once the lane is done.
 	 */
-	laneNames: LaneRecord[];
+	laneNames: Board.LaneRecord[];
 	tasks: Details[];
-	/** Confirmed running batches, leader first. Absent from older servers. */
+	/** The merge batches running now, each leader first; absent from older servers. */
 	mergeBatches?: string[][];
 	/** Every cred agents requested, open or not, the latest first; never a value. */
 	creds: CredRequest[];
@@ -76,7 +78,7 @@ export async function snapshot({
 }: {
 	project: string;
 	service: WorktreeService;
-	tasks: Tasks;
+	tasks: Board.Tasks;
 	creds: Creds;
 	fs: Fs;
 	/**
@@ -130,10 +132,7 @@ export async function tasksOf({
 	);
 }
 
-/**
- * A key that changes only when what the page shows does, to push a snapshot
- * to open pages only when it differs from the last one pushed.
- */
+/** What a page shows of `snapshot`, as a string to compare with the last pushed. */
 export function fingerprint({
 	todos,
 	lanes,
