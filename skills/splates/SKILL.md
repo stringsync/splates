@@ -302,6 +302,9 @@ show` says is `groomed: no`, and as the project's groomer:
 
 These only when their moment comes:
 
+- Before reading or changing a project's `splates.config.ts`, or when the
+  user asks what splates can be set to do: [references/config.md](references/config.md),
+  every option, its default and what it is for.
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a tunnel of their
   own, dictation): [references/setup.md](references/setup.md),
