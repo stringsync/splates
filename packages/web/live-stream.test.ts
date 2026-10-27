@@ -113,4 +113,16 @@ describe("LiveStream", () => {
 
 		expect(streams).toHaveLength(2);
 	});
+
+	it("runs a burst of events together once it passes the first few", () => {
+		streams[0]?.onopen?.();
+		const data = Array.from({ length: 20 }, (_, each) => `${each}`);
+		const hear = (each: string) => streams[0]?.onmessage?.({ data: each });
+		data.map(hear);
+
+		expect(said).toEqual(data.slice(0, 8));
+		timer.fireTimeouts();
+
+		expect(said).toEqual(data);
+	});
 });

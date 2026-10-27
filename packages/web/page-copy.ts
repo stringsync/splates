@@ -3,10 +3,13 @@ import { Duration, type Timer } from "webappwiz/time";
 import type { PageCopies } from "./page-copies";
 
 /**
- * How long a copy waits to be kept after it changes, so a burst of changes,
- * as a stream brings, is cloned into the store once.
+ * How long a copy waits to be kept after it last changes, so a burst of
+ * changes, as a stream brings, is cloned into the store once.
  */
 export const KEEP_AFTER = Duration.secs(2);
+
+/** The longest a copy waits to be kept through changes that never pause, as an agent at work brings. */
+export const KEEP_WITHIN = Duration.secs(30);
 
 /**
  * One thing the page keeps a copy of, under `key` in `copies`, stamped with
@@ -16,13 +19,22 @@ export const KEEP_AFTER = Duration.secs(2);
 export class PageCopy<T> implements Resource {
 	private pending: (() => T) | null = null;
 	private waiting: Resource | null = null;
+	private deadline: Resource | null = null;
+	private readonly hide = () => {
+		if (document.visibilityState === "hidden") {
+			this.flush();
+		}
+	};
 
 	constructor(
 		private readonly copies: PageCopies,
 		private readonly key: string,
 		private readonly timer: Timer,
 		private readonly build: string = pageBuild(),
-	) {}
+	) {
+		// A page sent to the background may be dropped without a word.
+		document.addEventListener("visibilitychange", this.hide);
+	}
 
 	/** What this build last kept, or null. */
 	async load(): Promise<T | null> {
@@ -36,24 +48,27 @@ export class PageCopy<T> implements Resource {
 	}
 
 	/**
-	 * Keeps what `value` makes, once `KEEP_AFTER` has passed: a function, so a
-	 * change kept again meanwhile is made once, at the end.
+	 * Keeps what `value` makes, once `KEEP_AFTER` has passed with no change
+	 * or `KEEP_WITHIN` since the first: a function, so a change kept again
+	 * meanwhile is made once, at the end.
 	 */
 	keep(value: () => T): void {
 		this.pending = value;
-		this.waiting ??= this.timer.setTimeout(() => {
-			this.waiting = null;
-			this.flush();
-		}, KEEP_AFTER);
+		this.waiting?.dispose();
+		this.waiting = this.timer.setTimeout(() => this.flush(), KEEP_AFTER);
+		this.deadline ??= this.timer.setTimeout(() => this.flush(), KEEP_WITHIN);
 	}
 
 	dispose(): void {
-		this.waiting?.dispose();
-		this.waiting = null;
+		document.removeEventListener("visibilitychange", this.hide);
 		this.flush();
 	}
 
 	private flush(): void {
+		this.waiting?.dispose();
+		this.waiting = null;
+		this.deadline?.dispose();
+		this.deadline = null;
 		const pending = this.pending;
 		this.pending = null;
 		if (pending !== null) {
