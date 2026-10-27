@@ -10,6 +10,7 @@ import {
 	BillingPage,
 	EvalsPage,
 	SetupPage,
+	ShipsPage,
 	StatsPage,
 	Todos,
 } from "./lazy-pages";
@@ -100,6 +101,7 @@ export function useAppPages({
 							/>
 						),
 						stats: <StatsPage report={report} />,
+						ships: <ShipsPage />,
 						evals: <EvalsPage open={evals} onOpen={openEval} />,
 						creds: (
 							<CredsPage

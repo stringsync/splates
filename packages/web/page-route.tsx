@@ -7,6 +7,7 @@ import {
 	KeyRoundIcon,
 	ListChecksIcon,
 	type LucideIcon,
+	PackageIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useState } from "react";
@@ -22,12 +23,10 @@ import {
 	type SetupOpen,
 } from "./page-address";
 import type { ShortcutKey } from "./settings";
+import { useShipPushOpens } from "./ship-badge";
 import { TaskIcon } from "./task-icon";
 
-/**
- * Where the page is, as `PageAddress` keeps it in the address and the
- * browser's history. Navigation actions retain their identity across renders.
- */
+/** Where the page is, from its address, and the actions that move it. */
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
@@ -84,7 +83,7 @@ export function usePageRoute(): PageRoute {
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
- * for it with todo N open, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
+ * for it with todo N open, `#stats`, `#ships`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#billing` (`#budget` too), `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
@@ -94,6 +93,7 @@ export type Page =
 	| "tasks"
 	| "conversations"
 	| "stats"
+	| "ships"
 	| "evals"
 	| "creds"
 	| "billing"
@@ -135,6 +135,7 @@ export const PAGES: {
 		Icon: ChartColumnIcon,
 		scope: "everywhere",
 	},
+	{ value: "ships", label: "Ships", Icon: PackageIcon, scope: "everywhere" },
 	{
 		value: "evals",
 		label: "Evals",
@@ -153,7 +154,7 @@ export function navPage(page: Page): Page {
 	return page === "auto-pick" ? "automations" : page;
 }
 
-/** How each page sits on a phone, under its bar; a conversation fills it. */
+/** The classes that lay each page out on a phone, under its bar. */
 export const PHONE_PAGES: Record<Page, string> = {
 	// As tall as the screen under its bar, so the board's scrollbar sits on
 	// the screen's bottom edge.
@@ -161,6 +162,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 		"flex h-[calc(100dvh-var(--top-bar-height)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
+	ships: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	billing: "min-w-0 px-4 py-6",
@@ -172,10 +174,9 @@ export const PHONE_PAGES: Record<Page, string> = {
 
 /**
  * The shortcuts that work from anywhere on the page, as the settings bind
- * them: each page's, back and forward through the conversations opened,
- * Settings, fullscreen, attaching files, and the open
- * conversation's terminal, from the terminal too, which leaves its key to
- * bubble up here.
+ * them: opening each page, going back and forward, Settings, fullscreen,
+ * attaching files and the open conversation's terminal. It also takes the
+ * person to Ships when a ship's push is tapped.
  */
 export function PageShortcuts({
 	onPage,
@@ -191,6 +192,7 @@ export function PageShortcuts({
 	onTerminal: (() => void) | null;
 }): null {
 	useShortcut("shortcuts.todos", () => onPage("todos"));
+	useShipPushOpens(() => onPage("ships"));
 	useShortcut("shortcuts.back", () => onBack?.(), onBack !== null);
 	useShortcut("shortcuts.forward", () => onForward?.(), onForward !== null);
 	useShortcut("shortcuts.settings", onSettings);

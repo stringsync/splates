@@ -1,5 +1,12 @@
-import type { ShipBump, ShipPlan } from "@stringsync/splates-server/ship";
-import { ApiError, answered, send } from "./request";
+import type {
+	Cascade,
+	CascadeSummary,
+	Ship,
+	ShipBump,
+	ShipPlan,
+	StageKey,
+} from "@stringsync/splates-server/ship";
+import { ApiError, answered, scoped, send } from "./request";
 
 /**
  * Starts a ship of `project` at `bump`, the page's own for "", on the server,
@@ -55,6 +62,47 @@ export async function dropFromCascade(project: string): Promise<void> {
 	await send(`/api/ship/cascade?${new URLSearchParams({ project })}`, {
 		method: "DELETE",
 	});
+}
+
+/** Ends the ship cascade under way, stopping its ship and removing its open bump tasks. */
+export async function abandonCascade(): Promise<void> {
+	await send("/api/ship/cascade/abandon", {});
+}
+
+/** The cascades history keeps, newest first. */
+export async function shipHistory(): Promise<CascadeSummary[]> {
+	const response = await answered(scoped("/api/ship/history"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/history: ${response.status}`);
+	}
+	return (await response.json()) as CascadeSummary[];
+}
+
+/** The cascade history keeps as `id`, with its steps. */
+export async function shipHistoryEntry(
+	id: string,
+): Promise<{ cascade: Cascade; ship: Ship | null }> {
+	const response = await answered(
+		scoped(`/api/ship/history/${encodeURIComponent(id)}`),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/history/${id}: ${response.status}`);
+	}
+	return (await response.json()) as { cascade: Cascade; ship: Ship | null };
+}
+
+/** What step `stage` of `project`'s part in cascade `id` printed, or null for none. */
+export async function shipStageLog(
+	id: string,
+	project: string,
+	stage: StageKey,
+): Promise<string | null> {
+	const response = await answered(
+		scoped(
+			`/api/ship/history/${encodeURIComponent(id)}/log?${new URLSearchParams({ project, stage })}`,
+		),
+	);
+	return response.ok ? await response.text() : null;
 }
 
 /** Runs `project` again where it failed or stopped in the ship cascade under way. */

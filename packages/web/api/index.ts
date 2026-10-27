@@ -69,10 +69,14 @@ export {
 	WAITS,
 } from "./request";
 export {
+	abandonCascade,
 	dropFromCascade,
 	retryInCascade,
 	reviseCascadeBump,
+	shipHistory,
+	shipHistoryEntry,
 	shipPlan,
+	shipStageLog,
 	startShip,
 } from "./ship";
 export {

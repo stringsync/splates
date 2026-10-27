@@ -25,12 +25,9 @@ interface Entry {
 }
 
 /**
- * The page, conversation and task the address names, kept in the
- * address so a reload or a link lands on the same page. Each move is an entry
- * in the browser's history, so its back and forward, and a phone's swipe from
- * the edge, move through them. A move to the entry just left goes back to it,
- * so a back button on the page and a swipe agree. A move away from a
- * terminal takes its entry, so going back never starts a shell.
+ * The page, conversation and task the address names, so a reload or a link
+ * lands on the same page. Each move is an entry in the browser's history,
+ * which back, forward and a phone's edge swipe move through.
  */
 export class PageAddress implements Eventful<PageAddressEvents> {
 	private readonly dispatcher = new Dispatcher<PageAddressEvents>();
@@ -113,8 +110,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	/** Opens task `name` on the Tasks page, or closes the one open for null. */
 	openTask(name: string | null): void {
 		this.task = name;
-		// A dialog closing as it goes elsewhere, such as to its questions,
-		// leaves the page and the address to where it went.
+		// A dialog closing on its way elsewhere must not pull the page back.
 		if (name === null && taskIn(location.hash) === null) {
 			this.dispatcher.dispatch("changed");
 			return;
@@ -264,6 +260,9 @@ function pageIn(hash: string): Page {
 	}
 	if (hash === "#stats") {
 		return "stats";
+	}
+	if (hash === "#ships") {
+		return "ships";
 	}
 	if (hash === "#evals" || hash.startsWith("#evals/")) {
 		return "evals";

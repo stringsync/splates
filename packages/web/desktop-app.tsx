@@ -28,6 +28,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 		"flex h-[calc(100dvh-var(--top-bar-height))] min-w-0 flex-none flex-col px-4",
 	tasks: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	ships: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
@@ -40,14 +41,8 @@ const DESKTOP_PAGES: Record<Page, string> = {
 };
 
 /**
- * The page beside a sidebar, a layout of its own beside the phone's: one
- * row of bars across the top, the sidebar's head floating at its left with
- * the project's switcher and the button that hides the sidebar,
- * and each page's own bar in the rest, whose kebab ends with the page menu.
- * Under them, the sidebar's tabs and the page. The sidebar keeps its width
- * and whether it shows for the next visit. What each page shows, `bodies`,
- * is the same as on a phone. The phone's inbox stays the phone's: with no
- * conversation open, the sidebar lists the agents, and the page starts one.
+ * The app on a wide screen, with the sidebar's tabs and agents at the left
+ * and the page beside them. Pass `bodies`, what each page shows.
  */
 export function DesktopApp({
 	page,

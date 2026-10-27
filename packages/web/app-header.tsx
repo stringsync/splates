@@ -2,21 +2,18 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";
-import { CascadeBadge } from "./cascade-badge";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
-import { ShipBadge } from "./ship-badge";
 import { QueueBadge } from "./slot-queue";
 import { STATUS_PILL } from "./status-pill";
 import { TITLE } from "./top-bar";
 
 /**
- * Heads a phone's drawer, as tall as the bar beside it, its border in line
- * with the bar's: the slot mark, the server's name and its state, then how a restart goes and why a
- * checkpoint could not start, under the row when they show. The page menu
- * is in every bar's kebab.
+ * The head of a phone's drawer: the slot mark, the server's name and its
+ * state, with how a restart goes and why a checkpoint could not start under
+ * them when they show. Pass the server's snapshot and machine reading.
  */
 export function AppHeader({
 	snapshot,
@@ -147,13 +144,6 @@ function ServerBadges({
 			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <MergeBadge snapshot={snapshot} />}
-			{!offline && <CascadeBadge machine={machine} />}
-			{!offline && (
-				<ShipBadge
-					snapshot={snapshot}
-					cascading={machine?.ship?.ship ?? null}
-				/>
-			)}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
 		</>
 	);

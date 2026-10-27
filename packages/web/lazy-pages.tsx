@@ -12,11 +12,9 @@ import { expiring, WAITS } from "./api";
 import { ReadFailed, StillWaiting } from "./countdown";
 
 /**
- * A page that is its own script chunk, fetched when it is first opened rather
- * than with the app. Until it arrives the page is blank, which is a beat
- * longer than the app already on screen and never a spinner for a cached chunk;
- * a chunk slow to come counts down as any read does, and one that never comes,
- * or fails, says so with Try again rather than leaving the page blank.
+ * A page that loads when it is first opened rather than with the app. A slow
+ * load counts down as any read does, and one that fails says so with Try
+ * again rather than leaving the page blank.
  */
 export function onDemand<Props extends object>(
 	load: () => Promise<{ default: ComponentType<Props> }>,
@@ -121,6 +119,9 @@ export const SetupPage = onDemand(async () => ({
 }));
 export const StatsPage = onDemand(async () => ({
 	default: (await import("./stats")).StatsPage,
+}));
+export const ShipsPage = onDemand(async () => ({
+	default: (await import("./ships-page")).ShipsPage,
 }));
 export const EvalsPage = onDemand(async () => ({
 	default: (await import("./evals-page")).EvalsPage,

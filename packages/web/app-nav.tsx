@@ -1,6 +1,6 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, LoaderCircleIcon } from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -12,6 +12,7 @@ import type { Drafts } from "./drafts";
 import { useNavPages } from "./evals-available";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
+import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
@@ -19,6 +20,7 @@ import { navPage, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
+import { shipActivity } from "./ship-activity";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 import { NAV_HEADING } from "./top-bar";
@@ -78,6 +80,7 @@ export function AppNav({
 		available && snapshot !== null
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
+	const shipping = shipActivity(useMachine()?.ship);
 	const tab = ({ value, label, Icon, shortcut }: (typeof pages)[number]) => (
 		<TabsTrigger
 			key={value}
@@ -101,8 +104,20 @@ export function AppNav({
 				)}
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
+				{value === "ships" && shipping === "waiting" && (
+					<span role="img" aria-label="a ship waits on you">
+						<UpdateDot ring="ring-sidebar" />
+					</span>
+				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>
+			{value === "ships" && shipping === "running" && (
+				<LoaderCircleIcon
+					role="img"
+					aria-label="a ship runs"
+					className="size-3.5 animate-spin text-muted-foreground"
+				/>
+			)}
 			<HeldKey shortcut={shortcut} held={held} />
 		</TabsTrigger>
 	);
