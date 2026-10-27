@@ -28,14 +28,12 @@ import { higher, pickOf } from "./rank";
 import { contextOf, journalPick, setOf } from "./start";
 
 /**
- * Auto pick's second look at what the person says in a conversation it
- * started, unless they have moved its model or effort since: the judge reads
- * what they say, and when the rules give a stronger model, or a higher
- * thinking level on the same one, on the same agent, the conversation moves
- * up before the agent reads it, logged as splates's own line with an Undo. So
- * does an answer to the agent's first reply that ended on a bare question,
- * to the rules' pick for the work one depth deeper. A pick it judges lighter
- * leaves it as it is.
+ * Builds the hook that, on each message the person sends to a conversation
+ * Auto pick started, has the judge read what they have said and moves the
+ * conversation to a stronger model or higher thinking level on the same
+ * agent when the rules give one, logged with an Undo. Does nothing once the
+ * person has moved its model or effort. An answer to the agent's first reply
+ * that ended on a bare question moves it to the rules' pick one depth deeper.
  */
 export function lifting(
 	project: Project,
@@ -67,7 +65,7 @@ export function lifting(
 			});
 			return;
 		}
-		const words = wordsToJudge(state.messages, said);
+		const words = wordsToJudge(state.messages);
 		const asked = askedBack(state.messages, said);
 		if (words === null && !asked) {
 			return;

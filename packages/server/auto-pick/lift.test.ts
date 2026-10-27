@@ -140,7 +140,8 @@ describe("lifting", () => {
 
 		expect(on).toEqual(["small", "big"]);
 		expect(judge.asked[0]?.state).toMatchObject({
-			subject: WIDENING,
+			subject: "Rename foo",
+			detail: `In src only.\n\n${WIDENING}`,
 		});
 		expect(conversation.state.autoPick).toMatchObject({
 			rule: 1,
@@ -166,13 +167,13 @@ describe("lifting", () => {
 		expect(await autoLines()).toHaveLength(1);
 	});
 
-	it("asks the judge nothing of a short message", async () => {
+	it("asks the judge about even a short message", async () => {
 		const conversation = await start();
 		judge = new FakeJudge(WIDE);
 		await say(conversation, "go");
 
-		expect(judge.asked).toEqual([]);
-		expect(on).toEqual(["small", "small"]);
+		expect(judge.asked).toHaveLength(1);
+		expect(on).toEqual(["small", "big"]);
 	});
 
 	it("keeps Auto pick on when the person moves the model", async () => {
@@ -185,10 +186,8 @@ describe("lifting", () => {
 	it("moves the conversation up for the answer to a first reply that asked back", async () => {
 		answers = ["I can rename it in src or everywhere. Which do you want?\n"];
 		const conversation = await start();
-		judge = new FakeJudge(WIDE);
 		await say(conversation, "src");
 
-		expect(judge.asked).toEqual([]);
 		expect(on).toEqual(["small", "big"]);
 		expect(conversation.state.autoPick).toMatchObject({
 			model: "big",
