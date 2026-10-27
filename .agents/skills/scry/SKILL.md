@@ -1,7 +1,7 @@
 ---
 name: scry
 description: "Write, update, and remove the scry rules in this project's .wiz/scry, which `wiz scry` checks code against like a linter. Use when the user explicitly asks for a rule, or asks for a style or convention change across the codebase that a rule could enforce from now on (\"stop using default exports\", \"comments should say why\"). Also use when asked to scry a change or run `wiz scry`."
-version: 0.0.51
+version: 0.0.53
 ---
 
 # Scry
@@ -41,7 +41,8 @@ check is: 100% where code decided it, a model's probability where the rule
 asked one. When the user names directories or files, pass them, as in
 `bunx @webappwiz/cli scry packages/api`. To check a change, add
 `--since <ref>`: `--since main` for the branch's work, `--since HEAD` for what
-is not committed yet. When the user names rules, pass `--rule <id>,<id>`,
+is not committed yet; with `--changed-lines` too, it reports only what is on
+the lines the change added or changed. When the user names rules, pass `--rule <id>,<id>`,
 and when they want one of a rule's options set otherwise for one run,
 `--option <rule>.<option>=<value>`. Show its report as it printed it, in one code block, and add nothing to it.
 Fixing what it found is a separate request; do not start unless asked.
