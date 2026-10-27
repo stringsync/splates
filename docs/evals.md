@@ -95,6 +95,25 @@ cell with, every field optional: `input`, `rubric`, `reply`, `checks`
 (`{id, about, pass, error?}`), `judge` (`{pass, reason}`) and `transcript`
 (`{kind: "text", text}` or `{kind: "tool", name, input, output}` steps).
 
+## From Inspect
+
+`splates evals import` turns an [Inspect AI](https://inspect.aisi.org.uk) eval
+log into a batch, so a project on Inspect writes no reporter:
+
+```sh
+bunx @stringsync/splates evals import inspect logs/2026-10-26T12-00-00_arithmetic.eval .evals/arithmetic
+```
+
+A `.json` log (`--log-format json`) is read as it is, and a `.eval` one through
+`inspect log dump`, so run it where `inspect` is on PATH. Each sample and epoch
+is a cell: the sample's id its case, the task its group, the log's model its
+target. A cell passes when every scorer's value, read as Inspect reads it (`C`
+1, `P` 0.5, `I` 0, a number as it is), reaches `--pass-at`, 1 by default; its
+score is the scorers' mean and its reason their explanations. A sample that
+errored is an `error`. Each cell's detail holds the input, the target as its
+rubric, the completion as its reply, a check per scorer, and the conversation
+with its tool calls.
+
 ## Example reporter
 
 [`evals-reporter.example.ts`](evals-reporter.example.ts) turns a JSON list of

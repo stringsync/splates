@@ -176,7 +176,8 @@ project's `splates.config.ts` names `evals: { results: "<dir>" }` and a
 reporter writes a `batch.json` and `results.jsonl` there in the
 `splates-evals/1` format, documented in `docs/evals.md` of the splates
 repository (https://github.com/stringsync/splates), with an example reporter.
-When asked, write that reporter for the project's framework, and the
+When asked, write that reporter for the project's framework, or for Inspect AI
+run `splates evals import inspect <log> <batch-dir>` in its place, and the
 `list` and `run` commands the docs lay out, for run cards to start it.
 
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`

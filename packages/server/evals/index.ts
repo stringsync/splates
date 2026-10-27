@@ -11,6 +11,10 @@ export type {
 } from "./contract";
 export { CONTRACT_FORMAT, contractRunId, RESULTS_FILE } from "./contract";
 export { evalsDonePrompt } from "./done";
+export type { Imported } from "./import";
+export { writeImported } from "./import";
+export type { InspectLog } from "./inspect";
+export { inspectBatch } from "./inspect";
 export type {
 	EvalCommands,
 	EvalFinished,

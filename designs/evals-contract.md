@@ -26,6 +26,13 @@ splates's own.
 - **Dogfood.** Splates's own harness under `evals/` writes the same format,
   so the contract is the only one the page reads.
 
+### Reporters (2026-10-27)
+
+Ready-made reporters ship in `@stringsync/splates` as
+`splates evals import <framework> <file> <batch-dir>`, so a project has no
+copy to keep up to date. The Inspect one reads `.json` logs as they are and
+`.eval` ones through `inspect log dump`.
+
 ## The format, `splates-evals/1`
 
 `<results>/<batch>/batch.json`, written before any cell runs:
