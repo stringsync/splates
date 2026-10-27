@@ -14,6 +14,7 @@ const WINDOWS: [string, string][] = [
 	["seven_day", "Weekly"],
 	["seven_day_opus", "Weekly Opus"],
 	["seven_day_sonnet", "Weekly Sonnet"],
+	["month", "Monthly"],
 ];
 
 /**
@@ -24,8 +25,8 @@ const UNSHOWN = new Set(["seven_day_overage_included"]);
 
 /**
  * How much of the plan's windows is used and when each starts over, beside
- * Pick back up: yellow from 80% used, red from 90%. Nothing until the agent
- * has said, which only Claude does.
+ * Pick back up: yellow from 80% used, red from 90%. Shows nothing for an
+ * empty `limits`.
  */
 export function PlanLimits({
 	limits,

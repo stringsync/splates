@@ -15,7 +15,15 @@ import { Conversations } from "../conversations";
 import { cannotReach, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
-import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
+import {
+	codexLimits,
+	isCodex,
+	isKimi,
+	kimiLimits,
+	Limits,
+	Offered,
+	splatesHome,
+} from "../models";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
 import { Journal, ProjectHome } from "../records";
@@ -325,7 +333,16 @@ async function start(
 									cwd: git.root,
 									codex: ctx.ps.env("CODEX_PATH"),
 								})
-							: [],
+							: isKimi(agent)
+								? kimiLimits({
+										fs: ctx.fs,
+										now: () => Date.now(),
+										home:
+											ctx.ps.env("KIMI_CODE_HOME") ??
+											`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
+										baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+									})
+								: [],
 					watch: new Watch(workerGit(git.root, worker)),
 					root: git.root,
 					projects,

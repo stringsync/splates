@@ -44,6 +44,7 @@ const PLANS = [
 	{ agent: "claude", name: "Claude" },
 	{ agent: "codex", name: "Codex" },
 	{ agent: "opencode", name: "OpenCode" },
+	{ agent: "kimi", name: "Kimi" },
 ];
 
 /**
@@ -402,7 +403,7 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 		["changed"],
 	);
 	const now = useMinute();
-	// Codex never sends its limits, so the server asks it as the page opens.
+	// Codex and Kimi never send their limits, so the server asks them as the page opens.
 	useEffect(() => void talk.refreshLimits(), [talk]);
 	return (
 		<div className="flex min-w-0 flex-col gap-4">

@@ -7,6 +7,7 @@ export {
 	thinkingOf,
 } from "./effort";
 export { KIMI_CLI, kimiInstalled } from "./kimi";
+export { isKimi, kimiLimits } from "./kimi-limits";
 export { Limits } from "./limits";
 export {
 	modelOption,
