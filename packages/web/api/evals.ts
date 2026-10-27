@@ -7,14 +7,15 @@ import type {
 	EvalPlan,
 	EvalScenario,
 } from "@stringsync/splates-server/evals/browser";
-import { ApiError, answered, sendJson } from "./request";
+import { ApiError, answered, scoped, sendJson } from "./request";
 
 /**
- * Every saved eval batch, newest first; null when this server runs from a
- * release, which has no eval harness to read them with.
+ * Every saved eval batch of the project this page shows, newest first; null
+ * when it has none to read: it names no `evals.results`, and this server
+ * runs from a release, which has no eval harness of its own.
  */
 export async function evalBatches(): Promise<EvalBatch[] | null> {
-	const response = await answered("/api/evals");
+	const response = await answered(scoped("/api/evals"));
 	if (response.status === 404) {
 		return null;
 	}
@@ -27,7 +28,7 @@ export async function evalBatches(): Promise<EvalBatch[] | null> {
 /** The batch `id` names, with every cell, planned or landed. */
 export async function evalBatch(id: string): Promise<EvalGrid> {
 	const response = await answered(
-		`/api/evals/batch?id=${encodeURIComponent(id)}`,
+		scoped(`/api/evals/batch?id=${encodeURIComponent(id)}`),
 	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/batch: ${response.status}`);
@@ -38,7 +39,7 @@ export async function evalBatch(id: string): Promise<EvalGrid> {
 /** The run `id` names, opened with its checks and the evidence they read. */
 export async function evalRun(id: string): Promise<EvalDetail> {
 	const response = await answered(
-		`/api/evals/run?id=${encodeURIComponent(id)}`,
+		scoped(`/api/evals/run?id=${encodeURIComponent(id)}`),
 	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/run: ${response.status}`);

@@ -70,9 +70,28 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 					</span>
 				</span>
 				<p className="text-muted-foreground text-xs">
-					{run.aspect} · {spent(run)}
+					{[
+						run.aspect,
+						run.score === undefined ? "" : `score ${run.score.toFixed(2)}`,
+						spent(run),
+					]
+						.filter((part) => part !== "")
+						.join(" · ")}
 				</p>
 				<p className="text-sm">{run.requirement}</p>
+				{run.reason !== undefined && run.error === undefined && (
+					<p className="text-sm">{run.reason}</p>
+				)}
+				{run.url !== undefined && (
+					<a
+						href={run.url}
+						target="_blank"
+						rel="noreferrer"
+						className="text-sm underline"
+					>
+						Open in its framework
+					</a>
+				)}
 				{improvable(run.status) && <ImproveMenu run={run} className="mt-1" />}
 			</header>
 			{run.error !== undefined && (
@@ -80,9 +99,11 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 					The run broke before it could be graded: {run.error}
 				</p>
 			)}
-			<Part title="Asked">
-				<pre className="whitespace-pre-wrap text-sm">{run.input}</pre>
-			</Part>
+			{run.input !== "" && (
+				<Part title="Asked">
+					<pre className="whitespace-pre-wrap text-sm">{run.input}</pre>
+				</Part>
+			)}
 			{run.checks.length > 0 && (
 				<Part
 					title={`Checks: ${run.checks.filter((check) => check.pass).length} of ${run.checks.length} pass`}

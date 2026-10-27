@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { contractCells, contractDetail, isContractBatch } from "./contract";
 import type {
 	EvalBatch,
 	EvalCell,
@@ -11,9 +12,10 @@ import type {
 } from "./types";
 
 /**
- * The eval batches under `directory`, as `splates dev eval run` writes them:
- * each `batch-*` directory's `batch.json`, the cells it planned, and the
- * `run-<n>/result.json` of each cell that has landed, cell `n` in plan order.
+ * The eval batches under `directory`: each directory's `batch.json`, in the
+ * public `splates-evals/1` format any framework writes (`contract.ts`), or as
+ * `splates dev eval run` writes it, with the `run-<n>/result.json` of each
+ * cell that has landed, cell `n` in plan order.
  */
 export class EvalStore {
 	constructor(private readonly directory: string) {}
@@ -32,7 +34,14 @@ export class EvalStore {
 	/** The batch `id` names with its every cell; null when there is none. */
 	async grid(id: string): Promise<EvalGrid | null> {
 		const dir = join(this.directory, id);
-		const batch = await readJson<SavedBatch>(join(dir, "batch.json"));
+		const saved = await readJson<unknown>(join(dir, "batch.json")).catch(
+			() => null,
+		);
+		if (isContractBatch(saved)) {
+			const { targets, grid } = await contractCells(dir, id, saved);
+			return gridOf(id, saved.title ?? null, saved.startedAt, targets, grid);
+		}
+		const batch = saved as SavedBatch | null;
 		if (batch?.schema !== 2) {
 			return null;
 		}
@@ -69,27 +78,27 @@ export class EvalStore {
 				};
 			}),
 		);
-		const tally: Partial<Record<EvalStatus, number>> = {};
-		for (const cell of grid) {
-			const status = cell.run?.status ?? "pending";
-			tally[status] = (tally[status] ?? 0) + 1;
-		}
-		const runs = grid.flatMap((cell) => (cell.run === null ? [] : [cell.run]));
-		return {
-			id,
-			skill: batch.skill ?? null,
-			startedAt: batch.startedAt,
-			targets,
-			tally,
-			cells: grid.length,
-			tokens: total(runs.map((each) => each.tokens)),
-			costUsd: total(runs.map((each) => each.costUsd)),
-			grid,
-		};
+		return gridOf(id, batch.skill ?? null, batch.startedAt, targets, grid);
 	}
 
-	/** The run whose `result.json` is `id`, relative to the directory, opened whole. */
+	/**
+	 * The run `id` names, opened whole: `<batch>#<cell>` for a batch in the
+	 * public format, or a `result.json`, relative to the directory.
+	 */
 	async run(id: string): Promise<EvalDetail> {
+		const hash = id.lastIndexOf("#");
+		if (hash !== -1) {
+			const batch = id.slice(0, hash);
+			const dir = join(this.directory, batch);
+			const saved = await readJson<unknown>(join(dir, "batch.json"));
+			const detail = isContractBatch(saved)
+				? await contractDetail(dir, batch, saved, id.slice(hash + 1))
+				: null;
+			if (detail === null) {
+				throw new Error(`no eval run ${id}`);
+			}
+			return detail;
+		}
 		const result = await readJson<SavedResult>(join(this.directory, id));
 		if (result === null) {
 			throw new Error(`no eval run ${id}`);
@@ -118,9 +127,35 @@ export class EvalStore {
 			withFileTypes: true,
 		}).catch(() => []);
 		return entries
-			.filter((entry) => entry.isDirectory() && entry.name.startsWith("batch-"))
+			.filter((entry) => entry.isDirectory())
 			.map((entry) => entry.name);
 	}
+}
+
+function gridOf(
+	id: string,
+	skill: string | null,
+	startedAt: string,
+	targets: EvalTarget[],
+	grid: EvalCell[],
+): EvalGrid {
+	const tally: Partial<Record<EvalStatus, number>> = {};
+	for (const cell of grid) {
+		const status = cell.run?.status ?? "pending";
+		tally[status] = (tally[status] ?? 0) + 1;
+	}
+	const runs = grid.flatMap((cell) => (cell.run === null ? [] : [cell.run]));
+	return {
+		id,
+		skill,
+		startedAt,
+		targets,
+		tally,
+		cells: grid.length,
+		tokens: total(runs.map((each) => each.tokens)),
+		costUsd: total(runs.map((each) => each.costUsd)),
+		grid,
+	};
 }
 
 /** The directory cell `index` of a batch lands in. */

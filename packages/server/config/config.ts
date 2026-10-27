@@ -143,6 +143,20 @@ export interface Config {
 	 * told; each person adds their own on the Setup page.
 	 */
 	dictationWords: string[];
+	/**
+	 * Where the project's evals, run by any framework, leave their results for
+	 * the Evals page, as `{ results: ".evals" }`: relative to the project's
+	 * root, absolute, or under `~`. Each batch is a directory of it holding a
+	 * `batch.json` and a `results.jsonl` in the `splates-evals/1` format
+	 * (`designs/evals-contract.md`). Null shows no Evals page.
+	 */
+	evals: EvalsConfig | null;
+}
+
+/** Where a project's evals report to splates. */
+export interface EvalsConfig {
+	/** The directory holding one directory per batch. */
+	results: string;
 }
 
 /**

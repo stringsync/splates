@@ -86,6 +86,7 @@ function defaults(root: string, trunk: string): Config {
 		platform: null,
 		replica: null,
 		dictationWords: [],
+		evals: null,
 	};
 }
 

@@ -8,6 +8,6 @@ export function targetName(target: EvalTarget): string {
 		target.effort,
 		target.skill === null ? null : `@${target.skill}`,
 	]
-		.filter((part) => part !== null)
+		.filter((part) => part !== null && part !== "")
 		.join(" ");
 }

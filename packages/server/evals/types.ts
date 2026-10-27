@@ -9,15 +9,15 @@ export interface EvalTarget {
 	model: string | null;
 	/** The thinking level it ran at; null for the agent's default. */
 	effort: string | null;
-	/** The skill revision it ran, for a baseline; null for the checkout's skill. */
+	/** The skill revision it ran, for a baseline, or a framework's `variant`; null for the checkout's skill or no variant. */
 	skill: string | null;
 }
 
-/** One `splates dev eval run` invocation. */
+/** One run of a project's evals: a `splates dev eval run`, or any framework's batch. */
 export interface EvalBatch {
 	/** Its directory under the results directory. */
 	id: string;
-	/** The skill it ran, when it says. */
+	/** The skill it ran, or a framework batch's title, when it says. */
 	skill: string | null;
 	/** When it started, as ISO 8601. */
 	startedAt: string;
@@ -40,6 +40,12 @@ export interface EvalRun {
 	milliseconds: number;
 	/** What broke, for `error`, or why it is `unreadable`. */
 	error?: string;
+	/** From 0 to 1, when its framework grades on a scale. */
+	score?: number;
+	/** Why it ended as it did, in its framework's words. */
+	reason?: string;
+	/** Its framework's own view of it. */
+	url?: string;
 }
 
 /** One cell of a batch's grid: a scenario (`scenario`, as run cards name it) on a target at a repetition. */

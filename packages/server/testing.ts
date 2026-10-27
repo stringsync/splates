@@ -143,6 +143,7 @@ export class Testing implements AsyncDisposable {
 			platform: null,
 			replica: null,
 			dictationWords: [],
+			evals: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = alongside?.splatesHome ?? join(base, "home", ".splates");

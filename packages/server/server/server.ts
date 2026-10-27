@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
+import { ConfigFiles } from "../config";
 import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
@@ -13,6 +14,7 @@ import {
 	EvalLaunchRoutes,
 	EvalRoutes,
 	evalsDirectory,
+	projectEvalsDirectory,
 } from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
@@ -365,7 +367,20 @@ export async function dev(
 		(await sourceCommit(ps)) === null
 			? null
 			: dirname(dirname(dirname(import.meta.dirname)));
-	const evals = new EvalRoutes({ ps, checkout: evalsCheckout });
+	const configFiles = new ConfigFiles(fs);
+	const evals = new EvalRoutes({
+		// Read at each request, so a project that adds `evals` to its
+		// config shows its Evals page without a restart.
+		directory: async (request) => {
+			const project = await projectFor(request);
+			const named = projectEvalsDirectory(
+				ps,
+				project.root,
+				(await configFiles.read(project.root)).evals ?? null,
+			);
+			return named ?? (evalsCheckout === null ? null : evalsDirectory(ps));
+		},
+	});
 	const evalLaunches =
 		evalsCheckout === null
 			? null
@@ -382,7 +397,10 @@ export async function dev(
 			"finished",
 			({ launch, conversation }) => {
 				void (async () => {
-					const text = await evals.donePrompt(launch.batch ?? "");
+					const text = await evals.donePrompt(
+						evalsDirectory(ps),
+						launch.batch ?? "",
+					);
 					let owner = await holding(conversation);
 					if (owner === null) {
 						await everywhere.openAll();

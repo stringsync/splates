@@ -46,6 +46,7 @@ describe("WorktreeService", () => {
 			platform: null,
 			replica: null,
 			dictationWords: [],
+			evals: null,
 		};
 	});
 

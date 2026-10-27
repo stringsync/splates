@@ -1,22 +1,28 @@
 import { useEffect, useState } from "react";
-import { evalBatches } from "./api";
+import { evalBatches, scoped } from "./api";
 import { PAGES } from "./page-route";
 
-let known: Promise<boolean> | null = null;
+const known = new Map<string, Promise<boolean>>();
 
 /**
- * Whether the server has saved eval runs to browse, which only one running
- * from a splates checkout does: asked once, and false until it answers.
+ * Whether the project this page shows has saved eval runs to browse: one
+ * whose config names `evals.results`, or any on a server run from a splates
+ * checkout. Asked once a project, and false until it answers.
  */
 export function useEvalsAvailable(): boolean {
 	const [available, setAvailable] = useState(false);
 	useEffect(() => {
-		known ??= evalBatches().then(
-			(batches) => batches !== null,
-			() => false,
-		);
+		const key = scoped("/api/evals");
+		let asked = known.get(key);
+		if (asked === undefined) {
+			asked = evalBatches().then(
+				(batches) => batches !== null,
+				() => false,
+			);
+			known.set(key, asked);
+		}
 		let current = true;
-		void known.then((yes) => current && setAvailable(yes));
+		void asked.then((yes) => current && setAvailable(yes));
 		return () => {
 			current = false;
 		};

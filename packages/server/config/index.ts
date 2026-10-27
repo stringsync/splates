@@ -1,4 +1,4 @@
-export type { Config, ConfigFile } from "./config";
+export type { Config, ConfigFile, EvalsConfig } from "./config";
 export { defineConfig } from "./config";
 export {
 	LEGACY,

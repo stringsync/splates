@@ -12,5 +12,9 @@ export type {
 export { EvalLaunches } from "./launch";
 export type { ConversationDirs } from "./launch-routes";
 export { EvalLaunchRoutes } from "./launch-routes";
-export { EvalRoutes, evalsDirectory } from "./routes";
+export {
+	EvalRoutes,
+	evalsDirectory,
+	projectEvalsDirectory,
+} from "./routes";
 export { EvalStore } from "./store";
