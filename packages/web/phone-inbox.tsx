@@ -239,6 +239,8 @@ export function Inbox({
 						<>
 							<ProjectSwitcher
 								name={name}
+								// The inbox stays the page, not the last thread there.
+								hash="#conversations"
 								path={false}
 								servers={false}
 								className="mx-0"
