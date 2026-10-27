@@ -60,6 +60,7 @@ queues that in webappwiz for its own agent.
 Its Allow grants the reach from the page and sends `[SPLATES GRANTED]`:
 carry on with the work it was for, ending with the queue card above when
 it queued a task. `splates projects grant` is the user's alone, refused an
-agent, so never run it. For a repository that is not a splates project
+agent, so never run it. Its Deny sends `[SPLATES GRANT DENIED]`, with
+any note after it: carry on without the reach. For a repository that is not a splates project
 yet, ask before you `splates init` it, which makes it one any agent can
 reach.

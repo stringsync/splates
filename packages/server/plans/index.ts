@@ -50,6 +50,7 @@ export {
 	directive,
 	evalsDoneReference,
 	eventReference,
+	GRANT_DENIED,
 	GRANTED,
 	groomReference,
 	handOffReference,

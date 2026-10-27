@@ -50,6 +50,26 @@ describe("App's grant card", () => {
 		expect(view.getByText("Granted splates tasks in shop")).toBeTruthy();
 	});
 
+	it("denies without granting, sending the note", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Cart", messages: [ask] }),
+		]);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Deny" })),
+			),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[SPLATES GRANT DENIED]" } },
+			]),
+		);
+		expect(
+			testing.posts.filter((post) => post.path.includes("/grants")),
+		).toEqual([]);
+		expect(view.getByText("Denied splates tasks in shop")).toBeTruthy();
+	});
+
 	it("takes Allow back, saying why, when the server refuses the grant", async () => {
 		testing.refuseWrites = { reason: "not_found", message: "no project shop" };
 		const view = await testing.openConversations([

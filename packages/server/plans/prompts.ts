@@ -152,6 +152,14 @@ export const RETRIED = "[SPLATES RETRIED]";
 export const GRANTED = "[SPLATES GRANTED]";
 
 /**
+ * What tells an agent the person turned down the reach its grant card
+ * asked for, from the card's Deny, any note after it: nothing was granted,
+ * so the agent carries on without the reach. The splates skill says what it
+ * means.
+ */
+export const GRANT_DENIED = "[SPLATES GRANT DENIED]";
+
+/**
  * What approves an agent's proposal as it stands and asks it to go ahead,
  * the answers to any calls it chose nothing for after it, as the Proposed
  * card's Approve button sends: the splates skill says what it means.

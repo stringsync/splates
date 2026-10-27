@@ -5,6 +5,7 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
+	GRANT_DENIED,
 	GRANTED,
 	MERGE,
 	RECONNECT,
@@ -226,6 +227,13 @@ export const BARE_DIRECTIVES = [
 		about: "carry on with the reach the person granted its grant card",
 		icon: KeyRoundIcon,
 		tone: "success",
+	},
+	{
+		directive: GRANT_DENIED,
+		label: "Reach denied",
+		about: "carry on without the reach the person denied its grant card",
+		icon: BanIcon,
+		tone: "warning",
 	},
 	{
 		directive: RUN_ALLOWED,

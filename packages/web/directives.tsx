@@ -3,6 +3,7 @@ import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
 	APPROVE,
 	DIRECTIVES,
+	GRANT_DENIED,
 	GRANTED,
 	MERGE,
 	RUN_ALLOWED,
@@ -298,7 +299,8 @@ function wordsOf(
 	if (
 		directive === RUN_ALLOWED ||
 		directive === RUN_DENIED ||
-		directive === GRANTED
+		directive === GRANTED ||
+		directive === GRANT_DENIED
 	) {
 		// The run-command or grant card it answers folds to an event line saying it.
 		return null;
