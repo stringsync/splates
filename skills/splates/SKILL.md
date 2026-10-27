@@ -207,10 +207,19 @@ release is due (a fix on the base that users are waiting on), end your reply
 with a run-command card naming `splates ship <project>`, the why under it
 saying what the release carries; its Ship button starts the ship on
 `splates server`, so on `[SPLATES RUN ALLOWED]` it is already running: carry
-on without running it. Once a package is on npm, splates queues a task in
+on without running it. A merge is never a release.
+
+A ship cascades: once a package is on npm, splates queues a bump task in
 each registered project that depends on it, to move its pins to the new
-version: an ordinary task, taken as `[SPLATES TASK #N]` says, and landed
-through the merge gate. A merge is never a release.
+versions. Take it as `[SPLATES TASK #N]` says: move every pin it names in
+each `package.json`, `bun install`, fix what breaks, and land it through the
+merge gate. Publish nothing, even when the project ships too: the cascade
+ships it once your task merges. The cascade waits on your project, and on
+those after it, while the task is open, so when a break is past fixing, ask
+the person rather than remove the task, and say in the question that the
+ship waits on it. A removed bump task, or a failed ship, stops the cascade
+at that project until the person drops it from the run with `splates ship
+--drop <project>`, a command of theirs, never yours.
 
 ```markdown
 ## 🔐 Permission: run command: ship webappwiz
