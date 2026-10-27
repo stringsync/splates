@@ -29,7 +29,8 @@ import { Dispatching } from "./dispatching";
 import { EvalsCard } from "./evals-card";
 import { type SnapshotExpecter, useExpectSnapshot } from "./expecting";
 import { GrantCard } from "./grant-card";
-import { useShownProject } from "./navigation";
+import { NavigationContext, useShownProject } from "./navigation";
+import { placeKey } from "./project-places";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
 import { stageOf } from "./todo-queue";
@@ -121,6 +122,7 @@ function RemoveLaneCard({
 							Icon={Trash2Icon}
 							status={stageOf(todo)}
 							tone="destructive"
+							onOpen={board.open}
 						/>
 					))}
 				</Panel>
@@ -141,7 +143,8 @@ function QueueCard({
 }: {
 	proposal: PermissionProposal;
 }): JSX.Element {
-	const shown = useShownProject();
+	// The bare address shows the focused project, which its snapshot names.
+	const shown = placeKey(useShownProject());
 	return proposal.project === undefined || proposal.project === shown ? (
 		<OwnQueueCard proposal={proposal} />
 	) : (
@@ -151,8 +154,7 @@ function QueueCard({
 
 /**
  * Queuing tasks of another project's, read from its own snapshot, and again
- * once queued: its tasks only, not where they land in its queue, and none
- * of them opens this page's board.
+ * once queued: where they land in its queue, each opening its board.
  */
 function OtherQueueCard({
 	proposal,
@@ -161,6 +163,7 @@ function OtherQueueCard({
 	proposal: PermissionProposal;
 	project: string;
 }): JSX.Element {
+	const navigation = useContext(NavigationContext);
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
 	const read = useCallback(async () => {
 		const response = await answered(scoped("/api/snapshot", project));
@@ -213,23 +216,14 @@ function OtherQueueCard({
 			gone={work.gone ? `No longer on ${project}'s board` : null}
 			tone="warning"
 		>
-			{todos.length > 0 && (
-				<Panel>
-					{todos.map((todo) => {
-						const stage = stageOf(todo);
-						const on = stage === "running" || stage === "queued";
-						return (
-							<Row
-								key={todo.id}
-								todo={todo}
-								Icon={on ? HourglassIcon : ListPlusIcon}
-								status={on ? stage : "joins"}
-								tone={on ? "quiet" : "plain"}
-								opens={false}
-							/>
-						);
-					})}
-				</Panel>
+			{todos.length > 0 && snapshot !== null && (
+				<QueuePanel
+					todos={todos}
+					board={snapshot.todos}
+					live={snapshot.tasks.map((each) => each.task)}
+					whole={false}
+					onOpen={(id) => navigation.show(todoUrl(project, id))}
+				/>
 			)}
 		</ActionCard>
 	);
@@ -249,29 +243,6 @@ function OwnQueueCard({
 	const expect = useExpectSnapshot();
 	const work = new QueueWork(proposal, board);
 	const { name, todos } = work;
-	const mine = new Set(todos.map((todo) => todo.id));
-	const queue = queueOrder(board.todos);
-	const ahead = queue.filter((todo) => !mine.has(todo.id));
-	// Running means an agent is on the task that took it: not one whose
-	// conversation is gone, nor a taker the page no longer lists.
-	const running = board.todos.filter(
-		(todo) =>
-			todo.takenBy !== null &&
-			!mine.has(todo.id) &&
-			board.tasks.includes(todo.takenBy) &&
-			!dispatching?.dispatch.orphaned(todo.takenBy),
-	).length;
-	const hidden = Math.max(0, ahead.length - AHEAD);
-	const shown = ahead.slice(hidden);
-	const aheadRow = (todo: TaskRecord) => (
-		<Row
-			key={todo.id}
-			todo={todo}
-			Icon={HourglassIcon}
-			status={`queued · ${queue.indexOf(todo) + 1}`}
-			tone="quiet"
-		/>
-	);
 	const whole = proposal.lane !== null;
 	const what = whole ? `lane ${name}` : name;
 	return (
@@ -298,22 +269,93 @@ function OwnQueueCard({
 			tone="warning"
 		>
 			{todos.length > 0 && (
-				<Panel>
-					{running > 0 && <Line Icon={HourglassIcon}>{running} running</Line>}
-					{hidden > 0 && (
-						<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
-					)}
-					{shown.filter((todo) => todo.manual !== true).map(aheadRow)}
-					{shown.some((todo) => todo.manual === true) && (
-						<Line Icon={HandIcon}>By hand</Line>
-					)}
-					{shown.filter((todo) => todo.manual === true).map(aheadRow)}
-					{todos.map((todo) => (
-						<QueueItem key={todo.id} todo={todo} queue={queue} whole={whole} />
-					))}
-				</Panel>
+				<QueuePanel
+					todos={todos}
+					board={board.todos}
+					live={board.tasks}
+					orphaned={(task) => dispatching?.dispatch.orphaned(task) ?? false}
+					whole={whole}
+					onOpen={board.open}
+				/>
 			)}
 		</ActionCard>
+	);
+}
+
+/** Another project's board at the todo `id`, as a link on its page opens one. */
+function todoUrl(project: string, id: number): string {
+	const url = new URL(location.href);
+	url.searchParams.set("project", project);
+	url.hash = `#todos/${id}`;
+	return url.toString();
+}
+
+/**
+ * The queue as it stands on `board`, then the card's `todos` joining it.
+ * `live` names the tasks at work, less any `orphaned`: a todo is running
+ * when an agent is on the task that took it.
+ */
+function QueuePanel({
+	todos,
+	board,
+	live,
+	orphaned,
+	whole,
+	onOpen,
+}: {
+	todos: readonly TaskRecord[];
+	board: readonly TaskRecord[];
+	live: readonly string[];
+	orphaned?: (task: string) => boolean;
+	whole: boolean;
+	onOpen: (id: number) => void;
+}): JSX.Element {
+	const mine = new Set(todos.map((todo) => todo.id));
+	const queue = queueOrder(board);
+	const ahead = queue.filter((todo) => !mine.has(todo.id));
+	// Running means an agent is on the task that took it: not one whose
+	// conversation is gone, nor a taker the page no longer lists.
+	const running = board.filter(
+		(todo) =>
+			todo.takenBy !== null &&
+			!mine.has(todo.id) &&
+			live.includes(todo.takenBy) &&
+			!orphaned?.(todo.takenBy),
+	).length;
+	const hidden = Math.max(0, ahead.length - AHEAD);
+	const shown = ahead.slice(hidden);
+	const aheadRow = (todo: TaskRecord) => (
+		<Row
+			key={todo.id}
+			todo={todo}
+			Icon={HourglassIcon}
+			status={`queued · ${queue.indexOf(todo) + 1}`}
+			tone="quiet"
+			onOpen={onOpen}
+		/>
+	);
+	return (
+		<Panel>
+			{running > 0 && <Line Icon={HourglassIcon}>{running} running</Line>}
+			{hidden > 0 && (
+				<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
+			)}
+			{shown.filter((todo) => todo.manual !== true).map(aheadRow)}
+			{shown.some((todo) => todo.manual === true) && (
+				<Line Icon={HandIcon}>By hand</Line>
+			)}
+			{shown.filter((todo) => todo.manual === true).map(aheadRow)}
+			{todos.map((todo) => (
+				<QueueItem
+					key={todo.id}
+					todo={todo}
+					queue={queue}
+					board={board}
+					whole={whole}
+					onOpen={onOpen}
+				/>
+			))}
+		</Panel>
 	);
 }
 
@@ -324,17 +366,26 @@ function OwnQueueCard({
 function QueueItem({
 	todo,
 	queue,
+	board,
 	whole,
+	onOpen,
 }: {
 	todo: TaskRecord;
 	queue: readonly TaskRecord[];
+	board: readonly TaskRecord[];
 	whole: boolean;
+	onOpen: (id: number) => void;
 }): JSX.Element {
-	const board = useContext(Board);
 	const stage = stageOf(todo);
 	if (stage === "running") {
 		return (
-			<Row todo={todo} Icon={HourglassIcon} status="running" tone="quiet" />
+			<Row
+				todo={todo}
+				Icon={HourglassIcon}
+				status="running"
+				tone="quiet"
+				onOpen={onOpen}
+			/>
 		);
 	}
 	if (stage === "queued") {
@@ -344,12 +395,13 @@ function QueueItem({
 				Icon={HourglassIcon}
 				status={`queued · ${queue.findIndex((each) => each.id === todo.id) + 1}`}
 				tone="quiet"
+				onOpen={onOpen}
 			/>
 		);
 	}
 	// A queued lane queues a task once nothing open blocks it.
 	const blocker = whole
-		? todo.blockedBy.find((id) => board.todos.some((each) => each.id === id))
+		? todo.blockedBy.find((id) => board.some((each) => each.id === id))
 		: undefined;
 	return (
 		<Row
@@ -357,6 +409,7 @@ function QueueItem({
 			Icon={ListPlusIcon}
 			status={blocker === undefined ? "joins" : `after #${blocker}`}
 			tone="plain"
+			onOpen={onOpen}
 		/>
 	);
 }
@@ -415,23 +468,21 @@ const ROW_TONES = {
 };
 
 /**
- * A task in the panel, which opens it unless `opens` is false, as for
- * another project's, and where it stands.
+ * A task in the panel, which `onOpen` opens, and where it stands.
  */
 function Row({
 	todo,
 	Icon,
 	status,
 	tone,
-	opens = true,
+	onOpen,
 }: {
 	todo: TaskRecord;
 	Icon: LucideIcon;
 	status: string;
 	tone: keyof typeof ROW_TONES;
-	opens?: boolean;
+	onOpen: (id: number) => void;
 }): JSX.Element {
-	const board = useContext(Board);
 	const { row, icon, status: toned } = ROW_TONES[tone];
 	return (
 		<li
@@ -444,17 +495,13 @@ function Row({
 			<span className="text-muted-foreground text-xs tabular-nums">
 				#{todo.id}
 			</span>
-			{opens ? (
-				<button
-					type="button"
-					onClick={() => board.open(todo.id)}
-					className="min-w-0 flex-1 cursor-pointer truncate rounded text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-				>
-					{todo.subject}
-				</button>
-			) : (
-				<span className="min-w-0 flex-1 truncate">{todo.subject}</span>
-			)}
+			<button
+				type="button"
+				onClick={() => onOpen(todo.id)}
+				className="min-w-0 flex-1 cursor-pointer truncate rounded text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+			>
+				{todo.subject}
+			</button>
 			<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
 		</li>
 	);

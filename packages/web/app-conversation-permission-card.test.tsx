@@ -18,6 +18,13 @@ describe("App's permission card", () => {
 
 	beforeEach(() => {
 		testing = new Testing();
+		testing.servedOf.shop = snapshot({
+			project: "shop",
+			todos: [
+				todo({ id: 404, subject: "Fix the cart", stage: "ready" }),
+				todo({ id: 405, subject: "Ship the cart", stage: "queued" }),
+			],
+		});
 	});
 
 	afterEach(() => {
@@ -25,6 +32,19 @@ describe("App's permission card", () => {
 		testing.dispose();
 	});
 
+	const cartAsking = conversation({
+		title: "Cart",
+		messages: [
+			message(
+				"agent",
+				[
+					"## 🔐 Permission: queue shop #404: the cart",
+					"",
+					"Ours waits on it.",
+				].join("\n"),
+			),
+		],
+	});
 	const asking = conversation({
 		title: "Billing",
 		messages: [
@@ -84,6 +104,14 @@ describe("App's permission card", () => {
 		lanes: [{ id: 3, name: "Billing export", queued: true as const }],
 	};
 
+	/** The Billing export queue card, on a page showing `shown`. */
+	const queueCard = async (shown: typeof board) => {
+		const view = await testing.openConversations([asking], undefined, shown);
+		return waitFor(() =>
+			view.getByRole("region", { name: "queue Billing export" }),
+		);
+	};
+
 	it("counts as running only the todos an agent is still on", async () => {
 		const view = await testing.openConversations([asking], undefined, {
 			...board,
@@ -105,10 +133,7 @@ describe("App's permission card", () => {
 	});
 
 	it("lists the lane's tasks, and Queue lane queues the lane from the page itself", async () => {
-		const view = await testing.openConversations([asking], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "queue Billing export" }),
-		);
+		const card = await queueCard(board);
 		expect(card.textContent).toContain("Write the CSV");
 		expect(card.textContent).toContain("Serve the export");
 		expect(card.textContent).toContain("Two tasks, the writer first.");
@@ -131,10 +156,7 @@ describe("App's permission card", () => {
 	});
 
 	it("offers to archive the conversation once its Queue lane has queued the lane", async () => {
-		const view = await testing.openConversations([asking], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "queue Billing export" }),
-		);
+		const card = await queueCard(board);
 		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
 
 		await act(async () =>
@@ -164,10 +186,7 @@ describe("App's permission card", () => {
 	});
 
 	it("shows the queue it joins: what is queued ahead, then each task joining or after what blocks it", async () => {
-		const view = await testing.openConversations([asking], undefined, busy);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "queue Billing export" }),
-		);
+		const card = await queueCard(busy);
 		const rows = [...card.querySelectorAll("li")].map((li) => li.textContent);
 		expect(rows).toEqual([
 			"1 more queued ahead",
@@ -225,27 +244,11 @@ describe("App's permission card", () => {
 	});
 
 	it("queues another project's tasks through that project, from its own board", async () => {
-		testing.servedOf.shop = snapshot({
-			project: "shop",
-			todos: [
-				todo({ id: 404, subject: "Fix the cart", stage: "ready" }),
-				todo({ id: 405, subject: "Ship the cart", stage: "queued" }),
-			],
-		});
-		const asking = conversation({
-			title: "Cart",
-			messages: [
-				message(
-					"agent",
-					[
-						"## 🔐 Permission: queue shop #404: the cart",
-						"",
-						"Ours waits on it.",
-					].join("\n"),
-				),
-			],
-		});
-		const view = await testing.openConversations([asking], undefined, board);
+		const view = await testing.openConversations(
+			[cartAsking],
+			undefined,
+			board,
+		);
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "queue shop the cart" }),
 		);
@@ -256,10 +259,11 @@ describe("App's permission card", () => {
 				name: "copy splates --project shop queue add 404",
 			}),
 		).toBeTruthy();
-		// Another project's task opens nothing of this page's board.
+		// Its place in shop's queue, and each task opens shop's board.
+		expect(card.textContent).toContain("queued · 1");
 		expect(
-			within(card).queryByRole("button", { name: "Fix the cart" }),
-		).toBeNull();
+			within(card).getByRole("button", { name: "Fix the cart" }),
+		).toBeTruthy();
 
 		// What shop's board reads once the queue lands, read again after.
 		testing.servedOf.shop = snapshot({
