@@ -537,7 +537,7 @@ splates
 	.command("ship")
 	.use(repository({ needs: "read" }))
 	.description(
-		"ship a project and every registered project that depends on it, in dependency order: each public one with a `ship` command in its splates.config.ts and dependents of its own publishes, the rest only take their bumps; `--plan` prints that plan and runs nothing. The person's alone to start, refused an agent, which asks with a run-command card",
+		"ship a project: `splates server` runs its `ship` command from splates.config.ts on its machine, under your own npm sign-in, signing in with `npm login --auth-type=web` first when npm knows no one, and shows npm's sign-in and 2FA links on the page for any device; this prints its output until it ends. `--plan` prints the cascade over every registered project that depends on it, in dependency order, and runs nothing: each public one with a `ship` command and dependents of its own publishes, the rest only take their bumps. The person's alone to start, refused an agent, which asks with a run-command card",
 	)
 	.arg("project", z.string(), {
 		default: "",
@@ -548,11 +548,17 @@ splates
 		description: "print the plan without running anything",
 	})
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.option("dev", z.string(), {
+		default: "",
+		description:
+			"the `splates server` to run the ship on, a URL such as http://localhost:4310; by default the one from SPLATES_DEV, else this machine's on its default port",
+	})
 	.action((opts, ctx) =>
 		ship(ctx, {
 			project: opts.project || undefined,
 			plan: opts.plan,
 			json: opts.json,
+			dev: opts.dev,
 		}),
 	);
 

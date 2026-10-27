@@ -41,7 +41,69 @@ describe("ship", () => {
 		expect((refused as Exit).reason).toBe("not_granted");
 		expect((refused as Exit).message).toContain("splates ship --plan");
 	});
+
+	it("starts the ship on the server and prints its output to the end", async () => {
+		const { ctx, log } = await served();
+		const { calls, fetch } = server({ status: "done", to: "1.4.3" });
+
+		await ship({ ...ctx, fetch }, { dev: "http://localhost:4310" });
+
+		expect(calls).toEqual([
+			"POST http://localhost:4310/api/ship?project=mdom",
+			"GET http://localhost:4310/api/ship/output?project=mdom",
+			"GET http://localhost:4310/api/ship?project=mdom",
+		]);
+		const printed = log.entries.map((entry) => String(entry.message));
+		expect(printed).toContain("https://www.npmjs.com/auth/cli/xyz");
+		expect(printed.at(-1)).toBe("shipped mdom 1.4.3");
+	});
+
+	it("fails with the end of the output when the ship failed", async () => {
+		const { ctx } = await served();
+		const { fetch } = server({ status: "failed", error: "npm error 403" });
+
+		const failed = await ship(
+			{ ...ctx, fetch },
+			{ project: "vexml", dev: "http://localhost:4310" },
+		).catch((error) => error);
+
+		expect((failed as Exit).reason).toBe("hook_failed");
+		expect((failed as Exit).message).toBe("npm error 403");
+	});
+
+	it("refuses an agent a ship before it asks the server", async () => {
+		const { ctx, ps } = await served();
+		const { calls, fetch } = server({ status: "done" });
+		ps.setEnv({ SPLATES_STARTED_BY: "c1" });
+
+		const refused = await ship({ ...ctx, fetch }, {}).catch((error) => error);
+
+		expect((refused as Exit).reason).toBe("not_granted");
+		expect(calls).toEqual([]);
+	});
 });
+
+/**
+ * A `splates server` that starts a ship from 1.4.2, prints a 2FA link as
+ * its output, and ends it as `ended` says.
+ */
+function server(ended: Record<string, unknown>) {
+	const calls: string[] = [];
+	const fetch = async (url: string, init?: RequestInit) => {
+		calls.push(`${init?.method ?? "GET"} ${url}`);
+		if (url.includes("/output")) {
+			return new Response(
+				"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
+			);
+		}
+		return Response.json(
+			init?.method === "POST"
+				? { status: "running", from: "1.4.2" }
+				: { status: "running", from: "1.4.2", to: null, error: null, ...ended },
+		);
+	};
+	return { calls, fetch };
+}
 
 /** A `ship` context over the served projects, run by the person unless told otherwise. */
 async function served() {

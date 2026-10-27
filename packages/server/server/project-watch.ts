@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { LEGACY_PLAN_FILE } from "../config";
 import { PLAN_FILE } from "../plans";
+import { shipRecord } from "../ship";
 import { fingerprint, type Snapshot, snapshot, TaskDetails } from "../tasks";
 import { type EventSink, eventStream, type StreamWatcher } from "./http";
 import type { DevContext, Project } from "./project";
@@ -172,15 +173,19 @@ export class ProjectWatch implements StreamWatcher {
 		if (!this.watching) {
 			details.moved();
 		}
-		return snapshot({
-			project: await this.context.everywhere.slug(service.git.root),
-			service,
-			tasks,
-			creds,
-			fs,
-			details,
-			home: ps.env("HOME"),
-		});
+		const [read, ship] = await Promise.all([
+			snapshot({
+				project: await this.context.everywhere.slug(service.git.root),
+				service,
+				tasks,
+				creds,
+				fs,
+				details,
+				home: ps.env("HOME"),
+			}),
+			shipRecord(this.project.storage).read(),
+		]);
+		return { ...read, ship };
 	}
 
 	/** `snapshot` with what the server says of itself now, which it may have learned since. */

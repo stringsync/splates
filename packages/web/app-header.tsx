@@ -6,6 +6,7 @@ import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
+import { ShipBadge } from "./ship-badge";
 import { QueueBadge } from "./slot-queue";
 import { STATUS_PILL } from "./status-pill";
 import { TITLE } from "./top-bar";
@@ -145,6 +146,7 @@ function ServerBadges({
 			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <MergeBadge snapshot={snapshot} />}
+			{!offline && <ShipBadge snapshot={snapshot} />}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
 		</>
 	);

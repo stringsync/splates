@@ -25,6 +25,7 @@ import type { Everywhere, Projects } from "../projects";
 import { letGo, QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
+import { Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
@@ -52,6 +53,20 @@ export async function serveProject(
 	const slug = () => context.everywhere.slug(project.service.git.root);
 	const conflicts = new ConflictWatch(project, conversations);
 	await conflicts.start();
+	const shipping = new Shipping({
+		storage,
+		fs: project.fs,
+		ps: project.ps,
+		log,
+		root: service.git.root,
+		dir: project.dir,
+		command: project.config.ship,
+		slug,
+	});
+	// A ship the server stopped in the middle of is finished as it serves again.
+	void shipping
+		.resume()
+		.catch((error: unknown) => log.error(`resuming a ship: ${error}`));
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
@@ -154,6 +169,7 @@ export async function serveProject(
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...automations.routes,
+		...new ShipRoutes(shipping, project.fs),
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
@@ -221,6 +237,7 @@ export async function serveProject(
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
 			await conflicts.disposeAsync();
+			shipping.dispose();
 			watch.dispose();
 			handOffs?.dispose();
 			queueRunner?.dispose();
@@ -407,6 +424,12 @@ export interface Served extends AsyncResource {
 	dropLane: Handler;
 	removeQueued: Handler;
 	restoreQueued: Handler;
+	/** The project's latest ship. */
+	ship: Handler;
+	/** Starts a ship of the project. */
+	startShip: Handler;
+	/** What its latest ship printed, as it prints. */
+	shipOutput: Handler;
 	listCreds: Handler;
 	saveCred: Handler;
 	removeCred: Handler;

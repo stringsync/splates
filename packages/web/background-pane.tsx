@@ -187,7 +187,8 @@ export function MergeOutputPane({
 	);
 }
 
-function Output({
+/** A command's output, drawn by xterm.js into a box that follows its size. */
+export function Output({
 	output,
 	className,
 }: {

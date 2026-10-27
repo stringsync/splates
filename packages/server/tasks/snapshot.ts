@@ -6,6 +6,7 @@ import { limited, READ_CONCURRENCY } from "../limited";
 import { BatchGroups } from "../merge";
 import type { Slot } from "../ports";
 import type { Behind, Release } from "../server/shared";
+import type { Ship } from "../ship";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
@@ -52,6 +53,8 @@ export interface Snapshot {
 	unbuilt: boolean;
 	/** The slot `splates server --slot` serves under, shown beside the project's name. */
 	slot: Slot | null;
+	/** The project's latest ship, going or ended. Absent from older servers. */
+	ship?: Ship | null;
 }
 
 /**
@@ -140,12 +143,14 @@ export function fingerprint({
 	creds,
 	release,
 	behind,
+	ship,
 }: Snapshot): string {
 	// Leaves out the fields that move on their own: `age` ticks every
 	// minute, and hashing it would push to every open page for nothing.
 	return JSON.stringify([
 		release,
 		behind,
+		ship ?? null,
 		todos,
 		lanes,
 		laneNames,

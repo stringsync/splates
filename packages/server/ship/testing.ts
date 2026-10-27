@@ -1,4 +1,4 @@
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs, type FakePs } from "webappwiz/system/testing";
 import type { ShipSource } from "./graph";
 
 /** A `package.json` a fixture writes. */
@@ -76,4 +76,21 @@ export async function servedProjects(
 		{ slug: "sound2score", root: "/sound2score", ship: null },
 	];
 	return { fs, sources };
+}
+
+/** The `index`th child `ps` started, once it has. */
+export async function nth(ps: FakePs, index: number) {
+	await until(async () => ps.getChildren().length > index);
+	return ps.getChildren()[index] as ReturnType<FakePs["start"]>;
+}
+
+/** Waits for `done` to answer true, failing after a second. */
+export async function until(done: () => Promise<boolean>): Promise<void> {
+	for (let i = 0; i < 200; i++) {
+		if (await done()) {
+			return;
+		}
+		await Bun.sleep(5);
+	}
+	throw new Error("timed out");
 }

@@ -675,6 +675,13 @@ export async function dev(
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
+					"/api/ship": {
+						GET: scoped((project) => project.ship),
+						// It publishes under the person's npm sign-in, so only as
+						// far as a conversation reaches.
+						POST: talk(scoped((project) => project.startShip)),
+					},
+					"/api/ship/output": scoped((project) => project.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
 					"/api/finished/:key": scoped((project) => project.finishedTask),
