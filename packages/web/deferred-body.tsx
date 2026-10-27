@@ -22,7 +22,7 @@ import { Board } from "./board";
 import { linked } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
-import { ElsewhereMention } from "./markdown";
+import { ElsewhereMention, HEADING } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
@@ -92,15 +92,11 @@ export function DeferredBody({
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
 			<section aria-label="why it stopped">
-				<h4 className="mb-1 font-semibold text-xs text-muted-foreground uppercase tracking-wide">
-					Why it stopped
-				</h4>
+				<h4 className={HEADING}>Why it stopped</h4>
 				<p className="leading-relaxed">{deferred.why}</p>
 			</section>
 			<section aria-label="to unblock">
-				<h4 className="mb-1 font-semibold text-xs text-muted-foreground uppercase tracking-wide">
-					To unblock
-				</h4>
+				<h4 className={HEADING}>To unblock</h4>
 				<ol className="flex flex-col gap-2">
 					{blockers.map((blocker, i) => {
 						const key = `${blocker.kind}:${i}`;
@@ -275,9 +271,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
 			{blockers.length > 0 && (
 				<section aria-label="to unblock">
-					<h4 className="mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-						To unblock
-					</h4>
+					<h4 className={HEADING}>To unblock</h4>
 					<ol className="flex flex-col gap-2">
 						{blockers.map((blocker) => {
 							const key = `task:${blocker.id}`;
