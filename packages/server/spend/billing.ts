@@ -24,7 +24,7 @@ export interface ProviderStatus {
 		| "untracked"
 		| "counted"
 		| "estimated";
-	/** What to tell the user; empty for `ok`. */
+	/** What to tell the user; for `ok`, only a note that the bill trails use. */
 	message: string;
 	/** How many new charges the pull added. */
 	added: number;
@@ -122,7 +122,10 @@ export async function pullBilling(
 			}
 			await spend.record(...entries);
 			const expected = (await provider.upcoming?.(sources, token)) ?? [];
-			statuses.push({ ...status("ok", "", entries.length), expected });
+			statuses.push({
+				...status("ok", provider.lags ?? "", entries.length),
+				expected,
+			});
 		} catch (error) {
 			statuses.push(
 				status(

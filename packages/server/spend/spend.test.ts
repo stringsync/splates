@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { MemoryStorage } from "../storage/testing";
-import { pullBilling, Spend } from "./index";
+import { PROVIDERS, pullBilling, Spend } from "./index";
 import { Rates } from "./rates";
 import { spendReport } from "./report";
 import { BillingRoutes } from "./routes";
@@ -195,6 +195,36 @@ describe("spend", () => {
 		});
 		expect(down.currency).toBe("USD");
 		expect(down.rateError).not.toBeNull();
+	});
+
+	test("pages through Cloudflare's billing history until a short page, and notes it lags", async () => {
+		const item = (num: number) => ({
+			id: `b${num}`,
+			amount: 1,
+			currency: "USD",
+			occurred_at: "2026-10-19T00:00:00Z",
+			description: "Workers",
+		});
+		const pages = [
+			Array.from({ length: 100 }, (_, num) => item(num)),
+			[item(100), item(101)],
+		];
+		const asked: string[] = [];
+		const fetcher = (async (url: string) => {
+			asked.push(url);
+			const page = Number(new URL(url).searchParams.get("page"));
+			return Response.json({ result: pages[page - 1] ?? [] });
+		}) as unknown as typeof fetch;
+		const statuses = await pullBilling(spend, {
+			...billingOptions(),
+			fetcher,
+			providers: PROVIDERS.filter((each) => each.id === "cloudflare"),
+		});
+		expect(asked.filter((url) => url.includes("billing/history")).length).toBe(
+			2,
+		);
+		expect(statuses[0]?.added).toBe(102);
+		expect(statuses[0]?.message).toContain("in arrears");
 	});
 
 	test("before any pull, the sources show TypeSafe counted", async () => {

@@ -1,7 +1,7 @@
 import type { Expected } from "./plans";
 import type { Charge, Provider, Sources } from "./providers";
 
-/** Organization costs by day and line item; needs an admin key. */
+/** OpenAI spend by day and line item. */
 export const openai: Provider = {
 	id: "openai",
 	cred: "OPENAI_ADMIN_KEY",
@@ -45,28 +45,39 @@ export const openai: Provider = {
 export const cloudflare: Provider = {
 	id: "cloudflare",
 	cred: "CLOUDFLARE_API_TOKEN",
+	lags: "Cloudflare invoices usage in arrears, so the current month shows low until its invoice posts",
 	async pull(sources, token) {
-		const body = (await getJson(
-			sources,
-			"https://api.cloudflare.com/client/v4/user/billing/history?per_page=100",
-			token,
-		)) as {
-			result?: {
-				id: string;
-				amount: number;
-				currency: string;
-				occurred_at: string;
-				description?: string;
-				type?: string;
-			}[];
-		};
-		return (body.result ?? []).map((item) => ({
-			day: day(item.occurred_at),
-			service: item.description ?? item.type ?? "other",
-			amount: item.amount,
-			currency: item.currency,
-			ref: `cloudflare:${item.id}`,
-		}));
+		const perPage = 100;
+		const charges: Charge[] = [];
+		for (let page = 1; ; page++) {
+			const body = (await getJson(
+				sources,
+				`https://api.cloudflare.com/client/v4/user/billing/history?per_page=${perPage}&page=${page}`,
+				token,
+			)) as {
+				result?: {
+					id: string;
+					amount: number;
+					currency: string;
+					occurred_at: string;
+					description?: string;
+					type?: string;
+				}[];
+			};
+			const items = body.result ?? [];
+			for (const item of items) {
+				charges.push({
+					day: day(item.occurred_at),
+					service: item.description ?? item.type ?? "other",
+					amount: item.amount,
+					currency: item.currency,
+					ref: `cloudflare:${item.id}`,
+				});
+			}
+			if (items.length < perPage) {
+				return charges;
+			}
+		}
 	},
 	/** Each paid subscription's charge at the end of its current period, invoiced then. */
 	async upcoming(sources, token) {

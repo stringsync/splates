@@ -98,9 +98,14 @@ function SourceRow({
 	const state = STATES[source.state];
 	const detail =
 		source.state === "ok"
-			? source.added > 0
-				? `${source.added} new ${source.added === 1 ? "charge" : "charges"}`
-				: "Up to date"
+			? [
+					source.added > 0
+						? `${source.added} new ${source.added === 1 ? "charge" : "charges"}`
+						: "Up to date",
+					source.message,
+				]
+					.filter((part) => part !== "")
+					.join(". ")
 			: source.state === "missing" && source.cred !== null
 				? `Reads its costs with ${source.cred}, which is not on the Creds page.`
 				: source.message;

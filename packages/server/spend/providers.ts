@@ -16,7 +16,7 @@ export interface Charge {
 export interface Sources {
 	cred(name: string): Promise<string | undefined>;
 	fetcher: typeof fetch;
-	/** Only days before this one (`2026-10-21`) are pulled, as a day not over is still changing. */
+	/** The date now (`2026-10-21`). */
 	today: string;
 	/** The earliest day to pull. */
 	since: string;
@@ -28,8 +28,6 @@ export interface Provider {
 	cred: string | null;
 	/**
 	 * Set for a provider splates does not count yet: what to say on its row.
-	 * Costs are never entered by hand, so such a provider waits on a pull or
-	 * on splates counting its own use.
 	 */
 	untracked?: string;
 	/**
@@ -37,11 +35,10 @@ export interface Provider {
 	 * pull: what to say on its row.
 	 */
 	counted?: string;
-	/**
-	 * Set for a provider with no bill to pull, whose cost splates estimates
-	 * itself from list prices: what to say on its row.
-	 */
+	/** Set for a provider with no bill to pull, estimated from list prices: what to say on its row. */
 	estimated?: string;
+	/** Set when the bill trails use: what to say on the pulled row. */
+	lags?: string;
 	/** Where the provider's own billing page is, for a row to link to. */
 	dashboard?: string;
 	pull?(sources: Sources, token: string): Promise<Charge[]>;
