@@ -63,6 +63,7 @@ export {
 	sendJson,
 	WAITS,
 } from "./request";
+export { startShip } from "./ship";
 export {
 	billing,
 	pullBilling,

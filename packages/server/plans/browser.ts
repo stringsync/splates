@@ -48,4 +48,4 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
-export { isWholeSuite, retryOf } from "./run-command";
+export { isWholeSuite, retryOf, shipOf } from "./run-command";

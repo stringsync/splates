@@ -28,7 +28,8 @@ export interface ShipContext {
  * names, else this machine's on its default port) to ship `project`, the one
  * `git` is in for none, and follows it to its end; with `plan`, prints what
  * shipping it would do, running nothing. A ship is the person's to start, so
- * an agent is refused even the plan and told to ask with a card.
+ * an agent is refused even the plan and told to ask with a card, whose Ship
+ * on the page starts it.
  */
 export async function ship(
 	ctx: ShipContext,
@@ -44,7 +45,7 @@ export async function ship(
 	if (asking !== undefined) {
 		fail(
 			"not_granted",
-			`a ship is the person's to start: ask for it with a \`## 🔐 Permission: run command: <why>\` card naming \`splates ship${plan ? " --plan" : ""}${project === undefined ? "" : ` ${project}`}\`, and end your turn`,
+			`a ship is the person's to start: ask for one with a \`## 🔐 Permission: run command: <why>\` card naming \`splates ship${project === undefined ? "" : ` ${project}`}\`, whose Ship starts it on splates server, and end your turn; on [SPLATES RUN ALLOWED] it is already running, so do not run it`,
 			{ caller: asking },
 		);
 	}

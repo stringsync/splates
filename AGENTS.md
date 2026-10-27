@@ -47,6 +47,11 @@ If you change the CLI's API, check that the agent skill at
 `.agents/skills/splates` links to it, and other projects install it from a
 release tag with `bunx skills add`.
 
+A merge is never a release. `ship` in `splates.config.ts` names
+`./bin/splates dev ship`, which publishes the package with its skill stamped
+at its version; only the person runs it, as `splates ship splates` or from a
+ship card's Ship button, as the splates skill says.
+
 `splates` runs whichever checkout you are standing in, so working on it from a
 worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.

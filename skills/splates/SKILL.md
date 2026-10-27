@@ -200,6 +200,26 @@ pause or resume automatic starts across the server, as Pause on the Queue
 page does. Running agents finish, and the person can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
+Only the person ships, too: `splates ship [<project>]` publishes a project
+under their own npm sign-in, and splates refuses it, `--plan` included, to an
+agent. Never run `npm login` or `npm publish` either. When you think a
+release is due (a fix on the base that users are waiting on), end your reply
+with a run-command card naming `splates ship <project>`, the why under it
+saying what the release carries; its Ship button starts the ship on
+`splates server`, so on `[SPLATES RUN ALLOWED]` it is already running: carry
+on without running it. Once a package is on npm, splates queues a task in
+each registered project that depends on it, to move its pins to the new
+version: an ordinary task, taken as `[SPLATES TASK #N]` says, and landed
+through the merge gate. A merge is never a release.
+
+```markdown
+## 🔐 Permission: run command: ship webappwiz
+
+`splates ship webappwiz`
+
+The log rotation fix is on main and unreleased; mdom and vexml take it next.
+```
+
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
 tasks needs the person's remove-lane permission card (see
 [reporting.md](references/reporting.md)). Backlog is permanent.

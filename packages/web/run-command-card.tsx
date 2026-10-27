@@ -5,10 +5,18 @@ import {
 	RUN_ALLOWED,
 	RUN_DENIED,
 	retryOf,
+	shipOf,
 } from "@stringsync/splates-server/plans/browser";
-import { BanIcon, CheckIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
+import {
+	BanIcon,
+	CheckIcon,
+	PackageIcon,
+	RotateCcwIcon,
+	TerminalIcon,
+} from "lucide-react";
 import { createContext, type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { startShip } from "./api";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
@@ -34,6 +42,9 @@ export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
  * Allowing the whole test suite first grants the conversation its one run.
  * A `splates retry <task>` is the person's alone to run, so its Grant runs
  * it from the page and tells the agent `[SPLATES RETRIED]` instead.
+ * A `splates ship` is the person's too, so its Ship starts the ship on the
+ * server, then tells the agent `[SPLATES RUN ALLOWED]`, which it is not
+ * to run.
  */
 export function RunCommandCard({
 	proposal,
@@ -60,6 +71,7 @@ export function RunCommandCard({
 	const grant = useContext(SuiteGrant);
 	const suite = isWholeSuite(proposal.command ?? "");
 	const retry = retryOf(proposal.command ?? "");
+	const ship = shipOf(proposal.command ?? "");
 	const choice =
 		sent?.includes(RUN_ALLOWED) || sent?.includes(RETRIED)
 			? RUN_ALLOWED
@@ -89,7 +101,9 @@ export function RunCommandCard({
 		const granted =
 			directive === RUN_ALLOWED && suite && grant !== null
 				? grant()
-				: Promise.resolve();
+				: directive === RUN_ALLOWED && ship !== null
+					? startShip(ship)
+					: Promise.resolve();
 		void attempt(
 			granted
 				.then(() =>
@@ -134,8 +148,16 @@ export function RunCommandCard({
 	}
 	return (
 		<CardShell
-			label={retry !== null ? "retry merge" : "run command"}
-			Icon={retry !== null ? RotateCcwIcon : TerminalIcon}
+			label={
+				retry !== null ? "retry merge" : ship !== null ? "ship" : "run command"
+			}
+			Icon={
+				retry !== null
+					? RotateCcwIcon
+					: ship !== null
+						? PackageIcon
+						: TerminalIcon
+			}
 			title={proposal.title ?? "Run a command"}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
@@ -203,10 +225,16 @@ export function RunCommandCard({
 						>
 							{retry !== null ? (
 								<RotateCcwIcon data-icon="inline-start" />
+							) : ship !== null ? (
+								<PackageIcon data-icon="inline-start" />
 							) : (
 								<CheckIcon data-icon="inline-start" />
 							)}
-							{retry !== null ? "Grant attempts" : "Allow"}
+							{retry !== null
+								? "Grant attempts"
+								: ship !== null
+									? "Ship"
+									: "Allow"}
 						</Button>
 					</>
 				)}

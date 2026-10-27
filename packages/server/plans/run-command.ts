@@ -31,6 +31,21 @@ export function retryOf(command: string): string | null {
 }
 
 /**
+ * The project a run-command card's `splates ship [<project>]` asks to ship,
+ * which the page starts itself on Allow, as only the person may: "" for the
+ * conversation's own project when it names none; null for any other command,
+ * `--plan` and any other flag included.
+ */
+export function shipOf(command: string): string | null {
+	const words = splatesWords(command);
+	if (words?.[0] !== "ship" || words.length > 2) {
+		return null;
+	}
+	const project = words[1] ?? "";
+	return project.startsWith("-") ? null : project;
+}
+
+/**
  * The words of `command` after what runs splates, leading `VAR=value` words
  * and `bunx` passed over; null when it does not run splates.
  */

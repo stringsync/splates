@@ -31,7 +31,7 @@ describe("ship", () => {
 		expect(plan.steps).toHaveLength(5);
 	});
 
-	it("refuses an agent, even the plan, pointing it at a permission card", async () => {
+	it("refuses an agent, even the plan, pointing it at a ship card", async () => {
 		const { ctx, ps } = await served();
 		ps.setEnv({ SPLATES_CONVERSATION: "c1" });
 
@@ -39,7 +39,7 @@ describe("ship", () => {
 
 		expect(refused).toBeInstanceOf(Exit);
 		expect((refused as Exit).reason).toBe("not_granted");
-		expect((refused as Exit).message).toContain("splates ship --plan");
+		expect((refused as Exit).message).toContain("naming `splates ship`");
 	});
 
 	it("starts the ship on the server and prints its output to the end", async () => {

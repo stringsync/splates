@@ -53,6 +53,30 @@ describe("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
+	it("starts the ship from its Ship rather than letting the agent run it", async () => {
+		const asking = conversation({
+			title: "Release",
+			messages: [
+				message(
+					"agent",
+					"## 🔐 Permission: run command: ship webappwiz\n\n`splates ship webappwiz`\n\nThe log fix is on main and unreleased.",
+				),
+			],
+		});
+		const view = await testing.openConversations([asking]);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Ship" })),
+			),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
+			]),
+		);
+		expect(testing.posted("/api/ship?project=webappwiz")).toHaveLength(1);
+	});
+
 	it("sends Anything else with Allow and keeps it in the reopened card", async () => {
 		const view = await testing.openConversations([asking()]);
 		await typeIn(
