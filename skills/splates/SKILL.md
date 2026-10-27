@@ -457,6 +457,14 @@ and any pivot from the original Goal, then `### Demo` (how to trigger it)
 and `### Verification` (checks run, screenshots as `![what](/abs/path.png)`).
 ```
 
+Keep the summary quick to read, since the merged card shows it first and the
+user reads it to grasp what landed: one to three plain sentences, or up to
+five short bullets of one fact each. Say what the user can now do or what
+behavior changed. Leave out file names, internals and how it was checked, and
+never run a string of code-formatted terms together in one paragraph. Detail
+that matters, such as lookup order, migration behavior or a check against the
+real tool, goes under `### Demo` or `### Verification`.
+
 The Goal's first line is what other agents see of your task in `splates list
 --files`, so make it say what you are changing. `splates add` writes the
 Goal; for a change of one commit, leave out `## Next` unless a checkpoint
