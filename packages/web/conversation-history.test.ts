@@ -145,4 +145,16 @@ describe("Complete conversation reads", () => {
 		finish();
 		await writing;
 	});
+	it("keeps an archived conversation's menus, which its listing leaves out, once read whole", () => {
+		const commands = [{ name: "review", description: "Review it", hint: null }];
+		const whole = conversation({ archived: true, commands });
+		feed.put(whole);
+		const listing = listed({ ...whole, title: "Renamed" });
+		feed.put(listing);
+		expect(listing.commands).toEqual([]);
+		expect(feed.history.shown(listing)).toMatchObject({
+			title: "Renamed",
+			commands,
+		});
+	});
 });

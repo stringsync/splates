@@ -33,6 +33,23 @@ describe("conversation summaries", () => {
 		expect(listed(state).commands).toEqual(state.commands);
 	});
 
+	it("leaves out an archived one's commands and settings, read whole when opened", () => {
+		state.archived = true;
+		state.commands = [{ name: "review", description: "Review", hint: null }];
+		state.settings = [
+			{
+				id: "mode",
+				name: "Mode",
+				type: "select",
+				category: "mode",
+				current: "auto",
+				options: [{ value: "auto", name: "Auto", description: null }],
+			},
+		];
+		expect(listed(state)).toMatchObject({ commands: [], settings: [] });
+		expect(state.commands).toHaveLength(1);
+	});
+
 	it.each([false, true])(
 		"omits bulky details with archived=%s without changing the whole state",
 		(archived) => {

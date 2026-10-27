@@ -43,6 +43,10 @@ export class ConversationHistory
 				),
 			],
 			events: kept.events,
+			// An archived listing leaves these out, though it was read whole.
+			...(state.archived
+				? { settings: kept.settings, commands: kept.commands }
+				: {}),
 		};
 	}
 

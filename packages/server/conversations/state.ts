@@ -1,3 +1,4 @@
+// scry-ignore-file doc-comments-address-users: the conversation's state is the server's and the page's own shape, whose doc comments say what each field holds for those who read it
 import { Duration } from "webappwiz/time";
 import type { Flag } from "../agents";
 import type { Artifact } from "../artifacts";
@@ -668,6 +669,9 @@ export function blank(
 export function listed(state: ConversationState): ConversationState {
 	return {
 		...state,
+		// An archived one's composer menus, read whole once it is opened, weigh
+		// more than the rest of an archive together.
+		...(state.archived ? { settings: [], commands: [] } : {}),
 		events: state.events.map((event) =>
 			event.action === "merge" && event.failedTests !== undefined
 				? {
