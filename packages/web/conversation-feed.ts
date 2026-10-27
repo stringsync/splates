@@ -18,6 +18,7 @@ import {
 } from "webappwiz/time";
 import type { AgentChoice } from "./agent-choice";
 import { answered, scoped } from "./api";
+import { type Expected, holds, unfiled } from "./conversation-expected";
 import { ConversationHistory } from "./conversation-history";
 import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
@@ -225,7 +226,7 @@ export class ConversationFeed
 		if (at !== -1 && repeats(this.recorded[at], state)) {
 			return;
 		}
-		this.settle(state.id);
+		this.settle(state.id, Infinity, state);
 		this.changedAt.set(state.id, this.changes++);
 		this.show(
 			at === -1
@@ -310,13 +311,21 @@ export class ConversationFeed
 	/**
 	 * Gives up the changes whose writes landed before a copy of conversation
 	 * `id` the server sent was asked for: that copy holds them, or the server
-	 * made them otherwise. A streamed copy follows every write that has landed;
-	 * a listing follows those that landed before it began, `read` being its
-	 * count, since one begun earlier may predate them.
+	 * made them otherwise. A streamed copy, `streamed`, follows every write
+	 * that has landed, but for an archive it does not yet hold (see
+	 * `unfiled`); a listing follows those that landed before it began, `read`
+	 * being its count, since one begun earlier may predate them.
 	 */
-	private settle(id: string, read: number = Infinity): void {
+	private settle(
+		id: string,
+		read: number = Infinity,
+		streamed?: ConversationState,
+	): void {
 		const left = (this.expected.get(id) ?? []).filter(
-			(each) => each.landedRead === null || each.landedRead > read,
+			(each) =>
+				each.landedRead === null ||
+				each.landedRead > read ||
+				(streamed !== undefined && unfiled(streamed, each.patch)),
 		);
 		if (left.length === 0) {
 			this.expected.delete(id);
@@ -656,23 +665,3 @@ export class ConversationFeed
 
 /** The images an agent that takes images is sent as such, as the server keeps them. */
 export const SEEN = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-
-/** A change `expect` shows: how, and when its write landed. */
-interface Expected {
-	patch: (state: ConversationState) => ConversationState;
-	/** `reads` as its write landed; null while it is on its way. */
-	landedRead: number | null;
-}
-
-/** Whether `state` already holds what `patch` would change of it. */
-function holds(
-	state: ConversationState,
-	patch: (state: ConversationState) => ConversationState,
-): boolean {
-	const patched = patch(state);
-	return (Object.keys(patched) as (keyof ConversationState)[]).every(
-		(key) =>
-			patched[key] === state[key] ||
-			JSON.stringify(patched[key]) === JSON.stringify(state[key]),
-	);
-}

@@ -47,6 +47,22 @@ describe("App's new conversation, opened before the server answers", () => {
 		);
 	});
 
+	it("keeps what the server streamed of it over the start's answer, which can be older", async () => {
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		await testing.say(
+			conversation({ id: "c9", title: "Login fix", status: "running" }),
+		);
+		const nav = () => view.getByRole("navigation", { name: "conversations" });
+		await waitFor(() => expect(nav().textContent).toContain("Login fix"));
+
+		await act(async () => testing.release());
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(1),
+		);
+		expect(nav().textContent).toContain("Login fix");
+	});
+
 	it("goes back to its composer with the words and why, when the start is refused", async () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		testing.refuseWrites = { reason: "usage", message: "no such agent" };

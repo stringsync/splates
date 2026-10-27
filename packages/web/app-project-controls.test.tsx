@@ -100,6 +100,7 @@ describe("Project controls in conversation lists", () => {
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
+	// scry-ignore simple-test-setup: each test opens the page after its own resize, which a beforeEach would run before
 	it("lists every project in the inbox by name, those with no conversations too", async () => {
 		resize(390, 844);
 		testing.everywhere = [
@@ -175,17 +176,15 @@ describe("Project controls in conversation lists", () => {
 		await waitFor(() =>
 			expect(within(here).getByText("No conversations yet.")).toBeTruthy(),
 		);
-		await act(async () =>
-			testing.say(
-				conversation({
-					id: "c1",
-					task: null,
-					title: "Last chat",
-					status: "stopped",
-					archived: false,
-				}),
-			),
-		);
+		const lastChat = conversation({
+			id: "c1",
+			task: null,
+			title: "Last chat",
+			status: "stopped",
+		});
+		// As the server streams it archived, then unarchived from elsewhere.
+		await act(async () => testing.say({ ...lastChat, archived: true }));
+		await act(async () => testing.say({ ...lastChat, archived: false }));
 		await waitFor(() =>
 			expect(
 				within(here).getByRole("button", { name: /Last chat/ }),

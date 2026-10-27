@@ -224,6 +224,7 @@ export function useNewConversation({
 				picking: auto,
 				autoPick: !auto && autoPick.on ? switched(shown, true) : null,
 			});
+			const placed = feed.revision(id);
 			// Its message waits on the server for the session to open.
 			const sending =
 				text !== "" || files.length > 0
@@ -238,7 +239,11 @@ export function useNewConversation({
 			if (state === null) {
 				return;
 			}
-			feed.put(state);
+			// What the server streamed or listed of it meanwhile is newer than
+			// its answer, which would step the row back.
+			if (feed.revision(id) === placed) {
+				feed.put(state);
+			}
 			drafts.started(draft);
 			rememberAuto(auto);
 			const answered = await promptConversation(
