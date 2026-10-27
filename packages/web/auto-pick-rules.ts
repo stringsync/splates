@@ -37,10 +37,9 @@ export type RulesEditorEvents = { changed: undefined };
 export const EFFORTS = ["low", "medium", "high"];
 
 /**
- * Setup's Auto pick rules editor: a draft of the machine's rules, edited a
- * control at a time, checked as it goes, and saved or reset at once on the
- * page, put back with the refusal thrown when the server refuses. The last
- * rule, `* *`, keeps its place and its matchers, so every task maps somewhere.
+ * Use this to edit Auto pick rules through `draft` and its setters. Call
+ * `load` first, subscribe to `events` for changes, and call `save` or `reset`
+ * to write. The last rule stays `* *`, so every task maps somewhere.
  */
 export class RulesEditor implements Eventful<RulesEditorEvents> {
 	private readonly dispatcher = new Dispatcher<RulesEditorEvents>();
@@ -259,12 +258,12 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		);
 	}
 
-	/** Rule `index`'s picks as a list the chips edit. */
+	/** Rule `index`'s picks as a list the rows edit. */
 	picksOf(index: number): PickList {
 		return {
 			label: `rule ${index + 1}`,
 			agents: this.agents,
-			note: "Tried left to right; the next is used once a plan is nearly spent.",
+			note: "Tried top to bottom; the next is used once a plan is nearly spent.",
 			least: 1,
 			efforts: (agent) => this.efforts(agent),
 			has: (agent, model, except) => this.has(index, agent, model, except),

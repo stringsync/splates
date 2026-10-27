@@ -139,6 +139,35 @@ describe("App's Auto pick setup", () => {
 		);
 	});
 
+	it("reorders agents down a rule with a grip", async () => {
+		testing.setup = progress({ judge: "done" });
+		const view = await openAutoPick();
+		const rules = await editor(view);
+		await press(
+			within(rules).getByRole("button", { name: "Add an agent to rule 1" }),
+		);
+		await press(await view.findByRole("menuitem", { name: "Astra" }));
+		const picks = within(rules).getByRole("list", { name: "rule 1 picks" });
+		const rows = () =>
+			within(picks).getAllByRole("listitem", {
+				name: /^rule 1 pick \d+$/,
+			}) as HTMLElement[];
+		const [one, two] = rows() as [HTMLElement, HTMLElement];
+		one.getBoundingClientRect = () => new DOMRect(0, 0, 600, 44);
+		two.getBoundingClientRect = () => new DOMRect(0, 44, 600, 44);
+		const grip = within(one).getByRole("button", {
+			name: "Drag rule 1 pick 1",
+		});
+		grip.focus();
+		await act(async () => fireEvent.keyDown(grip, { code: "Space" }));
+		await act(async () => fireEvent.keyDown(grip, { code: "ArrowDown" }));
+		await act(async () => fireEvent.keyDown(grip, { code: "Space" }));
+
+		expect(rows()[0]?.textContent).toContain("Codex");
+		expect(rows()[1]?.textContent).toContain("Claude");
+		expect(rules.textContent).toContain("Tried top to bottom");
+	});
+
 	it("turns pacing off, which stops its slack being edited, and saves it", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();

@@ -28,7 +28,7 @@ import {
 } from "#web/components/ui/native-select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { PickChips } from "./auto-pick-pick-chips";
+import { PickRows } from "./auto-pick-pick-rows";
 import type { RulesEditor } from "./auto-pick-rules";
 import { ReadingNow } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
@@ -350,7 +350,7 @@ function RuleRow({
 					</>
 				)}
 			</div>
-			<PickChips list={editor.picksOf(index)} picks={picks} />
+			<PickRows list={editor.picksOf(index)} picks={picks} />
 			{onLog !== undefined && made > 0 && (
 				<button
 					type="button"

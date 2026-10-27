@@ -41,8 +41,8 @@ import {
 import { cn } from "#web/lib/utils.ts";
 
 /**
- * A list of picks the chips edit: a rule's, or the Evals page's agents. Its
- * `label` names it in the chips' own labels, such as "rule 1".
+ * A list of picks a chip or row editor changes: a rule's, or the Evals
+ * page's agents. Its `label` names it in their labels, such as "rule 1".
  */
 export interface PickList {
 	label: string;
