@@ -16,24 +16,7 @@ import { Dot } from "./dot";
 import { placeInLine } from "./merge-place";
 import { type Quiet, quietTitle } from "./quiet";
 
-/**
- * What a list shows of an agent: a yellow triangle when it waits on you,
- * whatever for, a spinner while it or an agent it handed a task to works,
- * assuming or not, a blue dot when it answered and you have not looked since,
- * and, once work stops, over the blue dot, a green check once its task merged or it
- * reported its work done, a red cross once
- * it was removed and a yellow pause once it was deferred.
- * While its task's merge tests and lands, the spinner gives way to a blue
- * merge icon, and while the merge waits its turn, to an hourglass.
- * An idle agent with a command left running in the background shows a
- * muted spinner, over a completion report or the blue dot, saying what is running. Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
- * ended, though not over a live ask or a failure, which are newer. What it
- * waits on is in its tooltip. A spinner gone quiet long enough that the agent
- * may be stuck stops, in amber, saying how long in its tooltip. Each sits centered in a box of one size, so
- * marks line up down a list whichever kind they are. A subagent shows only
- * its spinner, and its failure, which nothing else tells of: the rest of what
- * it needs reaches you through the agent it answers to.
- */
+/** A conversation's status icon in a list. */
 export function Mark({
 	need,
 	reported = null,
@@ -120,7 +103,7 @@ export function Mark({
 	}
 	// Over the blue dot, since the agent wakes to answer again once its
 	// command ends, so the mark holds when you open the row.
-	if (need.kind === "idle" && !hosting && background && !waitsOn(reported)) {
+	if (need.kind === "idle" && !hosting && background) {
 		return (
 			<span
 				role="status"

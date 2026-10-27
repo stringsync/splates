@@ -83,6 +83,35 @@ describe("conversation status precedence", () => {
 		expect(sidebar.queryByRole("img", { name: "merged" })).toBeNull();
 	});
 
+	it("shows running evals over an escalated report", async () => {
+		const state = conversation({
+			id: "c1",
+			messages: [
+				message("agent", "## ⚠️ Escalated alpha: needs a decision\n\nWaiting."),
+			],
+			background: [{ ...background, name: "Run evals" }],
+		});
+		const view = await testing.openConversations([state], null);
+		const sidebar = within(
+			view.getByRole("navigation", { name: "conversations" }),
+		);
+
+		expect(
+			sidebar.getByRole("status", { name: "background commands running" }),
+		).toBeTruthy();
+		expect(
+			sidebar.queryByRole("status", { name: "waiting on you" }),
+		).toBeNull();
+
+		await testing.say({
+			...state,
+			background: [{ ...background, state: "completed" as const }],
+		});
+		expect(
+			sidebar.getByRole("status", { name: "waiting on you" }),
+		).toBeTruthy();
+	});
+
 	it("shows active delegated work over a completion report and clears it when the child stops", async () => {
 		const child = conversation({
 			id: "child",
