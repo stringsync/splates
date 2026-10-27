@@ -35,7 +35,14 @@ patch, so they get its new version; any other only takes its bump.
 
 ## Shipping
 
-`splates ship [<project>]`, from a terminal of yours, asks `splates server` to
+On the page, a project's menu in the project switcher has **Ship
+<project>…**, which opens the plan, as `--plan` prints it: each project in
+order, the version it goes to, what it publishes, what it takes and why it
+ships or only takes its bump. **Approve** starts the whole cascade on the
+server. Nothing runs before you approve, and npm still asks you at each
+publish.
+
+From a terminal of yours, `splates ship [<project>]` asks `splates server` to
 ship the project (the one you stand in, by default) and prints its output to
 the end. Give the server's URL with `--dev` when it is not this machine's.
 
@@ -68,13 +75,22 @@ one ship at a time, each asking you on npm's pages as the first did.
 When a bump task asks you a question, or is removed without merging, or a
 ship fails, the cascade stops at that project, and at the projects after it,
 while the rest goes on. Answer the task and it carries on; or take the
-project out of the run with `splates ship --drop <project>`, and those after
+project out of the run with Drop in the badge's popover, or
+`splates ship --drop <project>`, and those after
 it go on without its new version.
 
 One cascade runs on the machine at a time, kept in the machine's records
 (`ship-cascade.json`), so a restarted server carries on from where it stopped.
 `splates ship` while one is under way prints where each project stands
 rather than starting another, and `GET /api/ship/cascade` answers the same.
+
+Every project's page shows the cascade as a badge in its bars, whichever
+project ships, for an hour after it ends too: how many projects are through,
+amber while npm waits on you or a bump task asks you, red where it stopped.
+Its popover lists each project with where it stands, a link to its bump
+task, why it stopped and a Drop that takes it out of the run, and, while a
+publish waits on you, npm's page or a field for its code, then that ship's
+output.
 
 ## What agents do
 

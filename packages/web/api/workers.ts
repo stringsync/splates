@@ -1,4 +1,5 @@
 import type { PortLink } from "@stringsync/splates-server/ports";
+import type { Cascade, Ship } from "@stringsync/splates-server/ship";
 import type {
 	MachineReading,
 	QueueListing,
@@ -36,6 +37,11 @@ export async function taskPorts(): Promise<PortLink[]> {
  */
 export type MachineStatus = MachineReading & {
 	queue: QueueListing[];
+	/**
+	 * The machine's ship cascade, under way or the last to end, and the ship
+	 * of the project publishing now. Absent from older servers.
+	 */
+	ship?: { cascade: Cascade | null; ship: Ship | null };
 };
 
 /** Moves the agent of conversation `id` to `position` in the queue for a worker slot, from 1. */

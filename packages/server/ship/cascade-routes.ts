@@ -4,7 +4,7 @@ import type { Cascades } from "./cascade";
  * The machine's ship cascade over HTTP: the one under way or the last to
  * end, starting one from a project, and dropping a project from it. Only
  * the person starts a ship: `splates ship` refuses an agent before it asks,
- * as the page's own action will.
+ * and the page's Approve is the person's own.
  */
 export class CascadeRoutes {
 	readonly #cascades: Cascades;
@@ -22,6 +22,10 @@ export class CascadeRoutes {
 	/** The cascade under way, or the last to end, or null when none ran. */
 	readonly cascade = async (): Promise<Response> =>
 		Response.json(await this.#cascades.current());
+
+	/** The plan to ship the project, what Approve on the page starts. */
+	readonly plan = async (request: Request): Promise<Response> =>
+		Response.json(await this.#cascades.plan(await this.#slugOf(request)));
 
 	/**
 	 * Starts the cascade of the project's ship, 201 with it; 200 with the one

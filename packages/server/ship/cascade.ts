@@ -13,7 +13,7 @@ import type { Document, Storage } from "../storage";
 import type { Bumps, BumpTake } from "./bumps";
 import { type Pin, publishedPins } from "./graph";
 import { type ShipPlan, ShipPlanError, type ShipStep } from "./plan";
-import type { Shipping } from "./run";
+import type { Ship, Shipping } from "./run";
 
 /** Where the machine's records keep the cascade, under way or the last to end. */
 export function cascadeRecord(storage: Storage): Document<Cascade> {
@@ -124,6 +124,35 @@ export class Cascades implements Resource {
 	}
 
 	/**
+	 * The cascade under way, or the last to end, with the ship of the project
+	 * publishing now, which says what npm waits on; null for each when none.
+	 */
+	async shown(): Promise<{ cascade: Cascade | null; ship: Ship | null }> {
+		const cascade = await this.record.read();
+		const step = cascade?.steps.find((each) => each.status === "shipping");
+		if (cascade?.status !== "running" || step === undefined) {
+			return { cascade, ship: null };
+		}
+		const ship = await (await this.opts.reach(step.slug)).shipping.current();
+		return { cascade, ship: ship?.started === step.ship ? ship : null };
+	}
+
+	/**
+	 * The plan to ship `slug`, as {@link start} would draw it now; refused
+	 * as the reason a {@link ShipPlanError} names when there is none.
+	 */
+	async plan(slug: string): Promise<ShipPlan> {
+		try {
+			return await this.opts.plan(slug);
+		} catch (error) {
+			if (error instanceof ShipPlanError) {
+				fail(error.reason, error.message, { project: slug });
+			}
+			throw error;
+		}
+	}
+
+	/**
 	 * Starts the cascade of `slug`'s ship, from the plan drawn now. While
 	 * another is under way, answers with that one, started false, rather
 	 * than starting a second.
@@ -134,15 +163,7 @@ export class Cascades implements Resource {
 			if (going?.status === "running") {
 				return { cascade: going, started: false };
 			}
-			let plan: ShipPlan;
-			try {
-				plan = await this.opts.plan(slug);
-			} catch (error) {
-				if (error instanceof ShipPlanError) {
-					fail(error.reason, error.message, { project: slug });
-				}
-				throw error;
-			}
+			const plan = await this.plan(slug);
 			const cascade: Cascade = {
 				from: plan.from,
 				status: "running",

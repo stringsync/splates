@@ -265,6 +265,27 @@ describe("Cascades", () => {
 		expect(await cascades.current()).toBeNull();
 	});
 
+	it("draws the plan it would start, refusing one there is none for", async () => {
+		const plan = await cascades.plan("webappwiz");
+
+		expect(plan.steps[0]?.slug).toBe("webappwiz");
+		expect(await cascades.current()).toBeNull();
+		await expect(cascades.plan("nowhere")).rejects.toBeInstanceOf(Exit);
+	});
+
+	it("shows the ship of the project publishing now, and none once it is past it", async () => {
+		expect(await cascades.shown()).toEqual({ cascade: null, ship: null });
+		await cascades.start("webappwiz");
+
+		const publishing = await cascades.shown();
+		expect(publishing.ship?.project).toBe("webappwiz");
+
+		await shipped("webappwiz", "0.0.51");
+		const bumping = await cascades.shown();
+		expect(bumping.cascade?.steps[0]?.status).toBe("done");
+		expect(bumping.ship).toBeNull();
+	});
+
 	it("carries on after a restart from what its records kept", async () => {
 		await cascades.start("webappwiz");
 		cascades.dispose();

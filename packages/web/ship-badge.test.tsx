@@ -71,7 +71,7 @@ describe("ShipBadge", () => {
 			);
 
 			expect(
-				view.getByText("npm waits for your second factor to publish."),
+				view.getByText("npm waits for your second factor to publish mdom."),
 			).toBeTruthy();
 			expect(location.search).toBe("?project=mdom");
 			expect(location.hash).toBe("#board");

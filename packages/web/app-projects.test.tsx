@@ -301,6 +301,18 @@ describe("App's projects", () => {
 		localStorage.clear();
 	});
 
+	it("opens the plan to ship a project from its menu", async () => {
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		await openMenu(view, "shop");
+		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
+
+		expect(
+			await waitFor(() => view.getByRole("dialog", { name: "Ship shop" })),
+		).toBeTruthy();
+	});
+
 	it("forgets a project that is gone", async () => {
 		const view = await testing.open();
 		await openSwitcher(view);

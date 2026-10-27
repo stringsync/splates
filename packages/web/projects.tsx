@@ -3,24 +3,12 @@ import { useReactive } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,
-	CopyIcon,
-	EllipsisIcon,
-	ExternalLinkIcon,
 	HouseIcon,
 	PlusIcon,
 	SearchIcon,
 	TriangleAlertIcon,
-	XIcon,
 } from "lucide-react";
 import { type JSX, use, useContext, useEffect, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import {
 	Popover,
@@ -35,6 +23,7 @@ import { NavigationContext } from "./navigation";
 import { OpenerContext } from "./openers";
 import { forgetProject, type ProjectChoice } from "./project-api";
 import { useProjectList } from "./project-list";
+import { ProjectMenu } from "./project-menu";
 import {
 	placeOf,
 	previousProject,
@@ -43,6 +32,8 @@ import {
 	shownProject,
 } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
+import { ShipApproval } from "./ship-approval";
+import { ShipDialog } from "./ship-dialog";
 import { shortPath } from "./short-path";
 import { NAV_HEADING, TITLE } from "./top-bar";
 
@@ -55,7 +46,7 @@ import { NAV_HEADING, TITLE } from "./top-bar";
  * Below them, when this machine runs slots, every `splates server` it has a
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
- * names, copies its path, or forgets it. Under the title of a phone's
+ * names, copies its path, ships it from its plan, or forgets it. Under the title of a phone's
  * conversation it is one small muted line, and a pick shows the same page of
  * the other project. Heading the
  * project's pages in a nav, it is as small as the nav's other headings.
@@ -100,6 +91,8 @@ export function ProjectSwitcher({
 		["changed"],
 	);
 	const [adding, setAdding] = useState(false);
+	// The ship plan open, once picked from a project's menu.
+	const [shipping, setShipping] = useState<ShipApproval | null>(null);
 	// The server the page is on its way to, once picked: a new page takes
 	// seconds to come under load, and the old one must not be used meanwhile.
 	// Another project needs none, since it opens on this page.
@@ -116,7 +109,7 @@ export function ProjectSwitcher({
 	}, []);
 	const shown = shownProject();
 	const navigation = useContext(NavigationContext);
-	const opener = use(OpenerContext);
+	const _opener = use(OpenerContext);
 	const { refusal, refuse: refused } = useRefusal();
 
 	useEffect(
@@ -233,6 +226,9 @@ export function ProjectSwitcher({
 		<>
 			{leaving !== null && (
 				<Leaving name={leaving} onStay={() => setLeaving(null)} />
+			)}
+			{shipping !== null && (
+				<ShipDialog approval={shipping} onClose={() => setShipping(null)} />
 			)}
 			<Popover
 				open={open}
@@ -375,54 +371,17 @@ export function ProjectSwitcher({
 											</span>
 										)}
 									</button>
-									<DropdownMenu>
-										<DropdownMenuTrigger
-											render={
-												<Button
-													size="icon-xs"
-													variant="ghost"
-													aria-label={`More for ${each.slug}`}
-													title="More"
-													className={cn(
-														!each.gone &&
-															at !== active &&
-															"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100 data-popup-open:opacity-100",
-													)}
-												/>
-											}
-										>
-											<EllipsisIcon />
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="start" className="w-48">
-											{!each.gone && (
-												<DropdownMenuItem
-													render={<a href={opener.url(each.root, null)} />}
-												>
-													<ExternalLinkIcon />
-													Open in {opener.label}
-												</DropdownMenuItem>
-											)}
-											<DropdownMenuItem onClick={() => void copyPath(each)}>
-												<CopyIcon />
-												Copy path
-											</DropdownMenuItem>
-											<DropdownMenuSeparator />
-											<DropdownMenuItem
-												variant="destructive"
-												title={
-													each.gone
-														? "Its repository is gone"
-														: current(each)
-															? "Going back to the project before it: adding it again brings it back"
-															: "Adding it again brings it back"
-												}
-												onClick={() => void forget(each)}
-											>
-												<XIcon />
-												Remove project {each.slug}
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
+									<ProjectMenu
+										project={each}
+										current={current(each)}
+										hidden={!each.gone && at !== active}
+										onCopyPath={() => void copyPath(each)}
+										onShip={() => {
+											setOpen(false);
+											setShipping(new ShipApproval(each.slug));
+										}}
+										onForget={() => void forget(each)}
+									/>
 								</li>
 							))}
 						</ul>

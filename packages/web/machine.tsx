@@ -77,12 +77,25 @@ function useAsking(
 		ask();
 		// Back in front, at once, rather than up to a tick late.
 		observer.events.on("change", ask);
+		addEventListener(ASK_NOW, ask);
 		const tick = new SystemTimer().setInterval(ask, every);
 		return () => {
 			tick.dispose();
 			observer.dispose();
+			removeEventListener(ASK_NOW, ask);
 		};
 	}, [every?.ms, every]);
+}
+
+/** The window event that has every reading of the machine asked again at once. */
+const ASK_NOW = "splates:machine";
+
+/**
+ * Asks for the machine's reading again at once, as after an action that
+ * changes what it says, rather than up to a tick later.
+ */
+export function askMachineNow(): void {
+	dispatchEvent(new Event(ASK_NOW));
 }
 
 /**

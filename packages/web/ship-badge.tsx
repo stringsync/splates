@@ -31,15 +31,60 @@ const SHOWN_AFTER = Duration.mins(60);
  * The project's ship, while it runs and for an hour after it ends. Amber
  * while npm waits on the person, to sign in or for a publish's second factor,
  * and opening npm's page from there, on whichever device the page is on; it
- * opens what the ship prints, as it prints.
+ * opens what the ship prints, as it prints. A ship that is a step of the
+ * cascade under way shows in the cascade's badge instead, given as
+ * `cascading`.
  */
 export function ShipBadge({
 	snapshot,
+	cascading = null,
 }: {
 	snapshot: Snapshot | null;
+	/** The ship the cascade under way runs now, which its own badge shows. */
+	cascading?: Ship | null;
 }): JSX.Element | null {
 	const ship = snapshot?.ship ?? null;
 	const now = useNow(ship !== null, Duration.mins(1));
+	const [open, setOpen] = useShipOpen();
+	if (
+		snapshot === null ||
+		ship === null ||
+		!shown(ship, now) ||
+		(cascading?.project === ship.project && cascading.started === ship.started)
+	) {
+		return null;
+	}
+	const { label, icon, tone } = pillOf(ship);
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger title={headingOf(ship)} className={cn(STATUS_PILL, tone)}>
+				{icon}
+				{label}
+			</PopoverTrigger>
+			<PopoverContent
+				align="start"
+				className="w-[28rem] max-w-[90vw] gap-2 p-3"
+			>
+				<p className="font-medium text-sm">{headingOf(ship)}</p>
+				<ShipWaiting ship={ship} />
+				{ship.status === "failed" && ship.error !== null && (
+					<pre className="max-h-40 overflow-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
+						{ship.error}
+					</pre>
+				)}
+				{/* Afresh for a ship started since. */}
+				{open && <ShipOutput key={ship.started} project={ship.project} />}
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+/**
+ * Whether a ship's popover is open: open at first when the address asks, as
+ * a ship's push opens a new window with `?ship=open`, and when the push is
+ * tapped with the page already up.
+ */
+export function useShipOpen(): [boolean, (open: boolean) => void] {
 	const [open, setOpen] = useState(openedByAddress);
 	useEffect(() => {
 		// Taken out once read, so a reload leaves the ship shut.
@@ -60,60 +105,53 @@ export function ShipBadge({
 		workers.addEventListener("message", heard);
 		return () => workers.removeEventListener("message", heard);
 	}, []);
-	if (snapshot === null || ship === null || !shown(ship, now)) {
+	return [open, setOpen];
+}
+
+/** What npm waits on the person for in `ship`, with npm's page or a field for its code; nothing while it waits on nothing. */
+export function ShipWaiting({ ship }: { ship: Ship }): JSX.Element | null {
+	if (ship.waiting === null) {
 		return null;
 	}
-	const { label, icon, tone } = pillOf(ship);
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger title={headingOf(ship)} className={cn(STATUS_PILL, tone)}>
-				{icon}
-				{label}
-			</PopoverTrigger>
-			<PopoverContent
-				align="start"
-				className="w-[28rem] max-w-[90vw] gap-2 p-3"
-			>
-				<p className="font-medium text-sm">{headingOf(ship)}</p>
-				{ship.waiting?.kind === "otp" && <OtpForm key={ship.waiting.since} />}
-				{ship.waiting !== null && ship.waiting.url !== null && (
-					<div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-sm">
-						<span className="min-w-0 flex-1">
-							{ship.waiting.kind === "login"
-								? "npm waits for you to sign in."
-								: "npm waits for your second factor to publish."}
-						</span>
-						<a
-							href={ship.waiting.url}
-							target="_blank"
-							rel="noreferrer"
-							className={buttonVariants({ size: "sm" })}
-						>
-							<ExternalLinkIcon />
-							Open
-						</a>
-					</div>
-				)}
-				{ship.status === "failed" && ship.error !== null && (
-					<pre className="max-h-40 overflow-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
-						{ship.error}
-					</pre>
-				)}
-				{/* Afresh for a ship started since. */}
-				{open && <ShipOutput key={ship.started} project={snapshot.project} />}
-			</PopoverContent>
-		</Popover>
+		<>
+			{ship.waiting.kind === "otp" && (
+				<OtpForm key={ship.waiting.since} project={ship.project} />
+			)}
+			{ship.waiting.url !== null && (
+				<div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-sm">
+					<span className="min-w-0 flex-1">
+						{ship.waiting.kind === "login"
+							? "npm waits for you to sign in."
+							: `npm waits for your second factor to publish ${ship.project}.`}
+					</span>
+					<a
+						href={ship.waiting.url}
+						target="_blank"
+						rel="noreferrer"
+						className={buttonVariants({ size: "sm" })}
+					>
+						<ExternalLinkIcon />
+						Open
+					</a>
+				</div>
+			)}
+		</>
 	);
 }
 
 /** A field for the one-time password npm asks for; the code is sent, not kept. */
-function OtpForm(): JSX.Element {
+function OtpForm({ project }: { project: string }): JSX.Element {
 	const [code, setCode] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const submit = async () => {
 		setError(null);
 		try {
-			await sendJson("/api/ship/otp", "POST", { code });
+			await sendJson(
+				`/api/ship/otp?${new URLSearchParams({ project })}`,
+				"POST",
+				{ code },
+			);
 			setCode("");
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -159,7 +197,7 @@ function openedByAddress(): boolean {
 }
 
 /** What the project's latest ship prints, followed while it runs. */
-function ShipOutput({ project }: { project: string }): JSX.Element {
+export function ShipOutput({ project }: { project: string }): JSX.Element {
 	const [output] = useState(
 		() =>
 			new BackgroundOutput(

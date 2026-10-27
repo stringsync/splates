@@ -625,6 +625,11 @@ export async function dev(
 						Response.json({
 							...(await machine.read()),
 							queue: queueListing(workers.placement.scheduler.queue()),
+							// The machine's, as a merge under way is, so every page shows it.
+							ship: await cascades.shown().catch((error: unknown) => {
+								log.error(`reading the ship cascade: ${error}`);
+								return { cascade: null, ship: null };
+							}),
 						}),
 					),
 					// Through a tunnel only once Access verified who is asking, as a
@@ -700,6 +705,7 @@ export async function dev(
 						// far as a conversation reaches.
 						POST: talk(guarded(cascadeRoutes.startCascade)),
 					},
+					"/api/ship/plan": guarded(cascadeRoutes.plan),
 					"/api/ship/cascade": {
 						GET: guarded(cascadeRoutes.cascade),
 						DELETE: talk(guarded(cascadeRoutes.dropFromCascade)),

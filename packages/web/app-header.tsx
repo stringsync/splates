@@ -2,6 +2,7 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";
+import { CascadeBadge } from "./cascade-badge";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflinePill, StaleChip } from "./freshness";
 import { MachineBadge } from "./machine";
@@ -146,7 +147,13 @@ function ServerBadges({
 			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <MergeBadge snapshot={snapshot} />}
-			{!offline && <ShipBadge snapshot={snapshot} />}
+			{!offline && <CascadeBadge machine={machine} />}
+			{!offline && (
+				<ShipBadge
+					snapshot={snapshot}
+					cascading={machine?.ship?.ship ?? null}
+				/>
+			)}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
 		</>
 	);

@@ -63,7 +63,7 @@ export {
 	sendJson,
 	WAITS,
 } from "./request";
-export { startShip } from "./ship";
+export { dropFromCascade, shipPlan, startShip } from "./ship";
 export {
 	billing,
 	pullBilling,
