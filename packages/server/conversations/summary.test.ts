@@ -28,6 +28,11 @@ describe("conversation summaries", () => {
 		];
 	});
 
+	it("keeps the agent's commands, which the composer's / lists", () => {
+		state.commands = [{ name: "review", description: "Review", hint: null }];
+		expect(listed(state).commands).toEqual(state.commands);
+	});
+
 	it.each([false, true])(
 		"omits bulky details with archived=%s without changing the whole state",
 		(archived) => {

@@ -43,7 +43,6 @@ export class ConversationHistory
 				),
 			],
 			events: kept.events,
-			commands: kept.commands,
 		};
 	}
 

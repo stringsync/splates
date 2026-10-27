@@ -128,9 +128,9 @@ export interface ConversationState {
 	autoPick: AutoPickMark | null;
 	/**
 	 * Started by the server's queue or a hook, so its agent waits while
-	 * starts are paused; the person's own conversations never do. Read from
-	 * `capped` in logs written before it was renamed.
+	 * starts are paused; the person's own conversations never do.
 	 */
+	// Read from `capped` in logs written before it was renamed.
 	automatic: boolean;
 	/**
 	 * The queued task it is held for, out of the line for a place until the
@@ -685,7 +685,6 @@ export function listed(state: ConversationState): ConversationState {
 				(part) => part.type !== "tool" && part.type !== "thought",
 			),
 		})),
-		commands: [],
 		summary: true,
 	};
 }
