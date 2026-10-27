@@ -4,6 +4,7 @@ import {
 	nameOf,
 	realName,
 } from "@stringsync/splates-server/conversations/browser";
+import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import {
 	type Ending,
 	stretches,
@@ -26,10 +27,9 @@ export function unnamed(conversation: ConversationState): boolean {
 }
 
 /**
- * How the task ended, or that it escalated in a conversation from before
- * escalating was retired, when the conversation's last word is the agent's
- * report saying so. Anything the person says after it carries
- * the conversation on, and the report goes.
+ * How the conversation's task ended, when its last word is the agent's
+ * report saying so; null once the person says anything after it, which
+ * carries the conversation on.
  */
 export function reportedAs(conversation: ConversationState): Ending | null {
 	return lastReport(conversation)?.ending ?? null;
@@ -44,10 +44,7 @@ export function reportsDone(conversation: ConversationState): boolean {
 	return reported === "merged" || reported === "done";
 }
 
-/**
- * Whether a report `reported` leaves the person to act: its task escalated,
- * from before escalating was retired.
- */
+/** Whether the report `reported` leaves the person to act on it. */
 export function waitsOn(reported: Ending | null): boolean {
 	return reported === "escalated";
 }
@@ -66,4 +63,30 @@ export function lastReport(conversation: ConversationState): TaskReport | null {
 			? stretches(reply.text).findLast((each) => each.type === "report")
 			: undefined;
 	return report?.type === "report" ? report.report : null;
+}
+
+/**
+ * The card of the conversation's own tasks or lane that is its last word,
+ * asking the person to queue them; null when it ends on anything else.
+ */
+export function queueAsked(
+	conversation: ConversationState,
+): PermissionProposal | null {
+	const last = conversation.messages.at(-1);
+	if (last === undefined || last.role !== "agent") {
+		return null;
+	}
+	const reply = last.parts.findLast(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	// Most replies are no card, and parsing them each render adds up.
+	const final =
+		reply?.type === "text" && reply.text.includes("Permission:")
+			? stretches(reply.text).at(-1)
+			: undefined;
+	return final?.type === "permission" &&
+		final.permission.action === "queue" &&
+		final.permission.project === undefined
+		? final.permission
+		: null;
 }

@@ -35,10 +35,11 @@ import {
 	renameConversation,
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
-import { reportedAs, unnamed, useNameOf } from "./conversation-names";
+import { unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
 import { Mark } from "./mark";
+import { useEnding } from "./queued-ending";
 import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
@@ -97,7 +98,7 @@ export function Item({
 	const { refusal, refuse } = useRowRefusal(id);
 	const expect = useExpect();
 	const { file, confirm } = useArchive(conversation, refuse);
-	const reported = reportedAs(conversation);
+	const { reported } = useEnding(conversation);
 	const quiet = useQuiet(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";

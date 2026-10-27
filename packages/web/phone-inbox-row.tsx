@@ -12,6 +12,7 @@ import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
 import { placeInLine } from "./merge-place";
 import { Filed, type useLongPress } from "./phone-row-menu";
+import { useEnding } from "./queued-ending";
 import { type Quiet, quietText, useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
@@ -19,10 +20,8 @@ import { TaskIcon } from "./task-icon";
 import { unanswered } from "./unanswered";
 
 /**
- * One agent: its mark, its name, what it waits on, and how long since it
- * moved. One handed out sits indented under the agent it answers to, smaller
- * and muted.
- * Held down, a conversation's row opens its menu.
+ * One agent in the inbox: its mark, name, what it waits on, and how long
+ * since it moved. Held down, a conversation's row opens its menu.
  */
 export function Row({
 	row,
@@ -48,12 +47,13 @@ export function Row({
 	const { conversation, task, need } = row;
 	// One that answers to another is not yours to address.
 	const subagent = answersTo(row, useHeldConversations()) !== null;
+	const { reported: ended, queued } = useEnding(conversation);
 	const reported =
-		conversation === null ? null : (lastReport(conversation)?.ending ?? null);
+		conversation === null ? null : (lastReport(conversation)?.ending ?? ended);
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const quiet = useQuiet(conversation);
-	const { text, urgent } = statusOf(row, name, trunk, quiet);
+	const { text, urgent } = statusOf(row, name, trunk, quiet, queued);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -167,6 +167,8 @@ export function statusOf(
 	name: string,
 	trunk: string | null,
 	quiet: Quiet | null = null,
+	// Its last card asked to queue its work, which the board has queued.
+	queued = false,
 ): { text: string; urgent: boolean } {
 	if (need.kind === "working" && need.merge === "running") {
 		return {
@@ -225,6 +227,9 @@ export function statusOf(
 		return { text: need.subject ?? "Working", urgent: false };
 	}
 	const report = conversation === null ? null : lastReport(conversation);
+	if (report === null && queued) {
+		return { text: "Queued", urgent: false };
+	}
 	if (report !== null) {
 		const how = {
 			merged: `Merged onto ${report.base ?? "main"}`,
