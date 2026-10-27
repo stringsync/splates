@@ -449,7 +449,7 @@ export function TodoCard({
 						</span>
 					)}
 					{open && (send !== null || startNew !== null) && (
-						<span className="flex shrink-0 items-center gap-1 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:min-w-10">
+						<span className="flex shrink-0 items-center gap-1">
 							{send !== null && (
 								<Button
 									size="sm"

@@ -163,7 +163,6 @@ export function DeferredBody({
 														size="sm"
 														variant="outline"
 														disabled={(answers[i] ?? "").trim() === ""}
-														className="pointer-coarse:h-10"
 													>
 														Answer and queue
 													</Button>
@@ -180,7 +179,6 @@ export function DeferredBody({
 												<Button
 													size="sm"
 													variant="outline"
-													className="pointer-coarse:h-10"
 													onClick={() =>
 														void act(key, () => finishOutside(task.id, index))
 													}
@@ -210,7 +208,6 @@ export function DeferredBody({
 						type="button"
 						size="sm"
 						variant="outline"
-						className="pointer-coarse:h-10"
 						onClick={() =>
 							void act("resume", async () => {
 								await linkTodo(task.id, [], []);
@@ -224,7 +221,6 @@ export function DeferredBody({
 						type="button"
 						size="sm"
 						variant="outline"
-						className="pointer-coarse:h-10"
 						title="Takes the task off the board, so it never starts"
 						onClick={() => void act("remove", () => removeTodo(task.id))}
 					>
@@ -470,7 +466,6 @@ function TaskBlocker({
 				<Button
 					size="sm"
 					variant="outline"
-					className="pointer-coarse:h-10"
 					onClick={() => act(queueAfter(blocker.id, status === "queued"))}
 				>
 					{open ? `Queue to run after #${blocker.id}` : "Queue"}
@@ -524,12 +519,7 @@ function DeferredProgress({
 				? "Nothing left to wait on: queue it to start."
 				: "Link what it waits on, or queue it to start."}
 			{waiting(task) && (
-				<Button
-					size="sm"
-					variant="outline"
-					className="pointer-coarse:h-10"
-					onClick={queue}
-				>
+				<Button size="sm" variant="outline" onClick={queue}>
 					Queue
 				</Button>
 			)}
