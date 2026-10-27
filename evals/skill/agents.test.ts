@@ -4,6 +4,7 @@ import {
 	commandsOf,
 	readClaude,
 	readCodex,
+	readKimi,
 	readOpenCode,
 } from "./agents";
 
@@ -136,6 +137,54 @@ describe("agents", () => {
 			commandFor({ agent: "opencode", model: "a/b", effort: "high" }, "Hi.")
 				.argv,
 		).toContain("a/b#high");
+	});
+
+	it("reads Kimi's steps, Bash calls with their results and errors, and runs it headless at a thinking level", () => {
+		const run = readKimi([
+			{ role: "meta", type: "system.version", version: "2.3.3" },
+			{
+				role: "assistant",
+				content: "Looking.",
+				tool_calls: [
+					{
+						type: "function",
+						id: "a",
+						function: { name: "Bash", arguments: '{"command":"echo hi"}' },
+					},
+				],
+			},
+			{ role: "tool", tool_call_id: "a", content: "hi\n" },
+			{ role: "assistant", content: "done" },
+		]);
+
+		expect(run.reply).toBe("done");
+		expect(commandsOf(run.transcript)).toEqual(["echo hi"]);
+		expect(run.transcript[1]).toMatchObject({ output: "hi\n" });
+		expect(run).toMatchObject({
+			turns: 2,
+			tokens: null,
+			usd: null,
+			error: null,
+		});
+		expect(
+			readKimi([{ type: "error", code: "x", message: "session busy" }]).error,
+		).toBe("kimi: session busy");
+
+		const { argv, format } = commandFor(
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			"Hi.",
+			{ turns: 5 },
+		);
+		expect(format).toBe("kimi");
+		expect(argv).toContain("KIMI_MODEL_THINKING_EFFORT=high");
+		expect(argv).toContain("KIMI_LOOP_MAX_STEPS_PER_TURN=5");
+		expect(argv).toContain("--auto");
+		expect(argv.slice(-4)).toEqual([
+			"--model",
+			"kimi-code/k3.1-pro",
+			"--prompt",
+			"Hi.",
+		]);
 	});
 
 	it("runs Claude headless on the person's login without their settings, and refuses an agent it has no runner for", () => {

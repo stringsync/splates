@@ -1,3 +1,4 @@
+import { KIMI_CLI } from "@stringsync/splates-server/models";
 import type { Limits, Step } from "./scenario";
 
 /** An agent a run uses, as the Evals page saves it, with its model and thinking level. */
@@ -8,7 +9,7 @@ export interface AgentPick {
 }
 
 /** How an agent's output stream is written. */
-export type Format = "claude" | "codex" | "opencode";
+export type Format = "claude" | "codex" | "opencode" | "kimi";
 
 /** What one agent run came to. */
 export interface AgentRun {
@@ -22,7 +23,7 @@ export interface AgentRun {
 }
 
 /** The agents a run can use. */
-export const AGENTS = ["claude", "codex", "opencode"];
+export const AGENTS = ["claude", "codex", "opencode", "kimi"];
 
 const TURNS = 30;
 const MINUTES = 10;
@@ -31,7 +32,8 @@ const USD = 1;
 /**
  * The headless command that runs `pick` on `message` in the current
  * directory, with nothing asked of a person: Claude without the person's
- * user settings or MCP servers, both capped by turns, and Claude by spend.
+ * user settings or MCP servers, Claude and Kimi capped by turns, and Claude
+ * by spend.
  */
 export function commandFor(
 	pick: AgentPick,
@@ -106,6 +108,31 @@ export function commandFor(
 			],
 		};
 	}
+	if (pick.agent === "kimi") {
+		// Kimi takes its thinking level and step cap from the env alone, and
+		// may live off the PATH, where the roster looks for it too.
+		const env = [
+			`KIMI_LOOP_MAX_STEPS_PER_TURN=${limits.turns ?? TURNS}`,
+			"KIMI_CODE_NO_AUTO_UPDATE=1",
+			...(pick.effort === undefined
+				? []
+				: [`KIMI_MODEL_THINKING_EFFORT=${pick.effort}`]),
+		];
+		return {
+			format: "kimi",
+			argv: [
+				"env",
+				...env,
+				...KIMI_CLI,
+				"--auto",
+				"--output-format",
+				"stream-json",
+				...(pick.model === undefined ? [] : ["--model", pick.model]),
+				"--prompt",
+				message,
+			],
+		};
+	}
 	throw new Error(`no eval runner for agent ${pick.agent}`);
 }
 
@@ -140,7 +167,9 @@ export async function runAgent(
 			? readClaude(lines)
 			: format === "codex"
 				? readCodex(lines)
-				: readOpenCode(lines);
+				: format === "kimi"
+					? readKimi(lines)
+					: readOpenCode(lines);
 	if (child.signalCode !== null) {
 		return {
 			...run,
@@ -150,7 +179,7 @@ export async function runAgent(
 	if (code !== 0 && run.error === null) {
 		return {
 			...run,
-			error: `${argv[0]} exited ${code}: ${tail(stderr) || tail(stdout)}`,
+			error: `${format} exited ${code}: ${tail(stderr) || tail(stdout)}`,
 		};
 	}
 	return run;
@@ -311,6 +340,52 @@ export function readOpenCode(lines: Record<string, unknown>[]): AgentRun {
 				data?: { message?: unknown };
 			};
 			run.error = `opencode: ${String(error.data?.message ?? error.name ?? JSON.stringify(line))}`;
+		}
+	}
+	run.reply = lastText(transcript);
+	return run;
+}
+
+/**
+ * Kimi's `--output-format stream-json`: chat messages, each assistant step's
+ * text and tool calls, then each tool's result. It reports no usage.
+ */
+export function readKimi(lines: Record<string, unknown>[]): AgentRun {
+	const transcript: Step[] = [];
+	const calls = new Map<string, Extract<Step, { kind: "tool" }>>();
+	const run: AgentRun = {
+		reply: "",
+		transcript,
+		usd: null,
+		tokens: null,
+		turns: 0,
+		error: null,
+	};
+	for (const line of lines) {
+		if (line.role === "assistant") {
+			run.turns = (run.turns ?? 0) + 1;
+			if (typeof line.content === "string" && line.content !== "") {
+				transcript.push({ kind: "text", text: line.content });
+			}
+			const toolCalls = Array.isArray(line.tool_calls) ? line.tool_calls : [];
+			for (const call of toolCalls as Record<string, unknown>[]) {
+				const fn = (call.function ?? {}) as Record<string, unknown>;
+				const step: Extract<Step, { kind: "tool" }> = {
+					kind: "tool",
+					name: String(fn.name),
+					input: String(fn.arguments ?? "{}"),
+					output: null,
+				};
+				calls.set(String(call.id), step);
+				transcript.push(step);
+			}
+		} else if (line.role === "tool") {
+			const step = calls.get(String(line.tool_call_id));
+			if (step !== undefined) {
+				step.output = textOf(line.content);
+			}
+		} else if (line.type === "error") {
+			run.error = `kimi: ${String(line.message ?? JSON.stringify(line))}`;
 		}
 	}
 	run.reply = lastText(transcript);

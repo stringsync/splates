@@ -56,7 +56,7 @@ export class EvalLaunchRoutes {
 		);
 	};
 
-	/** Starts the run; only the person's Run button sends this. */
+	/** Starts the run a card's Run button asks for, the person's alone to press, and answers with its launch. */
 	readonly start: Handler = async (request) => {
 		const commands = await this.runnable(request);
 		// A request's body reads once, so the spec and its key share one read.
@@ -150,7 +150,7 @@ export class EvalLaunchRoutes {
 				typeof pick?.agent !== "string" ||
 				!NATIVE_AGENTS.includes(pick.agent)
 			) {
-				fail("usage", "an agent is one of claude, codex and opencode", {});
+				fail("usage", `an agent is one of ${NATIVE_AGENTS.join(", ")}`, {});
 			}
 		}
 		if (baseline != null && typeof baseline !== "string") {

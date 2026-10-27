@@ -25,6 +25,7 @@ describe("EvalAgentsStore", () => {
 			{ agent: "claude", model: "opus", effort: "high" },
 			{ agent: "claude", model: "opus", effort: "low" },
 			{ agent: "codex" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro" },
 		];
 
 		await store.save(agents);
