@@ -29,8 +29,8 @@ const MARKS: Record<string, { path: string }> = {
 };
 
 /**
- * The mark beside a conversation, named by `name`: its agent's mark, the
- * auto picker's while it is picking, or a violet bolt for an automation (see
+ * The mark beside a conversation, named by `name`: its agent's branded mark,
+ * the auto picker's while it is picking, or a violet bolt for an automation (see
  * `automated`) such as the groomer, so it reads as one at a glance.
  */
 export function RowIcon({
@@ -46,7 +46,7 @@ export function RowIcon({
 		return <AutoIcon className={cn("size-4 shrink-0", className)} />;
 	}
 	return !automated(conversation) ? (
-		<AgentIcon agent={conversation.agent} name={name} className={className} />
+		<AgentMark agent={conversation.agent} name={name} className={className} />
 	) : (
 		<ZapIcon
 			role="img"
