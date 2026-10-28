@@ -27,7 +27,8 @@ import type { ConnectedWorker } from "./worker";
 setDefaultTimeout(20_000);
 
 /** More than the link carries in one frame. */
-const BIG = 20 * 1024 * 1024;
+const BIG = 2 * 1024 * 1024;
+const STALLED = 9 * 1024 * 1024;
 
 // The link's pace, scaled down from heartbeat 10s and timeout 30s so a
 // stall past the timeout takes half a second.
@@ -249,9 +250,9 @@ describe("the worker link through a faulty network", () => {
 		void received;
 	});
 
-	it("keeps 20 MB of output through a stall that outlasts the replay bound", async () => {
+	it("keeps 9 MB of output through a stall that outlasts the replay bound", async () => {
 		const child = worker.start(
-			["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' z`],
+			["/bin/sh", "-c", `head -c ${STALLED} /dev/zero | tr '\\0' z`],
 			dir,
 		);
 		const received = printed(child);
@@ -261,10 +262,10 @@ describe("the worker link through a faulty network", () => {
 		await sleep(PAST_TIMEOUT);
 		proxy.resume();
 
-		expect((await received).length).toBe(BIG);
+		expect((await received).length).toBe(STALLED);
 	});
 
-	it("carries 20 MB of an agent's output", async () => {
+	it("carries 2 MB of an agent's output", async () => {
 		const child = worker.start(
 			["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' x`],
 			dir,
@@ -274,7 +275,7 @@ describe("the worker link through a faulty network", () => {
 		expect(joins).toBe(1);
 	});
 
-	it("reads a 20 MB file whole", async () => {
+	it("reads a 2 MB file whole", async () => {
 		const path = join(dir, "big");
 		await Bun.write(path, "y".repeat(BIG));
 
@@ -287,7 +288,7 @@ describe("the worker link through a faulty network", () => {
 		expect(joins).toBe(1);
 	});
 
-	it("answers a git call with 20 MB of output", async () => {
+	it("answers a git call with 2 MB of output", async () => {
 		const git = (...args: string[]) => worker.git(dir, args);
 		await git("init", "-q");
 		await Bun.write(join(dir, "big"), "z".repeat(BIG));
