@@ -57,7 +57,7 @@ export function SidebarHead({
 		>
 			<SlotMark snapshot={snapshot} />
 			{scoped ? (
-				<h1 className={cn(TITLE, "truncate")}>splates</h1>
+				<h1 className={cn(TITLE, "truncate")}>Spinning Plates</h1>
 			) : (
 				<ProjectSwitcher
 					name={name}

@@ -142,7 +142,7 @@ export function DesktopApp({
 					snapshot={snapshot}
 					sidebar={sidebar}
 					name={name}
-					scoped={scoped || (page === "conversations" && open === null)}
+					scoped={scoped}
 				/>
 				{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}

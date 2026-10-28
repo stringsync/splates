@@ -113,7 +113,7 @@ describe("App's pages and the project switcher", () => {
 		]).toEqual(["Board", "Queue"]);
 	});
 
-	it("heads a phone's drawer with the server and its pages, and a page's bar with the project, its chips naming the page", async () => {
+	it("heads a phone's drawer with the server, the project heading its own pages, and a page's bar with the project, its chips naming the page", async () => {
 		resize(390, 844);
 		const view = await testing.open({
 			repo: "webappwiz",
@@ -124,10 +124,11 @@ describe("App's pages and the project switcher", () => {
 		const drawer = await openDrawer(view);
 		expect([
 			within(drawer).getByRole("heading", { level: 1 }).textContent,
-			within(drawer).queryByRole("button", { name: /^Switch project/ }),
+			within(drawer).getByRole("button", { name: /^Switch project/ })
+				.textContent,
 			within(drawer).getByRole("button", { name: "Board" }).textContent,
 			within(drawer).getByRole("button", { name: "Queue" }).textContent,
-		]).toEqual(["splates", null, "Board", "Queue"]);
+		]).toEqual(["Spinning Plates", "webappwiz", "Board", "Queue"]);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);

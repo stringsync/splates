@@ -192,6 +192,7 @@ export function PhoneApp({
 				open={drawer}
 				onOpenChange={setDrawer}
 				header={header}
+				name={name}
 				page={page}
 				conversation={open}
 				available={available}
