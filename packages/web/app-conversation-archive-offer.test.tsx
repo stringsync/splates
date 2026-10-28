@@ -182,6 +182,8 @@ describe("App's offer to archive a conversation whose task is over", () => {
 			]);
 			const bar = () => view.queryByRole("region", { name: "archive" });
 			await waitFor(() => expect(bar()).toBeTruthy());
+			expect(bar()?.textContent).toContain("Done");
+			expect(bar()?.textContent).not.toContain("Merged");
 
 			await scroll(1);
 			expect(bar()).toBeNull();

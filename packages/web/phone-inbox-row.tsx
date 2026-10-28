@@ -257,7 +257,7 @@ export function statusOf(
 	}
 	if (report !== null) {
 		const how = {
-			merged: `Merged onto ${report.base ?? "main"}`,
+			merged: "Done",
 			done: "Done",
 			removed: "Removed",
 			deferred:

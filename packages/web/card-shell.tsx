@@ -144,9 +144,9 @@ export const ENDINGS: Record<
 	TaskReport["ending"],
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
-	// Both are work over, so they share the check; a merge's report card
-	// titles itself Done and names what merged in its body.
-	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
+	// Both are work over, so they share the title and check; a merge's body
+	// names what merged where.
+	merged: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },
@@ -166,11 +166,7 @@ export function reportText(report: TaskReport): string {
 		.join("\n\n");
 }
 
-/**
- * Scrolls `card` to its top, just clear of the person's message stuck atop
- * its turn, with the fade `::after` paints below it, where it sticks (not on
- * a phone), so a card that comes up or takes the focus reads from its start.
- */
+/** Bring a card into view at its top when it opens or receives focus. */
 export function toCardTop(
 	card: HTMLElement,
 	behavior: ScrollBehavior = "instant",
@@ -235,10 +231,7 @@ function Header({
 	);
 }
 
-/**
- * A card's markdown body, its margins kept inside the card. A `####` section
- * states its point in a sentence, so it reads as one, not as a quiet label.
- */
+/** Render a card's markdown with its spacing contained. */
 export function CardBody({
 	text,
 	lead = false,

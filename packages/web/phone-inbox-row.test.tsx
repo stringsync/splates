@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { Needing } from "@stringsync/splates-server/plans/browser";
 import { statusOf } from "./phone-inbox-row";
+import { conversation, message } from "./testing";
 
 describe("statusOf", () => {
 	it("says a queued merge is waiting, and its place in line once the lock has told it", () => {
@@ -34,6 +35,23 @@ describe("statusOf", () => {
 
 		expect(statusOf(row, "alpha", "main")).toEqual({
 			text: "Running evals",
+			urgent: false,
+		});
+	});
+
+	it("says a merged conversation is done", () => {
+		const row: Needing = {
+			conversation: conversation({
+				messages: [
+					message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+				],
+			}),
+			task: null,
+			need: { kind: "idle" },
+		};
+
+		expect(statusOf(row, "alpha", "main")).toEqual({
+			text: "Done",
 			urgent: false,
 		});
 	});

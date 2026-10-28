@@ -75,14 +75,11 @@ export function ReportCard({
 	const { Icon, tone } = ENDINGS[report.ending];
 	const merged = report.ending === "merged";
 	// A Working card whose time has stopped, once later words replace it,
-	// says the work is past. A merge is work done like any other, its card
-	// titled so, with what merged where said in its body.
+	// says the work is past.
 	const title =
 		report.ending === "working" && timing?.until != null
 			? "Worked"
-			: merged
-				? "Done"
-				: ENDINGS[report.ending].title;
+			: ENDINGS[report.ending].title;
 	const text = reportText(report);
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
