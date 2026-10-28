@@ -22,6 +22,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWide } from "./app-nav";
+import { RefreshStatus } from "./freshness";
 import { ProjectSwitcher } from "./projects";
 import { RestartButton } from "./restart-button";
 
@@ -34,6 +35,8 @@ export interface BarFrame {
 	slot?: HTMLElement | null;
 	/** Said after every title: outdated or a restart under way. */
 	status?: ReactNode;
+	/** The server is updating, even before its streams drop. */
+	refreshing?: boolean;
 	/** A full-width message under the bar. */
 	banner?: ReactNode;
 	/** Where the banner goes when the bar itself goes in `slot`. */
@@ -180,9 +183,17 @@ export function TopBar({
 						{frame?.status}
 					</div>
 				</div>
-				<div ref={restart} className="flex shrink-0 items-center empty:hidden">
-					{frame?.dot !== undefined && (
+				<div
+					ref={restart}
+					className="flex w-11 shrink-0 items-center justify-end md:w-24"
+				>
+					{frame?.dot !== undefined ? (
 						<RestartButton wide={wide} update={frame.dot} />
+					) : (
+						<RefreshStatus
+							updating={frame?.refreshing}
+							className="size-11 justify-center md:size-8"
+						/>
 					)}
 				</div>
 				{(folded.length > 0 || menu !== null) && (

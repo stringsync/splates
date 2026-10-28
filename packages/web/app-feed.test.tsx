@@ -221,7 +221,7 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("updates directly from Update, spinning its icon while it works", async () => {
+	it("updates directly from Update, showing loading while it works", async () => {
 		const view = await testing.open();
 		await waitFor(() =>
 			expect(
@@ -252,7 +252,10 @@ describe("App's feed", () => {
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
 		const busy = view.getByRole("button", { name: "Updating" });
 		expect(busy.hasAttribute("disabled")).toBe(true);
-		expect(busy.querySelector(".animate-spin")).not.toBeNull();
+		expect(busy.getAttribute("aria-busy")).toBe("true");
+		expect(
+			within(busy).getByRole("status", { name: "Refreshing" }),
+		).toBeDefined();
 	});
 
 	it("keeps the update available to retry when a restart is refused", async () => {

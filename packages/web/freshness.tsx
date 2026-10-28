@@ -3,44 +3,28 @@ import { LoaderCircleIcon, WifiOffIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
-	type ReactNode,
 	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { createPortal } from "react-dom";
 import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
-import { Countdown } from "./countdown";
 import type { Feed } from "./feed";
 import { SIGN_IN } from "./sign-in";
 
-/**
- * Whether what the page shows of the project may be stale: drawn from a kept
- * copy, or from before a sleep or a dropped stream, the server not having
- * said since. The page is locked then, so nothing is done on what has since
- * moved, until the server answers or stays unreachable, when it unlocks so what
- * it shows can be read and copied.
- */
+/** Whether the page is catching up with the server, without blocking input. */
 export interface Freshness {
 	stale: boolean;
 	/** Stale for as long as the server is given to answer before the page says so. */
 	unreachable: boolean;
-	/** Stale and reachable: the page takes no input. */
-	locked: boolean;
 	/** What the last read failed with, while unreachable. */
 	reason: string | null;
-	/** When a locked page gives up waiting and unlocks, in `Date.now()` ms. */
-	givesUpAt: number | null;
-	/** How long a locked page waits in all, in ms. */
-	waitsMs: number;
 	/** Opens the streams again and reads afresh, waiting anew. */
 	retry: () => void;
 }
@@ -48,10 +32,7 @@ export interface Freshness {
 const FRESH: Freshness = {
 	stale: false,
 	unreachable: false,
-	locked: false,
 	reason: null,
-	givesUpAt: null,
-	waitsMs: 0,
 	retry: () => {},
 };
 
@@ -101,16 +82,13 @@ export function useFeedsFreshness(
 	const stale = disconnected || !snapshot.fresh || !listing.fresh;
 	// Counted here as well as by `feed`, which counts only its own failures.
 	const [waited, setWaited] = useState(false);
-	const [givesUpAt, setGivesUpAt] = useState<number | null>(null);
 	// Each retry waits anew.
 	const [_tries, setTries] = useState(0);
 	useEffect(() => {
 		setWaited(false);
 		if (!stale) {
-			setGivesUpAt(null);
 			return;
 		}
-		setGivesUpAt(Date.now() + feed.offlineAfter.ms);
 		const waiting = setTimeout(() => setWaited(true), feed.offlineAfter.ms);
 		return () => clearTimeout(waiting);
 	}, [stale, feed]);
@@ -123,7 +101,6 @@ export function useFeedsFreshness(
 		setTries((tries) => tries + 1);
 	}, [feed, talk, disconnected]);
 	const unreachable = stale && (disconnected || waited || snapshot.offline);
-	const locked = stale && !unreachable;
 	// Behind Cloudflare Access a lapsed sign-in looks like a server that is
 	// down, for as long as the page stays open: go and sign in again.
 	useEffect(() => {
@@ -136,120 +113,43 @@ export function useFeedsFreshness(
 		() => ({
 			stale,
 			unreachable,
-			locked,
 			reason: snapshot.failure,
-			givesUpAt: locked ? givesUpAt : null,
-			waitsMs: feed.offlineAfter.ms,
 			retry,
 		}),
-		[stale, unreachable, locked, snapshot.failure, givesUpAt, feed, retry],
+		[stale, unreachable, snapshot.failure, retry],
 	);
 }
 
-export const REFRESH_WAITS = {
-	/** How long a refresh runs before `RefreshingOverlay` shows its timeout. */
-	slow: Duration.secs(10),
-	fade: Duration.ms(200),
-};
-
-/**
- * Prevents interaction with stale content and shows a short timeout on a second
- * row when a refresh takes too long. Render it once above the app's content.
- */
-// It fades in after a moment, so a quick refresh never flashes it.
-export function RefreshingOverlay({
+/** Quiet feedback in the header; refreshes never take focus or block input. */
+export function RefreshStatus({
 	updating = false,
+	className,
 }: {
 	updating?: boolean;
+	className?: string;
 }): JSX.Element | null {
-	const { locked, givesUpAt, waitsMs } = useFreshness();
-	const active = locked || updating;
-	const [shown, setShown] = useState(active);
-	useEffect(() => {
-		if (active) {
-			setShown(true);
-			return;
-		}
-		const fading = setTimeout(() => setShown(false), REFRESH_WAITS.fade.ms);
-		return () => clearTimeout(fading);
-	}, [active]);
-	if (!shown) {
+	const { stale, unreachable } = useFreshness();
+	if (!updating && (!stale || unreachable)) {
 		return null;
 	}
 	return (
-		<Refreshing closing={!active} givesUpAt={givesUpAt} waitsMs={waitsMs} />
-	);
-}
-
-function Refreshing({
-	closing,
-	givesUpAt,
-	waitsMs,
-}: {
-	closing: boolean;
-	givesUpAt: number | null;
-	waitsMs: number;
-}): JSX.Element {
-	const ref = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		if (closing) {
-			return;
-		}
-		const others = [...document.body.children].filter(
-			(each): each is HTMLElement =>
-				each instanceof HTMLElement && each !== ref.current && !each.inert,
-		);
-		for (const each of others) {
-			each.inert = true;
-		}
-		return () => {
-			for (const each of others) {
-				each.inert = false;
-			}
-		};
-	}, [closing]);
-	const [slow, setSlow] = useState(false);
-	useEffect(() => {
-		setSlow(false);
-		const waiting = setTimeout(() => setSlow(true), REFRESH_WAITS.slow.ms);
-		return () => clearTimeout(waiting);
-	}, []);
-	return createPortal(
-		<div
-			ref={ref}
-			aria-hidden={closing}
+		<span
+			role="status"
+			aria-label="Refreshing"
+			title={updating ? "Updating the server…" : "Refreshing…"}
 			className={cn(
-				"fixed inset-0 z-100 flex h-dvh touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:fill-mode-both motion-safe:duration-200 md:h-auto",
-				closing
-					? "pointer-events-none motion-safe:animate-out motion-safe:fade-out"
-					: "motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300",
+				"flex shrink-0 items-center text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:fill-mode-both",
+				className,
 			)}
 		>
-			<div className="flex max-w-sm flex-col gap-2 rounded-xl border bg-popover px-4 py-3 text-center text-popover-foreground shadow-lg">
-				<div
-					role="status"
-					aria-label="Refreshing"
-					className="flex items-center justify-center gap-2 text-sm"
-				>
-					<LoaderCircleIcon
-						aria-hidden
-						className="size-4 shrink-0 motion-safe:animate-spin"
-					/>
-					Refreshing…
-				</div>
-				{slow && (
-					<div className="flex items-center justify-center gap-3">
-						<Countdown
-							givesUpAt={givesUpAt}
-							waitsMs={waitsMs}
-							format="timeout"
-							quiet={false}
-						/>
-					</div>
-				)}
-			</div>
-		</div>,
-		document.body,
+			<LoaderCircleIcon
+				aria-hidden
+				className="size-4 motion-safe:animate-spin"
+			/>
+			<span className="sr-only">
+				{updating ? "Updating the server…" : "Refreshing…"}
+			</span>
+		</span>
 	);
 }
 
@@ -331,29 +231,6 @@ export function ListLoading({
 					</li>
 				))}
 			</ul>
-		</div>
-	);
-}
-
-/** Shows inbox rows without allowing input while the page may be stale. */
-export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
-	const { locked } = useFreshness();
-	return (
-		<div inert={locked} aria-busy={locked} className="contents">
-			{children}
-		</div>
-	);
-}
-
-/**
- * `children`, taking no input while the page is locked, so an answer or an
- * archive is never made on what has moved.
- */
-export function Locked({ children }: { children: ReactNode }): JSX.Element {
-	const { locked } = useFreshness();
-	return (
-		<div inert={locked} aria-busy={locked} className="contents">
-			{children}
 		</div>
 	);
 }

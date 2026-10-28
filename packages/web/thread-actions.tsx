@@ -32,7 +32,6 @@ import { TakingLong } from "./countdown";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
-import { useFreshness } from "./freshness";
 import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import { usePendingWrites } from "./pending";
@@ -126,10 +125,8 @@ export function useThreadActions(
 			run: () => archive.file(archived ? undefined : onLeft),
 		},
 	];
-	// Not while the page may be stale, as the thread it would file takes no input then.
-	const { locked } = useFreshness();
 	const fileByKey = () => {
-		if (!locked && !archived) {
+		if (!archived) {
 			archive.file(onLeft);
 		}
 	};

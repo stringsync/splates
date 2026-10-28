@@ -38,7 +38,7 @@ describe("App drawn from its last copy", () => {
 		);
 	});
 
-	it("dims and locks the inbox rows until the server answers", async () => {
+	it("keeps cached inbox rows interactive while the server answers", async () => {
 		await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login" })],
 			null,
@@ -56,7 +56,7 @@ describe("App drawn from its last copy", () => {
 			view.getByRole("navigation", { name: "conversations" }),
 		);
 		const row = await waitFor(() => within(list).getByText("Fix signup"));
-		expect(row.closest("[inert]")).not.toBeNull();
+		expect(row.closest("[inert]")).toBeNull();
 		arrive();
 		await waitFor(() =>
 			expect(

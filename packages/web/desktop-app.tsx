@@ -9,7 +9,7 @@ import { BESIDE_PANE } from "./changes";
 import { useCheckpoint } from "./checkpoint";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { OfflineBanner, RefreshingOverlay, useFreshness } from "./freshness";
+import { OfflineBanner, useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
 import { navPage, PAGES, type Page } from "./page-route";
@@ -98,8 +98,7 @@ export function DesktopApp({
 			: sidebar.toggle(),
 	);
 	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
-	// The page takes no input while locked.
-	const { locked, unreachable, reason } = useFreshness();
+	const { unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
 	// Where each page's bar and any banner under it go.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -107,6 +106,7 @@ export function DesktopApp({
 	const scoped =
 		PAGES.find(({ value }) => value === navPage(page))?.scope === "project";
 	const frame = {
+		refreshing: restartBusy,
 		slot,
 		bannerSlot,
 		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
@@ -125,7 +125,6 @@ export function DesktopApp({
 	};
 	return (
 		<TopBarFrame value={frame}>
-			<RefreshingOverlay updating={restartBusy} />
 			<Tabs
 				data-sidebar-layout=""
 				value={page}
@@ -181,8 +180,6 @@ export function DesktopApp({
 							<TabsContent
 								key={value}
 								value={value}
-								inert={locked}
-								aria-busy={locked}
 								className={DESKTOP_PAGES[value]}
 							>
 								{bodies[value]}

@@ -44,7 +44,6 @@ import { goOn, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useExpect } from "./expecting";
 import { FinishedByName } from "./finished-tasks";
-import { Locked } from "./freshness";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { useRefusals } from "./refusal";
@@ -291,46 +290,44 @@ export const Conversations = memo(function Conversations({
 						onBack={phone ? () => onOpen(null) : null}
 					/>
 				) : (
-					<Locked>
-						<RunInTerminal
-							value={
-								shown.archived || showTerminal === null
-									? null
-									: (code) => {
-											void terminals.run(shown.id, shown.task, code);
-											showTerminal(shown.id);
-										}
+					<RunInTerminal
+						value={
+							shown.archived || showTerminal === null
+								? null
+								: (code) => {
+										void terminals.run(shown.id, shown.task, code);
+										showTerminal(shown.id);
+									}
+						}
+					>
+						<Thread
+							key={shown.id}
+							drafts={drafts}
+							conversation={shown}
+							feed={feed}
+							agent={agentName(agents, shown.agent)}
+							task={shownTask}
+							tasks={tasks}
+							free={free}
+							trunk={trunk}
+							refusal={refusals.get(shown.id) ?? null}
+							refuseIn={refuse}
+							// On a phone, back to the list, so it is plain what became of it:
+							// opening the next one in its place reads as a jump.
+							onLeft={() =>
+								phone
+									? onOpen(null, "replace")
+									: goOn(
+											rowsOf(tasks, conversations),
+											open,
+											lanesTaken(todos),
+											(id) => onOpen(id, "replace"),
+										)
 							}
-						>
-							<Thread
-								key={shown.id}
-								drafts={drafts}
-								conversation={shown}
-								feed={feed}
-								agent={agentName(agents, shown.agent)}
-								task={shownTask}
-								tasks={tasks}
-								free={free}
-								trunk={trunk}
-								refusal={refusals.get(shown.id) ?? null}
-								refuseIn={refuse}
-								// On a phone, back to the list, so it is plain what became of it:
-								// opening the next one in its place reads as a jump.
-								onLeft={() =>
-									phone
-										? onOpen(null, "replace")
-										: goOn(
-												rowsOf(tasks, conversations),
-												open,
-												lanesTaken(todos),
-												(id) => onOpen(id, "replace"),
-											)
-								}
-								onOpen={onOpen}
-								onBack={phone ? () => onOpen(null) : null}
-							/>
-						</RunInTerminal>
-					</Locked>
+							onOpen={onOpen}
+							onBack={phone ? () => onOpen(null) : null}
+						/>
+					</RunInTerminal>
 				)}
 			</div>
 			<TodoDialog todo={todo} onClose={() => setOpenedTodo(null)} />

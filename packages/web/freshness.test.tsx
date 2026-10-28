@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import {
-	type Freshness,
-	FreshnessContext,
-	OfflineBanner,
-	StaleRows,
-} from "./freshness";
+import { type Freshness, FreshnessContext, OfflineBanner } from "./freshness";
 import { cleanup, fireEvent, render } from "./testing-library";
 
 describe("Saying the page may be stale", () => {
@@ -32,30 +27,6 @@ describe("Saying the page may be stale", () => {
 				value: online,
 			});
 		}
-	});
-
-	it("locks the inbox rows, with no dimming, words, line or spinner", async () => {
-		const page = rows(STALE);
-
-		const row = page.getByText("A row");
-		expect(row.closest("[inert]")).not.toBeNull();
-		await new Promise((done) => setTimeout(done, 400));
-		expect(page.container.innerHTML).not.toContain("opacity");
-		expect(page.queryByRole("status")).toBeNull();
-		expect(page.container.textContent).toBe("A row");
-	});
-
-	it("does not lock the inbox rows while fresh", async () => {
-		const page = rows({ ...STALE, stale: false, locked: false });
-
-		await new Promise((done) => setTimeout(done, 400));
-		expect(page.container.querySelector("[inert]")).toBeNull();
-	});
-
-	it("gives the inbox rows back their input once offline", () => {
-		const page = rows(UNREACHABLE);
-
-		expect(page.getByText("A row").closest("[inert]")).toBeNull();
 	});
 
 	it("says nothing in the bar while the page only catches up", async () => {
@@ -87,25 +58,12 @@ const FRESH: Freshness = {
 	stale: false,
 	unreachable: false,
 	reason: null,
-	locked: false,
-	givesUpAt: null,
-	waitsMs: 10_000,
 	retry: () => {},
 };
 
-const STALE: Freshness = { ...FRESH, stale: true, locked: true };
+const STALE: Freshness = { ...FRESH, stale: true };
 
 const UNREACHABLE: Freshness = { ...FRESH, stale: true, unreachable: true };
-
-function rows(freshness: Freshness) {
-	return render(
-		<FreshnessContext value={freshness}>
-			<StaleRows>
-				<div>A row</div>
-			</StaleRows>
-		</FreshnessContext>,
-	);
-}
 
 function barred(freshness: Freshness) {
 	return render(

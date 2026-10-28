@@ -1,7 +1,8 @@
-import { LoaderCircleIcon, RotateCwIcon } from "lucide-react";
+import { RotateCwIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useCheckpoint } from "./checkpoint";
+import { RefreshStatus, useFreshness } from "./freshness";
 
 /** The bar's Update button, or the current version when no update is available. */
 export function RestartButton({
@@ -12,6 +13,10 @@ export function RestartButton({
 	update: boolean;
 }): JSX.Element | null {
 	const { restart, restartBusy, restartDone, version } = useCheckpoint();
+	const { stale, unreachable } = useFreshness();
+	if (stale && !unreachable && !restartBusy) {
+		return <RefreshStatus className="size-11 justify-center md:size-8" />;
+	}
 	const done = restartDone && !update && !restartBusy;
 	if (!update && !restartBusy && !done) {
 		return version === null || !wide ? null : (
@@ -27,7 +32,8 @@ export function RestartButton({
 	return (
 		<Button
 			variant="outline"
-			size={wide ? "sm" : "default"}
+			size={wide ? "sm" : "icon-lg"}
+			className={wide ? "w-full" : "size-11"}
 			aria-label={label}
 			aria-busy={restartBusy}
 			title={label}
@@ -35,15 +41,11 @@ export function RestartButton({
 			onClick={restart}
 		>
 			{restartBusy ? (
-				<LoaderCircleIcon
-					aria-hidden
-					data-icon="inline-start"
-					className="animate-spin"
-				/>
+				<RefreshStatus updating />
 			) : (
 				!done && <RotateCwIcon aria-hidden data-icon="inline-start" />
 			)}
-			{label}
+			<span className={wide ? undefined : "sr-only"}>{label}</span>
 		</Button>
 	);
 }

@@ -6,7 +6,7 @@ import { useCheckpoint } from "./checkpoint";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { OfflineBanner, RefreshingOverlay, useFreshness } from "./freshness";
+import { OfflineBanner, useFreshness } from "./freshness";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
@@ -21,8 +21,8 @@ import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
 
 /**
- * The page on a phone, in place of the sidebar's layout: render it with the
- * page's `body`, which it shows as a wide screen does, under its own bars.
+ * Show the app on a phone with a header, inbox and navigation drawer. Pass the
+ * current page's content as `body` and handle navigation through `go`.
  */
 export function PhoneApp({
 	page,
@@ -87,16 +87,20 @@ export function PhoneApp({
 	useHomeIsInbox(page, go);
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
-	const kebab = { menu: pageMenu.items, dot: pageMenu.dot, project: name };
 	// The drawer's header says more, as why the server is outdated, and what
 	// merges and queues.
 	const { unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
+	const kebab = {
+		menu: pageMenu.items,
+		dot: pageMenu.dot,
+		project: name,
+		refreshing: restartBusy,
+	};
 	const banner = (offline || unreachable) && <OfflineBanner reason={reason} />;
 	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
-			<RefreshingOverlay updating={restartBusy} />
 			{page === "conversations" && open === null ? (
 				<TopBarFrame value={{ ...kebab, banner }}>
 					<Inbox

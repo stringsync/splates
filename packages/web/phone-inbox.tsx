@@ -24,7 +24,7 @@ import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
-import { InboxLoading, StaleRows } from "./freshness";
+import { InboxLoading } from "./freshness";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import type { Nested } from "./parts";
@@ -223,89 +223,83 @@ export function Inbox({
 			/>
 			{!wide && chips}
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
-				<StaleRows>
-					<UnstartedGroup
-						unstarted={unstarted}
-						agents={agents}
-						onOpen={onOpen}
-					/>
-					{/* Held while the all-projects listing is on its way, so the folders' headers and + do not push the flat groups down. */}
-					{loading || pending || everywhere.listing ? (
-						<InboxLoading />
-					) : empty && mains.length === 0 && unstarted.length === 0 ? (
-						<Empty className="py-16">
-							<EmptyHeader>
-								<EmptyDescription>
-									{available
-										? "No conversations yet. Start one below."
-										: "No conversations yet."}
-								</EmptyDescription>
-							</EmptyHeader>
-						</Empty>
-					) : (
-						<Placing
-							value={{
-								places: placesOf(trees),
-								agentOf: (each) => agentName(agents, each.agent),
-							}}
-						>
-							{grouped === null
-								? [
-										["Needs you", waiting],
-										["Pinned", pinned],
-										["Working", working],
-										["Recent", recent],
-									].map(([title, group]) => (
-										<Fragment key={String(title)}>
-											<Group
-												title={String(title)}
-												items={(group as Nested<Needing>[]).map((tree) => ({
-													tree,
-													folder: null,
-													hosting,
-												}))}
-												agents={agents}
-												urgent={title === "Needs you"}
-												beneath={beneath}
-												onOpen={open}
-											/>
-										</Fragment>
-									))
-								: grouped.map((folder) => {
-										const key = folderKey(folder);
-										return (
-											<ProjectSection
-												key={key}
-												folder={folder}
-												open={!folded.has(key)}
-												onFold={(open) => fold(key, open)}
-												onNew={available ? () => startIn(folder) : null}
-												agents={agents}
-												beneath={beneath}
-												onOpen={open}
-											/>
-										);
-									})}
-							<TerminalGroup
-								mains={mains}
-								nameOf={(key) => terminals.nameOf(key)}
-								onRename={(key, name) => terminals.rename(key, name)}
-								onOpen={onOpen}
-								onClose={close}
-							/>
-						</Placing>
-					)}
-					{available && (
-						<button
-							type="button"
-							onClick={() => onOpen(ARCHIVED)}
-							className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
-						>
-							<ArchiveIcon className="size-3.5" />
-							<span>Archived</span>
-						</button>
-					)}
-				</StaleRows>
+				<UnstartedGroup unstarted={unstarted} agents={agents} onOpen={onOpen} />
+				{/* Held while the all-projects listing is on its way, so the folders' headers and + do not push the flat groups down. */}
+				{loading || pending || everywhere.listing ? (
+					<InboxLoading />
+				) : empty && mains.length === 0 && unstarted.length === 0 ? (
+					<Empty className="py-16">
+						<EmptyHeader>
+							<EmptyDescription>
+								{available
+									? "No conversations yet. Start one below."
+									: "No conversations yet."}
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
+				) : (
+					<Placing
+						value={{
+							places: placesOf(trees),
+							agentOf: (each) => agentName(agents, each.agent),
+						}}
+					>
+						{grouped === null
+							? [
+									["Needs you", waiting],
+									["Pinned", pinned],
+									["Working", working],
+									["Recent", recent],
+								].map(([title, group]) => (
+									<Fragment key={String(title)}>
+										<Group
+											title={String(title)}
+											items={(group as Nested<Needing>[]).map((tree) => ({
+												tree,
+												folder: null,
+												hosting,
+											}))}
+											agents={agents}
+											urgent={title === "Needs you"}
+											beneath={beneath}
+											onOpen={open}
+										/>
+									</Fragment>
+								))
+							: grouped.map((folder) => {
+									const key = folderKey(folder);
+									return (
+										<ProjectSection
+											key={key}
+											folder={folder}
+											open={!folded.has(key)}
+											onFold={(open) => fold(key, open)}
+											onNew={available ? () => startIn(folder) : null}
+											agents={agents}
+											beneath={beneath}
+											onOpen={open}
+										/>
+									);
+								})}
+						<TerminalGroup
+							mains={mains}
+							nameOf={(key) => terminals.nameOf(key)}
+							onRename={(key, name) => terminals.rename(key, name)}
+							onOpen={onOpen}
+							onClose={close}
+						/>
+					</Placing>
+				)}
+				{available && (
+					<button
+						type="button"
+						onClick={() => onOpen(ARCHIVED)}
+						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
+					>
+						<ArchiveIcon className="size-3.5" />
+						<span>Archived</span>
+					</button>
+				)}
 			</div>
 			{confirm}
 		</section>

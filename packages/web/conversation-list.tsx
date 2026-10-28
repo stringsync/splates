@@ -32,7 +32,7 @@ import {
 } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
-import { ListLoading, StaleRows } from "./freshness";
+import { ListLoading } from "./freshness";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { useBeneath } from "./list-beneath";
@@ -57,28 +57,9 @@ import type { Terminals } from "./terminals";
 const DIGITS = 10;
 
 /**
- * The sidebar's agents, all of them, after the main tree's own terminals,
- * oldest first, until each is closed, and the new conversations not started
- * yet, each listed from the moment its screen opens or while its draft holds
- * anything. Each row is named alone, with its
- * task on hover. A conversation follows its agent as it takes and lands
- * tasks. A task whose agent runs outside the page is a row of its own. Rows stay put as their agents change
- * state; each one's mark says whether it works or waits on you. Under a
- * conversation, muted as a subagent is, sit its terminal while its shell is
- * up and each command its agent left running, each opening in the pane
- * beside the page.
- *
- * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
- * the rows shown, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or
- * above the one open, in the list's order, main-tree terminals among
- * them, round past either end; each but the digits as the settings bind it.
- * Holding ⌥⌘ shows each of those keys beside what it opens.
- *
- * With the feed of every project to be had, the list shows every project,
- * a folder each by name as `foldersOf` groups them, each with
- * those waiting on you on top. Another project's row opens by switching the
- * page to that project, where its task, trunk and lanes are the page's own,
- * and it becomes the project shown everywhere.
+ * Browse conversations and terminals in the sidebar. Pass the conversation
+ * feed, terminals, task lists and `onOpen` callback. Arrow keys navigate the
+ * list, and ⌥⌘0–9 open its first ten rows.
  */
 export const ConversationList = memo(function ConversationList({
 	feed,
@@ -310,38 +291,38 @@ export const ConversationList = memo(function ConversationList({
 					}
 				/>
 			))}
-			<StaleRows>
-				{/* Held while the listing of every project is on its way, so the rows
+
+			{/* Held while the listing of every project is on its way, so the rows
 				    are not drawn flat and then moved into folders as it comes. */}
-				{everywhere.listing ? (
-					<ListLoading />
-				) : grouped !== null ? (
-					<Placing value={placing}>
-						<ProjectList
-							folders={grouped}
-							folded={folded}
-							onFold={fold}
-							onNew={(folder) =>
-								folder.here || folder.project === null
-									? onOpen(NEW)
-									: navigation.show(newConversationUrl(folder.project))
-							}
-							render={renderRow}
-							beneath={beneathOf}
-						/>
-					</Placing>
-				) : /* None, and no list either: an empty one would still take a gap. */
-				listed.length === 0 ? null : (
-					<Placing value={placing}>
-						<Rows
-							label="conversation list"
-							rows={listed}
-							beneath={beneath}
-							render={(row, nested) => renderHere(row, nested)}
-						/>
-					</Placing>
-				)}
-			</StaleRows>
+			{everywhere.listing ? (
+				<ListLoading />
+			) : grouped !== null ? (
+				<Placing value={placing}>
+					<ProjectList
+						folders={grouped}
+						folded={folded}
+						onFold={fold}
+						onNew={(folder) =>
+							folder.here || folder.project === null
+								? onOpen(NEW)
+								: navigation.show(newConversationUrl(folder.project))
+						}
+						render={renderRow}
+						beneath={beneathOf}
+					/>
+				</Placing>
+			) : /* None, and no list either: an empty one would still take a gap. */
+			listed.length === 0 ? null : (
+				<Placing value={placing}>
+					<Rows
+						label="conversation list"
+						rows={listed}
+						beneath={beneath}
+						render={(row, nested) => renderHere(row, nested)}
+					/>
+				</Placing>
+			)}
+
 			{closing.confirm}
 		</nav>
 	);
