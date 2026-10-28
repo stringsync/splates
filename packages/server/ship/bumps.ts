@@ -109,8 +109,8 @@ function bumpText(from: string, takes: BumpTake[]): string {
 		"Move every pin of them in each `package.json` (the root's and each workspace member's) to these versions, run `bun install`, fix what breaks, and land it through the merge gate.",
 		...afterBumpSteps(takes),
 		"",
-		"Publish nothing: when this project ships too, the cascade ships it once this task merges. When a break is past fixing, ask the person: the cascade waits on this project until it merges; removing it stops the whole run.",
-		"If the fixes change this project's own public API so its pending release should be minor or major rather than patch, ask the person to choose and change it in the cascade; the task and cascade wait while you ask.",
+		"Publish nothing: when this project ships too, the cascade ships it once this task merges, at the release type settled in the approved plan. Do not ask for a different release type during the run.",
+		"If the repairs reveal a public API change outside the approved plan, or a break you cannot fix, do not merge. Remove your bump task with `--reason blocked` and `--waiting-on` a revised ship plan, explaining what it must resolve. Removing the task stops the whole run and removes its other open bump tasks; what shipped stays published. A new plan must recover unfinished bumps without republishing successful releases, and needs the person's approval before another run.",
 	].join("\n");
 }
 

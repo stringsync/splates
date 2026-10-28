@@ -220,16 +220,20 @@ each registered project that depends on it, to move its pins to the new
 versions. Take it as `[SPLATES TASK #N]` says: move every pin it names in
 each `package.json`, `bun install`, run each command it lists after the
 install (such as `splates refresh`) and commit what it changes, fix what
-breaks, and land it through the merge gate. Publish nothing, even when the project ships too: the cascade
-ships it once your task merges, at a patch unless the person changes it.
-When your fixes change your project's own public API, ask the person whether
-its release should be minor or major instead, for them to change in the
-cascade. The cascade waits on your project, and on
-those after it, while the task is open, so when a break is past fixing, ask
-the person rather than remove the task, and say in the question that the
-ship waits on it. A removed bump task, or a failed ship, stops the whole
-run: what shipped stays published, and every other open bump task is
-removed. The person ends a run under way with `splates ship --abandon`, a
+breaks, and land it through the merge gate. Publish nothing, even when the
+project ships too: the cascade ships it once your task merges. Release types
+are settled in the approved plan, after an agent reviews each dependent's
+upstream changes and required repairs and proposes its release type. Do not
+ask for a different release type during a run. If your repairs reveal a
+public API change outside the approved plan, do not merge: remove your bump
+task with `--reason blocked`, naming the revised ship plan it needs with
+`--waiting-on`. Do the same for a break you cannot fix, explaining what the
+new plan must resolve. A removed bump task, or a failed ship, stops the whole
+run: what shipped stays published, and every other open bump task is removed.
+The next plan must include unfinished bumps to those published versions,
+without publishing successful releases again; the person approves the revised
+plan before another run.
+The person ends a run under way with `splates ship --abandon`, a
 command of theirs, never yours.
 
 ```markdown

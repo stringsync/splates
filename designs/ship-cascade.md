@@ -77,6 +77,32 @@ credentials.
   dialog the project menu does; Approve starts the ship and then tells the
   agent `[SPLATES RUN ALLOWED]`, and closing it leaves the card unanswered.
 
+## Settled (2026-10-28): review the plan before shipping
+
+This supersedes the 2026-10-27 release-type decisions about defaulting
+all dependents to patch and changing release types during a run, and the
+original decision to wait on a bump agent's questions during a cascade.
+
+- **Agents review before approval.** At plan time, an agent for each
+  dependent reviews upstream changes since its pinned versions, including
+  changelogs, public API changes and the repairs it will need. For a dependent
+  that publishes, it proposes patch, minor or major with its reasons. The
+  person sees and can change every proposed release type in the plan before
+  Approve; no release-type decision is deferred until the ship is running.
+- **Approval fixes the release types for the run.** Each ship command still
+  receives `SPLATES_SHIP_BUMP`, and its published version is checked against
+  the approved plan. If a bump's repairs reveal an API change outside that
+  plan, the agent does not merge or ask for a different release type during
+  the run. It stops its work and removes its bump task as blocked on a revised
+  plan; removing it stops the whole run. An unfixable bump likewise stops the
+  run, rather than leaving it waiting on questions. Already published
+  versions stay published, and the other open bump tasks are removed.
+- **A new plan recovers unfinished bumps.** It includes registered dependents
+  whose pins lag versions already published by the stopped run. Those
+  published releases are inputs to the new plan, not releases to publish
+  again. Agents review the remaining work and propose any required dependent
+  releases before the person approves the new plan.
+
 ## Settled (2026-10-27): ship history and steps
 
 - **History keeps the last 20 cascades,** a lone ship being a cascade of one

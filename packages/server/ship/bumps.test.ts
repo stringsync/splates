@@ -45,7 +45,7 @@ describe("Bumps", () => {
 		expect(await bumps.state(id)).toBe("open");
 		expect(task.text).not.toContain("run each of these");
 		expect(task.text).toContain(
-			"ask the person to choose and change it in the cascade",
+			"Do not ask for a different release type during the run.",
 		);
 	});
 
