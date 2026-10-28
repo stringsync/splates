@@ -11,7 +11,7 @@ import type { PageCopy } from "./page-copy";
 export type FeedEvents = { changed: undefined };
 
 /** How long the server stays unreachable before the page says it is offline. */
-export const OFFLINE_AFTER = Duration.secs(10);
+export const OFFLINE_AFTER = Duration.secs(30);
 
 /**
  * The page's copy of the repo, kept current as the server says it moves. Keep

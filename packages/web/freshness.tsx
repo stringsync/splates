@@ -148,7 +148,7 @@ export function useFeedsFreshness(
 
 export const REFRESH_WAITS = {
 	/** How long a refresh runs before `RefreshingOverlay` shows its timeout. */
-	slow: Duration.secs(4),
+	slow: Duration.secs(10),
 	fade: Duration.ms(200),
 };
 
@@ -243,6 +243,7 @@ function Refreshing({
 							givesUpAt={givesUpAt}
 							waitsMs={waitsMs}
 							format="timeout"
+							quiet={false}
 						/>
 					</div>
 				)}

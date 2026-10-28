@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
+import { OFFLINE_AFTER } from "./feed";
 import {
 	type Freshness,
 	FreshnessContext,
@@ -17,6 +18,11 @@ describe("Covering the page while it refreshes", () => {
 		REFRESH_WAITS.slow = slow;
 		REFRESH_WAITS.fade = fade;
 		cleanup();
+	});
+
+	it("shows the countdown after 10 seconds and gives up after 30", () => {
+		expect(REFRESH_WAITS.slow.ms).toBe(10_000);
+		expect(OFFLINE_AFTER.ms).toBe(30_000);
 	});
 
 	it("says only that it is refreshing, and takes no input on the rest of the page", () => {

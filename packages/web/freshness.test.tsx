@@ -52,6 +52,12 @@ describe("Saying the page may be stale", () => {
 		expect(page.container.querySelector("[inert]")).toBeNull();
 	});
 
+	it("gives the inbox rows back their input once offline", () => {
+		const page = rows(UNREACHABLE);
+
+		expect(page.getByText("A row").closest("[inert]")).toBeNull();
+	});
+
 	it("says nothing in the bar while the page only catches up", async () => {
 		const page = barred(STALE);
 

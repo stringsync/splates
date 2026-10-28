@@ -4,12 +4,17 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { WAITS } from "./api";
 
-/** How long a wait has left, for display beside its loading or refreshing state. */
+/**
+ * How long a wait has left, for display beside its loading or refreshing state.
+ * By default it stays hidden through the first third of the wait; pass `quiet`
+ * false when the caller has already waited.
+ */
 export function Countdown({
 	givesUpAt,
 	waitsMs,
 	doing = "loading",
 	format = "progress",
+	quiet = true,
 	className,
 }: {
 	/** When the wait gives up, in `Date.now()` ms, or null while nothing waits. */
@@ -20,10 +25,15 @@ export function Countdown({
 	doing?: string;
 	/** Whether to describe the wait or only its timeout. */
 	format?: "progress" | "timeout";
+	/** Whether to stay hidden through the first third of the wait. */
+	quiet?: boolean;
 	className?: string;
 }): JSX.Element | null {
 	const now = useTicking(givesUpAt !== null);
-	if (givesUpAt === null || givesUpAt - now > waitsMs * (1 - QUIET_SHARE)) {
+	if (
+		givesUpAt === null ||
+		(quiet && givesUpAt - now > waitsMs * (1 - QUIET_SHARE))
+	) {
 		return null;
 	}
 	return (
