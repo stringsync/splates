@@ -16,45 +16,25 @@ import { cn } from "#web/lib/utils.ts";
 import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
-import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 import { PendingSpinner, useShowPending } from "./pending";
 
-import { Stamp, useStamps } from "./stamp";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
-/**
- * An event of splates's in the thread: one line of a verb, the thing it names,
- * and any one action, centered between two hairlines in the small muted type
- * nothing else in the thread uses, so it reads as splates speaking without
- * pulling the eye from the turns around it. Its one color is a mark leading
- * it, when it has one: a red X for a command that failed, a green check for
- * one that landed. An early warning's mark, of a conflict or an overlap, is
- * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
- * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room, the names it
- * holds give way, each cut short and whole in its title. A burst of todos it
- * names lists each beneath, whole, with no hairlines of their own.
- */
+/** A single action and subject, centered between the event's two hairlines. */
 export function SplatesEvent({
 	event,
+	children,
 }: {
 	event: SplatesEventView;
+	children?: ReactNode;
 }): JSX.Element | null {
-	const { deadline = null, since = null } = event;
+	const { deadline = null } = event;
 	const live = deadline !== null && !deadline.met;
-	const now = useNow(live || since !== null);
 	if (deadline?.met) {
 		return null;
 	}
-	const left = live
-		? Math.max(0, Date.parse(deadline.until) - now)
-		: since !== null
-			? Math.max(0, now - Date.parse(since))
-			: null;
-	const listed = event.words.flatMap((word) =>
-		typeof word !== "string" && word.kind === "todos" ? word.todos : [],
-	);
 	return (
 		<div
 			role="note"
@@ -65,18 +45,9 @@ export function SplatesEvent({
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
-				<Line event={event} left={left} />
+				<Line event={event}>{children}</Line>
 				<Rule />
 			</div>
-			{listed.length > 0 && (
-				<ul className="mt-2 flex flex-col items-center gap-2">
-					{listed.map(({ id, subject, note }) => (
-						<li key={id} className="flex max-w-full">
-							<NamedChip named={{ kind: "todo", id, subject, note }} whole />
-						</li>
-					))}
-				</ul>
-			)}
 		</div>
 	);
 }
@@ -84,7 +55,7 @@ export function SplatesEvent({
 /**
  * Something an event names, drawn as a chip with its kind's icon that opens it
  * where it can. `todos` names a burst of them, such as a groom's, as one
- * chip, "5 todos", listing each beneath the line.
+ * chip, "5 tasks", opening their list.
  */
 export type Named =
 	| {
@@ -124,7 +95,7 @@ export type Words = readonly (string | Named)[];
 /**
  * One thing splates did in a conversation, as its own voice in the thread
  * rather than the person's or the agent's: what it did and what it names,
- * then when.
+ * without inline secondary details.
  */
 export interface SplatesEventView {
 	/** The mark leading it, its line's only color, when it has one. */
@@ -132,16 +103,15 @@ export interface SplatesEventView {
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
 	/**
-	 * When, as an ISO time, to place it among the thread's messages; shown at
-	 * the line's end while the conversation's stamps are on. Null for one with
-	 * no time to show.
+	 * When, as an ISO time, to place it among the thread's messages; kept with
+	 * the record, without adding a timestamp to the summary.
 	 */
 	at?: string | null;
 	/** What the line stands for, in full, on hover: a directive's text. */
 	title?: string;
-	/** A wait it counts down in its action's place, when it has one. */
+	/** A wait whose completion removes the summary. */
 	deadline?: Deadline | null;
-	/** When what it says began, as an ISO time, for a line counting up from it while it runs. */
+	/** When the work began, retained for progress details. */
 	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
@@ -156,7 +126,7 @@ export interface SplatesEventView {
 export type Mark = "failed" | "landed" | "approved" | "conflict" | "overlap";
 
 /**
- * A wait an event counts down to `until`. Once what it waited on comes, it is
+ * A wait that ends at `until`. Once what it waited on comes, it is
  * `met` and its line goes, since the event that met it says so; once it times
  * out, the event is drawn in new words, `["Wait timed out", task]`, marked
  * `failed`, with no deadline.
@@ -177,26 +147,25 @@ export interface Act {
 	done?: string | null;
 	/** Whether its write is on its way: the button disables and spins. */
 	busy?: boolean;
+	/** Whether the subject has opened its existing content. */
+	expanded?: boolean;
 }
 
 /**
- * One event's line: its mark, if any, its words, then its one action, or in
- * its place the time its wait has left.
+ * One event's line: its mark, verb and one subject or action.
  */
 function Line({
 	event,
-	left,
+	children,
 }: {
 	event: SplatesEventView;
-	/** How long its deadline has left, or since it began, in ms, while it counts; else null. */
-	left: number | null;
+	children?: ReactNode;
 }): JSX.Element {
 	const { mark = null, act = null } = event;
-	const stamped = useStamps().shown;
 	return (
 		<p
 			title={event.title}
-			className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap"
+			className="flex min-w-0 max-w-[calc(100%-4.5rem)] items-center justify-center gap-1.5 whitespace-nowrap [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44"
 		>
 			{mark === "failed" && (
 				<XIcon
@@ -225,30 +194,31 @@ function Line({
 			{mark === "overlap" && (
 				<FilesIcon aria-label="Overlap" className="size-3.5 shrink-0" />
 			)}
-			<Words words={event.words} />
-			{stamped && event.at != null && <Stamp at={event.at} />}
-			{left !== null ? (
-				<span className="shrink-0 tabular-nums">{countdown(left)}</span>
-			) : (
-				act !== null && <Action act={act} />
-			)}
+			<Words
+				words={
+					children != null || act !== null
+						? event.words.slice(0, 1)
+						: event.words
+				}
+			/>
+			{children}
+			{act !== null && <Action act={act} />}
 		</p>
 	);
 }
 
-/** Plain descriptions wrap; names between short words give way where room runs out. */
+/** Only the verb and primary subject belong in a summary; long subjects give way. */
 function Words({ words }: { words: Words }): ReactNode {
 	if (words.length === 1 && typeof words[0] === "string") {
-		return (
-			<span className="min-w-0 whitespace-normal wrap-anywhere text-center">
-				{words[0]}
-			</span>
-		);
+		return <span className="min-w-0 truncate text-center">{words[0]}</span>;
 	}
-	return words.map((word, index) =>
+	return words.slice(0, 2).map((word, index) =>
 		typeof word === "string" ? (
-			// biome-ignore lint/suspicious/noArrayIndexKey: words never move
-			<span key={index} className="shrink-0">
+			<span
+				// biome-ignore lint/suspicious/noArrayIndexKey: words never move
+				key={index}
+				className={index === 0 ? "shrink-0" : "min-w-0 truncate"}
+			>
 				{word}
 			</span>
 		) : (
@@ -481,7 +451,7 @@ export function Action({ act }: { act: Act }): JSX.Element {
 	const { done = null, busy = false } = act;
 	const shown = useShowPending(busy);
 	if (done !== null) {
-		return <span className="shrink-0">{done}</span>;
+		return <span className="min-w-0 truncate">{done}</span>;
 	}
 	return (
 		<Button
@@ -489,11 +459,13 @@ export function Action({ act }: { act: Act }): JSX.Element {
 			size="xs"
 			disabled={busy}
 			aria-busy={busy}
+			aria-expanded={act.expanded}
 			onClick={act.run}
-			className="shrink-0"
+			className="min-w-0 shrink"
+			title={act.label}
 		>
 			{busy && shown && <PendingSpinner shown />}
-			{act.label}
+			<span className="min-w-0 truncate">{act.label}</span>
 		</Button>
 	);
 }
@@ -501,10 +473,4 @@ export function Action({ act }: { act: Act }): JSX.Element {
 /** A plain hairline beside an event, taking what room the line leaves. */
 function Rule(): JSX.Element {
 	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
-}
-
-/** `ms` as `M:SS`: `9:00`, `12:30`. */
-function countdown(ms: number): string {
-	const secs = Math.ceil(ms / 1000);
-	return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }

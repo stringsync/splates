@@ -88,11 +88,9 @@ export function GrantCard({
 				<SplatesEvent
 					event={{
 						mark: granted ? "landed" : "failed",
-						words: [
-							`${granted ? "Granted" : "Denied"} ${ask.from} ${ask.reach} in ${ask.in}`,
-						],
+						words: [granted ? "Granted" : "Denied"],
 						title: granted ? GRANTED : GRANT_DENIED,
-						act: { label: "Open", run: () => setOpened(true) },
+						act: { label: "Project access", run: () => setOpened(true) },
 					}}
 				/>
 				<Refusal refusal={refusal} />

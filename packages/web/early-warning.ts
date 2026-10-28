@@ -55,21 +55,9 @@ export function warningLines(
 				line("conflict", [
 					"Conflict with",
 					{ kind: "branch", branch: warning.base },
-					...filesIn(warning.files),
 				]),
 			]
-		: warning.overlaps.map(({ task, files }) =>
-				line("overlap", [
-					"Overlaps",
-					{ kind: "task", task },
-					...filesIn(files),
-				]),
+		: warning.overlaps.map(({ task }) =>
+				line("overlap", ["Overlaps", { kind: "task", task }]),
 			);
-}
-
-/** "in" and a chip for each file, or past three, their count. */
-function filesIn(files: readonly string[]): Words {
-	return files.length > 3
-		? [`in ${files.length} files`]
-		: ["in", ...files.map((path) => ({ kind: "file" as const, path }))];
 }

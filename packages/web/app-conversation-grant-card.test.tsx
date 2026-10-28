@@ -47,7 +47,7 @@ describe("App's grant card", () => {
 				.filter((post) => post.path.startsWith("/api/projects/shop/grants"))
 				.map((post) => [post.method, JSON.parse(String(post.body))]),
 		).toEqual([["PUT", { from: "splates", reach: "tasks" }]]);
-		expect(view.getByText("Granted splates tasks in shop")).toBeTruthy();
+		expect(view.getByText("Granted")).toBeTruthy();
 	});
 
 	it("denies without granting, sending the note", async () => {
@@ -67,7 +67,7 @@ describe("App's grant card", () => {
 		expect(
 			testing.posts.filter((post) => post.path.includes("/grants")),
 		).toEqual([]);
-		expect(view.getByText("Denied splates tasks in shop")).toBeTruthy();
+		expect(view.getByText("Denied")).toBeTruthy();
 	});
 
 	it("takes Allow back, saying why, when the server refuses the grant", async () => {
@@ -94,9 +94,7 @@ describe("App's grant card", () => {
 				messages: [ask, message("user", "[SPLATES GRANTED]")],
 			}),
 		]);
-		await waitFor(() =>
-			expect(view.getByText("Granted splates tasks in shop")).toBeTruthy(),
-		);
+		await waitFor(() => expect(view.getByText("Granted")).toBeTruthy());
 		expect(view.queryByRole("button", { name: "Allow" })).toBeNull();
 		expect(view.queryByText("Reach granted")).toBeNull();
 	});

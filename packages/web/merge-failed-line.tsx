@@ -41,7 +41,11 @@ export function MergeFailedLine({
 			<SplatesEvent
 				event={{
 					...view,
-					act: grant?.act ?? { label: "Why", run: () => setOpen(true) },
+					words: [grant === null ? "Merge failed" : "Merge blocked"],
+					act: grant?.act ?? {
+						label: event.task ?? "Merge details",
+						run: () => setOpen(true),
+					},
 				}}
 			/>
 			{grant !== null && <Refusal refusal={grant.refusal} />}
@@ -93,10 +97,7 @@ function useGrant(event: MergeEvent): {
 	};
 	return {
 		act: {
-			label:
-				task.mergeAttempts >= task.mergeAttemptLimit
-					? `Grant ${task.mergeAttemptLimit} more`
-					: `Grant ${task.conflictAttemptLimit} more`,
+			label: "Grant attempts",
 			run,
 			done: granted ? "Granted" : null,
 			busy,

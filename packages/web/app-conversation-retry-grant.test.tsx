@@ -10,6 +10,7 @@ import {
 	Testing,
 	turn,
 	waitFor,
+	within,
 } from "./testing";
 
 describe("App's grant of merge attempts", () => {
@@ -60,7 +61,9 @@ describe("App's grant of merge attempts", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Grant 5 more" })),
+				await waitFor(() =>
+					view.getByRole("button", { name: "Grant attempts" }),
+				),
 			),
 		);
 		await waitFor(() => expect(view.getByText("Granted")).toBeTruthy());
@@ -88,13 +91,15 @@ describe("App's grant of merge attempts", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Grant 5 more" })),
+				await waitFor(() =>
+					view.getByRole("button", { name: "Grant attempts" }),
+				),
 			),
 		);
 		await waitFor(() =>
 			expect(view.getByText(/Merge attempts: attempts left/)).toBeTruthy(),
 		);
-		expect(view.getByRole("button", { name: "Grant 5 more" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Grant attempts" })).toBeTruthy();
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
@@ -111,7 +116,14 @@ describe("App's grant of merge attempts", () => {
 			"c1",
 			{ tasks: [{ ...spent, mergeAttempts: 0, budgetSpent: false }] },
 		);
-		await waitFor(() => expect(view.getByRole("button", { name: "Why" })));
+		await waitFor(() =>
+			expect(
+				within(view.getByRole("note", { name: "splates" })).getByRole(
+					"button",
+					{ name: "alpha" },
+				),
+			),
+		);
 		expect(view.queryByRole("button", { name: /Grant/ })).toBeNull();
 	});
 

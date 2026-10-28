@@ -150,7 +150,7 @@ describe("App's Auto pick", () => {
 			["Bugfix 90%", "Shallow 80%"],
 			"judged: Bugfix 90%, Shallow 80%",
 		);
-		expect(line.textContent).toContain("Auto picked Haiku, low effort");
+		expect(line.textContent).toContain("PickedHaiku");
 
 		const found = await openFindings(line);
 		expect(found.textContent).toContain("KindBugfix90%");
@@ -173,13 +173,14 @@ describe("App's Auto pick", () => {
 			},
 		]);
 		const line = await quietLine(view);
-		expect(line.textContent).toContain("Auto moved up to Big");
+		expect(line.textContent).toContain("SwitchedBig");
 
+		const findings = await openFindings(line);
 		await act(async () =>
-			fireEvent.click(within(line).getByRole("button", { name: "Undo" })),
+			fireEvent.click(within(findings).getByRole("button", { name: "Undo" })),
 		);
 
-		expect(line.textContent).toContain("Back on Haiku, low effort");
+		expect(findings.textContent).toContain("Back on Haiku, low effort");
 		expect(testing.posted("/api/conversations/c1/setting")).toEqual([
 			{ method: "PUT", body: { id: "model", value: "haiku" } },
 		]);
@@ -202,7 +203,7 @@ async function quietLine(view: {
 /** The findings Auto pick's line opens, as its dotted link shows them. */
 async function openFindings(line: HTMLElement): Promise<HTMLElement> {
 	await act(async () =>
-		fireEvent.click(line.querySelector("button[aria-label]") as HTMLElement),
+		fireEvent.click(line.querySelector("button") as HTMLElement),
 	);
 	return await waitFor(() => {
 		const found = document.querySelector('[data-slot="popover-content"]');

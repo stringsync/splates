@@ -4,26 +4,35 @@ import { type JSX, type ReactNode, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
 import { Board } from "./board";
 import { todoRemoved, todoRestored } from "./board-expectations";
+import { Button } from "./components/ui/button";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "./components/ui/popover";
 import { useExpectSnapshot } from "./expecting";
 import { Refusal, useRefusal } from "./refusal";
-import { type Act, SplatesEvent, type SplatesEventView } from "./splates-event";
+import {
+	type Act,
+	Action,
+	SplatesEvent,
+	type SplatesEventView,
+} from "./splates-event";
 
-/**
- * A todo's "Added" line, with Remove while the todo is on the list and no
- * task has taken it, so one added without asking, as a merge adds what it
- * found, goes in a click; once removed from here, Undo puts it back as it
- * stood, for as long as the page stays open.
- */
+/** Shows an added task as one subject. Open it to view the task, remove it, or undo removal. */
 export function AddedLine({
 	view,
 	id,
-	render = (event) => <SplatesEvent event={event} />,
+	render = (event, subject) => (
+		<SplatesEvent event={event}>{subject}</SplatesEvent>
+	),
 }: {
 	view: SplatesEventView;
 	id: number;
-	render?: (event: SplatesEventView) => ReactNode;
+	render?: (event: SplatesEventView, subject?: ReactNode) => ReactNode;
 }): JSX.Element {
 	const board = useContext(Board);
+	const [opened, setOpened] = useState(false);
 	const expect = useExpectSnapshot();
 	// The todo as it stood when removed, to show back in place on Undo.
 	const [removed, setRemoved] = useState<TaskRecord | null>(null);
@@ -58,15 +67,49 @@ export function AddedLine({
 							run(todoRemoved(id), removeTodo(id), "Not removed", live),
 					}
 				: null;
+	const subject = live ?? removed;
+	const verb = removed !== null ? "Removed" : "Added";
 	return (
 		<div>
-			{render({
-				...view,
-				...(removed !== null && {
-					words: ["Removed", ...view.words.slice(1)],
-				}),
-				act,
-			})}
+			{act === null || subject === null ? (
+				render(view)
+			) : (
+				<Popover open={opened} onOpenChange={setOpened}>
+					{render(
+						{ ...view, words: [verb], act: null },
+						<PopoverTrigger
+							render={
+								<Button
+									variant="outline"
+									size="xs"
+									className="min-w-0 shrink"
+								/>
+							}
+							title={`Task #${id}: ${subject.subject}`}
+						>
+							<span className="min-w-0 truncate">
+								#{id} {subject.subject}
+							</span>
+						</PopoverTrigger>,
+					)}
+					<PopoverContent className="flex w-72 flex-col gap-3">
+						<p className="text-sm wrap-anywhere">{subject.subject}</p>
+						{live !== undefined && (
+							<Button
+								variant="ghost"
+								onClick={() => {
+									setOpened(false);
+									board.open(id);
+								}}
+							>
+								Open task #{id}
+							</Button>
+						)}
+						<Action act={act} />
+					</PopoverContent>
+				</Popover>
+			)}
+
 			<Refusal refusal={refusal} className="-mt-4 mb-6 text-center" />
 		</div>
 	);

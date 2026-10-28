@@ -111,7 +111,7 @@ describe("App's run-command card", () => {
 			]),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Open" })),
+			fireEvent.click(view.getByRole("button", { name: "Command" })),
 		);
 		expect(view.getAllByText(/Please keep the output/).length).toBeGreaterThan(
 			0,
@@ -140,7 +140,7 @@ describe("App's run-command card", () => {
 			]),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Open" })),
+			fireEvent.click(view.getByRole("button", { name: "Command" })),
 		);
 		expect(view.getAllByText(/Please keep the output/).length).toBeGreaterThan(
 			0,

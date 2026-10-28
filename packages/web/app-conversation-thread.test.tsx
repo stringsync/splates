@@ -156,7 +156,7 @@ describe("App's conversation thread", () => {
 		expect(line.textContent).toContain("Conflict with");
 		expect(within(line).getByLabelText("Conflict")).toBeDefined();
 		expect(within(line).getByTitle("Branch main")).toBeDefined();
-		expect(within(line).getByTitle("state.ts")).toBeDefined();
+		expect(within(line).queryByTitle("state.ts")).toBeNull();
 		expect(thread.textContent).not.toContain("Splates early warning");
 		expect(
 			thread.querySelector("[data-slot=aui_user-message-told]"),

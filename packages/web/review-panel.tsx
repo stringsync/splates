@@ -180,8 +180,12 @@ export function ReviewPanel({
 		<div className="my-6">
 			<SplatesEvent
 				event={{
-					words: ["Review approved", { kind: "task", task: review.task }],
-					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
+					words: ["Approved"],
+					act: {
+						label: "Review",
+						expanded: shown,
+						run: () => setShown(!shown),
+					},
 				}}
 			/>
 			{shown && card}

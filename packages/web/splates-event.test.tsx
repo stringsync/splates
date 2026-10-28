@@ -27,24 +27,23 @@ describe("splates events", () => {
 		const event = page.getByRole("note", { name: "splates" });
 		expect(event.textContent).toContain("Merged");
 		expect(within(event).getByTitle("Task events-log")).toBeDefined();
-		expect(within(event).getByTitle("Branch main")).toBeDefined();
+		expect(within(event).queryByTitle("Branch main")).toBeNull();
 	});
 
-	it("counts down in its action's place while it waits", () => {
+	it("keeps a wait to its subject without inline timing", () => {
 		const page = render(
 			<SplatesEvent
 				event={{
 					words: ["Waiting on", { kind: "task", task: "events-log" }],
 					at: at(-1),
 					deadline: { until: at(4) },
-					act: { label: "Paste", run: () => {} },
 				}}
 			/>,
 		);
 
 		const event = page.getByRole("note", { name: "splates" });
 		expect(event.dataset.live).toBe("true");
-		expect(event.textContent).toMatch(/\D[34]:\d\d$/);
+		expect(event.textContent).toBe("Waiting onevents-log");
 		expect(page.queryByRole("button", { name: "Paste" })).toBeNull();
 	});
 
@@ -77,7 +76,7 @@ describe("splates events", () => {
 
 		const event = page.getByRole("note", { name: "splates" });
 		// One icon in each of its two chips, and none before them.
-		expect(event.querySelectorAll("svg")).toHaveLength(2);
+		expect(event.querySelectorAll("svg")).toHaveLength(1);
 		expect(event.querySelector("p > svg")).toBeNull();
 	});
 
@@ -107,6 +106,7 @@ describe("splates events", () => {
 		fireEvent.click(page.getByRole("button", { name: "Paste" }));
 
 		expect(runs).toBe(1);
+		expect(page.queryByTitle("Task events-log")).toBeNull();
 	});
 
 	it("says its action is done in place of the button", () => {
@@ -156,7 +156,7 @@ describe("splates events", () => {
 		expect(opened).toEqual([[212, 214]]);
 	});
 
-	it("names a burst of todos as one chip, listing each whole beneath", () => {
+	it("names a burst of todos as one chip without expanding its list", () => {
 		const page = render(
 			<SplatesEvent
 				event={{
@@ -177,8 +177,8 @@ describe("splates events", () => {
 
 		expect(page.getByTitle("Tasks #212, #214").textContent).toBe("2 tasks");
 		expect(
-			page.getByTitle("Task #212: Upload retries forever on a 413").textContent,
-		).toBe("#212 Upload retries forever on a 413");
+			page.queryByTitle("Task #212: Upload retries forever on a 413"),
+		).toBeNull();
 	});
 
 	it("goes once what its wait waited on came", () => {

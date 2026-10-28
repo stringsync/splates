@@ -154,7 +154,9 @@ export function TimelineItem({
 				<AddedLine
 					view={view}
 					id={event.number}
-					render={(each) => <EventLine view={each} />}
+					render={(each, subject) => (
+						<EventLine view={each}>{subject}</EventLine>
+					)}
 				/>
 			) : (
 				<EventLine view={view} />
@@ -183,21 +185,36 @@ export function TimelineItem({
 }
 
 /** Something splates did at the agent's word, in its words, then its one action. */
-function EventLine({ view }: { view: SplatesEventView }): JSX.Element {
+function EventLine({
+	view,
+	children,
+}: {
+	view: SplatesEventView;
+	children?: ReactNode;
+}): JSX.Element {
 	return (
 		<div
 			data-slot="quiet-event"
-			className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
+			className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44"
 		>
-			{view.words.map((word, index) =>
+			{(view.act == null && children == null
+				? view.words.slice(0, 2)
+				: view.words.slice(0, 1)
+			).map((word, index) =>
 				typeof word === "string" ? (
-					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
-					<span key={index}>{word}</span>
+					<span
+						// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+						key={index}
+						className={index === 0 ? "shrink-0" : "min-w-0 truncate"}
+					>
+						{word}
+					</span>
 				) : (
 					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
 					<NamedChip key={index} named={word} />
 				),
 			)}
+			{children}
 			{view.act != null && <Action act={view.act} />}
 		</div>
 	);

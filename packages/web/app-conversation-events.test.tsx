@@ -198,10 +198,10 @@ describe("App's splates events", () => {
 		const { text, lines } = await counted(thread);
 		expect(text).toBe("7 files");
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Attachedshot.pngtoalpha",
-			"Attached 2 filestoalpha",
-			"Removedold.pngfromalpha",
-			"Attachednew.pngtoalphaand removed 2 files",
+			"Attachedshot.png",
+			"Attached 2 files",
+			"Removedold.png",
+			"Attachednew.png",
 		]);
 	});
 

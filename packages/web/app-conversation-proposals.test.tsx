@@ -93,7 +93,7 @@ describe("App's questions card under a proposal", () => {
 		const line = await waitFor(() =>
 			view.getByRole("note", { name: "splates" }),
 		);
-		expect(line.textContent).toBe("Proposal approvedShow");
+		expect(line.textContent).toBe("ApprovedProposal");
 		expect(view.queryByTitle("[SPLATES APPROVE]")).toBeNull();
 	});
 

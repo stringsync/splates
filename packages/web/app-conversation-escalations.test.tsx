@@ -304,12 +304,12 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 			[{ ...escalated(3), review: true, questions: [] }],
 		);
 
-		await waitFor(() => within(thread).getByRole("button", { name: "Show" }));
+		await waitFor(() => within(thread).getByRole("button", { name: "Review" }));
 		expect(
 			within(thread)
 				.getAllByRole("note", { name: "splates" })
 				.map((line) => line.textContent),
-		).toEqual(["Review approvedheaderShow"]);
+		).toEqual(["ApprovedReview"]);
 	});
 
 	it("draws a refused escalation as a failed line", async () => {

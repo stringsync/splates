@@ -1,26 +1,30 @@
-import type { Proposal, TaskReport } from "@stringsync/splates-server/plans";
+import type { Proposal } from "@stringsync/splates-server/plans";
 import { APPROVE, directive } from "@stringsync/splates-server/plans/browser";
-import type { Words } from "./splates-event";
+import type { SplatesEventView } from "./splates-event";
 
-/**
- * What the line of questions no longer asking says: how many were asked, as a
- * reply need not answer them, or whether the proposal they rest under was
- * approved, and the task an escalation named. `sent` is null when they were
- * asked again below.
- */
+/** Summarizes answered questions or a proposal, with its subject reopening the card. */
 export function questionOutcome(
 	questions: number,
-	escalation: TaskReport | null,
 	proposal: Proposal | null,
 	sent: string | null,
-): Words {
-	const said =
-		proposal === null || sent === null
-			? `Asked ${questions} ${questions === 1 ? "question" : "questions"}`
-			: directive(sent) === APPROVE
-				? "Proposal approved"
-				: "Proposal answered";
-	return escalation === null
-		? [said]
-		: [said, { kind: "task", task: escalation.task }];
+	open: () => void,
+	expanded: boolean,
+): SplatesEventView {
+	const asked = proposal === null || sent === null;
+	return {
+		words: [
+			asked
+				? "Asked"
+				: directive(sent ?? "") === APPROVE
+					? "Approved"
+					: "Answered",
+		],
+		act: {
+			label: asked
+				? `${questions} ${questions === 1 ? "question" : "questions"}`
+				: "Proposal",
+			run: open,
+			expanded,
+		},
+	};
 }

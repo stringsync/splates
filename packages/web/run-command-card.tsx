@@ -126,20 +126,18 @@ export function RunCommandCard({
 				<SplatesEvent
 					event={{
 						mark: choice === RUN_ALLOWED ? "landed" : "failed",
-						words:
-							retry !== null
-								? [
-										choice === RUN_ALLOWED
-											? "Granted merge attempts to"
-											: "Denied merge attempts to",
-										{ kind: "task", task: retry },
-									]
-								: [
-										choice === RUN_ALLOWED ? "Allowed" : "Denied",
-										{ kind: "command", command: proposal.command ?? "" },
-									],
+						words: [
+							choice === RUN_ALLOWED
+								? retry !== null
+									? "Granted"
+									: "Allowed"
+								: "Denied",
+						],
 						title: choice,
-						act: { label: "Open", run: () => setOpened(true) },
+						act: {
+							label: retry !== null ? "Merge attempts" : "Command",
+							run: () => setOpened(true),
+						},
 					}}
 				/>
 				<Refusal refusal={refusal} />

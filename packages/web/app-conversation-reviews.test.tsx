@@ -119,7 +119,7 @@ describe("App's review panel and demo cards", () => {
 		const line = await waitFor(() =>
 			view.getByRole("note", { name: "splates" }),
 		);
-		expect(line.textContent).toBe("Review approvedheaderShow");
+		expect(line.textContent).toBe("ApprovedReview");
 		expect(view.queryByTitle("[SPLATES MERGE]")).toBeNull();
 		expect(view.queryByRole("region", { name: "review header" })).toBeNull();
 	});
@@ -139,14 +139,14 @@ describe("App's review panel and demo cards", () => {
 			view.getByRole("note", { name: "splates" }),
 		);
 		await act(async () =>
-			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
+			fireEvent.click(within(line).getByRole("button", { name: "Review" })),
 		);
 
 		const panel = view.getByRole("region", { name: "review header" });
 		expect(panel.textContent).toContain("The header wraps on phones.");
 		expect(within(panel).queryByRole("button", { name: /^Merge/ })).toBeNull();
 		expect(within(panel).queryByRole("textbox")).toBeNull();
-		expect(within(line).getByRole("button", { name: "Hide" })).toBeTruthy();
+		expect(within(line).getByRole("button", { name: "Review" })).toBeTruthy();
 	});
 
 	it("folds once the person asked for changes, opening on what they asked, whatever is typed after", async () => {
