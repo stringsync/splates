@@ -1,4 +1,5 @@
 import type { ShipGraph, ShipProject } from "@stringsync/splates-server/ship";
+import { changedProjects } from "@stringsync/splates-server/ship/browser";
 import { PackageIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
@@ -10,14 +11,18 @@ import { ShipTree } from "./ship-tree";
 /**
  * The registered projects that ship or take a release, as a tree, each
  * beneath the project whose packages it pins first; Ship opens its plan.
+ * Above it, one Ship for every project changed since its last release.
  */
 export function ShipGraphTree({
 	endedAt,
 	onShip,
+	onShipChanged,
 }: {
 	/** When the last cascade ended, so versions are read again after one. */
 	endedAt: string | null;
 	onShip: (slug: string) => void;
+	/** Opens the plan to ship every changed project. */
+	onShipChanged: () => void;
 }): JSX.Element {
 	const [graph, setGraph] = useState<ShipGraph | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -48,6 +53,10 @@ export function ShipGraphTree({
 	}
 	return (
 		<section aria-label="projects" className="flex flex-col gap-2">
+			<ShipChanged
+				changed={changedProjects(graph).map((each) => each.slug)}
+				onShip={onShipChanged}
+			/>
 			<h2 className="font-medium text-sm">Projects</h2>
 			<ShipTree
 				label="Ship graph"
@@ -59,6 +68,40 @@ export function ShipGraphTree({
 				)}
 			/>
 		</section>
+	);
+}
+
+/** The Ship for every changed project, naming them, or saying none changed. */
+function ShipChanged({
+	changed,
+	onShip,
+}: {
+	changed: string[];
+	onShip: () => void;
+}): JSX.Element {
+	return (
+		<div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
+			<span className="flex min-w-0 flex-1 flex-col">
+				<span className="font-medium text-sm">
+					{changed.length === 0
+						? "Every project is up to date"
+						: `${changed.length} project${changed.length === 1 ? " has" : "s have"} unshipped commits`}
+				</span>
+				<span className="text-muted-foreground text-xs">
+					{changed.length === 0
+						? "Nothing has changed since its last release."
+						: `${changed.join(", ")}, released dependencies first, then what depends on them.`}
+				</span>
+			</span>
+			<Button
+				disabled={changed.length === 0}
+				title="Shows the plan for every changed project, in dependency order, before anything runs"
+				onClick={onShip}
+			>
+				<PackageIcon />
+				Ship all changed
+			</Button>
+		</div>
 	);
 }
 

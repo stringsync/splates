@@ -60,6 +60,15 @@ main or master branch since its current version tag (`v<version>`). Zero shows
 **Up to date**; missing tags or unavailable history show **Release status unknown**.
 These are local history checks, refreshed when the page regains focus.
 
+Above the projects, **Ship all changed** ships every project with unshipped
+commits at once: it names them and opens one plan that publishes each in
+dependency order, a changed project that depends on another taking its bump
+first, then carries every release downstream as a single ship does. Each
+project that ships picks its own release type there, patch until you change
+it, and dependents are reviewed as usual. A project whose release status is
+unknown is left out; ship it on its own. With nothing changed, the button is
+disabled.
+
 On the page, a project's menu in the project switcher has **Ship
 <project>…**, which opens the plan, as `--plan` prints it: each project in
 order, the version it goes to, what it publishes, what it takes and why it

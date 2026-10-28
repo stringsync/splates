@@ -99,6 +99,68 @@ describe("ShipsPage", () => {
 		);
 	});
 
+	it("ships every changed project from one button, which names them", async () => {
+		const asked: string[] = [];
+		const graph = [
+			project({
+				slug: "webappwiz",
+				changes: { commits: 2, branch: "main", tag: "v0.0.53", error: null },
+			}),
+			project({
+				slug: "mdom",
+				uses: [{ project: "webappwiz", pins: [] }],
+				changes: { commits: 1, branch: "main", tag: "v0.0.53", error: null },
+			}),
+			project({
+				slug: "vexml",
+				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
+			}),
+		];
+		globalThis.fetch = (async (url: string) => {
+			asked.push(String(url));
+			return Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({ cascade: null, ship: null });
+		expect(
+			await view.findByText("2 projects have unshipped commits"),
+		).toBeTruthy();
+		expect(
+			view.getByText(
+				"webappwiz, mdom, released dependencies first, then what depends on them.",
+			),
+		).toBeTruthy();
+		await act(async () => {
+			view.getByRole("button", { name: "Ship all changed" }).click();
+		});
+		expect(
+			await view.findByRole("heading", { name: "Ship every changed project" }),
+		).toBeTruthy();
+		expect(asked.some((url) => url.includes("project=%2Bchanged"))).toBe(true);
+	});
+
+	it("disables shipping every changed project when none changed", async () => {
+		const graph = [
+			project({
+				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
+			}),
+		];
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({ cascade: null, ship: null });
+		expect(await view.findByText("Every project is up to date")).toBeTruthy();
+		expect(
+			view
+				.getByRole("button", { name: "Ship all changed" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+	});
+
 	it("lists every project's steps under way at once, with what waits on the person pinned beneath", async () => {
 		const view = render(<ShipsPage />);
 		await say({

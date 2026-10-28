@@ -1,7 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { readGraph } from "./graph";
-import { nextPatch, nextVersion, planShip, ShipPlanError } from "./plan";
-import { servedProjects } from "./testing";
+import {
+	CHANGED,
+	nextPatch,
+	nextVersion,
+	planShip,
+	ShipPlanError,
+} from "./plan";
+import { servedProjects, withChanges } from "./testing";
 
 describe("planShip", () => {
 	it("ships webappwiz, then each dependent with dependents of its own, and bumps the leaves", async () => {
@@ -93,6 +99,56 @@ describe("planShip", () => {
 
 		expect(plan.steps[0]).toMatchObject({ bump: "major", to: "1.0.0" });
 		expect(plan.steps[1]).toMatchObject({ bump: "patch", to: "0.0.58" });
+	});
+
+	it("ships every changed project, dependencies first, carrying each downstream", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = withChanges(await readGraph(fs, sources), {
+			webappwiz: 2,
+			mdom: 1,
+			splates: 0,
+		});
+
+		const plan = planShip(graph, CHANGED);
+
+		expect(plan.from).toBe(CHANGED);
+		expect(
+			plan.steps.map((step) => [
+				step.slug,
+				step.action,
+				step.takes.map((use) => use.project),
+			]),
+		).toEqual([
+			["webappwiz", "ship", []],
+			["splates", "ship", ["webappwiz"]],
+			["mdom", "ship", ["webappwiz"]],
+			["vexml", "ship", ["webappwiz", "mdom"]],
+			["sound2score", "bump", ["webappwiz", "splates", "mdom", "vexml"]],
+		]);
+		expect(plan.steps[0]?.why).toBe("it has 2 unshipped commits since v0.0.50");
+		expect(plan.steps[2]?.why).toBe("it has 1 unshipped commit since v1.4.2");
+	});
+
+	it("leaves out unchanged projects nothing changed reaches", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = withChanges(await readGraph(fs, sources), { mdom: 4 });
+
+		const plan = planShip(graph, CHANGED);
+
+		expect(plan.steps.map((step) => [step.slug, step.action])).toEqual([
+			["mdom", "ship"],
+			["vexml", "ship"],
+			["sound2score", "bump"],
+		]);
+	});
+
+	it("refuses a ship of changed projects when none changed", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = withChanges(await readGraph(fs, sources), { webappwiz: 0 });
+
+		expect(() => planShip(graph, CHANGED)).toThrow(
+			"no project has changed since its last release",
+		);
 	});
 
 	it("moves plain versions by each release type, and gives up on any other", () => {

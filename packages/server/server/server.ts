@@ -33,6 +33,7 @@ import {
 import {
 	CascadeRoutes,
 	Cascades,
+	CHANGED,
 	planShip,
 	registeredGraph,
 	ShipHistory,
@@ -564,7 +565,9 @@ export async function dev(
 			log.error(`resuming the ship cascade: ${error}`),
 		);
 	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
-		context.everywhere.slug((await projectFor(request)).root),
+		new URL(request.url).searchParams.get("project") === CHANGED
+			? CHANGED
+			: context.everywhere.slug((await projectFor(request)).root),
 	);
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(

@@ -9,7 +9,13 @@ import { table } from "../table";
 import type { Cascade } from "./cascade";
 import { ReleaseGit } from "./git";
 import { readGraph, type ShipGraph } from "./graph";
-import { planShip, type ShipBump, ShipPlanError, type ShipStep } from "./plan";
+import {
+	planShip,
+	type ShipBump,
+	ShipPlanError,
+	type ShipStep,
+	shipName,
+} from "./plan";
 
 /** What `shipPlan` works with. */
 export interface ShipContext {
@@ -181,7 +187,7 @@ async function shipOnServer(
 			await ask("POST", "/api/ship/cascade/abandon")
 		).json()) as Cascade;
 		ctx.log.info(
-			`abandoned the ship of ${ended.from}: what shipped stays published, a running ship is stopped and its open bump tasks are removed`,
+			`abandoned the ship of ${shipName(ended.from)}: what shipped stays published, a running ship is stopped and its open bump tasks are removed`,
 		);
 		ctx.log.info(cascadeTable(ended));
 		return;

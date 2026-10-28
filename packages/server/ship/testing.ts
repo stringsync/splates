@@ -3,7 +3,7 @@ export { FakeReleaseGit } from "./fake-release-git";
 import { FakeFs, type FakePs } from "webappwiz/system/testing";
 import type { BumpState, BumpTake } from "./bumps";
 import type { CascadeProject } from "./cascade";
-import type { ShipSource } from "./graph";
+import type { ShipGraph, ShipSource } from "./graph";
 import type { ShipBump } from "./plan";
 import type { Ship } from "./run";
 import type { Stage } from "./stages";
@@ -182,4 +182,23 @@ export class FakeProject implements CascadeProject {
 			this.ship = { ...this.ship, status, to, error: "npm said no\nmore" };
 		}
 	}
+}
+
+/** `graph` with each project `commits` names that many commits past its version tag. */
+export function withChanges(
+	graph: ShipGraph,
+	commits: Record<string, number>,
+): ShipGraph {
+	for (const project of graph.projects) {
+		const count = commits[project.slug];
+		if (count !== undefined) {
+			project.changes = {
+				commits: count,
+				branch: "main",
+				tag: `v${project.version}`,
+				error: null,
+			};
+		}
+	}
+	return graph;
 }

@@ -4,6 +4,7 @@ import type { Cascade } from "./cascade";
 import type { Pin, ShipGraph, Use } from "./graph";
 import {
 	bumpOnly,
+	CHANGED,
 	dependencyOrder,
 	type ShipPlan,
 	type ShipStep,
@@ -137,7 +138,8 @@ export class ShipRecovery {
 				(use) =>
 					!graph.projects.some((project) => project.slug === use.project),
 			) ||
-			!graph.projects.some((project) => project.slug === stopped.from)
+			(stopped.from !== CHANGED &&
+				!graph.projects.some((project) => project.slug === stopped.from))
 		) {
 			fail(
 				"conflict",

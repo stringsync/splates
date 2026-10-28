@@ -7,8 +7,8 @@ import { Exit } from "../exit";
 import { MemoryStorage } from "../storage/testing";
 import { Cascades } from "./cascade";
 import { readGraph } from "./graph";
-import { planShip } from "./plan";
-import { FakeProject, servedProjects } from "./testing";
+import { CHANGED, planShip } from "./plan";
+import { FakeProject, servedProjects, withChanges } from "./testing";
 
 describe("Cascades", () => {
 	let fs: FakeFs;
@@ -90,6 +90,46 @@ describe("Cascades", () => {
 			["sound2score", "waiting"],
 		]);
 		expect(timer.timeouts).toHaveLength(1);
+	});
+
+	it("ships every changed project one at a time, each bump task from the project it takes", async () => {
+		const served = await servedProjects();
+		cascades = new Cascades({
+			storage,
+			fs,
+			log: new MemoryLogger(),
+			plan: async (slug, bump) =>
+				planShip(
+					withChanges(await readGraph(fs, served.sources), {
+						splates: 1,
+						mdom: 1,
+					}),
+					slug,
+					bump,
+				),
+			reach: async (slug) => project(slug),
+			timer,
+			clock,
+		});
+
+		const { cascade } = await cascades.start(CHANGED);
+
+		expect(cascade.from).toBe(CHANGED);
+		expect(await statuses()).toEqual({
+			splates: "shipping",
+			mdom: "waiting",
+			vexml: "waiting",
+			sound2score: "waiting",
+		});
+		await shipped("splates", "0.0.58");
+		expect(await statuses()).toMatchObject({
+			splates: "done",
+			mdom: "shipping",
+		});
+		await shipped("mdom", "1.4.3");
+		expect(project("vexml").bumps.added).toMatchObject([
+			{ from: "mdom", origin: "/mdom" },
+		]);
 	});
 
 	it("adds a bump task in each dependent once its ship is done, at the versions it published", async () => {

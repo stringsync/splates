@@ -1,4 +1,5 @@
 import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
+import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { useReactive } from "@webappwiz/react";
 import { LoaderCircleIcon, PackageIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
@@ -38,6 +39,7 @@ export function ShipDialog({
 	onApproved?: () => void;
 }): JSX.Element {
 	const project = approval.project;
+	const changed = project === CHANGED;
 	const { plan, bump, refusal, starting } = useReactive(
 		approval,
 		(each) => ({
@@ -74,15 +76,17 @@ export function ShipDialog({
 				<DialogHeader>
 					<DialogTitle>
 						{approval.recovery === undefined ? "Ship" : "Recover ship of"}{" "}
-						{project}
+						{changed ? "every changed project" : project}
 					</DialogTitle>
 					<DialogDescription>
-						{approval.recovery === undefined
-							? `Publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`
-							: "Checks the stopped run against npm and reviews the remaining work. Published releases stay published; approval starts a new run."}
+						{approval.recovery !== undefined
+							? "Checks the stopped run against npm and reviews the remaining work. Published releases stay published; approval starts a new run."
+							: changed
+								? "Publishes each project with commits since its last release, dependencies first, and carries each release through every project that depends on it. npm asks you at each publish."
+								: `Publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`}
 					</DialogDescription>
 				</DialogHeader>
-				{approval.recovery === undefined && (
+				{approval.recovery === undefined && !changed && (
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<span className="text-sm font-medium">Release type</span>
 						<ShipBumpSelector
@@ -117,6 +121,7 @@ export function ShipDialog({
 				{plan !== null && (
 					<PlanSteps
 						steps={plan.steps}
+						everyRelease={changed}
 						starting={starting || !approval.ready}
 						onChoose={(slug, bump) => approval.chooseDependent(slug, bump)}
 					/>
@@ -152,10 +157,13 @@ export function ShipDialog({
 /** The plan as a tree, each project beneath its first dependency in the plan. */
 function PlanSteps({
 	steps,
+	everyRelease,
 	starting,
 	onChoose,
 }: {
 	steps: ShipStep[];
+	/** Whether each project that ships picks its own release type, with no one release type above the plan. */
+	everyRelease: boolean;
 	starting: boolean;
 	onChoose: (slug: string, bump: ShipBump) => void;
 }): JSX.Element {
@@ -166,7 +174,14 @@ function PlanSteps({
 			slugOf={(step) => step.slug}
 			dependenciesOf={(step) => step.takes.map((use) => use.project)}
 			render={(step) => (
-				<PlanProject step={step} starting={starting} onChoose={onChoose} />
+				<PlanProject
+					step={step}
+					choosable={
+						everyRelease || step.takes.length > 0 || step.review !== undefined
+					}
+					starting={starting}
+					onChoose={onChoose}
+				/>
 			)}
 			className="max-h-[55vh] overflow-y-auto pr-1"
 		/>
@@ -175,10 +190,13 @@ function PlanSteps({
 
 function PlanProject({
 	step,
+	choosable,
 	starting,
 	onChoose,
 }: {
 	step: ShipStep;
+	/** Whether the person picks this project's release type here. */
+	choosable: boolean;
 	starting: boolean;
 	onChoose: (slug: string, bump: ShipBump) => void;
 }): JSX.Element {
@@ -237,15 +255,14 @@ function PlanProject({
 							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}
 				</p>
 			)}
-			{(step.takes.length > 0 || step.review !== undefined) &&
-				step.bump !== null && (
-					<ShipBumpSelector
-						label={`Release type for ${step.slug}`}
-						value={step.bump}
-						disabled={starting || step.review?.status === "pending"}
-						onChange={(bump) => onChoose(step.slug, bump)}
-					/>
-				)}
+			{choosable && step.bump !== null && (
+				<ShipBumpSelector
+					label={`Release type for ${step.slug}`}
+					value={step.bump}
+					disabled={starting || step.review?.status === "pending"}
+					onChange={(bump) => onChoose(step.slug, bump)}
+				/>
+			)}
 		</div>
 	);
 }
@@ -263,7 +280,7 @@ function whyOf(step: ShipStep): string {
 	if (step.takes.length === 0) {
 		return step.why === "the project shipped"
 			? "The project shipped."
-			: step.why;
+			: `${step.why.charAt(0).toUpperCase()}${step.why.slice(1)}.`;
 	}
 	return step.action === "ship"
 		? `Ships too, since ${step.why}.`

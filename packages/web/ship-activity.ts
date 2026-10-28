@@ -4,6 +4,7 @@ import type {
 	Ship,
 	Stage,
 } from "@stringsync/splates-server/ship";
+import { shipName } from "@stringsync/splates-server/ship/browser";
 
 /**
  * What the ship under way asks of the page: `waiting` while it needs the
@@ -57,10 +58,10 @@ export function shipLine(
 		return null;
 	}
 	if (cascade.status === "done") {
-		return `${cascade.from} shipped`;
+		return `${shipName(cascade.from)} shipped`;
 	}
 	if (cascade.status === "abandoned") {
-		return `${cascade.from} ship abandoned`;
+		return `${shipName(cascade.from)} ship abandoned`;
 	}
 	if (ship?.waiting != null) {
 		return ship.waiting.kind === "login"

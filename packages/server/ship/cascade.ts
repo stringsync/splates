@@ -15,10 +15,12 @@ import type { Bumps, BumpTake } from "./bumps";
 import { type Pin, publishedPins } from "./graph";
 import { ShipHistory } from "./history";
 import {
+	CHANGED,
 	type ShipBump,
 	type ShipPlan,
 	ShipPlanError,
 	type ShipStep,
+	shipName,
 } from "./plan";
 import {
 	bumpAdded,
@@ -74,7 +76,8 @@ export interface CascadeStep extends ShipStep {
 }
 
 /**
- * A ship of one project and everything downstream of it, carried through:
+ * A ship of one project, or of every changed one, and everything downstream
+ * of it, carried through:
  * one at a time on the machine, kept in its records so a restarted server
  * carries on from where it stopped.
  */
@@ -83,7 +86,7 @@ export interface Cascade {
 	recovery?: ShipPlan["recovery"];
 	/** What history keeps it under. */
 	id: string;
-	/** The project it started from. */
+	/** The project it started from, or {@link CHANGED}. */
 	from: string;
 	/**
 	 * `done` once every project is done or dropped, `stopped` once one
@@ -265,7 +268,7 @@ export class Cascades implements Resource {
 			await this.keep(cascade);
 			await this.history.prune();
 			this.opts.log.info(
-				`shipping ${slug}, then ${cascade.steps.length - 1} project(s) downstream`,
+				`shipping ${shipName(slug)}: ${cascade.steps.length} project(s)`,
 			);
 			return { cascade: await this.advance(cascade), started: true };
 		}).finally(() => this.schedule());
@@ -296,7 +299,7 @@ export class Cascades implements Resource {
 			await this.close(cascade, "the person abandoned the ship");
 			cascade.status = "abandoned";
 			cascade.ended = this.stamp();
-			this.opts.log.info(`abandoned the ship of ${cascade.from}`);
+			this.opts.log.info(`abandoned the ship of ${shipName(cascade.from)}`);
 			await this.keep(cascade);
 			return cascade;
 		});
@@ -380,11 +383,13 @@ export class Cascades implements Resource {
 			await this.close(cascade, `the run stopped at ${held.slug}`);
 			cascade.status = "stopped";
 			cascade.ended = this.stamp();
-			this.opts.log.info(`the ship of ${cascade.from} stopped at ${held.slug}`);
+			this.opts.log.info(
+				`the ship of ${shipName(cascade.from)} stopped at ${held.slug}`,
+			);
 		} else if (cascade.steps.every((step) => ENDED.includes(step.status))) {
 			cascade.status = "done";
 			cascade.ended = this.stamp();
-			this.opts.log.info(`the ship of ${cascade.from} is done`);
+			this.opts.log.info(`the ship of ${shipName(cascade.from)} is done`);
 		}
 		await this.keep(cascade);
 		return cascade;
@@ -452,10 +457,16 @@ export class Cascades implements Resource {
 			return;
 		}
 		const project = await this.opts.reach(step.slug);
-		const origin = await this.opts.reach(cascade.from);
+		// A ship of every changed project names none of them, so a bump is
+		// from the first project it takes.
+		const source =
+			cascade.from === CHANGED
+				? (takes[0]?.project ?? step.slug)
+				: cascade.from;
+		const origin = await this.opts.reach(source);
 		step.task = await project.bumps.add(
 			{
-				from: cascade.from,
+				from: source,
 				origin: origin.root,
 				release: {
 					bump: step.bump,

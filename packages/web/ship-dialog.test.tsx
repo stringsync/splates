@@ -4,6 +4,7 @@ import type {
 	ShipPlan,
 	ShipStep,
 } from "@stringsync/splates-server/ship";
+import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { ApiError } from "./api";
 // Base UI reads the DOM as it loads, so a file run alone needs it registered first.
 import "./register-dom";
@@ -286,6 +287,54 @@ describe("ShipDialog", () => {
 		expect(approved).toMatchObject({
 			id: "review-1",
 			choices: { mdom: "major", webappwiz: "patch" },
+		});
+	});
+
+	it("gives each changed project its own release type, with none above the plan", async () => {
+		const drawn: ShipPlan = {
+			from: CHANGED,
+			id: "changed-1",
+			steps: [
+				step({
+					slug: "webappwiz",
+					from: "0.0.50",
+					to: "0.0.51",
+					why: "it has 2 unshipped commits since v0.0.50",
+				}),
+				step({
+					slug: "splates",
+					from: "0.0.57",
+					to: "0.0.58",
+					why: "it has 1 unshipped commit since v0.0.57",
+				}),
+			],
+		};
+		let approved: unknown;
+		const approval = new ShipApproval(CHANGED, {
+			shipPlan: async () => structuredClone(drawn),
+			startShip: async (_project, _bump, choice) => {
+				approved = choice;
+			},
+		});
+		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
+		await waitFor(() =>
+			view.getByText("It has 2 unshipped commits since v0.0.50."),
+		);
+		expect(view.queryByRole("group", { name: "Release type" })).toBeNull();
+		await act(() =>
+			fireEvent.click(
+				within(
+					view.getByRole("group", { name: "Release type for splates" }),
+				).getByRole("button", { name: "Minor" }),
+			),
+		);
+		expect(view.getByText("0.0.57 → 0.1.0")).toBeTruthy();
+		await act(() =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+		expect(approved).toMatchObject({
+			id: "changed-1",
+			choices: { webappwiz: "patch", splates: "minor" },
 		});
 	});
 

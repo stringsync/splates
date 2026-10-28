@@ -4,6 +4,7 @@ import type {
 	CascadeStep,
 	Ship,
 } from "@stringsync/splates-server/ship";
+import { shipName } from "@stringsync/splates-server/ship/browser";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { abandonCascade } from "./api";
@@ -51,7 +52,7 @@ export function ShipRun({
 			<div className="flex flex-wrap items-center gap-x-2 whitespace-nowrap">
 				<h2 className="font-medium text-sm">
 					{running || held === undefined
-						? `Shipping ${cascade.from}`
+						? `Shipping ${shipName(cascade.from)}`
 						: `Stopped at ${held.slug}`}
 				</h2>
 				<span className="text-muted-foreground text-xs tabular-nums">

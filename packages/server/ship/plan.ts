@@ -33,13 +33,16 @@ export interface ShipStep {
 	why: string;
 }
 
-/** A ship of one project and everything downstream of it, in dependency order. */
+/**
+ * A ship of one project, or of every changed one, and everything downstream,
+ * in dependency order.
+ */
 export interface ShipPlan {
 	/** The stopped run being recovered and its confirmed publications. */
 	recovery?: { id: string; inputs: Use[] };
 	/** The saved review approved by the person. */
 	id?: string;
-	/** The project the ship starts from. */
+	/** The project the ship starts from, or {@link CHANGED}. */
 	from: string;
 	steps: ShipStep[];
 }
@@ -56,6 +59,17 @@ export class ShipPlanError extends Error {
 }
 
 /**
+ * What a ship of every project changed since its last release names as the
+ * project it starts from: no project's slug, since a slug has no `+`.
+ */
+export const CHANGED = "+changed";
+
+/** How a ship starting from `from` is named to the person. */
+export function shipName(from: string): string {
+	return from === CHANGED ? "changed projects" : from;
+}
+
+/**
  * The plan to ship `slug` at `bump`, then each project pinning a package shipped
  * before it, in dependency order. A dependent ships at the next patch in turn
  * when it is public, names a `ship` command and has dependents of its own to
@@ -66,6 +80,9 @@ export function planShip(
 	slug: string,
 	bump: ShipBump = "patch",
 ): ShipPlan {
+	if (slug === CHANGED) {
+		return planChanged(graph);
+	}
 	const start = graph.projects.find((each) => each.slug === slug);
 	if (start === undefined) {
 		throw new ShipPlanError(
@@ -81,14 +98,67 @@ export function planShip(
 				: `${slug} names no \`ship\` command in its splates.config.ts`,
 		);
 	}
-	const shipping = new Set([slug]);
+	return planFrom(graph, slug, new Map([[slug, "the project shipped"]]), bump);
+}
+
+/**
+ * The projects with commits on their release branch since their version tag
+ * that can ship: public, with a `ship` command. One whose history is unknown
+ * is left out, as the Ship page marks it.
+ */
+export function changedProjects(graph: ShipGraph): ShipProject[] {
+	return graph.projects.filter(
+		(each) =>
+			each.ship !== null &&
+			!each.private &&
+			each.changes?.commits != null &&
+			each.changes.commits > 0,
+	);
+}
+
+/**
+ * The plan to ship every changed project at a patch, in dependency order,
+ * each dependent of one taking its bump first, and each project downstream
+ * as {@link planShip} carries it. A changed project ships even when nothing
+ * pins it.
+ */
+export function planChanged(graph: ShipGraph): ShipPlan {
+	const changed = changedProjects(graph);
+	if (changed.length === 0) {
+		throw new ShipPlanError(
+			"usage",
+			"no project has changed since its last release",
+		);
+	}
+	return planFrom(
+		graph,
+		CHANGED,
+		new Map(
+			changed.map((each) => [
+				each.slug,
+				`it has ${each.changes?.commits} unshipped commit${each.changes?.commits === 1 ? "" : "s"} since ${each.changes?.tag}`,
+			]),
+		),
+	);
+}
+
+/** Ships each of `roots`, saying why, and carries them downstream. */
+function planFrom(
+	graph: ShipGraph,
+	from: string,
+	roots: Map<string, string>,
+	bump: ShipBump = "patch",
+): ShipPlan {
+	const shipping = new Set<string>();
 	const steps: ShipStep[] = [];
 	for (const project of dependencyOrder(graph)) {
-		if (project.slug === slug) {
-			steps.push(shipStep(project, [], "the project shipped", bump));
+		const takes = project.uses.filter((use) => shipping.has(use.project));
+		const root = roots.get(project.slug);
+		if (root !== undefined) {
+			shipping.add(project.slug);
+			steps.push(shipStep(project, takes, root, bump));
 			continue;
 		}
-		const takes = project.uses.filter((use) => shipping.has(use.project));
 		if (takes.length === 0) {
 			continue;
 		}
@@ -110,7 +180,7 @@ export function planShip(
 		const by = project.dependents.map((each) => each.project).join(", ");
 		steps.push(shipStep(project, takes, `${by} pins it`));
 	}
-	return { from: slug, steps };
+	return { from, steps };
 }
 
 /** Why a dependent in a ship only takes its bump, or null when it ships too. */

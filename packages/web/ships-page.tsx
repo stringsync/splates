@@ -1,4 +1,5 @@
 import type { CascadeSummary } from "@stringsync/splates-server/ship";
+import { CHANGED, shipName } from "@stringsync/splates-server/ship/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -79,6 +80,7 @@ export function ShipsPage(): JSX.Element {
 				<ShipGraphTree
 					endedAt={endedAt}
 					onShip={(slug) => setPlanning(new ShipApproval(slug))}
+					onShipChanged={() => setPlanning(new ShipApproval(CHANGED))}
 				/>
 			)}
 			{history.length > 0 && <History cascades={history} onRecover={recover} />}
@@ -141,7 +143,7 @@ function Past({
 					aria-hidden
 					className={cn("size-3.5 transition-transform", open && "rotate-90")}
 				/>
-				<span className="font-medium">{summary.from}</span>
+				<span className="font-medium">{shipName(summary.from)}</span>
 				<span className="text-muted-foreground text-xs">
 					{summary.status === "abandoned" || summary.status === "stopped"
 						? `${summary.status}${stopped === undefined ? "" : ` at ${stopped.slug}`}`

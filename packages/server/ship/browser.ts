@@ -1,1 +1,1 @@
-export { nextVersion } from "./plan";
+export { CHANGED, changedProjects, nextVersion, shipName } from "./plan";
