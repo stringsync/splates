@@ -13,7 +13,7 @@ export function isMergeStep(event: Event): event is MergeStep {
 	return event.action === "merge queued" || event.action === "merge start";
 }
 
-/** Shows a merge as its progress card, or as compact desktop lines and timed mobile lines. */
+/** A merge in the thread: a card of its steps, or its queued, started and ended lines where there is no card. */
 export function MergeLines({
 	first,
 	also,
@@ -76,24 +76,16 @@ function queuedLine(
 	const task = { kind: "task" as const, task: queued.task ?? "" };
 	if (until !== null) {
 		return {
-			words: ["Queued", task],
-			mobile: {
-				words: [
-					"Merge queued",
-					task,
-					`· waited ${spanOf(Date.parse(until) - Date.parse(queued.at))}`,
-				],
-			},
+			words: [
+				"Merge queued",
+				task,
+				`· waited ${spanOf(Date.parse(until) - Date.parse(queued.at))}`,
+			],
 			at: queued.at,
 		};
 	}
 	return going
-		? {
-				words: ["Queued", task],
-				mobile: { words: ["Merge queued", task] },
-				at: queued.at,
-				since: queued.at,
-			}
+		? { words: ["Merge queued", task], at: queued.at, since: queued.at }
 		: { words: ["Merge interrupted", task], at: queued.at };
 }
 
@@ -113,12 +105,7 @@ function StartedLine({
 			<SplatesEvent
 				event={
 					going
-						? {
-								words: ["Merging", task],
-								mobile: { words: ["Merge started", task] },
-								at: start.at,
-								since: start.at,
-							}
+						? { words: ["Merge started", task], at: start.at, since: start.at }
 						: { words: ["Merge interrupted", task], at: start.at }
 				}
 			/>
@@ -127,14 +114,10 @@ function StartedLine({
 	const ended = lineOf(end);
 	const view: SplatesEventView = {
 		...ended,
-		words: ended?.words ?? [],
-		mobile: {
-			...ended?.mobile,
-			words: [
-				...(ended?.mobile?.words ?? ended?.words ?? []),
-				`in ${spanOf(Date.parse(end.at) - Date.parse(start.at))}`,
-			],
-		},
+		words: [
+			...(ended?.words ?? []),
+			`in ${spanOf(Date.parse(end.at) - Date.parse(start.at))}`,
+		],
 		at: start.at,
 	};
 	return end.reason === null ? (

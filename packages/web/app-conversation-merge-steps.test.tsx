@@ -66,23 +66,25 @@ describe("App's merge steps", () => {
 		};
 	};
 
-	it("names queued and started merges without inline durations", async () => {
-		expect(await lines([queued()], 1)).toEqual(["Queuedalpha"]);
+	it("counts up while queued, then keeps the wait once started", async () => {
+		expect(await lines([queued()], 1)).toEqual([
+			expect.stringMatching(/^Merge queuedalpha\d+:\d\d$/),
+		]);
 		cleanup();
 		expect(await lines([queued(), started("q1", second(65))], 2)).toEqual([
-			"Queuedalpha",
-			"Mergingalpha",
+			"Merge queuedalpha· waited 1m",
+			expect.stringMatching(/^Merge startedalpha\d+:\d\d$/),
 		]);
 	});
 
-	it("turns the started line into its outcome", async () => {
+	it("turns the started line into how the merge ended and how long it ran", async () => {
 		expect(
 			await lines(
 				[started(null, second(5)), merged("s1", second(105), null)],
 				1,
 				false,
 			),
-		).toEqual(["Mergedalpha"]);
+		).toEqual(["Mergedalphain 1m 40s"]);
 		cleanup();
 		expect(
 			await lines(
@@ -94,7 +96,7 @@ describe("App's merge steps", () => {
 				2,
 				false,
 			),
-		).toEqual(["Queuedalpha", "Merge failedalpha"]);
+		).toEqual(["Merge queuedalpha· waited 30s", "Merge failedalphain 45sWhy"]);
 	});
 
 	it("draws a merge whose event kept its steps as a card: folded once landed, open with Why once refused", async () => {

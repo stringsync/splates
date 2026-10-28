@@ -156,7 +156,7 @@ describe("App's conversation thread", () => {
 		expect(line.textContent).toContain("Conflict with");
 		expect(within(line).getByLabelText("Conflict")).toBeDefined();
 		expect(within(line).getByTitle("Branch main")).toBeDefined();
-		expect(within(line).queryByTitle("state.ts")).toBeNull();
+		expect(within(line).getByTitle("state.ts")).toBeDefined();
 		expect(thread.textContent).not.toContain("Splates early warning");
 		expect(
 			thread.querySelector("[data-slot=aui_user-message-told]"),
@@ -187,10 +187,9 @@ describe("App's conversation thread", () => {
 				within(thread).getAllByRole("note", { name: "splates" }),
 			).toHaveLength(2),
 		);
-		expect(thread.textContent).toContain("Told agent");
+		expect(thread.textContent).toContain(`Told agent: ${serverText}`);
 		expect(thread.textContent).toContain("Handoff");
 		expect(thread.textContent).toContain("c1-task");
-		expect(thread.textContent).not.toContain(serverText);
 		expect(thread.textContent).not.toContain("The agent before you");
 		expect(within(thread).getByTitle(serverText)).toBeDefined();
 		const notes = within(thread).getAllByRole("note", { name: "splates" });

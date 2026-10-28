@@ -342,13 +342,11 @@ describe("App's question card keys", () => {
 		const line = await waitFor(() =>
 			view.getByRole("note", { name: "splates" }),
 		);
-		expect(line.textContent).toBe("Asked3 questions");
+		expect(line.textContent).toBe("Asked 3 questionsheaderShow");
 		expect(view.queryByRole("region", { name: "escalated header" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(
-				within(line).getByRole("button", { name: "3 questions" }),
-			),
+			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
 		);
 
 		const panel = view.getByRole("region", { name: "escalated header" });

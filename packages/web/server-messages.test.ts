@@ -75,7 +75,12 @@ describe("server-authored message lines", () => {
 
 	it("gives an unrecognized server prompt a line rather than a user bubble", () => {
 		const text = "A server prompt the page does not know yet.";
-		expect(words(text)).toEqual(["Told agent"]);
+		expect(words(text)).toEqual([
+			"Told agent: A server prompt the page does not know yet.",
+		]);
+		expect(words(`${"word ".repeat(30)}\nsecond line`)?.[0]).toMatch(
+			/^Told agent: word .*…$/u,
+		);
 		expect(serverToldLines(text, board, null)[0]?.title).toBe(text);
 	});
 });

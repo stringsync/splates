@@ -546,13 +546,10 @@ export function QuestionCards({
 	return (
 		<div className="my-6">
 			<SplatesEvent
-				event={questionOutcome(
-					{ count: questions.length, escalation },
-					proposal,
-					sent,
-					() => setShown(!shown),
-					shown,
-				)}
+				event={{
+					words: questionOutcome(questions.length, escalation, proposal, sent),
+					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
+				}}
 			/>
 			{shown && card}
 		</div>

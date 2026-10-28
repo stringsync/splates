@@ -19,44 +19,44 @@ import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
-import { useWide } from "./hooks/use-wide";
 import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 import { PendingSpinner, useShowPending } from "./pending";
+
 import { Stamp, useStamps } from "./stamp";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
-/** Compact on desktop; on a phone, the full details and controls this line used to show. */
+/**
+ * An event of splates's in the thread: one line of a verb, the thing it names,
+ * and any one action, centered between two hairlines in the small muted type
+ * nothing else in the thread uses, so it reads as splates speaking without
+ * pulling the eye from the turns around it. Its one color is a mark leading
+ * it, when it has one: a red X for a command that failed, a green check for
+ * one that landed. An early warning's mark, of a conflict or an overlap, is
+ * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
+ * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room, the names it
+ * holds give way, each cut short and whole in its title. A burst of todos it
+ * names lists each beneath, whole, with no hairlines of their own.
+ */
 export function SplatesEvent({
 	event,
-	lead,
-	children,
 }: {
 	event: SplatesEventView;
-	/** A logo before the verb. */
-	lead?: ReactNode;
-	children?: ReactNode;
 }): JSX.Element | null {
-	const wide = useWide();
-	const shown = viewForWidth(event, wide);
-	const { deadline = null, since = null } = shown;
+	const { deadline = null, since = null } = event;
 	const live = deadline !== null && !deadline.met;
-	const now = useNow(!wide && (live || since !== null));
+	const now = useNow(live || since !== null);
 	if (deadline?.met) {
 		return null;
 	}
-	const left = wide
-		? null
-		: live
-			? Math.max(0, Date.parse(deadline.until) - now)
-			: since !== null
-				? Math.max(0, now - Date.parse(since))
-				: null;
-	const listed = wide
-		? []
-		: shown.words.flatMap((word) =>
-				typeof word !== "string" && word.kind === "todos" ? word.todos : [],
-			);
+	const left = live
+		? Math.max(0, Date.parse(deadline.until) - now)
+		: since !== null
+			? Math.max(0, now - Date.parse(since))
+			: null;
+	const listed = event.words.flatMap((word) =>
+		typeof word !== "string" && word.kind === "todos" ? word.todos : [],
+	);
 	return (
 		<div
 			role="note"
@@ -67,9 +67,7 @@ export function SplatesEvent({
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
-				<Line event={shown} lead={lead} left={left} compact={wide}>
-					{wide ? children : null}
-				</Line>
+				<Line event={event} left={left} />
 				<Rule />
 			</div>
 			{listed.length > 0 && (
@@ -85,22 +83,10 @@ export function SplatesEvent({
 	);
 }
 
-/** The view for this width: the phone's restored details where the event supplies them. */
-export function viewForWidth(
-	event: SplatesEventView,
-	wide: boolean,
-): SplatesEventView {
-	if (wide || event.mobile === undefined) {
-		return event;
-	}
-	const { mobile, ...rest } = event;
-	return { ...rest, ...mobile };
-}
-
 /**
  * Something an event names, drawn as a chip with its kind's icon that opens it
  * where it can. `todos` names a burst of them, such as a groom's, as one
- * chip, "5 tasks", opening their list on desktop and listing them on a phone.
+ * chip, "5 todos", listing each beneath the line.
  */
 export type Named =
 	| {
@@ -139,29 +125,29 @@ export type Named =
 export type Words = readonly (string | Named)[];
 
 /**
- * One thing splates did in a conversation, as its own voice in the thread:
- * compact on desktop, with its secondary details restored on a phone.
+ * One thing splates did in a conversation, as its own voice in the thread
+ * rather than the person's or the agent's: what it did and what it names,
+ * then when.
  */
 export interface SplatesEventView {
 	/** The mark leading it, its line's only color, when it has one. */
 	mark?: Mark | null;
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
-	/** When it happened; shown after the words on a phone while stamps are on. */
+	/**
+	 * When, as an ISO time, to place it among the thread's messages; shown at
+	 * the line's end while the conversation's stamps are on. Null for one with
+	 * no time to show.
+	 */
 	at?: string | null;
 	/** What the line stands for, in full, on hover: a directive's text. */
 	title?: string;
-	/** A wait whose completion removes the summary. */
+	/** A wait it counts down in its action's place, when it has one. */
 	deadline?: Deadline | null;
-	/** When the work began, for the phone's count up while it runs. */
+	/** When what it says began, as an ISO time, for a line counting up from it while it runs. */
 	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
-	/** The fuller words and action a phone shows instead of the compact summary. */
-	mobile?: {
-		words: Words;
-		act?: Act | null;
-	};
 }
 
 /**
@@ -173,7 +159,7 @@ export interface SplatesEventView {
 export type Mark = "failed" | "landed" | "approved" | "conflict" | "overlap";
 
 /**
- * A wait that ends at `until`. Once what it waited on comes, it is
+ * A wait an event counts down to `until`. Once what it waited on comes, it is
  * `met` and its line goes, since the event that met it says so; once it times
  * out, the event is drawn in new words, `["Wait timed out", task]`, marked
  * `failed`, with no deadline.
@@ -194,36 +180,27 @@ export interface Act {
 	done?: string | null;
 	/** Whether its write is on its way: the button disables and spins. */
 	busy?: boolean;
-	/** Whether the subject has opened its existing content. */
-	expanded?: boolean;
 }
 
-/** One event's compact desktop line, or its full mobile line with time and action. */
+/**
+ * One event's line: its mark, if any, its words, then its one action, or in
+ * its place the time its wait has left.
+ */
 function Line({
 	event,
-	lead,
 	left,
-	compact,
-	children,
 }: {
 	event: SplatesEventView;
-	lead?: ReactNode;
+	/** How long its deadline has left, or since it began, in ms, while it counts; else null. */
 	left: number | null;
-	compact: boolean;
-	children?: ReactNode;
 }): JSX.Element {
 	const { mark = null, act = null } = event;
 	const stamped = useStamps().shown;
 	return (
 		<p
 			title={event.title}
-			className={cn(
-				"flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap",
-				compact &&
-					"max-w-[calc(100%-4.5rem)] [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44",
-			)}
+			className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap"
 		>
-			{lead}
 			{mark === "failed" && (
 				<XIcon
 					aria-label="Failed"
@@ -251,16 +228,8 @@ function Line({
 			{mark === "overlap" && (
 				<FilesIcon aria-label="Overlap" className="size-3.5 shrink-0" />
 			)}
-			<Words
-				words={
-					compact && (children != null || act !== null)
-						? event.words.slice(0, 1)
-						: event.words
-				}
-				compact={compact}
-			/>
-			{!compact && stamped && event.at != null && <Stamp at={event.at} />}
-			{children}
+			<Words words={event.words} />
+			{stamped && event.at != null && <Stamp at={event.at} />}
 			{left !== null ? (
 				<span className="shrink-0 tabular-nums">{countdown(left)}</span>
 			) : (
@@ -270,30 +239,19 @@ function Line({
 	);
 }
 
-/** Full descriptions on a phone; only the verb and primary subject on desktop. */
-function Words({
-	words,
-	compact,
-}: {
-	words: Words;
-	compact: boolean;
-}): ReactNode {
+/** Plain descriptions wrap; names between short words give way where room runs out. */
+function Words({ words }: { words: Words }): ReactNode {
 	if (words.length === 1 && typeof words[0] === "string") {
-		return compact ? (
-			<span className="min-w-0 truncate text-center">{words[0]}</span>
-		) : (
+		return (
 			<span className="min-w-0 whitespace-normal wrap-anywhere text-center">
 				{words[0]}
 			</span>
 		);
 	}
-	return (compact ? words.slice(0, 2) : words).map((word, index) =>
+	return words.map((word, index) =>
 		typeof word === "string" ? (
-			<span
-				// biome-ignore lint/suspicious/noArrayIndexKey: words never move
-				key={index}
-				className={compact && index > 0 ? "min-w-0 truncate" : "shrink-0"}
-			>
+			// biome-ignore lint/suspicious/noArrayIndexKey: words never move
+			<span key={index} className="shrink-0">
 				{word}
 			</span>
 		) : (
@@ -535,13 +493,10 @@ function Chip({
 
 /** An event's one action, as a small button, or what it did once done. */
 export function Action({ act }: { act: Act }): JSX.Element {
-	const wide = useWide();
 	const { done = null, busy = false } = act;
 	const shown = useShowPending(busy);
 	if (done !== null) {
-		return (
-			<span className={wide ? "min-w-0 truncate" : "shrink-0"}>{done}</span>
-		);
+		return <span className="shrink-0">{done}</span>;
 	}
 	return (
 		<Button
@@ -549,13 +504,11 @@ export function Action({ act }: { act: Act }): JSX.Element {
 			size="xs"
 			disabled={busy}
 			aria-busy={busy}
-			aria-expanded={act.expanded}
 			onClick={act.run}
-			className={wide ? "min-w-0 shrink" : "shrink-0"}
-			title={wide ? act.label : undefined}
+			className="shrink-0"
 		>
 			{busy && shown && <PendingSpinner shown />}
-			{wide ? <span className="min-w-0 truncate">{act.label}</span> : act.label}
+			{act.label}
 		</Button>
 	);
 }

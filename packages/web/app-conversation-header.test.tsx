@@ -490,17 +490,17 @@ describe("App's conversation header", () => {
 
 		const lines = view.getAllByRole("note", { name: "background command" });
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"RunningCommand",
-			"FailedCommand",
-			"RanCommand",
+			"Running in the backgroundShow",
+			"Failed in the background, exit 1Show",
+			"Ran in the background, exit 0Show",
 		]);
 		const failed = within(lines[1] as HTMLElement);
 		await act(async () =>
-			fireEvent.click(failed.getByRole("button", { name: "Command" })),
+			fireEvent.click(failed.getByRole("button", { name: "Show" })),
 		);
 		expect(failed.getByText("bun test").tagName).toBe("CODE");
 		await act(async () =>
-			fireEvent.click(failed.getByRole("button", { name: "Command" })),
+			fireEvent.click(failed.getByRole("button", { name: "Hide" })),
 		);
 		expect(failed.queryByText("bun test")).toBeNull();
 	});

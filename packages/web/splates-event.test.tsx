@@ -1,13 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { Board, NO_BOARD } from "./board";
-import { resize } from "./drivers";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
 import { cleanup, fireEvent, render, within } from "./testing-library";
 
-afterEach(() => {
-	cleanup();
-	resize(1024, 768);
-});
+afterEach(cleanup);
 
 /** An ISO time `mins` minutes from now. */
 function at(mins: number): string {
@@ -31,48 +27,24 @@ describe("splates events", () => {
 		const event = page.getByRole("note", { name: "splates" });
 		expect(event.textContent).toContain("Merged");
 		expect(within(event).getByTitle("Task events-log")).toBeDefined();
-		expect(within(event).queryByTitle("Branch main")).toBeNull();
-	});
-
-	it("shows the whole line again on a phone", () => {
-		resize(390, 844);
-		const page = render(<SplatesEvent event={merged} />);
-
-		const event = page.getByRole("note", { name: "splates" });
-		expect(event.textContent).toContain("onto");
 		expect(within(event).getByTitle("Branch main")).toBeDefined();
 	});
 
-	it("counts a wait down on a phone", () => {
-		resize(390, 844);
-		const page = render(
-			<SplatesEvent
-				event={{
-					words: ["Waiting on", { kind: "task", task: "events-log" }],
-					deadline: { until: at(4) },
-				}}
-			/>,
-		);
-
-		expect(page.getByRole("note", { name: "splates" }).textContent).toMatch(
-			/Waiting onevents-log[34]:\d{2}/,
-		);
-	});
-
-	it("keeps a wait to its subject without inline timing", () => {
+	it("counts down in its action's place while it waits", () => {
 		const page = render(
 			<SplatesEvent
 				event={{
 					words: ["Waiting on", { kind: "task", task: "events-log" }],
 					at: at(-1),
 					deadline: { until: at(4) },
+					act: { label: "Paste", run: () => {} },
 				}}
 			/>,
 		);
 
 		const event = page.getByRole("note", { name: "splates" });
 		expect(event.dataset.live).toBe("true");
-		expect(event.textContent).toBe("Waiting onevents-log");
+		expect(event.textContent).toMatch(/\D[34]:\d\d$/);
 		expect(page.queryByRole("button", { name: "Paste" })).toBeNull();
 	});
 
@@ -105,7 +77,7 @@ describe("splates events", () => {
 
 		const event = page.getByRole("note", { name: "splates" });
 		// One icon in each of its two chips, and none before them.
-		expect(event.querySelectorAll("svg")).toHaveLength(1);
+		expect(event.querySelectorAll("svg")).toHaveLength(2);
 		expect(event.querySelector("p > svg")).toBeNull();
 	});
 
@@ -135,7 +107,6 @@ describe("splates events", () => {
 		fireEvent.click(page.getByRole("button", { name: "Paste" }));
 
 		expect(runs).toBe(1);
-		expect(page.queryByTitle("Task events-log")).toBeNull();
 	});
 
 	it("says its action is done in place of the button", () => {
@@ -185,7 +156,7 @@ describe("splates events", () => {
 		expect(opened).toEqual([[212, 214]]);
 	});
 
-	it("names a burst of todos as one chip without expanding its list", () => {
+	it("names a burst of todos as one chip, listing each whole beneath", () => {
 		const page = render(
 			<SplatesEvent
 				event={{
@@ -206,35 +177,8 @@ describe("splates events", () => {
 
 		expect(page.getByTitle("Tasks #212, #214").textContent).toBe("2 tasks");
 		expect(
-			page.queryByTitle("Task #212: Upload retries forever on a 413"),
-		).toBeNull();
-	});
-
-	it("lists a burst's todos on a phone", () => {
-		resize(390, 844);
-		const page = render(
-			<SplatesEvent
-				event={{
-					words: [
-						"Updated",
-						{
-							kind: "todos",
-							todos: [
-								{ id: 212, subject: "Upload retries forever on a 413" },
-								{ id: 214, subject: "Show a stale todo as muted" },
-							],
-						},
-					],
-				}}
-			/>,
-		);
-
-		expect(
-			page.getByTitle("Task #212: Upload retries forever on a 413"),
-		).toBeDefined();
-		expect(
-			page.getByTitle("Task #214: Show a stale todo as muted"),
-		).toBeDefined();
+			page.getByTitle("Task #212: Upload retries forever on a 413").textContent,
+		).toBe("#212 Upload retries forever on a 413");
 	});
 
 	it("goes once what its wait waited on came", () => {

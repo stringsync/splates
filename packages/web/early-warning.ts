@@ -49,31 +49,21 @@ export function warningLines(
 	at: string | null,
 	title: string,
 ): SplatesEventView[] {
-	const line = (mark: Mark, words: Words, mobile: Words) => ({
-		mark,
-		words,
-		mobile: { words: mobile },
-		at,
-		title,
-	});
+	const line = (mark: Mark, words: Words) => ({ mark, words, at, title });
 	return warning.kind === "conflict"
 		? [
-				line(
-					"conflict",
-					["Conflict with", { kind: "branch", branch: warning.base }],
-					[
-						"Conflict with",
-						{ kind: "branch", branch: warning.base },
-						...filesIn(warning.files),
-					],
-				),
+				line("conflict", [
+					"Conflict with",
+					{ kind: "branch", branch: warning.base },
+					...filesIn(warning.files),
+				]),
 			]
 		: warning.overlaps.map(({ task, files }) =>
-				line(
-					"overlap",
-					["Overlaps", { kind: "task", task }],
-					["Overlaps", { kind: "task", task }, ...filesIn(files)],
-				),
+				line("overlap", [
+					"Overlaps",
+					{ kind: "task", task },
+					...filesIn(files),
+				]),
 			);
 }
 

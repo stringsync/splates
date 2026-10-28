@@ -57,12 +57,12 @@ describe("App's merge events", () => {
 			{ ...turn(["Merging."]), events: [refused] },
 		]);
 		fireEvent.click(
-			await waitFor(() => view.getByRole("button", { name: "alpha" })),
+			await waitFor(() => view.getByRole("button", { name: "Why" })),
 		);
 		return waitFor(() => view.getByRole("dialog"));
 	}
 
-	it("keeps batch companions out of merge summaries", async () => {
+	it("names batch companions on successful merge event lines only", async () => {
 		const batched = events.map((event) => ({
 			...event,
 			batch: ["alpha", "beta", "gamma"],
@@ -71,7 +71,7 @@ describe("App's merge events", () => {
 			{ ...turn(["Merged."]), events: batched },
 		]);
 		await waitFor(() =>
-			expect(view.queryByText("· gated with beta, gamma")).toBeNull(),
+			expect(view.getAllByText("· gated with beta, gamma")).toHaveLength(1),
 		);
 	});
 
@@ -107,7 +107,7 @@ describe("App's merge events", () => {
 			return found;
 		});
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Merge failedalpha",
+			"Merge failedalphaWhy",
 			"Mergedalpha",
 		]);
 	});
@@ -122,11 +122,11 @@ describe("App's merge events", () => {
 			return found;
 		});
 		expect(
-			(lines[1] as HTMLElement).querySelector('button[title="alpha"]'),
+			within(lines[1] as HTMLElement).queryByRole("button", { name: "Why" }),
 		).toBeNull();
 
 		fireEvent.click(
-			within(lines[0] as HTMLElement).getByRole("button", { name: "alpha" }),
+			within(lines[0] as HTMLElement).getByRole("button", { name: "Why" }),
 		);
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));

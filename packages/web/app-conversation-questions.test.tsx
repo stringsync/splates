@@ -126,7 +126,7 @@ describe("App's question cards", () => {
 		const line = await waitFor(() =>
 			view.getByRole("note", { name: "splates" }),
 		);
-		expect(line.textContent).toBe("Asked2 questions");
+		expect(line.textContent).toBe("Asked 2 questionsShow");
 		// The reply is a message of its own, pinned atop its turn.
 		expect(view.getAllByText("all of them")).toHaveLength(1);
 		expect(
@@ -134,17 +134,13 @@ describe("App's question cards", () => {
 		).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(
-				within(line).getByRole("button", { name: "2 questions" }),
-			),
+			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
 		);
 
 		const asked = view.getByRole("region", { name: "questions for you" });
 		expect(within(asked).getByText("all of them")).toBeTruthy();
 		expect(view.getAllByText("all of them")).toHaveLength(2);
-		expect(
-			within(line).getByRole("button", { name: "2 questions" }),
-		).toBeTruthy();
+		expect(within(line).getByRole("button", { name: "Hide" })).toBeTruthy();
 	});
 
 	it("renders markdown in a question's subject and choices", async () => {

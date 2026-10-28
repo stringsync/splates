@@ -31,15 +31,12 @@ export function startLine(
 ): SplatesEventView {
 	const name = lanes.find((each) => each.id === start.lane)?.name;
 	return {
-		words: ["Started", { kind: "task", task: start.task }],
-		mobile: {
-			words: [
-				"Started",
-				{ kind: "task", task: start.task },
-				"from lane",
-				{ kind: "lane", id: start.lane, name: name ?? String(start.lane) },
-			],
-		},
+		words: [
+			"Started",
+			{ kind: "task", task: start.task },
+			"from lane",
+			{ kind: "lane", id: start.lane, name: name ?? String(start.lane) },
+		],
 		at,
 		title,
 	};

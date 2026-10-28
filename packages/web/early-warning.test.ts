@@ -48,7 +48,7 @@ describe("splates server's early warnings", () => {
 		).toBeNull();
 	});
 
-	it("names only the base on desktop and restores the files on mobile", () => {
+	it("names the base and each file, or past three, their count", () => {
 		const title = "the whole warning";
 		const [few] = warningLines(
 			{ kind: "conflict", base: "main", files: ["a.ts", "b.ts"] },
@@ -63,20 +63,16 @@ describe("splates server's early warnings", () => {
 
 		expect(few).toEqual({
 			mark: "conflict",
-			words: ["Conflict with", { kind: "branch", branch: "main" }],
-			mobile: {
-				words: [
-					"Conflict with",
-					{ kind: "branch", branch: "main" },
-					"in",
-					{ kind: "file", path: "a.ts" },
-					{ kind: "file", path: "b.ts" },
-				],
-			},
+			words: [
+				"Conflict with",
+				{ kind: "branch", branch: "main" },
+				"in",
+				{ kind: "file", path: "a.ts" },
+				{ kind: "file", path: "b.ts" },
+			],
 			at: null,
 			title,
 		});
-		expect(many?.words).toEqual(few?.words);
-		expect(many?.mobile?.words.at(-1)).toBe("in 4 files");
+		expect(many?.words.at(-1)).toBe("in 4 files");
 	});
 });

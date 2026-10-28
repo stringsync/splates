@@ -80,7 +80,7 @@ describe("App's artifacts", () => {
 		});
 		expect(lines.map((line) => line.textContent)).toEqual([
 			"Addedreport.html",
-			"Addedreport.html",
+			"Addedreport.html(v2)",
 			"Removedreport.html",
 			"artifact add: too_large",
 		]);

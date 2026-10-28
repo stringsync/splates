@@ -23,7 +23,7 @@ test("reads the batch and its tally back from what the server tells the agent", 
 	expect(done).toEqual({ batch: "batch-abc", summary: "2 cells · 2 pass" });
 	expect(
 		evalsDoneLine(done ?? { batch: "", summary: "" }, null, text).words,
-	).toEqual(["Finished"]);
+	).toEqual(["Evals done:", "2 cells · 2 pass"]);
 });
 
 test("reads nothing from another message", () => {

@@ -78,35 +78,26 @@ const LINES: {
 		if (attached.length === 0 && removed.length === 0) {
 			return null;
 		}
-		const words = attached.length === 0 ? removed : attached;
-		return {
-			words,
-			mobile: {
-				words:
-					attached.length === 0
-						? [...removed, "from", task(event)]
-						: [
-								...attached,
-								"to",
-								task(event),
-								...filesWords("and removed", event.removed),
-							],
-			},
-			at: event.at,
-		};
+		const words =
+			attached.length === 0
+				? [...removed, "from", task(event)]
+				: [
+						...attached,
+						"to",
+						task(event),
+						...filesWords("and removed", event.removed),
+					];
+		return { words, at: event.at };
 	},
 	// A refused one changed nothing, and the agent says why itself.
 	"artifact add": (event) =>
 		event.reason === null
 			? {
-					words: ["Added", artifact(event)],
-					mobile: {
-						words: [
-							"Added",
-							artifact(event),
-							...(event.version === 1 ? [] : [`(v${event.version})`]),
-						],
-					},
+					words: [
+						"Added",
+						artifact(event),
+						...(event.version === 1 ? [] : [`(v${event.version})`]),
+					],
 					at: event.at,
 				}
 			: null,
@@ -118,32 +109,26 @@ const LINES: {
 		event.reason === null
 			? {
 					mark: "landed",
-					words: ["Merged", task(event)],
-					mobile: {
-						words: [
-							"Merged",
-							task(event),
-							...((event.batch?.length ?? 0) > 1
-								? [
-										`· gated with ${event.batch?.filter((each) => each !== event.task).join(", ")}`,
-									]
-								: []),
-						],
-					},
+					words: [
+						"Merged",
+						task(event),
+						...((event.batch?.length ?? 0) > 1
+							? [
+									`· gated with ${event.batch?.filter((each) => each !== event.task).join(", ")}`,
+								]
+							: []),
+					],
 					at: event.at,
 				}
 			: {
 					mark: "failed",
-					words: ["Merge failed", task(event)],
-					mobile: {
-						words: [
-							"Merge failed",
-							task(event),
-							...(event.reason === "budget_exhausted"
-								? ["· out of merge attempts"]
-								: []),
-						],
-					},
+					words: [
+						"Merge failed",
+						task(event),
+						...(event.reason === "budget_exhausted"
+							? ["· out of merge attempts"]
+							: []),
+					],
 					at: event.at,
 				},
 	claim: (event) =>
@@ -420,18 +405,12 @@ function waitLine(
 	const until = began.until ?? at;
 	if (end === null) {
 		return going && now <= Date.parse(until) + CUT_OFF_AFTER_MS
-			? {
-					words: ["Waiting", thing],
-					mobile: { words: ["Waiting on", thing] },
-					at,
-					deadline: { until },
-				}
+			? { words: ["Waiting on", thing], at, deadline: { until } }
 			: { words: ["Wait interrupted", thing], at };
 	}
 	if (end.reason === null || end.reason === "dismissed") {
 		return {
-			words: ["Waiting", thing],
-			mobile: { words: ["Waiting on", thing] },
+			words: ["Waiting on", thing],
 			at,
 			deadline: { until, met: true },
 		};

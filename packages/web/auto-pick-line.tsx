@@ -1,7 +1,7 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
 import { InfoIcon } from "lucide-react";
 import { type JSX, useState } from "react";
-import { AutoAgentMark } from "./auto-brand";
+import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import { Button } from "./components/ui/button";
 import {
 	Popover,
@@ -9,14 +9,17 @@ import {
 	PopoverTrigger,
 } from "./components/ui/popover";
 import { chooseSetting } from "./conversation-api";
-import { useWide } from "./hooks/use-wide";
 import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
-import { SplatesEvent } from "./splates-event";
 
 type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
 
-/** Shows an Auto pick `event`; `details` expands its findings for a work timeline. */
+/**
+ * Auto pick's line in a conversation, led by its mark, split with the picked agent's: what it picked, or
+ * moved up to, then the likeliest kind and depth, or why the judge found
+ * none, which open a popover of everything it found, and for a move up, an
+ * Undo. On a phone those findings fold into an icon, so the pick has the room.
+ */
 export function AutoPickLine({
 	event,
 	details = false,
@@ -24,7 +27,6 @@ export function AutoPickLine({
 	event: AutoEvent;
 	details?: boolean;
 }): JSX.Element {
-	const wide = useWide();
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
 	const verb =
@@ -56,63 +58,40 @@ export function AutoPickLine({
 			</div>
 		);
 	}
-	if (!wide) {
-		return (
-			<div
-				role="note"
-				aria-label="splates"
-				className="my-6 text-muted-foreground text-xs"
-			>
-				<div className="flex items-center gap-3">
-					<Rule />
-					<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
-						<AutoAgentMark agent={event.agent} className="size-3.5" />
-						<span className="min-w-0 truncate">
-							{verb} {params.picked}
-						</span>
-						<span aria-hidden>·</span>
-						<Popover>
-							<PopoverTrigger
-								aria-label={short}
-								className="shrink-0 cursor-pointer rounded px-1 underline decoration-dotted underline-offset-2 hover:text-foreground"
-							>
-								<InfoIcon aria-hidden className="size-3.5" />
-							</PopoverTrigger>
-							<PopoverContent className="w-80 text-xs">
-								<Findings params={params} lifted={lifted} />
-							</PopoverContent>
-						</Popover>
-						{undo.control}
-					</p>
-					<Rule />
-				</div>
-				<Refusal refusal={undo.refusal} className="mt-1 text-center" />
-			</div>
-		);
-	}
-	const picked = params.picked.split(",")[0] ?? params.picked;
 	return (
-		<div>
-			<SplatesEvent
-				event={{ words: ["Auto-picked"] }}
-				lead={<AutoAgentMark agent={event.agent} className="size-3.5" />}
-			>
-				<Popover>
-					<PopoverTrigger
-						render={
-							<Button variant="outline" size="xs" className="min-w-0 shrink" />
-						}
-						title={params.picked}
-					>
-						<span className="min-w-0 truncate">{picked}</span>
-					</PopoverTrigger>
-					<PopoverContent className="flex w-80 flex-col gap-3 text-xs">
-						<p>{params.picked}</p>
-						<Findings params={params} lifted={lifted} />
-						{undo.control}
-					</PopoverContent>
-				</Popover>
-			</SplatesEvent>
+		<div
+			role="note"
+			aria-label="splates"
+			className="my-6 text-muted-foreground text-xs"
+		>
+			<div className="flex items-center gap-3">
+				<Rule />
+				<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
+					{lifted === null ? (
+						<AutoIcon colored className="size-3.5 shrink-0" />
+					) : (
+						<AutoAgentMark agent={event.agent} className="size-3.5" />
+					)}
+					<span className="min-w-0 truncate">
+						{verb} {params.picked}
+					</span>
+					<span aria-hidden>·</span>
+					<Popover>
+						<PopoverTrigger
+							aria-label={short}
+							className="shrink-0 cursor-pointer rounded px-1 underline decoration-dotted underline-offset-2 hover:text-foreground"
+						>
+							<InfoIcon aria-hidden className="size-3.5 sm:hidden" />
+							<span className="max-sm:hidden">{short}</span>
+						</PopoverTrigger>
+						<PopoverContent className="w-80 text-xs">
+							<Findings params={params} lifted={lifted} />
+						</PopoverContent>
+					</Popover>
+					{undo.control}
+				</p>
+				<Rule />
+			</div>
 			<Refusal refusal={undo.refusal} className="mt-1 text-center" />
 		</div>
 	);
@@ -276,7 +255,7 @@ function capital(word: string): string {
 	return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-/** A plain hairline beside the mobile line, taking what room it leaves. */
+/** A plain hairline beside the line, taking what room it leaves. */
 function Rule(): JSX.Element {
 	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
 }

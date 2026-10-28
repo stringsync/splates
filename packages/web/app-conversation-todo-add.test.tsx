@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
-import { resize, workTimeline } from "./drivers";
+import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -43,7 +43,6 @@ describe("App's todo add events", () => {
 
 	afterEach(() => {
 		cleanup();
-		resize(1024, 768);
 		testing.dispose();
 	});
 
@@ -54,40 +53,17 @@ describe("App's todo add events", () => {
 		const timeline = workTimeline(thread);
 
 		expect(quietLines(timeline).map((line) => line.textContent)).toEqual([
-			"Added#4 Upload retries forever on a 413",
+			"Added#4 Upload retries forever on a 413Remove",
 			"task add: usage",
 		]);
-	});
-
-	it("restores the direct Remove and Undo controls on a phone", async () => {
-		act(() => resize(390, 844));
-		const timeline = workTimeline(thread);
-		const line = quietLines(timeline)[0] as HTMLElement;
-		expect(line.textContent).toBe(
-			"Added#4 Upload retries forever on a 413Remove",
-		);
-
-		await act(async () =>
-			fireEvent.click(within(line).getByRole("button", { name: "Remove" })),
-		);
-
-		expect(testing.posted("/api/todos/4")).toMatchObject([
-			{ method: "DELETE" },
-		]);
-		testing.served = { ...testing.served, todos: [] };
-		await act(async () => testing.stream?.onmessage?.());
-		await waitFor(() => within(line).getByRole("button", { name: "Undo" }));
 	});
 
 	it("removes the todo from its line, and puts it back with Undo", async () => {
 		const timeline = workTimeline(thread);
 		const line = quietLines(timeline)[0] as HTMLElement;
-		fireEvent.click(
-			within(line).getByRole("button", { name: /Upload retries/ }),
-		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Remove" })),
+			fireEvent.click(within(line).getByRole("button", { name: "Remove" })),
 		);
 
 		expect(testing.posted("/api/todos/4")).toMatchObject([
@@ -102,11 +78,11 @@ describe("App's todo add events", () => {
 			return first as HTMLElement;
 		});
 		expect(removed.textContent).toBe(
-			"Removed#4 Upload retries forever on a 413",
+			"Removed#4 Upload retries forever on a 413Undo",
 		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Undo" })),
+			fireEvent.click(within(removed).getByRole("button", { name: "Undo" })),
 		);
 
 		expect(testing.posted("/api/todos/4/restore")).toMatchObject([
@@ -115,7 +91,7 @@ describe("App's todo add events", () => {
 		testing.served = { ...testing.served, todos: listed };
 		await act(async () => testing.stream?.onmessage?.());
 		await waitFor(() =>
-			view.getByRole("button", {
+			within(quietLines(timeline)[0] as HTMLElement).getByRole("button", {
 				name: "Remove",
 			}),
 		);
@@ -131,9 +107,6 @@ describe("App's todo add events", () => {
 			),
 		);
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Open task #4" })),
-		);
 		await waitFor(() => view.getByRole("dialog", { name: /Task 4/ }));
 	});
 });

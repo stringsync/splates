@@ -1,6 +1,6 @@
 import type { SplatesEventView } from "./splates-event";
 
-/** Identifies a completed eval run and its result summary. */
+/** The batch, tally and cost splates server reports to the agent whose run evals card started a run, once it is done. */
 export interface EvalsDone {
 	batch: string;
 	summary: string;
@@ -23,17 +23,15 @@ export function evalsDoneLine(
 	at: string | null,
 	title: string,
 ): SplatesEventView {
-	const open = () => {
-		location.hash = `#evals/${encodeURIComponent(done.batch)}`;
-	};
 	return {
-		words: ["Finished"],
-		mobile: {
-			words: ["Evals done:", done.summary],
-			act: { label: "Open report", run: open },
-		},
+		words: ["Evals done:", done.summary],
 		at,
 		title,
-		act: { label: "Eval report", run: open },
+		act: {
+			label: "Open report",
+			run: () => {
+				location.hash = `#evals/${encodeURIComponent(done.batch)}`;
+			},
+		},
 	};
 }

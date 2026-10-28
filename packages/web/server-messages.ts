@@ -92,7 +92,17 @@ export function serverToldLines(
 	if (task !== null) {
 		return [view(["Started", { kind: "task", task: task[1] ?? "" }], at, text)];
 	}
-	return [view(["Told agent"], at, text)];
+	return [view([`Told agent: ${excerpt(text)}`], at, text)];
+}
+
+const EXCERPT_LENGTH = 80;
+
+/** The prompt's first line, cut short, so a line for a prompt the page does not know says what it was. */
+function excerpt(text: string): string {
+	const first = text.trim().split("\n")[0]?.trim() ?? "";
+	return first.length > EXCERPT_LENGTH
+		? `${first.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`
+		: first;
 }
 
 /** The line a server-generated handoff prompt draws, or null for another message. */

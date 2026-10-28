@@ -1,7 +1,7 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ChevronDownIcon, ChevronUpIcon, LoaderCircleIcon } from "lucide-react";
-import type { JSX, ReactNode } from "react";
+import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -11,9 +11,6 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
-
-export { useWide, WIDE } from "./hooks/use-wide";
-
 import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
@@ -26,6 +23,9 @@ import { shipActivity } from "./ship-activity";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 import { NAV_HEADING } from "./top-bar";
+
+/** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
+export const WIDE = "(min-width: 768px)";
 
 /**
  * The wide screen's sidebar: render it beside the page to move between its
@@ -187,6 +187,18 @@ export function AppNav({
 			</TabsList>
 			{shown && <SidebarHandle sidebar={sidebar} />}
 		</>
+	);
+}
+
+/** Whether the window is `WIDE` right now, following it as it resizes. */
+export function useWide(): boolean {
+	return useSyncExternalStore(
+		(changed) => {
+			const query = matchMedia(WIDE);
+			query.addEventListener("change", changed);
+			return () => query.removeEventListener("change", changed);
+		},
+		() => matchMedia(WIDE).matches,
 	);
 }
 

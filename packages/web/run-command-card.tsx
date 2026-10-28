@@ -35,7 +35,13 @@ import { SplatesEvent } from "./splates-event";
  */
 export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
 
-/** Shows `proposal` with its cost so the person can allow or deny the command. */
+/**
+ * Shows an agent's request to run a heavy command, with why and how loaded
+ * the machine is, for the person to Allow or Deny. Allowing the whole test
+ * suite grants the conversation its one run; Grant on `splates retry <task>`
+ * runs the retry; Ship on `splates ship` opens the ship plan, and the agent
+ * hears `[SPLATES RUN ALLOWED]` only once Approve starts the ship.
+ */
 export function RunCommandCard({
 	proposal,
 }: {
@@ -120,33 +126,20 @@ export function RunCommandCard({
 				<SplatesEvent
 					event={{
 						mark: choice === RUN_ALLOWED ? "landed" : "failed",
-						words: [
-							choice === RUN_ALLOWED
-								? retry !== null
-									? "Granted"
-									: "Allowed"
-								: "Denied",
-						],
-						mobile: {
-							words:
-								retry !== null
-									? [
-											choice === RUN_ALLOWED
-												? "Granted merge attempts to"
-												: "Denied merge attempts to",
-											{ kind: "task", task: retry },
-										]
-									: [
-											choice === RUN_ALLOWED ? "Allowed" : "Denied",
-											{ kind: "command", command: proposal.command ?? "" },
-										],
-							act: { label: "Open", run: () => setOpened(true) },
-						},
+						words:
+							retry !== null
+								? [
+										choice === RUN_ALLOWED
+											? "Granted merge attempts to"
+											: "Denied merge attempts to",
+										{ kind: "task", task: retry },
+									]
+								: [
+										choice === RUN_ALLOWED ? "Allowed" : "Denied",
+										{ kind: "command", command: proposal.command ?? "" },
+									],
 						title: choice,
-						act: {
-							label: retry !== null ? "Merge attempts" : "Command",
-							run: () => setOpened(true),
-						},
+						act: { label: "Open", run: () => setOpened(true) },
 					}}
 				/>
 				<Refusal refusal={refusal} />

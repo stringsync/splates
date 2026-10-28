@@ -50,10 +50,10 @@ describe("App's waits", () => {
 		);
 	};
 
-	it("shows its live wait without a countdown", async () => {
+	it("counts down to its timeout while it runs", async () => {
 		const found = await line([began("alpha", inMins(9))]);
 
-		expect(found.textContent).toBe("Waitingalpha");
+		expect(found.textContent).toMatch(/^Waiting onalpha(9:00|8:59)$/);
 		expect(found.dataset.live).toBe("true");
 	});
 
@@ -67,7 +67,7 @@ describe("App's waits", () => {
 				subject: "Seven",
 			} as Event,
 		]);
-		expect(todo.textContent).toBe("Waiting#7 Seven");
+		expect(todo.textContent).toMatch(/^Waiting on#7 Seven\d:\d\d$/);
 		cleanup();
 
 		const cred = await line([
@@ -78,7 +78,7 @@ describe("App's waits", () => {
 				name: "API_TOKEN",
 			} as Event,
 		]);
-		expect(cred.textContent).toBe("WaitingAPI_TOKEN");
+		expect(cred.textContent).toMatch(/^Waiting onAPI_TOKEN\d:\d\d$/);
 	});
 
 	it("goes once what it waited on came", async () => {

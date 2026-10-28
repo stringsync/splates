@@ -12,15 +12,9 @@ import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
 import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
-import { useWide } from "./hooks/use-wide";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import {
-	Action,
-	NamedChip,
-	type SplatesEventView,
-	viewForWidth,
-} from "./splates-event";
+import { Action, NamedChip, type SplatesEventView } from "./splates-event";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
@@ -160,9 +154,7 @@ export function TimelineItem({
 				<AddedLine
 					view={view}
 					id={event.number}
-					render={(each, subject) => (
-						<EventLine view={each}>{subject}</EventLine>
-					)}
+					render={(each) => <EventLine view={each} />}
 				/>
 			) : (
 				<EventLine view={view} />
@@ -191,44 +183,22 @@ export function TimelineItem({
 }
 
 /** Something splates did at the agent's word, in its words, then its one action. */
-function EventLine({
-	view,
-	children,
-}: {
-	view: SplatesEventView;
-	children?: ReactNode;
-}): JSX.Element {
-	const wide = useWide();
-	const shown = viewForWidth(view, wide);
-	const words = wide
-		? shown.act == null && children == null
-			? shown.words.slice(0, 2)
-			: shown.words.slice(0, 1)
-		: shown.words;
+function EventLine({ view }: { view: SplatesEventView }): JSX.Element {
 	return (
 		<div
 			data-slot="quiet-event"
-			className={cn(
-				"flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
-				wide && "[&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44",
-			)}
+			className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
 		>
-			{words.map((word, index) =>
+			{view.words.map((word, index) =>
 				typeof word === "string" ? (
-					<span
-						// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
-						key={index}
-						className={wide && index > 0 ? "min-w-0 truncate" : "shrink-0"}
-					>
-						{word}
-					</span>
+					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
+					<span key={index}>{word}</span>
 				) : (
 					// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
 					<NamedChip key={index} named={word} />
 				),
 			)}
-			{wide && children}
-			{shown.act != null && <Action act={shown.act} />}
+			{view.act != null && <Action act={view.act} />}
 		</div>
 	);
 }
