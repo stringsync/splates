@@ -33,9 +33,12 @@ describe("App once the server stays away after a wake", () => {
 		const said = await waitFor(() => view.getByText("Offline."));
 		expect(said.textContent).toBe("Offline.");
 		expect(view.getAllByRole("button", { name: "Retry" })).toHaveLength(1);
-		expect(input.closest("[inert]")).toBeNull();
-		expect(view.queryByRole("status", { name: "Refreshing" })).toBeNull();
-		expect(view.queryByText(/Timeout in/)).toBeNull();
+		// The banner can commit before the overlay's effect releases the page.
+		await waitFor(() => {
+			expect(input.closest("[inert]")).toBeNull();
+			expect(view.queryByRole("status", { name: "Refreshing" })).toBeNull();
+			expect(view.queryByText(/Timeout in/)).toBeNull();
+		});
 	});
 
 	it("shows the conversations again once the server is back", async () => {

@@ -55,6 +55,9 @@ describe("App's queue controls", () => {
 
 	it("holds Pause pending until the server shows it paused, then turns to Resume", async () => {
 		const view = await openQueue(pool({}));
+		const controls = within(
+			view.getByRole("region", { name: "queue controls" }),
+		);
 		testing.holdWrites();
 
 		await act(async () =>
@@ -63,7 +66,7 @@ describe("App's queue controls", () => {
 
 		const pending = view.getByRole("button", { name: "Pause" });
 		expect(pending.getAttribute("aria-busy")).toBe("true");
-		expect(view.getByRole("status").textContent).not.toContain("Paused");
+		expect(controls.getByRole("status").textContent).not.toContain("Paused");
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/local",
 			method: "PUT",
@@ -73,7 +76,7 @@ describe("App's queue controls", () => {
 		testing.workers = pool({ paused: true });
 		await act(async () => testing.release());
 		await waitFor(() => view.getByRole("button", { name: "Resume" }));
-		expect(view.getByRole("status").textContent).toContain("Paused");
+		expect(controls.getByRole("status").textContent).toContain("Paused");
 	});
 
 	it("resumes a worker turned off before, turning it back on", async () => {
