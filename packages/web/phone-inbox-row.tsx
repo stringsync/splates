@@ -24,7 +24,7 @@ import { unanswered } from "./unanswered";
 
 /**
  * One agent in the inbox: its mark, name, what it waits on, and how long
- * since it moved. Held down, a conversation's row opens its menu.
+ * since it moved. Its action button or a long press opens its action sheet.
  */
 export function Row({
 	row,
@@ -88,7 +88,7 @@ export function Row({
 			{...press}
 			className={cn(
 				// No callout or selection to fight the long press.
-				"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
+				"flex w-full min-w-0 flex-1 select-none items-center gap-3 py-2.5 pr-2 text-left [-webkit-touch-callout:none] active:bg-muted",
 				depth === 0 ? "min-h-16" : "min-h-14",
 			)}
 			// Under the name of the agent it answers to.

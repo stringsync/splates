@@ -146,7 +146,7 @@ describe("Project controls in conversation lists", () => {
 		expect(view.queryByRole("dialog", { name: "Pages" })).toBeNull();
 	});
 
-	it("empties the page's own project after swiping away its last conversation and lists it again when unarchived", async () => {
+	it("empties the page's own project after archiving its last conversation from the action sheet and lists it again when unarchived", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations(
 			[
@@ -164,12 +164,15 @@ describe("Project controls in conversation lists", () => {
 		const here = await waitFor(() =>
 			within(list).getByRole("region", { name: "webappwiz" }),
 		);
-		const row = within(here).getByRole("button", { name: /Last chat/ });
-		await act(async () => {
-			fireEvent.pointerDown(row, { clientX: 370, clientY: 100, pointerId: 1 });
-			fireEvent.pointerMove(row, { clientX: 190, clientY: 100, pointerId: 1 });
-			fireEvent.pointerUp(row, { clientX: 190, clientY: 100, pointerId: 1 });
-		});
+		await act(async () =>
+			fireEvent.click(
+				within(here).getByRole("button", { name: "Conversation actions" }),
+			),
+		);
+		const sheet = view.getByRole("dialog", { name: "Last chat" });
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Archive" })),
+		);
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/archived")).toHaveLength(1),
 		);

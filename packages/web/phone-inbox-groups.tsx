@@ -1,6 +1,7 @@
 import type { Needing } from "@stringsync/splates-server/plans";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { openedBy } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
@@ -15,10 +16,7 @@ import type { Folder } from "./project-folders";
 export interface Item {
 	tree: Nested<Needing>;
 	folder: Folder | null;
-	/**
-	 * The conversations with a subagent at work under them, as `hostsAtWork`
-	 * reads every row; a folder's own when it has one.
-	 */
+	/** Conversations with a subagent at work, scoped to the folder when present. */
 	hosting?: Set<string>;
 }
 
@@ -110,14 +108,16 @@ export function ProjectSection({
 					</button>
 				</h2>
 				{onNew !== null && (
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="icon"
 						aria-label={`New conversation in ${folder.name}`}
 						onClick={onNew}
-						className={HEAD_BUTTON}
+						className="size-11"
 					>
-						<PlusIcon className="size-4" />
-					</button>
+						<PlusIcon />
+					</Button>
 				)}
 			</div>
 			{open && folder.trees.length === 0 && <ProjectEmpty phone />}
@@ -132,10 +132,6 @@ export function ProjectSection({
 		</section>
 	);
 }
-
-/** A folder header's button, a finger's size and always shown. */
-const HEAD_BUTTON =
-	"flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40";
 
 /** The rows of `items`, each tree's subagents under it. */
 function Lines({

@@ -4,6 +4,7 @@ import { openingOf } from "@stringsync/splates-server/conversations/browser";
 import {
 	ArchiveIcon,
 	CircleDotIcon,
+	EllipsisIcon,
 	ListTreeIcon,
 	PencilIcon,
 	PinIcon,
@@ -19,6 +20,7 @@ import {
 	useState,
 } from "react";
 import { flushSync } from "react-dom";
+import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import {
 	markUnread,
@@ -30,7 +32,6 @@ import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useExpect, usePendingConversation } from "./expecting";
 import { pendingRow, useShowPending } from "./pending";
-import { Swipeable } from "./phone-swipe";
 import { stopTurn, useQuiet } from "./quiet";
 import type { Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
@@ -106,9 +107,8 @@ export function useLongPress(onPress: () => void): {
 }
 
 /**
- * A conversation's row, held down for its menu or swiped left to archive it,
- * which asks first, as the menu's Archive does, when it would stop or close
- * anything.
+ * A conversation's row with a visible button for its action sheet. A long
+ * press opens the same sheet; Archive asks before stopping or closing anything.
  */
 export function Filed({
 	conversation,
@@ -125,11 +125,12 @@ export function Filed({
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
-	const { file, asks, confirm } = useArchive(conversation, refuse);
+	const { file, confirm } = useArchive(conversation, refuse);
 	// Held still while a write to it is on its way, so none repeats.
 	const pending = usePendingConversation(conversation.id);
 	const showPending = useShowPending(pending);
 	const archivable = !conversation.archived && !pending;
+	const nameOf = useNameOf();
 	return (
 		<>
 			{confirm}
@@ -141,14 +142,22 @@ export function Filed({
 				pins={archivable && !nested}
 				refuse={refuse}
 			/>
-			<div {...pendingRow(pending, showPending)}>
-				{/* Kept while its archive is pending, so the row swiped off stays gone. */}
-				<Swipeable
-					archive={conversation.archived ? null : { asks, file }}
-					held={pending}
+			<div {...pendingRow(pending, showPending, "flex items-center pr-2")}>
+				{children(press)}
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					className="size-11"
+					aria-label="Conversation actions"
+					aria-description={nameOf(conversation)}
+					aria-haspopup="dialog"
+					aria-expanded={menu}
+					disabled={pending}
+					onClick={() => setMenu(true)}
 				>
-					{children(press)}
-				</Swipeable>
+					<EllipsisIcon />
+				</Button>
 			</div>
 		</>
 	);

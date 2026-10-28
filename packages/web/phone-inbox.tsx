@@ -77,8 +77,8 @@ export function Inbox({
 	// Those waiting on you come first, then those at work, then the rest,
 	// newest first in each, each row saying what it waits on. The agents one
 	// handed out sit under it in its group, since they answer to it. A tap on
-	// one waiting goes straight to what it asks, a long press offers Rename,
-	// Mark as unread and Archive, and a swipe left archives it, asking first.
+	// one waiting goes straight to what it asks; its action button or a long
+	// press offers Rename, Mark as unread and Archive in a bottom sheet.
 	// The bar's title switches projects, the pen starts a conversation in the
 	// project shown, and `chips` under the bar go to its pages. Under each
 	// conversation sit its terminal while its shell is up and each command its

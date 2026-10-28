@@ -302,7 +302,9 @@ describe("App on a phone", () => {
 		// Its task is the Tasks page's: its wait shows on the one it reports to.
 		const [orchestrator, ...others] = within(waiting).getAllByRole("button");
 		expect(orchestrator?.textContent).toContain("sub: Which look?");
-		expect(others).toEqual([]);
+		expect(others.map((button) => button.getAttribute("aria-label"))).toEqual([
+			"Conversation actions",
+		]);
 
 		await openTaskAt("sub");
 		const note = view.getByRole("note", { name: "subagent" });
@@ -356,25 +358,26 @@ describe("App on a phone", () => {
 		).toBeTruthy();
 	});
 
-	it("renames, marks unread and archives a conversation from a long press on its inbox row", async () => {
+	it("renames, marks unread and archives a conversation from its inbox action button", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login", status: "stopped" })],
 			null,
 			{ tasks: [] },
 		);
 		const inbox = view.getByRole("region", { name: "inbox" });
-		// As Android holds a row: the finger down, then the context menu.
-		const hold = async (name: string) => {
+		const actions = async (name: string) => {
 			const row = within(inbox).getByRole("button", { name: RegExp(name) });
-			await act(async () => {
-				fireEvent.pointerDown(row);
-				fireEvent.contextMenu(row);
-			});
+			const controls = within(row.parentElement as HTMLElement);
+			await act(async () =>
+				fireEvent.click(
+					controls.getByRole("button", { name: "Conversation actions" }),
+				),
+			);
 			return view.getByRole("dialog", { name });
 		};
 
-		let menu = await hold("Fix login");
-		// The press opens the menu, not the conversation.
+		let menu = await actions("Fix login");
+		// The action button opens the sheet without opening the conversation.
 		expect(location.hash).not.toBe("#conversations/c1");
 		await act(async () =>
 			fireEvent.click(within(menu).getByRole("button", { name: "Rename" })),
@@ -407,7 +410,7 @@ describe("App on a phone", () => {
 			within(inbox).getByRole("button", { name: /Login/ }).textContent,
 		).toStartWith("Login");
 
-		menu = await hold("Login");
+		menu = await actions("Login");
 		await act(async () =>
 			fireEvent.click(
 				within(menu).getByRole("button", { name: "Mark as unread" }),
@@ -426,7 +429,7 @@ describe("App on a phone", () => {
 				unread: true,
 			}),
 		);
-		menu = await hold("Login");
+		menu = await actions("Login");
 		// Marked unread already, so it offers that no more.
 		expect(
 			within(menu).queryByRole("button", { name: "Mark as unread" }),
@@ -470,7 +473,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("archives a conversation swiped left on its inbox row, asking first when its agent is at work", async () => {
+	it("keeps inbox swipes from archiving and confirms archiving a running conversation from its sheet", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
@@ -480,47 +483,32 @@ describe("App on a phone", () => {
 			{ tasks: [] },
 		);
 		const inbox = view.getByRole("region", { name: "inbox" });
-		const swipe = async (name: RegExp, by: number) => {
+		const swipe = async (name: RegExp) => {
 			const row = within(inbox).getByRole("button", { name });
 			await act(async () => {
 				fireEvent.pointerDown(row, { clientX: 300, clientY: 100 });
-				fireEvent.pointerMove(row, { clientX: 300 - by, clientY: 104 });
-				fireEvent.pointerUp(row, { clientX: 300 - by, clientY: 104 });
-				fireEvent.click(row);
+				fireEvent.pointerMove(row, { clientX: 40, clientY: 104 });
+				fireEvent.pointerUp(row, { clientX: 40, clientY: 104 });
 			});
 		};
-
-		// Short of the mark, it slides back, and the tap that ends it opens nothing.
-		await swipe(/Fix login/, SWIPE_PX - 20);
+		await swipe(/Fix login/);
+		await swipe(/Add search/);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
-		expect(location.hash).not.toBe("#conversations/c1");
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([]);
+		expect(view.queryByRole("dialog")).toBeNull();
 
-		// Archived once it has slid off and closed up.
-		await swipe(/Fix login/, SWIPE_PX + 20);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
-				{ method: "PUT", body: { archived: true } },
-			]),
+		const row = within(inbox).getByRole("button", { name: /Add search/ });
+		await act(async () =>
+			fireEvent.click(
+				within(row.parentElement as HTMLElement).getByRole("button", {
+					name: "Conversation actions",
+				}),
+			),
 		);
-		// Held closed up while pending, rather than back in its place, until the
-		// server files it.
-		const closed = within(inbox)
-			.getByRole("button", { name: /Fix login/ })
-			.closest<HTMLElement>("[style*='height']");
-		expect(closed?.style.height).toBe("0px");
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Fix login",
-				status: "stopped",
-				archived: true,
-			}),
+		const menu = view.getByRole("dialog", { name: "Add search" });
+		await act(async () =>
+			fireEvent.click(within(menu).getByRole("button", { name: "Archive" })),
 		);
-		expect(
-			within(inbox).queryByRole("button", { name: /Fix login/ }),
-		).toBeNull();
-
-		await swipe(/Add search/, SWIPE_PX + 20);
 		const confirm = view.getByRole("dialog", { name: "Archive Add search?" });
 		expect(testing.posted("/api/conversations/c2/archived")).toEqual([]);
 		await act(async () =>
@@ -529,64 +517,6 @@ describe("App on a phone", () => {
 		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
-	});
-
-	/** Swipes an inbox row left by `by` pixels, rising `rise`, over `ms`, at set times. */
-	const swipeRow = async (
-		inbox: HTMLElement,
-		name: RegExp,
-		by: number,
-		rise: number,
-		ms: number,
-	) => {
-		const row = within(inbox).getByRole("button", { name });
-		const touch = (type: string, left: number, top: number, at: number) => {
-			const event = new PointerEvent(type, {
-				bubbles: true,
-				clientX: left,
-				clientY: top,
-			});
-			Object.defineProperty(event, "timeStamp", { value: at });
-			row.dispatchEvent(event);
-		};
-		await act(async () => {
-			touch("pointerdown", 300, 100, 1000);
-			touch("pointermove", 300 - by, 100 + rise, 1000 + ms);
-			touch("pointerup", 300 - by, 100 + rise, 1000 + ms);
-		});
-	};
-
-	it("archives a row on a slanted swipe or a quick flick, but not a slow short pull", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
-				conversation({ id: "c2", title: "Add search", status: "stopped" }),
-				conversation({ id: "c3", title: "Slow one", status: "stopped" }),
-			],
-			null,
-			{ tasks: [] },
-		);
-		const inbox = view.getByRole("region", { name: "inbox" });
-
-		// Slanted, steeper than 45 degrees but still mostly sideways.
-		await swipeRow(inbox, /Fix login/, SWIPE_PX + 20, 140, 400);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
-				{ method: "PUT", body: { archived: true } },
-			]),
-		);
-
-		// Quick and short of the mark.
-		await swipeRow(inbox, /Add search/, 60, 4, 50);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c2/archived")).toEqual([
-				{ method: "PUT", body: { archived: true } },
-			]),
-		);
-
-		// Slow and short of the mark.
-		await swipeRow(inbox, /Slow one/, 60, 4, 600);
-		expect(testing.posted("/api/conversations/c3/archived")).toEqual([]);
 	});
 
 	it("archives an open conversation swiped left from the right edge, landing in the inbox without an undo", async () => {
