@@ -600,12 +600,13 @@ describe("App on a phone", () => {
 		await waitFor(() =>
 			expect(chip("Board").getAttribute("aria-current")).toBe("page"),
 		);
-		expect(
-			within(view.getByRole("navigation", { name: "pages" })).queryByRole(
-				"button",
-				{ name: "Creds" },
-			),
-		).toBeNull();
+		await act(async () => fireEvent.click(chip("Creds")));
+		expect(location.hash).toBe("#creds");
+		expect(chip("Creds").getAttribute("aria-current")).toBe("page");
+
+		await act(async () => fireEvent.click(chip("Automations")));
+		expect(location.hash).toBe("#automations");
+		expect(chip("Automations").getAttribute("aria-current")).toBe("page");
 		expect(history.length).toBe(length + 1);
 
 		await act(

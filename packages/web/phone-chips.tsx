@@ -1,13 +1,15 @@
-import { InboxIcon, KanbanIcon } from "lucide-react";
+import { InboxIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { Move } from "./page-address";
 import { navPage, PAGES, type Page } from "./page-route";
 
-const CHIPPED: Page[] = ["conversations", "todos", "tasks"];
+const CHIPPED = PAGES.filter(
+	({ value, scope }) => scope === "project" || value === "tasks",
+);
 
 /**
- * Chips that jump between the inbox, the board and the queue in one tap, and
+ * Chips that jump between the inbox, every project page and the queue, and
  * show the page you are on if it is another. Pass `onGo` to open a page.
  */
 export function PageChips({
@@ -21,10 +23,12 @@ export function PageChips({
 	const at = navPage(page);
 	const shown = [
 		{ value: "conversations" as Page, label: "Inbox", Icon: InboxIcon },
-		{ value: "todos" as Page, label: "Board", Icon: KanbanIcon },
-		...PAGES.filter(({ value }) => value === "tasks"),
+		...CHIPPED,
 		// Another page, opened from the drawer, shows as the page you are on.
-		...PAGES.filter(({ value }) => value === at && !CHIPPED.includes(value)),
+		...PAGES.filter(
+			({ value }) =>
+				value === at && !CHIPPED.some((chip) => chip.value === value),
+		),
 	];
 	return (
 		<nav
