@@ -1,13 +1,9 @@
-import { CheckIcon, LoaderCircleIcon, RotateCwIcon } from "lucide-react";
+import { LoaderCircleIcon, RotateCwIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useCheckpoint } from "./checkpoint";
 
-/**
- * Restarts directly, keeping progress and the reload's confirmation in place.
- * Idle, it says the version beside a sidebar, and nothing on a phone, whose
- * kebab says it instead, so the bar keeps its room for the title.
- */
+/** The bar's Update button, or the current version when no update is available. */
 export function RestartButton({
 	wide,
 	update,
@@ -27,18 +23,7 @@ export function RestartButton({
 			</span>
 		);
 	}
-	if (done) {
-		return (
-			<span
-				role="status"
-				className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-success text-xs"
-			>
-				<CheckIcon aria-hidden className="size-3.5" />
-				Updated
-			</span>
-		);
-	}
-	const label = restartBusy ? "Updating" : "Update";
+	const label = restartBusy ? "Updating" : done ? "Updated" : "Update";
 	return (
 		<Button
 			variant="outline"
@@ -46,7 +31,7 @@ export function RestartButton({
 			aria-label={label}
 			aria-busy={restartBusy}
 			title={label}
-			disabled={restartBusy}
+			disabled={restartBusy || done}
 			onClick={restart}
 		>
 			{restartBusy ? (
@@ -56,7 +41,7 @@ export function RestartButton({
 					className="animate-spin"
 				/>
 			) : (
-				<RotateCwIcon aria-hidden data-icon="inline-start" />
+				!done && <RotateCwIcon aria-hidden data-icon="inline-start" />
 			)}
 			{label}
 		</Button>

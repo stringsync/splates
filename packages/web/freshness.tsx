@@ -128,17 +128,27 @@ export function useFeedsFreshness(
 export const REFRESH_WAITS = { slow: Duration.secs(4) };
 
 /**
- * Put once in the page: while the page is locked, it covers the page and
- * makes the rest of it inert, so nothing is done on what may have moved, and
- * once the refresh runs on it counts down to giving up and offers Retry.
+ * Put once in the page: while the page is locked or an update is under way, it
+ * covers the page and makes the rest of it inert. Once a stale-page refresh runs
+ * on, a second row counts down to giving up and offers Retry.
  */
 // It fades in after a moment, so a quick refresh never flashes it.
-export function RefreshingOverlay(): JSX.Element | null {
+export function RefreshingOverlay({
+	updating = false,
+}: {
+	updating?: boolean;
+}): JSX.Element | null {
 	const { locked, givesUpAt, waitsMs, retry } = useFreshness();
-	if (!locked) {
+	if (!locked && !updating) {
 		return null;
 	}
-	return <Refreshing givesUpAt={givesUpAt} waitsMs={waitsMs} onRetry={retry} />;
+	return (
+		<Refreshing
+			givesUpAt={givesUpAt}
+			waitsMs={waitsMs}
+			onRetry={locked ? retry : undefined}
+		/>
+	);
 }
 
 function Refreshing({
@@ -148,7 +158,7 @@ function Refreshing({
 }: {
 	givesUpAt: number | null;
 	waitsMs: number;
-	onRetry: () => void;
+	onRetry?: () => void;
 }): JSX.Element {
 	const ref = useRef<HTMLDivElement>(null);
 	useEffect(() => {
@@ -189,7 +199,7 @@ function Refreshing({
 					/>
 					Refreshing…
 				</div>
-				{slow && (
+				{slow && onRetry !== undefined && (
 					<div className="flex items-center gap-3">
 						<Countdown
 							givesUpAt={givesUpAt}

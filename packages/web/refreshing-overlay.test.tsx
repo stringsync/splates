@@ -58,7 +58,10 @@ describe("Covering the page while it refreshes", () => {
 		const button = await waitFor(() =>
 			page.getByRole("button", { name: "Retry" }),
 		);
-		expect(page.getByText(/Still refreshing, gives up in 2s/)).toBeDefined();
+		const status = page.getByRole("status", { name: "Refreshing" });
+		const countdown = page.getByText(/Still refreshing, gives up in 2s/);
+		expect(status.nextElementSibling?.contains(countdown)).toBe(true);
+		expect(status.contains(countdown)).toBe(false);
 		await act(async () => fireEvent.click(button));
 		expect(retried).toBe(1);
 	});

@@ -112,6 +112,20 @@ describe("App's checkpoint restart", () => {
 		},
 	);
 
+	it("shows the refreshing UI as soon as Update is clicked", async () => {
+		const view = await testing.open({
+			release: { running: "0.0.43", newest: "0.0.44" },
+		});
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Update" })),
+			),
+		);
+
+		expect(view.getByRole("status", { name: "Refreshing" })).toBeDefined();
+	});
+
 	it("confirms inline after reload while its agents resume", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
@@ -133,8 +147,11 @@ describe("App's checkpoint restart", () => {
 
 		const again = await testing.open();
 
-		await waitFor(() => again.getByText("Updated"));
-		expect(again.getByText("Updated").closest("[role=status]")).not.toBeNull();
+		const updated = await waitFor(() =>
+			again.getByRole("button", { name: "Updated" }),
+		);
+		expect((updated as HTMLButtonElement).disabled).toBe(true);
+		expect(updated.querySelector("svg")).toBeNull();
 		expect(again.queryByRole("dialog")).toBeNull();
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
@@ -162,11 +179,8 @@ describe("App's checkpoint restart", () => {
 			release: null,
 		});
 
-		await waitFor(() => again.getByText("Updated"));
+		await waitFor(() => again.getByRole("button", { name: "Updated" }));
 		expect(again.queryByRole("dialog")).toBeNull();
-		expect(again.getByText("Updated").classList.contains("text-success")).toBe(
-			true,
-		);
 
 		testing.served = {
 			...testing.served,
@@ -180,7 +194,7 @@ describe("App's checkpoint restart", () => {
 	it("replaces the inline confirmation with the current version after ten seconds", async () => {
 		sessionStorage.setItem("splates.power.restarted", "0.0.43");
 		const view = await testing.open();
-		await waitFor(() => view.getByText("Updated"));
+		await waitFor(() => view.getByRole("button", { name: "Updated" }));
 		expect(testing.timer.timeouts).toContainEqual(
 			expect.objectContaining({ delay: Duration.secs(10), disposed: false }),
 		);

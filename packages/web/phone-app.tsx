@@ -2,6 +2,7 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import { useCheckpoint } from "./checkpoint";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
@@ -89,11 +90,12 @@ export function PhoneApp({
 	// The drawer's header says more, as why the server is outdated, and what
 	// merges and queues.
 	const { unreachable, reason } = useFreshness();
+	const { restartBusy } = useCheckpoint();
 	const status = (offline || unreachable) && <OfflinePill reason={reason} />;
 	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
-			<RefreshingOverlay />
+			<RefreshingOverlay updating={restartBusy} />
 			{page === "conversations" && open === null ? (
 				<TopBarFrame value={kebab}>
 					<Inbox

@@ -6,6 +6,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AppStatus } from "./app-header";
 import { AppNav } from "./app-nav";
 import { BESIDE_PANE } from "./changes";
+import { useCheckpoint } from "./checkpoint";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { RefreshingOverlay, useFreshness } from "./freshness";
@@ -99,6 +100,7 @@ export function DesktopApp({
 	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
 	// The page takes no input while locked.
 	const { locked } = useFreshness();
+	const { restartBusy } = useCheckpoint();
 	// Where each page's bar goes: the row atop the page.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const frame = {
@@ -116,7 +118,7 @@ export function DesktopApp({
 	};
 	return (
 		<TopBarFrame value={frame}>
-			<RefreshingOverlay />
+			<RefreshingOverlay updating={restartBusy} />
 			<Tabs
 				data-sidebar-layout=""
 				value={page}
