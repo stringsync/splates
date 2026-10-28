@@ -7,7 +7,6 @@ import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import { CheckIcon, HourglassIcon, SendIcon } from "lucide-react";
 import type { JSX } from "react";
-import { WorkingIndicator } from "#web/components/assistant-ui/elements/thread-assistant-message.aui.tsx";
 import { Button } from "./components/ui/button";
 import { sendQueuedNow } from "./conversation-api";
 import { useNow } from "./hooks/use-now";
@@ -25,12 +24,6 @@ export const QueuedUI = makeAssistantDataUI<{
 	render: ({ data }) => (
 		<QueuedTime at={data.at} until={data.until} halted={data.halted} />
 	),
-});
-
-/** The Working indicator for a turn with messages queued after it. */
-export const GoingUI = makeAssistantDataUI<Record<string, never>>({
-	name: "going",
-	render: () => <WorkingIndicator />,
 });
 
 /** Queue time stays before the reply's work, ticking until the prompt reaches the agent. */
@@ -82,29 +75,6 @@ export function heldPrompt(id: number, at: string): Message {
 		queued: true,
 		told: SERVER_TOLD,
 	};
-}
-
-/**
- * `thread` with a `data-going` part on its last reply when `going`, its
- * turn still running with messages queued after it, which take the place
- * assistant-ui shows Working under.
- */
-export function working(
-	thread: ThreadMessageLike[],
-	going: boolean,
-): ThreadMessageLike[] {
-	const last = thread.at(-1);
-	if (
-		!going ||
-		last?.role !== "assistant" ||
-		typeof last.content === "string"
-	) {
-		return thread;
-	}
-	return [
-		...thread.slice(0, -1),
-		{ ...last, content: [...last.content, { type: "data-going", data: {} }] },
-	];
 }
 
 function QueuedTime({

@@ -12,7 +12,7 @@ import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
-import { heldPrompt, queuedReply, working } from "./queued-time";
+import { heldPrompt, queuedReply } from "./queued-time";
 import { messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
@@ -24,8 +24,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
 /**
  * What a conversation's thread shows: its messages as assistant-ui takes
- * them, with the reply's place held while the agent has yet to speak, and
- * what waits for the turn's end after it, under a Queued row.
+ * them, with the reply's place held while the agent has yet to speak. A
+ * running turn's queue stays out, for the panel above the composer.
  */
 export function useThreadMessages(
 	conversation: ConversationState,
@@ -150,17 +150,13 @@ export function useThreadMessages(
 						),
 					]
 				: liked;
-		// What waits for the turn's end follows the turn it waits on, as sent,
-		// under a Queued row in its reply's place. Held or starting, it is in
-		// `said` already, waiting with the rest.
+		// A running turn's queue sits above the composer. Otherwise it follows
+		// the turn as sent, under a Queued row; held or starting, it is in `said`.
 		const waiting =
-			starting || held !== null
+			starting || held !== null || running
 				? []
 				: conversation.messages.filter((each) => each.queued);
-		const ended = working(
-			conversation.resting === true ? rested(thread) : thread,
-			running && waiting.length > 0,
-		);
+		const ended = conversation.resting === true ? rested(thread) : thread;
 		// Sent from the page, the server has yet to say when: queued since the
 		// page sent it.
 		const lastWaiting = waiting.at(-1);
@@ -285,7 +281,7 @@ export interface ThreadMessages {
 	going: boolean;
 	/** Whether the last message is still being written. */
 	writing: boolean;
-	/** What waits for the turn's end, shown in the thread after it. */
+	/** What waits for the turn's end, above the composer while it runs. */
 	queued: Message[];
 	messages: ThreadMessageLike[];
 	/** Whether a card asks the person something, to take the focus. */

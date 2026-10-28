@@ -50,6 +50,7 @@ import { bleed, ErrorBanner } from "./error-banner";
 import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
+import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { MergeCardContext } from "./merge-card";
@@ -57,8 +58,8 @@ import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
-import { useTakeBack } from "./queued";
-import { GoingUI, QueuedUI } from "./queued-time";
+import { Queued, queueKeyDown, useQueueEdits } from "./queued";
+import { QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
@@ -85,9 +86,9 @@ import {
 } from "./work-row";
 
 /**
- * Shows one conversation, with the agent's questions above its composer.
- * ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) archives it; only Unarchive brings it
- * back. Open an artifact from the card beside the conversation or a line in it.
+ * A conversation and its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac)
+ * archives it; only Unarchive brings it back. Open an artifact from the card
+ * beside the conversation or a line in it.
  */
 export const Thread = memo(function Thread(
 	props: Parameters<typeof Conversation>[0],
@@ -193,7 +194,13 @@ function Conversation({
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
-	const edit = useTakeBack(id, runtime, section, refused);
+	const { sendNow, edit, discard } = useQueueEdits(
+		id,
+		runtime,
+		section,
+		refused,
+	);
+	const touch = useTouch();
 	const { actions, archive, startNew } = useThreadActions(
 		conversation,
 		task,
@@ -250,23 +257,18 @@ function Conversation({
 			<section
 				ref={section}
 				aria-label={nameOf(conversation)}
-				// Up in an empty composer takes back the last queued message, as a
-				// terminal brings back the last command.
-				onKeyDownCapture={(event) => {
-					const box = event.target as HTMLElement;
-					const last = queued.at(-1);
-					if (
-						event.key === "ArrowUp" &&
-						box.getAttribute("aria-label") === "Message input" &&
-						runtime.thread.composer.getState().text === "" &&
-						last !== undefined &&
-						// The last one is still on its way, with nothing to take back.
-						feed.unrecorded(id) === 0
-					) {
-						event.preventDefault();
-						void edit(queued.length - 1, last);
-					}
-				}}
+				// Up takes back the last queued message. Enter with nothing typed
+				// sends the queue now; with something typed, it queues that instead.
+				onKeyDownCapture={(event) =>
+					queueKeyDown(event, runtime, {
+						queued,
+						running: conversation.status === "running",
+						pending: feed.unrecorded(id),
+						touch,
+						sendNow,
+						edit,
+					})
+				}
 				// A phone's fills the screen; beside a sidebar, the pane's padding.
 				className={cn(
 					"@container flex min-h-0 min-w-0 flex-col bg-background",
@@ -333,7 +335,6 @@ function Conversation({
 												<DemoUI />
 												<WorkUI />
 												<QueuedUI />
-												<GoingUI />
 												<EventUI />
 												<StoppedUI />
 												<CompactionUI />
@@ -383,6 +384,24 @@ function Conversation({
 																						{offer !== null && barred && (
 																							<ArchiveBar offer={offer} />
 																						)}
+																						{conversation.status ===
+																							"running" &&
+																							conversation.queued === null &&
+																							queued.length > 0 && (
+																								<Queued
+																									conversation={id}
+																									messages={queued}
+																									pending={feed.unrecorded(id)}
+																									edits={{
+																										onEdit: (index, message) =>
+																											void edit(index, message),
+																										onDiscard: (index) =>
+																											void discard(index),
+																										onSendNow: () =>
+																											void sendNow(),
+																									}}
+																								/>
+																							)}
 																						{conversation.ask !== null && (
 																							<AskPanel
 																								key={conversation.ask.id}

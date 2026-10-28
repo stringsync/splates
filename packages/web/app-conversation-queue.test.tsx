@@ -201,11 +201,11 @@ describe("App's composer queue", () => {
 			"c1",
 		);
 
-		const thread = view.getByRole("region", { name: "Fix login" });
-		expect(within(thread).getByTitle("[SPLATES TASK alpha]").textContent).toBe(
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(within(queued).getByTitle("[SPLATES TASK alpha]").textContent).toBe(
 			"Taskalpha",
 		);
-		expect(within(thread).getByText("then stop")).toBeTruthy();
+		expect(within(queued).getByText("then stop")).toBeTruthy();
 	});
 
 	// scry-ignore simple-test-setup: each test opens the conversation its case needs
@@ -225,8 +225,8 @@ describe("App's composer queue", () => {
 			"c1",
 		);
 
-		const thread = view.getByRole("region", { name: "Fix login" });
-		const chip = within(thread).getByTitle("[SPLATES LANE 2]");
+		const queued = view.getByRole("region", { name: "queued messages" });
+		const chip = within(queued).getByTitle("[SPLATES LANE 2]");
 		expect(chip.textContent).toBe("Lane 2");
 		expect(chip.parentElement?.textContent).toBe("then Lane 2 next");
 	});
@@ -247,78 +247,110 @@ describe("App's composer queue", () => {
 			"c1",
 		);
 
-		const thread = view.getByRole("region", { name: "Fix login" });
-		expect(within(thread).getByTitle("[SPLATES CHECKPOINT]").textContent).toBe(
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(within(queued).getByTitle("[SPLATES CHECKPOINT]").textContent).toBe(
 			"Checkpoint",
 		);
 	});
 
-	it("shows a queued message in the thread after the turn it waits on, under a Queued row, with Working under the running turn", async () => {
+	it("holds a queued message above the composer to send now, interrupting the turn", async () => {
 		const view = await testing.openConversations([working], "c1");
-		const thread = view.getByRole("region", { name: "Fix login" });
+		const queued = view.getByRole("region", { name: "queued messages" });
 
 		expect(
-			[...thread.querySelectorAll('[data-role="user"]')].map(
-				(each) => each.textContent,
-			),
-		).toEqual([
-			expect.stringContaining("go"),
-			expect.stringContaining("the second note"),
-		]);
+			within(queued)
+				.getAllByRole("listitem")
+				.map((each) => each.textContent),
+		).toEqual(["the second note"]);
 		expect(view.getAllByText(/the second note/)).toHaveLength(1);
-		const reply = (text: string | RegExp) =>
-			within(thread)
-				.getByText(text)
-				.closest('[data-slot="aui_assistant-message-root"]');
-		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
-		expect(within(thread).getAllByText("Working")).toHaveLength(1);
-		expect(reply("Working")).toBe(reply("On it."));
-	});
-
-	it("keeps interruption in the composer without sending or dropping a queued follow-up", async () => {
-		const view = await testing.openConversations([working], "c1");
-		const thread = view.getByRole("region", { name: "Fix login" });
-
-		expect(
-			within(thread).queryByRole("button", { name: "Interrupt" }),
-		).toBeNull();
 		await act(async () =>
-			fireEvent.click(
-				within(thread).getByRole("button", { name: "Stop generating" }),
-			),
+			fireEvent.click(within(queued).getByRole("button", { name: /Send now/ })),
 		);
+		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1);
 
-		expect(testing.posted("/api/conversations/c1/cancel")).toEqual([
-			{ method: "POST", body: {} },
-		]);
-		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
-		expect(within(thread).getByText("the second note")).toBeTruthy();
+		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(2);
+		await type(view, "more");
+		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "more" } },
+			]),
+		);
+		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(2);
+		await waitFor(() => expect(textIn(box(view))).toBe(""));
+		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(3);
 	});
 
-	it("shows a message sent mid-turn under the same Queued row at once, and sends nothing now on Enter with nothing typed", async () => {
+	it("shows a message sent mid-turn in the panel at once without sending the queue", async () => {
 		const view = await testing.openConversations([working], "c1");
-		const thread = view.getByRole("region", { name: "Fix login" });
-
 		await type(view, "more");
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 		await waitFor(() => expect(textIn(box(view))).toBe(""));
-		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "more" } },
-		]);
-		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
+		const queued = view.getByRole("region", { name: "queued messages" });
 		expect(
-			[...thread.querySelectorAll('[data-role="user"]')].map(
-				(each) => each.textContent,
-			),
+			within(queued)
+				.getAllByRole("listitem")
+				.map((each) => each.textContent),
 		).toEqual([
-			expect.stringContaining("go"),
 			expect.stringContaining("the second note"),
 			expect.stringContaining("more"),
 		]);
-		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
-		expect(within(thread).getAllByText("Working")).toHaveLength(1);
+		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
+	});
+
+	it("takes a queued message back into the composer with Edit, rolling it back when refused", async () => {
+		const view = await testing.openConversations([working], "c1");
+		await type(view, "still typing");
+		testing.holdWrites();
+		testing.refuseWrites = { reason: "not_found", message: "already sent" };
+		const queued = view.getByRole("region", { name: "queued messages" });
+
+		await act(async () =>
+			fireEvent.click(within(queued).getByRole("button", { name: /Edit/ })),
+		);
+
+		expect(textIn(box(view))).toBe("the second note\n\nstill typing");
+		await act(async () => testing.release());
+		await waitFor(() => expect(textIn(box(view))).toBe("still typing"));
+		expect(view.getByText("Not taken back: already sent")).toBeTruthy();
+	});
+
+	it("throws a queued message away with Trash, leaving the composer as it was", async () => {
+		const view = await testing.openConversations([working], "c1");
+		await type(view, "still typing");
+		const queued = view.getByRole("region", { name: "queued messages" });
+		testing.reply = { text: "the second note", files: [] };
+
+		await act(async () =>
+			fireEvent.click(
+				within(queued).getByRole("button", {
+					name: "Discard the second note",
+				}),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([
+			{ method: "POST", body: { index: 0 } },
+		]);
+		expect(textIn(box(view))).toBe("still typing");
+	});
+
+	it("keeps a stopped conversation's queued message in the thread with its Send action", async () => {
+		const view = await testing.openConversations(
+			[{ ...working, status: "stopped" }],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Fix login" });
+
+		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
+		expect(within(thread).getByText("the second note")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(thread).getByRole("button", { name: "Send" })),
+		);
+		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1);
 	});
 
 	it("takes the last queued message back into the composer with Up once the server has it", async () => {

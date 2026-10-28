@@ -103,12 +103,10 @@ describe("App's sending messages", () => {
 		const thread = view.getByRole("region", { name: "first note" });
 		expect(within(thread).getAllByText("first note")).toHaveLength(1);
 		expect(within(thread).getAllByText("second note")).toHaveLength(1);
-		const queued = within(thread)
-			.getByText(/^Queued \d+s$/)
-			.closest('[data-slot="aui_assistant-message-root"]');
-		expect(queued?.previousElementSibling?.textContent).toContain(
-			"second note",
-		);
+		const queued = within(thread).getByRole("region", {
+			name: "queued messages",
+		});
+		expect(within(queued).getByText("second note")).toBeTruthy();
 	});
 
 	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
@@ -403,12 +401,12 @@ describe("App's sending messages", () => {
 		return view;
 	}
 
-	it("shows a message sent mid-turn in the thread at once under a Queued row when the server will queue it", async () => {
+	it("shows a message sent mid-turn above the composer at once when the server will queue it", async () => {
 		const view = await sayMidTurn("queue");
 
-		const thread = view.getByRole("region", { name: "Login" });
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
-		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(within(queued).getAllByText("and the logout")).toHaveLength(1);
+		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
 	});
 
 	it("shows a message sent mid-turn in the thread at once when the server will steer it in", async () => {
