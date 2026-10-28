@@ -73,8 +73,8 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	stats: Stats | null = null;
 	/** Why the last load failed, until one succeeds. */
 	error: string | null = null;
-	/** What the page looks at: 7 days, until the person picks another. */
-	period: Period = PERIODS[3] as Period;
+	/** What the page looks at: 1 day, until the person picks another. */
+	period: Period = PERIODS[1] as Period;
 	/** The last load asked for, so an earlier one landing late is dropped. */
 	private asked = 0;
 
@@ -247,6 +247,8 @@ export interface Row {
 	overturnedShare: number | null;
 	/** Dollars a task cost, over those whose agent said; null when none did. */
 	costPerTask: number | null;
+	/** Milliseconds from add to end, averaged over tasks with recorded timing. */
+	durationPerTask: number | null;
 	/** How long a task's agent worked, in milliseconds, over those with usage kept. */
 	workedPerTask: number | null;
 	/** What made workers cost its tasks in all; null when none held a slot on one. */
@@ -288,6 +290,7 @@ function row(name: string, tally: Tally): Row {
 		removedShare: removedShare(tally),
 		overturnedShare: overturnedShare(tally),
 		costPerTask: tally.costed === 0 ? null : tally.cost / tally.costed,
+		durationPerTask: tally.timed === 0 ? null : tally.spentMs / tally.timed,
 		workedPerTask: tally.used === 0 ? null : tally.workedMs / tally.used,
 		workers:
 			tally.workerCosted === 0

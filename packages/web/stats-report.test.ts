@@ -94,6 +94,7 @@ describe("StatsReport", () => {
 				removedShare: 0.5,
 				overturnedShare: null,
 				costPerTask: null,
+				durationPerTask: null,
 				workedPerTask: null,
 				workers: null,
 				linesPerTask: null,
@@ -106,7 +107,7 @@ describe("StatsReport", () => {
 		expect(report.projects).toMatchObject([{ name: "webappwiz", ended: 1 }]);
 	});
 
-	it("averages cost, working time and lines over the tasks that kept each", async () => {
+	it("averages duration, cost, working time and lines over the tasks that kept each", async () => {
 		const base = stats.models[0] as (typeof stats.models)[number];
 		const report = new StatsReport(
 			new FakeSource({
@@ -114,6 +115,8 @@ describe("StatsReport", () => {
 				models: [
 					{
 						...base,
+						timed: 2,
+						spentMs: 600_000,
 						used: 4,
 						workedMs: 4 * 60_000,
 						costed: 2,
@@ -129,6 +132,7 @@ describe("StatsReport", () => {
 		await report.refresh();
 
 		expect(report.models[0]).toMatchObject({
+			durationPerTask: 300_000,
 			costPerTask: 1.5,
 			workedPerTask: 60_000,
 			linesPerTask: 20,
@@ -184,14 +188,14 @@ describe("StatsReport", () => {
 		expect(fresh.empty).toBe(true);
 	});
 
-	it("asks for the period picked, 7 days until one is", async () => {
+	it("asks for the period picked, 1 day until one is", async () => {
 		const source = new FakeSource(stats);
 		const report = new StatsReport(source);
 
 		await report.refresh();
 		await report.choose(PERIODS.at(-1) as Period);
 
-		expect(source.asked).toEqual(["7d", "all"]);
+		expect(source.asked).toEqual(["1d", "all"]);
 		expect(report.period.label).toBe("All time");
 		expect(report.buckets[0]?.label).toBe("Week of 2026-10-13");
 	});

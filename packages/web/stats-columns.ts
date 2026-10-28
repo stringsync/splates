@@ -1,70 +1,25 @@
-import { decimal, duration, percent } from "./stats-advice";
+import { duration } from "./stats-advice";
 import type { Row } from "./stats-report";
 
 /** A figure there is not enough data for. */
 export const NONE = "\u2013";
 
-/** A column of a breakdown, headed by what its figure counts. */
-export interface Column {
+/** A column of model task stats. */
+interface Column {
 	head: string;
 	cell: (row: Row) => string;
 }
 
-const ENDED: Column = { head: "Tasks ended", cell: (row) => String(row.ended) };
-const QUESTIONS: Column = {
-	head: "Questions per task",
-	cell: (row) => figure(row.questionsPerTask, decimal),
-};
-const REVIEWS: Column = {
-	head: "Reviews per task",
-	cell: (row) => figure(row.reviewsPerTask, decimal),
-};
-const OVERTURNED: Column = {
-	head: "Picks overturned",
-	cell: (row) => figure(row.overturnedShare, percent),
-};
-const REMOVED: Column = {
-	head: "Tasks removed",
-	cell: (row) => figure(row.removedShare, percent),
-};
-
-const COST: Column = {
-	head: "Cost per task",
-	cell: (row) => figure(row.costPerTask, (cost) => `$${cost.toFixed(2)}`),
-};
-/** In all, not per task: most tasks run on no made worker. */
-const WORKERS: Column = {
-	head: "Worker spend",
-	cell: (row) =>
-		figure(
-			row.workers?.dollars ?? null,
-			(spent) =>
-				`${row.workers?.estimate ? "~" : ""}$${spent.toFixed(2)} · ${decimal(row.workers?.slotHours ?? 0)} slot-h`,
-		),
-};
-const WORKED: Column = {
-	head: "Agent working time",
-	cell: (row) => figure(row.workedPerTask, duration),
-};
-const LINES: Column = {
-	head: "Lines per task",
-	cell: (row) => figure(row.linesPerTask, (lines) => String(Math.round(lines))),
-};
-
-/** Only what each table is read for: where questions come from, which model to name, how phone work goes, nothing for a project. */
-export const BY_MODEL = [
-	ENDED,
-	QUESTIONS,
-	REVIEWS,
-	OVERTURNED,
-	REMOVED,
-	COST,
-	WORKERS,
-	WORKED,
-	LINES,
+/** Keep the essentials narrow enough to compare without scrolling. */
+export const BY_MODEL: Column[] = [
+	{ head: "Tasks", cell: (row) => String(row.ended) },
+	{ head: "Duration", cell: (row) => figure(row.durationPerTask, duration) },
+	{ head: "Working time", cell: (row) => figure(row.workedPerTask, duration) },
+	{
+		head: "Cost / task",
+		cell: (row) => figure(row.costPerTask, (cost) => `$${cost.toFixed(2)}`),
+	},
 ];
-export const BY_DEVICE = [ENDED, QUESTIONS, REVIEWS, REMOVED];
-export const BY_PROJECT = [ENDED, REMOVED, COST, WORKERS, LINES];
 
 function figure(
 	value: number | null,
