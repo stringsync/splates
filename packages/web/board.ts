@@ -83,15 +83,14 @@ export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
  * and whatever stands beside it, as a person's message in a phone's thread,
  * can use `--line-card` to match.
  */
-export const lineCardHeight =
-	"[--line-card:calc(1.75rem+0.75rem+2px)] pointer-coarse:[--line-card:calc(2.5rem+1.25rem+2px)]";
+export const lineCardHeight = "[--line-card:calc(1.75rem+0.75rem+2px)]";
 
 /**
  * A card that spans one line, as a waiting card's line in a phone's thread
  * or a bar above the composer: its call to action set in as far from the
  * card's end as from its top and bottom, as a longer card sets in its own.
  */
-export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5 pointer-coarse:py-2.5 pointer-coarse:pr-2.5`;
+export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5`;
 
 /**
  * Put it on a small `relative` control in a line of text to stretch its tap
