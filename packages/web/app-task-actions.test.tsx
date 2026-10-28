@@ -6,6 +6,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	resize,
 	Testing,
 	waitFor,
@@ -91,6 +92,80 @@ describe("App's task dialog on a phone", () => {
 			bar.getByRole("button", { name: /Start a conversation/ }),
 		).toBeTruthy();
 		expect(bar.queryByRole("button", { name: "More actions" })).toBeNull();
+	});
+
+	it("offers to archive a deferred task's conversation instead of only removing it", async () => {
+		testing.talk = {
+			agents: AGENTS,
+			conversations: [
+				conversation({
+					id: "c1",
+					task: "beta",
+					messages: [
+						message(
+							"agent",
+							"## ⏸ Deferred beta: waiting on an upstream release\n\nThe work is back on the list.",
+						),
+					],
+				}),
+			],
+		};
+		const { view } = await openTask(
+			details({
+				task: "beta",
+				takenBy: "c1",
+				ahead: 0,
+				unmerged: false,
+			}),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Remove" })),
+		);
+		expect(view.getByRole("heading", { name: "Remove beta?" })).toBeTruthy();
+		expect(testing.posted("/api/tasks/beta")).toEqual([]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Archive instead" })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+		expect(testing.posted("/api/tasks/beta")).toEqual([
+			{ method: "DELETE", body: {} },
+		]);
+	});
+
+	it("asks before removing a paused task even with nothing unmerged", async () => {
+		testing.talk = {
+			agents: AGENTS,
+			conversations: [
+				conversation({
+					id: "c1",
+					task: "beta",
+					status: "stopped",
+					checkpoint: "done",
+					messages: [message("user", "[SPLATES CHECKPOINT]")],
+				}),
+			],
+		};
+		const { view } = await openTask(
+			details({
+				task: "beta",
+				takenBy: "c1",
+				ahead: 0,
+				unmerged: false,
+			}),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Remove" })),
+		);
+		expect(view.getByRole("heading", { name: "Remove beta?" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Archive instead" })).toBeTruthy();
+		expect(testing.posted("/api/tasks/beta")).toEqual([]);
 	});
 
 	it("hides a removed task at once, and brings it back saying why when refused", async () => {

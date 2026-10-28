@@ -1,6 +1,8 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { paused } from "@stringsync/splates-server/conversations/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
+	ArchiveIcon,
 	CheckIcon,
 	EllipsisIcon,
 	FileDiffIcon,
@@ -33,6 +35,8 @@ import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { taskRemoved } from "./board-expectations";
 import { ReviewChanges } from "./changes";
+import { useArchive } from "./conversation-archive";
+import { lastReport } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
 import { HandOffMenu, RestartButton } from "./hand-off";
@@ -355,10 +359,9 @@ function ActionItem({ action }: { action: Action }): JSX.Element {
 
 /**
  * Removes the task as `splates remove` does, asking first while an agent works
- * on it (a conversation here mid-turn, which stops and carries on in the main
- * tree, or an external agent holding its lease, which the page cannot stop) or
- * while it has commits its base lacks or uncommitted changes, which go with its branch: the action,
- * and the dialog that asks, with what went wrong under it.
+ * on it, its conversation is deferred or paused, it is held externally, or it
+ * has changes removal would discard. A deferred or paused conversation can be
+ * archived instead, keeping its history while removing the task.
  */
 function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	const context = useContext(Dispatching);
@@ -367,10 +370,16 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	const { refusal, refuse } = useRowRefusal(task.task);
 	const [asking, setAsking] = useState(false);
 	const [removing, setRemoving] = useState(false);
-	const working = (context?.dispatch.on(task.task) ?? []).filter(
-		({ conversation }) =>
-			conversation?.status === "starting" || conversation?.status === "running",
+	const on = (context?.dispatch.on(task.task) ?? []).flatMap(
+		({ conversation }) => (conversation === null ? [] : [conversation]),
+	);
+	const working = on.filter(
+		({ status }) => status === "starting" || status === "running",
 	).length;
+	const resting = on.find(
+		(conversation) =>
+			paused(conversation) || lastReport(conversation)?.ending === "deferred",
+	);
 	const external = task.lease === "held";
 	const ahead = task.ahead ?? 0;
 	const go = () => {
@@ -390,7 +399,11 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 			disabled: removing,
 			destructive: true,
 			run: () =>
-				working > 0 || external || ahead > 0 || task.unmerged
+				resting !== undefined ||
+				working > 0 ||
+				external ||
+				ahead > 0 ||
+				task.unmerged
 					? setAsking(true)
 					: go(),
 		},
@@ -415,8 +428,21 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 											? "It may have unmerged changes, which are discarded with its worktree, branch and any uncommitted changes."
 											: "Its worktree, branch and uncommitted changes are discarded."}
 							</DialogDescription>
+							{resting !== undefined && (
+								<DialogDescription>
+									Archive instead to keep its deferred or paused conversation in
+									Archived. Archiving removes the task too.
+								</DialogDescription>
+							)}
 						</DialogHeader>
 						<DialogFooter>
+							{resting !== undefined && (
+								<ArchiveInstead
+									conversation={resting}
+									refused={refuse}
+									done={() => setAsking(false)}
+								/>
+							)}
 							<DialogClose render={<Button variant="outline" />}>
 								Cancel
 							</DialogClose>
@@ -429,6 +455,27 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 			</>
 		),
 	};
+}
+
+function ArchiveInstead({
+	conversation,
+	refused,
+	done,
+}: {
+	conversation: ConversationState;
+	refused: (doing: string, error: unknown) => void;
+	done: () => void;
+}): JSX.Element {
+	const archive = useArchive(conversation, refused);
+	return (
+		<>
+			<Button variant="outline" onClick={() => archive.file(done)}>
+				<ArchiveIcon />
+				Archive instead
+			</Button>
+			{archive.confirm}
+		</>
+	);
 }
 
 /** Working with its merge attempts spent: what `splates retry` is for. */
