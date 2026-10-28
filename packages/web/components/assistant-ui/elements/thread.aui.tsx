@@ -104,6 +104,7 @@ const ThreadRoot: FC<{
 	going: boolean;
 }> = ({ isEmpty, autoFocus, onRead, docked, going, historyFailure }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+	const historyReady = useAuiState((s) => !s.thread.isLoading);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
@@ -200,7 +201,11 @@ const ThreadRoot: FC<{
 						data-slot="aui_message-group"
 						// Margins, not a gap, so a card's own margin collapses into the
 						// space between turns rather than adding to it.
-						className="mb-14 empty:hidden [&>*+*]:mt-6"
+						className={cn(
+							"mb-14 empty:hidden [&>*+*]:mt-6",
+							historyReady &&
+								"fade-in animate-in duration-200 ease-out motion-reduce:animate-none",
+						)}
 					>
 						<ThreadTurns />
 					</div>
