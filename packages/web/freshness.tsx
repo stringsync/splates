@@ -124,14 +124,14 @@ export function useFeedsFreshness(
 }
 
 export const REFRESH_WAITS = {
-	/** How long a refresh runs before `RefreshingOverlay` offers Retry. */
+	/** How long a refresh runs before `RefreshingOverlay` shows its timeout. */
 	slow: Duration.secs(4),
 	fade: Duration.ms(200),
 };
 
 /**
- * Prevents interaction with stale content and offers Retry when a refresh takes
- * too long. Render it once above the app's content.
+ * Prevents interaction with stale content and shows a short timeout on a second
+ * row when a refresh takes too long. Render it once above the app's content.
  */
 // It fades in after a moment, so a quick refresh never flashes it.
 export function RefreshingOverlay({
@@ -139,7 +139,7 @@ export function RefreshingOverlay({
 }: {
 	updating?: boolean;
 }): JSX.Element | null {
-	const { locked, givesUpAt, waitsMs, retry } = useFreshness();
+	const { locked, givesUpAt, waitsMs } = useFreshness();
 	const active = locked || updating;
 	const [shown, setShown] = useState(active);
 	useEffect(() => {
@@ -154,12 +154,7 @@ export function RefreshingOverlay({
 		return null;
 	}
 	return (
-		<Refreshing
-			closing={!active}
-			givesUpAt={givesUpAt}
-			waitsMs={waitsMs}
-			onRetry={locked ? retry : undefined}
-		/>
+		<Refreshing closing={!active} givesUpAt={givesUpAt} waitsMs={waitsMs} />
 	);
 }
 
@@ -167,12 +162,10 @@ function Refreshing({
 	closing,
 	givesUpAt,
 	waitsMs,
-	onRetry,
 }: {
 	closing: boolean;
 	givesUpAt: number | null;
 	waitsMs: number;
-	onRetry?: () => void;
 }): JSX.Element {
 	const ref = useRef<HTMLDivElement>(null);
 	useEffect(() => {
@@ -193,7 +186,6 @@ function Refreshing({
 		};
 	}, [closing]);
 	const [slow, setSlow] = useState(false);
-	// A retry waits anew, so Retry goes until this one runs on too.
 	useEffect(() => {
 		setSlow(false);
 		const waiting = setTimeout(() => setSlow(true), REFRESH_WAITS.slow.ms);
@@ -222,21 +214,13 @@ function Refreshing({
 					/>
 					Refreshing…
 				</div>
-				{slow && onRetry !== undefined && (
+				{slow && (
 					<div className="flex items-center gap-3">
 						<Countdown
 							givesUpAt={givesUpAt}
 							waitsMs={waitsMs}
-							doing="refreshing"
+							format="timeout"
 						/>
-						<Button
-							variant="outline"
-							size="sm"
-							className="ml-auto"
-							onClick={onRetry}
-						>
-							Retry
-						</Button>
 					</div>
 				)}
 			</div>

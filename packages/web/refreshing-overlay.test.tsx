@@ -6,7 +6,7 @@ import {
 	REFRESH_WAITS,
 	RefreshingOverlay,
 } from "./freshness";
-import { act, cleanup, fireEvent, render, waitFor } from "./testing-library";
+import { cleanup, render, waitFor } from "./testing-library";
 
 describe("Covering the page while it refreshes", () => {
 	const slow = REFRESH_WAITS.slow;
@@ -57,25 +57,19 @@ describe("Covering the page while it refreshes", () => {
 		);
 	});
 
-	it("counts down to giving up and offers Retry once the refresh runs on", async () => {
+	it("shows only a short timeout below the label once the refresh runs on", async () => {
 		REFRESH_WAITS.slow = Duration.ms(10);
-		let retried = 0;
 		const page = covered({
 			...STALE,
 			givesUpAt: Date.now() + 2_000,
 			waitsMs: 10_000,
-			retry: () => retried++,
 		});
 
-		const button = await waitFor(() =>
-			page.getByRole("button", { name: "Retry" }),
-		);
+		const countdown = await waitFor(() => page.getByText("Timeout in 2s"));
 		const status = page.getByRole("status", { name: "Refreshing" });
-		const countdown = page.getByText(/Still refreshing, gives up in 2s/);
 		expect(status.nextElementSibling?.contains(countdown)).toBe(true);
 		expect(status.contains(countdown)).toBe(false);
-		await act(async () => fireEvent.click(button));
-		expect(retried).toBe(1);
+		expect(page.queryByRole("button", { name: "Retry" })).toBeNull();
 	});
 });
 

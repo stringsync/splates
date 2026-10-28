@@ -4,15 +4,12 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { WAITS } from "./api";
 
-/**
- * How long until a wait that has run on gives up, shown once the first third
- * of it has passed quietly, so a quick answer never flashes it. What waits
- * says the rest: that it gave up, and why.
- */
+/** How long a wait has left, for display beside its loading or refreshing state. */
 export function Countdown({
 	givesUpAt,
 	waitsMs,
 	doing = "loading",
+	format = "progress",
 	className,
 }: {
 	/** When the wait gives up, in `Date.now()` ms, or null while nothing waits. */
@@ -21,6 +18,8 @@ export function Countdown({
 	waitsMs: number;
 	/** What is still under way, as in "Still loading". */
 	doing?: string;
+	/** Whether to describe the wait or only its timeout. */
+	format?: "progress" | "timeout";
 	className?: string;
 }): JSX.Element | null {
 	const now = useTicking(givesUpAt !== null);
@@ -35,7 +34,13 @@ export function Countdown({
 				className,
 			)}
 		>
-			Still {doing}, gives up in {left(givesUpAt - now)}
+			{format === "timeout" ? (
+				<>Timeout in {left(givesUpAt - now)}</>
+			) : (
+				<>
+					Still {doing}, gives up in {left(givesUpAt - now)}
+				</>
+			)}
 		</span>
 	);
 }
