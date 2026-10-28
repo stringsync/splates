@@ -335,9 +335,10 @@ export function useNewConversation({
 		<ProjectSwitcher
 			name={projectName}
 			keyed={false}
-			bar
+			scope
+			path={false}
 			servers={false}
-			className="mx-0"
+			className="mx-0 flex-1"
 			hash={`#conversations/${withDraft(auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`, identity)}`}
 			onPick={(each) => drafts.move(draft, newDraft(each.slug, null, identity))}
 		/>
@@ -479,8 +480,10 @@ export function ProjectLine({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="-mb-2 flex min-w-0 items-center gap-1 px-2 text-muted-foreground text-sm">
-			<span className="shrink-0">In</span>
+		<div className="-mb-2 flex min-h-12 min-w-0 items-center gap-3 rounded-xl border bg-muted/30 px-3 py-2 text-sm">
+			<span className="shrink-0 font-medium text-muted-foreground text-xs">
+				Project
+			</span>
 			{children}
 		</div>
 	);
