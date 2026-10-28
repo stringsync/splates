@@ -52,12 +52,71 @@ describe("server conflict notices", () => {
 			expect(agent.steered[0]).toContain(
 				"will conflict with main in: README.md",
 			);
+			expect(agent.cancelled).toBe(0);
 			await watch.sweep();
 			expect(agent.steered).toHaveLength(1);
 			expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
 		} finally {
 			await watch.disposeAsync();
 			finish?.();
+			await conversations.disposeAsync();
+		}
+	}, 20000);
+
+	// scry-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.
+	it("interrupts an agent that cannot steer so it hears the warning now", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const worktree = await deps.service.find("alpha");
+		await deps.commit(worktree.path, "README.md", "task\n", "task edit");
+		const agent = new FakeAgent();
+		const said: string[] = [];
+		let finish: ((reason: "end_turn" | "cancelled") => void) | undefined;
+		agent.turn = (_client, _session, text) => {
+			said.push(text);
+			return new Promise((resolve) => {
+				finish = resolve;
+			});
+		};
+		const conversations = new Conversations(
+			`${deps.dir}/conversations`,
+			[AGENT],
+			{ storage: deps.storage.within("conversations"), launch: agent.launch },
+		);
+		const conversation = await conversations.start("fake", {
+			task: "alpha",
+			cwd: worktree.path,
+		});
+		await conversation.prompt("work");
+		expect(await eventually(async () => said.length === 1, 5000)).toBe(true);
+		const watch = new ConflictWatch(deps, conversations);
+		try {
+			await watch.start();
+			await deps.commit(deps.root, "README.md", "trunk\n", "another landing");
+			expect(await eventually(async () => agent.cancelled === 1, 5000)).toBe(
+				true,
+			);
+			expect(said).toEqual(["work"]);
+
+			finish?.("cancelled");
+
+			expect(await eventually(async () => said.length === 2, 5000)).toBe(true);
+			expect(said[1]).toContain("will conflict with main in: README.md");
+
+			await deps.commit(
+				worktree.path,
+				"NOTES.md",
+				"task\n",
+				"another task edit",
+			);
+			await worktree.save({ status: "merging" });
+			await deps.commit(deps.root, "NOTES.md", "trunk\n", "another landing");
+			await watch.sweep();
+			expect(agent.cancelled).toBe(1);
+			expect(said).toHaveLength(2);
+		} finally {
+			await watch.disposeAsync();
+			finish?.("end_turn");
 			await conversations.disposeAsync();
 		}
 	}, 20000);

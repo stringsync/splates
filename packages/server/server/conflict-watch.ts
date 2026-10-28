@@ -137,7 +137,10 @@ export class ConflictWatch implements AsyncResource {
 			}
 			this.told.set(key, words);
 			void conversation
-				.prompt(earlyWarning(task, words), [], undefined, { told: SERVER_TOLD })
+				.prompt(earlyWarning(task, words), [], undefined, {
+					told: SERVER_TOLD,
+					stop: conversation.state.taking === "queue",
+				})
 				.catch((error: unknown) => {
 					this.told.delete(key);
 					this.project.log.error(String(error));
