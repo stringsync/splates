@@ -8,7 +8,7 @@ import {
 	PanelRightIcon,
 	SquarePenIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useContext, useState } from "react";
 import { useShortcutLabel } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { Action } from "./actions";
@@ -16,7 +16,7 @@ import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import type { Refuse } from "./refusal";
 import { TakeUpItems } from "./take-up";
-import { BarButton, TITLE, TopBar } from "./top-bar";
+import { BarButton, TITLE, TopBar, TopBarFrame } from "./top-bar";
 
 /**
  * A conversation's bar: its name, which a double-click renames, then its
@@ -38,6 +38,7 @@ export function ThreadHeader({
 	/** Back to the inbox, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): ReactNode {
+	const project = useContext(TopBarFrame)?.project;
 	const [renaming, setRenaming] = useState(false);
 	const nameOf = useNameOf();
 	const key = useShortcutLabel("shortcuts.widgets");
@@ -52,31 +53,41 @@ export function ThreadHeader({
 				)
 			}
 			title={
-				renaming ? (
-					<Rename
-						conversation={conversation}
-						refuse={refused}
-						onDone={() => setRenaming(false)}
-					/>
-				) : (
-					// A shortcut: the menu in the sidebar renames too. A long name,
-					// such as a question it was named after, ends in an ellipsis.
-					<h2
-						onDoubleClick={() => setRenaming(!phone)}
-						title={
-							phone
-								? nameOf(conversation)
-								: `${nameOf(conversation)}\nDouble-click to rename`
-						}
-						className={cn(
-							TITLE,
-							"truncate",
-							unnamed(conversation) && "text-muted-foreground italic",
-						)}
-					>
-						{nameOf(conversation)}
-					</h2>
-				)
+				<div className="flex min-w-0 flex-col">
+					{project !== undefined && (
+						<span
+							title={project}
+							className="truncate text-muted-foreground text-[11px] leading-4"
+						>
+							{project}
+						</span>
+					)}
+					{renaming ? (
+						<Rename
+							conversation={conversation}
+							refuse={refused}
+							onDone={() => setRenaming(false)}
+						/>
+					) : (
+						// A shortcut: the menu in the sidebar renames too. A long name,
+						// such as a question it was named after, ends in an ellipsis.
+						<h2
+							onDoubleClick={() => setRenaming(!phone)}
+							title={
+								phone
+									? nameOf(conversation)
+									: `${nameOf(conversation)}\nDouble-click to rename`
+							}
+							className={cn(
+								TITLE,
+								"truncate",
+								unnamed(conversation) && "text-muted-foreground italic",
+							)}
+						>
+							{nameOf(conversation)}
+						</h2>
+					)}
+				</div>
 			}
 			actions={[
 				{
