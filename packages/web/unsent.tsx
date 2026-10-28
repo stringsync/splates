@@ -24,17 +24,21 @@ export function SendingLine({
 	seconds,
 }: {
 	seconds: number | null;
-}): JSX.Element | null {
+}): JSX.Element {
 	const shown = useShowPending(true);
-	if (!shown && seconds === null) {
-		return null;
-	}
+	const visible = shown || seconds !== null;
+	// Its box is out of the flow and always there, so the words coming and
+	// going move nothing.
 	return (
 		<div
 			data-slot="aui_user-message-sending"
-			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
+			className="text-muted-foreground relative h-0 w-full text-xs"
 		>
-			{seconds === null ? "Sending…" : `Sending… times out in ${seconds}s`}
+			{visible && (
+				<span className="absolute start-1 top-0 flex items-center gap-1 whitespace-nowrap">
+					{seconds === null ? "Sending…" : `Sending… times out in ${seconds}s`}
+				</span>
+			)}
 		</div>
 	);
 }

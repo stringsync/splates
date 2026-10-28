@@ -77,7 +77,9 @@ export function Swipeable({
 	const swiped = useRef(false);
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	useEffect(() => () => clearTimeout(timer.current), []);
-	if (archive === null) {
+	// Not once it has left: the archive landing must not bring the closed-up
+	// row back for a moment before the list drops it.
+	if (archive === null && !leaving) {
 		return <>{children}</>;
 	}
 	// Puts the row at `to`, following the finger at once or easing there.
@@ -118,10 +120,10 @@ export function Swipeable({
 			setHeight(0);
 			timer.current = setTimeout(() => {
 				// Something it would lose may have started meanwhile.
-				if (archive.asks()) {
+				if (archive?.asks()) {
 					back();
 				}
-				archive.file(undefined, back);
+				archive?.file(undefined, back);
 			}, ms);
 		}, ms);
 	};
@@ -182,9 +184,9 @@ export function Swipeable({
 					end();
 					if (!far) {
 						settle();
-					} else if (archive.asks()) {
+					} else if (archive?.asks()) {
 						settle();
-						archive.file();
+						archive?.file();
 					} else {
 						leave();
 					}
@@ -316,10 +318,10 @@ export function EdgeSwipe({
 						swiping.current &&
 						pullArchives(pulled, event.timeStamp - began.current);
 					end();
-					if (!far || archive.asks()) {
+					if (!far || archive?.asks()) {
 						settle();
 						if (far) {
-							archive.file();
+							archive?.file();
 						}
 						return;
 					}
@@ -335,7 +337,7 @@ export function EdgeSwipe({
 						if (backing.current !== null) {
 							backing.current.style.opacity = "0";
 						}
-						archive.file(undefined, settle);
+						archive?.file(undefined, settle);
 					}, ms);
 				}}
 				onPointerCancel={() => {
