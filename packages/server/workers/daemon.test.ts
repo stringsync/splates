@@ -22,7 +22,7 @@ describe("WorkerDaemon", () => {
 	let worker: ConnectedWorker;
 	let ps: StartFailingPs;
 
-	beforeEach(async () => {
+	const boot = async (orphanBound: Duration) => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
 		ps = new StartFailingPs();
 		const path = join(dir, "worker.sock");
@@ -41,19 +41,23 @@ describe("WorkerDaemon", () => {
 				log: new MemoryLogger(),
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 				session: { bufferBytes: 64 * 1024 },
-				orphanBound: Duration.secs(2),
+				orphanBound,
 			},
 		);
 		void daemon.run();
 		worker = await joined;
-	});
+	};
 
-	afterEach(async () => {
+	const teardown = async () => {
 		await daemon.disposeAsync();
 		registry.dispose();
 		await listener.disposeAsync();
 		await rm(dir, { recursive: true, force: true });
-	});
+	};
+
+	beforeEach(() => boot(Duration.secs(2)));
+
+	afterEach(teardown);
 
 	it("joins with its platform and build", () => {
 		expect(worker.info).toMatchObject({
@@ -219,14 +223,16 @@ describe("WorkerDaemon", () => {
 
 	// scry-ignore simple-test-setup: it alone drops the server for good, which is what it tests
 	it("ends a process when the coordinator does not return within the bound", async () => {
+		await teardown();
+		await boot(Duration.ms(400));
 		const child = worker.start(["sleep", "30"], dir);
 		await sleep(Duration.ms(100));
 		const pid = child.pid as number;
 
 		await listener.disposeAsync();
-		await sleep(Duration.ms(1000));
+		await sleep(Duration.ms(100));
 		expect(new NodePs().alive(pid)).toBe(true);
-		await sleep(Duration.ms(1500));
+		await sleep(Duration.ms(400));
 
 		await sleep(Duration.ms(100));
 		expect(new NodePs().alive(pid)).toBe(false);
