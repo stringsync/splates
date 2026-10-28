@@ -45,14 +45,17 @@ describe("checkRules", () => {
 		});
 	});
 
-	it("keeps Kimi after Claude and Codex in every default rule", () => {
-		expect(DEFAULT_RULES.rules.map((each) => each.picks.at(-1))).toEqual([
-			{ agent: "kimi", model: "kimi-code/k3", effort: "low" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "medium" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "medium" },
+	it("puts each default task class on its intended primary pick", () => {
+		expect(DEFAULT_RULES.rules.map((each) => each.picks[0])).toEqual([
+			{ agent: "claude", model: "sonnet", effort: "low" },
+			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
+			{ agent: "claude", model: "opus", effort: "medium" },
 		]);
 	});
 

@@ -18,13 +18,13 @@ describe("decideWithout", () => {
 			}),
 		).toEqual({
 			pick: { agent: "claude", model: "opus", effort: "medium" },
-			rule: 5,
+			rule: 8,
 			kind: null,
 			depth: null,
 			reasons: [
 				"Opus 5.5, medium effort",
 				"the judge took over 5s",
-				"rule 6: any kind, any depth",
+				"rule 9: any kind, any depth",
 			],
 		});
 	});

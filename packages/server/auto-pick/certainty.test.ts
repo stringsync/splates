@@ -20,7 +20,7 @@ const BASE = {
 };
 
 describe("Auto pick certainty", () => {
-	it("routes settled deep work to Opus without reducing reasoning depth or effort", () => {
+	it("routes settled deep design work to Opus without reducing reasoning depth or effort", () => {
 		const result = decide({
 			...BASE,
 			classification: { ...DESIGN, clarity: { settled: 0.9, unresolved: 0.1 } },
@@ -30,7 +30,7 @@ describe("Auto pick certainty", () => {
 			depth: "deep",
 			clarity: "settled",
 		});
-		expect(result.reasons).toContain("rule 4: any kind, Deep, Calls settled");
+		expect(result.reasons).toContain("rule 6: Design, Deep");
 		expect(setOf(result)).toMatchObject({ clarity: "settled", depth: "deep" });
 	});
 
@@ -44,7 +44,7 @@ describe("Auto pick certainty", () => {
 		"keeps exploratory or unknown certainty on the existing depth route: %j",
 		(classification) => {
 			expect(decide({ ...BASE, classification })).toMatchObject({
-				pick: { model: "fable" },
+				pick: { model: "opus" },
 				depth: "deep",
 			});
 		},

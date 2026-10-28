@@ -6,12 +6,19 @@ export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
 	threshold: 0.5,
 	rules: [
-		rule("shallow", ["sonnet", "gpt-6.1-sol", "kimi-code/k3"], "low"),
+		rule(
+			"shallow",
+			["sonnet", "gpt-6.1-sol", "kimi-code/k3.1-pro-highspeed"],
+			"low",
+		),
+		designModerate("design"),
+		designModerate("open"),
 		rule("moderate", ["sonnet", "gpt-6.1-sol", "kimi-code/k3.1-pro"], "medium"),
 		deepBugfix(),
-		settledDeep(),
+		designDeep("design"),
+		designDeep("open"),
 		deep(),
-		rule(ANY, ["opus", "gpt-6-astra", "kimi-code/k3.1-pro"], "medium"),
+		fallback(),
 	],
 	pace: DEFAULT_PACE,
 };
@@ -22,20 +29,58 @@ function rule(
 	[claude, codex, kimi]: [string, string, string],
 	effort: string,
 ): Rule {
-	const picks = [
-		{ agent: "claude", model: claude, effort },
-		{ agent: "codex", model: codex, effort },
-		{ agent: "kimi", model: kimi, effort },
-	];
 	return {
 		kind: ANY,
 		depth,
-		picks,
+		picks: [
+			{ agent: "claude", model: claude, effort },
+			{ agent: "codex", model: codex, effort },
+			{ agent: "kimi", model: kimi, effort },
+		],
+	};
+}
+
+/** Moderate design or open-ended work starts on Opus, then Sonnet, then K3.1 Pro. */
+function designModerate(kind: "design" | "open"): Rule {
+	return {
+		kind,
+		depth: "moderate",
+		picks: [
+			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+		],
+	};
+}
+
+/** A deep bugfix starts on Opus, then K3.1 Pro at max effort, then Astra. */
+function deepBugfix(): Rule {
+	return {
+		kind: "bugfix",
+		depth: "deep",
+		picks: [
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
+			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
+		],
+	};
+}
+
+/** Deep design or open-ended work starts on Opus, then K3.1 Pro, then Astra. */
+function designDeep(kind: "design" | "open"): Rule {
+	return {
+		kind,
+		depth: "deep",
+		picks: [
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
+		],
 	};
 }
 
 /**
- * Deep work starts on Fable, falls back through Astra and Opus, then K3.1 Pro;
+ * Other deep work starts on K3.1 Pro at max effort, then Opus, then Astra;
  * each is passed over when its plan is spent or used too fast.
  */
 function deep(): Rule {
@@ -43,29 +88,22 @@ function deep(): Rule {
 		kind: ANY,
 		depth: "deep",
 		picks: [
-			{ agent: "claude", model: "fable", effort: "high" },
-			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
 			{ agent: "claude", model: "opus", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
 		],
 	};
 }
 
-/** A deep bugfix starts on Opus, sparing Fable's cost for the rest of deep work, then falls back to Fable, Astra and K3.1 Pro. */
-function deepBugfix(): Rule {
+/** Work the judge could not place starts on Opus, then Sonnet, then Sol. */
+function fallback(): Rule {
 	return {
-		kind: "bugfix",
-		depth: "deep",
+		kind: ANY,
+		depth: ANY,
 		picks: [
-			{ agent: "claude", model: "opus", effort: "high" },
-			{ agent: "claude", model: "fable", effort: "high" },
-			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
 		],
 	};
-}
-
-/** Settled deep work keeps high effort, starting on the focused implementation pick. */
-function settledDeep(): Rule {
-	return { ...deepBugfix(), kind: ANY, clarity: "settled" };
 }
