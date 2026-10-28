@@ -231,7 +231,6 @@ export function Lane({
 									className="mx-1 size-3.5 text-muted-foreground"
 								/>
 							)}
-							<QueueLaneButton lane={lane} />
 							<LaneMenu
 								lane={lane}
 								lanes={lanes}
@@ -243,39 +242,42 @@ export function Lane({
 					{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
 					{/* Always there, at the chips' height, so a task starting or landing
 				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
-					<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
-						{(running || blocked) && (
-							<>
-								{running && (
-									<span
-										className={cn(
-											"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-											TONES.working,
-										)}
-										title="An agent is at work on one of its tasks"
-									>
+					<div className="flex min-w-0 items-center justify-between gap-2">
+						<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
+							{(running || blocked) && (
+								<>
+									{running && (
 										<span
-											aria-hidden
-											className="size-1.5 rounded-full bg-primary"
-										/>
-										Running
-									</span>
-								)}
-								{blocked && (
-									<span
-										className={cn(
-											"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
-											TONES.waiting,
-										)}
-										title={`${next?.subject} waits on ${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
-									>
-										<LockIcon aria-hidden className="size-3 shrink-0" />
-										<span className="truncate">Blocked by {holdup?.id}</span>
-									</span>
-								)}
-							</>
-						)}
-					</span>
+											className={cn(
+												"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+												TONES.working,
+											)}
+											title="An agent is at work on one of its tasks"
+										>
+											<span
+												aria-hidden
+												className="size-1.5 rounded-full bg-primary"
+											/>
+											Running
+										</span>
+									)}
+									{blocked && (
+										<span
+											className={cn(
+												"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
+												TONES.waiting,
+											)}
+											title={`${next?.subject} waits on ${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
+										>
+											<LockIcon aria-hidden className="size-3 shrink-0" />
+											<span className="truncate">Blocked by {holdup?.id}</span>
+										</span>
+									)}
+								</>
+							)}
+						</span>
+						<QueueLaneButton lane={lane} />
+					</div>
 					<Refusal refusal={refusedLanes.get(lane.id)} />
 				</header>
 				<Cards
