@@ -275,13 +275,16 @@ describe("App's composer queue", () => {
 		expect(reply("Working")).toBe(reply("On it."));
 	});
 
-	it("interrupts the running turn from the queued row without sending or dropping the follow-up", async () => {
+	it("keeps interruption in the composer without sending or dropping a queued follow-up", async () => {
 		const view = await testing.openConversations([working], "c1");
 		const thread = view.getByRole("region", { name: "Fix login" });
 
+		expect(
+			within(thread).queryByRole("button", { name: "Interrupt" }),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(
-				within(thread).getByRole("button", { name: "Interrupt" }),
+				within(thread).getByRole("button", { name: "Stop generating" }),
 			),
 		);
 
