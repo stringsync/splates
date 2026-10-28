@@ -34,6 +34,7 @@ describe("App once the server stays away after a wake", () => {
 		expect(said.textContent).toBe("Offline");
 		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
 		expect(input.closest("[inert]")).toBeNull();
+		expect(view.queryByRole("status", { name: "Refreshing" })).toBeNull();
 	});
 
 	it("shows the conversations again once the server is back", async () => {

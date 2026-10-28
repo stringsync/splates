@@ -1,4 +1,5 @@
 import { useReactive } from "@webappwiz/react";
+import { LoaderCircleIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -8,6 +9,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
@@ -90,6 +92,35 @@ export function useFeedsFreshness(
 	);
 }
 
+/** Makes the existing freshness lock visible on both phone and desktop. */
+export function RefreshingOverlay(): JSX.Element | null {
+	const { locked } = useFreshness();
+	if (!locked) {
+		return null;
+	}
+	return createPortal(
+		<div className="pointer-events-none fixed inset-0 z-100 flex items-center justify-center bg-background/60 p-4 backdrop-blur-[2px]">
+			<div
+				role="status"
+				aria-label="Refreshing"
+				className="flex max-w-sm items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg"
+			>
+				<LoaderCircleIcon
+					aria-hidden
+					className="size-5 shrink-0 motion-safe:animate-spin"
+				/>
+				<div className="flex flex-col gap-1">
+					<span className="text-sm font-medium">Refreshing…</span>
+					<span className="text-sm text-muted-foreground">
+						Waiting for current server data. Controls will be available shortly.
+					</span>
+				</div>
+			</div>
+		</div>,
+		document.body,
+	);
+}
+
 /** Widths of each placeholder row's name, project and preview, in rems. */
 const INBOX_ROWS = [
 	{ name: "w-44", project: "w-14", preview: "w-64" },
@@ -99,9 +130,8 @@ const INBOX_ROWS = [
 ];
 
 /**
- * What the inbox shows in place of its rows before its first read: rows shaped
- * like the real ones, an avatar, a name with its project and age, and a line
- * of preview. Their count cannot predict the loaded inbox's groups and folders.
+ * Shows placeholder inbox rows until the first listing arrives.
+ * Pass `className` to fit the inbox layout.
  */
 export function InboxLoading({
 	className,
@@ -142,9 +172,8 @@ export function InboxLoading({
 const LIST_ROWS = ["w-28", "w-20", "w-32", "w-24"];
 
 /**
- * What the sidebar shows in place of its rows before its first listing of
- * every project: rows shaped like its own, a mark and a name. Their count
- * cannot predict the loaded list's folders.
+ * Shows placeholder sidebar rows until conversations have loaded.
+ * Pass `className` to fit the sidebar layout.
  */
 export function ListLoading({
 	className,
@@ -201,9 +230,8 @@ export function Locked({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
- * The error the page shows once it gave up waiting: the server cannot be
- * reached. The page is unlocked by then, so what it shows can be read and
- * copied; the streams reopen by themselves, so it offers no Retry.
+ * Shows that the server cannot be reached. Pass `reason` to include the last
+ * read failure beside the label and in its tooltip.
  */
 export function OfflinePill({
 	reason = null,

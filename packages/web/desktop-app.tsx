@@ -8,7 +8,7 @@ import { AppNav } from "./app-nav";
 import { BESIDE_PANE } from "./changes";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { useFreshness } from "./freshness";
+import { RefreshingOverlay, useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
@@ -116,6 +116,7 @@ export function DesktopApp({
 	};
 	return (
 		<TopBarFrame value={frame}>
+			<RefreshingOverlay />
 			<Tabs
 				data-sidebar-layout=""
 				value={page}

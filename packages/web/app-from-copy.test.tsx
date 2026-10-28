@@ -29,9 +29,13 @@ describe("App drawn from its last copy", () => {
 		const view = testing.render({ todos: [todo({ id: 1, subject: "Fresh" })] });
 
 		await waitFor(() => view.getByText("Kept"));
+		expect(view.getByRole("status", { name: "Refreshing" })).toBeDefined();
 		arrive();
 		await waitFor(() => view.getByText("Fresh"));
 		expect(view.queryByText("Kept")).toBeNull();
+		await waitFor(() =>
+			expect(view.queryByRole("status", { name: "Refreshing" })).toBeNull(),
+		);
 	});
 
 	it("dims and locks the inbox rows until the server answers", async () => {

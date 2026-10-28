@@ -5,7 +5,7 @@ import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { OfflinePill, useFreshness } from "./freshness";
+import { OfflinePill, RefreshingOverlay, useFreshness } from "./freshness";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
@@ -93,6 +93,7 @@ export function PhoneApp({
 	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
+			<RefreshingOverlay />
 			{page === "conversations" && open === null ? (
 				<TopBarFrame value={kebab}>
 					<Inbox
