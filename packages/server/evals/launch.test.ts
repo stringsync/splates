@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually } from "../server/testing";
 import { Testing } from "../testing";
@@ -39,7 +39,7 @@ describe("EvalLaunches", () => {
 	});
 
 	afterEach(async () => {
-		launches.dispose();
+		await launches.disposeAsync();
 		await deps.disposeAsync();
 	});
 
@@ -175,16 +175,17 @@ describe("EvalLaunches", () => {
 		await launches.start(commands, { ...spec, conversation: "c-1" });
 		expect(
 			await eventually(
-				async () => (await launches.get(commands, "card-1"))?.batch === "first",
+				async () => (await readdir(commands.results)).includes("first"),
 				2_000,
 			),
 		).toBe(true);
-		launches.dispose();
+		await launches.disposeAsync();
 
 		launches = new EvalLaunches(deps.ps, deps.machine);
 		launches.events.on("finished", (each) => finished.push(each));
 		expect(await launches.get(commands, "card-1")).toMatchObject({
 			status: "running",
+			batch: "first",
 		});
 		await launches.resume([commands]);
 		await done(launches, commands);

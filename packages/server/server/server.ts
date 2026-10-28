@@ -383,7 +383,7 @@ export async function dev(
 			(await evalCommandsOf(request))?.results ?? null,
 	});
 	const evalLaunches = new EvalLaunches(ps, machineStorage);
-	disposer.defer(async () => evalLaunches.dispose());
+	disposer.use(evalLaunches);
 	// The agent whose card started a run hears it is done, with its report,
 	// to take the person through what to do next.
 	const unwatch = evalLaunches.events.on(

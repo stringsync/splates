@@ -1,5 +1,5 @@
 import { readdir } from "node:fs/promises";
-import type { Resource } from "webappwiz/disposable";
+import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Child, Ps } from "webappwiz/system";
 import { fail } from "../exit";
@@ -88,13 +88,17 @@ const TAIL = 20;
  * to show a conversation's card run as going, and to `finished` to tell the
  * conversation its results. A restart runs again each launch left in progress.
  */
-export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
+export class EvalLaunches
+	implements Eventful<EvalLaunchesEvents>, AsyncResource
+{
 	private readonly dispatcher = new Dispatcher<EvalLaunchesEvents>();
 	readonly events = this.dispatcher.events;
 	/** By project root and card key. */
 	private readonly launches = new Map<string, Launched>();
+	private readonly watching = new Set<Promise<void>>();
 	private readonly record: Document<Record<string, SavedLaunch>>;
 	private writing: Promise<void> = Promise.resolve();
+	private disposing = false;
 
 	constructor(
 		private readonly ps: Ps,
@@ -206,7 +210,12 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 			throw error;
 		}
 		this.running(launch);
-		void this.watch(launch);
+		const watching = this.watch(launch);
+		this.watching.add(watching);
+		void watching.then(
+			() => this.watching.delete(watching),
+			() => {},
+		);
 		return this.read(launch);
 	}
 
@@ -251,13 +260,15 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 		return this.read(launch);
 	}
 
-	dispose(): void {
+	/** Stops runners and waits for their writes, leaving interrupted runs in progress to resume. */
+	async disposeAsync(): Promise<void> {
+		this.disposing = true;
 		for (const launch of this.launches.values()) {
 			if (launch.status === "running") {
-				launch.stopping = true;
 				launch.child.kill();
 			}
 		}
+		await Promise.all(this.watching);
 	}
 
 	/** Collects the child's words and settles the launch when it exits. */
@@ -272,6 +283,9 @@ export class EvalLaunches implements Eventful<EvalLaunchesEvents>, Resource {
 		const code = await launch.child.exited;
 		await Promise.all(words);
 		await this.read(launch);
+		if (this.disposing && !launch.stopping) {
+			return;
+		}
 		launch.status = launch.stopping
 			? "stopped"
 			: code === 0
