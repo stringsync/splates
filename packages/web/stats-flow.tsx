@@ -11,8 +11,6 @@ import { type Axis, decimal, type Period } from "./stats-report";
 
 /** The lines' colors, validated in styles.css. */
 const CLOSED = "var(--series-you)";
-const QUEUED = "var(--series-2)";
-const RAN = "var(--series-1)";
 
 /**
  * How fast tasks close: how many a day or an hour, charted bar by bar, and
@@ -68,82 +66,6 @@ export function Closing({
 					series={[{ color: CLOSED, value: (bar) => bar.closed }]}
 					label={(bar) =>
 						`${bar.label}: ${decimal(bar.closed)} tasks closed, per ${unit}`
-					}
-				/>
-			</figure>
-		</section>
-	);
-}
-
-/**
- * How long a landing merge takes: waiting its turn for the machine's
- * premerge lock, then running its gate and landing, each charted bar by bar.
- */
-export function Merges({
-	rates,
-	period,
-	weekly,
-}: {
-	rates: FlowRates;
-	period: Period;
-	/** Whether a bar is a week, so the newest is "This week" rather than "Now". */
-	weekly: boolean;
-}): JSX.Element {
-	const { queued, ran } = rates;
-	const over =
-		queued.count === 0
-			? "No merge timed"
-			: `Over ${plural(queued.count, "merge")} ${within(period)}`;
-	return (
-		<section
-			aria-label="Merges"
-			className="flex min-w-0 flex-col gap-4 text-foreground"
-		>
-			<h3 className="font-medium text-xs">Merges</h3>
-			{rates.batch.merges > 0 && (
-				<p className="text-muted-foreground text-xs">
-					{plural(rates.batch.merges, "merge")} shared{" "}
-					{plural(rates.batch.gates, "landing gate")} ·{" "}
-					{plural(rates.batch.merges - rates.batch.gates, "separate gate")}{" "}
-					saved. Counts successful landings; shared gates count when their
-					leader lands.
-				</p>
-			)}
-			<figure
-				aria-label="Merge times over the period"
-				className="flex flex-col gap-3 rounded-lg border p-3"
-			>
-				<figcaption className="grid grid-cols-2 gap-3">
-					<Side
-						title="Queued"
-						color={QUEUED}
-						shown={queued.value === null ? NONE : brief(queued.value)}
-						suffix="a merge"
-						detail={over}
-						moved={movement(queued, "down", period, brief)}
-					/>
-					<Side
-						title="Running"
-						color={RAN}
-						shown={ran.value === null ? NONE : brief(ran.value)}
-						suffix="a merge"
-						detail={over}
-						moved={movement(ran, "down", period, brief)}
-					/>
-				</figcaption>
-				<Chart
-					bars={rates.bars}
-					axis={rates.mergeAxis}
-					weekly={weekly}
-					tick={(at) => `${Number(at.toFixed(4))}m`}
-					series={[
-						{ color: QUEUED, value: (bar) => bar.queuedMinutes },
-						{ color: RAN, value: (bar) => bar.ranMinutes },
-					]}
-					label={(bar) =>
-						bar.queuedMinutes === null || bar.ranMinutes === null
-							? `${bar.label}: no merge timed`
-							: `${bar.label}: queued ${brief(bar.queuedMinutes * MINUTE)}, ran ${brief(bar.ranMinutes * MINUTE)}, over ${plural(bar.merges, "merge")}`
 					}
 				/>
 			</figure>
@@ -345,23 +267,6 @@ function movement(
 	}
 	const way = value < before ? "down" : "up";
 	return `${way} from ${then}: ${way === better ? "better" : "worse"}`;
-}
-
-const MINUTE = 60 * 1000;
-
-/** `40s`, `2m 30s`, or past 10 minutes as `duration` reads it. */
-function brief(ms: number): string {
-	const seconds = Math.round(ms / 1000);
-	if (seconds < 60) {
-		return `${seconds}s`;
-	}
-	if (seconds < 600) {
-		const rest = seconds % 60;
-		return rest === 0
-			? `${Math.floor(seconds / 60)}m`
-			: `${Math.floor(seconds / 60)}m ${rest}s`;
-	}
-	return duration(ms);
 }
 
 function within(period: Period): string {

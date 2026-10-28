@@ -18,7 +18,7 @@ import { ReadFailed, ReadingNow } from "./countdown";
 import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
-import { Closing, Merges } from "./stats-flow";
+import { Closing } from "./stats-flow";
 import {
 	type Axis,
 	type Bucket,
@@ -128,20 +128,13 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							))
 						)}
 					</section>
-					{/* How fast work goes through, and where merges spend their time. */}
+					{/* How fast work goes through. */}
 					{flow !== null && (
-						<>
-							<Closing
-								rates={flow}
-								period={period}
-								weekly={period.id === "all"}
-							/>
-							<Merges
-								rates={flow}
-								period={period}
-								weekly={period.id === "all"}
-							/>
-						</>
+						<Closing
+							rates={flow}
+							period={period}
+							weekly={period.id === "all"}
+						/>
 					)}
 					<Collapsible
 						render={<section aria-label="Everything else" />}

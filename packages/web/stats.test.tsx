@@ -68,22 +68,17 @@ describe("StatsPage", () => {
 		const cost = page.getByRole("region", { name: "Cost per task" });
 		expect(cost.textContent).toContain("$1.50");
 		expect(cost.textContent).toContain("Over 2 tasks in the last 7 days");
-		// How fast tasks close and merges take show without unfolding anything.
+		// How fast tasks close shows without unfolding anything.
 		const closing = page.getByRole("region", { name: "Closing" });
 		expect(closing.textContent).toContain("18 in the last 7 days");
-		const merges = page.getByRole("region", { name: "Merges" });
-		expect(merges.textContent).toContain(
-			"3 merges shared 1 landing gate · 2 separate gates saved",
-		);
-		expect(merges.textContent).toContain("30s");
-		expect(merges.textContent).toContain("2m 30s");
-		expect(merges.textContent).toContain("Over 2 merges in the last 7 days");
+		expect(page.queryByRole("region", { name: "Merges" })).toBeNull();
 		expect(page.queryByRole("region", { name: "Decisions" })).toBeNull();
 		expect(page.queryByRole("toolbar", { name: "Sizes" })).toBeNull();
 
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
 
 		await waitFor(() => page.getByRole("cell", { name: "Opus 5.5" }));
+		expect(page.queryByLabelText("Merge times over the period")).toBeNull();
 		expect(page.getByLabelText("Picks you overturned").textContent).toContain(
 			"Needs 5 more questions offering a pick to say",
 		);
@@ -176,6 +171,7 @@ describe("StatsPage", () => {
 		await waitFor(() => page.getByRole("region", { name: "act on" }));
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
 		await waitFor(() => page.getByRole("cell", { name: "Opus 5.5" }));
+		expect(page.queryByLabelText("Merge times over the period")).toBeNull();
 
 		const heads = (name: string) =>
 			Array.from(
