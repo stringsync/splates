@@ -95,7 +95,8 @@ export function Card({
 				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
 				// Queued, waiting for an agent, or at work, it stands out from the
 				// rest of its lane in the same way.
-				(held || todo.takenBy) && "border-border bg-primary/5",
+				(held || todo.takenBy) &&
+					"border-muted-foreground/60 bg-muted/60 hover:border-muted-foreground active:border-muted-foreground",
 				className,
 			)}
 		>
