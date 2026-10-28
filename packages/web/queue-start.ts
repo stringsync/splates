@@ -32,12 +32,21 @@ export function queueStartOf(text: string): QueueStart | null {
 /** The line a queued lane's start draws, the whole message on hover. */
 export function startLine(
 	start: QueueStart,
-	_lanes: readonly { id: number; name: string }[],
+	lanes: readonly { id: number; name: string }[],
 	at: string | null,
 	title: string,
 ): SplatesEventView {
+	const name = lanes.find((each) => each.id === start.lane)?.name;
 	return {
 		words: ["Started", { kind: "task", task: start.task }],
+		mobile: {
+			words: [
+				"Started",
+				{ kind: "task", task: start.task },
+				"from lane",
+				{ kind: "lane", id: start.lane, name: name ?? String(start.lane) },
+			],
+		},
 		at,
 		title,
 	};

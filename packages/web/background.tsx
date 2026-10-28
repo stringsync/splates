@@ -159,6 +159,17 @@ function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 									? "Failed"
 									: "Stopped",
 					],
+					mobile: {
+						words: [
+							exitCode === null
+								? ENDED[state]
+								: `${ENDED[state]}, exit ${exitCode}`,
+						],
+						act: {
+							label: expanded ? "Hide" : "Show",
+							run: () => setExpanded((was) => !was),
+						},
+					},
 					title: `${ENDED[state]}${exitCode === null ? "" : `, exit ${exitCode}`}`,
 					act: {
 						label: "Command",

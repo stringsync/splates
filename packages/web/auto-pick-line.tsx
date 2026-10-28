@@ -1,4 +1,5 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
+import { InfoIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { AutoAgentMark } from "./auto-brand";
 import { Button } from "./components/ui/button";
@@ -8,13 +9,14 @@ import {
 	PopoverTrigger,
 } from "./components/ui/popover";
 import { chooseSetting } from "./conversation-api";
+import { useWide } from "./hooks/use-wide";
 import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
 
-/** Shows the chosen model as one clickable subject, opening its findings and Undo. */
+/** Shows an Auto pick `event`; `details` expands its findings for a work timeline. */
 export function AutoPickLine({
 	event,
 	details = false,
@@ -22,8 +24,21 @@ export function AutoPickLine({
 	event: AutoEvent;
 	details?: boolean;
 }): JSX.Element {
+	const wide = useWide();
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
+	const verb =
+		lifted === null
+			? "Auto picked"
+			: lifted.switched
+				? "Auto switched to"
+				: "Auto moved up to";
+	const short =
+		params.signals
+			.slice(0, 2)
+			.flatMap((each) => each.answers.slice(0, 1).map((best) => best.label))
+			.join(" · ") ||
+		(params.notes[0] ?? "no judge to ask");
 	const undo = useUndo(event, lifted);
 	if (details) {
 		return (
@@ -38,6 +53,40 @@ export function AutoPickLine({
 				</div>
 				<Findings params={params} lifted={lifted} />
 				<Refusal refusal={undo.refusal} />
+			</div>
+		);
+	}
+	if (!wide) {
+		return (
+			<div
+				role="note"
+				aria-label="splates"
+				className="my-6 text-muted-foreground text-xs"
+			>
+				<div className="flex items-center gap-3">
+					<Rule />
+					<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
+						<AutoAgentMark agent={event.agent} className="size-3.5" />
+						<span className="min-w-0 truncate">
+							{verb} {params.picked}
+						</span>
+						<span aria-hidden>·</span>
+						<Popover>
+							<PopoverTrigger
+								aria-label={short}
+								className="shrink-0 cursor-pointer rounded px-1 underline decoration-dotted underline-offset-2 hover:text-foreground"
+							>
+								<InfoIcon aria-hidden className="size-3.5" />
+							</PopoverTrigger>
+							<PopoverContent className="w-80 text-xs">
+								<Findings params={params} lifted={lifted} />
+							</PopoverContent>
+						</Popover>
+						{undo.control}
+					</p>
+					<Rule />
+				</div>
+				<Refusal refusal={undo.refusal} className="mt-1 text-center" />
 			</div>
 		);
 	}
@@ -225,4 +274,9 @@ function answersOf(said: string): { label: string; sure: number }[] {
 
 function capital(word: string): string {
 	return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/** A plain hairline beside the mobile line, taking what room it leaves. */
+function Rule(): JSX.Element {
+	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
 }

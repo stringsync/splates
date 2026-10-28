@@ -547,7 +547,7 @@ export function QuestionCards({
 		<div className="my-6">
 			<SplatesEvent
 				event={questionOutcome(
-					questions.length,
+					{ count: questions.length, escalation },
 					proposal,
 					sent,
 					() => setShown(!shown),

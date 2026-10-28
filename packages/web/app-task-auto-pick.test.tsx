@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
 import type { Event } from "@stringsync/splates-server/records";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { resize } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -27,6 +28,7 @@ describe("App's Auto pick", () => {
 
 	afterEach(() => {
 		cleanup();
+		resize(1024, 768);
 		testing.dispose();
 	});
 
@@ -157,6 +159,22 @@ describe("App's Auto pick", () => {
 		expect(found.textContent).toContain("KindBugfix90%");
 		expect(found.textContent).toContain("DepthShallow80%");
 		expect(found.textContent).toContain("Rule 2: Bugfix, Shallow");
+	});
+
+	it("restores the full pick and its findings icon on a phone", async () => {
+		resize(390, 844);
+		const line = await lineFor(
+			["Bugfix 90%", "Shallow 80%"],
+			"judged: Bugfix 90%, Shallow 80%",
+		);
+		expect(line.textContent).toContain("Auto picked Haiku, low effort");
+		expect(
+			within(line).getByRole("button", { name: "Bugfix · Shallow" }),
+		).toBeDefined();
+
+		const found = await openFindings(line);
+		expect(found.textContent).toContain("KindBugfix90%");
+		expect(found.textContent).toContain("DepthShallow80%");
 	});
 
 	it("says when it moved the conversation up, and undoes the move at once", async () => {

@@ -76,7 +76,16 @@ export function AddedLine({
 			) : (
 				<Popover open={opened} onOpenChange={setOpened}>
 					{render(
-						{ ...view, words: [verb], act: null },
+						{
+							...view,
+							words: [verb],
+							act: null,
+							mobile: {
+								...view.mobile,
+								words: [verb, ...(view.mobile?.words ?? view.words).slice(1)],
+								act,
+							},
+						},
 						<PopoverTrigger
 							render={
 								<Button

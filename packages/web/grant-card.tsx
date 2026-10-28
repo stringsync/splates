@@ -89,6 +89,12 @@ export function GrantCard({
 					event={{
 						mark: granted ? "landed" : "failed",
 						words: [granted ? "Granted" : "Denied"],
+						mobile: {
+							words: [
+								`${granted ? "Granted" : "Denied"} ${ask.from} ${ask.reach} in ${ask.in}`,
+							],
+							act: { label: "Open", run: () => setOpened(true) },
+						},
 						title: granted ? GRANTED : GRANT_DENIED,
 						act: { label: "Project access", run: () => setOpened(true) },
 					}}

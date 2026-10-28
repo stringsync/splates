@@ -16,13 +16,15 @@ import { cn } from "#web/lib/utils.ts";
 import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
+import { useNow } from "./hooks/use-now";
+import { useWide } from "./hooks/use-wide";
 import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 import { PendingSpinner, useShowPending } from "./pending";
-
+import { Stamp, useStamps } from "./stamp";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
-/** A single action and subject, centered between the event's two hairlines. */
+/** Compact on desktop; on a phone, the full details and controls this line used to show. */
 export function SplatesEvent({
 	event,
 	lead,
@@ -33,11 +35,26 @@ export function SplatesEvent({
 	lead?: ReactNode;
 	children?: ReactNode;
 }): JSX.Element | null {
-	const { deadline = null } = event;
+	const wide = useWide();
+	const shown = viewForWidth(event, wide);
+	const { deadline = null, since = null } = shown;
 	const live = deadline !== null && !deadline.met;
+	const now = useNow(!wide && (live || since !== null));
 	if (deadline?.met) {
 		return null;
 	}
+	const left = wide
+		? null
+		: live
+			? Math.max(0, Date.parse(deadline.until) - now)
+			: since !== null
+				? Math.max(0, now - Date.parse(since))
+				: null;
+	const listed = wide
+		? []
+		: shown.words.flatMap((word) =>
+				typeof word !== "string" && word.kind === "todos" ? word.todos : [],
+			);
 	return (
 		<div
 			role="note"
@@ -48,19 +65,40 @@ export function SplatesEvent({
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
-				<Line event={event} lead={lead}>
-					{children}
+				<Line event={shown} lead={lead} left={left} compact={wide}>
+					{wide ? children : null}
 				</Line>
 				<Rule />
 			</div>
+			{listed.length > 0 && (
+				<ul className="mt-2 flex flex-col items-center gap-2">
+					{listed.map(({ id, subject, note }) => (
+						<li key={id} className="flex max-w-full">
+							<NamedChip named={{ kind: "todo", id, subject, note }} whole />
+						</li>
+					))}
+				</ul>
+			)}
 		</div>
 	);
+}
+
+/** The view for this width: the phone's restored details where the event supplies them. */
+export function viewForWidth(
+	event: SplatesEventView,
+	wide: boolean,
+): SplatesEventView {
+	if (wide || event.mobile === undefined) {
+		return event;
+	}
+	const { mobile, ...rest } = event;
+	return { ...rest, ...mobile };
 }
 
 /**
  * Something an event names, drawn as a chip with its kind's icon that opens it
  * where it can. `todos` names a burst of them, such as a groom's, as one
- * chip, "5 tasks", opening their list.
+ * chip, "5 tasks", opening their list on desktop and listing them on a phone.
  */
 export type Named =
 	| {
@@ -98,28 +136,29 @@ export type Named =
 export type Words = readonly (string | Named)[];
 
 /**
- * One thing splates did in a conversation, as its own voice in the thread
- * rather than the person's or the agent's: what it did and what it names,
- * without inline secondary details.
+ * One thing splates did in a conversation, as its own voice in the thread:
+ * compact on desktop, with its secondary details restored on a phone.
  */
 export interface SplatesEventView {
 	/** The mark leading it, its line's only color, when it has one. */
 	mark?: Mark | null;
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
-	/**
-	 * When, as an ISO time, to place it among the thread's messages; kept with
-	 * the record, without adding a timestamp to the summary.
-	 */
+	/** When it happened; shown after the words on a phone while stamps are on. */
 	at?: string | null;
 	/** What the line stands for, in full, on hover: a directive's text. */
 	title?: string;
 	/** A wait whose completion removes the summary. */
 	deadline?: Deadline | null;
-	/** When the work began, retained for progress details. */
+	/** When the work began, for the phone's count up while it runs. */
 	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
+	/** The fuller words and action a phone shows instead of the compact summary. */
+	mobile?: {
+		words: Words;
+		act?: Act | null;
+	};
 }
 
 /**
@@ -156,23 +195,30 @@ export interface Act {
 	expanded?: boolean;
 }
 
-/**
- * One event's line: its mark, verb and one subject or action.
- */
+/** One event's compact desktop line, or its full mobile line with time and action. */
 function Line({
 	event,
 	lead,
+	left,
+	compact,
 	children,
 }: {
 	event: SplatesEventView;
 	lead?: ReactNode;
+	left: number | null;
+	compact: boolean;
 	children?: ReactNode;
 }): JSX.Element {
 	const { mark = null, act = null } = event;
+	const stamped = useStamps().shown;
 	return (
 		<p
 			title={event.title}
-			className="flex min-w-0 max-w-[calc(100%-4.5rem)] items-center justify-center gap-1.5 whitespace-nowrap [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44"
+			className={cn(
+				"flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap",
+				compact &&
+					"max-w-[calc(100%-4.5rem)] [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44",
+			)}
 		>
 			{lead}
 			{mark === "failed" && (
@@ -204,28 +250,46 @@ function Line({
 			)}
 			<Words
 				words={
-					children != null || act !== null
+					compact && (children != null || act !== null)
 						? event.words.slice(0, 1)
 						: event.words
 				}
+				compact={compact}
 			/>
+			{!compact && stamped && event.at != null && <Stamp at={event.at} />}
 			{children}
-			{act !== null && <Action act={act} />}
+			{left !== null ? (
+				<span className="shrink-0 tabular-nums">{countdown(left)}</span>
+			) : (
+				act !== null && <Action act={act} />
+			)}
 		</p>
 	);
 }
 
-/** Only the verb and primary subject belong in a summary; long subjects give way. */
-function Words({ words }: { words: Words }): ReactNode {
+/** Full descriptions on a phone; only the verb and primary subject on desktop. */
+function Words({
+	words,
+	compact,
+}: {
+	words: Words;
+	compact: boolean;
+}): ReactNode {
 	if (words.length === 1 && typeof words[0] === "string") {
-		return <span className="min-w-0 truncate text-center">{words[0]}</span>;
+		return compact ? (
+			<span className="min-w-0 truncate text-center">{words[0]}</span>
+		) : (
+			<span className="min-w-0 whitespace-normal wrap-anywhere text-center">
+				{words[0]}
+			</span>
+		);
 	}
-	return words.slice(0, 2).map((word, index) =>
+	return (compact ? words.slice(0, 2) : words).map((word, index) =>
 		typeof word === "string" ? (
 			<span
 				// biome-ignore lint/suspicious/noArrayIndexKey: words never move
 				key={index}
-				className={index === 0 ? "shrink-0" : "min-w-0 truncate"}
+				className={compact && index > 0 ? "min-w-0 truncate" : "shrink-0"}
 			>
 				{word}
 			</span>
@@ -456,10 +520,13 @@ function Chip({
 
 /** An event's one action, as a small button, or what it did once done. */
 export function Action({ act }: { act: Act }): JSX.Element {
+	const wide = useWide();
 	const { done = null, busy = false } = act;
 	const shown = useShowPending(busy);
 	if (done !== null) {
-		return <span className="min-w-0 truncate">{done}</span>;
+		return (
+			<span className={wide ? "min-w-0 truncate" : "shrink-0"}>{done}</span>
+		);
 	}
 	return (
 		<Button
@@ -469,11 +536,11 @@ export function Action({ act }: { act: Act }): JSX.Element {
 			aria-busy={busy}
 			aria-expanded={act.expanded}
 			onClick={act.run}
-			className="min-w-0 shrink"
-			title={act.label}
+			className={wide ? "min-w-0 shrink" : "shrink-0"}
+			title={wide ? act.label : undefined}
 		>
 			{busy && shown && <PendingSpinner shown />}
-			<span className="min-w-0 truncate">{act.label}</span>
+			{wide ? <span className="min-w-0 truncate">{act.label}</span> : act.label}
 		</Button>
 	);
 }
@@ -481,4 +548,10 @@ export function Action({ act }: { act: Act }): JSX.Element {
 /** A plain hairline beside an event, taking what room the line leaves. */
 function Rule(): JSX.Element {
 	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
+}
+
+/** `ms` as `M:SS`: `9:00`, `12:30`. */
+function countdown(ms: number): string {
+	const secs = Math.ceil(ms / 1000);
+	return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }

@@ -23,15 +23,17 @@ export function evalsDoneLine(
 	at: string | null,
 	title: string,
 ): SplatesEventView {
+	const open = () => {
+		location.hash = `#evals/${encodeURIComponent(done.batch)}`;
+	};
 	return {
 		words: ["Finished"],
+		mobile: {
+			words: ["Evals done:", done.summary],
+			act: { label: "Open report", run: open },
+		},
 		at,
 		title,
-		act: {
-			label: "Eval report",
-			run: () => {
-				location.hash = `#evals/${encodeURIComponent(done.batch)}`;
-			},
-		},
+		act: { label: "Eval report", run: open },
 	};
 }

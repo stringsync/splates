@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { Board, NO_BOARD } from "./board";
+import { resize } from "./drivers";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
 import { cleanup, fireEvent, render, within } from "./testing-library";
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	resize(1024, 768);
+});
 
 /** An ISO time `mins` minutes from now. */
 function at(mins: number): string {
@@ -28,6 +32,31 @@ describe("splates events", () => {
 		expect(event.textContent).toContain("Merged");
 		expect(within(event).getByTitle("Task events-log")).toBeDefined();
 		expect(within(event).queryByTitle("Branch main")).toBeNull();
+	});
+
+	it("shows the whole line again on a phone", () => {
+		resize(390, 844);
+		const page = render(<SplatesEvent event={merged} />);
+
+		const event = page.getByRole("note", { name: "splates" });
+		expect(event.textContent).toContain("onto");
+		expect(within(event).getByTitle("Branch main")).toBeDefined();
+	});
+
+	it("counts a wait down on a phone", () => {
+		resize(390, 844);
+		const page = render(
+			<SplatesEvent
+				event={{
+					words: ["Waiting on", { kind: "task", task: "events-log" }],
+					deadline: { until: at(4) },
+				}}
+			/>,
+		);
+
+		expect(page.getByRole("note", { name: "splates" }).textContent).toMatch(
+			/Waiting onevents-log[34]:\d{2}/,
+		);
 	});
 
 	it("keeps a wait to its subject without inline timing", () => {
@@ -179,6 +208,33 @@ describe("splates events", () => {
 		expect(
 			page.queryByTitle("Task #212: Upload retries forever on a 413"),
 		).toBeNull();
+	});
+
+	it("lists a burst's todos on a phone", () => {
+		resize(390, 844);
+		const page = render(
+			<SplatesEvent
+				event={{
+					words: [
+						"Updated",
+						{
+							kind: "todos",
+							todos: [
+								{ id: 212, subject: "Upload retries forever on a 413" },
+								{ id: 214, subject: "Show a stale todo as muted" },
+							],
+						},
+					],
+				}}
+			/>,
+		);
+
+		expect(
+			page.getByTitle("Task #212: Upload retries forever on a 413"),
+		).toBeDefined();
+		expect(
+			page.getByTitle("Task #214: Show a stale todo as muted"),
+		).toBeDefined();
 	});
 
 	it("goes once what its wait waited on came", () => {

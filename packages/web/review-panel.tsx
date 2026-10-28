@@ -181,6 +181,13 @@ export function ReviewPanel({
 			<SplatesEvent
 				event={{
 					words: ["Approved"],
+					mobile: {
+						words: ["Review approved", { kind: "task", task: review.task }],
+						act: {
+							label: shown ? "Hide" : "Show",
+							run: () => setShown(!shown),
+						},
+					},
 					act: {
 						label: "Review",
 						expanded: shown,

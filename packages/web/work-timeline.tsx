@@ -12,9 +12,15 @@ import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
 import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
+import { useWide } from "./hooks/use-wide";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import { Action, NamedChip, type SplatesEventView } from "./splates-event";
+import {
+	Action,
+	NamedChip,
+	type SplatesEventView,
+	viewForWidth,
+} from "./splates-event";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
@@ -192,20 +198,27 @@ function EventLine({
 	view: SplatesEventView;
 	children?: ReactNode;
 }): JSX.Element {
+	const wide = useWide();
+	const shown = viewForWidth(view, wide);
+	const words = wide
+		? shown.act == null && children == null
+			? shown.words.slice(0, 2)
+			: shown.words.slice(0, 1)
+		: shown.words;
 	return (
 		<div
 			data-slot="quiet-event"
-			className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44"
+			className={cn(
+				"flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
+				wide && "[&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44",
+			)}
 		>
-			{(view.act == null && children == null
-				? view.words.slice(0, 2)
-				: view.words.slice(0, 1)
-			).map((word, index) =>
+			{words.map((word, index) =>
 				typeof word === "string" ? (
 					<span
 						// biome-ignore lint/suspicious/noArrayIndexKey: event words retain their order
 						key={index}
-						className={index === 0 ? "shrink-0" : "min-w-0 truncate"}
+						className={wide && index > 0 ? "min-w-0 truncate" : "shrink-0"}
 					>
 						{word}
 					</span>
@@ -214,8 +227,8 @@ function EventLine({
 					<NamedChip key={index} named={word} />
 				),
 			)}
-			{children}
-			{view.act != null && <Action act={view.act} />}
+			{wide && children}
+			{shown.act != null && <Action act={shown.act} />}
 		</div>
 	);
 }

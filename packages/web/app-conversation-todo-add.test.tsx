@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
-import { workTimeline } from "./drivers";
+import { resize, workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -43,6 +43,7 @@ describe("App's todo add events", () => {
 
 	afterEach(() => {
 		cleanup();
+		resize(1024, 768);
 		testing.dispose();
 	});
 
@@ -56,6 +57,26 @@ describe("App's todo add events", () => {
 			"Added#4 Upload retries forever on a 413",
 			"task add: usage",
 		]);
+	});
+
+	it("restores the direct Remove and Undo controls on a phone", async () => {
+		act(() => resize(390, 844));
+		const timeline = workTimeline(thread);
+		const line = quietLines(timeline)[0] as HTMLElement;
+		expect(line.textContent).toBe(
+			"Added#4 Upload retries forever on a 413Remove",
+		);
+
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Remove" })),
+		);
+
+		expect(testing.posted("/api/todos/4")).toMatchObject([
+			{ method: "DELETE" },
+		]);
+		testing.served = { ...testing.served, todos: [] };
+		await act(async () => testing.stream?.onmessage?.());
+		await waitFor(() => within(line).getByRole("button", { name: "Undo" }));
 	});
 
 	it("removes the todo from its line, and puts it back with Undo", async () => {
