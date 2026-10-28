@@ -8,7 +8,7 @@
  * each list draws its own rows.
  */
 
-import type { LaneRecord } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -85,8 +85,8 @@ export interface Folder {
 	/** Each with the agents it handed out, those waiting on you among them. */
 	trees: Nested<Needing>[];
 	/**
-	 * Its conversations with a subagent at work under them, as `hostsAtWork`
-	 * reads every row, those the list leaves out too.
+	 * The ids of its conversations with a subagent at work under them, even
+	 * one the list leaves out, to show those hosts as at work.
 	 */
 	hosting: Set<string>;
 	/** The trees with an agent waiting on you, which its header counts. */
@@ -108,6 +108,8 @@ export interface Here {
 	trunk: string | null;
 	tasks: Details[];
 	conversations: ConversationState[];
+	/** The board's tasks where known; other projects' summaries do not hold them. */
+	todos?: readonly TaskRecord[];
 }
 
 /** The page's own project in a folder of its own, for a page without the feed. */
@@ -148,12 +150,12 @@ function atWork(tree: Nested<Needing>): boolean {
 
 function folder(
 	project: string | null,
-	{ repo, trunk, tasks, conversations }: Here,
+	{ repo, trunk, tasks, conversations, todos }: Here,
 	laneNames: readonly LaneRecord[] | null,
 	lanesTaken: Readonly<Record<string, number>> | null,
 	here: boolean,
 ): Folder {
-	const trees = nestRows(tasks, rowsOf(tasks, conversations));
+	const trees = nestRows(tasks, rowsOf(tasks, conversations, todos));
 	// Grouped with every row, so a subagent at work outside the page still
 	// puts its host with those at work, then only what the list shows.
 	const { waiting, pinned, working, recent } = groupsOf(trees);

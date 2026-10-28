@@ -1,4 +1,24 @@
+import type { TaskRecord } from "../board";
 import type { Reach } from "../projects";
+
+/** Whether the board has queued or started every task a queue card names. */
+export function queueIsSettled(
+	proposal: PermissionProposal,
+	todos: readonly TaskRecord[],
+): boolean {
+	const { lane, tasks } = proposal;
+	const mine =
+		lane === null
+			? tasks.flatMap((id) => todos.filter((todo) => todo.id === id))
+			: todos.filter((todo) => todo.lane === lane);
+	const byTask = lane === null || mine.length === 1;
+	return mine
+		.filter((todo) => todo.takenBy === null)
+		.every(
+			(todo) =>
+				todo.stage === "queued" || (!byTask && todo.unqueuedFor !== undefined),
+		);
+}
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
@@ -101,12 +121,10 @@ export function permissionOf(
 }
 
 /**
- * What the agent asks the person to allow, as the skill's `## 🔐 Permission:
- * queue lane <n>: <name>`, `## 🔐 Permission: queue #<n>, #<n>: <what>`
- * (`queue <project> #<n>` for another project's tasks), `## 🔐 Permission:
- * grant <project> <reach> to <project>` or `## 🔐 Permission: remove lane <n>:
- * <name>` puts it: an agent never does these itself, so the card's buttons
- * are the person's. The older `## 📥 Queue ...` titles read as the queue ones.
+ * A permission card an agent's reply ends with, asking the person to allow
+ * what an agent never does itself: queue a lane or tasks, remove a lane, run
+ * evals or a heavy command, or grant one project reach into another. The
+ * card's buttons act on it.
  */
 export interface PermissionProposal {
 	/**
@@ -170,6 +188,9 @@ const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
+// `## 🔐 Permission: queue lane <n>: <name>`, `queue #<n>, #<n>: <what>`
+// (`queue <project> #<n>` for another project's tasks) or `remove lane <n>:
+// <name>`; the older `## 📥 Queue ...` titles read as the queue ones.
 const PERMISSION =
 	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(?:([\w.-]+) )?(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
 const GRANT_PERMISSION =

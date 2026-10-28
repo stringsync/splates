@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	answeredThrough,
@@ -14,25 +15,26 @@ import { isPartOf, type Nested, nest } from "./parts";
 import { unanswered } from "./unanswered";
 
 /**
- * The rows of the sidebar and the phone's inbox, the pinned ones first,
- * each newest first: the conversations listed, then external agents' tasks, which
- * no list shows (see `shownIn`), but whose work and waits count for the
- * conversations they answer to.
- * `listed` picks the conversations, by default those not archived.
+ * Lists the rows of the sidebar and the phone's inbox, pinned first, then
+ * newest first. Pass the board's `todos` so a conversation whose queue card is
+ * already queued stops asking, and `listed` to pick which conversations to
+ * show, by default those not archived.
  */
 export function rowsOf(
 	tasks: Details[],
 	conversations: ConversationState[],
+	todos?: readonly TaskRecord[],
 	listed: (conversation: ConversationState) => boolean = (each) =>
 		!each.archived,
 ): Needing[] {
 	const rows = conversations.filter(listed).map((conversation) => ({
 		conversation,
 		task: null,
-		need: needOf(tasks, conversation),
+		need: needOf(tasks, conversation, todos),
 	}));
-	// Together, so an external agent's wait lifts onto the conversation it
-	// answers to.
+	// External agents' tasks come too: no list shows them (see `shownIn`), but
+	// their work and waits count for the conversations they answer to, so
+	// they go in together for a wait to lift onto that conversation.
 	return answeredThrough(
 		[...rows, ...externals(tasks, conversations)],
 		conversations,
@@ -98,19 +100,19 @@ export function hintOf(shown: Needing[], row: Needing): string | null {
 }
 
 /**
- * The next of `rows` after the one `open` shows, around to the top, that
- * waits on you, or with none waiting, the next merged or finished one, then the next
- * unread one: what ⌥⌘M opens, and archiving goes on to. Of each, one at work
- * on the same lane as the one open comes first, as `taken` names each task's
- * lane, so the lane's work is seen together. The one open is
- * passed over, so ⌥⌘M on a task asking questions moves on, and comes back to its
- * questions only when nothing else is left.
+ * Picks the row ⌥⌘M opens, and archiving goes on to, after the one `open`
+ * shows: the next waiting on you, else the next merged one, else the next
+ * unread one. Pass `taken`, each task's lane, so work on the open row's lane
+ * comes first. Returns the open row itself only when it waits on you and
+ * nothing else does.
  */
 export function nextWaiting(
 	rows: Needing[],
 	open: string | null,
 	taken: Readonly<Record<string, number>>,
 ): Needing | undefined {
+	// Searching on from the open row, around to the top, and passing it over,
+	// so ⌥⌘M on a task asking questions moves on and comes back last.
 	const waits = waitsOnYou;
 	const at = rows.findIndex((row) => openedBy(row) === open);
 	const others = [...rows.slice(at + 1), ...rows.slice(0, at + 1)].filter(
@@ -178,11 +180,12 @@ function isUnread({ conversation, need }: Needing): boolean {
 }
 
 /**
- * Whether ⌥⌘M, Needs you and the waiting counts stop on `row`: a
- * conversation stopped on you, while it has questions no reply has answered
- * yet. An agent outside the page never does, as it asks in its own session.
+ * Tells whether `row` waits on you, for ⌥⌘M, Needs you and the waiting counts
+ * to stop on: true while its conversation has stopped on you with questions
+ * no reply has answered yet.
  */
 export function waitsOnYou({ conversation, need }: Needing): boolean {
+	// An agent outside the page never does, as it asks in its own session.
 	// One the page runs asks as it works only in its plan, until its report
 	// asks again as it stops. A subagent of one here waits through that one.
 	if (conversation === null) {
@@ -300,12 +303,13 @@ export function started(row: Needing): string {
 export function needOf(
 	tasks: Details[],
 	conversation: ConversationState,
+	todos?: readonly TaskRecord[],
 ): Need {
 	const task =
 		conversation.task === null
 			? null
 			: (tasks.find((each) => each.task === conversation.task) ?? null);
-	return need(task, conversation);
+	return need(task, conversation, Date.now(), todos);
 }
 
 /** Nests conversation rows under their explicit parent, task host, or caller. */

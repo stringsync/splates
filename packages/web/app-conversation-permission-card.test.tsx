@@ -179,18 +179,21 @@ describe("App's permission card", () => {
 		]);
 	});
 
-	it("offers to archive the conversation once its lane's tasks are queued anywhere else", async () => {
-		const view = await testing.openConversations(
-			[asking],
-			undefined,
-			queuedLane,
-		);
+	it("stops waiting on you once its lane's tasks are queued anywhere else", async () => {
+		const view = await testing.openConversations([asking], undefined, board);
+		await waitFor(() => view.getByRole("status", { name: "waiting on you" }));
+
+		testing.served = snapshot(queuedLane);
+		await act(async () => testing.stream?.onmessage?.());
+
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "queue Billing export" }),
 		);
-
 		expect(card.textContent).toContain("Queued lane Billing export");
 		expect(within(card).getByRole("button", { name: "Archive" })).toBeTruthy();
+		await waitFor(() =>
+			expect(view.queryByRole("status", { name: "waiting on you" })).toBeNull(),
+		);
 	});
 
 	it("shows the queue it joins: what is queued ahead, then each task joining or after what blocks it", async () => {

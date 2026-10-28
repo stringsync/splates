@@ -259,7 +259,7 @@ export function App({
 		onSettings: () => setSetting(true),
 	});
 
-	const waiting = useWaiting(talk, tasks);
+	const waiting = useWaiting(talk, tasks, snapshot?.todos);
 	const counted = available && waiting > 0;
 	useEffect(() => {
 		document.title = counted ? `(${waiting}) ${name}` : name;
@@ -375,6 +375,7 @@ export function App({
 										<Notifications
 											feed={talk}
 											tasks={snapshot.tasks}
+											todos={snapshot.todos}
 											settings={settings}
 											onOpen={openConversation}
 										/>

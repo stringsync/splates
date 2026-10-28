@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
+import { todo } from "../fixtures";
 import type { Details } from "../tasks";
 import { ASKED_QUIET, need, needs, orphaned } from "./needs";
 import { STUB_STEPS } from "./plan";
@@ -135,6 +136,44 @@ describe("needs", () => {
 			subject: "build the web app",
 			since: at,
 		});
+	});
+
+	it("stops waiting on a queue card once its work is queued or running, but not on open questions", () => {
+		const at = "2026-10-11T10:07:00.000Z";
+		const asking = talk({
+			task: null,
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{
+							type: "text",
+							text: "## 🔐 Permission: queue lane 3: Billing export",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
+		const settled = [
+			todo({ id: 1, lane: 3, stage: "queued" }),
+			todo({ id: 2, lane: 3, takenBy: "write-export" }),
+		];
+
+		expect(need(null, asking)).toMatchObject({ kind: "waiting", why: "ask" });
+		expect(
+			need(null, asking, Date.now(), [
+				todo({ id: 1, lane: 3, stage: "ready" }),
+				todo({ id: 2, lane: 3, stage: "queued" }),
+			]),
+		).toMatchObject({ kind: "waiting", why: "ask" });
+		expect(need(null, asking, Date.now(), settled)).toEqual({ kind: "idle" });
+		expect(
+			need(task({ plan: PLAN }), asking, Date.now(), settled),
+		).toMatchObject({ kind: "waiting", why: "questions" });
 	});
 
 	it("works while the run its eval card started goes, not waiting on the card", () => {

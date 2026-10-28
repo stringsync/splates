@@ -4,7 +4,7 @@ import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import { goalLine, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 
-/** What ⌘K searches: the shown project's, since the page holds no other's. */
+/** What ⌘K searches, from the shown project, since the page holds no other's. */
 export interface Searched {
 	tasks: Details[];
 	todos: TaskRecord[];
@@ -237,7 +237,11 @@ function unasked(searched: Searched): Group[] {
 		.map(({ found }) => found)
 		.sort(recent);
 	const waiting = new Set(
-		needs({ tasks: searched.tasks, conversations: searched.conversations })
+		needs({
+			tasks: searched.tasks,
+			conversations: searched.conversations,
+			todos: searched.todos,
+		})
 			.filter((entry) => entry.need.kind === "waiting")
 			.flatMap((entry) => (entry.task === null ? [] : [entry.task.task])),
 	);

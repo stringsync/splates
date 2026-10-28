@@ -13,6 +13,7 @@ export {
 	orphaned,
 	TASK,
 } from "./needs";
+export { queueIsSettled } from "./permission";
 export { goalLine, questions, sectionApart } from "./plan";
 export type { DemoPoint } from "./prompts";
 export {

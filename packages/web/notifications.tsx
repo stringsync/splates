@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Needing } from "@stringsync/splates-server/plans";
 import { keyOf } from "@stringsync/splates-server/push/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -23,11 +24,13 @@ import type { Opened } from "./worker";
 export function Notifications({
 	feed,
 	tasks,
+	todos,
 	settings,
 	onOpen,
 }: {
 	feed: ConversationFeed;
 	tasks: Details[];
+	todos: TaskRecord[];
 	settings: Settings;
 	onOpen: (id: string) => void;
 }): JSX.Element | null {
@@ -39,7 +42,7 @@ export function Notifications({
 	const nameOf = useNameOf();
 	const refusal = useNotifier(
 		settings,
-		rowsOf(tasks, conversations),
+		rowsOf(tasks, conversations, todos),
 		(row) =>
 			(row.conversation ? nameOf(row.conversation) : row.task?.task) ?? "",
 		(row) => onOpen(openedBy(row)),
@@ -56,13 +59,10 @@ export function Notifications({
 }
 
 /**
- * Notifies the person, as `settings` say, of what `rows`, named by `name`,
- * did since the last look, each opening its row with `open`: looked at again
- * as they change, and every half minute for the ones that go quiet. A click
- * the service worker passes back opens its row too. While this device is
- * subscribed to the server's pushes, they show the notifications instead, so
- * a phone that froze the page still hears. Returns why subscribing to the
- * server's pushes failed, or null; the page then notifies while open.
+ * Notifies you, as `settings` say, of what `rows` did since the last look,
+ * titled by `name`; clicking one runs `open` on its row. Returns why
+ * subscribing to the server's pushes failed, or null, so the page can say
+ * why it only notifies while open.
  */
 export function useNotifier(
 	settings: Settings,
@@ -70,6 +70,10 @@ export function useNotifier(
 	name: (row: Needing) => string,
 	open: (row: Needing) => void,
 ): string | null {
+	// Rows are looked at again as they change, and every half minute for the
+	// ones that go quiet. While this device is subscribed to the server's
+	// pushes, they show the notifications instead, so a phone that froze the
+	// page still hears; a click the service worker passes back opens its row.
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [notifier] = useState(() => new Notifier(settings));
 	const pushing = useRef(false);

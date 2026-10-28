@@ -1,5 +1,6 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
+import { queueIsSettled } from "@stringsync/splates-server/plans/browser";
 import { laneQueued, queued } from "./board-expectations";
 import type { SnapshotExpecter } from "./expecting";
 import { stageOf } from "./todo-queue";
@@ -73,11 +74,7 @@ export class QueueWork {
 	 * from it.
 	 */
 	get queued(): boolean {
-		return this.waiting().every(
-			(todo) =>
-				todo.stage === "queued" ||
-				(!this.byTask && todo.unqueuedFor !== undefined),
-		);
+		return queueIsSettled(this.proposal, this.board.todos);
 	}
 
 	/** Whether the board no longer has it, merged or removed. */

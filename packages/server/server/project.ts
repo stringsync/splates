@@ -6,7 +6,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
-import type { ElsewhereBoards, LaneRecord } from "../board";
+import type { ElsewhereBoards, LaneRecord, TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks, tasksNamed } from "../board";
 import type {
 	ConversationState,
@@ -200,20 +200,27 @@ export async function serveProject(
 		refresh: watch.changed,
 		snapshot: async () => Response.json(await watch.current()),
 		current: () => watch.current(),
-		waiting: async () =>
-			waitingOn(
-				(await watch.current()).tasks,
+		waiting: async () => {
+			const { tasks, todos } = await watch.current();
+			return waitingOn(
+				tasks,
 				((await conversations?.list()) ?? []).map(({ state }) => state),
-			),
-		needing: async () => ({
-			rows: needs({
-				tasks: (await watch.current()).tasks,
-				conversations: ((await conversations?.list()) ?? []).map(
-					({ state }) => state,
-				),
-			}),
-			lanes: await project.tasks.laneNames(),
-		}),
+				todos,
+			);
+		},
+		needing: async () => {
+			const { tasks, todos } = await watch.current();
+			return {
+				rows: needs({
+					tasks,
+					todos,
+					conversations: ((await conversations?.list()) ?? []).map(
+						({ state }) => state,
+					),
+				}),
+				lanes: await project.tasks.laneNames(),
+			};
+		},
 		lanes: () => project.tasks.laneNames(),
 		portOwners: async () => ({
 			worktrees: (await service.list())
@@ -541,8 +548,9 @@ export interface ProjectHeard extends ConversationsHeard {
 export function waitingOn(
 	tasks: Details[],
 	conversations: ConversationState[],
+	todos?: readonly TaskRecord[],
 ): number {
-	return needs({ tasks, conversations }).filter(
+	return needs({ tasks, conversations, todos }).filter(
 		({ need }) => need.kind === "waiting",
 	).length;
 }

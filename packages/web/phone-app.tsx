@@ -108,6 +108,7 @@ export function PhoneApp({
 						drafts={drafts}
 						terminals={terminals}
 						tasks={snapshot?.tasks ?? []}
+						todos={snapshot?.todos ?? []}
 						here={
 							snapshot === null
 								? null
@@ -137,7 +138,12 @@ export function PhoneApp({
 							// An update is for the screens above a conversation.
 							dot: undefined,
 							badge: snapshot !== null && (
-								<WaitingBadge feed={talk} tasks={snapshot.tasks} open={open} />
+								<WaitingBadge
+									feed={talk}
+									tasks={snapshot.tasks}
+									todos={snapshot.todos}
+									open={open}
+								/>
 							),
 						}}
 					>
@@ -154,7 +160,12 @@ export function PhoneApp({
 								<MenuIcon />
 							</BarButton>
 							{snapshot !== null && (
-								<WaitingBadge feed={talk} tasks={snapshot.tasks} open={null} />
+								<WaitingBadge
+									feed={talk}
+									tasks={snapshot.tasks}
+									todos={snapshot.todos}
+									open={null}
+								/>
 							)}
 						</span>
 						<ProjectSwitcher

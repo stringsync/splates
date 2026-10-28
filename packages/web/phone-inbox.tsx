@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
@@ -53,6 +54,7 @@ export function Inbox({
 	drafts,
 	terminals,
 	tasks,
+	todos,
 	here,
 	chips,
 	loading,
@@ -64,6 +66,7 @@ export function Inbox({
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
+	todos: TaskRecord[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
 	here: { root: string; repo: string; trunk: string | null } | null;
 	/** The row of the project's pages under a phone's bar. */
@@ -104,7 +107,7 @@ export function Inbox({
 	const name = useProjectName(here?.repo);
 	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
 	const { trees, hosting, waiting, pinned, working, recent } = useMemo(() => {
-		const rows = rowsOf(tasks, conversations);
+		const rows = rowsOf(tasks, conversations, todos);
 		// Each with the agents it handed out, in the group of the most pressing.
 		const nested = nestRows(tasks, rows);
 		// Grouped with every row, then only what the inbox shows (see `shownIn`).
@@ -127,7 +130,7 @@ export function Inbox({
 			working,
 			recent,
 		};
-	}, [tasks, conversations]);
+	}, [tasks, conversations, todos]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
 		listing: feed.loading,
@@ -142,7 +145,7 @@ export function Inbox({
 						everywhere.projects,
 						everywhere.tasks,
 						everywhere.conversations,
-						{ ...here, tasks, conversations },
+						{ ...here, tasks, conversations, todos },
 					)
 				: null,
 		[
@@ -153,6 +156,7 @@ export function Inbox({
 			here,
 			tasks,
 			conversations,
+			todos,
 		],
 	);
 	const navigation = useContext(NavigationContext);

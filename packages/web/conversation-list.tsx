@@ -89,7 +89,7 @@ export const ConversationList = memo(function ConversationList({
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 
 	const { rows, nested, hosting, listed, taken } = useMemo(() => {
-		const rows = rowsOf(tasks, conversations);
+		const rows = rowsOf(tasks, conversations, todos);
 		const nested = nestRows(tasks, rows);
 		const hosting = hostsAtWork(nested);
 		// What it lists of them, without the feed of every project.
@@ -111,7 +111,7 @@ export const ConversationList = memo(function ConversationList({
 						everywhere.projects,
 						everywhere.tasks,
 						everywhere.conversations,
-						{ ...here, tasks, conversations },
+						{ ...here, tasks, conversations, todos },
 					)
 				: null,
 		[
@@ -122,6 +122,7 @@ export const ConversationList = memo(function ConversationList({
 			here,
 			tasks,
 			conversations,
+			todos,
 		],
 	);
 	const navigation = useContext(NavigationContext);

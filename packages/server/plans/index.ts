@@ -23,6 +23,7 @@ export {
 	TASK,
 } from "./needs";
 export type { EvalAsk, PermissionProposal, ReachAsk } from "./permission";
+export { queueIsSettled } from "./permission";
 export type { Decision, Question } from "./plan";
 export {
 	checkPlan,

@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
@@ -14,13 +15,15 @@ import { rowsOf, waitsOnYou } from "./conversation-rows";
 export function WaitingBadge({
 	feed,
 	tasks,
+	todos,
 	open,
 }: {
 	feed: ConversationFeed;
 	tasks: Details[];
+	todos: TaskRecord[];
 	open: string | null;
 }): JSX.Element | null {
-	const count = useWaitingElsewhere(feed, tasks, open).others.length;
+	const count = useWaitingElsewhere(feed, tasks, todos, open).others.length;
 	if (count === 0) {
 		return null;
 	}
@@ -42,6 +45,7 @@ export function WaitingBadge({
 function useWaitingElsewhere(
 	feed: ConversationFeed,
 	tasks: Details[],
+	todos: readonly TaskRecord[],
 	open: string | null,
 ): { others: ReturnType<typeof rowsOf>; conversations: ConversationState[] } {
 	const { conversations } = useReactive(
@@ -49,7 +53,7 @@ function useWaitingElsewhere(
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
-	const others = rowsOf(tasks, conversations).filter(
+	const others = rowsOf(tasks, conversations, todos).filter(
 		(row) => openedBy(row) !== open && waitsOnYou(row),
 	);
 	return { others, conversations };

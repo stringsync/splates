@@ -1,8 +1,10 @@
 import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
+import type { TaskRecord } from "../board";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../tasks";
 import { stretches } from "./asked";
+import { queueIsSettled } from "./permission";
 import { goalLine, openQuestions, type Question, STUB_STEPS } from "./plan";
 
 /** One agent the page shows: a conversation, its task, or both. */
@@ -22,10 +24,13 @@ export interface Needing {
 export function needs({
 	tasks,
 	conversations,
+	todos,
 	now = Date.now(),
 }: {
 	tasks: Details[];
 	conversations: ConversationState[];
+	/** The board's tasks, to tell a queue card already acted on from one still asking. */
+	todos?: readonly TaskRecord[];
 	/** What an external agent's quiet is measured to: see `ASKED_QUIET`. */
 	now?: number;
 }): Needing[] {
@@ -36,7 +41,11 @@ export function needs({
 			.map((conversation) => {
 				const task =
 					live.find((each) => each.task === conversation.task) ?? null;
-				return { conversation, task, need: need(task, conversation) };
+				return {
+					conversation,
+					task,
+					need: need(task, conversation, now, todos),
+				};
 			}),
 		...externals(tasks, conversations, now),
 	];
@@ -225,6 +234,7 @@ export function need(
 	task: Details | null,
 	conversation: ConversationState | null,
 	now: number = Date.now(),
+	todos?: readonly TaskRecord[],
 ): Need {
 	const open = task?.plan ? openQuestions(task.plan) : [];
 	const waiting = (
@@ -290,7 +300,7 @@ export function need(
 	if (lead !== undefined) {
 		return waiting("questions", lead.text, ended, asked);
 	}
-	const permission = permissionIn(conversation);
+	const permission = permissionIn(conversation, todos);
 	if (permission !== null) {
 		return waiting("ask", permission, ended);
 	}
@@ -309,14 +319,28 @@ function askedIn(conversation: ConversationState): Question[] {
 }
 
 /**
- * What the permission card the agent's last reply asks for is about, when
- * that reply is its last word and holds one; null otherwise.
+ * What the permission card the agent's last reply still asks for is about.
+ * A queue card stops asking once this project's board has its work queued or
+ * running; without the board, whether it was acted on is unknown.
  */
-function permissionIn(conversation: ConversationState): string | null {
+function permissionIn(
+	conversation: ConversationState,
+	todos?: readonly TaskRecord[],
+): string | null {
 	for (const stretch of stretches(lastWords(conversation) ?? "")) {
-		if (stretch.type === "permission") {
-			return stretch.permission.title ?? "Permission";
+		if (stretch.type !== "permission") {
+			continue;
 		}
+		const { permission } = stretch;
+		if (
+			permission.action === "queue" &&
+			permission.project === undefined &&
+			todos !== undefined &&
+			queueIsSettled(permission, todos)
+		) {
+			continue;
+		}
+		return permission.title ?? "Permission";
 	}
 	return null;
 }

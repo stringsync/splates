@@ -318,7 +318,7 @@ export const Conversations = memo(function Conversations({
 								phone
 									? onOpen(null, "replace")
 									: goOn(
-											rowsOf(tasks, conversations),
+											rowsOf(tasks, conversations, todos),
 											open,
 											lanesTaken(todos),
 											(id) => onOpen(id, "replace"),

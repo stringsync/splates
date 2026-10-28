@@ -50,7 +50,7 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const everywhere = useWaitingEverywhere(given);
+	const everywhere = useWaitingEverywhere({ ...given, todos });
 	const { rows, others } = everywhere;
 	// A deferral with a question or outside blocker waits on you too, though no agent does.
 	const waiting =
@@ -100,9 +100,14 @@ export function NextWaiting({
  * The agents waiting on you: how many, here and in other projects, with
  * this project's rows and the address of each other project's, on its page.
  */
-function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
+function useWaitingEverywhere({
+	feed,
+	tasks,
+	todos,
+	here,
+}: Waiting & { todos: readonly TaskRecord[] }) {
 	const conversations = useConversationIndex(feed);
-	const rows = rowsOf(tasks, conversations);
+	const rows = rowsOf(tasks, conversations, todos);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
 		projects: feed.projects,
@@ -114,7 +119,7 @@ function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
 				everywhere.projects,
 				everywhere.tasks,
 				everywhere.conversations,
-				{ ...here, tasks, conversations },
+				{ ...here, tasks, conversations, todos },
 			).flatMap((folder) => {
 				const { project } = folder;
 				return folder.here || project === null
@@ -132,18 +137,22 @@ function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
  * How many agents wait on the person: conversations alone, as an agent
  * outside the page asks in its own session.
  */
-export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
+export function useWaiting(
+	feed: ConversationFeed,
+	tasks: Details[],
+	todos?: readonly TaskRecord[],
+): number {
 	const subscribe = useCallback(
 		(changed: () => void) => feed.events.on("changed", changed),
 		[feed],
 	);
 	const read = useCallback(
 		() =>
-			needs({ tasks, conversations: feed.conversations }).filter(
+			needs({ tasks, conversations: feed.conversations, todos }).filter(
 				({ conversation, need }) =>
 					conversation !== null && need.kind === "waiting",
 			).length,
-		[feed, tasks],
+		[feed, tasks, todos],
 	);
 	return useSyncExternalStore(subscribe, read, read);
 }
