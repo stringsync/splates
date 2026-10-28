@@ -321,6 +321,21 @@ describe("dev projects", () => {
 				["repo", 1],
 				["repo-2", 2],
 			]);
+
+			// One not opened answers with its last count, counting afresh
+			// behind the listing, so a new question shows on a later one.
+			await asking(other, "epsilon");
+			expect(
+				await eventually(
+					async () =>
+						JSON.stringify(await waiting()) ===
+						JSON.stringify([
+							["repo", 1],
+							["repo-2", 3],
+						]),
+					5_000,
+				),
+			).toBe(true);
 		});
 	}, 15_000);
 

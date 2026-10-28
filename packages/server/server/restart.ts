@@ -98,6 +98,16 @@ export class Restarts {
 	// listing them starts none of their agents.
 	private readonly peeked = new Map<string, Promise<Project>>();
 	/**
+	 * How many agents wait in each project read for its tasks alone, as last
+	 * counted, and the count under way: reading every task of a project takes
+	 * a few hundred milliseconds, so a listing answers with the last count and
+	 * leaves the next behind it, for the listing after.
+	 */
+	private readonly counted = new Map<
+		string,
+		{ count: number | null; counting: Promise<number> | null }
+	>();
+	/**
 	 * The restart under way once its checkpoint is answered, until it has
 	 * written what the next run reopens and handed over; disposing waits on
 	 * it, so nothing is written after the server is gone.
@@ -329,6 +339,7 @@ export class Restarts {
 			);
 		}
 		await projects.forget(found.root);
+		this.counted.delete(found.root);
 		const opened = served.served.get(found.root);
 		served.served.delete(found.root);
 		await (await opened?.catch(() => null))?.disposeAsync();
@@ -419,13 +430,37 @@ export class Restarts {
 	}
 
 	// A served project counts its own; one not is read for its tasks alone,
-	// where only an external agent can be at work. Its conversations go
-	// unread, so none taken by one counts as abandoned.
+	// where only an external agent can be at work, as last counted once it
+	// has been. Its conversations go unread, so none taken by one counts as
+	// abandoned.
 	private async waitingIn(root: string): Promise<number> {
 		const project = await this.home.served.served.get(root)?.catch(() => null);
 		if (project) {
 			return project.waiting();
 		}
+		let kept = this.counted.get(root);
+		if (kept === undefined) {
+			kept = { count: null, counting: null };
+			this.counted.set(root, kept);
+		}
+		const entry = kept;
+		if (entry.counting === null) {
+			entry.counting = this.countWaiting(root).then(
+				(count) => {
+					entry.count = count;
+					entry.counting = null;
+					return count;
+				},
+				() => {
+					entry.counting = null;
+					return entry.count ?? 0;
+				},
+			);
+		}
+		return entry.count ?? (await entry.counting);
+	}
+
+	private async countWaiting(root: string): Promise<number> {
 		let found = this.peeked.get(root);
 		if (found === undefined) {
 			found = this.opts.open(root);
