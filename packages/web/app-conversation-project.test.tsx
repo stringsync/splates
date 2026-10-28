@@ -59,8 +59,11 @@ describe("App's new conversation, by project", () => {
 		sessionStorage.clear();
 	});
 
-	it("names its project above the composer, and a pick shows that project's, what was typed carried along", async () => {
+	it("names its project above the composer alone, and a pick shows that project's, what was typed carried along", async () => {
 		const home = view.getByRole("region", { name: "new conversation" });
+		expect(
+			view.getAllByRole("button", { name: "Switch project" }),
+		).toHaveLength(1);
 		const box = within(home).getByRole("textbox", { name: "Message input" });
 		await typeIn(box, "fix the login");
 

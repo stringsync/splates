@@ -1148,7 +1148,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations");
 	});
 
-	it("keeps branding in the drawer alone, and the project switcher in the drawer and every bar, titling the inbox and pages", async () => {
+	it("keeps branding in the drawer alone, and the project switcher in every bar, titling the inbox and pages", async () => {
 		const view = await testing.openConversations([], null);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		expect(
@@ -1165,8 +1165,8 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		expect(
-			within(drawer).getByRole("button", { name: "Switch project" }),
-		).toBeTruthy();
+			within(drawer).queryByRole("button", { name: "Switch project" }),
+		).toBeNull();
 		expect(
 			within(drawer).getByRole("img", { name: "Spinning Plates" }),
 		).toBeTruthy();

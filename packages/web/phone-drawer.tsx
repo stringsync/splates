@@ -9,7 +9,6 @@ import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
-import { ProjectSwitcher } from "./projects";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
 import { NAV_HEADING } from "./top-bar";
@@ -23,7 +22,6 @@ export function Drawer({
 	open,
 	onOpenChange,
 	header,
-	name,
 	page,
 	conversation,
 	available,
@@ -36,8 +34,6 @@ export function Drawer({
 	onOpenChange: (open: boolean) => void;
 	/** The server's header: its name and its status. */
 	header: ReactNode;
-	/** The project's name. */
-	name: string;
 	page: Page;
 	/** The conversation open, by its address, or null. */
 	conversation: string | null;
@@ -51,8 +47,8 @@ export function Drawer({
 	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
-	// The server's header up top, the inbox first, the project's pages under
-	// its switcher, Everywhere's, Add a project, and Archived last. The pages
+	// The server's header up top, the inbox first, the project's pages,
+	// Everywhere's, Add a project, and Archived last. The pages
 	// it opens take each other's place in history above the inbox, even while
 	// it loads, so back from any goes home, as Android's top-level ones do.
 
@@ -111,14 +107,6 @@ export function Drawer({
 								label="Inbox"
 								count={waiting}
 								urgent
-							/>
-							<ProjectSwitcher
-								name={name}
-								heading
-								keyed={false}
-								path={false}
-								servers={false}
-								className="mx-0 mt-3 h-10 px-3"
 							/>
 							{PAGES.filter(({ scope }) => scope === "project").map(entry)}
 							<h2 className={cn(NAV_HEADING, "mt-3 py-2")}>Everywhere</h2>

@@ -335,7 +335,8 @@ export function useNewConversation({
 		<ProjectSwitcher
 			name={projectName}
 			keyed={false}
-			bar
+			scope
+			path={false}
 			servers={false}
 			className="mx-0"
 			hash={`#conversations/${withDraft(auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`, identity)}`}
@@ -479,8 +480,7 @@ export function ProjectLine({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="-mb-2 flex min-w-0 items-center gap-1 px-2 text-muted-foreground text-sm">
-			<span className="shrink-0">In</span>
+		<div className="-mb-2 flex min-h-9 min-w-0 items-center px-2">
 			{children}
 		</div>
 	);
