@@ -6,7 +6,7 @@ import { useCheckpoint } from "./checkpoint";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { OfflinePill, RefreshingOverlay, useFreshness } from "./freshness";
+import { OfflineBanner, RefreshingOverlay, useFreshness } from "./freshness";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
@@ -78,6 +78,7 @@ export function PhoneApp({
 	}
 	const openNew = (open: string = NEW) => go("conversations", open);
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
+	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
 		talk,
 		(talk) => ({ conversations: talk.conversations }),
@@ -91,13 +92,13 @@ export function PhoneApp({
 	// merges and queues.
 	const { unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
-	const status = (offline || unreachable) && <OfflinePill reason={reason} />;
+	const banner = (offline || unreachable) && <OfflineBanner reason={reason} />;
 	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
 			<RefreshingOverlay updating={restartBusy} />
 			{page === "conversations" && open === null ? (
-				<TopBarFrame value={kebab}>
+				<TopBarFrame value={{ ...kebab, banner }}>
 					<Inbox
 						feed={talk}
 						drafts={drafts}
@@ -113,7 +114,6 @@ export function PhoneApp({
 									}
 						}
 						loading={snapshot === null}
-						status={status}
 						chips={chips}
 						onMenu={menu}
 						onOpen={(id) => go("conversations", id)}
@@ -129,6 +129,7 @@ export function PhoneApp({
 					<TopBarFrame
 						value={{
 							...kebab,
+							banner,
 							// An update is for the screens above a conversation.
 							dot: undefined,
 							badge: snapshot !== null && (
@@ -163,12 +164,14 @@ export function PhoneApp({
 							className="flex min-w-0 flex-1 items-center gap-1"
 						/>
 					</header>
+					<div ref={setBannerSlot} className="contents" />
 					{chips}
 					<TopBarFrame
 						value={{
 							...kebab,
 							slot,
-							status,
+							bannerSlot,
+							banner,
 							untitled: true,
 							end: available && (
 								<BarButton label="New conversation" onClick={() => openNew()}>

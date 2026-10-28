@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
 	type Freshness,
 	FreshnessContext,
-	StaleChip,
+	OfflineBanner,
 	StaleRows,
 } from "./freshness";
 import { cleanup, fireEvent, render } from "./testing-library";
@@ -35,11 +35,14 @@ describe("Saying the page may be stale", () => {
 		expect(page.container.textContent).toBe("");
 	});
 
-	it("says at once in the bar, as an error, that it cannot reach the server, with Retry beside it", () => {
+	it("says at once below the bar that the server is unreachable, with Retry in the banner", () => {
 		let retried = 0;
 		const page = barred({ ...UNREACHABLE, retry: () => retried++ });
 
-		expect(page.getByRole("alert").textContent).toBe("Offline");
+		expect(page.getByRole("alert").textContent).toContain("Offline.");
+		expect(page.getByRole("alert").textContent).toContain(
+			"What you see may be out of date.",
+		);
 		expect(page.queryByRole("status")).toBeNull();
 		fireEvent.click(page.getByRole("button", { name: "Retry" }));
 		expect(retried).toBe(1);
@@ -74,11 +77,10 @@ function rows(freshness: Freshness) {
 	);
 }
 
-/** A desktop's bar: the chip beside its title. */
 function barred(freshness: Freshness) {
 	return render(
 		<FreshnessContext value={freshness}>
-			<StaleChip />
+			{freshness.unreachable && <OfflineBanner reason={freshness.reason} />}
 		</FreshnessContext>,
 	);
 }

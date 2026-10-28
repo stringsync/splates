@@ -1,5 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon, WifiOffIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -20,7 +20,6 @@ import type { ConversationFeed } from "./conversation-feed";
 import { Countdown } from "./countdown";
 import type { Feed } from "./feed";
 import { SIGN_IN } from "./sign-in";
-import { STATUS_PILL } from "./status-pill";
 
 /**
  * Whether what the page shows of the project may be stale: drawn from a kept
@@ -131,9 +130,8 @@ export const REFRESH_WAITS = {
 };
 
 /**
- * Put once in the page: while the page is locked or an update is under way, it
- * covers the page and makes the rest of it inert. Once a stale-page refresh runs
- * on, a second row counts down to giving up and offers Retry.
+ * Prevents interaction with stale content and offers Retry when a refresh takes
+ * too long. Render it once above the app's content.
  */
 // It fades in after a moment, so a quick refresh never flashes it.
 export function RefreshingOverlay({
@@ -353,11 +351,10 @@ export function Locked({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
- * Shows that the server cannot be reached, with Retry beside it to try now
- * rather than on the page's own next try. Pass `reason` to include the last
- * read failure beside the label and in its tooltip.
+ * Shows below the bar that the server cannot be reached and what is shown may
+ * be out of date, with Retry to try now rather than on the page's next try.
  */
-export function OfflinePill({
+export function OfflineBanner({
 	reason = null,
 }: {
 	reason?: string | null;
@@ -372,44 +369,37 @@ export function OfflinePill({
 		return () => clearTimeout(shown);
 	}, [retrying]);
 	return (
-		<span className="flex min-w-0 items-center gap-1">
-			<span
-				role="alert"
-				title={`splates server stopped answering: is it still running? The page keeps trying.${reason === null ? "" : ` Last read: ${reason}`}`}
-				className={`${STATUS_PILL} min-w-0 border-destructive/40 text-destructive`}
-			>
-				<span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-				Offline
-				{reason === null ? null : (
-					<span className="truncate font-normal">{reason}</span>
-				)}
-			</span>
-			<button
-				type="button"
+		<div
+			role="alert"
+			title={reason ?? undefined}
+			className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-destructive/30 border-b bg-destructive/10 px-4 py-2.5 text-sm"
+		>
+			<div className="flex min-w-0 items-center gap-2.5">
+				<WifiOffIcon className="size-4 shrink-0 text-destructive" />
+				<p>
+					<span className="font-medium text-destructive">Offline.</span>{" "}
+					<span className="text-muted-foreground">
+						The server isn’t responding. What you see may be out of date.
+					</span>
+				</p>
+			</div>
+			<Button
+				variant="outline"
+				size="sm"
 				disabled={retrying}
 				onClick={() => {
 					setRetrying(true);
 					retry();
 				}}
-				className={`${STATUS_PILL} text-muted-foreground hover:text-foreground disabled:opacity-70`}
 			>
 				{retrying && (
 					<LoaderCircleIcon aria-hidden className="motion-safe:animate-spin" />
 				)}
 				{retrying ? "Retrying…" : "Retry"}
-			</button>
-		</span>
+			</Button>
+		</div>
 	);
 }
 
 /** How long Retry says it is retrying, about as long as a try takes to fail. */
 const RETRYING = Duration.secs(3);
-
-/**
- * Says in a desktop's bar, beside the title, that the server cannot be
- * reached, once the page has stopped waiting on it. Before that it says nothing.
- */
-export function StaleChip(): JSX.Element | null {
-	const { unreachable, reason } = useFreshness();
-	return unreachable ? <OfflinePill reason={reason} /> : null;
-}

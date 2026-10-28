@@ -46,6 +46,26 @@ describe("App's feed", () => {
 		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
 	});
 
+	it("keeps offline and Retry out of a phone's bar in a banner below it", async () => {
+		try {
+			resize(390, 844);
+			const view = await testing.open();
+
+			testing.goAway();
+			await act(async () => testing.stream?.onmessage?.());
+
+			const banner = await waitFor(() => view.getByRole("alert"));
+			expect(banner.closest("header")).toBeNull();
+			expect(banner.textContent).toContain("What you see may be out of date.");
+			expect(
+				within(banner).getByRole("button", { name: "Retry" }),
+			).toBeTruthy();
+		} finally {
+			cleanup();
+			resize(1024, 768);
+		}
+	});
+
 	it("waits out a blip, as a tunnel reconnecting, before saying it cannot reach the server", async () => {
 		const view = await testing.open();
 

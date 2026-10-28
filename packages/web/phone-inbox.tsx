@@ -54,7 +54,6 @@ export function Inbox({
 	terminals,
 	tasks,
 	here,
-	status,
 	chips,
 	loading,
 	onMenu,
@@ -67,8 +66,6 @@ export function Inbox({
 	tasks: Details[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
 	here: { root: string; repo: string; trunk: string | null } | null;
-	/** Whether the server is offline or outdated, shown in the header. */
-	status: ReactNode;
 	/** The row of the project's pages under a phone's bar. */
 	chips?: ReactNode;
 	/** Whether the project snapshot is still on its way. */
@@ -202,17 +199,14 @@ export function Inbox({
 					wide ? (
 						"Inbox"
 					) : (
-						<>
-							<ProjectSwitcher
-								name={name}
-								// The inbox stays the page, not the last thread there.
-								hash="#conversations"
-								path={false}
-								servers={false}
-								className="mx-0"
-							/>
-							{status}
-						</>
+						<ProjectSwitcher
+							name={name}
+							// The inbox stays the page, not the last thread there.
+							hash="#conversations"
+							path={false}
+							servers={false}
+							className="mx-0"
+						/>
 					)
 				}
 				actions={[

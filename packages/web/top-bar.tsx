@@ -32,8 +32,12 @@ export interface BarFrame {
 	 * out to draw the bar in place.
 	 */
 	slot?: HTMLElement | null;
-	/** Said after every title: offline, outdated, a restart under way. */
+	/** Said after every title: outdated or a restart under way. */
 	status?: ReactNode;
+	/** A full-width message under the bar. */
+	banner?: ReactNode;
+	/** Where the banner goes when the bar itself goes in `slot`. */
+	bannerSlot?: HTMLElement | null;
 	/** The page menu's items, at the foot of the kebab. */
 	menu?: ReactNode;
 	/** Puts Update before the kebab, once a restart would update splates. */
@@ -188,18 +192,31 @@ export function TopBar({
 	);
 	if (frame?.slot !== undefined) {
 		// Nothing until the shell's row is there to take it.
-		return frame.slot === null ? null : createPortal(row, frame.slot);
+		if (frame.slot === null) {
+			return null;
+		}
+		return (
+			<>
+				{createPortal(row, frame.slot)}
+				{frame.bannerSlot != null &&
+					frame.banner !== undefined &&
+					createPortal(frame.banner, frame.bannerSlot)}
+			</>
+		);
 	}
 	return (
-		<header
-			className={cn(
-				"relative flex h-(--top-bar-height) shrink-0 items-center gap-1",
-				wide ? "px-2" : "px-1",
-				className,
-			)}
-		>
-			{row}
-		</header>
+		<>
+			<header
+				className={cn(
+					"relative flex h-(--top-bar-height) shrink-0 items-center gap-1",
+					wide ? "px-2" : "px-1",
+					className,
+				)}
+			>
+				{row}
+			</header>
+			{frame?.banner}
+		</>
 	);
 }
 

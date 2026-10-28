@@ -9,7 +9,7 @@ import { BESIDE_PANE } from "./changes";
 import { useCheckpoint } from "./checkpoint";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import { RefreshingOverlay, useFreshness } from "./freshness";
+import { OfflineBanner, RefreshingOverlay, useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
@@ -99,12 +99,15 @@ export function DesktopApp({
 	);
 	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
 	// The page takes no input while locked.
-	const { locked } = useFreshness();
+	const { locked, unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
-	// Where each page's bar goes: the row atop the page.
+	// Where each page's bar and any banner under it go.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
+	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
 	const frame = {
 		slot,
+		bannerSlot,
+		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
 		status: (
 			<AppStatus
 				snapshot={snapshot}
@@ -142,6 +145,7 @@ export function DesktopApp({
 						!shown && "pl-(--top-bar-start)",
 					)}
 				/>
+				<div ref={setBannerSlot} className="contents" />
 				<AppNav
 					available={available}
 					snapshot={snapshot}

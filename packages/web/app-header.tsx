@@ -3,7 +3,7 @@ import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
-import { OfflinePill, StaleChip } from "./freshness";
+import { OfflineBanner } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
 import { QueueBadge } from "./slot-queue";
@@ -39,6 +39,7 @@ export function AppHeader({
 					machine={machine}
 				/>
 			</div>
+			{offline && <OfflineBanner />}
 			<Restarting offline={offline} className="px-4 pb-2" />
 		</header>
 	);
@@ -46,8 +47,8 @@ export function AppHeader({
 
 /**
  * What every bar says after its title beside a sidebar: whether the page is
- * updating, which says too when the server cannot be reached, the server's
- * state, how a restart goes, and why a checkpoint could not start.
+ * updating, the server's state, how a restart goes, and why a checkpoint could
+ * not start. The offline banner sits below the bar instead.
  */
 export function AppStatus({
 	snapshot,
@@ -62,13 +63,11 @@ export function AppStatus({
 }): JSX.Element {
 	return (
 		<>
-			<StaleChip />
 			<ServerBadges
 				snapshot={snapshot}
 				outdated={outdated}
 				offline={offline}
 				machine={machine}
-				offlineSaid
 			/>
 			<Restarting offline={offline} className="min-w-0" />
 		</>
@@ -111,14 +110,11 @@ function ServerBadges({
 	outdated,
 	offline,
 	machine,
-	offlineSaid = false,
 }: {
 	snapshot: Snapshot | null;
 	outdated: string | null;
 	offline: boolean;
 	machine: MachineStatus | null;
-	/** Whether the bar already says the server cannot be reached, as `StaleChip` does. */
-	offlineSaid?: boolean;
 }): JSX.Element {
 	return (
 		<>
@@ -141,7 +137,6 @@ function ServerBadges({
 					Build failed
 				</span>
 			)}
-			{offline && !offlineSaid && <OfflinePill />}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <MergeBadge snapshot={snapshot} />}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
