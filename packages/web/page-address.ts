@@ -306,7 +306,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#stats") {
 		return "stats";
 	}
-	if (hash === "#ships") {
+	if (hash === "#ships" || hash.startsWith("#ships/")) {
 		return "ships";
 	}
 	if (hash === "#evals" || hash.startsWith("#evals/")) {

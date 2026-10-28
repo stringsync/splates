@@ -1,10 +1,9 @@
 import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { CHANGED, shipName } from "@stringsync/splates-server/ship/browser";
-import { ChevronRightIcon } from "lucide-react";
+import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { shipHistory, shipHistoryEntry } from "./api";
-import { cn } from "./lib/utils";
 import { ShipApproval } from "./ship-approval";
 import { ShipDialog } from "./ship-dialog";
 import { ShipGraphTree } from "./ship-graph";
@@ -24,6 +23,7 @@ const CLOSED_KEY = "splates.ship.closed";
  */
 export function ShipsPage(): JSX.Element {
 	const live = useLiveShips();
+	const viewed = useViewedShip();
 	const [history, setHistory] = useState<CascadeSummary[]>([]);
 	const [planning, setPlanning] = useState<ShipApproval | null>(() => {
 		const query = new URLSearchParams(location.search);
@@ -57,6 +57,17 @@ export function ShipsPage(): JSX.Element {
 		localStorage.setItem(CLOSED_KEY, id);
 		setClosed(id);
 	};
+	if (viewed !== null) {
+		return (
+			<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
+				<TopBar title="Ship" />
+				{planning !== null && (
+					<ShipDialog approval={planning} onClose={() => setPlanning(null)} />
+				)}
+				<PastShip id={viewed} onRecover={recover} />
+			</section>
+		);
+	}
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
 			<TopBar title="Ship" />
@@ -83,19 +94,26 @@ export function ShipsPage(): JSX.Element {
 					onShipChanged={() => setPlanning(new ShipApproval(CHANGED))}
 				/>
 			)}
-			{history.length > 0 && <History cascades={history} onRecover={recover} />}
+			{history.length > 0 && <History cascades={history} />}
 		</section>
 	);
 }
 
-/** The cascades that ended, newest first, each opening as the timeline it was. */
-function History({
-	cascades,
-	onRecover,
-}: {
-	cascades: CascadeSummary[];
-	onRecover: (run: CascadeSummary) => void;
-}): JSX.Element {
+const readViewed = () => location.hash.match(/^#ships\/([^/]+)$/)?.[1] ?? null;
+
+/** The id `#ships/<id>` opens, kept as the hash changes. */
+function useViewedShip(): string | null {
+	const [id, setId] = useState(readViewed);
+	useEffect(() => {
+		const sync = () => setId(readViewed());
+		window.addEventListener("hashchange", sync);
+		return () => window.removeEventListener("hashchange", sync);
+	}, []);
+	return id === null ? null : decodeURIComponent(id);
+}
+
+/** The cascades that ended, newest first, each linking to its own page. */
+function History({ cascades }: { cascades: CascadeSummary[] }): JSX.Element {
 	return (
 		<section aria-label="history" className="flex flex-col gap-2">
 			<h2 className="font-medium text-sm">History</h2>
@@ -103,51 +121,32 @@ function History({
 				{cascades
 					.filter((each) => each.status !== "running")
 					.map((each) => (
-						<Past
-							key={each.id}
-							summary={each}
-							onRecover={() => onRecover(each)}
-						/>
+						<Past key={each.id} summary={each} />
 					))}
 			</ul>
 		</section>
 	);
 }
 
-function Past({
-	summary,
-	onRecover,
-}: {
-	summary: CascadeSummary;
-	onRecover: () => void;
-}): JSX.Element {
-	const [open, setOpen] = useState(false);
-	const [kept, setKept] = useState<Live | null>(null);
-	useEffect(() => {
-		if (open && kept === null) {
-			shipHistoryEntry(summary.id).then(setKept, () => undefined);
-		}
-	}, [open, kept, summary.id]);
+function stoppedAt(summary: CascadeSummary): string {
 	const stopped = summary.projects.find(
 		(each) => each.status !== "done" && each.status !== "dropped",
 	);
+	return summary.status === "abandoned" || summary.status === "stopped"
+		? `${summary.status}${stopped === undefined ? "" : ` at ${stopped.slug}`}`
+		: `${summary.projects.length} project${summary.projects.length === 1 ? "" : "s"}`;
+}
+
+function Past({ summary }: { summary: CascadeSummary }): JSX.Element {
 	return (
-		<li aria-label={summary.id} className="flex flex-col gap-1 py-2">
-			<button
-				type="button"
-				aria-expanded={open}
-				onClick={() => setOpen(!open)}
-				className="flex items-center gap-2 text-left text-sm"
+		<li aria-label={summary.id} className="py-2">
+			<a
+				href={`#ships/${encodeURIComponent(summary.id)}`}
+				className="flex items-center gap-2 text-sm"
 			>
-				<ChevronRightIcon
-					aria-hidden
-					className={cn("size-3.5 transition-transform", open && "rotate-90")}
-				/>
 				<span className="font-medium">{shipName(summary.from)}</span>
 				<span className="text-muted-foreground text-xs">
-					{summary.status === "abandoned" || summary.status === "stopped"
-						? `${summary.status}${stopped === undefined ? "" : ` at ${stopped.slug}`}`
-						: `${summary.projects.length} project${summary.projects.length === 1 ? "" : "s"}`}
+					{stoppedAt(summary)}
 				</span>
 				<time
 					dateTime={summary.started}
@@ -155,24 +154,58 @@ function Past({
 				>
 					{new Date(summary.started).toLocaleString()}
 				</time>
-			</button>
-			{open &&
-				(summary.status === "stopped" || summary.status === "abandoned") && (
-					<Button size="sm" variant="outline" onClick={onRecover}>
-						Recover
-					</Button>
-				)}
-			{open && kept === null && (
-				<p className="pl-5 text-muted-foreground text-xs">Reading…</p>
-			)}
-			{open && kept?.cascade != null && (
-				<ProjectStages
-					cascade={kept.cascade}
-					ship={null}
-					live={false}
-					className="ml-5 pt-1"
-				/>
-			)}
+				<ChevronRightIcon aria-hidden className="size-3.5" />
+			</a>
 		</li>
+	);
+}
+
+/** One ended ship on its own page: its timeline, and Recover when it stopped. */
+function PastShip({
+	id,
+	onRecover,
+}: {
+	id: string;
+	onRecover: (run: { from: string; id: string }) => void;
+}): JSX.Element {
+	const [kept, setKept] = useState<Live | null>(null);
+	useEffect(() => {
+		setKept(null);
+		shipHistoryEntry(id).then(setKept, () => undefined);
+	}, [id]);
+	const cascade = kept?.cascade ?? null;
+	return (
+		<section aria-label={id} className="flex flex-col gap-4">
+			<a
+				href="#ships"
+				className="flex items-center gap-1 text-muted-foreground text-sm"
+			>
+				<ArrowLeftIcon aria-hidden className="size-3.5" />
+				Ship
+			</a>
+			{kept === null && (
+				<p className="text-muted-foreground text-xs">Reading…</p>
+			)}
+			{cascade !== null && (
+				<>
+					<div className="flex items-center gap-2">
+						<h2 className="font-medium text-sm">{shipName(cascade.from)}</h2>
+						<span className="text-muted-foreground text-xs">
+							{cascade.status}
+						</span>
+					</div>
+					{(cascade.status === "stopped" || cascade.status === "abandoned") && (
+						<Button
+							className="w-full"
+							size="lg"
+							onClick={() => onRecover(cascade)}
+						>
+							Recover
+						</Button>
+					)}
+					<ProjectStages cascade={cascade} ship={null} live={false} />
+				</>
+			)}
+		</section>
 	);
 }
