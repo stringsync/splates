@@ -12,6 +12,13 @@ import {
 } from "react";
 import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Popover,
+	PopoverContent,
+	PopoverDescription,
+	PopoverTitle,
+	PopoverTrigger,
+} from "#web/components/ui/popover.tsx";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
@@ -120,36 +127,49 @@ export function useFeedsFreshness(
 	);
 }
 
-/** Quiet feedback in the header; refreshes never take focus or block input. */
+/** Quiet header feedback, with details on tap without blocking the page. */
 export function RefreshStatus({
 	updating = false,
+	description,
 	className,
 }: {
 	updating?: boolean;
+	description?: string;
 	className?: string;
 }): JSX.Element | null {
 	const { stale, unreachable } = useFreshness();
 	if (!updating && (!stale || unreachable)) {
 		return null;
 	}
+	const title = updating ? "Updating the server…" : "Refreshing…";
 	return (
-		<span
-			role="status"
-			aria-label="Refreshing"
-			title={updating ? "Updating the server…" : "Refreshing…"}
-			className={cn(
-				"flex shrink-0 items-center text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:fill-mode-both",
-				className,
-			)}
-		>
-			<LoaderCircleIcon
-				aria-hidden
-				className="size-4 motion-safe:animate-spin"
-			/>
-			<span className="sr-only">
-				{updating ? "Updating the server…" : "Refreshing…"}
-			</span>
-		</span>
+		<Popover>
+			<PopoverTrigger
+				render={<Button variant="ghost" size="icon" />}
+				aria-label={updating ? "Updating" : "Refreshing"}
+				aria-busy={updating}
+				title="Show progress"
+				className={cn("shrink-0", className)}
+			>
+				<span
+					role="status"
+					aria-label="Refreshing"
+					className="flex text-muted-foreground"
+				>
+					<LoaderCircleIcon aria-hidden className="motion-safe:animate-spin" />
+					<span className="sr-only">{title}</span>
+				</span>
+			</PopoverTrigger>
+			<PopoverContent align="end">
+				<PopoverTitle>{title}</PopoverTitle>
+				<PopoverDescription>
+					{description ??
+						(updating
+							? "Waiting for the updated server to reconnect. This page will reload when it is ready."
+							: "Reconnecting to the server and fetching the latest conversations and tasks. You can keep working while the page catches up.")}
+				</PopoverDescription>
+			</PopoverContent>
+		</Popover>
 	);
 }
 

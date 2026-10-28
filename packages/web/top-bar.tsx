@@ -185,15 +185,12 @@ export function TopBar({
 				</div>
 				<div
 					ref={restart}
-					className="flex w-11 shrink-0 items-center justify-end md:w-24"
+					className="flex w-20 shrink-0 items-center justify-end md:w-24"
 				>
 					{frame?.dot !== undefined ? (
 						<RestartButton wide={wide} update={frame.dot} />
 					) : (
-						<RefreshStatus
-							updating={frame?.refreshing}
-							className="size-11 justify-center md:size-8"
-						/>
+						<RefreshStatus updating={frame?.refreshing} />
 					)}
 				</div>
 				{(folded.length > 0 || menu !== null) && (

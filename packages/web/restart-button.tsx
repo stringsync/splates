@@ -12,12 +12,26 @@ export function RestartButton({
 	wide: boolean;
 	update: boolean;
 }): JSX.Element | null {
-	const { restart, restartBusy, restartDone, version } = useCheckpoint();
+	const { restart, restartBusy, restartDone, version, slide } = useCheckpoint();
 	const { stale, unreachable } = useFreshness();
 	if (stale && !unreachable && !restartBusy) {
-		return <RefreshStatus className="size-11 justify-center md:size-8" />;
+		return <RefreshStatus />;
 	}
-	const done = restartDone && !update && !restartBusy;
+	if (restartBusy) {
+		return (
+			<RefreshStatus
+				updating
+				description={
+					slide === "going"
+						? "Waiting for agents to save their progress before the server restarts."
+						: slide === "restarting"
+							? "Waiting for the updated server to reconnect. This page will reload when it is ready."
+							: "Requesting a server update. The server will restart and this page will reload when it is ready."
+				}
+			/>
+		);
+	}
+	const done = restartDone && !update;
 	if (!update && !restartBusy && !done) {
 		return version === null || !wide ? null : (
 			<span
@@ -28,24 +42,18 @@ export function RestartButton({
 			</span>
 		);
 	}
-	const label = restartBusy ? "Updating" : done ? "Updated" : "Update";
+	const label = done ? "Updated" : "Update";
 	return (
 		<Button
 			variant="outline"
-			size={wide ? "sm" : "icon-lg"}
-			className={wide ? "w-full" : "size-11"}
+			size="sm"
 			aria-label={label}
-			aria-busy={restartBusy}
 			title={label}
-			disabled={restartBusy || done}
+			disabled={done}
 			onClick={restart}
 		>
-			{restartBusy ? (
-				<RefreshStatus updating />
-			) : (
-				!done && <RotateCwIcon aria-hidden data-icon="inline-start" />
-			)}
-			<span className={wide ? undefined : "sr-only"}>{label}</span>
+			{!done && <RotateCwIcon aria-hidden data-icon="inline-start" />}
+			<span>{label}</span>
 		</Button>
 	);
 }

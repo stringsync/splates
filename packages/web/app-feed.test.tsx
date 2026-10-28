@@ -23,6 +23,7 @@ describe("App's feed", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		resize(1024, 768);
 	});
 
 	it("refetches when the server says something moved", async () => {
@@ -206,6 +207,8 @@ describe("App's feed", () => {
 				view.getByRole("button", { name: "Update" }),
 			);
 			expect(update.textContent).toBe("Update");
+			expect(update.querySelector(".sr-only")).toBeNull();
+			expect(update.querySelector("svg")).not.toBeNull();
 			const more = view.getByRole("button", { name: "More" });
 			expect(more.querySelector(".bg-warning")).toBeNull();
 			await act(async () => fireEvent.click(more));
@@ -221,42 +224,59 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("updates directly from Update, showing loading while it works", async () => {
-		const view = await testing.open();
-		await waitFor(() =>
+	it.each([
+		[390, undefined],
+		[1024, "v0.0.1"],
+	] as const)(
+		"updates directly and opens spinner details at %ipx",
+		async (width, currentVersion) => {
+			resize(width, 844);
+			const view = await testing.open();
+			await waitFor(() =>
+				expect(
+					view.queryByTitle("Current version: splates 0.0.1")?.textContent,
+				).toBe(currentVersion),
+			);
+			expect(view.queryByRole("button", { name: "Update" })).toBeNull();
+
+			testing.served = snapshot({
+				behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+			});
+			await act(async () => testing.stream?.onmessage?.());
+			const restart = await waitFor(() =>
+				view.getByRole("button", { name: "Update" }),
+			);
+			expect(view.queryByTitle("Current version: splates 0.0.1")).toBeNull();
+			expect(restart.textContent).toBe("Update");
 			expect(
-				view.getByTitle("Current version: splates 0.0.1").textContent,
-			).toBe("v0.0.1"),
-		);
-		expect(view.queryByRole("button", { name: "Update" })).toBeNull();
+				restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),
+			).toBe("More");
+			await act(async () => fireEvent.click(restart));
 
-		testing.served = snapshot({
-			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
-		});
-		await act(async () => testing.stream?.onmessage?.());
-		const restart = await waitFor(() =>
-			view.getByRole("button", { name: "Update" }),
-		);
-		expect(view.queryByTitle("Current version: splates 0.0.1")).toBeNull();
-		expect(restart.textContent).toBe("Update");
-		expect(
-			restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),
-		).toBe("More");
-		await act(async () => fireEvent.click(restart));
-
-		await waitFor(() => view.getByRole("button", { name: "Updating" }));
-		expect(view.queryByRole("dialog")).toBeNull();
-		expect(testing.posted("/api/power")).toEqual([
-			{ method: "POST", body: { shutdown: false } },
-		]);
-		expect(testing.posted("/api/checkpoint")).toEqual([]);
-		const busy = view.getByRole("button", { name: "Updating" });
-		expect(busy.hasAttribute("disabled")).toBe(true);
-		expect(busy.getAttribute("aria-busy")).toBe("true");
-		expect(
-			within(busy).getByRole("status", { name: "Refreshing" }),
-		).toBeDefined();
-	});
+			await waitFor(() => view.getByRole("button", { name: "Updating" }));
+			expect(view.queryByRole("dialog")).toBeNull();
+			expect(testing.posted("/api/power")).toEqual([
+				{ method: "POST", body: { shutdown: false } },
+			]);
+			expect(testing.posted("/api/checkpoint")).toEqual([]);
+			const busy = view.getByRole("button", { name: "Updating" });
+			expect(busy.hasAttribute("disabled")).toBe(false);
+			expect(busy.getAttribute("aria-busy")).toBe("true");
+			expect(
+				within(busy).getByRole("status", { name: "Refreshing" }),
+			).toBeDefined();
+			await act(async () => fireEvent.click(busy));
+			const progress = await waitFor(() =>
+				view.getByRole("dialog", { name: "Updating the server…" }),
+			);
+			expect(progress.textContent).toContain(
+				"Waiting for the updated server to reconnect",
+			);
+			expect(testing.posted("/api/power")).toHaveLength(1);
+			await act(async () => fireEvent.keyDown(progress, { key: "Escape" }));
+			await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		},
+	);
 
 	it("keeps the update available to retry when a restart is refused", async () => {
 		const view = await testing.open({

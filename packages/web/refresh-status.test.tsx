@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { type Freshness, FreshnessContext } from "./freshness";
-import { cleanup, fireEvent, render } from "./testing-library";
+import { cleanup, fireEvent, render, waitFor } from "./testing-library";
 import { TopBar, TopBarFrame } from "./top-bar";
 
 describe("Refresh feedback in the header", () => {
@@ -28,6 +28,20 @@ describe("Refresh feedback in the header", () => {
 			"Updating the server…",
 		);
 		expect(page.getByRole("textbox").closest("[inert]")).toBeNull();
+	});
+
+	it("opens refresh details on tap and closes on Escape", async () => {
+		const page = render(<Screen freshness={{ ...FRESH, stale: true }} />);
+		fireEvent.click(page.getByRole("button", { name: "Refreshing" }));
+		const details = await waitFor(() =>
+			page.getByRole("dialog", { name: "Refreshing…" }),
+		);
+		expect(details.textContent).toContain(
+			"fetching the latest conversations and tasks",
+		);
+		expect(page.getByRole("textbox").closest("[inert]")).toBeNull();
+		fireEvent.keyDown(details, { key: "Escape" });
+		await waitFor(() => expect(page.queryByRole("dialog")).toBeNull());
 	});
 
 	it("leaves unreachable feedback to the offline banner", () => {
