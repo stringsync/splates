@@ -31,7 +31,7 @@ const ACTIONS: Record<DictationPhase, string> = {
 	failed: "Dictate",
 };
 
-const SIZE = "size-7 rounded-md pointer-coarse:size-11";
+const SIZE = "size-7 rounded-full pointer-coarse:size-11";
 
 /** Marks each composer's mic, whichever way it toggles, for ⌥⌘V to find. */
 const MIC = "aui-composer-mic";
@@ -165,11 +165,7 @@ export function BoxMic({ box }: { box: BoxDictation }) {
 	);
 }
 
-/**
- * Its shortcut, ⌥⌘V unless set otherwise, starts or stops a take in the
- * box being written in, a composer or a card's answer, or else the first
- * one showing. Once per page, so one press toggles one mic.
- */
+/** Enables ⌥⌘V to dictate in the active message box. Call once from the page root. */
 export function useDictateKey(): void {
 	useShortcut("shortcuts.dictate", () => {
 		const shown = [
