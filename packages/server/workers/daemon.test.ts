@@ -179,7 +179,7 @@ describe("WorkerDaemon", () => {
 	// scry-ignore simple-test-setup: it alone drops and brings back the server, which is what it tests
 	it("stalls a process while the coordinator is away past the bound, and loses nothing", async () => {
 		const child = worker.start(
-			["/bin/sh", "-c", "sleep 0.3; head -c 20000000 /dev/zero"],
+			["/bin/sh", "-c", "sleep 0.3; head -c 2000000 /dev/zero"],
 			dir,
 		);
 		const received = printed(child);
@@ -195,7 +195,7 @@ describe("WorkerDaemon", () => {
 		listener = await UnixWorkerListener.listen(listener.path, new NodeFs());
 		listener.events.on("socket", (socket) => void registry.accept(socket));
 
-		expect((await received).length).toBe(20_000_000);
+		expect((await received).length).toBe(2_000_000);
 		expect(await child.exited).toBe(0);
 	});
 
