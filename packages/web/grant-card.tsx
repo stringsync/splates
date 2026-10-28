@@ -10,6 +10,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
+import { PendingSpinner, useShowPending } from "./pending";
 import { grantReach } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
@@ -22,13 +23,11 @@ const REACH_WORDS: Record<Reach, string> = {
 };
 
 /**
- * The card an agent asks one project to let another reach further into it
- * with, which splates refuses an agent. Allow grants it from the page, then
- * tells the agent `[SPLATES GRANTED]`; the choice shows at once and is
- * taken back if either fails. Deny, with the 'Anything else?' box as the
- * run-command card has, sends `[SPLATES GRANT DENIED]` and grants nothing.
- * Once answered it folds to an event line,
- * "Granted <from> <reach> in <in>", that opens the card.
+ * The card for an agent's request to let one project reach further into
+ * another, which only the person may grant. Render it for a proposal with a
+ * `grant`: Allow grants the reach and tells the agent, Deny tells the agent
+ * no, each with an optional note. Once answered it folds to an event line
+ * that opens it again.
  */
 export function GrantCard({
 	proposal,
@@ -37,8 +36,9 @@ export function GrantCard({
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
-	const [chosen, setChosen] = useState(false);
-	const [denying, setDenying] = useState(false);
+	// Which answer is on its way; the card says it done once the thread holds it.
+	const [busy, setBusy] = useState<"allow" | "deny" | null>(null);
+	const showBusy = useShowPending(busy !== null);
 	const [opened, setOpened] = useState(false);
 	const ask = proposal.grant as NonNullable<PermissionProposal["grant"]>;
 	const kept = useKept(`grant:${ask.in}:${ask.from}:${ask.reach}`, sent);
@@ -46,22 +46,22 @@ export function GrantCard({
 	const written = useRef(more);
 	const panel = useRef<HTMLDivElement>(null);
 	const turn = useCardDictationTurn(panel);
-	const marker = "\n\n> **Anything else?**\n\n";
-	const note = sent?.split(marker).slice(1).join(marker) ?? more;
-	const granted = chosen || sent?.includes(GRANTED) === true;
-	const denied = denying || sent?.includes(GRANT_DENIED) === true;
+	const noteHead = "\n\n> **Anything else?**\n\n";
+	const note = sent?.split(noteHead).slice(1).join(noteHead) ?? more;
+	const granted = sent?.includes(GRANTED) === true;
+	const denied = sent?.includes(GRANT_DENIED) === true;
 	const send = reply?.send ?? null;
 	const deny = (): void => {
 		if (send === null) {
 			return;
 		}
-		setDenying(true);
+		setBusy("deny");
 		const text = written.current.trim();
 		void attempt(
 			send(
-				text === "" ? GRANT_DENIED : `${GRANT_DENIED}${marker}${text}`,
+				text === "" ? GRANT_DENIED : `${GRANT_DENIED}${noteHead}${text}`,
 			).catch((error: unknown) => {
-				setDenying(false);
+				setBusy(null);
 				throw error;
 			}),
 			"Not denied",
@@ -71,12 +71,12 @@ export function GrantCard({
 		if (send === null) {
 			return;
 		}
-		setChosen(true);
+		setBusy("allow");
 		void attempt(
 			grantReach(ask.in, ask.from, ask.reach)
 				.then(() => send(GRANTED))
 				.catch((error: unknown) => {
-					setChosen(false);
+					setBusy(null);
 					throw error;
 				}),
 			"Not granted",
@@ -145,20 +145,28 @@ export function GrantCard({
 						<Button
 							size="sm"
 							variant="outline"
-							disabled={send === null}
+							disabled={send === null || busy !== null}
 							onClick={() => turn(deny)}
 							className="gap-1.5"
 						>
-							<BanIcon data-icon="inline-start" />
+							{busy === "deny" && showBusy ? (
+								<PendingSpinner shown />
+							) : (
+								<BanIcon data-icon="inline-start" />
+							)}
 							Deny
 						</Button>
 						<Button
 							size="sm"
-							disabled={send === null}
+							disabled={send === null || busy !== null}
 							onClick={() => turn(allow)}
 							className="gap-1.5"
 						>
-							<CheckIcon data-icon="inline-start" />
+							{busy === "allow" && showBusy ? (
+								<PendingSpinner shown />
+							) : (
+								<CheckIcon data-icon="inline-start" />
+							)}
 							Allow
 						</Button>
 					</>

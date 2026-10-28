@@ -21,6 +21,7 @@ import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
+import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
 import { ShipApproval } from "./ship-approval";
@@ -48,7 +49,11 @@ export function RunCommandCard({
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
+	// What the server holds the person did, which the thread has yet to show.
 	const [chosen, setChosen] = useState<string | null>(null);
+	// The answer on its way; the card says it done only once it lands.
+	const [busy, setBusy] = useState<string | null>(null);
+	const showBusy = useShowPending(busy !== null);
 	const [opened, setOpened] = useState(false);
 	const [shipping, setShipping] = useState<ShipApproval | null>(null);
 	const kept = useKept(
@@ -81,15 +86,18 @@ export function RunCommandCard({
 		if (send === null) {
 			return;
 		}
-		setChosen(directive);
+		setBusy(directive);
 		if (directive === RUN_ALLOWED && retry !== null) {
 			void attempt(
-				grantRetry(retry, send, written.current).catch((error: unknown) => {
-					if (!(error instanceof Untold)) {
-						setChosen(null);
-					}
-					throw error;
-				}),
+				grantRetry(retry, send, written.current)
+					.then(() => setChosen(directive))
+					.catch((error: unknown) => {
+						if (error instanceof Untold) {
+							setChosen(directive);
+						}
+						throw error;
+					})
+					.finally(() => setBusy(null)),
 				"Merge attempts",
 			);
 			return;
@@ -107,10 +115,8 @@ export function RunCommandCard({
 							: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
 					),
 				)
-				.catch((error: unknown) => {
-					setChosen(null);
-					throw error;
-				}),
+				.then(() => setChosen(directive))
+				.finally(() => setBusy(null)),
 			failed,
 		);
 	};
@@ -217,16 +223,20 @@ export function RunCommandCard({
 							<Button
 								size="sm"
 								variant="outline"
-								disabled={send === null}
+								disabled={send === null || busy !== null}
 								onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
 								className="gap-1.5"
 							>
-								<BanIcon data-icon="inline-start" />
+								{busy === RUN_DENIED && showBusy ? (
+									<PendingSpinner shown />
+								) : (
+									<BanIcon data-icon="inline-start" />
+								)}
 								Deny
 							</Button>
 							<Button
 								size="sm"
-								disabled={send === null}
+								disabled={send === null || busy !== null}
 								onClick={() => {
 									if (ship !== null) {
 										setShipping(new ShipApproval(ship));
@@ -236,7 +246,9 @@ export function RunCommandCard({
 								}}
 								className="gap-1.5"
 							>
-								{retry !== null ? (
+								{busy === RUN_ALLOWED && showBusy ? (
+									<PendingSpinner shown />
+								) : retry !== null ? (
 									<RotateCcwIcon data-icon="inline-start" />
 								) : ship !== null ? (
 									<PackageIcon data-icon="inline-start" />

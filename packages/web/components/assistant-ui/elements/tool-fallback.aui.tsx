@@ -926,6 +926,7 @@ function ToolFallbackApprovalImpl({
 		return (
 			<div
 				data-slot="tool-fallback-approval"
+				aria-busy={submitted}
 				className={cn(
 					"aui-tool-fallback-approval flex flex-col gap-3 pt-1",
 					className,
@@ -1010,6 +1011,7 @@ function ToolFallbackApprovalImpl({
 		return (
 			<div
 				data-slot="tool-fallback-approval"
+				aria-busy={submitted}
 				className={cn(
 					"aui-tool-fallback-approval flex flex-col gap-2 pt-1",
 					className,
@@ -1057,6 +1059,7 @@ function ToolFallbackApprovalImpl({
 		return (
 			<div
 				data-slot="tool-fallback-approval"
+				aria-busy={submitted}
 				className={cn(
 					"aui-tool-fallback-approval flex flex-col gap-2 pt-1",
 					className,
@@ -1076,6 +1079,7 @@ function ToolFallbackApprovalImpl({
 	return (
 		<div
 			data-slot="tool-fallback-approval"
+			aria-busy={submitted}
 			className={cn(
 				"aui-tool-fallback-approval flex flex-col gap-2 pt-1",
 				className,

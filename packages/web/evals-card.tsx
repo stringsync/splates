@@ -19,6 +19,7 @@ import { CardBody, CardShell } from "./card-shell";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { ORDER, spent } from "./eval-status";
+import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 
 /** The conversation the card is in, which the server tells once its run is done; null outside one. */
@@ -64,15 +65,16 @@ export function EvalsCard({
 	const { launch, grid } = state;
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
-	const [rejected, setRejected] = useState(false);
+	const [rejecting, setRejecting] = useState(false);
 	const kept = useKept(`run-evals:${run.key}`, sent);
 	const [more, setMore] = useState(kept.read);
 	const written = useRef(more);
 	const panel = useRef<HTMLDivElement>(null);
 	const turn = useCardDictationTurn(panel);
 	const send = reply?.send ?? null;
-	const turnedDown = rejected || (sent?.includes(RUN_DENIED) ?? false);
+	const turnedDown = sent?.includes(RUN_DENIED) ?? false;
 	const open = launch === null && !turnedDown;
+	const showRejecting = useShowPending(rejecting);
 	if (!state.loaded) {
 		return (
 			<CardShell
@@ -88,14 +90,14 @@ export function EvalsCard({
 		if (send === null) {
 			return;
 		}
-		setRejected(true);
+		setRejecting(true);
 		void attempt(
 			send(
 				note() === ""
 					? RUN_DENIED
 					: `${RUN_DENIED}\n\n> **Anything else?**\n\n${note()}`,
 			).catch((error: unknown) => {
-				setRejected(false);
+				setRejecting(false);
 				throw error;
 			}),
 			"Not rejected",
@@ -250,10 +252,14 @@ export function EvalsCard({
 						size="sm"
 						variant="outline"
 						className="gap-1.5"
-						disabled={send === null}
+						disabled={send === null || rejecting}
 						onClick={() => turn(reject)}
 					>
-						<BanIcon data-icon="inline-start" />
+						{rejecting && showRejecting ? (
+							<PendingSpinner shown />
+						) : (
+							<BanIcon data-icon="inline-start" />
+						)}
 						Reject
 					</Button>
 				)}

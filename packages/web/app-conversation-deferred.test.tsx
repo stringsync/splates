@@ -170,6 +170,7 @@ describe("App's Deferred card", () => {
 				{ method: "PUT", body: { queued: true } },
 			]),
 		);
-		await waitFor(() => expect(card.textContent).toContain("Queued"));
+		// Not said queued until the board shows it.
+		expect(card.textContent).not.toContain("Queued");
 	});
 });

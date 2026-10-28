@@ -18,8 +18,8 @@ import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
-
 import { credAddress } from "./page-address";
+import { PendingSpinner, useShowPending } from "./pending";
 
 import { Stamp, useStamps } from "./stamp";
 import { LaneIcon, TaskIcon } from "./task-icon";
@@ -175,6 +175,8 @@ export interface Act {
 	run: () => void;
 	/** What it says once done, in place of the button; null until then. */
 	done?: string | null;
+	/** Whether its write is on its way: the button disables and spins. */
+	busy?: boolean;
 }
 
 /**
@@ -476,12 +478,21 @@ function Chip({
 
 /** An event's one action, as a small button, or what it did once done. */
 export function Action({ act }: { act: Act }): JSX.Element {
-	const { done = null } = act;
+	const { done = null, busy = false } = act;
+	const shown = useShowPending(busy);
 	if (done !== null) {
 		return <span className="shrink-0">{done}</span>;
 	}
 	return (
-		<Button variant="outline" size="xs" onClick={act.run} className="shrink-0">
+		<Button
+			variant="outline"
+			size="xs"
+			disabled={busy}
+			aria-busy={busy}
+			onClick={act.run}
+			className="shrink-0"
+		>
+			{busy && shown && <PendingSpinner shown />}
 			{act.label}
 		</Button>
 	);

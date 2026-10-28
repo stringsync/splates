@@ -162,7 +162,7 @@ describe("App's artifacts", () => {
 		expect(followed.map((each) => each.href)).toEqual([
 			expect.stringContaining("/artifacts/old.png/1"),
 		]);
-		// The same row collapses them again.
+		// Toggling, so one row serves to open and close the shelf.
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "Removed 2" })),
 		);
@@ -193,8 +193,8 @@ describe("App's artifacts", () => {
 		expect(button.textContent).toBe("Delete?");
 		testing.holdWrites();
 		await act(async () => fireEvent.click(button));
-		// At once, while the server has yet to say.
-		expect(button.textContent).toBe("Deleted");
+		// Pending, not deleted, while the server has yet to say.
+		expect(button.textContent).toBe("Deleting");
 		expect(
 			testing.posted("/api/conversations/c1/artifacts/report.html/2"),
 		).toEqual([{ method: "DELETE", body: {} }]);

@@ -80,7 +80,7 @@ export function DeferredBody({
 		board.todos,
 		board.elsewhere?.blockers[task.id],
 	);
-	const { refusal, shown, act } = useActs();
+	const { refusal, pending, act } = useActs();
 	const [answers, setAnswers] = useState<Record<number, string>>({});
 	if (deferred === undefined) {
 		return null;
@@ -100,7 +100,7 @@ export function DeferredBody({
 				<ol className="flex flex-col gap-2">
 					{blockers.map((blocker, i) => {
 						const key = `${blocker.kind}:${i}`;
-						const done = cleared(blocker) || shown.has(key);
+						const done = cleared(blocker);
 						let index = 0;
 						if (blocker.kind === "question") {
 							questionIndex += 1;
@@ -117,6 +117,7 @@ export function DeferredBody({
 										<TaskBlocker
 											blocker={blocker}
 											done={done}
+											busy={pending.has(key)}
 											act={(write) => act(key, write)}
 											queueAfter={queueAfter}
 										/>
@@ -162,7 +163,10 @@ export function DeferredBody({
 														type="submit"
 														size="sm"
 														variant="outline"
-														disabled={(answers[i] ?? "").trim() === ""}
+														disabled={
+															(answers[i] ?? "").trim() === "" ||
+															pending.has(key)
+														}
 													>
 														Answer and queue
 													</Button>
@@ -179,6 +183,7 @@ export function DeferredBody({
 												<Button
 													size="sm"
 													variant="outline"
+													disabled={pending.has(key)}
 													onClick={() =>
 														void act(key, () => finishOutside(task.id, index))
 													}
@@ -198,7 +203,7 @@ export function DeferredBody({
 				<DeferredProgress
 					task={task}
 					left={left}
-					queued={shown.has("queue")}
+					busy={pending.has("queue")}
 					queue={() => void act("queue", () => queueTodo(task.id, true))}
 				/>
 			</p>
@@ -208,6 +213,7 @@ export function DeferredBody({
 						type="button"
 						size="sm"
 						variant="outline"
+						disabled={pending.has("resume")}
 						onClick={() =>
 							void act("resume", async () => {
 								await linkTodo(task.id, [], []);
@@ -222,6 +228,7 @@ export function DeferredBody({
 						size="sm"
 						variant="outline"
 						title="Takes the task off the board, so it never starts"
+						disabled={pending.has("remove")}
 						onClick={() => void act("remove", () => removeTodo(task.id))}
 					>
 						<Trash2Icon data-icon="inline-start" />
@@ -256,7 +263,7 @@ export function heldTask(
  */
 export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 	const board = useContext(Board);
-	const { refusal, attempt, shown, act } = useActs();
+	const { refusal, attempt, pending, act } = useActs();
 	const expect = useExpectSnapshot();
 	const blockers = linkedBlockers(task, board.todos);
 	const left = blockers.filter((each) => !cleared(each)).length;
@@ -273,13 +280,14 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 					<ol className="flex flex-col gap-2">
 						{blockers.map((blocker) => {
 							const key = `task:${blocker.id}`;
-							const done = cleared(blocker) || shown.has(key);
+							const done = cleared(blocker);
 							return (
 								<li key={key} className="flex items-start gap-2">
 									<Mark done={done} />
 									<TaskBlocker
 										blocker={blocker}
 										done={done}
+										busy={pending.has(key)}
 										act={(write) => act(key, write)}
 										queueAfter={queueingAfter(task)}
 									/>
@@ -315,7 +323,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 					task={task}
 					left={left}
 					named={blockers.length > 0}
-					queued={shown.has("queue")}
+					busy={pending.has("queue")}
 					queue={() => void act("queue", () => queueTodo(task.id, true))}
 				/>
 			</p>
@@ -365,25 +373,24 @@ function waiting(task: TaskRecord): boolean {
 }
 
 /**
- * An action for each of the card's blockers, shown done at once and undone,
- * with the refusal said, if the server refuses it.
+ * An action for each of the card's blockers, pending by key until the write
+ * resolves; the card says it done only once the board shows it. A refusal
+ * clears pending and is said.
  */
 function useActs() {
 	const { refusal, attempt } = useRefusal();
-	// What the person did that the board has yet to show, by blocker key.
-	const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+	// The keys whose write is on its way.
+	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
 	const act = async (key: string, write: () => Promise<void>) => {
-		setShown((was) => new Set(was).add(key));
-		const ok = await attempt(write(), "Not done");
-		if (!ok) {
-			setShown((was) => {
-				const left = new Set(was);
-				left.delete(key);
-				return left;
-			});
-		}
+		setPending((was) => new Set(was).add(key));
+		await attempt(write(), "Not done");
+		setPending((was) => {
+			const left = new Set(was);
+			left.delete(key);
+			return left;
+		});
 	};
-	return { refusal, attempt, shown, act };
+	return { refusal, attempt, pending, act };
 }
 
 /** Queues blocker `id`, unless `queuedAlready`, then `task` to run after it. */
@@ -415,11 +422,13 @@ function Mark({ done }: { done: boolean }): JSX.Element {
 function TaskBlocker({
 	blocker,
 	done,
+	busy,
 	act,
 	queueAfter,
 }: {
 	blocker: Extract<DeferralBlocker, { kind: "task" }>;
 	done: boolean;
+	busy: boolean;
 	act: (write: () => Promise<void>) => void;
 	queueAfter: (id: number, queued: boolean) => () => Promise<void>;
 }): JSX.Element {
@@ -466,6 +475,7 @@ function TaskBlocker({
 				<Button
 					size="sm"
 					variant="outline"
+					disabled={busy}
 					onClick={() => act(queueAfter(blocker.id, status === "queued"))}
 				>
 					{open ? `Queue to run after #${blocker.id}` : "Queue"}
@@ -480,15 +490,15 @@ function DeferredProgress({
 	task,
 	left,
 	named = true,
-	queued,
+	busy,
 	queue,
 }: {
 	task: TaskRecord;
 	left: number;
 	/** False for an old deferral that names nothing it waits on yet. */
 	named?: boolean;
-	/** Whether the person queued it, before the board shows it. */
-	queued: boolean;
+	/** Whether queueing it is on its way. */
+	busy: boolean;
 	queue: () => void;
 }): JSX.Element {
 	const board = useContext(Board);
@@ -506,7 +516,7 @@ function DeferredProgress({
 			</>
 		);
 	}
-	if (task.stage === "queued" || queued) {
+	if (task.stage === "queued") {
 		const waits = task.blockedBy.map((id) => `#${id}`).join(", ");
 		return <>Queued{waits === "" ? "" : ` · waits on ${waits}`}</>;
 	}
@@ -519,7 +529,7 @@ function DeferredProgress({
 				? "Nothing left to wait on: queue it to start."
 				: "Link what it waits on, or queue it to start."}
 			{waiting(task) && (
-				<Button size="sm" variant="outline" onClick={queue}>
+				<Button size="sm" variant="outline" disabled={busy} onClick={queue}>
 					Queue
 				</Button>
 			)}

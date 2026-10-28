@@ -161,28 +161,30 @@ export function useQueueEdits(
 			: writes
 					.run("send", () => sendQueuedNow(id))
 					.catch((error: unknown) => refused("Not sent", error));
-	// Back into the composer to edit, ahead of anything typed there since: its
-	// words at once, as shown, its files once the server hands them back, and
-	// the composer as it was should the server refuse.
+	// Back into the composer to edit, ahead of anything typed there since: once
+	// the server has taken it back, its words and files together, so the
+	// composer never shows a message the server still holds.
 	const edit = async (index: number, message: Message) => {
+		if (writes.pending()) {
+			return;
+		}
+		const taken = await writes
+			.run("edit", () => unqueueConversation(id, index))
+			.catch((error: unknown) => {
+				refused("Not taken back", error);
+				return null;
+			});
+		if (taken === null) {
+			return;
+		}
 		const text = textOf(message);
 		const composer = runtime.thread.composer;
 		const typed = composer.getState().text;
-		const editing =
-			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`;
-		composer.setText(editing);
-		focusComposer(section.current);
-		const taken = await unqueueConversation(id, index).catch(
-			(error: unknown) => {
-				// Unless typed into since, which is the newer draft.
-				if (composer.getState().text === editing) {
-					composer.setText(typed);
-				}
-				refused("Not taken back", error);
-				return null;
-			},
+		composer.setText(
+			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`,
 		);
-		for (const file of taken?.files ?? []) {
+		focusComposer(section.current);
+		for (const file of taken.files ?? []) {
 			void composer.addAttachment(file);
 		}
 	};

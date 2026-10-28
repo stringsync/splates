@@ -12,11 +12,10 @@ import { deleteArtifactVersion } from "./conversation-api";
 import { FileIcon } from "./file-chip";
 
 /**
- * The artifacts a conversation keeps, as a card beside its thread: a row for
- * each it lists, at its current version, opening it. Those it removed and
- * the versions since replaced wait behind a Removed row that expands to
- * them, muted and still opening, at the same indent as the rest. Nothing at
- * all while it keeps none.
+ * The artifacts a conversation keeps, as a card beside its thread: click a
+ * row to open the artifact at its current version. Removed artifacts and
+ * replaced versions wait behind a Removed row you click to expand, muted and
+ * still openable. The card is absent while the conversation keeps none.
  */
 export function ArtifactsCard({
 	conversation,
@@ -184,9 +183,9 @@ function DeleteControl({
 	version: ArtifactVersion;
 	label: string;
 }): JSX.Element | null {
-	const [step, setStep] = useState<"idle" | "asking" | "deleted" | "refused">(
-		"idle",
-	);
+	const [step, setStep] = useState<
+		"idle" | "asking" | "deleting" | "deleted" | "refused"
+	>("idle");
 	const [why, setWhy] = useState<string | undefined>(undefined);
 	if (version.gone !== null && step !== "deleted") {
 		return null;
@@ -194,6 +193,7 @@ function DeleteControl({
 	const text = {
 		idle: "Delete",
 		asking: "Delete?",
+		deleting: "Deleting",
 		deleted: "Deleted",
 		refused: "Not deleted",
 	}[step];
@@ -202,14 +202,16 @@ function DeleteControl({
 			type="button"
 			aria-label={step === "idle" ? `Delete ${label}` : `${text} ${label}`}
 			title={step === "refused" ? why : undefined}
-			disabled={step === "deleted"}
+			disabled={step === "deleting" || step === "deleted"}
+			aria-busy={step === "deleting"}
 			onClick={() => {
 				if (step !== "asking") {
 					setStep("asking");
 					return;
 				}
-				setStep("deleted");
-				deleteArtifactVersion(conversation, name, version.version).catch(
+				setStep("deleting");
+				deleteArtifactVersion(conversation, name, version.version).then(
+					() => setStep("deleted"),
 					(error: unknown) => {
 						setWhy(error instanceof Error ? error.message : String(error));
 						setStep("refused");

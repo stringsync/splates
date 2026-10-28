@@ -9,6 +9,7 @@ import {
 	PopoverTrigger,
 } from "./components/ui/popover";
 import { chooseSetting } from "./conversation-api";
+import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 
 type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
@@ -134,8 +135,8 @@ function Findings({
 }
 
 /**
- * The Undo of a pick that moved the conversation up, said done at once and
- * refused after should the server not take it, and that refusal; no Undo for
+ * The Undo of a pick that moved the conversation up, busy until the server
+ * takes it, then said done, and any refusal; no Undo for
  * a starting pick.
  */
 function useUndo(
@@ -143,6 +144,8 @@ function useUndo(
 	lifted: Lifted | null,
 ): { control: JSX.Element | null; refusal: string | null } {
 	const [undone, setUndone] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const shown = useShowPending(busy);
 	const { refusal, attempt } = useRefusal();
 	const { conversation } = event;
 	if (lifted === null || conversation === null) {
@@ -155,7 +158,7 @@ function useUndo(
 		};
 	}
 	const undo = (): void => {
-		setUndone(true);
+		setBusy(true);
 		void attempt(
 			Promise.all(
 				Object.entries(lifted.undo).map(([id, value]) =>
@@ -164,14 +167,21 @@ function useUndo(
 			).then(() => {}),
 			"Not undone",
 		).then((landed) => {
-			if (!landed) {
-				setUndone(false);
-			}
+			setBusy(false);
+			setUndone(landed);
 		});
 	};
 	return {
 		control: (
-			<Button variant="outline" size="xs" onClick={undo} className="shrink-0">
+			<Button
+				variant="outline"
+				size="xs"
+				disabled={busy}
+				aria-busy={busy}
+				onClick={undo}
+				className="shrink-0"
+			>
+				{busy && shown && <PendingSpinner shown />}
 				Undo
 			</Button>
 		),

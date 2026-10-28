@@ -53,16 +53,17 @@ export function MergeFailedLine({
 /**
  * The Grant of a merge refused for a spent budget, while the thread's task
  * is that one with no attempts left, or once granted here; null otherwise.
- * It shows granted at once and is taken back should the server refuse.
+ * It is busy until the grant lands, then says granted.
  */
 function useGrant(event: MergeEvent): {
-	act: { label: string; run: () => void; done: string | null };
+	act: { label: string; run: () => void; done: string | null; busy: boolean };
 	refusal: string | null;
 } | null {
 	const card = useContext(MergeCardContext);
 	const reply = useContext(ReplyContext);
 	const { refusal, attempt } = useRefusal();
 	const [granted, setGranted] = useState(false);
+	const [busy, setBusy] = useState(false);
 	const task = card?.task ?? null;
 	const spent =
 		task !== null &&
@@ -76,14 +77,17 @@ function useGrant(event: MergeEvent): {
 		return null;
 	}
 	const run = () => {
-		setGranted(true);
+		setBusy(true);
 		void attempt(
-			grantRetry(task.task, reply?.send ?? null).catch((error: unknown) => {
-				if (!(error instanceof Untold)) {
-					setGranted(false);
-				}
-				throw error;
-			}),
+			grantRetry(task.task, reply?.send ?? null)
+				.then(() => setGranted(true))
+				.catch((error: unknown) => {
+					if (error instanceof Untold) {
+						setGranted(true);
+					}
+					throw error;
+				})
+				.finally(() => setBusy(false)),
 			"Merge attempts",
 		);
 	};
@@ -95,6 +99,7 @@ function useGrant(event: MergeEvent): {
 					: `Grant ${task.conflictAttemptLimit} more`,
 			run,
 			done: granted ? "Granted" : null,
+			busy,
 		},
 		refusal,
 	};

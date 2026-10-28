@@ -301,7 +301,7 @@ describe("App's composer queue", () => {
 		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
 	});
 
-	it("takes a queued message back into the composer with Edit, rolling it back when refused", async () => {
+	it("holds a queued message out of the composer with Edit until the server takes it back, leaving the composer when refused", async () => {
 		const view = await testing.openConversations([working], "c1");
 		await type(view, "still typing");
 		testing.holdWrites();
@@ -312,7 +312,7 @@ describe("App's composer queue", () => {
 			fireEvent.click(within(queued).getByRole("button", { name: /Edit/ })),
 		);
 
-		expect(textIn(box(view))).toBe("the second note\n\nstill typing");
+		expect(textIn(box(view))).toBe("still typing");
 		await act(async () => testing.release());
 		await waitFor(() => expect(textIn(box(view))).toBe("still typing"));
 		expect(view.getByText("Not taken back: already sent")).toBeTruthy();
@@ -383,16 +383,19 @@ describe("App's composer queue", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe("more"));
 	});
 
-	it("takes a queued message back into the composer at once with Up, emptying it again when refused", async () => {
+	it("holds a queued message out of the composer with Up until the server takes it back, leaving the composer when refused", async () => {
 		const view = await testing.openConversations([working], "c1");
 		testing.holdWrites();
 		testing.refuseWrites = { reason: "not_found", message: "already sent" };
 
 		await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
 
-		expect(textIn(box(view))).toBe("the second note");
+		expect(textIn(box(view))).toBe("");
 		await act(async () => testing.release());
-		await waitFor(() => expect(textIn(box(view))).toBe(""));
+		await waitFor(() =>
+			expect(view.getByText("Not taken back: already sent")).toBeTruthy(),
+		);
+		expect(textIn(box(view))).toBe("");
 		expect(view.getByText("Not taken back: already sent")).toBeTruthy();
 	});
 });
