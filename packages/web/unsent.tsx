@@ -27,12 +27,12 @@ export function SendingLine({
 }): JSX.Element {
 	const shown = useShowPending(true);
 	const visible = shown || seconds !== null;
-	// Its box is out of the flow and always there, so the words coming and
-	// going move nothing.
+	// Reserve the line before its words appear so they move nothing and stay
+	// above the sticky message’s fade, which starts below its content.
 	return (
 		<div
 			data-slot="aui_user-message-sending"
-			className="text-muted-foreground relative h-0 w-full text-xs"
+			className="text-muted-foreground relative h-4 w-full text-xs"
 		>
 			{visible && (
 				<span className="absolute start-1 top-0 flex items-center gap-1 whitespace-nowrap">
