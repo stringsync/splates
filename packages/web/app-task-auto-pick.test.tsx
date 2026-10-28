@@ -150,7 +150,8 @@ describe("App's Auto pick", () => {
 			["Bugfix 90%", "Shallow 80%"],
 			"judged: Bugfix 90%, Shallow 80%",
 		);
-		expect(line.textContent).toContain("PickedHaiku");
+		expect(line.textContent).toContain("Auto-pickedHaiku");
+		expect(line.querySelector('clipPath[id$="auto"]')).not.toBeNull();
 
 		const found = await openFindings(line);
 		expect(found.textContent).toContain("KindBugfix90%");
@@ -173,7 +174,7 @@ describe("App's Auto pick", () => {
 			},
 		]);
 		const line = await quietLine(view);
-		expect(line.textContent).toContain("SwitchedBig");
+		expect(line.textContent).toContain("Auto-pickedBig");
 
 		const findings = await openFindings(line);
 		await act(async () =>

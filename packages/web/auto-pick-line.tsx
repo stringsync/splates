@@ -1,6 +1,6 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
 import { type JSX, useState } from "react";
-import { AutoAgentMark, AutoIcon } from "./auto-brand";
+import { AutoAgentMark } from "./auto-brand";
 import { Button } from "./components/ui/button";
 import {
 	Popover,
@@ -24,12 +24,6 @@ export function AutoPickLine({
 }): JSX.Element {
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
-	const verb =
-		lifted === null
-			? "Auto picked"
-			: lifted.switched
-				? "Auto switched to"
-				: "Auto moved up to";
 	const undo = useUndo(event, lifted);
 	if (details) {
 		return (
@@ -39,9 +33,7 @@ export function AutoPickLine({
 				className="flex min-w-0 flex-col gap-2 text-xs wrap-anywhere"
 			>
 				<div className="flex flex-wrap items-center gap-2">
-					<span>
-						{verb} {params.picked}
-					</span>
+					<span>Auto-picked {params.picked}</span>
 					{undo.control}
 				</div>
 				<Findings params={params} lifted={lifted} />
@@ -53,14 +45,8 @@ export function AutoPickLine({
 	return (
 		<div>
 			<SplatesEvent
-				event={{ words: [lifted === null ? "Picked" : "Switched"] }}
-				lead={
-					lifted === null ? (
-						<AutoIcon colored className="size-3.5 shrink-0" />
-					) : (
-						<AutoAgentMark agent={event.agent} className="size-3.5" />
-					)
-				}
+				event={{ words: ["Auto-picked"] }}
+				lead={<AutoAgentMark agent={event.agent} className="size-3.5" />}
 			>
 				<Popover>
 					<PopoverTrigger
