@@ -20,8 +20,8 @@ import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
  * A conversation's bar: its name, which a double-click renames, then its
- * widgets and a new conversation. A phone leads it with the way back and names
- * the project under the name. Where it runs is the first of its widgets.
+ * widgets and a new conversation. On a phone, use the back button to return
+ * to the inbox. Open the first widget to see where the conversation runs.
  */
 export function ThreadHeader({
 	conversation,
@@ -44,7 +44,6 @@ export function ThreadHeader({
 	const phone = onBack !== null;
 	return (
 		<TopBar
-			project
 			leading={
 				phone && (
 					<BarButton label="Back to conversations" onClick={onBack}>

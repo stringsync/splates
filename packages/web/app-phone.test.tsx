@@ -1300,7 +1300,7 @@ describe("App on a phone", () => {
 		expect(toggle.getAttribute("aria-expanded")).toBe("false");
 	});
 
-	it("heads a conversation with its name over its project's switcher, its task's branch atop its widgets", async () => {
+	it("heads a conversation with its name without a project switcher, its task's branch atop its widgets", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			"c1",
@@ -1311,10 +1311,13 @@ describe("App on a phone", () => {
 			.closest("header");
 		expect(bar).not.toBeNull();
 		expect(
-			within(bar as HTMLElement).getByRole("button", {
+			within(bar as HTMLElement).getByRole("heading", { name: "alpha" }),
+		).toBeTruthy();
+		expect(
+			within(bar as HTMLElement).queryByRole("button", {
 				name: "Switch project",
 			}),
-		).toBeTruthy();
+		).toBeNull();
 		expect(view.queryByRole("img", { name: "branch" })).toBeNull();
 
 		await act(async () =>
