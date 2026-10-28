@@ -12,6 +12,7 @@ import {
 import { ArrowDownIcon } from "lucide-react";
 import {
 	type FC,
+	memo,
 	type ReactNode,
 	useContext,
 	useEffect,
@@ -241,7 +242,9 @@ const ThreadRoot: FC<{
  * next turn's message pushes it along. A bare line, as a checkpoint is, opens
  * no turn of its own, so it never pushes the stuck message out.
  */
-const ThreadTurns: FC = () => {
+// Streaming changes the runtime's message scopes directly. Rebuilding every
+// provider from the parent also wakes settled messages on each delta.
+const ThreadTurns: FC = memo(function ThreadTurns() {
 	const roster = useAuiState((s) =>
 		s.thread.messages
 			.map((each) => `${carriesOn(each) ? "line" : each.role} ${each.id}`)
@@ -280,7 +283,7 @@ const ThreadTurns: FC = () => {
 			))}
 		</div>
 	));
-};
+});
 const FOCUSABLE_SELECTOR =
 	"a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [contenteditable='true'], [tabindex]:not([tabindex='-1']):not([disabled])";
 const nextFocusable = (start: Element) => {
