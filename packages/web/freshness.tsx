@@ -219,17 +219,17 @@ function Refreshing({
 			ref={ref}
 			aria-hidden={closing}
 			className={cn(
-				"fixed inset-0 z-100 flex touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:fill-mode-both motion-safe:duration-200",
+				"fixed inset-0 z-100 flex h-dvh touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:fill-mode-both motion-safe:duration-200 md:h-auto",
 				closing
 					? "pointer-events-none motion-safe:animate-out motion-safe:fade-out"
 					: "motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300",
 			)}
 		>
-			<div className="flex max-w-sm flex-col gap-2 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg">
+			<div className="flex max-w-sm flex-col gap-2 rounded-xl border bg-popover px-4 py-3 text-center text-popover-foreground shadow-lg">
 				<div
 					role="status"
 					aria-label="Refreshing"
-					className="flex items-center gap-2 text-sm"
+					className="flex items-center justify-center gap-2 text-sm"
 				>
 					<LoaderCircleIcon
 						aria-hidden
@@ -238,7 +238,7 @@ function Refreshing({
 					Refreshing…
 				</div>
 				{slow && (
-					<div className="flex items-center gap-3">
+					<div className="flex items-center justify-center gap-3">
 						<Countdown
 							givesUpAt={givesUpAt}
 							waitsMs={waitsMs}
