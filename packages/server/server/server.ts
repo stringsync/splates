@@ -35,6 +35,9 @@ import {
 	Cascades,
 	planShip,
 	registeredGraph,
+	ShipHistory,
+	ShipRecovery,
+	ShipRegistry,
 	ShipReviews,
 } from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
@@ -490,13 +493,31 @@ export async function dev(
 	disposer.defer(async () => pushes.dispose());
 	const drawShipPlan = async (slug: string, bump: import("../ship").ShipBump) =>
 		planShip(await registeredGraph({ projects, fs, log, ps }), slug, bump);
+	const shipHistory = new ShipHistory(machineStorage, fs);
+	const recovery = new ShipRecovery(
+		new ShipRegistry({ fetch: deps.fetch ?? fetch }),
+	);
 	const reviews = new ShipReviews({
 		storage: machineStorage,
 		plan: drawShipPlan,
+		recover: async (id) => {
+			const stopped = await shipHistory.read(id);
+			if (stopped === null) {
+				fail("not_found", "the stopped ship is no longer in history");
+			}
+			return recovery.plan(
+				await registeredGraph({ projects, fs, log, ps }),
+				stopped,
+				await shipHistory.list(),
+			);
+		},
 		snapshot: async (plan) => {
 			const registered = await projects.list();
 			const revisions = [];
-			for (const step of plan.steps) {
+			for (const step of [
+				...plan.steps,
+				...(plan.recovery?.inputs.map((use) => ({ slug: use.project })) ?? []),
+			]) {
 				const root = registered.find(
 					(project) => project.slug === step.slug,
 				)?.root;

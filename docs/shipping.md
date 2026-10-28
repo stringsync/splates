@@ -103,8 +103,8 @@ one ship at a time, each asking you on npm's pages as the first did.
 
 When a bump task asks you a question, the cascade waits for your answer.
 A removed bump task or a failed ship stops the whole run: what shipped
-stays published, and every other open bump task is removed. Start a new
-ship once the problem is resolved. Use `splates ship --abandon` to end a
+stays published, and every other open bump task is removed. Choose **Recover**
+on the stopped run once the problem is resolved. Use `splates ship --abandon` to end a
 run under way.
 
 Release types are fixed at approval and survive server restarts. A bump task receives its approved release type and the review's reasons. If its repairs reveal a public API change outside that plan or a break it cannot fix, the agent removes the task as blocked on a revised ship plan, stopping the run. It never asks for a different release type during the run.
@@ -121,6 +121,30 @@ Its popover lists each project with where it stands, a link to its bump
 task, why it stopped, and, while a
 publish waits on you, npm's page or a field for its code, then that ship's
 output.
+
+## Recovering a stopped ship
+
+**Recover** on a stopped run, or an expanded stopped or abandoned run in
+History, prepares a separate plan. Starting an ordinary ship still plans a
+new release. Recovery checks each exact package version from the stopped plan
+against npm, including publications a failed run never recorded. Confirmed
+versions appear as **Already published, kept as inputs** and are not published
+again. Current pins determine which dependents still need work; a dependent
+taking several upstream versions gets one bump task.
+
+The remaining projects receive fresh agent reviews and release choices before
+**Approve**. Approval checks npm and the source trees again, and can be used
+only once. Reopening the original stopped run after recovery finishes shows
+**Nothing remains to recover**. Later recovery releases count too, even when
+their approved versions differ from the original plan.
+If recovery stops too, its published inputs carry forward to the next plan.
+
+Registry outages, missing publications recorded as successful, or a ship that
+started but cannot be confirmed in full block recovery. Finish or reconcile that
+publication first, then retry the plan. Recovery never treats unavailable npm
+evidence as an unpublished version. It also refuses ambiguous dependency
+ranges, mixed pins that would downgrade a newer version, and checkouts behind
+their confirmed release versions.
 
 ## What agents do
 

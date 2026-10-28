@@ -8,11 +8,17 @@ export type ShipApprovalEvents = { changed: undefined };
 
 /** Where an approval asks for the plan and starts the ship. */
 export interface ShipServer {
-	shipPlan(project: string, bump: ShipBump, retry?: boolean): Promise<ShipPlan>;
+	shipPlan(
+		project: string,
+		bump: ShipBump,
+		retry?: boolean,
+		recovery?: string,
+	): Promise<ShipPlan>;
 	startShip(
 		project: string,
 		bump: ShipBump,
 		approval?: { id: string; choices: Record<string, ShipBump> },
+		recovery?: string,
 	): Promise<void>;
 }
 
@@ -38,13 +44,19 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 	constructor(
 		readonly project: string,
 		private readonly server: ShipServer = { shipPlan, startShip },
+		readonly recovery?: string,
 	) {}
 
 	/** Asks the server for the plan at the chosen bump, as the dialog opens. */
 	async draw(retry = false): Promise<void> {
 		const drawing = ++this.drawing;
 		try {
-			const plan = await this.server.shipPlan(this.project, this.bump, retry);
+			const plan = await this.server.shipPlan(
+				this.project,
+				this.bump,
+				retry,
+				this.recovery,
+			);
 			if (drawing !== this.drawing) {
 				return;
 			}
@@ -54,6 +66,7 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 			if (drawing !== this.drawing) {
 				return;
 			}
+			this.plan = null;
 			this.refusal = refusalOf(`No plan to ship ${this.project}`, error);
 		}
 		this.changed();
@@ -75,9 +88,12 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 	/** Whether every dependent has successfully reviewed this plan. */
 	get ready(): boolean {
 		return (
-			this.plan?.steps.every(
+			this.refusal === null &&
+			(this.recovery === undefined || (this.plan?.steps.length ?? 0) > 0) &&
+			(this.plan?.steps.every(
 				(step) => step.review === undefined || step.review.status === "done",
-			) ?? false
+			) ??
+				false)
 		);
 	}
 
@@ -118,10 +134,13 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 							id: this.plan.id,
 							choices: Object.fromEntries(
 								this.plan.steps
-									.filter((step) => step.bump !== null)
+									.filter(
+										(step) => step.action === "ship" && step.bump !== null,
+									)
 									.map((step) => [step.slug, step.bump as ShipBump]),
 							),
 						},
+				this.recovery,
 			);
 			return true;
 		} catch (error) {

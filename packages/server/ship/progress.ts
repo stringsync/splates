@@ -33,6 +33,7 @@ export async function planned(
 	return {
 		id: cascadeId(plan.from, started),
 		from: plan.from,
+		...(plan.recovery === undefined ? {} : { recovery: plan.recovery }),
 		status: "running",
 		started,
 		ended: null,

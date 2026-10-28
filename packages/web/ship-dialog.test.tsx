@@ -46,6 +46,81 @@ describe("ShipDialog", () => {
 			/>,
 		);
 
+	it("shows recovery inputs and approves only the remaining reviewed work", async () => {
+		const requests: (string | undefined)[] = [];
+		const approvals: unknown[] = [];
+		const approval = new ShipApproval(
+			"webappwiz",
+			{
+				shipPlan: async (_project, _bump, _retry, recovery) => {
+					requests.push(recovery);
+					return {
+						...PLAN,
+						id: "reviewed",
+						recovery: {
+							id: "stopped",
+							inputs: [
+								{
+									project: "webappwiz",
+									pins: [{ name: "webappwiz", version: "0.0.54" }],
+								},
+							],
+						},
+						steps: PLAN.steps.slice(1).map((step) => ({
+							...step,
+							review: {
+								status: "done",
+								proposed: step.bump,
+								reasons: "Reviewed remaining repairs",
+							},
+						})),
+					};
+				},
+				startShip: async (_project, _bump, accepted, recovery) => {
+					approvals.push({ accepted, recovery });
+				},
+			},
+			"stopped",
+		);
+		const view = render(
+			<ShipDialog
+				approval={approval}
+				onClose={() => {
+					closed = true;
+				}}
+			/>,
+		);
+		expect(await view.findByText("webappwiz: webappwiz@0.0.54")).toBeTruthy();
+		expect(view.getByText("Recover ship of webappwiz")).toBeTruthy();
+		expect(view.queryByRole("group", { name: "Release type" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+		expect(requests).toEqual(["stopped"]);
+		expect(approvals).toEqual([
+			{
+				accepted: { id: "reviewed", choices: { mdom: "patch" } },
+				recovery: "stopped",
+			},
+		]);
+	});
+
+	it("disables approval when recovery is complete or its registry check fails", async () => {
+		const server = new RecoveryServer();
+		const approval = new ShipApproval("webappwiz", server, "stopped");
+		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
+		expect(await view.findByText("Nothing remains to recover.")).toBeTruthy();
+		expect(
+			(view.getByRole("button", { name: "Approve" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
+		server.offline = true;
+		await act(async () => approval.draw());
+		expect(approval.plan).toBeNull();
+		expect(approval.ready).toBe(false);
+		expect(view.getByRole("button", { name: "Retry plan" })).toBeTruthy();
+	});
+
 	it("shows each project of the plan in order, and Approve starts the ship", async () => {
 		const view = open(async () => PLAN);
 		const list = await waitFor(() =>
@@ -274,4 +349,21 @@ function step(over: Partial<ShipStep>): ShipStep {
 		why: "the project shipped",
 		...over,
 	};
+}
+
+class RecoveryServer {
+	offline = false;
+	async shipPlan(): Promise<ShipPlan> {
+		if (this.offline) {
+			throw new ApiError("conflict", "npm unavailable");
+		}
+		return {
+			from: "webappwiz",
+			steps: [],
+			recovery: { id: "stopped", inputs: [] },
+		};
+	}
+	async startShip(): Promise<void> {
+		throw new Error("must not start");
+	}
 }

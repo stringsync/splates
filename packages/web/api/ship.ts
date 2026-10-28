@@ -17,10 +17,14 @@ export async function startShip(
 	project: string,
 	bump: ShipBump = "patch",
 	approval?: { id: string; choices: Record<string, ShipBump> },
+	recovery?: string,
 ): Promise<void> {
 	const query = new URLSearchParams(
 		project === "" ? { bump } : { project, bump },
 	);
+	if (recovery !== undefined) {
+		query.set("recovery", recovery);
+	}
 	await sendJson(`/api/ship?${query}`, "POST", approval ?? {});
 }
 
@@ -33,9 +37,10 @@ export async function shipPlan(
 	project: string,
 	bump: ShipBump = "patch",
 	retry = false,
+	recovery?: string,
 ): Promise<ShipPlan> {
 	const response = await answered(
-		`/api/ship/plan?${new URLSearchParams({ project, bump, ...(retry ? { retry: "true" } : {}) })}`,
+		`/api/ship/plan?${new URLSearchParams({ project, bump, ...(retry ? { retry: "true" } : {}), ...(recovery === undefined ? {} : { recovery }) })}`,
 	);
 	const body = (await response.json().catch(() => ({}))) as
 		| ShipPlan

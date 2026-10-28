@@ -72,27 +72,47 @@ export function ShipDialog({
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="sm:max-w-3xl">
 				<DialogHeader>
-					<DialogTitle>Ship {project}</DialogTitle>
+					<DialogTitle>
+						{approval.recovery === undefined ? "Ship" : "Recover ship of"}{" "}
+						{project}
+					</DialogTitle>
 					<DialogDescription>
-						Publishes {project}, then carries the release through every project
-						that depends on it, as a dependency tree. npm asks you at each
-						publish.
+						{approval.recovery === undefined
+							? `Publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`
+							: "Checks the stopped run against npm and reviews the remaining work. Published releases stay published; approval starts a new run."}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<span className="text-sm font-medium">Release type</span>
-					<ShipBumpSelector
-						label="Release type"
-						value={bump}
-						onChange={(chosen) => void approval.choose(chosen)}
-						disabled={starting}
-					/>
-				</div>
+				{approval.recovery === undefined && (
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<span className="text-sm font-medium">Release type</span>
+						<ShipBumpSelector
+							label="Release type"
+							value={bump}
+							onChange={(chosen) => void approval.choose(chosen)}
+							disabled={starting}
+						/>
+					</div>
+				)}
 				{plan === null && refusal === null && (
 					<p className="flex items-center gap-2 text-muted-foreground">
 						<LoaderCircleIcon className="size-4 animate-spin" />
 						Drawing the plan…
 					</p>
+				)}
+				{plan?.recovery !== undefined && (
+					<section
+						className="flex flex-col gap-1 text-sm"
+						aria-label="Already published"
+					>
+						<p className="font-medium">Already published, kept as inputs</p>
+						{plan.recovery.inputs.map((use) => (
+							<p key={use.project}>
+								{use.project}:{" "}
+								{use.pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}
+							</p>
+						))}
+						{plan.steps.length === 0 && <p>Nothing remains to recover.</p>}
+					</section>
 				)}
 				{plan !== null && (
 					<PlanSteps
@@ -102,9 +122,9 @@ export function ShipDialog({
 					/>
 				)}
 				{(plan?.steps.some((step) => step.review?.status === "failed") ||
-					(refusal !== null && plan !== null)) && (
+					refusal !== null) && (
 					<Button variant="outline" onClick={() => void approval.draw(true)}>
-						Retry reviews
+						{plan === null ? "Retry plan" : "Retry reviews"}
 					</Button>
 				)}
 				<Refusal refusal={refusal} className="text-sm" />
@@ -217,14 +237,15 @@ function PlanProject({
 							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}
 				</p>
 			)}
-			{step.takes.length > 0 && step.bump !== null && (
-				<ShipBumpSelector
-					label={`Release type for ${step.slug}`}
-					value={step.bump}
-					disabled={starting || step.review?.status === "pending"}
-					onChange={(bump) => onChoose(step.slug, bump)}
-				/>
-			)}
+			{(step.takes.length > 0 || step.review !== undefined) &&
+				step.bump !== null && (
+					<ShipBumpSelector
+						label={`Release type for ${step.slug}`}
+						value={step.bump}
+						disabled={starting || step.review?.status === "pending"}
+						onChange={(bump) => onChoose(step.slug, bump)}
+					/>
+				)}
 		</div>
 	);
 }
@@ -240,7 +261,9 @@ export function versionOf(step: ShipStep): string {
 /** Why a step ships or only takes its bump, as a sentence. */
 function whyOf(step: ShipStep): string {
 	if (step.takes.length === 0) {
-		return "The project shipped.";
+		return step.why === "the project shipped"
+			? "The project shipped."
+			: step.why;
 	}
 	return step.action === "ship"
 		? `Ships too, since ${step.why}.`

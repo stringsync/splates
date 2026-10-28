@@ -35,6 +35,8 @@ export interface ShipStep {
 
 /** A ship of one project and everything downstream of it, in dependency order. */
 export interface ShipPlan {
+	/** The stopped run being recovered and its confirmed publications. */
+	recovery?: { id: string; inputs: Use[] };
 	/** The saved review approved by the person. */
 	id?: string;
 	/** The project the ship starts from. */
@@ -112,7 +114,7 @@ export function planShip(
 }
 
 /** Why a dependent in a ship only takes its bump, or null when it ships too. */
-function bumpOnly(project: ShipProject): string | null {
+export function bumpOnly(project: ShipProject): string | null {
 	if (project.private) {
 		return "private";
 	}
@@ -125,7 +127,7 @@ function bumpOnly(project: ShipProject): string | null {
 	return null;
 }
 
-function shipStep(
+export function shipStep(
 	project: ShipProject,
 	takes: Use[],
 	why: string,
@@ -168,7 +170,7 @@ export function nextPatch(version: string): string | null {
  * Every project after those whose packages it pins, ties left in
  * registration order. Throws on a cycle, which no order ships.
  */
-function dependencyOrder(graph: ShipGraph): ShipProject[] {
+export function dependencyOrder(graph: ShipGraph): ShipProject[] {
 	const left = new Map(
 		graph.projects.map((each) => [
 			each.slug,

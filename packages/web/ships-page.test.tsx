@@ -174,6 +174,39 @@ describe("ShipsPage", () => {
 		).toBe("https://www.npmjs.com/auth/cli/abc");
 	});
 
+	it("opens a separate recovery plan from the stopped run", async () => {
+		localStorage.removeItem("splates.ship.closed");
+		const requested: string[] = [];
+		globalThis.fetch = (async (url: string) => {
+			requested.push(String(url));
+			return Response.json(
+				String(url).startsWith("/api/ship/plan")
+					? {
+							from: "webappwiz",
+							steps: [],
+							recovery: { id: "stopped", inputs: [] },
+						}
+					: [],
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({
+			cascade: {
+				...cascade([step({ status: "failed" })]),
+				id: "stopped",
+				status: "stopped",
+			},
+			ship: null,
+		});
+		await act(async () =>
+			view.getByRole("button", { name: "Recover" }).click(),
+		);
+		expect(await view.findByText("Recover ship of webappwiz")).toBeTruthy();
+		expect(requested).toContain(
+			"/api/ship/plan?project=webappwiz&bump=patch&recovery=stopped",
+		);
+	});
+
 	it("shows a stopped run until it is closed, with why it stopped and npm's settings when that is the remedy", async () => {
 		localStorage.removeItem("splates.ship.closed");
 		globalThis.fetch = (async (url: string) =>

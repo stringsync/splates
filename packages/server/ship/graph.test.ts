@@ -41,6 +41,23 @@ describe("readGraph", () => {
 		expect(of("sound2score")?.version).toBe("0.1.0");
 	});
 
+	it("retains differing pins across workspace manifests", async () => {
+		const { fs, sources } = await servedProjects();
+		const path = "/splates/packages/server/package.json";
+		const manifest = JSON.parse(await fs.read(path));
+		manifest.dependencies.webappwiz = "0.0.51";
+		await fs.write(path, JSON.stringify(manifest));
+		const graph = await readGraph(fs, sources);
+		expect(
+			graph.projects.find((project) => project.slug === "splates")?.uses[0]
+				?.pins,
+		).toEqual([
+			{ name: "@webappwiz/cli", version: "0.0.50" },
+			{ name: "webappwiz", version: "0.0.50" },
+			{ name: "webappwiz", version: "0.0.51" },
+		]);
+	});
+
 	it("draws no edge for a workspace pin or a package of no registered project", async () => {
 		const fs = new FakeFs();
 		await fs.write(

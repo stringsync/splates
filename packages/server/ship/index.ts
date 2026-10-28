@@ -17,6 +17,8 @@ export type { CascadeSummary } from "./history";
 export { ShipHistory } from "./history";
 export type { ShipBump, ShipPlan, ShipReview, ShipStep } from "./plan";
 export { nextPatch, nextVersion, planShip, ShipPlanError } from "./plan";
+export { ShipRecovery } from "./recovery";
+export { ShipRegistry } from "./registry";
 export { ShipReviews } from "./reviews";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";

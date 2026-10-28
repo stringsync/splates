@@ -1,6 +1,7 @@
 import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import { shipHistory, shipHistoryEntry } from "./api";
 import { cn } from "./lib/utils";
 import { ShipApproval } from "./ship-approval";
@@ -49,6 +50,8 @@ export function ShipsPage(): JSX.Element {
 		void endedAt;
 		shipHistory().then(setHistory, () => undefined);
 	}, [endedAt]);
+	const recover = (run: { from: string; id: string }) =>
+		setPlanning(new ShipApproval(run.from, undefined, run.id));
 	const close = (id: string) => {
 		localStorage.setItem(CLOSED_KEY, id);
 		setClosed(id);
@@ -69,6 +72,7 @@ export function ShipsPage(): JSX.Element {
 					cascade={shown}
 					ship={live.ship}
 					onClose={() => close(shown.id)}
+					onRecover={() => recover(shown)}
 				/>
 			)}
 			{live !== null && shown === null && (
@@ -77,13 +81,19 @@ export function ShipsPage(): JSX.Element {
 					onShip={(slug) => setPlanning(new ShipApproval(slug))}
 				/>
 			)}
-			{history.length > 0 && <History cascades={history} />}
+			{history.length > 0 && <History cascades={history} onRecover={recover} />}
 		</section>
 	);
 }
 
 /** The cascades that ended, newest first, each opening as the timeline it was. */
-function History({ cascades }: { cascades: CascadeSummary[] }): JSX.Element {
+function History({
+	cascades,
+	onRecover,
+}: {
+	cascades: CascadeSummary[];
+	onRecover: (run: CascadeSummary) => void;
+}): JSX.Element {
 	return (
 		<section aria-label="history" className="flex flex-col gap-2">
 			<h2 className="font-medium text-sm">History</h2>
@@ -91,14 +101,24 @@ function History({ cascades }: { cascades: CascadeSummary[] }): JSX.Element {
 				{cascades
 					.filter((each) => each.status !== "running")
 					.map((each) => (
-						<Past key={each.id} summary={each} />
+						<Past
+							key={each.id}
+							summary={each}
+							onRecover={() => onRecover(each)}
+						/>
 					))}
 			</ul>
 		</section>
 	);
 }
 
-function Past({ summary }: { summary: CascadeSummary }): JSX.Element {
+function Past({
+	summary,
+	onRecover,
+}: {
+	summary: CascadeSummary;
+	onRecover: () => void;
+}): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [kept, setKept] = useState<Live | null>(null);
 	useEffect(() => {
@@ -134,6 +154,12 @@ function Past({ summary }: { summary: CascadeSummary }): JSX.Element {
 					{new Date(summary.started).toLocaleString()}
 				</time>
 			</button>
+			{open &&
+				(summary.status === "stopped" || summary.status === "abandoned") && (
+					<Button size="sm" variant="outline" onClick={onRecover}>
+						Recover
+					</Button>
+				)}
 			{open && kept === null && (
 				<p className="pl-5 text-muted-foreground text-xs">Reading…</p>
 			)}

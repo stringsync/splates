@@ -56,6 +56,7 @@ export class CascadeRoutes {
 				await this.#slugOf(request),
 				bumpOf(request),
 				new URL(request.url).searchParams.get("retry") === "true",
+				new URL(request.url).searchParams.get("recovery") ?? undefined,
 			),
 		);
 
@@ -95,6 +96,7 @@ export class CascadeRoutes {
 			await this.#slugOf(request),
 			bumpOf(request),
 			approval,
+			new URL(request.url).searchParams.get("recovery") ?? undefined,
 		);
 		return Response.json(cascade, { status: started ? 201 : 200 });
 	};

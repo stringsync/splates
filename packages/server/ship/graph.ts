@@ -119,7 +119,7 @@ function usesOf(
 	slug: string,
 	owner: Map<string, string>,
 ): Use[] {
-	const pins = new Map<string, Map<string, string>>();
+	const pins = new Map<string, Map<string, Pin>>();
 	for (const manifest of manifests) {
 		for (const field of DEPENDENCY_FIELDS) {
 			for (const [name, version] of Object.entries(manifest[field] ?? {})) {
@@ -131,15 +131,15 @@ function usesOf(
 				) {
 					continue;
 				}
-				const of = pins.get(from) ?? new Map<string, string>();
-				of.set(name, of.get(name) ?? version);
+				const of = pins.get(from) ?? new Map<string, Pin>();
+				of.set(JSON.stringify([name, version]), { name, version });
 				pins.set(from, of);
 			}
 		}
 	}
 	return [...pins].map(([project, of]) => ({
 		project,
-		pins: [...of].map(([name, version]) => ({ name, version })),
+		pins: [...of.values()],
 	}));
 }
 

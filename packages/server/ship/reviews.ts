@@ -17,6 +17,8 @@ export type ReviewShip = (
 ) => Promise<ShipReview>;
 
 interface Draft {
+	used?: boolean;
+	bump?: ShipBump;
 	key: string;
 	snapshot: string;
 	plan: ShipPlan;
@@ -31,6 +33,7 @@ export class ShipReviews {
 			storage: Storage;
 			log: Logger;
 			plan: (slug: string, bump: ShipBump) => Promise<ShipPlan>;
+			recover?: (id: string) => Promise<ShipPlan>;
 			snapshot: (plan: ShipPlan) => Promise<string>;
 			review: ReviewShip;
 			ids?: IdProvider;
@@ -40,14 +43,19 @@ export class ShipReviews {
 	}
 
 	/** Draws immediately, with reviews pending while their agents work. */
-	async draw(slug: string, bump: ShipBump, retry = false): Promise<ShipPlan> {
-		const plan = await this.opts.plan(slug, bump);
+	async draw(
+		slug: string,
+		bump: ShipBump,
+		retry = false,
+		recovery?: string,
+	): Promise<ShipPlan> {
+		const plan = await this.drawPlan(slug, bump, recovery);
 		const snapshot = await this.opts.snapshot(plan);
 		const key = JSON.stringify([plan, snapshot]);
-		const record = this.record(slug);
+		const record = this.record(slug, recovery);
 		let launch = false;
 		const draft = await record.update((old) => {
-			if (old?.key === key && !retry) {
+			if (old?.key === key && !retry && !old.used) {
 				if (!this.running.has(old.plan.id as string)) {
 					for (const step of old.plan.steps) {
 						if (step.review?.status === "pending") {
@@ -64,7 +72,7 @@ export class ShipReviews {
 			}
 			plan.id = this.ids.next();
 			for (const step of plan.steps) {
-				if (step.takes.length > 0) {
+				if (step.takes.length > 0 || plan.recovery !== undefined) {
 					step.review = {
 						status: "pending",
 						proposed: null,
@@ -74,7 +82,7 @@ export class ShipReviews {
 			}
 			this.running.add(plan.id);
 			launch = true;
-			return { key, snapshot, plan };
+			return { key, snapshot, plan, bump };
 		});
 		const id = draft.plan.id as string;
 		if (
@@ -98,9 +106,10 @@ export class ShipReviews {
 		slug: string,
 		id: string,
 		choices: Record<string, ShipBump> = {},
+		recovery?: string,
 	): Promise<ShipPlan> {
-		const draft = await this.record(slug).read();
-		if (draft === null || draft.plan.id !== id) {
+		const draft = await this.record(slug, recovery).read();
+		if (draft === null || draft.plan.id !== id || draft.used) {
 			fail("conflict", "the ship plan changed; reopen it and review it again");
 		}
 		if (
@@ -113,12 +122,18 @@ export class ShipReviews {
 				"every dependent review must finish successfully before approval",
 			);
 		}
-		const fresh = await this.opts.plan(
+		const fresh = await this.drawPlan(
 			slug,
-			draft.plan.steps[0]?.bump ?? "patch",
+			draft.bump ?? draft.plan.steps[0]?.bump ?? "patch",
+			recovery,
 		);
-		if ((await this.opts.snapshot(fresh)) !== draft.snapshot) {
+		if (
+			JSON.stringify([fresh, await this.opts.snapshot(fresh)]) !== draft.key
+		) {
 			fail("conflict", "the reviewed projects changed; redraw the ship plan");
+		}
+		if (draft.plan.recovery !== undefined && draft.plan.steps.length === 0) {
+			fail("conflict", "nothing remains to recover");
 		}
 		const plan = structuredClone(draft.plan);
 		for (const [slug, bump] of Object.entries(choices)) {
@@ -134,18 +149,49 @@ export class ShipReviews {
 		if (plan.steps.some((step) => step.action === "ship" && step.to === null)) {
 			fail("usage", "every publish needs a valid planned version");
 		}
-		if ((await this.record(slug).read())?.plan.id !== id) {
+		if ((await this.record(slug, recovery).read())?.plan.id !== id) {
 			fail(
 				"conflict",
 				"the ship plan changed during approval; review it again",
 			);
 		}
+		if (recovery !== undefined) {
+			await this.record(slug, recovery).update((current) => {
+				if (current?.plan.id !== id || current.used) {
+					fail(
+						"conflict",
+						"the recovery approval was already used or replaced; redraw the plan",
+					);
+				}
+				return { ...current, used: true };
+			});
+		}
 		return plan;
 	}
 
-	private record(slug: string): Document<Draft> {
+	private async drawPlan(
+		slug: string,
+		bump: ShipBump,
+		recovery?: string,
+	): Promise<ShipPlan> {
+		if (recovery === undefined) {
+			return this.opts.plan(slug, bump);
+		}
+		if (this.opts.recover === undefined) {
+			fail("usage", "ship recovery is unavailable");
+		}
+		const plan = await this.opts.recover(recovery);
+		if (plan.from !== slug) {
+			fail("conflict", "the stopped ship belongs to another project");
+		}
+		return plan;
+	}
+
+	private record(slug: string, recovery?: string): Document<Draft> {
 		return this.opts.storage.document<Draft>(
-			`ship-plans/${encodeURIComponent(slug)}.json`,
+			recovery === undefined
+				? `ship-plans/${encodeURIComponent(slug)}.json`
+				: `ship-recovery-plans/${encodeURIComponent(recovery)}.json`,
 		);
 	}
 

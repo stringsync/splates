@@ -24,11 +24,13 @@ export function ShipRun({
 	cascade,
 	ship,
 	onClose,
+	onRecover,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
+	onRecover?: () => void;
 }): JSX.Element {
 	const { refusals, refuse } = useRefusals<string>();
 	const [abandoning, setAbandoning] = useState(false);
@@ -55,6 +57,11 @@ export function ShipRun({
 				<span className="text-muted-foreground text-xs tabular-nums">
 					{through} of {cascade.steps.length}
 				</span>
+				{!running && onRecover !== undefined && (
+					<Button size="xs" variant="outline" onClick={onRecover}>
+						Recover
+					</Button>
+				)}
 				{running ? (
 					<Button
 						size="xs"

@@ -79,6 +79,8 @@ export interface CascadeStep extends ShipStep {
  * carries on from where it stopped.
  */
 export interface Cascade {
+	/** Published inputs retained across recovery runs. */
+	recovery?: ShipPlan["recovery"];
 	/** What history keeps it under. */
 	id: string;
 	/** The project it started from. */
@@ -218,9 +220,13 @@ export class Cascades implements Resource {
 		slug: string,
 		bump: ShipBump = "patch",
 		retry = false,
+		recovery?: string,
 	): Promise<ShipPlan> {
 		try {
-			return await (this.opts.reviews?.draw(slug, bump, retry) ??
+			if (recovery !== undefined && this.opts.reviews === undefined) {
+				fail("usage", "ship recovery requires reviewed approval");
+			}
+			return await (this.opts.reviews?.draw(slug, bump, retry, recovery) ??
 				this.opts.plan(slug, bump));
 		} catch (error) {
 			if (error instanceof ShipPlanError) {
@@ -239,6 +245,7 @@ export class Cascades implements Resource {
 		slug: string,
 		bump: ShipBump = "patch",
 		approval?: { id: string; choices: Record<string, ShipBump> },
+		recovery?: string,
 	): Promise<{ cascade: Cascade; started: boolean }> {
 		return this.serially(async () => {
 			const going = await this.record.read();
@@ -247,11 +254,12 @@ export class Cascades implements Resource {
 			}
 			const plan =
 				this.opts.reviews === undefined
-					? await this.plan(slug, bump)
+					? await this.plan(slug, bump, false, recovery)
 					: await this.opts.reviews.approve(
 							slug,
 							approval?.id ?? "",
 							approval?.choices,
+							recovery,
 						);
 			const cascade = await planned(plan, this.stamp(), this.history);
 			await this.keep(cascade);
@@ -408,10 +416,16 @@ export class Cascades implements Resource {
 		const takes: BumpTake[] = [];
 		for (const use of step.takes) {
 			const from = cascade.steps.find((each) => each.slug === use.project);
-			if (from === undefined || from.status === "dropped") {
+			const input = cascade.recovery?.inputs.find(
+				(each) => each.project === use.project,
+			);
+			if (from?.status === "dropped") {
 				continue;
 			}
-			if (from.status !== "done") {
+			if (from === undefined && input === undefined) {
+				throw new Error(`No approved publication supplies ${use.project}`);
+			}
+			if (from !== undefined && from.status !== "done") {
 				return;
 			}
 			takes.push({
@@ -420,8 +434,10 @@ export class Cascades implements Resource {
 				pins: use.pins.map((pin) => ({
 					name: pin.name,
 					version:
-						from.published.find((each) => each.name === pin.name)?.version ??
-						from.to ??
+						(from?.published ?? input?.pins ?? []).find(
+							(each) => each.name === pin.name,
+						)?.version ??
+						from?.to ??
 						pin.version,
 				})),
 			});
