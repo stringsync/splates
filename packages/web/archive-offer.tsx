@@ -130,7 +130,7 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	return (
 		<section
 			aria-label="archive"
-			className="flex min-h-11 items-center gap-2 rounded-lg border bg-card py-1.5 pr-1.5 pl-3 text-sm shadow-xs"
+			className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
 		>
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">
