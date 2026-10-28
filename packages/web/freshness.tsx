@@ -10,6 +10,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 import { Duration } from "webappwiz/time";
@@ -61,11 +62,30 @@ export function useFreshness(): Freshness {
 	return useContext(FreshnessContext);
 }
 
+/** Browser connectivity changes apply immediately, even while reads are in flight. */
+function useDisconnected(): boolean {
+	return useSyncExternalStore(listenConnectivity, disconnected, () => false);
+}
+
+function disconnected(): boolean {
+	return globalThis.navigator?.onLine === false;
+}
+
+function listenConnectivity(changed: () => void): () => void {
+	window.addEventListener("online", changed);
+	window.addEventListener("offline", changed);
+	return () => {
+		window.removeEventListener("online", changed);
+		window.removeEventListener("offline", changed);
+	};
+}
+
 /** How fresh `feed` and `talk` are, together, for `FreshnessContext`. */
 export function useFeedsFreshness(
 	feed: Feed,
 	talk: ConversationFeed,
 ): Freshness {
+	const disconnected = useDisconnected();
 	const snapshot = useReactive(
 		feed,
 		(feed) => ({
@@ -78,7 +98,7 @@ export function useFeedsFreshness(
 	const listing = useReactive(talk, (talk) => ({ fresh: talk.fresh }), [
 		"changed",
 	]);
-	const stale = !snapshot.fresh || !listing.fresh;
+	const stale = disconnected || !snapshot.fresh || !listing.fresh;
 	// Counted here as well as by `feed`, which counts only its own failures.
 	const [waited, setWaited] = useState(false);
 	const [givesUpAt, setGivesUpAt] = useState<number | null>(null);
@@ -95,20 +115,23 @@ export function useFeedsFreshness(
 		return () => clearTimeout(waiting);
 	}, [stale, feed]);
 	const retry = useCallback(() => {
+		if (disconnected) {
+			return;
+		}
 		feed.retry();
 		talk.retry();
 		setTries((tries) => tries + 1);
-	}, [feed, talk]);
-	const unreachable = stale && (waited || snapshot.offline);
+	}, [feed, talk, disconnected]);
+	const unreachable = stale && (disconnected || waited || snapshot.offline);
 	const locked = stale && !unreachable;
 	// Behind Cloudflare Access a lapsed sign-in looks like a server that is
 	// down, for as long as the page stays open: go and sign in again.
 	useEffect(() => {
-		if (!unreachable) {
+		if (!unreachable || disconnected) {
 			return;
 		}
 		void SIGN_IN.reloadIfWanted();
-	}, [unreachable]);
+	}, [unreachable, disconnected]);
 	return useMemo(
 		() => ({
 			stale,
@@ -344,6 +367,7 @@ export function OfflineBanner({
 	reason?: string | null;
 }): JSX.Element {
 	const { retry } = useFreshness();
+	const disconnected = useDisconnected();
 	const [retrying, setRetrying] = useState(false);
 	useEffect(() => {
 		if (!retrying) {
@@ -361,16 +385,21 @@ export function OfflineBanner({
 			<div className="flex min-w-0 items-center gap-2.5">
 				<WifiOffIcon className="size-4 shrink-0 text-destructive" />
 				<p>
-					<span className="font-medium text-destructive">Offline.</span>{" "}
+					<span className="font-medium text-destructive">
+						{disconnected ? "Disconnected." : "Offline."}
+					</span>{" "}
 					<span className="text-muted-foreground">
-						The server isn’t responding. What you see may be out of date.
+						{disconnected
+							? "No internet connection."
+							: "The server isn’t responding."}{" "}
+						What you see may be out of date.
 					</span>
 				</p>
 			</div>
 			<Button
 				variant="outline"
 				size="sm"
-				disabled={retrying}
+				disabled={retrying || disconnected}
 				onClick={() => {
 					setRetrying(true);
 					retry();

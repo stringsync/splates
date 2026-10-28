@@ -68,6 +68,29 @@ describe("LiveStream", () => {
 		globalThis.EventSource = Source;
 	});
 
+	it("does not open while disconnected and resumes on the next wake", () => {
+		const navigator = globalThis.navigator;
+		const online = navigator.onLine;
+		Object.defineProperty(navigator, "onLine", {
+			configurable: true,
+			value: false,
+		});
+		try {
+			live.reopen();
+			wakes.woke();
+			timer.fireTimeouts();
+			expect(streams).toHaveLength(1);
+			expect(streams[0]?.closed).toBe(true);
+		} finally {
+			Object.defineProperty(navigator, "onLine", {
+				configurable: true,
+				value: online,
+			});
+		}
+		wakes.woke();
+		expect(streams).toHaveLength(2);
+	});
+
 	it("opens again once it hears nothing for two pulses, reading afresh on the new one", () => {
 		streams[0]?.onopen?.();
 

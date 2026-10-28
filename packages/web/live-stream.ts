@@ -46,6 +46,16 @@ export const RETRY = Duration.secs(3);
 export class LiveStream implements Resource {
 	private source: EventSource | null = null;
 	private opened = false;
+	private disposed = false;
+	private readonly disconnected = () => {
+		this.source?.close();
+		this.source = null;
+		this.retrying?.dispose();
+		this.retrying = null;
+		this.silence.dispose();
+		this.handlers.dropped?.();
+		this.handlers.error?.();
+	};
 	private readonly silence: Debouncer;
 	/** Events past a burst, waiting to run together. */
 	private waiting: (() => void)[] = [];
@@ -64,12 +74,13 @@ export class LiveStream implements Resource {
 	) {
 		this.silence = new Debouncer(timer, PULSE.multiply(2));
 		this.unlisten = wakes.events.on("woke", () => this.reopen());
+		globalThis.window?.addEventListener("offline", this.disconnected);
 		this.open();
 	}
 
 	/** Gives up the stream it has for a new one now, as on a wake or a retry. */
 	reopen(): void {
-		if (this.source === null) {
+		if (this.disposed) {
 			return;
 		}
 		this.handlers.dropped?.();
@@ -77,6 +88,8 @@ export class LiveStream implements Resource {
 	}
 
 	dispose(): void {
+		this.disposed = true;
+		globalThis.window?.removeEventListener("offline", this.disconnected);
 		this.flushing?.dispose();
 		this.calm?.dispose();
 		this.retrying?.dispose();
@@ -125,6 +138,10 @@ export class LiveStream implements Resource {
 		this.retrying?.dispose();
 		this.retrying = null;
 		this.source?.close();
+		this.source = null;
+		if (globalThis.navigator?.onLine === false) {
+			return;
+		}
 		const source = new EventSource(this.url);
 		this.source = source;
 		const waiting = () => this.silence.call(() => this.reopen());

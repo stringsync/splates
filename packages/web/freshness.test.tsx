@@ -10,6 +10,30 @@ import { cleanup, fireEvent, render } from "./testing-library";
 describe("Saying the page may be stale", () => {
 	afterEach(cleanup);
 
+	it("shows disconnected immediately and disables retry without a connection", () => {
+		const online = navigator.onLine;
+		Object.defineProperty(navigator, "onLine", {
+			configurable: true,
+			value: false,
+		});
+		try {
+			const page = barred(UNREACHABLE);
+			expect(page.getByRole("alert").textContent).toContain("Disconnected.");
+			expect(page.getByRole("alert").textContent).toContain(
+				"No internet connection.",
+			);
+			expect(
+				(page.getByRole("button", { name: "Retry" }) as HTMLButtonElement)
+					.disabled,
+			).toBe(true);
+		} finally {
+			Object.defineProperty(navigator, "onLine", {
+				configurable: true,
+				value: online,
+			});
+		}
+	});
+
 	it("locks the inbox rows, with no dimming, words, line or spinner", async () => {
 		const page = rows(STALE);
 

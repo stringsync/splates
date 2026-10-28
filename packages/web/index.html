@@ -48,7 +48,7 @@
 				const project = new URLSearchParams(location.search).get("project");
 				const scoped = (path) => (project ? `${path}?${new URLSearchParams({ project })}` : path);
 				window.splatesEarly = new Map(
-					["/api/snapshot", "/api/conversations"].map((path) => [scoped(path), fetch(scoped(path))]),
+					(navigator.onLine === false ? [] : ["/api/snapshot", "/api/conversations"]).map((path) => [scoped(path), fetch(scoped(path))]),
 				);
 			} catch {}
 		</script>

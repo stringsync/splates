@@ -53,6 +53,9 @@ export async function answered(
 	input: string,
 	{ within = WAITS.answer, signal, ...init }: Answering = {},
 ): Promise<Response> {
+	if (globalThis.navigator?.onLine === false) {
+		throw new Error("No internet connection");
+	}
 	const timeout = expiring(within);
 	try {
 		return await fetch(input, {
@@ -69,9 +72,8 @@ export async function answered(
 }
 
 /**
- * A signal aborted with a `TimeoutError`, as `AbortSignal.timeout`'s is, once
- * `within` has passed, unless disposed first: `timeout.dispose()` in a
- * `finally` around the work, and `timeout.signal` to what should give up.
+ * Gives a request `within` to answer. Pass its signal to the request and call
+ * `dispose` when finished to cancel the timeout.
  */
 export function expiring(within: Duration): {
 	readonly signal: AbortSignal;
