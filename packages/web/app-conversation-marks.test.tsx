@@ -366,7 +366,7 @@ Cap upload retries
 		expect(dialog.textContent).toContain("Cap upload retries");
 	});
 
-	it("heads a conversation with its project and title, leaving its task's status to the conversation", async () => {
+	it("heads a conversation with its title and project, leaving its task's status to the conversation", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", name: "Fix login" })],
 			null,
@@ -375,8 +375,8 @@ Cap upload retries
 		await openRow(view, "Fix login");
 
 		const title = view.getByRole("heading", { name: "Fix login" });
-		expect(title.previousElementSibling?.textContent).toBe("webappwiz");
-		expect(title.parentElement?.textContent).toBe("webappwizFix login");
+		expect(title.nextElementSibling?.textContent).toBe("webappwiz");
+		expect(title.parentElement?.textContent).toBe("Fix loginwebappwiz");
 	});
 
 	it("counts the agents waiting on you in the title, as the sidebar does, an external agent's ask never", async () => {

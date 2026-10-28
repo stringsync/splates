@@ -54,14 +54,6 @@ export function ThreadHeader({
 			}
 			title={
 				<div className="flex min-w-0 flex-col">
-					{project !== undefined && (
-						<span
-							title={project}
-							className="truncate text-muted-foreground text-[11px] leading-4"
-						>
-							{project}
-						</span>
-					)}
 					{renaming ? (
 						<Rename
 							conversation={conversation}
@@ -85,6 +77,14 @@ export function ThreadHeader({
 						>
 							{nameOf(conversation)}
 						</h2>
+					)}
+					{project !== undefined && (
+						<span
+							title={project}
+							className="truncate text-muted-foreground text-[11px] leading-4"
+						>
+							{project}
+						</span>
 					)}
 				</div>
 			}
