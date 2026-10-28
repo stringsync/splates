@@ -89,10 +89,11 @@ export interface Cascade {
 	/** The project it started from. */
 	from: string;
 	/**
-	 * `done` once every project is done or dropped, `abandoned` once the
-	 * person ended it, whatever had shipped staying shipped.
+	 * `done` once every project is done or dropped, `stopped` once one
+	 * failed or its bump task went unmerged, `abandoned` once the person
+	 * ended it; whatever had shipped stays shipped.
 	 */
-	status: "running" | "done" | "abandoned";
+	status: "running" | "done" | "stopped" | "abandoned";
 	started: string;
 	ended: string | null;
 	/** In dependency order, as the plan the person approved had them. */
@@ -130,6 +131,9 @@ const EVERY = Duration.secs(5);
 
 /** The statuses a project ends in, holding up nothing after it. */
 const ENDED: CascadeStatus[] = ["done", "dropped", "abandoned"];
+
+/** The statuses a project stops the run in. */
+const HELD: CascadeStatus[] = ["failed", "stopped"];
 
 /** The statuses whose publish has not started, so its bump can still change. */
 const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
@@ -450,19 +454,7 @@ export class Cascades implements Resource {
 			if (cascade?.status !== "running") {
 				fail("conflict", "no ship is under way to abandon");
 			}
-			for (const step of cascade.steps) {
-				if (ENDED.includes(step.status)) {
-					continue;
-				}
-				await this.end(step).catch((error: unknown) => {
-					this.opts.log.error(
-						`abandoning the ship at ${step.slug}: ${messageOf(error)}`,
-					);
-				});
-				closeOut(step, this.stamp());
-				step.status = "abandoned";
-				step.note ??= "the person abandoned the ship";
-			}
+			await this.close(cascade, "the person abandoned the ship");
 			cascade.status = "abandoned";
 			cascade.ended = this.stamp();
 			this.opts.log.info(`abandoned the ship of ${cascade.from}`);
@@ -471,8 +463,32 @@ export class Cascades implements Resource {
 		});
 	}
 
+	/**
+	 * Ends every project of `cascade` still going, saying `why`: its ship is
+	 * stopped and its open bump task removed, so nothing more ships.
+	 */
+	private async close(cascade: Cascade, why: string): Promise<void> {
+		for (const step of cascade.steps) {
+			if (ENDED.includes(step.status)) {
+				continue;
+			}
+			if (HELD.includes(step.status)) {
+				closeOut(step, this.stamp());
+				continue;
+			}
+			await this.end(step, why).catch((error: unknown) => {
+				this.opts.log.error(
+					`ending the ship at ${step.slug}: ${messageOf(error)}`,
+				);
+			});
+			closeOut(step, this.stamp());
+			step.status = "abandoned";
+			step.note ??= why;
+		}
+	}
+
 	/** Stops what `step` has going: its ship, or its open bump task. */
-	private async end(step: CascadeStep): Promise<void> {
+	private async end(step: CascadeStep, why: string): Promise<void> {
 		const project = await this.opts.reach(step.slug);
 		if (step.status === "shipping") {
 			await project.shipping.stop();
@@ -483,7 +499,7 @@ export class Cascades implements Resource {
 			const state = await project.bumps.state(step.task);
 			if (state !== "merged" && state !== "removed") {
 				await project.bumps.remove(step.task);
-				step.note = `the person abandoned the ship; its bump task ${step.task} was removed`;
+				step.note = `${why}; its bump task ${step.task} was removed`;
 			}
 		}
 	}
@@ -518,7 +534,15 @@ export class Cascades implements Resource {
 				this.opts.log.error(`the ship cascade at ${step.slug}: ${step.note}`);
 			});
 		}
-		if (cascade.steps.every((step) => ENDED.includes(step.status))) {
+		const held = cascade.steps.find((step) => HELD.includes(step.status));
+		if (held !== undefined) {
+			// One project failing stops the whole run rather than holding it
+			// open: what shipped stays shipped, and nothing more does.
+			await this.close(cascade, `the run stopped at ${held.slug}`);
+			cascade.status = "stopped";
+			cascade.ended = this.stamp();
+			this.opts.log.info(`the ship of ${cascade.from} stopped at ${held.slug}`);
+		} else if (cascade.steps.every((step) => ENDED.includes(step.status))) {
 			cascade.status = "done";
 			cascade.ended = this.stamp();
 			this.opts.log.info(`the ship of ${cascade.from} is done`);

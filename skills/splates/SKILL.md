@@ -227,11 +227,10 @@ its release should be minor or major instead, for them to change in the
 cascade. The cascade waits on your project, and on
 those after it, while the task is open, so when a break is past fixing, ask
 the person rather than remove the task, and say in the question that the
-ship waits on it. A removed bump task, or a failed ship, stops the cascade
-at that project until the person retries it with `splates ship --retry
-<project>`, which ships it again or queues a new bump task, or drops it from
-the run with `splates ship --drop <project>`, or ends the whole run with
-`splates ship --abandon` (what shipped stays published): commands of theirs, never yours.
+ship waits on it. A removed bump task, or a failed ship, stops the whole
+run: what shipped stays published, and every other open bump task is
+removed. The person ends a run under way with `splates ship --abandon`, a
+command of theirs, never yours.
 
 ```markdown
 ## 🔐 Permission: run command: ship webappwiz

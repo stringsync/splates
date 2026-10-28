@@ -16,6 +16,7 @@ import { askMachineNow } from "./machine";
 import { Refusal } from "./refusal";
 import type { ShipApproval } from "./ship-approval";
 import { ShipBumpSelector } from "./ship-bump-selector";
+import { ShipTree } from "./ship-tree";
 
 /**
  * The plan to ship the project `approval` names at its selected bump, drawn by
@@ -105,113 +106,68 @@ export function ShipDialog({
 	);
 }
 
-interface PlanTreeNode {
-	step: ShipStep;
-	children: PlanTreeNode[];
-}
-
 /** The plan as a tree, each project beneath its first dependency in the plan. */
 function PlanSteps({ steps }: { steps: ShipStep[] }): JSX.Element {
-	const nodes = new Map<string, PlanTreeNode>();
-	const roots: PlanTreeNode[] = [];
-	for (const step of steps) {
-		const node = { step, children: [] };
-		nodes.set(step.slug, node);
-		const parent = step.takes
-			.map((use) => nodes.get(use.project))
-			.find((each) => each !== undefined);
-		if (parent === undefined) {
-			roots.push(node);
-		} else {
-			parent.children.push(node);
-		}
-	}
 	return (
-		<ol
-			aria-label="Ship plan"
-			className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto pr-1"
-		>
-			{roots.map((node) => (
-				<PlanProject key={node.step.slug} node={node} nested={false} />
-			))}
-		</ol>
+		<ShipTree
+			label="Ship plan"
+			items={steps}
+			slugOf={(step) => step.slug}
+			dependenciesOf={(step) => step.takes.map((use) => use.project)}
+			render={(step) => <PlanProject step={step} />}
+			className="max-h-[55vh] overflow-y-auto pr-1"
+		/>
 	);
 }
 
-function PlanProject({
-	node,
-	nested,
-}: {
-	node: PlanTreeNode;
-	nested: boolean;
-}): JSX.Element {
-	const { step } = node;
+function PlanProject({ step }: { step: ShipStep }): JSX.Element {
 	return (
-		<li
-			aria-label={step.slug}
+		<div
 			className={cn(
-				"relative flex flex-col gap-2",
-				nested &&
-					"before:absolute before:-left-4 before:top-6 before:h-px before:w-4 before:bg-border",
+				"flex flex-col gap-1 rounded-lg border bg-card p-3",
+				step.takes.length === 0 && "border-primary/25 bg-primary/5",
 			)}
 		>
-			<div
-				className={cn(
-					"flex flex-col gap-1 rounded-lg border bg-card p-3",
-					step.takes.length === 0 && "border-primary/25 bg-primary/5",
-				)}
-			>
-				<p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-					<PackageIcon className="size-3.5 text-muted-foreground" />
-					<span className="font-medium">{step.slug}</span>
-					<span
-						className={cn(
-							"rounded-full px-1.5 text-[11px]",
-							step.action === "ship"
-								? "bg-primary/10 text-primary"
-								: "bg-muted text-muted-foreground",
-						)}
-					>
-						{step.action === "ship" ? "ships" : "takes its bump"}
-					</span>
-					{step.takes.length > 1 && (
-						<span className="text-muted-foreground text-[11px]">
-							shared dependent
-						</span>
+			<p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+				<PackageIcon className="size-3.5 text-muted-foreground" />
+				<span className="font-medium">{step.slug}</span>
+				<span
+					className={cn(
+						"rounded-full px-1.5 text-[11px]",
+						step.action === "ship"
+							? "bg-primary/10 text-primary"
+							: "bg-muted text-muted-foreground",
 					)}
-					<span className="ml-auto text-muted-foreground text-xs tabular-nums">
-						{versionOf(step)}
-					</span>
-				</p>
-				{step.publishes.length > 0 && (
-					<p className="pl-5.5 text-muted-foreground text-xs">
-						Publishes {step.publishes.join(", ")}
-					</p>
-				)}
-				{step.takes.length > 0 && (
-					<p className="pl-5.5 text-muted-foreground text-xs">
-						Takes{" "}
-						{step.takes
-							.map(
-								(use) =>
-									`${use.pins.map((pin) => pin.name).join(", ")} from ${use.project}`,
-							)
-							.join("; ")}
-					</p>
-				)}
-				<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
-			</div>
-			{node.children.length > 0 && (
-				<ol
-					aria-label={`${step.slug} dependents`}
-					className="ml-4 flex flex-col gap-2 border-l pl-4"
 				>
-					{node.children.map((child) => (
-						<PlanProject key={child.step.slug} node={child} nested />
-					))}
-				</ol>
+					{step.action === "ship" ? "ships" : "takes its bump"}
+				</span>
+				{step.takes.length > 1 && (
+					<span className="text-muted-foreground text-[11px]">
+						shared dependent
+					</span>
+				)}
+				<span className="ml-auto text-muted-foreground text-xs tabular-nums">
+					{versionOf(step)}
+				</span>
+			</p>
+			{step.publishes.length > 0 && (
+				<p className="pl-5.5 text-muted-foreground text-xs">
+					Publishes {step.publishes.join(", ")}
+				</p>
 			)}
-		</li>
+			{step.takes.length > 0 && (
+				<p className="pl-5.5 text-muted-foreground text-xs">
+					Takes{" "}
+					{step.takes
+						.map(
+							(use) =>
+								`${use.pins.map((pin) => pin.name).join(", ")} from ${use.project}`,
+						)
+						.join("; ")}
+				</p>
+			)}
+			<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
+		</div>
 	);
 }
 

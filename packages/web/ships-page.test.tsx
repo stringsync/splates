@@ -3,6 +3,7 @@ import type {
 	Cascade,
 	CascadeStep,
 	Ship,
+	ShipProject,
 	Stage,
 } from "@stringsync/splates-server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
@@ -31,17 +32,51 @@ describe("ShipsPage", () => {
 		globalThis.fetch = realFetch;
 	});
 
-	it("says no ship has run when the server has none", async () => {
+	it("draws the projects as a dependency tree, a Ship on each that names a ship command", async () => {
+		const graph = [
+			project({ slug: "webappwiz", packages: ["webappwiz"] }),
+			project({
+				slug: "sound2score",
+				ship: null,
+				private: true,
+				uses: [{ project: "mdom", pins: [] }],
+			}),
+			project({
+				slug: "mdom",
+				packages: ["mdom"],
+				uses: [{ project: "webappwiz", pins: [] }],
+			}),
+		];
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
+			)) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
-		expect(view.getByText(/No ship has run yet/)).toBeTruthy();
+		const tree = await view.findByRole("list", { name: "Ship graph" });
+		const below = within(tree).getByRole("list", {
+			name: "webappwiz dependents",
+		});
+		const mdom = within(below).getByRole("listitem", { name: "mdom" });
+		expect(
+			within(mdom).getByRole("listitem", { name: "sound2score" }),
+		).toBeTruthy();
+		expect(within(tree).getAllByRole("button", { name: "Ship" })).toHaveLength(
+			2,
+		);
 	});
 
-	it("pins what waits on the person above the timeline, and lists each project's steps with its time against what is expected", async () => {
+	it("lists every project's steps under way at once, with what waits on the person pinned beneath", async () => {
 		const view = render(<ShipsPage />);
 		await say({
 			cascade: cascade([
-				step({ slug: "webappwiz", status: "done" }),
+				step({
+					slug: "webappwiz",
+					status: "done",
+					stages: [
+						stage({ key: "command", name: "Ship command", state: "done" }),
+					],
+				}),
 				step({
 					slug: "mdom",
 					status: "asking",
@@ -51,23 +86,35 @@ describe("ShipsPage", () => {
 			]),
 			ship: null,
 		});
-		const needs = view.getByRole("region", { name: "needs you" });
+		const under = view.getByRole("region", { name: "under way" });
+		expect(under.textContent).toContain("1 of 2");
+		expect(within(under).getByRole("button", { name: "Abandon" })).toBeTruthy();
+		const webappwiz = within(under).getByRole("listitem", {
+			name: "webappwiz",
+		});
 		expect(
-			within(needs).getByRole("link", { name: "#12" }).getAttribute("href"),
-		).toBe("?project=mdom#todos/12");
-		expect(within(needs).getByRole("button", { name: "Abandon" })).toBeTruthy();
-		const mdom = view.getByRole("listitem", { name: "mdom" });
+			within(webappwiz).getByRole("listitem", { name: "Ship command" }),
+		).toBeTruthy();
+		const mdom = within(under).getByRole("listitem", { name: "mdom" });
 		expect(mdom.textContent).toContain("asks you");
+		const needs = within(under).getByRole("status", { name: "needs you" });
+		expect(needs.textContent).toContain("mdom's bump task asks you something");
+		expect(
+			within(needs)
+				.getByRole("link", { name: "Answer #12" })
+				.getAttribute("href"),
+		).toBe("?project=mdom#todos/12");
 	});
 
-	it("offers Resume and Drop for a project that failed, and npm's page while a publish waits", async () => {
+	it("pins npm's page beneath the steps while a publish waits on the person", async () => {
 		const view = render(<ShipsPage />);
 		await say({
 			cascade: cascade([
-				step({ slug: "webappwiz", status: "failed", note: "boom" }),
+				step({ slug: "webappwiz", status: "done" }),
+				step({ slug: "mdom", status: "shipping" }),
 			]),
 			ship: {
-				project: "webappwiz",
+				project: "mdom",
 				command: "wiz dev ship",
 				bump: "patch",
 				status: "running",
@@ -85,15 +132,56 @@ describe("ShipsPage", () => {
 				resumed: 0,
 			},
 		});
-		const needs = view.getByRole("region", { name: "needs you" });
-		expect(within(needs).getByRole("button", { name: "Resume" })).toBeTruthy();
-		expect(within(needs).getByRole("button", { name: "Drop" })).toBeTruthy();
+		const needs = view.getByRole("status", { name: "needs you" });
+		expect(needs.textContent).toContain("Approve mdom on npm");
 		expect(
-			within(needs).getByRole("button", { name: "Fix with an agent" }),
-		).toBeTruthy();
-		expect(
-			within(needs).getByRole("link", { name: "Open" }).getAttribute("href"),
+			within(needs)
+				.getByRole("link", { name: "Open npm" })
+				.getAttribute("href"),
 		).toBe("https://www.npmjs.com/auth/cli/abc");
+	});
+
+	it("shows a stopped run until it is closed, with why it stopped and npm's settings when that is the remedy", async () => {
+		localStorage.removeItem("splates.ship.closed");
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: [] } : [],
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		const stopped = {
+			...cascade([
+				step({
+					slug: "webappwiz",
+					status: "failed",
+					note: "npm asked for a typed code, which splates never takes: add a security key to your npm 2FA at https://www.npmjs.com/settings/jared/tfa so npm asks on its page",
+					stages: [stage({ key: "otp", name: "2FA", state: "failed" })],
+				}),
+				step({ slug: "mdom", status: "abandoned" }),
+			]),
+			status: "stopped" as const,
+		};
+		await say({ cascade: stopped, ship: null });
+		const under = view.getByRole("region", { name: "under way" });
+		expect(under.textContent).toContain("Stopped at webappwiz");
+		expect(
+			within(under).getByRole("listitem", { name: "mdom" }).textContent,
+		).toContain("not run");
+		const needs = within(under).getByRole("status", { name: "needs you" });
+		expect(needs.textContent).toContain("webappwiz: 2FA failed");
+		expect(needs.textContent).toContain(
+			"add a security key to your npm 2FA so npm asks on its page",
+		);
+		expect(
+			within(needs)
+				.getByRole("link", { name: "Open npm settings" })
+				.getAttribute("href"),
+		).toBe("https://www.npmjs.com/settings/jared/tfa");
+		expect(within(under).queryByRole("button", { name: "Resume" })).toBeNull();
+
+		await act(async () => {
+			within(under).getByRole("button", { name: "Close" }).click();
+		});
+		expect(view.queryByRole("region", { name: "under way" })).toBeNull();
 	});
 });
 
@@ -109,6 +197,20 @@ function stage(over: Partial<Stage>): Stage {
 		deadline: null,
 		check: null,
 		log: null,
+		...over,
+	};
+}
+
+function project(over: Partial<ShipProject>): ShipProject {
+	return {
+		slug: "webappwiz",
+		root: "/webappwiz",
+		ship: "wiz dev ship",
+		version: "0.0.53",
+		packages: [],
+		private: false,
+		uses: [],
+		dependents: [],
 		...over,
 	};
 }

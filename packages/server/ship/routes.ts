@@ -1,7 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
-import { fail } from "../exit";
 import type { Shipping } from "./run";
 
 /** How often a running ship's output is read again. */
@@ -25,18 +24,6 @@ export class ShipRoutes {
 	/** The latest ship, or null when the project never shipped. */
 	readonly ship = async (): Promise<Response> =>
 		Response.json(await this.#shipping.current());
-
-	/** Sends the person's one-time password to npm's prompt in the ship under way. */
-	readonly answerShipOtp = async (request: Request): Promise<Response> => {
-		const { code } = (await request.json().catch(() => ({}))) as {
-			code?: unknown;
-		};
-		if (typeof code !== "string" || !/^\d{4,10}$/.test(code.trim())) {
-			fail("usage", "the code is the digits npm's app shows");
-		}
-		await this.#shipping.answerOtp(code.trim());
-		return Response.json({ ok: true });
-	};
 
 	/** What the latest ship printed, then more as it prints, ending with it. */
 	readonly shipOutput = async (): Promise<Response> => {

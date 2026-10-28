@@ -22,13 +22,13 @@ export function shipRecord(storage: Storage): Document<Ship> {
 export type ShipStatus = "running" | "done" | "failed";
 
 /**
- * What npm waits on the person for: signing in, as `npm login --auth-type=web`
- * asks, a publish's second factor, or a one-time password typed at its prompt.
+ * What npm waits on the person for, on its own page: signing in, as
+ * `npm login --auth-type=web` asks, or a publish's second factor.
  */
 export interface ShipWait {
-	kind: "login" | "2fa" | "otp";
-	/** npm's page, which the person opens from any device; null for a typed code. */
-	url: string | null;
+	kind: "login" | "2fa";
+	/** npm's page, which the person opens from any device. */
+	url: string;
 	/** When npm began waiting, as ISO time. */
 	since: string;
 }
@@ -89,6 +89,19 @@ export interface ShippingOptions {
 /** The error of a ship the person stopped. */
 const STOPPED = "stopped: the person abandoned the ship";
 
+/**
+ * Why a ship stopped at npm's typed-code prompt, with the remedy: npm asks
+ * on its own page instead once the account's second factor is a security
+ * key. One line, since a cascade shows an error's first.
+ */
+export function typedCodeError(user: string | null): string {
+	const settings =
+		user === null
+			? "https://www.npmjs.com/settings"
+			: `https://www.npmjs.com/settings/${user}/tfa`;
+	return `npm asked for a typed code, which splates never takes: add a security key to your npm 2FA at ${settings} so npm asks on its page`;
+}
+
 /** How many lines of output a failed ship keeps as its error. */
 const TAIL = 20;
 
@@ -103,6 +116,28 @@ const AROUND_LINK =
 const RELEASE_PROMPT = /\(y\/n\)\s*$/;
 /** npm's prompt for a typed one-time password, which ends without a newline. */
 const OTP_PROMPT = /one-time password.*:\s*$|enter otp:\s*$/i;
+
+/**
+ * npm prints its pages' links rather than waiting for Enter to open them in a
+ * browser on the server's machine, which the person may be nowhere near.
+ */
+const NPM_ENV = { npm_config_browser: "false" };
+
+/**
+ * The argv that runs `command` through `sh` under a terminal of its own, for
+ * a ship whose npm must ask for a publish's second factor rather than fail
+ * with EOTP. `platform` picks `script`'s flags, the host's by default.
+ */
+export function inTerminal(
+	command: string,
+	platform: NodeJS.Platform = process.platform,
+): string[] {
+	// `script` gives the terminal; echo is off so nothing typed lands in the log.
+	const quiet = `stty -echo 2>/dev/null; ${command}`;
+	return platform === "linux"
+		? ["script", "-qfec", quiet, "/dev/null"]
+		: ["script", "-q", "/dev/null", "sh", "-c", quiet];
+}
 
 /**
  * Runs a project's ship on the server's machine, under the person's own npm
@@ -121,6 +156,10 @@ export class Shipping implements Resource {
 	private disposed = false;
 	/** Whether the person stopped the ship under way. */
 	private stopped = false;
+	/** Whether npm asked for a typed one-time password, which stops the ship. */
+	private typed = false;
+	/** Who `npm whoami` says is signed in, for the link to their 2FA settings. */
+	private user: string | null = null;
 	/** Where the ship under way writes its output. */
 	private log: string | null = null;
 	/** How many bytes its log holds, where the next step's slice begins. */
@@ -151,21 +190,6 @@ export class Shipping implements Resource {
 	/** Whether a ship runs here now. */
 	get running(): boolean {
 		return this.going !== null;
-	}
-
-	/**
-	 * Types `code` at npm's one-time password prompt, refused when npm asks for
-	 * none. The code goes to the child's stdin and is kept nowhere.
-	 */
-	async answerOtp(code: string): Promise<void> {
-		const ship = await this.record.read();
-		if (this.stdin === null || ship?.waiting?.kind !== "otp") {
-			fail("conflict", "npm is not asking for a one-time password", {
-				root: this.opts.root,
-			});
-		}
-		await this.update({ waiting: null });
-		await this.stdin.write(new TextEncoder().encode(`${code}\n`));
 	}
 
 	/**
@@ -215,6 +239,7 @@ export class Shipping implements Resource {
 		this.log = path;
 		this.bytes = (await fs.readBytes(path)).byteLength;
 		this.stopped = false;
+		this.typed = false;
 		await this.record.write(ship);
 		this.run(command, bump);
 		return ship;
@@ -236,6 +261,7 @@ export class Shipping implements Resource {
 			.then((bytes) => bytes.byteLength)
 			.catch(() => 0);
 		this.stopped = false;
+		this.typed = false;
 		await this.record.write({
 			...left,
 			command,
@@ -301,6 +327,7 @@ export class Shipping implements Resource {
 		}));
 		const whoami = await ps.spawnCapture(["npm", "whoami"], { cwd: root });
 		const signedIn = whoami.exitCode === 0;
+		this.user = signedIn ? whoami.stdout.trim() || null : null;
 		await this.stage("login", (stage) => ({
 			...stage,
 			check: {
@@ -313,13 +340,20 @@ export class Shipping implements Resource {
 		if (!signedIn) {
 			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
 			const code = await this.watch(
-				ps.start(["npm", "login", "--auth-type=web"], { cwd: root }),
+				ps.start(inTerminal("npm login --auth-type=web"), {
+					cwd: root,
+					env: NPM_ENV,
+				}),
 				"login",
 			);
-			if (code !== 0 || this.stopped) {
+			if (code !== 0 || this.stopped || this.typed) {
 				await this.end(
 					"failed",
-					this.stopped ? STOPPED : await this.tail(`npm login exited ${code}`),
+					this.stopped
+						? STOPPED
+						: this.typed
+							? typedCodeError(this.user)
+							: await this.tail(`npm login exited ${code}`),
 				);
 				return;
 			}
@@ -331,19 +365,21 @@ export class Shipping implements Resource {
 			log: { from: this.bytes, to: null },
 		}));
 		const code = await this.watch(
-			ps.start(["sh", "-c", command], {
+			ps.start(inTerminal(command), {
 				cwd: root,
-				env: { SPLATES_SHIP_BUMP: bump },
+				env: { ...NPM_ENV, SPLATES_SHIP_BUMP: bump },
 			}),
 			"ship",
 		);
 		await this.end(
-			code === 0 && !this.stopped ? "done" : "failed",
+			code === 0 && !this.stopped && !this.typed ? "done" : "failed",
 			this.stopped
 				? STOPPED
-				: code === 0
-					? null
-					: await this.tail(`${command} exited ${code}`),
+				: this.typed
+					? typedCodeError(this.user)
+					: code === 0
+						? null
+						: await this.tail(`${command} exited ${code}`),
 		);
 	}
 
@@ -358,7 +394,6 @@ export class Shipping implements Resource {
 		this.stdin = stdin;
 		let pending = "";
 		let asked = false;
-		let otp = false;
 		const heard = async (text: string) => {
 			this.heardFrom = this.bytes;
 			await this.say(text);
@@ -374,14 +409,12 @@ export class Shipping implements Resource {
 			} else if (!RELEASE_PROMPT.test(pending)) {
 				asked = false;
 			}
-			if (OTP_PROMPT.test(pending) && !otp) {
-				otp = true;
-				await this.update({
-					waiting: { kind: "otp", url: null, since: this.stamp() },
-				});
+			if (OTP_PROMPT.test(pending) && !this.typed) {
+				// splates never takes a typed code: the ship stops, saying how to
+				// have npm ask on its own page instead.
+				this.typed = true;
 				await this.asked();
-			} else if (!OTP_PROMPT.test(pending)) {
-				otp = false;
+				child.kill();
 			}
 		};
 		// One reader at a time, so lines go in the order they came.

@@ -200,41 +200,44 @@ describe("Cascades", () => {
 		expect(await statuses()).toMatchObject({ mdom: "shipping" });
 	});
 
-	it("stops at a project whose bump was removed, until the person drops it", async () => {
+	it("stops the whole run once a bump task is removed unmerged, removing the others' open bump tasks", async () => {
 		await cascades.start("webappwiz");
 		await shipped("webappwiz", "0.0.51");
+		const splates = project("splates").bump();
 		project("mdom").bumps.states.set(project("mdom").bump(), "removed");
 		await cascades.tick();
 
-		const stopped = (await cascades.current())?.steps.find(
-			(step) => step.slug === "mdom",
-		);
-		expect(stopped).toMatchObject({
+		const cascade = await cascades.current();
+		expect(cascade?.status).toBe("stopped");
+		expect(cascade?.steps.find((step) => step.slug === "mdom")).toMatchObject({
 			status: "stopped",
 			note: "its bump task 101 was removed without merging",
 		});
-
-		await merge("splates");
-		await shipped("splates", "0.0.58");
-		await cascades.drop("mdom");
-
-		expect(await statuses()).toMatchObject({
-			mdom: "dropped",
-			vexml: "bumping",
-		});
 		expect(
-			project("vexml").bumps.added[0]?.takes.map((take) => take.project),
-		).toEqual(["webappwiz"]);
+			cascade?.steps.find((step) => step.slug === "splates"),
+		).toMatchObject({
+			status: "abandoned",
+			note: `the run stopped at mdom; its bump task ${splates} was removed`,
+		});
+		expect(project("splates").bumps.removed).toEqual([splates]);
+		expect(await statuses()).toMatchObject({
+			webappwiz: "done",
+			vexml: "abandoned",
+		});
 	});
-
-	it("marks a failed ship, which holds up those after it", async () => {
+	it("stops the whole run at a failed ship, nothing after it starting", async () => {
 		await cascades.start("webappwiz");
 		project("webappwiz").end("failed");
 		await cascades.tick();
 
-		const failed = (await cascades.current())?.steps[0];
-		expect(failed).toMatchObject({ status: "failed", note: "npm said no" });
-		expect(await statuses()).toMatchObject({ splates: "waiting" });
+		const cascade = await cascades.current();
+		expect(cascade?.status).toBe("stopped");
+		expect(cascade?.steps[0]).toMatchObject({
+			status: "failed",
+			note: "npm said no",
+		});
+		expect(await statuses()).toMatchObject({ splates: "abandoned" });
+		expect(project("splates").bumps.added).toHaveLength(0);
 	});
 
 	it("marks a ship that would not start as failed", async () => {
@@ -245,88 +248,6 @@ describe("Cascades", () => {
 			status: "failed",
 			note: "a ship is under way already",
 		});
-	});
-
-	it("ships a failed project again on a retry", async () => {
-		await cascades.start("webappwiz");
-		project("webappwiz").end("failed");
-		await cascades.tick();
-
-		const again = await cascades.retry("webappwiz");
-
-		expect(project("webappwiz").starts).toBe(2);
-		expect(again.steps[0]).toMatchObject({ status: "shipping", note: null });
-		await shipped("webappwiz", "0.0.51");
-		expect(await statuses()).toMatchObject({ splates: "bumping" });
-	});
-
-	it("ships a bumped project again on a retry, without another bump task", async () => {
-		await cascades.start("webappwiz");
-		await shipped("webappwiz", "0.0.51");
-		await merge("splates");
-		project("splates").end("failed");
-		await cascades.tick();
-
-		await cascades.retry("splates");
-
-		expect(await statuses()).toMatchObject({ splates: "shipping" });
-		expect(project("splates").bumps.added).toHaveLength(1);
-		expect(project("splates").starts).toBe(2);
-	});
-
-	it("adds a new bump task on a retry of a project whose bump was removed", async () => {
-		await cascades.start("webappwiz");
-		await shipped("webappwiz", "0.0.51");
-		project("mdom").bumps.states.set(project("mdom").bump(), "removed");
-		await cascades.tick();
-
-		const again = await cascades.retry("mdom");
-
-		expect(again.steps.find((step) => step.slug === "mdom")).toMatchObject({
-			status: "bumping",
-			task: 102,
-			note: null,
-		});
-		expect(project("mdom").bumps.added).toHaveLength(2);
-	});
-
-	it("hands a failed project to an agent, then ships it again once the fix merges", async () => {
-		await cascades.start("webappwiz");
-		project("webappwiz").end("failed");
-		await cascades.tick();
-
-		const handed = await cascades.fix("webappwiz");
-
-		expect(handed.steps[0]).toMatchObject({ status: "failed", fix: 201 });
-		expect(project("webappwiz").bumps.fixes[0]?.text).toContain("wiz dev ship");
-		expect(project("webappwiz").starts).toBe(1);
-		const twice = await cascades.fix("webappwiz").catch((error) => error);
-		expect((twice as Exit).reason).toBe("conflict");
-
-		project("webappwiz").bumps.states.set(201, "merged");
-		await cascades.tick();
-
-		expect(project("webappwiz").starts).toBe(2);
-		expect((await cascades.current())?.steps[0]).toMatchObject({
-			status: "shipping",
-			fix: null,
-		});
-	});
-
-	it("leaves a project failed, unlinked, once its fix task is removed", async () => {
-		await cascades.start("webappwiz");
-		project("webappwiz").end("failed");
-		await cascades.tick();
-		await cascades.fix("webappwiz");
-
-		project("webappwiz").bumps.states.set(201, "removed");
-		await cascades.tick();
-
-		expect((await cascades.current())?.steps[0]).toMatchObject({
-			status: "failed",
-			fix: null,
-		});
-		expect(project("webappwiz").starts).toBe(1);
 	});
 
 	it("refuses to fix a project that neither failed, stopped nor hung", async () => {
@@ -375,7 +296,7 @@ describe("Cascades", () => {
 			status: "failed",
 			note: "its ship published 0.1.0, not the approved 0.0.51",
 		});
-		expect(await statuses()).toMatchObject({ mdom: "waiting" });
+		expect(await statuses()).toMatchObject({ mdom: "abandoned" });
 	});
 
 	it("answers with the cascade under way rather than starting another", async () => {

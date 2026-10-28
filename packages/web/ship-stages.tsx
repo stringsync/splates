@@ -12,6 +12,7 @@ import { shipStageLog } from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { ShipOutput } from "./ship-badge";
+import { plain } from "./work-timeline";
 
 const AMBER = "text-amber-600 dark:text-amber-400";
 const SECOND = Duration.secs(1);
@@ -23,14 +24,17 @@ export function StageRow({
 	stage,
 	ship,
 	live,
+	opened = false,
 }: {
 	cascade: Cascade;
 	step: CascadeStep;
 	stage: Stage;
 	ship: Ship | null;
 	live: boolean;
+	/** Whether its log shows from the start, as a failed step's does. */
+	opened?: boolean;
 }): JSX.Element {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(opened);
 	const going = live && ONGOING.includes(stage.state);
 	const now = useNow(going, SECOND);
 	const spent =
@@ -48,7 +52,9 @@ export function StageRow({
 				className={cn(
 					"flex flex-wrap items-center gap-x-2 text-left text-xs",
 					stage.state === "asking" && AMBER,
-					stage.state === "hung" && "text-destructive",
+					(stage.state === "hung" || stage.state === "failed") &&
+						"text-destructive",
+					stage.state === "skipped" && "text-muted-foreground/60 line-through",
 				)}
 			>
 				<span aria-hidden>{ICONS[stage.state]}</span>
@@ -109,7 +115,7 @@ function StageLog({
 	}
 	return (
 		<pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
-			{text ?? "Reading the log…"}
+			{text === null ? "Reading the log…" : plain(text)}
 		</pre>
 	);
 }
@@ -125,7 +131,7 @@ const STAGE_STATES: Record<StageState, string> = {
 	hung: "past its deadline",
 	done: "done",
 	failed: "failed",
-	skipped: "skipped",
+	skipped: "",
 };
 
 const ICONS: Record<StageState, JSX.Element | string> = {

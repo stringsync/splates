@@ -72,6 +72,7 @@ export {
 	fixInCascade,
 	retryInCascade,
 	reviseCascadeBump,
+	shipGraph,
 	shipHistory,
 	shipHistoryEntry,
 	shipPlan,

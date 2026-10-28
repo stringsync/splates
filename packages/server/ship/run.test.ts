@@ -4,7 +4,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
-import { Shipping } from "./run";
+import { inTerminal, Shipping, typedCodeError } from "./run";
 import { nth, until } from "./testing";
 
 describe("Shipping", () => {
@@ -29,9 +29,15 @@ describe("Shipping", () => {
 			status: "running",
 			bump: "minor",
 		});
-		expect(ps.getCalls()).toEqual(["npm whoami", "sh -c wiz dev ship"]);
+		expect(ps.getCalls()).toEqual([
+			"npm whoami",
+			inTerminal("wiz dev ship").join(" "),
+		]);
 		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
-		expect(ps.getCallEnvs()).toEqual([{}, { SPLATES_SHIP_BUMP: "minor" }]);
+		expect(ps.getCallEnvs()).toEqual([
+			{},
+			{ npm_config_browser: "false", SPLATES_SHIP_BUMP: "minor" },
+		]);
 		expect(await shipping.current()).toMatchObject({
 			status: "done",
 			step: "ship",
@@ -39,6 +45,23 @@ describe("Shipping", () => {
 			ended: "2026-10-27T12:00:00.000Z",
 		});
 		expect(await fs.read(shipping.output)).toBe("published 0.1.0\n");
+	});
+
+	it("gives npm a terminal, without which it fails a publish's second factor rather than asking", () => {
+		expect(inTerminal("wiz dev ship", "darwin")).toEqual([
+			"script",
+			"-q",
+			"/dev/null",
+			"sh",
+			"-c",
+			"stty -echo 2>/dev/null; wiz dev ship",
+		]);
+		expect(inTerminal("wiz dev ship", "linux")).toEqual([
+			"script",
+			"-qfec",
+			"stty -echo 2>/dev/null; wiz dev ship",
+			"/dev/null",
+		]);
 	});
 
 	it("signs in through npm's web page first, showing its link until npm moves on", async () => {
@@ -51,7 +74,9 @@ describe("Shipping", () => {
 		);
 		await until(async () => (await shipping.current())?.waiting !== null);
 
-		expect(ps.getCalls()).toContain("npm login --auth-type=web");
+		expect(ps.getCalls()).toContain(
+			inTerminal("npm login --auth-type=web").join(" "),
+		);
 		expect((await shipping.current())?.waiting).toMatchObject({
 			kind: "login",
 			url: "https://www.npmjs.com/login?next=/login/cli/abc",
@@ -87,24 +112,18 @@ describe("Shipping", () => {
 		expect(await typed).toBe("y\n");
 	});
 
-	it("types npm's one-time password into the ship once the page sends it", async () => {
+	it("stops a ship npm asks a typed one-time password of, saying how to have npm ask on its page", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
 		const typed = readAll(ship.received);
-		await expect(shipping.answerOtp("123456")).rejects.toBeInstanceOf(Exit);
 		ship.print("This operation requires a one-time password.\nEnter OTP: ");
-		await until(async () => (await shipping.current())?.waiting !== null);
-
-		expect((await shipping.current())?.waiting).toMatchObject({
-			kind: "otp",
-			url: null,
-		});
-
-		await shipping.answerOtp("123456");
-		expect((await shipping.current())?.waiting).toBeNull();
-		ship.exit(0);
 		await shipping.settled();
-		expect(await typed).toBe("123456\n");
+
+		expect(await shipping.current()).toMatchObject({
+			status: "failed",
+			error: typedCodeError(null),
+		});
+		expect(await typed).toBe("");
 	});
 
 	it("keeps the end of the output as why a ship failed", async () => {
@@ -223,7 +242,10 @@ describe("Shipping", () => {
 		(await nth(after, 0)).exit(0);
 		await restarted.settled();
 
-		expect(after.getCallEnvs()[1]).toEqual({ SPLATES_SHIP_BUMP: "major" });
+		expect(after.getCallEnvs()[1]).toEqual({
+			npm_config_browser: "false",
+			SPLATES_SHIP_BUMP: "major",
+		});
 		expect(await restarted.current()).toMatchObject({
 			status: "done",
 			bump: "major",

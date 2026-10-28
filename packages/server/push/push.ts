@@ -143,12 +143,10 @@ export class Pushes {
 		return Response.json({ endpoint });
 	};
 
-	/**
-	 * Compares every open project's rows with the last look, for each device,
-	 * and pushes each notice it wants. A look still going when the next is due
-	 * lets it pass.
-	 */
+	/** Pushes each device the new notices it wants; call it on a timer. */
 	look(): Promise<void> {
+		// Compares every open project's rows with the last look; a call while
+		// a look is going shares it.
 		this.looking ??= this.lookOnce()
 			.catch((error) => {
 				// The next look tries again; one that throws must not take the
@@ -321,8 +319,6 @@ function waitedFor(wait: ShipWait): string {
 			return "npm waits for you to sign in";
 		case "2fa":
 			return "npm waits for your second factor to publish";
-		case "otp":
-			return "npm asks for your one-time password";
 	}
 }
 

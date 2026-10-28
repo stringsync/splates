@@ -778,6 +778,10 @@ export async function dev(
 						POST: talk(guarded(cascadeRoutes.startCascade)),
 					},
 					"/api/ship/plan": guarded(cascadeRoutes.plan),
+					// Who pins whose packages, the tree the Ship page ships from.
+					"/api/ship/graph": guarded(async () =>
+						Response.json(await registeredGraph({ projects, fs, log })),
+					),
 					"/api/ship/cascade": {
 						GET: guarded(cascadeRoutes.cascade),
 						PATCH: talk(guarded(cascadeRoutes.reviseCascadeBump)),
@@ -799,9 +803,6 @@ export async function dev(
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
 					"/api/ship/history/:id/log": guarded(cascadeRoutes.historyLog),
-					"/api/ship/otp": {
-						POST: talk(scoped((project) => project.answerShipOtp)),
-					},
 					"/api/ship/output": scoped((project) => project.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),

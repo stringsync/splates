@@ -3,6 +3,7 @@ import type {
 	CascadeSummary,
 	Ship,
 	ShipBump,
+	ShipGraph,
 	ShipPlan,
 	StageKey,
 } from "@stringsync/splates-server/ship";
@@ -45,6 +46,15 @@ export async function shipPlan(
 		);
 	}
 	return body;
+}
+
+/** Every registered project and who pins whose packages, the Ship page's tree. */
+export async function shipGraph(): Promise<ShipGraph> {
+	const response = await answered("/api/ship/graph");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/graph: ${response.status}`);
+	}
+	return (await response.json()) as ShipGraph;
 }
 
 /** Changes a pending publish in the cascade under way to `bump`. */

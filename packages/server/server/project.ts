@@ -444,8 +444,6 @@ export interface Served extends AsyncResource {
 	shipping: Shipping;
 	/** The project's bump tasks in a cascade. */
 	bumps: Bumps;
-	/** Types npm's one-time password into the ship. */
-	answerShipOtp: Handler;
 	/** What its latest ship printed, as it prints. */
 	shipOutput: Handler;
 	listCreds: Handler;

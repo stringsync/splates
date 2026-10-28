@@ -396,7 +396,7 @@ function Edits({
 }
 
 /** Output without the terminal's color codes. */
-function plain(output: string): string {
+export function plain(output: string): string {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: escape codes are what it strips
 	return output.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "");
 }

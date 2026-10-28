@@ -135,7 +135,7 @@ export const PAGES: {
 		Icon: ChartColumnIcon,
 		scope: "everywhere",
 	},
-	{ value: "ships", label: "Ships", Icon: PackageIcon, scope: "everywhere" },
+	{ value: "ships", label: "Ship", Icon: PackageIcon, scope: "everywhere" },
 	{
 		value: "evals",
 		label: "Evals",
