@@ -25,9 +25,12 @@ import { LaneIcon, TaskIcon } from "./task-icon";
 /** A single action and subject, centered between the event's two hairlines. */
 export function SplatesEvent({
 	event,
+	lead,
 	children,
 }: {
 	event: SplatesEventView;
+	/** A logo before the verb. */
+	lead?: ReactNode;
 	children?: ReactNode;
 }): JSX.Element | null {
 	const { deadline = null } = event;
@@ -45,7 +48,9 @@ export function SplatesEvent({
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
-				<Line event={event}>{children}</Line>
+				<Line event={event} lead={lead}>
+					{children}
+				</Line>
 				<Rule />
 			</div>
 		</div>
@@ -156,9 +161,11 @@ export interface Act {
  */
 function Line({
 	event,
+	lead,
 	children,
 }: {
 	event: SplatesEventView;
+	lead?: ReactNode;
 	children?: ReactNode;
 }): JSX.Element {
 	const { mark = null, act = null } = event;
@@ -167,6 +174,7 @@ function Line({
 			title={event.title}
 			className="flex min-w-0 max-w-[calc(100%-4.5rem)] items-center justify-center gap-1.5 whitespace-nowrap [&>a]:max-w-44 [&>button]:max-w-44 [&>span:has(svg)]:max-w-44"
 		>
+			{lead}
 			{mark === "failed" && (
 				<XIcon
 					aria-label="Failed"

@@ -1,5 +1,6 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
 import { type JSX, useState } from "react";
+import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import { Button } from "./components/ui/button";
 import {
 	Popover,
@@ -53,6 +54,13 @@ export function AutoPickLine({
 		<div>
 			<SplatesEvent
 				event={{ words: [lifted === null ? "Picked" : "Switched"] }}
+				lead={
+					lifted === null ? (
+						<AutoIcon colored className="size-3.5 shrink-0" />
+					) : (
+						<AutoAgentMark agent={event.agent} className="size-3.5" />
+					)
+				}
 			>
 				<Popover>
 					<PopoverTrigger
