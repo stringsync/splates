@@ -8,7 +8,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { autoAddress, newAddress } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
@@ -69,7 +69,7 @@ export function AgentPicker({
 						className="max-md:h-11"
 						onClick={() => onOpen(newAddress(each.id, task), "replace")}
 					>
-						<AgentIcon agent={each.id} name={each.name} />
+						<AgentMark agent={each.id} name={each.name} />
 						{each.name}
 					</DropdownMenuItem>
 				))}

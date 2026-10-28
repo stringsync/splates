@@ -12,7 +12,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
 import { evalRun } from "./api";
 import { still, touchItems } from "./board";
 import { Dispatching } from "./dispatching";
@@ -115,7 +115,7 @@ export function ImproveMenu({
 						<DropdownMenuLabel>Improve with</DropdownMenuLabel>
 						{dispatch.agents.map((each) => (
 							<DropdownMenuItem key={each.id} onClick={() => improve(each.id)}>
-								<AgentIcon agent={each.id} name={each.name} />
+								<AgentMark agent={each.id} name={each.name} />
 								{each.name}
 							</DropdownMenuItem>
 						))}

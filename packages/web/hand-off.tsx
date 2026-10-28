@@ -11,18 +11,13 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
 import { still, touchItems } from "./board";
 import { handOffConversation, restartConversation } from "./conversation-api";
 import { Dispatching } from "./dispatching";
 import type { Refuse } from "./refusal";
 
-/**
- * Hands the task of `conversation` to a new conversation with the agent
- * picked: its own agent stops and it moves to the main tree, and the new one
- * is told to claim the task, with what the old one said last to read, so it
- * needs nothing from an agent that is stuck or dead. Opens the new one.
- */
+/** Choose another agent to continue this task in a new conversation. */
 export function HandOffItems({
 	conversation,
 	refused,
@@ -51,7 +46,7 @@ export function HandOffItems({
 			<DropdownMenuLabel>Hand to a new conversation with</DropdownMenuLabel>
 			{dispatch.agents.map((each) => (
 				<DropdownMenuItem key={each.id} onClick={() => handOff(each.id)}>
-					<AgentIcon agent={each.id} name={each.name} />
+					<AgentMark agent={each.id} name={each.name} />
 					{each.name}
 				</DropdownMenuItem>
 			))}

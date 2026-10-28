@@ -96,6 +96,10 @@ describe("App's new conversations not started yet", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 		);
+		const claude = await waitFor(() =>
+			view.getByRole("menuitem", { name: /Claude/ }),
+		);
+		expect(claude.querySelector('path[fill="#D97757"]')).toBeTruthy();
 		await clickShown(() => view.getByRole("menuitem", { name: /Codex/ }));
 
 		expect(location.hash).toBe("#conversations/new/codex");

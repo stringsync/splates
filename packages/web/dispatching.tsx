@@ -25,7 +25,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
 import { still, touchArea, touchItems } from "./board";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { useConversationIndex } from "./conversation-index";
@@ -150,7 +150,7 @@ export function OnIt({
 				}
 				// Only rows, with room for the name, show whose agent it is.
 				const icon = variant === "rows" && (
-					<AgentIcon
+					<AgentMark
 						agent={conversation.agent}
 						name={dispatch.agentName(conversation.agent)}
 						className="size-3.5 text-foreground/70"
@@ -259,13 +259,13 @@ function AssigneeItems({
 						checked={is({ agent: each.id })}
 						onCheckedChange={() => onPick({ agent: each.id })}
 					>
-						<AgentIcon agent={each.id} name={each.name} />
+						<AgentMark agent={each.id} name={each.name} />
 						{each.name}
 					</DropdownMenuCheckboxItem>
 				) : (
 					<DropdownMenuSub key={each.id}>
 						<DropdownMenuSubTrigger>
-							<AgentIcon agent={each.id} name={each.name} />
+							<AgentMark agent={each.id} name={each.name} />
 							<span className="flex-1">{each.name}</span>
 							{assignee?.agent === each.id && (
 								<CheckIcon className="size-3.5" />
@@ -372,7 +372,7 @@ export function AssigneeMenu({
 				{assignee === null ? (
 					<UserIcon data-icon="inline-start" />
 				) : (
-					<AgentIcon
+					<AgentMark
 						agent={assignee.agent}
 						name={context.dispatch.agentName(assignee.agent)}
 					/>

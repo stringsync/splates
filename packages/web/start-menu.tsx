@@ -15,7 +15,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon, AgentMark } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import { useNameOf } from "./conversation-names";
@@ -217,7 +217,7 @@ export function StartItems({
 							void dispatch.begin(set, assignment).then(context.open);
 						}}
 					>
-						<AgentIcon agent={set.agent} name={dispatch.agentName(set.agent)} />
+						<AgentMark agent={set.agent} name={dispatch.agentName(set.agent)} />
 						<span className="min-w-0 flex-1 truncate">
 							{dispatch.pickName(set)}
 						</span>
@@ -240,7 +240,7 @@ export function StartItems({
 						key={each.id}
 						onClick={() => open(dispatch.start(each.id, assignment))}
 					>
-						<AgentIcon agent={each.id} name={each.name} />
+						<AgentMark agent={each.id} name={each.name} />
 						{each.name}
 					</DropdownMenuItem>
 				))}
@@ -258,7 +258,7 @@ export function StartItems({
 									key={each.id}
 									onClick={() => open(dispatch.link(each.id, assignment))}
 								>
-									<AgentIcon
+									<AgentMark
 										agent={each.agent}
 										name={dispatch.agentName(each.agent)}
 									/>
