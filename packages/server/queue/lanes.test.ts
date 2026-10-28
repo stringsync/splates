@@ -196,6 +196,18 @@ describe.concurrent("a lane queued whole", () => {
 		]);
 	});
 
+	it("pauses once only tasks marked manual are left waiting", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "by hand", null, { lane: 1 });
+		await taskUpdate(deps, 1, { manual: true });
+		await laneUpdate(deps, 1, { queued: true });
+
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+
+		expect((await deps.tasks.lanes())[1]?.queued).toBeUndefined();
+	});
+
 	it("queues no more than its budget until the person approves more", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");

@@ -13,8 +13,8 @@ import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
 /**
- * The lanes of a `Tasks`: their records in `lanes` beside the tasks, and every
- * change that moves tasks between them, each made under the tasks' lock.
+ * Creates, changes and removes the lanes of a `Tasks`, moves tasks between
+ * them, and queues the tasks of a queued lane. Each change is atomic.
  */
 export class TaskLanes {
 	constructor(private readonly tasks: Tasks) {}
@@ -230,7 +230,8 @@ export class TaskLanes {
 	 * Queues each task of a queued lane that can start now: nobody has it,
 	 * nothing blocks it, it has not started, and the person has neither taken
 	 * it out of the queue nor marked it only theirs to queue (`TaskRecord.manual`).
-	 * A queued lane no task is left in is queued no more. Gives back the
+	 * A queued lane with no task left waiting, not counting those marked
+	 * only the person's to queue, is queued no more: it pauses. Gives back the
 	 * tasks it queued.
 	 */
 	async queueFromLanes(): Promise<TaskRecord[]> {
@@ -246,7 +247,14 @@ export class TaskLanes {
 				if (record.queued !== true) {
 					return record;
 				}
-				if (!states.some((state) => state.lane === record.id)) {
+				if (
+					!states.some(
+						(state) =>
+							state.lane === record.id &&
+							(state.stage === "backlog" || state.stage === "ready") &&
+							state.manual !== true,
+					)
+				) {
 					ended = true;
 					const { queued: _, skip: __, budget: ___, ...rest } = record;
 					return rest;
