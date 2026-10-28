@@ -104,7 +104,7 @@ export class WorktreeService {
 		if (id === undefined) {
 			return undefined;
 		}
-		const [start] = await this.conversationLog(id).replay();
+		const start = await this.conversationLog(id).first();
 		return start?.kind === "start" ? start.persistent : undefined;
 	}
 

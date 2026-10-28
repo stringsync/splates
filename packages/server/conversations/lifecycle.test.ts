@@ -710,6 +710,7 @@ describe("Conversation lifecycle", () => {
 		).toEqual(["start", "session", "settings", "prompt", "turn", "update"]);
 		await conversation.stop();
 		const lines = (await fs.read(log)).trim().split("\n");
+		// The two chunks saved together are saved as one.
 		expect(lines.map((line) => JSON.parse(line).kind)).toEqual([
 			"start",
 			"session",
@@ -718,11 +719,11 @@ describe("Conversation lifecycle", () => {
 			"turn",
 			"update",
 			"update",
-			"update",
 			"turn",
 			"unread",
 			"end",
 		]);
+		expect(JSON.parse(lines[6] ?? "").update.content.text).toBe("bc");
 	});
 
 	// scry-ignore simple-test-setup: only this test needs a real repository and a git command watcher

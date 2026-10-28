@@ -4,9 +4,8 @@ import type { SqliteDb } from "./sqlite-db";
 import { decode, encode, inRange, rangeParams } from "./sqlite-keys";
 
 /**
- * A collection kept as the rows directly under its key: records and blobs,
- * and, as a directory holds its files, the logs kept there, which `list`
- * names and `read` gives as their lines.
+ * A collection for `SqliteStorage`: open one with `SqliteStorage.collection`,
+ * `list` to name what is in it, logs included, and `read` a log as its lines.
  */
 export class SqliteCollection implements Collection {
 	constructor(
@@ -54,7 +53,24 @@ export class SqliteCollection implements Collection {
 	}
 
 	async list(): Promise<string[]> {
-		return (await this.entries()).map((entry) => entry.name);
+		// Names only: the sizes `entries` sums read every line of every log.
+		const params = rangeParams(this.at);
+		const from = this.at === "" ? 1 : this.at.length + 2;
+		return this.db.db
+			.query<
+				{ name: string },
+				[number, ...typeof params, number, ...typeof params]
+			>(
+				`SELECT name FROM (
+					SELECT substr(key, ?) AS name FROM kv
+					WHERE ${inRange("key")}
+					UNION ALL
+					SELECT DISTINCT substr(log, ?) AS name
+					FROM entries WHERE segment IS NULL AND ${inRange("log")}
+				) WHERE instr(name, '/') = 0 ORDER BY name`,
+			)
+			.all(from, ...params, from, ...params)
+			.map((row) => row.name);
 	}
 
 	async entries(): Promise<CollectionEntry[]> {

@@ -132,6 +132,36 @@ describe.each([
 			expect(await log.replay()).toEqual([{ n: 1 }, { n: 2 }]);
 		});
 
+		it("reads its first entry, and none once empty", async () => {
+			const log = (await open()).log<number>("log.jsonl");
+			expect(await log.first()).toBeNull();
+
+			await log.append(1, 2);
+
+			expect(await log.first()).toBe(1);
+		});
+
+		it("compacts its entries in place, ahead of those appended after", async () => {
+			const log = (await open()).log<number>("log.jsonl");
+			await log.append(1, 2, 3);
+
+			await log.compact((entries) => [
+				entries.reduce((sum, each) => sum + each),
+			]);
+			await log.append(4);
+
+			expect(await log.replay()).toEqual([6, 4]);
+		});
+
+		it("leaves a log alone when compacting would not shorten it", async () => {
+			const log = (await open()).log<number>("log.jsonl");
+			await log.append(1, 2);
+
+			await log.compact((entries) => [...entries, 3]);
+
+			expect(await log.replay()).toEqual([1, 2]);
+		});
+
 		it("moves its entries into a segment on rotating", async () => {
 			const log = (await open()).log<number>("log.jsonl", { segments: "log" });
 			await log.append(1, 2);

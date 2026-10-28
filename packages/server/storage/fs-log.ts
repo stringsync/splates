@@ -1,14 +1,12 @@
 import { dirname } from "node:path";
 import type { Fs } from "webappwiz/system";
-import { readIfThere } from "./atomic";
+import { readIfThere, replace } from "./atomic";
 import { entriesOf, logLines } from "./json";
 import type { Log, Segment } from "./log";
 import type { Schema } from "./schema";
 
-/**
- * A log kept as a JSON-lines file, its segments as files named for when they
- * were rotated in a directory of their own, as the journal keeps them.
- */
+/** A log for `FsStorage`: open one with `FsStorage.log` and use it as any `Log`. */
+// Its segments sit in a directory of their own, as the journal keeps them.
 export class FsLog<T> implements Log<T> {
 	/** Whether the file's directory is known to be there. */
 	private made = false;
@@ -46,6 +44,23 @@ export class FsLog<T> implements Log<T> {
 		const raw = await this.read(this.path);
 		this.torn = raw !== "" && !raw.endsWith("\n");
 		return entriesOf(raw, this.schema);
+	}
+
+	async first(): Promise<T | null> {
+		return (await this.replay())[0] ?? null;
+	}
+
+	async compact(merge: (entries: T[]) => T[]): Promise<void> {
+		const entries = await this.replay();
+		const merged = merge(entries);
+		if (merged.length >= entries.length) {
+			return;
+		}
+		// A file has no transaction: an append from another process between
+		// the read and the rename is lost, which the one server writing a
+		// conversation's log never makes.
+		await replace(this.fs, this.path, logLines(merged));
+		this.torn = false;
 	}
 
 	async rotate(): Promise<Segment | null> {

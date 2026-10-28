@@ -3,10 +3,8 @@ import type { Log, Segment } from "./log";
 import type { Schema } from "./schema";
 import type { SqliteDb } from "./sqlite-db";
 
-/**
- * A log kept one entry per row, each owned by the log's key until rotated,
- * then by its segment's, so a crash mid-append tears no line.
- */
+/** A log kept in a `SqliteStorage`, as `SqliteStorage.log` opens one. */
+// One entry per row, owned by the log's key until rotated, then by its segment's.
 export class SqliteLog<T> implements Log<T> {
 	constructor(
 		readonly key: string,
@@ -48,6 +46,45 @@ export class SqliteLog<T> implements Log<T> {
 			this.lines("log = ? AND segment IS NULL", this.at),
 			this.schema,
 		);
+	}
+
+	async first(): Promise<T | null> {
+		const row = this.db.db
+			.query<{ line: string }, [string]>(
+				"SELECT line FROM entries WHERE log = ? AND segment IS NULL ORDER BY id LIMIT 1",
+			)
+			.get(this.at);
+		const [entry] = entriesOf(row === null ? "" : row.line, this.schema);
+		// A torn first line is left out, as `replay` leaves it.
+		return entry ?? (row === null ? null : ((await this.replay())[0] ?? null));
+	}
+
+	async compact(merge: (entries: T[]) => T[]): Promise<void> {
+		this.db.write(() => {
+			const rows = this.db.db
+				.query<{ id: number; line: string }, [string]>(
+					"SELECT id, line FROM entries WHERE log = ? AND segment IS NULL ORDER BY id",
+				)
+				.all(this.at);
+			const merged = merge(
+				entriesOf(rows.map((row) => `${row.line}\n`).join(""), this.schema),
+			);
+			if (merged.length >= rows.length) {
+				return [];
+			}
+			// Kept in the oldest rows' ids, so whatever is appended later stays after.
+			const update = this.db.db.query(
+				"UPDATE entries SET line = ? WHERE id = ?",
+			);
+			merged.forEach((entry, index) => {
+				update.run(JSON.stringify(entry), rows[index]?.id ?? 0);
+			});
+			const remove = this.db.db.query("DELETE FROM entries WHERE id = ?");
+			for (const row of rows.slice(merged.length)) {
+				remove.run(row.id);
+			}
+			return [this.at];
+		});
 	}
 
 	async rotate(): Promise<Segment | null> {

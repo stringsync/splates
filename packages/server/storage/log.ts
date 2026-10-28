@@ -1,9 +1,9 @@
 import type { Schema } from "./schema";
 
 /**
- * Entries appended and never rewritten, so two writers at once both keep
- * theirs. A full log is rotated: its entries move aside as a segment, which
- * is read back on its own and dropped once old.
+ * Entries a store keeps in order: `append` to it, even from two writers at
+ * once, `replay` it, `rotate` it once full, and `compact` it once its entries
+ * fold into fewer.
  */
 export interface Log<T> {
 	readonly key: string;
@@ -20,6 +20,15 @@ export interface Log<T> {
 	 * next append keeps clear of it.
 	 */
 	replay(): Promise<T[]>;
+	/** The first entry since the last rotation, as `replay` reads it, without reading the rest; null for none. */
+	first(): Promise<T | null>;
+	/**
+	 * Rewrites the entries since the last rotation as `merge` folds them into
+	 * fewer, in one write, for entries that say no more than fewer would:
+	 * those appended meanwhile stay after them. Nothing changes when `merge`
+	 * returns as many as it was given.
+	 */
+	compact(merge: (entries: T[]) => T[]): Promise<void>;
 	/**
 	 * Moves the entries since the last rotation aside as a segment, returning
 	 * it, or null when there were none. Two rotating at once is harmless: the

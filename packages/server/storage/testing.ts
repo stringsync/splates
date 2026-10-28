@@ -100,6 +100,14 @@ export class MemoryStorage implements Storage {
 				}
 			},
 			replay: async () => entriesOf(this.text(at) ?? "", opts.schema),
+			first: async () => entriesOf(this.text(at) ?? "", opts.schema)[0] ?? null,
+			compact: async (merge) => {
+				const entries = entriesOf(this.text(at) ?? "", opts.schema);
+				const merged = merge(entries);
+				if (merged.length < entries.length) {
+					this.set(at, logLines(merged), true);
+				}
+			},
 			rotate: async () => {
 				const raw = this.text(at);
 				if (raw === null) {
