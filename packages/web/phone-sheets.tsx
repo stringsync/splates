@@ -22,7 +22,6 @@ import { raises } from "#web/hooks/use-touch.ts";
 import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
 import { useArrived } from "./arrivals";
-import { lineCard } from "./board";
 import { useCardReply } from "./card-reply";
 import { CARD_SPACE, TONES, type Tone } from "./card-shell";
 import { backTo } from "./page-address";
@@ -325,6 +324,13 @@ function reveal(sheet: HTMLElement): void {
 }
 
 /**
+ * A waiting card's line in a phone's thread and the bar above its composer
+ * alike, dressed as the merged card's Archive row is.
+ */
+const LINE =
+	"group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs";
+
+/**
  * Above the composer of a phone's thread, the newest card waiting on you, a
  * tap from its sheet: so what needs you is never a scroll away. None while
  * that card's own line is in sight, which opens the same sheet.
@@ -341,13 +347,7 @@ export function NeedsYouBar(): ReactNode {
 	// Its own landmark, apart from the line in the thread that reads the same.
 	return (
 		<aside aria-label="Waiting on you">
-			<button
-				type="button"
-				onClick={() => open()}
-				className={cn(
-					"group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs",
-				)}
-			>
+			<button type="button" onClick={() => open()} className={LINE}>
 				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 				<span className="min-w-0 flex-1 truncate">{title}</span>
 				<Action label={action} />
@@ -420,14 +420,10 @@ function SheetLine({
 			ref={ref}
 			type="button"
 			onClick={onOpen}
-			className={cn(
-				"group flex w-full items-center gap-3 rounded-xl border bg-card pl-4 text-left shadow-xs",
-				lineCard,
-				CARD_SPACE,
-			)}
+			className={cn(LINE, CARD_SPACE)}
 		>
-			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
+			<span className="min-w-0 flex-1 truncate">{title}</span>
 			<Action label={action} />
 		</button>
 	);
