@@ -161,7 +161,12 @@ export function failedTests(output: string): FailedTest[] {
 	let start = 0;
 	let file: string | undefined;
 	lines.forEach((line, index) => {
-		file = FILE_LINE.exec(line)?.[1] ?? file;
+		const header = FILE_LINE.exec(line)?.[1];
+		if (header !== undefined) {
+			file = header;
+			// a file's output starts over here: nothing above is its own
+			start = index + 1;
+		}
 		if (UNHANDLED_LINE.test(line)) {
 			const name = `${UNHANDLED}${file === undefined ? "" : ` in ${file}`}`;
 			const error = unhandled(lines.slice(index + 1));
@@ -181,6 +186,7 @@ export function failedTests(output: string): FailedTest[] {
 				name,
 				lines
 					.slice(Math.max(start, index - MESSAGE_LINES), index)
+					.filter((above) => !PASS_LINE.test(above))
 					.concat(afterFail(lines[index + 1]))
 					.join("\n")
 					.trim(),
@@ -220,6 +226,8 @@ const UNHANDLED_LINE = /^\s*# Unhandled error between tests\s*$/;
 const RULE_LINE = /^-{3,}\s*$/;
 // bun heads each file's output with its path
 const FILE_LINE = /^(\S+\.(?:test|spec)\.[cm]?[jt]sx?):\s*$/;
+// a passing test's line is never part of a failure's message
+const PASS_LINE = /^\s*(?:\(pass\)|✓)\s/;
 const FAIL_LINE = /^\s*(?:\(fail\)|✗)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;
 
 /** The most lines kept of what one failed test said. */

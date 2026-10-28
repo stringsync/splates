@@ -68,6 +68,24 @@ describe("test reports", () => {
 		);
 	});
 
+	it("keeps a failed test's message to its own file and drops passing lines", () => {
+		const output = [
+			"packages/a/a.test.ts:",
+			"✓ CoverageTable > renders [1.00ms]",
+			"(pass) a > fine [1.00ms]",
+			"packages/a/b.test.ts:",
+			"✓ b > fine [1.00ms]",
+			"Expected: 1",
+			"Received: 2",
+			"(pass) b > ok [1.00ms]",
+			"(fail) b > broken [2.00ms]",
+		].join("\n");
+
+		expect(failedTests(output)).toEqual([
+			{ name: "b > broken", message: "Expected: 1\nReceived: 2" },
+		]);
+	});
+
 	it("names an error thrown between tests for the file it came from, with what it said", () => {
 		const output = [
 			"packages/a/b.test.ts:",
