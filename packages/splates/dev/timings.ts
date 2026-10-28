@@ -22,6 +22,25 @@ export class TestTimings {
 		return join(this.gitDir, `splates-test-timings-${half}.json`);
 	}
 
+	/** The page's share of both halves' kept timing sums, or null when either is unavailable. */
+	async pageShare(): Promise<number | null> {
+		const [server, page] = await Promise.all([
+			this.readable(this.path("server")),
+			this.readable(this.path("page")),
+		]);
+		if (server === null || page === null) {
+			return null;
+		}
+		const total = (timings: string) =>
+			Object.values(
+				(JSON.parse(timings) as { files: Record<string, number> }).files,
+			).reduce((sum, ms) => sum + ms, 0);
+		const serverMs = total(server);
+		const pageMs = total(page);
+		const totalMs = serverMs + pageMs;
+		return totalMs > 0 ? pageMs / totalMs : null;
+	}
+
 	/**
 	 * The arguments that order a run of `half` by its kept timings and, when
 	 * `scratch` is given, measure them afresh into a copy there, which

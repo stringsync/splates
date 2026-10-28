@@ -6,6 +6,28 @@ const TIMINGS = JSON.stringify({ version: 1, files: { "a.test.ts": 900 } });
 const MEASURED = JSON.stringify({ version: 1, files: { "a.test.ts": 400 } });
 
 describe("TestTimings", () => {
+	it("gives the page its share of the two halves' timing sums", async () => {
+		const fs = new FakeFs();
+		const timings = new TestTimings(fs, "/repo/.git");
+		await fs.write(
+			timings.path("server"),
+			JSON.stringify({ files: { "a.test.ts": 900, "b.test.ts": 700 } }),
+		);
+		await fs.write(timings.path("page"), MEASURED);
+
+		expect(await timings.pageShare()).toBe(0.2);
+	});
+
+	it("has no page share when either half's timings are unavailable", async () => {
+		const fs = new FakeFs();
+		const timings = new TestTimings(fs, "/repo/.git");
+		expect(await timings.pageShare()).toBeNull();
+		await fs.write(timings.path("server"), TIMINGS);
+		expect(await timings.pageShare()).toBeNull();
+		await fs.write(timings.path("page"), "garbage");
+		expect(await timings.pageShare()).toBeNull();
+	});
+
 	it("orders a run by the kept timings without measuring them", async () => {
 		const fs = new FakeFs();
 		const timings = new TestTimings(fs, "/repo/.git");

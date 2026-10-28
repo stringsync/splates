@@ -37,6 +37,18 @@ describe("onDemand's page chunk", () => {
 		expect(view.queryByRole("alert")).toBeNull();
 	});
 
+	it("renders a loaded page at once when mounted again", async () => {
+		const Page = onDemand(async () => ({ default: () => <p>the page</p> }));
+		const first = render(<Page />);
+		await waitFor(() => expect(first.getByText("the page")).toBeTruthy());
+		first.unmount();
+
+		const second = render(<Page />);
+
+		expect(second.getByText("the page")).toBeTruthy();
+		expect(second.queryByRole("status")).toBeNull();
+	});
+
 	it("says why a chunk that failed did", async () => {
 		const Page = onDemand(async () => {
 			throw new Error("Failed to fetch dynamically imported module");

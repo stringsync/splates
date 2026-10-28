@@ -19,11 +19,14 @@ import { ReadFailed, StillWaiting } from "./countdown";
 export function onDemand<Props extends object>(
 	load: () => Promise<{ default: ComponentType<Props> }>,
 ): (props: Props) => JSX.Element {
+	let Loaded: ComponentType<Props> | null = null;
 	const loaded = () =>
 		lazy(async () => {
 			const timeout = expiring(WAITS.answer);
 			try {
-				return await aborts.race(timeout.signal, load());
+				const module = await aborts.race(timeout.signal, load());
+				Loaded = module.default;
+				return module;
 			} catch (error) {
 				reloadForNewBuild(error);
 				throw error;
@@ -33,14 +36,21 @@ export function onDemand<Props extends object>(
 		});
 	return function OnDemand(props: Props): JSX.Element {
 		// A rejected chunk stays rejected in its `lazy`: Try again makes another.
-		const [{ Page, attempt }, setTry] = useState(() => ({
-			Page: loaded(),
+		const [{ Page, attempt, cached }, setTry] = useState(() => ({
+			Page: Loaded ?? loaded(),
 			attempt: 0,
+			cached: Loaded !== null,
 		}));
+		if (cached) {
+			/* biome-ignore lint/suspicious/noExplicitAny: Props only ties load to the component */
+			return <Page {...(props as any)} />;
+		}
 		return (
 			<ChunkFailed
 				key={attempt}
-				onRetry={() => setTry({ Page: loaded(), attempt: attempt + 1 })}
+				onRetry={() =>
+					setTry({ Page: loaded(), attempt: attempt + 1, cached: false })
+				}
 			>
 				<Suspense fallback={<StillWaiting />}>
 					{/* biome-ignore lint/suspicious/noExplicitAny: Props only ties load to the component */}

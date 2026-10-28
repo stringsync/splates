@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { joinedReports, sideBySide, test } from "./test";
+import { TestTimings } from "./timings";
 
 const report = (suite: string) =>
 	`<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="1">\n  <testsuite name="${suite}"></testsuite>\n</testsuites>\n`;
@@ -36,6 +37,29 @@ describe("dev test", () => {
 	it("runs a lone run, or one on a single core, alone", () => {
 		expect(sideBySide(["server"], 8)).toBeNull();
 		expect(sideBySide(["server", "page"], 1)).toBeNull();
+	});
+
+	it("splits the cores by the halves' kept timing sums", async () => {
+		const fs = new FakeFs();
+		const timings = new TestTimings(fs, "/repo/.git");
+		await fs.write(
+			timings.path("server"),
+			JSON.stringify({ files: { "a.test.ts": 300 } }),
+		);
+		await fs.write(
+			timings.path("page"),
+			JSON.stringify({ files: { "a.test.ts": 100 } }),
+		);
+		const ps = new FakePs();
+		ps.setEnv({ SPLATES_CORES: "8" });
+
+		await test({ ps, allowed: true, timings });
+
+		const bun = ps.getCalls().filter((call) => call.startsWith("bun test"));
+		expect(bun.map((call) => call.match(/--parallel=(\d+)/)?.[1])).toEqual([
+			"6",
+			"2",
+		]);
 	});
 
 	it("leaves the skipped files out of every run", async () => {

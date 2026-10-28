@@ -185,11 +185,14 @@ export async function test(opts: TestOptions): Promise<void> {
 	// run. Their workers add up to the cores, never more, as the gate
 	// times out under load past them. A run of one worker runs alone, and
 	// `--workers <n>` keeps its word, n to each run, one after the other.
+	const pageShare =
+		(await timings?.pageShare().catch(() => null)) ?? PAGE_SHARE;
 	const split =
 		opts.workers === undefined
 			? sideBySide(
 					runs.map(({ half }) => half),
 					cores,
+					pageShare,
 				)
 			: null;
 	let failed = false;
@@ -332,11 +335,7 @@ export async function test(opts: TestOptions): Promise<void> {
 /** The phase the two halves run within, side by side. */
 const TESTS_PHASE = "tests";
 
-// From the side-by-side gates of 2026-10-26: at three fifths of the cores the
-// page's half still ran 1.4 to 1.7 times as long as the server's (62s to 37s
-// at 9 workers), about twice the server's worker-seconds, so the page takes
-// a little under two thirds.
-/** The share of the cores the page's half runs on, side by side with the server's. */
+/** The page's share when either half has no usable kept timings. */
 export const PAGE_SHARE = 0.65;
 
 /**
@@ -346,11 +345,12 @@ export const PAGE_SHARE = 0.65;
 export function sideBySide(
 	halves: ("server" | "page")[],
 	cores: number,
+	pageShare = PAGE_SHARE,
 ): number[] | null {
 	if (halves.length !== 2 || cores < 2) {
 		return null;
 	}
-	const page = Math.min(cores - 1, Math.max(1, Math.round(cores * PAGE_SHARE)));
+	const page = Math.min(cores - 1, Math.max(1, Math.round(cores * pageShare)));
 	return halves.map((half) => (half === "page" ? page : cores - page));
 }
 
