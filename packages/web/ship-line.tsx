@@ -1,4 +1,4 @@
-import { PackageIcon } from "lucide-react";
+import { ShipIcon } from "lucide-react";
 import type { JSX } from "react";
 import { shipLine } from "./ship-activity";
 import { useLiveShips } from "./use-live-ships";
@@ -19,7 +19,7 @@ export function ShipLine(): JSX.Element | null {
 			title="Follow it on the Ship page"
 			className="mx-4 mb-2 flex items-center gap-1.5 text-muted-foreground text-xs underline-offset-2 hover:underline"
 		>
-			<PackageIcon className="size-3.5" />
+			<ShipIcon className="size-3.5" />
 			<span role="status">{line}</span>
 		</a>
 	);

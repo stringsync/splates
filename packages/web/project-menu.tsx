@@ -2,7 +2,7 @@ import {
 	CopyIcon,
 	EllipsisIcon,
 	ExternalLinkIcon,
-	PackageIcon,
+	ShipIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, use } from "react";
@@ -79,7 +79,7 @@ export function ProjectMenu({
 						title="Shows what the ship would publish, downstream too, before anything runs"
 						onClick={onShip}
 					>
-						<PackageIcon />
+						<ShipIcon />
 						Ship {project.slug}…
 					</DropdownMenuItem>
 				)}

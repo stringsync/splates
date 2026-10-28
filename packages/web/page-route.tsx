@@ -7,7 +7,7 @@ import {
 	KeyRoundIcon,
 	ListChecksIcon,
 	type LucideIcon,
-	PackageIcon,
+	ShipIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useState } from "react";
@@ -135,7 +135,7 @@ export const PAGES: {
 		Icon: ChartColumnIcon,
 		scope: "everywhere",
 	},
-	{ value: "ships", label: "Ship", Icon: PackageIcon, scope: "everywhere" },
+	{ value: "ships", label: "Ship", Icon: ShipIcon, scope: "everywhere" },
 	{
 		value: "evals",
 		label: "Evals",

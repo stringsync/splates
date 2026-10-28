@@ -1,7 +1,7 @@
 import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
 import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { useReactive } from "@webappwiz/react";
-import { LoaderCircleIcon, PackageIcon } from "lucide-react";
+import { LoaderCircleIcon, ShipIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
@@ -144,7 +144,7 @@ export function ShipDialog({
 						{starting ? (
 							<LoaderCircleIcon className="animate-spin" />
 						) : (
-							<PackageIcon />
+							<ShipIcon />
 						)}
 						Approve
 					</Button>
@@ -208,7 +208,7 @@ function PlanProject({
 			)}
 		>
 			<p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-				<PackageIcon className="size-3.5 text-muted-foreground" />
+				<ShipIcon className="size-3.5 text-muted-foreground" />
 				<span className="font-medium">{step.slug}</span>
 				<span
 					className={cn(

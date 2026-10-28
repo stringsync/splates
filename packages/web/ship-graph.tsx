@@ -1,6 +1,6 @@
 import type { ShipGraph, ShipProject } from "@stringsync/splates-server/ship";
 import { changedProjects } from "@stringsync/splates-server/ship/browser";
-import { PackageIcon } from "lucide-react";
+import { ShipIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
@@ -98,7 +98,7 @@ function ShipChanged({
 				title="Shows the plan for every changed project, in dependency order, before anything runs"
 				onClick={onShip}
 			>
-				<PackageIcon />
+				<ShipIcon />
 				Ship all changed
 			</Button>
 		</div>
@@ -120,7 +120,7 @@ function GraphProject({
 				project.uses.length === 0 && "border-primary/25 bg-primary/5",
 			)}
 		>
-			<PackageIcon className="size-3.5 shrink-0 text-muted-foreground" />
+			<ShipIcon className="size-3.5 shrink-0 text-muted-foreground" />
 			<span className="flex min-w-0 flex-col">
 				<span className="flex flex-wrap items-baseline gap-2">
 					<span className="font-medium text-sm">{project.slug}</span>

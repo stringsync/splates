@@ -10,8 +10,8 @@ import {
 import {
 	BanIcon,
 	CheckIcon,
-	PackageIcon,
 	RotateCcwIcon,
+	ShipIcon,
 	TerminalIcon,
 } from "lucide-react";
 import { createContext, type JSX, useContext, useRef, useState } from "react";
@@ -167,7 +167,7 @@ export function RunCommandCard({
 					retry !== null
 						? RotateCcwIcon
 						: ship !== null
-							? PackageIcon
+							? ShipIcon
 							: TerminalIcon
 				}
 				title={proposal.title ?? "Run a command"}
@@ -251,7 +251,7 @@ export function RunCommandCard({
 								) : retry !== null ? (
 									<RotateCcwIcon data-icon="inline-start" />
 								) : ship !== null ? (
-									<PackageIcon data-icon="inline-start" />
+									<ShipIcon data-icon="inline-start" />
 								) : (
 									<CheckIcon data-icon="inline-start" />
 								)}
