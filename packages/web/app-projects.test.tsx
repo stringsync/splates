@@ -205,8 +205,9 @@ describe("App's projects", () => {
 		const screen = within(document.body);
 		await waitFor(() =>
 			expect(
-				screen.getAllByRole("button", { name: /^Switch project/ })[0]
-					?.textContent,
+				screen
+					.getAllByRole("button", { name: /^Switch project/ })[0]
+					?.querySelector("h1")?.textContent,
 			).toBe("shop"),
 		);
 		testing.served = snapshot({ repo: "webappwiz" });
@@ -216,8 +217,9 @@ describe("App's projects", () => {
 		await waitFor(() => expect(location.search).toBe(""));
 		await waitFor(() =>
 			expect(
-				screen.getAllByRole("button", { name: /^Switch project/ })[0]
-					?.textContent,
+				screen
+					.getAllByRole("button", { name: /^Switch project/ })[0]
+					?.querySelector("h1")?.textContent,
 			).toBe("webappwiz"),
 		);
 	});
@@ -325,6 +327,51 @@ describe("App's projects", () => {
 		);
 		expect(view.queryByRole("menuitem", { name: "Open in Cursor" })).toBeNull();
 		localStorage.clear();
+	});
+
+	it("shows the same saved badge in the trigger and row and offers appearance colors", async () => {
+		testing.projects = testing.projects.map((each) => ({
+			...each,
+			color: each.focused ? "purple" : undefined,
+		}));
+		const view = await testing.open();
+		await waitFor(() => {
+			const trigger = view.getAllByRole("button", {
+				name: "Switch project",
+			})[0];
+			expect(
+				trigger?.querySelector<HTMLElement>('[data-project-badge="webappwiz"]')
+					?.style.backgroundColor,
+			).toBe("#7e22ce");
+		});
+		await openSwitcher(view);
+		const projects = await waitFor(() =>
+			view.getByRole("list", { name: "projects" }),
+		);
+		const badge = projects.querySelector<HTMLElement>(
+			'[data-project-badge="webappwiz"]',
+		);
+		expect(badge?.textContent).toBe("W");
+		expect(badge?.style.backgroundColor).toBe("#7e22ce");
+		await openMenu(view, "webappwiz");
+		await clickShown(() => view.getByRole("menuitem", { name: "Appearance" }));
+		await waitFor(() =>
+			expect(
+				view
+					.getByRole("menuitemradio", { name: "Purple" })
+					.getAttribute("aria-checked"),
+			).toBe("true"),
+		);
+		await clickShown(() => view.getByRole("menuitemradio", { name: "Teal" }));
+		await waitFor(() =>
+			expect(testing.posts.at(-1)?.path).toBe(
+				"/api/projects/webappwiz/appearance",
+			),
+		);
+		expect(testing.posts.at(-1)?.method).toBe("PUT");
+		expect(JSON.parse(String(testing.posts.at(-1)?.body))).toEqual({
+			color: "teal",
+		});
 	});
 
 	it("opens the plan to ship a project from its menu", async () => {

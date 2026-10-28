@@ -60,6 +60,7 @@
 		"./probe-runtime": "./probe-runtime.ts",
 		"./spend": "./spend/index.ts",
 		"./projects": "./projects/index.ts",
+		"./projects/browser": "./projects/browser.ts",
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",
 		"./evals": "./evals/index.ts",

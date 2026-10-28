@@ -3,7 +3,6 @@ import { useReactive } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,
-	FolderGit2Icon,
 	HouseIcon,
 	PlusIcon,
 	SearchIcon,
@@ -23,7 +22,12 @@ import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
 import { OpenerContext } from "./openers";
 import { usePendingWrites } from "./pending";
-import { forgetProject, type ProjectChoice } from "./project-api";
+import {
+	forgetProject,
+	type ProjectChoice,
+	setProjectColor,
+} from "./project-api";
+import { ProjectBadge } from "./project-badge";
 import { useProjectList } from "./project-list";
 import { ProjectMenu } from "./project-menu";
 import {
@@ -72,7 +76,7 @@ export function ProjectSwitcher({
 	bar?: boolean;
 	/** Whether it heads the project's pages in a nav, as small as its other headings. */
 	heading?: boolean;
-	/** Whether a folder marks it as the page's project scope. */
+	/** Whether its badge uses the compact size for project scope. */
 	scope?: boolean;
 	/** Where a pick of another project lands, in place of where this tab last left it. */
 	hash?: string;
@@ -205,6 +209,17 @@ export function ProjectSwitcher({
 		}
 	};
 
+	const coloring = usePendingWrites();
+	const changeColor = (
+		each: ProjectChoice,
+		color: Parameters<typeof setProjectColor>[1],
+	) =>
+		coloring
+			.run(each.slug, () => setProjectColor(each.slug, color))
+			.then(
+				() => list.refresh(),
+				(error: unknown) => refused(`${each.slug} appearance not saved`, error),
+			);
 	const forgetting = usePendingWrites();
 	const forget = (each: ProjectChoice) =>
 		forgetting
@@ -260,6 +275,11 @@ export function ProjectSwitcher({
 						/>
 					}
 				>
+					<ProjectBadge
+						name={here?.slug ?? shown ?? name}
+						color={here?.color}
+						small={heading || bar || scope}
+					/>
 					{heading ? (
 						<span className={cn(NAV_HEADING, "px-0")}>{name}</span>
 					) : bar ? (
@@ -267,19 +287,14 @@ export function ProjectSwitcher({
 							{name}
 						</span>
 					) : (
-						<>
-							{scope && (
-								<FolderGit2Icon className="size-4 shrink-0 text-muted-foreground" />
+						<span className="flex min-w-0 flex-col">
+							<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
+							{path && here !== undefined && (
+								<span className="truncate text-muted-foreground text-xs leading-tight">
+									{shortPath(here.root)}
+								</span>
 							)}
-							<span className="flex min-w-0 flex-col">
-								<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
-								{path && here !== undefined && (
-									<span className="truncate text-muted-foreground text-xs leading-tight">
-										{shortPath(here.root)}
-									</span>
-								)}
-							</span>
-						</>
+						</span>
 					)}
 					<span className="ml-auto flex shrink-0 items-center gap-0.5">
 						<ChevronsUpDownIcon
@@ -351,6 +366,7 @@ export function ProjectSwitcher({
 										onClick={() => go(each)}
 										className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-default disabled:opacity-50"
 									>
+										<ProjectBadge name={each.slug} color={each.color} />
 										<span className="flex min-w-0 flex-1 flex-col">
 											<span
 												className={cn(
@@ -387,6 +403,8 @@ export function ProjectSwitcher({
 									<ProjectMenu
 										project={each}
 										current={current(each)}
+										colorPending={coloring.pending(each.slug)}
+										onColor={(color) => void changeColor(each, color)}
 										hidden={!each.gone && at !== active}
 										onCopyPath={() => void copyPath(each)}
 										onShip={() => {

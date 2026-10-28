@@ -1,3 +1,5 @@
+export type { ProjectColor } from "./appearance";
+export { AppearanceRoutes } from "./appearance-routes";
 export { Everywhere } from "./everywhere";
 export type {
 	EverywhereBoard,

@@ -43,6 +43,60 @@ describe("dev projects", () => {
 			body: JSON.stringify(body),
 		});
 
+	it("saves badge colors across registry reads, validates writes and restores automatic", async () => {
+		await using other = await another();
+		await serving(deps, async (_snapshot, port) => {
+			const path = "/api/projects/repo-2/appearance";
+			expect((await write(port, path, "PUT", { color: "purple" })).status).toBe(
+				200,
+			);
+			const listing = await (
+				await fetch(`http://127.0.0.1:${port}/api/projects`)
+			).json();
+			expect(
+				listing.projects.find(
+					(each: { slug: string }) => each.slug === "repo-2",
+				).color,
+			).toBe("purple");
+			expect(
+				(await other.projects.list()).find((each) => each.root === other.root)
+					?.color,
+			).toBe("purple");
+			// Grant changes rewrite the same record and must keep its appearance.
+			await deps.projects.grant(other.root, deps.root, "tasks");
+			await deps.projects.grant(other.root, deps.root, "queue");
+			expect(
+				(await deps.projects.list()).find((each) => each.root === other.root)
+					?.color,
+			).toBe("purple");
+			expect(
+				await Promise.all(
+					[{ color: "invalid" }, {}, { color: 7 }].map(
+						async (body) => (await write(port, path, "PUT", body)).status,
+					),
+				),
+			).toEqual([400, 400, 400]);
+			expect(
+				(
+					await write(port, "/api/projects/missing/appearance", "PUT", {
+						color: "blue",
+					})
+				).status,
+			).toBe(404);
+			expect(
+				(await deps.projects.list()).find((each) => each.root === other.root)
+					?.color,
+			).toBe("purple");
+			expect((await write(port, path, "PUT", { color: null })).status).toBe(
+				200,
+			);
+			expect(
+				(await other.projects.list()).find((each) => each.root === other.root)
+					?.color,
+			).toBeUndefined();
+		});
+	});
+
 	it("replicates a registered project no page has opened", async () => {
 		await using other = await another();
 		const folder = join(tmpdir(), `replica-${crypto.randomUUID()}`);
