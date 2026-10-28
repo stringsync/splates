@@ -117,5 +117,16 @@ describe("Conversation bottom after loading", () => {
 		) as HTMLElement;
 		Object.defineProperty(thread, "clientHeight", { get: () => 500 });
 		await waitFor(() => expect(thread.scrollTop).toBe(1800));
+		// Browsers clamp the initial jump and deliver a scroll event before
+		// late cards, media, or streaming text finish laying out.
+		thread.scrollTop = 1300;
+		await act(async () => fireEvent.scroll(thread));
+		await resize(2400);
+		expect(thread.scrollTop).toBe(2400);
+
+		thread.scrollTop = 400;
+		await act(async () => fireEvent.scroll(thread));
+		await resize(2800);
+		expect(thread.scrollTop).toBe(400);
 	});
 });

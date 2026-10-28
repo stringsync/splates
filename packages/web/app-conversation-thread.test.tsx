@@ -475,6 +475,14 @@ describe("App's conversation thread", () => {
 			let height = 1000;
 			Object.defineProperty(thread, "scrollHeight", { get: () => height });
 			Object.defineProperty(thread, "clientHeight", { get: () => 500 });
+			// Model the browser's clamping for both assistant-ui and work follow.
+			let top = 0;
+			Object.defineProperty(thread, "scrollTop", {
+				get: () => top,
+				set: (next: number) => {
+					top = Math.max(0, Math.min(next, height - 500));
+				},
+			});
 			const scroll = async (top: number) => {
 				thread.scrollTop = top;
 				await act(async () => fireEvent.scroll(thread));
@@ -490,9 +498,9 @@ describe("App's conversation thread", () => {
 			};
 			await scroll(500);
 
-			// Folded, it is the person's to scroll to.
+			// Opened mid-turn, even folded work keeps the latest in view.
 			await grow(100);
-			expect(thread.scrollTop).toBe(500);
+			expect(thread.scrollTop).toBe(600);
 
 			await scroll(600);
 			await act(async () => {

@@ -135,7 +135,6 @@ const ThreadRoot: FC<{
 		};
 	}, []);
 	useTrackRead(viewport, onRead);
-	const running = useAuiState((s) => s.thread.isRunning);
 	const turn = useAnchoredTurn(going);
 	useAnchorAtOnce(viewport, turn);
 	useFollowWork(viewport);
@@ -160,7 +159,7 @@ const ThreadRoot: FC<{
 				// top anchoring otherwise disables this once the first scroll lands.
 				// Only a turn sent from here anchors at the top, so a thread opened
 				// mid-turn opens at its bottom.
-				autoScroll={!running && !going}
+				autoScroll={turn === undefined && !going}
 				turnAnchor={turn === undefined ? "bottom" : "top"}
 				topAnchorMessageClamp={UNCLAMPED}
 				data-slot="aui_thread-viewport"
