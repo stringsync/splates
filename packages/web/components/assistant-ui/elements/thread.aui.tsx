@@ -44,7 +44,7 @@ import { useTaskViewport } from "#web/current-task.tsx";
 import { carriesOn } from "#web/directives.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
-import { PendingSpinner, useShowPending } from "#web/pending.tsx";
+import { useShowPending } from "#web/pending.tsx";
 
 export const Thread: FC<ThreadProps> = ({
 	components = EMPTY_COMPONENTS,
@@ -457,7 +457,12 @@ const ThreadHistoryLoading: FC = () => {
 			{shown && (
 				<div data-slot="aui_thread-history-loading" role="status">
 					<span className="sr-only">Loading conversation</span>
-					<PendingSpinner shown className="size-5 text-muted-foreground" />
+					<span
+						aria-hidden
+						className="shimmer text-sm text-muted-foreground motion-reduce:animate-none"
+					>
+						Loading
+					</span>
 				</div>
 			)}
 		</div>
