@@ -14,13 +14,9 @@ import { ProjectFeeds, type ProjectFeedsOptions } from "./project-feeds";
 import { ProjectList, ProjectListContext } from "./project-list";
 
 /**
- * The page, for whichever project the address names: render it in place of
- * `App`. A switch to another project starts that one's page afresh, nothing
- * of the last one's left on it, but draws at once from the feeds
- * `ProjectFeeds` keeps. The project shown is the one project of the page,
- * however it came to be shown: a pick in any switcher, a row of another
- * project's, a link, Back. It becomes the focused one too, so a bare address
- * on any device opens it next.
+ * Render it in place of `App` to show whichever project the address names,
+ * switching between projects in place. The project shown becomes the
+ * focused one, which a bare address on any device opens.
  */
 export function ProjectApp({
 	copies,
@@ -60,11 +56,12 @@ export function ProjectApp({
 			);
 		}
 	}, [project, projects]);
-	// Keyed, so the last project's shells and state go with its `App`; its
-	// feeds, kept, stop streaming as it goes.
+	// One `App` for every project, so the sidebar and bars stay put across a
+	// switch; it makes its pages and shells afresh for the new feeds, and the
+	// last project's feeds, kept, stop streaming.
 	return (
 		<ProjectListContext value={projects}>
-			<App key={project} {...props} {...feeds.of(project)} />
+			<App {...props} {...feeds.of(project)} />
 		</ProjectListContext>
 	);
 }

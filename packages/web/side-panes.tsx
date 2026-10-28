@@ -126,6 +126,14 @@ export function useSidePanes({
 	const [following, setFollowing] = useState<
 		Parameters<WatchMergeStep>[0] | null
 	>(null);
+	// Closed on a switch of project, whose tasks and conversations they are not.
+	const [of, setOf] = useState(feed);
+	if (of !== feed) {
+		setOf(feed);
+		setReviewing(null);
+		setWatching(null);
+		setFollowing(null);
+	}
 	// The conversation up, unless archived, whose terminal the pane shows when the changes
 	// do not have it.
 	const shown =

@@ -123,6 +123,29 @@ describe("App's projects", () => {
 		expect(testing.reloads).toBe(0);
 	});
 
+	it("keeps the sidebar mounted across a switch of project, so it stays where it was scrolled", async () => {
+		testing.everywhere = [
+			listed("webappwiz", "/repo", []),
+			listed("shop", "/code/shop", []),
+		];
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open({ repo: "webappwiz" });
+		const sidebar = await waitFor(() =>
+			view.getByRole("navigation", { name: "conversations" }),
+		);
+		testing.served = snapshot({ repo: "shop" });
+
+		await pick(view, "/code/shop");
+
+		await waitFor(() => expect(location.search).toBe("?project=shop"));
+		const screen = within(document.body);
+		await waitFor(() =>
+			expect(screen.getByRole("navigation", { name: "conversations" })).toBe(
+				sidebar,
+			),
+		);
+	});
+
 	it("draws a project not shown before at once, from every project's tasks, while its snapshot is on its way", async () => {
 		testing.everywhere = [
 			listed("shop", "/code/shop", [details({ task: "checkout" })]),

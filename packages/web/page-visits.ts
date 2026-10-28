@@ -20,7 +20,12 @@ export function usePageVisits({
 	feed: ConversationFeed;
 	go: (conversation: string) => void;
 }): { back: () => void; forward: () => void } {
-	const [visits] = useState(() => new Visits());
+	// Begun again on a switch of project, whose conversations they are not.
+	const [held, setHeld] = useState(() => ({ feed, visits: new Visits() }));
+	if (held.feed !== feed) {
+		setHeld({ feed, visits: new Visits() });
+	}
+	const { visits } = held;
 	useEffect(() => {
 		if (open === null || open === NEW) {
 			visits.leave();

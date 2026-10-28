@@ -10,7 +10,6 @@ import { ArchivedEntry, ConversationList } from "./conversation-list";
 import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
-import { useKeptScroll } from "./hooks/use-kept-scroll";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
 import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
@@ -62,7 +61,6 @@ export function AppNav({
 	// next waiting atop, Archived at the foot, and a handle to drag it wider.
 	// A button on the border folds the tabs away for room for the agents.
 	const held = useHeld();
-	const listScroll = useKeptScroll();
 
 	const { shown, pagesShown } = useReactive(
 		sidebar,
@@ -150,10 +148,7 @@ export function AppNav({
 					<PagesFold sidebar={sidebar} shown={pagesShown} />
 				)}
 				{available && snapshot !== null && (
-					<div
-						{...listScroll}
-						className="-mx-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-4 pb-4"
-					>
+					<div className="-mx-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-4 pb-4">
 						<NextWaiting
 							feed={talk}
 							tasks={snapshot.tasks}

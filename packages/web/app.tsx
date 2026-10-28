@@ -2,6 +2,7 @@ import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
+	Fragment,
 	type JSX,
 	type ReactNode,
 	useCallback,
@@ -39,6 +40,7 @@ import { FreshnessContext, useFeedsFreshness } from "./freshness";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { WatchMerge } from "./merge-card";
 import { MigrationFailed } from "./migration-failed";
+import { useShownProject } from "./navigation";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
@@ -153,16 +155,10 @@ export function App({
 	const [drafts] = useState(
 		() => new Drafts(localStorage, IndexedDraftFiles.unlessGiven(draftFiles)),
 	);
-	// A shell per conversation, kept until the tab closes.
-	const [terminals] = useState(
-		() =>
-			new Terminals(
-				localStorage,
-				(event) =>
-					matches(event, settings.get("shortcuts.terminal")) ||
-					matches(event, settings.get("shortcuts.newTerminal")),
-				{ timer },
-			),
+	// Made again on a switch of project, as the page stays.
+	const { terminals, todoView, report, readings } = useMemo(
+		() => projectScope(feed, settings, timer),
+		[feed, settings, timer],
 	);
 	const [autoRestart] = useState(
 		() =>
@@ -196,8 +192,6 @@ export function App({
 		openSetup,
 	} = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
-	// The page's, so ⌘K can open a todo on the board.
-	const [todoView] = useState(() => new TodoView(localStorage));
 	const searched = {
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
@@ -250,9 +244,6 @@ export function App({
 	};
 	const name = useProjectName(snapshot?.repo, snapshot?.project);
 
-	const [report] = useState(() => new StatsReport({ stats }));
-	// What the other pages read, so each shows its last answer on a visit.
-	const [readings] = useState(() => new PageReadings());
 	const visits = usePageVisits({
 		open,
 		tasks,
@@ -333,24 +324,34 @@ export function App({
 	});
 	// A seeded snapshot draws only the pages it holds; the rest stay empty,
 	// until the project's own is in.
+	// Each keyed by project, so a switch starts the pages afresh while the
+	// sidebar and the bars around them stay.
+	const project = useShownProject() ?? "";
 	const bodies = useMemo(
 		() =>
-			pages === null || !seeded
-				? pages
+			pages === null
+				? null
 				: (Object.fromEntries(
 						Object.entries(pages).map(([each, body]) => [
 							each,
-							SEEDED_PAGES.has(each as Page) ? body : null,
+							<Fragment key={project}>
+								{!seeded || SEEDED_PAGES.has(each as Page) ? body : null}
+							</Fragment>,
 						]),
 					) as Record<Page, ReactNode>),
-		[pages, seeded],
+		[pages, seeded, project],
 	);
 	const reachable = !offline && outdated === null;
 	const opening =
 		failed === null ? (
 			<Opening missing={missing} waiting={reachable} name={name} />
 		) : (
-			<MigrationFailed message={failed} feed={feed} terminals={terminals} />
+			<MigrationFailed
+				key={project}
+				message={failed}
+				feed={feed}
+				terminals={terminals}
+			/>
 		);
 	const header = (
 		<AppHeader
@@ -506,4 +507,31 @@ export function App({
 			</FreshnessContext>
 		</SetupProvider>
 	);
+}
+
+/**
+ * What the page holds of one project: its shells, its board's choices, and
+ * what its pages last read. `feed` is the project's, which it is made for.
+ */
+function projectScope(
+	feed: Feed,
+	settings: Settings,
+	timer: Timer | undefined,
+) {
+	return {
+		feed,
+		// A shell per conversation, kept until the tab closes or the project switches.
+		terminals: new Terminals(
+			localStorage,
+			(event) =>
+				matches(event, settings.get("shortcuts.terminal")) ||
+				matches(event, settings.get("shortcuts.newTerminal")),
+			{ timer },
+		),
+		// So ⌘K can open a todo on the board.
+		todoView: new TodoView(localStorage),
+		report: new StatsReport({ stats }),
+		// What the other pages read, so each shows its last answer on a visit.
+		readings: new PageReadings(),
+	};
 }

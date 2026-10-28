@@ -69,6 +69,12 @@ export function PhoneApp({
 	// kebab holds the page menu, and the server's status past offline is the
 	// drawer's.
 	const [drawer, setDrawer] = useState(false);
+	// Closed on a switch of project, picked in it or not.
+	const [of, setOf] = useState(talk);
+	if (of !== talk) {
+		setOf(talk);
+		setDrawer(false);
+	}
 	const openNew = (open: string = NEW) => go("conversations", open);
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
