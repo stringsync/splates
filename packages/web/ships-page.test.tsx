@@ -32,7 +32,7 @@ describe("ShipsPage", () => {
 		globalThis.fetch = realFetch;
 	});
 
-	it("draws the projects as a dependency tree, a Ship on each that names a ship command", async () => {
+	it("lists the projects in release order, a Plan on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "webappwiz", packages: ["webappwiz"] }),
 			project({
@@ -53,15 +53,13 @@ describe("ShipsPage", () => {
 			)) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
-		const tree = await view.findByRole("list", { name: "Ship graph" });
-		const below = within(tree).getByRole("list", {
-			name: "webappwiz dependents",
-		});
-		const mdom = within(below).getByRole("listitem", { name: "mdom" });
+		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
-			within(mdom).getByRole("listitem", { name: "sound2score" }),
-		).toBeTruthy();
-		expect(within(tree).getAllByRole("button", { name: "Ship" })).toHaveLength(
+			within(list)
+				.getAllByRole("listitem")
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["webappwiz", "mdom", "sound2score"]);
+		expect(within(list).getAllByRole("button", { name: "Plan" })).toHaveLength(
 			2,
 		);
 	});
@@ -92,14 +90,14 @@ describe("ShipsPage", () => {
 			)) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
-		expect(await view.findByText("3 unshipped commits")).toBeTruthy();
+		expect(await view.findByText("3 unshipped")).toBeTruthy();
 		expect(view.getByText("Up to date")).toBeTruthy();
 		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
 			"Missing release tag",
 		);
 	});
 
-	it("ships every changed project from one button, which names them", async () => {
+	it("plans a ship of every changed project from one button, which names them", async () => {
 		const asked: string[] = [];
 		const graph = [
 			project({
@@ -133,15 +131,17 @@ describe("ShipsPage", () => {
 			),
 		).toBeTruthy();
 		await act(async () => {
-			view.getByRole("button", { name: "Ship all changed" }).click();
+			view.getByRole("button", { name: "Plan a ship of all 2" }).click();
 		});
 		expect(
-			await view.findByRole("heading", { name: "Ship every changed project" }),
+			await view.findByRole("heading", {
+				name: "Ship plan for every changed project",
+			}),
 		).toBeTruthy();
 		expect(asked.some((url) => url.includes("project=%2Bchanged"))).toBe(true);
 	});
 
-	it("disables shipping every changed project when none changed", async () => {
+	it("disables the plan for every changed project when none changed", async () => {
 		const graph = [
 			project({
 				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
@@ -156,7 +156,7 @@ describe("ShipsPage", () => {
 		expect(await view.findByText("Every project is up to date")).toBeTruthy();
 		expect(
 			view
-				.getByRole("button", { name: "Ship all changed" })
+				.getByRole("button", { name: "Plan a ship of all changed" })
 				.hasAttribute("disabled"),
 		).toBe(true);
 	});

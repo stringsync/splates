@@ -70,7 +70,9 @@ describe("App's run-command card", () => {
 			),
 		);
 		await waitFor(() =>
-			expect(view.getByRole("dialog", { name: "Ship webappwiz" })).toBeTruthy(),
+			expect(
+				view.getByRole("dialog", { name: "Ship plan for webappwiz" }),
+			).toBeTruthy(),
 		);
 		expect(testing.posted("/api/ship?project=webappwiz&bump=patch")).toEqual(
 			[],
@@ -78,7 +80,7 @@ describe("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 
 		await waitFor(() =>

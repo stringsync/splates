@@ -2,16 +2,15 @@ import type { ShipGraph, ShipProject } from "@stringsync/splates-server/ship";
 import { changedProjects } from "@stringsync/splates-server/ship/browser";
 import { ShipIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { shipGraph } from "./api";
 import { cn } from "./lib/utils";
-import { ShipTree } from "./ship-tree";
 
 /**
- * The registered projects that ship or take a release, as a tree, each
- * beneath the project whose packages it pins first; Ship opens its plan.
- * Above it, one Ship for every project changed since its last release.
+ * The registered projects that ship or take a release, in one list in
+ * release order, each after the projects whose packages it pins; Plan opens
+ * its plan, and nothing ships until the plan is approved. Above it, one plan
+ * for every project changed since its last release.
  */
 export function ShipGraphTree({
 	endedAt,
@@ -52,26 +51,52 @@ export function ShipGraphTree({
 		);
 	}
 	return (
-		<section aria-label="projects" className="flex flex-col gap-2">
+		<section aria-label="projects" className="flex flex-col gap-3">
 			<ShipChanged
 				changed={changedProjects(graph).map((each) => each.slug)}
 				onShip={onShipChanged}
 			/>
-			<h2 className="font-medium text-sm">Projects</h2>
-			<ShipTree
-				label="Ship graph"
-				items={shipping}
-				slugOf={(each) => each.slug}
-				dependenciesOf={(each) => each.uses.map((use) => use.project)}
-				render={(each) => (
-					<GraphProject project={each} onShip={() => onShip(each.slug)} />
-				)}
-			/>
+			<h2 className="mt-2 font-medium text-sm">Projects</h2>
+			<ol
+				aria-label="Ship graph"
+				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
+			>
+				{releaseOrder(shipping).map((each) => (
+					<GraphProject
+						key={each.slug}
+						project={each}
+						onShip={() => onShip(each.slug)}
+					/>
+				))}
+			</ol>
 		</section>
 	);
 }
 
-/** The Ship for every changed project, naming them, or saying none changed. */
+/**
+ * `projects` with each after the first of its dependencies among them, as
+ * the plan's tree reads top to bottom, so the list is in release order.
+ */
+function releaseOrder(projects: ShipProject[]): ShipProject[] {
+	const slugs = new Set(projects.map((each) => each.slug));
+	const parentOf = (project: ShipProject) =>
+		project.uses
+			.map((use) => use.project)
+			.find((slug) => slugs.has(slug) && slug !== project.slug) ?? null;
+	const ordered: ShipProject[] = [];
+	const visit = (parent: string | null) => {
+		for (const each of projects) {
+			if (parentOf(each) === parent) {
+				ordered.push(each);
+				visit(each.slug);
+			}
+		}
+	};
+	visit(null);
+	return ordered;
+}
+
+/** The plan for every changed project, naming them, or saying none changed. */
 function ShipChanged({
 	changed,
 	onShip,
@@ -80,8 +105,8 @@ function ShipChanged({
 	onShip: () => void;
 }): JSX.Element {
 	return (
-		<div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
-			<span className="flex min-w-0 flex-1 flex-col">
+		<div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
+			<span className="flex flex-col">
 				<span className="font-medium text-sm">
 					{changed.length === 0
 						? "Every project is up to date"
@@ -94,12 +119,17 @@ function ShipChanged({
 				</span>
 			</span>
 			<Button
+				className="w-full"
 				disabled={changed.length === 0}
-				title="Shows the plan for every changed project, in dependency order, before anything runs"
+				title="Draws the plan for every changed project, in dependency order; nothing ships until you approve it"
 				onClick={onShip}
 			>
 				<ShipIcon />
-				Ship all changed
+				{changed.length === 1
+					? `Plan a ship of ${changed[0]}`
+					: changed.length === 0
+						? "Plan a ship of all changed"
+						: `Plan a ship of all ${changed.length}`}
 			</Button>
 		</div>
 	);
@@ -114,44 +144,23 @@ function GraphProject({
 }): JSX.Element {
 	const shipped = project.ship !== null;
 	return (
-		<div
-			className={cn(
-				"flex items-center gap-2 rounded-lg border bg-card p-2 pl-3",
-				project.uses.length === 0 && "border-primary/25 bg-primary/5",
-			)}
+		<li
+			aria-label={project.slug}
+			className="flex items-center gap-3 px-3 py-2.5"
 		>
-			<ShipIcon className="size-3.5 shrink-0 text-muted-foreground" />
-			<span className="flex min-w-0 flex-col">
-				<span className="flex flex-wrap items-baseline gap-2">
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="flex items-baseline gap-2">
 					<span className="font-medium text-sm">{project.slug}</span>
 					{project.version !== null && (
 						<span className="text-muted-foreground text-xs tabular-nums">
 							{project.version}
 						</span>
 					)}
-					{project.changes !== undefined && (
-						<Badge
-							variant={
-								project.changes.commits !== null && project.changes.commits > 0
-									? "default"
-									: "secondary"
-							}
-							title={
-								project.changes.error ??
-								`Since ${project.changes.tag} on ${project.changes.branch}`
-							}
-						>
-							{project.changes.commits === null
-								? "Release status unknown"
-								: project.changes.commits === 0
-									? "Up to date"
-									: `${project.changes.commits} unshipped commit${project.changes.commits === 1 ? "" : "s"}`}
-						</Badge>
-					)}
 				</span>
+				{project.changes !== undefined && <Changes changes={project.changes} />}
 				<span className="truncate text-muted-foreground text-xs">
 					{project.packages.length > 0
-						? `Publishes ${project.packages.join(", ")}`
+						? project.packages.join(", ")
 						: "Takes the releases it pins"}
 				</span>
 			</span>
@@ -159,17 +168,51 @@ function GraphProject({
 				<Button
 					size="sm"
 					variant="outline"
-					className="ml-auto"
-					title="Shows what the ship would publish, downstream too, before anything runs"
+					title="Draws what the ship would publish, downstream too; nothing ships until you approve it"
 					onClick={onShip}
 				>
-					Ship
+					Plan
 				</Button>
 			) : (
-				<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+				<span className="shrink-0 text-muted-foreground text-xs">
 					{project.private ? "" : "no ship command"}
 				</span>
 			)}
-		</div>
+		</li>
+	);
+}
+
+/** Commits since the last release, as a dot and a short label. */
+function Changes({
+	changes,
+}: {
+	changes: NonNullable<ShipProject["changes"]>;
+}): JSX.Element {
+	const unshipped = changes.commits !== null && changes.commits > 0;
+	return (
+		<span
+			className={cn(
+				"flex items-center gap-1.5 text-xs",
+				!unshipped && "text-muted-foreground",
+			)}
+			title={changes.error ?? `Since ${changes.tag} on ${changes.branch}`}
+		>
+			<span
+				aria-hidden
+				className={cn(
+					"size-1.5 shrink-0 rounded-full",
+					changes.commits === null
+						? "bg-muted-foreground"
+						: unshipped
+							? "bg-warning"
+							: "bg-success",
+				)}
+			/>
+			{changes.commits === null
+				? "Release status unknown"
+				: changes.commits === 0
+					? "Up to date"
+					: `${changes.commits} unshipped`}
+		</span>
 	);
 }

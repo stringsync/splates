@@ -55,13 +55,15 @@ patch.
 
 ## Shipping
 
-The Ship page marks each shipping project with the number of commits on its
+The Ship page lists the shipping projects in release order, each after the
+project whose packages it pins first, and marks each with the number of commits on its
 main or master branch since its current version tag (`v<version>`). Zero shows
 **Up to date**; missing tags or unavailable history show **Release status unknown**.
 These are local history checks, refreshed when the page regains focus.
 
-Above the projects, **Ship all changed** ships every project with unshipped
-commits at once: it names them and opens one plan that publishes each in
+Each project's **Plan** opens its ship plan; nothing ships until you press
+**Approve and ship** there. Above the projects, **Plan a ship of all <n>** plans
+every project with unshipped commits at once: it names them and opens one plan that publishes each in
 dependency order, a changed project that depends on another taking its bump
 first, then carries every release downstream as a single ship does. Each
 project that ships picks its own release type there, patch until you change
@@ -74,7 +76,7 @@ On the page, a project's menu in the project switcher has **Ship
 order, the version it goes to, what it publishes, what it takes and why it
 ships or only takes its bump. Its **Release type** picks Patch, Minor or
 Major for the project you ship, redrawing the plan at that version.
-Before approval, an agent in each dependent reviews upstream changes since its pins, changelogs, public API differences and required repairs. The plan shows its reasons and proposed release type; you can change each dependent release. **Approve** stays disabled until every review succeeds, then starts the saved plan. Source revisions are checked again at approval; changed projects require a new review. Publishing starts only after approval, and npm still asks you at each publish.
+Before approval, an agent in each dependent reviews upstream changes since its pins, changelogs, public API differences and required repairs. The plan shows its reasons and proposed release type; you can change each dependent release. **Approve and ship** stays disabled until every review succeeds, then starts the saved plan. Source revisions are checked again at approval; changed projects require a new review. Publishing starts only after approval, and npm still asks you at each publish.
 
 From a terminal of yours, `splates ship [<project>] [--bump <type>]` asks
 `splates server` to prepare the reviewed plan for the project (the one you stand in, by default) and prints a link to approve it on the Ship page. Give the server's URL with `--dev` when it is not this machine's.
@@ -142,7 +144,7 @@ again. Current pins determine which dependents still need work; a dependent
 taking several upstream versions gets one bump task.
 
 The remaining projects receive fresh agent reviews and release choices before
-**Approve**. Approval checks npm and the source trees again, and can be used
+**Approve and ship**. Approval checks npm and the source trees again, and can be used
 only once. Reopening the original stopped run after recovery finishes shows
 **Nothing remains to recover**. Later recovery releases count too, even when
 their approved versions differ from the original plan.

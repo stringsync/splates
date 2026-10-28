@@ -95,7 +95,7 @@ describe("ShipDialog", () => {
 		expect(view.getByText("Recover ship of webappwiz")).toBeTruthy();
 		expect(view.queryByRole("group", { name: "Release type" })).toBeNull();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 		expect(requests).toEqual(["stopped"]);
 		expect(approvals).toEqual([
@@ -112,8 +112,11 @@ describe("ShipDialog", () => {
 		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
 		expect(await view.findByText("Nothing remains to recover.")).toBeTruthy();
 		expect(
-			(view.getByRole("button", { name: "Approve" }) as HTMLButtonElement)
-				.disabled,
+			(
+				view.getByRole("button", {
+					name: "Approve and ship",
+				}) as HTMLButtonElement
+			).disabled,
 		).toBe(true);
 		server.offline = true;
 		await act(async () => approval.draw());
@@ -136,7 +139,7 @@ describe("ShipDialog", () => {
 		expect(rows[1]?.textContent).toContain("1.4.2 → 1.4.3");
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 
 		await waitFor(() => expect(closed).toBe(true));
@@ -235,7 +238,7 @@ describe("ShipDialog", () => {
 			expect(rows[0]?.textContent).toContain("1.4.2 → 2.0.0");
 		});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 
 		await waitFor(() => expect(closed).toBe(true));
@@ -260,7 +263,9 @@ describe("ShipDialog", () => {
 		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
 		await waitFor(() => view.getByText("Reviewing dependencies…"));
 		expect(
-			view.getByRole("button", { name: "Approve" }).hasAttribute("disabled"),
+			view
+				.getByRole("button", { name: "Approve and ship" })
+				.hasAttribute("disabled"),
 		).toBe(true);
 		expect(await approval.approve()).toBe(false);
 		drawn = structuredClone(drawn);
@@ -282,7 +287,7 @@ describe("ShipDialog", () => {
 		);
 		expect(view.getByText("1.4.2 → 2.0.0")).toBeTruthy();
 		await act(() =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 		expect(approved).toMatchObject({
 			id: "review-1",
@@ -330,7 +335,7 @@ describe("ShipDialog", () => {
 		);
 		expect(view.getByText("0.0.57 → 0.1.0")).toBeTruthy();
 		await act(() =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 		expect(approved).toMatchObject({
 			id: "changed-1",
@@ -349,8 +354,11 @@ describe("ShipDialog", () => {
 			),
 		);
 		expect(
-			(view.getByRole("button", { name: "Approve" }) as HTMLButtonElement)
-				.disabled,
+			(
+				view.getByRole("button", {
+					name: "Approve and ship",
+				}) as HTMLButtonElement
+			).disabled,
 		).toBe(true);
 	});
 });

@@ -75,15 +75,17 @@ export function ShipDialog({
 			<DialogContent className="sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>
-						{approval.recovery === undefined ? "Ship" : "Recover ship of"}{" "}
+						{approval.recovery === undefined
+							? "Ship plan for"
+							: "Recover ship of"}{" "}
 						{changed ? "every changed project" : project}
 					</DialogTitle>
 					<DialogDescription>
 						{approval.recovery !== undefined
 							? "Checks the stopped run against npm and reviews the remaining work. Published releases stay published; approval starts a new run."
 							: changed
-								? "Publishes each project with commits since its last release, dependencies first, and carries each release through every project that depends on it. npm asks you at each publish."
-								: `Publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`}
+								? "Nothing runs until you approve. Then it publishes each project with commits since its last release, dependencies first, and carries each release through every project that depends on it. npm asks you at each publish."
+								: `Nothing runs until you approve. Then it publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`}
 					</DialogDescription>
 				</DialogHeader>
 				{approval.recovery === undefined && !changed && (
@@ -146,7 +148,7 @@ export function ShipDialog({
 						) : (
 							<ShipIcon />
 						)}
-						Approve
+						Approve and ship
 					</Button>
 				</DialogFooter>
 			</DialogContent>

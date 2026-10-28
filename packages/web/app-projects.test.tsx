@@ -335,7 +335,9 @@ describe("App's projects", () => {
 		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
 
 		expect(
-			await waitFor(() => view.getByRole("dialog", { name: "Ship shop" })),
+			await waitFor(() =>
+				view.getByRole("dialog", { name: "Ship plan for shop" }),
+			),
 		).toBeTruthy();
 	});
 
