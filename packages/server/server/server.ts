@@ -838,9 +838,6 @@ export async function dev(
 					"/api/todos/:id/assignee": {
 						PUT: scoped((project) => project.assignQueued),
 					},
-					"/api/todos/:id/manual": {
-						PUT: scoped((project) => project.manualQueued),
-					},
 					"/api/todos/:id/queued": {
 						PUT: scoped((project) => project.queueQueued),
 					},

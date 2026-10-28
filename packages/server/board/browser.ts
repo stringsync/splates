@@ -15,16 +15,13 @@ export type {
 	ElsewhereOpen,
 } from "./elsewhere";
 export { elsewhereName, holding } from "./elsewhere";
-export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";
+export type { LaneRecord, LaneState } from "./lanes";
 export {
-	APPROVAL,
-	BUDGET_LOW,
 	blockerLabel,
 	cycle,
 	elsewhereMention,
 	followers,
 	isReady,
-	isSkipped,
 	lanes,
 	lanesTaken,
 	MENTION,

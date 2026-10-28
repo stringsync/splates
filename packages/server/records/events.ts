@@ -197,8 +197,6 @@ export interface Facts {
 			assignee?: { agent: string; model?: string; effort?: string } | null;
 			/** Whether it was groomed, from the backlog to ready. */
 			ready?: true;
-			/** Whether only the person queues it now, a queued lane passing over it. */
-			manual?: boolean;
 		};
 	};
 	"task take": TasksFacts;
@@ -231,9 +229,9 @@ export interface Facts {
 			position?: number;
 			/** Whether it runs from now on, its tasks started by `splates server`. */
 			running?: boolean;
-			/** Whether it is queued whole from now on, each task queued once nothing blocks it. */
+			/** In records from before lanes queued once, whether it was queued whole from then on. */
 			queued?: boolean;
-			/** How many more tasks it may queue on its own, added to its budget. */
+			/** In records from before lanes queued once, the tasks approved for one queued whole to queue. */
 			approve?: number;
 		};
 	};

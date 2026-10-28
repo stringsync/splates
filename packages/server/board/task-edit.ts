@@ -11,7 +11,7 @@ import {
 	elsewhereName,
 	sameBlocker,
 } from "./elsewhere";
-import { byHandLine, type Task, type TaskOrigin } from "./task";
+import type { Task, TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskFileOptions {
@@ -130,8 +130,6 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	assignee?: AgentPick | null;
 	/** Marks it groomed, moving it from the backlog to ready. */
 	ready?: boolean;
-	/** Whether only the person queues it, as `TaskRecord.manual`; absent leaves it as it is. */
-	manual?: boolean;
 	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
 	boards?: Pick<ElsewhereBoards, "slug">;
 }
@@ -153,7 +151,6 @@ export async function taskUpdate(
 		lane,
 		assignee,
 		ready,
-		manual,
 		boards,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
@@ -225,7 +222,6 @@ export async function taskUpdate(
 		lane,
 		assignee,
 		ready,
-		manual,
 	});
 	const blockers = await blockersSaid(updated, boards);
 	deps.log.info(
@@ -233,7 +229,6 @@ export async function taskUpdate(
 			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}, ${updated.state.stage}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
 			...(blockers === "" ? [] : [`  blocked by: ${blockers}`]),
-			...(manual === undefined ? [] : [`  ${byHandLine(updated.state)}`]),
 		].join("\n"),
 	);
 	return updated;

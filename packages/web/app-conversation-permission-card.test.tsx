@@ -98,10 +98,10 @@ describe("App's permission card", () => {
 			),
 		],
 	});
-	// The lane queued already, from the board or a terminal.
+	// The lane's tasks queued already, from the board or a terminal.
 	const queuedLane = {
 		...board,
-		lanes: [{ id: 3, name: "Billing export", queued: true as const }],
+		todos: board.todos.map((each) => ({ ...each, stage: "queued" as const })),
 	};
 
 	/** The Billing export queue card, on a page showing `shown`. */
@@ -155,14 +155,14 @@ describe("App's permission card", () => {
 		});
 	});
 
-	it("offers to archive the conversation once its Queue lane has queued the lane", async () => {
+	it("offers to archive the conversation once its Queue lane has queued the lane's tasks", async () => {
 		const card = await queueCard(board);
 		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
 		);
-		// Held until the server lists the lane queued.
+		// Held until the server lists the lane's tasks queued.
 		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
 		testing.served = snapshot(queuedLane);
 		await act(async () => testing.stream?.onmessage?.());
@@ -179,7 +179,7 @@ describe("App's permission card", () => {
 		]);
 	});
 
-	it("offers to archive the conversation once its lane is queued anywhere else", async () => {
+	it("offers to archive the conversation once its lane's tasks are queued anywhere else", async () => {
 		const view = await testing.openConversations(
 			[asking],
 			undefined,

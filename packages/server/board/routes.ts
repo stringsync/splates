@@ -10,7 +10,8 @@ import {
 	type ElsewhereBoards,
 	sameBlocker,
 } from "./elsewhere";
-import { laneRemove, laneUpdated, recordLaneRemove } from "./lane";
+import { laneQueue, laneRemove, laneUpdated, recordLaneRemove } from "./lane";
+import type { LaneRecord } from "./lanes";
 import { tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
 import { recordUpdate } from "./task-journal";
@@ -204,23 +205,29 @@ export class BoardRoutes {
 		return Response.json(lane);
 	};
 
-	// A new name, a new place among the lanes, queued whole or not, or more than one.
+	// A new name, a new place among the lanes, or both; `queued` queues every
+	// task waiting in it now, or takes its queued ones out, as `splates lane
+	// queue` and `unqueue` do.
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		const { name, position, queued, approve } = await body(request);
+		const { name, position, queued } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
-			queued: queued === undefined ? undefined : queued === true,
-			approve: approve === undefined ? undefined : Number(approve),
 		};
-		const lane = await journal.record(
-			"lane update",
-			null,
-			async () => (await tasks.changeLane(id, change)).record,
-			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
-		);
+		let lane: LaneRecord | undefined;
+		if (change.name !== undefined || change.position !== undefined) {
+			lane = await journal.record(
+				"lane update",
+				null,
+				async () => (await tasks.changeLane(id, change)).record,
+				(record) => laneUpdated(id, record ?? { id, name: "" }, change),
+			);
+		}
+		if (queued !== undefined) {
+			await laneQueue(this.#project, id, queued === true);
+		}
 		this.#watch.tick();
 		return Response.json(lane ?? { id });
 	};
@@ -233,29 +240,6 @@ export class BoardRoutes {
 			this.#project.tasks,
 			found.id,
 			() => found.update({ assignee }),
-		);
-		this.#watch.tick();
-		return Response.json(task.state);
-	};
-
-	/**
-	 * Sets whether only the person may queue the task: send `{manual: true}`
-	 * to keep queued lanes from queueing it, or `false` to let them.
-	 */
-	readonly manualQueued = async (request: Request): Promise<Response> => {
-		const found = await this.taskAt(request);
-		const { manual } = (await request.json()) as { manual?: unknown };
-		if (typeof manual !== "boolean") {
-			fail(
-				"usage",
-				"say whether only you queue it, as `manual: true` or `false`",
-			);
-		}
-		const task = await recordUpdate(
-			this.#project.journal,
-			this.#project.tasks,
-			found.id,
-			() => found.update({ manual }),
 		);
 		this.#watch.tick();
 		return Response.json(task.state);

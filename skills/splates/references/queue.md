@@ -88,11 +88,8 @@ for a stranger who has none of this conversation.
 ## Asking the user to queue
 
 You never change the queue: splates refuses an agent `splates queue add`,
-`remove`, `move`, `pause` and `resume`, and `splates lane queue`, `unqueue` and `approve`. The user
+`remove`, `move`, `pause` and `resume`, and `splates lane queue` and `unqueue`. The user
 queues, from the board or from the queue card your reply ends with.
-A queued lane has a budget of tasks it may queue on its own, its tasks
-when queued plus 20: tasks you add to it spend it, and at none it stops
-until the user approves more, so add only the follow-ups the work needs.
 
 When a conversation asks for several tasks, more than one coherent change,
 such as a feature in steps or a list of fixes, add them as a lane rather
@@ -192,12 +189,13 @@ always moves processed tasks to a themed lane or Backlog.
 
 `splates task update <id> --lane <n>` moves one that exists.
 
-The user queues a lane whole, from the board or a queue card: each of its
-tasks is queued as soon as nothing blocks it, those added later too, until
-the lane is empty. So a task you add to a queued lane starts with no one
-asking: the user queued the lane for its work to go on. A task the user
-takes out of the queue stays out until queued again. Untriaged cannot be
-queued whole.
+The user queues a lane from the board or a queue card, once: every task
+waiting in it joins the queue then, which starts each once what it is
+blocked by lands, and lets go of one blocked by a task that will not start
+from the queue, its blockers neither queued nor running, saying which to
+queue first. A task added to the lane later is not queued with it: so a
+follow-up you add to a lane under way waits, and your reply ends with its
+queue card, as for any task you add. Untriaged cannot be queued as a lane.
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),

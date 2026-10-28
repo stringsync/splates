@@ -19,19 +19,10 @@ import type {
 } from "@stringsync/splates-server/board";
 import type { JSX, ReactNode } from "react";
 import { Card } from "./card";
-import { columnOf, handOf, LiftedLane, laneOf } from "./lanes";
-import { byHand, type TodoBoard } from "./todo-board";
+import { columnOf, LiftedLane, laneOf } from "./lanes";
+import type { TodoBoard } from "./todo-board";
 
-/**
- * Lets a card be dragged anywhere on the board: up or down its column, onto
- * a card in a lane to join it there, onto a column's space for its bottom,
- * onto the space under a lane for the tasks only the person queues, or onto
- * the new lane column; and a lane, by its header, left or right
- * past the others. A mouse drags once it moves a few pixels and a finger
- * after a short press, so a tap still opens the card and a swipe still
- * scrolls; a keyboard picks a card up by its grip with Space and moves it
- * with the arrows.
- */
+/** Wrap the board in it to let cards and lanes be dragged into place. */
 export function BoardDrag({
 	board,
 	refuseTodo,
@@ -78,18 +69,15 @@ export function BoardDrag({
 			return;
 		}
 		const lane = over === null ? undefined : columnOf(over.id);
-		const hand = over === null ? undefined : handOf(over.id);
 		board
 			.drop(
 				todos,
 				Number(active.id),
 				over === null
 					? null
-					: hand !== undefined
-						? { lane: hand, hand: true }
-						: lane === undefined
-							? { card: Number(over.id) }
-							: { lane },
+					: lane === undefined
+						? { card: Number(over.id) }
+						: { lane },
 			)
 			?.catch((error: unknown) =>
 				refuseTodo(Number(active.id), "Not moved", error),
@@ -120,12 +108,10 @@ export function BoardDrag({
 						todo={lifted}
 						staleness={staleness}
 						step={
-							lifted.lane === null || byHand(lifted)
+							lifted.lane === null
 								? undefined
 								: todos
-										.filter(
-											(other) => other.lane === lifted.lane && !byHand(other),
-										)
+										.filter((other) => other.lane === lifted.lane)
 										.findIndex((other) => other.id === lifted.id) + 1
 						}
 						className="rotate-2 cursor-grabbing shadow-lg"

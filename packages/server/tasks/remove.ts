@@ -152,10 +152,6 @@ export async function remove(
 			taken.flatMap(({ lane }) => (lane === null ? [] : [lane])),
 		);
 	}
-	await queue.skipInLanes(
-		released.map(({ id }) => id),
-		true,
-	);
 
 	const lines = [
 		`${color.green("removed")} ${task}`,

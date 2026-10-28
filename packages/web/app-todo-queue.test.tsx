@@ -106,47 +106,6 @@ describe("App's queue", () => {
 		expect(header?.textContent).not.toContain("ready");
 	});
 
-	it("has only the person queue a todo from its dialog, holding it pending until the server marks the card", async () => {
-		const view = await testing.open({
-			todos: [todo({ id: 1, subject: "retry the upload" })],
-		});
-		testing.holdWrites();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
-		);
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
-		);
-		const lets = within(dialog).getByRole("switch", { name: "Lane queues it" });
-		expect(lets.getAttribute("aria-checked")).toBe("true");
-
-		await act(async () => fireEvent.click(lets));
-
-		expect(testing.posted("/api/todos/1/manual")).toEqual([
-			{ method: "PUT", body: { manual: true } },
-		]);
-		expect(
-			within(dialog)
-				.getByRole("switch", { name: "Lane queues it" })
-				.getAttribute("aria-checked"),
-		).toBe("true");
-		expect(cards(view).join("")).not.toContain("By hand");
-
-		await serve({
-			todos: [todo({ id: 1, subject: "retry the upload", manual: true })],
-		});
-
-		await waitFor(() =>
-			expect(
-				within(dialog)
-					.getByRole("switch", { name: "Lane queues it" })
-					.getAttribute("aria-checked"),
-			).toBe("false"),
-		);
-		expect(cards(view).join("")).toContain("By hand");
-	});
-
 	it("queues and unqueues from the card, held pending until the server lists it, its dialog saying so then", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],

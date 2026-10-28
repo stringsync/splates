@@ -7,9 +7,7 @@ import {
 	ListXIcon,
 	MergeIcon,
 	MoreHorizontalIcon,
-	PauseIcon,
 	PencilIcon,
-	PlayIcon,
 	Trash2Icon,
 } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -39,7 +37,8 @@ import { laneDropped, laneQueued, lanesJoined } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 
 /**
- * What can be done to a whole lane: rename it, queue it whole, move it, fold
+ * What can be done to a whole lane: rename it, queue its tasks or take them
+ * out, move it, fold
  * it into another, or remove it with its tasks, asking first when it has any.
  */
 export function LaneMenu({
@@ -53,7 +52,8 @@ export function LaneMenu({
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
-	const toggleQueued = useToggleQueued(lane);
+	const queue = useQueueLane(lane);
+	const { waiting, queued } = laneQueue(lane);
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
 	const [asking, setAsking] = useState(false);
@@ -85,10 +85,21 @@ export function LaneMenu({
 							Rename
 						</DropdownMenuItem>
 					)}
-					<DropdownMenuItem onClick={toggleQueued}>
-						{lane.queued ? <ListXIcon /> : <ListPlusIcon />}
-						{lane.queued ? "Stop queueing lane" : "Queue lane"}
+					<DropdownMenuItem
+						disabled={waiting === 0}
+						onClick={() => queue(true)}
+					>
+						<ListPlusIcon />
+						{waiting === 0
+							? "Queue lane"
+							: `Queue lane: ${waiting} task${waiting === 1 ? "" : "s"}`}
 					</DropdownMenuItem>
+					{queued > 0 && (
+						<DropdownMenuItem onClick={() => queue(false)}>
+							<ListXIcon />
+							Take lane out of queue
+						</DropdownMenuItem>
+					)}
 					{lane.id !== BACKLOG_LANE && others.length > 0 && (
 						<>
 							<DropdownMenuSeparator />
@@ -177,42 +188,59 @@ export function LaneMenu({
 }
 
 /**
- * The lane's one tap to queue it whole, or, once queued, to stop: what its
- * menu's Queue lane does, kept in the header where it is quick to reach.
+ * How many of `lane`'s tasks queueing it would queue, those no agent has in
+ * the backlog or ready, and how many no agent has are queued now.
  */
-export function QueueLaneButton({ lane }: { lane: LaneState }): JSX.Element {
-	const toggleQueued = useToggleQueued(lane);
+export function laneQueue(lane: LaneState): {
+	waiting: number;
+	queued: number;
+} {
+	const open = lane.todos.filter((todo) => todo.takenBy === null);
+	return {
+		waiting: open.filter(
+			(todo) => todo.stage === "backlog" || todo.stage === "ready",
+		).length,
+		queued: open.filter((todo) => todo.stage === "queued").length,
+	};
+}
+
+/** A lane header's Queue N tasks button, which queues every task waiting in the lane; absent while none waits. */
+export function QueueLaneButton({
+	lane,
+}: {
+	lane: LaneState;
+}): JSX.Element | null {
+	const queue = useQueueLane(lane);
+	const { waiting } = laneQueue(lane);
+	if (waiting === 0) {
+		return null;
+	}
 	return (
 		<Button
-			size="icon-xs"
-			variant="ghost"
-			aria-label={
-				lane.queued ? `Stop queueing ${lane.name}` : `Queue ${lane.name}`
-			}
-			aria-pressed={lane.queued}
-			title={lane.queued ? "Stop queueing lane" : "Queue lane"}
-			className="pointer-coarse:size-10"
-			onClick={toggleQueued}
+			size="xs"
+			variant="outline"
+			title={`Put the ${waiting === 1 ? "task" : `${waiting} tasks`} waiting in ${lane.name} in the queue now; each starts once what it is blocked by lands`}
+			className="pointer-coarse:h-10"
+			onClick={() => queue(true)}
 			{...still}
 		>
-			{lane.queued ? <PauseIcon /> : <PlayIcon />}
+			<ListPlusIcon />
+			Queue {waiting} {waiting === 1 ? "task" : "tasks"}
 		</Button>
 	);
 }
 
-/** Queues the lane whole, or stops queueing it, shown at once. */
-function useToggleQueued(lane: LaneState): () => void {
+/** Queues every task waiting in the lane, or takes its queued ones out, pending until the server shows it. */
+function useQueueLane(lane: LaneState): (queued: boolean) => void {
 	const { refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
-	return () =>
-		void expect(
-			laneQueued(lane.id, !lane.queued),
-			queueLane(lane.id, !lane.queued),
-		).catch((error: unknown) =>
-			refuseLane(
-				lane.id,
-				lane.queued ? "Lane not unqueued" : "Lane not queued",
-				error,
-			),
+	return (queued) =>
+		void expect(laneQueued(lane.id, queued), queueLane(lane.id, queued)).catch(
+			(error: unknown) =>
+				refuseLane(
+					lane.id,
+					queued ? "Lane not queued" : "Lane not taken out",
+					error,
+				),
 		);
 }

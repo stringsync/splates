@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { todo } from "@stringsync/splates-server/fixtures";
 import { QueueWork, type QueueWrites } from "./queue-work";
 
@@ -20,7 +21,7 @@ const shown = async (_: unknown, write: Promise<unknown>): Promise<void> => {
 };
 
 describe("QueueWork", () => {
-	it("queues a lane whole, named as the board has it", async () => {
+	it("queues a lane's tasks at once, named as the board has it", async () => {
 		const writes = new NotedWrites();
 		const work = new QueueWork(
 			{ action: "queue", lane: 3, tasks: [], title: "Old name", body: "" },
@@ -78,12 +79,7 @@ describe("QueueWork", () => {
 		expect(writes.noted).toEqual(["#4 true"]);
 	});
 
-	it("is queued once the lane is, and gone once the board drops it", () => {
-		const board = {
-			linked: true,
-			lanes: [{ id: 3, name: "Billing export", queued: true as const }],
-			todos: [],
-		};
+	it("is queued once each lane task is queued or let go, and gone once the board drops it", () => {
 		const proposal = {
 			action: "queue" as const,
 			lane: 3,
@@ -91,8 +87,42 @@ describe("QueueWork", () => {
 			title: null,
 			body: "",
 		};
+		const board = (todos: TaskRecord[]) => ({
+			linked: true,
+			lanes: [{ id: 3, name: "Billing export" }],
+			todos,
+		});
 
-		expect(new QueueWork(proposal, board).queued).toBe(true);
-		expect(new QueueWork(proposal, { ...board, lanes: [] }).gone).toBe(true);
+		expect(
+			new QueueWork(
+				proposal,
+				board([
+					todo({ id: 1, lane: 3, stage: "queued" }),
+					todo({ id: 2, lane: 3, stage: "queued" }),
+				]),
+			).queued,
+		).toBe(true);
+		// One let go for a blocker the queue will not start counts as queued.
+		expect(
+			new QueueWork(
+				proposal,
+				board([
+					todo({ id: 1, lane: 3, stage: "queued" }),
+					todo({ id: 2, lane: 3, unqueuedFor: [9] }),
+				]),
+			).queued,
+		).toBe(true);
+		expect(
+			new QueueWork(
+				proposal,
+				board([
+					todo({ id: 1, lane: 3, stage: "queued" }),
+					todo({ id: 2, lane: 3 }),
+				]),
+			).queued,
+		).toBe(false);
+		expect(new QueueWork(proposal, { ...board([]), lanes: [] }).gone).toBe(
+			true,
+		);
 	});
 });

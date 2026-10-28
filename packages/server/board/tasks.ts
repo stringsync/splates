@@ -293,27 +293,12 @@ export class Tasks {
 		return changeLane(this, id, change);
 	}
 
-	/** Lets queued lane `id` queue `more` tasks beyond its budget left. */
-	approveLane(id: number, more: number): Promise<LaneRecord> {
-		return this.laneFiles.approveLane(id, more);
-	}
-
-	/** Queues lane `id` whole, or stops, unqueueing what it has yet to start. */
+	/** Queues every task waiting in lane `id` once, or takes its queued ones out. */
 	queueLane(
 		id: number,
 		queued: boolean,
-	): Promise<{ lane: LaneRecord; unqueued: TaskRecord[] }> {
+	): Promise<{ lane: LaneRecord; changed: TaskRecord[] }> {
 		return this.laneFiles.queueLane(id, queued);
-	}
-
-	/** Notes tasks `ids` as taken out of the queue by the person, or put back. */
-	skipInLanes(ids: number[], skip: boolean): Promise<void> {
-		return this.laneFiles.skipInLanes(ids, skip);
-	}
-
-	/** Queues each task of a queued lane that can start now; gives them back. */
-	queueFromLanes(): Promise<TaskRecord[]> {
-		return this.laneFiles.queueFromLanes();
 	}
 
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */

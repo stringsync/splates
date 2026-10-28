@@ -3,14 +3,12 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import {
 	blockerLabel,
 	type DeferralBlocker,
-	isSkipped,
 } from "@stringsync/splates-server/board/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import {
 	CircleAlertIcon,
 	ClockIcon,
 	GripVerticalIcon,
-	HandIcon,
 	HourglassIcon,
 	type LucideIcon,
 	PaperclipIcon,
@@ -38,6 +36,7 @@ import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
 import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
+import { waitLines, waitsOn, waitsShort } from "./waits-on";
 
 export interface CardProps {
 	todo: TaskRecord;
@@ -75,6 +74,13 @@ export function Card({
 	// What a deferral waits on that is no task: the person's answers or something outside.
 	const awaited =
 		todo.deferred === undefined ? [] : openForPerson(todo, board.todos);
+	// Queued, the tasks here it waits on to start, its own lane's included,
+	// named on the card; those removed or elsewhere have badges of their own.
+	const waits = held
+		? waitsOn(todo, board.todos, board.lanes).filter(
+				(wait) => wait.state !== "removed" && wait.state !== "another project",
+			)
+		: [];
 	// The blockers the queue let it go for that still block it, to queue first.
 	const leftFor =
 		todo.stage === "queued"
@@ -87,6 +93,8 @@ export function Card({
 				// A pointer, since a tap opens it; a drag from anywhere still moves
 				// it, and the grip says so with its own cursor.
 				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
+				// Queued, it stands out from the rest of its lane, waiting for an agent.
+				held && "border-primary/40 bg-primary/5 hover:border-primary/60",
 				className,
 			)}
 		>
@@ -142,31 +150,17 @@ export function Card({
 								{AUTO_PICK_NAME}
 							</span>
 						)}
-					{/* A queued lane passes over it: only Queue starts it. In a lane
-					    it shows under the lane, whose heading says so. */}
-					{todo.takenBy === null &&
-						todo.manual === true &&
-						todo.lane === null && (
-							<span
-								className="inline-flex items-center gap-1"
-								title="A queued lane passes over it: only Queue starts it"
-							>
-								<HandIcon aria-hidden className="size-3" />
-								By hand
-							</span>
-						)}
-					{todo.takenBy === null &&
-						todo.stage !== "queued" &&
-						isSkipped(board.lanes, todo) && (
-							<span
-								className="inline-flex items-center gap-1"
-								title="Its lane is queued but passes over it, as it was taken out of the queue: only Queue starts it"
-							>
-								<HandIcon aria-hidden className="size-3" />
-								Skipped
-							</span>
-						)}
-					{blockers.length > 0 && <Blocked by={blockers} />}
+					{waits.length > 0 ? (
+						<span
+							className="inline-flex min-w-0 items-center gap-1 text-warning"
+							title={waitLines(waits)}
+						>
+							<HourglassIcon aria-hidden className="size-3 shrink-0" />
+							<span className="truncate">{waitsShort(waits)}</span>
+						</span>
+					) : (
+						blockers.length > 0 && <Blocked by={blockers} />
+					)}
 					<Elsewhere todo={todo} />
 					{blockers.length === 0 && awaited.length > 0 && (
 						<Awaited on={awaited} />

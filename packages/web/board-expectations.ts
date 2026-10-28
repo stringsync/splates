@@ -2,7 +2,6 @@ import type {
 	ElsewhereBlocker,
 	TaskRecord,
 } from "@stringsync/splates-server/board";
-import { isReady } from "@stringsync/splates-server/board/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
@@ -20,17 +19,6 @@ export function assigned(id: number, assignee: AgentPick | null) {
 		(snapshot: Snapshot): Snapshot =>
 			changed(snapshot, id, ({ assignee: _, ...todo }) =>
 				assignee === null ? todo : { ...todo, assignee },
-			),
-	);
-}
-
-/** Todo `id` queued only by hand when `manual`, by a queued lane too when not. */
-export function manualOf(id: number, manual: boolean) {
-	return keyed(
-		`todo:${id}`,
-		(snapshot: Snapshot): Snapshot =>
-			changed(snapshot, id, ({ manual: _, ...todo }) =>
-				manual ? { ...todo, manual: true as const } : todo,
 			),
 	);
 }
@@ -183,9 +171,9 @@ export function lanesJoined(from: number, into: number) {
 }
 
 /**
- * Lane `id` queued whole, each of its todos nothing blocks queued with it,
- * or no longer, each of its queued todos no agent has back in ready when
- * groomed, else the backlog.
+ * Each todo of lane `id` no agent has queued, from the backlog or ready, or
+ * when not `queued`, each of its queued ones back in ready when groomed,
+ * else the backlog.
  */
 export function laneQueued(id: number, queued: boolean) {
 	return keyed(
@@ -193,37 +181,15 @@ export function laneQueued(id: number, queued: boolean) {
 		(snapshot: Snapshot): Snapshot => ({
 			...snapshot,
 			todos: snapshot.todos.map((todo) =>
-				todo.lane !== id
+				todo.lane !== id || todo.takenBy !== null
 					? todo
 					: queued
-						? todo.stage !== "queued" && isReady(todo)
+						? todo.stage === "backlog" || todo.stage === "ready"
 							? { ...todo, stage: "queued" }
 							: todo
-						: todo.stage === "queued" && todo.takenBy === null
+						: todo.stage === "queued"
 							? { ...todo, stage: todo.groomed ? "ready" : "backlog" }
 							: todo,
-			),
-			lanes: snapshot.lanes.map((lane) => {
-				if (lane.id !== id) {
-					return lane;
-				}
-				const { queued: _, skip: __, budget: ___, ...rest } = lane;
-				return queued ? { ...rest, queued: true as const } : rest;
-			}),
-		}),
-	);
-}
-
-/** Queued lane `id` allowed `more` tasks beyond its budget left. */
-export function laneApproved(id: number, more: number) {
-	return keyed(
-		`lane:${id}`,
-		(snapshot: Snapshot): Snapshot => ({
-			...snapshot,
-			lanes: snapshot.lanes.map((lane) =>
-				lane.id === id && lane.queued === true && lane.budget !== undefined
-					? { ...lane, budget: lane.budget + more }
-					: lane,
 			),
 		}),
 	);

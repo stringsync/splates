@@ -7,16 +7,10 @@ import type { AgentPick } from "../models";
 import { taskName } from "./name";
 import { canStart, queueOrder, stalled } from "./order";
 
-/**
- * How often the queue is checked again, for a slot freed or a task gone with
- * no change seen, as from another tree.
- */
+/** How often the queue checks itself again when it has seen no change. */
 export const QUEUE_SWEEP = Duration.mins(1);
 
-/**
- * The most sweeps a refused start waits before it is tried again, its wait
- * doubling from one sweep with each refusal until it reaches this.
- */
+/** The most sweeps the queue waits before trying a refused start again. */
 export const RETRY_SWEEPS_MAX = 30;
 
 /** One queued task the queue starts, as `QueueRunner` hands it to its `start`. */
@@ -38,30 +32,20 @@ export interface QueueStart {
  */
 export type QueueStarter = (start: QueueStart) => Promise<void>;
 
-/**
- * Works the queue down: every queued task that nothing open blocks goes out, in queue order, as a task of its
- * own, on the agent and model it names, or for one that names none, what
- * the `picker`, Auto pick, decides as it starts. Queue starts take no slot, so all
- * go at once.
- *
- * A lane the person queued whole has each of its tasks queued as soon as
- * nothing blocks it, first thing in each check, until no task is left in it.
- *
- * A queued task waits on its blockers only while each is queued or running:
- * one blocked by a task neither is, or by one removed without merging,
- * would wait for good, so the queue lets it go back to ready, noting which
- * blockers to queue first. A task gets a held conversation only once it
- * can start, so none waits at an agent on another task.
- *
- * Checked as tasks change and every `QUEUE_SWEEP`.
- * A queued task whose start was refused is tried again at once when it
- * changes or the person asks (`retry`), and otherwise after a wait that
- * doubles with each refusal, up to `RETRY_SWEEPS_MAX` sweeps, so a passing
- * snag never strands it and a broken one never loops; its held
- * conversation says why it was refused meanwhile. What Auto pick keeps on a
- * task's record is not such a change.
- */
+/** Starts a project's queued tasks: `watch` to begin, `sweep` to check now, `retry` a refused start, `dispose` to stop. */
 export class QueueRunner implements Resource {
+	// Each queued task starts once nothing it is blocked by is open, on the
+	// agent and model it names or Auto pick's; one blocked by a task that
+	// will never start from the queue is let go back to ready, saying which
+	// to queue first. Checked as tasks change and every `QUEUE_SWEEP`. Queue starts take no
+	// slot, so all go at once. A blocker neither queued nor running, or one
+	// removed without merging, would hold its task for good, hence the let
+	// go. A task gets a held conversation only once it can start, so none
+	// waits at an agent on another task. A refused start is tried again at
+	// once when its task changes or on `retry`, otherwise after a wait that
+	// doubles with each refusal up to `RETRY_SWEEPS_MAX` sweeps, so a passing
+	// snag never strands it and a broken one never loops; what Auto pick
+	// keeps on a task's record is not such a change.
 	readonly #disposer = new Disposer();
 	/** One check at a time, so no queued task is started twice. */
 	#checking = Promise.resolve();
@@ -129,7 +113,7 @@ export class QueueRunner implements Resource {
 	}
 
 	async #check(): Promise<void> {
-		await this.deps.lanes?.();
+		await this.deps.settle?.();
 		let all = await this.deps.queued();
 		const going = stalled(all);
 		if (going.size > 0) {
@@ -393,10 +377,10 @@ export interface QueueRunnerDeps {
 	/** Every task on the list, queued or not. */
 	queued: () => Promise<TaskRecord[]>;
 	/**
-	 * Queues each task of a lane queued whole that can start now, before
-	 * each check reads the list; absent, no lane is queued whole.
+	 * Settles what the list cannot see itself, such as blockers in other
+	 * projects that merged there, before each check reads it; absent, nothing.
 	 */
-	lanes?: () => Promise<unknown>;
+	settle?: () => Promise<unknown>;
 	/** The name of every task out, so a new one takes another. */
 	tasks: () => Promise<string[]>;
 	/** Who works a queued task that names no agent: Auto pick. */
@@ -417,17 +401,9 @@ export interface QueueRunnerDeps {
 	log: Logger;
 }
 
-/**
- * Whom a queued task that names no agent goes to. Guessing is cheap, for
- * every check; deciding may ask a judge, so it is done as a task starts.
- */
+/** Picks the agent for a queued task that names none. */
 export interface QueuePicker {
-	/**
-	 * Has the words of each of `queued` the judge has not read judged in the
-	 * background, keeping what it says on the task, so guesses find it: one
-	 * judgment at a time for a task, its latest words superseding any
-	 * waiting. Answers once each is under way, not judged.
-	 */
+	/** Starts judging each of `queued` in the background, so later guesses are better; resolves once each has begun. */
 	ahead(queued: readonly TaskRecord[]): Promise<void>;
 	/**
 	 * Whether queued task `id` is being judged ahead now, so its held
@@ -440,10 +416,9 @@ export interface QueuePicker {
 	 */
 	guess(queued: readonly TaskRecord[]): Promise<Map<number, AgentPick>>;
 	/**
-	 * Decides whom `queued` starts on, on fresh plan limits, waiting out its
-	 * judgment under way and asking the judge only for words it has not
-	 * read, and keeps the decision on its record. Never rejects: with no
-	 * judge, or one that fails, it takes the rule for any task.
+	 * Decides whom `queued` starts on, on fresh plan limits, and keeps the
+	 * decision on its record. Never rejects: with no judge, or one that
+	 * fails, it takes the rule for any task.
 	 */
 	decide(queued: TaskRecord): Promise<QueuePicked>;
 }

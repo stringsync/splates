@@ -14,12 +14,11 @@ import {
 	blockersOf,
 	followers,
 	isReady,
-	isSkipped,
 	lane,
 	lostLine,
 	mentioned,
 } from "./lanes";
-import { byHandLine, cameFrom, type TaskRecord } from "./task";
+import { cameFrom, type TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskListOptions {
@@ -187,12 +186,6 @@ export async function taskShow(
 		...(task.state.grooming === undefined
 			? []
 			: [`  grooming:  the groomer has it, until it is groomed or taken`]),
-		...(task.state.manual ? [`  queue:     ${byHandLine(task.state)}`] : []),
-		...(isSkipped(records, task.state)
-			? [
-					`  queue:     its lane is queued but passes over it, as it was taken out of the queue; \`queue add\` (the person) puts it back`,
-				]
-			: []),
 		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,
 		`  taken by:  ${task.takenBy ?? "nobody yet"}`,
 		...(task.state.assignee === undefined

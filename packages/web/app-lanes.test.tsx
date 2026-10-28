@@ -35,10 +35,15 @@ describe("App's lanes", () => {
 		await act(async () => testing.stream?.onmessage?.());
 	}
 
-	/** The queued lanes of SOUND2SCORE_LANES, `queued` or not. */
-	const lanesQueued = (queued: boolean) =>
-		SOUND2SCORE_LANES.map((lane) =>
-			lane.id === 1 && queued ? { ...lane, queued: true as const } : lane,
+	/** The todos of SOUND2SCORE, with lane 1's waiting ones queued when `queued`. */
+	const licensingQueued = (queued: boolean) =>
+		sound2score().map((each) =>
+			each.lane === 1 &&
+			queued &&
+			each.takenBy === null &&
+			(each.stage === "backlog" || each.stage === "ready")
+				? { ...each, stage: "queued" as const }
+				: each,
 		);
 
 	/** The subjects of a lane's cards, top first. */
@@ -67,26 +72,6 @@ describe("App's lanes", () => {
 		expect(view.getByRole("menuitem", { name: "Queue lane" })).toBeTruthy();
 	});
 
-	it("shows a lane's tasks only the person queues under it, apart from its steps", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first", lane: 1 }),
-				todo({ id: 2, subject: "by hand", lane: 1, manual: true }),
-				todo({ id: 3, subject: "taken", lane: 1, manual: true, takenBy: "t" }),
-			],
-			lanes: [{ id: 1, name: "Docs" }],
-		});
-		expect(steps(view, "Docs").map((card) => card.includes("by hand"))).toEqual(
-			[false, false],
-		);
-		const hand = within(view.getByRole("region", { name: "Docs by hand" }));
-		expect(
-			within(hand.getByRole("list", { name: "Docs tasks by hand" }))
-				.getAllByRole("listitem")
-				.map((card) => card.textContent?.includes("by hand")),
-		).toEqual([true]);
-	});
-
 	it("draws each lane as a named column, saying whether it is running and what blocks it", async () => {
 		const todos = sound2score().map((each) =>
 			[200, 209].includes(each.id)
@@ -97,11 +82,7 @@ describe("App's lanes", () => {
 		);
 		const view = await testing.open({
 			todos,
-			lanes: SOUND2SCORE_LANES.map((record) =>
-				record.name === "Audio, uploads and pricing"
-					? { ...record, queued: true as const }
-					: record,
-			),
+			lanes: SOUND2SCORE_LANES,
 		});
 
 		expect(steps(view, "Licensing")).toHaveLength(6);
@@ -112,7 +93,6 @@ describe("App's lanes", () => {
 			name: "Audio, uploads and pricing",
 		});
 		// Running, without naming who is on which task: the cards say that.
-		// Only a queued lane shows it: one paused shows none.
 		expect(
 			within(two).getByTitle("An agent is at work on one of its tasks"),
 		).toBeTruthy();
@@ -123,10 +103,10 @@ describe("App's lanes", () => {
 			),
 		).toBeNull();
 		expect(
-			within(view.getByRole("region", { name: "Licensing" })).queryByTitle(
+			within(view.getByRole("region", { name: "Licensing" })).getByTitle(
 				"An agent is at work on one of its tasks",
 			),
-		).toBeNull();
+		).toBeTruthy();
 		// A lone hourglass, naming what blocks it only in its label and tooltip.
 		const third = within(
 			view.getByRole("list", { name: "Audio, uploads and pricing tasks" }),
@@ -293,7 +273,7 @@ describe("App's lanes", () => {
 		expect(view.getByText("Blocked by #177")).toBeTruthy();
 	});
 
-	it("queues a lane whole from its menu, holding it pending until the server lists it queued", async () => {
+	it("queues every task waiting in a lane from its menu, holding it pending until the server shows them queued", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
 			lanes: SOUND2SCORE_LANES,
@@ -301,148 +281,78 @@ describe("App's lanes", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Licensing actions" })),
 		);
-		await clickShown(() => view.getByRole("menuitem", { name: "Queue lane" }));
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: /^Queue lane: \d+ tasks$/ }),
+		);
 
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/lanes/1",
 			method: "PUT",
 			body: JSON.stringify({ queued: true }),
 		});
-		expect(view.queryByText("Queued lane")).toBeNull();
-		expect(
+		const busy = () =>
 			view
 				.getByRole("region", { name: "Licensing" })
 				.closest("[aria-busy]")
-				?.getAttribute("aria-busy"),
-		).toBe("true");
+				?.getAttribute("aria-busy");
+		expect(busy()).toBe("true");
 
-		await serve({ todos: sound2score(), lanes: lanesQueued(true) });
+		await serve({ todos: licensingQueued(true), lanes: SOUND2SCORE_LANES });
 
-		await waitFor(() => expect(view.getByText("Queued lane")).toBeTruthy());
+		await waitFor(() => expect(busy()).not.toBe("true"));
+		// Nothing is left waiting in it, so it offers nothing more to queue.
+		expect(
+			within(view.getByRole("region", { name: "Licensing" })).queryByRole(
+				"button",
+				{ name: /^Queue \d+ tasks?$/ },
+			),
+		).toBeNull();
 	});
 
-	it("stops queueing a lane whole from its menu, holding the mark pending until the server drops it", async () => {
+	it("takes a lane's queued tasks out of the queue from its menu", async () => {
 		const view = await testing.open({
-			todos: sound2score(),
-			lanes: SOUND2SCORE_LANES.map((lane) =>
-				lane.id === 1 ? { ...lane, queued: true as const } : lane,
-			),
+			todos: licensingQueued(true),
+			lanes: SOUND2SCORE_LANES,
 		});
-		expect(view.getByText("Queued lane")).toBeTruthy();
-
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Licensing actions" })),
 		);
 		await clickShown(() =>
-			view.getByRole("menuitem", { name: "Stop queueing lane" }),
+			view.getByRole("menuitem", { name: "Take lane out of queue" }),
 		);
 
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/lanes/1",
 			body: JSON.stringify({ queued: false }),
 		});
-		expect(view.getByText("Queued lane")).toBeTruthy();
-		expect(
-			view
-				.getByRole("region", { name: "Licensing" })
-				.closest("[aria-busy]")
-				?.getAttribute("aria-busy"),
-		).toBe("true");
-
-		await serve({ todos: sound2score(), lanes: lanesQueued(false) });
-
-		await waitFor(() => expect(view.queryByText("Queued lane")).toBeNull());
 	});
 
-	it("says a queued lane is stalled on a task taken out of the queue, and queues it from there", async () => {
+	it("marks a queued card and names what it waits on, its own lane's blocker included", async () => {
 		const view = await testing.open({
 			todos: [
-				todo({ id: 1, subject: "first", lane: 1, stage: "ready" }),
-				todo({ id: 2, subject: "second", lane: 1, blockedBy: [1] }),
+				todo({ id: 1, subject: "Store licenses", lane: 1, stage: "queued" }),
+				todo({
+					id: 2,
+					subject: "Check them",
+					lane: 1,
+					stage: "queued",
+					blockedBy: [1],
+				}),
 			],
-			lanes: [{ id: 1, name: "Licensing", queued: true, skip: [1] }],
+			lanes: [{ id: 1, name: "Licensing" }],
 		});
-		const stalled = view.getByRole("region", { name: "Licensing stalled" });
+		const [first, second] = within(
+			view.getByRole("list", { name: "Licensing tasks" }),
+		).getAllByRole("listitem") as [HTMLElement, HTMLElement];
+
 		expect(
-			within(stalled).getByText("#1 was taken out of the queue"),
-		).toBeTruthy();
-
-		await act(async () =>
-			fireEvent.click(
-				within(stalled).getByRole("button", { name: "Queue #1" }),
-			),
-		);
-
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/todos/1/queued",
-			method: "PUT",
-			body: JSON.stringify({ queued: true }),
-		});
-		expect(
-			view.getByRole("region", { name: "Licensing stalled" }),
-		).toBeTruthy();
-
-		await serve({
-			todos: [
-				todo({ id: 1, subject: "first", lane: 1, stage: "ready" }),
-				todo({ id: 2, subject: "second", lane: 1, blockedBy: [1] }),
-			],
-			lanes: [{ id: 1, name: "Licensing", queued: true }],
-		});
-
-		await waitFor(() =>
-			expect(
-				view.queryByRole("region", { name: "Licensing stalled" }),
-			).toBeNull(),
-		);
+			within(second).getByTitle("#1 in Licensing Store licenses (queued)")
+				.textContent,
+		).toBe("waits on #1 Store licenses");
+		expect(first.textContent).not.toContain("waits on");
 	});
 
-	it("shows stalled instead of running until its holdup clears", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "under way", lane: 1, takenBy: "agent" }),
-				todo({ id: 2, subject: "skipped", lane: 1, stage: "ready" }),
-				todo({ id: 3, subject: "waiting", lane: 1, blockedBy: [2] }),
-			],
-			lanes: [{ id: 1, name: "Licensing", queued: true, skip: [2] }],
-		});
-		const lane = within(view.getByRole("region", { name: "Licensing" }));
-
-		const stalled = lane.getByRole("region", { name: "Licensing stalled" });
-		expect(
-			lane.queryByTitle("An agent is at work on one of its tasks"),
-		).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(
-				within(stalled).getByRole("button", { name: "Queue #2" }),
-			),
-		);
-
-		expect(
-			lane.getByRole("region", { name: "Licensing stalled" }),
-		).toBeTruthy();
-
-		await serve({
-			todos: [
-				todo({ id: 1, subject: "under way", lane: 1, takenBy: "agent" }),
-				todo({ id: 2, subject: "skipped", lane: 1, stage: "ready" }),
-				todo({ id: 3, subject: "waiting", lane: 1, blockedBy: [2] }),
-			],
-			lanes: [{ id: 1, name: "Licensing", queued: true }],
-		});
-
-		await waitFor(() =>
-			expect(
-				lane.queryByRole("region", { name: "Licensing stalled" }),
-			).toBeNull(),
-		);
-		expect(
-			lane.getByTitle("An agent is at work on one of its tasks"),
-		).toBeTruthy();
-	});
-
-	it("names a blocker in another project on a queued lane", async () => {
+	it("names a blocker in another project on a lane", async () => {
 		const blocker = {
 			project: "/repos/webappwiz",
 			id: 20,
@@ -458,7 +368,7 @@ describe("App's lanes", () => {
 					blockedElsewhere: [blocker],
 				}),
 			],
-			lanes: [{ id: 1, name: "Ships", queued: true }],
+			lanes: [{ id: 1, name: "Ships" }],
 			elsewhere: {
 				blockers: {
 					1: [{ ...blocker, slug: "webappwiz", status: "ready" }],
@@ -476,13 +386,24 @@ describe("App's lanes", () => {
 		).toBeTruthy();
 	});
 
-	it("queues a lane whole with one tap on its header", async () => {
+	it("queues a lane's waiting tasks with one tap on its header, once, saying how many", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
 			lanes: SOUND2SCORE_LANES,
 		});
+		const waiting = sound2score().filter(
+			(each) =>
+				each.lane === 1 &&
+				each.takenBy === null &&
+				(each.stage === "backlog" || each.stage === "ready"),
+		).length;
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Queue Licensing" })),
+			fireEvent.click(
+				within(view.getByRole("region", { name: "Licensing" })).getByRole(
+					"button",
+					{ name: `Queue ${waiting} tasks` },
+				),
+			),
 		);
 
 		expect(testing.posts.at(-1)).toMatchObject({
@@ -490,42 +411,11 @@ describe("App's lanes", () => {
 			method: "PUT",
 			body: JSON.stringify({ queued: true }),
 		});
+		// No mark that the lane stays queued: its cards say they are.
 		expect(view.queryByText("Queued lane")).toBeNull();
 		expect(
 			view.queryByRole("button", { name: "Stop queueing Licensing" }),
 		).toBeNull();
-
-		await serve({ todos: sound2score(), lanes: lanesQueued(true) });
-
-		await waitFor(() => expect(view.getByText("Queued lane")).toBeTruthy());
-		expect(
-			view.getByRole("button", { name: "Stop queueing Licensing" }),
-		).toBeTruthy();
-	});
-
-	it("stops queueing a lane with one tap on its header", async () => {
-		const view = await testing.open({
-			todos: sound2score(),
-			lanes: SOUND2SCORE_LANES.map((lane) =>
-				lane.id === 1 ? { ...lane, queued: true as const } : lane,
-			),
-		});
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "Stop queueing Licensing" }),
-			),
-		);
-
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/lanes/1",
-			body: JSON.stringify({ queued: false }),
-		});
-		expect(view.getByText("Queued lane")).toBeTruthy();
-
-		await serve({ todos: sound2score(), lanes: lanesQueued(false) });
-
-		await waitFor(() => expect(view.queryByText("Queued lane")).toBeNull());
-		expect(view.getByRole("button", { name: "Queue Licensing" })).toBeTruthy();
 	});
 
 	// scry-ignore simple-test-setup: each test here opens its own board; this one only lost a neighbour.

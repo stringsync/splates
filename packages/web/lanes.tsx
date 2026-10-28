@@ -3,18 +3,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
 import {
-	APPROVAL,
 	BACKLOG_LANE,
-	BUDGET_LOW,
 	elsewhereName,
 } from "@stringsync/splates-server/board/browser";
-import {
-	HandIcon,
-	ListPlusIcon,
-	LockIcon,
-	OctagonXIcon,
-	TriangleAlertIcon,
-} from "lucide-react";
+import { LockIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -22,22 +14,19 @@ import {
 	useContext,
 	useState,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
-import { approveLane, renameLane } from "./api";
-import { Board, still } from "./board";
-import { laneApproved, laneRenamed } from "./board-expectations";
+import { renameLane } from "./api";
+import { Board } from "./board";
+import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { GroomUntriaged } from "./groom-untriaged";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
-import { LaneStalled } from "./lane-stalled";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
-import { byHand } from "./todo-board";
 import { StageCounts } from "./todo-queue";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
@@ -54,18 +43,6 @@ export function columnOf(
 	}
 	const lane = id.slice("lane:".length);
 	return lane === "none" ? null : lane === "new" ? "new" : Number(lane);
-}
-
-/** Where the space under lane `lane` takes a dropped card, for the tasks only the person queues. */
-export function handId(lane: number): string {
-	return `hand:${lane}`;
-}
-
-/** The lane whose space for tasks queued by hand a `handId` names, or undefined. */
-export function handOf(id: string | number): number | undefined {
-	return typeof id === "string" && id.startsWith("hand:")
-		? Number(id.slice("hand:".length))
-		: undefined;
 }
 
 /** The lane a `columnId` names when it is a lane's own, not the untriaged or new one. */
@@ -162,17 +139,11 @@ export function Lane({
 	});
 	// Lit for a card over it, not for a lane passing by.
 	const lit = isOver && active !== null && laneOf(active.id) === undefined;
-	// Who is on which task shows on the cards; the lane says only that one is,
-	// and only while it is queued and can still go on.
-	const running =
-		lane.queued && lane.stalled === undefined && lane.agents.length > 0;
-	// Its steps, and under it, apart and outside its glint, the tasks it
-	// passes over because only the person queues them.
-	const steps = lane.todos.filter((todo) => !byHand(todo));
-	const hand = lane.todos.filter(byHand);
+	// Who is on which task shows on the cards; the lane says only that one is.
+	const running = lane.agents.length > 0;
 	// The lane's next task waits on one still open in another lane or project,
-	// so playing the lane starts nothing until that lands.
-	const next = steps.find((todo) => todo.takenBy === null);
+	// so queueing the lane starts nothing until that lands.
+	const next = lane.todos.find((todo) => todo.takenBy === null);
 	const local = next
 		? todos.find(
 				(other) =>
@@ -218,12 +189,6 @@ export function Lane({
 					// Shrinks to the wrapper's height, so a tall lane scrolls in its own
 					// list rather than the board scrolling up and down with it.
 					"min-h-0 w-full shrink max-md:w-full",
-					// A glint running around its edge, while the lane can go on.
-					running && lane.stalled === undefined && "running-outline",
-					// A queued lane that cannot go on: blocked by a task elsewhere, or stalled.
-					lane.queued &&
-						(blocked || lane.stalled !== undefined) &&
-						"border-amber-500 ring-2 ring-amber-500/60",
 					opened && "ring-1 ring-primary/40",
 					// The slot it leaves while it is in hand, where it will land.
 					isDragging && "bg-muted ring-1 ring-border *:invisible",
@@ -276,10 +241,10 @@ export function Lane({
 					</div>
 					{/* A line of its own, so a long name keeps its room. */}
 					{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
-					{/* Always there, at the chips' height, so queueing or pausing the lane
+					{/* Always there, at the chips' height, so a task starting or landing
 				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
 					<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
-						{(running || lane.queued || blocked) && (
+						{(running || blocked) && (
 							<>
 								{running && (
 									<span
@@ -308,150 +273,20 @@ export function Lane({
 										<span className="truncate">Blocked by {holdup?.id}</span>
 									</span>
 								)}
-								{lane.queued && (
-									<span
-										className={cn(
-											"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-											TONES.quiet,
-										)}
-										title="Each task is queued as soon as nothing blocks it, until the lane is empty"
-									>
-										<ListPlusIcon aria-hidden className="size-3" />
-										Queued lane
-									</span>
-								)}
 							</>
 						)}
 					</span>
-					{lane.queued &&
-						lane.budget !== undefined &&
-						lane.budget <= BUDGET_LOW && <LaneApproval lane={lane} />}
-					{lane.stalled !== undefined && (
-						<LaneStalled name={lane.name} holdups={lane.stalled.holdups} />
-					)}
 					<Refusal refusal={refusedLanes.get(lane.id)} />
 				</header>
 				<Cards
-					todos={steps}
+					todos={lane.todos}
 					label={`${lane.name} tasks`}
 					staleness={staleness}
 					steps
-					coming={lit && !steps.some((todo) => todo.id === active?.id)}
+					coming={lit && !lane.todos.some((todo) => todo.id === active?.id)}
 				/>
 				<AddTodo lane={lane.id} />
 			</Column>
-			{!isDragging && <ByHand lane={lane} todos={hand} staleness={staleness} />}
-		</div>
-	);
-}
-
-/**
- * Under a lane, outside its glint: the lane's tasks only the person queues,
- * which a queued lane passes over. While a card is dragged it shows as a
- * dashed space, empty or not, to drop one on to take it out of the lane's
- * queue; dragged back up among the steps, the lane queues it again.
- */
-function ByHand({
-	lane,
-	todos,
-	staleness,
-}: {
-	lane: LaneState;
-	todos: TaskRecord[];
-	staleness: number;
-}): JSX.Element | null {
-	const { setNodeRef, isOver, active } = useDroppable({ id: handId(lane.id) });
-	// A card in hand, not a lane passing by.
-	const dragging = typeof active?.id === "number";
-	if (todos.length === 0 && !dragging) {
-		return null;
-	}
-	return (
-		<section
-			ref={setNodeRef}
-			aria-label={`${lane.name} by hand`}
-			className={cn(
-				"flex min-h-0 shrink-0 flex-col gap-1 rounded-xl border border-transparent px-[calc(--spacing(2)-1px)] pt-1.5 pb-2 transition-colors",
-				dragging && "border-foreground/20 border-dashed",
-				isOver && "border-primary/50 bg-primary/5",
-			)}
-		>
-			<h4
-				className="flex items-center gap-1.5 px-1 font-medium text-muted-foreground text-xs"
-				title="A queued lane passes over these: only Queue starts them"
-			>
-				<HandIcon aria-hidden className="size-3" />
-				By hand
-				{todos.length > 0 && (
-					<span className="font-normal">{todos.length}</span>
-				)}
-			</h4>
-			{todos.length === 0 ? (
-				<p className="px-1 py-1 text-muted-foreground text-xs">
-					Drop a task here for the lane to pass over it.
-				</p>
-			) : (
-				<Cards
-					todos={todos}
-					label={`${lane.name} tasks by hand`}
-					staleness={staleness}
-					steps={false}
-					coming={isOver && !todos.some((todo) => todo.id === active?.id)}
-				/>
-			)}
-		</section>
-	);
-}
-
-/**
- * What a queued lane has left of the tasks it may queue on its own, once
- * that is low, with a button that adds an approval to it; at none the lane
- * has stopped, which it says plainly, and an approval lets it go on.
- */
-function LaneApproval({ lane }: { lane: LaneState }): JSX.Element {
-	const { refuseLane } = useContext(Board);
-	const expect = useExpectSnapshot();
-	const left = lane.budget ?? 0;
-	const stopped = left === 0;
-	return (
-		<div
-			className={cn(
-				"flex flex-wrap items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-sm",
-				stopped
-					? "border-red-500 bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100"
-					: "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-			)}
-			title="The lane's budget of tasks to queue on its own: at none nothing more in it starts until you approve more"
-		>
-			<span className="inline-flex items-center gap-1.5">
-				{stopped ? (
-					<OctagonXIcon aria-hidden className="size-4 shrink-0" />
-				) : (
-					<TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
-				)}
-				{stopped ? (
-					<b>Budget ran out: lane stopped</b>
-				) : (
-					<span>
-						<b>{left}</b> left to queue
-					</span>
-				)}
-			</span>
-			<Button
-				size="sm"
-				variant={stopped ? "destructive" : "default"}
-				onClick={() =>
-					void expect(
-						laneApproved(lane.id, APPROVAL),
-						approveLane(lane.id, APPROVAL),
-					).catch((error: unknown) =>
-						refuseLane(lane.id, "Not approved", error),
-					)
-				}
-				{...still}
-			>
-				Approve {APPROVAL} more
-			</Button>
 		</div>
 	);
 }
@@ -523,13 +358,11 @@ export function LiftedLane({
 				<StageCounts todos={lane.todos} className="px-1" />
 			)}
 			<ol className="flex flex-col gap-1.5">
-				{lane.todos
-					.filter((todo) => !byHand(todo))
-					.map((todo, i) => (
-						<li key={todo.id}>
-							<Card todo={todo} staleness={staleness} step={i + 1} />
-						</li>
-					))}
+				{lane.todos.map((todo, i) => (
+					<li key={todo.id}>
+						<Card todo={todo} staleness={staleness} step={i + 1} />
+					</li>
+				))}
 			</ol>
 		</section>
 	);

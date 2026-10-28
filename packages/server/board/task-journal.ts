@@ -5,8 +5,9 @@ import type { Task, TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
 
 /**
- * Runs `update`, which changes task `id`, and journals what it moved; a
- * refused one is journaled with nothing moved.
+ * Use it to change task `id` with a record of it: pass `update`, what
+ * changes the task, and the journal gets what it moved, or nothing moved
+ * when the change is refused.
  */
 export async function recordUpdate(
 	journal: Journal,
@@ -55,9 +56,6 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
 			? {}
 			: { assignee: after.assignee ?? null }),
 		...(after.groomed && !before.groomed ? { ready: true as const } : {}),
-		...(Boolean(after.manual) === Boolean(before.manual)
-			? {}
-			: { manual: after.manual === true }),
 	};
 	return { number: after.id, subject: after.subject, changed };
 }

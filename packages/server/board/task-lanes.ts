@@ -1,20 +1,13 @@
 import { fail } from "../exit";
 import { BACKLOG_LANE, protectBacklog } from "./backlog";
-import {
-	aptName,
-	isReady,
-	LANE_SLACK,
-	type LaneRecord,
-	named,
-	settle,
-} from "./lanes";
+import { aptName, type LaneRecord, named, settle } from "./lanes";
 import { enqueued, type Task, type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
 /**
  * Creates, changes and removes the lanes of a `Tasks`, moves tasks between
- * them, and queues the tasks of a queued lane. Each change is atomic.
+ * them, and queues the tasks of a lane. Each change is atomic.
  */
 export class TaskLanes {
 	constructor(private readonly tasks: Tasks) {}
@@ -125,183 +118,37 @@ export class TaskLanes {
 	}
 
 	/**
-	 * Queues lane `id` whole, or stops: queued, each of its tasks is queued
-	 * once nothing blocks it (`queueFromLanes`); stopped, each it holds that
-	 * is queued, taken or not, goes back to ready when groomed, else the
-	 * backlog, so nothing more of it starts, and one started from the queue
-	 * goes there too once its start ends, rather than back in the queue.
-	 * Gives back the lane, and the tasks stopping took out.
+	 * Queues every task waiting in lane `id`, once: each nobody has taken, in
+	 * the backlog or ready, goes in the queue as the lane's, which starts it
+	 * once nothing blocks it and lets go of one whose blockers never will
+	 * start from there. A task put in the lane later is not queued. With
+	 * `queued` false, takes each of its queued tasks nobody has taken back
+	 * out. Gives back the lane and the tasks it queued or took out.
 	 */
 	async queueLane(
 		id: number,
 		queued: boolean,
-	): Promise<{ lane: LaneRecord; unqueued: TaskRecord[] }> {
+	): Promise<{ lane: LaneRecord; changed: TaskRecord[] }> {
 		return this.tasks.locked(async () => {
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			lacking(records, id);
-			const {
-				queued: _,
-				skip: __,
-				budget: ___,
-				...rest
-			} = records.find((record) => record.id === id) as LaneRecord;
-			const changed: LaneRecord = queued
-				? {
-						...rest,
-						queued: true,
-						budget:
-							states.filter((state) => state.lane === id).length + LANE_SLACK,
-					}
-				: rest;
-			const taken: TaskRecord[] = [];
-			if (!queued) {
-				for (const state of states) {
-					if (state.lane === id && state.stage === "queued") {
-						taken.push((await this.tasks.save(unqueued(state))).state);
-					}
-				}
-				for (const record of await this.tasks.store.started()) {
-					if (record.lane === id && record.startedFrom === "queued") {
-						await this.tasks.store.write({
-							...record,
-							startedFrom: unqueued(record).stage,
-						});
-					}
-				}
-			}
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? changed : record)),
-			);
-			return { lane: changed, unqueued: taken };
-		});
-	}
-
-	/**
-	 * Lets queued lane `id` queue `more` tasks on its own beyond what is left
-	 * of its budget, adding to it. A lane with no limit stays so. Gives back
-	 * the lane.
-	 */
-	async approveLane(id: number, more: number): Promise<LaneRecord> {
-		return this.tasks.locked(async () => {
-			const records = await this.records(await this.tasks.stored());
-			lacking(records, id);
-			const found = records.find((record) => record.id === id) as LaneRecord;
-			if (found.queued !== true || found.budget === undefined) {
-				return found;
-			}
-			const changed = { ...found, budget: found.budget + more };
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? changed : record)),
-			);
-			return changed;
-		});
-	}
-
-	/**
-	 * Notes tasks `ids` as taken out of the queue by the person, `skip`, so
-	 * the queued lane each is in leaves it out, or as queued again by them.
-	 */
-	async skipInLanes(ids: number[], skip: boolean): Promise<void> {
-		await this.tasks.locked(async () => {
-			const states = await this.tasks.stored();
-			const records = await this.records(states);
-			let changed = false;
-			const next = records.map((record) => {
-				const mine = states
-					.filter((state) => state.lane === record.id && ids.includes(state.id))
-					.map((state) => state.id);
-				if (record.queued !== true || mine.length === 0) {
-					return record;
-				}
-				const kept = (record.skip ?? []).filter((id) => !mine.includes(id));
-				const skipping = skip ? [...kept, ...mine] : kept;
-				changed = true;
-				const { skip: _, ...rest } = record;
-				return skipping.length === 0 ? rest : { ...rest, skip: skipping };
-			});
-			if (changed) {
-				await this.writeLanes(next);
-			}
-		});
-	}
-
-	/**
-	 * Queues each task of a queued lane that can start now: nobody has it,
-	 * nothing blocks it, it has not started, and the person has neither taken
-	 * it out of the queue nor marked it only theirs to queue (`TaskRecord.manual`).
-	 * A queued lane with no task left waiting, not counting those marked
-	 * only the person's to queue, is queued no more: it pauses. Gives back the
-	 * tasks it queued.
-	 */
-	async queueFromLanes(): Promise<TaskRecord[]> {
-		return this.tasks.locked(async () => {
-			// A listing that fails reads as no tasks, which would end every queued
-			// lane below, so it is checked to work first.
-			await this.tasks.store.records.list();
-			const states = await this.tasks.stored();
-			const records = await this.records(states);
-			const queued: TaskRecord[] = [];
-			let ended = false;
-			const next: LaneRecord[] = records.map((record) => {
-				if (record.queued !== true) {
-					return record;
-				}
-				if (
-					!states.some(
-						(state) =>
-							state.lane === record.id &&
-							(state.stage === "backlog" || state.stage === "ready") &&
-							state.manual !== true,
-					)
-				) {
-					ended = true;
-					const { queued: _, skip: __, budget: ___, ...rest } = record;
-					return rest;
-				}
-				return record;
-			});
-			const spent = new Map<number, number>();
-			for (const record of records) {
-				if (record.queued !== true) {
+			const changed: TaskRecord[] = [];
+			for (const state of states) {
+				if (state.lane !== id || state.takenBy !== null) {
 					continue;
 				}
-				for (const state of states) {
-					if (
-						record.budget !== undefined &&
-						(spent.get(record.id) ?? 0) >= record.budget
-					) {
-						break;
-					}
-					if (
-						state.lane === record.id &&
-						(state.stage === "backlog" || state.stage === "ready") &&
-						state.manual !== true &&
-						isReady(state) &&
-						!(record.skip ?? []).includes(state.id)
-					) {
-						queued.push(
-							(
-								await this.tasks.save(
-									enqueued(state, { by: "lane", lane: record.id }),
-								)
-							).state,
-						);
-						spent.set(record.id, (spent.get(record.id) ?? 0) + 1);
-					}
+				if (queued && (state.stage === "backlog" || state.stage === "ready")) {
+					const next = enqueued(state, { by: "lane", lane: id });
+					changed.push((await this.tasks.save(next)).state);
+				} else if (!queued && state.stage === "queued") {
+					changed.push((await this.tasks.save(unqueued(state))).state);
 				}
 			}
-			if (spent.size > 0 || ended) {
-				await this.writeLanes(
-					next.map((record) => {
-						const used = spent.get(record.id);
-						return used === undefined || record.budget === undefined
-							? record
-							: { ...record, budget: record.budget - used };
-					}),
-				);
-			}
-			return queued;
+			return {
+				lane: records.find((record) => record.id === id) as LaneRecord,
+				changed,
+			};
 		});
 	}
 
@@ -525,15 +372,7 @@ export class TaskLanes {
 						(each) =>
 							Number.isInteger(each?.id) && typeof each?.name === "string",
 					)
-					.map(({ id, name, queued, skip, budget }) => ({
-						id,
-						name,
-						...(queued === true ? { queued: true as const } : {}),
-						...(queued === true && Array.isArray(skip)
-							? { skip: skip.filter(Number.isInteger) }
-							: {}),
-						...(queued === true && Number.isInteger(budget) ? { budget } : {}),
-					}));
+					.map(({ id, name }) => ({ id, name }));
 			}
 		} catch {}
 		return [];

@@ -225,6 +225,18 @@ describe.concurrent("task", () => {
 		expect((await deps.tasks.find(1)).state.files).toEqual([]);
 	});
 
+	it("drops the mark of one saved as queued by hand only, which lanes no longer need", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "old one", null);
+		const { state } = await deps.tasks.find(1);
+		await deps.writeRecord(
+			"tasks/1.md",
+			encodeTask({ ...state, manual: true }),
+		);
+
+		expect((await deps.tasks.find(1)).state).toEqual(state);
+	});
+
 	it("refuses one saved with tags until they move into lanes, one lane a tag", async () => {
 		await using deps = await Testing.open();
 		await deps.tasks.addLane("Licensing");

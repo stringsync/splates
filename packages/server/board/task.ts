@@ -177,7 +177,6 @@ export class Task {
 		lane,
 		assignee,
 		ready,
-		manual,
 	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -199,7 +198,7 @@ export class Task {
 		const updated = await this.tasks.revise(this.id, (state) =>
 			assigned(
 				{
-					...byHand(state, manual),
+					...state,
 					...words,
 					...(slug === undefined ? {} : { slug }),
 					files: [...kept, ...added],
@@ -406,11 +405,6 @@ export interface TaskRecord {
 	sorted?: true;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
-	/**
-	 * Set when only the person queues it: a queued lane passes over it, and
-	 * it starts once queued by hand. Absent for a lane may queue it.
-	 */
-	manual?: true;
 	/** The other project it was added from; absent for one added here. */
 	origin?: TaskOrigin;
 	/**
@@ -463,7 +457,7 @@ export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
 }
 
 /**
- * Who put a task in the queue: the person, a lane the person queued whole,
+ * Who put a task in the queue: the person, by hand or by queueing its lane,
  * or the ship of another project, whose plan the person approved.
  */
 export type QueuedBy =
@@ -532,8 +526,6 @@ export interface TaskChange {
 	assignee?: AgentPick | null;
 	/** Marks it groomed, moving it from the backlog to ready; absent leaves it as it is. */
 	ready?: boolean;
-	/** Whether only the person queues it, as `TaskRecord.manual`; absent leaves it as it is. */
-	manual?: boolean;
 }
 
 /**
@@ -584,22 +576,6 @@ export interface TaskNew {
 	 * goes in the backlog, for grooming.
 	 */
 	ready?: boolean;
-}
-
-/** `state` queued only by hand when `manual`, by a lane too when false; as it was when absent. */
-function byHand(state: TaskRecord, manual: boolean | undefined): TaskRecord {
-	if (manual === undefined) {
-		return state;
-	}
-	const { manual: _, ...rest } = state;
-	return manual ? { ...rest, manual: true } : rest;
-}
-
-/** Whether a queued lane may queue `task` on its own, as a list says it. */
-export function byHandLine(task: TaskRecord): string {
-	return task.manual
-		? "queued by hand only: a queued lane passes over it"
-		: "a queued lane queues it";
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */

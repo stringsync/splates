@@ -516,8 +516,6 @@ function noteOf(event: Updated): string | undefined {
 				? "names no agent"
 				: `names ${changed.assignee.agent}${changed.assignee.model === undefined ? "" : ` (${changed.assignee.model})`}`),
 		changed.ready && "groomed, now ready",
-		changed.manual !== undefined &&
-			(changed.manual ? "queued by hand only" : "a queued lane may queue it"),
 	].filter((note) => typeof note === "string");
 	return notes.length === 0 ? undefined : notes.join("\n");
 }

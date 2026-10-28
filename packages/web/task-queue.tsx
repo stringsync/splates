@@ -1,18 +1,11 @@
 import { age } from "@stringsync/splates-server/age";
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
+import { moveInQueue, queueTodo, removeTodo, restoreTodo } from "./api";
 import {
-	manualTodo,
-	moveInQueue,
-	queueTodo,
-	removeTodo,
-	restoreTodo,
-} from "./api";
-import {
-	manualOf,
 	queued,
 	queueMoved,
 	todoRemoved,
@@ -21,19 +14,21 @@ import {
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { QueueEmpty, QueueRow, QueueSection, SortableRows } from "./queue-rows";
 import { Refusal, useRefusal } from "./refusal";
+import { waitLines, waitsOn, waitsShort } from "./waits-on";
 
 /**
  * What the queue has yet to start, as `splates queue list` has it: the
  * queued tasks no agent has taken, in the order they start, dragged into
  * another, each with what it waits on and how long it has. Each opens its
- * card on the board; its menu has only the person queue it, takes it out
- * of the queue, or removes it.
+ * card on the board; its menu takes it out of the queue, or removes it.
  */
 export function UpNext({
 	todos,
+	lanes,
 	onOpen,
 }: {
 	todos: readonly TaskRecord[];
+	lanes: LaneRecord[];
 	onOpen: (id: number) => void;
 }): JSX.Element {
 	const queue = queueOrder(todos);
@@ -92,7 +87,7 @@ export function UpNext({
 					label="queued tasks"
 					onMove={move}
 					row={(todo, { grip, dragging }) => {
-						const manual = todo.manual === true;
+						const waits = waitsOn(todo, todos, lanes);
 						return (
 							<QueueRow
 								pendingKey={`todo:${todo.id}`}
@@ -100,8 +95,9 @@ export function UpNext({
 								dragging={dragging}
 								name={todo.subject}
 								by={
-									waitsOn(todo, todos) ??
-									(manual ? "only you queue" : undefined)
+									waits.length > 0 ? (
+										<span title={waitLines(waits)}>{waitsShort(waits)}</span>
+									) : undefined
 								}
 								age={
 									todo.queuedAt === undefined ? undefined : (
@@ -115,19 +111,6 @@ export function UpNext({
 								main={{ label: "Open", onClick: () => onOpen(todo.id) }}
 								menu={
 									<>
-										<DropdownMenuItem
-											onClick={() =>
-												attempt(
-													manual ? "Not made auto" : "Not made manual",
-													expect(
-														manualOf(todo.id, !manual),
-														manualTodo(todo.id, !manual),
-													),
-												)
-											}
-										>
-											{manual ? "Let lanes queue it" : "Only I queue it"}
-										</DropdownMenuItem>
 										<DropdownMenuItem
 											onClick={() =>
 												attempt(
@@ -153,15 +136,4 @@ export function UpNext({
 			)}
 		</QueueSection>
 	);
-}
-
-/** What queued task `todo` waits on to land, as `waits on #3, #4`, or null for nothing. */
-function waitsOn(
-	todo: TaskRecord,
-	todos: readonly TaskRecord[],
-): string | null {
-	const open = todos.filter((other) => todo.blockedBy.includes(other.id));
-	return open.length === 0
-		? null
-		: `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
 }

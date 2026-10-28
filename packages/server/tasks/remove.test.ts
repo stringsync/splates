@@ -161,27 +161,6 @@ describe("remove", () => {
 		]);
 	});
 
-	it("leaves what it took out of its queued lane, so the lane does not queue it again", async () => {
-		const lane = await deps.tasks.addLane("Fixes");
-		const started = await deps.tasks.add("Retry on 413", null, {
-			lane: lane.id,
-			ready: true,
-		});
-		await deps.tasks.queueLane(lane.id, true);
-		expect(await deps.tasks.queueFromLanes()).toMatchObject([
-			{ id: started.id },
-		]);
-		await add(deps, "alpha", { tasks: [started.id] });
-
-		await remove(deps, "alpha", {
-			reason: "blocked",
-			deferral: { why: "It needs a key.", outside: ["a key"] },
-		});
-
-		expect(await deps.tasks.queueFromLanes()).toEqual([]);
-		expect((await deps.tasks.find(started.id)).state.stage).toBe("ready");
-	});
-
 	it("refuses a deferral with no why or no blocker, saying how to name them, and keeps the tree", async () => {
 		await add(deps, "alpha");
 

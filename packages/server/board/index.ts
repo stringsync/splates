@@ -29,22 +29,20 @@ export { ElsewhereLinks } from "./elsewhere-links";
 export {
 	laneAdd,
 	laneList,
+	laneQueue,
 	laneRemove,
 	laneShow,
 	laneUpdate,
 	laneUpdated,
 	recordLaneRemove,
 } from "./lane";
-export type { Holdup, LaneRecord, LaneState, Stall } from "./lanes";
+export type { LaneRecord, LaneState } from "./lanes";
 export {
-	APPROVAL,
-	BUDGET_LOW,
 	blockerLabel,
 	cycle,
 	elsewhereMention,
 	followers,
 	isReady,
-	isSkipped,
 	lane,
 	lanes,
 	lanesTaken,

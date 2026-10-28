@@ -12,7 +12,7 @@ export interface QueueWrites {
 
 /**
  * The work a queue card asks the person to queue, as the board has it now:
- * a lane whole, or tasks one by one, and what Queue now writes.
+ * a lane's tasks at once, or tasks one by one, and what Queue now writes.
  */
 export class QueueWork {
 	constructor(
@@ -24,7 +24,7 @@ export class QueueWork {
 		},
 	) {}
 
-	/** The lane it queues whole; null for tasks, or one the board no longer has. */
+	/** The lane whose tasks it queues; null for tasks, or one the board no longer has. */
 	get lane(): LaneRecord | null {
 		const { lane } = this.proposal;
 		return lane === null
@@ -32,7 +32,7 @@ export class QueueWork {
 			: (this.board.lanes.find((each) => each.id === lane) ?? null);
 	}
 
-	/** Whether it queues tasks one by one: named so, or a lane of one task, which needs no lane queued whole. */
+	/** Whether it queues tasks one by one: named so, or a lane of one task, which queues as one. */
 	private get byTask(): boolean {
 		return this.proposal.lane === null || this.todos.length === 1;
 	}
@@ -67,11 +67,17 @@ export class QueueWork {
 			: `${splates} lane queue ${lane}`;
 	}
 
-	/** Whether it is queued: the lane whole, or each task yet to start. */
+	/**
+	 * Whether it is queued: each task yet to start in the queue, or for a
+	 * lane's, let go by the queue too, for a blocker that will not start
+	 * from it.
+	 */
 	get queued(): boolean {
-		return this.byTask
-			? this.waiting().every((todo) => todo.stage === "queued")
-			: this.lane?.queued === true;
+		return this.waiting().every(
+			(todo) =>
+				todo.stage === "queued" ||
+				(!this.byTask && todo.unqueuedFor !== undefined),
+		);
 	}
 
 	/** Whether the board no longer has it, merged or removed. */

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
-import { laneAdd, laneUpdate, taskAdd, taskUpdate } from "../board";
+import { laneAdd, laneQueue, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
 import { queueAdd, queueRemove } from "./commands";
@@ -40,7 +40,6 @@ describe("QueueRunner", () => {
 	const watch = (): QueueRunner =>
 		QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
-			lanes: () => deps.tasks.queueFromLanes(),
 			unqueue: (going) => new QueueMoves(deps.tasks).letGo(going),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			picker,
@@ -81,27 +80,6 @@ describe("QueueRunner", () => {
 		await deps[Symbol.asyncDispose]();
 	});
 
-	it("starts ready work left in a queued lane when it starts, then its follower when the blocker lands", async () => {
-		runner.dispose();
-		await laneAdd(deps, "Licensing");
-		await taskAdd(deps, "Store licenses", null, { lane: 1, ready: true });
-		await taskAdd(deps, "Check them", null, { lane: 1, blockedBy: [1] });
-		await laneUpdate(deps, 1, { queued: true });
-
-		runner = watch();
-		await runner.sweep();
-		await settled();
-
-		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
-		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
-
-		await (await deps.tasks.find(1)).remove("abc123");
-		await runner.sweep();
-		await settled();
-
-		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
-	});
-
 	it("starts nothing that is not queued", async () => {
 		await taskAdd(deps, "Totals first", null, {
 			assignee: { agent: "claude" },
@@ -133,17 +111,29 @@ describe("QueueRunner", () => {
 		).toEqual([{ task: "totals-first", number: 2, pick: { agent: "claude" } }]);
 	});
 
-	it("starts the tasks of a lane queued whole as nothing blocks them", async () => {
+	it("starts a queued lane's tasks as their blockers land, and lets go of one blocked outside it", async () => {
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "Store licenses", null, { lane: 1 });
 		await taskAdd(deps, "Check them", null, { lane: 1, blockedBy: [1] });
-		await laneUpdate(deps, 1, { queued: true });
+		await taskAdd(deps, "Elsewhere", null);
+		await taskAdd(deps, "Bill them", null, { lane: 1, blockedBy: [3] });
+		await laneQueue(deps, 1, true);
 
 		await runner.sweep();
 		await settled();
 
 		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
-		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
+		expect((await deps.tasks.find(2)).state.stage).toBe("queued");
+		expect((await deps.tasks.find(4)).state).toMatchObject({
+			stage: "backlog",
+			unqueuedFor: [3],
+		});
+
+		await (await deps.tasks.find(1)).remove("abc123");
+		await runner.sweep();
+		await settled();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
 	});
 
 	it("asks the agent to groom a task from the backlog before working it, and not one groomed", async () => {

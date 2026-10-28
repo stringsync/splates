@@ -408,8 +408,7 @@ left behind; one waiting on the user's answers is not done, so leave it for
 work is moot, or it is better redone against current trunk,
 `cd "$(splates path)"` and `splates remove <task> --reason <why>`, which
 removes the board tasks it took too. Only `--reason blocked` puts them back
-on the list, out of the queue and any queued lane until the user queues
-them again. Before removing work to redo, add replacement tasks with what
+on the list, out of the queue until the user queues them again. Before removing work to redo, add replacement tasks with what
 you learned. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way), `redo`
 (better redone against current trunk) or `blocked` (set aside until other work

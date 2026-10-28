@@ -1,8 +1,8 @@
 import {
-	APPROVAL,
 	BACKLOG_LANE,
 	laneAdd,
 	laneList,
+	laneQueue,
 	laneRemove,
 	laneShow,
 	laneUpdate,
@@ -26,7 +26,7 @@ const laneNumber = z.union([
 
 /** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named groups of tasks, for you to see related work together on the board; queue one whole with `splates lane queue`. Backlog (lane 0) is permanent and holds unmatched deferred work. Untriaged is groomed into lanes and cannot be queued whole",
+	"lanes: named groups of tasks, for you to see related work together on the board; queue all its tasks at once with `splates lane queue`. Backlog (lane 0) is permanent and holds unmatched deferred work. Untriaged is groomed into lanes and cannot be queued as a lane",
 );
 
 splatesLane
@@ -98,7 +98,7 @@ splatesLane
 	.command("queue")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"queue a lane whole: each of its tasks is queued as soon as nothing blocks it, now and as tasks land, until the lane is empty; a task you take out with `splates queue remove` stays out until you queue it again. Untriaged cannot be queued whole",
+		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open, and lets go of one blocked by a task that will not start from the queue; a task put in the lane later is queued on its own. Untriaged cannot be queued as a lane",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
@@ -106,53 +106,21 @@ splatesLane
 	.action(async (opts, ctx) => {
 		refuseAgentQueue(ctx.service, "lane queue");
 		await refuseGroomer(ctx.service, "lane queue");
-		const change = { queued: true };
-		await ctx.journal.record(
-			"lane update",
-			null,
-			() => laneUpdate(ctx, opts.lane, change),
-			(record) => laneUpdated(opts.lane, record, change),
-		);
-	});
-
-splatesLane
-	.command("approve")
-	.use(repository({ needs: "tasks" }))
-	.description(
-		"let a queued lane queue more tasks on its own: it stops when its budget is spent, which starts at its tasks then plus 5, and this adds 10 to what is left; refused from an agent",
-	)
-	.arg("lane", laneNumber, {
-		description: "lane number",
-	})
-	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "lane approve");
-		const change = { approve: APPROVAL };
-		await ctx.journal.record(
-			"lane update",
-			null,
-			() => laneUpdate(ctx, opts.lane, change),
-			(record) => laneUpdated(opts.lane, record, change),
-		);
+		await laneQueue(ctx, opts.lane, true);
 	});
 
 splatesLane
 	.command("unqueue")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"stop queueing a lane whole, taking out of the queue each of its tasks that has yet to start; those under way go on",
+		"take each of a lane's queued tasks out of the queue; those under way go on",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
 		refuseAgentQueue(ctx.service, "lane unqueue");
-		const change = { queued: false };
-		await ctx.journal.record(
-			"lane update",
-			null,
-			() => laneUpdate(ctx, opts.lane, change),
-			(record) => laneUpdated(opts.lane, record, change),
-		);
+		await laneQueue(ctx, opts.lane, false);
 	});
 
 splatesLane

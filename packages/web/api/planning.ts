@@ -92,11 +92,6 @@ export async function assignTodo(
 	);
 }
 
-/** Has only the person queue todo `id`, a queued lane passing over it, or lets a lane queue it. */
-export async function manualTodo(id: number, manual: boolean): Promise<void> {
-	await sendJson(`/api/todos/${id}/manual`, "PUT", { manual });
-}
-
 /**
  * Puts todo `id` in the queue, for a worker to start once nothing it is
  * blocked by is open, or takes it out, back to the backlog. Given
@@ -152,16 +147,11 @@ export async function moveLane(id: number, position: number): Promise<void> {
 }
 
 /**
- * Queues lane `id` whole, each of its todos as nothing blocks it, or stops,
- * unqueueing those yet to start.
+ * Queues every todo waiting in lane `id` now, once, or takes its queued ones
+ * no agent has back out.
  */
 export async function queueLane(id: number, queued: boolean): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { queued });
-}
-
-/** Lets queued lane `id` queue `more` tasks on its own, beyond its budget left. */
-export async function approveLane(id: number, more: number): Promise<void> {
-	await sendJson(`/api/lanes/${id}`, "PUT", { approve: more });
 }
 
 /** Removes lane `id` and the todos in it. */

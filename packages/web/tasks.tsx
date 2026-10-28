@@ -19,7 +19,6 @@ import { Mark } from "./mark";
 import { NavigationContext } from "./navigation";
 import { useReading } from "./page-readings";
 import { QueueControls } from "./queue-controls";
-import { QueuedLanes } from "./queue-lanes";
 import { QueueEmpty, QueueRow, QueueSection } from "./queue-rows";
 import { Running, useKnown, Waiting } from "./queue-running";
 import { QueueMark } from "./slot-queue";
@@ -41,7 +40,6 @@ export function Tasks({
 	open,
 	onOpen,
 	onOpenTodo,
-	onOpenLane,
 }: {
 	/** This project, as its snapshot has it, to find among every project the feed lists. */
 	project: Here;
@@ -50,8 +48,6 @@ export function Tasks({
 	onOpen: (task: string | null) => void;
 	/** Opens queued task `id` on the board. */
 	onOpenTodo: (id: number) => void;
-	/** Opens lane `id` on the board. */
-	onOpenLane: (id: number) => void;
 }): JSX.Element {
 	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
@@ -90,11 +86,10 @@ export function Tasks({
 			>
 				<Running held={held} known={known} />
 				<Waiting queue={queue} known={known} />
-				<UpNext todos={project.todos} onOpen={onOpenTodo} />
-				<QueuedLanes
-					lanes={project.lanes}
+				<UpNext
 					todos={project.todos}
-					onOpen={onOpenLane}
+					lanes={project.lanes}
+					onOpen={onOpenTodo}
 				/>
 				<QueueSection title="Started by you" count={yours}>
 					{groups === null ? (

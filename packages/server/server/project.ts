@@ -80,21 +80,10 @@ export async function serveProject(
 	if (conversations !== null) {
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
-			lanes: async () => {
+			settle: async () => {
 				// A blocker in another project that merged there lets its task go on.
 				if (context.boards !== undefined) {
 					await new ElsewhereLinks(project.tasks).settle(context.boards);
-				}
-				const queued = await project.tasks.queueFromLanes();
-				if (queued.length > 0) {
-					await journal.record(
-						"queue add",
-						null,
-						async () => queued,
-						(tasks) => ({
-							tasks: tasks.map(({ id, subject }) => ({ id, subject })),
-						}),
-					);
 				}
 			},
 			unqueue: (going) =>
@@ -437,7 +426,6 @@ export interface Served extends AsyncResource {
 	elsewhereTasks: Handler;
 	arrangeQueued: Handler;
 	assignQueued: Handler;
-	manualQueued: Handler;
 	queueQueued: Handler;
 	answerDeferred: Handler;
 	doneOutside: Handler;

@@ -16,11 +16,10 @@ import {
 	InputGroupAddon,
 	InputGroupTextarea,
 } from "#web/components/ui/input-group.tsx";
-import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { assignTodo, manualTodo } from "./api";
+import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
-import { assigned, manualOf } from "./board-expectations";
+import { assigned } from "./board-expectations";
 import { CopyLink } from "./card";
 import { AttachPlus } from "./card-box";
 import { AssigneeMenu, OnIt } from "./dispatching";
@@ -37,12 +36,7 @@ import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
 import { STAGE_TONES, stageLabel, stageOf } from "./todo-queue";
 
-/**
- * One todo opened, in the task dialog's shape: its subject to reword as the
- * title, where it stands and sits on the board under it, its detail and files
- * on Overview, its agent and links on Details, and in the footer a way to
- * drop it, start it, or save what changed.
- */
+/** The dialog for one todo: reword it, edit its detail, agent and links, then save, start or drop it. */
 export function Edit({
 	todo,
 	onDone,
@@ -198,21 +192,6 @@ export function Edit({
 										).catch((error: unknown) => refuse("Not assigned", error))
 									}
 									className="-ml-2"
-								/>
-							</Property>
-						)}
-						{todo.takenBy === null && (
-							<Property title="Lane queues it">
-								{/* Off, a queued lane passes over it: only Queue starts it. */}
-								<Switch
-									aria-label="Lane queues it"
-									checked={todo.manual !== true}
-									onCheckedChange={(checked) =>
-										void expect(
-											manualOf(todo.id, !checked),
-											manualTodo(todo.id, !checked),
-										).catch((error: unknown) => refuse("Not changed", error))
-									}
 								/>
 							</Property>
 						)}

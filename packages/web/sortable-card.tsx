@@ -11,7 +11,6 @@ import { cn } from "#web/lib/utils.ts";
 import { Board } from "./board";
 import { Card, type CardProps } from "./card";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
-import { byHand } from "./todo-board";
 
 /** A card in a column that can be dragged to another place, as `Card` takes it. */
 export function Sortable(props: CardProps): JSX.Element {
@@ -27,18 +26,14 @@ export function Sortable(props: CardProps): JSX.Element {
 		isOver,
 		active,
 	} = useSortable({ id: todo.id });
-	// A card from another column, or from a lane's steps to the tasks under
-	// it or back, lands just above this one: a line says so, since these
-	// cards do not move aside for it.
+	// A card from another column lands just above this one: a line says so,
+	// since these cards do not move aside for it.
 	const { todos, moving } = useContext(Board);
 	// Dropped here, until the server shows it moved.
 	const pending = moving === todo.id;
 	const showPending = useShowPending(pending);
 	const other = todos.find((each) => each.id === active?.id);
-	const coming =
-		isOver &&
-		(other?.lane !== todo.lane ||
-			(other !== undefined && byHand(other) !== byHand(todo)));
+	const coming = isOver && other?.lane !== todo.lane;
 	return (
 		<li
 			ref={setNodeRef}

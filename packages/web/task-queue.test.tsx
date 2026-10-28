@@ -180,29 +180,6 @@ describe("Queue page's Up next", () => {
 		await waitFor(() => expect(view.queryByText("first")).toBeNull());
 	});
 
-	it("tags a manual task and switches it", async () => {
-		const view = await testing.openTasks({
-			todos: [todo({ id: 3, subject: "first", stage: "queued", manual: true })],
-		});
-		const row = () => queueRow(view, "first", "queued tasks");
-		expect(within(row()).getAllByText("only you queue")).not.toHaveLength(0);
-
-		await choose(view, "first", "Let lanes queue it");
-
-		expect(testing.posted("/api/todos/3/manual")).toEqual([
-			{ method: "PUT", body: { manual: false } },
-		]);
-		expect(within(row()).getAllByText("only you queue")).not.toHaveLength(0);
-
-		await serve({
-			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
-		});
-
-		await waitFor(() =>
-			expect(within(row()).queryAllByText("only you queue")).toHaveLength(0),
-		);
-	});
-
 	it("removes a task, and puts it back with Undo", async () => {
 		const view = await testing.openTasks({ todos: queue() });
 

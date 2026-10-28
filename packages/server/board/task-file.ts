@@ -4,13 +4,10 @@ import { type TaskRecord, type TaskStage, wording } from "./task";
 /** A task's file name under `tasks/`: its number, then `.md`. */
 export const TASK_FILE = /^\d+\.md$/;
 
-/**
- * Task `record` as `tasks/<N>.md` holds it: its fields as JSON between `---`
- * lines, which reads as YAML front matter too, then its text as the body.
- * JSON escapes every line break inside a string, so no `---` line in the
- * front matter is ever one of its values.
- */
+/** Task `record` as the text of its `tasks/<N>.md`, front matter then body. */
 export function encodeTask(record: object): string {
+	// JSON escapes every line break inside a string, so no `---` line in the
+	// front matter is ever one of its values.
 	const { text = "", ...fields } = record as { text?: unknown };
 	const body = String(text).trim();
 	return `---\n${JSON.stringify(fields, null, "\t")}\n---\n${body === "" ? "" : `${body}\n`}`;
@@ -40,10 +37,7 @@ export function decodeTask(raw: string): Record<string, unknown> | null {
 	}
 }
 
-/**
- * The stage a queued task saved without one is in: `ready` once a model is
- * named for it, as grooming did last when tasks had no stage, else `backlog`.
- */
+/** The stage of a task whose record has none: `ready` when a model is named for it, else `backlog`. */
 export function stageOf(state: {
 	stage?: TaskStage;
 	assignee?: unknown;
@@ -66,10 +60,12 @@ export function parseTaskFile(
 	// saved before they had subjects has its first line as one; one saved
 	// before they had positions has 0 until `all` places it; and one saved
 	// before links and lanes is blocked by nothing, in none. One a running
-	// lane once marked stuck drops the mark, which nothing sets now.
+	// lane once marked stuck drops the mark, which nothing sets now, and one
+	// once kept from queued lanes drops that too, as lanes no longer queue.
 	const {
 		tags = [],
 		stuck: _,
+		manual: __,
 		...state
 	} = queuedOf(stored) as Omit<
 		TaskRecord,
@@ -83,6 +79,7 @@ export function parseTaskFile(
 		lane?: number | null;
 		stage?: TaskStage;
 		stuck?: string;
+		manual?: true;
 	};
 	return {
 		state: {

@@ -30,7 +30,6 @@ describe("TodoBoard", () => {
 					? write("arrange", id, lane, before)
 					: write("arrange", id, lane, before, name),
 			moveLane: (id, position) => write("moveLane", id, position),
-			manual: (id, manual) => write("manual", id, manual),
 		});
 	});
 
@@ -100,7 +99,6 @@ describe("TodoBoard", () => {
 			move: () => new Promise<void>((resolve) => (land = resolve)),
 			arrange: async () => {},
 			moveLane: async () => {},
-			manual: async () => {},
 		});
 		const write = board.drop(todos, 1, { card: 3 });
 		expect(board.moving(todos)).toBe(1);
@@ -143,64 +141,6 @@ describe("TodoBoard", () => {
 			board.drop(todos, 4, { lane: 1 }),
 		]).toEqual([null, null, null]);
 		expect([writes, board.show(todos).lifted]).toEqual([[], undefined]);
-	});
-
-	const hand = [
-		...todos,
-		todo({ id: 6, position: 8, lane: 1, manual: true }),
-		todo({ id: 7, position: 9, lane: 1, manual: true, takenBy: "t" }),
-	];
-	const manuals = () =>
-		board
-			.show(hand)
-			.todos.filter((each) => each.manual === true)
-			.map((each) => each.id);
-
-	it("has only the person queue a card dropped on the space under a lane, moving it there first from another", async () => {
-		await board.drop(hand, 4, { lane: 1, hand: true });
-		expect(writes).toEqual([["manual", 4, true]]);
-		expect(manuals()).toEqual([4, 6, 7]);
-
-		writes = [];
-		await board.drop([...hand], 1, { lane: 1, hand: true });
-		expect(writes).toEqual([
-			["arrange", 1, 1, undefined],
-			["manual", 1, true],
-		]);
-	});
-
-	it("lets the lane queue a card dragged back up among its steps", async () => {
-		await board.drop(hand, 6, { lane: 1 });
-		expect(writes).toEqual([["manual", 6, false]]);
-		expect(manuals()).toEqual([7]);
-
-		writes = [];
-		await board.drop([...hand], 6, { card: 4 });
-		expect(writes).toEqual([
-			["move", 6, 6],
-			["manual", 6, false],
-		]);
-	});
-
-	it("takes the side of the card it lands on, where a taken card is a step", async () => {
-		await board.drop(hand, 5, { card: 6 });
-		expect(writes).toEqual([
-			["move", 5, 8],
-			["manual", 5, true],
-		]);
-
-		writes = [];
-		await board.drop([...hand], 5, { card: 7 });
-		expect(writes).toEqual([["move", 5, 9]]);
-	});
-
-	it("leaves a card as it is in no lane, and a taken card as it is anywhere", async () => {
-		await board.drop(hand, 6, { lane: null });
-		expect(writes).toEqual([["arrange", 6, null, undefined]]);
-
-		writes = [];
-		expect(board.drop([...hand], 7, { lane: 1, hand: true })).toBeNull();
-		expect(writes).toEqual([]);
 	});
 
 	const lanes = [

@@ -97,7 +97,6 @@ export function useAppPages({
 									go("todos");
 									todoView.open(id);
 								}}
-								onOpenLane={openLane}
 							/>
 						),
 						stats: <StatsPage report={report} />,

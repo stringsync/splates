@@ -5,7 +5,6 @@ import type { Facts, Journal } from "../records";
 import { table } from "../table";
 import {
 	blockerLabel,
-	type Holdup,
 	type LaneRecord,
 	type LaneState,
 	lane,
@@ -83,13 +82,13 @@ export async function laneShow(
 			{ lane: id },
 		);
 	}
-	const found = lane(states, record, records);
+	const found = lane(states, record);
 	if (json) {
 		log.info(JSON.stringify(laneJson(found), null, "\t"));
 		return;
 	}
 	const lines = [
-		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}${found.queued ? ", queued whole" : ""}`,
+		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
 	];
 	for (const [i, task] of found.todos.entries()) {
 		lines.push(
@@ -170,21 +169,8 @@ function nextLines(found: LaneState): string[] {
 	if (open.length === 0) {
 		return ["Every task in it is under way."];
 	}
-	if (found.stalled !== undefined) {
-		return [
-			color.yellow(
-				"Stalled: queued whole, but none of its tasks will be queued until you act on what holds it up:",
-			),
-			...found.stalled.holdups.map((holdup) => `  ${holdupLine(holdup)}`),
-		];
-	}
-	if (found.queued) {
-		return [
-			"Queued whole: each of its tasks is queued as soon as nothing blocks it, until it is empty.",
-		];
-	}
 	return [
-		`next: \`splates queue add ${open.map((task) => task.id).join(" ")}\` queues ${open.length === 1 ? "it" : "them"}, for a worker to start each once nothing it is blocked by is open, or \`splates lane queue ${found.id}\` the lane whole, each task as nothing blocks it`,
+		`next: \`splates queue add ${open.map((task) => task.id).join(" ")}\` queues ${open.length === 1 ? "it" : "them"}, for a worker to start each once nothing it is blocked by is open, or \`splates lane queue ${found.id}\` queues every task in the lane now`,
 	];
 }
 
@@ -208,19 +194,6 @@ function step(
 			);
 }
 
-/** A task holding up a stalled lane, why, and what puts it back on its way. */
-function holdupLine({ id, subject, lane, why }: Holdup): string {
-	const what = {
-		skipped: `taken out of the queue: \`splates queue add ${id}\` puts it back`,
-		manual: `queued by hand only: \`splates queue add ${id}\` queues it`,
-		unqueued: `its lane is not queued: \`splates queue add ${id}\` queues it`,
-		untriaged: `in no lane: \`splates queue add ${id}\` queues it`,
-		budget: `its lane's budget is spent: \`splates lane approve ${lane}\` lets it go on`,
-		lost: `a task it was blocked by was removed without merging: \`splates task update ${id} --remove-blocked-by <id>\` lets it go`,
-	}[why];
-	return `#${id} ${subject}: ${what}`;
-}
-
 function laneJson(found: LaneState) {
 	return {
 		lane: found.id,
@@ -229,9 +202,7 @@ function laneJson(found: LaneState) {
 		agents: found.agents,
 		next: found.next?.id ?? null,
 		ready: found.ready,
-		queued: found.queued,
 		blockers: found.blockers,
-		...(found.stalled === undefined ? {} : { stalled: found.stalled }),
 	};
 }
 
@@ -255,54 +226,25 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
-	/**
-	 * Whether it is queued whole: each of its tasks queued once nothing
-	 * blocks it, until it is empty; false unqueues those yet to start.
-	 */
-	queued?: boolean;
-	/** How many more tasks a queued lane may queue on its own, added to its budget left. */
-	approve?: number;
 }
 
-/** Calls a lane by another name, moves it among the others, or queues it whole. */
+/** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ name, position, queued, approve }: LaneUpdateOptions = {},
+	{ name, position }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
-	if (
-		name === undefined &&
-		position === undefined &&
-		queued === undefined &&
-		approve === undefined
-	) {
+	if (name === undefined && position === undefined) {
 		fail(
 			"usage",
-			"nothing to change: pass `--name <name>`, `--position <n>` or `--approve <n>`",
+			"nothing to change: pass `--name <name>` or `--position <n>`",
 			{ lane: id },
 		);
 	}
-	const { record, order, unqueued } = await tasks.changeLane(id, {
-		name,
-		position,
-		queued,
-		approve,
-	});
+	const { record, order } = await tasks.changeLane(id, { name, position });
 	log.info(
 		[
 			`${color.green("updated")} lane ${id}: ${record?.name}`,
-			...(queued === undefined
-				? []
-				: [
-						queued
-							? "  queued whole: each of its tasks is queued once nothing blocks it, until it is empty"
-							: `  no longer queued whole${unqueued.length === 0 ? "" : `: unqueued ${unqueued.map((task) => `#${task.id}`).join(", ")}`}`,
-					]),
-			...(approve === undefined
-				? []
-				: [
-						`  approved ${approve} more task${approve === 1 ? "" : "s"} to queue on its own${record?.budget === undefined ? "" : `: ${record.budget} left`}`,
-					]),
 			...(order === undefined
 				? []
 				: [
@@ -317,7 +259,7 @@ export async function laneUpdate(
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position, queued, approve }: LaneUpdateOptions,
+	{ name, position }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -325,16 +267,42 @@ export function laneUpdated(
 		changed: {
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
-			...(queued === undefined ? {} : { queued }),
-			...(approve === undefined ? {} : { approve }),
 		},
 	};
 }
 
 /**
- * Runs `drop`, which removes lane `id`, and journals it with the lane's name
- * and the tasks it sent back to none, read before it went.
+ * Queues every task waiting in lane `id`, once, journaled as the queue
+ * change it is: the queue starts each once nothing blocks it, and a task put
+ * in the lane later waits to be queued itself. With `queued` false, takes
+ * each of the lane's queued tasks nobody has taken back out. Gives back the
+ * tasks it queued or took out.
  */
+export async function laneQueue(
+	{ tasks, log, journal }: { tasks: Tasks; log: Logger; journal: Journal },
+	id: number,
+	queued: boolean,
+): Promise<TaskRecord[]> {
+	const { lane: record, changed } = await journal.record(
+		queued ? "queue add" : "queue remove",
+		null,
+		() => tasks.queueLane(id, queued),
+		(done) => ({
+			tasks: done.changed.map(({ id, subject }) => ({ id, subject })),
+		}),
+	);
+	const ids = changed.map((task) => `#${task.id}`).join(", ");
+	log.info(
+		changed.length === 0
+			? `lane ${id} ${record.name}: ${queued ? "no task in it waits to be queued" : "none of its tasks is in the queue"}`
+			: queued
+				? `${color.green("queued")} lane ${id} ${record.name}: ${ids}, each started once nothing it is blocked by is open; a task blocked by one that will not start from the queue is let go`
+				: `${color.green("unqueued")} lane ${id} ${record.name}: ${ids}`,
+	);
+	return changed;
+}
+
+/** Removes lane `id` through `drop` and journals its name and the tasks it left in no lane. */
 export async function recordLaneRemove(
 	journal: Journal,
 	tasks: Tasks,

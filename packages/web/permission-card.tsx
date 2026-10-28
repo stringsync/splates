@@ -5,7 +5,6 @@ import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
 	CircleCheckIcon,
-	HandIcon,
 	HourglassIcon,
 	ListPlusIcon,
 	type LucideIcon,
@@ -228,7 +227,7 @@ function OtherQueueCard({
 }
 
 /**
- * Queuing a lane whole or tasks one by one of this project's, shown where
+ * Queuing a lane's tasks or tasks one by one of this project's, shown where
  * it lands: the queue as it stands, then the card's tasks joining it.
  */
 function OwnQueueCard({
@@ -263,7 +262,9 @@ function OwnQueueCard({
 			}}
 			done={work.queued}
 			gone={work.gone ? "No longer on the board" : null}
-			note={whole ? "Each task joins once nothing blocks it." : undefined}
+			note={
+				whole ? "Each task starts once what it is blocked by lands." : undefined
+			}
 			tone="warning"
 		>
 			{todos.length > 0 && (
@@ -338,11 +339,7 @@ function QueuePanel({
 			{hidden > 0 && (
 				<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
 			)}
-			{shown.filter((todo) => todo.manual !== true).map(aheadRow)}
-			{shown.some((todo) => todo.manual === true) && (
-				<Line Icon={HandIcon}>By hand</Line>
-			)}
-			{shown.filter((todo) => todo.manual === true).map(aheadRow)}
+			{shown.map(aheadRow)}
 			{todos.map((todo) => (
 				<QueueItem
 					key={todo.id}
@@ -397,15 +394,27 @@ function QueueItem({
 			/>
 		);
 	}
-	// A queued lane queues a task once nothing open blocks it.
+	// It waits on a blocker the queue will start, its lane's or one queued or
+	// running; the queue lets it go for one it will not.
 	const blocker = whole
-		? todo.blockedBy.find((id) => board.some((each) => each.id === id))
+		? board.find((each) => todo.blockedBy.includes(each.id))
 		: undefined;
+	const starts =
+		blocker === undefined ||
+		blocker.lane === todo.lane ||
+		blocker.stage === "queued" ||
+		blocker.stage === "running";
 	return (
 		<Row
 			todo={todo}
 			Icon={ListPlusIcon}
-			status={blocker === undefined ? "joins" : `after #${blocker}`}
+			status={
+				blocker === undefined
+					? "joins"
+					: starts
+						? `after #${blocker.id}`
+						: `left out: queue #${blocker.id} first`
+			}
 			tone="plain"
 			onOpen={onOpen}
 		/>

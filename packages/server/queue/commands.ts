@@ -80,8 +80,6 @@ export async function queueAdd(
 			await tasks.revise(task.id, (state) => enqueued(state, { by: "person" })),
 		);
 	}
-	// Queued again by hand, a queued lane counts it in once more.
-	await tasks.skipInLanes(ids, false);
 	log.info(
 		queued
 			.map(
@@ -94,8 +92,7 @@ export async function queueAdd(
 
 /**
  * Takes tasks `ids` out of the queue, back to `ready` when they were
- * groomed, else `backlog`, and out of their lane's when it is queued whole,
- * until they are queued again. Refuses one not in it.
+ * groomed, else `backlog`. Refuses one not in it.
  */
 export async function queueRemove(
 	{ tasks, log }: QueueDeps,
@@ -116,8 +113,6 @@ export async function queueRemove(
 	for (const task of found) {
 		removed.push(await tasks.revise(task.id, unqueued));
 	}
-	// So a queued lane does not queue it straight back.
-	await tasks.skipInLanes(ids, true);
 	log.info(
 		removed
 			.map(
