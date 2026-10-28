@@ -39,11 +39,11 @@ import {
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#web/components/ui/button.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { useTaskViewport } from "#web/current-task.tsx";
 import { carriesOn } from "#web/directives.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
+import { PendingSpinner, useShowPending } from "#web/pending.tsx";
 
 export const Thread: FC<ThreadProps> = ({
 	components = EMPTY_COMPONENTS,
@@ -188,7 +188,7 @@ const ThreadRoot: FC<{
 						)}
 					</AuiIf>
 					<AuiIf condition={isHistoryLoadingView}>
-						{historyFailure ?? <ThreadHistorySkeleton />}
+						{historyFailure ?? <ThreadHistoryLoading />}
 					</AuiIf>
 					<AuiIf condition={(s) => !isHistoryLoadingView(s)}>
 						{historyFailure}
@@ -436,32 +436,22 @@ const ThreadAbove: FC = () => {
 const isNewChatView = (s: AssistantState) =>
 	s.thread.messages.length === 0 &&
 	(!s.thread.isLoading || s.threads.isLoading);
-// A switched thread that is still fetching its history: skeleton, not welcome.
+// A switched thread that is still fetching its history waits before showing progress.
 const isHistoryLoadingView = (s: AssistantState) =>
 	s.thread.messages.length === 0 &&
 	s.thread.isLoading &&
 	!s.thread.isDisabled &&
 	!s.threads.isLoading;
-const ThreadHistorySkeleton: FC = () => (
-	<div
-		data-slot="aui_thread-history-skeleton"
-		role="status"
-		className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
-	>
-		<span className="sr-only">Loading conversation</span>
-		<Skeleton className="ml-auto h-10 w-2/5 rounded-2xl" />
-		<div className="flex flex-col gap-y-2">
-			<Skeleton className="h-4 w-11/12" />
-			<Skeleton className="h-4 w-full" />
-			<Skeleton className="h-4 w-4/5" />
-			<Skeleton className="mt-2 h-20 w-full rounded-lg" />
-			<Skeleton className="mt-2 h-4 w-3/5" />
+const ThreadHistoryLoading: FC = () => {
+	const shown = useShowPending(true, 1000);
+	return (
+		<div className="flex flex-1 items-center justify-center">
+			{shown && (
+				<div data-slot="aui_thread-history-loading" role="status">
+					<span className="sr-only">Loading conversation</span>
+					<PendingSpinner shown className="size-5 text-muted-foreground" />
+				</div>
+			)}
 		</div>
-		<Skeleton className="ml-auto h-16 w-1/2 rounded-2xl" />
-		<div className="flex flex-col gap-y-2">
-			<Skeleton className="h-4 w-10/12" />
-			<Skeleton className="h-4 w-full" />
-			<Skeleton className="h-4 w-2/3" />
-		</div>
-	</div>
-);
+	);
+};

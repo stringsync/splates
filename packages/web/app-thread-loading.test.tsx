@@ -45,7 +45,11 @@ describe("Opening complete conversation history", () => {
 			resize(width, 844);
 			const view = await testing.openConversations([listed(whole)]);
 			const thread = within(view.getByRole("region", { name: "History" }));
-			expect(thread.getByText("Loading conversation")).toBeTruthy();
+			expect(thread.queryByText("Loading conversation")).toBeNull();
+			await waitFor(
+				() => expect(thread.getByText("Loading conversation")).toBeTruthy(),
+				{ timeout: 2000 },
+			);
 			expect(thread.queryByText("Finished reading")).toBeNull();
 			expect(thread.queryByText("How can I help you today?")).toBeNull();
 			const box = thread.getByRole("textbox", { name: "Message input" });
@@ -176,7 +180,7 @@ describe("Opening complete conversation history", () => {
 				code: "KeyM",
 			}),
 		);
-		expect(view.getByText("Loading conversation")).toBeTruthy();
+		expect(view.queryByText("Loading conversation")).toBeNull();
 		expect(view.queryByRole("listitem", { name: "question 1" })).toBeNull();
 		await act(async () => release());
 		const card = await waitFor(() =>
