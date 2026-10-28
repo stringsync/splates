@@ -5,10 +5,9 @@ import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
-import { useNavPages } from "./evals-available";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
-import { navPage, type Page } from "./page-route";
+import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { ProjectSwitcher } from "./projects";
 import { UpdateDot } from "./release";
@@ -56,7 +55,7 @@ export function Drawer({
 	// its switcher, Everywhere's, Add a project, and Archived last. The pages
 	// it opens take each other's place in history above the inbox, even while
 	// it loads, so back from any goes home, as Android's top-level ones do.
-	const pages = useNavPages();
+
 	const home = (page: Page, conversation: string | null) =>
 		page === "conversations" && conversation === null;
 	const go = (to: Page, open: string | null = null) => {
@@ -71,7 +70,7 @@ export function Drawer({
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	const [adding, setAdding] = useState(false);
-	const entry = ({ value, label, Icon }: (typeof pages)[number]) => (
+	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}
 			current={navPage(page) === value}
@@ -121,9 +120,9 @@ export function Drawer({
 								servers={false}
 								className="mx-0 mt-3 h-10 px-3"
 							/>
-							{pages.filter(({ scope }) => scope === "project").map(entry)}
+							{PAGES.filter(({ scope }) => scope === "project").map(entry)}
 							<h2 className={cn(NAV_HEADING, "mt-3 py-2")}>Everywhere</h2>
-							{pages.filter(({ scope }) => scope === "everywhere").map(entry)}
+							{PAGES.filter(({ scope }) => scope === "everywhere").map(entry)}
 							<Entry
 								current={false}
 								onClick={() => {

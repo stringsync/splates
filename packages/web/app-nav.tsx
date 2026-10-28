@@ -9,14 +9,13 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ArchivedEntry, ConversationList } from "./conversation-list";
 import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
-import { useNavPages } from "./evals-available";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
 import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
-import { navPage, type Page } from "./page-route";
+import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
@@ -62,7 +61,7 @@ export function AppNav({
 	// next waiting atop, Archived at the foot, and a handle to drag it wider.
 	// A button on the border folds the tabs away for room for the agents.
 	const held = useHeld();
-	const pages = useNavPages();
+
 	const { shown, pagesShown } = useReactive(
 		sidebar,
 		(sidebar) => ({ shown: sidebar.shown, pagesShown: sidebar.pagesShown }),
@@ -81,7 +80,7 @@ export function AppNav({
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
 	const shipping = shipActivity(useMachine()?.ship);
-	const tab = ({ value, label, Icon, shortcut }: (typeof pages)[number]) => (
+	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
 			value={value}
@@ -139,11 +138,11 @@ export function AppNav({
 						onOpen={onOpen}
 					/>
 				)}
-				{pages.filter(({ scope }) => scope === "project").map(tab)}
+				{PAGES.filter(({ scope }) => scope === "project").map(tab)}
 				<h2 hidden={!pagesShown} className={cn(NAV_HEADING, "mt-3 py-1")}>
 					Everywhere
 				</h2>
-				{pages.filter(({ scope }) => scope === "everywhere").map(tab)}
+				{PAGES.filter(({ scope }) => scope === "everywhere").map(tab)}
 				{/* Under their tab, so one is a click away from any page. */}
 				{available && snapshot !== null && (
 					<PagesFold sidebar={sidebar} shown={pagesShown} />
