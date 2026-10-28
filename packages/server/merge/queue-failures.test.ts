@@ -18,6 +18,24 @@ describe("queueFailedTests", () => {
 		await deps[Symbol.asyncDispose]();
 	});
 
+	it("queues a task per test when the gate was inconclusive", async () => {
+		await queueFailedTests(
+			deps,
+			"alpha",
+			[
+				{ name: "renders a", message: "size 932x20245 != baseline" },
+				{ name: "renders b", message: "size 932x20245 != baseline" },
+			],
+			"inconclusive",
+		);
+
+		const subjects = (await deps.tasks.all()).map((each) => each.subject);
+		expect(subjects.sort()).toEqual([
+			"Tests failed: renders a",
+			"Tests failed: renders b",
+		]);
+	});
+
 	it("folds tests failing together on the environment into one task naming each", async () => {
 		await queueFailedTests(
 			deps,

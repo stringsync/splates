@@ -182,7 +182,7 @@ describe("merge failure attribution", () => {
 		});
 
 		expect(facts).toMatchObject({
-			failureAttribution: "environment",
+			failureAttribution: "inconclusive",
 			attemptsLeft: 2,
 			failedTests: [],
 		});
@@ -199,7 +199,7 @@ describe("merge failure attribution", () => {
 		await expect(merge(deps, tree, facts)).toBail("tests_failed");
 
 		expect(facts).toMatchObject({
-			failureAttribution: "environment",
+			failureAttribution: "inconclusive",
 			attemptsLeft: 2,
 		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
@@ -217,7 +217,7 @@ describe("merge failure attribution", () => {
 		await expect(merge(deps, tree, facts)).toBail("tests_failed");
 
 		expect(facts).toMatchObject({
-			failureAttribution: "environment",
+			failureAttribution: "inconclusive",
 			attemptsLeft: 2,
 		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);

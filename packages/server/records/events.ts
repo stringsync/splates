@@ -87,7 +87,12 @@ export interface Facts {
 		 */
 		failedTests: FailedTest[];
 		/** Absent on older events or a gate that passed the first time. */
-		failureAttribution?: "task" | "trunk" | "flake" | "environment";
+		failureAttribution?:
+			| "task"
+			| "trunk"
+			| "flake"
+			| "environment"
+			| "inconclusive";
 		/**
 		 * The end of what git or the gate printed, for a refusal that names no
 		 * file or test to say why, at most its last 40 lines and 4,000

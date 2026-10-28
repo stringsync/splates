@@ -271,6 +271,8 @@ const BLAMED: Record<
 		"A flaky test: it passed when run again, so no attempt was spent.",
 	environment: () =>
 		"The environment: the failure could not be pinned on the task, so no attempt was spent.",
+	inconclusive: () =>
+		"Inconclusive: the gate gave no usable JUnit report to retest, so nothing shows the environment to blame. Read the failures against your own diff; no attempt was spent.",
 };
 
 /** The refusal in words, by its reason, or the reason itself for one unknown here. */

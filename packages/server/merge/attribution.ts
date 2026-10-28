@@ -2,8 +2,17 @@ import type { FailedTest } from "../tasks";
 import type { GateRun, MergeGate } from "./gate";
 import { failingCases, timedTests } from "./test-report";
 
-/** Why a failing gate stopped, independent of whether its task eventually lands. */
-export type FailureAttribution = "task" | "trunk" | "flake" | "environment";
+/**
+ * Why a failing gate stopped, independent of whether its task eventually lands.
+ * `inconclusive` is a gate no retest could judge (no usable report, or a retest
+ * that did not finish): it shows nothing about the environment.
+ */
+export type FailureAttribution =
+	| "task"
+	| "trunk"
+	| "flake"
+	| "environment"
+	| "inconclusive";
 
 export interface AttributedFailure {
 	kind: FailureAttribution;
@@ -22,14 +31,14 @@ export async function attributeFailure(
 ): Promise<AttributedFailure> {
 	const failed = failingCases(run.xml);
 	try {
-		const environment = (why: string): AttributedFailure => ({
-			kind: "environment",
+		const inconclusive = (why: string): AttributedFailure => ({
+			kind: "inconclusive",
 			failed,
 			why,
 		});
 		if (!failed.length) {
-			return environment(
-				"The gate named no failing test in a usable JUnit report; check the environment and hook output.",
+			return inconclusive(
+				"The gate named no failing test in a usable JUnit report, so nothing was retested and the failure is not attributed to the environment. Have the gate write a Bun JUnit report to $SPLATES_TEST_REPORT, and read the failing output against your own diff.",
 			);
 		}
 		// A JUnit report does not tell how to invoke an arbitrary runner. Bun's
@@ -38,7 +47,7 @@ export async function attributeFailure(
 			!/<testsuites\b[^>]*\bname=["']bun test["']/.test(run.xml) ||
 			failed.some((test) => !safeFile(test.file))
 		) {
-			return environment(
+			return inconclusive(
 				"Selective retests require a Bun JUnit report with repository-relative failing test files.",
 			);
 		}
@@ -46,7 +55,7 @@ export async function attributeFailure(
 		return await reproduce(gate, files, failed, { cwd, task, onto });
 	} catch (error) {
 		return {
-			kind: "environment",
+			kind: "inconclusive",
 			failed,
 			why: `Attribution could not finish: ${String(error)}`,
 		};
@@ -59,8 +68,8 @@ async function reproduce(
 	failed: FailedTest[],
 	{ cwd, task, onto }: { cwd: string; task: string; onto: string },
 ): Promise<AttributedFailure> {
-	const environment = (why: string): AttributedFailure => ({
-		kind: "environment",
+	const inconclusive = (why: string): AttributedFailure => ({
+		kind: "inconclusive",
 		failed,
 		why,
 	});
@@ -74,12 +83,12 @@ async function reproduce(
 					failed,
 					why: "The failing files also fail without the task on the exact base commit. The merge is held until the gate passes.",
 				}
-			: environment(
+			: inconclusive(
 					`Baseline retest failed without naming a test: ${baseline.stdout}\n${baseline.stderr}`,
 				);
 	}
 	if (!ranFiles(baseline, files)) {
-		return environment(
+		return inconclusive(
 			"The baseline retest did not run every failing file (a test may exist only on the task). Attribution is inconclusive.",
 		);
 	}
@@ -91,7 +100,7 @@ async function reproduce(
 					failed,
 					why: "The failing files pass on the base and fail again with the task.",
 				}
-			: environment(
+			: inconclusive(
 					`Task retest failed without naming a test: ${repeated.stdout}\n${repeated.stderr}`,
 				);
 	}
@@ -101,7 +110,7 @@ async function reproduce(
 				failed,
 				why: "The failing files passed on the base and then with the task. The full gate must pass again before landing.",
 			}
-		: environment(
+		: inconclusive(
 				"The task retest did not run every failing file; attribution is inconclusive.",
 			);
 }
