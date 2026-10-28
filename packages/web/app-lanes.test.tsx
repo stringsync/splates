@@ -76,7 +76,7 @@ describe("App's lanes", () => {
 		const todos = sound2score().map((each) =>
 			[200, 209].includes(each.id)
 				? { ...each, takenBy: "decoder" }
-				: each.id === 187
+				: each.id === 177
 					? { ...each, takenBy: "store" }
 					: each,
 		);
@@ -346,6 +346,70 @@ describe("App's lanes", () => {
 		expect(
 			view.queryByRole("region", { name: "Licensing stalled" }),
 		).toBeNull();
+	});
+
+	it("shows stalled instead of running until its holdup clears", async () => {
+		const view = await testing.open({
+			todos: [
+				todo({ id: 1, subject: "under way", lane: 1, takenBy: "agent" }),
+				todo({ id: 2, subject: "skipped", lane: 1, stage: "ready" }),
+				todo({ id: 3, subject: "waiting", lane: 1, blockedBy: [2] }),
+			],
+			lanes: [{ id: 1, name: "Licensing", queued: true, skip: [2] }],
+		});
+		const lane = within(view.getByRole("region", { name: "Licensing" }));
+
+		const stalled = lane.getByRole("region", { name: "Licensing stalled" });
+		expect(
+			lane.queryByTitle("An agent is at work on one of its tasks"),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(stalled).getByRole("button", { name: "Queue #2" }),
+			),
+		);
+
+		expect(
+			lane.queryByRole("region", { name: "Licensing stalled" }),
+		).toBeNull();
+		expect(
+			lane.getByTitle("An agent is at work on one of its tasks"),
+		).toBeTruthy();
+	});
+
+	it("names a blocker in another project on a queued lane", async () => {
+		const blocker = {
+			project: "/repos/webappwiz",
+			id: 20,
+			subject: "Declare release events",
+		};
+		const view = await testing.open({
+			todos: [
+				todo({
+					id: 1,
+					subject: "Read release events",
+					lane: 1,
+					stage: "ready",
+					blockedElsewhere: [blocker],
+				}),
+			],
+			lanes: [{ id: 1, name: "Ships", queued: true }],
+			elsewhere: {
+				blockers: {
+					1: [{ ...blocker, slug: "webappwiz", status: "ready" }],
+				},
+				following: {},
+			},
+		});
+		const lane = within(view.getByRole("region", { name: "Ships" }));
+
+		expect(lane.getByText("Blocked by webappwiz #20")).toBeTruthy();
+		expect(
+			lane.getByTitle(
+				"Read release events waits on webappwiz #20 Declare release events, so the lane will not run until it lands",
+			),
+		).toBeTruthy();
 	});
 
 	it("queues a lane whole with one tap on its header", async () => {

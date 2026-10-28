@@ -162,7 +162,7 @@ export function lane(
 		agents,
 		next,
 		blockers,
-		ready: next !== null && blockersOf(tasks, next).length === 0,
+		ready: next !== null && isReady(next),
 		queued: queued === true,
 		...(queued === true && budget !== undefined ? { budget } : {}),
 		...stalledOf(tasks, record, records),
@@ -250,33 +250,13 @@ function stalledOf(
 	if (waiting.length === 0) {
 		return {};
 	}
-	const each = waiting.map((task) =>
-		task.blockedBy.flatMap((id) => {
-			const other = byId.get(id);
-			return other === undefined ? [] : holdupsOf(other);
-		}),
-	);
-	if (
-		each.some(
-			(found, i) =>
-				found.length === 0 && (waiting[i]?.blockersLost ?? []).length === 0,
-		)
-	) {
+	const each = waiting.map(holdupsOf);
+	if (each.some((found) => found.length === 0)) {
 		return {};
 	}
 	const holdups = new Map<number, Holdup>();
-	for (const [i, task] of waiting.entries()) {
-		if ((task.blockersLost ?? []).length > 0) {
-			holdups.set(task.id, {
-				id: task.id,
-				subject: task.subject,
-				lane: task.lane,
-				why: "lost",
-			});
-		}
-		for (const found of each[i] ?? []) {
-			holdups.set(found.id, found);
-		}
+	for (const found of each.flat()) {
+		holdups.set(found.id, found);
 	}
 	return holdups.size === 0
 		? {}

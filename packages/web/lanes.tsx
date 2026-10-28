@@ -6,6 +6,7 @@ import {
 	APPROVAL,
 	BACKLOG_LANE,
 	BUDGET_LOW,
+	elsewhereName,
 } from "@stringsync/splates-server/board/browser";
 import {
 	HandIcon,
@@ -138,7 +139,7 @@ export function Lane({
 	/** The board was opened on it, from its title in the sidebar: ringed. */
 	opened?: boolean;
 }): JSX.Element {
-	const { refusedLanes, todos } = useContext(Board);
+	const { refusedLanes, todos, elsewhere } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
 	const {
 		listeners,
@@ -157,22 +158,42 @@ export function Lane({
 	// Lit for a card over it, not for a lane passing by.
 	const lit = isOver && active !== null && laneOf(active.id) === undefined;
 	// Who is on which task shows on the cards; the lane says only that one is,
-	// and only while it is queued: a lane no longer queued is paused.
-	const running = lane.queued && lane.agents.length > 0;
+	// and only while it is queued and can still go on.
+	const running =
+		lane.queued && lane.stalled === undefined && lane.agents.length > 0;
 	// Its steps, and under it, apart and outside its glint, the tasks it
 	// passes over because only the person queues them.
 	const steps = lane.todos.filter((todo) => !byHand(todo));
 	const hand = lane.todos.filter(byHand);
-	// The lane's next task waits on one still open elsewhere, so playing the
-	// lane starts nothing until that lands.
+	// The lane's next task waits on one still open in another lane or project,
+	// so playing the lane starts nothing until that lands.
 	const next = steps.find((todo) => todo.takenBy === null);
-	const holdup = next
+	const local = next
 		? todos.find(
 				(other) =>
 					next.blockedBy.includes(other.id) &&
 					(next.lane === null || other.lane !== next.lane),
 			)
 		: undefined;
+	const external = next?.blockedElsewhere?.find(
+		(blocker) => blocker.landed === undefined,
+	);
+	const holdup =
+		local !== undefined
+			? { id: `#${local.id}`, subject: local.subject }
+			: next !== undefined && external !== undefined
+				? {
+						id: elsewhereName({
+							...external,
+							slug: elsewhere?.blockers[next.id]?.find(
+								(blocker) =>
+									blocker.project === external.project &&
+									blocker.id === external.id,
+							)?.slug,
+						}),
+						subject: external.subject,
+					}
+				: undefined;
 	const blocked = !running && holdup !== undefined;
 	return (
 		<div
@@ -268,10 +289,10 @@ export function Lane({
 											"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
 											TONES.waiting,
 										)}
-										title={`${next?.subject} waits on #${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
+										title={`${next?.subject} waits on ${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
 									>
 										<LockIcon aria-hidden className="size-3 shrink-0" />
-										<span className="truncate">Blocked by #{holdup?.id}</span>
+										<span className="truncate">Blocked by {holdup?.id}</span>
 									</span>
 								)}
 								{lane.queued && (

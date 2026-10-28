@@ -37,21 +37,8 @@ describe("QueueRunner", () => {
 		await Bun.sleep(0);
 	};
 
-	beforeEach(async () => {
-		deps = await Testing.open();
-		started = [];
-		pending = [];
-		held = new FakeHeld();
-		picker = new FakePicker();
-		timer = new FakeTimer();
-		paused = false;
-		starting = async (each) => {
-			await (await deps.tasks.find(each.queued.id)).take(each.task);
-			if (each.held !== undefined) {
-				held.hand(each.held);
-			}
-		};
-		runner = QueueRunner.watch({
+	const watch = (): QueueRunner =>
+		QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
 			lanes: () => deps.tasks.queueFromLanes(),
 			unqueue: (going) => new QueueMoves(deps.tasks).letGo(going),
@@ -68,6 +55,22 @@ describe("QueueRunner", () => {
 			log: new MemoryLogger(),
 			timer,
 		});
+
+	beforeEach(async () => {
+		deps = await Testing.open();
+		started = [];
+		pending = [];
+		held = new FakeHeld();
+		picker = new FakePicker();
+		timer = new FakeTimer();
+		paused = false;
+		starting = async (each) => {
+			await (await deps.tasks.find(each.queued.id)).take(each.task);
+			if (each.held !== undefined) {
+				held.hand(each.held);
+			}
+		};
+		runner = watch();
 		// `watch` checks the queue at once; left running, that check can read
 		// a test's tasks as it queues them and start them before the test does
 		await runner.sweep();
@@ -76,6 +79,27 @@ describe("QueueRunner", () => {
 	afterEach(async () => {
 		runner.dispose();
 		await deps[Symbol.asyncDispose]();
+	});
+
+	it("starts ready work left in a queued lane when it starts, then its follower when the blocker lands", async () => {
+		runner.dispose();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "Store licenses", null, { lane: 1, ready: true });
+		await taskAdd(deps, "Check them", null, { lane: 1, blockedBy: [1] });
+		await laneUpdate(deps, 1, { queued: true });
+
+		runner = watch();
+		await runner.sweep();
+		await settled();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
+
+		await (await deps.tasks.find(1)).remove("abc123");
+		await runner.sweep();
+		await settled();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
 	});
 
 	it("starts nothing that is not queued", async () => {

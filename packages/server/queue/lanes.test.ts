@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
 	APPROVAL,
+	type ElsewhereBoards,
+	ElsewhereLinks,
 	laneAdd,
 	laneUpdate,
 	taskAdd,
@@ -219,5 +221,35 @@ describe.concurrent("a lane queued whole", () => {
 			budget + 1,
 		]);
 		expect((await deps.tasks.lanes())[1]?.budget).toBe(APPROVAL - 1);
+	});
+
+	it("queues ready work once its blocker in another project has landed", async () => {
+		await using deps = await Testing.open();
+		const blocker = {
+			project: "/repos/webappwiz",
+			id: 20,
+			subject: "Declare release events",
+		};
+		await laneAdd(deps, "Ships");
+		await taskAdd(deps, "Read events", null, {
+			lane: 1,
+			ready: true,
+			blockedElsewhere: [blocker],
+		});
+		await laneUpdate(deps, 1, { queued: true });
+
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+
+		const boards = {
+			root: async () => null,
+			slug: async () => "webappwiz",
+			find: async () => ({ status: "merged", commit: "abc123" }),
+			following: async () => [],
+			openTasks: async () => [],
+		} satisfies ElsewhereBoards;
+		await new ElsewhereLinks(deps.tasks).settle(boards);
+		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
+			1,
+		]);
 	});
 });

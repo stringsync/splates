@@ -84,6 +84,41 @@ describe("lanes", () => {
 		).toBeUndefined();
 	});
 
+	it("stalls on its own spent budget until more is approved", () => {
+		const record = { id: 1, name: "A", queued: true as const, budget: 0 };
+		const tasks = [task({ id: 1, lane: 1, stage: "ready" })];
+
+		expect(lane(tasks, record).stalled).toEqual({
+			holdups: [{ id: 1, subject: "a task", lane: 1, why: "budget" }],
+		});
+		expect(lane(tasks, { ...record, budget: 20 }).stalled).toBeUndefined();
+	});
+
+	it("is not ready on a lost blocker or one still open in another project", () => {
+		const external = { project: "/repos/webappwiz", id: 20, subject: "Events" };
+		const record = { id: 1, name: "A" };
+		const waiting = task({
+			id: 1,
+			lane: 1,
+			stage: "ready",
+			blockedElsewhere: [external],
+		});
+
+		expect(lane([waiting], record).ready).toBe(false);
+		expect(
+			lane(
+				[{ ...waiting, blockedElsewhere: [{ ...external, landed: "abc123" }] }],
+				record,
+			).ready,
+		).toBe(true);
+		expect(
+			lane(
+				[{ ...waiting, blockedElsewhere: [{ ...external, lost: true }] }],
+				record,
+			).ready,
+		).toBe(false);
+	});
+
 	it("draws the sound2score lanes as they were run", () => {
 		const tasks = sound2score();
 
