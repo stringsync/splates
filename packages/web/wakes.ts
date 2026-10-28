@@ -15,15 +15,14 @@ export type WakesEvents = { woke: undefined };
 const TICK = Duration.secs(5);
 
 /**
- * Says when the page is shown again after long enough hidden that its streams
- * may have died unsaid, as a phone's do once it locks or leaves the browser,
- * or when the machine wakes from a sleep the tab spent showing, so they open
- * again at once rather than after two pulses of silence. A short look at
- * another tab says nothing, as its streams stay open.
- *
- * It reads a wall clock: `performance.now()` stands still while a Mac sleeps,
- * so only the wall clock sees the time a sleep took.
+ * Listen for `woke` to open streams again once they may have died unsaid: the
+ * page shown after a pulse or more hidden, as a phone's is after it locks, or
+ * the machine woken from a sleep the tab spent showing. Call `heard` whenever
+ * a stream says anything, so a page whose streams kept their pulses while it
+ * was hidden, as a desktop's background tab does, is not woken for nothing.
  */
+// It reads a wall clock: `performance.now()` stands still while a Mac sleeps,
+// so only the wall clock sees the time a sleep took.
 export class Wakes implements Eventful<WakesEvents>, Resource {
 	private readonly disposer = new Disposer();
 	private readonly dispatcher = this.disposer.use(
@@ -31,6 +30,8 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 	);
 	readonly events = this.dispatcher.events;
 	private hiddenAt: number | null = null;
+	/** When a stream last said anything, by the wall clock. */
+	private heardAt: number | null = null;
 
 	constructor(
 		private readonly wall: WallClock = new SystemWallClock(),
@@ -46,7 +47,7 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 			} else if (this.hiddenAt !== null) {
 				const away = this.wall.now() - this.hiddenAt;
 				this.hiddenAt = null;
-				if (away >= this.after.ms) {
+				if (away >= this.after.ms && !this.listening()) {
 					this.woke();
 				}
 			}
@@ -63,7 +64,8 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 			ticked = now;
 			if (
 				document.visibilityState !== "hidden" &&
-				gap >= TICK.ms + this.after.ms
+				gap >= TICK.ms + this.after.ms &&
+				!this.listening()
 			) {
 				this.woke();
 			}
@@ -79,6 +81,23 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 
 	dispose(): void {
 		this.disposer.dispose();
+	}
+
+	/** Notes that a stream said something, a pulse or news, so it is still open. */
+	heard(): void {
+		this.heardAt = this.wall.now();
+	}
+
+	/**
+	 * Whether a stream has said something within a pulse and a tick, as one
+	 * does while it stays open: a desktop's hidden tab keeps its streams, and
+	 * hears their pulses, so it missed nothing and need not read afresh.
+	 */
+	private listening(): boolean {
+		return (
+			this.heardAt !== null &&
+			this.wall.now() - this.heardAt < this.after.ms + TICK.ms
+		);
 	}
 
 	/** Tells every stream the page woke, as a test does. */

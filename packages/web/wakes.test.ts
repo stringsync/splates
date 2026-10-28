@@ -43,6 +43,27 @@ describe("Wakes", () => {
 		expect(woke).toBe(1);
 	});
 
+	it("says nothing of a long look away while a stream kept saying its pulse", () => {
+		show("hidden");
+		clock.advance(PULSE);
+		wakes.heard();
+		clock.advance(PULSE);
+		wakes.heard();
+		clock.advance(Duration.secs(10));
+		show("visible");
+
+		expect(woke).toBe(0);
+	});
+
+	it("wakes after a long look away once the streams fell silent", () => {
+		wakes.heard();
+		show("hidden");
+		clock.advance(PULSE.multiply(2));
+		show("visible");
+
+		expect(woke).toBe(1);
+	});
+
 	it("says nothing of a quick look at another tab", () => {
 		show("hidden");
 		clock.advance(PULSE.subtract(Duration.secs(1)));

@@ -28,11 +28,11 @@ describe("App once the server stays away after a wake", () => {
 		testing.dispose();
 	});
 
-	it("says in the bar it cannot reach the server and unlocks the page so it can be read", async () => {
+	it("says in the bar it cannot reach the server, offers Retry and unlocks the page so it can be read", async () => {
 		const input = view.getByRole("textbox", { name: "Message input" });
 		const said = await waitFor(() => view.getByText("Offline"));
 		expect(said.textContent).toBe("Offline");
-		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
+		expect(view.getByRole("button", { name: "Retry" })).toBeDefined();
 		expect(input.closest("[inert]")).toBeNull();
 		expect(view.queryByRole("status", { name: "Refreshing" })).toBeNull();
 	});

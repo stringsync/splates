@@ -30,13 +30,19 @@ export interface StreamHandlers {
 const BURST = 8;
 const BATCH = Duration.ms(50);
 
+/** How long a stream the browser closed for good waits before it opens again. */
+// About what the browser waits itself on a stream it keeps: a proxy's error
+// answer, as a tunnel gives while `splates server` is down, closes it for good.
+export const RETRY = Duration.secs(3);
+
 /**
- * An `EventSource` that opens again once it has heard nothing, not even the
- * server's pulse, for two pulses. Across a sleep a stream can sit open with
- * no error and no news, and the page would miss every change until a reload;
- * `open` runs again on each new one, to read afresh what moved meanwhile.
- * It opens again at once when `wakes` says the page woke.
+ * Use in place of an `EventSource` for a stream the page must not lose: it
+ * opens again after two pulses of silence, at once when `wakes` says the page
+ * woke, and soon after the browser closes it. `open` runs again on each new
+ * one, to read afresh what moved meanwhile; `dispose` closes it.
  */
+// Across a sleep a stream can sit open with no error and no news, and the
+// page would miss every change until a reload.
 export class LiveStream implements Resource {
 	private source: EventSource | null = null;
 	private opened = false;
@@ -46,13 +52,15 @@ export class LiveStream implements Resource {
 	private flushing: Resource | null = null;
 	private calm: Resource | null = null;
 	private recent = 0;
+	/** Waiting to open again after the browser gave up on the stream. */
+	private retrying: Resource | null = null;
 	private readonly unlisten: () => void;
 
 	constructor(
 		private readonly url: string,
 		private readonly handlers: StreamHandlers,
 		private readonly timer: Timer = new SystemTimer(),
-		wakes: Wakes = WAKES,
+		private readonly wakes: Wakes = WAKES,
 	) {
 		this.silence = new Debouncer(timer, PULSE.multiply(2));
 		this.unlisten = wakes.events.on("woke", () => this.reopen());
@@ -71,6 +79,7 @@ export class LiveStream implements Resource {
 	dispose(): void {
 		this.flushing?.dispose();
 		this.calm?.dispose();
+		this.retrying?.dispose();
 		this.waiting = [];
 		this.unlisten();
 		this.silence.dispose();
@@ -113,10 +122,16 @@ export class LiveStream implements Resource {
 	}
 
 	private open(): void {
+		this.retrying?.dispose();
+		this.retrying = null;
 		this.source?.close();
 		const source = new EventSource(this.url);
 		this.source = source;
-		const heard = () => this.silence.call(() => this.reopen());
+		const waiting = () => this.silence.call(() => this.reopen());
+		const heard = () => {
+			this.wakes.heard();
+			waiting();
+		};
 		const { message, open, error, named = {} } = this.handlers;
 		source.onmessage = (event: MessageEvent<string>) => {
 			heard();
@@ -129,7 +144,16 @@ export class LiveStream implements Resource {
 			open?.(this.opened);
 			this.opened = true;
 		};
-		source.onerror = () => error?.();
+		source.onerror = () => {
+			error?.();
+			// `EventSource.CLOSED`, spelled out for a stand-in that lacks it.
+			if (source.readyState === 2 && this.retrying === null) {
+				this.retrying = this.timer.setTimeout(() => {
+					this.retrying = null;
+					this.reopen();
+				}, RETRY);
+			}
+		};
 		source.addEventListener("pulse", heard);
 		for (const [name, listener] of Object.entries(named)) {
 			source.addEventListener(name, (event: MessageEvent<string>) => {
@@ -138,6 +162,6 @@ export class LiveStream implements Resource {
 			});
 		}
 		// Even one that never opens is tried again.
-		heard();
+		waiting();
 	}
 }

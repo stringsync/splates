@@ -5,7 +5,7 @@ import {
 	StaleChip,
 	StaleRows,
 } from "./freshness";
-import { cleanup, render } from "./testing-library";
+import { cleanup, fireEvent, render } from "./testing-library";
 
 describe("Saying the page may be stale", () => {
 	afterEach(cleanup);
@@ -22,12 +22,7 @@ describe("Saying the page may be stale", () => {
 	});
 
 	it("does not lock the inbox rows while fresh", async () => {
-		const page = rows({
-			stale: false,
-			unreachable: false,
-			reason: null,
-			locked: false,
-		});
+		const page = rows({ ...STALE, stale: false, locked: false });
 
 		await new Promise((done) => setTimeout(done, 400));
 		expect(page.container.querySelector("[inert]")).toBeNull();
@@ -40,28 +35,34 @@ describe("Saying the page may be stale", () => {
 		expect(page.container.textContent).toBe("");
 	});
 
-	it("says at once in the bar, as an error, that it cannot reach the server, with no buttons", () => {
-		const page = barred(UNREACHABLE);
+	it("says at once in the bar, as an error, that it cannot reach the server, with Retry beside it", () => {
+		let retried = 0;
+		const page = barred({ ...UNREACHABLE, retry: () => retried++ });
 
 		expect(page.getByRole("alert").textContent).toBe("Offline");
-		expect(page.queryByRole("button")).toBeNull();
 		expect(page.queryByRole("status")).toBeNull();
+		fireEvent.click(page.getByRole("button", { name: "Retry" }));
+		expect(retried).toBe(1);
+		expect(
+			(page.getByRole("button", { name: "Retrying…" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
 	});
 });
 
-const STALE: Freshness = {
-	stale: true,
+const FRESH: Freshness = {
+	stale: false,
 	unreachable: false,
 	reason: null,
-	locked: true,
+	locked: false,
+	givesUpAt: null,
+	waitsMs: 10_000,
+	retry: () => {},
 };
 
-const UNREACHABLE: Freshness = {
-	stale: true,
-	unreachable: true,
-	reason: null,
-	locked: false,
-};
+const STALE: Freshness = { ...FRESH, stale: true, locked: true };
+
+const UNREACHABLE: Freshness = { ...FRESH, stale: true, unreachable: true };
 
 function rows(freshness: Freshness) {
 	return render(

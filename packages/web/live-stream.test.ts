@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { LiveStream } from "./live-stream";
+import { LiveStream, RETRY } from "./live-stream";
 import { Wakes } from "./wakes";
 
 /** A stream the page opened, to say what the server would. */
 interface Stream {
 	onmessage: ((event: { data: string }) => void) | null;
 	onopen: (() => void) | null;
+	onerror: (() => void) | null;
+	readyState: number;
 	named: Map<string, (event: { data: string }) => void>;
 	closed: boolean;
 }
@@ -31,6 +33,8 @@ describe("LiveStream", () => {
 		globalThis.EventSource = class {
 			onmessage = null;
 			onopen = null;
+			onerror = null;
+			readyState = 0;
 			readonly named = new Map();
 			closed = false;
 			constructor() {
@@ -112,6 +116,29 @@ describe("LiveStream", () => {
 		timer.fireTimeouts();
 
 		expect(streams).toHaveLength(2);
+	});
+
+	it("opens again soon after the browser gives up on it, as on a proxy's error", () => {
+		const [stream] = streams;
+		expect(stream).toBeDefined();
+		Object.assign(stream ?? {}, { readyState: 2 });
+
+		stream?.onerror?.();
+		stream?.onerror?.();
+
+		const retries = timer.timeouts.filter(
+			(each) => !each.disposed && each.delay === RETRY,
+		);
+		expect(retries).toHaveLength(1);
+		retries[0]?.callback();
+		expect(dropped).toBe(1);
+		expect(streams.map((each) => each.closed)).toEqual([true, false]);
+	});
+
+	it("leaves a stream the browser keeps trying to the browser", () => {
+		streams[0]?.onerror?.();
+
+		expect(timer.timeouts.some((each) => each.delay === RETRY)).toBe(false);
 	});
 
 	it("runs a burst of events together once it passes the first few", () => {
