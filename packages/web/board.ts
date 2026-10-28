@@ -79,6 +79,20 @@ export const still = {
 export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 
 /**
+ * The height of a one-line card, set in `--line-card`. Put it on the card,
+ * and whatever stands beside it, as a person's message in a phone's thread,
+ * can use `--line-card` to match.
+ */
+export const lineCardHeight = "[--line-card:calc(1.75rem+0.75rem+2px)]";
+
+/**
+ * A card that spans one line, as a waiting card's line in a phone's thread:
+ * its call to action set in as far from the card's end as from its top and
+ * bottom, as a longer card sets in its own.
+ */
+export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5`;
+
+/**
  * Put it on a small `relative` control in a line of text to stretch its tap
  * target to a finger's height on a touch screen, the text left in place.
  */

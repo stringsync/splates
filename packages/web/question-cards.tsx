@@ -459,14 +459,13 @@ export function QuestionCards({
 					<footer
 						// It stays at the sheet's foot, as a composer does.
 						data-pinned
-						className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-2.5"
+						className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-3"
 					>
-						<div className="flex items-center justify-end gap-2">
+						<div className="flex items-center gap-3">
 							{page > 0 && (
 								<Button
-									size="sm"
 									variant="outline"
-									className="mr-auto gap-1.5 bg-background"
+									className="h-11 px-4 text-base"
 									onClick={() => turn(page - 1)}
 								>
 									<ChevronLeftIcon data-icon="inline-start" />
@@ -475,8 +474,7 @@ export function QuestionCards({
 							)}
 							{!sending ? (
 								<Button
-									size="sm"
-									className="gap-1.5"
+									className="h-11 flex-1 text-base"
 									onClick={() => turn(page + 1)}
 								>
 									Next
@@ -485,8 +483,7 @@ export function QuestionCards({
 							) : (
 								<Button
 									variant={approving ? "success" : "default"}
-									size="sm"
-									className="gap-1.5"
+									className="h-11 flex-1 text-base"
 									disabled={empty && !taking}
 									onClick={sendNow}
 								>
@@ -502,8 +499,8 @@ export function QuestionCards({
 						<Refusal refusal={refusal} className="text-right" />
 					</footer>
 				) : live ? (
-					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-2.5">
-						<div className="flex items-center gap-2">
+					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
+						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 								{!touch && (
 									<>
