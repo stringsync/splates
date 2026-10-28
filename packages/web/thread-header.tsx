@@ -16,7 +16,7 @@ import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import type { Refuse } from "./refusal";
 import { TakeUpItems } from "./take-up";
-import { BarButton, TITLE, TopBar, TopBarFrame } from "./top-bar";
+import { BarButton, TopBar, TopBarFrame } from "./top-bar";
 
 /**
  * A conversation's bar: its name, which a double-click renames, then its
@@ -79,8 +79,7 @@ export function ThreadHeader({
 									: `${nameOf(conversation)}\nDouble-click to rename`
 							}
 							className={cn(
-								TITLE,
-								"truncate",
+								"min-w-0 truncate font-medium text-sm",
 								unnamed(conversation) && "text-muted-foreground italic",
 							)}
 						>

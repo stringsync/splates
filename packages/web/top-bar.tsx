@@ -185,7 +185,7 @@ export function TopBar({
 				</div>
 				<div
 					ref={restart}
-					className="flex w-20 shrink-0 items-center justify-end md:w-24"
+					className="flex w-20 shrink-0 items-center justify-end max-md:empty:hidden md:w-24"
 				>
 					{frame?.dot !== undefined ? (
 						<RestartButton wide={wide} update={frame.dot} />
