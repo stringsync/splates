@@ -78,7 +78,7 @@ export function ActionCard({
 		>
 			{body !== "" && <CardBody text={body} />}
 			{children}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
 				{gone === null && !done && note !== undefined && (
 					<span className="mr-auto text-muted-foreground text-xs">{note}</span>
 				)}

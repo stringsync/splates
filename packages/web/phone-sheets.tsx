@@ -345,8 +345,7 @@ export function NeedsYouBar(): ReactNode {
 				type="button"
 				onClick={() => open()}
 				className={cn(
-					"group flex w-full items-center gap-2 rounded-lg border bg-card pl-3 text-left text-sm shadow-xs",
-					lineCard,
+					"group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs",
 				)}
 			>
 				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />

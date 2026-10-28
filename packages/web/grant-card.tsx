@@ -130,7 +130,7 @@ export function GrantCard({
 			) : (granted || denied) && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />
 			) : null}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
 				{granted || denied ? (
 					<span className="flex items-center gap-1 text-xs">
 						{granted ? (

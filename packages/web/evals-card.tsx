@@ -246,7 +246,7 @@ export function EvalsCard({
 					{planText(state.plan)}
 				</p>
 			)}
-			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
 				{open && (
 					<Button
 						size="sm"

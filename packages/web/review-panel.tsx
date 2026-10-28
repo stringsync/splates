@@ -120,7 +120,7 @@ export function ReviewPanel({
 				</footer>
 			)}
 			{send !== null && (
-				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
+				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-2.5">
 					<CardBox
 						ref={box}
 						aria-label={`Changes to ${review.task}`}

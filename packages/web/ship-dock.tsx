@@ -29,7 +29,7 @@ export function ShipDock({
 			aria-label="needs you"
 			className="sticky bottom-0 z-10 mt-2 bg-background pt-2 pb-2"
 		>
-			<div className="flex flex-col gap-1 rounded-2xl border border-foreground/10 bg-[color-mix(in_oklab,var(--color-muted)_30%,transparent)] p-2 pl-3">
+			<div className="flex flex-col gap-1 rounded-lg border border-foreground/10 bg-[color-mix(in_oklab,var(--color-muted)_30%,transparent)] px-4 py-2.5">
 				<div className="flex items-center gap-2">
 					<span
 						aria-hidden

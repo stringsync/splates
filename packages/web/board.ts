@@ -86,9 +86,9 @@ export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 export const lineCardHeight = "[--line-card:calc(1.75rem+0.75rem+2px)]";
 
 /**
- * A card that spans one line, as a waiting card's line in a phone's thread
- * or a bar above the composer: its call to action set in as far from the
- * card's end as from its top and bottom, as a longer card sets in its own.
+ * A card that spans one line, as a waiting card's line in a phone's thread:
+ * its call to action set in as far from the card's end as from its top and
+ * bottom, as a longer card sets in its own.
  */
 export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5`;
 

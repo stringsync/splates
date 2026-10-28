@@ -54,7 +54,6 @@ export function Queued({
 						variant="outline"
 						disabled={edits.busy}
 						onClick={edits.onSendNow}
-						className="touch:h-11"
 					>
 						<SendHorizontalIcon />
 						Send now
