@@ -68,6 +68,7 @@ export function QueuedLanes({
 						const paused = { label: "Pause", onClick: () => pause(lane) };
 						return (
 							<QueueRow
+								pendingKey={`lane:${lane.id}`}
 								grip={grip}
 								dragging={dragging}
 								name={lane.name}

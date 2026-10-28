@@ -1,5 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import { PlusIcon, XIcon } from "lucide-react";
+import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import {
 	type FormEvent,
 	type JSX,
@@ -23,6 +23,7 @@ import { TodoDraft } from "./todo-draft";
  * leaves the box open for the next, Escape puts it away. `@` names a file
  * in the repo, and a pasted or attached file goes with it.
  */
+// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddTodo({ lane }: { lane: number | null }): JSX.Element {
 	const { drafts } = useContext(Board);
 	const key = todoDraft(
@@ -76,13 +77,20 @@ function Composer({
 	const expect = useExpectSnapshot();
 	const { todos } = useContext(Board);
 
+	const [submitting, setSubmitting] = useState(false);
 	const submit = (event?: FormEvent) => {
 		event?.preventDefault();
+		if (submitting || !ready) {
+			return;
+		}
+		setSubmitting(true);
 		void attempt(
 			draft.add(expect, new Set(todos.map((todo) => todo.id)), lane),
 			"Not added",
-		);
-		subject.ref.current?.focus();
+		).finally(() => {
+			setSubmitting(false);
+			subject.ref.current?.focus();
+		});
 	};
 	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
 		subject.onKeyDown(event);
@@ -104,6 +112,7 @@ function Composer({
 					// biome-ignore lint/a11y/noAutofocus: it opens because "Add a todo" was just pressed, to type one
 					autoFocus
 					aria-label="new task"
+					disabled={submitting}
 					placeholder="Enter a title for this task, @ for a file"
 					rows={3}
 					value={subject.value}
@@ -122,9 +131,13 @@ function Composer({
 				<Button
 					type="submit"
 					size="sm"
-					disabled={!ready}
+					disabled={!ready || submitting}
+					aria-busy={submitting}
 					className="pointer-coarse:h-10 pointer-coarse:px-3"
 				>
+					{submitting && (
+						<LoaderCircleIcon aria-hidden className="animate-spin" />
+					)}
 					Add task
 				</Button>
 				<Button

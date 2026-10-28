@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import { PlusIcon, XIcon } from "lucide-react";
+import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -15,6 +15,7 @@ import { Refusal, useRefusal } from "./refusal";
  * While a card is in hand it is where to drop it to start a lane of its
  * own, and a card dropped there waits in it for the lane's name.
  */
+// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddLane({
 	dragging,
 	naming,
@@ -31,6 +32,7 @@ export function AddLane({
 }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
+	const [submitting, setSubmitting] = useState(false);
 	const { setNodeRef, isOver } = useDroppable({ id: columnId("new") });
 	const { refusal, attempt } = useRefusal();
 	const expect = useExpectSnapshot();
@@ -43,7 +45,7 @@ export function AddLane({
 	};
 	const save = (event: FormEvent) => {
 		event.preventDefault();
-		if (name.trim() === "") {
+		if (name.trim() === "" || submitting) {
 			return;
 		}
 		if (naming) {
@@ -55,15 +57,16 @@ export function AddLane({
 			});
 			return;
 		}
-		// Shown at once, the field cleared for the next; refused, the name
-		// comes back to try again.
-		setName("");
+		// The form stays as typed and submitting until the server lists the
+		// lane; refused, the name is there to try again.
+		setSubmitting(true);
 		void attempt(
 			expect(laneAdded(name.trim()), addLane(name)),
 			"Lane not added",
 		).then((added) => {
-			if (!added) {
-				setName((typed) => (typed === "" ? name : typed));
+			setSubmitting(false);
+			if (added) {
+				setName("");
 			}
 		});
 	};
@@ -95,6 +98,7 @@ export function AddLane({
 						// biome-ignore lint/a11y/noAutofocus: it opens because "Add another lane" was just pressed, or a card dropped here, to type its name
 						autoFocus
 						aria-label="new lane name"
+						disabled={submitting}
 						placeholder="Enter lane name"
 						value={name}
 						onChange={(event) => setName(event.target.value)}
@@ -110,9 +114,13 @@ export function AddLane({
 						<Button
 							type="submit"
 							size="sm"
-							disabled={name.trim() === ""}
+							disabled={name.trim() === "" || submitting}
+							aria-busy={submitting}
 							className="pointer-coarse:h-10 pointer-coarse:px-3"
 						>
+							{submitting && (
+								<LoaderCircleIcon aria-hidden className="animate-spin" />
+							)}
 							Add lane
 						</Button>
 						<Button

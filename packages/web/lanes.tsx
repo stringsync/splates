@@ -29,11 +29,12 @@ import { approveLane, renameLane } from "./api";
 import { Board, still } from "./board";
 import { laneApproved, laneRenamed } from "./board-expectations";
 import { Card } from "./card";
-import { useExpectSnapshot } from "./expecting";
+import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { GroomUntriaged } from "./groom-untriaged";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { LaneStalled } from "./lane-stalled";
+import { pendingRow, useShowPending } from "./pending";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
 import { byHand } from "./todo-board";
@@ -141,6 +142,8 @@ export function Lane({
 }): JSX.Element {
 	const { refusedLanes, todos, elsewhere } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
+	const pending = usePendingSnapshot(`lane:${lane.id}`);
+	const showPending = useShowPending(pending);
 	const {
 		listeners,
 		setNodeRef,
@@ -198,7 +201,9 @@ export function Lane({
 	return (
 		<div
 			style={{ transform: CSS.Translate.toString(transform), transition }}
-			className={cn(
+			{...pendingRow(
+				pending,
+				showPending,
 				"flex max-h-full w-72 shrink-0 snap-start flex-col gap-1.5 max-md:w-full max-md:snap-always",
 			)}
 		>

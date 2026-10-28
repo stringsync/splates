@@ -12,6 +12,7 @@ export type TodoDraftEvents = { changed: undefined };
  * A todo being written, before it is added to the list, kept in `drafts`
  * under `key` as it is typed, so it outlives the box it is typed in.
  */
+// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 // scry-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
 export class TodoDraft implements Eventful<TodoDraftEvents> {
 	private readonly dispatcher = new Dispatcher<TodoDraftEvents>();
@@ -20,7 +21,7 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 	readonly subject: Mentions;
 	readonly detail: Mentions;
 	readonly files = new Files();
-	/** Files attached before a reload, which the draft could not keep. */
+	/** Names of files attached before a reload, which the draft could not keep. */
 	dropped: string[];
 	/** Whether the files kept from before a reload have come back yet. */
 	private back = false;
@@ -71,29 +72,16 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 		const subject = this.subject.text;
 		const detail = this.detail.text;
 		const files = this.files.files;
-		const dropped = this.dropped;
+		const _dropped = this.dropped;
 		const write = addTodo({ subject, text: detail }, files, lane);
+		await expect(
+			todoAdded({ subject: subject.trim(), text: detail.trim(), lane }, known),
+			write,
+		);
 		this.subject.write("");
 		this.detail.write("");
 		this.files.clear();
 		this.dropped = [];
-		try {
-			await expect(
-				todoAdded(
-					{ subject: subject.trim(), text: detail.trim(), lane },
-					known,
-				),
-				write,
-			);
-		} catch (error) {
-			if (!this.started && this.files.files.length === 0) {
-				this.subject.write(subject);
-				this.detail.write(detail);
-				this.files.add(files);
-				this.dropped = dropped;
-			}
-			throw error;
-		}
 	}
 
 	/** Attaches the files kept from before a reload, once they are back, if none are yet. */

@@ -3,6 +3,7 @@ import {
 	act,
 	cleanup,
 	fireEvent,
+	snapshot,
 	Testing,
 	todo,
 	waitFor,
@@ -20,6 +21,14 @@ describe("App's queue", () => {
 		cleanup();
 		testing.dispose();
 	});
+
+	/** The server lists `overrides` as the board, as it does once a write lands. */
+	async function serve(
+		overrides: Parameters<typeof snapshot>[0],
+	): Promise<void> {
+		testing.served = snapshot(overrides);
+		await act(async () => testing.stream?.onmessage?.());
+	}
 
 	/** The untriaged cards, top first, as text. */
 	const cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
@@ -97,7 +106,7 @@ describe("App's queue", () => {
 		expect(header?.textContent).not.toContain("ready");
 	});
 
-	it("has only the person queue a todo from its dialog, marking its card at once", async () => {
+	it("has only the person queue a todo from its dialog, holding it pending until the server marks the card", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],
 		});
@@ -121,11 +130,24 @@ describe("App's queue", () => {
 			within(dialog)
 				.getByRole("switch", { name: "Lane queues it" })
 				.getAttribute("aria-checked"),
-		).toBe("false");
+		).toBe("true");
+		expect(cards(view).join("")).not.toContain("By hand");
+
+		await serve({
+			todos: [todo({ id: 1, subject: "retry the upload", manual: true })],
+		});
+
+		await waitFor(() =>
+			expect(
+				within(dialog)
+					.getByRole("switch", { name: "Lane queues it" })
+					.getAttribute("aria-checked"),
+			).toBe("false"),
+		);
 		expect(cards(view).join("")).toContain("By hand");
 	});
 
-	it("queues and unqueues from the card, its dialog saying so at the click", async () => {
+	it("queues and unqueues from the card, held pending until the server lists it, its dialog saying so then", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],
 		});
@@ -139,11 +161,19 @@ describe("App's queue", () => {
 			{ method: "PUT", body: { queued: true } },
 		]);
 		expect(
-			view.getByRole("img", {
-				name: "Queued, 1 in line for an agent",
-				hidden: true,
-			}),
-		).toBeTruthy();
+			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
+		).toBeNull();
+		await serve({
+			todos: [todo({ id: 1, subject: "retry the upload", stage: "queued" })],
+		});
+		await waitFor(() =>
+			expect(
+				view.getByRole("img", {
+					name: "Queued, 1 in line for an agent",
+					hidden: true,
+				}),
+			).toBeTruthy(),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
 		);
@@ -153,7 +183,7 @@ describe("App's queue", () => {
 		expect(within(dialog).queryByRole("button", { name: /queue/i })).toBeNull();
 
 		await act(async () =>
-			// On the card behind the dialog, which shows the change at once.
+			// On the card behind the dialog.
 			fireEvent.click(view.getByLabelText("Unqueue #1")),
 		);
 
@@ -161,7 +191,11 @@ describe("App's queue", () => {
 			method: "PUT",
 			body: { queued: false },
 		});
-		expect(dialog.textContent).toContain("Backlog");
+		expect(dialog.textContent).toContain("Queued · 1");
+
+		await serve({ todos: [todo({ id: 1, subject: "retry the upload" })] });
+
+		await waitFor(() => expect(dialog.textContent).toContain("Backlog"));
 		expect(
 			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
 		).toBeNull();
@@ -227,7 +261,7 @@ describe("App's queue", () => {
 		]);
 	});
 
-	it("puts an unqueued todo back when the server refuses, saying why", async () => {
+	it("keeps an unqueued todo queued when the server refuses, saying why", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "first", position: 1, stage: "queued" }),
@@ -239,7 +273,7 @@ describe("App's queue", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Unqueue #1" })),
 		);
-		expect(cards(view)[0]).toContain("Backlog");
+		expect(cards(view)[0]).toContain("Queued · 1");
 
 		testing.refuseWrites = {
 			reason: "not_found",

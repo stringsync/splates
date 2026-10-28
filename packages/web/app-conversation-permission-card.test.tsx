@@ -162,8 +162,16 @@ describe("App's permission card", () => {
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
 		);
+		// Held until the server lists the lane queued.
+		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
+		testing.served = snapshot(queuedLane);
+		await act(async () => testing.stream?.onmessage?.());
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Archive" })),
+			fireEvent.click(
+				await waitFor(() =>
+					within(card).getByRole("button", { name: "Archive" }),
+				),
+			),
 		);
 
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([

@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	openQueueRow,
 	queueRow,
+	snapshot,
 	Testing,
 	todo,
 	waitFor,
@@ -24,6 +25,14 @@ describe("Queue page's Up next", () => {
 		cleanup();
 		testing.dispose();
 	});
+
+	/** The server lists `overrides` as the board, as it does once a write lands. */
+	async function serve(
+		overrides: Parameters<typeof snapshot>[0],
+	): Promise<void> {
+		testing.served = snapshot(overrides);
+		await act(async () => testing.stream?.onmessage?.());
+	}
 
 	it("shows the queue with nothing in it", async () => {
 		const view = await testing.openTasks({ tasks: [], todos: [] });
@@ -148,15 +157,27 @@ describe("Queue page's Up next", () => {
 		expect(names(view)).toEqual(["second", "first"]);
 	});
 
-	it("takes a task out of the queue", async () => {
+	it("holds a task in the queue, pending, until the server takes it out", async () => {
 		const view = await testing.openTasks({ todos: queue() });
+		testing.holdWrites();
 
 		await choose(view, "first", "Take out of queue");
 
 		expect(testing.posted("/api/todos/3/queued")).toEqual([
 			{ method: "PUT", body: { queued: false } },
 		]);
-		expect(view.queryByText("first")).toBeNull();
+		expect(
+			queueRow(view, "first", "queued tasks")
+				.querySelector("[aria-busy]")
+				?.getAttribute("aria-busy"),
+		).toBe("true");
+
+		expect(view.getByText("first")).toBeTruthy();
+
+		await act(async () => testing.release());
+		await serve({ todos: queue().filter((each) => each.id !== 3) });
+
+		await waitFor(() => expect(view.queryByText("first")).toBeNull());
 	});
 
 	it("tags a manual task and switches it", async () => {
@@ -171,7 +192,15 @@ describe("Queue page's Up next", () => {
 		expect(testing.posted("/api/todos/3/manual")).toEqual([
 			{ method: "PUT", body: { manual: false } },
 		]);
-		expect(within(row()).queryAllByText("only you queue")).toHaveLength(0);
+		expect(within(row()).getAllByText("only you queue")).not.toHaveLength(0);
+
+		await serve({
+			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
+		});
+
+		await waitFor(() =>
+			expect(within(row()).queryAllByText("only you queue")).toHaveLength(0),
+		);
 	});
 
 	it("removes a task, and puts it back with Undo", async () => {
@@ -179,7 +208,23 @@ describe("Queue page's Up next", () => {
 
 		await choose(view, "first", "Remove");
 
-		expect(view.getByText("Removed #3 first")).toBeTruthy();
+		// Undo is offered only once the removal has landed.
+		await waitFor(() =>
+			expect(view.getByText("Removed #3 first")).toBeTruthy(),
+		);
+		expect(
+			(view.getByRole("button", { name: "Undo" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
+
+		await serve({ todos: queue().filter((each) => each.id !== 3) });
+
+		await waitFor(() =>
+			expect(
+				(view.getByRole("button", { name: "Undo" }) as HTMLButtonElement)
+					.disabled,
+			).toBe(false),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Undo" })),
 		);

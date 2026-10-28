@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	act,
 	cleanup,
 	conversation,
 	fireEvent,
 	message,
+	snapshot,
 	Testing,
 	todo,
 	waitFor,
@@ -121,6 +123,27 @@ describe("App's Deferred card", () => {
 				{ method: "PUT", body: { blockedBy: [812] } },
 			]),
 		);
+		// Held until the server lists the link.
+		expect(
+			within(card).queryByRole("button", { name: "Queue to run after #812" }),
+		).toBeNull();
+		testing.served = snapshot({
+			todos: [
+				todo({
+					id: 812,
+					subject: "Rewrite the upload client",
+					stage: "backlog",
+				}),
+				todo({
+					id: 20,
+					subject: "Retry on 413",
+					slug: "upload-retry",
+					blockedBy: [812],
+				}),
+			],
+			lanes: [],
+		});
+		await act(async () => testing.stream?.onmessage?.());
 		await waitFor(() =>
 			within(card).getByRole("button", { name: "Queue to run after #812" }),
 		);

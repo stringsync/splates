@@ -27,6 +27,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
+import { usePendingSnapshot } from "./expecting";
 import { pendingRow, useShowPending } from "./pending";
 
 /**
@@ -86,7 +87,8 @@ export function QueueRow({
 	main,
 	grip,
 	dragging = false,
-	pending = false,
+	pending: writing = false,
+	pendingKey,
 }: {
 	name: ReactNode;
 	by?: ReactNode;
@@ -105,7 +107,11 @@ export function QueueRow({
 	dragging?: boolean;
 	/** A write to it is on its way: dimmed after a moment, its buttons held. */
 	pending?: boolean;
+	/** What a write to this row touches (`todo:3`, `lane:2`): the row shows it pending. */
+	pendingKey?: string;
 }): JSX.Element {
+	const keyed = usePendingSnapshot(pendingKey ?? "");
+	const pending = writing || keyed;
 	const showPending = useShowPending(pending);
 	const meta = [by, age, id].filter(
 		(each) => each !== undefined && each !== null && each !== "",

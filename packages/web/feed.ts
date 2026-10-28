@@ -22,7 +22,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	private readonly dispatcher = new Dispatcher<FeedEvents>();
 	readonly events = this.dispatcher.events;
 
-	/** As the server last said, with every change on its way shown over it (see `expect`). */
+	/** The server's last word on the repo; a write on its way shows as `pending`. */
 	snapshot: Snapshot | null = null;
 	/**
 	 * Set once the server has stayed unreachable for `offlineAfter`, so a
@@ -218,7 +218,11 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		write: Promise<unknown>,
 		key?: string,
 	): Promise<void> {
-		const expected: Expected = { patch: expectation, landed: null, key };
+		const expected: Expected = {
+			patch: expectation,
+			landed: null,
+			key: key ?? (expectation as { key?: string }).key,
+		};
 		this.expected = [...this.expected, expected];
 		this.show(this.recorded);
 		try {
@@ -240,16 +244,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	}
 
 	/**
-	 * Shows `recorded`, the server's word, with every change on its way over
-	 * it: the board and queue writes not yet converted to pending states (see
-	 * `pending`) still draw from `expect`.
+	 * Shows `recorded`, the server's word alone: a write on its way is
+	 * pending (see `pending`), never drawn.
 	 */
 	private show(recorded: Snapshot | null): void {
 		this.recorded = recorded;
-		this.snapshot =
-			recorded === null
-				? null
-				: this.expected.reduce((shown, { patch }) => patch(shown), recorded);
+		this.snapshot = recorded;
 		this.dispatcher.dispatch("changed");
 	}
 

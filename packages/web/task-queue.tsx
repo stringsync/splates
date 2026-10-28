@@ -18,7 +18,7 @@ import {
 	todoRemoved,
 	todoRestored,
 } from "./board-expectations";
-import { useExpectSnapshot } from "./expecting";
+import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { QueueEmpty, QueueRow, QueueSection, SortableRows } from "./queue-rows";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -41,24 +41,22 @@ export function UpNext({
 	const { refusal, refuse } = useRefusal();
 	// The task last removed from here, kept for Undo to put back.
 	const [removed, setRemoved] = useState<TaskRecord | null>(null);
+	const undoing = usePendingSnapshot(
+		removed === null ? "" : `todo:${removed.id}`,
+	);
 	const attempt = (title: string, write: Promise<unknown>) =>
 		void write.catch((error: unknown) => refuse(title, error));
 	const remove = (todo: TaskRecord) => {
-		setRemoved(todo);
-		void expect(todoRemoved(todo.id), removeTodo(todo.id)).catch(
-			(error: unknown) => {
-				setRemoved(null);
-				refuse("Not removed", error);
-			},
+		// Undo offers once the server has dropped it, not before.
+		void expect(todoRemoved(todo.id), removeTodo(todo.id)).then(
+			() => setRemoved(todo),
+			(error: unknown) => refuse("Not removed", error),
 		);
 	};
 	const undo = (todo: TaskRecord) => {
-		setRemoved(null);
-		void expect(todoRestored(todo), restoreTodo(todo.id)).catch(
-			(error: unknown) => {
-				setRemoved(todo);
-				refuse("Not put back", error);
-			},
+		void expect(todoRestored(todo), restoreTodo(todo.id)).then(
+			() => setRemoved(null),
+			(error: unknown) => refuse("Not put back", error),
 		);
 	};
 	// A place in the queue counts from 1.
@@ -74,7 +72,12 @@ export function UpNext({
 					<span className="min-w-0 flex-1 truncate">
 						Removed #{removed.id} {removed.subject}
 					</span>
-					<Button size="xs" variant="ghost" onClick={() => undo(removed)}>
+					<Button
+						size="xs"
+						variant="ghost"
+						disabled={undoing}
+						onClick={() => undo(removed)}
+					>
 						Undo
 					</Button>
 				</p>
@@ -92,6 +95,7 @@ export function UpNext({
 						const manual = todo.manual === true;
 						return (
 							<QueueRow
+								pendingKey={`todo:${todo.id}`}
 								grip={grip}
 								dragging={dragging}
 								name={todo.subject}

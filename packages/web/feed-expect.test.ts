@@ -84,38 +84,48 @@ describe("Feed's expect", () => {
 
 	const subject = () => feed.snapshot?.todos[0]?.subject;
 
-	it("shows an expected change at once, over what is read meanwhile, until a read after it lands", async () => {
+	it("keeps the snapshot the server's word while a change is pending, until a read after it lands shows it", async () => {
 		const rename = write();
 
-		const shown = feed.expect(renamed("New"), rename.done);
-		expect(subject()).toBe("New");
+		const shown = feed.expect(renamed("New"), rename.done, "todo:1");
+		expect(feed.pending("todo:1")).toBe(true);
+		expect(subject()).toBe("Old");
 		served = snapshot({ todos: [todo({ subject: "Old", position: 2 })] });
 		push();
 		await answer();
 		expect(feed.snapshot?.todos[0]).toMatchObject({
-			subject: "New",
+			subject: "Old",
 			position: 2,
 		});
+		expect(feed.pending("todo:1")).toBe(true);
 
 		rename.land();
 		await shown;
-		expect(subject()).toBe("New");
-		served = snapshot({ todos: [todo({ subject: "Server's" })] });
+		expect(subject()).toBe("Old");
+		served = snapshot({ todos: [todo({ subject: "New" })] });
 		push();
 		await answer();
-		expect(subject()).toBe("Server's");
+		expect(subject()).toBe("New");
+		expect(feed.pending("todo:1")).toBe(false);
 	});
 
-	it("keeps it past a read that began before the write landed", async () => {
+	it("stays pending past a read that began before the write landed", async () => {
 		const rename = write();
-		const shown = feed.expect(renamed("New"), rename.done);
+		const shown = feed.expect(renamed("New"), rename.done, "todo:1");
 
 		push();
 		rename.land();
 		await shown;
 		await answer();
 
+		expect(subject()).toBe("Old");
+		expect(feed.pending("todo:1")).toBe(true);
+
+		served = snapshot({ todos: [todo({ subject: "New" })] });
+		push();
+		await answer();
 		expect(subject()).toBe("New");
+		expect(feed.pending("todo:1")).toBe(false);
 	});
 
 	it("drops it at its answer when the server's snapshot already holds it", async () => {
@@ -145,17 +155,21 @@ describe("Feed's expect", () => {
 		expect(subject()).toBe("Old");
 	});
 
-	it("shows changes in the order made, each over the last", async () => {
+	it("keeps the snapshot unchanged while several changes are pending, and clears only a refused one", async () => {
 		const first = write();
 		const second = write();
 
-		void feed.expect(renamed("First"), first.done);
-		const refused = feed.expect(renamed("Second"), second.done);
-		expect(subject()).toBe("Second");
+		void feed.expect(renamed("First"), first.done, "todo:1");
+		const refused = feed.expect(renamed("Second"), second.done, "todo:2");
+		expect(subject()).toBe("Old");
+		expect(feed.pending("todo:1")).toBe(true);
+		expect(feed.pending("todo:2")).toBe(true);
 
 		second.refuse("no");
 		await expect(refused).rejects.toThrow("no");
-		expect(subject()).toBe("First");
+		expect(subject()).toBe("Old");
+		expect(feed.pending("todo:1")).toBe(true);
+		expect(feed.pending("todo:2")).toBe(false);
 	});
 
 	it("holds a write pending under its key until the snapshot shows it, or it is refused", async () => {

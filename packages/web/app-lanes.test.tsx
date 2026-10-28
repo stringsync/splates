@@ -8,6 +8,7 @@ import {
 	cleanup,
 	clickShown,
 	fireEvent,
+	snapshot,
 	Testing,
 	todo,
 	waitFor,
@@ -25,6 +26,20 @@ describe("App's lanes", () => {
 		cleanup();
 		testing.dispose();
 	});
+
+	/** The server lists `overrides` as the board, as it does once a write lands. */
+	async function serve(
+		overrides: Parameters<typeof snapshot>[0],
+	): Promise<void> {
+		testing.served = snapshot(overrides);
+		await act(async () => testing.stream?.onmessage?.());
+	}
+
+	/** The queued lanes of SOUND2SCORE_LANES, `queued` or not. */
+	const lanesQueued = (queued: boolean) =>
+		SOUND2SCORE_LANES.map((lane) =>
+			lane.id === 1 && queued ? { ...lane, queued: true as const } : lane,
+		);
 
 	/** The subjects of a lane's cards, top first. */
 	const steps = (view: Awaited<ReturnType<Testing["open"]>>, lane: string) =>
@@ -278,7 +293,7 @@ describe("App's lanes", () => {
 		expect(view.getByText("Blocked by #177")).toBeTruthy();
 	});
 
-	it("queues a lane whole from its menu, marking it at once", async () => {
+	it("queues a lane whole from its menu, holding it pending until the server lists it queued", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
 			lanes: SOUND2SCORE_LANES,
@@ -293,10 +308,20 @@ describe("App's lanes", () => {
 			method: "PUT",
 			body: JSON.stringify({ queued: true }),
 		});
-		expect(view.getByText("Queued lane")).toBeTruthy();
+		expect(view.queryByText("Queued lane")).toBeNull();
+		expect(
+			view
+				.getByRole("region", { name: "Licensing" })
+				.closest("[aria-busy]")
+				?.getAttribute("aria-busy"),
+		).toBe("true");
+
+		await serve({ todos: sound2score(), lanes: lanesQueued(true) });
+
+		await waitFor(() => expect(view.getByText("Queued lane")).toBeTruthy());
 	});
 
-	it("stops queueing a lane whole from its menu, unmarking it at once", async () => {
+	it("stops queueing a lane whole from its menu, holding the mark pending until the server drops it", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
 			lanes: SOUND2SCORE_LANES.map((lane) =>
@@ -316,7 +341,17 @@ describe("App's lanes", () => {
 			path: "/api/lanes/1",
 			body: JSON.stringify({ queued: false }),
 		});
-		expect(view.queryByText("Queued lane")).toBeNull();
+		expect(view.getByText("Queued lane")).toBeTruthy();
+		expect(
+			view
+				.getByRole("region", { name: "Licensing" })
+				.closest("[aria-busy]")
+				?.getAttribute("aria-busy"),
+		).toBe("true");
+
+		await serve({ todos: sound2score(), lanes: lanesQueued(false) });
+
+		await waitFor(() => expect(view.queryByText("Queued lane")).toBeNull());
 	});
 
 	it("says a queued lane is stalled on a task taken out of the queue, and queues it from there", async () => {
@@ -344,8 +379,22 @@ describe("App's lanes", () => {
 			body: JSON.stringify({ queued: true }),
 		});
 		expect(
-			view.queryByRole("region", { name: "Licensing stalled" }),
-		).toBeNull();
+			view.getByRole("region", { name: "Licensing stalled" }),
+		).toBeTruthy();
+
+		await serve({
+			todos: [
+				todo({ id: 1, subject: "first", lane: 1, stage: "ready" }),
+				todo({ id: 2, subject: "second", lane: 1, blockedBy: [1] }),
+			],
+			lanes: [{ id: 1, name: "Licensing", queued: true }],
+		});
+
+		await waitFor(() =>
+			expect(
+				view.queryByRole("region", { name: "Licensing stalled" }),
+			).toBeNull(),
+		);
 	});
 
 	it("shows stalled instead of running until its holdup clears", async () => {
@@ -371,8 +420,23 @@ describe("App's lanes", () => {
 		);
 
 		expect(
-			lane.queryByRole("region", { name: "Licensing stalled" }),
-		).toBeNull();
+			lane.getByRole("region", { name: "Licensing stalled" }),
+		).toBeTruthy();
+
+		await serve({
+			todos: [
+				todo({ id: 1, subject: "under way", lane: 1, takenBy: "agent" }),
+				todo({ id: 2, subject: "skipped", lane: 1, stage: "ready" }),
+				todo({ id: 3, subject: "waiting", lane: 1, blockedBy: [2] }),
+			],
+			lanes: [{ id: 1, name: "Licensing", queued: true }],
+		});
+
+		await waitFor(() =>
+			expect(
+				lane.queryByRole("region", { name: "Licensing stalled" }),
+			).toBeNull(),
+		);
 		expect(
 			lane.getByTitle("An agent is at work on one of its tasks"),
 		).toBeTruthy();
@@ -426,7 +490,14 @@ describe("App's lanes", () => {
 			method: "PUT",
 			body: JSON.stringify({ queued: true }),
 		});
-		expect(view.getByText("Queued lane")).toBeTruthy();
+		expect(view.queryByText("Queued lane")).toBeNull();
+		expect(
+			view.queryByRole("button", { name: "Stop queueing Licensing" }),
+		).toBeNull();
+
+		await serve({ todos: sound2score(), lanes: lanesQueued(true) });
+
+		await waitFor(() => expect(view.getByText("Queued lane")).toBeTruthy());
 		expect(
 			view.getByRole("button", { name: "Stop queueing Licensing" }),
 		).toBeTruthy();
@@ -449,7 +520,11 @@ describe("App's lanes", () => {
 			path: "/api/lanes/1",
 			body: JSON.stringify({ queued: false }),
 		});
-		expect(view.queryByText("Queued lane")).toBeNull();
+		expect(view.getByText("Queued lane")).toBeTruthy();
+
+		await serve({ todos: sound2score(), lanes: lanesQueued(false) });
+
+		await waitFor(() => expect(view.queryByText("Queued lane")).toBeNull());
 		expect(view.getByRole("button", { name: "Queue Licensing" })).toBeTruthy();
 	});
 
