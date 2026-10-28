@@ -57,7 +57,6 @@ import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
-import { offerUndo } from "./phone-undo";
 import { useTakeBack } from "./queued";
 import { GoingUI, QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
@@ -86,10 +85,9 @@ import {
 } from "./work-row";
 
 /**
- * One conversation: its header, then assistant-ui's thread, fed by `like`,
- * with what the agent is asking above its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace
- * off a Mac) archives it; only Unarchive brings it back. Its artifacts open
- * in their viewers, from the card beside it and the lines in it alike.
+ * Shows one conversation, with the agent's questions above its composer.
+ * ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) archives it; only Unarchive brings it
+ * back. Open an artifact from the card beside the conversation or a line in it.
  */
 export const Thread = memo(function Thread(
 	props: Parameters<typeof Conversation>[0],
@@ -233,12 +231,8 @@ function Conversation({
 	// the task is over.
 	const archivable = !archived;
 	const fileAway = () => archive.file(onLeft);
-	// Swiped away on a phone, it is offered back in the inbox it lands in.
 	const swipeAway = (_then?: () => void, failed?: () => void) =>
-		archive.file(() => {
-			offerUndo(id);
-			onLeft();
-		}, failed);
+		archive.file(onLeft, failed);
 	const { offer, barred } = useArchiveOffer(
 		archivable ? ended(conversation) : null,
 		fileAway,

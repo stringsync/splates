@@ -1,21 +1,8 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import {
-	ArchiveIcon,
-	ArchiveRestoreIcon,
-	MenuIcon,
-	SquarePenIcon,
-} from "lucide-react";
-import {
-	Fragment,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useMemo,
-} from "react";
+import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
+import { Fragment, type JSX, type ReactNode, useContext, useMemo } from "react";
 import {
 	Empty,
 	EmptyDescription,
@@ -24,10 +11,8 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { arriveAt } from "./arrivals";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
-import { useArchive } from "./conversation-archive";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
-import { useNameOf } from "./conversation-names";
 import {
 	hostsAtWork,
 	nestRows,
@@ -45,7 +30,6 @@ import { newConversationUrl } from "./new-conversation-project";
 import type { Nested } from "./parts";
 import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
-import { clearUndo, useUndoOffer } from "./phone-undo";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -55,7 +39,6 @@ import {
 } from "./project-folders";
 import { useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
-import { Refusal, useRefusal } from "./refusal";
 import { Placing, placesOf } from "./reparent";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
@@ -177,16 +160,7 @@ export function Inbox({
 	);
 	const navigation = useContext(NavigationContext);
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
-	// An undo offered by a swipe lasts while you stay here and do nothing else.
-	useEffect(() => {
-		// Deferred, so StrictMode's remount in development keeps the offer.
-		clearTimeout(leftTimer);
-		return () => {
-			leftTimer = setTimeout(clearUndo, 0);
-		};
-	}, []);
 	const open = (row: Needing, folder: Folder | null) => {
-		clearUndo();
 		if (folder !== null && !folder.here && folder.project !== null) {
 			navigation.show(newConversationUrl(folder.project, openedBy(row)));
 			return;
@@ -256,7 +230,6 @@ export function Inbox({
 			{!wide && chips}
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
 				<StaleRows>
-					<UndoRow conversations={conversations} />
 					<UnstartedGroup
 						unstarted={unstarted}
 						agents={agents}
@@ -342,57 +315,5 @@ export function Inbox({
 			</div>
 			{confirm}
 		</section>
-	);
-}
-
-let leftTimer: ReturnType<typeof setTimeout> | undefined;
-
-/**
- * A line above the list saying the conversation just swiped away is
- * archived, with Undo, until something else is done here or the inbox is
- * left: no timer takes it back.
- */
-function UndoRow({
-	conversations,
-}: {
-	conversations: ConversationState[];
-}): JSX.Element | null {
-	const offered = useUndoOffer();
-	const conversation = conversations.find((each) => each.id === offered);
-	if (conversation === undefined || !conversation.archived) {
-		return null;
-	}
-	return <Undo key={conversation.id} conversation={conversation} />;
-}
-
-function Undo({
-	conversation,
-}: {
-	conversation: ConversationState;
-}): JSX.Element {
-	const nameOf = useNameOf();
-	const { refusal, refuse } = useRefusal();
-	const { file } = useArchive(conversation, refuse);
-	return (
-		<div className="mx-3 mt-3 rounded-lg border bg-muted/50 px-3 py-2">
-			<div className="flex items-center gap-2 text-sm">
-				<ArchiveIcon className="size-4 shrink-0 text-muted-foreground" />
-				<span className="min-w-0 flex-1 truncate">
-					Archived <span className="font-medium">{nameOf(conversation)}</span>
-				</span>
-				<button
-					type="button"
-					onClick={() => {
-						file();
-						clearUndo();
-					}}
-					className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium text-primary active:bg-muted"
-				>
-					<ArchiveRestoreIcon className="size-4" />
-					Undo
-				</button>
-			</div>
-			<Refusal refusal={refusal} />
-		</div>
 	);
 }

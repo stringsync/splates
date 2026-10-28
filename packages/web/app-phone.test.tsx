@@ -522,7 +522,7 @@ describe("App on a phone", () => {
 		expect(testing.posted("/api/conversations/c3/archived")).toEqual([]);
 	});
 
-	it("archives an open conversation swiped left from the right edge, landing in the inbox with an undo that goes when something else is done", async () => {
+	it("archives an open conversation swiped left from the right edge, landing in the inbox without an undo", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
@@ -552,16 +552,8 @@ describe("App on a phone", () => {
 		await waitFor(() =>
 			expect(view.getByRole("region", { name: "inbox" })).toBeTruthy(),
 		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Undo/ })),
-		);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
-				{ method: "PUT", body: { archived: true } },
-				{ method: "PUT", body: { archived: false } },
-			]),
-		);
 		expect(view.queryByRole("button", { name: /Undo/ })).toBeNull();
+		expect(view.queryByText("Archived Fix login")).toBeNull();
 	});
 
 	it("has no composer along the inbox's bottom, the pen starting a conversation", async () => {
