@@ -93,10 +93,9 @@ export function Card({
 				// A pointer, since a tap opens it; a drag from anywhere still moves
 				// it, and the grip says so with its own cursor.
 				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
-				// Queued, it stands out from the rest of its lane, waiting for an agent;
-				// at work, it keeps the same gray border.
-				(held || todo.takenBy) && "border-border",
-				held && "bg-primary/5",
+				// Queued, waiting for an agent, or at work, it stands out from the
+				// rest of its lane in the same way.
+				(held || todo.takenBy) && "border-border bg-primary/5",
 				className,
 			)}
 		>
