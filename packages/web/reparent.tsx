@@ -13,6 +13,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { reparentConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
+import { useConversationProject } from "./conversation-project";
 import { flatten } from "./conversation-rows";
 import { useExpect } from "./expecting";
 import { useHeldConversations } from "./handed-out";
@@ -93,7 +94,11 @@ export function MoveUnder({
 	const nameOf = useNameOf();
 	const { agentOf } = useContext(Placing);
 	const { startedBy } = conversation;
-	const starter = useHeldConversations().find((each) => each.id === startedBy);
+	const project = useConversationProject();
+	const held = useHeldConversations();
+	const starter = (project?.conversations ?? held).find(
+		(each) => each.id === startedBy,
+	);
 	const expect = useExpect();
 	const move = (parent: string | null) => {
 		onOpenChange(false);
@@ -102,7 +107,7 @@ export function MoveUnder({
 			void expect(
 				conversation.id,
 				{ parent: { id: parent }, startedBy: null, lastCaller: null },
-				reparentConversation(conversation.id, parent),
+				reparentConversation(conversation.id, parent, project?.project),
 			).catch((error: unknown) => refuse("Not moved", error));
 		}
 	};

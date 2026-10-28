@@ -130,6 +130,7 @@ export function stopTurn(
 	conversation: ConversationState,
 	expect: ReturnType<typeof useExpect>,
 	refuse: Refuse,
+	project?: string,
 ): void {
 	const at = new Date().toISOString();
 	void expect(
@@ -142,6 +143,6 @@ export function stopTurn(
 					: each,
 			),
 		}),
-		cancelConversation(conversation.id),
+		cancelConversation(conversation.id, project),
 	).catch((error: unknown) => refuse("Not stopped", error));
 }

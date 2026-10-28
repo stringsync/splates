@@ -30,6 +30,7 @@ import {
 import { useArchive } from "./conversation-archive";
 import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
+import { useConversationProject } from "./conversation-project";
 import { useExpect, usePendingConversation } from "./expecting";
 import { pendingRow, useShowPending } from "./pending";
 import { stopTurn, useQuiet } from "./quiet";
@@ -195,6 +196,7 @@ function RowMenu({
 	const expect = useExpect();
 	const quiet = useQuiet(conversation);
 	const { id, archived } = conversation;
+	const project = useConversationProject()?.project;
 	const pending = usePendingConversation(id);
 	const close = () => {
 		onOpenChange(false);
@@ -216,7 +218,7 @@ function RowMenu({
 		void expect(
 			id,
 			{ name: nameIn(value) },
-			renameConversation(id, value),
+			renameConversation(id, value, project),
 		).catch((error: unknown) => refuse("Not renamed", error));
 		close();
 	};
@@ -271,8 +273,12 @@ function RowMenu({
 								disabled={pending}
 								onClick={() => {
 									close();
-									void expect(id, { unread: true }, markUnread(id, true)).catch(
-										(error: unknown) => refuse("Not marked unread", error),
+									void expect(
+										id,
+										{ unread: true },
+										markUnread(id, true, project),
+									).catch((error: unknown) =>
+										refuse("Not marked unread", error),
 									);
 								}}
 							>
@@ -299,7 +305,7 @@ function RowMenu({
 									void expect(
 										id,
 										{ pinned: !conversation.pinned },
-										pinConversation(id, !conversation.pinned),
+										pinConversation(id, !conversation.pinned, project),
 									).catch((error: unknown) =>
 										refuse(
 											conversation.pinned ? "Not unpinned" : "Not pinned",
@@ -317,7 +323,7 @@ function RowMenu({
 								disabled={pending}
 								onClick={() => {
 									close();
-									stopTurn(conversation, expect, refuse);
+									stopTurn(conversation, expect, refuse, project);
 								}}
 							>
 								Stop turn

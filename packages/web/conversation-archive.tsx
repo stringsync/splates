@@ -15,6 +15,7 @@ import { removeTask } from "./api";
 import { taskRemoved } from "./board-expectations";
 import { archiveConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
+import { useConversationProject } from "./conversation-project";
 import { Dispatching } from "./dispatching";
 import { useExpect, useExpectSnapshot } from "./expecting";
 import { useHeldConversations } from "./handed-out";
@@ -23,13 +24,9 @@ import { useRowRefusal } from "./row-refusal";
 import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
- * Archives `conversation`, or brings it back, at once, then runs `then`. Archiving
- * removes its task too, as `splates remove` does, while the task is still there
- * and this conversation last took it, and takes along the agents it handed
- * tasks to or started. While its agent works, its shell is up, the task it
- * would remove has unmerged changes, or an agent it takes along is not done,
- * `file` asks first in `confirm`, since archiving stops or discards them;
- * render `confirm` beside whatever calls `file`.
+ * Offers Archive or Unarchive for a conversation in its owning project.
+ * Render `confirm` beside the control calling `file`: it asks before stopping
+ * running work or removing unmerged changes, and for another project's work.
  */
 export function useArchive(
 	conversation: ConversationState,
@@ -52,6 +49,7 @@ export function useArchive(
 	const shellRunning = useContext(ShellRunning);
 	const showTerminal = useContext(ShowTerminal);
 	const dispatching = useContext(Dispatching);
+	const project = useConversationProject();
 	const nameOf = useNameOf();
 	const expect = useExpect();
 	const expectSnapshot = useExpectSnapshot();
@@ -61,10 +59,13 @@ export function useArchive(
 	const taken =
 		conversation.task === null
 			? undefined
-			: dispatching?.dispatch.task(conversation.task);
+			: project === null
+				? dispatching?.dispatch.task(conversation.task)
+				: project.tasks.find((task) => task.task === conversation.task);
 	const task = !archived && taken?.takenBy === id ? taken : null;
 	// The agents it started go with it, any at work stopped.
-	const held = useHeldConversations();
+	const local = useHeldConversations();
+	const held = project?.conversations ?? local;
 	const along = held.filter((each) => each.startedBy === id && !each.archived);
 	// One it started is done once it stopped working and its task is gone,
 	// merged or removed.
@@ -73,8 +74,10 @@ export function useArchive(
 			each.status === "starting" ||
 			each.status === "running" ||
 			(each.task !== null &&
-				(dispatching === null ||
-					dispatching.dispatch.task(each.task) !== undefined)),
+				(project === null
+					? dispatching === null ||
+						dispatching.dispatch.task(each.task) !== undefined
+					: project.tasks.some((task) => task.task === each.task))),
 	);
 	const put = () => {
 		let refused = archived ? "Not unarchived" : "Not archived";
@@ -82,16 +85,18 @@ export function useArchive(
 		const removed =
 			task === null
 				? Promise.resolve()
-				: removeTask(task.task).catch((error: unknown) => {
+				: removeTask(task.task, project?.project).catch((error: unknown) => {
 						refused = "Not removed";
 						throw error;
 					});
 		// Gone from the board at once too, or the task, still live while its
 		// worktree goes, shows as an abandoned external agent in its place.
-		if (task !== null) {
+		if (task !== null && project === null) {
 			void expectSnapshot(taskRemoved(task.task), removed).catch(() => {});
 		}
-		const write = removed.then(() => archiveConversation(id, !archived));
+		const write = removed.then(() =>
+			archiveConversation(id, !archived, project?.project),
+		);
 		// What the server files along with it, as it goes or comes back.
 		const others = archived
 			? held.filter((each) => each.archived && each.archivedWith === id)
@@ -112,7 +117,11 @@ export function useArchive(
 	// asked as it is clicked, since the shell comes and goes without a render here.
 	const asks = () =>
 		!archived &&
-		(task?.unmerged === true || working || live.length > 0 || shellRunning(id));
+		(project !== null ||
+			task?.unmerged === true ||
+			working ||
+			live.length > 0 ||
+			shellRunning(id));
 	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
 		failure.current = failed;
@@ -123,7 +132,7 @@ export function useArchive(
 		}
 	};
 	// Read while it asks, which renders it.
-	const shell = asking && shellRunning(id);
+	const shell = asking && project === null && shellRunning(id);
 	const confirm = (
 		<Dialog open={asking} onOpenChange={setAsking}>
 			<DialogContent showCloseButton={false}>
@@ -140,15 +149,17 @@ export function useArchive(
 										: `${task.task} may have unmerged changes. Archiving removes it, discarding its worktree, branch and any uncommitted changes.`}
 						</DialogDescription>
 					)}
-					{(working || live.length > 0 || shell) && (
+					{(working || live.length > 0 || shell || project !== null) && (
 						<DialogDescription>
-							{working
-								? "The agent is still running. Archiving stops it and closes its terminal."
-								: live.length > 0
-									? "Archiving stops its agent."
-									: conversation.status === "idle"
-										? "Its terminal is still open. Archiving closes it, and stops the idle agent."
-										: "Its terminal is still open. Archiving closes it."}
+							{project !== null && !working && live.length === 0
+								? "Archiving stops its agent and closes its terminal."
+								: working
+									? "The agent is still running. Archiving stops it and closes its terminal."
+									: live.length > 0
+										? "Archiving stops its agent."
+										: conversation.status === "idle"
+											? "Its terminal is still open. Archiving closes it, and stops the idle agent."
+											: "Its terminal is still open. Archiving closes it."}
 						</DialogDescription>
 					)}
 					{along.length > 0 && (

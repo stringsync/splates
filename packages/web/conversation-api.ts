@@ -270,13 +270,22 @@ export async function chooseDefault(
 export async function renameConversation(
 	id: string,
 	name: string,
+	project?: string,
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/name`, "PUT", { name });
+	await sendJson(scoped(`/api/conversations/${id}/name`, project), "PUT", {
+		name,
+	});
 }
 
 /** Marks conversation `id` seen, or unseen again. */
-export async function markUnread(id: string, unread: boolean): Promise<void> {
-	await sendJson(`/api/conversations/${id}/unread`, "PUT", { unread });
+export async function markUnread(
+	id: string,
+	unread: boolean,
+	project?: string,
+): Promise<void> {
+	await sendJson(scoped(`/api/conversations/${id}/unread`, project), "PUT", {
+		unread,
+	});
 }
 
 /** Tells the server the person has read `read` messages of conversation `id`. */
@@ -296,8 +305,11 @@ export async function approveSuite(id: string): Promise<void> {
 export async function pinConversation(
 	id: string,
 	pinned: boolean,
+	project?: string,
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/pinned`, "PUT", { pinned });
+	await sendJson(scoped(`/api/conversations/${id}/pinned`, project), "PUT", {
+		pinned,
+	});
 }
 
 /**
@@ -307,8 +319,11 @@ export async function pinConversation(
 export async function reparentConversation(
 	id: string,
 	parent: string | null,
+	project?: string,
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/parent`, "PUT", { parent });
+	await sendJson(scoped(`/api/conversations/${id}/parent`, project), "PUT", {
+		parent,
+	});
 }
 
 /** Puts conversation `id` away, stopping its agent, or back on the list. */

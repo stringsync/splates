@@ -67,8 +67,13 @@ export async function retryTask(task: string): Promise<void> {
  * `splates remove` for `task`, past any lease, stopping each conversation in
  * its tree and moving it to the main tree.
  */
-export async function removeTask(task: string): Promise<void> {
-	await send(`/api/tasks/${encodeURIComponent(task)}`, { method: "DELETE" });
+export async function removeTask(
+	task: string,
+	project?: string,
+): Promise<void> {
+	await send(scoped(`/api/tasks/${encodeURIComponent(task)}`, project), {
+		method: "DELETE",
+	});
 }
 
 /**

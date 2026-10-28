@@ -31,7 +31,6 @@ export function Row({
 	depth,
 	agent,
 	hosting,
-	foreign,
 	onOpen,
 }: {
 	row: Needing;
@@ -41,8 +40,6 @@ export function Row({
 	agent: string | null;
 	/** Whether an agent it handed a task to is at work. */
 	hosting: boolean;
-	/** Whether it is another project's, which this page holds no menu for. */
-	foreign: boolean;
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -172,7 +169,7 @@ export function Row({
 	);
 	return (
 		<>
-			{conversation !== null && !foreign ? (
+			{conversation !== null ? (
 				<Filed conversation={conversation} refuse={refuse} nested={depth > 0}>
 					{button}
 				</Filed>

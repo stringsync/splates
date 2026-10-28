@@ -9,6 +9,7 @@ import {
 	useSyncExternalStore,
 } from "react";
 import type { ConversationFeed } from "./conversation-feed";
+import { useConversationProject } from "./conversation-project";
 import { HeldFeed } from "./handed-out";
 import { useRefusals } from "./refusal";
 import { RowRefusals } from "./row-refusal";
@@ -57,9 +58,13 @@ const Expecting = createContext<Expecter>({
 /** Holds a conversation pending while its write is on its way and unseen. */
 export function useExpect(): Expecter["expect"] {
 	const expecter = use(Expecting);
+	const project = useConversationProject();
 	return useCallback(
-		(id, expectation, write) => expecter.expect(id, expectation, write),
-		[expecter],
+		(id, expectation, write) =>
+			project === null
+				? expecter.expect(id, expectation, write)
+				: project.writes.run(id, () => write).then(() => {}),
+		[expecter, project],
 	);
 }
 
@@ -114,7 +119,12 @@ export function usePendingSnapshot(key?: string): boolean {
 /** Whether a write to conversation `id` is pending: the server has yet to show it. */
 export function usePendingConversation(id: string): boolean {
 	const expecter = use(Expecting);
-	const read = useCallback(() => expecter.pending(id), [expecter, id]);
+	const project = useConversationProject();
+	const read = useCallback(
+		() =>
+			project === null ? expecter.pending(id) : project.writes.pending(id),
+		[expecter, id, project],
+	);
 	return useSyncExternalStore(expecter.subscribe.bind(expecter), read, read);
 }
 

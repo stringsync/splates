@@ -5,12 +5,14 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { openedBy } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
+import { InConversationProject } from "./conversation-project";
 import { hostsAtWork } from "./conversation-rows";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
 import { ProjectEmpty } from "./project-controls";
 import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
+import { Placing, placesOf } from "./reparent";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
 export interface Item {
@@ -179,7 +181,6 @@ function Lines({
 								hosting={
 									row.conversation !== null && hosting.has(row.conversation.id)
 								}
-								foreign={folder !== null && !folder.here}
 								onOpen={() => onOpen(row, folder)}
 							/>
 						</li>
@@ -199,9 +200,26 @@ function InFolder({
 	folder: Folder | null;
 	children: ReactNode;
 }): ReactNode {
-	return folder === null ? (
-		children
+	if (folder === null) {
+		return children;
+	}
+	const named = <InLanes folder={folder}>{children}</InLanes>;
+	return folder.here || folder.project === null ? (
+		named
 	) : (
-		<InLanes folder={folder}>{children}</InLanes>
+		<InConversationProject
+			project={folder.project}
+			tasks={folder.tasks}
+			conversations={folder.conversations}
+		>
+			<Placing
+				value={{
+					places: placesOf(folder.trees),
+					agentOf: (conversation) => conversation.agent,
+				}}
+			>
+				{named}
+			</Placing>
+		</InConversationProject>
 	);
 }
