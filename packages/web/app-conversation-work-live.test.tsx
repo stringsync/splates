@@ -68,6 +68,30 @@ describe("App's work row while working", () => {
 		);
 	});
 
+	it("hides the plan once its row is no longer working", async () => {
+		const plan = [{ text: "Run the tests", status: "in_progress" }] as const;
+		const thread = await opened(
+			turn([tool({ id: "x1", command: "bun test" })], {
+				status: "running",
+				plan: [...plan],
+			}),
+		);
+		await waitFor(() => within(thread).getByRole("list", { name: "plan" }));
+
+		await testing.say(
+			turn([tool({ id: "x1", command: "bun test" }), "Tests are running."], {
+				status: "running",
+				plan: [...plan],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(thread.textContent).toContain("Tests are running."),
+		);
+		expect(line(thread)).toMatch(/^Worked/);
+		expect(within(thread).queryByRole("list", { name: "plan" })).toBeNull();
+	});
+
 	it("stops saying Working once the turn was stopped, before the server says it ended", async () => {
 		const stopped = turn(
 			[tool({ id: "x1", command: "bun test", status: "in_progress" })],

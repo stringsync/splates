@@ -178,7 +178,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							<TimelineItem item={item} short={short} />
 						</div>
 					))}
-				{work.going && work.plan !== null && <Plan steps={work.plan} />}
+				{work.working && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
 			</div>
 		</Going>
