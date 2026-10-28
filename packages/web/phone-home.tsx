@@ -46,8 +46,16 @@ export function PhoneHome({
 	onBack: () => void;
 }): JSX.Element {
 	const { agents, agent, auto, task, onOpen } = starting;
-	const { runtime, refusal, project, controls, mentions, references, named } =
-		useNewConversation(starting);
+	const {
+		runtime,
+		refusal,
+		project,
+		controls,
+		mentions,
+		references,
+		named,
+		starting: busy,
+	} = useNewConversation(starting);
 	const section = useRef<HTMLElement>(null);
 	useLayoutEffect(() => {
 		if (launched && section.current !== null) {
@@ -116,6 +124,7 @@ export function PhoneHome({
 									</>
 								}
 								controls={controls}
+								starting={busy}
 							/>
 						</div>
 					</NamedContext>

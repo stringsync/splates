@@ -28,10 +28,8 @@ import type { TodoView } from "./todo-view";
 import { TopBar } from "./top-bar";
 
 /**
- * The board page: Untriaged first, where new todos land, then a column for
- * each lane and a way to add one. Drag a card up or down or into a lane,
- * since the order is the priority, or tap one to reword, link, place or
- * remove it; drag a lane by its header.
+ * Renders the board page for `snapshot`: its todos in Untriaged and the
+ * lanes, which the person orders by dragging cards and lanes.
  */
 export function Todos({
 	snapshot,
@@ -74,6 +72,9 @@ export function Todos({
 		["changed"],
 	);
 	const { current, task } = view.show(snapshot);
+	// What was dropped and is pending, until the server's word on it arrives.
+	const moving = board.moving(snapshot.todos);
+	const movingLane = board.movingLane(snapshot.lanes);
 	// The board as dropped, until the server's word on it arrives.
 	const { todos: all, lifted } = board.show(snapshot.todos);
 	// The lanes as dropped, too, until the server's word on them arrives.
@@ -120,8 +121,12 @@ export function Todos({
 			refusedLanes,
 			refuseLane,
 			drafts,
+			moving,
+			movingLane,
 		}),
 		[
+			moving,
+			movingLane,
 			drafts,
 			all,
 			records,

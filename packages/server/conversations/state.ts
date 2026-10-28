@@ -329,8 +329,11 @@ export interface Message {
 	/** The id the page gave it as it sent it, so it knows its own copy when it comes back. */
 	id?: string;
 	// Set only by the page, on its own copy, never by the server.
-	/** Seconds left before a send that has gone unanswered a while times out. */
-	sending?: number;
+	/**
+	 * Set while it is on its way: seconds left before it times out, once it
+	 * has gone unanswered a while, and null before.
+	 */
+	sending?: number | null;
 }
 
 /** One piece of what someone in a conversation said or did. */

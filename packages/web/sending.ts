@@ -51,16 +51,15 @@ export function messageOf(message: Sending, now = message.at): Message {
 		at: null,
 		until: null,
 		...(message.queued ? { queued: true as const } : {}),
-		...(now - message.at >= STILL_SENDING.ms
-			? {
-					sending: Math.max(
+		sending:
+			now - message.at >= STILL_SENDING.ms
+				? Math.max(
 						0,
 						Math.ceil(
 							(SEND_TIMEOUT.ms - (now - message.at)) / Duration.secs(1).ms,
 						),
-					),
-				}
-			: {}),
+					)
+				: null,
 		...(message.dictated ? { dictated: true as const } : {}),
 	};
 }

@@ -94,6 +94,37 @@ describe("TodoBoard", () => {
 		]);
 	});
 
+	it("holds a dropped card pending where it was let go until a list comes after its write lands", async () => {
+		let land = () => {};
+		board = new TodoBoard({
+			move: () => new Promise<void>((resolve) => (land = resolve)),
+			arrange: async () => {},
+			moveLane: async () => {},
+			manual: async () => {},
+		});
+		const write = board.drop(todos, 1, { card: 3 });
+		expect(board.moving(todos)).toBe(1);
+
+		// Sent while the write is on its way, so it may not hold the move.
+		const meanwhile = [...todos];
+		expect(board.show(meanwhile).todos.map((each) => each.id)).toEqual([
+			2, 3, 1, 4, 5,
+		]);
+		expect(board.moving(meanwhile)).toBe(1);
+
+		land();
+		await write;
+		expect(board.moving(meanwhile)).toBeNull();
+		expect(board.show(meanwhile).todos).toBe(meanwhile);
+	});
+
+	it("holds it pending once landed until the server's next list", async () => {
+		await board.drop(todos, 1, { card: 3 });
+		expect(board.moving(todos)).toBe(1);
+
+		expect(board.moving([...todos])).toBeNull();
+	});
+
 	it("puts the order back when the server refuses, and throws the refusal", async () => {
 		refuse = new Error("todo 5 comes after todo 4");
 
@@ -114,109 +145,105 @@ describe("TodoBoard", () => {
 		expect([writes, board.show(todos).lifted]).toEqual([[], undefined]);
 	});
 
-	describe("by hand", () => {
-		const hand = [
-			...todos,
-			todo({ id: 6, position: 8, lane: 1, manual: true }),
-			todo({ id: 7, position: 9, lane: 1, manual: true, takenBy: "t" }),
-		];
-		const manuals = () =>
-			board
-				.show(hand)
-				.todos.filter((each) => each.manual === true)
-				.map((each) => each.id);
+	const hand = [
+		...todos,
+		todo({ id: 6, position: 8, lane: 1, manual: true }),
+		todo({ id: 7, position: 9, lane: 1, manual: true, takenBy: "t" }),
+	];
+	const manuals = () =>
+		board
+			.show(hand)
+			.todos.filter((each) => each.manual === true)
+			.map((each) => each.id);
 
-		it("has only the person queue a card dropped on the space under a lane, moving it there first from another", async () => {
-			await board.drop(hand, 4, { lane: 1, hand: true });
-			expect(writes).toEqual([["manual", 4, true]]);
-			expect(manuals()).toEqual([4, 6, 7]);
+	it("has only the person queue a card dropped on the space under a lane, moving it there first from another", async () => {
+		await board.drop(hand, 4, { lane: 1, hand: true });
+		expect(writes).toEqual([["manual", 4, true]]);
+		expect(manuals()).toEqual([4, 6, 7]);
 
-			writes = [];
-			await board.drop([...hand], 1, { lane: 1, hand: true });
-			expect(writes).toEqual([
-				["arrange", 1, 1, undefined],
-				["manual", 1, true],
-			]);
-		});
-
-		it("lets the lane queue a card dragged back up among its steps", async () => {
-			await board.drop(hand, 6, { lane: 1 });
-			expect(writes).toEqual([["manual", 6, false]]);
-			expect(manuals()).toEqual([7]);
-
-			writes = [];
-			await board.drop([...hand], 6, { card: 4 });
-			expect(writes).toEqual([
-				["move", 6, 6],
-				["manual", 6, false],
-			]);
-		});
-
-		it("takes the side of the card it lands on, where a taken card is a step", async () => {
-			await board.drop(hand, 5, { card: 6 });
-			expect(writes).toEqual([
-				["move", 5, 8],
-				["manual", 5, true],
-			]);
-
-			writes = [];
-			await board.drop([...hand], 5, { card: 7 });
-			expect(writes).toEqual([["move", 5, 9]]);
-		});
-
-		it("leaves a card as it is in no lane, and a taken card as it is anywhere", async () => {
-			await board.drop(hand, 6, { lane: null });
-			expect(writes).toEqual([["arrange", 6, null, undefined]]);
-
-			writes = [];
-			expect(board.drop([...hand], 7, { lane: 1, hand: true })).toBeNull();
-			expect(writes).toEqual([]);
-		});
+		writes = [];
+		await board.drop([...hand], 1, { lane: 1, hand: true });
+		expect(writes).toEqual([
+			["arrange", 1, 1, undefined],
+			["manual", 1, true],
+		]);
 	});
 
-	describe("lanes", () => {
-		const lanes = [
-			{ id: 1, name: "Licensing" },
-			{ id: 2, name: "Editor" },
-			{ id: 3, name: "Docs" },
-		];
-		const order = () => board.showLanes(lanes).map((lane) => lane.id);
+	it("lets the lane queue a card dragged back up among its steps", async () => {
+		await board.drop(hand, 6, { lane: 1 });
+		expect(writes).toEqual([["manual", 6, false]]);
+		expect(manuals()).toEqual([7]);
 
-		it("shows a dropped lane in the place of the one it landed on, and moves it there", async () => {
-			board.liftLane(3);
-			expect(board.draggingLane).toBe(3);
+		writes = [];
+		await board.drop([...hand], 6, { card: 4 });
+		expect(writes).toEqual([
+			["move", 6, 6],
+			["manual", 6, false],
+		]);
+	});
 
-			await board.dropLane(lanes, 3, 1);
+	it("takes the side of the card it lands on, where a taken card is a step", async () => {
+		await board.drop(hand, 5, { card: 6 });
+		expect(writes).toEqual([
+			["move", 5, 8],
+			["manual", 5, true],
+		]);
 
-			expect(board.draggingLane).toBeNull();
-			expect(order()).toEqual([3, 1, 2]);
-			await board.dropLane(lanes, 3, 2);
-			expect(order()).toEqual([1, 2, 3]);
-			expect(writes).toEqual([
-				["moveLane", 3, 1],
-				["moveLane", 3, 3],
-			]);
-		});
+		writes = [];
+		await board.drop([...hand], 5, { card: 7 });
+		expect(writes).toEqual([["move", 5, 9]]);
+	});
 
-		it("moves nothing when a lane lands on itself or nowhere", () => {
-			expect(board.dropLane(lanes, 2, 2)).toBeNull();
-			expect(board.dropLane(lanes, 2, null)).toBeNull();
-			expect(board.moveLane(lanes, 1, 0)).toBeNull();
-			expect(writes).toEqual([]);
-		});
+	it("leaves a card as it is in no lane, and a taken card as it is anywhere", async () => {
+		await board.drop(hand, 6, { lane: null });
+		expect(writes).toEqual([["arrange", 6, null, undefined]]);
 
-		it("puts the lanes back when the server refuses, and gives way to new ones", async () => {
-			refuse = new Error("no");
-			await expect(board.moveLane(lanes, 1, 3) ?? undefined).rejects.toThrow(
-				"no",
-			);
-			expect(order()).toEqual([1, 2, 3]);
+		writes = [];
+		expect(board.drop([...hand], 7, { lane: 1, hand: true })).toBeNull();
+		expect(writes).toEqual([]);
+	});
 
-			refuse = null;
-			await board.moveLane(lanes, 1, 3);
-			expect(order()).toEqual([2, 3, 1]);
-			const fresh = [...lanes];
-			expect(board.showLanes(fresh)).toBe(fresh);
-		});
+	const lanes = [
+		{ id: 1, name: "Licensing" },
+		{ id: 2, name: "Editor" },
+		{ id: 3, name: "Docs" },
+	];
+	const order = () => board.showLanes(lanes).map((lane) => lane.id);
+
+	it("shows a dropped lane in the place of the one it landed on, and moves it there", async () => {
+		board.liftLane(3);
+		expect(board.draggingLane).toBe(3);
+
+		await board.dropLane(lanes, 3, 1);
+
+		expect(board.draggingLane).toBeNull();
+		expect(order()).toEqual([3, 1, 2]);
+		await board.dropLane(lanes, 3, 2);
+		expect(order()).toEqual([1, 2, 3]);
+		expect(writes).toEqual([
+			["moveLane", 3, 1],
+			["moveLane", 3, 3],
+		]);
+	});
+
+	it("moves nothing when a lane lands on itself or nowhere", () => {
+		expect(board.dropLane(lanes, 2, 2)).toBeNull();
+		expect(board.dropLane(lanes, 2, null)).toBeNull();
+		expect(board.moveLane(lanes, 1, 0)).toBeNull();
+		expect(writes).toEqual([]);
+	});
+
+	it("puts the lanes back when the server refuses, and gives way to new ones", async () => {
+		refuse = new Error("no");
+		await expect(board.moveLane(lanes, 1, 3) ?? undefined).rejects.toThrow(
+			"no",
+		);
+		expect(order()).toEqual([1, 2, 3]);
+
+		refuse = null;
+		await board.moveLane(lanes, 1, 3);
+		expect(order()).toEqual([2, 3, 1]);
+		const fresh = [...lanes];
+		expect(board.showLanes(fresh)).toBe(fresh);
 	});
 });

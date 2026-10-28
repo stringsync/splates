@@ -24,40 +24,13 @@ export function byHand(todo: TaskRecord): boolean {
 	return todo.lane !== null && todo.manual === true && todo.takenBy === null;
 }
 
-/** The writes a drop makes: the server's by default. */
-export interface BoardWrites {
-	/** Puts a todo at a position in the whole list, 1 at the top. */
-	move(id: number, position: number): Promise<void>;
-	/**
-	 * Puts a todo in a lane, above `before` or at the bottom of it; a new
-	 * lane is called `name`.
-	 */
-	arrange(
-		id: number,
-		lane: number | "new" | null,
-		before?: number,
-		name?: string,
-	): Promise<void>;
-	/** Puts a lane at a position among the lanes, 1 the first column. */
-	moveLane(id: number, position: number): Promise<void>;
-	/** Has only the person queue a todo when `manual`, a queued lane too when not. */
-	manual(id: number, manual: boolean): Promise<void>;
-}
-
-/** What the board shows of the todos it was given. */
-export interface BoardShown {
-	/** The todos in list order, each in the lane it shows in. */
-	todos: TaskRecord[];
-	/** The todo in hand, while one is dragged. */
-	lifted?: TaskRecord;
-}
-
 /**
  * The board's order while cards and lanes are dragged, across the todo
  * column and the lanes: which card or lane is in hand, and the list as just
- * dropped, shown until the server's catches up, so a card or a lane lands
- * where it was let go instead of jumping back for a poll. Any new list of
- * todos or lanes is the server's word, and the dropped order gives way to it.
+ * dropped, shown pending until the server's catches up, so a card or a lane
+ * stays where it was let go instead of jumping back for a poll. A new list
+ * of todos or lanes once the write has landed is the server's word, and the
+ * dropped order gives way to it.
  */
 export class TodoBoard implements Eventful<TodoBoardEvents> {
 	private readonly dispatcher = new Dispatcher<TodoBoardEvents>();
@@ -65,14 +38,17 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 
 	/** The id of the card in hand, while one is dragged. */
 	dragging: number | null = null;
-	/** The list dropped, and the list it was dropped on, until a refusal or a new list. */
-	dropped: { todos: TaskRecord[]; on: TaskRecord[] } | null = null;
+	/** The list dropped, until a refusal or a new list after its write landed. */
+	dropped: Dropped<TaskRecord> | null = null;
 	/** The id of the card dropped to start a lane, until the lane is named. */
 	naming: number | null = null;
 	/** The id of the lane in hand, while one is dragged by its header. */
 	draggingLane: number | null = null;
-	/** The lanes as dropped, and the lanes they were dropped on, until a refusal or new lanes. */
-	droppedLanes: { lanes: LaneRecord[]; on: LaneRecord[] } | null = null;
+	/** The lanes as dropped, until a refusal or new lanes after the write landed. */
+	droppedLanes: Dropped<LaneRecord> | null = null;
+	// The latest lists shown, which a dropped list waits past once its write lands.
+	private seen: TaskRecord[] | null = null;
+	private seenLanes: LaneRecord[] | null = null;
 
 	constructor(
 		private readonly writes: BoardWrites = {
@@ -85,7 +61,18 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 
 	/** The lanes in the order the board shows them. */
 	showLanes(lanes: LaneRecord[]): LaneRecord[] {
-		return this.droppedLanes?.on === lanes ? this.droppedLanes.lanes : lanes;
+		this.seenLanes = lanes;
+		return shows(this.droppedLanes, lanes) ? this.droppedLanes.shown : lanes;
+	}
+
+	/** The lane dropped whose move the server has yet to show, given the server's `lanes`. */
+	movingLane(lanes: LaneRecord[]): number | null {
+		return shows(this.droppedLanes, lanes) ? this.droppedLanes.id : null;
+	}
+
+	/** The card dropped whose move the server has yet to show, given the server's `todos`. */
+	moving(todos: TaskRecord[]): number | null {
+		return shows(this.dropped, todos) ? this.dropped.id : null;
 	}
 
 	liftLane(id: number): void {
@@ -130,23 +117,34 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 			this.dispatcher.dispatch("changed");
 			return null;
 		}
-		const dropped = {
-			lanes: [...rest.slice(0, at), lane, ...rest.slice(at)],
+		const dropped: Dropped<LaneRecord> = {
+			shown: [...rest.slice(0, at), lane, ...rest.slice(at)],
 			on: lanes,
+			id,
+			landed: false,
 		};
 		this.droppedLanes = dropped;
 		this.dispatcher.dispatch("changed");
-		return this.writes.moveLane(id, at + 1).catch((error: unknown) => {
-			if (this.droppedLanes === dropped) {
-				this.droppedLanes = null;
-				this.dispatcher.dispatch("changed");
-			}
-			throw error;
-		});
+		return this.writes.moveLane(id, at + 1).then(
+			() => {
+				if (this.droppedLanes === dropped) {
+					this.droppedLanes = landed(dropped, this.seenLanes);
+					this.dispatcher.dispatch("changed");
+				}
+			},
+			(error: unknown) => {
+				if (this.droppedLanes === dropped) {
+					this.droppedLanes = null;
+					this.dispatcher.dispatch("changed");
+				}
+				throw error;
+			},
+		);
 	}
 
 	show(todos: TaskRecord[]): BoardShown {
-		const shown = this.dropped?.on === todos ? this.dropped.todos : todos;
+		this.seen = todos;
+		const shown = shows(this.dropped, todos) ? this.dropped.shown : todos;
 		return {
 			todos: shown,
 			lifted: todos.find((todo) => todo.id === this.dragging),
@@ -228,16 +226,29 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 			this.dispatcher.dispatch("changed");
 			return null;
 		}
-		const dropped = { todos: plan.todos, on: todos };
+		const dropped: Dropped<TaskRecord> = {
+			shown: plan.todos,
+			on: todos,
+			id,
+			landed: false,
+		};
 		this.dropped = dropped;
 		this.dispatcher.dispatch("changed");
-		return plan.write().catch((error: unknown) => {
-			if (this.dropped === dropped) {
-				this.dropped = null;
-				this.dispatcher.dispatch("changed");
-			}
-			throw error;
-		});
+		return plan.write().then(
+			() => {
+				if (this.dropped === dropped) {
+					this.dropped = landed(dropped, this.seen);
+					this.dispatcher.dispatch("changed");
+				}
+			},
+			(error: unknown) => {
+				if (this.dropped === dropped) {
+					this.dropped = null;
+					this.dispatcher.dispatch("changed");
+				}
+				throw error;
+			},
+		);
 	}
 
 	/**
@@ -341,4 +352,67 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 				: [...rest.slice(0, tail + 1), moved, ...rest.slice(tail + 1)];
 		return { todos, write: () => this.writes.arrange(card.id, lane) };
 	}
+}
+
+/**
+ * Whether `dropped` shows over the server's `list`: while its write is on
+ * its way, whatever the server sends meanwhile, and once it lands until a
+ * new list comes.
+ */
+function shows<T>(
+	dropped: Dropped<T> | null,
+	list: T[],
+): dropped is Dropped<T> {
+	return dropped !== null && (!dropped.landed || dropped.on === list);
+}
+
+/**
+ * `dropped` once its write landed, waiting on a list after `seen`, the
+ * latest shown; null when one came while the write was on its way, which
+ * may hold the move already.
+ */
+function landed<T>(dropped: Dropped<T>, seen: T[] | null): Dropped<T> | null {
+	return seen !== dropped.on ? null : { ...dropped, landed: true };
+}
+
+/** The writes a drop makes: the server's by default. */
+export interface BoardWrites {
+	/** Puts a todo at a position in the whole list, 1 at the top. */
+	move(id: number, position: number): Promise<void>;
+	/**
+	 * Puts a todo in a lane, above `before` or at the bottom of it; a new
+	 * lane is called `name`.
+	 */
+	arrange(
+		id: number,
+		lane: number | "new" | null,
+		before?: number,
+		name?: string,
+	): Promise<void>;
+	/** Puts a lane at a position among the lanes, 1 the first column. */
+	moveLane(id: number, position: number): Promise<void>;
+	/** Has only the person queue a todo when `manual`, a queued lane too when not. */
+	manual(id: number, manual: boolean): Promise<void>;
+}
+
+/** What the board shows of the todos it was given. */
+export interface BoardShown {
+	/** The todos in list order, each in the lane it shows in. */
+	todos: TaskRecord[];
+	/** The todo in hand, while one is dragged. */
+	lifted?: TaskRecord;
+}
+
+/**
+ * What was dropped and the list it was dropped on: shown, pending, while its
+ * write is on its way, and once it lands until the server sends a new list.
+ */
+interface Dropped<T> {
+	/** The list as dropped. */
+	shown: T[];
+	/** The list it was dropped on, or once it landed, the latest then. */
+	on: T[];
+	/** The card or lane moved. */
+	id: number;
+	landed: boolean;
 }

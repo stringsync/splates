@@ -12,7 +12,7 @@ import {
 	waitFor,
 } from "./testing";
 
-describe("App's new conversation, opened before the server answers", () => {
+describe("App's new conversation, held in its composer until the server answers", () => {
 	let testing: Testing;
 	let view: ConversationsView;
 
@@ -32,23 +32,28 @@ describe("App's new conversation, opened before the server answers", () => {
 		testing.dispose();
 	});
 
-	it("opens its thread on the first message while the start is on its way, then sends it", async () => {
+	it("keeps its composer busy while the start is on its way, then opens its thread and sends", async () => {
 		await waitFor(() =>
-			expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy(),
+			expect(view.getByRole("button", { name: "Starting…" })).toBeTruthy(),
 		);
-		expect(location.hash).toBe("#conversations/c9");
+		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
+		expect(location.hash).not.toBe("#conversations/c9");
+		expect(view.queryByRole("region", { name: "fix the login" })).toBeNull();
 		expect(testing.posted("/api/conversations")).toHaveLength(1);
 		expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(0);
 
 		await act(async () => testing.release());
 
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		await waitFor(() =>
+			expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy(),
+		);
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(1),
 		);
 	});
 
 	it("keeps what the server streamed of it over the start's answer, which can be older", async () => {
-		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await testing.say(
 			conversation({ id: "c9", title: "Login fix", status: "running" }),
 		);
@@ -63,8 +68,7 @@ describe("App's new conversation, opened before the server answers", () => {
 		expect(nav().textContent).toContain("Login fix");
 	});
 
-	it("goes back to its composer with the words and why, when the start is refused", async () => {
-		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+	it("gives its composer back the words and why, when the start is refused", async () => {
 		testing.refuseWrites = { reason: "usage", message: "no such agent" };
 
 		await act(async () => testing.release());
@@ -76,6 +80,7 @@ describe("App's new conversation, opened before the server answers", () => {
 		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
 			"fix the login",
 		);
+		expect(view.getByRole("button", { name: "Send message" })).toBeTruthy();
 		expect(view.queryByRole("region", { name: "fix the login" })).toBeNull();
 		expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(0);
 	});

@@ -7,10 +7,6 @@ import type {
 	ConversationState,
 	Setting,
 } from "@stringsync/splates-server/conversations";
-import {
-	blank,
-	switched,
-} from "@stringsync/splates-server/conversations/browser";
 import { modelOption } from "@stringsync/splates-server/models/browser";
 import { orphaned } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -160,94 +156,90 @@ export function useNewConversation({
 		(setting.id === modelSetting?.id ? requested : undefined) ??
 		setting.current;
 
+	// Held while the start is on its way: the composer stays where it is,
+	// its Send busy, and the thread opens once the server has the conversation.
 	const [starting, setStarting] = useState(false);
+	const busy = useRef(false);
 	const dictated = useRef<() => boolean>(() => false);
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
-		isRunning: starting,
 		convertMessage: (message: ThreadMessageLike) => message,
 		adapters,
 		onNew: async (message) => {
 			const text = said(message);
 			const files = filesOf(message);
+			// Back in its composer, as one start at a time goes.
+			const keep = () => {
+				if (!drafts.holds(draft)) {
+					drafts.attach(draft, files);
+					drafts.write(draft, text);
+				}
+			};
+			if (busy.current) {
+				keep();
+				return;
+			}
+			busy.current = true;
+			setStarting(true);
 			const spoken = text !== "" && dictated.current();
-			// Picked here, so its thread opens on it before the server answers.
 			const id = feed.newId();
-			// Running, the thread drops its composer to the bottom: it slides
-			// there at once, rather than when the server answers.
-			const dropped = slide(() => setStarting(true));
 			// Each as shown: where it was left, unless picked here.
 			const settings = {
 				...Object.fromEntries(offered.map((each) => [each.id, current(each)])),
 				...picks,
 			};
 			const prompt = noted(text, files);
-			let refused = false;
-			const started = (
-				auto
-					? startAutoPick({
-							words: text,
-							task,
-							id,
-							attachments: files.map((file) => ({
-								name: file.name,
-								mimeType: file.type,
-							})),
-						})
-					: startConversation(agent, task, {
-							settings,
-							// Keep explicit requests even when the cached catalog no longer offers them.
-							// A manual replacement wins; the server validates the exact identity.
-							model: requested,
-							// Asked for by a todo's agent, so no pick of the person's.
-							assigned: model !== null,
-							autoPick: autoPick.on,
-							id,
-						})
-			).catch((error: unknown) => {
-				// Back where it was typed, the words in its composer, unless
-				// something else was typed there since.
-				refused = true;
-				feed.drop(id);
-				void slide(() => setStarting(false));
-				if (!drafts.holds(draft)) {
-					drafts.attach(draft, files);
-					drafts.write(draft, text);
-				}
-				refuseIn(draft, "Not started", error);
-				onRefused(id, address);
-				return null;
-			});
-			// As the server will answer, so the person watches the agent come up.
-			const shown = blank(id, agent, task, new Date().toISOString());
-			feed.put({
-				...shown,
-				picking: auto,
-				autoPick: !auto && autoPick.on ? switched(shown, true) : null,
-			});
-			const placed = feed.revision(id);
-			// Its message waits on the server for the session to open.
-			const sending =
-				text !== "" || files.length > 0
-					? feed.send(id, prompt, files, text, spoken)
-					: null;
-			// After the drop, or the thread would cut it short.
-			await dropped;
-			if (!refused) {
-				void slide(() => onOpen(id, "replace"));
-			}
-			const state = await started;
+			const state = await (auto
+				? startAutoPick({
+						words: text,
+						task,
+						id,
+						attachments: files.map((file) => ({
+							name: file.name,
+							mimeType: file.type,
+						})),
+					})
+				: startConversation(agent, task, {
+						settings,
+						// Keep explicit requests even when the cached catalog no longer offers them.
+						// A manual replacement wins; the server validates the exact identity.
+						model: requested,
+						// Asked for by a todo's agent, so no pick of the person's.
+						assigned: model !== null,
+						autoPick: autoPick.on,
+						id,
+					})
+			)
+				.catch((error: unknown) => {
+					// The words back where they were typed, unless something else
+					// was typed there since.
+					keep();
+					refuseIn(draft, "Not started", error);
+					onRefused(id, address);
+					return null;
+				})
+				.finally(() => {
+					busy.current = false;
+					setStarting(false);
+				});
 			if (state === null) {
 				return;
 			}
-			// What the server streamed or listed of it meanwhile is newer than
-			// its answer, which would step the row back.
-			if (feed.revision(id) === placed) {
+			// What the server streamed of it meanwhile is newer than its answer,
+			// which would step the row back.
+			if (!feed.conversations.some((each) => each.id === id)) {
 				feed.put(state);
 			}
 			drafts.started(draft);
 			rememberAuto(auto);
+			// Its message shows in the thread as it opens, sending until the
+			// server has it.
+			const sending =
+				text !== "" || files.length > 0
+					? feed.send(id, prompt, files, text, spoken)
+					: null;
+			void slide(() => onOpen(id, "replace"));
 			const answered = await promptConversation(
 				id,
 				prompt,
@@ -255,8 +247,7 @@ export function useNewConversation({
 				spoken,
 				sending?.id,
 			).catch((error: unknown) => {
-				// The conversation is open by now: what was not sent stays in its
-				// thread, to send again or edit there.
+				// What was not sent stays in its thread, to send again or edit there.
 				if (sending !== null) {
 					feed.refused(id, sending, error);
 				} else {
@@ -381,8 +372,16 @@ export function Home({
 			composerIn(section.current)?.focus();
 		}
 	}, [touch]);
-	const { runtime, refusal, project, controls, mentions, references, named } =
-		useNewConversation(starting);
+	const {
+		runtime,
+		refusal,
+		project,
+		controls,
+		mentions,
+		references,
+		named,
+		starting: busy,
+	} = useNewConversation(starting);
 	// Only tasks no agent is left on: a conversation, or a task an agent is
 	// on, is in the sidebar already, to open from there.
 	const orphans = tasks
@@ -464,6 +463,7 @@ export function Home({
 								</>
 							}
 							controls={controls}
+							starting={busy}
 						/>
 					</NamedContext>
 				</Composing.Provider>

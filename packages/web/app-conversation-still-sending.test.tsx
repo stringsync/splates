@@ -38,9 +38,11 @@ describe("App's messages still sending", () => {
 		testing.dispose();
 	});
 
-	it("says a message is still sending once it goes unanswered for a few seconds", async () => {
+	it("says a message is sending after a moment, and when it times out once unanswered for a few seconds", async () => {
 		const thread = view.getByRole("region", { name: "Login" });
+		// Not at once, so a quick answer shows nothing.
 		expect(within(thread).queryByText(/Sending…/)).toBeNull();
+		expect(await within(thread).findByText("Sending…")).toBeTruthy();
 
 		await act(async () => {
 			testing.wall.advance(Duration.secs(4));

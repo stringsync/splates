@@ -33,8 +33,8 @@ export function useThreadMessages(
 ): ThreadMessages {
 	const { id, status } = conversation;
 	// Only once the server says the agent works: a message still on its way
-	// has not reached a turn to cancel. Its reply's place is held all the
-	// same (`going`), as the agent is about to answer it.
+	// has not reached a turn to cancel, nor yet holds its reply's place. It
+	// still anchors its turn atop the thread (`going`).
 	const running = status === "running";
 	const unsent = feed.unsent.get(id);
 	const going = (feed.sending.get(id) ?? []).some((each) => !each.queued);
@@ -124,32 +124,46 @@ export function useThreadMessages(
 		// own, so the reply would mount afresh in its place and fade in again.
 		// It holds the work row already, so the
 		// agent's first move fills that row rather than putting one in its place.
+		// While the message is still on its way the place is held empty, so the
+		// turn anchors as it is sent but nothing says the agent works before
+		// the server does.
 		const prompt = said.at(-1);
 		const thread =
-			(running || starting || going || held !== null) && prompt?.role === "user"
-				? [
-						...liked,
-						queuedReply(
-							like(
+			prompt?.role !== "user"
+				? liked
+				: !(running || starting || held !== null)
+					? going
+						? [
+								...liked,
 								{
-									role: "agent",
-									parts: [],
-									plan: null,
-									at: null,
-									until: null,
+									id: String(said.length),
+									role: "assistant" as const,
+									content: [],
 								},
-								said.length,
-								conversation.id,
-								false,
-								prompt.sentAt ?? prompt.at,
-								now,
-								null,
-								happened[said.length],
+							]
+						: liked
+					: [
+							...liked,
+							queuedReply(
+								like(
+									{
+										role: "agent",
+										parts: [],
+										plan: null,
+										at: null,
+										until: null,
+									},
+									said.length,
+									conversation.id,
+									false,
+									prompt.sentAt ?? prompt.at,
+									now,
+									null,
+									happened[said.length],
+								),
+								prompt,
 							),
-							prompt,
-						),
-					]
-				: liked;
+						];
 		// A running turn's queue sits above the composer. Otherwise it follows
 		// the turn as sent, under a Queued row; held or starting, it is in `said`.
 		const waiting =
@@ -277,7 +291,7 @@ export interface ThreadMessages {
 	loadEarlier: () => Promise<void>;
 	/** Whether the agent is at work, or a message is on its way to it. */
 	running: boolean;
-	/** Whether a message just sent holds the reply's place before the server says the agent works. */
+	/** Whether a message just sent is on its way, before the server says the agent works. */
 	going: boolean;
 	/** Whether the last message is still being written. */
 	writing: boolean;
@@ -413,6 +427,7 @@ function convert(
 					told: message.told ?? null,
 					dictated: message.dictated ?? false,
 					sending: message.sending ?? null,
+					pending: message.sending !== undefined,
 				},
 			},
 		};

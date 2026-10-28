@@ -52,6 +52,7 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { useShowPending } from "#web/pending.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
 import { serverToldLines } from "#web/queue-start.ts";
 import {
@@ -160,6 +161,10 @@ export const UserMessage: FC = () => {
 		return typeof at === "number" ? at : null;
 	});
 	const sending = useAuiState((s) => s.message.metadata.custom.sending);
+	// On its way until the server's own copy, under the same id, takes its place.
+	const pending = useAuiState(
+		(s) => s.message.metadata.custom.pending === true,
+	);
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -240,7 +245,7 @@ export const UserMessage: FC = () => {
 	}
 	const body = (
 		<>
-			<Bubble>
+			<Bubble pending={pending}>
 				<Clamped watch={id} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
 				their chips. */}
@@ -285,7 +290,9 @@ export const UserMessage: FC = () => {
 					)}
 				</div>
 			)}
-			{typeof sending === "number" && <SendingLine seconds={sending} />}
+			{pending && (
+				<SendingLine seconds={typeof sending === "number" ? sending : null} />
+			)}
 			{unsent !== null && <UnsentLine at={unsent} />}
 		</>
 	);
@@ -364,7 +371,11 @@ const LIFT_MS = 400;
  * a menu below it to copy from, as Claude's app does, the bubble raised
  * while it is open.
  */
-const Bubble: FC<PropsWithChildren> = ({ children }) => {
+const Bubble: FC<PropsWithChildren<{ pending: boolean }>> = ({
+	children,
+	pending,
+}) => {
+	const showPending = useShowPending(pending);
 	const box = useRef<HTMLDivElement>(null);
 	const [held, setHeld] = useState(false);
 	const press = useLongPress(() => setHeld(true));
@@ -382,7 +393,11 @@ const Bubble: FC<PropsWithChildren> = ({ children }) => {
 		<>
 			<div
 				ref={box}
-				className="aui-user-message-content-wrapper group/user relative min-w-0 max-sm:flex max-sm:max-w-[85%] max-sm:flex-col max-sm:items-end max-sm:transition-transform max-sm:data-held:scale-[1.03]"
+				className={cn(
+					"aui-user-message-content-wrapper group/user relative min-w-0 transition-[opacity,transform,scale] duration-200 max-sm:flex max-sm:max-w-[85%] max-sm:flex-col max-sm:items-end max-sm:data-held:scale-[1.03]",
+					showPending && "opacity-60",
+				)}
+				aria-busy={pending}
 				data-held={held || undefined}
 				onPointerDown={(event) => {
 					touched.current = event.pointerType === "touch";

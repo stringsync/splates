@@ -262,7 +262,11 @@ describe("App's sending messages", () => {
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
 		expect(thread.textContent).toContain("Done.");
-		expect(within(thread).getByText(/^Working/)).toBeTruthy();
+		// Pending, with nothing saying the agent works before the server does.
+		expect(
+			within(thread).getByText("and the logout").closest("[aria-busy=true]"),
+		).toBeTruthy();
+		expect(within(thread).queryByText(/^Working/)).toBeNull();
 
 		await testing.say(
 			conversation({
@@ -286,7 +290,7 @@ describe("App's sending messages", () => {
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 	});
 
-	it("shows a message to an idle conversation at once, with its reply's place, rather than once the server says it back", async () => {
+	it("shows a message to an idle conversation at once as sending, its reply's place once the server says the agent works", async () => {
 		const said = [message("user", "fix the login"), message("agent", "Done.")];
 		const view = await testing.openConversations([
 			conversation({ title: "Login", status: "idle", messages: said }),
@@ -300,9 +304,10 @@ describe("App's sending messages", () => {
 		await waitFor(() =>
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
-		// The reply's place is held at once, but there is no turn to stop until
+		// Sending, a moment on, with no turn to stop and nothing working until
 		// the server says the agent works.
-		expect(within(thread).getByText(/^Working/)).toBeTruthy();
+		expect(await within(thread).findByText("Sending…")).toBeTruthy();
+		expect(within(thread).queryByText(/^Working/)).toBeNull();
 		expect(
 			within(thread).queryByRole("button", { name: "Stop generating" }),
 		).toBeNull();
@@ -322,6 +327,11 @@ describe("App's sending messages", () => {
 		);
 
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(within(thread).queryByText("Sending…")).toBeNull();
+		expect(
+			within(thread).getByText("and the logout").closest("[aria-busy=true]"),
+		).toBeNull();
+		expect(within(thread).getByText(/^Working/)).toBeTruthy();
 		expect(
 			within(thread).getByRole("button", { name: "Stop generating" }),
 		).toBeTruthy();

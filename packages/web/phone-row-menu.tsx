@@ -142,7 +142,11 @@ export function Filed({
 				refuse={refuse}
 			/>
 			<div {...pendingRow(pending, showPending)}>
-				<Swipeable archive={archivable ? { asks, file } : null}>
+				{/* Kept while its archive is pending, so the row swiped off stays gone. */}
+				<Swipeable
+					archive={conversation.archived ? null : { asks, file }}
+					held={pending}
+				>
 					{children(press)}
 				</Swipeable>
 			</div>

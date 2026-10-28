@@ -34,7 +34,7 @@ import { GroomUntriaged } from "./groom-untriaged";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { LaneStalled } from "./lane-stalled";
-import { pendingRow, useShowPending } from "./pending";
+import { PendingSpinner, pendingRow, useShowPending } from "./pending";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
 import { byHand } from "./todo-board";
@@ -140,9 +140,11 @@ export function Lane({
 	/** The board was opened on it, from its title in the sidebar: ringed. */
 	opened?: boolean;
 }): JSX.Element {
-	const { refusedLanes, todos, elsewhere } = useContext(Board);
+	const { refusedLanes, todos, elsewhere, movingLane } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
-	const pending = usePendingSnapshot(`lane:${lane.id}`);
+	// A write to it on its way, or dropped here, until the server shows it.
+	const pending =
+		usePendingSnapshot(`lane:${lane.id}`) || movingLane === lane.id;
 	const showPending = useShowPending(pending);
 	const {
 		listeners,
@@ -258,6 +260,12 @@ export function Lane({
 							</h3>
 						)}
 						<div className="flex shrink-0 items-center">
+							{pending && (
+								<PendingSpinner
+									shown={showPending}
+									className="mx-1 size-3.5 text-muted-foreground"
+								/>
+							)}
 							<QueueLaneButton lane={lane} />
 							<LaneMenu
 								lane={lane}

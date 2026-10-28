@@ -502,6 +502,23 @@ describe("App on a phone", () => {
 				{ method: "PUT", body: { archived: true } },
 			]),
 		);
+		// Held closed up while pending, rather than back in its place, until the
+		// server files it.
+		const closed = within(inbox)
+			.getByRole("button", { name: /Fix login/ })
+			.closest<HTMLElement>("[style*='height']");
+		expect(closed?.style.height).toBe("0px");
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "stopped",
+				archived: true,
+			}),
+		);
+		expect(
+			within(inbox).queryByRole("button", { name: /Fix login/ }),
+		).toBeNull();
 
 		await swipe(/Add search/, SWIPE_PX + 20);
 		const confirm = view.getByRole("dialog", { name: "Archive Add search?" });

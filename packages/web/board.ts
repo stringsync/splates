@@ -57,6 +57,10 @@ export interface BoardContext {
 	refuseLane: (id: number | null, title: string, error: unknown) => void;
 	/** Todos being added or edited and not yet sent, kept across pages. */
 	drafts: Drafts;
+	/** The card dropped whose move the server has yet to show, pending where it was let go. */
+	moving?: number | null;
+	/** The lane dropped whose move the server has yet to show. */
+	movingLane?: number | null;
 }
 
 /**

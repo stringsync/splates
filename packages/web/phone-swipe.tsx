@@ -46,10 +46,17 @@ export type Archive = {
 // scry-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
 export function Swipeable({
 	archive,
+	held = false,
 	children,
 }: {
 	/** Null when the row cannot be archived, so it does not slide. */
 	archive: Archive | null;
+	/**
+	 * Whether a write to the row is pending, so no swipe starts; one already
+	 * let go stays off and closed up until the server files the row, or slides
+	 * back if it refuses.
+	 */
+	held?: boolean;
 	children: ReactNode;
 }): JSX.Element {
 	// Set as it leaves: its height, then closed to 0.
@@ -137,7 +144,7 @@ export function Swipeable({
 				// Up and down stay the browser's to scroll; sideways is the swipe's.
 				className="relative touch-pan-y bg-background motion-reduce:transition-none"
 				onPointerDown={(event: PointerEvent) => {
-					if (leaving) {
+					if (leaving || held) {
 						return;
 					}
 					swiped.current = false;

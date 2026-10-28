@@ -42,8 +42,13 @@ export type ThreadProps = {
 	autoFocus?: boolean | undefined;
 	/** The stop request is pending while the agent finishes its turn. */
 	stopping?: boolean | undefined;
-	/** A message just sent holds the reply's place before the agent is running. */
+	/** A message just sent is on its way, before the server says the agent works. */
 	going?: boolean | undefined;
+	/**
+	 * A new conversation's start is on its way: the composer stays where it
+	 * is, its Send busy, until the server answers.
+	 */
+	starting?: boolean | undefined;
 	/** Shown just above the composer, such as what the agent is asking. */
 	above?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
@@ -79,6 +84,7 @@ export const ThreadExtrasContext = createContext<
 		| "below"
 		| "controls"
 		| "stopping"
+		| "starting"
 		| "mentions"
 		| "references"
 		| "commands"

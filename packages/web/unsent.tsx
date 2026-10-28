@@ -1,5 +1,6 @@
 import { CircleAlertIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
+import { useShowPending } from "./pending";
 import type { Sending, Unsent } from "./sending";
 
 /** A thread's messages the server refused, and what can be done with each. */
@@ -15,14 +16,25 @@ export const UnsentContext = createContext<UnsentActions>({
 	edit: () => {},
 });
 
-/** Under a message the server has yet to answer, after a while: still sending. */
-export function SendingLine({ seconds }: { seconds: number }): JSX.Element {
+/**
+ * Under a message the server has yet to answer: sending, once that has held
+ * a moment, and after a while, `seconds` till it times out.
+ */
+export function SendingLine({
+	seconds,
+}: {
+	seconds: number | null;
+}): JSX.Element | null {
+	const shown = useShowPending(true);
+	if (!shown && seconds === null) {
+		return null;
+	}
 	return (
 		<div
 			data-slot="aui_user-message-sending"
 			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
 		>
-			Sending… times out in {seconds}s
+			{seconds === null ? "Sending…" : `Sending… times out in ${seconds}s`}
 		</div>
 	);
 }

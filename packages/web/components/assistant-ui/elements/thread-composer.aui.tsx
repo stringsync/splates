@@ -59,6 +59,7 @@ import { distinctNames } from "#web/file-chip.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { filesIn, NamedContext } from "#web/mentioned.tsx";
+import { PendingSpinner, useShowPending } from "#web/pending.tsx";
 
 /** What a tap in the composer's box works itself, rather than the editor. */
 const CONTROL = "button, a, input, textarea, [contenteditable], [role=option]";
@@ -312,7 +313,12 @@ const ComposerAction: FC = () => {
 			!(s.thread.isRunning && s.thread.capabilities.cancel),
 	);
 
-	const { controls, stopping = false } = useContext(ThreadExtrasContext);
+	const {
+		controls,
+		stopping = false,
+		starting = false,
+	} = useContext(ThreadExtrasContext);
+	const showStarting = useShowPending(starting);
 	const sendDictation = useDictationSend();
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
@@ -361,19 +367,25 @@ const ComposerAction: FC = () => {
 					}
 				>
 					<ComposerPrimitive.Send
+						disabled={starting}
 						render={
 							<TooltipIconButton
-								tooltip="Send message"
+								tooltip={starting ? "Starting…" : "Send message"}
 								side="bottom"
 								type="button"
 								variant="default"
 								size="icon"
 								className="aui-composer-send size-7 rounded-full pointer-coarse:size-11"
-								aria-label="Send message"
+								aria-label={starting ? "Starting…" : "Send message"}
+								aria-busy={starting}
 							/>
 						}
 					>
-						<ArrowUpIcon className="aui-composer-send-icon size-4 pointer-coarse:size-5" />
+						{showStarting ? (
+							<PendingSpinner shown className="size-4 pointer-coarse:size-5" />
+						) : (
+							<ArrowUpIcon className="aui-composer-send-icon size-4 pointer-coarse:size-5" />
+						)}
 					</ComposerPrimitive.Send>
 				</AuiIf>
 				<AuiIf
