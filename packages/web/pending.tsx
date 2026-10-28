@@ -1,5 +1,5 @@
 import { LoaderCircleIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 
 /** How long a write must be pending before the page shows it. */
@@ -60,4 +60,32 @@ export function PendingSpinner({
 			)}
 		/>
 	);
+}
+
+/**
+ * Writes the page sends that no feed shows back, such as a button's request
+ * to the server: each is pending under its `key` from the click until the
+ * server answers. Callers disable the control on `pending(key)` so none
+ * repeats; a refusal clears it, and rejects for the caller to say why.
+ */
+export function usePendingWrites(): {
+	pending: (key?: string) => boolean;
+	run: <T>(key: string, write: () => Promise<T>) => Promise<T>;
+} {
+	const [keys, setKeys] = useState<readonly string[]>([]);
+	const run = useCallback(
+		<T,>(key: string, write: () => Promise<T>): Promise<T> => {
+			setKeys((held) => [...held, key]);
+			return write().finally(() =>
+				setKeys((held) => {
+					const at = held.indexOf(key);
+					return at < 0 ? held : held.toSpliced(at, 1);
+				}),
+			);
+		},
+		[],
+	);
+	const pending = (key?: string) =>
+		key === undefined ? keys.length > 0 : keys.includes(key);
+	return { pending, run };
 }

@@ -21,6 +21,7 @@ import { AddProject } from "./add-project";
 import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
 import { OpenerContext } from "./openers";
+import { usePendingWrites } from "./pending";
 import { forgetProject, type ProjectChoice } from "./project-api";
 import { useProjectList } from "./project-list";
 import { ProjectMenu } from "./project-menu";
@@ -200,22 +201,25 @@ export function ProjectSwitcher({
 		}
 	};
 
+	const forgetting = usePendingWrites();
 	const forget = (each: ProjectChoice) =>
-		forgetProject(each.slug).then(
-			(next) => {
-				if (!current(each)) {
-					return list.refresh();
-				}
-				// The page showed it: on to the one focused before it, or to
-				// none left.
-				setOpen(false);
-				const url = new URL(location.href);
-				url.searchParams.delete("project");
-				url.hash = "";
-				navigation.show(next === null ? url.toString() : projectUrl(next));
-			},
-			(error: unknown) => refused(`${each.slug} not forgotten`, error),
-		);
+		forgetting
+			.run(each.slug, () => forgetProject(each.slug))
+			.then(
+				(next) => {
+					if (!current(each)) {
+						return list.refresh();
+					}
+					// The page showed it: on to the one focused before it, or to
+					// none left.
+					setOpen(false);
+					const url = new URL(location.href);
+					url.searchParams.delete("project");
+					url.hash = "";
+					navigation.show(next === null ? url.toString() : projectUrl(next));
+				},
+				(error: unknown) => refused(`${each.slug} not forgotten`, error),
+			);
 
 	const copyPath = (each: ProjectChoice) =>
 		navigator.clipboard
@@ -380,6 +384,7 @@ export function ProjectSwitcher({
 											setOpen(false);
 											setShipping(new ShipApproval(each.slug));
 										}}
+										pending={forgetting.pending(each.slug)}
 										onForget={() => void forget(each)}
 									/>
 								</li>

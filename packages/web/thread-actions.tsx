@@ -35,6 +35,7 @@ import { type Drafts, newDraft } from "./drafts";
 import { useFreshness } from "./freshness";
 import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
+import { usePendingWrites } from "./pending";
 import type { Refuse } from "./refusal";
 import { useStamps } from "./stamp";
 import { ToggleTerminal } from "./terminal";
@@ -63,6 +64,7 @@ export function useThreadActions(
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
 	const dispatching = useContext(Dispatching);
 	const stamps = useStamps();
+	const writes = usePendingWrites();
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -89,16 +91,17 @@ export function useThreadActions(
 					},
 				]
 			: []),
-		...pauseActions(conversation, refused),
+		...pauseActions(conversation, refused, writes),
 		...(dispatching !== null && conversation.task !== null && !archived
 			? [
 					{
 						label: "Restart agent",
 						icon: <RotateCwIcon />,
+						pending: writes.pending("restart"),
 						run: () =>
-							void restartConversation(id).catch((error: unknown) =>
-								refused("Not restarted", error),
-							),
+							void writes
+								.run("restart", () => restartConversation(id))
+								.catch((error: unknown) => refused("Not restarted", error)),
 					},
 					{
 						label: "Hand to a new agent",
@@ -184,6 +187,7 @@ const PAUSE_WITHIN = Duration.mins(3);
 function pauseActions(
 	conversation: ConversationState,
 	refused: Refuse,
+	writes: ReturnType<typeof usePendingWrites>,
 ): Action[] {
 	const { id, status, checkpoint, pausing, archived } = conversation;
 	if (pausing && checkpoint === "asked") {
@@ -211,9 +215,12 @@ function pauseActions(
 		icon: <ClockIcon />,
 		// Sent now, stopping any turn, so the agent saves its work on the
 		// request rather than finishing it first.
+		pending: writes.pending("defer"),
 		run: () =>
-			void promptConversation(id, DEFER)
-				.then(() => sendQueuedNow(id))
+			void writes
+				.run("defer", () =>
+					promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
+				)
 				.catch((error: unknown) => refused("Not deferred", error)),
 	};
 	if (status !== "running") {
@@ -235,10 +242,11 @@ function pauseActions(
 					{
 						label: "Resume",
 						icon: <PlayIcon />,
+						pending: writes.pending("resume"),
 						run: () =>
-							void promptConversation(id, RESUME).catch((error: unknown) =>
-								refused("Not resumed", error),
-							),
+							void writes
+								.run("resume", () => promptConversation(id, RESUME))
+								.catch((error: unknown) => refused("Not resumed", error)),
 					},
 					defer,
 				]
@@ -251,10 +259,11 @@ function pauseActions(
 		{
 			label: "Pause",
 			icon: <PauseIcon />,
+			pending: writes.pending("pause"),
 			run: () =>
-				void pauseConversation(id).catch((error: unknown) =>
-					refused("Not paused", error),
-				),
+				void writes
+					.run("pause", () => pauseConversation(id))
+					.catch((error: unknown) => refused("Not paused", error)),
 		},
 		defer,
 	];

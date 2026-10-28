@@ -131,6 +131,7 @@ export function SpendSection(): JSX.Element {
 							size="sm"
 							aria-label="currency"
 							value={sources.currency}
+							disabled={controller.changingCurrency}
 							onChange={(event) =>
 								controller.changeCurrency(event.target.value)
 							}

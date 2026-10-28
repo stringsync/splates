@@ -20,6 +20,7 @@ import { cn } from "#web/lib/utils.ts";
 import { ApiError, moveQueued, retryQueuedStart } from "./api";
 import { Board } from "./board";
 import { useNow } from "./hooks/use-now";
+import { usePendingWrites } from "./pending";
 import { STATUS_PILL } from "./status-pill";
 
 /** `place` as a place in line: 1st, 2nd, 3rd, 4th. */
@@ -47,16 +48,27 @@ function waited(since: string, now: number): string {
  */
 function useMove(): {
 	move: (id: string, position: number) => void;
+	/** Whether conversation `id` has a move on its way: held until it answers. */
+	moving: (id: string) => boolean;
 	error: string | null;
 } {
 	const [error, setError] = useState<string | null>(null);
+	const writes = usePendingWrites();
 	return {
 		error,
+		moving: writes.pending,
 		move: (id, position) => {
+			if (writes.pending(id)) {
+				return;
+			}
 			setError(null);
-			moveQueued(id, position).catch((caught: unknown) =>
-				setError(caught instanceof ApiError ? caught.message : String(caught)),
-			);
+			writes
+				.run(id, () => moveQueued(id, position))
+				.catch((caught: unknown) =>
+					setError(
+						caught instanceof ApiError ? caught.message : String(caught),
+					),
+				);
 		},
 	};
 }
@@ -159,7 +171,7 @@ export function QueueBanner({
 }): JSX.Element {
 	const now = useNow();
 	const board = useContext(Board);
-	const { move, error: moveError } = useMove();
+	const { move, moving, error: moveError } = useMove();
 	const { retry, retrying, error: retryError } = useRetry();
 	const error = moveError ?? retryError;
 	const wants = queueWantsYou(spot, now);
@@ -195,6 +207,7 @@ export function QueueBanner({
 						variant="outline"
 						size="sm"
 						className="shrink-0"
+						disabled={moving(id)}
 						onClick={() => move(id, 1)}
 					>
 						<ArrowUpToLineIcon />
@@ -326,7 +339,7 @@ export function QueueBadge({
 	nameOf?: (id: string) => string | null;
 }): JSX.Element | null {
 	const now = useNow(queue.length > 0);
-	const { move, error } = useMove();
+	const { move, moving, error } = useMove();
 	if (queue.length === 0) {
 		return null;
 	}
@@ -367,6 +380,7 @@ export function QueueBadge({
 									size="icon"
 									aria-label={`Move ${entry.task ?? "it"} up`}
 									title="Move up"
+									disabled={moving(entry.id)}
 									onClick={() => move(entry.id, entry.position - 1)}
 								>
 									<ArrowUpIcon />

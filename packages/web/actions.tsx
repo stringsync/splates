@@ -19,6 +19,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ShortcutSettings, useShortcut } from "./hooks/use-shortcut";
+import { PendingSpinner, useShowPending } from "./pending";
 
 /** Something to do with a conversation, or a place in it to go to. */
 export interface Action {
@@ -28,6 +29,8 @@ export interface Action {
 	detail?: ReactNode;
 	/** Null for a row that only says something, or one that opens `menu`. */
 	run: (() => void) | null;
+	/** Whether a write it made is pending: out of reach, with a spinner. */
+	pending?: boolean;
 	/** The items of a menu the row opens in place of running anything. */
 	menu?: ReactNode;
 	/** Sizes `menu`, for items wider or more than the usual few. */
@@ -103,14 +106,9 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
 }
 
 /**
- * Everything to do with a conversation, as widgets, each a card of its own:
- * the actions, many of them opening the pane beside the page, and cards
- * under them such as the commands it left in the background. Docked at the thread's right where it is
- * `roomy`, its messages centered in the room left of them; elsewhere
- * floating, frosted, over the thread's top right with the thread veiled
- * behind them, like the Control Center,
- * gone on Escape, a click outside, or an action run. On phones it fills
- * the screen with a fixed close control and large, scrollable touch targets.
+ * Shows a conversation's `actions` as widgets, with `children` as cards under
+ * them. Docked beside the thread where `roomy`, else floating over it until
+ * `onClose` is called by Escape, a click outside, or an action run.
  */
 export function Widgets({
 	actions,
@@ -284,6 +282,13 @@ function ActionRow({
 	action: Action;
 	touch: boolean;
 }): JSX.Element {
+	const pending = action.pending ?? false;
+	const showPending = useShowPending(pending);
+	const icon = showPending ? (
+		<PendingSpinner shown className="size-4" />
+	) : (
+		action.icon
+	);
 	const row =
 		"flex h-8 w-full items-center gap-2 px-3 text-left text-sm [&_svg]:size-4";
 	const detail = action.detail && (
@@ -323,8 +328,14 @@ function ActionRow({
 			{detail}
 		</p>
 	) : (
-		<button type="button" onClick={action.run} className={button}>
-			{action.icon}
+		<button
+			type="button"
+			onClick={action.run}
+			disabled={pending}
+			aria-busy={pending}
+			className={cn(button, "disabled:opacity-60")}
+		>
+			{icon}
 			<span className="min-w-0 flex-1 truncate">{action.label}</span>
 			{detail}
 		</button>

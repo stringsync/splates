@@ -194,12 +194,12 @@ function Conversation({
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
-	const { sendNow, edit, discard } = useQueueEdits(
-		id,
-		runtime,
-		section,
-		refused,
-	);
+	const {
+		sendNow,
+		edit,
+		discard,
+		busy: queueBusy,
+	} = useQueueEdits(id, runtime, section, refused);
 	const touch = useTouch();
 	const { actions, archive, startNew } = useThreadActions(
 		conversation,
@@ -399,6 +399,7 @@ function Conversation({
 																											void discard(index),
 																										onSendNow: () =>
 																											void sendNow(),
+																										busy: queueBusy,
 																									}}
 																								/>
 																							)}

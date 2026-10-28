@@ -139,7 +139,9 @@ export function useReferences(
 			pick: (item) => {
 				const { action } = item.metadata ?? {};
 				if (typeof action === "number") {
-					runnable[action]?.run?.();
+					if (!runnable[action]?.pending) {
+						runnable[action]?.run?.();
+					}
 				}
 			},
 			chip: (item) => {

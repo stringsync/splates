@@ -29,6 +29,7 @@ import { ReadFailed, ReadingNow } from "./countdown";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { useReading } from "./page-readings";
+import { pendingRow, usePendingWrites, useShowPending } from "./pending";
 import { PHONE_HEADING } from "./phone-rows";
 import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
 import { TopBar } from "./top-bar";
@@ -163,8 +164,11 @@ function RoleCard({
 	const now = useMinute();
 	const [form, setForm] = useState<"edit" | "raise" | "pause" | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const writes = usePendingWrites();
+	const showPending = useShowPending(writes.pending());
 	const act = (change: Promise<Budgets>) =>
-		onChange(change)
+		writes
+			.run("change", () => onChange(change))
 			.then(() => {
 				setForm(null);
 				setError(null);
@@ -176,7 +180,11 @@ function RoleCard({
 	return (
 		<li
 			aria-label={`${role.role} budget`}
-			className="overflow-hidden rounded-xl border bg-card shadow-xs"
+			{...pendingRow(
+				writes.pending(),
+				showPending,
+				"overflow-hidden rounded-xl border bg-card shadow-xs",
+			)}
 		>
 			<header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3">
 				<div className="flex min-w-0 flex-col">
@@ -208,6 +216,7 @@ function RoleCard({
 						<Button
 							variant="ghost"
 							size="sm"
+							disabled={writes.pending()}
 							onClick={() => act(resumeBudget(role.role))}
 						>
 							<PlayIcon /> Resume
@@ -266,6 +275,7 @@ function RoleCard({
 									size="icon-xs"
 									className="ml-auto text-muted-foreground"
 									aria-label={`end raise ${raise.id}`}
+									disabled={writes.pending()}
 									onClick={() => act(endRaise(raise.id))}
 								>
 									<XIcon />

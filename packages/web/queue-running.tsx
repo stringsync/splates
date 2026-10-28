@@ -17,6 +17,7 @@ import { Dispatching } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { InProject } from "./everywhere-feed";
 import { NavigationContext } from "./navigation";
+import { usePendingWrites } from "./pending";
 import { QueueEmpty, QueueRow, QueueSection, SortableRows } from "./queue-rows";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -95,8 +96,9 @@ export function Running({
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
 	const automatic = held.filter((each) => each.automatic);
-	const attempt = (title: string, write: Promise<void>) =>
-		void write.catch((error: unknown) => refuse(title, error));
+	const writes = usePendingWrites();
+	const attempt = (id: string, title: string, write: () => Promise<void>) =>
+		void writes.run(id, write).catch((error: unknown) => refuse(title, error));
 	return (
 		<QueueSection title="Started by splates" count={automatic.length}>
 			<Refusal refusal={refusal} />
@@ -112,6 +114,7 @@ export function Running({
 					return (
 						<QueueRow
 							key={held.id}
+							pending={writes.pending(held.id)}
 							name={
 								held.task ??
 								(conversation ? nameOf(conversation) : "A conversation")
@@ -122,7 +125,9 @@ export function Running({
 							quiet={{
 								label: "Stop",
 								onClick: () =>
-									attempt("Not stopped", cancelConversation(held.id, project)),
+									attempt(held.id, "Not stopped", () =>
+										cancelConversation(held.id, project),
+									),
 							}}
 							main={{
 								label: "Open",
@@ -132,8 +137,7 @@ export function Running({
 								<>
 									<DropdownMenuItem
 										onClick={() =>
-											attempt(
-												"Not restarted",
+											attempt(held.id, "Not restarted", () =>
 												restartConversation(held.id, project),
 											)
 										}
@@ -142,8 +146,7 @@ export function Running({
 									</DropdownMenuItem>
 									<DropdownMenuItem
 										onClick={() =>
-											attempt(
-												"Not archived",
+											attempt(held.id, "Not archived", () =>
 												archiveConversation(held.id, true, project),
 											)
 										}
@@ -173,10 +176,11 @@ export function Waiting({
 }): JSX.Element {
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
+	const writes = usePendingWrites();
 	const move = (id: string, to: number) =>
-		void moveQueued(id, to + 1).catch((error: unknown) =>
-			refuse("Not moved", error),
-		);
+		void writes
+			.run(id, () => moveQueued(id, to + 1))
+			.catch((error: unknown) => refuse("Not moved", error));
 	return (
 		<QueueSection title="Waiting to start" count={queue.length}>
 			<Refusal refusal={refusal} />
@@ -198,6 +202,7 @@ export function Waiting({
 							<QueueRow
 								grip={grip}
 								dragging={dragging}
+								pending={writes.pending(entry.id)}
 								name={
 									entry.task ??
 									(conversation ? nameOf(conversation) : "A conversation")
@@ -221,9 +226,13 @@ export function Waiting({
 										</DropdownMenuItem>
 										<DropdownMenuItem
 											onClick={() =>
-												void archiveConversation(entry.id, true, project).catch(
-													(error: unknown) => refuse("Not cancelled", error),
-												)
+												void writes
+													.run(entry.id, () =>
+														archiveConversation(entry.id, true, project),
+													)
+													.catch((error: unknown) =>
+														refuse("Not cancelled", error),
+													)
 											}
 										>
 											Cancel

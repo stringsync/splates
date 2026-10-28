@@ -11,6 +11,7 @@ import { Button } from "./components/ui/button";
 import { sendQueuedNow } from "./conversation-api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
+import { usePendingWrites } from "./pending";
 import { span } from "./work";
 
 /** The wait before a prompt reached the agent, retained once work starts. */
@@ -88,6 +89,7 @@ function QueuedTime({
 }): JSX.Element {
 	const now = useNow(until === null && halted === undefined);
 	const stuck = until === null && halted !== undefined;
+	const writes = usePendingWrites();
 	return (
 		<div
 			data-slot="queued"
@@ -118,7 +120,12 @@ function QueuedTime({
 					size="sm"
 					variant="outline"
 					className="ml-1 h-7 min-h-7 shrink-0 touch:h-11"
-					onClick={() => void sendQueuedNow(halted).catch(() => undefined)}
+					disabled={writes.pending()}
+					onClick={() =>
+						void writes
+							.run("send", () => sendQueuedNow(halted))
+							.catch(() => undefined)
+					}
 				>
 					<SendIcon aria-hidden />
 					Send

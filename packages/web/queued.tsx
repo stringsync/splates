@@ -14,6 +14,7 @@ import {
 	unqueueConversation,
 } from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
+import { usePendingWrites } from "./pending";
 import { SendingLine } from "./unsent";
 
 /** What waits for a running turn's end, above the composer. */
@@ -31,6 +32,8 @@ export function Queued({
 		onEdit: (index: number, message: Message) => void;
 		onDiscard: (index: number) => void;
 		onSendNow: () => void;
+		/** Sending or discarding is on its way: held until the server answers. */
+		busy: boolean;
 	} | null;
 }): JSX.Element {
 	// Enter sends the queue only with nothing typed; otherwise it queues what is.
@@ -49,6 +52,7 @@ export function Queued({
 					<Button
 						size="sm"
 						variant="outline"
+						disabled={edits.busy}
 						onClick={edits.onSendNow}
 						className="touch:h-11"
 					>
@@ -127,7 +131,7 @@ export function Queued({
 										variant="outline"
 										className="pointer-coarse:size-10"
 										aria-label={`Discard ${label}`}
-										disabled={unrecorded}
+										disabled={unrecorded || edits.busy}
 										onClick={() => edits.onDiscard(index)}
 									>
 										<Trash2Icon />
@@ -150,8 +154,13 @@ export function useQueueEdits(
 	refused: (title: string, error: unknown) => void,
 ): QueueEdits {
 	// Stops the turn so what is queued goes out now.
+	const writes = usePendingWrites();
 	const sendNow = () =>
-		sendQueuedNow(id).catch((error: unknown) => refused("Not sent", error));
+		writes.pending()
+			? Promise.resolve()
+			: writes
+					.run("send", () => sendQueuedNow(id))
+					.catch((error: unknown) => refused("Not sent", error));
 	// Back into the composer to edit, ahead of anything typed there since: its
 	// words at once, as shown, its files once the server hands them back, and
 	// the composer as it was should the server refuse.
@@ -179,10 +188,12 @@ export function useQueueEdits(
 	};
 	// Gone before the agent hears it, its words with it.
 	const discard = (index: number) =>
-		unqueueConversation(id, index).catch((error: unknown) =>
-			refused("Not discarded", error),
-		);
-	return { sendNow, edit, discard };
+		writes.pending()
+			? Promise.resolve()
+			: writes
+					.run("discard", () => unqueueConversation(id, index))
+					.catch((error: unknown) => refused("Not discarded", error));
+	return { sendNow, edit, discard, busy: writes.pending() };
 }
 
 /** What `useQueueEdits` gives a thread. */
@@ -190,6 +201,8 @@ export interface QueueEdits {
 	sendNow: () => Promise<void>;
 	edit: (index: number, message: Message) => Promise<void>;
 	discard: (index: number) => Promise<unknown>;
+	/** Sending or discarding is on its way. */
+	busy: boolean;
 }
 
 /** Keyboard shortcuts for the queue above the composer. */

@@ -20,6 +20,7 @@ import { touchItems } from "./board";
 import { RequestBody } from "./cred-how";
 import { Paste } from "./cred-paste";
 import { ProviderPicker, ScopeChip, scopeLabel } from "./cred-scope";
+import { usePendingWrites } from "./pending";
 import { PHONE_TILE } from "./phone-rows";
 
 /**
@@ -55,10 +56,15 @@ export function KeptRow({
 	const [showing, setShowing] = useState(false);
 	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const writes = usePendingWrites();
+	const busy = writes.pending();
 	const remove = () =>
-		removeCred(name, scope, provider)
-			.then(onChanged)
-			.catch((caught: Error) => setError(caught.message));
+		busy
+			? undefined
+			: writes
+					.run("remove", () => removeCred(name, scope, provider))
+					.then(onChanged)
+					.catch((caught: Error) => setError(caught.message));
 	const keep = (
 		<Button variant="ghost" size="sm" onClick={() => setRemoving(false)}>
 			Keep
@@ -89,6 +95,7 @@ export function KeptRow({
 									variant="ghost"
 									size="sm"
 									className="text-destructive"
+									disabled={busy}
 									onClick={remove}
 								>
 									Remove {name}
@@ -187,6 +194,7 @@ export function KeptRow({
 						variant="destructive"
 						size="sm"
 						aria-label={`Remove ${name}`}
+						disabled={busy}
 						onClick={remove}
 					>
 						Remove

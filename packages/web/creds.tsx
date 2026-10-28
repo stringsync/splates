@@ -8,6 +8,7 @@ import { RequestBody } from "./cred-how";
 import { Paste } from "./cred-paste";
 import { ProviderPicker, ScopeChip } from "./cred-scope";
 import { AddCred, KeptRow } from "./kept-creds";
+import { usePendingWrites } from "./pending";
 import { PHONE_HEADING } from "./phone-rows";
 import { TaskChip } from "./reference-chip";
 import { TopBar } from "./top-bar";
@@ -34,6 +35,7 @@ function RequestRow({
 }): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 	const [provider, setProvider] = useState<Provider>(request.provider);
+	const writes = usePendingWrites();
 	return (
 		<li
 			aria-label={`requested ${request.name}`}
@@ -76,8 +78,10 @@ function RequestRow({
 							variant="ghost"
 							size="sm"
 							className="text-muted-foreground"
+							disabled={writes.pending()}
 							onClick={() =>
-								dismissCred(request.name)
+								writes
+									.run("dismiss", () => dismissCred(request.name))
 									.then(onChanged)
 									.catch((caught: Error) => setError(caught.message))
 							}

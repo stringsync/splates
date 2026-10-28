@@ -43,6 +43,8 @@ export class SpendController
 	error: string | null = null;
 	sources: BillingView | null;
 	pulling = false;
+	/** A currency change is on its way: held until the server answers. */
+	changingCurrency = false;
 	sourceError: string | null = null;
 	/** The range as a span of time, or null for a custom one not yet picked. */
 	span: { since: string; until: string } | null = null;
@@ -115,10 +117,22 @@ export class SpendController
 	}
 
 	changeCurrency(currency: string): void {
-		setCurrency(currency).then(
-			(read) => this.setSources(read),
-			(caught: Error) => this.fail("sourceError", caught.message),
-		);
+		if (this.changingCurrency) {
+			return;
+		}
+		this.changingCurrency = true;
+		this.dispatcher.dispatch("changed");
+		setCurrency(currency)
+			.then(
+				(read) => this.setSources(read),
+				(caught: Error) => this.fail("sourceError", caught.message),
+			)
+			.finally(() => {
+				if (!this.disposed) {
+					this.changingCurrency = false;
+					this.dispatcher.dispatch("changed");
+				}
+			});
 	}
 
 	dispose(): void {

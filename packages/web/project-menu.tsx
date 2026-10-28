@@ -29,6 +29,7 @@ export function ProjectMenu({
 	onCopyPath,
 	onShip,
 	onForget,
+	pending = false,
 }: {
 	project: ProjectChoice;
 	/** Whether the page shows it, so forgetting it goes back to the one before. */
@@ -38,6 +39,8 @@ export function ProjectMenu({
 	onCopyPath: () => void;
 	onShip: () => void;
 	onForget: () => void;
+	/** Forgetting it is on its way: held until the server answers. */
+	pending?: boolean;
 }): JSX.Element {
 	const opener = use(OpenerContext);
 	return (
@@ -90,6 +93,7 @@ export function ProjectMenu({
 								? "Going back to the project before it: adding it again brings it back"
 								: "Adding it again brings it back"
 					}
+					disabled={pending}
 					onClick={onForget}
 				>
 					<XIcon />

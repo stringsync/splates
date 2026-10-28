@@ -27,6 +27,7 @@ import {
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { todoAddress } from "./page-address";
+import { pendingRow, usePendingWrites, useShowPending } from "./pending";
 import { useProjectList } from "./project-list";
 import { Refusal, useRefusals } from "./refusal";
 import { hungIn, needsYou } from "./ship-activity";
@@ -137,6 +138,7 @@ function NeedsYou({
 	ship: Ship | null;
 }): JSX.Element | null {
 	const { refusals, refuse } = useRefusals<string>();
+	const writes = usePendingWrites();
 	const [abandoning, setAbandoning] = useState(false);
 	const asking = cascade.steps.filter((step) => step.status === "asking");
 	const held = cascade.steps.filter(
@@ -160,9 +162,14 @@ function NeedsYou({
 			retry: "resumed",
 			fix: "handed to an agent",
 		};
-		run[how](slug).then(askMachineNow, (error: unknown) =>
-			refuse(slug, `${step.slug} not ${done[how]}`, error),
-		);
+		if (writes.pending(slug)) {
+			return;
+		}
+		writes
+			.run(slug, () => run[how](slug))
+			.then(askMachineNow, (error: unknown) =>
+				refuse(slug, `${step.slug} not ${done[how]}`, error),
+			);
 	};
 	const abandon = () => {
 		setAbandoning(true);
@@ -219,6 +226,7 @@ function NeedsYou({
 									size="xs"
 									variant="ghost"
 									title="Starts an agent in its project with the step, its command and the end of its output; it runs again by itself once that merges"
+									disabled={writes.pending(step.slug)}
 									onClick={() => act(step.slug, "fix", step)}
 								>
 									Fix with an agent
@@ -233,6 +241,7 @@ function NeedsYou({
 											? "Runs its ship again"
 											: "Queues a new bump task in its place"
 									}
+									disabled={writes.pending(step.slug)}
 									onClick={() => act(step.slug, "retry", step)}
 								>
 									Resume
@@ -242,6 +251,7 @@ function NeedsYou({
 								size="xs"
 								variant="ghost"
 								title="Takes it out of the run, so those after it go on without its new version"
+								disabled={writes.pending(step.slug)}
 								onClick={() => act(step.slug, "drop", step)}
 							>
 								Drop
@@ -276,10 +286,16 @@ function Timeline({
 	ship: Ship | null;
 }): JSX.Element {
 	const { refusals, refuse } = useRefusals<string>();
+	const writes = usePendingWrites();
 	const revise = (step: CascadeStep, bump: ShipBump) => {
-		reviseCascadeBump(step.slug, bump).then(askMachineNow, (error: unknown) =>
-			refuse(step.slug, `${step.slug} not changed to ${bump}`, error),
-		);
+		if (writes.pending(step.slug)) {
+			return;
+		}
+		writes
+			.run(step.slug, () => reviseCascadeBump(step.slug, bump))
+			.then(askMachineNow, (error: unknown) =>
+				refuse(step.slug, `${step.slug} not changed to ${bump}`, error),
+			);
 	};
 	return (
 		<section aria-label="under way" className="flex flex-col gap-2">
@@ -292,6 +308,7 @@ function Timeline({
 						step={step}
 						ship={step.status === "shipping" ? ship : null}
 						live
+						pending={writes.pending(step.slug)}
 						onRevise={
 							step.action === "ship" && REVISABLE.includes(step.status)
 								? (bump) => revise(step, bump)
@@ -313,6 +330,7 @@ function ProjectRow({
 	live,
 	onRevise = null,
 	refusal = null,
+	pending = false,
 }: {
 	cascade: Cascade;
 	step: CascadeStep;
@@ -322,10 +340,16 @@ function ProjectRow({
 	/** Changes its release type before publishing, or null once that is fixed. */
 	onRevise?: ((bump: ShipBump) => void) | null;
 	refusal?: string | null;
+	/** A change to it is on its way: held until the server answers. */
+	pending?: boolean;
 }): JSX.Element {
 	const [open, setOpen] = useState(step.status === "shipping");
+	const showPending = useShowPending(pending);
 	return (
-		<li aria-label={step.slug} className="flex flex-col gap-1 py-2">
+		<li
+			aria-label={step.slug}
+			{...pendingRow(pending, showPending, "flex flex-col gap-1 py-2")}
+		>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -353,6 +377,7 @@ function ProjectRow({
 					label={`${step.slug} release type`}
 					value={step.bump ?? "patch"}
 					onChange={onRevise}
+					disabled={pending}
 					className="ml-5"
 				/>
 			)}

@@ -27,6 +27,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
+import { pendingRow, useShowPending } from "./pending";
 
 /**
  * One part of the Queue page's card: a plain band naming it and how many
@@ -85,6 +86,7 @@ export function QueueRow({
 	main,
 	grip,
 	dragging = false,
+	pending = false,
 }: {
 	name: ReactNode;
 	by?: ReactNode;
@@ -101,15 +103,22 @@ export function QueueRow({
 	/** The handle that drags it, for a row that reorders. */
 	grip?: ReactNode;
 	dragging?: boolean;
+	/** A write to it is on its way: dimmed after a moment, its buttons held. */
+	pending?: boolean;
 }): JSX.Element {
+	const showPending = useShowPending(pending);
 	const meta = [by, age, id].filter(
 		(each) => each !== undefined && each !== null && each !== "",
 	);
 	return (
 		<div
-			className={cn(
-				"flex h-10 items-center gap-3 bg-card px-4 text-sm hover:bg-muted/50 max-md:h-auto max-md:min-h-16 max-md:py-2.5",
-				dragging && "relative z-10 shadow-md",
+			{...pendingRow(
+				pending,
+				showPending,
+				cn(
+					"flex h-10 items-center gap-3 bg-card px-4 text-sm hover:bg-muted/50 max-md:h-auto max-md:min-h-16 max-md:py-2.5",
+					dragging && "relative z-10 shadow-md",
+				),
 			)}
 		>
 			<span className="flex w-4 shrink-0 justify-center text-muted-foreground/60">
@@ -144,13 +153,15 @@ export function QueueRow({
 				{id}
 			</span>
 			<span className="flex shrink-0 items-center justify-end gap-1 md:w-44">
-				<RowMenu quiet={quiet}>{menu}</RowMenu>
+				<RowMenu quiet={quiet} pending={pending}>
+					{menu}
+				</RowMenu>
 				{quiet !== undefined && (
 					<Button
 						size="xs"
 						variant="ghost"
 						className="text-muted-foreground max-md:hidden"
-						disabled={quiet.disabled}
+						disabled={quiet.disabled || pending}
 						onClick={quiet.onClick}
 					>
 						{quiet.label}
@@ -161,7 +172,7 @@ export function QueueRow({
 						size="xs"
 						variant="outline"
 						className="max-md:h-8 max-md:px-3 max-md:text-sm"
-						disabled={main.disabled}
+						disabled={main.disabled || pending}
 						onClick={main.onClick}
 					>
 						{main.label}
@@ -178,9 +189,11 @@ export function QueueRow({
  */
 function RowMenu({
 	quiet,
+	pending,
 	children,
 }: {
 	quiet: RowAction | undefined;
+	pending: boolean;
 	children: ReactNode;
 }): JSX.Element | null {
 	const empty =
@@ -196,6 +209,7 @@ function RowMenu({
 						size="icon-xs"
 						variant="ghost"
 						aria-label="More actions"
+						disabled={pending}
 						className={cn(
 							"text-muted-foreground max-md:size-9",
 							empty && "md:invisible",
