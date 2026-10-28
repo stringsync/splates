@@ -47,6 +47,8 @@ export type StageKey =
 	| "bump"
 	| "gate"
 	| "merged"
+	| "push"
+	| "remote"
 	| "login"
 	| "otp"
 	| "command"
@@ -141,6 +143,8 @@ export const STAGE_NAMES: Record<StageKey, string> = {
 	bump: "Bump task",
 	gate: "Merge gate",
 	merged: "Merged",
+	push: "Push and verify",
+	remote: "Release pushed",
 	login: "npm sign-in",
 	otp: "2FA",
 	command: "Ship command",
@@ -152,6 +156,8 @@ export const STAGE_DEFAULTS: Record<StageKey, Duration> = {
 	bump: Duration.mins(20),
 	gate: Duration.mins(10),
 	merged: Duration.ms(0),
+	push: Duration.secs(30),
+	remote: Duration.secs(30),
 	login: Duration.mins(2),
 	otp: Duration.mins(2),
 	command: Duration.mins(5),

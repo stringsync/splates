@@ -1,4 +1,5 @@
 import type { Fs } from "webappwiz/system";
+import type { ReleaseChanges } from "./git";
 
 /**
  * Draws the graph of `sources` from each one's root and workspace
@@ -90,6 +91,8 @@ export interface Use {
 
 /** A registered project, as shipping sees it. */
 export interface ShipProject extends ShipSource {
+	/** Local commits since the current version tag; absent from older graph responses. */
+	changes?: ReleaseChanges;
 	/** The root manifest's version, null when it names none. */
 	version: string | null;
 	/** The public packages it publishes, by name. */

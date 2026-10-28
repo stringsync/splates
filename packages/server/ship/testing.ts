@@ -1,3 +1,5 @@
+export { FakeReleaseGit } from "./fake-release-git";
+
 import { FakeFs, type FakePs } from "webappwiz/system/testing";
 import type { BumpState, BumpTake } from "./bumps";
 import type { CascadeProject } from "./cascade";

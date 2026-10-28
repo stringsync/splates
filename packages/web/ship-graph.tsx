@@ -1,6 +1,7 @@
 import type { ShipGraph, ShipProject } from "@stringsync/splates-server/ship";
 import { PackageIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { shipGraph } from "./api";
 import { cn } from "./lib/utils";
@@ -22,7 +23,10 @@ export function ShipGraphTree({
 	const [failed, setFailed] = useState(false);
 	useEffect(() => {
 		void endedAt;
-		shipGraph().then(setGraph, () => setFailed(true));
+		const refresh = () => shipGraph().then(setGraph, () => setFailed(true));
+		void refresh();
+		window.addEventListener("focus", refresh);
+		return () => window.removeEventListener("focus", refresh);
 	}, [endedAt]);
 	if (graph === null) {
 		return (
@@ -75,12 +79,31 @@ function GraphProject({
 		>
 			<PackageIcon className="size-3.5 shrink-0 text-muted-foreground" />
 			<span className="flex min-w-0 flex-col">
-				<span className="flex items-baseline gap-2">
+				<span className="flex flex-wrap items-baseline gap-2">
 					<span className="font-medium text-sm">{project.slug}</span>
 					{project.version !== null && (
 						<span className="text-muted-foreground text-xs tabular-nums">
 							{project.version}
 						</span>
+					)}
+					{project.changes !== undefined && (
+						<Badge
+							variant={
+								project.changes.commits !== null && project.changes.commits > 0
+									? "default"
+									: "secondary"
+							}
+							title={
+								project.changes.error ??
+								`Since ${project.changes.tag} on ${project.changes.branch}`
+							}
+						>
+							{project.changes.commits === null
+								? "Release status unknown"
+								: project.changes.commits === 0
+									? "Up to date"
+									: `${project.changes.commits} unshipped commit${project.changes.commits === 1 ? "" : "s"}`}
+						</Badge>
 					)}
 				</span>
 				<span className="truncate text-muted-foreground text-xs">

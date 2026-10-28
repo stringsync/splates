@@ -4,6 +4,7 @@ import type { Child, Fs, Ps } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
+import { ReleaseGit } from "./git";
 import type { ShipBump } from "./plan";
 import {
 	begun,
@@ -66,7 +67,13 @@ export interface Ship {
 }
 
 /** The steps a ship takes itself, as {@link Ship.stages} keeps them. */
-export const SHIP_STAGES: StageKey[] = ["login", "otp", "command"];
+export const SHIP_STAGES: StageKey[] = [
+	"push",
+	"login",
+	"otp",
+	"command",
+	"remote",
+];
 
 /** What a {@link Shipping} works with. */
 export interface ShippingOptions {
@@ -84,6 +91,8 @@ export interface ShippingOptions {
 	/** The project's slug. */
 	slug: () => Promise<string>;
 	clock?: WallClock;
+	/** Release-branch checks; the project at root by default. */
+	git?: Pick<ReleaseGit, "sync">;
 }
 
 /** The error of a ship the person stopped. */
@@ -320,6 +329,7 @@ export class Shipping implements Resource {
 
 	private async steps(command: string, bump: ShipBump): Promise<void> {
 		const { ps, root } = this.opts;
+		await this.sync("push");
 		const at = this.stamp();
 		await this.stage("login", (stage) => ({
 			...begun(stage, at, "checking"),
@@ -371,6 +381,10 @@ export class Shipping implements Resource {
 			}),
 			"ship",
 		);
+		if (code === 0 && !this.stopped && !this.typed) {
+			await this.stage("command", (stage) => this.closed(stage, "done"));
+			await this.sync("remote");
+		}
 		await this.end(
 			code === 0 && !this.stopped && !this.typed ? "done" : "failed",
 			this.stopped
@@ -381,6 +395,32 @@ export class Shipping implements Resource {
 						? null
 						: await this.tail(`${command} exited ${code}`),
 		);
+	}
+
+	/** A visible gate before publishing, and a check that the release commit reached origin. */
+	private async sync(key: "push" | "remote"): Promise<void> {
+		if (this.stopped || this.disposed) {
+			throw new Error(STOPPED);
+		}
+		await this.stage(key, (stage) => ({
+			...begun(stage, this.stamp(), "checking"),
+			log: { from: this.bytes, to: null },
+		}));
+		try {
+			const git = this.opts.git ?? new ReleaseGit(this.opts.ps, this.opts.root);
+			const result = await git.sync();
+			if (this.stopped || this.disposed) {
+				throw new Error(STOPPED);
+			}
+			await this.say(`${result}\n`);
+			await this.stage(key, (stage) => ({
+				...this.closed(stage, "done"),
+				check: { at: this.stamp(), result },
+			}));
+		} catch (error) {
+			await this.say(`${String(error)}\n`);
+			throw error;
+		}
 	}
 
 	/**

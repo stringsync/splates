@@ -358,6 +358,8 @@ describe("Cascades", () => {
 
 		expect(cascade.id).toBe("2026-10-27T12-00-00-000Z-webappwiz");
 		expect(await stagesOf("webappwiz")).toEqual({
+			push: "pending",
+			remote: "pending",
 			login: "pending",
 			otp: "pending",
 			command: "pending",
@@ -367,9 +369,11 @@ describe("Cascades", () => {
 			"bump",
 			"gate",
 			"merged",
+			"push",
 			"login",
 			"otp",
 			"command",
+			"remote",
 			"versions",
 		]);
 		expect(Object.keys(await stagesOf("sound2score"))).toEqual([

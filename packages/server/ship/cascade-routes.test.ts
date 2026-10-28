@@ -46,7 +46,7 @@ describe("CascadeRoutes", () => {
 		expect(
 			((await one.json()) as { cascade: { steps: { stages: unknown[] }[] } })
 				.cascade.steps[0]?.stages,
-		).toHaveLength(4);
+		).toHaveLength(6);
 		await expect(
 			routes.historyEntry(at("/api/ship/history/nowhere")),
 		).rejects.toMatchObject({ reason: "not_found" });

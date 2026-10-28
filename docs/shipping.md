@@ -56,6 +56,11 @@ patch.
 
 ## Shipping
 
+The Ship page marks each shipping project with the number of commits on its
+main or master branch since its current version tag (`v<version>`). Zero shows
+**Up to date**; missing tags or unavailable history show **Release status unknown**.
+These are local history checks, refreshed when the page regains focus.
+
 On the page, a project's menu in the project switcher has **Ship
 <project>…**, which opens the plan, as `--plan` prints it: each project in
 order, the version it goes to, what it publishes, what it takes and why it
@@ -70,9 +75,14 @@ the end. Give the server's URL with `--dev` when it is not this machine's.
 
 The server runs the ship on its own machine, under your npm sign-in:
 
-1. When `npm whoami` knows no one, it runs `npm login --auth-type=web` first.
-2. Then it runs the project's `ship` command from its main tree, answering
+1. **Push and verify** requires a clean tree on the default release branch,
+   fetches origin, refuses a remote that is ahead or diverged, pushes local
+   commits without forcing, and checks the remote ref matches the local commit.
+2. When `npm whoami` knows no one, it runs `npm login --auth-type=web` first.
+3. Then it runs the project's `ship` command from its main tree, answering
    the release's own question yes, since you asked for the ship.
+4. **Release pushed** checks and pushes again after the ship command, verifying
+   that its release commit is on origin too. A failed check stops the cascade.
 
 While npm waits on you, the page's bars show the ship as an amber badge with
 an Open button to npm's sign-in or 2FA page, so you can answer from any

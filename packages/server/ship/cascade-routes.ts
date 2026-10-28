@@ -13,6 +13,8 @@ const STAGE_KEYS: StageKey[] = [
 	"bump",
 	"gate",
 	"merged",
+	"push",
+	"remote",
 	"login",
 	"otp",
 	"command",

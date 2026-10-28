@@ -5,7 +5,7 @@ import { FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
 import { inTerminal, Shipping, typedCodeError } from "./run";
-import { nth, until } from "./testing";
+import { FakeReleaseGit, nth, until } from "./testing";
 
 describe("Shipping", () => {
 	let shipping: Shipping;
@@ -44,7 +44,38 @@ describe("Shipping", () => {
 			from: "0.0.57",
 			ended: "2026-10-27T12:00:00.000Z",
 		});
-		expect(await fs.read(shipping.output)).toBe("published 0.1.0\n");
+		expect(await fs.read(shipping.output)).toBe(
+			"origin/main verified at abc\npublished 0.1.0\norigin/main verified at abc\n",
+		);
+	});
+
+	it("stops before npm when the push cannot be verified", async () => {
+		const git = new FakeReleaseGit();
+		git.failAt = 1;
+		const { shipping, ps } = await project({ git });
+		await shipping.start();
+		await shipping.settled();
+		expect(ps.getCalls()).toEqual([]);
+		expect(await shipping.current()).toMatchObject({ status: "failed" });
+		expect((await shipping.current())?.stages?.[0]).toMatchObject({
+			key: "push",
+			state: "failed",
+		});
+	});
+
+	it("does not mark a ship done if the release commit cannot be verified on origin", async () => {
+		const git = new FakeReleaseGit();
+		git.failAt = 2;
+		const { shipping, ps } = await project({ git });
+		await shipping.start();
+		(await nth(ps, 0)).exit(0);
+		await shipping.settled();
+		expect(git.calls).toBe(2);
+		expect(await shipping.current()).toMatchObject({ status: "failed" });
+		expect((await shipping.current())?.stages?.at(-1)).toMatchObject({
+			key: "remote",
+			state: "failed",
+		});
 	});
 
 	it("gives npm a terminal, without which it fails a publish's second factor rather than asking", () => {
@@ -164,15 +195,17 @@ describe("Shipping", () => {
 
 		const stages = (await shipping.current())?.stages ?? [];
 		expect(stages.map((stage) => [stage.key, stage.state])).toEqual([
+			["push", "done"],
 			["login", "done"],
 			["otp", "skipped"],
 			["command", "done"],
+			["remote", "done"],
 		]);
-		expect(stages[0]?.check?.result).toBe("npm whoami: someone");
-		expect(stages[2]).toMatchObject({
+		expect(stages[1]?.check?.result).toBe("npm whoami: someone");
+		expect(stages[3]).toMatchObject({
 			started: "2026-10-27T12:00:00.000Z",
 			ended: "2026-10-27T12:00:00.000Z",
-			log: { from: 0, to: 26 },
+			log: { from: 28, to: 54 },
 		});
 	});
 
@@ -194,7 +227,7 @@ describe("Shipping", () => {
 		await until(async () => (await otp())?.state === "running");
 		ship.exit(0);
 		await shipping.settled();
-		expect(await otp()).toMatchObject({ state: "done", log: { from: 0 } });
+		expect(await otp()).toMatchObject({ state: "done", log: { from: 28 } });
 	});
 
 	it("adds to a log its cascade names, its slices counted from what was there", async () => {
@@ -206,12 +239,14 @@ describe("Shipping", () => {
 		ship.exit(0);
 		await shipping.settled();
 
-		expect(await fs.read("/history/one/demo.log")).toBe("before\nagain\n");
+		expect(await fs.read("/history/one/demo.log")).toBe(
+			"before\norigin/main verified at abc\nagain\norigin/main verified at abc\n",
+		);
 		expect(await shipping.outputOf()).toBe("/history/one/demo.log");
 		expect(
 			(await shipping.current())?.stages?.find((each) => each.key === "command")
 				?.log,
-		).toEqual({ from: 7, to: 13 });
+		).toEqual({ from: 35, to: 41 });
 	});
 
 	it("stops the ship under way at the person's word, failed", async () => {
@@ -227,7 +262,7 @@ describe("Shipping", () => {
 		});
 		expect(
 			(await shipping.current())?.stages?.map((stage) => stage.state),
-		).toEqual(["done", "skipped", "failed"]);
+		).toEqual(["done", "done", "skipped", "failed", "skipped"]);
 	});
 
 	it("runs again a stopped server's ship at the bump it recorded", async () => {
@@ -258,10 +293,12 @@ async function project({
 	command = "wiz dev ship" as string | null,
 	fs = new FakeFs(),
 	storage = new FsStorage("/home/projects/1", fs),
+	git = new FakeReleaseGit(),
 }: {
 	command?: string | null;
 	fs?: FakeFs;
 	storage?: FsStorage;
+	git?: FakeReleaseGit;
 } = {}) {
 	await fs.mkdir("/demo", { recursive: true });
 	await fs.write(
@@ -271,6 +308,7 @@ async function project({
 	const ps = new FakePs();
 	const shipping = new Shipping({
 		storage,
+		git,
 		fs,
 		ps,
 		log: new MemoryLogger(),
@@ -280,7 +318,7 @@ async function project({
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});
-	return { shipping, ps, fs, storage };
+	return { shipping, ps, fs, storage, git };
 }
 
 async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {

@@ -66,6 +66,39 @@ describe("ShipsPage", () => {
 		);
 	});
 
+	it("marks unshipped commits and distinguishes up-to-date and unknown release history", async () => {
+		const graph = [
+			project({
+				slug: "changed",
+				changes: { commits: 3, branch: "master", tag: "v1.0.0", error: null },
+			}),
+			project({
+				slug: "current",
+				changes: { commits: 0, branch: "main", tag: "v1.0.0", error: null },
+			}),
+			project({
+				slug: "unknown",
+				changes: {
+					commits: null,
+					branch: "main",
+					tag: "v1.0.0",
+					error: "Missing release tag",
+				},
+			}),
+		];
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({ cascade: null, ship: null });
+		expect(await view.findByText("3 unshipped commits")).toBeTruthy();
+		expect(view.getByText("Up to date")).toBeTruthy();
+		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
+			"Missing release tag",
+		);
+	});
+
 	it("lists every project's steps under way at once, with what waits on the person pinned beneath", async () => {
 		const view = render(<ShipsPage />);
 		await say({

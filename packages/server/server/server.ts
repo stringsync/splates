@@ -486,7 +486,7 @@ export async function dev(
 		fs,
 		log,
 		plan: async (slug, bump) =>
-			planShip(await registeredGraph({ projects, fs, log }), slug, bump),
+			planShip(await registeredGraph({ projects, fs, log, ps }), slug, bump),
 		reach: projectNamed,
 	});
 	disposer.defer(async () => cascades.dispose());
@@ -780,7 +780,7 @@ export async function dev(
 					"/api/ship/plan": guarded(cascadeRoutes.plan),
 					// Who pins whose packages, the tree the Ship page ships from.
 					"/api/ship/graph": guarded(async () =>
-						Response.json(await registeredGraph({ projects, fs, log })),
+						Response.json(await registeredGraph({ projects, fs, log, ps })),
 					),
 					"/api/ship/cascade": {
 						GET: guarded(cascadeRoutes.cascade),

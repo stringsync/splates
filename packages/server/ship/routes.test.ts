@@ -4,7 +4,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FsStorage } from "../storage";
 import { ShipRoutes } from "./routes";
 import { Shipping } from "./run";
-import { nth } from "./testing";
+import { FakeReleaseGit, nth } from "./testing";
 
 describe("ShipRoutes", () => {
 	let ps: FakePs;
@@ -15,6 +15,7 @@ describe("ShipRoutes", () => {
 		const fs = new FakeFs();
 		ps = new FakePs();
 		shipping = new Shipping({
+			git: new FakeReleaseGit(),
 			storage: new FsStorage("/home/projects/1", fs),
 			fs,
 			ps,
@@ -38,7 +39,9 @@ describe("ShipRoutes", () => {
 		child.print("shipped 0.0.58\n");
 		child.exit(0);
 
-		expect(await output).toBe("shipped 0.0.58\n");
+		expect(await output).toBe(
+			"origin/main verified at abc\nshipped 0.0.58\norigin/main verified at abc\n",
+		);
 		expect(await (await routes.ship()).json()).toMatchObject({
 			status: "done",
 		});

@@ -7,6 +7,7 @@ import type { Projects } from "../projects";
 import { DEFAULT_PORT } from "../server/shared";
 import { table } from "../table";
 import type { Cascade } from "./cascade";
+import { ReleaseGit } from "./git";
 import { readGraph, type ShipGraph } from "./graph";
 import { planShip, type ShipBump, ShipPlanError, type ShipStep } from "./plan";
 import type { Ship } from "./run";
@@ -285,7 +286,8 @@ export async function shipsFrom(
  * across them, each with the `ship` its `splates.config.ts` names.
  */
 export async function registeredGraph(
-	ctx: Pick<ShipContext, "projects" | "fs" | "log" | "configs">,
+	ctx: Pick<ShipContext, "projects" | "fs" | "log" | "configs"> &
+		Partial<Pick<ShipContext, "ps">>,
 ): Promise<ShipGraph> {
 	// One whose config does not load is warned of and drawn as never
 	// shipped, rather than leaving every plan without it.
@@ -304,5 +306,18 @@ export async function registeredGraph(
 				return { slug, root, ship };
 			}),
 	);
-	return readGraph(ctx.fs, sources);
+	const graph = await readGraph(ctx.fs, sources);
+	if (ctx.ps !== undefined) {
+		const ps = ctx.ps;
+		await Promise.all(
+			graph.projects.map(async (project) => {
+				if (project.ship !== null) {
+					project.changes = await new ReleaseGit(ps, project.root).changes(
+						project.version,
+					);
+				}
+			}),
+		);
+	}
+	return graph;
 }
