@@ -11,8 +11,11 @@ import { act, cleanup, fireEvent, render, waitFor } from "./testing-library";
 describe("Covering the page while it refreshes", () => {
 	const slow = REFRESH_WAITS.slow;
 
+	const fade = REFRESH_WAITS.fade;
+
 	afterEach(() => {
 		REFRESH_WAITS.slow = slow;
+		REFRESH_WAITS.fade = fade;
 		cleanup();
 	});
 
@@ -30,8 +33,10 @@ describe("Covering the page while it refreshes", () => {
 		expect(page.queryByRole("button", { name: "Retry" })).toBeNull();
 	});
 
-	it("gives the page back its input once fresh", () => {
+	it("fades out and gives the page back its input once fresh", async () => {
+		REFRESH_WAITS.fade = Duration.ms(10);
 		const page = covered(STALE);
+		const status = page.getByRole("status", { name: "Refreshing" });
 		page.rerender(
 			<FreshnessContext value={FRESH}>
 				<button type="button">Behind</button>
@@ -39,10 +44,17 @@ describe("Covering the page while it refreshes", () => {
 			</FreshnessContext>,
 		);
 
+		expect(status.closest(".fixed")?.className).toContain(
+			"motion-safe:fade-out",
+		);
+		expect(status.closest(".fixed")?.getAttribute("aria-hidden")).toBe("true");
 		expect(page.queryByRole("status", { name: "Refreshing" })).toBeNull();
 		expect(
 			page.getByRole("button", { name: "Behind" }).closest("[inert]"),
 		).toBeNull();
+		await waitFor(() =>
+			expect(page.queryByRole("status", { name: "Refreshing" })).toBeNull(),
+		);
 	});
 
 	it("counts down to giving up and offers Retry once the refresh runs on", async () => {

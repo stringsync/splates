@@ -124,8 +124,11 @@ export function useFeedsFreshness(
 	);
 }
 
-/** How long a refresh runs before `RefreshingOverlay` offers Retry. */
-export const REFRESH_WAITS = { slow: Duration.secs(4) };
+export const REFRESH_WAITS = {
+	/** How long a refresh runs before `RefreshingOverlay` offers Retry. */
+	slow: Duration.secs(4),
+	fade: Duration.ms(200),
+};
 
 /**
  * Put once in the page: while the page is locked or an update is under way, it
@@ -139,11 +142,22 @@ export function RefreshingOverlay({
 	updating?: boolean;
 }): JSX.Element | null {
 	const { locked, givesUpAt, waitsMs, retry } = useFreshness();
-	if (!locked && !updating) {
+	const active = locked || updating;
+	const [shown, setShown] = useState(active);
+	useEffect(() => {
+		if (active) {
+			setShown(true);
+			return;
+		}
+		const fading = setTimeout(() => setShown(false), REFRESH_WAITS.fade.ms);
+		return () => clearTimeout(fading);
+	}, [active]);
+	if (!shown) {
 		return null;
 	}
 	return (
 		<Refreshing
+			closing={!active}
 			givesUpAt={givesUpAt}
 			waitsMs={waitsMs}
 			onRetry={locked ? retry : undefined}
@@ -152,16 +166,21 @@ export function RefreshingOverlay({
 }
 
 function Refreshing({
+	closing,
 	givesUpAt,
 	waitsMs,
 	onRetry,
 }: {
+	closing: boolean;
 	givesUpAt: number | null;
 	waitsMs: number;
 	onRetry?: () => void;
 }): JSX.Element {
 	const ref = useRef<HTMLDivElement>(null);
 	useEffect(() => {
+		if (closing) {
+			return;
+		}
 		const others = [...document.body.children].filter(
 			(each): each is HTMLElement =>
 				each instanceof HTMLElement && each !== ref.current && !each.inert,
@@ -174,7 +193,7 @@ function Refreshing({
 				each.inert = false;
 			}
 		};
-	}, []);
+	}, [closing]);
 	const [slow, setSlow] = useState(false);
 	// A retry waits anew, so Retry goes until this one runs on too.
 	useEffect(() => {
@@ -185,7 +204,13 @@ function Refreshing({
 	return createPortal(
 		<div
 			ref={ref}
-			className="fixed inset-0 z-100 flex touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:fill-mode-both motion-safe:delay-300 motion-safe:duration-200"
+			aria-hidden={closing}
+			className={cn(
+				"fixed inset-0 z-100 flex touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:fill-mode-both motion-safe:duration-200",
+				closing
+					? "pointer-events-none motion-safe:animate-out motion-safe:fade-out"
+					: "motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300",
+			)}
 		>
 			<div className="flex max-w-sm flex-col gap-2 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg">
 				<div
@@ -304,10 +329,7 @@ export function ListLoading({
 	);
 }
 
-/**
- * The inbox's rows, kept but `inert` while the page is locked, so nothing is
- * opened or answered on what has moved.
- */
+/** Shows inbox rows without allowing input while the page may be stale. */
 export function StaleRows({ children }: { children: ReactNode }): JSX.Element {
 	const { locked } = useFreshness();
 	return (
