@@ -21,6 +21,9 @@ describe("Covering the page while it refreshes", () => {
 
 		const status = page.getByRole("status", { name: "Refreshing" });
 		expect(status.textContent).toBe("Refreshing…");
+		expect(status.closest(".fixed")?.classList.contains("touch-none")).toBe(
+			true,
+		);
 		expect(
 			page.getByRole("button", { name: "Behind" }).closest("[inert]"),
 		).not.toBeNull();

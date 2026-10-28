@@ -175,7 +175,7 @@ function Refreshing({
 	return createPortal(
 		<div
 			ref={ref}
-			className="fixed inset-0 z-100 flex items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:fill-mode-both motion-safe:delay-300 motion-safe:duration-200"
+			className="fixed inset-0 z-100 flex touch-none items-center justify-center bg-background/60 p-4 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:fill-mode-both motion-safe:delay-300 motion-safe:duration-200"
 		>
 			<div className="flex max-w-sm flex-col gap-2 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg">
 				<div
