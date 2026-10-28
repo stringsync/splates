@@ -266,7 +266,7 @@ describe("merge concurrency", () => {
 			return 0;
 		});
 		const running = merge(
-			{ ...deps, shell: new Shell({ ps: alphaPs }) },
+			{ ...deps, shell: new Shell({ ps: alphaPs }), phasesEveryMs: 20 },
 			alpha,
 		);
 		try {

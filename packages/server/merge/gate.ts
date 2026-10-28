@@ -66,6 +66,7 @@ export class MergeGate {
 		/** Sizes each run's workers, by the load less the gate before's share. */
 		private readonly trail: GateTrail,
 		private readonly timeoutMs: number = PREMERGE_TIMEOUT_MS,
+		private readonly phasesEveryMs: number = PHASES_EVERY_MS,
 	) {}
 
 	/**
@@ -424,7 +425,7 @@ export class MergeGate {
 		const timer = setInterval(() => {
 			// One at a time, so an older list never lands after a newer one.
 			telling = telling.then(look);
-		}, PHASES_EVERY_MS);
+		}, this.phasesEveryMs);
 		return {
 			[Symbol.asyncDispose]: async () => {
 				clearInterval(timer);

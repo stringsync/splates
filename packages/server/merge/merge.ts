@@ -59,6 +59,7 @@ export async function merge(
 		slots,
 		premerge,
 		gateTimeoutMs,
+		phasesEveryMs,
 		branches,
 		trunk,
 		batch = new MergeBatch(service.storage, service.ps, log),
@@ -78,6 +79,8 @@ export async function merge(
 		premerge: PlacedLock;
 		/** How long the gate may run before it is killed; `PREMERGE_TIMEOUT_MS` for none. */
 		gateTimeoutMs?: number;
+		/** How often the gate's premerge phases are read onto the record; `PHASES_EVERY_MS` by default. */
+		phasesEveryMs?: number;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
 		/** Where this merge forms or joins a batch with the others waiting. */
@@ -122,11 +125,9 @@ export async function merge(
 	}
 
 	const base = worktree.base;
-	facts.base = base;
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
 	facts.conflictsLeft = config.mergeConflictCount - worktree.conflictAttempts;
-	facts.failedTests = [];
-	facts.began = null;
+	Object.assign(facts, { base, failedTests: [], began: null });
 	delete facts.failureAttribution;
 	delete facts.output;
 	await refuseUnready({ git, fs, config, log }, worktree);
@@ -141,6 +142,7 @@ export async function merge(
 		premerge,
 		GateTrail.ofMachine(fs, service.ps),
 		gateTimeoutMs,
+		phasesEveryMs,
 	);
 	// Working until landing holds the lock: waiting and testing must not
 	// leave a dead merge's `merging` status showing another landing. The
