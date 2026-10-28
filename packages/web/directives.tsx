@@ -14,21 +14,16 @@ import { UtensilsIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
-import { earlyWarningOf } from "./early-warning";
-import { evalsDoneOf } from "./evals-done";
 import { outsideCode } from "./markdown";
-import { queueStartOf } from "./queue-start";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
+import { handOffOf } from "./server-messages";
 import { SplatesEvent, type Words } from "./splates-event";
 
-/** Where a link written by `linkDirectives` points, read back by `directiveIn`. */
+/** The hash format for opening a directive's details. */
 const DIRECTIVE_LINK = /^#directive=(.+)$/;
 
-/**
- * `text` with each directive outside code made a link that `directiveIn`
- * reads back, so a message draws it as its chip where it stands.
- */
+/** Makes directives in message text open their details when selected. */
 export function linkDirectives(text: string): string {
 	return outsideCode(text, (prose) =>
 		prose.replace(
@@ -208,14 +203,7 @@ export function isSoleCommand(text: string): boolean {
 	return SOLE_COMMAND.test(text.trim());
 }
 
-/**
- * Whether `message` is a person's message of one bare directive alone, which
- * shows as one of splates's event lines, as a checkpoint, a resume, or a merge
- * does, or of one skill or command alone, or splates server's early warning
- * (`isEarlyWarning`). It carries on the turn it comes in
- * rather than opening one, and takes none of the scroll a turn's start does,
- * so the message stuck atop that turn stays there while the reply goes on.
- */
+/** Groups a message rendered as an event line with the turn around it. */
 export function carriesOn(message: ThreadMessageLike): boolean {
 	if (message.role !== "user" || typeof message.content === "string") {
 		return false;
@@ -232,21 +220,15 @@ export function carriesOn(message: ThreadMessageLike): boolean {
 		!files &&
 		(isBare(only.text.trim()) ||
 			isSoleCommand(only.text) ||
-			isEarlyWarning(only.text, message.metadata?.custom?.told))
+			hasEventLine(only.text, message.metadata?.custom?.told))
 	);
 }
 
-/**
- * Whether a message of `text` alone, from `told`, is splates server's early
- * warning to the agent, a queued lane's start or an eval run's end, which the
- * page draws as event lines instead.
- */
-export function isEarlyWarning(text: string, told: unknown): boolean {
+/** Whether the page draws this server-authored message as an event line. */
+export function hasEventLine(text: string, told: unknown): boolean {
 	return (
-		told === SERVER_TOLD &&
-		(earlyWarningOf(text) !== null ||
-			queueStartOf(text) !== null ||
-			evalsDoneOf(text) !== null)
+		handOffOf(text) !== null ||
+		(told === SERVER_TOLD && soleDirective(text) === null)
 	);
 }
 

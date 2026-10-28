@@ -163,6 +163,44 @@ describe("App's conversation thread", () => {
 		).toBeNull();
 	});
 
+	it("draws an unrecognized server prompt and a handoff as event lines", async () => {
+		const serverText = "A server prompt the page does not know yet.";
+		const handoff =
+			"[SPLATES TASK c1-task]\n\nThe agent before you on this task stopped without handing it over, so its SPLATES.md may be behind. What it said and did last is in /tmp/transcript.md: read its end before going on.";
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Read the note",
+					messages: [
+						{ ...message("user", serverText), told: SERVER_TOLD },
+						message("user", handoff),
+					],
+				}),
+			],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+
+		await waitFor(() =>
+			expect(
+				within(thread).getAllByRole("note", { name: "splates" }),
+			).toHaveLength(2),
+		);
+		expect(thread.textContent).toContain("Told agent");
+		expect(thread.textContent).toContain("Handoff");
+		expect(thread.textContent).toContain("c1-task");
+		expect(thread.textContent).not.toContain(serverText);
+		expect(thread.textContent).not.toContain("The agent before you");
+		expect(within(thread).getByTitle(serverText)).toBeDefined();
+		const notes = within(thread).getAllByRole("note", { name: "splates" });
+		expect(
+			notes.some(
+				(note) => note.querySelector("p")?.getAttribute("title") === handoff,
+			),
+		).toBe(true);
+	});
+
 	it("leaves a reply unstamped while it is still being written", async () => {
 		localStorage.setItem(
 			"splates.settings",

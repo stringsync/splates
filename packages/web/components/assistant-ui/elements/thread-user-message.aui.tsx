@@ -54,13 +54,13 @@ import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useShowPending } from "#web/pending.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
-import { serverToldLines } from "#web/queue-start.ts";
 import {
 	type Sent,
 	SentAttachmentChip,
 	SentAttachments,
 	unnamed,
 } from "#web/sent-attachments.tsx";
+import { handOffLines, serverToldLines } from "#web/server-messages.ts";
 import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SendingLine, UnsentLine } from "#web/unsent.tsx";
@@ -187,8 +187,10 @@ export const UserMessage: FC = () => {
 	);
 	const sent = sentOf(attachments);
 	const lines =
-		told === SERVER_TOLD && sent.length === 0
-			? serverToldLines(text, board.lanes, at)
+		sent.length === 0 && sole === null
+			? told === SERVER_TOLD
+				? serverToldLines(text, board, at)
+				: handOffLines(text, at)
 			: null;
 	if (lines !== null) {
 		// What the agent heard, said as splates's lines, which carry on the

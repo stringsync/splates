@@ -1,5 +1,6 @@
 import {
 	CheckIcon,
+	ClockIcon,
 	FileIcon,
 	FilesIcon,
 	GitBranchIcon,
@@ -9,6 +10,7 @@ import {
 	type LucideIcon,
 	TerminalIcon,
 	XIcon,
+	ZapIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, use, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -125,6 +127,7 @@ export type Named =
 			version: number;
 	  }
 	| { kind: "cred"; name: string }
+	| { kind: "automation"; name: string; scheduled?: boolean }
 	/** A shell command, as a run-command card asked to run it. */
 	| { kind: "command"; command: string };
 
@@ -449,6 +452,18 @@ export function NamedChip({
 					title={`Cred ${named.name}`}
 					href={credAddress(named.name)}
 					className={cn("font-mono", GIVES_WAY)}
+				>
+					{named.name}
+				</Chip>
+			);
+		case "automation":
+			return (
+				<Chip
+					Icon={named.scheduled === true ? ClockIcon : ZapIcon}
+					title={
+						named.scheduled === true ? "Scheduled automation" : "Automation"
+					}
+					className={GIVES_WAY_FIRST}
 				>
 					{named.name}
 				</Chip>

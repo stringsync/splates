@@ -37,6 +37,19 @@ describe("thread history window", () => {
 		];
 		expect(windowStart(withLine, null)).toBe(50);
 	});
+	it("does not split turns at server-authored event lines", () => {
+		const withLine = [
+			...messages.slice(0, 60),
+			{
+				id: "server",
+				role: "user" as const,
+				content: [{ type: "text" as const, text: "A new server prompt" }],
+				metadata: { custom: { told: "splates" } },
+			},
+			...messages.slice(60),
+		];
+		expect(windowStart(withLine, null)).toBe(50);
+	});
 	it("handles empty and short threads", () => {
 		expect(windowStart([], null)).toBe(0);
 		expect(windowStart(messages.slice(0, 4), null)).toBe(0);
