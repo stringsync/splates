@@ -54,7 +54,7 @@ describe("App's pages and the project switcher", () => {
 		resize(1024, 768);
 	});
 
-	it("heads no page's bar with a switcher beside the sidebar's", async () => {
+	it("heads project pages with a switcher beside their titles, and Everywhere pages without one", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
 		const switchers = [
@@ -62,8 +62,15 @@ describe("App's pages and the project switcher", () => {
 			await switcherOn(view, "Queue"),
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
+			await switcherOn(view, "Automations"),
 		];
-		expect(switchers).toEqual([null, null, null, null]);
+		expect(switchers).toEqual([
+			"webappwiz",
+			null,
+			null,
+			"webappwiz",
+			"webappwiz",
+		]);
 	});
 
 	it("heads the sidebar with the project's switcher, its own pages first under it", async () => {

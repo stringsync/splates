@@ -3,6 +3,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,
+	FolderGit2Icon,
 	HouseIcon,
 	PlusIcon,
 	SearchIcon,
@@ -57,6 +58,7 @@ export function ProjectSwitcher({
 	keyed = true,
 	bar = false,
 	heading = false,
+	scope = false,
 	hash,
 	servers: slots = true,
 	path = true,
@@ -70,6 +72,8 @@ export function ProjectSwitcher({
 	bar?: boolean;
 	/** Whether it heads the project's pages in a nav, as small as its other headings. */
 	heading?: boolean;
+	/** Whether a folder marks it as the page's project scope. */
+	scope?: boolean;
 	/** Where a pick of another project lands, in place of where this tab last left it. */
 	hash?: string;
 	/** Whether it lists the slots' servers too, to open another one's page. */
@@ -263,14 +267,19 @@ export function ProjectSwitcher({
 							{name}
 						</span>
 					) : (
-						<span className="flex min-w-0 flex-col">
-							<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
-							{path && here !== undefined && (
-								<span className="truncate text-muted-foreground text-xs leading-tight">
-									{shortPath(here.root)}
-								</span>
+						<>
+							{scope && (
+								<FolderGit2Icon className="size-4 shrink-0 text-muted-foreground" />
 							)}
-						</span>
+							<span className="flex min-w-0 flex-col">
+								<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
+								{path && here !== undefined && (
+									<span className="truncate text-muted-foreground text-xs leading-tight">
+										{shortPath(here.root)}
+									</span>
+								)}
+							</span>
+						</>
 					)}
 					<span className="ml-auto flex shrink-0 items-center gap-0.5">
 						<ChevronsUpDownIcon

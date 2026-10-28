@@ -7,24 +7,21 @@ import { cn } from "#web/lib/utils.ts";
 import { SlotMark } from "./app-header";
 import { ProjectSwitcher } from "./projects";
 import type { Sidebar } from "./sidebar";
-import { BarButton } from "./top-bar";
+import { BarButton, TITLE } from "./top-bar";
 
-/**
- * Heads the sidebar, floating at its top over the row of bars: which slot
- * this is and the switcher of the project shown, which its shortcut opens
- * from any page, and right of it the button that hides or shows the
- * sidebar. It stays once the sidebar hides, switcher and all, and tells the
- * bars how wide it is, so they start clear of it.
- */
+/** Heads the sidebar with its server, project context, and visibility control. */
 export function SidebarHead({
 	snapshot,
 	sidebar,
 	name,
+	scoped,
 }: {
 	snapshot: Snapshot | null;
 	sidebar: Sidebar;
 	/** The project's name. */
 	name: string;
+	/** Whether the page's own bar names the project. */
+	scoped: boolean;
 }): JSX.Element {
 	const { shown } = useReactive(
 		sidebar,
@@ -59,11 +56,15 @@ export function SidebarHead({
 			)}
 		>
 			<SlotMark snapshot={snapshot} />
-			<ProjectSwitcher
-				name={name}
-				path={false}
-				className="mx-0 min-w-0 flex-1"
-			/>
+			{scoped ? (
+				<h1 className={cn(TITLE, "truncate")}>Spinning Plates</h1>
+			) : (
+				<ProjectSwitcher
+					name={name}
+					path={false}
+					className="mx-0 min-w-0 flex-1"
+				/>
+			)}
 			<BarButton
 				label={key === null ? label : `${label} (${key})`}
 				onClick={() => sidebar.toggle()}

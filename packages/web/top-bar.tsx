@@ -51,6 +51,8 @@ export interface BarFrame {
 	 * conversation's, puts under its title as a switcher.
 	 */
 	project?: string;
+	/** Whether a desktop names the project beside the page's title. */
+	scoped?: boolean;
 	/**
 	 * Leaves the title out, as a phone's page bar does, which the project
 	 * heads instead and the page chips name.
@@ -63,9 +65,10 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
 /**
  * The bar atop every page and conversation, one line of text and icons at
  * `--top-bar-height`: what leads it, as a way back, then the title, the
- * page's status and what `detail` adds, then its actions. On a phone, a bar
- * of the project's own, `project`, puts the project's switcher under its
- * title, and `detail` beside it. Those that do not
+ * page's status and what `detail` adds, then its actions. On a desktop, a
+ * project-scoped page puts its switcher before the title, separated by a
+ * slash. On a phone, a bar of the project's own, `project`, puts the
+ * project's switcher under its title, and `detail` beside it. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
  * Update before it once a restart would update splates. Under
@@ -103,13 +106,31 @@ export function TopBar({
 	const folded = [...shown.slice(fit), ...kept];
 	// The project's line under the title, with the detail on it.
 	const project = named && !wide ? frame?.project : undefined;
-	const heading =
-		frame?.untitled === true ? null : typeof title === "string" ? (
+	const pageTitle =
+		typeof title === "string" ? (
 			<h2 title={title} className={cn(TITLE, "truncate")}>
 				{title}
 			</h2>
 		) : (
 			title
+		);
+	const scoped = wide && frame?.scoped === true ? frame.project : undefined;
+	const heading =
+		frame?.untitled === true ? null : scoped !== undefined ? (
+			<div className="flex min-w-0 items-center gap-2">
+				<ProjectSwitcher
+					name={scoped}
+					scope
+					path={false}
+					className="mx-0 max-w-56 shrink-0 border bg-card px-2 shadow-xs"
+				/>
+				<span aria-hidden className="text-muted-foreground">
+					/
+				</span>
+				{pageTitle}
+			</div>
+		) : (
+			pageTitle
 		);
 	const below = project !== undefined;
 	const row = (
