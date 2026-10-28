@@ -173,9 +173,6 @@ describe("Project controls in conversation lists", () => {
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/archived")).toHaveLength(1),
 		);
-		await waitFor(() =>
-			expect(within(here).getByText("No conversations yet.")).toBeTruthy(),
-		);
 		const lastChat = conversation({
 			id: "c1",
 			task: null,
@@ -184,6 +181,9 @@ describe("Project controls in conversation lists", () => {
 		});
 		// As the server streams it archived, then unarchived from elsewhere.
 		await act(async () => testing.say({ ...lastChat, archived: true }));
+		await waitFor(() =>
+			expect(within(here).getByText("No conversations yet.")).toBeTruthy(),
+		);
 		await act(async () => testing.say({ ...lastChat, archived: false }));
 		await waitFor(() =>
 			expect(

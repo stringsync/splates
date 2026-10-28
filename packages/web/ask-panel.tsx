@@ -14,7 +14,8 @@ import { Button } from "#web/components/ui/button.tsx";
 import { ReplyContext } from "./card-reply";
 import { answerConversation } from "./conversation-api";
 import type { Drafts } from "./drafts";
-import { useExpect } from "./expecting";
+import { useExpect, usePendingConversation } from "./expecting";
+import { pendingRow, useShowPending } from "./pending";
 import { QuestionCards } from "./question-cards";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
@@ -40,21 +41,25 @@ export function AskPanel({
 }): JSX.Element {
 	// Its own draft beside the composer's: what is typed into its boxes.
 	const key = `${conversation.id}:${ask.id}`;
-	// Kept by conversation, since the card is gone while the answer is on its
-	// way and comes back refused.
+	// Kept by conversation, since a refused answer is said under the row too.
 	const { refusal, refuse } = useRowRefusal(conversation.id);
 	const expect = useExpect();
+	const pending = usePendingConversation(conversation.id);
+	const showPending = useShowPending(pending);
+	// The card stays until the server shows the answer, so a second key or tap sends nothing.
 	const send = (answer: Answer) =>
-		expect(
-			conversation.id,
-			{ ask: null },
-			answerConversation(conversation.id, ask.id, answer),
-		).then(
-			() => drafts.write(key, ""),
-			(error: unknown) => refuse("Not answered", error),
-		);
+		pending
+			? Promise.resolve()
+			: expect(
+					conversation.id,
+					{ ask: null },
+					answerConversation(conversation.id, ask.id, answer),
+				).then(
+					() => drafts.write(key, ""),
+					(error: unknown) => refuse("Not answered", error),
+				);
 	return (
-		<>
+		<div {...pendingRow(pending, showPending)}>
 			{ask.type === "permission" ? (
 				<Permission
 					ask={ask}
@@ -68,7 +73,7 @@ export function AskPanel({
 				<Question ask={ask} send={send} drafts={drafts} draft={key} />
 			)}
 			<Refusal refusal={refusal} className="-mt-2 px-2" />
-		</>
+		</div>
 	);
 }
 
@@ -222,11 +227,7 @@ interface FormQuestion {
 	words: Field | null;
 }
 
-/**
- * `fields` as the card's questions, numbered from 1: a field answered in
- * words that follows one with choices, its key led by that one's, is that
- * one's words, as Claude's "Other" is.
- */
+/** Turns `fields` into the card's questions, numbered from 1. */
 export function formQuestions(fields: Field[]): FormQuestion[] {
 	const found: FormQuestion[] = [];
 	for (const field of fields) {

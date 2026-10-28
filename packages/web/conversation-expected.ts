@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 
-/** A change `expect` shows: how, and when its write landed. */
+/** A write `expect` holds as pending: what it changes, and when it landed. */
 export interface Expected {
 	patch: (state: ConversationState) => ConversationState;
 	/** `reads` as its write landed; null while it is on its way. */
@@ -9,9 +9,8 @@ export interface Expected {
 
 /**
  * Whether `state` has yet to be archived, or brought back, as `patch` would
- * have it. The server never files a conversation otherwise than asked, so a
- * streamed copy that has not is one sent before the write, arriving after its
- * answer on the other connection, and leaves the change showing.
+ * have it. Such a streamed copy was sent before the write, so the change
+ * stays pending.
  */
 export function unfiled(
 	state: ConversationState,

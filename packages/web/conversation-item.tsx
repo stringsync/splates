@@ -37,8 +37,9 @@ import {
 import { useArchive } from "./conversation-archive";
 import { unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
-import { useExpect } from "./expecting";
+import { useExpect, usePendingConversation } from "./expecting";
 import { Mark } from "./mark";
+import { pendingRow, useShowPending } from "./pending";
 import { useEnding } from "./queued-ending";
 import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
@@ -101,6 +102,8 @@ export function Item({
 	const { id, archived } = conversation;
 	const { refusal, refuse } = useRowRefusal(id);
 	const expect = useExpect();
+	const pending = usePendingConversation(id);
+	const showPending = useShowPending(pending);
 	const { file, confirm } = useArchive(conversation, refuse);
 	const { reported } = useEnding(conversation);
 	const quiet = useQuiet(conversation);
@@ -112,9 +115,13 @@ export function Item({
 	const pin = pinned ? "Unpin" : "Pin";
 	return (
 		<div
-			className={cn(
-				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
-				current && "bg-accent hover:bg-accent active:bg-accent",
+			{...pendingRow(
+				pending,
+				showPending,
+				cn(
+					"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+					current && "bg-accent hover:bg-accent active:bg-accent",
+				),
 			)}
 		>
 			{renaming && (
@@ -285,6 +292,7 @@ export function Item({
 						{/* The one open would be read again at once. */}
 						{!current && !conversation.unread && !archived && (
 							<DropdownMenuItem
+								disabled={pending}
 								onClick={() =>
 									void expect(id, { unread: true }, markUnread(id, true)).catch(
 										(error: unknown) => refuse("Not marked unread", error),
@@ -303,6 +311,7 @@ export function Item({
 						)}
 						{quiet !== null && (
 							<DropdownMenuItem
+								disabled={pending}
 								onClick={() => stopTurn(conversation, expect, refuse)}
 							>
 								<SquareIcon />
@@ -311,6 +320,7 @@ export function Item({
 						)}
 						{
 							<DropdownMenuItem
+								disabled={pending}
 								onClick={() => file(archived ? undefined : onLeft)}
 							>
 								<Put />
@@ -323,6 +333,7 @@ export function Item({
 					<Button
 						size="icon-xs"
 						variant="ghost"
+						disabled={pending}
 						aria-label={`${pin} ${nameOf(conversation)}`}
 						onClick={() =>
 							void expect(

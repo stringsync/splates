@@ -17,7 +17,7 @@ describe("App's sidebar while an archive settles", () => {
 		testing.dispose();
 	});
 
-	it("keeps the archived row off while a streamed state from before the archive arrives after its write", async () => {
+	it("holds the row pending, not gone, until the server's copy is archived, whatever arrives after the write", async () => {
 		testing = new Testing();
 		const view = await testing.openConversations(
 			[
@@ -31,15 +31,23 @@ describe("App's sidebar while an archive settles", () => {
 				name: /Archive alpha/,
 			}).length;
 		expect(rows()).toBe(1);
+		// The row says a write is pending on it, from its first line.
+		const pending = () =>
+			within(agentList(view)).queryAllByRole("listitem").length > 0 &&
+			agentList(view).querySelector('[aria-busy="true"]') !== null;
+		expect(pending()).toBe(false);
 		testing.holdWrites();
 		await act(async () =>
 			fireEvent.click(
 				within(agentList(view)).getByRole("button", { name: "Archive alpha" }),
 			),
 		);
-		expect(rows()).toBe(0);
+		// Pending, not gone: the row shows the server's word until it says so.
+		expect(rows()).toBe(1);
+		expect(pending()).toBe(true);
 		await act(async () => testing.release());
-		expect(rows()).toBe(0);
+		expect(rows()).toBe(1);
+		expect(pending()).toBe(true);
 		// The server's stream was a step behind the write's answer.
 		await testing.say(
 			conversation({
@@ -49,7 +57,8 @@ describe("App's sidebar while an archive settles", () => {
 				title: "late",
 			}),
 		);
-		expect(rows()).toBe(0);
+		expect(rows()).toBe(1);
+		expect(pending()).toBe(true);
 		await testing.say(
 			conversation({
 				id: "c1",

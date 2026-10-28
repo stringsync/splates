@@ -244,7 +244,7 @@ export class ConversationFeed
 		return this.history.read(id);
 	}
 
-	/** The server's last copy of `id`, before optimistic changes. */
+	/** The server's last copy of `id`. */
 	current(id: string): ConversationState | undefined {
 		return this.recorded.find((each) => each.id === id);
 	}
@@ -264,9 +264,26 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `expectation` over conversation `id` immediately while `write` is
-	 * pending. Use this for changes to a conversation's state. If the server
-	 * refuses the write, the preview disappears and the promise rejects.
+	 * Whether a write to conversation `id` is on its way, or has landed and
+	 * the server's copy does not yet show it. The conversation itself shows
+	 * what the server last said until then.
+	 */
+	pending(id: string): boolean {
+		return (this.expected.get(id)?.length ?? 0) > 0;
+	}
+
+	/** Calls `changed` when a conversation's pending writes, or any state, change. */
+	subscribe(changed: () => void): () => void {
+		return this.events.on("changed", changed);
+	}
+
+	/**
+	 * Holds conversation `id` as pending while `write` is on its way, and
+	 * after it lands until the server's copy holds `expectation`, so the old
+	 * state never shows again between the answer and the stream. Nothing is
+	 * drawn from `expectation`; it only says when the change has arrived. If
+	 * the server refuses the write, the pending state clears and the promise
+	 * rejects.
 	 */
 	async expect(
 		id: string,
@@ -477,12 +494,7 @@ export class ConversationFeed
 
 	private show(recorded: ConversationState[]): void {
 		this.recorded = recorded;
-		this.conversations = recorded.map((each) =>
-			(this.expected.get(each.id) ?? []).reduce(
-				(state, { patch }) => patch(state),
-				this.withSending(each),
-			),
-		);
+		this.conversations = recorded.map((each) => this.withSending(each));
 		this.history.remember(recorded);
 		this.dispatcher.dispatch("changed");
 	}

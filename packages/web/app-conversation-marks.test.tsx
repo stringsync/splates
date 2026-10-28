@@ -220,9 +220,9 @@ Cap upload retries
 		);
 		await clickShown(() => view.getByRole("menuitem", { name: "Stop turn" }));
 		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
-		// Stopped at once, before the server says so.
+		// Stopped once the server says so, not before.
 		expect(rows(view)).toEqual([
-			["Quiet", "working"],
+			["Quiet", "possibly stuck"],
 			["Busy", "working"],
 		]);
 	});

@@ -157,4 +157,16 @@ describe("Feed's expect", () => {
 		await expect(refused).rejects.toThrow("no");
 		expect(subject()).toBe("First");
 	});
+
+	it("holds a write pending under its key until the snapshot shows it, or it is refused", async () => {
+		const rename = write();
+		const shown = feed.expect(renamed("New"), rename.done, "todo:1");
+		expect(feed.pending()).toBe(true);
+		expect(feed.pending("todo:1")).toBe(true);
+		expect(feed.pending("todo:2")).toBe(false);
+
+		rename.refuse("busy");
+		await expect(shown).rejects.toThrow("busy");
+		expect(feed.pending()).toBe(false);
+	});
 });

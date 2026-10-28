@@ -15,7 +15,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's list actions on a conversation, shown before the server says so", () => {
+describe("App's list actions on a conversation, pending until the server says so", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -35,6 +35,16 @@ describe("App's list actions on a conversation, shown before the server says so"
 			.map((item) =>
 				names.find((name) => within(item).queryByText(name) !== null),
 			);
+	}
+
+	/** Whether a write is pending on the row of `name`: busy, though it still shows the server's word. */
+	function busy(inbox: HTMLElement, name: string): boolean {
+		return (
+			within(inbox)
+				.getAllByText(name)[0]
+				?.closest("[aria-busy]")
+				?.getAttribute("aria-busy") === "true"
+		);
 	}
 
 	/** Opens the menu of `name`'s inbox row, as a right-click does. */
@@ -58,7 +68,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 		);
 	}
 
-	it("pins at once, and unpins again when the server refuses", async () => {
+	it("holds a pin pending, and clears it saying why when the server refuses", async () => {
 		// Its menu is the inbox's, which only a phone has.
 		resize(390, 844);
 		const view = await testing.openConversations(
@@ -81,17 +91,19 @@ describe("App's list actions on a conversation, shown before the server says so"
 		testing.holdWrites();
 
 		await pick(view, "Old", "Pin");
-		expect(rows(inbox, ["Old", "New"])).toEqual(["Old", "New"]);
+		expect(rows(inbox, ["Old", "New"])).toEqual(["New", "Old"]);
+		expect(busy(inbox, "Old")).toBe(true);
 
 		testing.refuseWrites = { reason: "usage", message: "locked" };
 		await act(async () => testing.release());
-		await waitFor(() => expect(rows(inbox, ["Old", "New"])[0]).toBe("New"));
+		await waitFor(() => expect(busy(inbox, "Old")).toBe(false));
+		expect(rows(inbox, ["Old", "New"])).toEqual(["New", "Old"]);
 		expect(within(inbox).getByRole("alert").textContent).toBe(
 			"Not pinned: locked",
 		);
 	});
 
-	it("hides an archived row at the click, and brings it back with why when refused", async () => {
+	it("keeps an archiving row, pending, and says why when refused", async () => {
 		// Its menu is the inbox's, which only a phone has.
 		resize(390, 844);
 		const view = await testing.openConversations(
@@ -105,7 +117,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 		testing.holdWrites();
 
 		await pick(view, "Done", "Archive");
-		expect(within(inbox).queryByText("Done")).toBeNull();
+		expect(within(inbox).getByText("Done")).toBeTruthy();
+		expect(busy(inbox, "Done")).toBe(true);
 
 		testing.refuseWrites = { reason: "usage", message: "locked" };
 		await act(async () => testing.release());
@@ -115,9 +128,10 @@ describe("App's list actions on a conversation, shown before the server says so"
 			),
 		);
 		expect(within(inbox).getByText("Done")).toBeTruthy();
+		expect(busy(inbox, "Done")).toBe(false);
 	});
 
-	it("removes the task before archiving, both behind the row already gone", async () => {
+	it("removes the task before archiving, the row pending meanwhile", async () => {
 		// Its menu is the inbox's, which only a phone has.
 		resize(390, 844);
 		const view = await testing.openConversations(
@@ -140,9 +154,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 			),
 		);
 
-		// Its task goes with it, rather than standing in as an abandoned
-		// external agent until the removal lands.
-		expect(within(inbox).queryAllByText("alpha")).toEqual([]);
+		// The row waits on the server rather than going early.
+		expect(busy(inbox, "alpha")).toBe(true);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
 		await act(async () => testing.release());
 		await waitFor(() =>
@@ -152,7 +165,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 		);
 	});
 
-	it("says a quiet agent may be stuck, and stops its turn at once from its menu", async () => {
+	it("says a quiet agent may be stuck, and holds it pending while its turn stops", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations(
 			[
@@ -179,11 +192,12 @@ describe("App's list actions on a conversation, shown before the server says so"
 
 		await pick(view, "Quiet", "Stop turn");
 		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
-		expect(within(row()).queryByText(/^Possibly stuck/)).toBeNull();
+		expect(within(row()).getByText(/^Possibly stuck/)).toBeTruthy();
+		expect(busy(inbox, "Quiet")).toBe(true);
 		await act(async () => testing.release());
 	});
 
-	it("marks unread and renames at once", async () => {
+	it("holds marking unread and renaming pending until the server says so", async () => {
 		// Its menu is the inbox's, which only a phone has.
 		resize(390, 844);
 		const view = await testing.openConversations(
@@ -197,13 +211,23 @@ describe("App's list actions on a conversation, shown before the server says so"
 		testing.holdWrites();
 
 		await pick(view, "Fix footer", "Mark as unread");
-		expect(
+		const unread = () =>
 			within(
 				within(inbox)
 					.getAllByText("Fix footer")[0]
 					?.closest("li") as HTMLElement,
-			).getByRole("status", { name: "unread" }),
-		).toBeTruthy();
+			).queryByRole("status", { name: "unread" });
+		expect(unread()).toBeNull();
+		expect(busy(inbox, "Fix footer")).toBe(true);
+
+		await testing.say(
+			conversation({ id: "c2", title: "Fix footer", unread: true }),
+		);
+		expect(unread()).toBeTruthy();
+		// Its write is still unanswered, so it stays pending.
+		expect(busy(inbox, "Fix footer")).toBe(true);
+		await act(async () => testing.release());
+		expect(busy(inbox, "Fix footer")).toBe(false);
 
 		const sheet = await menu(view, "Fix footer");
 		await act(async () =>
@@ -218,10 +242,19 @@ describe("App's list actions on a conversation, shown before the server says so"
 		await act(async () =>
 			fireEvent.click(within(sheet).getByRole("button", { name: "Save" })),
 		);
+		expect(within(inbox).queryByText("Footer")).toBeNull();
+		await testing.say(
+			conversation({
+				id: "c2",
+				title: "Fix footer",
+				unread: true,
+				name: "Footer",
+			}),
+		);
 		expect(within(inbox).getByText("Footer")).toBeTruthy();
 	});
 
-	it("shows the one opened read at once", async () => {
+	it("keeps the one opened unread, pending, until the server says it is read", async () => {
 		testing.holdWrites();
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login", unread: true })],
@@ -233,10 +266,9 @@ describe("App's list actions on a conversation, shown before the server says so"
 				{ method: "PUT", body: { unread: false } },
 			]),
 		);
-		expect(
-			within(
-				view.getByRole("navigation", { name: "conversations" }),
-			).queryByRole("status", { name: "unread" }),
-		).toBeNull();
+		const nav = within(view.getByRole("navigation", { name: "conversations" }));
+		expect(nav.queryByRole("status", { name: "unread" })).toBeTruthy();
+		await testing.say(conversation({ id: "c1", title: "Fix login" }));
+		expect(nav.queryByRole("status", { name: "unread" })).toBeNull();
 	});
 });

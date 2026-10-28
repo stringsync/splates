@@ -8,7 +8,7 @@ import {
 	waitFor,
 } from "./testing";
 
-describe("App's asks and settings, shown before the server says so", () => {
+describe("App's asks and settings, pending until the server says so", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -20,7 +20,7 @@ describe("App's asks and settings, shown before the server says so", () => {
 		testing.dispose();
 	});
 
-	it("takes a permission's card away at the answer, so a second key sends nothing, and brings it back when refused", async () => {
+	it("holds a permission's card pending at the answer, so a second key sends nothing, and frees it when refused", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "running",
@@ -47,20 +47,25 @@ describe("App's asks and settings, shown before the server says so", () => {
 				body: { ask: "t1", answer: { type: "permission", option: "no" } },
 			},
 		]);
-		expect(view.queryAllByRole("generic", { name: "permission" })).toHaveLength(
-			0,
-		);
+		// Still there, with the server's word, though busy.
+		const card = view.getByRole("generic", { name: "permission" });
+		expect(card.closest("[aria-busy]")?.getAttribute("aria-busy")).toBe("true");
 
 		testing.refuseWrites = { reason: "usage", message: "locked" };
 		await act(async () => testing.release());
 		await waitFor(() =>
-			expect(view.getByRole("generic", { name: "permission" })).toBeTruthy(),
+			expect(
+				view
+					.getByRole("generic", { name: "permission" })
+					.closest("[aria-busy]")
+					?.getAttribute("aria-busy"),
+			).toBe("false"),
 		);
 		// Under the row as well as the card.
 		expect(view.getAllByText("Not answered: locked").length).toBeGreaterThan(0);
 	});
 
-	it("shows a switched setting at once, and switches it back when refused", async () => {
+	it("keeps a switched setting as the server has it, pending, and says why when refused", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				settings: [
@@ -82,13 +87,14 @@ describe("App's asks and settings, shown before the server says so", () => {
 		testing.holdWrites();
 
 		await act(async () => fireEvent.click(fast));
-		expect(fast.getAttribute("aria-checked")).toBe("true");
+		expect(fast.getAttribute("aria-checked")).toBe("false");
 
 		testing.refuseWrites = { reason: "usage", message: "locked" };
 		await act(async () => testing.release());
 		await waitFor(() =>
-			expect(fast.getAttribute("aria-checked")).toBe("false"),
+			expect(view.getByText("Fast mode not switched: locked")).toBeTruthy(),
 		);
+		expect(fast.getAttribute("aria-checked")).toBe("false");
 		expect(view.getByText("Fast mode not switched: locked")).toBeTruthy();
 	});
 });

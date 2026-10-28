@@ -391,7 +391,18 @@ describe("App on a phone", () => {
 		expect(testing.posted("/api/conversations/c1/name")).toEqual([
 			{ method: "PUT", body: { name: "Login" } },
 		]);
-		// Before the server streams it back.
+		// Pending until the server streams it back.
+		expect(
+			within(inbox).getByRole("button", { name: /Fix login/ }),
+		).toBeTruthy();
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				name: "Login",
+				status: "stopped",
+			}),
+		);
 		expect(
 			within(inbox).getByRole("button", { name: /Login/ }).textContent,
 		).toStartWith("Login");
@@ -406,6 +417,15 @@ describe("App on a phone", () => {
 			{ method: "PUT", body: { unread: true } },
 		]);
 
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				name: "Login",
+				status: "stopped",
+				unread: true,
+			}),
+		);
 		menu = await hold("Login");
 		// Marked unread already, so it offers that no more.
 		expect(
@@ -417,6 +437,18 @@ describe("App on a phone", () => {
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+		// Held until the server files it.
+		expect(within(inbox).queryByRole("button", { name: /Login/ })).toBeTruthy();
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				name: "Login",
+				status: "stopped",
+				unread: true,
+				archived: true,
+			}),
+		);
 		expect(within(inbox).queryByRole("button", { name: /Login/ })).toBeNull();
 	});
 

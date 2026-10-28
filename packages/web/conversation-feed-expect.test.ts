@@ -59,37 +59,57 @@ describe("ConversationFeed's expect", () => {
 		return { done, land, refuse };
 	}
 
-	it("shows an expected change at once, over what streams meanwhile, until the server's copy holds it", async () => {
+	it("holds a write pending without drawing it, until the server's copy holds it", async () => {
 		const pin = write();
 
 		const shown = feed.expect("c1", { pinned: true }, pin.done);
-		expect(feed.conversations[0]?.pinned).toBe(true);
+		expect(feed.pending("c1")).toBe(true);
+		expect(feed.conversations[0]?.pinned).toBe(false);
 		say(conversation({ title: "New" }));
 		expect(feed.conversations[0]).toMatchObject({
 			title: "New",
-			pinned: true,
+			pinned: false,
 		});
+		expect(feed.pending("c1")).toBe(true);
 
-		say(conversation({ title: "New", pinned: true }));
 		pin.land();
 		await shown;
-		say(conversation({ title: "New" }));
-		expect(feed.conversations[0]?.pinned).toBe(false);
+		// Landed, but the server has yet to show it: no old state between.
+		expect(feed.pending("c1")).toBe(true);
+		say(conversation({ title: "New", pinned: true }));
+		expect(feed.pending("c1")).toBe(false);
+		expect(feed.conversations[0]?.pinned).toBe(true);
 	});
 
-	it("keeps an expected change past its answer until the server's copy streams", async () => {
+	it("tells subscribers when a conversation becomes pending and when it stops", async () => {
+		const seen: boolean[] = [];
+		const stop = feed.subscribe(() => seen.push(feed.pending("c1")));
 		const rename = write();
 
 		const shown = feed.expect("c1", { name: "Login" }, rename.done);
 		rename.land();
 		await shown;
-		expect(feed.conversations[0]?.name).toBe("Login");
+		say(conversation({ name: "Login" }));
+		stop();
+
+		expect(seen[0]).toBe(true);
+		expect(seen.at(-1)).toBe(false);
+	});
+
+	it("keeps a write pending past its answer until the server's copy streams", async () => {
+		const rename = write();
+
+		const shown = feed.expect("c1", { name: "Login" }, rename.done);
+		rename.land();
+		await shown;
+		expect(feed.pending("c1")).toBe(true);
+		expect(feed.conversations[0]?.name).not.toBe("Login");
 
 		say(conversation({ name: "Login (trimmed)" }));
 		expect(feed.conversations[0]?.name).toBe("Login (trimmed)");
 	});
 
-	it("keeps an expected change past a listing that began before its write landed", async () => {
+	it("keeps a write pending past a listing that began before it landed", async () => {
 		const archive = write();
 		let answer = (_listing: Response) => {};
 		globalThis.fetch = (async (_path: string, init?: RequestInit) =>
@@ -107,21 +127,22 @@ describe("ConversationFeed's expect", () => {
 		// The listing was asked for before the write landed, so it may predate it.
 		answer(Response.json({ agents: [], conversations: [conversation({})] }));
 		await listing;
-		expect(feed.conversations[0]?.archived).toBe(true);
+		expect(feed.pending("c1")).toBe(true);
 	});
 
-	it("takes back a refused change and rejects with why", async () => {
+	it("clears a refused write and rejects with why", async () => {
 		const archive = write();
 
 		const shown = feed.expect("c1", { archived: true }, archive.done);
-		expect(feed.conversations[0]?.archived).toBe(true);
+		expect(feed.pending("c1")).toBe(true);
 		archive.refuse("busy");
 
 		await expect(shown).rejects.toThrow("busy");
+		expect(feed.pending("c1")).toBe(false);
 		expect(feed.conversations[0]?.archived).toBe(false);
 	});
 
-	it("applies a change given as a function to the server's latest copy", async () => {
+	it("reads a change given as a function against the server's latest copy", async () => {
 		const change = write();
 
 		void feed.expect(
@@ -129,8 +150,13 @@ describe("ConversationFeed's expect", () => {
 			(state) => ({ ...state, name: `${state.title} renamed` }),
 			change.done,
 		);
+		change.land();
 		say(conversation({ title: "New" }));
+		expect(feed.conversations[0]?.name).not.toBe("New renamed");
+		expect(feed.pending("c1")).toBe(true);
 
-		expect(feed.conversations[0]?.name).toBe("New renamed");
+		say(conversation({ title: "New", name: "New renamed" }));
+		await Promise.resolve();
+		expect(feed.pending("c1")).toBe(false);
 	});
 });

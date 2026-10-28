@@ -28,7 +28,8 @@ import {
 import { useArchive } from "./conversation-archive";
 import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
-import { useExpect } from "./expecting";
+import { useExpect, usePendingConversation } from "./expecting";
+import { pendingRow, useShowPending } from "./pending";
 import { Swipeable } from "./phone-swipe";
 import { stopTurn, useQuiet } from "./quiet";
 import type { Refuse } from "./refusal";
@@ -41,9 +42,8 @@ const HOLD_MS = 500;
 const DRIFT_PX = 10;
 
 /**
- * Opens a row's menu on a long press, or a right-click, and swallows the tap
- * that ends the press, so the row does not open too. A finger that moves
- * scrolls instead.
+ * What opens a row's menu on a long press or a right-click, without opening
+ * the row too. A finger that moves scrolls instead.
  */
 export function useLongPress(onPress: () => void): {
 	onPointerDown: (event: PointerEvent) => void;
@@ -126,7 +126,10 @@ export function Filed({
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
 	const { file, asks, confirm } = useArchive(conversation, refuse);
-	const archivable = !conversation.archived;
+	// Held still while a write to it is on its way, so none repeats.
+	const pending = usePendingConversation(conversation.id);
+	const showPending = useShowPending(pending);
+	const archivable = !conversation.archived && !pending;
 	return (
 		<>
 			{confirm}
@@ -138,9 +141,11 @@ export function Filed({
 				pins={archivable && !nested}
 				refuse={refuse}
 			/>
-			<Swipeable archive={archivable ? { asks, file } : null}>
-				{children(press)}
-			</Swipeable>
+			<div {...pendingRow(pending, showPending)}>
+				<Swipeable archive={archivable ? { asks, file } : null}>
+					{children(press)}
+				</Swipeable>
+			</div>
 		</>
 	);
 }
@@ -177,6 +182,7 @@ function RowMenu({
 	const expect = useExpect();
 	const quiet = useQuiet(conversation);
 	const { id, archived } = conversation;
+	const pending = usePendingConversation(id);
 	const close = () => {
 		onOpenChange(false);
 		setRenaming(false);
@@ -249,6 +255,7 @@ function RowMenu({
 						{!conversation.unread && !archived && (
 							<Action
 								icon={<CircleDotIcon />}
+								disabled={pending}
 								onClick={() => {
 									close();
 									void expect(id, { unread: true }, markUnread(id, true)).catch(
@@ -273,6 +280,7 @@ function RowMenu({
 						{pins && (
 							<Action
 								icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
+								disabled={pending}
 								onClick={() => {
 									close();
 									void expect(
@@ -293,6 +301,7 @@ function RowMenu({
 						{quiet !== null && (
 							<Action
 								icon={<SquareIcon />}
+								disabled={pending}
 								onClick={() => {
 									close();
 									stopTurn(conversation, expect, refuse);
@@ -304,6 +313,7 @@ function RowMenu({
 						{archive !== null && (
 							<Action
 								icon={<ArchiveIcon />}
+								disabled={pending}
 								onClick={() => {
 									close();
 									archive();
@@ -368,17 +378,21 @@ export function Sheet({
 export function Action({
 	icon,
 	onClick,
+	disabled = false,
 	children,
 }: {
 	icon: ReactNode;
 	onClick: () => void;
+	/** Out of reach while a write it made is pending. */
+	disabled?: boolean;
 	children: ReactNode;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className="flex h-12 items-center gap-3 rounded-xl px-3 text-left text-base active:bg-muted [&_svg]:size-5 [&_svg]:text-muted-foreground"
+			disabled={disabled}
+			className="flex h-12 items-center gap-3 rounded-xl px-3 text-left text-base active:bg-muted disabled:opacity-50 [&_svg]:size-5 [&_svg]:text-muted-foreground"
 		>
 			{icon}
 			{children}

@@ -24,7 +24,7 @@ describe("App's Auto pick in the composer's settings", () => {
 		testing.dispose();
 	});
 
-	it("switches Auto pick on with the switch beside the Model picker, shown at once", async () => {
+	it("switches Auto pick on with the switch beside the Model picker, once the server says so", async () => {
 		const view = await testing.openConversations([
 			conversation({ settings: [MODEL] }),
 		]);
@@ -37,10 +37,14 @@ describe("App's Auto pick in the composer's settings", () => {
 			),
 		);
 
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/auto-pick")).toEqual([
+				{ method: "PUT", body: { on: true } },
+			]),
+		);
+		expect(model.textContent).not.toContain("Auto · Small");
+		await testing.say(conversation({ settings: [MODEL], autoPick: PICKED }));
 		await waitFor(() => expect(model.textContent).toContain("Auto · Small"));
-		expect(testing.posted("/api/conversations/c1/auto-pick")).toEqual([
-			{ method: "PUT", body: { on: true } },
-		]);
 	});
 
 	it("keeps Auto pick on, and the list open, when the person picks a model", async () => {
@@ -63,7 +67,7 @@ describe("App's Auto pick in the composer's settings", () => {
 		]);
 	});
 
-	it("switches Auto pick off from the settings sheet on a phone, its button's mark losing the sparkles' half", async () => {
+	it("switches Auto pick off from the settings sheet on a phone, its button's mark losing the sparkles' half once the server says so", async () => {
 		// happy-dom's own handle on its window, which sizes what `matchMedia` reads.
 		const { happyDOM } = window as unknown as {
 			happyDOM: { setInnerWidth: (width: number) => void };
@@ -86,12 +90,19 @@ describe("App's Auto pick in the composer's settings", () => {
 			expect(auto.getAttribute("aria-checked")).toBe("true");
 			await act(async () => fireEvent.click(auto));
 
-			expect(auto.getAttribute("aria-checked")).toBe("false");
-			expect(settings.querySelector(claude)).not.toBeNull();
-			expect(settings.querySelector("clipPath")).toBeNull();
 			expect(testing.posted("/api/conversations/c1/auto-pick")).toEqual([
 				{ method: "PUT", body: { on: false } },
 			]);
+			expect(auto.getAttribute("aria-checked")).toBe("true");
+			await testing.say(
+				conversation({
+					settings: [MODEL],
+					autoPick: { ...PICKED, overridden: true },
+				}),
+			);
+			expect(auto.getAttribute("aria-checked")).toBe("false");
+			expect(settings.querySelector(claude)).not.toBeNull();
+			expect(settings.querySelector("clipPath")).toBeNull();
 		} finally {
 			happyDOM.setInnerWidth(wide);
 		}

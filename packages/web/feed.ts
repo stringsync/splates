@@ -10,17 +10,13 @@ import type { PageCopy } from "./page-copy";
 
 export type FeedEvents = { changed: undefined };
 
-/**
- * How long the server stays unreachable before the page says it is offline.
- * A stream through a tunnel drops and reconnects within seconds, and saying
- * so for each blip would cry wolf.
- */
+/** How long the server stays unreachable before the page says it is offline. */
 export const OFFLINE_AFTER = Duration.secs(10);
 
 /**
- * The page's copy of the repo, refetched whenever the server says something
- * moved. Keep one for as long as the page: `start` opens the stream, `dispose`
- * closes it, and a disposed feed can be started again.
+ * The page's copy of the repo, kept current as the server says it moves. Keep
+ * one for the page's life: `start` opens it, `dispose` closes it, and a
+ * disposed feed can be started again.
  */
 export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	private readonly dispatcher = new Dispatcher<FeedEvents>();
@@ -63,7 +59,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	fresh = false;
 
 	private stream: LiveStream | null = null;
-	/** The changes on their way, in the order made (see `expect`). */
+	/** The writes pending, in the order made (see `expect`). */
 	private expected: Expected[] = [];
 	/** As the server last said, without what is on its way. */
 	private recorded: Snapshot | null = null;
@@ -199,22 +195,30 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	}
 
 	/**
-	 * Shows `expectation`, how a write turns the snapshot as the server last
-	 * said it into what it will say, at once, while `write`, the request that
-	 * makes it, is on its way, so a board action shows at the click rather
-	 * than on the refetch the server's push brings. It stays over whatever
-	 * the server says meanwhile, and goes once `write` lands and the server's
-	 * snapshot holds it, or once a snapshot read after it lands answers: the
-	 * server marks the repo moved before it answers a write, so that read is
-	 * fresh. Refused, it goes at once and the promise rejects with why, for
-	 * the caller to say. `ConversationFeed.expect` does the same for a
-	 * conversation, so the two read alike.
+	 * Whether a write is pending, as `expect` holds: on its way, or landed
+	 * and not yet shown by the snapshot. With `key`, only a write made under
+	 * that key (the task, todo or lane it touches).
+	 */
+	pending(key?: string): boolean {
+		return this.expected.some((each) => key === undefined || each.key === key);
+	}
+
+	/** Calls `changed` when the snapshot or its pending writes change. */
+	subscribe(changed: () => void): () => void {
+		return this.events.on("changed", changed);
+	}
+
+	/**
+	 * Holds `key`, what a write touches, as pending while `write` is on its way
+	 * and until the server's snapshot holds `expectation`, how the write turns
+	 * the snapshot. Rejects as `write` does, for the caller to say why.
 	 */
 	async expect(
 		expectation: (snapshot: Snapshot) => Snapshot,
 		write: Promise<unknown>,
+		key?: string,
 	): Promise<void> {
-		const expected: Expected = { patch: expectation, landed: null };
+		const expected: Expected = { patch: expectation, landed: null, key };
 		this.expected = [...this.expected, expected];
 		this.show(this.recorded);
 		try {
@@ -229,13 +233,17 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		}
 	}
 
-	/** Stops showing `expected`. */
+	/** Stops holding `expected` as pending. */
 	private unexpect(expected: Expected): void {
 		this.expected = this.expected.filter((each) => each !== expected);
 		this.show(this.recorded);
 	}
 
-	/** Shows `recorded`, the server's word, with every change on its way over it. */
+	/**
+	 * Shows `recorded`, the server's word, with every change on its way over
+	 * it: the board and queue writes not yet converted to pending states (see
+	 * `pending`) still draw from `expect`.
+	 */
 	private show(recorded: Snapshot | null): void {
 		this.recorded = recorded;
 		this.snapshot =
@@ -374,9 +382,11 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	}
 }
 
-/** A change `expect` shows: how, and when its write landed. */
+/** A write `expect` holds as pending: what it changes, and when it landed. */
 interface Expected {
 	patch: (snapshot: Snapshot) => Snapshot;
+	/** What the write touches, for `pending(key)`. */
+	key?: string;
 	/** `reads` as its write landed; null while it is on its way. */
 	landed: number | null;
 }

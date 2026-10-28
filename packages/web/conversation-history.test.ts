@@ -113,8 +113,8 @@ describe("Complete conversation reads", () => {
 		expect(feed.current("c1")?.summary).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: these transitions are unique to testing optimistic state over a retained complete body
-	it("keeps optimistic controls and sends visible over retained history during refresh", async () => {
+	// scry-ignore simple-test-setup: these transitions are unique to testing pending state over a retained complete body
+	it("keeps pending writes held and sends visible over retained history during refresh", async () => {
 		const old = conversation({ messages: [message("agent", "Old answer")] });
 		feed.put(old);
 		feed.put(listed({ ...old, title: "Refreshed title" }));
@@ -131,13 +131,14 @@ describe("Complete conversation reads", () => {
 		expect(shown).toMatchObject([
 			{
 				title: "Refreshed title",
-				pinned: true,
+				pinned: false,
 				messages: [
 					old.messages[0],
 					{ id: sending.id, parts: [{ type: "text", text: "New prompt" }] },
 				],
 			},
 		]);
+		expect(feed.pending("c1")).toBe(true);
 		feed.refused("c1", sending, new Error("Not sent"));
 		expect(
 			feed.conversations.map((state) => feed.history.shown(state).messages),
