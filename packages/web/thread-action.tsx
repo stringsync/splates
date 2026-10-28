@@ -10,17 +10,20 @@ export function ThreadAction({
 	children,
 	outline = false,
 	title,
+	disabled,
 	onClick,
 }: {
 	children: ReactNode;
 	outline?: boolean;
 	title?: string;
+	disabled?: boolean;
 	onClick: () => void;
 }): JSX.Element {
 	return (
 		<Button
 			variant={outline ? "outline" : "default"}
 			title={title}
+			disabled={disabled}
 			onClick={onClick}
 			className="mt-3 h-11 min-w-48 self-center rounded-full px-8 text-[15px] shadow-xs"
 		>

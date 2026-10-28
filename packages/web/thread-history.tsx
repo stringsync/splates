@@ -1,9 +1,8 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { useReactive } from "@webappwiz/react";
 import { useEffect } from "react";
-import { Alert, AlertDescription } from "#web/components/ui/alert.tsx";
-import { Button } from "#web/components/ui/button.tsx";
 import type { ConversationFeed } from "./conversation-feed";
+import { ThreadAction } from "./thread-action";
 
 /** Keeps a loaded thread visible while its summary is refreshed. */
 export function useThreadHistory(
@@ -23,16 +22,15 @@ export function useThreadHistory(
 		conversation: feed.history.shown(conversation),
 		failure:
 			summary && failure !== null ? (
-				<Alert>
-					<AlertDescription>{failure}</AlertDescription>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => void feed.whole(id)}
-					>
+				<div
+					role="alert"
+					className="flex flex-col items-center py-4 text-muted-foreground text-sm"
+				>
+					{failure}
+					<ThreadAction outline onClick={() => void feed.whole(id)}>
 						Retry history
-					</Button>
-				</Alert>
+					</ThreadAction>
+				</div>
 			) : null,
 	};
 }

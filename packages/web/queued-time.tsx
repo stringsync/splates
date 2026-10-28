@@ -5,13 +5,13 @@ import {
 import type { Message } from "@stringsync/splates-server/conversations";
 import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
-import { CheckIcon, HourglassIcon, SendIcon } from "lucide-react";
+import { CheckIcon, HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
-import { Button } from "./components/ui/button";
 import { sendQueuedNow } from "./conversation-api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { usePendingWrites } from "./pending";
+import { ThreadAction } from "./thread-action";
 import { span } from "./work";
 
 /** The wait before a prompt reached the agent, retained once work starts. */
@@ -94,32 +94,31 @@ function QueuedTime({
 		<div
 			data-slot="queued"
 			// Its icon sits where the work row's chevron does, below it.
-			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
+			className="my-2 flex flex-col gap-1.5 text-muted-foreground text-sm"
 		>
-			{until !== null ? (
-				<CheckIcon aria-hidden className="size-3.5 shrink-0" />
-			) : (
-				<HourglassIcon aria-hidden className="size-3.5 shrink-0" />
-			)}
-			<span
-				role={until === null && !stuck ? "status" : undefined}
-				className={cn(
-					"min-w-0 truncate font-sans",
-					until === null && !stuck && "shimmer motion-reduce:animate-none",
+			<div className="flex items-center gap-1.5">
+				{until !== null ? (
+					<CheckIcon aria-hidden className="size-3.5 shrink-0" />
+				) : (
+					<HourglassIcon aria-hidden className="size-3.5 shrink-0" />
 				)}
-			>
-				{stuck
-					? "Waiting on you since "
-					: until === null
-						? "Queued "
-						: "Queued for "}
-				{stuck ? new Date(at).toLocaleTimeString() : span(at, until ?? now)}
-			</span>
+				<span
+					role={until === null && !stuck ? "status" : undefined}
+					className={cn(
+						"min-w-0 truncate font-sans",
+						until === null && !stuck && "shimmer motion-reduce:animate-none",
+					)}
+				>
+					{stuck
+						? "Waiting on you since "
+						: until === null
+							? "Queued "
+							: "Queued for "}
+					{stuck ? new Date(at).toLocaleTimeString() : span(at, until ?? now)}
+				</span>
+			</div>
 			{stuck ? (
-				<Button
-					size="sm"
-					variant="outline"
-					className="ml-1 h-7 min-h-7 shrink-0 touch:h-11"
+				<ThreadAction
 					disabled={writes.pending()}
 					onClick={() =>
 						void writes
@@ -127,9 +126,8 @@ function QueuedTime({
 							.catch(() => undefined)
 					}
 				>
-					<SendIcon aria-hidden />
 					Send
-				</Button>
+				</ThreadAction>
 			) : null}
 		</div>
 	);
