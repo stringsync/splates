@@ -420,6 +420,24 @@ describe("App on a phone", () => {
 		expect(within(inbox).queryByRole("button", { name: /Login/ })).toBeNull();
 	});
 
+	it("opens a conversation tapped with a little diagonal finger drift", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login", status: "stopped" })],
+			null,
+			{ tasks: [] },
+		);
+		const row = view.getByRole("button", { name: /Fix login/ });
+
+		await act(async () => {
+			fireEvent.pointerDown(row, { clientX: 300, clientY: 100 });
+			fireEvent.pointerMove(row, { clientX: 288, clientY: 112 });
+			fireEvent.pointerUp(row, { clientX: 288, clientY: 112 });
+			fireEvent.click(row);
+		});
+
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
 	it("archives a conversation swiped left on its inbox row, asking first when its agent is at work", async () => {
 		const view = await testing.openConversations(
 			[

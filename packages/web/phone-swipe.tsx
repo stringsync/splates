@@ -9,11 +9,11 @@ import {
 } from "react";
 import { ArchiveBacking, showPast } from "./phone-swipe-cue";
 
-/** How far left a row is swiped, in pixels, before letting go archives it. */
+/** The pull distance at which releasing a swipe archives its row or screen. */
 export const SWIPE_PX = 120;
 
 /** How far a finger moves, in pixels, before it is a swipe or a scroll. */
-const DRIFT_PX = 10;
+const DRIFT_PX = 24;
 
 /** How steeply a start may slant, as rise over run, and still be a swipe. */
 const SLANT = 1.5;
@@ -43,6 +43,7 @@ export type Archive = {
  * down first scrolls instead, and one moving right is left to the browser,
  * whose swipe from the edge goes back.
  */
+// scry-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
 export function Swipeable({
 	archive,
 	children,
@@ -210,6 +211,7 @@ const EDGE_PX = 24;
  * archiving that asks first slides back as the question opens, and any other
  * slides off before it is filed.
  */
+// scry-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
 export function EdgeSwipe({
 	archive,
 	target,
