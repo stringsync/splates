@@ -187,7 +187,9 @@ describe("App's conversation thread", () => {
 				within(thread).getAllByRole("note", { name: "splates" }),
 			).toHaveLength(2),
 		);
-		expect(thread.textContent).toContain(`Told agent: ${serverText}`);
+		expect(thread.textContent).toContain(
+			"Told agent “A server prompt the page does not know yet”",
+		);
 		expect(thread.textContent).toContain("Handoff");
 		expect(thread.textContent).toContain("c1-task");
 		expect(thread.textContent).not.toContain("The agent before you");

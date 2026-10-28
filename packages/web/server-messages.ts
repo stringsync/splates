@@ -92,14 +92,17 @@ export function serverToldLines(
 	if (task !== null) {
 		return [view(["Started", { kind: "task", task: task[1] ?? "" }], at, text)];
 	}
-	return [view([`Told agent: ${excerpt(text)}`], at, text)];
+	return [view([`Told agent “${excerpt(text)}”`], at, text)];
 }
 
 const EXCERPT_LENGTH = 80;
 
-/** The prompt's first line, cut short, so a line for a prompt the page does not know says what it was. */
+/** The prompt's first line, cut short and cleared of the colon a heading ends in, so a line for a prompt the page does not know says what it was. */
 function excerpt(text: string): string {
-	const first = text.trim().split("\n")[0]?.trim() ?? "";
+	const first = (text.trim().split("\n")[0]?.trim() ?? "").replace(
+		/[\s:;,.]+$/u,
+		"",
+	);
 	return first.length > EXCERPT_LENGTH
 		? `${first.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`
 		: first;
