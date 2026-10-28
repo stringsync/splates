@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { CounterIdProvider } from "webappwiz/id";
+import { FakeTimer } from "webappwiz/time/testing";
 import { ConversationFeed } from "./conversation-feed";
 import { conversation, message } from "./testing";
 
@@ -18,6 +19,7 @@ describe("ConversationFeed", () => {
 	let listings: ((conversations: ConversationState[]) => void)[];
 	let stream: Stream | null;
 	let feed: ConversationFeed;
+	let timer: FakeTimer;
 
 	beforeEach(() => {
 		listings = [];
@@ -43,7 +45,8 @@ describe("ConversationFeed", () => {
 			}
 			close(): void {}
 		} as unknown as typeof EventSource;
-		feed = new ConversationFeed(undefined, undefined, new CounterIdProvider());
+		timer = new FakeTimer();
+		feed = new ConversationFeed(timer, undefined, new CounterIdProvider());
 	});
 
 	afterEach(() => {
@@ -82,9 +85,26 @@ describe("ConversationFeed", () => {
 				messages: { length: 2, replace: [[1, state.messages[1]]] },
 			}),
 		});
+		timer.fireTimeouts();
 		expect(feed.conversations[0]?.messages[0]).toBe(unchanged);
 		expect(feed.conversations[0]?.messages[1]).toEqual(state.messages[1]);
 		expect(feed.conversations[0]?.messages).toHaveLength(3);
+	});
+
+	it("draws streamed deltas together, each still applied to the one before", async () => {
+		feed.start();
+		await list([]);
+		say(conversation({ name: "first" }));
+		const draw = (name: string) =>
+			stream?.named.get("delta")?.({
+				data: JSON.stringify({ id: "c1", changes: { name }, removed: [] }),
+			});
+		draw("second");
+		draw("third");
+		expect(feed.conversations[0]?.name).toBe("first");
+		expect(feed.current("c1")?.name).toBe("third");
+		timer.fireTimeouts();
+		expect(feed.conversations[0]?.name).toBe("third");
 	});
 
 	it("keeps the wire baseline apart from a newer HTTP listing", async () => {
@@ -104,6 +124,7 @@ describe("ConversationFeed", () => {
 				removed: [],
 			}),
 		});
+		timer.fireTimeouts();
 		expect(feed.conversations[0]?.messages).toEqual(state.messages);
 		expect(feed.conversations[0]?.name).toBe("changed");
 	});

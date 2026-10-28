@@ -16,6 +16,24 @@ import { offers, type Question, settled, sized } from "./plan";
  * only text.
  */
 export function stretches(text: string): Stretch[] {
+	const held = CUT.get(text);
+	if (held !== undefined) {
+		return held;
+	}
+	const found = cut(text);
+	// The oldest goes first once full: a page asks it of each conversation's
+	// last words on every change, and most are the same words as the time before.
+	if (CUT.size >= CUT_HELD) {
+		CUT.delete(CUT.keys().next().value as string);
+	}
+	CUT.set(text, found);
+	return found;
+}
+
+const CUT = new Map<string, Stretch[]>();
+const CUT_HELD = 256;
+
+function cut(text: string): Stretch[] {
 	const lines = text.split("\n");
 	const found: Stretch[] = [];
 	let from = 0;
@@ -30,9 +48,10 @@ export function stretches(text: string): Stretch[] {
 			continue;
 		}
 		const title = REVIEW.exec(line);
-		const end = lines.findIndex(
-			(each, at) => at > i && each.trim() === REVIEW_END,
-		);
+		const end =
+			title === null
+				? -1
+				: lines.findIndex((each, at) => at > i && each.trim() === REVIEW_END);
 		if (title !== null && end !== -1) {
 			found.push(...prose(lines.slice(from, i)));
 			found.push({

@@ -18,8 +18,10 @@ import {
 } from "webappwiz/time";
 import type { AgentChoice } from "./agent-choice";
 import { answered, scoped } from "./api";
+import { Draws } from "./conversation-draws";
 import { type Expected, holds, unfiled } from "./conversation-expected";
 import { ConversationHistory } from "./conversation-history";
+import type { ConversationFeedOptions, Listing } from "./conversation-options";
 import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
@@ -35,21 +37,9 @@ import { repeats } from "./summary-repeats";
 
 export { type AgentChoice, agentName } from "./agent-choice";
 
+export type { ConversationFeedOptions, Listing } from "./conversation-options";
+
 export type ConversationFeedEvents = { changed: undefined };
-
-/** What the page keeps of a listing, to draw from at once when opened again. */
-export interface Listing {
-	agents: AgentChoice[];
-	conversations: ConversationState[];
-}
-
-/** Where a `ConversationFeed` keeps its listing, and which project it reads. */
-export interface ConversationFeedOptions {
-	copy?: PageCopy<Listing> | null;
-	project?: string | null;
-	/** What names each conversation the page starts. */
-	conversationIds?: IdProvider;
-}
 
 /**
  * The page's copy of every conversation, updated as the server streams it.
@@ -97,6 +87,7 @@ export class ConversationFeed
 	/** Complete histories and recoverable reads, scoped to this project. */
 	readonly history: ConversationHistory;
 	private stream: LiveStream | null = null;
+	private readonly draws: Draws;
 	/** Whether what it shows is what `seed` gave, the server not yet having said. */
 	private seeded = false;
 	private readonly streamed = new Map<string, ConversationState>();
@@ -119,6 +110,9 @@ export class ConversationFeed
 	) {
 		this.copy = opts.copy ?? null;
 		this.project = opts.project ?? null;
+		this.draws = new Draws(this.timer, {
+			draw: () => this.shown(this.recorded),
+		});
 		this.history = new ConversationHistory(this, this.project);
 		this.conversationIds = opts.conversationIds ?? new UuidProvider();
 	}
@@ -172,6 +166,7 @@ export class ConversationFeed
 	}
 
 	dispose(): void {
+		this.draws.dispose();
 		this.history.dispose();
 		this.copy?.dispose();
 		this.stream?.dispose();
@@ -228,12 +223,16 @@ export class ConversationFeed
 		}
 		this.settle(state.id, Infinity, state);
 		this.changedAt.set(state.id, this.changes++);
-		this.show(
+		const recorded =
 			at === -1
 				? [state, ...this.recorded]
-				: this.recorded.map((each, index) => (index === at ? state : each)),
-		);
-		this.kept();
+				: this.recorded.map((each, index) => (index === at ? state : each));
+		if ("changes" in update && at !== -1) {
+			this.recorded = recorded;
+			this.draws.soon();
+			return;
+		}
+		this.shown(recorded);
 	}
 
 	/**
@@ -259,8 +258,7 @@ export class ConversationFeed
 		this.streamed.delete(id);
 		this.changedAt.set(id, this.changes++);
 		this.expected.delete(id);
-		this.show(this.recorded.filter((each) => each.id !== id));
-		this.kept();
+		this.shown(this.recorded.filter((each) => each.id !== id));
 	}
 
 	/**
@@ -492,7 +490,14 @@ export class ConversationFeed
 		return true;
 	}
 
+	/** Shows `recorded` and keeps it for the next page. */
+	private shown(recorded: ConversationState[]): void {
+		this.show(recorded);
+		this.kept();
+	}
+
 	private show(recorded: ConversationState[]): void {
+		this.draws.cancel();
 		this.recorded = recorded;
 		this.conversations = recorded.map((each) => this.withSending(each));
 		this.history.remember(recorded);
@@ -669,8 +674,7 @@ export class ConversationFeed
 				this.changedAt.set(each.id, this.changes++);
 			}
 		}
-		this.show(next);
-		this.kept();
+		this.shown(next);
 		return true;
 	}
 }
