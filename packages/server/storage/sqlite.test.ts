@@ -148,6 +148,42 @@ describe("SqliteStorage", () => {
 	});
 
 	// scry-ignore simple-test-setup: older than this task, and its old database is its own input
+	it("shrinks a database made before it gave space back, once, keeping what it holds", async () => {
+		await open();
+		const path = `${made[0]}/state.db`;
+		const old = new Database(path);
+		old.exec("PRAGMA auto_vacuum = NONE");
+		old.exec("VACUUM");
+		old.exec("CREATE TABLE filler (data BLOB)");
+		old.query("INSERT INTO filler VALUES (zeroblob(?))").run(MB * 8);
+		old.exec("DROP TABLE filler");
+		old.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+		const before = Bun.file(path).size;
+		old.close();
+		const storage = await open();
+		await storage.collection("tasks").write("1.md", "kept");
+
+		expect(before).toBeGreaterThan(MB * 8);
+		expect(Bun.file(path).size).toBeLessThan(MB);
+		expect(await (await open()).collection("tasks").read("1.md")).toBe("kept");
+	});
+
+	it("gives free pages back as it writes", async () => {
+		await open();
+		const path = `${made[0]}/state.db`;
+		await (await open()).collection("blobs").write("big", "x".repeat(MB * 16));
+		const grown = Bun.file(path).size;
+
+		// A storage opened afresh tidies on its first write.
+		await (await open()).collection("blobs").remove("big");
+		const db = new Database(path);
+		db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+		db.close();
+
+		expect(grown).toBeGreaterThan(MB * 16);
+		expect(Bun.file(path).size).toBeLessThan(MB);
+	});
+
 	it("adds the owner index to an existing database without changing live or rotated log sizes", async () => {
 		const storage = await open();
 		const log = storage.log<{ text: string }>("conversations/one.jsonl", {
@@ -198,3 +234,5 @@ describe("SqliteStorage", () => {
 		}
 	});
 });
+
+const MB = 1024 * 1024;

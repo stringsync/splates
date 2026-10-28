@@ -10,7 +10,8 @@ type Update = Extract<Entry, { kind: "update" }>;
 export function compacted(entries: Entry[]): Entry[] {
 	// A tool call's updates each repeat its whole input so far while an agent
 	// streams it, and a message comes in chunks: each run is joined into one,
-	// and a pair that might replay otherwise stays two.
+	// and a pair that might replay otherwise stays two. Parallel tool calls
+	// interleave their updates: one call's are joined across the others'.
 	const out: Entry[] = [];
 	for (const entry of entries) {
 		const last = out.at(-1);
@@ -18,13 +19,54 @@ export function compacted(entries: Entry[]): Entry[] {
 			last?.kind === "update" && entry.kind === "update"
 				? joined(last, entry)
 				: null;
-		if (one === null) {
+		if (one !== null) {
+			out[out.length - 1] = one;
+			continue;
+		}
+		const earlier = entry.kind === "update" ? acrossOthers(out, entry) : null;
+		if (earlier === null) {
 			out.push(entry);
 		} else {
-			out[out.length - 1] = one;
+			// Moved to the later place, as a join of neighbors leaves it.
+			out.splice(earlier.at, 1);
+			out.push(earlier.one);
 		}
 	}
 	return out;
+}
+
+/**
+ * `then` joined with its tool call's last update in `out`, when only other
+ * calls' updates come after that one, and where it is.
+ */
+function acrossOthers(
+	out: Entry[],
+	then: Update,
+): { at: number; one: Update } | null {
+	const id = toolCallOf(then.update);
+	if (id === null) {
+		return null;
+	}
+	for (let at = out.length - 1; at >= 0; at--) {
+		const each = out[at];
+		const other = each?.kind === "update" ? toolCallOf(each.update) : null;
+		if (each?.kind !== "update" || other === null) {
+			return null;
+		}
+		if (other === id) {
+			const one = joined(each, then);
+			return one === null ? null : { at, one };
+		}
+	}
+	return null;
+}
+
+/** The tool call `update` is about, if any. */
+function toolCallOf(update: acp.SessionUpdate): string | null {
+	return update.sessionUpdate === "tool_call" ||
+		update.sessionUpdate === "tool_call_update"
+		? update.toolCallId
+		: null;
 }
 
 function joined(first: Update, then: Update): Update | null {

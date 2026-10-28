@@ -57,6 +57,46 @@ describe("compacted", () => {
 		]);
 	});
 
+	it("joins parallel tool calls' interleaved updates, replaying the same", async () => {
+		const other = (status: "in_progress" | "completed"): acp.SessionUpdate => ({
+			...input("b"),
+			toolCallId: "t2",
+			status,
+		});
+		const entries = [
+			START,
+			update(TOOL, "09"),
+			update({ ...TOOL, toolCallId: "t2" } as acp.SessionUpdate, "09"),
+			update(input("a"), "10"),
+			update(other("in_progress"), "11"),
+			update(input("ab"), "12"),
+			update(other("in_progress"), "13"),
+			update({ ...input("abc"), status: "completed" }, "14"),
+			update(other("completed"), "15"),
+		];
+
+		const short = compacted(entries);
+
+		expect(short).toHaveLength(5);
+		expect(await replayed(short)).toEqual(await replayed(entries));
+	});
+
+	it("keeps a tool call's updates apart across anything but other calls' updates", () => {
+		const entries = [
+			update(input("a"), "10"),
+			update(
+				{
+					sessionUpdate: "agent_message_chunk",
+					content: { type: "text", text: "Hi" },
+				},
+				"11",
+			),
+			update(input("ab"), "12"),
+		];
+
+		expect(compacted(entries)).toEqual(entries);
+	});
+
 	it.each([
 		[
 			"an update after the tool call ended",

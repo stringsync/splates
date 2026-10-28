@@ -44,10 +44,13 @@ export class SqliteDb implements Resource {
 		this.pollMs = opts.pollMs ?? 200;
 		this.db = new Database(path, { create: true });
 		this.open.adopt(this.db, (db) => db.close());
+		// Takes only on a new file: one made before is turned over by `reclaim`.
+		this.db.exec("PRAGMA auto_vacuum = INCREMENTAL");
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec("PRAGMA synchronous = NORMAL");
 		this.db.exec("PRAGMA busy_timeout = 5000");
 		this.db.exec(SCHEMA);
+		this.reclaim();
 	}
 
 	/**
@@ -158,7 +161,10 @@ export class SqliteDb implements Resource {
 		return row?.seq ?? 0;
 	}
 
-	/** Drops change notes older than any poll could still need, now and then. */
+	/**
+	 * Drops change notes older than any poll could still need, now and then,
+	 * and gives the file's free pages back once they add up.
+	 */
 	private prune(now: number): void {
 		if (now - this.lastPruned < KEEP_CHANGES.ms) {
 			return;
@@ -167,6 +173,34 @@ export class SqliteDb implements Resource {
 		this.db
 			.query("DELETE FROM changes WHERE at < ?")
 			.run(now - KEEP_CHANGES.ms);
+		if (this.pragma("freelist_count") > FREE_KEPT) {
+			this.db.exec(`PRAGMA incremental_vacuum(${FREED_AT_ONCE})`);
+		}
+	}
+
+	/**
+	 * Turns a database made before it gave space back into one that does,
+	 * shrinking it to what it holds. Rewriting the file holds every other
+	 * writer off for as long, about a second for a few hundred megabytes, so
+	 * it runs once, as the database first opens; a writer waiting longer than
+	 * the busy timeout fails it, and it is tried at the next open.
+	 */
+	private reclaim(): void {
+		if (this.pragma("auto_vacuum") !== NONE) {
+			return;
+		}
+		try {
+			this.db.exec("VACUUM");
+			// The rewrite went through the WAL, which would stay its size.
+			this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+		} catch {}
+	}
+
+	private pragma(name: string): number {
+		const row = this.db
+			.query<Record<string, number>, []>(`PRAGMA ${name}`)
+			.get();
+		return row?.[name] ?? 0;
 	}
 
 	/** Tells each watch whose reach `at` is in, as one on the disk would. */
@@ -185,6 +219,15 @@ export class SqliteDb implements Resource {
 		}
 	}
 }
+
+/** `PRAGMA auto_vacuum` of a database that keeps its free pages. */
+const NONE = 0;
+
+/** Free pages, 10 MB of them, kept for writes to reuse rather than given back. */
+const FREE_KEPT = 2560;
+
+/** The most free pages given back in one write, about 40 MB, which takes some 80 ms. */
+const FREED_AT_ONCE = 10_000;
 
 /** How long a change note is kept for another process's poll to find. */
 const KEEP_CHANGES = Duration.secs(60);
