@@ -42,34 +42,17 @@ describe("ship", () => {
 		expect((refused as Exit).message).toContain("naming `splates ship`");
 	});
 
-	it("starts the ship on the server and prints its output to the end", async () => {
+	it("prepares a review and links to approval without starting a publish", async () => {
 		const { ctx, log } = await served();
-		const { calls, fetch } = server({ status: "done", to: "1.4.3" });
-
+		const { calls, fetch } = server({ status: "done" });
 		await ship({ ...ctx, fetch }, { dev: "http://localhost:4310" });
-
 		expect(calls).toEqual([
-			"POST http://localhost:4310/api/ship?project=mdom",
-			"GET http://localhost:4310/api/ship/output?project=mdom",
-			"GET http://localhost:4310/api/ship?project=mdom",
+			"GET http://localhost:4310/api/ship/cascade?project=mdom",
+			"GET http://localhost:4310/api/ship/plan?project=mdom",
 		]);
-		const printed = log.entries.map((entry) => String(entry.message));
-		expect(printed).toContain("https://www.npmjs.com/auth/cli/xyz");
-		expect(printed).toContain("shipped mdom 1.4.3");
-		expect(printed.at(-1)).toContain("`splates ship` shows where it stands");
-	});
-
-	it("fails with the end of the output when the ship failed", async () => {
-		const { ctx } = await served();
-		const { fetch } = server({ status: "failed", error: "npm error 403" });
-
-		const failed = await ship(
-			{ ...ctx, fetch },
-			{ project: "vexml", dev: "http://localhost:4310" },
-		).catch((error) => error);
-
-		expect((failed as Exit).reason).toBe("hook_failed");
-		expect((failed as Exit).message).toBe("npm error 403");
+		expect(
+			log.entries.map((entry) => String(entry.message)).join("\n"),
+		).toContain("http://localhost:4310/?project=mdom#ships");
 	});
 
 	it("prints the cascade under way rather than starting another", async () => {
@@ -78,28 +61,25 @@ describe("ship", () => {
 
 		await ship({ ...ctx, fetch }, { dev: "http://localhost:4310" });
 
-		expect(calls).toEqual(["POST http://localhost:4310/api/ship?project=mdom"]);
+		expect(calls).toEqual([
+			"GET http://localhost:4310/api/ship/cascade?project=mdom",
+		]);
 		const printed = String(log.entries.at(-1)?.message);
 		expect(printed).toContain("vexml");
 		expect(printed).toContain("waiting");
 	});
 
-	it("changes a pending project's bump in the cascade under way", async () => {
-		const { ctx, log } = await served();
-		const { calls, fetch } = server({ status: "done" }, true);
-
-		await ship(
-			{ ...ctx, fetch },
-			{ project: "vexml", bump: "major", dev: "http://localhost:4310" },
-		);
-
-		expect(calls).toEqual([
-			"POST http://localhost:4310/api/ship?project=vexml&bump=major",
-			"PATCH http://localhost:4310/api/ship/cascade?project=vexml&bump=major",
-		]);
-		expect(log.entries.map((entry) => String(entry.message))).toContain(
-			"changed vexml to a major release",
-		);
+	it("refuses changing an approved release type during a run", async () => {
+		const { ctx } = await served();
+		const { calls, fetch } = server({}, true);
+		await expect(
+			ship(
+				{ ...ctx, fetch },
+				{ project: "vexml", bump: "major", dev: "http://localhost:4310" },
+			),
+		).rejects.toMatchObject({ reason: "conflict" });
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain("GET");
 	});
 
 	it("abandons the cascade under way", async () => {
@@ -163,6 +143,12 @@ function server(ended: Record<string, unknown>, underWay = false) {
 	const calls: string[] = [];
 	const fetch = async (url: string, init?: RequestInit) => {
 		calls.push(`${init?.method ?? "GET"} ${url}`);
+		if (url.includes("/cascade?")) {
+			return Response.json(underWay ? { ...cascade, status: "running" } : null);
+		}
+		if (url.includes("/plan?")) {
+			return Response.json({ from: "mdom", steps: [] });
+		}
 		if (url.includes("/output")) {
 			return new Response(
 				"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",

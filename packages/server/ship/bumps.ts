@@ -2,6 +2,7 @@ import type { Fs } from "webappwiz/system";
 import { enqueued, type Tasks } from "../board";
 import { asking, type WorktreeService } from "../tasks";
 import type { Pin } from "./graph";
+import type { ShipBump } from "./plan";
 
 /** Where a bump task stands, as a cascade reads it: `gating` while its merge gate runs. */
 export type BumpState = "open" | "asking" | "gating" | "merged" | "removed";
@@ -34,7 +35,15 @@ export class Bumps {
 
 	/** Adds and queues the bump of `takes`, for the ship of `from`, whose main tree is `origin`. */
 	async add(
-		{ from, origin }: { from: string; origin: string },
+		{
+			from,
+			origin,
+			release,
+		}: {
+			from: string;
+			origin: string;
+			release?: { bump: ShipBump | null; reasons: string };
+		},
 		takes: BumpTake[],
 	): Promise<number> {
 		const pins = takes.flatMap((take) => take.pins);
@@ -43,7 +52,7 @@ export class Bumps {
 			`Take ${named}, from the ship of ${from}`,
 			null,
 			{
-				text: bumpText(from, takes),
+				text: bumpText(from, takes, release),
 				origin: { project: origin, task: null },
 				ready: true,
 			},
@@ -96,7 +105,11 @@ export class Bumps {
 }
 
 /** What a bump task asks of the agent that takes it. */
-function bumpText(from: string, takes: BumpTake[]): string {
+function bumpText(
+	from: string,
+	takes: BumpTake[],
+	release?: { bump: ShipBump | null; reasons: string },
+): string {
 	return [
 		`The ship of ${from} published new versions this project pins:`,
 		"",
@@ -109,6 +122,12 @@ function bumpText(from: string, takes: BumpTake[]): string {
 		"Move every pin of them in each `package.json` (the root's and each workspace member's) to these versions, run `bun install`, fix what breaks, and land it through the merge gate.",
 		...afterBumpSteps(takes),
 		"",
+		...(release === undefined
+			? []
+			: [
+					`Approved release: ${release.bump ?? "dependency bump only"}. Plan review: ${release.reasons}`,
+					"",
+				]),
 		"Publish nothing: when this project ships too, the cascade ships it once this task merges, at the release type settled in the approved plan. Do not ask for a different release type during the run.",
 		"If the repairs reveal a public API change outside the approved plan, or a break you cannot fix, do not merge. Remove your bump task with `--reason blocked` and `--waiting-on` a revised ship plan, explaining what it must resolve. Removing the task stops the whole run and removes its other open bump tasks; what shipped stays published. A new plan must recover unfinished bumps without republishing successful releases, and needs the person's approval before another run.",
 	].join("\n");

@@ -15,7 +15,6 @@ import type { Bumps, BumpTake } from "./bumps";
 import { type Pin, publishedPins } from "./graph";
 import { ShipHistory } from "./history";
 import {
-	nextVersion,
 	type ShipBump,
 	type ShipPlan,
 	ShipPlanError,
@@ -31,6 +30,7 @@ import {
 	shownCascade,
 	upgraded,
 } from "./progress";
+import type { ShipReviews } from "./reviews";
 import type { Ship, Shipping } from "./run";
 import type { Stage, StageKey } from "./stages";
 
@@ -109,6 +109,7 @@ export interface CascadeProject {
 export interface CascadesOptions {
 	/** The machine's records, which keep the cascade. */
 	storage: Storage;
+	reviews?: ShipReviews;
 	fs: Fs;
 	log: Logger;
 	/** The plan to ship `slug` at `bump`; throws a {@link ShipPlanError} for none. */
@@ -129,9 +130,6 @@ const ENDED: CascadeStatus[] = ["done", "dropped", "abandoned"];
 
 /** The statuses a project stops the run in. */
 const HELD: CascadeStatus[] = ["failed", "stopped"];
-
-/** The statuses whose publish has not started, so its bump can still change. */
-const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
 
 /**
  * Ships a project and its dependents in plan order. Start a run with
@@ -216,9 +214,14 @@ export class Cascades implements Resource {
 	 * The plan to ship `slug` at `bump`, as {@link start} would draw it now;
 	 * refused as the reason a {@link ShipPlanError} names when there is none.
 	 */
-	async plan(slug: string, bump: ShipBump = "patch"): Promise<ShipPlan> {
+	async plan(
+		slug: string,
+		bump: ShipBump = "patch",
+		retry = false,
+	): Promise<ShipPlan> {
 		try {
-			return await this.opts.plan(slug, bump);
+			return await (this.opts.reviews?.draw(slug, bump, retry) ??
+				this.opts.plan(slug, bump));
 		} catch (error) {
 			if (error instanceof ShipPlanError) {
 				fail(error.reason, error.message, { project: slug });
@@ -235,17 +238,22 @@ export class Cascades implements Resource {
 	start(
 		slug: string,
 		bump: ShipBump = "patch",
+		approval?: { id: string; choices: Record<string, ShipBump> },
 	): Promise<{ cascade: Cascade; started: boolean }> {
 		return this.serially(async () => {
 			const going = await this.record.read();
 			if (going?.status === "running") {
 				return { cascade: going, started: false };
 			}
-			const cascade = await planned(
-				await this.plan(slug, bump),
-				this.stamp(),
-				this.history,
-			);
+			const plan =
+				this.opts.reviews === undefined
+					? await this.plan(slug, bump)
+					: await this.opts.reviews.approve(
+							slug,
+							approval?.id ?? "",
+							approval?.choices,
+						);
+			const cascade = await planned(plan, this.stamp(), this.history);
 			await this.keep(cascade);
 			await this.history.prune();
 			this.opts.log.info(
@@ -255,35 +263,14 @@ export class Cascades implements Resource {
 		}).finally(() => this.schedule());
 	}
 
-	/** Changes a pending publish to `bump`, preserving its task and place in the run. */
-	revise(slug: string, bump: ShipBump): Promise<Cascade> {
-		return this.serially(async () => {
-			const cascade =
-				(await this.current()) ??
-				fail("not_found", "no ship is under way", { project: slug });
-			const step =
-				cascade.steps.find((each) => each.slug === slug) ??
-				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
-					project: slug,
-				});
-			if (step.action !== "ship") {
-				fail("usage", `${slug} only takes its dependency bump`, {
-					project: slug,
-				});
-			}
-			if (cascade.status !== "running" || !REVISABLE.includes(step.status)) {
-				fail(
-					"conflict",
-					`${slug} is ${step.status}: only a publish that has not started can change its bump`,
-					{ project: slug },
-				);
-			}
-			step.bump = bump;
-			step.to = step.from === null ? null : nextVersion(step.from, bump);
-			this.opts.log.info(`changed ${slug} to a ${bump} release`);
-			await this.keep(cascade);
-			return cascade;
-		});
+	/** Approved release types are fixed for the whole run. */
+	revise(slug: string, _bump: ShipBump): Promise<Cascade> {
+		return this.serially(async () =>
+			fail(
+				"conflict",
+				`${slug}: approved release types cannot change during a run; approve a revised ship plan`,
+			),
+		);
 	}
 
 	/**
@@ -451,7 +438,14 @@ export class Cascades implements Resource {
 		const project = await this.opts.reach(step.slug);
 		const origin = await this.opts.reach(cascade.from);
 		step.task = await project.bumps.add(
-			{ from: cascade.from, origin: origin.root },
+			{
+				from: cascade.from,
+				origin: origin.root,
+				release: {
+					bump: step.bump,
+					reasons: step.review?.reasons ?? "Approved ship plan",
+				},
+			},
 			takes,
 		);
 		step.status = "bumping";

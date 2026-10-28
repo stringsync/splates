@@ -11,7 +11,7 @@ const BUMPS: { value: ShipBump; label: string }[] = [
 	{ value: "major", label: "Major" },
 ];
 
-/** A release type for a new plan or a pending publish in its cascade. */
+/** A release type chosen before the person approves a ship plan. */
 export function ShipBumpSelector({
 	label,
 	value,

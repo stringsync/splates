@@ -1,4 +1,5 @@
 import type { ShipBump, ShipPlan } from "@stringsync/splates-server/ship";
+import { nextVersion } from "@stringsync/splates-server/ship/browser";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { shipPlan, startShip } from "./api";
 import { refusalOf } from "./refusal";
@@ -7,8 +8,12 @@ export type ShipApprovalEvents = { changed: undefined };
 
 /** Where an approval asks for the plan and starts the ship. */
 export interface ShipServer {
-	shipPlan(project: string, bump: ShipBump): Promise<ShipPlan>;
-	startShip(project: string, bump: ShipBump): Promise<void>;
+	shipPlan(project: string, bump: ShipBump, retry?: boolean): Promise<ShipPlan>;
+	startShip(
+		project: string,
+		bump: ShipBump,
+		approval?: { id: string; choices: Record<string, ShipBump> },
+	): Promise<void>;
 }
 
 /**
@@ -36,10 +41,10 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 	) {}
 
 	/** Asks the server for the plan at the chosen bump, as the dialog opens. */
-	async draw(): Promise<void> {
+	async draw(retry = false): Promise<void> {
 		const drawing = ++this.drawing;
 		try {
-			const plan = await this.server.shipPlan(this.project, this.bump);
+			const plan = await this.server.shipPlan(this.project, this.bump, retry);
 			if (drawing !== this.drawing) {
 				return;
 			}
@@ -67,13 +72,57 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 		await this.draw();
 	}
 
+	/** Whether every dependent has successfully reviewed this plan. */
+	get ready(): boolean {
+		return (
+			this.plan?.steps.every(
+				(step) => step.review === undefined || step.review.status === "done",
+			) ?? false
+		);
+	}
+
+	/** Changes a release choice in the plan the person will approve. */
+	chooseDependent(slug: string, bump: ShipBump): void {
+		if (this.starting) {
+			return;
+		}
+		if (this.plan !== null) {
+			this.plan = structuredClone(this.plan);
+		}
+		const step = this.plan?.steps.find(
+			(step) => step.slug === slug && step.action === "ship",
+		);
+		if (step === undefined) {
+			return;
+		}
+		step.bump = bump;
+		step.to = step.from === null ? null : nextVersion(step.from, bump);
+		this.changed();
+	}
+
 	/** Starts the ship the plan shows; whether it started. */
 	async approve(): Promise<boolean> {
+		if (!this.ready || this.starting) {
+			return false;
+		}
 		this.starting = true;
 		this.refusal = null;
 		this.changed();
 		try {
-			await this.server.startShip(this.project, this.bump);
+			await this.server.startShip(
+				this.project,
+				this.bump,
+				this.plan?.id === undefined
+					? undefined
+					: {
+							id: this.plan.id,
+							choices: Object.fromEntries(
+								this.plan.steps
+									.filter((step) => step.bump !== null)
+									.map((step) => [step.slug, step.bump as ShipBump]),
+							),
+						},
+			);
 			return true;
 		} catch (error) {
 			this.refusal = refusalOf(

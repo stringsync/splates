@@ -16,6 +16,7 @@ import {
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
+import { Git } from "../git";
 import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import {
@@ -34,7 +35,13 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import { CascadeRoutes, Cascades, planShip, registeredGraph } from "../ship";
+import {
+	CascadeRoutes,
+	Cascades,
+	planShip,
+	registeredGraph,
+	ShipReviews,
+} from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -487,12 +494,51 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
+	const drawShipPlan = async (slug: string, bump: import("../ship").ShipBump) =>
+		planShip(await registeredGraph({ projects, fs, log, ps }), slug, bump);
+	const reviews = new ShipReviews({
+		storage: machineStorage,
+		plan: drawShipPlan,
+		snapshot: async (plan) => {
+			const registered = await projects.list();
+			const revisions = [];
+			for (const step of plan.steps) {
+				const root = registered.find(
+					(project) => project.slug === step.slug,
+				)?.root;
+				if (root === undefined) {
+					fail("not_found", `${step.slug} is no longer registered`);
+				}
+				const git = new Git(root, { ps, fs });
+				if ((await git.porcelain(root)).length > 0) {
+					fail(
+						"conflict",
+						`${step.slug} needs a clean tree before ship review`,
+					);
+				}
+				revisions.push([step.slug, root, await git.head(root)]);
+			}
+			return JSON.stringify([plan, revisions]);
+		},
+		review: async (step, plan) =>
+			(await projectNamed(step.slug)).reviewShip(
+				step,
+				plan,
+				Object.fromEntries(
+					(await projects.list()).map((project) => [
+						project.slug,
+						project.root,
+					]),
+				),
+			),
+		log,
+	});
 	const cascades = new Cascades({
+		reviews,
 		storage: machineStorage,
 		fs,
 		log,
-		plan: async (slug, bump) =>
-			planShip(await registeredGraph({ projects, fs, log, ps }), slug, bump),
+		plan: drawShipPlan,
 		reach: projectNamed,
 	});
 	disposer.defer(async () => cascades.dispose());

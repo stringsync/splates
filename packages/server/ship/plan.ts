@@ -4,7 +4,15 @@ import type { ShipGraph, ShipProject, Use } from "./graph";
 export type ShipBump = "patch" | "minor" | "major";
 
 /** One project's part in a ship. */
+export interface ShipReview {
+	status: "pending" | "done" | "failed";
+	proposed: ShipBump | null;
+	reasons: string;
+}
+
 export interface ShipStep {
+	/** The dependent review completed before approval. */
+	review?: ShipReview;
 	slug: string;
 	/**
 	 * `ship` runs its `ship` command and publishes; `bump` only moves its pins
@@ -27,6 +35,8 @@ export interface ShipStep {
 
 /** A ship of one project and everything downstream of it, in dependency order. */
 export interface ShipPlan {
+	/** The saved review approved by the person. */
+	id?: string;
 	/** The project the ship starts from. */
 	from: string;
 	steps: ShipStep[];

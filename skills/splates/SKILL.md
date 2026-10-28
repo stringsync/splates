@@ -205,8 +205,8 @@ pause or resume automatic starts across the server, as Pause on the Queue
 page does. Running agents finish, and the person can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
-Only the person ships, too: `splates ship [<project>]` publishes a project
-under their own npm sign-in, and splates refuses it, `--plan` included, to an
+Only the person ships, too: `splates ship [<project>]` prepares a reviewed plan
+and prints its Ship page link for approval under their own npm sign-in, and splates refuses it, `--plan` included, to an
 agent. Never run `npm login` or `npm publish` either. When you think a
 release is due (a fix on the base that users are waiting on), end your reply
 with a run-command card naming `splates ship <project>`, the why under it

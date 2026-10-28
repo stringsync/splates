@@ -250,27 +250,18 @@ describe("Cascades", () => {
 		});
 	});
 
-	it("keeps the starting bump and revises a pending descendant before it ships", async () => {
+	it("keeps approved release types fixed before and after a descendant starts", async () => {
 		await cascades.start("webappwiz", "major");
 		expect(project("webappwiz").releaseBumps).toEqual(["major"]);
-		expect((await cascades.current())?.steps[0]).toMatchObject({
-			bump: "major",
-			to: "1.0.0",
+		await expect(cascades.revise("mdom", "minor")).rejects.toMatchObject({
+			reason: "conflict",
 		});
 		await shipped("webappwiz", "1.0.0");
-
-		const revised = await cascades.revise("mdom", "minor");
-		expect(revised.steps.find((step) => step.slug === "mdom")).toMatchObject({
-			status: "bumping",
-			bump: "minor",
-			to: "1.5.0",
-		});
-		await merge("mdom");
-
-		expect(project("mdom").releaseBumps).toEqual(["minor"]);
 		await expect(cascades.revise("mdom", "major")).rejects.toMatchObject({
 			reason: "conflict",
 		});
+		await merge("mdom");
+		expect(project("mdom").releaseBumps).toEqual(["patch"]);
 	});
 
 	it("stops the cascade when a ship's actual version is not the approved one", async () => {

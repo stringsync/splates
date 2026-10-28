@@ -6,7 +6,8 @@ import { Cascades } from "./cascade";
 import { CascadeRoutes } from "./cascade-routes";
 import { readGraph } from "./graph";
 import { planShip } from "./plan";
-import { FakeProject, servedProjects } from "./testing";
+import { ShipReviews } from "./reviews";
+import { FakeProject, servedProjects, until } from "./testing";
 
 describe("CascadeRoutes", () => {
 	let cascades: Cascades;
@@ -63,6 +64,91 @@ describe("CascadeRoutes", () => {
 		const abandoned = await (await routes.abandonCascade()).json();
 
 		expect(abandoned).toMatchObject({ status: "abandoned" });
+	});
+
+	// scry-ignore simple-test-setup: this integration alone needs reviews enabled; the other route tests use a runner without agents
+	it("requires a saved review id, applies approved versions and freezes them across restart", async () => {
+		const served = await servedProjects();
+		const storage = new MemoryStorage();
+		const projects = new Map(
+			served.sources.map((source) => [
+				source.slug,
+				new FakeProject(source.root),
+			]),
+		);
+		const plan = async (slug: string, bump: "patch" | "minor" | "major") =>
+			planShip(await readGraph(served.fs, served.sources), slug, bump);
+		const reviews = new ShipReviews({
+			storage,
+			log: new MemoryLogger(),
+			plan,
+			snapshot: async () => "revision",
+			review: async () => ({
+				status: "done",
+				proposed: "minor",
+				reasons: "Adapter adds a public API",
+			}),
+		});
+		const opts = {
+			storage,
+			fs: served.fs,
+			log: new MemoryLogger(),
+			plan,
+			reviews,
+			reach: async (slug: string) => projects.get(slug) as FakeProject,
+			timer,
+		};
+		const runner = new Cascades(opts);
+		const reviewedRoutes = new CascadeRoutes(
+			runner,
+			async () => "webappwiz",
+			timer,
+		);
+		await expect(
+			reviewedRoutes.startCascade(
+				new Request("http://localhost/api/ship", { method: "POST" }),
+			),
+		).rejects.toMatchObject({ reason: "conflict" });
+		await until(
+			async () =>
+				!(await runner.plan("webappwiz")).steps.some(
+					(step) => step.review?.status === "pending",
+				),
+		);
+		const draft = await runner.plan("webappwiz");
+		const response = await reviewedRoutes.startCascade(
+			new Request("http://localhost/api/ship", {
+				method: "POST",
+				body: JSON.stringify({ id: draft.id, choices: { mdom: "major" } }),
+			}),
+		);
+		expect(response.status).toBe(201);
+		expect(projects.get("webappwiz")?.starts).toBe(1);
+		const restart = new Cascades(opts);
+		expect(
+			(await restart.current())?.steps.find((step) => step.slug === "mdom"),
+		).toMatchObject({
+			bump: "major",
+			to: "2.0.0",
+			review: { proposed: "minor" },
+		});
+		await expect(restart.revise("mdom", "patch")).rejects.toMatchObject({
+			reason: "conflict",
+		});
+		const root = projects.get("webappwiz") as FakeProject;
+		root.end("done", "0.0.51");
+		await restart.tick();
+		const mdom = projects.get("mdom") as FakeProject;
+		mdom.bumps.states.set(mdom.bump(), "merged");
+		await restart.tick();
+		// splates ships first; finish it to let mdom publish its approved major.
+		(projects.get("splates") as FakeProject).bumps.states.set(101, "merged");
+		await restart.tick();
+		(projects.get("splates") as FakeProject).end("done", "0.1.0");
+		await restart.tick();
+		expect(mdom.releaseBumps).toEqual(["major"]);
+		runner.dispose();
+		restart.dispose();
 	});
 
 	it("streams the cascade as the page joins, and again once it changes", async () => {

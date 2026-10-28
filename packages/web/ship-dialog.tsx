@@ -1,7 +1,8 @@
-import type { ShipStep } from "@stringsync/splates-server/ship";
+import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
 import { useReactive } from "@webappwiz/react";
 import { LoaderCircleIcon, PackageIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -50,6 +51,16 @@ export function ShipDialog({
 	useEffect(() => {
 		void approval.draw();
 	}, [approval]);
+	useEffect(() => {
+		if (!plan?.steps.some((step) => step.review?.status === "pending")) {
+			return;
+		}
+		const waiting = new SystemTimer().setTimeout(
+			() => void approval.draw(),
+			Duration.secs(2),
+		);
+		return () => waiting.dispose();
+	}, [approval, plan]);
 	const approve = async () => {
 		if (await approval.approve()) {
 			onApproved?.();
@@ -83,14 +94,26 @@ export function ShipDialog({
 						Drawing the plan…
 					</p>
 				)}
-				{plan !== null && <PlanSteps steps={plan.steps} />}
+				{plan !== null && (
+					<PlanSteps
+						steps={plan.steps}
+						starting={starting || !approval.ready}
+						onChoose={(slug, bump) => approval.chooseDependent(slug, bump)}
+					/>
+				)}
+				{(plan?.steps.some((step) => step.review?.status === "failed") ||
+					(refusal !== null && plan !== null)) && (
+					<Button variant="outline" onClick={() => void approval.draw(true)}>
+						Retry reviews
+					</Button>
+				)}
 				<Refusal refusal={refusal} className="text-sm" />
 				<DialogFooter>
 					<Button variant="outline" onClick={onClose}>
 						Cancel
 					</Button>
 					<Button
-						disabled={plan === null || starting}
+						disabled={!approval.ready || starting}
 						onClick={() => void approve()}
 					>
 						{starting ? (
@@ -107,20 +130,38 @@ export function ShipDialog({
 }
 
 /** The plan as a tree, each project beneath its first dependency in the plan. */
-function PlanSteps({ steps }: { steps: ShipStep[] }): JSX.Element {
+function PlanSteps({
+	steps,
+	starting,
+	onChoose,
+}: {
+	steps: ShipStep[];
+	starting: boolean;
+	onChoose: (slug: string, bump: ShipBump) => void;
+}): JSX.Element {
 	return (
 		<ShipTree
 			label="Ship plan"
 			items={steps}
 			slugOf={(step) => step.slug}
 			dependenciesOf={(step) => step.takes.map((use) => use.project)}
-			render={(step) => <PlanProject step={step} />}
+			render={(step) => (
+				<PlanProject step={step} starting={starting} onChoose={onChoose} />
+			)}
 			className="max-h-[55vh] overflow-y-auto pr-1"
 		/>
 	);
 }
 
-function PlanProject({ step }: { step: ShipStep }): JSX.Element {
+function PlanProject({
+	step,
+	starting,
+	onChoose,
+}: {
+	step: ShipStep;
+	starting: boolean;
+	onChoose: (slug: string, bump: ShipBump) => void;
+}): JSX.Element {
 	return (
 		<div
 			className={cn(
@@ -167,6 +208,23 @@ function PlanProject({ step }: { step: ShipStep }): JSX.Element {
 				</p>
 			)}
 			<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
+			{step.review !== undefined && (
+				<p role="status" className="text-sm">
+					{step.review.status === "pending"
+						? "Reviewing dependencies…"
+						: step.review.status === "failed"
+							? `Review failed: ${step.review.reasons}`
+							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}
+				</p>
+			)}
+			{step.takes.length > 0 && step.bump !== null && (
+				<ShipBumpSelector
+					label={`Release type for ${step.slug}`}
+					value={step.bump}
+					disabled={starting || step.review?.status === "pending"}
+					onChange={(bump) => onChoose(step.slug, bump)}
+				/>
+			)}
 		</div>
 	);
 }

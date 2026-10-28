@@ -26,7 +26,11 @@ describe("Bumps", () => {
 
 	it("adds a bump task groomed and untriaged, queued by the ship", async () => {
 		const id = await bumps.add(
-			{ from: "webappwiz", origin: "/webappwiz" },
+			{
+				from: "webappwiz",
+				origin: "/webappwiz",
+				release: { bump: "minor", reasons: "Add the reviewed public adapter" },
+			},
 			takes,
 		);
 
@@ -35,6 +39,9 @@ describe("Bumps", () => {
 			"Take webappwiz 0.0.51, @webappwiz/cli 0.0.51, from the ship of webappwiz",
 		);
 		expect(task.text).toContain("- `webappwiz` 0.0.51, from webappwiz");
+		expect(task.text).toContain(
+			"Approved release: minor. Plan review: Add the reviewed public adapter",
+		);
 		expect(task.state).toMatchObject({
 			stage: "queued",
 			groomed: true,

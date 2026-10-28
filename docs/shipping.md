@@ -49,8 +49,7 @@ the project's own and draws no edge.
 `splates ship --plan [<project>]` prints what shipping a project would do,
 running nothing: it first, then each dependent in dependency order, with the
 version each goes to, what it publishes and what it takes. A dependent that is
-public, names a `ship` command and has dependents of its own ships at its next
-patch, so they get its new version; any other only takes its bump.
+public, names a `ship` command and has dependents of its own gets a provisional patch in this offline preview; the server reviews its release type before approval. Any other only takes its bump.
 `--bump minor` or `--bump major` moves the project you ship further than a
 patch.
 
@@ -66,12 +65,10 @@ On the page, a project's menu in the project switcher has **Ship
 order, the version it goes to, what it publishes, what it takes and why it
 ships or only takes its bump. Its **Release type** picks Patch, Minor or
 Major for the project you ship, redrawing the plan at that version.
-**Approve** starts the whole cascade on the server at the type you chose. Nothing runs before you approve, and npm still asks you at each
-publish.
+Before approval, an agent in each dependent reviews upstream changes since its pins, changelogs, public API differences and required repairs. The plan shows its reasons and proposed release type; you can change each dependent release. **Approve** stays disabled until every review succeeds, then starts the saved plan. Source revisions are checked again at approval; changed projects require a new review. Publishing starts only after approval, and npm still asks you at each publish.
 
 From a terminal of yours, `splates ship [<project>] [--bump <type>]` asks
-`splates server` to ship the project (the one you stand in, by default) and prints its output to
-the end. Give the server's URL with `--dev` when it is not this machine's.
+`splates server` to prepare the reviewed plan for the project (the one you stand in, by default) and prints a link to approve it on the Ship page. Give the server's URL with `--dev` when it is not this machine's.
 
 The server runs the ship on its own machine, under your npm sign-in:
 
@@ -110,12 +107,7 @@ stays published, and every other open bump task is removed. Start a new
 ship once the problem is resolved. Use `splates ship --abandon` to end a
 run under way.
 
-A dependent ships at a patch unless you change it. Until its publish starts,
-its row in the badge's popover offers Patch, Minor and Major, as does
-`splates ship <project> --bump <type>` while the cascade runs, and the
-change is kept with the cascade. Its bump task carries on as it was. When an
-agent's fixes in a bump task change that project's own public API, it asks
-you which type to release, and the cascade waits on your answer.
+Release types are fixed at approval and survive server restarts. A bump task receives its approved release type and the review's reasons. If its repairs reveal a public API change outside that plan or a break it cannot fix, the agent removes the task as blocked on a revised ship plan, stopping the run. It never asks for a different release type during the run.
 
 One cascade runs on the machine at a time, kept in the machine's records
 (`ship-cascade.json`), so a restarted server carries on from where it stopped.

@@ -52,7 +52,11 @@ export class CascadeRoutes {
 	/** The plan to ship the project at `?bump=`, what Approve on the page starts. */
 	readonly plan = async (request: Request): Promise<Response> =>
 		Response.json(
-			await this.#cascades.plan(await this.#slugOf(request), bumpOf(request)),
+			await this.#cascades.plan(
+				await this.#slugOf(request),
+				bumpOf(request),
+				new URL(request.url).searchParams.get("retry") === "true",
+			),
 		);
 
 	/**
@@ -60,14 +64,42 @@ export class CascadeRoutes {
 	 * under way when there is one, which it does not start a second beside.
 	 */
 	readonly startCascade = async (request: Request): Promise<Response> => {
+		const body = await request.text();
+		let approval: { id: string; choices: Record<string, ShipBump> } | undefined;
+		if (body !== "") {
+			let value: { id?: unknown; choices?: unknown } | null;
+			try {
+				value = JSON.parse(body);
+			} catch {
+				fail("usage", "approval must be JSON");
+			}
+			if (
+				typeof value?.id !== "string" ||
+				typeof value.choices !== "object" ||
+				value.choices === null ||
+				Array.isArray(value.choices)
+			) {
+				fail(
+					"usage",
+					"approval needs the reviewed plan id and release choices",
+				);
+			}
+			for (const bump of Object.values(value.choices)) {
+				if (bump !== "patch" && bump !== "minor" && bump !== "major") {
+					fail("usage", "bump is patch, minor or major");
+				}
+			}
+			approval = value as { id: string; choices: Record<string, ShipBump> };
+		}
 		const { cascade, started } = await this.#cascades.start(
 			await this.#slugOf(request),
 			bumpOf(request),
+			approval,
 		);
 		return Response.json(cascade, { status: started ? 201 : 200 });
 	};
 
-	/** Changes the pending publish `?project=` names to `?bump=`. */
+	/** Refuses changes to release types fixed by approval. */
 	readonly reviseCascadeBump = async (request: Request): Promise<Response> => {
 		const bump = bumpOf(request);
 		if (bump === undefined) {

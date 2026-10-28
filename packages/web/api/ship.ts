@@ -7,7 +7,7 @@ import type {
 	ShipPlan,
 	StageKey,
 } from "@stringsync/splates-server/ship";
-import { ApiError, answered, scoped, send } from "./request";
+import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**
  * Starts a ship of `project` at `bump`, the page's own for "", on the server,
@@ -16,11 +16,12 @@ import { ApiError, answered, scoped, send } from "./request";
 export async function startShip(
 	project: string,
 	bump: ShipBump = "patch",
+	approval?: { id: string; choices: Record<string, ShipBump> },
 ): Promise<void> {
 	const query = new URLSearchParams(
 		project === "" ? { bump } : { project, bump },
 	);
-	await send(`/api/ship?${query}`, {});
+	await sendJson(`/api/ship?${query}`, "POST", approval ?? {});
 }
 
 /**
@@ -31,9 +32,10 @@ export async function startShip(
 export async function shipPlan(
 	project: string,
 	bump: ShipBump = "patch",
+	retry = false,
 ): Promise<ShipPlan> {
 	const response = await answered(
-		`/api/ship/plan?${new URLSearchParams({ project, bump })}`,
+		`/api/ship/plan?${new URLSearchParams({ project, bump, ...(retry ? { retry: "true" } : {}) })}`,
 	);
 	const body = (await response.json().catch(() => ({}))) as
 		| ShipPlan
@@ -57,7 +59,7 @@ export async function shipGraph(): Promise<ShipGraph> {
 	return (await response.json()) as ShipGraph;
 }
 
-/** Changes a pending publish in the cascade under way to `bump`. */
+/** Requests a release-type revision; the server refuses changes during a run. */
 export async function reviseCascadeBump(
 	project: string,
 	bump: ShipBump,

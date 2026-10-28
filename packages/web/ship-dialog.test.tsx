@@ -145,7 +145,12 @@ describe("ShipDialog", () => {
 		await waitFor(() => view.getByRole("list", { name: "Ship plan" }));
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Major" })),
+			fireEvent.click(
+				within(view.getByRole("group", { name: "Release type" })).getByRole(
+					"button",
+					{ name: "Major" },
+				),
+			),
 		);
 		await waitFor(() => {
 			const rows = within(
@@ -159,6 +164,54 @@ describe("ShipDialog", () => {
 
 		await waitFor(() => expect(closed).toBe(true));
 		expect(started).toEqual([{ project: "webappwiz", bump: "major" }]);
+	});
+
+	it("blocks approval during review, shows reasons and approves an edited dependent release", async () => {
+		let drawn: ShipPlan = structuredClone(PLAN);
+		drawn.id = "review-1";
+		(drawn.steps[1] as ShipStep).review = {
+			status: "pending",
+			proposed: null,
+			reasons: "Reviewing upstream",
+		};
+		let approved: unknown;
+		const approval = new ShipApproval("webappwiz", {
+			shipPlan: async () => structuredClone(drawn),
+			startShip: async (_project, _bump, choice) => {
+				approved = choice;
+			},
+		});
+		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
+		await waitFor(() => view.getByText("Reviewing dependencies…"));
+		expect(
+			view.getByRole("button", { name: "Approve" }).hasAttribute("disabled"),
+		).toBe(true);
+		expect(await approval.approve()).toBe(false);
+		drawn = structuredClone(drawn);
+		(drawn.steps[1] as ShipStep).review = {
+			status: "done",
+			proposed: "minor",
+			reasons: "New adapter preserves old calls",
+		};
+		await act(() => approval.draw());
+		expect(
+			view.getByText("Proposed minor: New adapter preserves old calls"),
+		).toBeTruthy();
+		await act(() =>
+			fireEvent.click(
+				within(
+					view.getByRole("group", { name: "Release type for mdom" }),
+				).getByRole("button", { name: "Major" }),
+			),
+		);
+		expect(view.getByText("1.4.2 → 2.0.0")).toBeTruthy();
+		await act(() =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+		expect(approved).toMatchObject({
+			id: "review-1",
+			choices: { mdom: "major", webappwiz: "patch" },
+		});
 	});
 
 	it("says why there is no plan, and offers no Approve", async () => {

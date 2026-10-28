@@ -23,7 +23,19 @@ const CLOSED_KEY = "splates.ship.closed";
 export function ShipsPage(): JSX.Element {
 	const live = useLiveShips();
 	const [history, setHistory] = useState<CascadeSummary[]>([]);
-	const [planning, setPlanning] = useState<ShipApproval | null>(null);
+	const [planning, setPlanning] = useState<ShipApproval | null>(() => {
+		const query = new URLSearchParams(location.search);
+		const project = query.get("project");
+		if (project === null) {
+			return null;
+		}
+		const approval = new ShipApproval(project);
+		const bump = query.get("bump");
+		if (bump === "patch" || bump === "minor" || bump === "major") {
+			approval.bump = bump;
+		}
+		return approval;
+	});
 	const [closed, setClosed] = useState(() => localStorage.getItem(CLOSED_KEY));
 	const cascade = live?.cascade ?? null;
 	const shown =

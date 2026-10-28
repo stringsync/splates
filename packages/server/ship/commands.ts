@@ -10,7 +10,6 @@ import type { Cascade } from "./cascade";
 import { ReleaseGit } from "./git";
 import { readGraph, type ShipGraph } from "./graph";
 import { planShip, type ShipBump, ShipPlanError, type ShipStep } from "./plan";
-import type { Ship } from "./run";
 
 /** What `shipPlan` works with. */
 export interface ShipContext {
@@ -29,8 +28,8 @@ export interface ShipContext {
  * `splates ship`: asks `splates server` (`dev`, else the one SPLATES_DEV
  * names, else this machine's on its default port) to ship `project`, the one
  * `git` is in for none, and its cascade through the projects downstream,
- * following the first ship to its end; while a cascade is under way, prints
- * it instead of starting another. With `plan`, prints what shipping it would
+ * printing a link to review and approve it; while a cascade is under way,
+ * prints its progress instead of preparing another. With `plan`, prints what shipping it would
  * do, running nothing. A ship is the person's to start, so an agent is refused even
  * the plan and told to ask with a card, whose Ship on the page starts it.
  */
@@ -125,11 +124,9 @@ async function thisProject(ctx: ShipContext): Promise<string> {
 }
 
 /**
- * Starts the cascade of `slug`'s ship on the server, which runs each ship
- * on its machine under the person's npm sign-in, and prints the first
- * ship's output until it ends: npm's links are in it, and on the page as
- * well, for any device. Prints the cascade under way instead when there is
- * one; with `change`, abandons the whole cascade.
+ * Prepares the reviewed plan on the server and links to the person's approval.
+ * Prints the cascade under way instead when there is one; with `change`,
+ * abandons the whole cascade.
  */
 async function shipOnServer(
 	ctx: ShipContext,
@@ -189,57 +186,34 @@ async function shipOnServer(
 		ctx.log.info(cascadeTable(ended));
 		return;
 	}
-	const response = await ask("POST", "/api/ship", bump);
-	let cascade = (await response.json()) as Cascade;
-	if (response.status !== 201) {
+	const cascade = (await (
+		await ask("GET", "/api/ship/cascade")
+	).json()) as Cascade | null;
+	if (cascade?.status === "running") {
 		if (bump !== undefined) {
-			cascade = (await (
-				await ask("PATCH", "/api/ship/cascade", bump)
-			).json()) as Cascade;
-			ctx.log.info(`changed ${slug} to a ${bump} release`);
-		} else {
-			ctx.log.info(
-				`the ship of ${cascade.from} is under way, so no other starts until it ends`,
+			fail(
+				"conflict",
+				"approved release types cannot change during a run; approve a revised ship plan",
 			);
 		}
 		ctx.log.info(cascadeTable(cascade));
 		return;
 	}
-	const downstream = cascade.steps.length - 1;
-	ctx.log.info(
-		`shipping ${slug} from ${cascade.steps[0]?.from ?? "its current version"} on ${url}, which shows npm's sign-in and 2FA links too${downstream === 0 ? "" : `, then ${downstream} project(s) downstream`}`,
-	);
-	const output = (await ask("GET", "/api/ship/output")).body;
-	if (output !== null) {
-		let pending = "";
-		const decoder = new TextDecoder();
-		for await (const chunk of output) {
-			const lines = (pending + decoder.decode(chunk, { stream: true })).split(
-				"\n",
-			);
-			pending = lines.pop() ?? "";
-			for (const line of lines) {
-				ctx.log.info(line);
-			}
-		}
-		if (pending !== "") {
-			ctx.log.info(pending);
-		}
-	}
-	const ended = (await (await ask("GET", "/api/ship")).json()) as Ship | null;
-	if (ended?.status === "failed") {
-		fail("hook_failed", ended.error ?? `the ship of ${slug} failed`, {
-			project: slug,
-		});
+	const plan = (await (
+		await ask("GET", "/api/ship/plan", bump)
+	).json()) as import("./plan").ShipPlan;
+	const page = new URL("/", url);
+	page.hash = "ships";
+	page.searchParams.set("project", slug);
+	if (bump !== undefined) {
+		page.searchParams.set("bump", bump);
 	}
 	ctx.log.info(
-		ended?.status === "done"
-			? `shipped ${slug}${ended.to === null ? "" : ` ${ended.to}`}`
-			: `the ship of ${slug} goes on in splates server; the page shows it`,
+		`Review dependent release types and approve the saved ship plan on ${page}`,
 	);
-	if (downstream > 0) {
+	for (const step of plan.steps) {
 		ctx.log.info(
-			`the cascade goes on in splates server, through bump tasks queued in each project downstream: \`splates ship\` shows where it stands`,
+			`${step.slug}: ${step.review?.status ?? step.action}${step.review === undefined ? "" : `: ${step.review.reasons}`}`,
 		);
 	}
 }

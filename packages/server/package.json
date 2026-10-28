@@ -76,6 +76,7 @@
 		"./workers": "./workers/index.ts",
 		"./setup": "./setup/index.ts",
 		"./ship": "./ship/index.ts",
+		"./ship/browser": "./ship/browser.ts",
 		"./stats": "./stats/index.ts",
 		"./stats/browser": "./stats/browser.ts",
 		"./storage": "./storage/index.ts",

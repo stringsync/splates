@@ -14,16 +14,7 @@ export interface GitResult {
 	stderr: string;
 }
 
-/**
- * Every git call splates makes, scoped to one repository. Agents are not allowed
- * to run these themselves, since going through splates is what makes concurrent
- * work safe, so this is the only place git is spoken.
- */
-/**
- * How a `Git` runs `git -C <cwd> <args>`, `env` added to its environment:
- * a process on this machine by default, or one on the worker a checkout is
- * on. Its output comes back as git wrote it, untrimmed.
- */
+/** Run Git in a checkout on this machine or a worker, preserving untrimmed output. */
 export interface GitRunner {
 	git(
 		cwd: string,
@@ -88,7 +79,7 @@ export class Git {
 		return { code, stdout: stdout.trim(), stderr: stderr.trim() };
 	}
 
-	/** `run` with `env` added to git's environment, which is how a token reaches it without landing in its argv. */
+	/** Run Git with additional environment variables. Pass credentials in `env`, never in arguments. */
 	async runWith(
 		cwd: string,
 		args: string[],
@@ -173,6 +164,43 @@ export class Git {
 
 	shortHead(cwd: string): Promise<string> {
 		return this.out(cwd, "rev-parse", "--short", "HEAD");
+	}
+
+	/** Changes since an exact pinned release, for a dependent's pre-approval ship review. */
+	async releaseReview(
+		version: string,
+	): Promise<{ range: string; commits: string; diff: string }> {
+		if (!/^\d+\.\d+\.\d+$/.test(version)) {
+			throw new Error(
+				`Ship review needs an exact pinned version, got ${version}`,
+			);
+		}
+		const from = await this.out(
+			this.root,
+			"rev-parse",
+			"--verify",
+			`refs/tags/v${version}^{commit}`,
+		);
+		const to = await this.head(this.root);
+		await this.out(this.root, "merge-base", "--is-ancestor", from, to);
+		const range = `${from}..${to}`;
+		const commits = await this.out(
+			this.root,
+			"log",
+			"--format=%h %s",
+			range,
+			"--",
+		);
+		const diff = await this.out(
+			this.root,
+			"diff",
+			"--no-ext-diff",
+			"--no-color",
+			from,
+			to,
+			"--",
+		);
+		return { range, commits, diff };
 	}
 
 	async porcelain(cwd: string): Promise<string[]> {
@@ -542,11 +570,7 @@ export class Git {
 		return code === 0 ? lines(stdout) : [];
 	}
 
-	/**
-	 * `git push` with `args`, `env` added to its environment, which is how a
-	 * token reaches it without landing in its argv. It never asks for a
-	 * password: a push with nothing to sign in with fails instead of hanging.
-	 */
+	/** Push refs with additional arguments and environment variables; fails if credentials are missing. */
 	push(
 		cwd: string,
 		args: string[],
