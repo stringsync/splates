@@ -2,7 +2,6 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Lock, Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
-import { isProjectColor, type ProjectColor } from "./appearance";
 
 /**
  * The registry's own format, apart from each repository's records. Format 2
@@ -17,8 +16,6 @@ export interface ProjectRecord {
 	root: string;
 	/** When splates first ran there, as an ISO timestamp. */
 	added: string;
-	/** Override the badge color; omit it for the automatic choice. */
-	color?: ProjectColor;
 	/**
 	 * What each other project may do here, by its root, those left out
 	 * `DEFAULT_REACH`.
@@ -43,6 +40,16 @@ interface StoredRegistry {
 	projects?: ProjectRecord[];
 	focused?: string[] | string | null;
 	ids?: Record<string, string>;
+}
+
+/** What `Projects` works with. */
+export interface ProjectsOptions {
+	/** Tells whether a project's repository is still there. */
+	fs: Fs;
+	/** Held while the file is rewritten, so two commands never drop each other's. */
+	lock: Lock;
+	/** The current time; a test passes its own. */
+	now?: () => Date;
 }
 
 /**
@@ -219,46 +226,13 @@ export class Projects {
 					// The default is kept by leaving it out, so it moves with it.
 					const grants =
 						reach === DEFAULT_REACH ? others : { ...others, [from]: reach };
-					const { grants: _grants, ...record } = each;
 					return Object.keys(grants).length === 0
-						? record
+						? { root: each.root, added: each.added }
 						: { ...each, grants };
 				}),
 			};
 		});
 		return registered;
-	}
-
-	/** Set the badge color of project `slug`, or pass null to restore its automatic color. */
-	async appearance(slug: string, color: unknown): Promise<void> {
-		if (color !== null && !isProjectColor(color)) {
-			fail("usage", "choose a project color or null for automatic", {});
-		}
-		const found = (await this.list()).find((each) => each.slug === slug);
-		if (found === undefined) {
-			fail("not_found", `no splates project '${slug}'`, { project: slug });
-		}
-		const root = found.root;
-		let registered = false;
-		await this.change((file) => {
-			registered = file.projects.some((each) => each.root === root);
-			if (!registered) {
-				return null;
-			}
-			return {
-				...file,
-				projects: file.projects.map((each) => {
-					if (each.root !== root) {
-						return each;
-					}
-					const { color: _, ...record } = each;
-					return color === null ? record : { ...record, color };
-				}),
-			};
-		});
-		if (!registered) {
-			fail("not_found", `no splates project '${slug}'`, { project: slug });
-		}
 	}
 
 	/**
@@ -422,14 +396,4 @@ interface RegistryFile {
 	focused: string[];
 	/** The id each checkout's records are kept under, by its root. */
 	ids: Record<string, string>;
-}
-
-/** What `Projects` works with. */
-export interface ProjectsOptions {
-	/** Tells whether a project's repository is still there. */
-	fs: Fs;
-	/** Held while the file is rewritten, so two commands never drop each other's. */
-	lock: Lock;
-	/** The current time; defaults to the system clock. */
-	now?: () => Date;
 }

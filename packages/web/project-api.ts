@@ -8,11 +8,7 @@ import type {
 	After,
 	Checkpoint,
 } from "@stringsync/splates-server/conversations";
-import type {
-	Added,
-	ProjectColor,
-	Reach,
-} from "@stringsync/splates-server/projects";
+import type { Added, Reach } from "@stringsync/splates-server/projects";
 import type { Behind, ServerChoice } from "@stringsync/splates-server/server";
 import type { Held } from "@stringsync/splates-server/terminal";
 import { ApiError, answered, send, sendJson } from "./api";
@@ -85,18 +81,6 @@ export async function grantReach(
 		from,
 		reach,
 	});
-}
-
-/** Saves a project's badge color on the server; null restores its automatic color. */
-export async function setProjectColor(
-	slug: string,
-	color: ProjectColor | null,
-): Promise<void> {
-	await sendJson(
-		`/api/projects/${encodeURIComponent(slug)}/appearance`,
-		"PUT",
-		{ color },
-	);
 }
 
 /** Makes `slug` the project an address naming none shows, on any device. */
@@ -179,8 +163,6 @@ export interface Projects {
 
 /** A project the page can switch to, from the registry. */
 export interface ProjectChoice {
-	/** Omitted to use the stable automatic badge color. */
-	color?: ProjectColor;
 	slug: string;
 	root: string;
 	/** Its repository moved or was deleted: it cannot be opened. */

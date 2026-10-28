@@ -19,12 +19,7 @@ import { fail } from "../exit";
 import { Git } from "../git";
 import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
-import {
-	AppearanceRoutes,
-	Everywhere,
-	EverywhereRoutes,
-	Picker,
-} from "../projects";
+import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
 import { OpenBoards, openRepository } from "../records";
 import {
@@ -376,7 +371,6 @@ export async function dev(
 	} = restarts;
 
 	const picker = new Picker(deps);
-	const appearance = new AppearanceRoutes(deps.projects);
 
 	const ended = new DevOutcomes(deps);
 	const configFiles = new ConfigFiles(fs);
@@ -811,7 +805,6 @@ export async function dev(
 					"/api/power": { POST: talk(guarded(powerNow)) },
 					"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 					"/api/projects/:slug": { DELETE: guarded(forgetProject) },
-					"/api/projects/:slug/appearance": { PUT: guarded(appearance.save) },
 					"/api/snapshot": scoped((project) => project.snapshot),
 					// Conversations among them, so only as far as a conversation reaches.
 					"/api/everywhere": talk(guarded(everywhere.list)),

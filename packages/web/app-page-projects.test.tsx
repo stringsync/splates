@@ -65,11 +65,11 @@ describe("App's pages and the project switcher", () => {
 			await switcherOn(view, "Automations"),
 		];
 		expect(switchers).toEqual([
-			"Wwebappwiz",
+			"webappwiz",
 			null,
 			null,
-			"Wwebappwiz",
-			"Wwebappwiz",
+			"webappwiz",
+			"webappwiz",
 		]);
 	});
 
@@ -85,7 +85,7 @@ describe("App's pages and the project switcher", () => {
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
 		]).toEqual([
-			"Wwebappwiz",
+			"webappwiz",
 			null,
 			[
 				"Board",
@@ -128,7 +128,7 @@ describe("App's pages and the project switcher", () => {
 				.textContent,
 			within(drawer).getByRole("button", { name: "Board" }).textContent,
 			within(drawer).getByRole("button", { name: "Queue" }).textContent,
-		]).toEqual(["Spinning Plates", "Wwebappwiz", "Board", "Queue"]);
+		]).toEqual(["Spinning Plates", "webappwiz", "Board", "Queue"]);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
@@ -147,7 +147,7 @@ describe("App's pages and the project switcher", () => {
 					"button",
 					{ current: "page" },
 				).textContent,
-			]).toEqual([null, "Wwebappwiz", "Creds"]),
+			]).toEqual([null, "webappwiz", "Creds"]),
 		);
 	});
 
