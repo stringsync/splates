@@ -55,25 +55,6 @@ export class Bumps {
 	}
 
 	/**
-	 * Adds and queues a task to fix a ship step that failed or hung, for the
-	 * ship of `from`: the person asked for it, so an agent starts it.
-	 */
-	async addFix(
-		{ from, project }: { from: string; project: string },
-		{ title, text }: { title: string; text: string },
-	): Promise<number> {
-		const task = await this.deps.tasks.add(title, null, {
-			text,
-			origin: { project, task: null },
-			ready: true,
-		});
-		const queued = await this.deps.tasks.revise(task.id, (state) =>
-			enqueued(state, { by: "ship", project: from }),
-		);
-		return queued.id;
-	}
-
-	/**
 	 * Where bump task `id` stands: on the board, open or asking the person;
 	 * off it, merged or removed, as its finished record says.
 	 */
@@ -128,7 +109,7 @@ function bumpText(from: string, takes: BumpTake[]): string {
 		"Move every pin of them in each `package.json` (the root's and each workspace member's) to these versions, run `bun install`, fix what breaks, and land it through the merge gate.",
 		...afterBumpSteps(takes),
 		"",
-		"Publish nothing: when this project ships too, the cascade ships it once this task merges. When a break is past fixing, ask the person: the cascade waits on this project until it merges or the person drops the project from the run.",
+		"Publish nothing: when this project ships too, the cascade ships it once this task merges. When a break is past fixing, ask the person: the cascade waits on this project until it merges; removing it stops the whole run.",
 		"If the fixes change this project's own public API so its pending release should be minor or major rather than patch, ask the person to choose and change it in the cascade; the task and cascade wait while you ask.",
 	].join("\n");
 }

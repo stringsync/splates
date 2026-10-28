@@ -250,21 +250,6 @@ describe("Cascades", () => {
 		});
 	});
 
-	it("refuses to fix a project that neither failed, stopped nor hung", async () => {
-		await cascades.start("webappwiz");
-
-		const refused = await cascades.fix("webappwiz").catch((error) => error);
-		expect((refused as Exit).reason).toBe("conflict");
-	});
-
-	it("refuses to retry a project that neither failed nor stopped", async () => {
-		await cascades.start("webappwiz");
-
-		const refused = await cascades.retry("splates").catch((error) => error);
-		expect((refused as Exit).reason).toBe("conflict");
-		expect(project("splates").bumps.added).toHaveLength(0);
-	});
-
 	it("keeps the starting bump and revises a pending descendant before it ships", async () => {
 		await cascades.start("webappwiz", "major");
 		expect(project("webappwiz").releaseBumps).toEqual(["major"]);
@@ -306,14 +291,6 @@ describe("Cascades", () => {
 		expect(again.started).toBe(false);
 		expect(again.cascade.from).toBe("webappwiz");
 		expect(project("mdom").starts).toBe(0);
-	});
-
-	it("refuses to drop a project while it publishes", async () => {
-		await cascades.start("webappwiz");
-
-		const refused = await cascades.drop("webappwiz").catch((error) => error);
-		expect(refused).toBeInstanceOf(Exit);
-		expect((refused as Exit).reason).toBe("conflict");
 	});
 
 	it("refuses a plan there is none for", async () => {

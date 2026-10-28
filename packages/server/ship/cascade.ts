@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: one class carries a cascade through its projects; it was over before the fix step joined it
+// scry-ignore-file compact-files: one class carries a cascade through its projects; the state transitions stay together
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
@@ -12,7 +12,6 @@ import {
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import type { Bumps, BumpTake } from "./bumps";
-import { fixText, OUTPUT_LINES } from "./fix-text";
 import { type Pin, publishedPins } from "./graph";
 import { ShipHistory } from "./history";
 import {
@@ -28,7 +27,6 @@ import {
 	closeOut,
 	planned,
 	publishRead,
-	retried,
 	shipRefused,
 	shownCascade,
 	upgraded,
@@ -46,9 +44,8 @@ export function cascadeRecord(storage: Storage): Document<Cascade> {
  * from, `bumping` while its bump task is open, `asking` while that task
  * waits on the person, `stopped` once that task was removed unmerged,
  * `shipping` while its ship runs, `failed` once the ship failed, `done`,
- * `dropped` by the person from the run, or `abandoned` with the whole run.
- * A stopped or failed one holds up those after it until the person retries
- * or drops it.
+ * `dropped` when it has nothing to take, or `abandoned` with the whole run.
+ * A stopped or failed project stops the whole run.
  */
 export type CascadeStatus =
 	| "waiting"
@@ -72,8 +69,6 @@ export interface CascadeStep extends ShipStep {
 	published: Pin[];
 	/** Why it stopped, failed or was dropped; null otherwise. */
 	note: string | null;
-	/** The task in its project an agent fixes its failed or hung step in, until it ends. */
-	fix: number | null;
 	/** Its steps in the order it takes them, each with its times, last check and log. */
 	stages: Stage[];
 }
@@ -107,7 +102,7 @@ export interface CascadeProject {
 	/** Its config's `afterBump`: what a project taking its packages runs next. */
 	afterBump: string | null;
 	shipping: Pick<Shipping, "start" | "current" | "stop">;
-	bumps: Pick<Bumps, "add" | "addFix" | "state" | "remove">;
+	bumps: Pick<Bumps, "add" | "state" | "remove">;
 }
 
 /** What {@link Cascades} works with. */
@@ -139,13 +134,9 @@ const HELD: CascadeStatus[] = ["failed", "stopped"];
 const REVISABLE: CascadeStatus[] = ["waiting", "bumping", "asking", "stopped"];
 
 /**
- * Carries a ship through the projects that depend on it: ships the project
- * it starts from, then, as each is shipped, adds and queues a bump task in
- * every project whose takes are all shipped (one task for all of them),
- * and once that merges ships the project in turn when the plan says it
- * publishes. A bump that asks the person, or is removed, stops the cascade
- * at that project, and at those after it, until it merges or the person
- * drops it; one ship runs at a time, since each waits on the person's npm.
+ * Ships a project and its dependents in plan order. Start a run with
+ * `start`, follow it with `shown`, or end it with `abandon`. A failed ship
+ * or removed bump task stops the whole run; published versions stay on npm.
  */
 export class Cascades implements Resource {
 	private readonly record: Document<Cascade>;
@@ -296,153 +287,6 @@ export class Cascades implements Resource {
 	}
 
 	/**
-	 * Takes `slug` out of the cascade under way, so those after it go on
-	 * without its new version. Refused while its ship runs, or once done.
-	 */
-	drop(slug: string): Promise<Cascade> {
-		return this.serially(async () => {
-			const cascade =
-				(await this.current()) ??
-				fail("not_found", "no ship is under way", { project: slug });
-			const step =
-				cascade.steps.find((each) => each.slug === slug) ??
-				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
-					project: slug,
-				});
-			if (cascade.status !== "running" || ENDED.includes(step.status)) {
-				fail("conflict", `${slug} is ${step.status} in the ship already`, {
-					project: slug,
-				});
-			}
-			if (step.status === "shipping") {
-				fail("conflict", `${slug} is publishing now: drop it once it ends`, {
-					project: slug,
-				});
-			}
-			step.status = "dropped";
-			step.note = "dropped from the run by the person";
-			closeOut(step, this.stamp());
-			return this.advance(cascade);
-		});
-	}
-
-	/**
-	 * Runs `slug`'s part of the cascade under way again where it stopped: a
-	 * failed ship starts again, and a stopped one, whose bump task was
-	 * removed, takes a new bump task. Refused for a project that neither
-	 * failed nor stopped.
-	 */
-	retry(slug: string): Promise<Cascade> {
-		return this.serially(async () => {
-			const cascade =
-				(await this.current()) ??
-				fail("not_found", "no ship is under way", { project: slug });
-			const step =
-				cascade.steps.find((each) => each.slug === slug) ??
-				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
-					project: slug,
-				});
-			if (
-				cascade.status !== "running" ||
-				(step.status !== "failed" && step.status !== "stopped")
-			) {
-				fail(
-					"conflict",
-					`${slug} is ${step.status} in the ship: only a failed or stopped project is retried`,
-					{ project: slug },
-				);
-			}
-			if (step.status === "stopped") {
-				step.task = null;
-			}
-			retried(step);
-			// A merged bump ships again from bumping, and one with none from waiting.
-			step.status = step.task === null ? "waiting" : "bumping";
-			step.note = null;
-			this.opts.log.info(`retrying ${slug} in the ship of ${cascade.from}`);
-			return this.advance(cascade);
-		}).finally(() => this.schedule());
-	}
-
-	/**
-	 * Hands `slug`'s failed, stopped or hung step to an agent: a task in its
-	 * project, queued, that says the step, its command and the end of its
-	 * output. A hung ship is stopped first, so it shows failed. The step
-	 * runs again by itself once that task merges. Refused for a project
-	 * with none of those, or a fix already under way.
-	 */
-	fix(slug: string): Promise<Cascade> {
-		return this.serially(async () => {
-			const cascade =
-				(await this.current()) ??
-				fail("not_found", "no ship is under way", { project: slug });
-			const step =
-				cascade.steps.find((each) => each.slug === slug) ??
-				fail("not_found", `${slug} is not in the ship of ${cascade.from}`, {
-					project: slug,
-				});
-			const shown = await this.view(cascade);
-			const stages =
-				shown.cascade.steps.find((each) => each.slug === slug)?.stages ?? [];
-			const hung = stages.find((each) => each.state === "hung");
-			if (
-				cascade.status !== "running" ||
-				step.fix !== null ||
-				!(
-					step.status === "failed" ||
-					step.status === "stopped" ||
-					(step.status === "shipping" && hung !== undefined)
-				)
-			) {
-				fail(
-					"conflict",
-					`${slug} is ${step.status} in the ship: only a failed, stopped or hung project, not yet handed to an agent, is fixed`,
-					{ project: slug },
-				);
-			}
-			const project = await this.opts.reach(slug);
-			const current = await project.shipping.current();
-			const ship = current?.started === step.ship ? current : null;
-			const at =
-				hung ??
-				stages.find((each) => each.state === "failed") ??
-				stages.findLast((each) => each.log !== null);
-			const output =
-				at?.log == null
-					? ""
-					: (await this.history.slice(cascade.id, slug, at.log))
-							.trimEnd()
-							.split("\n")
-							.slice(-OUTPUT_LINES)
-							.join("\n");
-			if (step.status === "shipping") {
-				await project.shipping.stop();
-				await this.shipped(step);
-				if (step.status === "shipping") {
-					step.status = "failed";
-				}
-				step.note = `hung at ${at?.name ?? "its ship"}, then stopped`;
-			}
-			step.fix = await project.bumps.addFix(
-				{ from: cascade.from, project: slug },
-				{
-					title: `Fix the ship of ${slug}, ${step.status} at ${at?.name ?? "its ship"}`,
-					text: fixText({
-						from: cascade.from,
-						step,
-						stage: at?.name ?? null,
-						command: ship?.command ?? null,
-						output,
-						log: this.history.logOf(cascade.id, slug),
-					}),
-				},
-			);
-			this.opts.log.info(`${slug} takes its fix as task ${step.fix}`);
-			return this.advance(cascade);
-		}).finally(() => this.schedule());
-	}
-
-	/**
 	 * Ends the cascade under way at the person's word: whatever shipped stays
 	 * published, the ship running now is stopped, every open bump task is
 	 * removed from its project, and nothing more ships. History keeps it as
@@ -566,40 +410,9 @@ export class Cascades implements Resource {
 				return this.bumped(cascade, step);
 			case "shipping":
 				return this.shipped(step);
-			case "failed":
-			case "stopped":
-				return this.fixed(cascade, step);
 			default:
-				// Done or dropped, until the person retries or drops it.
+				// Ended projects need no further work.
 				return;
-		}
-	}
-
-	/**
-	 * Follows the task an agent fixes `step` in: its step runs again by
-	 * itself once that merges (npm still asks the person at each publish),
-	 * and waits for the person once it is removed.
-	 */
-	private async fixed(cascade: Cascade, step: CascadeStep): Promise<void> {
-		if (step.fix === null) {
-			return;
-		}
-		const state = await (await this.opts.reach(step.slug)).bumps.state(
-			step.fix,
-		);
-		if (state === "merged") {
-			this.opts.log.info(`${step.slug}'s fix merged: running it again`);
-			step.fix = null;
-			if (step.status === "stopped") {
-				step.task = null;
-			}
-			retried(step);
-			step.status = step.task === null ? "waiting" : "bumping";
-			step.note = null;
-			await this.move(cascade, step);
-		} else if (state === "removed") {
-			step.note = `${step.note ?? step.status}; the task fixing it, ${step.fix}, was removed`;
-			step.fix = null;
 		}
 	}
 

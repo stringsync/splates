@@ -22,7 +22,7 @@ const STAGE_KEYS: StageKey[] = [
 /**
  * The machine's ship cascade over HTTP, for `splates ship` and the page:
  * the one under way or the last to end, starting one from a project,
- * revising, retrying or dropping a project in it, abandoning it, and the
+ * revising a project in it, abandoning it, and the
  * cascades history keeps, each with its steps and their logs.
  */
 export class CascadeRoutes {
@@ -75,18 +75,6 @@ export class CascadeRoutes {
 			await this.#cascades.revise(await this.#slugOf(request), bump),
 		);
 	};
-
-	/** Drops the project `?project=` names from the cascade under way. */
-	readonly dropFromCascade = async (request: Request): Promise<Response> =>
-		Response.json(await this.#cascades.drop(await this.#slugOf(request)));
-
-	/** Runs the project `?project=` names again where it failed or stopped. */
-	readonly retryInCascade = async (request: Request): Promise<Response> =>
-		Response.json(await this.#cascades.retry(await this.#slugOf(request)));
-
-	/** Hands the failed, stopped or hung project `?project=` names to an agent. */
-	readonly fixInCascade = async (request: Request): Promise<Response> =>
-		Response.json(await this.#cascades.fix(await this.#slugOf(request)));
 
 	/** Ends the cascade under way, as {@link Cascades.abandon} does. */
 	readonly abandonCascade = async (): Promise<Response> =>

@@ -67,13 +67,6 @@ export async function reviseCascadeBump(
 	});
 }
 
-/** Takes `project` out of the ship cascade under way, so those after it go on without it. */
-export async function dropFromCascade(project: string): Promise<void> {
-	await send(`/api/ship/cascade?${new URLSearchParams({ project })}`, {
-		method: "DELETE",
-	});
-}
-
 /** Ends the ship cascade under way, stopping its ship and removing its open bump tasks. */
 export async function abandonCascade(): Promise<void> {
 	await send("/api/ship/cascade/abandon", {});
@@ -113,14 +106,4 @@ export async function shipStageLog(
 		),
 	);
 	return response.ok ? await response.text() : null;
-}
-
-/** Runs `project` again where it failed or stopped in the ship cascade under way. */
-export async function retryInCascade(project: string): Promise<void> {
-	await send(`/api/ship/cascade/retry?${new URLSearchParams({ project })}`, {});
-}
-
-/** Hands the failed, stopped or hung `project` of the ship cascade under way to an agent, which fixes it in a task of its own project. */
-export async function fixInCascade(project: string): Promise<void> {
-	await send(`/api/ship/cascade/fix?${new URLSearchParams({ project })}`, {});
 }

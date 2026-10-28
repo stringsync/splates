@@ -102,35 +102,6 @@ describe("ship", () => {
 		);
 	});
 
-	it("drops a project from the cascade under way", async () => {
-		const { ctx } = await served();
-		const { calls, fetch } = server({});
-
-		await ship(
-			{ ...ctx, fetch },
-			{ drop: "vexml", dev: "http://localhost:4310" },
-		);
-
-		expect(calls).toEqual([
-			"DELETE http://localhost:4310/api/ship/cascade?project=vexml",
-		]);
-	});
-
-	it("retries a project in the cascade under way", async () => {
-		const { ctx, log } = await served();
-		const { calls, fetch } = server({});
-
-		await ship(
-			{ ...ctx, fetch },
-			{ retry: "vexml", dev: "http://localhost:4310" },
-		);
-
-		expect(calls).toEqual([
-			"POST http://localhost:4310/api/ship/cascade/retry?project=vexml",
-		]);
-		expect(String(log.entries.at(-2)?.message)).toContain("retrying vexml");
-	});
-
 	it("abandons the cascade under way", async () => {
 		const { ctx, log } = await served();
 		const { calls, fetch } = server({});

@@ -73,7 +73,7 @@ export function shipLine(
 			return `${step.slug} hung at ${hung.name}`;
 		}
 		if (step.status === "failed" || step.status === "stopped") {
-			return `${step.slug} ${step.status}${step.fix === null ? "" : ", an agent is on it"}`;
+			return `${step.slug} ${step.status}`;
 		}
 		if (step.status === "asking") {
 			return `${step.slug}'s bump task asks you`;

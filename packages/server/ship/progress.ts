@@ -44,7 +44,6 @@ export async function planned(
 				ship: null,
 				published: [],
 				note: null,
-				fix: null,
 				stages: await Promise.all(
 					[
 						...(step.takes.length === 0 ? [] : BUMP_STAGES),
@@ -158,15 +157,6 @@ export function closeOut(step: CascadeStep, at: string): void {
 	);
 }
 
-/** `step`'s steps for a retry: afresh, but for a merged bump's own. */
-export function retried(step: CascadeStep): void {
-	step.stages = step.stages.map((stage) =>
-		step.task !== null && BUMP_STAGES.includes(stage.key)
-			? stage
-			: pendingStage(stage.key, stage),
-	);
-}
-
 /**
  * `cascade` as the page shows it at `now`: the project publishing with its
  * ship's own steps as `ship` last wrote them, and any step under way past
@@ -197,7 +187,6 @@ export function upgraded(cascade: Cascade): Cascade {
 		steps: cascade.steps.map((step) => ({
 			...step,
 			stages: step.stages ?? [],
-			fix: step.fix ?? null,
 		})),
 	};
 }

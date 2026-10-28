@@ -119,21 +119,6 @@ export class FakeProject implements CascadeProject {
 			this.bumps.states.set(id, "open");
 			return id;
 		},
-		fixes: [] as {
-			from: string;
-			project: string;
-			title: string;
-			text: string;
-		}[],
-		addFix: async (
-			{ from, project }: { from: string; project: string },
-			{ title, text }: { title: string; text: string },
-		) => {
-			this.bumps.fixes.push({ from, project, title, text });
-			const id = 200 + this.bumps.fixes.length;
-			this.bumps.states.set(id, "open");
-			return id;
-		},
 		state: async (id: number) => this.bumps.states.get(id) ?? "removed",
 		removed: [] as number[],
 		remove: async (id: number) => {

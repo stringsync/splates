@@ -24,13 +24,13 @@ describe("shipLine", () => {
 		).toBe("webappwiz hung at build");
 	});
 
-	it("says an agent is on a failed step", () => {
+	it("names a failed step", () => {
 		expect(
 			shipLine({
-				cascade: cascade([step({ status: "failed", fix: 7 })]),
+				cascade: cascade([step({ status: "failed" })]),
 				ship: null,
 			}),
-		).toBe("webappwiz failed, an agent is on it");
+		).toBe("webappwiz failed");
 	});
 });
 
@@ -49,7 +49,6 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 		ship: null,
 		published: [],
 		note: null,
-		fix: null,
 		stages: [],
 		...over,
 	};

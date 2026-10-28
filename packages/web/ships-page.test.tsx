@@ -230,7 +230,6 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 		ship: null,
 		published: [],
 		note: null,
-		fix: null,
 		stages: [],
 		...over,
 	};

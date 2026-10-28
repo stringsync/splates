@@ -68,9 +68,6 @@ export {
 } from "./request";
 export {
 	abandonCascade,
-	dropFromCascade,
-	fixInCascade,
-	retryInCascade,
 	reviseCascadeBump,
 	shipGraph,
 	shipHistory,
