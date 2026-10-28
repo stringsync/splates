@@ -1,7 +1,4 @@
-import type {
-	WorkerListing,
-	WorkerPool,
-} from "@stringsync/splates-server/workers";
+import type { WorkerPool } from "@stringsync/splates-server/workers";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -15,11 +12,10 @@ export type WorkerPoolViewEvents = { changed: undefined };
 const EVERY = Duration.secs(5);
 
 /**
- * The Queue page's pool: read every few seconds while the page is in
- * front, and changed by a method per action, each shown at once and read
- * again once its write is done, so a refused one goes back to what the
- * server says. Each action rejects as its write does, for the page to say
- * why.
+ * The Queue page's pool, as the server last said, refreshed every few
+ * seconds while the page is in front. Pause or change a worker with its
+ * methods; `writing` says one awaits the server. A refused change rejects,
+ * for the page to say why.
  */
 export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 	private readonly dispatcher = new Dispatcher<WorkerPoolViewEvents>();
@@ -29,8 +25,8 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 	pool: WorkerPool | null = null;
 	/** Why the last reading failed, or null. */
 	error: string | null = null;
-	// A reading taken while a write is on its way would undo what it shows.
-	private writing = 0;
+	/** How many writes await the server. */
+	writing = 0;
 
 	/** Reads the pool now and every few seconds while the page is in front, until disposed. */
 	watch(): Resource {
@@ -55,6 +51,7 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 	read(): void {
 		workerPool().then(
 			(read) => {
+				// A reading taken while a write is on its way would not hold it yet.
 				if (this.writing === 0) {
 					this.pool = read;
 					this.error = null;
@@ -73,30 +70,18 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 	 * and the queue), or resumes it; the person's own agents start either way.
 	 */
 	pause(paused: boolean): Promise<void> {
-		return this.write(
-			(pool) => ({ ...pool, paused }),
-			updateWorker(LOCAL, { paused }),
-		);
+		return this.write(updateWorker(LOCAL, { paused }));
 	}
 
 	/** Sets `change` on worker `id`: whether it drains. */
 	change(id: string, change: WorkerChange): Promise<void> {
-		return this.write(
-			(pool) => changed(pool, id, (worker) => set(worker, change)),
-			updateWorker(id, change),
-		);
+		return this.write(updateWorker(id, change));
 	}
 
-	/** Shows `expected` of the pool at once, while `write` is on its way. */
-	private async write(
-		expected: (pool: WorkerPool) => WorkerPool,
-		write: Promise<unknown>,
-	): Promise<void> {
+	/** Writes, held pending until the server's reading shows it. */
+	private async write(write: Promise<unknown>): Promise<void> {
 		this.writing += 1;
-		if (this.pool !== null) {
-			this.pool = expected(this.pool);
-			this.dispatcher.dispatch("changed");
-		}
+		this.dispatcher.dispatch("changed");
 		try {
 			await write;
 		} finally {
@@ -104,30 +89,4 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 			this.read();
 		}
 	}
-}
-
-/** `pool` with worker `id` as `change` makes it, or gone for null. */
-function changed(
-	pool: WorkerPool,
-	id: string,
-	change: (worker: WorkerListing) => WorkerListing | null,
-): WorkerPool {
-	return {
-		...pool,
-		workers: pool.workers.flatMap((worker) => {
-			if (worker.id !== id) {
-				return [worker];
-			}
-			const next = change(worker);
-			return next === null ? [] : [next];
-		}),
-	};
-}
-
-/** `worker` as `change` sets it, before the server says so. */
-function set(worker: WorkerListing, change: WorkerChange): WorkerListing {
-	return {
-		...worker,
-		...(change.draining === undefined ? {} : { draining: change.draining }),
-	};
 }

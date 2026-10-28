@@ -3,11 +3,7 @@ import type {
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
-import {
-	BY_HAND,
-	GROOMER_AUTOMATION,
-	GROOMER_TRIGGER,
-} from "@stringsync/splates-server/hooks/browser";
+import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
@@ -20,6 +16,15 @@ import {
 	runAutomation,
 } from "./automations-api";
 import { refusalOf } from "./refusal";
+
+/** The pending key of adds, which have no id yet. */
+const ADDING = "";
+
+/** What an add in flight was asked to set off and run. */
+interface Adding {
+	trigger: Trigger;
+	hook: Hook;
+}
 
 export type AutomationListEvents = { changed: undefined };
 
@@ -45,9 +50,9 @@ const API: AutomationsApi = {
 };
 
 /**
- * The automations the Automations page lists. Each change shows at once,
- * then takes what the server answers; a refusal is said, and the list read
- * again, so it shows what stands.
+ * The automations the Automations page lists, as the server has them. A
+ * change you make shows as pending until the server answers; a refusal is
+ * said, and the list shows what stands.
  */
 export class AutomationList implements Eventful<AutomationListEvents> {
 	private readonly dispatcher = new Dispatcher<AutomationListEvents>();
@@ -58,11 +63,29 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	/** The last change refused, in a line, or null. */
 	refusal: string | null = null;
 
+	/** Changes awaiting the server, counted by automation id (or ADDING). */
+	readonly #pending = new Map<string, number>();
+	/** The adds awaiting the server, listed as rows being added. */
+	readonly #adds: Adding[] = [];
+
 	constructor(private readonly api: AutomationsApi = API) {}
 
 	/** The person's own, which they edit, pause and remove here. */
 	get own(): AutomationRow[] {
-		return this.rows?.filter((each) => each.source === undefined) ?? [];
+		const own = this.rows?.filter((each) => each.source === undefined) ?? [];
+		// Rows being added come last, unnumbered and unlabeled until the server answers.
+		return [
+			...own,
+			...this.#adds.map(({ trigger, hook }) => ({
+				id: ADDING,
+				trigger,
+				hook,
+				createdAt: "",
+				when: "",
+				does: "",
+				runs: [],
+			})),
+		];
 	}
 
 	/** The `on` commands splates.config.ts checks in. */
@@ -94,124 +117,83 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	}
 
 	pause(row: AutomationRow, paused: boolean): Promise<boolean> {
-		return this.#change(
-			paused ? "Not paused" : "Not resumed",
-			(rows) =>
-				rows.map((each) => (each.id === row.id ? { ...each, paused } : each)),
-			() => this.api.pause(row.id, paused),
+		return this.#change(paused ? "Not paused" : "Not resumed", row.id, () =>
+			this.api.pause(row.id, paused),
 		);
 	}
 
-	/** Runs one now, its run listed at once as by hand. */
+	/** Runs one now; its run is listed once the server answers. */
 	run(row: AutomationRow): Promise<boolean> {
-		return this.#change(
-			"Not run",
-			(rows) =>
-				rows.map((each) =>
-					each.id === row.id
-						? {
-								...each,
-								runs: [
-									...each.runs,
-									{ at: new Date().toISOString(), on: BY_HAND, error: null },
-								],
-							}
-						: each,
-				),
-			() => this.api.run(row.id),
-		);
+		return this.#change("Not run", row.id, () => this.api.run(row.id));
 	}
 
 	remove(row: AutomationRow): Promise<boolean> {
-		return this.#change(
-			"Not removed",
-			(rows) => rows.filter((each) => each.id !== row.id),
-			() => this.api.remove(row.id),
-		);
+		return this.#change("Not removed", row.id, () => this.api.remove(row.id));
 	}
 
-	/** Adds one, shown as being added until the server numbers it. */
+	/** Adds one; it lists as "Adding…" until the server numbers it. */
 	add(trigger: Trigger, hook: Hook): Promise<boolean> {
+		const adding: Adding = { trigger, hook };
+		this.#adds.push(adding);
 		return this.#change(
 			"Not added",
-			(rows) => [
-				...rows,
-				{
-					id: "",
-					trigger,
-					hook,
-					createdAt: new Date().toISOString(),
-					when: "",
-					does: "",
-					runs: [],
-				},
-			],
+			ADDING,
 			() => this.api.add(trigger, hook),
+			() => this.#adds.splice(this.#adds.indexOf(adding), 1),
 		);
 	}
 
-	/** Edits one, shown as being saved until the server says what it now is. */
+	/** Edits one, held pending until the server says what it now is. */
 	edit(row: AutomationRow, trigger: Trigger, hook: Hook): Promise<boolean> {
-		return this.#change(
-			"Not saved",
-			(rows) =>
-				rows.map((each) =>
-					each.id === row.id
-						? { ...each, trigger, hook, when: "", does: "" }
-						: each,
-				),
-			() => this.api.edit(row.id, trigger, hook),
+		return this.#change("Not saved", row.id, () =>
+			this.api.edit(row.id, trigger, hook),
 		);
 	}
 
 	/**
-	 * Sets the agent the groomer runs as, turning it on when it is off, shown
-	 * as being saved until the server says what it now is.
+	 * Sets the agent the groomer runs as, turning it on when it is off, held
+	 * pending until the server says what it now is.
 	 */
 	groom(pick: AgentPick): Promise<boolean> {
-		const hook: Hook = { kind: "groom", ...pick };
-		return this.#change(
-			"Not saved",
-			(rows) =>
-				rows.some((each) => each.id === GROOMER_AUTOMATION)
-					? rows.map((each) =>
-							each.id === GROOMER_AUTOMATION
-								? { ...each, hook, when: "", does: "" }
-								: each,
-						)
-					: [
-							...rows,
-							{
-								id: GROOMER_AUTOMATION,
-								trigger: GROOMER_TRIGGER,
-								hook,
-								createdAt: new Date().toISOString(),
-								source: "builtin",
-								when: "",
-								does: "",
-								runs: [],
-							},
-						],
-			() => this.api.groom(pick),
+		return this.#change("Not saved", GROOMER_AUTOMATION, () =>
+			this.api.groom(pick),
 		);
+	}
+
+	/** Whether a change to the automation `id` awaits the server. */
+	isPending(id: string): boolean {
+		return (this.#pending.get(id) ?? 0) > 0;
 	}
 
 	async #change(
 		title: string,
-		expected: (rows: AutomationRow[]) => AutomationRow[],
+		key: string,
 		write: () => Promise<AutomationRow[]>,
+		settled: () => void = () => {},
 	): Promise<boolean> {
-		if (this.rows !== null) {
-			this.rows = expected(this.rows);
-			this.dispatcher.dispatch("changed");
-		}
+		this.#pending.set(key, (this.#pending.get(key) ?? 0) + 1);
+		this.dispatcher.dispatch("changed");
 		try {
-			this.#set(await write());
+			const rows = await write();
+			this.#release(key);
+			settled();
+			this.#set(rows);
 			return true;
 		} catch (error) {
+			this.#release(key);
+			settled();
 			await this.read();
 			this.#refuse(title, error);
 			return false;
+		}
+	}
+
+	#release(key: string): void {
+		const left = (this.#pending.get(key) ?? 1) - 1;
+		if (left > 0) {
+			this.#pending.set(key, left);
+		} else {
+			this.#pending.delete(key);
 		}
 	}
 

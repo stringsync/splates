@@ -53,7 +53,7 @@ describe("App's queue controls", () => {
 		expect(view.queryByRole("button", { name: "More at once" })).toBeNull();
 	});
 
-	it("pauses at once, and the button turns to Resume", async () => {
+	it("holds Pause pending until the server shows it paused, then turns to Resume", async () => {
 		const view = await openQueue(pool({}));
 		testing.holdWrites();
 
@@ -61,13 +61,19 @@ describe("App's queue controls", () => {
 			fireEvent.click(view.getByRole("button", { name: "Pause" })),
 		);
 
-		expect(view.getByRole("button", { name: "Resume" })).toBeDefined();
-		expect(view.getByRole("status").textContent).toContain("Paused");
+		const pending = view.getByRole("button", { name: "Pause" });
+		expect(pending.getAttribute("aria-busy")).toBe("true");
+		expect(view.getByRole("status").textContent).not.toContain("Paused");
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/local",
 			method: "PUT",
 			body: JSON.stringify({ paused: true }),
 		});
+
+		testing.workers = pool({ paused: true });
+		await act(async () => testing.release());
+		await waitFor(() => view.getByRole("button", { name: "Resume" }));
+		expect(view.getByRole("status").textContent).toContain("Paused");
 	});
 
 	it("resumes a worker turned off before, turning it back on", async () => {

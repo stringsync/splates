@@ -82,7 +82,7 @@ describe("RulesEditor", () => {
 		expect(editor.draft).toEqual(VIEW.rules);
 	});
 
-	it("shows a reset at once, and puts the rules back when it is refused", async () => {
+	it("marks a reset saving, and keeps the draft when it is refused", async () => {
 		const store = new FakeRulesStore();
 		const editor = new RulesEditor(store);
 		await editor.load();
@@ -90,9 +90,11 @@ describe("RulesEditor", () => {
 		store.refusal = "the disk is full";
 
 		const resetting = editor.reset();
-		expect(editor.draft).toEqual(DEFAULT_RULES);
+		expect(editor.saving).toBe(true);
+		expect(editor.draft.threshold).toBe(0.8);
 
 		await expect(resetting).rejects.toThrow("the disk is full");
+		expect(editor.saving).toBe(false);
 		expect(editor.draft.threshold).toBe(0.8);
 		expect(editor.saved).toEqual(VIEW.rules);
 	});

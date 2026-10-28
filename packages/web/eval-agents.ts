@@ -16,9 +16,9 @@ export type EvalAgentsEvents = { changed: undefined };
 
 /**
  * The Evals page's list of agents an eval runs on, each a full pick: agent,
- * model and thinking level. Every edit shows at once and is saved at once;
- * the saved list is put back, with the refusal in `problem`, when the server
- * refuses it. Starts no eval: it only keeps the list.
+ * model and thinking level. An edit saves at once and shows once the
+ * server has it, one at a time; `problem` says why when the server refuses
+ * it. Starts no eval: it only keeps the list.
  */
 export class EvalAgentsEditor implements Eventful<EvalAgentsEvents>, PickList {
 	private readonly dispatcher = new Dispatcher<EvalAgentsEvents>();
@@ -28,10 +28,12 @@ export class EvalAgentsEditor implements Eventful<EvalAgentsEvents>, PickList {
 	readonly note = null;
 	readonly least = 0;
 
-	/** The agents as edited, shown at once. */
+	/** The agents as the server has them. */
 	picks: readonly AgentPick[] = [];
 	/** The roster's agents the runner can start natively. */
 	agents: readonly AutoPickAgent[] = [];
+	/** Whether an edit awaits the server, which allows no other. */
+	saving = false;
 	/** Whether the list was read. */
 	loaded = false;
 	/** Why the list could not be read or saved; null when it could. */
@@ -128,24 +130,22 @@ export class EvalAgentsEditor implements Eventful<EvalAgentsEvents>, PickList {
 		this.edit(this.picks.map((each, at) => (at === pick ? next : each)));
 	}
 
-	/** Shows `picks` at once and saves them, putting the saved list back when refused. */
+	/** Saves `picks`, held pending until the server shows them; a refusal is put in `problem`. */
 	private edit(picks: AgentPick[]): void {
-		const before = this.picks;
-		this.picks = picks;
+		if (this.saving) {
+			return;
+		}
+		this.saving = true;
 		this.problem = null;
 		this.changed();
 		this.store.save(picks).then(
 			(view) => {
-				// A later edit stands: it is on its way to the server too.
-				if (this.picks === picks) {
-					this.take(view);
-				}
+				this.saving = false;
+				this.take(view);
 				this.changed();
 			},
 			(error: unknown) => {
-				if (this.picks === picks) {
-					this.picks = before;
-				}
+				this.saving = false;
 				this.problem = error instanceof Error ? error.message : String(error);
 				this.changed();
 			},

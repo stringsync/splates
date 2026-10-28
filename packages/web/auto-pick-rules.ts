@@ -318,43 +318,29 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		}
 	}
 
-	/** Writes the defaults over the rules, shown at once; throws, put back, when refused. */
+	/** Writes the defaults over the rules, marked saving until the server answers; throws when refused. */
 	async reset(): Promise<void> {
-		const before = this.draft;
-		this.draft = DEFAULT_RULES;
+		this.saving = true;
+		this.changed();
 		try {
-			await this.write(DEFAULT_RULES, () => this.store.reset());
-		} catch (error) {
-			this.draft = before;
+			await this.write(this.draft, () => this.store.reset());
+		} finally {
+			this.saving = false;
 			this.changed();
-			throw error;
 		}
 	}
 
-	/** Shows `rules` as saved at once, taking what the server answers, or putting back what was. */
+	/** Takes what the server answers to `sent`, the draft it was sent with. */
 	private async write(
-		rules: AutoPickRules,
+		sent: AutoPickRules,
 		send: () => Promise<AutoPickRulesView>,
 	): Promise<void> {
-		const before = this.saved;
-		this.saved = rules;
-		this.changed();
-		try {
-			const view = await send();
-			// A control moved since: its draft stays, measured against what saved.
-			const edited = this.draft !== rules;
-			const draft = this.draft;
-			this.take(view);
-			if (edited) {
-				this.draft = draft;
-			}
-		} catch (error) {
-			if (this.saved === rules) {
-				this.saved = before;
-			}
-			throw error;
-		} finally {
-			this.changed();
+		const view = await send();
+		// A control moved since: its draft stays, measured against what saved.
+		const draft = this.draft;
+		this.take(view);
+		if (draft !== sent) {
+			this.draft = draft;
 		}
 	}
 

@@ -137,6 +137,8 @@ export function useNewConversation({
 		(each) => each.category === "model" || each.id === "model",
 	);
 	const [picks, setPicks] = useState<Record<string, string>>({});
+	// How many settings are on their way to being kept as the agent's default.
+	const [keeping, setKeeping] = useState(0);
 	// A model a todo asked for stands: Auto pick is the person's own choice.
 	const [autoModel, setAutoModel] = useState(autoModelChosen);
 	const autoPick: AutoPickControl = {
@@ -310,19 +312,27 @@ export function useNewConversation({
 			}}
 		/>
 	) : offered.length > 0 ? (
-		<SettingControls
-			agent={agent}
-			settings={offered}
-			current={current}
-			autoPick={model === null ? autoPick : undefined}
-			onChange={(setting, value) => {
-				setPicks((picks) => ({ ...picks, [setting.id]: value }));
-				// Kept as the agent's default now, whether or not this one starts.
-				void chooseDefault(agent, setting.id, value).catch((error: unknown) =>
-					refuseIn(draft, `${setting.name} not kept`, error),
-				);
-			}}
-		/>
+		<span aria-busy={keeping > 0} className="contents">
+			<SettingControls
+				agent={agent}
+				settings={offered}
+				current={current}
+				autoPick={model === null ? autoPick : undefined}
+				onChange={(setting, value) => {
+					const before = current(setting);
+					setPicks((picks) => ({ ...picks, [setting.id]: value }));
+					setKeeping((keeping) => keeping + 1);
+					// Kept as the agent's default now, whether or not this one starts;
+					// put back when the server refuses it.
+					void chooseDefault(agent, setting.id, value)
+						.catch((error: unknown) => {
+							setPicks((picks) => ({ ...picks, [setting.id]: before }));
+							refuseIn(draft, `${setting.name} not kept`, error);
+						})
+						.finally(() => setKeeping((keeping) => keeping - 1));
+				}}
+			/>
+		</span>
 	) : (
 		<span className="px-1.5 text-[11px] text-muted-foreground">
 			Settings appear once {agentName(agents, agent)} starts

@@ -52,13 +52,15 @@ export interface RunOpens {
 export function AutomationFace({
 	row,
 	opens,
+	saving = false,
 }: {
 	row: AutomationRow;
 	opens?: RunOpens | undefined;
+	/** Whether a change to it awaits the server. */
+	saving?: boolean | undefined;
 }): JSX.Element {
 	const adding = row.id === "";
-	// Blank until the server labels what was added or saved.
-	const pending = row.when === "";
+	const pending = adding || saving;
 	const named = row.id === GROOMER_AUTOMATION ? "Groomer" : null;
 	const when = adding ? "Adding…" : pending ? "Saving…" : row.when;
 	const last = row.runs.at(-1);

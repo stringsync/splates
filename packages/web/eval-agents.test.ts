@@ -4,15 +4,19 @@ import type { AgentPick } from "@stringsync/splates-server/models";
 import { EvalAgentsEditor, type EvalAgentsStore } from "./eval-agents";
 
 describe("EvalAgentsEditor", () => {
-	it("shows an added pick at once and saves it", async () => {
+	it("saves an added pick, showing it once the server has it", async () => {
 		const kept = store();
 		const editor = new EvalAgentsEditor(kept);
 		await editor.load();
 
 		editor.add("claude", "opus");
 
-		expect(editor.picks).toEqual([{ agent: "claude", model: "opus" }]);
+		expect(editor.picks).toEqual([]);
+		expect(editor.saving).toBe(true);
 		await Promise.resolve();
+		await Promise.resolve();
+		expect(editor.picks).toEqual([{ agent: "claude", model: "opus" }]);
+		expect(editor.saving).toBe(false);
 		expect(kept.saved).toEqual([[{ agent: "claude", model: "opus" }]]);
 	});
 
@@ -20,10 +24,15 @@ describe("EvalAgentsEditor", () => {
 		const editor = new EvalAgentsEditor(store());
 		await editor.load();
 
+		const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 		editor.add("claude", "opus");
+		await settled();
 		editor.setEffort(0, "low");
+		await settled();
 		editor.add("claude", "opus");
+		await settled();
 		editor.setEffort(1, "low");
+		await settled();
 
 		expect(editor.picks).toEqual([
 			{ agent: "claude", model: "opus", effort: "low" },
@@ -31,7 +40,7 @@ describe("EvalAgentsEditor", () => {
 		]);
 	});
 
-	it("puts the saved list back, saying why, when the server refuses", async () => {
+	it("keeps the saved list, saying why, when the server refuses", async () => {
 		const editor = new EvalAgentsEditor(store({ fail: true }));
 		await editor.load();
 

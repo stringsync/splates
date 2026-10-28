@@ -1,4 +1,5 @@
 import type { WorkerPool } from "@stringsync/splates-server/workers";
+import { useReactive } from "@webappwiz/react";
 import { InfoIcon, PauseIcon, PlayIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -8,10 +9,11 @@ import {
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { LOCAL, localWorker, localWorkerOn } from "./local-worker";
+import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 import type { WorkerPoolView } from "./worker-pool";
 
-/** What Pause holds back and what it leaves, behind the ⓘ beside it. */
+/** What Pause holds back and what it leaves, which the ⓘ beside Pause explains. */
 export const PAUSE_HOLDS =
 	"Nothing caps how many agents run; merges take turns and agents ask before other heavy work. Pause holds back what splates starts on its own: the queue, automations, hooks and the groomer. Agents you start still start.";
 
@@ -30,6 +32,12 @@ export function QueueControls({
 	waiting: number;
 }): JSX.Element {
 	const { refusal, refuse } = useRefusal();
+	const { writing } = useReactive(
+		view,
+		(each) => ({ writing: each.writing > 0 }),
+		["changed"],
+	);
+	const shown = useShowPending(writing);
 	const local = localWorker(pool);
 	const paused = pausedIn(pool);
 	const running = pool.held.length;
@@ -56,9 +64,17 @@ export function QueueControls({
 					<Button
 						size="sm"
 						variant={paused ? "default" : "outline"}
+						disabled={writing}
+						aria-busy={writing}
 						onClick={toggle}
 					>
-						{paused ? <PlayIcon /> : <PauseIcon />}
+						{writing ? (
+							<PendingSpinner shown={shown} />
+						) : paused ? (
+							<PlayIcon />
+						) : (
+							<PauseIcon />
+						)}
 						{paused ? "Resume" : "Pause"}
 					</Button>
 					<Popover>

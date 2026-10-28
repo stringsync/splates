@@ -53,18 +53,24 @@ export function AutomationsPage({
 }): JSX.Element {
 	const list = useReading("automations", () => new AutomationList());
 	useEffect(() => void list.read(), [list]);
-	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
-		list,
-		(list) => ({
-			rows: list.rows,
-			refusal: list.refusal,
-			own: list.own,
-			checkedIn: list.checkedIn,
-			builtIn: list.builtIn,
-			groomer: list.groomer,
-		}),
-		["changed"],
-	);
+	const { rows, refusal, own, checkedIn, builtIn, groomer, saving } =
+		useReactive(
+			list,
+			(list) => ({
+				saving: new Set(
+					(list.rows ?? [])
+						.filter((each) => list.isPending(each.id))
+						.map((each) => each.id),
+				),
+				rows: list.rows,
+				refusal: list.refusal,
+				own: list.own,
+				checkedIn: list.checkedIn,
+				builtIn: list.builtIn,
+				groomer: list.groomer,
+			}),
+			["changed"],
+		);
 	return (
 		<section aria-label="automations" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Automations" />
@@ -88,6 +94,7 @@ export function AutomationsPage({
 						detail="Kept on this machine, never checked in, since an agent spends your tokens."
 						empty="None yet: add one below."
 						rows={own}
+						saving={saving}
 						opens={opens}
 						onEdit={(row, trigger, hook) => list.edit(row, trigger, hook)}
 						onPause={(row, paused) => void list.pause(row, paused)}
@@ -99,6 +106,7 @@ export function AutomationsPage({
 							title="Checked in"
 							detail="The `on` commands in splates.config.ts, which run for everyone on this project."
 							rows={checkedIn}
+							saving={saving}
 							opens={opens}
 						/>
 					)}
@@ -106,6 +114,7 @@ export function AutomationsPage({
 						title="Built in"
 						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation."
 						rows={builtIn}
+						saving={saving}
 						opens={opens}
 						onGroom={(pick) => list.groom(pick)}
 						onPause={(row, paused) => void list.pause(row, paused)}
@@ -150,6 +159,7 @@ function Group({
 	detail,
 	empty,
 	rows,
+	saving,
 	opens,
 	onEdit,
 	onGroom,
@@ -162,6 +172,8 @@ function Group({
 	detail: string;
 	empty?: string;
 	rows: AutomationRow[];
+	/** The ids of those with a change awaiting the server. */
+	saving: ReadonlySet<string>;
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
@@ -184,6 +196,7 @@ function Group({
 						<Card
 							key={row.id || "adding"}
 							row={row}
+							saving={saving.has(row.id)}
 							opens={opens}
 							onEdit={onEdit}
 							onGroom={onGroom}
@@ -213,6 +226,7 @@ type Edit = (
  */
 function Card({
 	row,
+	saving,
 	opens,
 	onEdit,
 	onGroom,
@@ -221,6 +235,8 @@ function Card({
 	onRemove,
 }: {
 	row: AutomationRow;
+	/** Whether a change to it awaits the server. */
+	saving: boolean;
 	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
@@ -231,8 +247,7 @@ function Card({
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
 	const [grooming, setGrooming] = useState(false);
 	const adding = row.id === "";
-	// Blank until the server labels what was added or saved.
-	const pending = row.when === "";
+	const pending = adding || saving;
 	const paused = row.paused === true;
 	// The groomer's agent, all of it the page edits; null for any other.
 	const groomer = row.id === GROOMER_AUTOMATION ? groomerPick(row.hook) : null;
@@ -244,7 +259,7 @@ function Card({
 					title="Edit the groomer"
 					submit="Save"
 					onSubmit={(picked) => {
-						// Shown saved at once; a refusal is said above the list.
+						// Pending until the server answers; a refusal is said above the list.
 						setGrooming(false);
 						void onGroom(picked);
 					}}
@@ -261,7 +276,7 @@ function Card({
 					title={`Edit automation ${row.id}`}
 					submit="Save"
 					onSubmit={(trigger, hook) => {
-						// Shown saved at once; a refusal is said above the list.
+						// Pending until the server answers; a refusal is said above the list.
 						setEditing(null);
 						void onEdit(row, trigger, hook);
 					}}
@@ -273,12 +288,13 @@ function Card({
 	return (
 		<li
 			aria-label={`automation ${row.id || "being added"}`}
+			aria-busy={pending}
 			className={cn(
 				"flex items-start gap-2 rounded-xl border bg-card p-3 shadow-xs",
 				(paused || pending) && "opacity-60",
 			)}
 		>
-			<AutomationFace row={row} opens={opens} />
+			<AutomationFace row={row} opens={opens} saving={saving} />
 			{!pending &&
 				(onEdit !== undefined ||
 					(groomer !== null && onGroom !== undefined)) && (

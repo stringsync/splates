@@ -2,28 +2,35 @@ import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect } from "react";
 import { PickChips } from "./auto-pick-pick-chips";
 import type { EvalAgentsEditor } from "./eval-agents";
+import { pendingRow, useShowPending } from "./pending";
 
 /**
- * The agents evals run on, as the chips Auto pick's rules use: each a pick
- * of agent, model and thinking level, saved as it is edited. Starts nothing.
+ * Pick the agents evals run on, each at a model and thinking level. Edits
+ * save as you make them and the list dims until the server has them. Starts
+ * nothing.
  */
 export function EvalAgentsView({
 	editor,
 }: {
 	editor: EvalAgentsEditor;
 }): JSX.Element {
-	const { picks, problem, loaded } = useReactive(
+	const { picks, problem, loaded, saving } = useReactive(
 		editor,
 		(each) => ({
 			picks: each.picks,
 			problem: each.problem,
 			loaded: each.loaded,
+			saving: each.saving,
 		}),
 		["changed"],
 	);
+	const shown = useShowPending(saving);
 	useEffect(() => void editor.load(), [editor]);
 	return (
-		<section aria-label="eval agents" className="flex flex-col gap-2">
+		<section
+			aria-label="eval agents"
+			{...pendingRow(saving, shown, "flex flex-col gap-2")}
+		>
 			<h2 className="font-medium text-sm">Agents</h2>
 			<p className="text-muted-foreground text-xs">
 				The agents an eval runs on, each at the model and thinking level shown.
