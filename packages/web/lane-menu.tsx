@@ -220,7 +220,6 @@ export function QueueLaneButton({
 			size="xs"
 			variant="outline"
 			title={`Put the ${waiting === 1 ? "task" : `${waiting} tasks`} waiting in ${lane.name} in the queue now; each starts once what it is blocked by lands`}
-			className="pointer-coarse:h-10"
 			onClick={() => queue(true)}
 			{...still}
 		>
