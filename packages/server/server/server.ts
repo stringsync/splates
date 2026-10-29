@@ -534,10 +534,14 @@ export async function dev(
 					fail("not_found", `${step.slug} is no longer registered`);
 				}
 				const git = new Git(root, { ps, fs });
-				if ((await git.porcelain(root)).length > 0) {
+				const dirty = await git.porcelain(root);
+				if (dirty.length > 0) {
+					const shown = dirty.slice(0, 10).join(", ");
+					const more =
+						dirty.length > 10 ? `, and ${dirty.length - 10} more` : "";
 					fail(
 						"conflict",
-						`${step.slug} needs a clean tree before ship review`,
+						`${step.slug} needs a clean tree before ship review; dirty in ${root}: ${shown}${more}. Commit, delete or \`git stash -u\` them, then review again`,
 					);
 				}
 				revisions.push([step.slug, root, await git.head(root)]);
