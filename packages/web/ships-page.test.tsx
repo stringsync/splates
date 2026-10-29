@@ -1,13 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ShipProject } from "@stringsync/splates-server/ship";
+import type { Cascade, ShipProject } from "@stringsync/splates-server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
+import { FakeStream, type Stream } from "./fake-stream";
 import { ShipsPage } from "./ships-page";
-import { cleanup, render, within } from "./testing-library";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	waitFor,
+	within,
+} from "./testing-library";
 
 describe("ShipsPage", () => {
 	beforeEach(() => {
+		globalThis.EventSource = FakeStream as unknown as typeof EventSource;
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), []))) as unknown as typeof fetch;
 	});
@@ -15,6 +24,35 @@ describe("ShipsPage", () => {
 	afterEach(() => {
 		cleanup();
 		globalThis.fetch = realFetch;
+		globalThis.EventSource = realEventSource;
+	});
+
+	it("shows streamed stages and offers Retry and Abandon on a stopped ship", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		const posts: string[] = [];
+		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+			posts.push(`${opts?.method ?? "GET"} ${String(url)}`);
+			return Response.json(answer(String(url), []));
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: stopped, ship: null }),
+			}),
+		);
+		expect(await view.findByText("Wait for own live")).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "Retry" }));
+		await waitFor(() => expect(posts).toContain("POST /api/ship/steps/retry"));
+		fireEvent.click(view.getByRole("button", { name: "Abandon" }));
+		await waitFor(() =>
+			expect(posts).toContain("POST /api/ship/steps/abandon"),
+		);
 	});
 
 	it("lists the projects in release order, a Ship on each that names a ship command", async () => {
@@ -133,3 +171,44 @@ function answer(url: string, projects: unknown[]): unknown {
 }
 
 const realFetch = globalThis.fetch;
+
+const realEventSource = globalThis.EventSource;
+
+const stopped: Cascade = {
+	id: "example",
+	from: "example",
+	status: "stopped",
+	started: "2026-10-29T12:00:00Z",
+	ended: null,
+	steps: [
+		{
+			slug: "example",
+			action: "ship",
+			from: "1.0.0",
+			to: "1.0.1",
+			bump: "patch",
+			publishes: ["example"],
+			takes: [],
+			why: "selected",
+			status: "failed",
+			task: null,
+			ship: null,
+			published: [],
+			note: "provider unreachable",
+			stages: [
+				{
+					key: "live",
+					name: "Wait for own live",
+					state: "failed",
+					started: null,
+					ended: null,
+					expected: 1000,
+					known: false,
+					deadline: null,
+					check: null,
+					log: null,
+				},
+			],
+		},
+	],
+};

@@ -39,7 +39,7 @@ export class ShipHistory {
 
 	/** The cascade `id` names, or null when history has none. */
 	read(id: string): Promise<Cascade | null> {
-		if (!/^[\w.-]+$/.test(id)) {
+		if (!/^[\w][\w.+-]*$/.test(id)) {
 			return Promise.resolve(null);
 		}
 		return this.storage

@@ -66,6 +66,7 @@ export {
 	WAITS,
 } from "./request";
 export {
+	actOnShip,
 	shipGraph,
 	shipHistory,
 	shipHistoryEntry,

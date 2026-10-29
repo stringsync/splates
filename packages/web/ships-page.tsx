@@ -2,18 +2,20 @@ import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { shipHistory, shipHistoryEntry } from "./api";
+import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
 import { ShipGraphTree } from "./ship-graph";
-import { ProjectStages } from "./ship-run";
+import { ProjectStages, ShipRun } from "./ship-run";
 import { TopBar } from "./top-bar";
-import type { Live } from "./use-live-ships";
+import { type Live, useLiveShips } from "./use-live-ships";
 
 /** Browse projects, unshipped commits and past ships; new ship planning is coming. */
 export function ShipsPage(_props: {
 	feed?: ConversationFeed | null;
 }): JSX.Element {
 	const viewed = useViewedShip();
+	const live = useLiveShips();
+	const [closed, setClosed] = useState<string | null>(null);
 	const [history, setHistory] = useState<CascadeSummary[]>([]);
 	useEffect(() => {
 		shipHistory().then(setHistory, () => undefined);
@@ -25,6 +27,15 @@ export function ShipsPage(_props: {
 				<PastShip id={viewed} />
 			) : (
 				<>
+					{live?.cascade != null && live.cascade.id !== closed && (
+						<ShipRun
+							cascade={live.cascade}
+							ship={live.ship}
+							onClose={() => setClosed(live.cascade?.id ?? null)}
+							abandon={() => actOnShip("abandon")}
+							retry={() => actOnShip("retry")}
+						/>
+					)}
 					<p className="text-muted-foreground text-sm">
 						Ship-step planning is coming.
 					</p>

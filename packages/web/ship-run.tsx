@@ -25,11 +25,13 @@ export function ShipRun({
 	ship,
 	onClose,
 	abandon: abandonRun,
+	retry,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
 	/** Ends the run; the cascade alone by default, the run and its conversation when it has one. */
 	abandon?: () => Promise<void>;
+	retry?: () => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
 }): JSX.Element {
@@ -61,13 +63,26 @@ export function ShipRun({
 				<span className="text-muted-foreground text-xs tabular-nums">
 					{through} of {cascade.steps.length}
 				</span>
-				{running ? (
+				{cascade.status === "stopped" && retry !== undefined && (
+					<Button
+						size="xs"
+						variant="outline"
+						onClick={() =>
+							retry().then(askMachineNow, (error) =>
+								refuse("", "Not retried", error),
+							)
+						}
+					>
+						Retry
+					</Button>
+				)}
+				{running || cascade.status === "stopped" ? (
 					<Button
 						size="xs"
 						variant="ghost"
 						className="ml-auto"
 						disabled={abandoning || abandonRun === undefined}
-						title="Ends the run, stopping its ship and removing its open bump tasks; what shipped stays shipped"
+						title="Ends the ship; what published stays published"
 						onClick={abandon}
 					>
 						Abandon

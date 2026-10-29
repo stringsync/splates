@@ -2,13 +2,19 @@ import type { Resource } from "webappwiz/disposable";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Cascades } from "./cascade";
+import { SHIP_SELECTION } from "./selection";
 import type { StageKey } from "./stages";
+import type { ShipSteps } from "./steps";
 
 /** How often a page's stream of the cascade reads it again. */
 const FEED_EVERY = Duration.secs(1);
 
 /** The step keys a log slice may be asked for by. */
 const STAGE_KEYS: StageKey[] = [
+	"upstream",
+	"adopt",
+	"publish",
+	"live",
 	"bump",
 	"gate",
 	"merged",
@@ -29,6 +35,27 @@ export class CascadeRoutes {
 		this.#cascades = cascades;
 		this.#timer = timer;
 	}
+
+	private steps(): ShipSteps {
+		if (!("start" in this.#cascades)) {
+			fail("usage", "ship steps are not configured");
+		}
+		return this.#cascades as ShipSteps;
+	}
+
+	readonly start = async (request: Request): Promise<Response> => {
+		const result = SHIP_SELECTION.safeParse(await request.json());
+		if (!result.success) {
+			fail("usage", result.error.message);
+		}
+		return Response.json(await this.steps().start(result.data), {
+			status: 201,
+		});
+	};
+	readonly retry = async (): Promise<Response> =>
+		Response.json(await this.steps().retry());
+	readonly abandon = async (): Promise<Response> =>
+		Response.json(await this.steps().abandon());
 
 	/** The cascade under way, or the last to end, or null when none ran. */
 	readonly cascade = async (): Promise<Response> =>

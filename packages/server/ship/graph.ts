@@ -286,3 +286,26 @@ const DEPENDENCY_FIELDS = [
 	"peerDependencies",
 	"optionalDependencies",
 ] as const;
+
+/** Whether every target is already pinned everywhere it occurs in the base manifests. */
+export async function pinsMatch(
+	fs: Fs,
+	root: string,
+	pins: Pin[],
+): Promise<boolean> {
+	const manifests = await manifestsOf(fs, root);
+	return pins.every((pin) => {
+		const versions = manifests.flatMap((manifest) =>
+			DEPENDENCY_FIELDS.flatMap((field) => {
+				const value = manifest[field]?.[pin.name];
+				return value === undefined || value.startsWith("workspace:")
+					? []
+					: [value];
+			}),
+		);
+		return (
+			versions.length > 0 &&
+			versions.every((version) => version.replace(/^[~^]/, "") === pin.version)
+		);
+	});
+}

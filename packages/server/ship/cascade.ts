@@ -48,6 +48,9 @@ export type CascadeStatus =
 
 /** One project's part in a cascade, as its plan named it and how far it came. */
 export interface CascadeStep extends ShipStep {
+	/** How this step adopts upstream versions; agent adoption waits for its task to merge. */
+	adopt?: "mechanical" | "agent";
+	instructions?: string;
 	status: CascadeStatus;
 	/** When it first found its bump's versions not yet served by npm, while `registry`. */
 	registrySince?: string;

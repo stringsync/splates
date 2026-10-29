@@ -44,6 +44,10 @@ export type StageState =
  * the plan.
  */
 export type StageKey =
+	| "upstream"
+	| "adopt"
+	| "publish"
+	| "live"
 	| "bump"
 	| "gate"
 	| "merged"
@@ -140,6 +144,10 @@ export function took(stage: Stage): number | null {
 
 /** What each step is called. */
 export const STAGE_NAMES: Record<StageKey, string> = {
+	upstream: "Wait for upstream live",
+	adopt: "Adopt",
+	publish: "Publish",
+	live: "Wait for own live",
 	bump: "Bump task",
 	gate: "Merge gate",
 	merged: "Merged",
@@ -153,6 +161,10 @@ export const STAGE_NAMES: Record<StageKey, string> = {
 
 /** How long each step is expected to take before any ship of it says. */
 export const STAGE_DEFAULTS: Record<StageKey, Duration> = {
+	upstream: Duration.mins(5),
+	adopt: Duration.mins(10),
+	publish: Duration.mins(5),
+	live: Duration.mins(5),
 	bump: Duration.mins(20),
 	gate: Duration.mins(10),
 	merged: Duration.ms(0),

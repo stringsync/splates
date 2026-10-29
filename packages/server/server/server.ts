@@ -29,7 +29,14 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import { CascadeRoutes, Cascades, registeredGraph } from "../ship";
+import {
+	CascadeRoutes,
+	MechanicalAdoption,
+	registeredGraph,
+	ShipLive,
+	ShipRegistry,
+	ShipSteps,
+} from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -536,7 +543,56 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const cascades = new Cascades(machineStorage, fs);
+	const cascades = new ShipSteps(machineStorage, fs, {
+		graph: () => registeredGraph({ projects, fs, log, ps }),
+		project: async (slug) => {
+			const served = await projectNamed(slug);
+			return {
+				shipping: served.shipping,
+				discard: async (ship, step) => {
+					const repo = await openRepository(
+						{ fs, ps, log },
+						{ at: served.root },
+					);
+					try {
+						await new MechanicalAdoption({ ...repo, ps, log }).discard(
+							ship,
+							step,
+						);
+					} finally {
+						repo.dispose();
+					}
+				},
+				adopt: async (ship, step, pins, output, signal) => {
+					const repo = await openRepository(
+						{ fs, ps, log },
+						{ at: served.root },
+					);
+					try {
+						const commands: string[] = [];
+						for (const use of step.takes) {
+							const command = (await projectNamed(use.project)).afterBump;
+							if (command !== null) {
+								commands.push(command);
+							}
+						}
+						return await new MechanicalAdoption({ ...repo, ps, log }).run(
+							ship,
+							step,
+							pins,
+							output,
+							{ afterBump: commands, signal },
+						);
+					} finally {
+						repo.dispose();
+					}
+				},
+			};
+		},
+		live: new ShipLive(ps),
+		registry: new ShipRegistry(),
+		error: (error) => log.error(`running ship steps: ${error}`),
+	});
 	const cascadeRoutes = new CascadeRoutes(cascades);
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(
@@ -815,6 +871,12 @@ export async function dev(
 						Response.json(await registeredGraph({ projects, fs, log, ps })),
 					),
 					"/api/ship/cascade": { GET: guarded(cascadeRoutes.cascade) },
+					"/api/ship/steps": {
+						GET: guarded(cascadeRoutes.cascade),
+						POST: guarded(cascadeRoutes.start),
+					},
+					"/api/ship/steps/retry": { POST: guarded(cascadeRoutes.retry) },
+					"/api/ship/steps/abandon": { POST: guarded(cascadeRoutes.abandon) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
@@ -1143,6 +1205,8 @@ export async function dev(
 			}
 		}
 	});
+	disposer.defer(() => cascades.disposeAsync());
+	await cascades.resume();
 	// Last, so it runs first: a restart under way writes before all else goes.
 	disposer.defer(() => restarts.disposeAsync());
 	return {

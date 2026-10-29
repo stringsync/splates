@@ -67,10 +67,6 @@ export async function serveProject(
 		command: project.config.ship,
 		slug,
 	});
-	// A ship the server stopped in the middle of is finished as it serves again.
-	void shipping
-		.resume()
-		.catch((error: unknown) => log.error(`resuming a ship: ${error}`));
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.

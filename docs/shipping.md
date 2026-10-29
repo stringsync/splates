@@ -1,14 +1,36 @@
 # Shipping from splates
 
-Shipping is being rebuilt as mechanical ship steps; the settled design is in
-[`designs/ship-steps.md`](../designs/ship-steps.md). The conversational planner
-and the old bump-task cascade have been removed. Starting a new ship is
-unavailable until the ship-steps planner lands.
+A ship releases selected projects in dependency order: wait for upstream
+versions to be live, adopt them, publish, then wait for the project’s own
+release to be live. The settled design is in
+[`designs/ship-steps.md`](../designs/ship-steps.md).
 
 `splates ship [<project>] [--dev <server-url>]` prints the Ships page link.
 The page retains the project list, unshipped commit counts and old ship history.
 Its Ship buttons are disabled during this transition. Old active cascade files
 are ignored on server boot; history remains readable.
+
+## Step API
+
+Until the plan page lands, `POST /api/ship/steps` accepts the person’s choices:
+
+```json
+{"projects":[{"slug":"library","bump":"patch","adopt":"mechanical","instructions":""},{"slug":"consumer","bump":"minor","adopt":"mechanical","instructions":"Keep the public API stable"}]}
+```
+
+The server computes target versions, pins and release order from the registered
+graph. Agent adoption is refused until step tasks are available; instructions
+are stored with each step. `GET /api/ship/steps` reads the ship. The existing
+`/api/ship/events` stream reports its stages and the active npm prompt.
+
+Any failure stops the whole ship. `POST /api/ship/steps/retry` resumes the failed
+stage, skipping adoption if the base already pins its targets and skipping a
+publish if npm already serves every planned package version. Both live waits
+recheck all artifacts, with a new 30-minute deadline on Retry.
+`POST /api/ship/steps/abandon` ends the ship and discards unfinished mechanical
+tasks; published versions stay published. Retry and Abandon are also shown on
+the Ships page. Only one ship can run or remain stopped at a time on a machine.
+The last 20 ships are kept alongside legacy ship history.
 
 ## Naming the ship command
 
@@ -28,12 +50,14 @@ from splates.
 ## Dependency graph
 
 splates reads each registered project's root and workspace manifests to find
-public packages and their consumers. Workspace pins draw no edge. A project's
-`afterBump` command remains available for the upcoming adoption steps.
+public packages and their consumers. Workspace pins draw no edge. Mechanical adoption moves pins in a task worktree, runs `bun install` and
+each upstream project’s `afterBump`, commits, then runs the consumer’s normal
+merge gate and lands through the shared merge path. Matching pins on the base
+skip adoption.
 
 ## Mechanical publish runner
 
-The existing runner remains available for the ship-steps implementation.
+Publishes run one at a time.
 The server runs the ship on its own machine, under your npm sign-in:
 
 1. **Push and verify** requires a clean tree on the default release branch,
@@ -51,8 +75,8 @@ device, your phone included; its popover holds the ship's output. npm's
 sign-in lasts about two hours and each publish needs 2FA, so nothing keeps a
 token that lets an agent, or anything running later, publish without you.
 
-The ship is kept in the project's records: a server restarted partway runs it
-again to finish it.
+The ship and its stages are saved on the machine. A restarted server resumes
+the unfinished stage, checking external evidence before repeating work.
 
 ## Agents and releases
 

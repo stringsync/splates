@@ -7,7 +7,7 @@ import type {
 } from "@stringsync/splates-server/ship";
 import { LoaderCircleIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Duration } from "webappwiz/time";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { shipStageLog } from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
@@ -105,11 +105,28 @@ function StageLog({
 		if (followed) {
 			return;
 		}
-		shipStageLog(cascade.id, step.slug, stage.key).then(
-			setText,
-			() => undefined,
-		);
-	}, [followed, cascade.id, step.slug, stage.key]);
+		let disposed = false;
+		const read = () =>
+			shipStageLog(cascade.id, step.slug, stage.key).then(
+				(value) => {
+					if (!disposed) {
+						setText(value);
+					}
+				},
+				() => undefined,
+			);
+		void read();
+		const tick =
+			stage.ended === null
+				? new SystemTimer().setInterval(() => {
+						void read();
+					}, SECOND)
+				: null;
+		return () => {
+			disposed = true;
+			tick?.dispose();
+		};
+	}, [followed, cascade.id, step.slug, stage.key, stage.ended]);
 	if (followed) {
 		return <ShipOutput key={ship.started} project={ship.project} />;
 	}

@@ -20,6 +20,7 @@ export type {
 	ShipLiveOptions,
 } from "./live";
 export { REGISTRY_DEADLINE, ShipLive } from "./live";
+export { MechanicalAdoption } from "./mechanical";
 export type {
 	ShipBump,
 	ShipPlan,
@@ -39,6 +40,8 @@ export { ShipRegistry } from "./registry";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
 export { Shipping, shipRecord } from "./run";
+export type { ShipSelection } from "./selection";
+export { SHIP_SELECTION } from "./selection";
 export { unserved } from "./served";
 export type {
 	Stage,
@@ -47,3 +50,5 @@ export type {
 	StageLog,
 	StageState,
 } from "./stages";
+export type { ShipStepsOptions, StepProject } from "./steps";
+export { ShipSteps } from "./steps";
