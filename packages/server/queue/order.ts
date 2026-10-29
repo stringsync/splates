@@ -59,40 +59,61 @@ export function canStart(
 
 /**
  * The queued tasks of `all` the queue should let go, by id, each with the
- * blockers that will never start from the queue; give it to
- * `QueueMoves.letGo`. A task waiting on another project stays queued.
+ * blockers removed without merging that it can never start past; give it
+ * to `QueueMoves.letGo`. One blocked by an open task not queued stays
+ * queued, blocked until that is queued too, as `unqueuedBlockers` finds,
+ * and one waiting on another project stays queued.
  */
 export function stalled(all: readonly TaskRecord[]): Map<number, number[]> {
 	const going = new Map<number, number[]>();
-	const queued = all.filter(
-		(task) => task.stage === "queued" && task.takenBy === null,
-	);
-	// One blocked only by another let go goes too, so a chain leaves whole
-	// rather than a link a sweep. Blockers that never start from here are
-	// those neither queued nor running, or removed without merging.
-	let changed = true;
-	while (changed) {
-		changed = false;
-		for (const task of queued) {
-			if (going.has(task.id)) {
-				continue;
-			}
-			const { open, lost } = holdsBack(task, all);
-			const idle = [
-				...open
-					.filter(
-						(other) =>
-							other.takenBy === null &&
-							(other.stage !== "queued" || going.has(other.id)),
-					)
-					.map((other) => other.id),
-				...lost,
-			];
-			if (idle.length > 0) {
-				going.set(task.id, idle);
-				changed = true;
-			}
+	for (const task of all) {
+		if (task.stage !== "queued" || task.takenBy !== null) {
+			continue;
+		}
+		const { lost } = holdsBack(task, all);
+		if (lost.length > 0) {
+			going.set(task.id, lost);
 		}
 	}
 	return going;
+}
+
+/**
+ * The open tasks of `all` that tasks `ids` wait on, however far down, and
+ * that nothing will start: neither queued, under way, nor among `ids`;
+ * each after what it waits on, so queueing them in order queues blockers
+ * first. Empty when every blocker is queued or running already.
+ */
+export function unqueuedBlockers(
+	ids: readonly number[],
+	all: readonly TaskRecord[],
+): TaskRecord[] {
+	const asked = new Set(ids);
+	const seen = new Set<number>();
+	const found: TaskRecord[] = [];
+	const visit = (task: TaskRecord) => {
+		for (const id of task.blockedBy) {
+			const blocker = all.find((other) => other.id === id);
+			// One under way needs nothing queued; links refuse a loop, and
+			// `seen` stops one all the same.
+			if (blocker === undefined || seen.has(id) || blocker.takenBy !== null) {
+				continue;
+			}
+			seen.add(id);
+			if (blocker.stage === "running") {
+				continue;
+			}
+			visit(blocker);
+			if (blocker.stage !== "queued" && !asked.has(id)) {
+				found.push(blocker);
+			}
+		}
+	};
+	for (const id of ids) {
+		const task = all.find((each) => each.id === id);
+		if (task !== undefined) {
+			visit(task);
+		}
+	}
+	return found;
 }

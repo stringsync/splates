@@ -8,6 +8,7 @@ import { Board, still, touchArea } from "./board";
 import { queued } from "./board-expectations";
 import { Dispatching } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
+import { queueEach, useQueueChain } from "./queue-chain";
 import { TONES, type Tone } from "./task-sections";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
@@ -119,16 +120,18 @@ export function StageCounts({
 
 /**
  * Queue for a waiting todo, Unqueue for a queued one, as plain text on its
- * card's line; nothing for one under way, which is past the queue. A refusal
- * is said on the card.
+ * card's line; nothing for one under way, which is past the queue. Queueing
+ * one blocked by tasks not queued offers to queue them too. A refusal is
+ * said on the card.
  */
 export function QueueToggle({
 	todo,
 }: {
 	todo: TaskRecord;
 }): JSX.Element | null {
-	const { refuseTodo } = useContext(Board);
+	const { refuseTodo, todos, lanes } = useContext(Board);
 	const expect = useExpectSnapshot();
+	const chain = useQueueChain(todos, lanes);
 	const stage = stageOf(todo);
 	if (stage === "running") {
 		return null;
@@ -136,26 +139,30 @@ export function QueueToggle({
 	const queue = stage !== "queued";
 	const Icon = queue ? ListPlusIcon : ListXIcon;
 	const label = queue ? "Queue" : "Unqueue";
+	const write = (blockers: number[]) =>
+		void queueEach(expect, blockers)
+			.then(() => expect(queued(todo.id, queue), queueTodo(todo.id, queue)))
+			.catch((error: unknown) =>
+				refuseTodo(todo.id, queue ? "Not queued" : "Not unqueued", error),
+			);
 	return (
-		<button
-			type="button"
-			aria-label={`${label} #${todo.id}`}
-			onClick={() =>
-				void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
-					(error: unknown) =>
-						refuseTodo(todo.id, queue ? "Not queued" : "Not unqueued", error),
-				)
-			}
-			{...still}
-			// Brought out by hover, as the grip is, so every card's line
-			// stays quiet; always there on a touch screen.
-			className={cn(
-				"relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
-				touchArea,
-			)}
-		>
-			<Icon aria-hidden className="size-3" />
-			{label}
-		</button>
+		<>
+			<button
+				type="button"
+				aria-label={`${label} #${todo.id}`}
+				onClick={() => (queue ? chain.ask([todo.id], write) : write([]))}
+				{...still}
+				// Brought out by hover, as the grip is, so every card's line
+				// stays quiet; always there on a touch screen.
+				className={cn(
+					"relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
+					touchArea,
+				)}
+			>
+				<Icon aria-hidden className="size-3" />
+				{label}
+			</button>
+			{chain.confirm}
+		</>
 	);
 }

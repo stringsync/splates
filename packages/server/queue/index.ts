@@ -5,10 +5,17 @@ export {
 	queueMove,
 	queueRemove,
 	refuseAgentQueue,
+	sayUnqueuedBlockers,
 } from "./commands";
 export { QueueMoves } from "./moves";
 export { taskName } from "./name";
-export { canStart, holdsBack, queueOrder, stalled } from "./order";
+export {
+	canStart,
+	holdsBack,
+	queueOrder,
+	stalled,
+	unqueuedBlockers,
+} from "./order";
 export type {
 	HeldConversation,
 	HeldConversations,

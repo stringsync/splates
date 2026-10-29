@@ -36,6 +36,26 @@ describe("queue commands", () => {
 		await expect(queueRemove(deps, [2])).toBail("not_found");
 	});
 
+	it("names the chain of blockers not queued, with the command that queues it", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "Charts", null);
+		await taskAdd(deps, "Breakdowns", null);
+		await taskAdd(deps, "Totals first", null, { ready: true });
+		await taskUpdate(deps, 1, { blockedBy: [2] });
+		await taskUpdate(deps, 2, { blockedBy: [3] });
+		deps.log.clear();
+
+		await queueAdd(deps, [1]);
+
+		expect(deps.out()).toContain("#3 Totals first (ready)");
+		expect(deps.out()).toContain("#2 Breakdowns (backlog)");
+		expect(deps.out()).toContain("`splates queue add 3 2`");
+
+		deps.log.clear();
+		await queueAdd(deps, [3, 2]);
+		expect(deps.out()).not.toContain("not queued");
+	});
+
 	it("refuses to queue a task already under way", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "Taken", null);

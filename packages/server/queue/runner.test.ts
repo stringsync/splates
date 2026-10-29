@@ -111,7 +111,7 @@ describe("QueueRunner", () => {
 		).toEqual([{ task: "totals-first", number: 2, pick: { agent: "claude" } }]);
 	});
 
-	it("starts a queued lane's tasks as their blockers land, and lets go of one blocked outside it", async () => {
+	it("starts a queued lane's tasks as their blockers land, and keeps one blocked outside it queued", async () => {
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "Store licenses", null, { lane: 1 });
 		await taskAdd(deps, "Check them", null, { lane: 1, blockedBy: [1] });
@@ -124,10 +124,7 @@ describe("QueueRunner", () => {
 
 		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
 		expect((await deps.tasks.find(2)).state.stage).toBe("queued");
-		expect((await deps.tasks.find(4)).state).toMatchObject({
-			stage: "backlog",
-			unqueuedFor: [3],
-		});
+		expect((await deps.tasks.find(4)).state.stage).toBe("queued");
 
 		await (await deps.tasks.find(1)).remove("abc123");
 		await runner.sweep();
@@ -279,7 +276,7 @@ describe("QueueRunner", () => {
 		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
 	});
 
-	it("lets go to ready a queued task waiting on one neither queued nor running, noting it, until queued again", async () => {
+	it("keeps queued a task waiting on one neither queued nor running, starting that once it is queued", async () => {
 		await taskAdd(deps, "Breakdowns", null, { ready: true });
 		await taskAdd(deps, "Totals first", null);
 		await taskUpdate(deps, 1, { blockedBy: [2] });
@@ -289,22 +286,19 @@ describe("QueueRunner", () => {
 
 		expect(started).toEqual([]);
 		expect(held.held).toEqual([]);
-		expect((await deps.tasks.find(1)).state).toMatchObject({
-			stage: "ready",
-			unqueuedFor: [2],
-		});
-
-		starting = () => new Promise(() => {});
-		await queueAdd(deps, [2, 1]);
-		await runner.sweep();
-
-		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
 		const waiting = (await deps.tasks.find(1)).state;
 		expect(waiting.stage).toBe("queued");
 		expect(waiting.unqueuedFor).toBeUndefined();
+
+		starting = () => new Promise(() => {});
+		await queueAdd(deps, [2]);
+		await runner.sweep();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
+		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
 	});
 
-	it("lets a chain go whole when the task at its root is not queued", async () => {
+	it("keeps a chain queued whole when the task at its root is not queued", async () => {
 		await taskAdd(deps, "Charts", null);
 		await taskAdd(deps, "Breakdowns", null);
 		await taskAdd(deps, "Totals first", null);
@@ -319,8 +313,7 @@ describe("QueueRunner", () => {
 			deps.tasks.find(1),
 			deps.tasks.find(2),
 		]);
-		expect([one.state.unqueuedFor, two.state.unqueuedFor]).toEqual([[2], [3]]);
-		expect([one.state.stage, two.state.stage]).toEqual(["backlog", "backlog"]);
+		expect([one.state.stage, two.state.stage]).toEqual(["queued", "queued"]);
 	});
 
 	it("hands a queued task's held conversation to its start, keeping it until it takes the task", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { laneAdd, laneQueue, taskAdd } from "../board";
 import { Testing } from "../testing";
-import { stalled } from "./order";
+import { stalled, unqueuedBlockers } from "./order";
 
 /** Each task's stage, by id. */
 async function stages(deps: Testing): Promise<Record<number, string>> {
@@ -62,7 +62,7 @@ describe.concurrent("queueing a lane", () => {
 		expect(await stages(deps)).toEqual({ 1: "ready", 2: "backlog" });
 	});
 
-	it("leaves the queue to let go of a task blocked by one that will not start from it", async () => {
+	it("keeps a task blocked by one outside the queue queued, naming that blocker as not queued", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await laneAdd(deps, "Billing");
@@ -74,7 +74,8 @@ describe.concurrent("queueing a lane", () => {
 
 		const all = (await deps.tasks.all()).map((task) => task.state);
 		// #3 waits on #2, queued with it; #4 on #1, in a lane not queued.
-		expect([...stalled(all)]).toEqual([[4, [1]]]);
+		expect(stalled(all).size).toBe(0);
+		expect(unqueuedBlockers([3, 4], all).map((task) => task.id)).toEqual([1]);
 	});
 
 	it("reads a lane once queued whole as a plain lane", async () => {

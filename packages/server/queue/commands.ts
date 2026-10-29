@@ -13,7 +13,7 @@ import { pickLabel } from "../models";
 import { table } from "../table";
 import type { WorktreeService } from "../tasks";
 import { QueueMoves } from "./moves";
-import { holdsBack, queueOrder } from "./order";
+import { holdsBack, queueOrder, unqueuedBlockers } from "./order";
 
 /** What the queue commands work with. */
 export interface QueueDeps {
@@ -87,7 +87,34 @@ export async function queueAdd(
 			)
 			.join("\n"),
 	);
+	await sayUnqueuedBlockers(
+		{ tasks, log },
+		queued.map((task) => task.id),
+	);
 	return queued;
+}
+
+/**
+ * Names the tasks just queued, `ids`, wait on that are not queued, however
+ * far down, with the command that queues them, blockers first: until then
+ * those stay queued and blocked. Says nothing when there are none.
+ */
+export async function sayUnqueuedBlockers(
+	{ tasks, log }: QueueDeps,
+	ids: readonly number[],
+): Promise<void> {
+	const all = (await tasks.all()).map((task) => task.state);
+	const chain = unqueuedBlockers(ids, all);
+	if (chain.length === 0) {
+		return;
+	}
+	log.info(
+		`${color.yellow("blocked")} by ${chain.length === 1 ? "a task" : `${chain.length} tasks`} not queued, so it waits until they are:\n${chain
+			.map((task) => `  #${task.id} ${task.subject} (${task.stage})`)
+			.join(
+				"\n",
+			)}\nqueue them too with \`splates queue add ${chain.map((task) => task.id).join(" ")}\``,
+	);
 }
 
 /**

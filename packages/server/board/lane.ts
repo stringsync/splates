@@ -296,7 +296,7 @@ export async function laneQueue(
 		changed.length === 0
 			? `lane ${id} ${record.name}: ${queued ? "no task in it waits to be queued" : "none of its tasks is in the queue"}`
 			: queued
-				? `${color.green("queued")} lane ${id} ${record.name}: ${ids}, each started once nothing it is blocked by is open; a task blocked by one that will not start from the queue is let go`
+				? `${color.green("queued")} lane ${id} ${record.name}: ${ids}, each started once nothing it is blocked by is open`
 				: `${color.green("unqueued")} lane ${id} ${record.name}: ${ids}`,
 	);
 	return changed;

@@ -64,6 +64,45 @@ describe("Queue page's Up next", () => {
 		expect(view.queryByText("Nothing queued")).toBeNull();
 	});
 
+	it("marks a queued task blocked by one not queued, and queues its blockers from the row", async () => {
+		const view = await testing.openTasks({
+			todos: [
+				todo({ id: 1, subject: "store licenses", stage: "ready" }),
+				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
+				todo({ id: 3, subject: "free", stage: "queued" }),
+			],
+		});
+
+		const row = queueRow(view, "check them", "queued tasks");
+		expect(within(row).getByText("Blocker not queued")).toBeTruthy();
+		expect(
+			within(queueRow(view, "free", "queued tasks")).queryByText(
+				"Blocker not queued",
+			),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(row).getByRole("button", { name: "Queue blockers" }),
+			),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getByText("store licenses")).toBeTruthy();
+		expect(
+			within(dialog).queryByRole("button", { name: /Queue only/ }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Queue it" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/1/queued")).toEqual([
+				{ method: "PUT", body: { queued: true } },
+			]),
+		);
+		expect(testing.posted("/api/todos/2/queued")).toEqual([]);
+	});
+
 	it("holds the tasks at work and what waits next in one card", async () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "at-work" })],

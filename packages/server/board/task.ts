@@ -430,9 +430,9 @@ export interface TaskRecord {
 	/** When it was last queued, kept while it is queued or running; absent for one never queued. */
 	queuedAt?: string;
 	/**
-	 * The tasks it was blocked by that were neither queued nor running when
-	 * the queue let it go, so the page says what to queue first; cleared
-	 * when it is queued again. Absent for none.
+	 * The blockers the queue let it go for: removed without merging, or, in
+	 * a record from before the queue kept them, neither queued nor running;
+	 * cleared when it is queued again. Absent for none.
 	 */
 	unqueuedFor?: number[];
 	/**

@@ -11,7 +11,10 @@ import {
 } from "@stringsync/splates-server/board";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { UNTRIAGED } from "@stringsync/splates-server/plans";
-import { refuseAgentQueue } from "@stringsync/splates-server/queue";
+import {
+	refuseAgentQueue,
+	sayUnqueuedBlockers,
+} from "@stringsync/splates-server/queue";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { cli } from "webappwiz/cmd";
@@ -98,7 +101,7 @@ splatesLane
 	.command("queue")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open, and lets go of one blocked by a task that will not start from the queue; a task put in the lane later is queued on its own. Untriaged cannot be queued as a lane",
+		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open; one blocked by a task outside the queue waits queued until that is queued too, as the command names; a task put in the lane later is queued on its own. Untriaged cannot be queued as a lane",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
@@ -106,7 +109,11 @@ splatesLane
 	.action(async (opts, ctx) => {
 		refuseAgentQueue(ctx.service, "lane queue");
 		await refuseGroomer(ctx.service, "lane queue");
-		await laneQueue(ctx, opts.lane, true);
+		const queued = await laneQueue(ctx, opts.lane, true);
+		await sayUnqueuedBlockers(
+			ctx,
+			queued.map((task) => task.id),
+		);
 	});
 
 splatesLane

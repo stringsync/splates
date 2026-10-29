@@ -191,9 +191,9 @@ always moves processed tasks to a themed lane or Backlog.
 
 The user queues a lane from the board or a queue card, once: every task
 waiting in it joins the queue then, which starts each once what it is
-blocked by lands, and lets go of one blocked by a task that will not start
-from the queue, its blockers neither queued nor running, saying which to
-queue first. A task added to the lane later is not queued with it: so a
+blocked by lands. One blocked by a task outside the queue, neither queued
+nor running, stays queued and blocked until that task is queued too; the
+board offers to queue the whole chain of blockers along with it. A task added to the lane later is not queued with it: so a
 follow-up you add to a lane under way waits, and your reply ends with its
 queue card, as for any task you add. Untriaged cannot be queued as a lane.
 

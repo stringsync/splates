@@ -172,6 +172,14 @@ export function Card({
 							<span className="text-warning">needs you</span>
 						</Badge>
 					)}
+					{waits.some((wait) => wait.state === "not queued") && (
+						<Badge
+							Icon={CircleAlertIcon}
+							label="it cannot start until the task it waits on is queued too"
+						>
+							<span className="text-warning">blocker not queued</span>
+						</Badge>
+					)}
 					{leftFor.length > 0 && (
 						<Badge
 							Icon={CircleAlertIcon}

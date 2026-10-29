@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import type { TaskRecord } from "../board";
-import { canStart, holdsBack, queueOrder, stalled } from "./order";
+import {
+	canStart,
+	holdsBack,
+	queueOrder,
+	stalled,
+	unqueuedBlockers,
+} from "./order";
 
 describe("the queue's order", () => {
 	it("takes queued tasks no agent has, in list order", () => {
@@ -75,6 +81,48 @@ describe("the queue's order", () => {
 		expect(canStart(landed, all)).toBe(true);
 		// The other project's queue starts its task, so this one stays queued.
 		expect(stalled(all).size).toBe(0);
+	});
+});
+
+describe("what the queue holds on to", () => {
+	it("keeps one blocked by a task not queued, and lets go of one blocked by a task removed", () => {
+		const all = [
+			task({ id: 1, blockedBy: [2] }),
+			task({ id: 2, stage: "ready" }),
+			task({
+				id: 3,
+				blockersLost: [{ id: 9, subject: "gone" }],
+			}),
+		];
+
+		expect([...stalled(all)]).toEqual([[3, [9]]]);
+	});
+});
+
+describe("the blockers not queued", () => {
+	it("finds the whole chain not queued, blockers first, past queued and asked ones", () => {
+		const all = [
+			task({ id: 1, blockedBy: [2, 5] }),
+			task({ id: 2, stage: "queued", blockedBy: [3] }),
+			task({ id: 3, stage: "backlog", blockedBy: [4] }),
+			task({ id: 4, stage: "ready" }),
+			task({ id: 5, stage: "ready", blockedBy: [4] }),
+		];
+
+		expect(ids(unqueuedBlockers([1], all))).toEqual([4, 3, 5]);
+		expect(ids(unqueuedBlockers([1, 3], all))).toEqual([4, 5]);
+	});
+
+	it("stops at a task under way, and finds none for one free to start", () => {
+		const all = [
+			task({ id: 1, blockedBy: [2] }),
+			task({ id: 2, stage: "ready", takenBy: "alpha", blockedBy: [3] }),
+			task({ id: 3, stage: "ready" }),
+			task({ id: 4 }),
+		];
+
+		expect(unqueuedBlockers([1], all)).toEqual([]);
+		expect(unqueuedBlockers([4], all)).toEqual([]);
 	});
 });
 

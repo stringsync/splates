@@ -35,12 +35,12 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
 /** Starts a project's queued tasks: `watch` to begin, `sweep` to check now, `retry` a refused start, `dispose` to stop. */
 export class QueueRunner implements Resource {
 	// Each queued task starts once nothing it is blocked by is open, on the
-	// agent and model it names or Auto pick's; one blocked by a task that
-	// will never start from the queue is let go back to ready, saying which
-	// to queue first. Checked as tasks change and every `QUEUE_SWEEP`. Queue starts take no
-	// slot, so all go at once. A blocker neither queued nor running, or one
-	// removed without merging, would hold its task for good, hence the let
-	// go. A task gets a held conversation only once it can start, so none
+	// agent and model it names or Auto pick's; one blocked by a task not
+	// queued stays queued, blocked until that is queued too, and the page
+	// says so. Checked as tasks change and every `QUEUE_SWEEP`. Queue starts
+	// take no slot, so all go at once. A blocker removed without merging
+	// would hold its task for good, so that task is let go back to ready,
+	// saying which blocker to let go of. A task gets a held conversation only once it can start, so none
 	// waits at an agent on another task. A refused start is tried again at
 	// once when its task changes or on `retry`, otherwise after a wait that
 	// doubles with each refusal up to `RETRY_SWEEPS_MAX` sweeps, so a passing
