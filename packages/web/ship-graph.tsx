@@ -8,15 +8,25 @@ import { cn } from "./lib/utils";
 
 /**
  * The registered projects that ship or take a release, in one list in
- * release order, each after the projects whose packages it pins; Ship picks
- * it, and nothing ships until its plan is approved in the conversation that
- * starts. Above it, one pick of every project changed since its last release.
+ * release order, each after the projects whose packages it pins; Ship starts
+ * the conversation that plans it, in place and pending on its own button, and
+ * nothing ships until its plan is approved there. Above it, one button for
+ * every project changed since its last release.
  */
 export function ShipGraphTree({
 	endedAt,
+	ready,
+	starting,
+	refusal,
 	onShip,
 	onShipChanged,
 }: {
+	/** Whether a ship can start: false while `splates server` holds no conversations. */
+	ready: boolean;
+	/** The key of the button whose ship is starting, a project's slug or `changed`. */
+	starting: string | null;
+	/** Why the ship behind the button of `key` did not start. */
+	refusal: { key: string; message: string } | null;
 	/** When the last cascade ended, so versions are read again after one. */
 	endedAt: string | null;
 	onShip: (slug: string) => void;
@@ -55,6 +65,9 @@ export function ShipGraphTree({
 			<ShipChanged
 				changed={changedProjects(graph).map((each) => each.slug)}
 				onShip={onShipChanged}
+				ready={ready}
+				starting={starting}
+				refusal={refusal?.key === "changed" ? refusal.message : null}
 			/>
 			<h2 className="mt-2 font-medium text-sm">Projects</h2>
 			<ol
@@ -66,6 +79,9 @@ export function ShipGraphTree({
 						key={each.slug}
 						project={each}
 						onShip={() => onShip(each.slug)}
+						ready={ready}
+						starting={starting}
+						refusal={refusal?.key === each.slug ? refusal.message : null}
 					/>
 				))}
 			</ol>
@@ -100,9 +116,15 @@ function releaseOrder(projects: ShipProject[]): ShipProject[] {
 function ShipChanged({
 	changed,
 	onShip,
+	ready,
+	starting,
+	refusal,
 }: {
 	changed: string[];
 	onShip: (changed: string[]) => void;
+	ready: boolean;
+	starting: string | null;
+	refusal: string | null;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
@@ -118,18 +140,25 @@ function ShipChanged({
 						: `${changed.join(", ")}, released dependencies first, then what depends on them.`}
 				</span>
 			</span>
+			{refusal !== null && (
+				<p role="alert" className="text-destructive text-xs">
+					{refusal}
+				</p>
+			)}
 			<Button
 				className="w-full"
-				disabled={changed.length === 0}
-				title="Picks every changed project, in dependency order; nothing ships until you approve its plan"
+				disabled={changed.length === 0 || !ready || starting !== null}
+				title="Starts a conversation that plans the ship of every changed project, dependencies first; nothing ships until you approve its plan"
 				onClick={() => onShip(changed)}
 			>
 				<ShipIcon />
-				{changed.length === 1
-					? `Ship ${changed[0]}`
-					: changed.length === 0
-						? "Ship all changed"
-						: `Ship all ${changed.length}`}
+				{starting === "changed"
+					? "Starting…"
+					: changed.length === 1
+						? `Ship ${changed[0]}`
+						: changed.length === 0
+							? "Ship all changed"
+							: `Ship all ${changed.length}`}
 			</Button>
 		</div>
 	);
@@ -138,9 +167,15 @@ function ShipChanged({
 function GraphProject({
 	project,
 	onShip,
+	ready,
+	starting,
+	refusal,
 }: {
 	project: ShipProject;
 	onShip: () => void;
+	ready: boolean;
+	starting: string | null;
+	refusal: string | null;
 }): JSX.Element {
 	const shipped = project.ship !== null;
 	return (
@@ -163,15 +198,21 @@ function GraphProject({
 						? project.packages.join(", ")
 						: "Takes the releases it pins"}
 				</span>
+				{refusal !== null && (
+					<span role="alert" className="text-destructive text-xs">
+						{refusal}
+					</span>
+				)}
 			</span>
 			{shipped ? (
 				<Button
 					size="sm"
 					variant="outline"
-					title="Picks it to ship, downstream too; nothing ships until you approve its plan"
+					disabled={!ready || starting !== null}
+					title="Starts a conversation that plans its ship, downstream too; nothing ships until you approve its plan"
 					onClick={onShip}
 				>
-					Ship
+					{starting === project.slug ? "Starting…" : "Ship"}
 				</Button>
 			) : (
 				<span className="shrink-0 text-muted-foreground text-xs">

@@ -20,6 +20,10 @@ import { type Live, useLiveShips } from "./use-live-ships";
 /** Where the page keeps the stopped run the person closed, so it stays put away. */
 const CLOSED_KEY = "splates.ship.closed";
 
+/** The keys of the buttons that start a ship, besides a project's slug. */
+const PICKED = "picked";
+const CHANGED = "changed";
+
 /** What the person picked to ship: projects by slug, none to replan a stopped run, or every changed one. */
 type PickedShip = { projects: string[]; label: string } | null;
 
@@ -58,8 +62,13 @@ export function ShipsPage({
 		);
 		return { projects: [project], label: project };
 	});
-	const [starting, setStarting] = useState(false);
-	const [refusal, setRefusal] = useState<string | null>(null);
+	// What is starting, by the key of the button that asked, so it shows
+	// pending where the person clicked; a refusal shows there too.
+	const [starting, setStarting] = useState<string | null>(null);
+	const [refusal, setRefusal] = useState<{
+		key: string;
+		message: string;
+	} | null>(null);
 	const [closed, setClosed] = useState(() => localStorage.getItem(CLOSED_KEY));
 	const cascade = live?.cascade ?? null;
 	const [planning, setPlanning] = useState<ShipRunRecord | null>(null);
@@ -98,32 +107,35 @@ export function ShipsPage({
 		void endedAt;
 		shipHistory().then(setHistory, () => undefined);
 	}, [endedAt]);
-	const pick = (projects: string[], label: string) => {
+	// A stopped run replans from what it published, so none are named; it and
+	// a card's `?ship=` ask first, since the person did not click a project.
+	const recover = (run: { from: string }) => {
 		setRefusal(null);
-		setPicked({ projects, label });
+		setPicked({ projects: [], label: run.from });
 	};
-	// A stopped run replans from what it published, so none are named.
-	const recover = (run: { from: string }) => pick([], run.from);
-	const start = async () => {
-		if (picked === null || feed === null || starting) {
+	const start = async (key: string, projects: string[], label: string) => {
+		if (feed === null || starting !== null) {
 			return;
 		}
-		setStarting(true);
+		setStarting(key);
 		setRefusal(null);
 		try {
-			navigation.go(await new ShipStart(feed).begin(picked.projects));
+			navigation.go(await new ShipStart(feed).begin(projects));
 		} catch (error) {
-			setRefusal(refusalOf(`The ship of ${picked.label} did not start`, error));
-			setStarting(false);
+			setRefusal({
+				key,
+				message: refusalOf(`The ship of ${label} did not start`, error),
+			});
+			setStarting(null);
 		}
 	};
 	const choice = picked !== null && !active && (
 		<Picked
 			picked={picked}
 			ready={feed !== null}
-			starting={starting}
-			refusal={refusal}
-			onStart={() => void start()}
+			starting={starting === PICKED}
+			refusal={refusal?.key === PICKED ? refusal.message : null}
+			onStart={() => void start(PICKED, picked.projects, picked.label)}
 			onCancel={() => setPicked(null)}
 		/>
 	);
@@ -164,8 +176,13 @@ export function ShipsPage({
 			{live !== null && shown === null && planning === null && (
 				<ShipGraphTree
 					endedAt={endedAt}
-					onShip={(slug) => pick([slug], slug)}
-					onShipChanged={(changed) => pick(changed, "every changed project")}
+					ready={feed !== null}
+					starting={starting}
+					refusal={refusal}
+					onShip={(slug) => void start(slug, [slug], slug)}
+					onShipChanged={(changed) =>
+						void start(CHANGED, changed, "every changed project")
+					}
 				/>
 			)}
 			{history.length > 0 && <History cascades={history} />}

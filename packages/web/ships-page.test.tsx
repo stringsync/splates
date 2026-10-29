@@ -9,6 +9,7 @@ import type {
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
+import type { ConversationFeed } from "./conversation-feed";
 import { FakeStream, type Stream } from "./fake-stream";
 import { ShipsPage } from "./ships-page";
 import { act, cleanup, render, within } from "./testing-library";
@@ -100,7 +101,7 @@ describe("ShipsPage", () => {
 		);
 	});
 
-	it("picks every changed project from one button, which names them, and starts nothing", async () => {
+	it("starts the ship of every changed project from one button, showing a refusal beside it instead of a card above", async () => {
 		const asked: string[] = [];
 		const graph = [
 			project({
@@ -121,7 +122,11 @@ describe("ShipsPage", () => {
 			asked.push(String(url));
 			return Response.json(answer(String(url), graph));
 		}) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
+		const view = render(
+			<ShipsPage
+				feed={{ agents: [], conversations: [] } as unknown as ConversationFeed}
+			/>,
+		);
 		await say({ cascade: null, ship: null });
 		expect(
 			await view.findByText("2 projects have unshipped commits"),
@@ -134,12 +139,8 @@ describe("ShipsPage", () => {
 		await act(async () => {
 			view.getByRole("button", { name: "Ship all 2" }).click();
 		});
-		expect(
-			within(view.getByRole("region", { name: "ship picked" })).getByText(
-				"Ship every changed project",
-			),
-		).toBeTruthy();
-		expect(asked.some((url) => url.includes("/api/ship/run/"))).toBe(false);
+		expect(view.queryByRole("region", { name: "ship picked" })).toBeNull();
+		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(true);
 	});
 
 	it("disables the pick of every changed project when none changed", async () => {
