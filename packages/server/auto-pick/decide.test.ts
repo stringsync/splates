@@ -487,21 +487,26 @@ describe("decide", () => {
 		});
 	});
 
-	it("falls back to Kimi when Claude and Codex are spent", () => {
+	it("falls back to Kimi for deep work alone when Claude and Codex are spent", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.98, resets: LATER, at: null }],
 			codex: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
 		};
-		expect(decide({ ...BASE, limits, classification: SHALLOW }).pick).toEqual({
-			agent: "kimi",
-			model: "kimi-code/k3.1-pro-highspeed",
-			effort: "low",
-		});
+		expect(
+			decide({ ...BASE, limits, classification: SHALLOW }).pick.agent,
+		).not.toBe("kimi");
 		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
 			agent: "kimi",
 			model: "kimi-code/k3.1-pro",
 			effort: "high",
 		});
+	});
+
+	it("never picks K3.1 Pro highspeed by default", () => {
+		const models = DEFAULT_RULES.rules.flatMap((each) =>
+			each.picks.map((pick) => pick.model),
+		);
+		expect(models).not.toContain("kimi-code/k3.1-pro-highspeed");
 	});
 });
 

@@ -17,12 +17,12 @@ describe("decideWithout", () => {
 				now: new Date("2026-10-19T12:00:00Z"),
 			}),
 		).toEqual({
-			pick: { agent: "claude", model: "opus", effort: "medium" },
+			pick: { agent: "claude", model: "sonnet", effort: "medium" },
 			rule: 8,
 			kind: null,
 			depth: null,
 			reasons: [
-				"Opus 5.5, medium effort",
+				"Sonnet 5.5, medium effort",
 				"the judge took over 5s",
 				"rule 9: any kind, any depth",
 			],

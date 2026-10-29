@@ -48,14 +48,14 @@ describe("checkRules", () => {
 	it("puts each default task class on its intended primary pick", () => {
 		expect(DEFAULT_RULES.rules.map((each) => each.picks[0])).toEqual([
 			{ agent: "claude", model: "sonnet", effort: "low" },
-			{ agent: "claude", model: "opus", effort: "medium" },
-			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "sonnet", effort: "high" },
+			{ agent: "claude", model: "sonnet", effort: "high" },
 			{ agent: "claude", model: "sonnet", effort: "medium" },
 			{ agent: "claude", model: "opus", effort: "high" },
 			{ agent: "claude", model: "opus", effort: "high" },
 			{ agent: "claude", model: "opus", effort: "high" },
 			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
-			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "claude", model: "sonnet", effort: "medium" },
 		]);
 	});
 

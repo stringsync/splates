@@ -6,14 +6,10 @@ export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
 	threshold: 0.5,
 	rules: [
-		rule(
-			"shallow",
-			["sonnet", "gpt-6.1-sol", "kimi-code/k3.1-pro-highspeed"],
-			"low",
-		),
+		shallow(),
 		designModerate("design"),
 		designModerate("open"),
-		rule("moderate", ["sonnet", "gpt-6.1-sol", "kimi-code/k3.1-pro"], "medium"),
+		moderate(),
 		deepBugfix(),
 		designDeep("design"),
 		designDeep("open"),
@@ -23,32 +19,44 @@ export const DEFAULT_RULES: AutoPickRules = {
 	pace: DEFAULT_PACE,
 };
 
-/** A default rule: Claude first, then Codex, then Kimi, each at `effort`. */
-function rule(
-	depth: Rule["depth"],
-	[claude, codex, kimi]: [string, string, string],
-	effort: string,
-): Rule {
+// Sonnet leads everything short of deep work; K3.1 Pro is kept for deep work
+// alone, and its highspeed variant, which spends twice the tokens, is never picked.
+
+/** Shallow work starts on Sonnet, then Sol, then Haiku, at low effort. */
+function shallow(): Rule {
 	return {
 		kind: ANY,
-		depth,
+		depth: "shallow",
 		picks: [
-			{ agent: "claude", model: claude, effort },
-			{ agent: "codex", model: codex, effort },
-			{ agent: "kimi", model: kimi, effort },
+			{ agent: "claude", model: "sonnet", effort: "low" },
+			{ agent: "codex", model: "gpt-6.1-sol", effort: "low" },
+			{ agent: "claude", model: "haiku", effort: "low" },
 		],
 	};
 }
 
-/** Moderate design or open-ended work starts on Opus, then Sonnet, then K3.1 Pro. */
+/** Moderate design or open-ended work starts on Sonnet at high effort, then Opus, then Sol. */
 function designModerate(kind: "design" | "open"): Rule {
 	return {
 		kind,
 		depth: "moderate",
 		picks: [
+			{ agent: "claude", model: "sonnet", effort: "high" },
 			{ agent: "claude", model: "opus", effort: "medium" },
+			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
+		],
+	};
+}
+
+/** Other moderate work starts on Sonnet, then Sol, then Opus, at medium effort. */
+function moderate(): Rule {
+	return {
+		kind: ANY,
+		depth: "moderate",
+		picks: [
 			{ agent: "claude", model: "sonnet", effort: "medium" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
+			{ agent: "claude", model: "opus", effort: "medium" },
 		],
 	};
 }
@@ -95,14 +103,14 @@ function deep(): Rule {
 	};
 }
 
-/** Work the judge could not place starts on Opus, then Sonnet, then Sol. */
+/** Work the judge could not place starts on Sonnet, then Opus, then Sol. */
 function fallback(): Rule {
 	return {
 		kind: ANY,
 		depth: ANY,
 		picks: [
-			{ agent: "claude", model: "opus", effort: "medium" },
 			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "claude", model: "opus", effort: "medium" },
 			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
 		],
 	};
