@@ -40,7 +40,6 @@ export {
 	elsewhereTasks,
 	type FilesForm,
 	fileUrl,
-	finishOutside,
 	joinLanes,
 	linkTodo,
 	moveInQueue,

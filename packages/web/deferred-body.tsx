@@ -7,19 +7,15 @@ import {
 	type TaskBlockerStatus,
 	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
-import { CheckIcon, CircleIcon, LinkIcon, Trash2Icon } from "lucide-react";
+import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
+import { CheckIcon, CircleIcon, LinkIcon, PlayIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import {
-	answerDeferral,
-	finishOutside,
-	linkTodo,
-	queueTodo,
-	removeTodo,
-} from "./api";
+import { answerDeferral, linkTodo, queueTodo } from "./api";
 import { Board } from "./board";
 import { linked } from "./board-expectations";
+import { useCardReply } from "./card-reply";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
 import { ElsewhereMention, HEADING } from "./markdown";
@@ -64,9 +60,11 @@ export function blockersLeft(
 
 /**
  * The body of a Deferred card, built from the board record of the deferred
- * task: why it stopped, a checklist of what unblocks it with an action for
- * each, and where the work stands now. Each action shows at once and is
- * undone, with the refusal said, if the server refuses it.
+ * task: why it stopped, what it waits on and where each stands, an answer
+ * box for each open question, and Resume, which sends the task back to the
+ * conversation that deferred it, for its agent to check what it waits on and
+ * carry on or defer again. Each action shows at once and is undone, with the
+ * refusal said, if the server refuses it.
  */
 export function DeferredBody({
 	task,
@@ -82,160 +80,126 @@ export function DeferredBody({
 	);
 	const { refusal, pending, act } = useActs();
 	const [answers, setAnswers] = useState<Record<number, string>>({});
+	const send = useCardReply().reply?.send ?? null;
 	if (deferred === undefined) {
 		return null;
 	}
-	const queueAfter = queueingAfter(task);
-	const left = blockers.filter((each) => !cleared(each)).length;
+	// Told to the agent that deferred it, as anything typed here would wake
+	// it; where nothing can be sent, the queue gives it to a new one.
+	const resume = () =>
+		send === null
+			? queueTodo(task.id, true)
+			: send(taskNumberReference(task.id));
+	const queued = task.stage === "queued" && task.takenBy === null;
 	let questionIndex = -1;
-	let outsideIndex = -1;
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
 			<section aria-label="why it stopped">
 				<h4 className={HEADING}>Why it stopped</h4>
 				<p className="leading-relaxed">{deferred.why}</p>
 			</section>
-			<section aria-label="to unblock">
-				<h4 className={HEADING}>To unblock</h4>
-				<ol className="flex flex-col gap-2">
-					{blockers.map((blocker, i) => {
-						const key = `${blocker.kind}:${i}`;
-						const done = cleared(blocker);
-						let index = 0;
-						if (blocker.kind === "question") {
-							questionIndex += 1;
-							index = questionIndex;
-						} else if (blocker.kind === "outside") {
-							outsideIndex += 1;
-							index = outsideIndex;
-						}
-						return (
-							<li key={key} className="flex items-start gap-2">
-								<Mark done={done} />
-								<div className="flex min-w-0 flex-1 flex-col gap-1.5">
-									{blocker.kind === "task" && (
-										<TaskBlocker
-											blocker={blocker}
-											done={done}
-											busy={pending.has(key)}
-											act={(write) => act(key, write)}
-											queueAfter={queueAfter}
-										/>
-									)}
-									{blocker.kind === "question" && (
-										<>
-											<p className={cn(done && "text-muted-foreground")}>
-												{blocker.text.split("\n")[0]}
-											</p>
-											{blocker.answer !== undefined && (
-												<p className="whitespace-pre-wrap rounded-md bg-muted px-2 py-1">
-													{blocker.answer}
+			{blockers.length > 0 && (
+				<section aria-label="waits on">
+					<h4 className={HEADING}>Waits on</h4>
+					<ol className="flex flex-col gap-2">
+						{blockers.map((blocker, i) => {
+							const key = `${blocker.kind}:${i}`;
+							const done = cleared(blocker);
+							let index = 0;
+							if (blocker.kind === "question") {
+								questionIndex += 1;
+								index = questionIndex;
+							}
+							return (
+								<li key={key} className="flex items-start gap-2">
+									<Mark done={done} />
+									<div className="flex min-w-0 flex-1 flex-col gap-1.5">
+										{blocker.kind === "task" && (
+											<TaskBlocker blocker={blocker} done={done} />
+										)}
+										{blocker.kind === "question" && (
+											<>
+												<p className={cn(done && "text-muted-foreground")}>
+													{blocker.text.split("\n")[0]}
 												</p>
-											)}
-											{!done && (
-												<form
-													className="flex flex-wrap items-center gap-2"
-													onSubmit={(event) => {
-														event.preventDefault();
-														const answer = (answers[i] ?? "").trim();
-														if (answer === "") {
-															return;
-														}
-														void act(key, async () => {
-															await answerDeferral(task.id, index, answer);
-															await queueTodo(task.id, true);
-														});
-													}}
-												>
-													<input
-														aria-label="answer"
-														placeholder="Your answer"
-														value={answers[i] ?? ""}
-														onChange={(event) =>
-															setAnswers({
-																...answers,
-																[i]: event.target.value,
-															})
-														}
-														className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 pointer-coarse:h-10"
-													/>
-													<Button
-														type="submit"
-														size="sm"
-														variant="outline"
-														disabled={
-															(answers[i] ?? "").trim() === "" ||
-															pending.has(key)
-														}
+												{blocker.answer !== undefined && (
+													<p className="whitespace-pre-wrap rounded-md bg-muted px-2 py-1">
+														{blocker.answer}
+													</p>
+												)}
+												{!done && (
+													<form
+														className="flex flex-wrap items-center gap-2"
+														onSubmit={(event) => {
+															event.preventDefault();
+															const answer = (answers[i] ?? "").trim();
+															if (answer === "") {
+																return;
+															}
+															void act(key, () =>
+																answerDeferral(task.id, index, answer),
+															);
+														}}
 													>
-														Answer and queue
-													</Button>
-												</form>
-											)}
-										</>
-									)}
-									{blocker.kind === "outside" && (
-										<div className="flex flex-wrap items-start gap-2">
+														<input
+															aria-label="answer"
+															placeholder="Your answer"
+															value={answers[i] ?? ""}
+															onChange={(event) =>
+																setAnswers({
+																	...answers,
+																	[i]: event.target.value,
+																})
+															}
+															className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 pointer-coarse:h-10"
+														/>
+														<Button
+															type="submit"
+															size="sm"
+															variant="outline"
+															disabled={
+																(answers[i] ?? "").trim() === "" ||
+																pending.has(key)
+															}
+														>
+															Answer
+														</Button>
+													</form>
+												)}
+											</>
+										)}
+										{blocker.kind === "outside" && (
 											<span className={cn(done && "text-muted-foreground")}>
 												{blocker.what}
 											</span>
-											{!done && (
-												<Button
-													size="sm"
-													variant="outline"
-													disabled={pending.has(key)}
-													onClick={() =>
-														void act(key, () => finishOutside(task.id, index))
-													}
-												>
-													Mark done
-												</Button>
-											)}
-										</div>
-									)}
-								</div>
-							</li>
-						);
-					})}
-				</ol>
-			</section>
-			<p className="text-muted-foreground text-xs">
-				<DeferredProgress
-					task={task}
-					left={left}
-					busy={pending.has("queue")}
-					queue={() => void act("queue", () => queueTodo(task.id, true))}
-				/>
-			</p>
-			{waiting(task) ? (
-				<p className="flex justify-end gap-2 text-xs">
+										)}
+									</div>
+								</li>
+							);
+						})}
+					</ol>
+				</section>
+			)}
+			{task.takenBy === null && (
+				<p className="flex flex-wrap items-center justify-end gap-2 text-xs">
+					{queued && (
+						<span className="mr-auto text-muted-foreground">
+							Queued
+							{task.blockedBy.length > 0 &&
+								` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
+						</span>
+					)}
 					<Button
 						type="button"
 						size="sm"
-						variant="outline"
 						disabled={pending.has("resume")}
-						onClick={() =>
-							void act("resume", async () => {
-								await linkTodo(task.id, [], []);
-								await queueTodo(task.id, true);
-							})
-						}
+						onClick={() => void act("resume", resume)}
 					>
-						Resume anyway
-					</Button>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						title="Takes the task off the board, so it never starts"
-						disabled={pending.has("remove")}
-						onClick={() => void act("remove", () => removeTodo(task.id))}
-					>
-						<Trash2Icon data-icon="inline-start" />
-						Remove
+						<PlayIcon data-icon="inline-start" />
+						Resume
 					</Button>
 				</p>
-			) : null}
+			)}
 			<Refusal refusal={refusal} />
 		</div>
 	);
@@ -287,9 +251,11 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 									<TaskBlocker
 										blocker={blocker}
 										done={done}
-										busy={pending.has(key)}
-										act={(write) => act(key, write)}
-										queueAfter={queueingAfter(task)}
+										queue={{
+											busy: pending.has(key),
+											act: (write) => act(key, write),
+											after: queueingAfter(task),
+										}}
 									/>
 								</li>
 							);
@@ -422,15 +388,16 @@ function Mark({ done }: { done: boolean }): JSX.Element {
 function TaskBlocker({
 	blocker,
 	done,
-	busy,
-	act,
-	queueAfter,
+	queue,
 }: {
 	blocker: Extract<DeferralBlocker, { kind: "task" }>;
 	done: boolean;
-	busy: boolean;
-	act: (write: () => Promise<void>) => void;
-	queueAfter: (id: number, queued: boolean) => () => Promise<void>;
+	/** Queueing it then the task after it, for an old deferral's card; none for a Deferred one's. */
+	queue?: {
+		busy: boolean;
+		act: (write: () => Promise<void>) => void;
+		after: (id: number, queued: boolean) => () => Promise<void>;
+	};
 }): JSX.Element {
 	const board = useContext(Board);
 	const status = blocker.status;
@@ -471,12 +438,14 @@ function TaskBlocker({
 			<span className="whitespace-nowrap text-muted-foreground text-xs">
 				· {TASK_STATUS[status] ?? status}
 			</span>
-			{!done && (open || status === "queued") && (
+			{queue !== undefined && !done && (open || status === "queued") && (
 				<Button
 					size="sm"
 					variant="outline"
-					disabled={busy}
-					onClick={() => act(queueAfter(blocker.id, status === "queued"))}
+					disabled={queue.busy}
+					onClick={() =>
+						queue.act(queue.after(blocker.id, status === "queued"))
+					}
 				>
 					{open ? `Queue to run after #${blocker.id}` : "Queue"}
 				</Button>

@@ -58,6 +58,13 @@ what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
 user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
+When `splates task show` prints a `deferred:` line, the task was set aside
+before, and the person's Resume on its Deferred card, or the queue, sends it
+again: check each blocker under it still unticked (an upstream release, a
+key) before any other work. One that still holds defers it again with
+`splates remove <task> --reason blocked`, its why saying what you checked
+and found; once none holds, carry on from its detail.
+
 Merging removes the queued task yours took: when you leave part of it
 undone, `splates task add` what is left as a task of its own.
 

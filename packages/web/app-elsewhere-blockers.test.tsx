@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	act,
 	cleanup,
 	conversation,
 	fireEvent,
@@ -105,13 +106,11 @@ describe("App's blockers in other projects", () => {
 		expect(card.textContent).toContain("being worked on");
 		expect(within(card).queryByRole("button", { name: /#404/ })).toBeNull();
 
-		fireEvent.click(
-			within(card).getByRole("button", { name: "Resume anyway" }),
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Resume" })),
 		);
-		await waitFor(() =>
-			expect(testing.posted("/api/todos/20/blocked-by")).toEqual([
-				{ method: "PUT", body: { blockedBy: [], blockedElsewhere: [] } },
-			]),
-		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "[SPLATES TASK #20]" } },
+		]);
 	});
 });

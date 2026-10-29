@@ -61,7 +61,9 @@ export const ReportUI = makeAssistantDataUI<{
 }>({
 	name: "report",
 	render: ({ data }) => (
-		<ReportCard report={data.report} timing={data.timing} />
+		<InMessage>
+			<ReportCard report={data.report} timing={data.timing} />
+		</InMessage>
 	),
 });
 
@@ -97,6 +99,11 @@ export function ReportCard({
 		report.ending === "deferred" && deferral === null
 			? heldTask(board.todos, report.task)
 			: null;
+	// Once the conversation went on past it, or its task was taken again, a
+	// deferral is history: folded to its header, opened to what the agent said.
+	const { sent } = useCardReply();
+	const resumed =
+		deferral !== null && (sent !== null || deferral.takenBy !== null);
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
@@ -107,13 +114,20 @@ export function ReportCard({
 				// A Done report names no task, and a merge names its own in its body.
 				task={report.task === "" || merged ? undefined : report.task}
 				base={report.base}
+				folded={resumed}
 				aside={
-					<ReportAside
-						timing={report.ending === "working" ? timing : undefined}
-					/>
+					resumed ? (
+						<span className="text-muted-foreground text-xs">Resumed</span>
+					) : (
+						<ReportAside
+							timing={report.ending === "working" ? timing : undefined}
+						/>
+					)
 				}
 			>
-				{deferral !== null ? (
+				{resumed ? (
+					text !== "" && <CardBody text={text} lead={report.reason !== null} />
+				) : deferral !== null ? (
 					<DeferredBody task={deferral} />
 				) : text === "" && !merged ? (
 					archivable ? (

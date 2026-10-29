@@ -135,6 +135,10 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">
 				{title} <span className="font-mono text-xs">{report.task}</span>
+				{/* Archiving puts away the conversation, never the task it set aside. */}
+				{report.ending === "deferred" && (
+					<span className="text-muted-foreground"> · stays on the board</span>
+				)}
 			</span>
 			<Button
 				size="sm"
