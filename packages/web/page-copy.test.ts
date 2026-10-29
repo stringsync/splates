@@ -12,7 +12,7 @@ describe("PageCopy", () => {
 	beforeEach(() => {
 		copies = new FakePageCopies();
 		timer = new FakeTimer();
-		copy = new PageCopy(copies, "word", timer, "b1");
+		copy = new PageCopy(copies, "word", timer, 1);
 	});
 
 	it("keeps the last value once its wait has passed, made once", async () => {
@@ -53,10 +53,23 @@ describe("PageCopy", () => {
 		expect(await copy.load()).toBe("kept");
 	});
 
-	it("gives nothing back to another build", async () => {
+	it("gives the last value to another page with the same data version", async () => {
 		copy.keep(() => "kept");
 		copy.dispose();
 
-		expect(await new PageCopy(copies, "word", timer, "b2").load()).toBeNull();
+		expect(await new PageCopy(copies, "word", timer, 1).load()).toBe("kept");
+	});
+
+	it("reads a copy kept by the previous build-stamped format", async () => {
+		copies.save("word", { build: "old", value: "kept" });
+
+		expect(await copy.load()).toBe("kept");
+	});
+
+	it("gives nothing back to another data version", async () => {
+		copy.keep(() => "kept");
+		copy.dispose();
+
+		expect(await new PageCopy(copies, "word", timer, 2).load()).toBeNull();
 	});
 });

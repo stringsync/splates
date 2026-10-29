@@ -76,7 +76,7 @@ describe("Feed's seed", () => {
 		globalThis.fetch = (() => new Promise(() => {})) as unknown as typeof fetch;
 		const copies = new FakePageCopies();
 		copies.save("snapshot shop", {
-			build: "",
+			version: 1,
 			value: snapshot({
 				todos: [todo({ subject: "Kept" })],
 				tasks: [details({ task: "old" })],

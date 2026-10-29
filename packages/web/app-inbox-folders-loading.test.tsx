@@ -82,7 +82,7 @@ describe("App's folders while every project's listing is on its way", () => {
 	it("draws the sidebar's other projects from the copy kept last time before the server lists every project", async () => {
 		testing.hang("/api/everywhere");
 		testing.copies.save("everywhere", {
-			build: "",
+			version: 1,
 			value: { projects: everywhere },
 		});
 		const view = await testing.openConversations(mine, null);
@@ -101,7 +101,7 @@ describe("App's folders while every project's listing is on its way", () => {
 		resize(390, 844);
 		testing.hang("/api/everywhere");
 		testing.copies.save("everywhere", {
-			build: "",
+			version: 1,
 			value: { projects: everywhere },
 		});
 		const view = await testing.openConversations(mine, null);

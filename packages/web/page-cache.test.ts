@@ -58,8 +58,11 @@ describe("PageCache", () => {
 		);
 	});
 
-	const navigate = (path: string) =>
-		cache.respond(new Request(`${ORIGIN}${path}`, { mode: "navigate" }), "w1");
+	const navigate = (path: string, init: RequestInit = {}) =>
+		cache.respond(
+			new Request(`${ORIGIN}${path}`, { ...init, mode: "navigate" }),
+			"w1",
+		);
 
 	async function text(answer: Answer | null): Promise<string> {
 		const response = await answer?.response;
@@ -98,6 +101,20 @@ describe("PageCache", () => {
 		]);
 	});
 
+	it.each(["reload", "no-cache"] as const)(
+		"serves a %s navigation from the network, refreshing the shell without another reload",
+		async (cacheMode) => {
+			kept.set("/", "shell 1");
+			kept.set("/main.js?v=old", "old script");
+			served.set("/", new Response("shell 2"));
+
+			expect(await text(navigate("/", { cache: cacheMode }))).toBe("shell 2");
+
+			expect([...kept]).toEqual([["/", "shell 2"]]);
+			expect(told).toEqual([]);
+		},
+	);
+
 	it("drops a shell the server refuses, as Access does once sign-in runs out, and reloads", async () => {
 		kept.set("/", "shell 1");
 		served.set("/", new Response(null, { status: 403 }));
@@ -108,15 +125,18 @@ describe("PageCache", () => {
 		expect(told).toHaveLength(1);
 	});
 
-	it("keeps serving a kept shell while the server is down", async () => {
-		kept.set("/", "shell 1");
-		served.set("/", "down");
+	it.each(["default", "reload"] as const)(
+		"keeps serving a kept shell on a %s navigation while the server is down",
+		async (cacheMode) => {
+			kept.set("/", "shell 1");
+			served.set("/", "down");
 
-		expect(await text(navigate("/"))).toBe("shell 1");
+			expect(await text(navigate("/", { cache: cacheMode }))).toBe("shell 1");
 
-		expect(kept.get("/")).toBe("shell 1");
-		expect(told).toEqual([]);
-	});
+			expect(kept.get("/")).toBe("shell 1");
+			expect(told).toEqual([]);
+		},
+	);
 
 	it("keeps the files named by what they hold, and serves them without the network", async () => {
 		served.set("/main.js?v=abc", new Response("script"));

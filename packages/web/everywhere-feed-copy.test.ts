@@ -62,7 +62,7 @@ describe("EverywhereFeed's kept copy", () => {
 
 	it("draws every project from the copy last kept until the server lists them", async () => {
 		copies.save("everywhere", {
-			build: "",
+			version: 1,
 			value: { projects: [project("api", ["a1"]), project("web", ["w1"])] },
 		});
 		held = feed.hold();
@@ -93,7 +93,7 @@ describe("EverywhereFeed's kept copy", () => {
 
 	it("gives up the copy once the server refuses every project, as through a tunnel with no Access", async () => {
 		copies.save("everywhere", {
-			build: "",
+			version: 1,
 			value: { projects: [project("api", ["a1"])] },
 		});
 		held = feed.hold();
@@ -110,7 +110,7 @@ describe("EverywhereFeed's kept copy", () => {
 
 	it("keeps the copy while the server cannot be reached", async () => {
 		copies.save("everywhere", {
-			build: "",
+			version: 1,
 			value: { projects: [project("api", ["a1"])] },
 		});
 		globalThis.fetch = (() =>

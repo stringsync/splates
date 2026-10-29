@@ -11,10 +11,14 @@ export const KEEP_AFTER = Duration.secs(2);
 /** The longest a copy waits to be kept through changes that never pause, as an agent at work brings. */
 export const KEEP_WITHIN = Duration.secs(30);
 
+/** The shape of every value a `PageCopy` keeps; bump it when one changes. */
+const PAGE_DATA_VERSION = 1;
+
 /**
  * One thing the page keeps a copy of, under `key` in `copies`, stamped with
- * the build that kept it, so a page of another build, which may read it
- * otherwise, waits for the server instead. Dispose to keep what is pending.
+ * its data version rather than the frontend build, so an update can draw it
+ * while the server reads afresh. A page with another data version waits for
+ * the server instead. Dispose to keep what is pending.
  */
 export class PageCopy<T> implements Resource {
 	private pending: (() => T) | null = null;
@@ -30,19 +34,24 @@ export class PageCopy<T> implements Resource {
 		private readonly copies: PageCopies,
 		private readonly key: string,
 		private readonly timer: Timer,
-		private readonly build: string = pageBuild(),
+		private readonly version: number = PAGE_DATA_VERSION,
 	) {
 		// A page sent to the background may be dropped without a word.
 		document.addEventListener("visibilitychange", this.hide);
 	}
 
-	/** What this build last kept, or null. */
+	/** What this data version last kept, or null. */
 	async load(): Promise<T | null> {
 		const kept = (await this.copies.load(this.key).catch(() => null)) as {
+			version?: unknown;
 			build?: unknown;
 			value?: T;
 		} | null;
-		return kept?.build === this.build && kept.value !== undefined
+		// Build-stamped copies predate data versions and have the initial shape.
+		const version =
+			kept?.version ??
+			(typeof kept?.build === "string" ? PAGE_DATA_VERSION : null);
+		return version === this.version && kept?.value !== undefined
 			? kept.value
 			: null;
 	}
@@ -72,17 +81,7 @@ export class PageCopy<T> implements Resource {
 		const pending = this.pending;
 		this.pending = null;
 		if (pending !== null) {
-			this.copies.save(this.key, { build: this.build, value: pending() });
+			this.copies.save(this.key, { version: this.version, value: pending() });
 		}
 	}
-}
-
-/** The build of the page running, by the stamp `splates server` put on its script. */
-function pageBuild(): string {
-	const script = document.querySelector<HTMLScriptElement>(
-		'script[src^="/main.js"]',
-	);
-	return script === null
-		? ""
-		: (new URL(script.src).searchParams.get("v") ?? "");
 }

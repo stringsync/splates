@@ -37,9 +37,10 @@ const SHELL = "/";
  * A shell served from the cache can be one from before a restart, which the
  * page's script would not match: once the server's is found to differ, it is
  * kept in its place, the files the old one named are dropped, and the window
- * it was served to is told to reload. A shell the server refuses, as
- * Cloudflare Access does when sign-in runs out, is dropped, so the reload
- * goes to the network and the sign-in.
+ * it was served to is told to reload. A reload instead goes straight to the
+ * network and refreshes the kept shell, so it never paints the old one first.
+ * A shell the server refuses, as Cloudflare Access does when sign-in runs out,
+ * is dropped, so the reload goes to the network and the sign-in.
  */
 export class PageCache {
 	constructor(
@@ -69,28 +70,41 @@ export class PageCache {
 			: null;
 	}
 
-	/** The shell from the cache, checked behind, or from the network when none is kept. */
+	/** A reload from the network; otherwise the shell from the cache, checked behind. */
 	private shell(request: Request, client: string): Answer {
-		// Two of it, one to serve and one to check against, as a body reads once.
-		const kept = this.cache()
-			.then((cache) => cache.match(SHELL))
-			.then((cached) => cached && { served: cached, read: cached.clone() });
+		if (request.cache === "reload" || request.cache === "no-cache") {
+			const response = this.fetcher(request).then(
+				async (fresh) => {
+					await this.replace(fresh.clone());
+					return fresh;
+				},
+				async (error: unknown) => {
+					const cached = await this.cache().then((cache) => cache.match(SHELL));
+					if (cached === undefined) {
+						throw error;
+					}
+					return cached;
+				},
+			);
+			return { response, after: response };
+		}
+		const kept = this.cache().then((cache) => cache.match(SHELL));
 		const response = kept.then(
 			(cached) =>
-				cached?.served ??
+				cached ??
 				this.fetcher(request).then((fresh) => {
 					this.keep(SHELL, fresh);
 					return fresh;
 				}),
 		);
 		const after = kept.then((cached) =>
-			cached === undefined ? undefined : this.check(cached.read, client),
+			cached === undefined ? undefined : this.check(client),
 		);
 		return { response, after };
 	}
 
-	/** Reads the shell afresh and, when it moved on from `cached`, tells `client`. */
-	private async check(cached: Response, client: string): Promise<void> {
+	/** Reads the shell afresh and, when it moved on, tells `client`. */
+	private async check(client: string): Promise<void> {
 		const fresh = await this.fetcher(SHELL, {
 			cache: "no-cache",
 			credentials: "include",
@@ -100,20 +114,30 @@ export class PageCache {
 			// Offline, or the server is down: what is kept is the best there is.
 			return;
 		}
-		const cache = await this.cache();
-		if (!fresh.ok || fresh.type === "opaqueredirect") {
-			await cache.delete(SHELL);
-		} else {
-			const page = await fresh.clone().text();
-			if (page === (await cached.text())) {
-				return;
-			}
-			for (const each of await cache.keys()) {
-				await cache.delete(each.url);
-			}
-			await cache.put(SHELL, fresh);
+		if (await this.replace(fresh)) {
+			(await this.windows.get(client))?.postMessage({ type: "splates:reload" });
 		}
-		(await this.windows.get(client))?.postMessage({ type: "splates:reload" });
+	}
+
+	/** Keeps `fresh`, dropping an old shell's files; whether the shell moved on. */
+	private async replace(fresh: Response): Promise<boolean> {
+		const cache = await this.cache();
+		if (!fresh.ok || fresh.type === "opaqueredirect" || fresh.redirected) {
+			await cache.delete(SHELL);
+			return true;
+		}
+		const cached = await cache.match(SHELL);
+		if (
+			cached !== undefined &&
+			(await fresh.clone().text()) === (await cached.text())
+		) {
+			return false;
+		}
+		for (const each of await cache.keys()) {
+			await cache.delete(each.url);
+		}
+		await cache.put(SHELL, fresh);
+		return true;
 	}
 
 	/** A file named by what it holds, from the cache, or the network kept for next time. */
