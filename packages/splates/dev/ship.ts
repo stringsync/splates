@@ -1,6 +1,7 @@
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type Bump, releases } from "webappwiz/ship";
 import { type Fs, NodePs, type Ps } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { fix } from "./fix";
 import { preflight } from "./ship-preflight";
 
@@ -35,12 +36,20 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const bump = bumpOf(ps.env(SHIP_BUMP));
 	await preflight(ps);
-	// The build compiles without checking types, so a typecheck is the only
-	// gate there is: run it before anything is stamped or pushed. The suite is
-	// not run here; whoever ships is expected to have run it already.
-	await fix({ check: true, skipScry: true, log, ps });
 
 	const declared = releases.lockstep(
+		// The push comes first among the preflight steps, so a rejected push
+		// stops the typecheck, the stamping, the build and the publish.
+		releases.push({ ps }),
+		// The build compiles without checking types, so a typecheck is the only
+		// gate there is: run it before anything is stamped or pushed. The suite
+		// is not run here; whoever ships is expected to have run it already.
+		releases.step({
+			name: "Typecheck",
+			stage: "preflight",
+			deadline: Duration.mins(10),
+			run: () => fix({ check: true, skipScry: true, log, ps }),
+		}),
 		await releases.workspace({ fs: opts.fs, ps }),
 		releases.skill(SKILL, { fs: opts.fs }),
 	);
