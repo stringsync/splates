@@ -3,6 +3,7 @@ import type {
 	CascadeStatus,
 	CascadeStep,
 	Ship,
+	ShipStep,
 } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { type JSX, useState } from "react";
@@ -11,7 +12,6 @@ import { abandonCascade } from "./api";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
-import { versionOf } from "./ship-dialog";
 import { ShipDock } from "./ship-dock";
 import { StageRow } from "./ship-stages";
 
@@ -208,3 +208,11 @@ const DOTS: Record<CascadeStatus, string> = {
 	dropped: "bg-muted-foreground/40",
 	abandoned: "bg-muted-foreground/40",
 };
+
+/** The version a step goes to from where it is, or where it stays for a bump. */
+export function versionOf(step: ShipStep): string {
+	if (step.to === null) {
+		return step.from ?? "";
+	}
+	return `${step.from ?? "?"} → ${step.to}`;
+}

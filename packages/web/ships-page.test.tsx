@@ -13,6 +13,13 @@ import { FakeStream, type Stream } from "./fake-stream";
 import { ShipsPage } from "./ships-page";
 import { act, cleanup, render, within } from "./testing-library";
 
+/** Moves the happy-dom page to `url`, which `history.replaceState` cannot from about:blank. */
+function at(url: string): void {
+	(
+		window as unknown as { happyDOM: { setURL(url: string): void } }
+	).happyDOM.setURL(url);
+}
+
 describe("ShipsPage", () => {
 	beforeEach(() => {
 		streams = [];
@@ -32,7 +39,7 @@ describe("ShipsPage", () => {
 		globalThis.fetch = realFetch;
 	});
 
-	it("lists the projects in release order, a Plan on each that names a ship command", async () => {
+	it("lists the projects in release order, a Ship on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "webappwiz", packages: ["webappwiz"] }),
 			project({
@@ -59,7 +66,7 @@ describe("ShipsPage", () => {
 				.getAllByRole("listitem")
 				.map((each) => each.getAttribute("aria-label")),
 		).toEqual(["webappwiz", "mdom", "sound2score"]);
-		expect(within(list).getAllByRole("button", { name: "Plan" })).toHaveLength(
+		expect(within(list).getAllByRole("button", { name: "Ship" })).toHaveLength(
 			2,
 		);
 	});
@@ -97,7 +104,7 @@ describe("ShipsPage", () => {
 		);
 	});
 
-	it("plans a ship of every changed project from one button, which names them", async () => {
+	it("picks every changed project from one button, which names them, and starts nothing", async () => {
 		const asked: string[] = [];
 		const graph = [
 			project({
@@ -131,17 +138,17 @@ describe("ShipsPage", () => {
 			),
 		).toBeTruthy();
 		await act(async () => {
-			view.getByRole("button", { name: "Plan a ship of all 2" }).click();
+			view.getByRole("button", { name: "Ship all 2" }).click();
 		});
 		expect(
-			await view.findByRole("heading", {
-				name: "Ship plan for every changed project",
-			}),
+			within(view.getByRole("region", { name: "ship picked" })).getByText(
+				"Ship every changed project",
+			),
 		).toBeTruthy();
-		expect(asked.some((url) => url.includes("project=%2Bchanged"))).toBe(true);
+		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 
-	it("disables the plan for every changed project when none changed", async () => {
+	it("disables the pick of every changed project when none changed", async () => {
 		const graph = [
 			project({
 				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
@@ -156,9 +163,23 @@ describe("ShipsPage", () => {
 		expect(await view.findByText("Every project is up to date")).toBeTruthy();
 		expect(
 			view
-				.getByRole("button", { name: "Plan a ship of all changed" })
+				.getByRole("button", { name: "Ship all changed" })
 				.hasAttribute("disabled"),
 		).toBe(true);
+	});
+
+	it("picks the project a card named in ?ship=, which starts nothing until Start", async () => {
+		at("http://localhost/?ship=webappwiz#ships");
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/graph") ? { projects: [] } : [],
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({ cascade: null, ship: null });
+		const picked = view.getByRole("region", { name: "ship picked" });
+		expect(picked.textContent).toContain("Ship webappwiz");
+		expect(location.search).toBe("");
+		at("about:blank");
 	});
 
 	it("lists every project's steps under way at once, with what waits on the person pinned beneath", async () => {
@@ -236,21 +257,8 @@ describe("ShipsPage", () => {
 		).toBe("https://www.npmjs.com/auth/cli/abc");
 	});
 
-	it("opens a separate recovery plan from the stopped run", async () => {
+	it("replans a stopped run by picking none, as Recover", async () => {
 		localStorage.removeItem("splates.ship.closed");
-		const requested: string[] = [];
-		globalThis.fetch = (async (url: string) => {
-			requested.push(String(url));
-			return Response.json(
-				String(url).startsWith("/api/ship/plan")
-					? {
-							from: "webappwiz",
-							steps: [],
-							recovery: { id: "stopped", inputs: [] },
-						}
-					: [],
-			);
-		}) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({
 			cascade: {
@@ -263,10 +271,11 @@ describe("ShipsPage", () => {
 		await act(async () =>
 			view.getByRole("button", { name: "Recover" }).click(),
 		);
-		expect(await view.findByText("Recover ship of webappwiz")).toBeTruthy();
-		expect(requested).toContain(
-			"/api/ship/plan?project=webappwiz&bump=patch&recovery=stopped",
-		);
+		expect(
+			within(view.getByRole("region", { name: "ship picked" })).getByText(
+				"Replan the stopped ship of webappwiz",
+			),
+		).toBeTruthy();
 	});
 
 	it("shows a stopped run until it is closed, with why it stopped and npm's settings when that is the remedy", async () => {

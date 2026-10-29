@@ -21,12 +21,11 @@ import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
+import { NavigationContext } from "./navigation";
 import { PendingSpinner, useShowPending } from "./pending";
+import { shipsUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
-import { ShipApproval } from "./ship-approval";
-import { ShipDialog } from "./ship-dialog";
-import { ShipLine } from "./ship-line";
 import { SplatesEvent } from "./splates-event";
 
 /**
@@ -39,8 +38,8 @@ export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
  * Shows an agent's request to run a heavy command, with why and how loaded
  * the machine is, for the person to Allow or Deny. Allowing the whole test
  * suite grants the conversation its one run; Grant on `splates retry <task>`
- * runs the retry; Plan ship on `splates ship` opens the ship plan, and the agent
- * hears `[SPLATES RUN ALLOWED]` only once Approve starts the ship.
+ * runs the retry; Ship on `splates ship <project>` opens the Ships page with
+ * that project picked, which starts nothing itself.
  */
 export function RunCommandCard({
 	proposal,
@@ -55,7 +54,7 @@ export function RunCommandCard({
 	const [busy, setBusy] = useState<string | null>(null);
 	const showBusy = useShowPending(busy !== null);
 	const [opened, setOpened] = useState(false);
-	const [shipping, setShipping] = useState<ShipApproval | null>(null);
+	const navigation = useContext(NavigationContext);
 	const kept = useKept(
 		`run-command:${proposal.command}:${proposal.title}`,
 		sent,
@@ -147,125 +146,107 @@ export function RunCommandCard({
 		);
 	}
 	return (
-		<>
-			{shipping !== null && (
-				<ShipDialog
-					approval={shipping}
-					onClose={() => setShipping(null)}
-					onApproved={() => answer(RUN_ALLOWED, "Not allowed")}
+		<CardShell
+			label={
+				retry !== null ? "retry merge" : ship !== null ? "ship" : "run command"
+			}
+			Icon={
+				retry !== null ? RotateCcwIcon : ship !== null ? ShipIcon : TerminalIcon
+			}
+			title={proposal.title ?? "Run a command"}
+			tone={choice === RUN_ALLOWED ? "success" : "warning"}
+		>
+			<pre className="mx-4 mt-3 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
+				<code>{proposal.command}</code>
+			</pre>
+			{proposal.body !== "" && <CardBody text={proposal.body} />}
+			{choice === null && retry === null && (
+				<MachineStats
+					reading={live?.reading ?? null}
+					at={live?.at}
+					now={now}
+					className="mx-4 mb-3"
 				/>
 			)}
-			<CardShell
-				label={
-					retry !== null
-						? "retry merge"
-						: ship !== null
-							? "ship"
-							: "run command"
-				}
-				Icon={
-					retry !== null
-						? RotateCcwIcon
-						: ship !== null
-							? ShipIcon
-							: TerminalIcon
-				}
-				title={proposal.title ?? "Run a command"}
-				tone={choice === RUN_ALLOWED ? "success" : "warning"}
-			>
-				<pre className="mx-4 mt-3 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
-					<code>{proposal.command}</code>
-				</pre>
-				{proposal.body !== "" && <CardBody text={proposal.body} />}
-				{choice === RUN_ALLOWED && ship !== null && <ShipLine />}
-				{choice === null && retry === null && (
-					<MachineStats
-						reading={live?.reading ?? null}
-						at={live?.at}
-						now={now}
-						className="mx-4 mb-3"
+			{choice === null && send !== null ? (
+				<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
+					<p className="font-medium text-sm leading-snug">Anything else?</p>
+					<CardBox
+						aria-label="Anything else"
+						value={more}
+						placeholder="Your answer (optional)"
+						files={null}
+						onValue={(text) => {
+							written.current = text;
+							setMore(text);
+							kept.write(text);
+						}}
 					/>
-				)}
-				{choice === null && send !== null ? (
-					<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
-						<p className="font-medium text-sm leading-snug">Anything else?</p>
-						<CardBox
-							aria-label="Anything else"
-							value={more}
-							placeholder="Your answer (optional)"
-							files={null}
-							onValue={(text) => {
-								written.current = text;
-								setMore(text);
-								kept.write(text);
-							}}
-						/>
-					</div>
-				) : choice !== null && note.trim() !== "" ? (
-					<CardBody text={`> **Anything else?**\n\n${note}`} />
-				) : null}
-				<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
-					{choice !== null ? (
-						<span className="flex items-center gap-1 text-xs">
-							{choice === RUN_ALLOWED ? (
-								<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
-							) : (
-								<BanIcon className="size-3.5" />
-							)}
-							{choice === RUN_ALLOWED
-								? retry !== null
-									? "Granted"
-									: "Allowed"
-								: "Denied"}
-						</span>
-					) : (
-						<>
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={send === null || busy !== null}
-								onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
-								className="gap-1.5"
-							>
-								{busy === RUN_DENIED && showBusy ? (
-									<PendingSpinner shown />
-								) : (
-									<BanIcon data-icon="inline-start" />
-								)}
-								Deny
-							</Button>
-							<Button
-								size="sm"
-								disabled={send === null || busy !== null}
-								onClick={() => {
-									if (ship !== null) {
-										setShipping(new ShipApproval(ship));
-									} else {
-										turn(() => answer(RUN_ALLOWED, "Not allowed"));
-									}
-								}}
-								className="gap-1.5"
-							>
-								{busy === RUN_ALLOWED && showBusy ? (
-									<PendingSpinner shown />
-								) : retry !== null ? (
-									<RotateCcwIcon data-icon="inline-start" />
-								) : ship !== null ? (
-									<ShipIcon data-icon="inline-start" />
-								) : (
-									<CheckIcon data-icon="inline-start" />
-								)}
-								{retry !== null
-									? "Grant attempts"
-									: ship !== null
-										? "Plan ship"
-										: "Allow"}
-							</Button>
-						</>
-					)}
 				</div>
-				<Refusal refusal={refusal} />
-			</CardShell>
-		</>
+			) : choice !== null && note.trim() !== "" ? (
+				<CardBody text={`> **Anything else?**\n\n${note}`} />
+			) : null}
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+				{choice !== null ? (
+					<span className="flex items-center gap-1 text-xs">
+						{choice === RUN_ALLOWED ? (
+							<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
+						) : (
+							<BanIcon className="size-3.5" />
+						)}
+						{choice === RUN_ALLOWED
+							? retry !== null
+								? "Granted"
+								: "Allowed"
+							: "Denied"}
+					</span>
+				) : (
+					<>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={send === null || busy !== null}
+							onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
+							className="gap-1.5"
+						>
+							{busy === RUN_DENIED && showBusy ? (
+								<PendingSpinner shown />
+							) : (
+								<BanIcon data-icon="inline-start" />
+							)}
+							Deny
+						</Button>
+						<Button
+							size="sm"
+							disabled={send === null || busy !== null}
+							onClick={() => {
+								if (ship !== null) {
+									navigation.show(shipsUrl(ship));
+								} else {
+									turn(() => answer(RUN_ALLOWED, "Not allowed"));
+								}
+							}}
+							className="gap-1.5"
+						>
+							{busy === RUN_ALLOWED && showBusy ? (
+								<PendingSpinner shown />
+							) : retry !== null ? (
+								<RotateCcwIcon data-icon="inline-start" />
+							) : ship !== null ? (
+								<ShipIcon data-icon="inline-start" />
+							) : (
+								<CheckIcon data-icon="inline-start" />
+							)}
+							{retry !== null
+								? "Grant attempts"
+								: ship !== null
+									? "Open Ships"
+									: "Allow"}
+						</Button>
+					</>
+				)}
+			</div>
+			<Refusal refusal={refusal} />
+		</CardShell>
 	);
 }

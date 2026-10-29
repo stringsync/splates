@@ -100,7 +100,7 @@ export function useAppPages({
 							/>
 						),
 						stats: <StatsPage report={report} />,
-						ships: <ShipsPage />,
+						ships: <ShipsPage feed={available ? talk : null} />,
 						evals: <EvalsPage open={evals} onOpen={openEval} />,
 						creds: (
 							<CredsPage

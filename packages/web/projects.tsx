@@ -35,11 +35,10 @@ import {
 	previousProject,
 	projectUrl,
 	rememberPlace,
+	shipsUrl,
 	shownProject,
 } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
-import { ShipApproval } from "./ship-approval";
-import { ShipDialog } from "./ship-dialog";
 import { shortPath } from "./short-path";
 import { NAV_HEADING, TITLE } from "./top-bar";
 
@@ -104,7 +103,6 @@ export function ProjectSwitcher({
 	);
 	const [adding, setAdding] = useState(false);
 	// The ship plan open, once picked from a project's menu.
-	const [shipping, setShipping] = useState<ShipApproval | null>(null);
 	// The server the page is on its way to, once picked: a new page takes
 	// seconds to come under load, and the old one must not be used meanwhile.
 	// Another project needs none, since it opens on this page.
@@ -304,7 +302,7 @@ export function ProjectSwitcher({
 					onCopyPath={() => void copyPath(each)}
 					onShip={() => {
 						setOpen(false);
-						setShipping(new ShipApproval(each.slug));
+						navigation.show(shipsUrl(each.slug));
 					}}
 					pending={forgetting.pending(each.slug)}
 					onForget={() => void forget(each)}
@@ -317,9 +315,6 @@ export function ProjectSwitcher({
 		<>
 			{leaving !== null && (
 				<Leaving name={leaving} onStay={() => setLeaving(null)} />
-			)}
-			{shipping !== null && (
-				<ShipDialog approval={shipping} onClose={() => setShipping(null)} />
 			)}
 			<Popover
 				open={open}

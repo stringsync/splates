@@ -76,11 +76,11 @@ export function ProjectMenu({
 				</DropdownMenuItem>
 				{project.ships && (
 					<DropdownMenuItem
-						title="Shows what the ship would publish, downstream too, before anything runs"
+						title="Picks it on the Ships page, which starts a conversation to plan the ship"
 						onClick={onShip}
 					>
 						<ShipIcon />
-						Plan a ship of {project.slug}…
+						Ship {project.slug}…
 					</DropdownMenuItem>
 				)}
 				<DropdownMenuSeparator />

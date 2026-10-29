@@ -4,61 +4,20 @@ import type {
 	Ship,
 	ShipBump,
 	ShipGraph,
-	ShipPlan,
 	StageKey,
 } from "@stringsync/splates-server/ship";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**
- * Starts a ship of `project` at `bump`, the page's own for "", on the server,
- * under the person's own npm sign-in: what the shared plan's Approve does.
+ * Starts planning a ship of `projects` on the server, none to replan the
+ * stopped run from what it published; the id of the run its conversation
+ * is told to drive. Throws the server's refusal, such as a ship under way.
  */
-export async function startShip(
-	project: string,
-	bump: ShipBump = "patch",
-	approval?: { id: string; choices: Record<string, ShipBump> },
-	recovery?: string,
-): Promise<void> {
-	const query = new URLSearchParams(
-		project === "" ? { bump } : { project, bump },
-	);
-	if (recovery !== undefined) {
-		query.set("recovery", recovery);
-	}
-	await sendJson(`/api/ship?${query}`, "POST", approval ?? {});
-}
-
-/**
- * The plan to ship `project` at `bump`: it, then each project downstream in
- * dependency order but those `skip` leaves out, what Approve starts; throws the server's refusal, as for
- * a project that names no ship command.
- */
-export async function shipPlan(
-	project: string,
-	bump: ShipBump = "patch",
-	recovery?: string,
-	skip: string[] = [],
-): Promise<ShipPlan> {
-	const query = new URLSearchParams({
-		project,
-		bump,
-		...(recovery === undefined ? {} : { recovery }),
-	});
-	for (const slug of skip) {
-		query.append("skip", slug);
-	}
-	const response = await answered(`/api/ship/plan?${query}`);
-	const body = (await response.json().catch(() => ({}))) as
-		| ShipPlan
-		| { reason?: string; message?: string };
-	if (!response.ok || !("steps" in body)) {
-		const refused = body as { reason?: string; message?: string };
-		throw new ApiError(
-			refused.reason ?? "error",
-			refused.message ?? `/api/ship/plan: ${response.status}`,
-		);
-	}
-	return body;
+export async function startShipRun(projects: string[]): Promise<string> {
+	const run = (await sendJson("/api/ship/run", "POST", { projects })) as {
+		run: { id: string };
+	};
+	return run.run.id;
 }
 
 /** Every registered project and who pins whose packages, the Ship page's tree. */

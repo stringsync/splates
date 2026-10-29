@@ -53,7 +53,7 @@ describe("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
-	it("opens the ship plan and tells the agent only after Approve starts it", async () => {
+	it("opens the Ships page with the project picked and starts nothing itself", async () => {
 		const asking = conversation({
 			title: "Release",
 			messages: [
@@ -66,31 +66,14 @@ describe("App's run-command card", () => {
 		const view = await testing.openConversations([asking]);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Plan ship" })),
+				await waitFor(() => view.getByRole("button", { name: "Open Ships" })),
 			),
 		);
-		await waitFor(() =>
-			expect(
-				view.getByRole("dialog", { name: "Ship plan for webappwiz" }),
-			).toBeTruthy(),
-		);
-		expect(testing.posted("/api/ship?project=webappwiz&bump=patch")).toEqual(
-			[],
-		);
+		expect(location.hash).toBe("#ships");
+		expect(new URLSearchParams(location.search).get("ship")).toBe("webappwiz");
+		expect(testing.posted("/api/ship/run")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
-		);
-
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
-			]),
-		);
-		expect(
-			testing.posted("/api/ship?project=webappwiz&bump=patch"),
-		).toHaveLength(1);
+		history.replaceState(null, "", "/");
 	});
 
 	it("sends Anything else with Allow and keeps it in the reopened card", async () => {

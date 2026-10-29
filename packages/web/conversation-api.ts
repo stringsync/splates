@@ -29,6 +29,7 @@ export async function startConversation(
 		assigned = false,
 		autoPick = false,
 		id,
+		project,
 	}: {
 		settings?: Record<string, string>;
 		/** The model to start on, by its id on the roster. */
@@ -42,9 +43,11 @@ export async function startConversation(
 		autoPick?: boolean;
 		/** The id it starts on, picked by the page to open it at once; the server's otherwise. */
 		id?: string;
+		/** The project it starts in, else the one this page shows. */
+		project?: string;
 	} = {},
 ): Promise<ConversationState> {
-	return (await sendJson("/api/conversations", "POST", {
+	return (await sendJson(scoped("/api/conversations", project), "POST", {
 		...(id === undefined ? {} : { id }),
 		agent,
 		task,
@@ -68,10 +71,9 @@ export interface AutoWords {
 
 /**
  * Starts a conversation on what Auto pick decides for a task: a started one
- * by name, in its tree, or a queued one by number, in the main tree. The
- * server answers before the judge does, on the rule for any task, and moves
- * it onto the pick before its agent opens; the page sends the prompt as for
- * any start.
+ * by name, in its tree, or a queued one by number, in the main tree. Send its
+ * prompt as for any start; the agent opens on the pick once the judge has
+ * answered.
  */
 export async function startAutoPick(
 	target: { task: string } | { todo: number } | AutoWords,
@@ -120,6 +122,8 @@ export async function promptConversation(
 	/** The id the feed gave the copy it shows, which the server keeps on its own. */
 	sent?: string,
 	signal?: AbortSignal,
+	/** The project the conversation is in, else the one this page shows. */
+	project?: string,
 ): Promise<ConversationState> {
 	const form = new FormData();
 	form.set("text", text);
@@ -132,7 +136,7 @@ export async function promptConversation(
 	for (const file of files) {
 		form.append("file", file, file.name);
 	}
-	return (await send(`/api/conversations/${id}/prompt`, {
+	return (await send(scoped(`/api/conversations/${id}/prompt`, project), {
 		body: form,
 		signal,
 		headers: { [FROM_HEADER]: matchMedia(WIDE).matches ? "desktop" : "phone" },

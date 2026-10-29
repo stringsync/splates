@@ -71,9 +71,8 @@ export {
 	shipGraph,
 	shipHistory,
 	shipHistoryEntry,
-	shipPlan,
 	shipStageLog,
-	startShip,
+	startShipRun,
 } from "./ship";
 export {
 	billing,

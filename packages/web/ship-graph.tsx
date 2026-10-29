@@ -8,9 +8,9 @@ import { cn } from "./lib/utils";
 
 /**
  * The registered projects that ship or take a release, in one list in
- * release order, each after the projects whose packages it pins; Plan opens
- * its plan, and nothing ships until the plan is approved. Above it, one plan
- * for every project changed since its last release.
+ * release order, each after the projects whose packages it pins; Ship picks
+ * it, and nothing ships until its plan is approved in the conversation that
+ * starts. Above it, one pick of every project changed since its last release.
  */
 export function ShipGraphTree({
 	endedAt,
@@ -20,8 +20,8 @@ export function ShipGraphTree({
 	/** When the last cascade ended, so versions are read again after one. */
 	endedAt: string | null;
 	onShip: (slug: string) => void;
-	/** Opens the plan to ship every changed project. */
-	onShipChanged: () => void;
+	/** Picks every changed project, by slug, to ship. */
+	onShipChanged: (changed: string[]) => void;
 }): JSX.Element {
 	const [graph, setGraph] = useState<ShipGraph | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -96,13 +96,13 @@ function releaseOrder(projects: ShipProject[]): ShipProject[] {
 	return ordered;
 }
 
-/** The plan for every changed project, naming them, or saying none changed. */
+/** The pick of every changed project, naming them, or saying none changed. */
 function ShipChanged({
 	changed,
 	onShip,
 }: {
 	changed: string[];
-	onShip: () => void;
+	onShip: (changed: string[]) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
@@ -121,15 +121,15 @@ function ShipChanged({
 			<Button
 				className="w-full"
 				disabled={changed.length === 0}
-				title="Draws the plan for every changed project, in dependency order; nothing ships until you approve it"
-				onClick={onShip}
+				title="Picks every changed project, in dependency order; nothing ships until you approve its plan"
+				onClick={() => onShip(changed)}
 			>
 				<ShipIcon />
 				{changed.length === 1
-					? `Plan a ship of ${changed[0]}`
+					? `Ship ${changed[0]}`
 					: changed.length === 0
-						? "Plan a ship of all changed"
-						: `Plan a ship of all ${changed.length}`}
+						? "Ship all changed"
+						: `Ship all ${changed.length}`}
 			</Button>
 		</div>
 	);
@@ -168,10 +168,10 @@ function GraphProject({
 				<Button
 					size="sm"
 					variant="outline"
-					title="Draws what the ship would publish, downstream too; nothing ships until you approve it"
+					title="Picks it to ship, downstream too; nothing ships until you approve its plan"
 					onClick={onShip}
 				>
-					Plan
+					Ship
 				</Button>
 			) : (
 				<span className="shrink-0 text-muted-foreground text-xs">

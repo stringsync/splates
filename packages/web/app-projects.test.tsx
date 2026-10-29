@@ -327,20 +327,16 @@ describe("App's projects", () => {
 		localStorage.clear();
 	});
 
-	it("opens the plan to ship a project from its menu", async () => {
+	it("opens the Ships page with a project picked from its menu", async () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await clickShown(() =>
-			view.getByRole("menuitem", { name: "Plan a ship of shop…" }),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
 
-		expect(
-			await waitFor(() =>
-				view.getByRole("dialog", { name: "Ship plan for shop" }),
-			),
-		).toBeTruthy();
+		const shown = new URL(testing.visited.at(-1) ?? "", "http://localhost");
+		expect(shown.hash).toBe("#ships");
+		expect(shown.searchParams.get("ship")).toBe("shop");
 	});
 
 	it("offers no Ship on a project that names no ship command", async () => {
@@ -352,7 +348,7 @@ describe("App's projects", () => {
 			view.getByRole("menuitem", { name: "Remove project webappwiz" }),
 		);
 		expect(
-			view.queryByRole("menuitem", { name: "Plan a ship of webappwiz…" }),
+			view.queryByRole("menuitem", { name: "Ship webappwiz…" }),
 		).toBeNull();
 	});
 

@@ -61,22 +61,16 @@ main or master branch since its current version tag (`v<version>`). Zero shows
 **Up to date**; missing tags or unavailable history show **Release status unknown**.
 These are local history checks, refreshed when the page regains focus.
 
-Each project's **Plan** opens its ship plan; nothing ships until you press
-**Approve and ship** there. Above the projects, **Plan a ship of all <n>** plans
-every project with unshipped commits at once: it names them and opens one plan that publishes each in
-dependency order, a changed project that depends on another taking its bump
-first, then carries every release downstream as a single ship does. Each
-project that ships picks its own release type there, patch until you change
-it, and dependents are carried as usual. A project whose release status is
-unknown is left out; ship it on its own. With nothing changed, the button is
-disabled.
+Each project's **Ship** picks it on the page, and **Ship all <n>** picks every
+project with unshipped commits at once, naming them. A project whose release
+status is unknown is left out; ship it on its own. With nothing changed, the
+button is disabled. A project's menu in the project switcher has **Ship
+<project>…**, which opens the page with it picked.
 
-On the page, a project's menu in the project switcher has **Plan a ship of
-<project>…**, which opens the plan, as `--plan` prints it: each project in
-order, the version it goes to, what it publishes, what it takes and why it
-ships or only takes its bump. Its **Release type** picks Patch, Minor or
-Major for the project you ship, redrawing the plan at that version.
-Each dependent that ships has its own **Release type**, patch until you change it. **Approve and ship** starts the saved plan, which is drawn again at approval; a plan that changed since you opened it asks to be redrawn. Publishing starts only after approval, and npm still asks you at each publish.
+**Start a ship conversation** plans the run on the server and opens a General
+conversation (no project, since a ship spans them) whose first message is
+`[SPLATES SHIP <run>]`. The agent shapes the plan with you through `splates
+ship` commands; nothing is published until you approve its plan.
 
 From a terminal of yours, `splates ship [<project>] [--bump <type>]` asks
 `splates server` to prepare the plan for the project (the one you stand in, by default) and prints a link to approve it on the Ship page. Give the server's URL with `--dev` when it is not this machine's.
@@ -170,11 +164,8 @@ release is due, it ends its reply with a run-command card:
 The log rotation fix is on main and unreleased.
 ```
 
-The page shows it as a ship card, whose Plan ship button opens the same plan as
-the project menu's **Plan a ship of <project>…**, release type and all. Approve starts
-the ship on the server as `splates ship` would, and only then does the agent
-hear `[SPLATES RUN ALLOWED]`, carrying on without running anything. Closing
-the plan leaves the card unanswered.
+The page shows it as a ship card, whose Open Ships button opens the Ships page
+with that project picked. It starts nothing itself; the card stays unanswered.
 
 The cascade's bump tasks move a project's pins to the new versions, run
 `bun install` and fix what breaks. These are ordinary tasks: an agent takes one as any queued task and lands it
