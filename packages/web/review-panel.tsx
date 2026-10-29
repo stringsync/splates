@@ -156,13 +156,17 @@ export function ReviewPanel({
 							<Button
 								size="sm"
 								onClick={() => void attempt(send(MERGE), "Not sent")}
-								className="bg-success text-white hover:bg-success/90"
+								className="bg-success text-white hover:bg-success/90 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
 							>
 								<GitMergeIcon data-icon="inline-start" />
 								Merge
 							</Button>
 						) : (
-							<Button size="sm" onClick={ask}>
+							<Button
+								size="sm"
+								onClick={ask}
+								className="pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
+							>
 								<SendHorizontalIcon data-icon="inline-start" />
 								Send
 							</Button>
