@@ -47,6 +47,7 @@ import {
 	tally,
 } from "./fold";
 import type { Agent, AgentProcess, Launch, ProcessHandle } from "./process";
+import { SCRATCH } from "./scratch";
 import { AgentStream } from "./stream";
 import { parentOf, toolIn } from "./tool-calls";
 import type { Watched } from "./watched";
@@ -235,6 +236,7 @@ export class AgentConnection {
 				...(startedBy === null ? {} : { SPLATES_STARTED_BY: startedBy }),
 				...(this.deps.url === null ? {} : { SPLATES_DEV: this.deps.url }),
 				...(slug === undefined ? {} : { SPLATES_PROJECT: slug }),
+				...(host.state.scratch === true ? { [SCRATCH]: agent.id } : {}),
 			});
 			const launched = process;
 			void launched.exited.then(started, started);

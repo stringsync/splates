@@ -194,6 +194,7 @@ export function useNewConversation({
 				? startAutoPick({
 						words: text,
 						task,
+						agent,
 						id,
 						attachments: files.map((file) => ({
 							name: file.name,

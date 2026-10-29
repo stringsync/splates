@@ -299,6 +299,40 @@ async function start(
 	});
 	const worker = workers.local;
 	const { placement } = workers;
+	const generalRoot = `${splatesHome(ctx.ps)}/general`;
+	const general = new Conversations(`${generalRoot}/conversations`, roster, {
+		fs: ctx.fs,
+		kimiHome:
+			ctx.ps.env("KIMI_CODE_HOME") ??
+			`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
+		storage: machine.within("general/conversations"),
+		launcher: worker,
+		placer: placement.project(generalRoot),
+		machine: worker,
+		starting,
+		offered,
+		limits,
+		readLimits: async (agent) =>
+			isCodex(agent)
+				? codexLimits({
+						launch: worker.launch,
+						timer: new SystemTimer(),
+						now: () => Date.now(),
+						cwd: generalRoot,
+						codex: ctx.ps.env("CODEX_PATH"),
+					})
+				: isKimi(agent)
+					? kimiLimits({
+							fs: ctx.fs,
+							now: () => Date.now(),
+							home:
+								ctx.ps.env("KIMI_CODE_HOME") ??
+								`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
+							baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+						})
+					: [],
+		servers: browser,
+	});
 	const server = await dev(
 		{ ...ctx, projects },
 		{
@@ -310,6 +344,11 @@ async function start(
 			access,
 			tunnel,
 			portsHost,
+			general: {
+				conversations: general,
+				root: generalRoot,
+				scratchRoot: `${generalRoot}/workspaces`,
+			},
 			conversations: ({ dir, storage, git, config }) => {
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,

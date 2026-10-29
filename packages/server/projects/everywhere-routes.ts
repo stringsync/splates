@@ -1,7 +1,11 @@
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { type LaneRecord, lanesTaken } from "../board";
-import { type ConversationState, listed } from "../conversations";
+import {
+	type ConversationState,
+	type Conversations,
+	listed,
+} from "../conversations";
 import { ConversationUpdates } from "../conversations/browser";
 import type { Served } from "../server/shared";
 import {
@@ -9,7 +13,7 @@ import {
 	eventStream,
 	type StreamWatcher,
 } from "../server/shared";
-import type { Details } from "../tasks";
+import type { Details, Snapshot } from "../tasks";
 import type { Projects } from "./projects";
 
 /**
@@ -51,6 +55,14 @@ export interface EverywhereBoard {
 	lanesTaken: Record<string, number>;
 }
 
+/** What the global General destination contributes to the same feed. */
+export interface GeneralFeed {
+	root: string;
+	conversations: Conversations;
+	current(): Promise<Snapshot>;
+	listen(heard: Parameters<Served["listen"]>[0]): Resource;
+}
+
 /**
  * Every registered project's tasks and conversations, on one stream: what
  * a page listing them across projects reads. The first ask opens each
@@ -80,6 +92,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 			/** By root, as `dev` keeps them. */
 			served: Map<string, Promise<Served>>;
 			servedAt: (root: string) => Promise<Served>;
+			general?: GeneralFeed;
 			log: Logger;
 		},
 	) {}
@@ -99,8 +112,29 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				});
 			}
 		}
+		if (this.home.general !== undefined) {
+			const { general } = this.home;
+			const current = await general.current();
+			listing.projects.push({
+				project: current.project,
+				repo: current.repo,
+				root: current.root,
+				worktreeRoot: current.worktreeRoot,
+				trunk: current.trunk,
+				tasks: [],
+				laneNames: [],
+				lanesTaken: {},
+				conversations: (await general.conversations.list()).map(({ state }) =>
+					listed(state),
+				),
+			});
+		}
 		listing.projects.sort((one, other) =>
-			one.project.localeCompare(other.project),
+			one.root === this.home.general?.root
+				? -1
+				: other.root === this.home.general?.root
+					? 1
+					: one.project.localeCompare(other.project),
 		);
 		return Response.json(listing);
 	};
@@ -147,6 +181,21 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				continue;
 			}
 			this.copies.set(sink, new Map());
+			if (this.home.general !== undefined) {
+				const { general } = this.home;
+				this.hearGeneral(general);
+				void general.conversations.list().then((conversations) => {
+					if (this.listeners.has(sink)) {
+						for (const { state } of conversations) {
+							void general
+								.current()
+								.then(({ project }) =>
+									this.write(sink, project, listed(state)),
+								);
+						}
+					}
+				});
+			}
 			void this.servedNow().then(async (all) => {
 				for (const [root, project] of all) {
 					this.hear(root, project);
@@ -211,6 +260,34 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 							this.say(`event: board\ndata: ${JSON.stringify(board)}\n\n`);
 						}
 					}),
+			}),
+		);
+	}
+
+	/** Listens to General while a stream is open, once. */
+	private hearGeneral(general: GeneralFeed): void {
+		if (this.listeners.size === 0 || this.heard.has(general.root)) {
+			return;
+		}
+		const slug = general.current().then(({ project }) => project);
+		this.heard.set(
+			general.root,
+			general.listen({
+				changed: (conversation) =>
+					void slug.then((project) =>
+						this.changed(project, listed(conversation)),
+					),
+				removed: (id) =>
+					void slug.then((project) => {
+						for (const copies of this.copies.values()) {
+							copies.get(project)?.drop(id);
+						}
+						this.say(
+							`event: removed\ndata: ${JSON.stringify({ project, id })}\n\n`,
+						);
+					}),
+				settings: () => {},
+				board: () => {},
 			}),
 		);
 	}

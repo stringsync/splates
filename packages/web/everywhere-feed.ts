@@ -8,6 +8,7 @@ import type {
 	EverywhereListing,
 	EverywhereProject,
 } from "@stringsync/splates-server/projects";
+import { GENERAL } from "@stringsync/splates-server/projects/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -290,7 +291,11 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 
 	private show(): void {
 		const all = [...this.held.values()].sort((one, other) =>
-			one.project.localeCompare(other.project),
+			one.project === GENERAL
+				? -1
+				: other.project === GENERAL
+					? 1
+					: one.project.localeCompare(other.project),
 		);
 		this.projects = all.map(({ tasks, conversations, ...summary }) => {
 			const before = this.projects.find(

@@ -3,6 +3,7 @@ import type { Child, ProcessEntry, Ps } from "webappwiz/system";
 import type { Timer } from "webappwiz/time";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
+import { scratchLaunch } from "../agents";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
 import type { WorkerSession } from "./session";
@@ -49,11 +50,14 @@ export class WorkerProcessHost implements Resource {
 		const { timer = null } = opts;
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
 		try {
-			this.child = ps.start(argv, {
-				cwd,
-				env,
-				unset: [SERVING],
-			});
+			this.child = ps.start(
+				scratchLaunch(argv, cwd, env, ps.platform, ps.env("HOME")),
+				{
+					cwd,
+					env,
+					unset: [SERVING],
+				},
+			);
 		} catch (error) {
 			throw new Error(
 				`cannot start ${argv[0]} in ${cwd}: ${error instanceof Error ? error.message : String(error)}`,

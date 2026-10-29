@@ -29,6 +29,8 @@ type Said =
 			task: string | null;
 			/** Where it runs; missing from logs written before resuming. */
 			cwd?: string;
+			/** Projectless, in its own scratch workspace; missing for a project's conversation. */
+			scratch?: true;
 			/** The task's base; missing from logs written before parts nested. */
 			base?: string | null;
 			/** Who added the task; missing from logs written before tasks remembered it. */

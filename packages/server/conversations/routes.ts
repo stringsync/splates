@@ -30,23 +30,27 @@ import { type Tree, treeOf } from "./tree";
  * what they work on stays private, out of the spread.
  */
 export class ConversationRoutes {
-	readonly #project: Project;
+	readonly #project: Project | null;
 	readonly #conversations: Conversations | null;
 	/** Every project's conversations, where a caller of one here may be. */
 	readonly #everywhere: Everywhere | null;
 	/** Each change to them, to pages and other listeners; null while they are off. */
 	readonly #stream: ConversationStream | null;
+	/** The parent of each projectless conversation's workspace; null in a project. */
+	readonly #scratchRoot: string | null;
 
 	constructor(
-		project: Project,
+		project: Project | null,
 		conversations: Conversations | null,
 		everywhere: Everywhere | null = null,
+		scratchRoot: string | null = null,
 	) {
 		this.#project = project;
 		this.#conversations = conversations;
+		this.#scratchRoot = scratchRoot;
 		this.#everywhere =
 			everywhere ??
-			(conversations === null
+			(conversations === null || project === null
 				? null
 				: Everywhere.onlyHere(project.service.git.root, conversations));
 		this.#stream =
@@ -116,7 +120,7 @@ export class ConversationRoutes {
 				continue;
 			}
 			const worktree =
-				task === null ? null : await this.#project.service.find(task);
+				task === null ? null : await this.projectService().find(task);
 			asked.push(
 				conversation
 					.checkpoint(worktree?.status === "merging", budget)
@@ -184,13 +188,22 @@ export class ConversationRoutes {
 	readonly startConversation = async (request: Request): Promise<Response> => {
 		const { id, agent, task, settings, model, assigned, autoPick } =
 			await body(request);
-		const [named, cwd, base, caller] = await this.treeFor(task);
+		if (
+			this.#scratchRoot !== null &&
+			((typeof task === "string" && task !== "") ||
+				(task !== null && task !== undefined))
+		) {
+			fail("usage", "a General conversation has no task", { task });
+		}
+		const tree = this.#scratchRoot === null ? await this.treeFor(task) : null;
+		const scratchRoot = this.#scratchRoot;
 		const conversation = await this.held().start(String(agent ?? ""), {
 			id: typeof id === "string" ? id : undefined,
-			task: named,
-			base,
-			caller,
-			cwd,
+			task: tree?.[0] ?? null,
+			base: tree?.[2] ?? null,
+			caller: tree?.[3] ?? null,
+			cwd: tree?.[1] ?? ((id) => `${scratchRoot as string}/${id}`),
+			scratch: scratchRoot !== null,
 			model: typeof model === "string" && model !== "" ? model : undefined,
 			assigned: assigned === true,
 			settings: Object.fromEntries(
@@ -280,7 +293,7 @@ export class ConversationRoutes {
 	 */
 	readonly approveSuite = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		const { ps } = this.#project.service;
+		const { ps } = this.projectService();
 		await new SuiteGrants({ fs: new NodeFs(), ps }).grant(conversation.id);
 		return Response.json(conversation.state);
 	};
@@ -345,7 +358,7 @@ export class ConversationRoutes {
 			);
 		}
 		const worktree =
-			task === null ? null : await this.#project.service.find(task);
+			task === null ? null : await this.projectService().find(task);
 		void conversation.pause(worktree?.status === "merging").catch(() => {});
 		return Response.json(conversation.state);
 	};
@@ -533,7 +546,15 @@ export class ConversationRoutes {
 
 	/** Where a conversation for `task` runs, as `treeOf` says. */
 	private treeFor(task: unknown): Promise<Tree> {
-		return treeOf(this.#project.service, task);
+		return treeOf(this.projectService(), task);
+	}
+
+	/** The project task-only routes work on, never General's null one. */
+	private projectService(): Project["service"] {
+		if (this.#project === null) {
+			fail("not_found", "General conversations have no project tasks", {});
+		}
+		return this.#project.service;
 	}
 
 	/**
@@ -544,7 +565,7 @@ export class ConversationRoutes {
 		base: string | null,
 		task: string | null,
 	): Promise<boolean> {
-		const { service } = this.#project;
+		const service = this.projectService();
 		const seen = new Set<string>();
 		for (
 			let parent = service.taskFor(base);

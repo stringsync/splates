@@ -89,6 +89,15 @@ export function handOffReference(task: string, transcript: string): string {
 The agent before you on this task stopped without handing it over, so its SPLATES.md may be behind. What it said and did last is in ${transcript}: read its end before going on.`;
 }
 
+/**
+ * What opens a project's conversation that carries on from a General one,
+ * whose turns are at `transcript`: it reads them, then works in the project,
+ * where the splates skill has it add a task before changing code.
+ */
+export function continuedReference(transcript: string): string {
+	return `This conversation continues one the person started in General, outside any project. What was said there is in ${transcript}: read it, then carry on with that work here, starting a task before changing code.`;
+}
+
 /** What a chat with an agent takes to mean "walk the user through setup step `step`". */
 export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;

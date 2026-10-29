@@ -8,6 +8,7 @@ import {
 	ArchiveRestoreIcon,
 	ClockIcon,
 	FileDiffIcon,
+	FolderGit2Icon,
 	PauseIcon,
 	PlayIcon,
 	RotateCwIcon,
@@ -20,6 +21,7 @@ import { Duration } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
+import { ContinueItems } from "./continue-in-project";
 import { NEW } from "./conversation-address";
 import {
 	pauseConversation,
@@ -43,6 +45,7 @@ import { ToggleTerminal } from "./terminal";
  * What a conversation's thread offers beside it: reviewing its task's
  * changes, its terminal, pausing its agent at a checkpoint and resuming it,
  * restarting its agent on its task or handing the task to a new one,
+ * carrying a General conversation on in a project,
  * deferring what the person last asked, showing its messages' timestamps,
  * and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) does too; and
  * starting a new conversation with its agent.
@@ -108,6 +111,18 @@ export function useThreadActions(
 						run: null,
 						menu: (
 							<HandOffItems conversation={conversation} refused={refused} />
+						),
+					},
+				]
+			: []),
+		...(conversation.scratch === true && !archived
+			? [
+					{
+						label: "Continue in project",
+						icon: <FolderGit2Icon />,
+						run: null,
+						menu: (
+							<ContinueItems conversation={conversation} refused={refused} />
 						),
 					},
 				]

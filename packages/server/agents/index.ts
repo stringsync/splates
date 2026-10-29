@@ -14,6 +14,7 @@ export type {
 	Session,
 } from "./process";
 export { framed, launch, launcherOf, listSessions } from "./process";
+export { prepareScratch, SCRATCH, scratchLaunch } from "./scratch";
 export type { SessionServers } from "./shared-browser";
 export { PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 export { StartLock } from "./start-lock";

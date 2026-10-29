@@ -60,6 +60,8 @@ export interface AutoWords {
 	attachments?: { name: string; mimeType: string }[];
 	words: string;
 	task: string | null;
+	/** The agent standing in for the pick, which General starts without project rules. */
+	agent?: string;
 	/** The id it starts on, picked by the page to open it at once. */
 	id?: string;
 }
@@ -192,6 +194,19 @@ export async function handOffConversation(id: string): Promise<string> {
 		prompt: string;
 	};
 	return prompt;
+}
+
+/**
+ * Carries General conversation `id` on in the project `project` names, in a
+ * new conversation there, answering where that one is.
+ */
+export async function continueConversation(
+	id: string,
+	project: string,
+): Promise<{ project: string; id: string }> {
+	return (await sendJson(`/api/conversations/${id}/continue`, "POST", {
+		project,
+	})) as { project: string; id: string };
 }
 
 /** Stops command `background` the agent in conversation `id` left running. */

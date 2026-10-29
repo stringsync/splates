@@ -114,6 +114,30 @@ describe("App's agents, in a folder per project", () => {
 		).toBeTruthy();
 	});
 
+	it("groups General first and starts its conversations without a project", async () => {
+		testing.everywhere?.unshift({
+			...listed("~general", "/home/.splates/general", []),
+			repo: "General",
+		});
+		const { nav } = await inbox();
+
+		expect(
+			within(nav)
+				.getAllByRole("region")
+				.map((each) => each.getAttribute("aria-label"))[0],
+		).toBe("General");
+		await act(async () =>
+			fireEvent.click(
+				within(nav).getByRole("button", {
+					name: "New conversation in General",
+				}),
+			),
+		);
+		const there = new URL(String(testing.visited[0]));
+		expect(there.searchParams.get("project")).toBe("~general");
+		expect(there.hash).toBe("#conversations/new");
+	});
+
 	it("opens another project's agent on its page", async () => {
 		const { nav } = await inbox();
 

@@ -322,6 +322,7 @@ export class Conversation
 			base = null,
 			caller = null,
 			cwd,
+			scratch = false,
 			assigned = false,
 			startedBy = null,
 			automatic = false,
@@ -348,6 +349,7 @@ export class Conversation
 			caller,
 			assigned,
 			startedBy,
+			scratch,
 		);
 		state.skill = skill;
 		state.automatic = automatic;
@@ -366,6 +368,7 @@ export class Conversation
 			agent: agent.id,
 			task,
 			cwd,
+			...(scratch ? { scratch: true as const } : {}),
 			base,
 			caller,
 			createdAt,
@@ -809,6 +812,11 @@ export class Conversation
 		});
 	}
 
+	/** Keeps what was said so far for another agent to read, answering where it opens. */
+	keepTranscript(): Promise<string> {
+		return this.files.keepTranscript(this.state.messages);
+	}
+
 	/**
 	 * Lets go of its task for another agent to take on: stops its agent and
 	 * moves it to the main tree, where it resumes if prompted again, and
@@ -1236,6 +1244,9 @@ export class Conversation
 	 */
 	private async wake(agent: Agent, cwd: string): Promise<void> {
 		try {
+			if (this.state.scratch === true) {
+				await this.deps.machine.scratch(agent.id, cwd);
+			}
 			const placement = await this.place();
 			if (placement === null) {
 				return;
@@ -1332,6 +1343,8 @@ interface Opening {
 	/** The conversation whose agent added `task`. */
 	caller?: string | null;
 	cwd: string;
+	/** Runs projectless in its own scratch workspace. */
+	scratch?: boolean;
 	/** Started on what a queued task or `splates add --agent` assigned. */
 	assigned?: boolean;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */

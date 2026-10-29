@@ -41,6 +41,7 @@ export const CALL_BOUNDS: CallBounds = {
 	exists: Duration.mins(1),
 	processes: Duration.mins(1),
 	listening: Duration.mins(1),
+	scratch: Duration.mins(1),
 };
 
 /**
@@ -180,6 +181,10 @@ export class ConnectedWorker implements WorkerMachine {
 
 	async exists(path: string): Promise<boolean> {
 		return z.boolean().parse(await this.call({ method: "exists", path }));
+	}
+
+	async scratch(agent: string, cwd: string): Promise<void> {
+		await this.call({ method: "scratch", agent, cwd });
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

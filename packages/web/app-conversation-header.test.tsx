@@ -15,6 +15,7 @@ import {
 	fireEvent,
 	message,
 	openRow,
+	project,
 	Testing,
 	todo,
 	tool,
@@ -154,6 +155,30 @@ describe("App's conversation header", () => {
 				.getAllByRole("button")
 				.map((button) => button.textContent),
 		).toEqual(["main", "Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
+	});
+
+	it("carries a General conversation on in a picked project, opening it there", async () => {
+		testing.projects = [project("shop", [], true)];
+		testing.reply = { project: "shop", id: "s1" };
+		const view = await testing.openConversations([
+			conversation({ id: "g1", title: "Plan a trip", scratch: true }),
+		]);
+		const actions = view.getByRole("navigation", { name: "actions" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(actions).getByRole("button", { name: /Continue in project/ }),
+			),
+		);
+		await clickShown(() => view.getByRole("menuitem", { name: "shop" }));
+
+		await waitFor(() => expect(testing.visited).toHaveLength(1));
+		expect(testing.posted("/api/conversations/g1/continue")[0]?.body).toEqual({
+			project: "shop",
+		});
+		const there = new URL(String(testing.visited[0]));
+		expect(there.searchParams.get("project")).toBe("shop");
+		expect(there.hash).toBe("#conversations/s1");
 	});
 
 	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {

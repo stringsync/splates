@@ -17,6 +17,7 @@ import type {
 	MachineSensors,
 	WorkerMachine,
 } from "../workers";
+import type { GeneralOptions } from "./general";
 import type { Project } from "./project";
 import type { ServerChoice } from "./servers";
 
@@ -89,6 +90,8 @@ export interface DevOptions {
 				journal: Journal;
 		  }) => Conversations)
 		| null;
+	/** The machine's projectless conversations; none when omitted. */
+	general?: GeneralOptions | null;
 	/**
 	 * The shell a page's terminal runs, as argv, in the main tree or a task's
 	 * worktree; without it, the page has no terminal and the route says so.

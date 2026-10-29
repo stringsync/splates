@@ -291,6 +291,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base,
 			caller,
 			cwd,
+			scratch,
 			settings,
 			model,
 			assigned,
@@ -312,7 +313,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base?: string | null;
 			/** The conversation whose agent added `task`. */
 			caller?: string | null;
-			cwd: string;
+			cwd: string | ((id: string) => string | Promise<string>);
+			/** Runs projectless in its own scratch workspace. */
+			scratch?: boolean;
 			settings?: Record<string, string>;
 			/** The model to start on, by its value or name in the model setting. */
 			model?: string;
@@ -340,6 +343,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		const chosen = this.agentOf(agent);
 		await this.load();
 		const id = given === undefined ? this.ids.next() : this.unused(given);
+		const directory = typeof cwd === "string" ? cwd : await cwd(id);
 		const conversation = await Conversation.start(
 			{
 				id,
@@ -347,7 +351,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				task,
 				base,
 				caller,
-				cwd,
+				cwd: directory,
+				scratch,
 				settings,
 				model,
 				assigned,
@@ -361,7 +366,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 					...picked,
 					agent: this.agentOf(picked.agent),
 				})),
-				skill: await installedVersion(this.fs, this.root ?? cwd),
+				skill: await installedVersion(this.fs, this.root ?? directory),
 			},
 			this.deps,
 		);

@@ -136,6 +136,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.caller,
 			start.assigned,
 			start.startedBy ?? null,
+			start.scratch === true,
 		);
 		state.skill = start.skill ?? null;
 		state.automatic = start.automatic ?? start.capped ?? false;

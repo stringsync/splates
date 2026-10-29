@@ -19,7 +19,7 @@ import { fail } from "../exit";
 import { Git } from "../git";
 import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
-import { Everywhere, EverywhereRoutes, Picker } from "../projects";
+import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
 import { OpenBoards, openRepository } from "../records";
 import {
@@ -54,6 +54,7 @@ import {
 	queueListing,
 	type WorkerPool,
 } from "../workers";
+import { General } from "./general";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
 import { Migrations } from "./migrations";
 import type { DevOptions } from "./options";
@@ -102,6 +103,7 @@ export async function dev(
 		access = null,
 		tunnel = null,
 		conversations: converse = null,
+		general: generalOption = null,
 		shell = null,
 		transcriber = transcriberFor,
 		newest = async () => null,
@@ -125,6 +127,21 @@ export async function dev(
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects, opened = [] } = deps;
+	const general =
+		generalOption === null
+			? null
+			: new General(
+					generalOption.conversations,
+					generalOption.root,
+					generalOption.scratchRoot,
+					{
+						release: () => versions.release,
+						behind: () => versions.behind,
+						unbuilt,
+						slot,
+						projectNamed: (slug) => projectNamed(slug),
+					},
+				);
 	// The page is the one thing a tunnel exposes, so no tunnel runs unguarded.
 	if (tunnel !== null && access === null) {
 		fail(
@@ -258,11 +275,46 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
-	// Every registered project's tasks and conversations, to one page.
-	const everywhere = new EverywhereRoutes({ projects, served, servedAt, log });
+	const talkingFor = async (request: Request): Promise<Served | General> => {
+		if (
+			general !== null &&
+			new URL(request.url).searchParams.get("project") === GENERAL
+		) {
+			return general;
+		}
+		return projectFor(request);
+	};
+	const conversationScoped =
+		(pick: (project: Served | General) => Handler) =>
+		(request: Request): Promise<Response> =>
+			guarded(async (request) => {
+				const project = await talkingFor(request);
+				if (!(project instanceof General)) {
+					await project.format.check();
+				}
+				return pick(project)(request);
+			})(request);
 
-	/** The served project that holds conversation `id`, or null for none. */
-	const holding = async (id: string): Promise<Served | null> => {
+	// Every registered project's tasks and conversations, to one page.
+	const everywhere = new EverywhereRoutes({
+		projects,
+		served,
+		servedAt,
+		...(general === null ? {} : { general }),
+		log,
+	});
+
+	/** The served project or General that holds conversation `id`, or null for none. */
+	const holding = async (id: string): Promise<Served | General | null> => {
+		if (
+			general !== null &&
+			(await general.conversations.find(id).then(
+				() => true,
+				() => false,
+			))
+		) {
+			return general;
+		}
 		for (const settled of await Promise.allSettled(served.values())) {
 			const project = settled.status === "fulfilled" ? settled.value : null;
 			if (
@@ -282,7 +334,7 @@ export async function dev(
 	// the agent's own `splates` names no project when it says it moved. One
 	// of a project not served yet is found once every one is.
 	const owned =
-		(pick: (project: Served) => Handler) =>
+		(pick: (project: Served | General) => Handler) =>
 		(request: Request): Promise<Response> =>
 			guarded(async (request) => {
 				const id = new URL(request.url).pathname.split("/")[3] ?? "";
@@ -292,8 +344,10 @@ export async function dev(
 					owner = await holding(id);
 				}
 				// None holds it: the project asked for refuses it, as ever.
-				const project = owner ?? (await projectFor(request));
-				await project.format.check();
+				const project = owner ?? (await talkingFor(request));
+				if (!(project instanceof General)) {
+					await project.format.check();
+				}
 				return pick(project)(request);
 			})(request);
 
@@ -352,6 +406,7 @@ export async function dev(
 			machine: worker ?? new LocalWorkerMachine(ps, fs),
 			server: disposer,
 			handOver: async () => {
+				await general?.conversations.detachAsync();
 				const roots: string[] = [];
 				for (const [root, opened] of served) {
 					const project = await opened.catch(() => null);
@@ -842,7 +897,7 @@ export async function dev(
 					"/api/power": { POST: talk(guarded(powerNow)) },
 					"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 					"/api/projects/:slug": { DELETE: guarded(forgetProject) },
-					"/api/snapshot": scoped((project) => project.snapshot),
+					"/api/snapshot": conversationScoped((project) => project.snapshot),
 					// Conversations among them, so only as far as a conversation reaches.
 					"/api/everywhere": talk(guarded(everywhere.list)),
 					"/api/everywhere/events": talk(guarded(everywhere.events)),
@@ -977,29 +1032,35 @@ export async function dev(
 						PUT: scoped((project) => project.updateLane),
 						DELETE: scoped((project) => project.dropLane),
 					},
-					"/events": scoped((project) => project.events),
+					"/events": conversationScoped((project) => project.events),
 					"/api/conversations": {
-						GET: talk(scoped((project) => project.listConversations)),
-						POST: talk(scoped((project) => project.startConversation)),
+						GET: talk(
+							conversationScoped((project) => project.listConversations),
+						),
+						POST: talk(
+							conversationScoped((project) => project.startConversation),
+						),
 					},
 					"/api/conversations/search": {
-						GET: talk(scoped((project) => project.searchConversations)),
+						GET: talk(
+							conversationScoped((project) => project.searchConversations),
+						),
 					},
 					"/api/conversations/auto": {
-						POST: talk(scoped((project) => project.startAutoPick)),
+						POST: talk(conversationScoped((project) => project.startAutoPick)),
 					},
 					"/api/conversations/sessions": {
-						GET: talk(scoped((project) => project.listSessions)),
-						POST: talk(scoped((project) => project.bringSession)),
+						GET: talk(conversationScoped((project) => project.listSessions)),
+						POST: talk(conversationScoped((project) => project.bringSession)),
 					},
 					"/api/conversations/defaults": {
-						PUT: talk(scoped((project) => project.chooseDefault)),
+						PUT: talk(conversationScoped((project) => project.chooseDefault)),
 					},
 					"/api/conversations/limits": {
-						POST: talk(scoped((project) => project.refreshLimits)),
+						POST: talk(conversationScoped((project) => project.refreshLimits)),
 					},
 					"/api/conversations/events": talk(
-						scoped((project) => project.conversationEvents),
+						conversationScoped((project) => project.conversationEvents),
 					),
 					"/api/conversations/:id": {
 						GET: talk(owned((project) => project.showConversation)),
@@ -1073,6 +1134,14 @@ export async function dev(
 					},
 					"/api/conversations/:id/name": {
 						PUT: talk(owned((project) => project.renameConversation)),
+					},
+					"/api/conversations/:id/continue": {
+						POST: talk(
+							guarded(
+								general?.continueConversation ??
+									(() => fail("not_found", "no General conversations", {})),
+							),
+						),
 					},
 					"/api/conversations/:id/task": {
 						PUT: talk(owned((project) => project.moveConversation)),
@@ -1152,6 +1221,8 @@ export async function dev(
 			startReplicating(registered.root);
 		}
 	}
+	// General's live agents take their processes back before the worker joins too.
+	await general?.conversations.list();
 	workers.serving();
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);
@@ -1177,6 +1248,9 @@ export async function dev(
 	disposer.defer(() => terminals.disposeAsync());
 	disposer.defer(() => everywhere.disposeAsync());
 	disposer.defer(() => replicas.disposeAsync());
+	disposer.defer(async () => {
+		await general?.disposeAsync();
+	});
 	disposer.defer(async () => {
 		for (const settled of await Promise.allSettled(served.values())) {
 			if (settled.status === "fulfilled") {

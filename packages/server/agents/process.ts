@@ -4,6 +4,7 @@ import type { Lock } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { systemPs } from "../config";
 import { SERVING } from "../server/shared";
+import { scratchLaunch } from "./scratch";
 import { AgentStream } from "./stream";
 
 /** An agent splates can hold a conversation with over ACP, and how to start it. */
@@ -90,7 +91,14 @@ export function launcherOf(launch: Launch): Launcher {
 export const launch: Launch = (argv, cwd, env) => {
 	// So a `splates server` the agent runs supervises itself rather than serving
 	// as this one's child.
-	const child = systemPs().start(argv, { cwd, env, unset: [SERVING] });
+	const child = systemPs().start(
+		scratchLaunch(argv, cwd, env, process.platform),
+		{
+			cwd,
+			env,
+			unset: [SERVING],
+		},
+	);
 	let tail = "";
 	// One that never started, as in a directory since removed, aborts its
 	// pipes and rejects its exit: it ends as one that exited saying why.

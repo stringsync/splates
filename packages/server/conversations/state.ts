@@ -34,8 +34,10 @@ export interface QueueSpot {
 export interface ConversationState {
 	id: string;
 	agent: string;
-	/** The task whose worktree it runs in; null for the main tree. */
+	/** The task whose worktree it runs in; null for the main tree or a scratch conversation. */
 	task: string | null;
+	/** Runs projectless in its own scratch workspace; absent for a project's conversation. */
+	scratch?: true;
 	/**
 	 * The task it runs in, or last ran in once that task merged or went; null
 	 * until it runs in one.
@@ -620,11 +622,13 @@ export function blank(
 	caller: string | null = null,
 	assigned = false,
 	startedBy: string | null = null,
+	scratch = false,
 ): ConversationState {
 	return {
 		id,
 		agent,
 		task,
+		...(scratch ? { scratch: true as const } : {}),
 		lastTask: task,
 		lastBase: task === null ? null : base,
 		lastCaller: task === null ? null : caller,

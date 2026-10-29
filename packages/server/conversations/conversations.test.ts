@@ -100,6 +100,32 @@ describe("Conversations", () => {
 		).rejects.toThrow("not a conversation id");
 	});
 
+	it("keeps a scratch conversation and its launch boundary across a restart", async () => {
+		const conversation = await conversations.start("fake", {
+			task: null,
+			cwd: "/scratch/one",
+			scratch: true,
+		});
+		await until(conversation, "idle");
+
+		expect(conversation.state.scratch).toBe(true);
+		expect(agent.launched[0]?.env.SPLATES_SCRATCH).toBe("fake");
+		expect(await fs.exists("/scratch/one")).toBe(true);
+		await conversation.stop();
+
+		const reread = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(read?.state.scratch).toBe(true);
+		await read?.prompt("again");
+		await until(read as NonNullable<typeof read>, "idle");
+		expect(agent.launched.at(-1)?.env.SPLATES_SCRATCH).toBe("fake");
+		await reread.disposeAsync();
+	});
+
 	it("starts the agent in the task's tree and offers its settings", async () => {
 		const conversation = await started();
 

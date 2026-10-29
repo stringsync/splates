@@ -1,4 +1,5 @@
 import type { Fs, ListeningEntry, ProcessEntry, Ps } from "webappwiz/system";
+import { prepareScratch } from "../agents";
 import { type GitResult, type GitRunner, processGit } from "../git";
 
 /** A file's size, and its bytes from where the caller last read up to. */
@@ -30,6 +31,8 @@ export interface WorkerMachine extends GitRunner {
 	read(path: string, from: number): Promise<WorkerRead>;
 	/** Whether anything is at `path`, a file or a directory. */
 	exists(path: string): Promise<boolean>;
+	/** Makes the directories `agent` may write in its scratch workspace at `cwd`. */
+	scratch(agent: string, cwd: string): Promise<void>;
 }
 
 /** The machine this process runs on, as a worker answers for it. */
@@ -53,6 +56,10 @@ export class LocalWorkerMachine implements WorkerMachine {
 
 	exists(path: string): Promise<boolean> {
 		return this.fs.exists(path);
+	}
+
+	scratch(agent: string, cwd: string): Promise<void> {
+		return prepareScratch(this.fs, agent, cwd, this.ps.env("HOME"));
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

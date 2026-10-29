@@ -11,6 +11,7 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans";
+import { GENERAL } from "@stringsync/splates-server/projects/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	flatten,
@@ -57,10 +58,13 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, null, true));
 	}
-	return listed.sort(
-		(one, other) =>
-			one.name.localeCompare(other.name) ||
-			(one.project ?? "").localeCompare(other.project ?? ""),
+	return listed.sort((one, other) =>
+		one.project === GENERAL
+			? -1
+			: other.project === GENERAL
+				? 1
+				: one.name.localeCompare(other.name) ||
+					(one.project ?? "").localeCompare(other.project ?? ""),
 	);
 }
 

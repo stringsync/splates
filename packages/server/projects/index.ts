@@ -5,6 +5,7 @@ export type {
 	EverywhereProject,
 } from "./everywhere-routes";
 export { EverywhereRoutes } from "./everywhere-routes";
+export { GENERAL, GENERAL_NAME } from "./general";
 export { forget, init } from "./init";
 export type { Added } from "./picker";
 export { Picker } from "./picker";

@@ -89,6 +89,9 @@ export class WorkerCallHost implements Resource {
 				return (await this.machine.listening()).map((each) => ({ ...each }));
 			case "exists":
 				return await this.machine.exists(request.path);
+			case "scratch":
+				await this.machine.scratch(request.agent, request.cwd);
+				return null;
 			case "read": {
 				const { size, bytes } = await this.machine.read(
 					request.path,
@@ -139,6 +142,12 @@ export const CallRequest = z.discriminatedUnion("method", [
 		id: z.number().int(),
 		method: z.literal("exists"),
 		path: z.string(),
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("scratch"),
+		agent: z.string(),
+		cwd: z.string(),
 	}),
 	z.object({
 		id: z.number().int(),
