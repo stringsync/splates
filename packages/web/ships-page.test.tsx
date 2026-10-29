@@ -29,8 +29,8 @@ describe("ShipsPage", () => {
 				streams.push(this);
 			}
 		} as unknown as typeof EventSource;
-		globalThis.fetch = (async () =>
-			Response.json([])) as unknown as typeof fetch;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(answer(String(url), []))) as unknown as typeof fetch;
 	});
 
 	afterEach(() => {
@@ -55,9 +55,7 @@ describe("ShipsPage", () => {
 			}),
 		];
 		globalThis.fetch = (async (url: string) =>
-			Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
-			)) as unknown as typeof fetch;
+			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
 		const list = await view.findByRole("list", { name: "Ship graph" });
@@ -92,9 +90,7 @@ describe("ShipsPage", () => {
 			}),
 		];
 		globalThis.fetch = (async (url: string) =>
-			Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
-			)) as unknown as typeof fetch;
+			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
 		expect(await view.findByText("3 unshipped")).toBeTruthy();
@@ -123,9 +119,7 @@ describe("ShipsPage", () => {
 		];
 		globalThis.fetch = (async (url: string) => {
 			asked.push(String(url));
-			return Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
-			);
+			return Response.json(answer(String(url), graph));
 		}) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
@@ -145,7 +139,7 @@ describe("ShipsPage", () => {
 				"Ship every changed project",
 			),
 		).toBeTruthy();
-		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
+		expect(asked.some((url) => url.includes("/api/ship/run/"))).toBe(false);
 	});
 
 	it("disables the pick of every changed project when none changed", async () => {
@@ -155,9 +149,7 @@ describe("ShipsPage", () => {
 			}),
 		];
 		globalThis.fetch = (async (url: string) =>
-			Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: graph } : [],
-			)) as unknown as typeof fetch;
+			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
 		expect(await view.findByText("Every project is up to date")).toBeTruthy();
@@ -171,9 +163,7 @@ describe("ShipsPage", () => {
 	it("picks the project a card named in ?ship=, which starts nothing until Start", async () => {
 		at("http://localhost/?ship=webappwiz#ships");
 		globalThis.fetch = (async (url: string) =>
-			Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: [] } : [],
-			)) as unknown as typeof fetch;
+			Response.json(answer(String(url), []))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		await say({ cascade: null, ship: null });
 		const picked = view.getByRole("region", { name: "ship picked" });
@@ -257,6 +247,45 @@ describe("ShipsPage", () => {
 		).toBe("https://www.npmjs.com/auth/cli/abc");
 	});
 
+	it("shows a ship still being planned with its conversation, hides the picker, and tells it on Abandon", async () => {
+		const asked: string[] = [];
+		let run: unknown = {
+			run: {
+				id: "r1",
+				from: "webappwiz",
+				projects: ["webappwiz"],
+				state: "planning",
+				started: "2026-10-27T12:00:00.000Z",
+				edits: {},
+				skipped: [],
+				conversation: "c9",
+			},
+			plan: null,
+		};
+		globalThis.fetch = (async (url: string, init?: RequestInit) => {
+			asked.push(`${init?.method ?? "GET"} ${url}`);
+			const abandoned = init?.method === "POST";
+			run = abandoned ? null : run;
+			return Response.json(
+				url.startsWith("/api/ship/run") ? run : answer(url, []),
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		await say({ cascade: null, ship: null });
+		const planning = await view.findByRole("region", { name: "planning" });
+		expect(
+			within(planning)
+				.getByRole("link", { name: /Open its conversation/ })
+				.getAttribute("href"),
+		).toContain("#conversations/c9");
+		expect(view.queryByRole("list", { name: "Ship graph" })).toBeNull();
+		await act(async () => {
+			within(planning).getByRole("button", { name: "Abandon" }).click();
+		});
+		expect(asked).toContain("POST /api/ship/run/abandon");
+		expect(view.queryByRole("region", { name: "planning" })).toBeNull();
+	});
+
 	it("replans a stopped run by picking none, as Recover", async () => {
 		localStorage.removeItem("splates.ship.closed");
 		const view = render(<ShipsPage />);
@@ -281,9 +310,7 @@ describe("ShipsPage", () => {
 	it("shows a stopped run until it is closed, with why it stopped and npm's settings when that is the remedy", async () => {
 		localStorage.removeItem("splates.ship.closed");
 		globalThis.fetch = (async (url: string) =>
-			Response.json(
-				String(url).startsWith("/api/ship/graph") ? { projects: [] } : [],
-			)) as unknown as typeof fetch;
+			Response.json(answer(String(url), []))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		const stopped = {
 			...cascade([
@@ -381,6 +408,14 @@ function cascade(steps: CascadeStep[]): Cascade {
 		ended: null,
 		steps,
 	};
+}
+
+/** What the server answers `url`: the graph, no ship run planned, else an empty list. */
+function answer(url: string, projects: unknown[]): unknown {
+	if (url.startsWith("/api/ship/graph")) {
+		return { projects };
+	}
+	return url.startsWith("/api/ship/run") ? null : [];
 }
 
 const realSource = globalThis.EventSource;

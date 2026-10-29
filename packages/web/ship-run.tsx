@@ -26,9 +26,12 @@ export function ShipRun({
 	ship,
 	onClose,
 	onRecover,
+	abandon: abandonRun = abandonCascade,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
+	/** Ends the run; the cascade alone by default, the run and its conversation when it has one. */
+	abandon?: () => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
 	onRecover?: () => void;
@@ -39,7 +42,7 @@ export function ShipRun({
 	const held = cascade.steps.find((step) => HELD.includes(step.status));
 	const abandon = () => {
 		setAbandoning(true);
-		abandonCascade().then(askMachineNow, (error: unknown) => {
+		abandonRun().then(askMachineNow, (error: unknown) => {
 			setAbandoning(false);
 			refuse("", "Not abandoned", error);
 		});

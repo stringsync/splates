@@ -1,9 +1,13 @@
-import type { CascadeSummary } from "@stringsync/splates-server/ship";
+import { GENERAL } from "@stringsync/splates-server/projects/browser";
+import type {
+	CascadeSummary,
+	ShipRun as ShipRunRecord,
+} from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { ArrowLeftIcon, ChevronRightIcon, ShipIcon } from "lucide-react";
-import { type JSX, useContext, useEffect, useState } from "react";
+import { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { shipHistory, shipHistoryEntry } from "./api";
+import { abandonShipRun, shipHistory, shipHistoryEntry, shipRun } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
 import { NavigationContext } from "./navigation";
 import { refusalOf } from "./refusal";
@@ -58,12 +62,37 @@ export function ShipsPage({
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [closed, setClosed] = useState(() => localStorage.getItem(CLOSED_KEY));
 	const cascade = live?.cascade ?? null;
+	const [planning, setPlanning] = useState<ShipRunRecord | null>(null);
+	const readPlanning = useCallback(
+		() =>
+			shipRun().then(
+				(shown) =>
+					setPlanning(
+						shown?.run !== undefined && PLANNED.includes(shown.run.state)
+							? shown.run
+							: null,
+					),
+				() => undefined,
+			),
+		[],
+	);
+	// Read when the page opens, as the cascade moves on, and while a plan is
+	// being shaped in its conversation.
+	const cascadeStatus = cascade?.status;
+	useEffect(() => {
+		void cascadeStatus;
+		void readPlanning();
+		const timer = setInterval(() => void readPlanning(), 4000);
+		return () => clearInterval(timer);
+	}, [readPlanning, cascadeStatus]);
 	const shown =
 		cascade?.status === "running" ||
 		(cascade?.status === "stopped" && cascade.id !== closed)
 			? cascade
 			: null;
 	const endedAt = cascade?.ended ?? null;
+	// Only one ship is active at a time, so none can be picked meanwhile.
+	const active = shown?.status === "running" || planning !== null;
 	// Read when the page opens, and again as a cascade ends.
 	useEffect(() => {
 		void endedAt;
@@ -88,7 +117,7 @@ export function ShipsPage({
 			setStarting(false);
 		}
 	};
-	const choice = picked !== null && (
+	const choice = picked !== null && !active && (
 		<Picked
 			picked={picked}
 			ready={feed !== null}
@@ -120,15 +149,19 @@ export function ShipsPage({
 					Reading ships…
 				</p>
 			)}
+			{planning !== null && shown === null && (
+				<PlanningShip run={planning} onAbandoned={() => void readPlanning()} />
+			)}
 			{shown !== null && live !== null && (
 				<ShipRun
 					cascade={shown}
 					ship={live.ship}
+					abandon={planning === null ? undefined : abandonShipRun}
 					onClose={() => close(shown.id)}
 					onRecover={() => recover(shown)}
 				/>
 			)}
-			{live !== null && shown === null && (
+			{live !== null && shown === null && planning === null && (
 				<ShipGraphTree
 					endedAt={endedAt}
 					onShip={(slug) => pick([slug], slug)}
@@ -136,6 +169,70 @@ export function ShipsPage({
 				/>
 			)}
 			{history.length > 0 && <History cascades={history} />}
+		</section>
+	);
+}
+
+/** The states of a run whose plan is still shaped or waiting to be approved. */
+const PLANNED: ShipRunRecord["state"][] = ["planning", "proposed", "approved"];
+
+/**
+ * The ship under way before its plan runs: its conversation, where the plan is
+ * shaped, and Abandon, which ends it and tells that conversation.
+ */
+function PlanningShip({
+	run,
+	onAbandoned,
+}: {
+	run: ShipRunRecord;
+	onAbandoned: () => void;
+}): JSX.Element {
+	const [abandoning, setAbandoning] = useState(false);
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const abandon = () => {
+		setAbandoning(true);
+		setRefusal(null);
+		abandonShipRun()
+			.then(onAbandoned, (error: unknown) =>
+				setRefusal(refusalOf("The ship was not abandoned", error)),
+			)
+			.finally(() => setAbandoning(false));
+	};
+	return (
+		<section
+			aria-label="planning"
+			className="flex flex-col gap-3 rounded-lg border p-3"
+		>
+			<div className="flex flex-wrap items-center gap-x-2">
+				<h2 className="font-medium text-sm">Shipping {shipName(run.from)}</h2>
+				<span className="text-muted-foreground text-xs">
+					{run.state === "proposed" ? "waiting on your approval" : "planning"}
+				</span>
+				<Button
+					size="xs"
+					variant="ghost"
+					className="ml-auto"
+					disabled={abandoning}
+					title="Ends the ship and tells its conversation; nothing has been published"
+					onClick={abandon}
+				>
+					Abandon
+				</Button>
+			</div>
+			{run.conversation !== undefined && (
+				<a
+					href={`?project=${encodeURIComponent(GENERAL)}#conversations/${encodeURIComponent(run.conversation)}`}
+					className="flex items-center gap-1 text-sm underline"
+				>
+					Open its conversation
+					<ChevronRightIcon aria-hidden className="size-3.5" />
+				</a>
+			)}
+			{refusal !== null && (
+				<p role="alert" className="text-destructive text-xs">
+					{refusal}
+				</p>
+			)}
 		</section>
 	);
 }

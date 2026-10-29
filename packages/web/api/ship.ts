@@ -21,6 +21,21 @@ export async function startShipRun(projects: string[]): Promise<string> {
 	return run.run.id;
 }
 
+/** Names `conversation` as the one driving the ship under way, which hears if the person abandons it. */
+export async function attachShipConversation(
+	conversation: string,
+): Promise<void> {
+	await sendJson("/api/ship/run/conversation", "POST", { conversation });
+}
+
+/**
+ * Ends the ship under way, planning or running, and tells its conversation;
+ * throws the server's refusal when none is under way.
+ */
+export async function abandonShipRun(): Promise<void> {
+	await send("/api/ship/run/abandon", {});
+}
+
 /** The ship run the conversation drives with its plan, or null before any started. */
 export async function shipRun(): Promise<ShownRun | null> {
 	const response = await answered("/api/ship/run");

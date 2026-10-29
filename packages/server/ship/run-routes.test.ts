@@ -15,6 +15,9 @@ describe("ShipRunRoutes", () => {
 			graph: () => readGraph(served.fs, served.sources),
 			cascades: {
 				current: async () => null,
+				abandon: async () => {
+					throw new Error("none running");
+				},
 				startPlan: async () => {
 					throw new Error("not approved");
 				},

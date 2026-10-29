@@ -53,6 +53,19 @@ describe("ShipRuns", () => {
 		expect((await runs.current())?.state).toBe("stopped");
 	});
 
+	it("abandons a plan not yet approved, and a running ship, making way for the next", async () => {
+		const { runs, cascade } = await fixture();
+		await runs.start(["webappwiz"], "c1");
+		expect((await runs.attach("c2")).conversation).toBe("c2");
+		await expect(runs.start(["webappwiz"])).rejects.toThrow(
+			"finish or abandon it first",
+		);
+		expect((await runs.abandon()).state).toBe("abandoned");
+		await expect(runs.abandon()).rejects.toThrow("no ship is under way");
+		await runs.start(["webappwiz"]);
+		expect(cascade.current).toBeNull();
+	});
+
 	it("refuses to leave out a picked project or one not in the plan", async () => {
 		const { runs } = await fixture();
 		await runs.start(["webappwiz"]);
@@ -77,6 +90,14 @@ async function fixture() {
 		graph: () => readGraph(served.fs, served.sources),
 		cascades: {
 			current: async () => cascade.current,
+			abandon: async () => {
+				const running = cascade.current;
+				if (running === null) {
+					throw new Error("none running");
+				}
+				running.status = "abandoned";
+				return running;
+			},
 			startPlan: async (plan) => {
 				cascade.started.push(plan);
 				cascade.current = {

@@ -62,3 +62,11 @@ What shipped stays published and is a fixed input of the revised plan. Run
 `splates ship plan show`, adjust, `propose`, and post the new card for the
 person to approve again. A plan card replaced by a later one shows as
 superseded.
+
+## When the person abandons the ship
+
+The Ships page lists the ship under way, and its Abandon ends it, whether it is
+still planning or running. Only one ship is active at a time, so a new one
+cannot start until this one ends. The page tells your conversation with
+`[SPLATES SHIP ABANDONED <run>]`: the run is already ended, so run no more
+`splates ship` commands for it, and end with the Done report.

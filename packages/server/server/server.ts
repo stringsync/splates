@@ -622,6 +622,27 @@ export async function dev(
 				{ run: run.id, projects: run.projects },
 			);
 		},
+		async (run) => {
+			if (run.conversation === undefined) {
+				return;
+			}
+			// The ship agent hears it, to stop what it was driving.
+			let owner = await holding(run.conversation);
+			if (owner === null) {
+				await everywhere.openAll();
+				owner = await holding(run.conversation);
+			}
+			if (owner?.conversations == null) {
+				return;
+			}
+			const told = await owner.conversations.find(run.conversation);
+			await told.prompt(
+				`[SPLATES SHIP ABANDONED ${run.id}] The person abandoned this ship from the Ships page. Stop driving it: run no more \`splates ship\` commands for it, and end with a Done report.`,
+				[],
+				undefined,
+				{ told: SERVER_TOLD },
+			);
+		},
 	);
 	const adoptRoutes = new AdoptRoutes(cascades);
 	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
@@ -935,6 +956,12 @@ export async function dev(
 					"/api/ship/run/note": { POST: talk(guarded(shipRunRoutes.note)) },
 					"/api/ship/run/propose": {
 						POST: talk(guarded(shipRunRoutes.propose)),
+					},
+					"/api/ship/run/conversation": {
+						POST: guarded(shipRunRoutes.attach),
+					},
+					"/api/ship/run/abandon": {
+						POST: talk(guarded(shipRunRoutes.abandon)),
 					},
 					"/api/ship/run/approve": { POST: guarded(shipRunRoutes.approve) },
 					"/api/ship/run/next": { GET: talk(guarded(adoptRoutes.next)) },

@@ -51,10 +51,10 @@ export class ShipRuns {
 	 * Starts planning a ship of `projects`; none after a stopped run recovers
 	 * it, taking what it published as fixed inputs.
 	 */
-	start(projects: string[]): Promise<ShownRun> {
+	start(projects: string[], conversation?: string | null): Promise<ShownRun> {
 		return this.serially(async () => {
 			const old = await this.sync();
-			if (old !== null && old.state !== "stopped" && old.state !== "done") {
+			if (old !== null && !ENDED.includes(old.state)) {
 				fail(
 					"conflict",
 					`a ship of ${shipName(old.from)} is ${old.state}: finish or abandon it first`,
@@ -81,6 +81,7 @@ export class ShipRuns {
 				from: names.length === 1 ? (names[0] as string) : CHANGED_RUN,
 				projects: [...new Set(names)],
 				...(recovery === undefined ? {} : { recovery }),
+				...(conversation == null ? {} : { conversation }),
 				state: "planning",
 				started: new Date(this.clock.now()).toISOString(),
 				edits: {},
@@ -90,6 +91,38 @@ export class ShipRuns {
 			await this.draw(run);
 			await this.record.write(run);
 			return this.shown(run);
+		});
+	}
+
+	/** Names `conversation` as the one that drives the ship under way. */
+	attach(conversation: string): Promise<ShipRun> {
+		return this.serially(async () => {
+			const run = await this.sync();
+			if (run === null || ENDED.includes(run.state)) {
+				fail("conflict", "no ship is under way");
+			}
+			run.conversation = conversation;
+			await this.record.write(run);
+			return run;
+		});
+	}
+
+	/**
+	 * Ends the ship under way at the person's word: a plan not yet approved is
+	 * dropped, a running cascade is abandoned as its own `abandon` does.
+	 */
+	abandon(): Promise<ShipRun> {
+		return this.serially(async () => {
+			const run = await this.sync();
+			if (run === null || ENDED.includes(run.state)) {
+				fail("conflict", "no ship is under way to abandon");
+			}
+			if (run.state === "running") {
+				await this.opts.cascades.abandon();
+			}
+			run.state = "abandoned";
+			await this.record.write(run);
+			return run;
 		});
 	}
 
@@ -359,7 +392,8 @@ export function planCard(plan: ShipPlan): string {
  * Where a ship stands: `planning` while the conversation builds the plan,
  * `proposed` once it is frozen for the person, `approved` for the moment the
  * person's approval starts the cascade, `running` while it ships, `stopped`
- * once it stopped or was abandoned, `done` once every project shipped.
+ * once it stopped, `abandoned` once the person ended it, `done` once every
+ * project shipped.
  */
 export type RunState =
 	| "planning"
@@ -367,7 +401,11 @@ export type RunState =
 	| "approved"
 	| "running"
 	| "stopped"
+	| "abandoned"
 	| "done";
+
+/** The states of a ship no longer under way. */
+const ENDED: RunState[] = ["stopped", "abandoned", "done"];
 
 /** A ship as the conversation drives it: what to ship, what it set, and the plan it froze. */
 export interface ShipRun {
@@ -380,6 +418,8 @@ export interface ShipRun {
 	recovery?: string;
 	state: RunState;
 	started: string;
+	/** The conversation that plans and drives it, told when the person abandons it. */
+	conversation?: string;
 	/** What the agent set per project. */
 	edits: Record<string, ShipEdit>;
 	/** The dependents the agent left out. */
@@ -399,6 +439,7 @@ export interface ShipRunsOptions {
 	recover?: (id: string) => Promise<ShipPlan>;
 	cascades: {
 		current: () => Promise<Cascade | null>;
+		abandon: () => Promise<Cascade>;
 		startPlan: (
 			plan: ShipPlan,
 		) => Promise<{ cascade: Cascade; started: boolean }>;

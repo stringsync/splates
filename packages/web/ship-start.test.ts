@@ -16,6 +16,9 @@ describe("ShipStart", () => {
 				calls.push(`conversation ${agent}`);
 				return { id: "c9" } as ConversationState;
 			},
+			attach: async (conversation) => {
+				calls.push(`attach ${conversation}`);
+			},
 			prompt: async (conversation, text) => {
 				calls.push(`prompt ${conversation} ${text}`);
 			},
@@ -29,6 +32,7 @@ describe("ShipStart", () => {
 		expect(calls).toEqual([
 			"run webappwiz",
 			"conversation claude",
+			"attach c9",
 			"prompt c9 [SPLATES SHIP run-7]",
 		]);
 		const opened = new URL(url);
@@ -46,6 +50,7 @@ describe("ShipStart", () => {
 			startConversation: async () => {
 				throw new Error("not reached");
 			},
+			attach: async () => {},
 			prompt: async () => {},
 		};
 		const feed = {

@@ -15,16 +15,23 @@ export class ShipRunRoutes {
 		conversation: string | null,
 	) => Promise<void>;
 
-	/** `started` logs a ship begun planning, in the conversation that asked for it. */
+	readonly #abandoned: (run: ShipRun) => Promise<void>;
+
+	/**
+	 * `started` logs a ship begun planning, in the conversation that asked for
+	 * it; `abandoned` tells that conversation the person ended the ship.
+	 */
 	constructor(
 		runs: ShipRuns,
 		started: (
 			run: ShipRun,
 			conversation: string | null,
 		) => Promise<void> = async () => {},
+		abandoned: (run: ShipRun) => Promise<void> = async () => {},
 	) {
 		this.#runs = runs;
 		this.#started = started;
+		this.#abandoned = abandoned;
 	}
 
 	/** Answers with the run and its plan as drawn now, or null before any started. */
@@ -43,7 +50,10 @@ export class ShipRunRoutes {
 		) {
 			fail("usage", "`projects` is a list of project slugs");
 		}
-		const shown = await this.#runs.start(projects as string[]);
+		const shown = await this.#runs.start(
+			projects as string[],
+			typeof body.conversation === "string" ? body.conversation : null,
+		);
 		await this.#started(
 			shown.run,
 			typeof body.conversation === "string" ? body.conversation : null,
@@ -86,6 +96,22 @@ export class ShipRunRoutes {
 
 	readonly propose = async (): Promise<Response> =>
 		Response.json(await this.#runs.propose());
+
+	/** Names the body's `conversation` as the one driving the ship under way. */
+	readonly attach = async (request: Request): Promise<Response> => {
+		const body = await json(request);
+		if (typeof body.conversation !== "string" || body.conversation === "") {
+			fail("usage", "`conversation` is the id of the ship's conversation");
+		}
+		return Response.json(await this.#runs.attach(body.conversation));
+	};
+
+	/** Ends the ship under way, whether planning or running, and tells its conversation. */
+	readonly abandon = async (): Promise<Response> => {
+		const run = await this.#runs.abandon();
+		await this.#abandoned(run);
+		return Response.json(run);
+	};
 
 	/** Approves the frozen plan the body's `id` names, which starts the run from it. */
 	readonly approve = async (request: Request): Promise<Response> => {

@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { GENERAL } from "@stringsync/splates-server/projects/browser";
-import { startShipRun } from "./api";
+import { attachShipConversation, startShipRun } from "./api";
 import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -9,11 +9,13 @@ import type { ConversationFeed } from "./conversation-feed";
 export interface ShipStartServer {
 	startRun(projects: string[]): Promise<string>;
 	startConversation(agent: string): Promise<ConversationState>;
+	attach(conversation: string): Promise<unknown>;
 	prompt(conversation: string, text: string): Promise<unknown>;
 }
 
 const SERVER: ShipStartServer = {
 	startRun: startShipRun,
+	attach: attachShipConversation,
 	// A ship spans projects, so its conversation is General's.
 	startConversation: (agent) =>
 		startConversation(agent, null, { project: GENERAL }),
@@ -48,6 +50,7 @@ export class ShipStart {
 		const run = await this.server.startRun(projects);
 		const agent = agentFor(NEW, this.feed.agents, this.feed.conversations);
 		const started = await this.server.startConversation(agent);
+		await this.server.attach(started.id);
 		await this.server.prompt(started.id, `[SPLATES SHIP ${run}]`);
 		const url = new URL(location.href);
 		url.searchParams.set("project", GENERAL);

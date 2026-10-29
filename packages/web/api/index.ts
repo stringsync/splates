@@ -67,7 +67,9 @@ export {
 } from "./request";
 export {
 	abandonCascade,
+	abandonShipRun,
 	approveShipPlan,
+	attachShipConversation,
 	reviseCascadeBump,
 	shipGraph,
 	shipHistory,
