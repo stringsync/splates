@@ -23,6 +23,7 @@ import {
 	type ShipStep,
 	shipName,
 } from "./plan";
+import type { ShipPlans } from "./plans";
 import {
 	bumpAdded,
 	bumpRead,
@@ -33,7 +34,6 @@ import {
 	shownCascade,
 	upgraded,
 } from "./progress";
-import type { ShipReviews } from "./reviews";
 import type { Ship, Shipping } from "./run";
 import type { Stage, StageKey } from "./stages";
 
@@ -119,7 +119,7 @@ export interface CascadeProject {
 export interface CascadesOptions {
 	/** The machine's records, which keep the cascade. */
 	storage: Storage;
-	reviews?: ShipReviews;
+	plans?: ShipPlans;
 	fs: Fs;
 	log: Logger;
 	/**
@@ -236,21 +236,15 @@ export class Cascades implements Resource {
 	async plan(
 		slug: string,
 		bump: ShipBump = "patch",
-		retry = false,
 		recovery?: string,
 		skip: string[] = [],
 	): Promise<ShipPlan> {
 		try {
-			if (recovery !== undefined && this.opts.reviews === undefined) {
-				fail("usage", "ship recovery requires reviewed approval");
+			if (recovery !== undefined && this.opts.plans === undefined) {
+				fail("usage", "ship recovery requires a saved plan");
 			}
-			return await (this.opts.reviews?.draw(
-				slug,
-				bump,
-				retry,
-				recovery,
-				skip,
-			) ?? this.opts.plan(slug, bump, skip));
+			return await (this.opts.plans?.draw(slug, bump, recovery, skip) ??
+				this.opts.plan(slug, bump, skip));
 		} catch (error) {
 			if (error instanceof ShipPlanError) {
 				fail(error.reason, error.message, { project: slug });
@@ -276,9 +270,9 @@ export class Cascades implements Resource {
 				return { cascade: going, started: false };
 			}
 			const plan =
-				this.opts.reviews === undefined
-					? await this.plan(slug, bump, false, recovery)
-					: await this.opts.reviews.approve(
+				this.opts.plans === undefined
+					? await this.plan(slug, bump, recovery)
+					: await this.opts.plans.approve(
 							slug,
 							approval?.id ?? "",
 							approval?.choices,
@@ -496,7 +490,6 @@ export class Cascades implements Resource {
 				origin: origin.root,
 				release: {
 					bump: step.bump,
-					reasons: step.review?.reasons ?? "Approved ship plan",
 				},
 			},
 			takes,

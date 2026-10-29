@@ -205,7 +205,7 @@ pause or resume automatic starts across the server, as Pause on the Queue
 page does. Running agents finish, and the person can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
-Only the person ships, too: `splates ship [<project>]` prepares a reviewed plan
+Only the person ships, too: `splates ship [<project>]` prepares a plan
 and prints its Ship page link for approval under their own npm sign-in, and splates refuses it, `--plan` included, to an
 agent. Never run `npm login` or `npm publish` either. When you think a
 release is due (a fix on the base that users are waiting on), end your reply
@@ -222,8 +222,7 @@ each `package.json`, `bun install`, run each command it lists after the
 install (such as `splates refresh`) and commit what it changes, fix what
 breaks, and land it through the merge gate. Publish nothing, even when the
 project ships too: the cascade ships it once your task merges. Release types
-are settled in the approved plan, after an agent reviews each dependent's
-upstream changes and required repairs and proposes its release type. Do not
+are settled in the approved plan, where the person picks each one. Do not
 ask for a different release type during a run. If your repairs reveal a
 public API change outside the approved plan, do not merge: remove your bump
 task with `--reason blocked`, naming the revised ship plan it needs with

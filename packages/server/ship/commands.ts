@@ -215,11 +215,11 @@ async function shipOnServer(
 		page.searchParams.set("bump", bump);
 	}
 	ctx.log.info(
-		`Review dependent release types and approve the saved ship plan on ${page}`,
+		`Choose release types, leave projects out and approve the saved ship plan on ${page}`,
 	);
 	for (const step of plan.steps) {
 		ctx.log.info(
-			`${step.slug}: ${step.review?.status ?? step.action}${step.review === undefined ? "" : `: ${step.review.reasons}`}`,
+			`${step.slug}: ${step.action}${step.to === null ? "" : ` ${step.from ?? "?"} -> ${step.to}`}`,
 		);
 	}
 }

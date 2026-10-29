@@ -49,7 +49,7 @@ the project's own and draws no edge.
 `splates ship --plan [<project>]` prints what shipping a project would do,
 running nothing: it first, then each dependent in dependency order, with the
 version each goes to, what it publishes and what it takes. A dependent that is
-public, names a `ship` command and has dependents of its own gets a provisional patch in this offline preview; the server reviews its release type before approval. Any other only takes its bump.
+public, names a `ship` command and has dependents of its own gets a provisional patch in this offline preview; the plan lets you pick its release type. Any other only takes its bump.
 `--bump minor` or `--bump major` moves the project you ship further than a
 patch.
 
@@ -67,7 +67,7 @@ every project with unshipped commits at once: it names them and opens one plan t
 dependency order, a changed project that depends on another taking its bump
 first, then carries every release downstream as a single ship does. Each
 project that ships picks its own release type there, patch until you change
-it, and dependents are reviewed as usual. A project whose release status is
+it, and dependents are carried as usual. A project whose release status is
 unknown is left out; ship it on its own. With nothing changed, the button is
 disabled.
 
@@ -76,10 +76,10 @@ On the page, a project's menu in the project switcher has **Plan a ship of
 order, the version it goes to, what it publishes, what it takes and why it
 ships or only takes its bump. Its **Release type** picks Patch, Minor or
 Major for the project you ship, redrawing the plan at that version.
-Before approval, an agent in each dependent reviews upstream changes since its pins, changelogs, public API differences and required repairs. The plan shows its reasons and proposed release type; you can change each dependent release. **Approve and ship** stays disabled until every review succeeds, then starts the saved plan. Source revisions are checked again at approval; changed projects require a new review. Publishing starts only after approval, and npm still asks you at each publish.
+Each dependent that ships has its own **Release type**, patch until you change it. **Approve and ship** starts the saved plan, which is drawn again at approval; a plan that changed since you opened it asks to be redrawn. Publishing starts only after approval, and npm still asks you at each publish.
 
 From a terminal of yours, `splates ship [<project>] [--bump <type>]` asks
-`splates server` to prepare the reviewed plan for the project (the one you stand in, by default) and prints a link to approve it on the Ship page. Give the server's URL with `--dev` when it is not this machine's.
+`splates server` to prepare the plan for the project (the one you stand in, by default) and prints a link to approve it on the Ship page. Give the server's URL with `--dev` when it is not this machine's.
 
 The server runs the ship on its own machine, under your npm sign-in:
 
@@ -118,7 +118,7 @@ stays published, and every other open bump task is removed. Choose **Recover**
 on the stopped run once the problem is resolved. Use `splates ship --abandon` to end a
 run under way.
 
-Release types are fixed at approval and survive server restarts. A bump task receives its approved release type and the review's reasons. If its repairs reveal a public API change outside that plan or a break it cannot fix, the agent removes the task as blocked on a revised ship plan, stopping the run. It never asks for a different release type during the run.
+Release types are fixed at approval and survive server restarts. A bump task receives its approved release type. If its repairs reveal a public API change outside that plan or a break it cannot fix, the agent removes the task as blocked on a revised ship plan, stopping the run. It never asks for a different release type during the run.
 
 One cascade runs on the machine at a time, kept in the machine's records
 (`ship-cascade.json`), so a restarted server carries on from where it stopped.
@@ -143,8 +143,8 @@ versions appear as **Already published, kept as inputs** and are not published
 again. Current pins determine which dependents still need work; a dependent
 taking several upstream versions gets one bump task.
 
-The remaining projects receive fresh agent reviews and release choices before
-**Approve and ship**. Approval checks npm and the source trees again, and can be used
+The remaining projects get fresh release choices before
+**Approve and ship**. Approval checks npm and the plan again, and can be used
 only once. Reopening the original stopped run after recovery finishes shows
 **Nothing remains to recover**. Later recovery releases count too, even when
 their approved versions differ from the original plan.

@@ -1,13 +1,8 @@
-import type {
-	ShipBump,
-	ShipReviewProgress,
-	ShipStep,
-} from "@stringsync/splates-server/ship";
+import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
 import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { useReactive } from "@webappwiz/react";
 import { LoaderCircleIcon, ShipIcon } from "lucide-react";
-import { type JSX, useEffect, useId, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { type JSX, useEffect } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -58,35 +53,6 @@ export function ShipDialog({
 	useEffect(() => {
 		void approval.draw();
 	}, [approval]);
-	useEffect(() => {
-		if (!plan?.steps.some((step) => step.review?.status === "pending")) {
-			return;
-		}
-		const waiting = new SystemTimer().setTimeout(
-			() => void approval.draw(),
-			Duration.secs(2),
-		);
-		return () => waiting.dispose();
-	}, [approval, plan]);
-	const [confirming, setConfirming] = useState(false);
-	const reviews = plan?.steps.filter((step) => step.review !== undefined) ?? [];
-	const reviewing = reviews.filter((step) => step.review?.status === "pending");
-	const leave = () => {
-		if (reviewing.length > 0 && !starting) {
-			setConfirming(true);
-		} else {
-			onClose();
-		}
-	};
-	const blockedId = useId();
-	const blocked =
-		starting || approval.ready
-			? null
-			: plan?.steps.some((step) => step.review?.status === "pending")
-				? "Approve and ship is waiting for every dependency review to finish."
-				: plan?.steps.some((step) => step.review?.status === "failed")
-					? "Approve and ship is blocked by a failed dependency review. Retry reviews to continue."
-					: null;
 	const approve = async () => {
 		if (await approval.approve()) {
 			onApproved?.();
@@ -95,7 +61,7 @@ export function ShipDialog({
 		}
 	};
 	return (
-		<Dialog open onOpenChange={(next) => !next && leave()}>
+		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="inset-0 h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
 				<DialogHeader>
 					<DialogTitle>
@@ -106,7 +72,7 @@ export function ShipDialog({
 					</DialogTitle>
 					<DialogDescription>
 						{approval.recovery !== undefined
-							? "Checks the stopped run against npm and reviews the remaining work. Published releases stay published; approval starts a new run."
+							? "Checks the stopped run against npm and plans the remaining work. Published releases stay published; approval starts a new run."
 							: changed
 								? "Nothing runs until you approve. Then it publishes each project with commits since its last release, dependencies first, and carries each release through every project that depends on it. npm asks you at each publish."
 								: `Nothing runs until you approve. Then it publishes ${project}, then carries the release through every project that depends on it, as a dependency tree. npm asks you at each publish.`}
@@ -122,9 +88,6 @@ export function ShipDialog({
 							disabled={starting}
 						/>
 					</div>
-				)}
-				{reviewing.length > 0 && (
-					<ReviewStatus reviewing={reviewing} total={reviews.length} />
 				)}
 				{plan === null && refusal === null && (
 					<p className="flex items-center gap-2 text-muted-foreground">
@@ -151,7 +114,7 @@ export function ShipDialog({
 					<PlanSteps
 						steps={plan.steps}
 						everyRelease={changed}
-						starting={starting || !approval.ready}
+						starting={starting}
 						onChoose={(slug, bump) => approval.chooseDependent(slug, bump)}
 						onLeaveOut={
 							approval.recovery === undefined && !starting
@@ -185,34 +148,23 @@ export function ShipDialog({
 						))}
 					</section>
 				)}
-				{(plan?.steps.some((step) => step.review?.status === "failed") ||
-					refusal !== null) && (
-					<Button variant="outline" onClick={() => void approval.draw(true)}>
-						{plan === null ? "Retry plan" : "Retry reviews"}
+				{refusal !== null && (
+					<Button variant="outline" onClick={() => void approval.draw()}>
+						Retry plan
 					</Button>
 				)}
 				<Refusal refusal={refusal} className="text-sm" />
-				{blocked !== null && (
-					<p
-						id={blockedId}
-						role="status"
-						className="text-muted-foreground text-sm"
-					>
-						{blocked}
-					</p>
-				)}
 				<DialogFooter className="flex-row items-center gap-3 max-sm:px-4 max-sm:pb-[calc(1rem+env(safe-area-inset-bottom))]">
 					<Button
 						variant="outline"
 						className="h-11 px-4 text-base sm:h-8 sm:text-sm"
-						onClick={leave}
+						onClick={onClose}
 					>
 						Cancel
 					</Button>
 					<Button
 						className="h-11 flex-1 text-base sm:h-8 sm:flex-none sm:text-sm"
 						disabled={!approval.ready || starting}
-						aria-describedby={blocked === null ? undefined : blockedId}
 						onClick={() => void approve()}
 					>
 						{starting ? (
@@ -224,78 +176,8 @@ export function ShipDialog({
 					</Button>
 				</DialogFooter>
 			</DialogContent>
-			<Dialog open={confirming} onOpenChange={setConfirming}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Leave while agents review?</DialogTitle>
-						<DialogDescription>
-							{reviewing.length === 1
-								? "An agent is still reviewing a dependent's release type."
-								: `${reviewing.length} dependents are still waiting on their release type reviews.`}{" "}
-							The reviews keep running on the server and their agents are not
-							stopped. Reopen the ship plan to see them finish.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter className="flex-row gap-3">
-						<Button
-							variant="outline"
-							className="h-11 px-4 text-base sm:h-8 sm:text-sm"
-							onClick={onClose}
-						>
-							Leave anyway
-						</Button>
-						<Button
-							className="h-11 flex-1 text-base sm:h-8 sm:flex-none sm:text-sm"
-							onClick={() => setConfirming(false)}
-						>
-							Keep watching
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</Dialog>
 	);
-}
-
-/** One bar for the dependency reviews under way: how far along, which agent, and what it is doing. */
-function ReviewStatus({
-	reviewing,
-	total,
-}: {
-	reviewing: ShipStep[];
-	total: number;
-}): JSX.Element {
-	const current = reviewing.find((step) => step.review?.progress !== undefined);
-	const progress = current?.review?.progress;
-	const done = total - reviewing.length;
-	return (
-		<section
-			role="status"
-			aria-label="Dependency review"
-			className="flex flex-col gap-1 rounded-lg border bg-muted/40 p-3 text-sm"
-		>
-			<p className="flex items-center gap-2 font-medium">
-				<LoaderCircleIcon className="size-4 shrink-0 animate-spin" />
-				{`Reviewing dependencies, ${done} of ${total} done`}
-			</p>
-			{current !== undefined && progress !== undefined ? (
-				<p className="break-words text-muted-foreground">
-					{`${current.slug}: ${progress.agent} · ${progress.activity} · ${elapsed(progress)}`}
-				</p>
-			) : (
-				<p className="text-muted-foreground">Waiting for an agent to start…</p>
-			)}
-		</section>
-	);
-}
-
-/** How long a review has run, as `1m 05s`. */
-function elapsed(progress: ShipReviewProgress): string {
-	const secs = Math.max(
-		0,
-		Math.floor((Date.now() - Date.parse(progress.since)) / 1000),
-	);
-	return `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`;
 }
 
 /** The plan as a tree, each project beneath its first dependency in the plan. */
@@ -323,9 +205,7 @@ function PlanSteps({
 			render={(step) => (
 				<PlanProject
 					step={step}
-					choosable={
-						everyRelease || step.takes.length > 0 || step.review !== undefined
-					}
+					choosable={everyRelease || step.takes.length > 0}
 					starting={starting}
 					onChoose={onChoose}
 					onLeaveOut={step.takes.length > 0 ? onLeaveOut : undefined}
@@ -397,25 +277,11 @@ function PlanProject({
 				</p>
 			)}
 			<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
-			{step.review !== undefined && (
-				<p role="status" className="flex items-center gap-2 text-sm">
-					{step.review.status === "pending" && (
-						<LoaderCircleIcon className="size-4 shrink-0 animate-spin" />
-					)}
-					{step.review.status === "pending"
-						? step.review.progress === undefined
-							? "Waiting for an agent to review dependencies…"
-							: `${step.review.progress.agent} is reviewing dependencies to propose the release type…`
-						: step.review.status === "failed"
-							? `Review failed: ${step.review.reasons}`
-							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}
-				</p>
-			)}
 			{choosable && step.bump !== null && (
 				<ShipBumpSelector
 					label={`Release type for ${step.slug}`}
 					value={step.bump}
-					disabled={starting || step.review?.status === "pending"}
+					disabled={starting}
 					onChange={(bump) => onChoose(step.slug, bump)}
 				/>
 			)}

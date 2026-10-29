@@ -6,9 +6,9 @@ import { type Cascade, type CascadeStep, Cascades } from "./cascade";
 import { CascadeRoutes } from "./cascade-routes";
 import { readGraph, type ShipProject } from "./graph";
 import { planShip } from "./plan";
+import { ShipPlans } from "./plans";
 import { ShipRecovery } from "./recovery";
-import { ShipReviews } from "./reviews";
-import { FakeProject, servedProjects, until } from "./testing";
+import { FakeProject, servedProjects } from "./testing";
 
 describe("ShipRecovery", () => {
 	it("recovers a publication npm has but history missed, without publishing it again", async () => {
@@ -194,7 +194,7 @@ describe("ShipRecovery", () => {
 		).rejects.toThrow("no longer confirms");
 	});
 
-	it("reviews and approves a new run, uses confirmed inputs, and refuses stale or repeated approval", async () => {
+	it("approves a new run, uses confirmed inputs, and refuses stale or repeated approval", async () => {
 		const setup = await stoppedShip();
 		const storage = new MemoryStorage();
 		const projects = new Map(
@@ -203,27 +203,16 @@ describe("ShipRecovery", () => {
 				new FakeProject(source.root),
 			]),
 		);
-		const seen: string[] = [];
-		const reviews = new ShipReviews({
+		const plans = new ShipPlans({
 			storage,
-			log: new MemoryLogger(),
 			plan: async (slug, bump) => planShip(setup.graph, slug, bump),
 			recover: async () => setup.recovery.plan(setup.graph, setup.stopped),
-			snapshot: async () => ({}),
-			review: async (step) => {
-				seen.push(step.slug);
-				return {
-					status: "done",
-					proposed: "minor",
-					reasons: "Adapter repairs",
-				};
-			},
 		});
 		const cascades = new Cascades({
 			storage,
 			fs: setup.fs,
 			log: new MemoryLogger(),
-			reviews,
+			plans,
 			plan: async (slug, bump) => planShip(setup.graph, slug, bump),
 			reach: async (slug) => projects.get(slug) as FakeProject,
 			timer: new FakeTimer(),
@@ -235,26 +224,18 @@ describe("ShipRecovery", () => {
 					new Request("http://localhost/api/ship/plan?recovery=stopped"),
 				)
 			).json();
-		await until(
-			async () =>
-				!(await draw()).steps.some(
-					(step: { review?: { status: string } }) =>
-						step.review?.status === "pending",
-				),
-		);
 		const plan = await draw();
-		expect(seen).toEqual(["splates", "mdom", "vexml", "sound2score"]);
-		await expect(reviews.approve("webappwiz", plan.id)).rejects.toMatchObject({
+		await expect(plans.approve("webappwiz", plan.id)).rejects.toMatchObject({
 			reason: "conflict",
 		});
 		setup.registry.failure = new Error("npm offline at approval");
 		await expect(
-			reviews.approve("webappwiz", plan.id, {}, "stopped"),
+			plans.approve("webappwiz", plan.id, {}, "stopped"),
 		).rejects.toThrow("npm offline at approval");
 		setup.registry.failure = null;
 		setup.pin("mdom", "webappwiz", "0.0.51");
 		await expect(
-			reviews.approve("webappwiz", plan.id, {}, "stopped"),
+			plans.approve("webappwiz", plan.id, {}, "stopped"),
 		).rejects.toMatchObject({ reason: "conflict" });
 		setup.pin("mdom", "webappwiz", "0.0.50");
 		const response = await routes.startCascade(
@@ -274,7 +255,7 @@ describe("ShipRecovery", () => {
 		).toBe("2.0.0");
 		await cascades.abandon();
 		await expect(
-			reviews.approve("webappwiz", plan.id, {}, "stopped"),
+			plans.approve("webappwiz", plan.id, {}, "stopped"),
 		).rejects.toMatchObject({ reason: "conflict" });
 		cascades.dispose();
 	});

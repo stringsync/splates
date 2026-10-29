@@ -18,8 +18,6 @@ export { ShipHistory } from "./history";
 export type {
 	ShipBump,
 	ShipPlan,
-	ShipReview,
-	ShipReviewProgress,
 	ShipStep,
 } from "./plan";
 export {
@@ -31,9 +29,9 @@ export {
 	ShipPlanError,
 	shipName,
 } from "./plan";
+export { ShipPlans } from "./plans";
 export { ShipRecovery } from "./recovery";
 export { ShipRegistry } from "./registry";
-export { ShipReviews } from "./reviews";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
 export { Shipping, shipRecord } from "./run";

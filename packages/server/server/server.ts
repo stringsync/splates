@@ -16,7 +16,6 @@ import {
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
-import { Git } from "../git";
 import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
@@ -37,9 +36,9 @@ import {
 	planShip,
 	registeredGraph,
 	ShipHistory,
+	ShipPlans,
 	ShipRecovery,
 	ShipRegistry,
-	ShipReviews,
 } from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
@@ -561,7 +560,7 @@ export async function dev(
 	const shipHistory = new ShipHistory(machineStorage, fs);
 	const shipRegistry = new ShipRegistry({ fetch: deps.fetch ?? fetch });
 	const recovery = new ShipRecovery(shipRegistry);
-	const reviews = new ShipReviews({
+	const plans = new ShipPlans({
 		storage: machineStorage,
 		plan: drawShipPlan,
 		recover: async (id) => {
@@ -575,50 +574,9 @@ export async function dev(
 				await shipHistory.list(),
 			);
 		},
-		snapshot: async (plan) => {
-			const registered = await projects.list();
-			const revisions: Record<string, string> = {};
-			for (const step of [
-				...plan.steps,
-				...(plan.recovery?.inputs.map((use) => ({ slug: use.project })) ?? []),
-			]) {
-				const root = registered.find(
-					(project) => project.slug === step.slug,
-				)?.root;
-				if (root === undefined) {
-					fail("not_found", `${step.slug} is no longer registered`);
-				}
-				const git = new Git(root, { ps, fs });
-				const dirty = await git.porcelain(root);
-				if (dirty.length > 0) {
-					const shown = dirty.slice(0, 10).join(", ");
-					const more =
-						dirty.length > 10 ? `, and ${dirty.length - 10} more` : "";
-					fail(
-						"conflict",
-						`${step.slug} needs a clean tree before ship review; dirty in ${root}: ${shown}${more}. Commit, delete or \`git stash -u\` them, then review again`,
-					);
-				}
-				revisions[step.slug] = JSON.stringify([root, await git.head(root)]);
-			}
-			return revisions;
-		},
-		review: async (step, plan, report) =>
-			(await projectNamed(step.slug)).reviewShip(
-				step,
-				plan,
-				Object.fromEntries(
-					(await projects.list()).map((project) => [
-						project.slug,
-						project.root,
-					]),
-				),
-				report,
-			),
-		log,
 	});
 	const cascades = new Cascades({
-		reviews,
+		plans,
 		storage: machineStorage,
 		fs,
 		log,

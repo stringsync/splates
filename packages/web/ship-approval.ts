@@ -11,7 +11,6 @@ export interface ShipServer {
 	shipPlan(
 		project: string,
 		bump: ShipBump,
-		retry?: boolean,
 		recovery?: string,
 		skip?: string[],
 	): Promise<ShipPlan>;
@@ -51,13 +50,12 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 	) {}
 
 	/** Asks the server for the plan at the chosen bump, as the dialog opens. */
-	async draw(retry = false): Promise<void> {
+	async draw(): Promise<void> {
 		const drawing = ++this.drawing;
 		try {
 			const plan = await this.server.shipPlan(
 				this.project,
 				this.bump,
-				retry,
 				this.recovery,
 				this.skip,
 			);
@@ -106,15 +104,12 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 		await this.draw();
 	}
 
-	/** Whether every dependent has successfully reviewed this plan. */
+	/** Whether the drawn plan may be approved. */
 	get ready(): boolean {
 		return (
 			this.refusal === null &&
-			(this.recovery === undefined || (this.plan?.steps.length ?? 0) > 0) &&
-			(this.plan?.steps.every(
-				(step) => step.review === undefined || step.review.status === "done",
-			) ??
-				false)
+			this.plan !== null &&
+			(this.recovery === undefined || this.plan.steps.length > 0)
 		);
 	}
 

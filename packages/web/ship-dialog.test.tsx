@@ -47,13 +47,13 @@ describe("ShipDialog", () => {
 			/>,
 		);
 
-	it("shows recovery inputs and approves only the remaining reviewed work", async () => {
+	it("shows recovery inputs and approves only the remaining work", async () => {
 		const requests: (string | undefined)[] = [];
 		const approvals: unknown[] = [];
 		const approval = new ShipApproval(
 			"webappwiz",
 			{
-				shipPlan: async (_project, _bump, _retry, recovery) => {
+				shipPlan: async (_project, _bump, recovery) => {
 					requests.push(recovery);
 					return {
 						...PLAN,
@@ -67,14 +67,7 @@ describe("ShipDialog", () => {
 								},
 							],
 						},
-						steps: PLAN.steps.slice(1).map((step) => ({
-							...step,
-							review: {
-								status: "done",
-								proposed: step.bump,
-								reasons: "Reviewed remaining repairs",
-							},
-						})),
+						steps: PLAN.steps.slice(1),
 					};
 				},
 				startShip: async (_project, _bump, accepted, recovery) => {
@@ -218,7 +211,7 @@ describe("ShipDialog", () => {
 			<ShipDialog
 				approval={
 					new ShipApproval("webappwiz", {
-						shipPlan: async (_project, _bump, _retry, _recovery, skip = []) => {
+						shipPlan: async (_project, _bump, _recovery, skip = []) => {
 							asked.push(skip);
 							return skip.includes("mdom")
 								? { ...PLAN, steps: PLAN.steps.slice(0, 1), skipped: ["mdom"] }
@@ -288,43 +281,8 @@ describe("ShipDialog", () => {
 		expect(started).toEqual([{ project: "webappwiz", bump: "major" }]);
 	});
 
-	it("names the reviewing agent and what it does, and asks before leaving mid-review", async () => {
-		const drawn: ShipPlan = structuredClone(PLAN);
-		drawn.id = "review-2";
-		(drawn.steps[1] as ShipStep).review = {
-			status: "pending",
-			proposed: null,
-			reasons: "Reviewing upstream",
-			progress: {
-				agent: "sonnet",
-				activity: "Running Read: src/index.ts",
-				since: new Date().toISOString(),
-			},
-		};
-		let closed = false;
-		const approval = new ShipApproval("webappwiz", {
-			shipPlan: async () => structuredClone(drawn),
-			startShip: async () => {},
-		});
-		const view = render(
-			<ShipDialog approval={approval} onClose={() => (closed = true)} />,
-		);
-		await waitFor(() => view.getByText(/sonnet · Running Read: src\/index.ts/));
-		fireEvent.click(view.getByRole("button", { name: "Cancel" }));
-		await waitFor(() => view.getByText("Leave while agents review?"));
-		expect(closed).toBe(false);
-		fireEvent.click(view.getByRole("button", { name: "Leave anyway" }));
-		expect(closed).toBe(true);
-	});
-
-	it("blocks approval during review, shows reasons and approves an edited dependent release", async () => {
-		let drawn: ShipPlan = structuredClone(PLAN);
-		drawn.id = "review-1";
-		(drawn.steps[1] as ShipStep).review = {
-			status: "pending",
-			proposed: null,
-			reasons: "Reviewing upstream",
-		};
+	it("approves an edited dependent release with the saved plan's id", async () => {
+		const drawn: ShipPlan = { ...structuredClone(PLAN), id: "plan-1" };
 		let approved: unknown;
 		const approval = new ShipApproval("webappwiz", {
 			shipPlan: async () => structuredClone(drawn),
@@ -333,44 +291,7 @@ describe("ShipDialog", () => {
 			},
 		});
 		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
-		await waitFor(() => view.getByText(/reviewing dependencies/i));
-		const approveButton = view.getByRole("button", {
-			name: "Approve and ship",
-		});
-		expect(approveButton.hasAttribute("disabled")).toBe(true);
-		const waiting = view.getByText(
-			"Approve and ship is waiting for every dependency review to finish.",
-		);
-		expect(approveButton.getAttribute("aria-describedby")).toBe(waiting.id);
-		expect(await approval.approve()).toBe(false);
-		drawn = structuredClone(drawn);
-		(drawn.steps[1] as ShipStep).review = {
-			status: "failed",
-			proposed: null,
-			reasons: "The upstream changes could not be reviewed",
-		};
-		await act(() => approval.draw());
-		expect(
-			view.getByText(
-				"Approve and ship is blocked by a failed dependency review. Retry reviews to continue.",
-			),
-		).toBeTruthy();
-		expect(approveButton.hasAttribute("disabled")).toBe(true);
-		drawn = structuredClone(drawn);
-		(drawn.steps[1] as ShipStep).review = {
-			status: "done",
-			proposed: "minor",
-			reasons: "New adapter preserves old calls",
-		};
-		await act(() => approval.draw());
-		expect(
-			view.getByText("Proposed minor: New adapter preserves old calls"),
-		).toBeTruthy();
-		expect(
-			view.queryByText(
-				"Approve and ship is blocked by a failed dependency review. Retry reviews to continue.",
-			),
-		).toBeNull();
+		await waitFor(() => view.getByRole("list", { name: "Ship plan" }));
 		await act(() =>
 			fireEvent.click(
 				within(
@@ -383,7 +304,7 @@ describe("ShipDialog", () => {
 			fireEvent.click(view.getByRole("button", { name: "Approve and ship" })),
 		);
 		expect(approved).toMatchObject({
-			id: "review-1",
+			id: "plan-1",
 			choices: { mdom: "major", webappwiz: "patch" },
 		});
 	});

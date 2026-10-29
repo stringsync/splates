@@ -36,14 +36,12 @@ export async function startShip(
 export async function shipPlan(
 	project: string,
 	bump: ShipBump = "patch",
-	retry = false,
 	recovery?: string,
 	skip: string[] = [],
 ): Promise<ShipPlan> {
 	const query = new URLSearchParams({
 		project,
 		bump,
-		...(retry ? { retry: "true" } : {}),
 		...(recovery === undefined ? {} : { recovery }),
 	});
 	for (const slug of skip) {

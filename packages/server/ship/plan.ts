@@ -14,18 +14,7 @@ export class ShipPlanError extends Error {
 /** How far a publish moves its project's version. */
 export type ShipBump = "patch" | "minor" | "major";
 
-/** One project's part in a ship. */
-export interface ShipReview {
-	status: "pending" | "done" | "failed";
-	proposed: ShipBump | null;
-	reasons: string;
-	/** While pending and under way: which agent reviews it, and what it is doing now. */
-	progress?: { agent: string; activity: string; since: string };
-}
-
 export interface ShipStep {
-	/** The dependent review completed before approval. */
-	review?: ShipReview;
 	slug: string;
 	/**
 	 * `ship` runs its `ship` command and publishes; `bump` only moves its pins
@@ -289,6 +278,3 @@ export function dependencyOrder(graph: ShipGraph): ShipProject[] {
 	}
 	return ordered;
 }
-
-/** A live review's agent, its latest activity and when the review began. */
-export type ShipReviewProgress = NonNullable<ShipReview["progress"]>;

@@ -25,12 +25,6 @@ import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import type {
-	ShipPlan,
-	ShipReview,
-	ShipReviewProgress,
-	ShipStep,
-} from "../ship";
 import { Bumps, Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
@@ -43,7 +37,6 @@ import { heldFor } from "./held";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import type { Behind, Release } from "./release";
 import type { Replicas } from "./replicas";
-import { reviewShip } from "./ship-review";
 
 /**
  * Everything one project's page talks to: its records, its stream of
@@ -168,8 +161,6 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
-		reviewShip: (step, plan, roots, report) =>
-			reviewShip(project, conversations, step, plan, roots, report),
 		bumps: new Bumps({
 			tasks: project.tasks,
 			service,
@@ -391,12 +382,6 @@ export type Handler = (request: Request) => Promise<Response>;
 
 /** One project as the server holds it: what each of its routes does. */
 export interface Served extends AsyncResource {
-	reviewShip: (
-		step: ShipStep,
-		plan: ShipPlan,
-		roots: Record<string, string>,
-		report: (progress: ShipReviewProgress) => Promise<void>,
-	) => Promise<ShipReview>;
 	root: string;
 	/** Its config's `afterBump`, for the bump tasks of a ship's cascade. */
 	afterBump: string | null;

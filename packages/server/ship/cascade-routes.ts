@@ -59,7 +59,6 @@ export class CascadeRoutes {
 			await this.#cascades.plan(
 				await this.#slugOf(request),
 				bumpOf(request),
-				query.get("retry") === "true",
 				query.get("recovery") ?? undefined,
 				query.getAll("skip"),
 			),

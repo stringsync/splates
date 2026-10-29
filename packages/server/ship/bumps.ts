@@ -42,7 +42,7 @@ export class Bumps {
 		}: {
 			from: string;
 			origin: string;
-			release?: { bump: ShipBump | null; reasons: string };
+			release?: { bump: ShipBump | null };
 		},
 		takes: BumpTake[],
 	): Promise<number> {
@@ -108,7 +108,7 @@ export class Bumps {
 function bumpText(
 	from: string,
 	takes: BumpTake[],
-	release?: { bump: ShipBump | null; reasons: string },
+	release?: { bump: ShipBump | null },
 ): string {
 	return [
 		`The ship of ${from} published new versions this project pins:`,
@@ -124,10 +124,7 @@ function bumpText(
 		"",
 		...(release === undefined
 			? []
-			: [
-					`Approved release: ${release.bump ?? "dependency bump only"}. Plan review: ${release.reasons}`,
-					"",
-				]),
+			: [`Approved release: ${release.bump ?? "dependency bump only"}.`, ""]),
 		"Publish nothing: when this project ships too, the cascade ships it once this task merges, at the release type settled in the approved plan. Do not ask for a different release type during the run.",
 		"If the repairs reveal a public API change outside the approved plan, or a break you cannot fix, do not merge. Remove your bump task with `--reason blocked` and `--waiting-on` a revised ship plan, explaining what it must resolve. Removing the task stops the whole run and removes its other open bump tasks; what shipped stays published. A new plan must recover unfinished bumps without republishing successful releases, and needs the person's approval before another run.",
 	].join("\n");

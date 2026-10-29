@@ -166,43 +166,6 @@ export class Git {
 		return this.out(cwd, "rev-parse", "--short", "HEAD");
 	}
 
-	/** Changes since an exact pinned release, for a dependent's pre-approval ship review. */
-	async releaseReview(
-		version: string,
-	): Promise<{ range: string; commits: string; diff: string }> {
-		if (!/^\d+\.\d+\.\d+$/.test(version)) {
-			throw new Error(
-				`Ship review needs an exact pinned version, got ${version}`,
-			);
-		}
-		const from = await this.out(
-			this.root,
-			"rev-parse",
-			"--verify",
-			`refs/tags/v${version}^{commit}`,
-		);
-		const to = await this.head(this.root);
-		await this.out(this.root, "merge-base", "--is-ancestor", from, to);
-		const range = `${from}..${to}`;
-		const commits = await this.out(
-			this.root,
-			"log",
-			"--format=%h %s",
-			range,
-			"--",
-		);
-		const diff = await this.out(
-			this.root,
-			"diff",
-			"--no-ext-diff",
-			"--no-color",
-			from,
-			to,
-			"--",
-		);
-		return { range, commits, diff };
-	}
-
 	async porcelain(cwd: string): Promise<string[]> {
 		return lines(await this.out(cwd, "status", "--porcelain"));
 	}
