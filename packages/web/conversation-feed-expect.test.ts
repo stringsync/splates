@@ -159,4 +159,18 @@ describe("ConversationFeed's expect", () => {
 		await Promise.resolve();
 		expect(feed.pending("c1")).toBe(false);
 	});
+
+	it("keeps a rename pending through a streamed copy sent before it", async () => {
+		const rename = write();
+
+		const shown = feed.expect("c1", { name: "Renamed" }, rename.done);
+		rename.land();
+		await shown;
+		// Sent before the rename took, so it still has the old name.
+		say(conversation({ title: "Old", status: "idle" }));
+		expect(feed.pending("c1")).toBe(true);
+
+		say(conversation({ title: "Old", name: "Renamed" }));
+		expect(feed.pending("c1")).toBe(false);
+	});
 });

@@ -8,15 +8,17 @@ export interface Expected {
 }
 
 /**
- * Whether `state` has yet to be archived, or brought back, as `patch` would
- * have it. Such a streamed copy was sent before the write, so the change
- * stays pending.
+ * Whether `state` has yet to be archived, brought back or renamed, as `patch`
+ * would have it. Such a streamed copy was sent before the write, so the
+ * change stays pending rather than showing the old archive state or name
+ * settled for the moment before the copy that holds it.
  */
 export function unfiled(
 	state: ConversationState,
 	patch: (state: ConversationState) => ConversationState,
 ): boolean {
-	return patch(state).archived !== state.archived;
+	const patched = patch(state);
+	return patched.archived !== state.archived || patched.name !== state.name;
 }
 
 /** Whether `state` already holds what `patch` would change of it. */

@@ -327,7 +327,7 @@ export class ConversationFeed
 	 * Gives up the changes whose writes landed before a copy of conversation
 	 * `id` the server sent was asked for: that copy holds them, or the server
 	 * made them otherwise. A streamed copy, `streamed`, follows every write
-	 * that has landed, but for an archive it does not yet hold (see
+	 * that has landed, but for an archive or a name it does not yet hold (see
 	 * `unfiled`); a listing follows those that landed before it began, `read`
 	 * being its count, since one begun earlier may predate them.
 	 */
