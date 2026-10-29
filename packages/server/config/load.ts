@@ -70,6 +70,7 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		preLock: null,
 		ship: null,
+		shipStatus: null,
 		afterBump: null,
 		on: {},
 		leaseStalenessMs: 90_000,
@@ -130,8 +131,9 @@ export class ConfigFiles {
 	}
 
 	/**
-	 * Reads a settings file's default export, or an empty record when absent.
-	 * Edits take effect in a running server without restarting it.
+	 * Read `file` relative to the repository's `root`, returning its default
+	 * export or an empty record when absent. Throws if the file cannot load;
+	 * call again after an edit to read the updated settings.
 	 */
 	async importDefault(
 		root: string,

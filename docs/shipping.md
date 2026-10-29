@@ -67,3 +67,28 @@ The log rotation fix is on main and unreleased.
 ```
 
 The card opens the Ships page for that project. A merge is never a release.
+
+## Reading live releases
+
+Set `shipStatus: "wiz dev ship status --json"` for a project whose release
+has artifacts beyond npm. The server runs it through `sh -c` in the project's
+main tree. It must print one JSON object:
+
+```json
+{"version":"1.2.3","artifacts":[{"name":"@example/cli","deployed":"1.2.3"},{"name":"git","deployed":null}]}
+```
+
+`version` is the local release version. Each artifact has a unique, nonempty
+name and a deployed version, or null when nothing is live. At least one
+artifact is required. Extra fields are allowed. Without `shipStatus`, the
+server reads npm's latest dist-tag for every public package in the dependency
+graph. A project with no public packages needs a status command to report its
+live artifacts.
+
+A live check compares every artifact with the requested release version and
+reports the names and current versions of those still lagging. A newer local
+version does not change that target. Command failures, invalid JSON and
+registry failures are errors, never evidence that a release is absent or
+live. A registry 404 means no latest release. Reads are repeated on retry.
+The ship-step wait uses a default deadline of 30 minutes; this reader checks
+once, leaving polling and retry state to the ship steps.

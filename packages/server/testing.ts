@@ -40,8 +40,8 @@ process.env.GIT_CONFIG_NOSYSTEM = "1";
 export class Testing implements AsyncDisposable {
 	readonly root: string;
 	/**
-	 * Where records were kept before the database, `.git/splates`: what the
-	 * migrations of those files are tested on, and nothing else is kept in.
+	 * Write legacy records here to test their migration into the database.
+	 * Use `records` for current-format fixtures.
 	 */
 	readonly splatesDir: string;
 	/** What the registry names the project's records by, so the database is found where `dir` says. */
@@ -127,6 +127,7 @@ export class Testing implements AsyncDisposable {
 			preMerge: "true",
 			preLock: null,
 			ship: null,
+			shipStatus: null,
 			afterBump: null,
 			on: {},
 			leaseStalenessMs: 90_000,

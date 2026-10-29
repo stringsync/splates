@@ -13,6 +13,14 @@ export { publishedPins, readGraph } from "./graph";
 export type { CascadeSummary } from "./history";
 export { ShipHistory } from "./history";
 export type {
+	LiveArtifact,
+	LiveCheck,
+	LiveProject,
+	LiveVersions,
+	ShipLiveOptions,
+} from "./live";
+export { REGISTRY_DEADLINE, ShipLive } from "./live";
+export type {
 	ShipBump,
 	ShipPlan,
 	ShipStep,

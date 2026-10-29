@@ -61,6 +61,13 @@ export interface Config {
 	 */
 	ship: string | null;
 	/**
+	 * Command that reads live release versions, via `sh -c` in the main tree.
+	 * Prints JSON `{version, artifacts: [{name, deployed}]}`; `deployed` is a
+	 * version string or null before anything is live. Null reads npm's latest
+	 * dist-tag for each public package instead. Failures stop the read.
+	 */
+	shipStatus: string | null;
+	/**
 	 * Command a project that pins this one's packages runs once a ship's
 	 * cascade has moved its pins to the versions this one shipped, after `bun
 	 * install`: its bump task lists it as a step for the agent to run in the
@@ -82,16 +89,13 @@ export interface Config {
 	/** Failed `merge` attempts a task gets before only a person's `splates retry` lets it try again. */
 	mergeRetryCount: number;
 	/**
-	 * Conflicted rebases a task gets before only a person's `splates retry` lets
-	 * it try again. Counted apart from `mergeRetryCount`: with many agents on
-	 * one file a conflict is the base moving, not the task failing, so it would
-	 * spend those attempts before any test ran.
+	 * Maximum conflicted rebases before you must allow more with `splates retry`.
+	 * Conflicts count separately from failed merge gates (`mergeRetryCount`).
 	 */
 	mergeConflictCount: number;
 	/**
-	 * How many removed task names to keep, so `remove` can say "already removed"
-	 * rather than "never existed". A flat cap with no age policy: losing the
-	 * oldest costs a nicer message and nothing else.
+	 * How many removed task names to remember. Increase this to keep `remove`
+	 * reporting "already removed" for older tasks.
 	 */
 	removedCapacity: number;
 	/**
@@ -101,8 +105,8 @@ export interface Config {
 	 */
 	finishedCapacity: number;
 	/**
-	 * How many events the log holds before it is moved aside and a fresh one
-	 * starts; moved files are kept for `LOG_KEPT_MS` (`journal.ts`).
+	 * Maximum events per log file. Increase this to keep more events together
+	 * before the log rotates.
 	 */
 	logCapacity: number;
 	/**
@@ -208,10 +212,9 @@ export interface EvalsConfig {
 export type ConfigFile = Partial<Config>;
 
 /**
- * Types a config written before `ConfigFile`, which wraps its default in
- * `defineConfig(...)`, so it still loads until `splates update` rewrites it.
+ * Return your project settings with their types checked.
  *
- * @deprecated `satisfies ConfigFile` instead.
+ * @deprecated Use `satisfies ConfigFile` on your default export instead.
  */
 export function defineConfig(config: Partial<Config>): Partial<Config> {
 	return config;
