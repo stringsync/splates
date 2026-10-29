@@ -305,12 +305,28 @@ describe("ShipDialog", () => {
 		});
 		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
 		await waitFor(() => view.getByText("Reviewing dependencies…"));
-		expect(
-			view
-				.getByRole("button", { name: "Approve and ship" })
-				.hasAttribute("disabled"),
-		).toBe(true);
+		const approveButton = view.getByRole("button", {
+			name: "Approve and ship",
+		});
+		expect(approveButton.hasAttribute("disabled")).toBe(true);
+		const waiting = view.getByText(
+			"Approve and ship is waiting for every dependency review to finish.",
+		);
+		expect(approveButton.getAttribute("aria-describedby")).toBe(waiting.id);
 		expect(await approval.approve()).toBe(false);
+		drawn = structuredClone(drawn);
+		(drawn.steps[1] as ShipStep).review = {
+			status: "failed",
+			proposed: null,
+			reasons: "The upstream changes could not be reviewed",
+		};
+		await act(() => approval.draw());
+		expect(
+			view.getByText(
+				"Approve and ship is blocked by a failed dependency review. Retry reviews to continue.",
+			),
+		).toBeTruthy();
+		expect(approveButton.hasAttribute("disabled")).toBe(true);
 		drawn = structuredClone(drawn);
 		(drawn.steps[1] as ShipStep).review = {
 			status: "done",
@@ -321,6 +337,11 @@ describe("ShipDialog", () => {
 		expect(
 			view.getByText("Proposed minor: New adapter preserves old calls"),
 		).toBeTruthy();
+		expect(
+			view.queryByText(
+				"Approve and ship is blocked by a failed dependency review. Retry reviews to continue.",
+			),
+		).toBeNull();
 		await act(() =>
 			fireEvent.click(
 				within(

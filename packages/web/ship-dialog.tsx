@@ -2,7 +2,7 @@ import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
 import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { useReactive } from "@webappwiz/react";
 import { LoaderCircleIcon, ShipIcon } from "lucide-react";
-import { type JSX, useEffect } from "react";
+import { type JSX, useEffect, useId } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -64,6 +64,15 @@ export function ShipDialog({
 		);
 		return () => waiting.dispose();
 	}, [approval, plan]);
+	const blockedId = useId();
+	const blocked =
+		starting || approval.ready
+			? null
+			: plan?.steps.some((step) => step.review?.status === "pending")
+				? "Approve and ship is waiting for every dependency review to finish."
+				: plan?.steps.some((step) => step.review?.status === "failed")
+					? "Approve and ship is blocked by a failed dependency review. Retry reviews to continue."
+					: null;
 	const approve = async () => {
 		if (await approval.approve()) {
 			onApproved?.();
@@ -166,12 +175,22 @@ export function ShipDialog({
 					</Button>
 				)}
 				<Refusal refusal={refusal} className="text-sm" />
+				{blocked !== null && (
+					<p
+						id={blockedId}
+						role="status"
+						className="text-muted-foreground text-sm"
+					>
+						{blocked}
+					</p>
+				)}
 				<DialogFooter>
 					<Button variant="outline" onClick={onClose}>
 						Cancel
 					</Button>
 					<Button
 						disabled={!approval.ready || starting}
+						aria-describedby={blocked === null ? undefined : blockedId}
 						onClick={() => void approve()}
 					>
 						{starting ? (
