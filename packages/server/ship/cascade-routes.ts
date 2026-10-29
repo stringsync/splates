@@ -54,6 +54,8 @@ export class CascadeRoutes {
 	};
 	readonly retry = async (): Promise<Response> =>
 		Response.json(await this.steps().retry());
+	readonly handToAgent = async (): Promise<Response> =>
+		Response.json(await this.steps().handToAgent());
 	readonly abandon = async (): Promise<Response> =>
 		Response.json(await this.steps().abandon());
 

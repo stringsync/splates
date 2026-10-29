@@ -10,6 +10,11 @@ import {
 } from "./order";
 
 describe("the queue's order", () => {
+	it("never starts a ship-owned task, even with stale queued state", () => {
+		const owned = task({ ship: { run: "ship", step: "consumer" } });
+		expect(queueOrder([owned])).toEqual([]);
+		expect(canStart(owned, [owned])).toBe(false);
+	});
 	it("takes queued tasks no agent has, in list order", () => {
 		const all = [
 			task({ id: 1, position: 2 }),
@@ -83,9 +88,6 @@ describe("the queue's order", () => {
 		// The other project's queue starts its task, so this one is not blocked.
 		expect(isBlocked(waiting, all)).toBe(false);
 	});
-});
-
-describe("what blocks a queued task", () => {
 	it("is a blocker not queued or removed, here or under a task it waits on, never one queued or running", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2] }),
@@ -116,9 +118,6 @@ describe("what blocks a queued task", () => {
 			all.filter((each) => isBlocked(each, all)).map((each) => each.id),
 		).toEqual([1, 3, 4]);
 	});
-});
-
-describe("the blockers not queued", () => {
 	it("finds the whole chain not queued, blockers first, past queued and asked ones", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2, 5] }),

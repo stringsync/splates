@@ -37,6 +37,7 @@ export interface StepProject {
 		pins: Pin[],
 		log: (text: string) => Promise<void>,
 		signal: AbortSignal,
+		assigned?: () => Promise<void>,
 	): Promise<boolean | undefined>;
 	discard?(ship: Cascade, step: CascadeStep): Promise<void>;
 }
@@ -137,6 +138,28 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		} finally {
 			await lock.release();
 		}
+	}
+
+	/** Give a failed mechanical adoption to an agent, retaining its prepared tree. */
+	async handToAgent(): Promise<Cascade> {
+		const record = await this.record.read();
+		const step = record?.cascade.steps.find((each) =>
+			each.stages.some(
+				(stage) => stage.key === "adopt" && stage.state === "failed",
+			),
+		);
+		if (
+			record?.cascade.status !== "stopped" ||
+			step === undefined ||
+			step.adopt === "agent" ||
+			this.going !== null
+		) {
+			fail("conflict", "no failed mechanical adoption to hand to an agent");
+		}
+		step.adopt = "agent";
+		step.adoptFailure = step.note ?? "Mechanical adoption failed";
+		await this.save(record);
+		return this.retry();
 	}
 
 	/** Ends the plan, retaining every completed publication. No later stage may start. */
@@ -308,7 +331,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			return targets.length === 0;
 		}
 		if (key === "adopt") {
-			if (targets.length === 0) {
+			if (targets.length === 0 && step.adopt !== "agent") {
 				return true;
 			}
 			const pins = targets.flatMap((target) =>
@@ -324,6 +347,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 				pins,
 				(text) => this.log(record.cascade.id, step.slug, text),
 				this.controller.signal,
+				() => this.save(record),
 			);
 			return skipped === true;
 		}

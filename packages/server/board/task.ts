@@ -377,6 +377,8 @@ function deferredAt<Kind extends "questions" | "outside">(
 export interface TaskRecord {
 	// One file apiece on disk, so two agents never rewrite one.
 	id: number;
+	/** Owned and started exclusively by this ship step. */
+	ship?: { run: string; step: string; prepared?: boolean };
 	/** What is left to do, in a line. */
 	subject: string;
 	/** Whatever more there is to say about it, or empty when the line is enough. */
@@ -446,6 +448,9 @@ export interface TaskRecord {
  * forgotten.
  */
 export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
+	if (state.ship !== undefined) {
+		fail("usage", "a ship task is started by its ship alone");
+	}
 	const { unqueuedFor: _, ...rest } = state;
 	return {
 		...rest,
@@ -546,6 +551,7 @@ export interface TaskOrigin {
 
 /** What a new task has besides its subject, all of it optional. */
 export interface TaskNew {
+	ship?: { run: string; step: string; prepared?: boolean };
 	/**
 	 * The name the task that takes it starts under, its branch, worktree and
 	 * conversation's; absent, the queue names it from its subject.

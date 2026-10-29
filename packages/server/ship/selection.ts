@@ -31,12 +31,6 @@ export class ShipSelections {
 		selection: ShipSelection,
 		started: string,
 	): Promise<SelectedShip> {
-		if (selection.projects.some((each) => each.adopt === "agent")) {
-			fail(
-				"usage",
-				"agent adoption is not available yet; its stage waits for the step's task to merge",
-			);
-		}
 		const choices = new Map(
 			selection.projects.map((each) => [each.slug, each]),
 		);

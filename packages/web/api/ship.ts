@@ -53,7 +53,9 @@ export async function shipStageLog(
 }
 
 /** Retry the failed stage or end the ship, retaining everything already published. */
-export async function actOnShip(action: "retry" | "abandon"): Promise<void> {
+export async function actOnShip(
+	action: "retry" | "abandon" | "agent",
+): Promise<void> {
 	const response = await answered(`/api/ship/steps/${action}`, {
 		method: "POST",
 	});

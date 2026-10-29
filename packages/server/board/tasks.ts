@@ -68,6 +68,7 @@ export class Tasks {
 		from: string | null,
 		{
 			slug,
+			ship,
 			text = "",
 			files = [],
 			position,
@@ -98,6 +99,7 @@ export class Tasks {
 			const id = await this.store.next();
 			const state: TaskRecord = {
 				id,
+				...(ship === undefined ? {} : { ship }),
 				...words,
 				...(slug === undefined ? {} : { slug }),
 				position: 0,

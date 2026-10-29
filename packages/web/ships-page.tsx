@@ -34,6 +34,7 @@ export function ShipsPage(_props: {
 							onClose={() => setClosed(live.cascade?.id ?? null)}
 							abandon={() => actOnShip("abandon")}
 							retry={() => actOnShip("retry")}
+							agent={() => actOnShip("agent")}
 						/>
 					)}
 					<p className="text-muted-foreground text-sm">

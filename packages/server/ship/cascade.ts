@@ -51,6 +51,8 @@ export interface CascadeStep extends ShipStep {
 	/** How this step adopts upstream versions; agent adoption waits for its task to merge. */
 	adopt?: "mechanical" | "agent";
 	instructions?: string;
+	/** Merge gate failure retained when handing mechanical adoption to an agent. */
+	adoptFailure?: string;
 	status: CascadeStatus;
 	/** When it first found its bump's versions not yet served by npm, while `registry`. */
 	registrySince?: string;

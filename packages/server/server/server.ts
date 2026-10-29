@@ -563,7 +563,7 @@ export async function dev(
 						repo.dispose();
 					}
 				},
-				adopt: async (ship, step, pins, output, signal) => {
+				adopt: async (ship, step, pins, output, signal, assigned) => {
 					const repo = await openRepository(
 						{ fs, ps, log },
 						{ at: served.root },
@@ -581,7 +581,12 @@ export async function dev(
 							step,
 							pins,
 							output,
-							{ afterBump: commands, signal },
+							{
+								afterBump: commands,
+								signal,
+								assigned,
+								agent: (task) => served.startShipTask(task),
+							},
 						);
 					} finally {
 						repo.dispose();
@@ -875,6 +880,7 @@ export async function dev(
 						GET: guarded(cascadeRoutes.cascade),
 						POST: guarded(cascadeRoutes.start),
 					},
+					"/api/ship/steps/agent": { POST: guarded(cascadeRoutes.handToAgent) },
 					"/api/ship/steps/retry": { POST: guarded(cascadeRoutes.retry) },
 					"/api/ship/steps/abandon": { POST: guarded(cascadeRoutes.abandon) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),

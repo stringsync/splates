@@ -11,6 +11,60 @@ import { ShipSteps } from "./steps";
 import { until } from "./testing";
 
 describe("ship steps", () => {
+	it("hands a failed mechanical adopt to an agent and publishes after adoption", async () => {
+		const external = new FakeStepProjects();
+		external.failAdopt = true;
+		const ships = runner(external);
+		await ships.start(selection);
+		await ships.settled();
+		expect((await ships.current())?.status).toBe("stopped");
+		external.failAdopt = false;
+		await ships.handToAgent();
+		await ships.settled();
+		const current = await ships.current();
+		expect(current?.status).toBe("done");
+		expect(
+			current?.steps.find((step) => step.slug === "downstream"),
+		).toMatchObject({
+			adopt: "agent",
+			adoptFailure: expect.stringContaining("merge gate failed"),
+		});
+	});
+
+	it("runs a root agent adoption before publishing and waits for its merge", async () => {
+		const external = new FakeStepProjects();
+		const original = external.project.bind(external);
+		let finish: () => void = () => {};
+		let reached = false;
+		const merged = new Promise<void>((resolve) => {
+			finish = resolve;
+		});
+		external.project = async (slug) => ({
+			...(await original(slug)),
+			adopt: async () => {
+				reached = true;
+				await merged;
+			},
+		});
+		const ships = runner(external);
+		await ships.start({
+			projects: [
+				{
+					slug: "upstream",
+					bump: "patch",
+					adopt: "agent",
+					instructions: "Check root",
+				},
+			],
+		});
+		await until(async () => reached);
+		expect(external.calls).toEqual([]);
+		finish();
+		await ships.settled();
+		expect((await ships.current())?.status).toBe("done");
+		expect(external.calls).toContain("publish upstream patch");
+	});
+
 	it("ships in dependency order, retaining choices, stages and history", async () => {
 		const external = new FakeStepProjects();
 		const ships = runner(external);
@@ -237,16 +291,9 @@ describe("ship steps", () => {
 		).toHaveLength(1);
 	});
 
-	it("rejects agent adoption and duplicate or unknown projects before creating a run", async () => {
+	it("rejects duplicate or unknown projects before creating a run", async () => {
 		const external = new FakeStepProjects();
 		const ships = runner(external);
-		await expect(
-			ships.start({
-				projects: [
-					{ ...ensure.defined(selection.projects[0]), adopt: "agent" },
-				],
-			}),
-		).rejects.toMatchObject({ reason: "usage" });
 		await expect(
 			ships.start({
 				projects: [

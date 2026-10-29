@@ -1,5 +1,7 @@
+import { aborts } from "webappwiz/abort";
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
+import { Duration, sleep } from "webappwiz/time";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import type { Repository } from "../records";
@@ -30,7 +32,7 @@ export class MechanicalAdoption {
 				`mechanical adoption requires a clean ${config.trunk} main tree`,
 			);
 		}
-		if (await pinsMatch(fs, git.root, pins)) {
+		if (step.adopt !== "agent" && (await pinsMatch(fs, git.root, pins))) {
 			const left = await service.find(task);
 			if (!left.gone) {
 				await remove(repo, task, { reason: "nothing" });
@@ -39,8 +41,43 @@ export class MechanicalAdoption {
 			return true;
 		}
 		let tree = await service.find(task);
+		if (step.adopt === "agent") {
+			const outcome = (await repo.outcomes.list()).find(
+				(each) => each.project === git.root && each.task === task,
+			);
+			if (outcome !== undefined) {
+				if (outcome.ended !== "merged") {
+					throw new Error("The ship task was removed without merging.");
+				}
+				return false;
+			}
+		}
+		let numbered = (await repo.tasks.all()).find(
+			(each) =>
+				each.state.ship?.run === ship.id && each.state.ship.step === step.slug,
+		);
+		if (step.adopt === "agent" && numbered === undefined) {
+			numbered = await repo.tasks.add(`Check ${step.slug} for its ship`, null, {
+				slug: task,
+				ship: { run: ship.id, step: step.slug },
+				ready: true,
+				text: this.detail(ship, step),
+			});
+			await repo.tasks.revise(numbered.id, (state) => ({
+				...state,
+				ship: { run: ship.id, step: step.slug },
+			}));
+		}
+		if (numbered !== undefined) {
+			step.task = numbered.id;
+			await opts.assigned?.();
+			if (!tree.gone) {
+				await numbered.take(task);
+			}
+		}
 		if (tree.gone) {
 			await add(repo, task, {
+				tasks: numbered === undefined ? [] : [numbered.id],
 				goal: `Adopt ${pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")} for this ship.`,
 			});
 			tree = await service.find(task);
@@ -48,7 +85,10 @@ export class MechanicalAdoption {
 			tree = await tree.take();
 		}
 		await log(`Adopting in ${tree.path}\n`);
-		await movePins(fs, tree.path, pins);
+		const prepared = numbered?.state.ship?.prepared === true;
+		if (!prepared) {
+			await movePins(fs, tree.path, pins);
+		}
 		if (!(await pinsMatch(fs, tree.path, pins))) {
 			throw new Error(
 				"the adoption tree no longer contains every target dependency",
@@ -56,6 +96,7 @@ export class MechanicalAdoption {
 		}
 		// No manifest changes and no commits means the base already matches.
 		if (
+			step.adopt !== "agent" &&
 			(await tree.commitsAhead()) === 0 &&
 			(await tree.uncommitted()).length === 0
 		) {
@@ -63,26 +104,64 @@ export class MechanicalAdoption {
 			await log("The base already pins the target versions.\n");
 			return true;
 		}
-		for (const command of ["bun install", ...opts.afterBump]) {
+		if (
+			!prepared &&
+			(step.adopt !== "agent" || (await tree.commitsAhead()) === 0)
+		) {
+			for (const command of ["bun install", ...opts.afterBump]) {
+				opts.signal?.throwIfAborted();
+				await log(`$ ${command}\n`);
+				const result = await repo.ps.spawnCapture(["sh", "-c", command], {
+					cwd: tree.path,
+					signal: opts.signal,
+				});
+				await log(result.stdout + result.stderr);
+				if (result.exitCode !== 0) {
+					throw new Error(`${command} exited ${result.exitCode}`);
+				}
+			}
 			opts.signal?.throwIfAborted();
-			await log(`$ ${command}\n`);
-			const result = await repo.ps.spawnCapture(["sh", "-c", command], {
-				cwd: tree.path,
-				signal: opts.signal,
-			});
-			await log(result.stdout + result.stderr);
-			if (result.exitCode !== 0) {
-				throw new Error(`${command} exited ${result.exitCode}`);
+			if ((await tree.uncommitted()).length > 0) {
+				const committed = await git.commitAll(
+					tree.path,
+					`Adopt ${pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}`,
+				);
+				if (committed.code !== 0) {
+					throw new Error(committed.stderr || committed.stdout);
+				}
 			}
 		}
-		opts.signal?.throwIfAborted();
-		if ((await tree.uncommitted()).length > 0) {
-			const committed = await git.commitAll(
-				tree.path,
-				`Adopt ${pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}`,
-			);
-			if (committed.code !== 0) {
-				throw new Error(committed.stderr || committed.stdout);
+		if (step.adopt === "agent") {
+			if (!prepared) {
+				await fs.write(
+					`${tree.path}/${PLAN_FILE}`,
+					`# ${task}\n\nThis task belongs to a ship.\n\n## Goal\n\n${this.detail(ship, step)}\n`,
+				);
+				if (numbered !== undefined) {
+					await repo.tasks.revise(numbered.id, (state) => ({
+						...state,
+						ship: { run: ship.id, step: step.slug, prepared: true },
+					}));
+				}
+			}
+			if (opts.agent === undefined) {
+				throw new Error("Ship agent starts are not configured");
+			}
+			await opts.agent(task);
+			while (true) {
+				opts.signal?.throwIfAborted();
+				const outcome = (await repo.outcomes.list()).find(
+					(each) => each.project === git.root && each.task === task,
+				);
+				if (outcome !== undefined) {
+					if (outcome.ended !== "merged") {
+						throw new Error("The ship task was removed without merging.");
+					}
+					return false;
+				}
+				await (opts.signal === undefined
+					? sleep(Duration.secs(1))
+					: aborts.race(opts.signal, sleep(Duration.secs(1))));
 			}
 		}
 		await fs.write(
@@ -112,6 +191,24 @@ export class MechanicalAdoption {
 		}
 	}
 
+	private detail(ship: Cascade, step: CascadeStep): string {
+		return [
+			`Ship ${ship.id}, step ${step.slug}.`,
+			...step.takes.flatMap((use) =>
+				use.pins.map(
+					(pin) =>
+						`${pin.name}: ${pin.version} → ${ship.steps.find((each) => each.slug === use.project)?.to}. Upstream tags: v${pin.version.replace(/^[~^]/, "")}..v${ship.steps.find((each) => each.slug === use.project)?.to}`,
+				),
+			),
+			"Fix what breaks, land with `splates merge`; never change the release type or bump further. If you cannot, `splates remove <task> --reason blocked` saying why.",
+			...(step.adoptFailure === undefined
+				? []
+				: ["## Mechanical adoption failure", step.adoptFailure]),
+			"## Person's instructions",
+			step.instructions ?? "",
+		].join("\n\n");
+	}
+
 	private taskOf(ship: Cascade, step: CascadeStep): string {
 		return `ship-${ship.started.replace(/[^0-9]/g, "")}-${step.slug}`;
 	}
@@ -119,5 +216,7 @@ export class MechanicalAdoption {
 
 export interface MechanicalAdoptionOptions {
 	afterBump: string[];
+	agent?: (task: string) => Promise<void>;
+	assigned?: () => Promise<void>;
 	signal?: AbortSignal;
 }

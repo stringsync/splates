@@ -130,6 +130,11 @@ export function Card({
 				>
 					{todo.subject}
 				</button>
+				{todo.ship !== undefined && (
+					<a href="#ships" className="relative text-muted-foreground text-xs">
+						Ship’s task
+					</a>
+				)}
 				{/* A lane is read down the column, so its cards keep to their
 				    subject; the detail is a tap away. */}
 				{todo.text !== "" && step === undefined && (

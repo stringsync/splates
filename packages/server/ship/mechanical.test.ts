@@ -1,10 +1,122 @@
 import { describe, expect, it } from "bun:test";
+import { ensure } from "webappwiz/assert";
 import { FakePs } from "webappwiz/system/testing";
+import { enqueued } from "../board";
+import { merge } from "../merge";
+import { remove } from "../tasks";
 import { Testing } from "../testing";
 import type { Cascade, CascadeStep } from "./cascade";
 import { MechanicalAdoption } from "./mechanical";
 
 describe("mechanical ship adoption", () => {
+	it("prepares an agent task and waits for it to be merged", async () => {
+		await using repo = await Testing.open();
+		await repo.fs.write(
+			`${repo.root}/package.json`,
+			JSON.stringify({ dependencies: { upstream: "^1.0.0" } }),
+		);
+		await repo.git.commitAll(repo.root, "Add upstream");
+		const ps = new FakePs();
+		const adoption = new MechanicalAdoption({
+			...repo,
+			ps,
+			dispose: () => {},
+		});
+		const choice = {
+			...step,
+			adopt: "agent" as const,
+			instructions: "Check compatibility verbatim.",
+		};
+		const run = adoption.run(
+			ship,
+			choice,
+			[{ name: "upstream", version: "1.0.1" }],
+			async () => {},
+			{
+				afterBump: ["refresh"],
+				agent: async (task) => {
+					const owned = (await repo.tasks.all()).find(
+						(each) => each.id === choice.task,
+					);
+					expect(owned?.state.ship).toMatchObject({
+						run: ship.id,
+						step: step.slug,
+					});
+					expect(() =>
+						enqueued(ensure.defined(owned).state, { by: "person" }),
+					).toThrow("ship alone");
+					const tree = await repo.service.find(task);
+					expect(await tree.commitsAhead()).toBe(1);
+					expect(
+						JSON.parse(await repo.fs.read(`${tree.path}/package.json`))
+							.dependencies.upstream,
+					).toBe("^1.0.1");
+					expect(await repo.fs.read(`${tree.path}/SPLATES.md`)).toContain(
+						choice.instructions,
+					);
+					await repo.fs.write(
+						`${tree.path}/SPLATES.md`,
+						"# ship task\n\n## Goal\n\nCheck compatibility.\n\n## Outcome\n\nChecked.\n",
+					);
+					await merge(repo, tree.path, {}, { message: "Adopt upstream" });
+				},
+			},
+		);
+		expect(await run).toBe(false);
+		expect(ps.getCalls()).toEqual(["sh -c bun install", "sh -c refresh"]);
+	});
+	it("prepares an agent task and waits for it to be removed", async () => {
+		await using repo = await Testing.open();
+		await repo.fs.write(
+			`${repo.root}/package.json`,
+			JSON.stringify({ dependencies: { upstream: "^1.0.0" } }),
+		);
+		await repo.git.commitAll(repo.root, "Add upstream");
+		const ps = new FakePs();
+		const adoption = new MechanicalAdoption({
+			...repo,
+			ps,
+			dispose: () => {},
+		});
+		const choice = {
+			...step,
+			adopt: "agent" as const,
+			instructions: "Check compatibility verbatim.",
+		};
+		const run = adoption.run(
+			ship,
+			choice,
+			[{ name: "upstream", version: "1.0.1" }],
+			async () => {},
+			{
+				afterBump: ["refresh"],
+				agent: async (task) => {
+					const owned = (await repo.tasks.all()).find(
+						(each) => each.id === choice.task,
+					);
+					expect(owned?.state.ship).toMatchObject({
+						run: ship.id,
+						step: step.slug,
+					});
+					expect(() =>
+						enqueued(ensure.defined(owned).state, { by: "person" }),
+					).toThrow("ship alone");
+					const tree = await repo.service.find(task);
+					expect(await tree.commitsAhead()).toBe(1);
+					expect(
+						JSON.parse(await repo.fs.read(`${tree.path}/package.json`))
+							.dependencies.upstream,
+					).toBe("^1.0.1");
+					expect(await repo.fs.read(`${tree.path}/SPLATES.md`)).toContain(
+						choice.instructions,
+					);
+					await remove(repo, task, { reason: "moot" });
+				},
+			},
+		);
+		await expect(run).rejects.toThrow("removed without merging");
+		expect(ps.getCalls()).toEqual(["sh -c bun install", "sh -c refresh"]);
+	});
 	it("installs and refreshes in a worktree, gates through merge, and skips matching base pins", async () => {
 		await using repo = await Testing.open();
 		await repo.fs.write(

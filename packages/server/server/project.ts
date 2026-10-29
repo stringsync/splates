@@ -181,6 +181,42 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
+		startShipTask: async (task: string) => {
+			if (conversations === null) {
+				throw new Error("conversations are off");
+			}
+			if (
+				(await conversations.list()).some(
+					(each) => each.state.task === task && !each.state.archived,
+				)
+			) {
+				return;
+			}
+			const response = await new AutoPickRoutes(
+				project,
+				conversations,
+				watch,
+				slug,
+			).startAutoPick(
+				new Request("http://localhost/start", {
+					method: "POST",
+					body: JSON.stringify({ task }),
+				}),
+			);
+			const state = (await response.json()) as { id: string };
+			const conversation = (await conversations.list()).find(
+				(each) => each.state.id === state.id,
+			);
+			if (conversation === undefined) {
+				throw new Error("ship conversation was not created");
+			}
+			void conversation
+				.prompt(
+					`[SPLATES TASK ${task}]\n\nThis task belongs to a ship. Follow SPLATES.md; fix what breaks and merge, never bump further.`,
+					[],
+				)
+				.catch((error: unknown) => log.error(String(error)));
+		},
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
@@ -488,6 +524,7 @@ export interface Served extends AsyncResource {
 	showConversation: Handler;
 	refreshLimits: Handler;
 	chooseDefault: Handler;
+	startShipTask(task: string): Promise<void>;
 	startConversation: Handler;
 	startAutoPick: Handler;
 	tryAutoPick: Handler;

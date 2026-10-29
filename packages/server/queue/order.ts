@@ -11,7 +11,12 @@ import {
  */
 export function queueOrder(all: readonly TaskRecord[]): TaskRecord[] {
 	const left = all
-		.filter((task) => task.stage === "queued" && task.takenBy === null)
+		.filter(
+			(task) =>
+				task.ship === undefined &&
+				task.stage === "queued" &&
+				task.takenBy === null,
+		)
 		.sort(
 			(left, right) => left.position - right.position || left.id - right.id,
 		);
@@ -55,6 +60,7 @@ export function canStart(
 ): boolean {
 	const { open, lost, elsewhere } = holdsBack(task, all);
 	return (
+		task.ship === undefined &&
 		task.takenBy === null &&
 		open.length === 0 &&
 		lost.length === 0 &&
@@ -174,6 +180,7 @@ export function resumesItself(
 	return (
 		deferred !== undefined &&
 		deferred.conversation !== undefined &&
+		task.ship === undefined &&
 		task.takenBy === null &&
 		task.stage !== "running" &&
 		deferred.tasks.length > 0 &&

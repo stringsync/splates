@@ -26,12 +26,14 @@ export function ShipRun({
 	onClose,
 	abandon: abandonRun,
 	retry,
+	agent,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
 	/** Ends the run; the cascade alone by default, the run and its conversation when it has one. */
 	abandon?: () => Promise<void>;
 	retry?: () => Promise<void>;
+	agent?: () => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
 }): JSX.Element {
@@ -76,6 +78,27 @@ export function ShipRun({
 						Retry
 					</Button>
 				)}
+				{cascade.status === "stopped" &&
+					agent !== undefined &&
+					cascade.steps.some(
+						(step) =>
+							step.adopt !== "agent" &&
+							step.stages.some(
+								(stage) => stage.key === "adopt" && stage.state === "failed",
+							),
+					) && (
+						<Button
+							size="xs"
+							variant="outline"
+							onClick={() =>
+								agent().then(askMachineNow, (error: unknown) =>
+									refuse("", "Not handed to an agent", error),
+								)
+							}
+						>
+							Hand to an agent
+						</Button>
+					)}
 				{running || cascade.status === "stopped" ? (
 					<Button
 						size="xs"
