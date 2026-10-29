@@ -25,7 +25,12 @@ import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import type { ShipPlan, ShipReview, ShipStep } from "../ship";
+import type {
+	ShipPlan,
+	ShipReview,
+	ShipReviewProgress,
+	ShipStep,
+} from "../ship";
 import { Bumps, Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
@@ -163,8 +168,8 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
-		reviewShip: (step, plan, roots) =>
-			reviewShip(project, conversations, step, plan, roots),
+		reviewShip: (step, plan, roots, report) =>
+			reviewShip(project, conversations, step, plan, roots, report),
 		bumps: new Bumps({
 			tasks: project.tasks,
 			service,
@@ -390,6 +395,7 @@ export interface Served extends AsyncResource {
 		step: ShipStep,
 		plan: ShipPlan,
 		roots: Record<string, string>,
+		report: (progress: ShipReviewProgress) => Promise<void>,
 	) => Promise<ShipReview>;
 	root: string;
 	/** Its config's `afterBump`, for the bump tasks of a ship's cascade. */

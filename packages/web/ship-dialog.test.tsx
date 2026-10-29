@@ -288,6 +288,35 @@ describe("ShipDialog", () => {
 		expect(started).toEqual([{ project: "webappwiz", bump: "major" }]);
 	});
 
+	it("names the reviewing agent and what it does, and asks before leaving mid-review", async () => {
+		const drawn: ShipPlan = structuredClone(PLAN);
+		drawn.id = "review-2";
+		(drawn.steps[1] as ShipStep).review = {
+			status: "pending",
+			proposed: null,
+			reasons: "Reviewing upstream",
+			progress: {
+				agent: "sonnet",
+				activity: "Running Read: src/index.ts",
+				since: new Date().toISOString(),
+			},
+		};
+		let closed = false;
+		const approval = new ShipApproval("webappwiz", {
+			shipPlan: async () => structuredClone(drawn),
+			startShip: async () => {},
+		});
+		const view = render(
+			<ShipDialog approval={approval} onClose={() => (closed = true)} />,
+		);
+		await waitFor(() => view.getByText(/sonnet · Running Read: src\/index.ts/));
+		fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+		await waitFor(() => view.getByText("Leave while agents review?"));
+		expect(closed).toBe(false);
+		fireEvent.click(view.getByRole("button", { name: "Leave anyway" }));
+		expect(closed).toBe(true);
+	});
+
 	it("blocks approval during review, shows reasons and approves an edited dependent release", async () => {
 		let drawn: ShipPlan = structuredClone(PLAN);
 		drawn.id = "review-1";

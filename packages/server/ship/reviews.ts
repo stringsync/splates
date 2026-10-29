@@ -7,6 +7,7 @@ import {
 	type ShipBump,
 	type ShipPlan,
 	type ShipReview,
+	type ShipReviewProgress,
 	type ShipStep,
 } from "./plan";
 
@@ -14,6 +15,7 @@ import {
 export type ReviewShip = (
 	step: ShipStep,
 	plan: ShipPlan,
+	report: (progress: ShipReviewProgress) => Promise<void>,
 ) => Promise<ShipReview>;
 
 interface Draft {
@@ -239,6 +241,17 @@ export class ShipReviews {
 				const review = await this.opts.review(
 					step,
 					structuredClone(draft.plan),
+					async (progress) => {
+						if (step.review?.status !== "pending") {
+							return;
+						}
+						step.review = { ...step.review, progress };
+						await record.update((current) =>
+							current?.plan.id === draft.plan.id
+								? structuredClone(draft)
+								: (current ?? draft),
+						);
+					},
 				);
 				if (
 					!review.reasons.trim() ||

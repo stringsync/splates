@@ -1,5 +1,16 @@
 import type { ShipGraph, ShipProject, Use } from "./graph";
 
+/** Why there is no plan to ship a project. */
+export class ShipPlanError extends Error {
+	constructor(
+		/** The exit reason a command refuses with. */
+		readonly reason: "not_found" | "usage" | "cycle",
+		message: string,
+	) {
+		super(message);
+	}
+}
+
 /** How far a publish moves its project's version. */
 export type ShipBump = "patch" | "minor" | "major";
 
@@ -8,6 +19,8 @@ export interface ShipReview {
 	status: "pending" | "done" | "failed";
 	proposed: ShipBump | null;
 	reasons: string;
+	/** While pending and under way: which agent reviews it, and what it is doing now. */
+	progress?: { agent: string; activity: string; since: string };
 }
 
 export interface ShipStep {
@@ -47,17 +60,6 @@ export interface ShipPlan {
 	steps: ShipStep[];
 	/** The dependents the person left out, with what only they reach; absent for none. */
 	skipped?: string[];
-}
-
-/** Why there is no plan to ship a project. */
-export class ShipPlanError extends Error {
-	constructor(
-		/** The exit reason a command refuses with. */
-		readonly reason: "not_found" | "usage" | "cycle",
-		message: string,
-	) {
-		super(message);
-	}
 }
 
 /**
@@ -287,3 +289,6 @@ export function dependencyOrder(graph: ShipGraph): ShipProject[] {
 	}
 	return ordered;
 }
+
+/** A live review's agent, its latest activity and when the review began. */
+export type ShipReviewProgress = NonNullable<ShipReview["progress"]>;

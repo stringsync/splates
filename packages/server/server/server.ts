@@ -603,7 +603,7 @@ export async function dev(
 			}
 			return revisions;
 		},
-		review: async (step, plan) =>
+		review: async (step, plan, report) =>
 			(await projectNamed(step.slug)).reviewShip(
 				step,
 				plan,
@@ -613,6 +613,7 @@ export async function dev(
 						project.root,
 					]),
 				),
+				report,
 			),
 		log,
 	});

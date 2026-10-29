@@ -15,7 +15,13 @@ export type { Pin, ShipGraph, ShipProject, ShipSource, Use } from "./graph";
 export { publishedPins, readGraph } from "./graph";
 export type { CascadeSummary } from "./history";
 export { ShipHistory } from "./history";
-export type { ShipBump, ShipPlan, ShipReview, ShipStep } from "./plan";
+export type {
+	ShipBump,
+	ShipPlan,
+	ShipReview,
+	ShipReviewProgress,
+	ShipStep,
+} from "./plan";
 export {
 	CHANGED,
 	changedProjects,

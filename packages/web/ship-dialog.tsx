@@ -1,8 +1,12 @@
-import type { ShipBump, ShipStep } from "@stringsync/splates-server/ship";
+import type {
+	ShipBump,
+	ShipReviewProgress,
+	ShipStep,
+} from "@stringsync/splates-server/ship";
 import { CHANGED } from "@stringsync/splates-server/ship/browser";
 import { useReactive } from "@webappwiz/react";
 import { LoaderCircleIcon, ShipIcon } from "lucide-react";
-import { type JSX, useEffect, useId } from "react";
+import { type JSX, useEffect, useId, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -64,6 +68,16 @@ export function ShipDialog({
 		);
 		return () => waiting.dispose();
 	}, [approval, plan]);
+	const [confirming, setConfirming] = useState(false);
+	const reviews = plan?.steps.filter((step) => step.review !== undefined) ?? [];
+	const reviewing = reviews.filter((step) => step.review?.status === "pending");
+	const leave = () => {
+		if (reviewing.length > 0 && !starting) {
+			setConfirming(true);
+		} else {
+			onClose();
+		}
+	};
 	const blockedId = useId();
 	const blocked =
 		starting || approval.ready
@@ -81,7 +95,7 @@ export function ShipDialog({
 		}
 	};
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
+		<Dialog open onOpenChange={(next) => !next && leave()}>
 			<DialogContent className="inset-0 h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
 				<DialogHeader>
 					<DialogTitle>
@@ -108,6 +122,9 @@ export function ShipDialog({
 							disabled={starting}
 						/>
 					</div>
+				)}
+				{reviewing.length > 0 && (
+					<ReviewStatus reviewing={reviewing} total={reviews.length} />
 				)}
 				{plan === null && refusal === null && (
 					<p className="flex items-center gap-2 text-muted-foreground">
@@ -188,7 +205,7 @@ export function ShipDialog({
 					<Button
 						variant="outline"
 						className="h-11 px-4 text-base sm:h-8 sm:text-sm"
-						onClick={onClose}
+						onClick={leave}
 					>
 						Cancel
 					</Button>
@@ -207,8 +224,78 @@ export function ShipDialog({
 					</Button>
 				</DialogFooter>
 			</DialogContent>
+			<Dialog open={confirming} onOpenChange={setConfirming}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Leave while agents review?</DialogTitle>
+						<DialogDescription>
+							{reviewing.length === 1
+								? "An agent is still reviewing a dependent's release type."
+								: `${reviewing.length} dependents are still waiting on their release type reviews.`}{" "}
+							The reviews keep running on the server and their agents are not
+							stopped. Reopen the ship plan to see them finish.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter className="flex-row gap-3">
+						<Button
+							variant="outline"
+							className="h-11 px-4 text-base sm:h-8 sm:text-sm"
+							onClick={onClose}
+						>
+							Leave anyway
+						</Button>
+						<Button
+							className="h-11 flex-1 text-base sm:h-8 sm:flex-none sm:text-sm"
+							onClick={() => setConfirming(false)}
+						>
+							Keep watching
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</Dialog>
 	);
+}
+
+/** One bar for the dependency reviews under way: how far along, which agent, and what it is doing. */
+function ReviewStatus({
+	reviewing,
+	total,
+}: {
+	reviewing: ShipStep[];
+	total: number;
+}): JSX.Element {
+	const current = reviewing.find((step) => step.review?.progress !== undefined);
+	const progress = current?.review?.progress;
+	const done = total - reviewing.length;
+	return (
+		<section
+			role="status"
+			aria-label="Dependency review"
+			className="flex flex-col gap-1 rounded-lg border bg-muted/40 p-3 text-sm"
+		>
+			<p className="flex items-center gap-2 font-medium">
+				<LoaderCircleIcon className="size-4 shrink-0 animate-spin" />
+				{`Reviewing dependencies, ${done} of ${total} done`}
+			</p>
+			{current !== undefined && progress !== undefined ? (
+				<p className="break-words text-muted-foreground">
+					{`${current.slug}: ${progress.agent} · ${progress.activity} · ${elapsed(progress)}`}
+				</p>
+			) : (
+				<p className="text-muted-foreground">Waiting for an agent to start…</p>
+			)}
+		</section>
+	);
+}
+
+/** How long a review has run, as `1m 05s`. */
+function elapsed(progress: ShipReviewProgress): string {
+	const secs = Math.max(
+		0,
+		Math.floor((Date.now() - Date.parse(progress.since)) / 1000),
+	);
+	return `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`;
 }
 
 /** The plan as a tree, each project beneath its first dependency in the plan. */
@@ -316,7 +403,9 @@ function PlanProject({
 						<LoaderCircleIcon className="size-4 shrink-0 animate-spin" />
 					)}
 					{step.review.status === "pending"
-						? "An agent is reviewing dependencies to propose the release type…"
+						? step.review.progress === undefined
+							? "Waiting for an agent to review dependencies…"
+							: `${step.review.progress.agent} is reviewing dependencies to propose the release type…`
 						: step.review.status === "failed"
 							? `Review failed: ${step.review.reasons}`
 							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}

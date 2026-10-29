@@ -6,7 +6,12 @@ import {
 } from "../conversations";
 import { fail } from "../exit";
 import { Git } from "../git";
-import type { ShipPlan, ShipReview, ShipStep } from "../ship";
+import type {
+	ShipPlan,
+	ShipReview,
+	ShipReviewProgress,
+	ShipStep,
+} from "../ship";
 import type { Project } from "./shared";
 
 /** Runs a read-only review in the dependent, using its ordinary Auto pick rules. */
@@ -16,6 +21,7 @@ export async function reviewShip(
 	step: ShipStep,
 	plan: ShipPlan,
 	roots: Record<string, string>,
+	report: (progress: ShipReviewProgress) => Promise<void>,
 ): Promise<ShipReview> {
 	if (conversations === null) {
 		fail("usage", "ship review needs an available agent");
@@ -66,7 +72,22 @@ export async function reviewShip(
 				automatic: true,
 			}),
 	});
+	const since = new Date().toISOString();
+	let said = "";
+	const tell = () => {
+		const activity = activityOf(conversation);
+		if (activity !== said) {
+			said = activity;
+			void report({ agent: conversation.state.agent, activity, since });
+		}
+	};
+	const off = conversations.events.on("changed", (id) => {
+		if (id === conversation.id) {
+			tell();
+		}
+	});
 	try {
+		tell();
 		await conversation.prompt(words, [], undefined, { told: SERVER_TOLD });
 		await settled(conversations, conversation);
 		if (conversation.state.status === "failed") {
@@ -82,8 +103,34 @@ export async function reviewShip(
 				.join("") ?? "";
 		return readReview(text);
 	} finally {
+		off();
 		await conversation.archive();
 	}
+}
+
+/** What the review agent is doing now, in a few words, from its latest message. */
+export function activityOf(conversation: Conversation): string {
+	const { status, queue } = conversation.state;
+	if (queue !== null) {
+		return "Waiting for a place on a worker";
+	}
+	if (status === "starting") {
+		return "Starting up";
+	}
+	const part = conversation.state.messages
+		.findLast((message) => message.role === "agent")
+		?.parts.findLast((each) => each.type !== "image" && each.type !== "file");
+	if (part === undefined) {
+		return "Reading the review request";
+	}
+	if (part.type === "tool") {
+		const what = part.command ?? part.target ?? part.title;
+		return `${part.kind === null ? "Running" : part.title}: ${what}`.slice(
+			0,
+			200,
+		);
+	}
+	return part.type === "text" ? "Writing its verdict" : "Thinking";
 }
 
 /** Read a structured release proposal, with reasons and a supported release type. */
