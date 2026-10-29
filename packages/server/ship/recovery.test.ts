@@ -209,7 +209,7 @@ describe("ShipRecovery", () => {
 			log: new MemoryLogger(),
 			plan: async (slug, bump) => planShip(setup.graph, slug, bump),
 			recover: async () => setup.recovery.plan(setup.graph, setup.stopped),
-			snapshot: async () => "unchanged",
+			snapshot: async () => ({}),
 			review: async (step) => {
 				seen.push(step.slug);
 				return {

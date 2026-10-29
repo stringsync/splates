@@ -522,7 +522,7 @@ export async function dev(
 		},
 		snapshot: async (plan) => {
 			const registered = await projects.list();
-			const revisions = [];
+			const revisions: Record<string, string> = {};
 			for (const step of [
 				...plan.steps,
 				...(plan.recovery?.inputs.map((use) => ({ slug: use.project })) ?? []),
@@ -544,9 +544,9 @@ export async function dev(
 						`${step.slug} needs a clean tree before ship review; dirty in ${root}: ${shown}${more}. Commit, delete or \`git stash -u\` them, then review again`,
 					);
 				}
-				revisions.push([step.slug, root, await git.head(root)]);
+				revisions[step.slug] = JSON.stringify([root, await git.head(root)]);
 			}
-			return JSON.stringify([plan, revisions]);
+			return revisions;
 		},
 		review: async (step, plan) =>
 			(await projectNamed(step.slug)).reviewShip(

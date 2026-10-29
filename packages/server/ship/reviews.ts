@@ -22,8 +22,17 @@ interface Draft {
 	/** The dependents the person left out of the plan. */
 	skip?: string[];
 	key: string;
-	snapshot: string;
+	/** Each reviewed project's checked-out source, by slug; a string in drafts saved before it was kept per project. */
+	snapshot: Record<string, string> | string;
 	plan: ShipPlan;
+	/** Finished reviews of earlier drafts at this release type, for a redraw that leaves out or adds back a dependent. */
+	earlier?: Reviewed[];
+}
+
+/** A finished review of a step, with the source of its project it read. */
+interface Reviewed {
+	step: ShipStep;
+	source: string;
 }
 
 /** Saved, reviewed plans. A redraw supersedes the old approval; a restart marks interrupted reviews for an explicit retry. */
@@ -36,7 +45,8 @@ export class ShipReviews {
 			log: Logger;
 			plan: (slug: string, bump: ShipBump, skip: string[]) => Promise<ShipPlan>;
 			recover?: (id: string) => Promise<ShipPlan>;
-			snapshot: (plan: ShipPlan) => Promise<string>;
+			/** Each project the plan reviews, by slug, to a value that changes with its source. */
+			snapshot: (plan: ShipPlan) => Promise<Record<string, string>>;
 			review: ReviewShip;
 			ids?: IdProvider;
 		},
@@ -77,8 +87,15 @@ export class ShipReviews {
 				return old;
 			}
 			plan.id = this.ids.next();
+			const earlier =
+				retry || old === null || old.used || old.bump !== bump
+					? []
+					: reviewed(old);
 			for (const step of plan.steps) {
-				if (step.takes.length > 0 || plan.recovery !== undefined) {
+				const kept = keptReview(earlier, step, snapshot);
+				if (kept !== undefined) {
+					adopt(step, kept);
+				} else if (step.takes.length > 0 || plan.recovery !== undefined) {
 					step.review = {
 						status: "pending",
 						proposed: null,
@@ -88,7 +105,14 @@ export class ShipReviews {
 			}
 			this.running.add(plan.id);
 			launch = true;
-			return { key, snapshot, plan, bump, skip };
+			return {
+				key,
+				snapshot,
+				plan,
+				bump,
+				skip,
+				...(earlier.length > 0 ? { earlier } : {}),
+			};
 		});
 		const id = draft.plan.id as string;
 		if (
@@ -224,14 +248,7 @@ export class ShipReviews {
 				) {
 					throw new Error("The agent did not complete its release review");
 				}
-				step.review = review;
-				if (review.status === "done" && step.action === "ship") {
-					step.bump = review.proposed;
-					step.to =
-						step.from === null || step.bump === null
-							? null
-							: nextVersion(step.from, step.bump);
-				}
+				adopt(step, review);
 			} catch (error) {
 				step.review = {
 					status: "failed",
@@ -245,5 +262,59 @@ export class ShipReviews {
 					: (current ?? draft),
 			);
 		}
+	}
+}
+
+/** The finished reviews `old` holds, of its steps and of its earlier drafts', each once. */
+function reviewed(old: Draft): Reviewed[] {
+	const snapshot = old.snapshot;
+	if (typeof snapshot !== "object") {
+		return [];
+	}
+	const all = [
+		...old.plan.steps.flatMap((step) => {
+			const source = snapshot[step.slug];
+			return step.review?.status === "done" && source !== undefined
+				? [{ step, source }]
+				: [];
+		}),
+		...(old.earlier ?? []),
+	];
+	return all.filter(
+		(prior, index) =>
+			all.findIndex((other) => inputs(other) === inputs(prior)) === index,
+	);
+}
+
+/** What a review of a step read: the step's place in the plan and its project's source. */
+function inputs(reviewed: { step: ShipStep; source: string | undefined }) {
+	const { slug, action, from, takes } = reviewed.step;
+	return JSON.stringify([slug, action, from, takes, reviewed.source]);
+}
+
+/**
+ * The finished review among `earlier` of a step like `step`, when its
+ * project's source is unchanged too, so a redraw that only leaves out or adds
+ * back other dependents need not review it again.
+ */
+function keptReview(
+	earlier: Reviewed[],
+	step: ShipStep,
+	snapshot: Record<string, string>,
+): ShipReview | undefined {
+	const wanted = inputs({ step, source: snapshot[step.slug] });
+	const before = earlier.find((prior) => inputs(prior) === wanted);
+	return before === undefined ? undefined : structuredClone(before.step.review);
+}
+
+/** Records `review` on `step`, a finished ship taking the release type it proposes. */
+function adopt(step: ShipStep, review: ShipReview): void {
+	step.review = review;
+	if (review.status === "done" && step.action === "ship") {
+		step.bump = review.proposed;
+		step.to =
+			step.from === null || step.bump === null
+				? null
+				: nextVersion(step.from, step.bump);
 	}
 }

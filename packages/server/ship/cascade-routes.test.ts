@@ -82,7 +82,7 @@ describe("CascadeRoutes", () => {
 			storage,
 			log: new MemoryLogger(),
 			plan,
-			snapshot: async () => "revision",
+			snapshot: async () => ({}),
 			review: async () => ({
 				status: "done",
 				proposed: "minor",
