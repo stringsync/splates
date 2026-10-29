@@ -33,8 +33,6 @@ export interface ShipStep {
 	takes: Use[];
 	/** Why it ships or only takes its bump. */
 	why: string;
-	/** What adopting the upstream releases needs here, as the ship's agent noted it. */
-	adopt?: string;
 }
 
 /**
@@ -158,7 +156,6 @@ function planFrom(
 	roots: Map<string, string>,
 	bump: ShipBump = "patch",
 	skip: string[] = [],
-	edits: Map<string, ShipEdit> = new Map(),
 ): ShipPlan {
 	const shipping = new Set<string>();
 	const steps: ShipStep[] = [];
@@ -168,7 +165,7 @@ function planFrom(
 		const root = roots.get(project.slug);
 		if (root !== undefined) {
 			shipping.add(project.slug);
-			steps.push(edited(shipStep(project, takes, root, bump), edits));
+			steps.push(shipStep(project, takes, root, bump));
 			continue;
 		}
 		if (takes.length === 0) {
@@ -194,67 +191,9 @@ function planFrom(
 		}
 		shipping.add(project.slug);
 		const by = project.dependents.map((each) => each.project).join(", ");
-		steps.push(edited(shipStep(project, takes, `${by} pins it`), edits));
+		steps.push(shipStep(project, takes, `${by} pins it`));
 	}
 	return skipped.length === 0 ? { from, steps } : { from, steps, skipped };
-}
-
-/** What the ship's agent set for one project of a run, over what the graph draws. */
-export interface ShipEdit {
-	bump?: ShipBump;
-	why?: string;
-	adopt?: string;
-}
-
-/** `step` as `edits` set it: the release type, the reasons, the adoption note. */
-export function edited(step: ShipStep, edits: Map<string, ShipEdit>): ShipStep {
-	const edit = edits.get(step.slug);
-	if (edit === undefined) {
-		return step;
-	}
-	const bump = step.action === "ship" ? (edit.bump ?? step.bump) : step.bump;
-	return {
-		...step,
-		bump,
-		to:
-			step.action === "ship" && bump !== null && step.from !== null
-				? nextVersion(step.from, bump)
-				: step.to,
-		why: edit.why ?? step.why,
-		...(edit.adopt === undefined ? {} : { adopt: edit.adopt }),
-	};
-}
-
-/**
- * The plan to ship each of `roots` (slug to why) and everything downstream,
- * with `edits` applied to the projects that ship and the dependents `skip`
- * names left out. A root ships at a patch unless an edit says otherwise.
- */
-export function planRun(
-	graph: ShipGraph,
-	from: string,
-	roots: Map<string, string>,
-	edits: Map<string, ShipEdit> = new Map(),
-	skip: string[] = [],
-): ShipPlan {
-	for (const slug of roots.keys()) {
-		const project = graph.projects.find((each) => each.slug === slug);
-		if (project === undefined) {
-			throw new ShipPlanError(
-				"not_found",
-				`no registered project is named ${slug}`,
-			);
-		}
-		if (project.ship === null || project.private) {
-			throw new ShipPlanError(
-				"usage",
-				project.private
-					? `${slug} publishes no public package, so there is nothing to ship`
-					: `${slug} names no \`ship\` command in its splates.config.ts`,
-			);
-		}
-	}
-	return planFrom(graph, from, roots, "patch", skip, edits);
 }
 
 /** Why a dependent in a ship only takes its bump, or null when it ships too. */

@@ -8,7 +8,6 @@ const OUTPUT_EVERY = Duration.ms(250);
 
 /**
  * A project's ship over HTTP: the latest one, and its output as it prints.
- * A ship starts as the first step of a cascade, through {@link CascadeRoutes}.
  */
 export class ShipRoutes {
 	readonly #shipping: Shipping;

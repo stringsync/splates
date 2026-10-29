@@ -6,13 +6,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { shipGraph } from "./api";
 import { cn } from "./lib/utils";
 
-/**
- * The registered projects that ship or take a release, in one list in
- * release order, each after the projects whose packages it pins; Ship starts
- * the conversation that plans it, in place and pending on its own button, and
- * nothing ships until its plan is approved there. Above it, one button for
- * every project changed since its last release.
- */
+/** Registered projects in release order, with their unshipped commit counts. */
 export function ShipGraphTree({
 	endedAt,
 	ready,
@@ -21,7 +15,7 @@ export function ShipGraphTree({
 	onShip,
 	onShipChanged,
 }: {
-	/** Whether a ship can start: false while `splates server` holds no conversations. */
+	/** Whether ship planning is available. */
 	ready: boolean;
 	/** The key of the button whose ship is starting, a project's slug or `changed`. */
 	starting: string | null;

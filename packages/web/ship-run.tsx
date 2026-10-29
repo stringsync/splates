@@ -8,7 +8,6 @@ import type {
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { abandonCascade } from "./api";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
@@ -25,8 +24,7 @@ export function ShipRun({
 	cascade,
 	ship,
 	onClose,
-	onRecover,
-	abandon: abandonRun = abandonCascade,
+	abandon: abandonRun,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
@@ -34,13 +32,15 @@ export function ShipRun({
 	abandon?: () => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
-	onRecover?: () => void;
 }): JSX.Element {
 	const { refusals, refuse } = useRefusals<string>();
 	const [abandoning, setAbandoning] = useState(false);
 	const running = cascade.status === "running";
 	const held = cascade.steps.find((step) => HELD.includes(step.status));
 	const abandon = () => {
+		if (abandonRun === undefined) {
+			return;
+		}
 		setAbandoning(true);
 		abandonRun().then(askMachineNow, (error: unknown) => {
 			setAbandoning(false);
@@ -61,17 +61,12 @@ export function ShipRun({
 				<span className="text-muted-foreground text-xs tabular-nums">
 					{through} of {cascade.steps.length}
 				</span>
-				{!running && onRecover !== undefined && (
-					<Button size="xs" variant="outline" onClick={onRecover}>
-						Recover
-					</Button>
-				)}
 				{running ? (
 					<Button
 						size="xs"
 						variant="ghost"
 						className="ml-auto"
-						disabled={abandoning}
+						disabled={abandoning || abandonRun === undefined}
 						title="Ends the run, stopping its ship and removing its open bump tasks; what shipped stays shipped"
 						onClick={abandon}
 					>

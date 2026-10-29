@@ -29,7 +29,7 @@ import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Journal, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import { Bumps, Shipping, ShipRoutes } from "../ship";
+import { Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
@@ -185,12 +185,6 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
-		bumps: new Bumps({
-			tasks: project.tasks,
-			service,
-			fs: project.fs,
-			removeTaken: taskRoutes.removeNamed,
-		}),
 		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
@@ -470,7 +464,6 @@ export interface Served extends AsyncResource {
 	/** Runs the project's ship, as a cascade's step. */
 	shipping: Shipping;
 	/** The project's bump tasks in a cascade. */
-	bumps: Bumps;
 	/** What its latest ship printed, as it prints. */
 	shipOutput: Handler;
 	listCreds: Handler;

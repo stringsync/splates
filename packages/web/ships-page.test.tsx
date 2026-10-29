@@ -1,42 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type {
-	Cascade,
-	CascadeStep,
-	Ship,
-	ShipProject,
-	Stage,
-} from "@stringsync/splates-server/ship";
+import type { ShipProject } from "@stringsync/splates-server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
-import type { ConversationFeed } from "./conversation-feed";
-import { FakeStream, type Stream } from "./fake-stream";
 import { ShipsPage } from "./ships-page";
-import { act, cleanup, render, within } from "./testing-library";
-
-/** Moves the happy-dom page to `url`, which `history.replaceState` cannot from about:blank. */
-function at(url: string): void {
-	(
-		window as unknown as { happyDOM: { setURL(url: string): void } }
-	).happyDOM.setURL(url);
-}
+import { cleanup, render, within } from "./testing-library";
 
 describe("ShipsPage", () => {
 	beforeEach(() => {
-		streams = [];
-		globalThis.EventSource = class extends FakeStream {
-			constructor(readonly url: string) {
-				super();
-				streams.push(this);
-			}
-		} as unknown as typeof EventSource;
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), []))) as unknown as typeof fetch;
 	});
 
 	afterEach(() => {
 		cleanup();
-		globalThis.EventSource = realSource;
 		globalThis.fetch = realFetch;
 	});
 
@@ -58,7 +35,6 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		await say({ cascade: null, ship: null });
 		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
 			within(list)
@@ -93,54 +69,11 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		await say({ cascade: null, ship: null });
 		expect(await view.findByText("3 unshipped")).toBeTruthy();
 		expect(view.getByText("Up to date")).toBeTruthy();
 		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
 			"Missing release tag",
 		);
-	});
-
-	it("starts the ship of every changed project from one button, showing a refusal beside it instead of a card above", async () => {
-		const asked: string[] = [];
-		const graph = [
-			project({
-				slug: "webappwiz",
-				changes: { commits: 2, branch: "main", tag: "v0.0.53", error: null },
-			}),
-			project({
-				slug: "mdom",
-				uses: [{ project: "webappwiz", pins: [] }],
-				changes: { commits: 1, branch: "main", tag: "v0.0.53", error: null },
-			}),
-			project({
-				slug: "vexml",
-				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
-			}),
-		];
-		globalThis.fetch = (async (url: string) => {
-			asked.push(String(url));
-			return Response.json(answer(String(url), graph));
-		}) as unknown as typeof fetch;
-		const view = render(
-			<ShipsPage
-				feed={{ agents: [], conversations: [] } as unknown as ConversationFeed}
-			/>,
-		);
-		await say({ cascade: null, ship: null });
-		expect(
-			await view.findByText("2 projects have unshipped commits"),
-		).toBeTruthy();
-		expect(
-			view.getByText(
-				"webappwiz, mdom, released dependencies first, then what depends on them.",
-			),
-		).toBeTruthy();
-		await act(async () => {
-			view.getByRole("button", { name: "Ship all 2" }).click();
-		});
-		expect(view.queryByRole("region", { name: "ship picked" })).toBeNull();
-		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(true);
 	});
 
 	it("disables the pick of every changed project when none changed", async () => {
@@ -152,7 +85,6 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		await say({ cascade: null, ship: null });
 		expect(await view.findByText("Every project is up to date")).toBeTruthy();
 		expect(
 			view
@@ -161,210 +93,23 @@ describe("ShipsPage", () => {
 		).toBe(true);
 	});
 
-	it("picks the project a card named in ?ship=, which starts nothing until Start", async () => {
-		at("http://localhost/?ship=webappwiz#ships");
-		globalThis.fetch = (async (url: string) =>
-			Response.json(answer(String(url), []))) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
-		await say({ cascade: null, ship: null });
-		const picked = view.getByRole("region", { name: "ship picked" });
-		expect(picked.textContent).toContain("Ship webappwiz");
-		expect(location.search).toBe("");
-		at("about:blank");
-	});
-
-	it("lists every project's steps under way at once, with what waits on the person pinned beneath", async () => {
-		const view = render(<ShipsPage />);
-		await say({
-			cascade: cascade([
-				step({
-					slug: "webappwiz",
-					status: "done",
-					stages: [
-						stage({ key: "command", name: "Ship command", state: "done" }),
-					],
-				}),
-				step({
-					slug: "mdom",
-					status: "asking",
-					task: 12,
-					stages: [stage({ key: "bump", name: "Bump task", state: "asking" })],
-				}),
-			]),
-			ship: null,
-		});
-		const under = view.getByRole("region", { name: "under way" });
-		expect(under.textContent).toContain("1 of 2");
-		expect(within(under).getByRole("button", { name: "Abandon" })).toBeTruthy();
-		const webappwiz = within(under).getByRole("listitem", {
-			name: "webappwiz",
-		});
-		expect(
-			within(webappwiz).getByRole("listitem", { name: "Ship command" }),
-		).toBeTruthy();
-		const mdom = within(under).getByRole("listitem", { name: "mdom" });
-		expect(mdom.textContent).toContain("asks you");
-		const needs = within(under).getByRole("status", { name: "needs you" });
-		expect(needs.textContent).toContain("mdom's bump task asks you something");
-		expect(
-			within(needs)
-				.getByRole("link", { name: "Answer #12" })
-				.getAttribute("href"),
-		).toBe("?project=mdom#todos/12");
-	});
-
-	it("pins npm's page beneath the steps while a publish waits on the person", async () => {
-		const view = render(<ShipsPage />);
-		await say({
-			cascade: cascade([
-				step({ slug: "webappwiz", status: "done" }),
-				step({ slug: "mdom", status: "shipping" }),
-			]),
-			ship: {
-				project: "mdom",
-				command: "wiz dev ship",
-				bump: "patch",
-				status: "running",
-				step: "ship",
-				from: "0.0.50",
-				to: null,
-				started: "2026-10-27T12:00:01.000Z",
-				ended: null,
-				waiting: {
-					kind: "2fa",
-					url: "https://www.npmjs.com/auth/cli/abc",
-					since: "2026-10-27T12:00:00.000Z",
-				},
-				error: null,
-				resumed: 0,
-			},
-		});
-		const needs = view.getByRole("status", { name: "needs you" });
-		expect(needs.textContent).toContain("Approve mdom on npm");
-		expect(
-			within(needs)
-				.getByRole("link", { name: "Open npm" })
-				.getAttribute("href"),
-		).toBe("https://www.npmjs.com/auth/cli/abc");
-	});
-
-	it("shows a ship still being planned with its conversation, hides the picker, and tells it on Abandon", async () => {
+	it("keeps planning disabled and never requests the old run endpoint", async () => {
 		const asked: string[] = [];
-		let run: unknown = {
-			run: {
-				id: "r1",
-				from: "webappwiz",
-				projects: ["webappwiz"],
-				state: "planning",
-				started: "2026-10-27T12:00:00.000Z",
-				edits: {},
-				skipped: [],
-				conversation: "c9",
-			},
-			plan: null,
-		};
-		globalThis.fetch = (async (url: string, init?: RequestInit) => {
-			asked.push(`${init?.method ?? "GET"} ${url}`);
-			const abandoned = init?.method === "POST";
-			run = abandoned ? null : run;
-			return Response.json(
-				url.startsWith("/api/ship/run") ? run : answer(url, []),
-			);
+		globalThis.fetch = (async (url: string) => {
+			asked.push(String(url));
+			return Response.json(answer(String(url), [project({})]));
 		}) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		await say({ cascade: null, ship: null });
-		const planning = await view.findByRole("region", { name: "planning" });
+		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
-			within(planning)
-				.getByRole("link", { name: /Open its conversation/ })
-				.getAttribute("href"),
-		).toContain("#conversations/c9");
-		expect(view.queryByRole("list", { name: "Ship graph" })).toBeNull();
-		await act(async () => {
-			within(planning).getByRole("button", { name: "Abandon" }).click();
-		});
-		expect(asked).toContain("POST /api/ship/run/abandon");
-		expect(view.queryByRole("region", { name: "planning" })).toBeNull();
-	});
-
-	it("replans a stopped run by picking none, as Recover", async () => {
-		localStorage.removeItem("splates.ship.closed");
-		const view = render(<ShipsPage />);
-		await say({
-			cascade: {
-				...cascade([step({ status: "failed" })]),
-				id: "stopped",
-				status: "stopped",
-			},
-			ship: null,
-		});
-		await act(async () =>
-			view.getByRole("button", { name: "Recover" }).click(),
-		);
-		expect(
-			within(view.getByRole("region", { name: "ship picked" })).getByText(
-				"Replan the stopped ship of webappwiz",
-			),
-		).toBeTruthy();
-	});
-
-	it("shows a stopped run until it is closed, with why it stopped and npm's settings when that is the remedy", async () => {
-		localStorage.removeItem("splates.ship.closed");
-		globalThis.fetch = (async (url: string) =>
-			Response.json(answer(String(url), []))) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
-		const stopped = {
-			...cascade([
-				step({
-					slug: "webappwiz",
-					status: "failed",
-					note: "npm asked for a typed code, which splates never takes: add a security key to your npm 2FA at https://www.npmjs.com/settings/jared/tfa so npm asks on its page",
-					stages: [stage({ key: "otp", name: "2FA", state: "failed" })],
-				}),
-				step({ slug: "mdom", status: "abandoned" }),
-			]),
-			status: "stopped" as const,
-		};
-		await say({ cascade: stopped, ship: null });
-		const under = view.getByRole("region", { name: "under way" });
-		expect(under.textContent).toContain("Stopped at webappwiz");
-		expect(
-			within(under).getByRole("listitem", { name: "mdom" }).textContent,
-		).toContain("not run");
-		const needs = within(under).getByRole("status", { name: "needs you" });
-		expect(needs.textContent).toContain("webappwiz: 2FA failed");
-		expect(needs.textContent).toContain(
-			"add a security key to your npm 2FA so npm asks on its page",
-		);
-		expect(
-			within(needs)
-				.getByRole("link", { name: "Open npm settings" })
-				.getAttribute("href"),
-		).toBe("https://www.npmjs.com/settings/jared/tfa");
-		expect(within(under).queryByRole("button", { name: "Resume" })).toBeNull();
-
-		await act(async () => {
-			within(under).getByRole("button", { name: "Close" }).click();
-		});
-		expect(view.queryByRole("region", { name: "under way" })).toBeNull();
+			within(list)
+				.getByRole("button", { name: "Ship" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(view.getByText("Ship-step planning is coming.")).toBeTruthy();
+		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 });
-
-function stage(over: Partial<Stage>): Stage {
-	return {
-		key: "bump",
-		name: "Bump task",
-		state: "pending",
-		started: null,
-		ended: null,
-		expected: 240_000,
-		known: true,
-		deadline: null,
-		check: null,
-		log: null,
-		...over,
-	};
-}
 
 function project(over: Partial<ShipProject>): ShipProject {
 	return {
@@ -379,59 +124,12 @@ function project(over: Partial<ShipProject>): ShipProject {
 		...over,
 	};
 }
-
-function step(over: Partial<CascadeStep>): CascadeStep {
-	return {
-		slug: "webappwiz",
-		action: "ship",
-		from: "1.4.2",
-		bump: "patch",
-		to: "1.4.3",
-		publishes: [],
-		takes: [],
-		why: "the project shipped",
-		status: "waiting",
-		task: null,
-		ship: null,
-		published: [],
-		note: null,
-		stages: [],
-		...over,
-	};
-}
-
-function cascade(steps: CascadeStep[]): Cascade {
-	return {
-		id: "2026-10-27T12-00-00-000Z-webappwiz",
-		from: steps[0]?.slug ?? "webappwiz",
-		status: "running",
-		started: "2026-10-27T12:00:00.000Z",
-		ended: null,
-		steps,
-	};
-}
-
-/** What the server answers `url`: the graph, no ship run planned, else an empty list. */
+/** What the server answers `url`: the graph, else an empty history list. */
 function answer(url: string, projects: unknown[]): unknown {
 	if (url.startsWith("/api/ship/graph")) {
 		return { projects };
 	}
-	return url.startsWith("/api/ship/run") ? null : [];
+	return [];
 }
 
-const realSource = globalThis.EventSource;
 const realFetch = globalThis.fetch;
-let streams: (FakeStream & { url: string })[] = [];
-
-/** Has the server say `live`, as its stream does. */
-async function say(live: { cascade: Cascade | null; ship: Ship | null }) {
-	await act(async () => {
-		for (const stream of streams.filter((each) =>
-			each.url.startsWith("/api/ship/events"),
-		)) {
-			(stream.onmessage as unknown as Stream["onmessage"])?.({
-				data: JSON.stringify(live),
-			});
-		}
-	});
-}

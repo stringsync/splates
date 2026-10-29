@@ -369,6 +369,12 @@ export class Testing implements Resource {
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
 			}
+			if (route === "/api/ship/graph") {
+				return Response.json({ projects: [] });
+			}
+			if (route === "/api/ship/history") {
+				return Response.json([]);
+			}
 			if (route === "/api/evals") {
 				return Response.json([]);
 			}

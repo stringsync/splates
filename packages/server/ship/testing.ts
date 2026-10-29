@@ -1,12 +1,7 @@
 export { FakeReleaseGit } from "./fake-release-git";
 
 import { FakeFs, type FakePs } from "webappwiz/system/testing";
-import type { BumpState, BumpTake } from "./bumps";
-import type { CascadeProject } from "./cascade";
 import type { ShipGraph, ShipSource } from "./graph";
-import type { ShipBump } from "./plan";
-import type { Ship } from "./run";
-import type { Stage } from "./stages";
 
 /** A `package.json` a fixture writes. */
 type Manifest = Record<string, unknown>;
@@ -100,88 +95,6 @@ export async function until(done: () => Promise<boolean>): Promise<void> {
 		await Bun.sleep(5);
 	}
 	throw new Error("timed out");
-}
-
-/** A project as a cascade reaches it, its ship and bump tasks driven by the test. */
-export class FakeProject implements CascadeProject {
-	ship: Ship | null = null;
-	afterBump: string | null = null;
-	starts = 0;
-	releaseBumps: ShipBump[] = [];
-	refuse: string | null = null;
-	bumps = {
-		added: [] as { from: string; origin: string; takes: BumpTake[] }[],
-		states: new Map<number, BumpState>(),
-		add: async (
-			{ from, origin }: { from: string; origin: string },
-			takes: BumpTake[],
-		) => {
-			this.bumps.added.push({ from, origin, takes });
-			const id = 100 + this.bumps.added.length;
-			this.bumps.states.set(id, "open");
-			return id;
-		},
-		state: async (id: number) => this.bumps.states.get(id) ?? "removed",
-		removed: [] as number[],
-		remove: async (id: number) => {
-			this.bumps.removed.push(id);
-			this.bumps.states.set(id, "removed");
-		},
-	};
-	/** The logs each ship was told to write to. */
-	logs: (string | undefined)[] = [];
-	stops = 0;
-	shipping = {
-		start: async (
-			bump: ShipBump = "patch",
-			{ log }: { log?: string } = {},
-		): Promise<Ship> => {
-			if (this.refuse !== null) {
-				throw new Error(this.refuse);
-			}
-			this.starts++;
-			this.releaseBumps.push(bump);
-			this.logs.push(log);
-			this.ship = {
-				project: this.root.slice(1),
-				command: "wiz dev ship",
-				bump,
-				status: "running",
-				step: "login",
-				from: null,
-				to: null,
-				started: `2026-10-27T12:00:0${this.starts}.000Z`,
-				ended: null,
-				waiting: null,
-				error: null,
-				resumed: 0,
-				log,
-				stages: this.stages,
-			};
-			return this.ship;
-		},
-		current: async () => this.ship,
-		stop: async () => {
-			this.stops++;
-			this.end("failed");
-		},
-	};
-
-	/** The ship's own steps as its next ship starts them, which a test may set. */
-	stages: Stage[] | undefined = undefined;
-
-	constructor(readonly root: string) {}
-
-	/** Its first bump task. */
-	bump(): number {
-		return 101;
-	}
-
-	end(status: "done" | "failed", to: string | null = null): void {
-		if (this.ship !== null) {
-			this.ship = { ...this.ship, status, to, error: "npm said no\nmore" };
-		}
-	}
 }
 
 /** `graph` with each project `commits` names that many commits past its version tag. */

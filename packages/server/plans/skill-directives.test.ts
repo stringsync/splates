@@ -34,7 +34,6 @@ describe("the splates skill's Directives table", () => {
 				GRANT_DENIED,
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
-				"[SPLATES SHIP <run>]",
 			].toSorted(),
 		);
 	});

@@ -29,20 +29,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import {
-	AdoptRoutes,
-	CascadeRoutes,
-	Cascades,
-	CHANGED,
-	planShip,
-	registeredGraph,
-	ShipHistory,
-	ShipPlans,
-	ShipRecovery,
-	ShipRegistry,
-	ShipRunRoutes,
-	ShipRuns,
-} from "../ship";
+import { CascadeRoutes, Cascades, registeredGraph } from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -549,107 +536,8 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const drawShipPlan = async (
-		slug: string,
-		bump: import("../ship").ShipBump,
-		skip: string[] = [],
-	) =>
-		planShip(
-			await registeredGraph({ projects, fs, log, ps }),
-			slug,
-			bump,
-			skip,
-		);
-	const shipHistory = new ShipHistory(machineStorage, fs);
-	const shipRegistry = new ShipRegistry({ fetch: deps.fetch ?? fetch });
-	const recovery = new ShipRecovery(shipRegistry);
-	const plans = new ShipPlans({
-		storage: machineStorage,
-		plan: drawShipPlan,
-		recover: async (id) => {
-			const stopped = await shipHistory.read(id);
-			if (stopped === null) {
-				fail("not_found", "the stopped ship is no longer in history");
-			}
-			return recovery.plan(
-				await registeredGraph({ projects, fs, log, ps }),
-				stopped,
-				await shipHistory.list(),
-			);
-		},
-	});
-	const cascades = new Cascades({
-		plans,
-		storage: machineStorage,
-		fs,
-		log,
-		plan: drawShipPlan,
-		reach: projectNamed,
-		registry: shipRegistry,
-	});
-	disposer.defer(async () => cascades.dispose());
-	// A cascade the server stopped in the middle of carries on as it serves again.
-	void cascades
-		.resume()
-		.catch((error: unknown) =>
-			log.error(`resuming the ship cascade: ${error}`),
-		);
-	const shipRuns = new ShipRuns({
-		storage: machineStorage,
-		graph: () => registeredGraph({ projects, fs, log, ps }),
-		recover: async (id) => {
-			const stopped = await shipHistory.read(id);
-			if (stopped === null) {
-				fail("not_found", "the stopped ship is no longer in history");
-			}
-			return recovery.plan(
-				await registeredGraph({ projects, fs, log, ps }),
-				stopped,
-				await shipHistory.list(),
-			);
-		},
-		cascades,
-	});
-	const shipRunRoutes = new ShipRunRoutes(
-		shipRuns,
-		async (run, conversation) => {
-			// A ship of several projects is logged in the first one's journal.
-			const journal = (await projectNamed(run.projects[0] ?? "")).journal;
-			await (conversation === null ? journal : journal.in(conversation)).record(
-				"ship start",
-				null,
-				async () => {},
-				{ run: run.id, projects: run.projects },
-			);
-		},
-		async (run) => {
-			if (run.conversation === undefined) {
-				return;
-			}
-			// The ship agent hears it, to stop what it was driving.
-			let owner = await holding(run.conversation);
-			if (owner === null) {
-				await everywhere.openAll();
-				owner = await holding(run.conversation);
-			}
-			if (owner?.conversations == null) {
-				return;
-			}
-			const told = await owner.conversations.find(run.conversation);
-			await told.prompt(
-				`[SPLATES SHIP ABANDONED ${run.id}] The person abandoned this ship from the Ships page. Stop driving it: run no more \`splates ship\` commands for it, and end with a Done report.`,
-				[],
-				undefined,
-				{ told: SERVER_TOLD },
-			);
-		},
-	);
-	const adoptRoutes = new AdoptRoutes(cascades);
-	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
-		new URL(request.url).searchParams.get("project") === CHANGED
-			? CHANGED
-			: context.everywhere.slug((await projectFor(request)).root),
-	);
+	const cascades = new Cascades(machineStorage, fs);
+	const cascadeRoutes = new CascadeRoutes(cascades);
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(
 		machineStorage,
@@ -922,59 +810,11 @@ export async function dev(
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
-					"/api/ship": {
-						GET: scoped((project) => project.ship),
-						// It publishes under the person's npm sign-in, so only as
-						// far as a conversation reaches.
-						POST: talk(guarded(cascadeRoutes.startCascade)),
-					},
-					"/api/ship/plan": guarded(cascadeRoutes.plan),
-					// Who pins whose packages, the tree the Ship page ships from.
+					"/api/ship": { GET: scoped((project) => project.ship) },
 					"/api/ship/graph": guarded(async () =>
 						Response.json(await registeredGraph({ projects, fs, log, ps })),
 					),
-					"/api/ship/cascade": {
-						GET: guarded(cascadeRoutes.cascade),
-						PATCH: talk(guarded(cascadeRoutes.reviseCascadeBump)),
-					},
-					// It adds a queued task, so only as far as a conversation reaches.
-					// It stops a publish and removes tasks, so only as far as a
-					// conversation reaches.
-					"/api/ship/cascade/abandon": {
-						POST: talk(guarded(cascadeRoutes.abandonCascade)),
-					},
-					// The conversation plans a ship through these; the page's Approve
-					// alone starts it, so it is the one not limited to a conversation.
-					"/api/ship/run": {
-						GET: guarded(shipRunRoutes.run),
-						POST: talk(guarded(shipRunRoutes.start)),
-					},
-					"/api/ship/run/set": { POST: talk(guarded(shipRunRoutes.set)) },
-					"/api/ship/run/leave-out": {
-						POST: talk(guarded(shipRunRoutes.leaveOut)),
-					},
-					"/api/ship/run/note": { POST: talk(guarded(shipRunRoutes.note)) },
-					"/api/ship/run/propose": {
-						POST: talk(guarded(shipRunRoutes.propose)),
-					},
-					"/api/ship/run/conversation": {
-						POST: guarded(shipRunRoutes.attach),
-					},
-					"/api/ship/run/abandon": {
-						POST: talk(guarded(shipRunRoutes.abandon)),
-					},
-					"/api/ship/run/approve": { POST: guarded(shipRunRoutes.approve) },
-					"/api/ship/run/next": { GET: talk(guarded(adoptRoutes.next)) },
-					"/api/ship/run/adopted": {
-						POST: talk(guarded(adoptRoutes.adopted)),
-					},
-					"/api/ship/run/landed": { POST: talk(guarded(adoptRoutes.landed)) },
-					"/api/ship/run/stopped": {
-						POST: talk(guarded(adoptRoutes.stopped)),
-					},
-					"/api/ship/run/handoff": {
-						POST: talk(guarded(adoptRoutes.handoff)),
-					},
+					"/api/ship/cascade": { GET: guarded(cascadeRoutes.cascade) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),

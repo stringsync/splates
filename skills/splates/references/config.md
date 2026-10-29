@@ -43,8 +43,8 @@ in the splates repository) documents each one, and its defaults are in
 | `postRewrite`  | `null`  | After `merge` rebases, before `preMerge`, since a rebase can bring a dependency the worktree never installed.                                                                                                                              |
 | `preLock`      | `null`  | After the first rebase, before the merge waits for the premerge lock: a quick check that needs neither the lock nor the cores. A nonzero exit fails the gate. `preMerge` then gets `$SPLATES_CHECKED`, the commit it passed on, to skip what it covered. |
 | `preMerge`     | `null`  | The last gate, after the rebase: a nonzero exit leaves the base untouched. `null` merges on a clean rebase alone. Writing a JUnit report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test over 5 seconds, and from Bun charges an attempt only for failures the task caused. |
-| `ship`         | `null`  | What `splates ship` runs from the root to publish the project's packages at their next version and commit and tag the release on trunk. `null` never ships it, though it still takes bumps of what it depends on. Only the person ships. |
-| `afterBump`    | `null`  | Not run by splates: a ship cascade's bump task, in each project taking this one's new versions, lists it as a step after `bun install`, for the agent to run in the worktree and commit what it changes, as splates's `"bunx @stringsync/splates refresh"`. |
+| `ship`         | `null`  | What the publish runner runs from the root to publish the project's packages at their next version and commit and tag the release on trunk. `null` never ships it. Only the person ships. |
+| `afterBump` | `null` | A command for consumers to run after installing this project’s new versions, such as `"bunx @stringsync/splates refresh"`. Retained for ship-step adoption; the old cascade no longer runs bump tasks. |
 
 ## Task events
 

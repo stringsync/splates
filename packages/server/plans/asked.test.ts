@@ -399,33 +399,6 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a ship plan card with the id of its frozen plan", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: ship plan: webappwiz",
-				"",
-				"Plan: `abc-123`",
-				"",
-				"1. webappwiz ships 1.0.0 → 1.0.1 (patch)",
-				"   a fix",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "permission",
-				permission: {
-					action: "ship-plan",
-					lane: null,
-					tasks: [],
-					title: "webappwiz",
-					body: "1. webappwiz ships 1.0.0 → 1.0.1 (patch)\n   a fix",
-					shipPlan: "abc-123",
-				},
-			},
-		]);
-	});
-
 	it("reads a run evals permission with its scenarios and baseline", () => {
 		const found = stretches(
 			[

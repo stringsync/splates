@@ -22,13 +22,9 @@ export function queueIsSettled(
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
-	return [
-		PERMISSION,
-		GRANT_PERMISSION,
-		EVALS_PERMISSION,
-		RUN_PERMISSION,
-		SHIP_PERMISSION,
-	].some((each) => each.test(line));
+	return [PERMISSION, GRANT_PERMISSION, EVALS_PERMISSION, RUN_PERMISSION].some(
+		(each) => each.test(line),
+	);
 }
 
 /** What the permission card titled `line`, with `body` under it, asks; null for any other line. */
@@ -40,17 +36,6 @@ export function permissionOf(
 	const evals = EVALS_PERMISSION.exec(line);
 	const run = RUN_PERMISSION.exec(line);
 	const grant = GRANT_PERMISSION.exec(line);
-	const ship = SHIP_PERMISSION.exec(line);
-	if (ship !== null) {
-		return {
-			action: "ship-plan",
-			lane: null,
-			tasks: [],
-			title: ship[1] || null,
-			body: body.replace(SHIP_PLAN_LINE, "").replace(/^\n+|\s+$/g, ""),
-			shipPlan: SHIP_PLAN_LINE.exec(body)?.[1] ?? "",
-		};
-	}
 	if (run !== null) {
 		const rows = body.split("\n");
 		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
@@ -147,13 +132,7 @@ export interface PermissionProposal {
 	 * a heavy command, the whole test suite among them, or let one project
 	 * reach further into another.
 	 */
-	action:
-		| "queue"
-		| "remove-lane"
-		| "run-evals"
-		| "run-command"
-		| "grant"
-		| "ship-plan";
+	action: "queue" | "remove-lane" | "run-evals" | "run-command" | "grant";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
@@ -171,11 +150,6 @@ export interface PermissionProposal {
 	body: string;
 	/** For `run-evals`: what to run, from the card's scenario list. */
 	evals?: EvalAsk;
-	/**
-	 * For `ship-plan`: the id of the frozen plan the card asks to approve,
-	 * from its `Plan: \`id\`` line; empty when the card names none.
-	 */
-	shipPlan?: string;
 	/** For `run-command`: the command to run, from the first backticked line. */
 	command?: string;
 }
@@ -211,9 +185,6 @@ const EVALS_PERMISSION =
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
-const SHIP_PERMISSION = /^## 🔐 Permission: ship plan(?::[ \t]*(.*?))?[ \t]*$/;
-/** A ship plan card's line naming its frozen plan. */
-const SHIP_PLAN_LINE = /^Plan: `([^`\s]+)`[ \t]*\n?/m;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;

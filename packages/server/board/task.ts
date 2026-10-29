@@ -426,13 +426,12 @@ export interface TaskRecord {
 	/** Its last Auto pick, with what the judge said of its words; absent for none. */
 	autoPick?: AutoPicked;
 	/** Who queued it, kept while it is queued or running; absent for one never queued. */
-	queuedBy?: QueuedBy;
+	queuedBy?: QueuedBy | { by: "ship"; project: string };
 	/** When it was last queued, kept while it is queued or running; absent for one never queued. */
 	queuedAt?: string;
 	/**
-	 * The blockers the queue let it go for: removed without merging, or, in
-	 * a record from before the queue kept them, neither queued nor running;
-	 * cleared when it is queued again. Absent for none.
+	 * The blockers that must be resolved before this task can run again.
+	 * Absent when no blocker caused it to leave the queue.
 	 */
 	unqueuedFor?: number[];
 	/**
@@ -457,13 +456,9 @@ export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
 }
 
 /**
- * Who put a task in the queue: the person, by hand or by queueing its lane,
- * or the ship of another project, whose plan the person approved.
+ * Who queued a task: the person directly, or a lane they queued.
  */
-export type QueuedBy =
-	| { by: "person" }
-	| { by: "lane"; lane: number }
-	| { by: "ship"; project: string };
+export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 
 /**
  * `state` taken out of the queue: back in ready when it was groomed, else
