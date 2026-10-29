@@ -1,6 +1,7 @@
 /**
  * Every project's agents as the sidebar and the phone's inbox group them: a
- * folder per project by name, those with no agents too,
+ * folder per project by name, those with no agents too, but General first
+ * and only while it has some,
  * each with its agents waiting on you on top, then its pinned ones,
  * then those at work, then the rest. What waits on you stays in its own
  * project, so reading down one never jumps to another's, and a switch moves
@@ -28,7 +29,8 @@ import type { Nested } from "./parts";
  * Every project's agents in folders, the page's own from `here`, which
  * shows a change at once, and the rest from the feed of every project.
  * Every project has its folder, even with no agents, so none comes and
- * goes under you.
+ * goes under you; only General, no project, shows once it has agents, or
+ * while the page shows it.
  */
 export function foldersOf(
 	projects: readonly EverywhereSummary[],
@@ -58,14 +60,21 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, null, true));
 	}
-	return listed.sort((one, other) =>
-		one.project === GENERAL
-			? -1
-			: other.project === GENERAL
-				? 1
-				: one.name.localeCompare(other.name) ||
-					(one.project ?? "").localeCompare(other.project ?? ""),
-	);
+	return listed
+		.filter(
+			(each) =>
+				each.project !== GENERAL ||
+				each.here ||
+				each.conversations.some((conversation) => !conversation.archived),
+		)
+		.sort((one, other) =>
+			one.project === GENERAL
+				? -1
+				: other.project === GENERAL
+					? 1
+					: one.name.localeCompare(other.name) ||
+						(one.project ?? "").localeCompare(other.project ?? ""),
+		);
 }
 
 /** One project's agents. */

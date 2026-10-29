@@ -1,3 +1,7 @@
+import {
+	GENERAL,
+	GENERAL_NAME,
+} from "@stringsync/splates-server/projects/browser";
 import type { ServerChoice } from "@stringsync/splates-server/server";
 import { useReactive } from "@webappwiz/react";
 import {
@@ -62,6 +66,7 @@ export function ProjectSwitcher({
 	hash,
 	servers: slots = true,
 	path = true,
+	general = false,
 	onPick,
 	className,
 }: {
@@ -80,6 +85,8 @@ export function ProjectSwitcher({
 	servers?: boolean;
 	/** Whether its trigger shows the project's path under its name. */
 	path?: boolean;
+	/** Whether it offers General first, for a conversation that belongs to no project. */
+	general?: boolean;
 	/** Told of a pick of another project just before the page shows it. */
 	onPick?: (project: ProjectChoice) => void;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
@@ -143,14 +150,22 @@ export function ProjectSwitcher({
 	const shortcut = useShortcutLabel("shortcuts.projects");
 
 	const words = query.trim().toLowerCase();
-	const matching = (projects ?? [])
+	const choices =
+		general && projects !== null ? [GENERAL_CHOICE, ...projects] : projects;
+	const matching = (choices ?? [])
 		.filter(
 			(each) =>
 				words === "" ||
-				each.slug.toLowerCase().includes(words) ||
+				nameOf(each).toLowerCase().includes(words) ||
 				each.root.toLowerCase().includes(words),
 		)
-		.sort((one, other) => one.slug.localeCompare(other.slug));
+		.sort((one, other) =>
+			one.slug === GENERAL
+				? -1
+				: other.slug === GENERAL
+					? 1
+					: one.slug.localeCompare(other.slug),
+		);
 	// Only worth listing when there is another to go to.
 	const otherServers = slots && servers.length > 1 ? servers : [];
 	const matchingServers = otherServers.filter(
@@ -162,7 +177,7 @@ export function ProjectSwitcher({
 	const picks = matching.length + matchingServers.length;
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.focused : each.slug === shown;
-	const here = (projects ?? []).find(current);
+	const here = (choices ?? []).find(current);
 	// Where it opens: on the project shown before, to go back with Enter.
 	const previous = () => {
 		const slug = previousProject();
@@ -273,7 +288,7 @@ export function ProjectSwitcher({
 							)}
 							<span className="flex min-w-0 flex-col">
 								<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
-								{path && here !== undefined && (
+								{path && here !== undefined && here.slug !== GENERAL && (
 									<span className="truncate text-muted-foreground text-xs leading-tight">
 										{shortPath(here.root)}
 									</span>
@@ -346,7 +361,13 @@ export function ProjectSwitcher({
 									<button
 										type="button"
 										disabled={each.gone}
-										title={each.gone ? `${each.root} is gone` : each.root}
+										title={
+											each.slug === GENERAL
+												? GENERAL_NAME
+												: each.gone
+													? `${each.root} is gone`
+													: each.root
+										}
 										onMouseEnter={() => setActive(at)}
 										onClick={() => go(each)}
 										className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-default disabled:opacity-50"
@@ -358,10 +379,12 @@ export function ProjectSwitcher({
 													each.gone && "line-through",
 												)}
 											>
-												{each.slug}
+												{nameOf(each)}
 											</span>
 											<span className="truncate text-muted-foreground text-xs">
-												{shortPath(each.root)}
+												{each.slug === GENERAL
+													? "No project"
+													: shortPath(each.root)}
 											</span>
 										</span>
 										{current(each) && (
@@ -384,18 +407,20 @@ export function ProjectSwitcher({
 											</span>
 										)}
 									</button>
-									<ProjectMenu
-										project={each}
-										current={current(each)}
-										hidden={!each.gone && at !== active}
-										onCopyPath={() => void copyPath(each)}
-										onShip={() => {
-											setOpen(false);
-											setShipping(new ShipApproval(each.slug));
-										}}
-										pending={forgetting.pending(each.slug)}
-										onForget={() => void forget(each)}
-									/>
+									{each.slug !== GENERAL && (
+										<ProjectMenu
+											project={each}
+											current={current(each)}
+											hidden={!each.gone && at !== active}
+											onCopyPath={() => void copyPath(each)}
+											onShip={() => {
+												setOpen(false);
+												setShipping(new ShipApproval(each.slug));
+											}}
+											pending={forgetting.pending(each.slug)}
+											onForget={() => void forget(each)}
+										/>
+									)}
 								</li>
 							))}
 						</ul>
@@ -494,4 +519,20 @@ export function ProjectSwitcher({
 /** What the switcher calls `server`: its slot's word, or the machine's own. */
 function serverName(server: ServerChoice): string {
 	return server.slot === null ? "this machine" : server.slot.word;
+}
+
+/** The switcher's pick for General, which the projects route never lists. */
+const GENERAL_CHOICE: ProjectChoice = {
+	slug: GENERAL,
+	root: "",
+	gone: false,
+	focused: false,
+	conversations: [],
+	waiting: 0,
+	ships: false,
+};
+
+/** What the switcher calls `each`: its slug, or General's own name. */
+function nameOf(each: ProjectChoice): string {
+	return each.slug === GENERAL ? GENERAL_NAME : each.slug;
 }

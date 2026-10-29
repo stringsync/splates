@@ -114,9 +114,27 @@ describe("App's agents, in a folder per project", () => {
 		).toBeTruthy();
 	});
 
+	it("leaves General out until it has a conversation", async () => {
+		testing.everywhere?.unshift({
+			...listed("~general", "/home/.splates/general", [
+				conversation({ id: "g0", title: "Old trip", archived: true }),
+			]),
+			repo: "General",
+		});
+		const { nav } = await inbox();
+
+		expect(
+			within(nav)
+				.getAllByRole("region")
+				.map((each) => each.getAttribute("aria-label")),
+		).not.toContain("General");
+	});
+
 	it("groups General first and starts its conversations without a project", async () => {
 		testing.everywhere?.unshift({
-			...listed("~general", "/home/.splates/general", []),
+			...listed("~general", "/home/.splates/general", [
+				conversation({ id: "g1", title: "Plan a trip", scratch: true }),
+			]),
 			repo: "General",
 		});
 		const { nav } = await inbox();

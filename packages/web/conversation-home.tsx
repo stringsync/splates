@@ -339,6 +339,7 @@ export function useNewConversation({
 			scope
 			path={false}
 			servers={false}
+			general
 			className="mx-0"
 			hash={`#conversations/${withDraft(auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`, identity)}`}
 			onPick={(each) => drafts.move(draft, newDraft(each.slug, null, identity))}

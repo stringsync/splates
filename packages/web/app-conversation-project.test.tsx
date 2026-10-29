@@ -7,6 +7,7 @@ import {
 	fireEvent,
 	Testing,
 	typeIn,
+	waitFor,
 	within,
 } from "./testing";
 
@@ -81,5 +82,42 @@ describe("App's new conversation, by project", () => {
 			"fix the login",
 		);
 		expect(localStorage.getItem(`splates.draft.${newDraft(null)}`)).toBeNull();
+	});
+
+	it("offers General first, outside any project, carrying what was typed there", async () => {
+		const home = view.getByRole("region", { name: "new conversation" });
+		await typeIn(
+			within(home).getByRole("textbox", { name: "Message input" }),
+			"plan a trip",
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(home).getByRole("button", { name: /^Switch project/ }),
+			),
+		);
+		const listed = await waitFor(() =>
+			view.getByRole("list", { name: "projects" }),
+		);
+		expect(
+			within(listed)
+				.getAllByRole("listitem")
+				.map((each) => [
+					each.textContent,
+					within(each).getAllByRole("button").length,
+				]),
+		).toEqual([
+			["GeneralNo project", 1],
+			["shop/code/shop", 2],
+			["webappwiz/code/webappwizcurrent", 2],
+		]);
+		await act(async () => fireEvent.click(within(listed).getByText("General")));
+
+		const there = new URL(String(testing.visited.at(-1)));
+		expect(there.searchParams.get("project")).toBe("~general");
+		expect(there.hash).toBe("#conversations/new/claude");
+		expect(localStorage.getItem(`splates.draft.${newDraft("~general")}`)).toBe(
+			"plan a trip",
+		);
 	});
 });
