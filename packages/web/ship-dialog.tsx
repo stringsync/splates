@@ -82,7 +82,7 @@ export function ShipDialog({
 	};
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent className="sm:max-w-3xl">
+			<DialogContent className="inset-0 h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
 				<DialogHeader>
 					<DialogTitle>
 						{approval.recovery === undefined
@@ -316,9 +316,12 @@ function PlanProject({
 			)}
 			<p className="pl-5.5 text-muted-foreground text-xs">{whyOf(step)}</p>
 			{step.review !== undefined && (
-				<p role="status" className="text-sm">
+				<p role="status" className="flex items-center gap-2 text-sm">
+					{step.review.status === "pending" && (
+						<LoaderCircleIcon className="size-4 shrink-0 animate-spin" />
+					)}
 					{step.review.status === "pending"
-						? "Reviewing dependencies…"
+						? "An agent is reviewing dependencies to propose the release type…"
 						: step.review.status === "failed"
 							? `Review failed: ${step.review.reasons}`
 							: `${step.review.proposed === null ? "Review" : `Proposed ${step.review.proposed}`}: ${step.review.reasons}`}

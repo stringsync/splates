@@ -304,7 +304,7 @@ describe("ShipDialog", () => {
 			},
 		});
 		const view = render(<ShipDialog approval={approval} onClose={() => {}} />);
-		await waitFor(() => view.getByText("Reviewing dependencies…"));
+		await waitFor(() => view.getByText(/reviewing dependencies/i));
 		const approveButton = view.getByRole("button", {
 			name: "Approve and ship",
 		});
