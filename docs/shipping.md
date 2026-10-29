@@ -5,22 +5,27 @@ versions to be live, adopt them, publish, then wait for the project’s own
 release to be live. The settled design is in
 [`designs/ship-steps.md`](../designs/ship-steps.md).
 
-`splates ship [<project>] [--dev <server-url>]` prints the Ships page link.
-The page retains the project list, unshipped commit counts and old ship history.
-Its Ship buttons are disabled during this transition. Old active cascade files
-are ignored on server boot; history remains readable.
+`splates ship [<project>] [--dev <server-url>]` prints the ship plan page link.
+Every Ship button opens `#ships/plan`. Pick a patch, minor or major bump for
+each project in release order, leave projects out, or enable Agent task and
+write instructions. Start submits the choices and opens Ships. A ship already
+running or stopped links to its progress instead of allowing another Start.
+
+Ships shows each project's stages, registry checks, task links and history.
+Retry resumes a stopped stage; Hand to an agent is offered after mechanical
+adoption fails. Abandon ends the ship while retaining published versions.
 
 ## Step API
 
-Until the plan page lands, `POST /api/ship/steps` accepts the person’s choices:
+`POST /api/ship/steps` accepts the person's choices:
 
 ```json
 {"projects":[{"slug":"library","bump":"patch","adopt":"mechanical","instructions":""},{"slug":"consumer","bump":"minor","adopt":"mechanical","instructions":"Keep the public API stable"}]}
 ```
 
 The server computes target versions, pins and release order from the registered
-graph. Agent adoption is refused until step tasks are available; instructions
-are stored with each step. `GET /api/ship/steps` reads the ship. The existing
+graph. Agent tasks start only when their step reaches adoption; instructions
+are carried verbatim into the task. `GET /api/ship/steps` reads the ship. The existing
 `/api/ship/events` stream reports its stages and the active npm prompt.
 
 Any failure stops the whole ship. `POST /api/ship/steps/retry` resumes the failed

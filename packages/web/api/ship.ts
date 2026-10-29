@@ -63,3 +63,22 @@ export async function actOnShip(
 		throw new ApiError("error", await response.text());
 	}
 }
+
+/** Start the ship with the person's confirmed project choices. */
+export async function startShip(selection: {
+	projects: {
+		slug: string;
+		bump: "patch" | "minor" | "major";
+		adopt: "mechanical" | "agent";
+		instructions: string;
+	}[];
+}): Promise<void> {
+	const response = await answered("/api/ship/steps", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(selection),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", await response.text());
+	}
+}

@@ -131,7 +131,7 @@ describe("ShipsPage", () => {
 		).toBe(true);
 	});
 
-	it("keeps planning disabled and never requests the old run endpoint", async () => {
+	it("enables planning and never requests the old run endpoint", async () => {
 		const asked: string[] = [];
 		globalThis.fetch = (async (url: string) => {
 			asked.push(String(url));
@@ -143,8 +143,7 @@ describe("ShipsPage", () => {
 			within(list)
 				.getByRole("button", { name: "Ship" })
 				.hasAttribute("disabled"),
-		).toBe(true);
-		expect(view.getByText("Ship-step planning is coming.")).toBeTruthy();
+		).toBe(false);
 		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 });

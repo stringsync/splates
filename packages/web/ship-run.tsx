@@ -39,6 +39,13 @@ export function ShipRun({
 }): JSX.Element {
 	const { refusals, refuse } = useRefusals<string>();
 	const [abandoning, setAbandoning] = useState(false);
+	const [acting, setActing] = useState(false);
+	const act = (run: () => Promise<void>, title: string) => {
+		setActing(true);
+		run()
+			.then(askMachineNow, (error: unknown) => refuse("", title, error))
+			.finally(() => setActing(false));
+	};
 	const running = cascade.status === "running";
 	const held = cascade.steps.find((step) => HELD.includes(step.status));
 	const abandon = () => {
@@ -67,13 +74,11 @@ export function ShipRun({
 				</span>
 				{cascade.status === "stopped" && retry !== undefined && (
 					<Button
-						size="xs"
+						size="sm"
+						className="min-h-11"
 						variant="outline"
-						onClick={() =>
-							retry().then(askMachineNow, (error) =>
-								refuse("", "Not retried", error),
-							)
-						}
+						disabled={acting || abandoning}
+						onClick={() => act(retry, "Not retried")}
 					>
 						Retry
 					</Button>
@@ -88,13 +93,11 @@ export function ShipRun({
 							),
 					) && (
 						<Button
-							size="xs"
+							size="sm"
+							className="min-h-11"
 							variant="outline"
-							onClick={() =>
-								agent().then(askMachineNow, (error: unknown) =>
-									refuse("", "Not handed to an agent", error),
-								)
-							}
+							disabled={acting || abandoning}
+							onClick={() => act(agent, "Not handed to an agent")}
 						>
 							Hand to an agent
 						</Button>
@@ -103,8 +106,8 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant="ghost"
-						className="ml-auto"
-						disabled={abandoning || abandonRun === undefined}
+						className="ml-auto min-h-11"
+						disabled={acting || abandoning || abandonRun === undefined}
 						title="Ends the ship; what published stays published"
 						onClick={abandon}
 					>
@@ -114,7 +117,7 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant="ghost"
-						className="ml-auto"
+						className="ml-auto min-h-11"
 						onClick={onClose}
 					>
 						Close
@@ -198,6 +201,23 @@ function ProjectStage({
 					{notRun ? "not run" : STATUSES[step.status]}
 				</span>
 			</div>
+			{step.task && (
+				<a
+					href={`?project=${encodeURIComponent(step.slug)}#todos/${encodeURIComponent(step.task)}`}
+					className="text-sm underline"
+				>
+					Task: {step.task}
+				</a>
+			)}
+			{step.takes.map((use) => (
+				<p key={use.project} className="text-muted-foreground text-xs">
+					Upstream: {use.project}{" "}
+					{use.pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}
+				</p>
+			))}
+			{step.note && (
+				<p className="text-sm text-muted-foreground">{step.note}</p>
+			)}
 			<ol aria-label={`${step.slug} steps`} className="ml-4 flex flex-col">
 				{step.stages.map((stage) => (
 					<StageRow

@@ -4,6 +4,8 @@ import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
+import { ShipPlanPage } from "./lazy-pages";
+import { shipsUrl } from "./project-places";
 import { ShipGraphTree } from "./ship-graph";
 import { ProjectStages, ShipRun } from "./ship-run";
 import { TopBar } from "./top-bar";
@@ -20,6 +22,9 @@ export function ShipsPage(_props: {
 	useEffect(() => {
 		shipHistory().then(setHistory, () => undefined);
 	}, []);
+	if (viewed === "plan") {
+		return <ShipPlanPage />;
+	}
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
 			<TopBar title="Ship" />
@@ -37,16 +42,17 @@ export function ShipsPage(_props: {
 							agent={() => actOnShip("agent")}
 						/>
 					)}
-					<p className="text-muted-foreground text-sm">
-						Ship-step planning is coming.
-					</p>
 					<ShipGraphTree
-						endedAt={null}
-						ready={false}
+						endedAt={live?.cascade?.ended ?? null}
+						ready={true}
 						starting={null}
 						refusal={null}
-						onShip={() => {}}
-						onShipChanged={() => {}}
+						onShip={(slug) => {
+							location.href = shipsUrl(slug);
+						}}
+						onShipChanged={() => {
+							location.href = shipsUrl("+changed");
+						}}
 					/>
 					{history.length > 0 && <History cascades={history} />}
 				</>

@@ -47,7 +47,7 @@ function places(): Record<string, Place> {
 export function shipsUrl(project: string): string {
 	const url = new URL(location.href);
 	url.searchParams.set("ship", project);
-	url.hash = "#ships";
+	url.hash = "#ships/plan";
 	return url.toString();
 }
 

@@ -74,7 +74,7 @@ describe("App's run-command card", () => {
 				await waitFor(() => view.getByRole("button", { name: "Open Ships" })),
 			),
 		);
-		await waitFor(() => expect(location.hash).toBe("#ships"));
+		await waitFor(() => expect(location.hash).toBe("#ships/plan"));
 		await waitFor(() =>
 			expect(view.getAllByText(/webappwiz/).length).toBeGreaterThan(0),
 		);

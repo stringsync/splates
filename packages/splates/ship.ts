@@ -6,7 +6,7 @@ import { z } from "zod";
 
 /** `splates ship [project]` prints the Ships page link for the person to open. */
 export const splatesShip = cli<SplatesDeps>("ship")
-	.description("open the Ships page; ship-step planning is coming")
+	.description("open the ship plan page")
 	.fallback("run");
 
 splatesShip
@@ -27,9 +27,17 @@ splatesShip
 				ctx.ps.env("SPLATES_DEV") ||
 				`http://localhost:${DEFAULT_PORT}`,
 		);
-		page.hash = "ships";
+		page.hash = "ships/plan";
 		if (opts.project !== "") {
 			page.searchParams.set("ship", opts.project);
 		}
-		ctx.log.info(`Open Ships: ${page}`);
+		ctx.log.info(`Open ship plan: ${page}`);
+		const local = new URL(page);
+		local.hostname = "localhost";
+		local.protocol = "http:";
+		local.port =
+			page.hostname === "localhost" || page.hostname === "127.0.0.1"
+				? page.port
+				: String(DEFAULT_PORT);
+		ctx.log.info(`Local: ${local}`);
 	});
