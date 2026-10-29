@@ -200,7 +200,7 @@ export class MechanicalAdoption {
 						`${pin.name}: ${pin.version} → ${ship.steps.find((each) => each.slug === use.project)?.to}. Upstream tags: v${pin.version.replace(/^[~^]/, "")}..v${ship.steps.find((each) => each.slug === use.project)?.to}`,
 				),
 			),
-			"Fix what breaks, land with `splates merge`; never change the release type or bump further. If you cannot, `splates remove <task> --reason blocked` saying why.",
+			"Fix what breaks, then land with `splates merge`: your merge is how you tell the server it is OK to ship, and it publishes only after that, so run no ship command yourself. Never change the release type or bump further. If you cannot, `splates remove <task> --reason blocked` saying why.",
 			...(step.adoptFailure === undefined
 				? []
 				: ["## Mechanical adoption failure", step.adoptFailure]),

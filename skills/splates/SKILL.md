@@ -238,7 +238,7 @@ conversation asks for several tasks, add them as a lane, and when the user
 asks you to queue work, add it; either way, end your reply with its queue
 card for the user to queue it now or later.
 
-A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task.
+A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task.
 
 ## Directives
 

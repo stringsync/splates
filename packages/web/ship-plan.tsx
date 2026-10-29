@@ -31,6 +31,12 @@ type Choice = {
 
 const BUMPS: ShipBump[] = ["patch", "minor", "major"];
 
+const BUMP_HINTS: Record<ShipBump, string> = {
+	patch: "Patch: fixes only, nothing new for users.",
+	minor: "Minor: new features that keep working code working.",
+	major: "Major: breaking changes for users.",
+};
+
 /**
  * The ship plan: every project with whether it ships in this ship, in release
  * order, and Start at the foot. `ship` is the project the page opened with
@@ -104,6 +110,7 @@ export function ShipPlan({
 	}
 	const shippable = (each: ShipProject) => each.ship !== null && !each.private;
 	const ordered = releaseOrder(listed);
+	const tree = treeOrder(listed);
 	const steps = ordered.filter(
 		(each) => included.has(each.slug) && shippable(each),
 	);
@@ -153,15 +160,17 @@ export function ShipPlan({
 				aria-label="Ship graph"
 				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
 			>
-				{ordered.map((each) => {
+				{tree.map(({ project: each, depth, pins }) => {
 					const number = steps.indexOf(each) + 1;
 					const value = choice(each.slug);
 					return (
 						<li
 							key={each.slug}
 							aria-label={each.slug}
+							style={{ paddingLeft: `${0.75 + depth * 1.25}rem` }}
 							className={cn(
-								"flex flex-col gap-3 px-3 py-2.5",
+								"flex flex-col gap-3 py-2.5 pr-3",
+								depth > 0 && "border-l-2 border-l-primary/20",
 								number === 0 &&
 									(each.changes?.commits ?? 1) === 0 &&
 									"opacity-60",
@@ -196,6 +205,12 @@ export function ShipPlan({
 											? each.packages.join(", ")
 											: "Takes the releases it pins"}
 									</span>
+									{pins.length > 0 && (
+										<span className="text-muted-foreground text-xs">
+											Pins {pins.join(", ")}: ships after{" "}
+											{pins.length === 1 ? "it" : "them"}
+										</span>
+									)}
 								</span>
 								{shippable(each) ? (
 									<Switch
@@ -213,6 +228,7 @@ export function ShipPlan({
 							{number > 0 && (
 								<div className="flex flex-col gap-3 pl-9">
 									<div className="flex flex-wrap items-center gap-4 text-sm">
+										<span className="text-muted-foreground">Release as</span>
 										<Select
 											items={BUMPS.map((bump) => ({
 												value: bump,
@@ -251,6 +267,12 @@ export function ShipPlan({
 											<span>Agent task</span>
 										</div>
 									</div>
+									<p className="text-muted-foreground text-xs">
+										{BUMP_HINTS[value.bump]}{" "}
+										{value.adopt === "agent"
+											? "An agent adopts the new versions and fixes what breaks. When its task merges, that tells splates it is OK to ship, and splates then publishes."
+											: "Splates moves the pins itself, then publishes."}
+									</p>
 									{value.adopt === "agent" && (
 										<Textarea
 											aria-label={`Instructions for ${each.slug}`}
@@ -339,6 +361,37 @@ function releaseOrder(projects: ShipProject[]): ShipProject[] {
 		visit(each);
 	}
 	return ordered;
+}
+
+/**
+ * `projects` as a tree for display: each under the first project it pins,
+ * with the pinned projects it ships after, so who depends on whom shows.
+ */
+function treeOrder(
+	projects: ShipProject[],
+): { project: ShipProject; depth: number; pins: string[] }[] {
+	const slugs = new Set(projects.map((each) => each.slug));
+	const pinsOf = (project: ShipProject) => [
+		...new Set(
+			project.uses
+				.map((use) => use.project)
+				.filter((slug) => slugs.has(slug) && slug !== project.slug),
+		),
+	];
+	const rows: { project: ShipProject; depth: number; pins: string[] }[] = [];
+	const seen = new Set<string>();
+	const visit = (parent: string | null, depth: number) => {
+		for (const each of projects) {
+			const pins = pinsOf(each);
+			if (!seen.has(each.slug) && (pins[0] ?? null) === parent) {
+				seen.add(each.slug);
+				rows.push({ project: each, depth, pins });
+				visit(each.slug, depth + 1);
+			}
+		}
+	};
+	visit(null, 0);
+	return rows;
 }
 
 /** Commits since the last release, as a dot and a short label. */
