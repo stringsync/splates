@@ -288,6 +288,27 @@ export class Cascades implements Resource {
 		}).finally(() => this.schedule());
 	}
 
+	/**
+	 * Starts the cascade of a plan the person approved as it stands, a run's
+	 * frozen plan. While another is under way, answers with that one, started
+	 * false.
+	 */
+	startPlan(plan: ShipPlan): Promise<{ cascade: Cascade; started: boolean }> {
+		return this.serially(async () => {
+			const going = await this.record.read();
+			if (going?.status === "running") {
+				return { cascade: going, started: false };
+			}
+			const cascade = await planned(plan, this.stamp(), this.history);
+			await this.keep(cascade);
+			await this.history.prune();
+			this.opts.log.info(
+				`shipping ${shipName(plan.from)}: ${cascade.steps.length} project(s)`,
+			);
+			return { cascade: await this.advance(cascade), started: true };
+		}).finally(() => this.schedule());
+	}
+
 	/** Approved release types are fixed for the whole run. */
 	revise(slug: string, _bump: ShipBump): Promise<Cascade> {
 		return this.serially(async () =>

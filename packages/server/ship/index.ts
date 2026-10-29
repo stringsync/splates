@@ -35,6 +35,11 @@ export { ShipRegistry } from "./registry";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
 export { Shipping, shipRecord } from "./run";
+export type { RunAction } from "./run-commands";
+export { shipRun } from "./run-commands";
+export { ShipRunRoutes } from "./run-routes";
+export type { RunState, ShipRun, ShownRun } from "./runs";
+export { ShipRuns } from "./runs";
 export type {
 	Stage,
 	StageCheck,

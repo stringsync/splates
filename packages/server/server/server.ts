@@ -39,6 +39,8 @@ import {
 	ShipPlans,
 	ShipRecovery,
 	ShipRegistry,
+	ShipRunRoutes,
+	ShipRuns,
 } from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
@@ -591,6 +593,23 @@ export async function dev(
 		.catch((error: unknown) =>
 			log.error(`resuming the ship cascade: ${error}`),
 		);
+	const shipRuns = new ShipRuns({
+		storage: machineStorage,
+		graph: () => registeredGraph({ projects, fs, log, ps }),
+		recover: async (id) => {
+			const stopped = await shipHistory.read(id);
+			if (stopped === null) {
+				fail("not_found", "the stopped ship is no longer in history");
+			}
+			return recovery.plan(
+				await registeredGraph({ projects, fs, log, ps }),
+				stopped,
+				await shipHistory.list(),
+			);
+		},
+		cascades,
+	});
+	const shipRunRoutes = new ShipRunRoutes(shipRuns);
 	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
 		new URL(request.url).searchParams.get("project") === CHANGED
 			? CHANGED
@@ -889,6 +908,21 @@ export async function dev(
 					"/api/ship/cascade/abandon": {
 						POST: talk(guarded(cascadeRoutes.abandonCascade)),
 					},
+					// The conversation plans a ship through these; the page's Approve
+					// alone starts it, so it is the one not limited to a conversation.
+					"/api/ship/run": {
+						GET: guarded(shipRunRoutes.run),
+						POST: talk(guarded(shipRunRoutes.start)),
+					},
+					"/api/ship/run/set": { POST: talk(guarded(shipRunRoutes.set)) },
+					"/api/ship/run/leave-out": {
+						POST: talk(guarded(shipRunRoutes.leaveOut)),
+					},
+					"/api/ship/run/note": { POST: talk(guarded(shipRunRoutes.note)) },
+					"/api/ship/run/propose": {
+						POST: talk(guarded(shipRunRoutes.propose)),
+					},
+					"/api/ship/run/approve": { POST: guarded(shipRunRoutes.approve) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
