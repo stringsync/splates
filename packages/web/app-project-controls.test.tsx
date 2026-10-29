@@ -89,7 +89,7 @@ describe("Project controls in conversation lists", () => {
 		const shop = await shopIn(list);
 		expect(
 			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
-				"No conversations yet.",
+				"No conversations",
 			),
 		).toBeTruthy();
 		expect(
@@ -112,7 +112,7 @@ describe("Project controls in conversation lists", () => {
 		const shop = await shopIn(list);
 		expect(
 			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
-				"No conversations yet.",
+				"No conversations",
 			),
 		).toBeTruthy();
 		expect(
@@ -185,7 +185,7 @@ describe("Project controls in conversation lists", () => {
 		// As the server streams it archived, then unarchived from elsewhere.
 		await act(async () => testing.say({ ...lastChat, archived: true }));
 		await waitFor(() =>
-			expect(within(here).getByText("No conversations yet.")).toBeTruthy(),
+			expect(within(here).getByText("No conversations")).toBeTruthy(),
 		);
 		await act(async () => testing.say({ ...lastChat, archived: false }));
 		await waitFor(() =>

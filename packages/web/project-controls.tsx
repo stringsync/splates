@@ -51,7 +51,7 @@ export function ProjectEmpty({
 			)}
 		>
 			<EmptyHeader>
-				<EmptyDescription>No conversations yet.</EmptyDescription>
+				<EmptyDescription>No conversations</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);
