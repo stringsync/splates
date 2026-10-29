@@ -22,7 +22,6 @@ import { raises } from "#web/hooks/use-touch.ts";
 import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
 import { useArrived } from "./arrivals";
-import { lineCard } from "./board";
 import { useCardReply } from "./card-reply";
 import { CARD_SPACE, TONES, type Tone } from "./card-shell";
 import { backTo } from "./page-address";
@@ -419,13 +418,12 @@ function SheetLine({
 			type="button"
 			onClick={onOpen}
 			className={cn(
-				"group flex w-full items-center gap-3 rounded-xl border bg-card pl-4 text-left shadow-xs",
-				lineCard,
+				"group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs",
 				CARD_SPACE,
 			)}
 		>
-			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
+			<span className="min-w-0 flex-1 truncate">{title}</span>
 			<Action label={action} />
 		</button>
 	);
