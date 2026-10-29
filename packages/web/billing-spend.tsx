@@ -10,7 +10,6 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Figures } from "./billing-figures";
 import { Headline } from "./billing-headline";
-import { ByProject } from "./billing-projects";
 import { Sources } from "./billing-sources";
 import { type Range, SpendController } from "./billing-spend-controller";
 import {
@@ -204,7 +203,6 @@ export function SpendSection(): JSX.Element {
 				{report !== null && providers.length > 0 && (
 					<Breakdown providers={providers} />
 				)}
-				{report !== null && <ByProject projects={report.projects} />}
 				{report !== null && span !== null && range !== "day" && (
 					<SpendTrend
 						days={report.days}

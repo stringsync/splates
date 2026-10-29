@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { SpendTotal } from "@stringsync/splates-server/spend";
 import {
-	byProject,
 	byProvider,
 	colorOf,
 	everyDay,
@@ -23,24 +22,6 @@ const row = (over: Partial<SpendTotal>): SpendTotal => ({
 });
 
 describe("billing sums", () => {
-	it("splits by project, the costliest first and Unassigned last, and not at all when no project spent", () => {
-		const project = (name: string | null, billed: number, equivalent = 0) => ({
-			project: name,
-			billed,
-			equivalent,
-			expected: 0,
-		});
-		expect(
-			byProject([
-				project(null, 50),
-				project("quiet", 0),
-				project("splates", 0, 9),
-				project("webappwiz", 2, 1),
-			]).map((each) => each.project),
-		).toEqual(["webappwiz", "splates", null]);
-		expect(byProject([project(null, 50)])).toEqual([]);
-	});
-
 	it("groups services on the bill by provider, the costliest of each first", () => {
 		const grouped = byProvider([
 			row({ service: "Pro plan", expected: 20 }),

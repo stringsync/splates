@@ -76,18 +76,6 @@ describe("App's billing spend", () => {
 		expect(view.getAllByText("expected").length).toBeGreaterThan(0);
 	});
 
-	it("splits the bill by project, provider bills and plan fees unassigned", async () => {
-		const view = await testing.open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
-		);
-		await waitFor(() => view.getByLabelText("by project"));
-		const rows = view.getByLabelText("by project").textContent ?? "";
-		expect(rows).toContain("splates");
-		expect(rows).toContain("$12.50 plan use");
-		expect(rows).toMatch(/Unassigned.*\$203\.00/);
-	});
-
 	it("steps the range back a month and forward again, never past today", async () => {
 		const view = await testing.open();
 		await act(async () =>
