@@ -131,7 +131,7 @@ export function Mark({
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
-	if ((reported === "merged" || reported === "done") && shows && !hosting) {
+	if ((reported === "merged" || reported === "done") && shows) {
 		return (
 			<Glyph
 				icon={CircleCheckIcon}

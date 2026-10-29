@@ -112,7 +112,7 @@ describe("conversation status precedence", () => {
 		).toBeTruthy();
 	});
 
-	it("shows active delegated work over a completion report and clears it when the child stops", async () => {
+	it("keeps a completion report while a child conversation works", async () => {
 		const child = conversation({
 			id: "child",
 			parent: { id: "host" },
@@ -133,11 +133,39 @@ describe("conversation status precedence", () => {
 		const sidebar = within(
 			view.getByRole("navigation", { name: "conversations" }),
 		);
-		expect(sidebar.queryByRole("img", { name: "merged" })).toBeNull();
-		expect(sidebar.getAllByRole("status", { name: "working" })).toHaveLength(2);
+		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
+		expect(sidebar.getAllByRole("status", { name: "working" })).toHaveLength(1);
 
 		await testing.say({ ...child, status: "stopped" });
 		expect(sidebar.queryByRole("status", { name: "working" })).toBeNull();
 		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
+	});
+
+	it("keeps a completion report while a task-only child works", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "host",
+					title: "Host",
+					messages: [report],
+				}),
+			],
+			null,
+			{
+				tasks: [
+					details({
+						task: "child",
+						status: "working",
+						caller: "host",
+						takenBy: "host",
+					}),
+				],
+			},
+		);
+		const sidebar = within(
+			view.getByRole("navigation", { name: "conversations" }),
+		);
+		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
+		expect(sidebar.queryByRole("status", { name: "working" })).toBeNull();
 	});
 });
