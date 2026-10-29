@@ -671,8 +671,8 @@ export function blank(
 
 /**
  * `state` as a listing sends it: a summary, since the
- * page shows little of one until it is opened, and its tool calls are most
- * of what every conversation weighs.
+ * page shows little of one until it is opened, and its events and tool calls
+ * are most of what every conversation weighs.
  */
 export function listed(state: ConversationState): ConversationState {
 	return {
@@ -680,17 +680,9 @@ export function listed(state: ConversationState): ConversationState {
 		// An archived one's composer menus, read whole once it is opened, weigh
 		// more than the rest of an archive together.
 		...(state.archived ? { settings: [], commands: [] } : {}),
-		events: state.events.map((event) =>
-			event.action === "merge" && event.failedTests !== undefined
-				? {
-						...event,
-						failedTests: event.failedTests.map(({ name }) => ({
-							name,
-							message: "",
-						})),
-					}
-				: event,
-		),
+		// Only the open thread reads events, from the conversation read whole;
+		// a merge's failed tests made them half of what a listing weighed.
+		events: [],
 		messages: state.messages.map((message) => ({
 			...message,
 			parts: message.parts.filter(

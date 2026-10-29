@@ -60,10 +60,8 @@ describe("conversation summaries", () => {
 			expect(summary.messages[0]?.parts).toEqual([
 				{ type: "text", text: "Hello" },
 			]);
-			expect(summary.events[0]).toMatchObject({
-				failedTests: [{ name: "failing test", message: "" }],
-			});
-			expect(JSON.stringify(summary).length).toBeLessThan(3000);
+			expect(summary.events).toEqual([]);
+			expect(JSON.stringify(summary).length).toBeLessThan(1500);
 			expect(state).toEqual(original);
 
 			const updates = new ConversationUpdates();
