@@ -56,8 +56,8 @@ const STAR =
 
 /**
  * Auto pick's mark once it has picked, so the composer says both whom it chose
- * and that it did: for Claude, its sparkles and Claude's mark split by a
- * slash; for another agent with colors here, its mark with a star badge at the
+ * and that it did: for Claude and Codex, its sparkles and the agent's mark split
+ * by a slash; for another agent with colors here, its mark with a star badge at the
  * bottom right; sparkles alone for an agent with no colors here.
  */
 export function AutoAgentMark({
@@ -72,7 +72,7 @@ export function AutoAgentMark({
 	if (!hasColors(agent)) {
 		return <AutoIcon colored className={className} />;
 	}
-	if (agent === "claude") {
+	if (agent === "claude" || agent === "codex") {
 		const edge = 24 - SPLIT_GAP;
 		return (
 			<svg
