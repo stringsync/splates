@@ -6,7 +6,7 @@ import { z } from "zod";
 
 /** `splates ship [project]` prints the Ships page link for the person to open. */
 export const splatesShip = cli<SplatesDeps>("ship")
-	.description("open the ship plan page")
+	.description("open the Ships page with a project picked")
 	.fallback("run");
 
 splatesShip
@@ -27,7 +27,7 @@ splatesShip
 				ctx.ps.env("SPLATES_DEV") ||
 				`http://localhost:${DEFAULT_PORT}`,
 		);
-		page.hash = "ships/plan";
+		page.hash = "ships";
 		if (opts.project !== "") {
 			page.searchParams.set("ship", opts.project);
 		}

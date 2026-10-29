@@ -4,10 +4,11 @@ import type { Cascade, ShipProject } from "@stringsync/splates-server/ship";
 // needs it registered first.
 import "./register-dom";
 import { FakeStream, type Stream } from "./fake-stream";
-import { ShipPlanPage } from "./ship-plan-page";
+import { ShipsPage } from "./ships-page";
+import { pick } from "./testing";
 import { act, cleanup, fireEvent, render, waitFor } from "./testing-library";
 
-describe("ShipPlanPage", () => {
+describe("Ship plan", () => {
 	beforeEach(() => {
 		globalThis.EventSource = FakeStream as unknown as typeof EventSource;
 	});
@@ -41,22 +42,27 @@ describe("ShipPlanPage", () => {
 				]),
 			);
 		}) as unknown as typeof fetch;
-		const view = render(<ShipPlanPage />);
+		const view = render(<ShipsPage />);
 		act(() =>
 			stream?.onmessage?.({
 				data: JSON.stringify({ cascade: null, ship: null }),
 			}),
 		);
 		await view.findByText("base");
-		fireEvent.change(view.getByLabelText("base version bump"), {
-			target: { value: "minor" },
-		});
-		fireEvent.click(view.getByLabelText("Agent task for base"));
+		fireEvent.click(view.getByRole("button", { name: "Include all changed" }));
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("combobox", { name: "base version bump" }),
+			),
+		);
+		const minor = await view.findByRole("option", { name: "minor" });
+		await pick(minor);
+		fireEvent.click(view.getByRole("switch", { name: "Agent task for base" }));
 		fireEvent.change(view.getByLabelText("Instructions for base"), {
 			target: { value: "  Keep this exactly.\n" },
 		});
 		expect(body).toBeNull();
-		fireEvent.click(view.getByRole("button", { name: "Start" }));
+		fireEvent.click(view.getByRole("button", { name: /^Start/ }));
 		await waitFor(() =>
 			expect(body).toEqual({
 				projects: [
@@ -87,15 +93,15 @@ describe("ShipPlanPage", () => {
 		} as unknown as typeof EventSource;
 		globalThis.fetch = (async () =>
 			Response.json({ projects: [project({})] })) as unknown as typeof fetch;
-		const view = render(<ShipPlanPage />);
+		const view = render(<ShipsPage />);
 		act(() =>
 			stream?.onmessage?.({
 				data: JSON.stringify({ cascade: stopped, ship: null }),
 			}),
 		);
-		expect(await view.findByText("View its steps")).toBeTruthy();
+		expect(await view.findByText("A ship is under way.")).toBeTruthy();
 		expect(
-			view.getByRole("button", { name: "Start" }).hasAttribute("disabled"),
+			view.getByRole("button", { name: /^Start/ }).hasAttribute("disabled"),
 		).toBe(true);
 	});
 });

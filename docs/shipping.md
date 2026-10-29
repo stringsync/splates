@@ -5,10 +5,14 @@ versions to be live, adopt them, publish, then wait for the project’s own
 release to be live. The settled design is in
 [`designs/ship-steps.md`](../designs/ship-steps.md).
 
-`splates ship [<project>] [--dev <server-url>]` prints the ship plan page link.
-Every Ship button opens `#ships/plan`. Pick a patch, minor or major bump for
-each project in release order, leave projects out, or enable Agent task and
-write instructions. Start submits the choices and opens Ships. A ship already
+`splates ship [<project>] [--dev <server-url>]` prints the Ships page link.
+Every Ship button opens `#ships?ship=<project>`, the Ships page with that
+project picked (`+changed` picks every changed one). Each project there is a
+switch; included projects are numbered in release order, and dependents of a
+picked project come in with it. Include all changed picks every changed project
+and what pins it. Pick a patch, minor or major bump for each included project,
+or enable Agent task and write instructions. Start, at the foot of the page,
+submits the choices. A ship already
 running or stopped links to its progress instead of allowing another Start.
 
 Ships shows each project's stages, registry checks, task links and history.

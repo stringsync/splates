@@ -335,7 +335,7 @@ describe("App's projects", () => {
 		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
 
 		const shown = new URL(testing.visited.at(-1) ?? "", "http://localhost");
-		expect(shown.hash).toBe("#ships/plan");
+		expect(shown.hash).toBe("#ships");
 		expect(shown.searchParams.get("ship")).toBe("shop");
 	});
 

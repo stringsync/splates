@@ -158,7 +158,3 @@ export const Annotate = onDemand(async () => ({
 export const AutoPickPage = onDemand(async () => ({
 	default: (await import("./auto-pick-page")).AutoPickPage,
 }));
-
-export const ShipPlanPage = onDemand(async () => ({
-	default: (await import("./ship-plan-page")).ShipPlanPage,
-}));

@@ -55,7 +55,7 @@ describe("ShipsPage", () => {
 		);
 	});
 
-	it("lists the projects in release order, a Ship on each that names a ship command", async () => {
+	it("lists the projects in release order, a switch on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "webappwiz", packages: ["webappwiz"] }),
 			project({
@@ -79,9 +79,7 @@ describe("ShipsPage", () => {
 				.getAllByRole("listitem")
 				.map((each) => each.getAttribute("aria-label")),
 		).toEqual(["webappwiz", "mdom", "sound2score"]);
-		expect(within(list).getAllByRole("button", { name: "Ship" })).toHaveLength(
-			2,
-		);
+		expect(within(list).getAllByRole("switch")).toHaveLength(2);
 	});
 
 	it("marks unshipped commits and distinguishes up-to-date and unknown release history", async () => {
@@ -114,7 +112,7 @@ describe("ShipsPage", () => {
 		);
 	});
 
-	it("disables the pick of every changed project when none changed", async () => {
+	it("disables the include of every changed project when none changed", async () => {
 		const graph = [
 			project({
 				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
@@ -126,7 +124,7 @@ describe("ShipsPage", () => {
 		expect(await view.findByText("Every project is up to date")).toBeTruthy();
 		expect(
 			view
-				.getByRole("button", { name: "Ship all changed" })
+				.getByRole("button", { name: "Include all changed" })
 				.hasAttribute("disabled"),
 		).toBe(true);
 	});
@@ -139,11 +137,9 @@ describe("ShipsPage", () => {
 		}) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		const list = await view.findByRole("list", { name: "Ship graph" });
-		expect(
-			within(list)
-				.getByRole("button", { name: "Ship" })
-				.hasAttribute("disabled"),
-		).toBe(false);
+		expect(within(list).getByRole("switch").hasAttribute("disabled")).toBe(
+			false,
+		);
 		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 });

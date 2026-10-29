@@ -5,17 +5,14 @@ import { type JSX, useEffect, useState } from "react";
 import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
 import { BackButton } from "./back-button";
 import type { ConversationFeed } from "./conversation-feed";
-import { ShipPlanPage } from "./lazy-pages";
-import { shipsUrl } from "./project-places";
-import { ShipGraphTree } from "./ship-graph";
+import { ShipPlan } from "./ship-plan";
 import { ProjectStages, ShipRun } from "./ship-run";
 import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
 
 /**
- * The Ship page: each project's unshipped commits, with a way to plan a ship
- * of one or of every changed project, the ship under way, and past ships,
- * each opened at `#ships/<id>`.
+ * Where you plan, start and follow a ship: pick the projects that release,
+ * press Start, watch the ship under way, and open past ships.
  */
 export function ShipsPage(_props: {
 	feed?: ConversationFeed | null;
@@ -23,13 +20,10 @@ export function ShipsPage(_props: {
 	const viewed = useViewedShip();
 	const live = useLiveShips();
 	const [closed, setClosed] = useState<string | null>(null);
-	const [history, setHistory] = useState<CascadeSummary[]>([]);
+	const [past, setPast] = useState<CascadeSummary[]>([]);
 	useEffect(() => {
-		shipHistory().then(setHistory, () => undefined);
+		shipHistory().then(setPast, () => undefined);
 	}, []);
-	if (viewed === "plan") {
-		return <ShipPlanPage />;
-	}
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
 			<TopBar
@@ -59,19 +53,21 @@ export function ShipsPage(_props: {
 							agent={() => actOnShip("agent")}
 						/>
 					)}
-					<ShipGraphTree
+					<ShipPlan
+						ship={new URLSearchParams(location.search).get("ship")}
 						endedAt={live?.cascade?.ended ?? null}
-						ready={true}
-						starting={null}
-						refusal={null}
-						onShip={(slug) => {
-							location.href = shipsUrl(slug);
-						}}
-						onShipChanged={() => {
-							location.href = shipsUrl("+changed");
+						busy={
+							live?.cascade?.status === "running" ||
+							live?.cascade?.status === "stopped"
+						}
+						loading={live === null}
+						onStarted={() => {
+							const url = new URL(location.href);
+							url.searchParams.delete("ship");
+							history.replaceState(null, "", url);
 						}}
 					/>
-					{history.length > 0 && <History cascades={history} />}
+					{past.length > 0 && <History cascades={past} />}
 				</>
 			)}
 		</section>
