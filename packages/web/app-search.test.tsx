@@ -53,6 +53,37 @@ describe("App's search", () => {
 		});
 	});
 
+	it("finds a conversation by its words, which the server searches", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [
+				conversation({
+					id: "c2",
+					name: "Chat",
+					messages: [
+						{
+							role: "user",
+							parts: [{ type: "text", text: "Why does the deploy hang?" }],
+							plan: null,
+							at: null,
+							until: null,
+						},
+					],
+				}),
+			],
+		};
+		const { results } = await searchFor("hang");
+		// Asked once typing pauses.
+		await act(async () => testing.timer.fireTimeouts());
+
+		await waitFor(() => {
+			expect(within(results).getByText("Chat")).toBeTruthy();
+			expect(
+				within(results).getByText("Why does the deploy hang?"),
+			).toBeTruthy();
+		});
+	});
+
 	it("opens a todo picked with Enter", async () => {
 		const { view, box } = await searchFor("retry");
 

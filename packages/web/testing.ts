@@ -10,8 +10,13 @@ import { expect } from "bun:test";
 import type { AutoPickRulesView } from "@stringsync/splates-server/auto-pick";
 import type {
 	ConversationState,
+	Said,
 	Session,
 } from "@stringsync/splates-server/conversations";
+import {
+	saidIn,
+	wordsOf,
+} from "@stringsync/splates-server/conversations/browser";
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { ServerChoice } from "@stringsync/splates-server/server";
@@ -421,6 +426,20 @@ export class Testing implements Resource {
 				return Response.json(
 					this.landed[decodeURIComponent(outcome[1] ?? "")] ?? null,
 				);
+			}
+			if (route === "/api/conversations/search") {
+				// What the server finds, from the listed conversations as held whole.
+				const words = wordsOf(
+					new URL(path, "http://page").searchParams.get("q") ?? "",
+				);
+				const said: Record<string, Said> = {};
+				for (const each of this.talk?.conversations ?? []) {
+					const found = saidIn(each, words);
+					if (found !== null) {
+						said[each.id] = found;
+					}
+				}
+				return Response.json({ said });
 			}
 			if (route === "/api/conversations/sessions") {
 				return Response.json(this.sessions);

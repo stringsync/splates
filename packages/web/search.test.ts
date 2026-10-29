@@ -7,6 +7,7 @@ function searched(overrides: Partial<Searched> = {}): Searched {
 		tasks: [],
 		todos: [],
 		conversations: [],
+		said: {},
 		lanes: [],
 		...overrides,
 	};
@@ -45,26 +46,18 @@ describe("search", () => {
 		expect(titles("retry 413", of)).toEqual([["todo", ["Retry the upload"]]]);
 	});
 
-	it("shows where a body matched", () => {
+	it("shows where the server found a conversation's words", () => {
 		const of = searched({
 			conversations: [
-				conversation({
-					id: "c1",
-					name: "Chat",
-					messages: [
-						{
-							role: "user",
-							parts: [{ type: "text", text: "Why does the upload fail?" }],
-							plan: null,
-							at: null,
-							until: null,
-						},
-					],
-				}),
+				conversation({ id: "c1", name: "Chat" }),
+				conversation({ id: "c2", name: "Other" }),
 			],
+			said: { c1: { fail: "Why does the upload fail?" } },
 		});
 		const [group] = search("fail", of);
-		expect(group?.found[0]?.detail).toBe("Why does the upload fail?");
+		expect(group?.found.map((each) => each.detail)).toEqual([
+			"Why does the upload fail?",
+		]);
 	});
 
 	it("puts the kind with the best match first", () => {

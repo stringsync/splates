@@ -18,6 +18,7 @@ import {
 import { SuiteGrants } from "../server/suite-grant";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
+import { type Said, saidIn, wordsOf } from "./search";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
 import { ConversationStream, type ConversationsHeard } from "./stream";
 import { type Tree, treeOf } from "./tree";
@@ -145,6 +146,26 @@ export class ConversationRoutes {
 
 	readonly listConversations = async (): Promise<Response> => {
 		return Response.json(await listing(this.held()));
+	};
+
+	/**
+	 * What every conversation says of `?q=`'s words, by its id, for ⌘K: a
+	 * listing's summaries leave most of the words out.
+	 */
+	readonly searchConversations = async (
+		request: Request,
+	): Promise<Response> => {
+		const words = wordsOf(new URL(request.url).searchParams.get("q") ?? "");
+		const said: Record<string, Said> = {};
+		if (words.length > 0) {
+			for (const { state } of await this.held().list()) {
+				const found = saidIn(state, words);
+				if (found !== null) {
+					said[state.id] = found;
+				}
+			}
+		}
+		return Response.json({ said });
 	};
 
 	/** One conversation whole, as a listing sends only summaries. */

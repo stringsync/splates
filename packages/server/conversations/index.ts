@@ -42,6 +42,7 @@ export {
 export type { ConversationsOptions } from "./options";
 export { conversationReference } from "./reference";
 export { ConversationRoutes } from "./routes";
+export type { Said } from "./search";
 export type {
 	After,
 	Answer,

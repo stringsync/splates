@@ -1,6 +1,13 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { nameOf } from "@stringsync/splates-server/conversations/browser";
+import type {
+	ConversationState,
+	Said,
+} from "@stringsync/splates-server/conversations";
+import {
+	nameOf,
+	snippetOf,
+	wordsOf,
+} from "@stringsync/splates-server/conversations/browser";
 import { goalLine, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 
@@ -9,6 +16,12 @@ export interface Searched {
 	tasks: Details[];
 	todos: TaskRecord[];
 	conversations: ConversationState[];
+	/**
+	 * What each conversation's words hold of the query, by its id, from the
+	 * server (see `searchConversations`): a listing's summaries leave most
+	 * words out. Until it answers, conversations match on their names.
+	 */
+	said: Readonly<Record<string, Said>>;
 	/** Every lane there has been, to name a lane's orchestrator after it. */
 	lanes: readonly LaneRecord[];
 }
@@ -47,14 +60,14 @@ const KINDS: Kind[] = ["task", "conversation", "todo"];
  * their best match, each best first and then the latest. An empty query lists what wants the person first, then the latest of each.
  */
 export function search(query: string, searched: Searched): Group[] {
-	const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+	const words = wordsOf(query);
 	if (words.length === 0) {
 		return unasked(searched);
 	}
 	const candidates = [
 		...searched.tasks.map(taskOf),
 		...searched.conversations.map((each) =>
-			conversationOf(each, searched.lanes),
+			conversationOf(each, searched.lanes, searched.said[each.id] ?? {}),
 		),
 		...searched.todos.map(todoOf),
 	];
@@ -62,10 +75,10 @@ export function search(query: string, searched: Searched): Group[] {
 	for (const kind of KINDS) {
 		const found = candidates
 			.filter((each) => each.found.kind === kind)
-			.flatMap(({ found, body, also = [] }) => {
+			.flatMap(({ found, inBody, also = [] }) => {
 				// Its best reading, by its title or any other name it goes by.
 				const scored = [found.title, ...also]
-					.map((title) => scoreOf(words, title, body))
+					.map((title) => scoreOf(words, title, inBody))
 					.reduce((best, each) =>
 						each !== null && (best === null || each.score > best.score)
 							? each
@@ -92,7 +105,8 @@ export function search(query: string, searched: Searched): Group[] {
 /** Something to match: what it is, and the words beyond its title. */
 interface Candidate {
 	found: Found;
-	body: string;
+	/** A line around `word` in its words beyond its title; null without it. */
+	inBody: (word: string) => string | null;
 	/** Other names it goes by, matched as its title is. */
 	also?: string[];
 }
@@ -108,21 +122,15 @@ function taskOf(task: Details): Candidate {
 			score: 0,
 			at: task.createdAt,
 		},
-		body: task.plan ?? "",
+		inBody: inText(task.plan ?? ""),
 	};
 }
 
 function conversationOf(
 	conversation: ConversationState,
 	lanes: readonly LaneRecord[],
+	said: Said,
 ): Candidate {
-	const said = conversation.messages
-		.flatMap((message) =>
-			message.parts.flatMap((part) =>
-				part.type === "text" ? [part.text] : [],
-			),
-		)
-		.join("\n");
 	return {
 		found: {
 			kind: "conversation",
@@ -133,7 +141,16 @@ function conversationOf(
 			score: 0,
 			at: latest(conversation),
 		},
-		body: said,
+		inBody: (word) => said[word] ?? null,
+	};
+}
+
+/** `inBody` for words held whole on the page. */
+function inText(body: string): (word: string) => string | null {
+	const lower = body.toLowerCase();
+	return (word) => {
+		const at = lower.indexOf(word);
+		return at === -1 ? null : snippetOf(body, at, word.length);
 	};
 }
 
@@ -151,7 +168,7 @@ function todoOf(todo: TaskRecord): Candidate {
 			score: 0,
 			at: todo.createdAt,
 		},
-		body: todo.text,
+		inBody: inText(todo.text),
 	};
 }
 
@@ -175,7 +192,7 @@ function latest(conversation: ConversationState): string {
 function scoreOf(
 	words: string[],
 	title: string,
-	body: string,
+	inBody: (word: string) => string | null,
 ): { score: number; detail?: string } | null {
 	if (words.length === 0) {
 		return { score: WHOLE };
@@ -193,12 +210,12 @@ function scoreOf(
 			score = Math.min(score, scored);
 			continue;
 		}
-		const at = body.toLowerCase().indexOf(word);
-		if (at === -1) {
+		const found = inBody(word);
+		if (found === null) {
 			return null;
 		}
 		score = Math.min(score, BODY);
-		snippet ??= snippetOf(body, at, word.length);
+		snippet ??= found;
 	}
 	return snippet === undefined ? { score } : { score, detail: snippet };
 }
@@ -215,14 +232,6 @@ function inTitle(title: string, word: string): number | null {
 
 function escaped(word: string): string {
 	return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** One line of `body` around `length` characters at `at`. */
-function snippetOf(body: string, at: number, length: number): string {
-	const from = Math.max(0, at - AROUND);
-	const to = Math.min(body.length, at + length + AROUND);
-	const line = body.slice(from, to).replace(/\s+/g, " ").trim();
-	return `${from > 0 ? "…" : ""}${line}${to < body.length ? "…" : ""}`;
 }
 
 /**
@@ -249,7 +258,7 @@ function unasked(searched: Searched): Group[] {
 		.filter((each) => !each.archived)
 		.map((each) => ({
 			waiting: each.ask !== null || each.unread,
-			...conversationOf(each, searched.lanes),
+			...conversationOf(each, searched.lanes, {}),
 		}));
 	const groups: Group[] = [
 		{
@@ -291,8 +300,6 @@ function unasked(searched: Searched): Group[] {
 const UNASKED = 3;
 /** How many of each kind a search lists at most. */
 const LISTED = 8;
-/** How much of a body a snippet shows either side of the words. */
-const AROUND = 40;
 
 /**
  * Where a word lands in a title scores it: the whole title, its start, the

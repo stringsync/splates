@@ -17,6 +17,7 @@ export {
 	realName,
 } from "./name";
 export { conversationReference } from "./reference";
+export { saidIn, snippetOf, wordsOf } from "./search";
 export {
 	blank,
 	DEVICES,

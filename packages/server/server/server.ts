@@ -982,6 +982,9 @@ export async function dev(
 						GET: talk(scoped((project) => project.listConversations)),
 						POST: talk(scoped((project) => project.startConversation)),
 					},
+					"/api/conversations/search": {
+						GET: talk(scoped((project) => project.searchConversations)),
+					},
 					"/api/conversations/auto": {
 						POST: talk(scoped((project) => project.startAutoPick)),
 					},

@@ -9,6 +9,7 @@ import type {
 	Attached,
 	ConversationState,
 	Image,
+	Said,
 	Session,
 } from "@stringsync/splates-server/conversations";
 import { FROM_HEADER } from "@stringsync/splates-server/conversations/browser";
@@ -275,6 +276,21 @@ export async function renameConversation(
 	await sendJson(scoped(`/api/conversations/${id}/name`, project), "PUT", {
 		name,
 	});
+}
+
+/**
+ * What each conversation's words hold of `query`, by its id, for ⌘K to
+ * match on, as a listing's summaries leave most of the words out.
+ */
+export async function searchConversations(
+	query: string,
+	signal: AbortSignal,
+): Promise<Record<string, Said>> {
+	const { said } = (await send(
+		`/api/conversations/search?${new URLSearchParams({ q: query })}`,
+		{ method: "GET", signal },
+	)) as { said: Record<string, Said> };
+	return said;
 }
 
 /** Marks conversation `id` seen, or unseen again. */

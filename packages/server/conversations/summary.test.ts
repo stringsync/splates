@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { said } from "./messages";
-import { blank, type ConversationState, listed } from "./state";
+import { blank, type ConversationState, listed, type Message } from "./state";
 import { type ConversationDelta, ConversationUpdates } from "./updates";
 
 describe("conversation summaries", () => {
@@ -73,4 +73,36 @@ describe("conversation summaries", () => {
 			).toEqual(state);
 		},
 	);
+
+	it("keeps what closed rows read: replies, cards they answer, and the last words", () => {
+		const agent = (...texts: string[]): Message => ({
+			role: "agent",
+			parts: texts.map((text) => ({ type: "text", text })),
+			plan: null,
+			at: null,
+			until: null,
+		});
+		state.messages = [
+			said("Fix the upload", null),
+			agent("Looking.", "Done looking."),
+			agent("Found it.", "1. Keep the old route?\n   - (a) Yes (chosen)\n"),
+			said("1a", null),
+			agent("Working."),
+			agent("Fixed.", "Merged it."),
+			said("Thanks", null),
+			agent("First words.", "## ✅ Merged fix onto main\n\nUploads retry."),
+		];
+		expect(
+			listed(state).messages.map((each) => [
+				each.role,
+				each.parts.map((part) => (part.type === "text" ? part.text : "")),
+			]),
+		).toEqual([
+			["user", ["Fix the upload"]],
+			["agent", ["1. Keep the old route?\n   - (a) Yes (chosen)\n"]],
+			["user", ["1a"]],
+			["user", ["Thanks"]],
+			["agent", ["## ✅ Merged fix onto main\n\nUploads retry."]],
+		]);
+	});
 });

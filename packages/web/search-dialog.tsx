@@ -1,3 +1,4 @@
+import { useReactive } from "@webappwiz/react";
 import { ListTodoIcon, type LucideIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type JSX,
@@ -17,6 +18,7 @@ import { Input } from "#web/components/ui/input.tsx";
 import { useShortcut } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
+import { ConversationSearch } from "./conversation-search";
 import { type Found, type Kind, type Searched, search } from "./search";
 import { TaskIcon } from "./task-icon";
 
@@ -42,22 +44,28 @@ export function SearchDialog({
 	feed,
 	pick,
 }: {
-	searched: Omit<Searched, "conversations">;
+	searched: Omit<Searched, "conversations" | "said">;
 	feed: ConversationFeed;
 	/** Opens what was found. */
 	pick: (found: Found) => void;
 }): JSX.Element {
+	const [finder] = useState(() => new ConversationSearch(feed.timer));
+	useEffect(() => () => finder.dispose(), [finder]);
 	const [open, setOpen] = useState(false);
 	const opened = useRef(open);
 	opened.current = open;
 	// Fresh as it opens, and left as it was while it fades out.
-	const show = useCallback((next: boolean) => {
-		if (next) {
-			setQuery("");
-			setActive(0);
-		}
-		setOpen(next);
-	}, []);
+	const show = useCallback(
+		(next: boolean) => {
+			if (next) {
+				setQuery("");
+				setActive(0);
+				finder.ask("");
+			}
+			setOpen(next);
+		},
+		[finder],
+	);
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
 	const list = useRef<HTMLUListElement>(null);
@@ -77,10 +85,11 @@ export function SearchDialog({
 		[feed, open],
 	);
 	const conversations = useSyncExternalStore(subscribe, read, read);
+	const said = useReactive(finder, (each) => each.said, ["changed"]);
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
-		() => search(query, { tasks, todos, conversations, lanes }),
-		[query, tasks, todos, conversations, lanes],
+		() => search(query, { tasks, todos, conversations, said, lanes }),
+		[query, tasks, todos, conversations, said, lanes],
 	);
 	const rows = groups.flatMap((group) => group.found);
 	const shown = Math.min(active, rows.length - 1);
@@ -113,6 +122,7 @@ export function SearchDialog({
 					onChange={(event) => {
 						setQuery(event.target.value);
 						setActive(0);
+						finder.ask(event.target.value);
 					}}
 					onKeyDown={(event) => {
 						if (event.key === "ArrowDown") {

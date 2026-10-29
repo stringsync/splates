@@ -3,6 +3,7 @@ import { Duration } from "webappwiz/time";
 import type { Flag } from "../agents";
 import type { Artifact } from "../artifacts";
 import type { OpenCodeUsage } from "../models";
+import { stretches } from "../plans/browser";
 import type { Event } from "../records";
 
 /** What a session has used before its agent says anything of it. */
@@ -671,8 +672,9 @@ export function blank(
 
 /**
  * `state` as a listing sends it: a summary, since the
- * page shows little of one until it is opened, and its events and tool calls
- * are most of what every conversation weighs.
+ * page shows little of one until it is opened, and its events and messages
+ * are most of what every conversation weighs. ⌘K searches the rest on the
+ * server (see `saidIn`).
  */
 export function listed(state: ConversationState): ConversationState {
 	return {
@@ -683,14 +685,46 @@ export function listed(state: ConversationState): ConversationState {
 		// Only the open thread reads events, from the conversation read whole;
 		// a merge's failed tests made them half of what a listing weighed.
 		events: [],
-		messages: state.messages.map((message) => ({
-			...message,
-			parts: message.parts.filter(
-				(part) => part.type !== "tool" && part.type !== "thought",
-			),
-		})),
+		messages: state.messages.flatMap((message, at, all) =>
+			summarized(message, at === all.length - 1, all[at + 1]?.role === "user"),
+		),
 		summary: true,
 	};
+}
+
+/**
+ * What a summary keeps of `message`, for the rows that read a closed
+ * conversation: each user message's words, which tell a question answered
+ * and its copy sent; the agent's last words, which end on its report or card;
+ * and those before a reply when they ask cards, which the reply may answer.
+ */
+function summarized(
+	message: Message,
+	last: boolean,
+	replied: boolean,
+): Message[] {
+	if (message.role === "user") {
+		return [
+			{
+				...message,
+				parts: message.parts.filter((part) => part.type === "text"),
+			},
+		];
+	}
+	if (!last && !replied) {
+		return [];
+	}
+	const words = message.parts.findLast(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	if (
+		!last &&
+		(words?.type !== "text" ||
+			!stretches(words.text).some((each) => each.type === "questions"))
+	) {
+		return [];
+	}
+	return [{ ...message, parts: words === undefined ? [] : [words] }];
 }
 
 /**
