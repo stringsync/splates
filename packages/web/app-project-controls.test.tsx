@@ -87,12 +87,10 @@ describe("Project controls in conversation lists", () => {
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
 		const shop = await shopIn(list);
-		const empty = within(list).getByRole("region", { name: "webappwiz" });
-		expect(within(empty).queryByText("No conversations yet.")).toBeNull();
 		expect(
-			within(empty).getByRole("button", {
-				name: "New conversation in webappwiz",
-			}),
+			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
+				"No conversations yet.",
+			),
 		).toBeTruthy();
 		expect(
 			within(list)

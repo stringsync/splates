@@ -12,6 +12,7 @@ import { RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
+import { ProjectEmpty } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
@@ -28,8 +29,7 @@ export type RenderRow = (
  * then those at work, then the rest, every one of them. A
  * folder's header counts what waits on you there, folds it away as this
  * browser keeps it, and its "+" starts a conversation in it. Quiet: a name,
- * a count and its rows. A folder with no conversations is its header
- * alone, dimmed, its "+" always shown.
+ * a count and its rows.
  */
 export function ProjectList({
 	folders,
@@ -51,7 +51,6 @@ export function ProjectList({
 		<div className="flex flex-col gap-3">
 			{folders.map((folder) => {
 				const key = folderKey(folder);
-				const empty = folder.trees.length === 0;
 				return (
 					<Collapsible
 						key={key}
@@ -69,34 +68,22 @@ export function ProjectList({
 							>
 								<ChevronRightIcon
 									aria-hidden
-									className={cn(
-										"size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90",
-										empty && "invisible",
-									)}
+									className="size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[open]/folder:rotate-90"
 								/>
-								<span
-									className={cn(
-										"min-w-0 truncate",
-										empty && "text-muted-foreground/60",
-									)}
-								>
-									{folder.name}
-								</span>
+								<span className="min-w-0 truncate">{folder.name}</span>
 							</CollapsibleTrigger>
 							<button
 								type="button"
 								aria-label={`New conversation in ${folder.name}`}
 								title={`New conversation in ${folder.name}`}
 								onClick={() => onNew(folder)}
-								className={cn(
-									"flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100",
-									empty && "opacity-100",
-								)}
+								className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
 							>
 								<PlusIcon className="size-3.5" />
 							</button>
 						</div>
 						<CollapsibleContent>
+							{folder.trees.length === 0 && <ProjectEmpty />}
 							{folder.listed.length > 0 && (
 								<InLanes folder={folder}>
 									<Rows

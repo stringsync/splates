@@ -10,6 +10,7 @@ import {
 	EmptyDescription,
 	EmptyHeader,
 } from "#web/components/ui/empty.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { AddProject } from "./add-project";
 
 /** The dialog that adds a registered project, wherever it is opened from. */
@@ -33,13 +34,22 @@ export function AddProjectDialog({
 }
 
 /**
- * An empty folder in the phone inbox, leaving its header and New action
- * available. It stands as tall as one conversation row, so archiving the last
- * one does not shift what lies below.
+ * A compact empty folder, leaving its header and New action available. It
+ * stands as tall as one conversation row (the phone inbox's are taller), so
+ * archiving the last one does not shift what lies below.
  */
-export function ProjectEmpty(): JSX.Element {
+export function ProjectEmpty({
+	phone = false,
+}: {
+	phone?: boolean;
+}): JSX.Element {
 	return (
-		<Empty className="min-h-16 justify-center p-0 px-4">
+		<Empty
+			className={cn(
+				"justify-center p-0",
+				phone ? "min-h-16 px-4" : "min-h-8 pointer-coarse:min-h-10 px-3",
+			)}
+		>
 			<EmptyHeader>
 				<EmptyDescription>No conversations yet.</EmptyDescription>
 			</EmptyHeader>
