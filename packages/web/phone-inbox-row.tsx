@@ -8,7 +8,7 @@ import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
 import { Board } from "./board";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
-import { automated } from "./conversation-rows";
+import { automated, shipped } from "./conversation-rows";
 import { blockersLeft, deferredTask } from "./deferred-body";
 import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
@@ -97,6 +97,7 @@ export function Row({
 					conversation !== null &&
 						automated(conversation) &&
 						"bg-violet-500/15",
+					conversation !== null && shipped(conversation) && "bg-sky-500/15",
 					depth === 0 ? "size-10" : "size-8",
 				)}
 			>

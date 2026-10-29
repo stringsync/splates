@@ -1,10 +1,10 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { BotIcon, ZapIcon } from "lucide-react";
+import { BotIcon, ShipIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import { automated } from "./conversation-rows";
+import { automated, shipped } from "./conversation-rows";
 
 /** OpenCode's mark: a tall frame around a hollow, on a 24 by 24 box. */
 const OPENCODE_PATH = "M5 2h14v20H5zM9 6.5v11h6v-11z";
@@ -31,8 +31,8 @@ const MARKS: Record<string, { path: string }> = {
 /**
  * The mark beside a conversation, named by `name`: its agent's branded mark,
  * the auto picker's while it is picking, its hybrid mark while Auto pick is on,
- * or a violet bolt for an automation (see `automated`) such as the groomer, so
- * it reads as one at a glance.
+ * a sky ship for the task of a ship (see `shipped`), or a violet bolt for an
+ * automation (see `automated`) such as the groomer, so each reads at a glance.
  */
 export function RowIcon({
 	conversation,
@@ -43,6 +43,19 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
+	if (shipped(conversation)) {
+		return (
+			<ShipIcon
+				role="img"
+				aria-label={name}
+				className={cn(
+					"size-4 shrink-0",
+					className,
+					"fill-sky-500/25 text-sky-600 dark:text-sky-400",
+				)}
+			/>
+		);
+	}
 	if (conversation.picking) {
 		return <AutoIcon className={cn("size-4 shrink-0", className)} />;
 	}

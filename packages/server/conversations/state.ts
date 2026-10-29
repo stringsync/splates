@@ -206,6 +206,11 @@ export interface ConversationState {
 	 * with the persistent agents. Absent for any other.
 	 */
 	automation?: string;
+	/**
+	 * The ship, by its id, whose adoption task it runs, so the page marks it
+	 * with a ship. Absent for any other.
+	 */
+	ship?: string;
 }
 
 /**

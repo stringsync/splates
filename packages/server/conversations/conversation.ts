@@ -331,6 +331,7 @@ export class Conversation
 			title = null,
 			persistent,
 			automation,
+			ship,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
@@ -361,6 +362,9 @@ export class Conversation
 		if (automation !== undefined) {
 			state.automation = automation;
 		}
+		if (ship !== undefined) {
+			state.ship = ship;
+		}
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -379,6 +383,7 @@ export class Conversation
 			...(queued === undefined ? {} : { queued }),
 			...(persistent === undefined ? {} : { persistent }),
 			...(automation === undefined ? {} : { automation }),
+			...(ship === undefined ? {} : { ship }),
 		});
 		if (title !== null) {
 			const update: acp.SessionUpdate = {
@@ -1361,6 +1366,8 @@ interface Opening {
 	persistent?: string;
 	/** The automation that starts it, by its id. */
 	automation?: string;
+	/** The ship whose adoption task it runs, by its id. */
+	ship?: string;
 }
 
 /** What Auto pick decided for a conversation to open on, its agent as `A` names it. */

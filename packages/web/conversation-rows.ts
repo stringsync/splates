@@ -83,6 +83,14 @@ export function automated(conversation: ConversationState): boolean {
 	);
 }
 
+/**
+ * Whether `conversation` runs the adoption task of a ship, which the sidebar
+ * and the inbox mark with a ship, as they mark an automation's with a bolt.
+ */
+export function shipped(conversation: ConversationState): boolean {
+	return conversation.ship !== undefined;
+}
+
 /** Whether a row's conversation is pinned atop the list. */
 function pinned(row: Needing): boolean {
 	return row.conversation?.pinned === true;

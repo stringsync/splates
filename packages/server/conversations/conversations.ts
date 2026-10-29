@@ -94,7 +94,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift: Lift | null = null;
 
-	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
+	/** Replaces the agents new conversations can start with; running ones keep theirs. */
 	refreshRoster(agents: Agent[]): void {
 		this.agents.splice(0, this.agents.length, ...structuredClone(agents));
 		this.dispatcher.dispatch("settings");
@@ -301,6 +301,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			title,
 			persistent,
 			automation,
+			ship,
 			picking,
 		}: {
 			/**
@@ -333,6 +334,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			persistent?: string;
 			/** The automation that starts it, by its id. */
 			automation?: string;
+			/** The ship whose adoption task it runs, by its id. */
+			ship?: string;
 			/**
 			 * What Auto pick decides, once it has, to open on in place of
 			 * `agent`, `model` and `settings`, which it shows meanwhile.
@@ -362,6 +365,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				title,
 				persistent,
 				automation,
+				ship,
 				picking: picking?.then((picked) => ({
 					...picked,
 					agent: this.agentOf(picked.agent),

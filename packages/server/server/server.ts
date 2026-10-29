@@ -585,7 +585,7 @@ export async function dev(
 								afterBump: commands,
 								signal,
 								assigned,
-								agent: (task) => served.startShipTask(task),
+								agent: (task) => served.startShipTask(task, ship.id),
 							},
 						);
 					} finally {

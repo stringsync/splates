@@ -52,6 +52,8 @@ type Said =
 			persistent?: string;
 			/** The automation that started it, by its id; missing for one none did. */
 			automation?: string;
+			/** The ship whose adoption task it runs, by its id; missing for any other. */
+			ship?: string;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }

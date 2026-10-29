@@ -147,6 +147,9 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		if (start.automation !== undefined) {
 			state.automation = start.automation;
 		}
+		if (start.ship !== undefined) {
+			state.ship = start.ship;
+		}
 		const replayed: Replayed = {
 			state,
 			session: null,

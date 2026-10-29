@@ -45,4 +45,18 @@ describe("inbox agent marks", () => {
 		expect(view.container.querySelector("clipPath")).toBeNull();
 		expect(view.getByRole("img", { name: "Claude" })).toBeTruthy();
 	});
+
+	it("marks a ship's task with a ship, even while Auto pick is on", () => {
+		const state = conversation({ agent: "claude", ship: "ship-1" });
+		const view = render(
+			<RowIcon
+				conversation={{ ...state, autoPick: switched(state, true) }}
+				name="Claude"
+			/>,
+		);
+
+		expect(view.getByRole("img", { name: "Claude" }).tagName).toBe("svg");
+		expect(view.container.querySelector("clipPath")).toBeNull();
+		expect(view.container.querySelector(".lucide-ship")).toBeTruthy();
+	});
 });

@@ -181,7 +181,7 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
 		shipping,
-		startShipTask: async (task: string) => {
+		startShipTask: async (task: string, ship: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
 			}
@@ -200,7 +200,7 @@ export async function serveProject(
 			).startAutoPick(
 				new Request("http://localhost/start", {
 					method: "POST",
-					body: JSON.stringify({ task }),
+					body: JSON.stringify({ task, ship }),
 				}),
 			);
 			const state = (await response.json()) as { id: string };
@@ -524,7 +524,7 @@ export interface Served extends AsyncResource {
 	showConversation: Handler;
 	refreshLimits: Handler;
 	chooseDefault: Handler;
-	startShipTask(task: string): Promise<void>;
+	startShipTask(task: string, ship: string): Promise<void>;
 	startConversation: Handler;
 	startAutoPick: Handler;
 	tryAutoPick: Handler;

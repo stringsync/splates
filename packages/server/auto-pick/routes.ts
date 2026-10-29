@@ -11,9 +11,8 @@ import {
 import { tryAutoPick } from "./trial";
 
 /**
- * How a project's page starts a task on what Auto pick decides, or sees what
- * it would decide. Each handler is a property, so `serveProject` spreads them
- * into the project's routes, as it does `ConversationRoutes`'.
+ * Starts a task on what Auto pick decides, or shows what it would decide.
+ * Spread an instance into a project's routes, as `ConversationRoutes` is.
  */
 export class AutoPickRoutes {
 	readonly #project: Project;
@@ -46,7 +45,7 @@ export class AutoPickRoutes {
 		if (conversations === null) {
 			fail("not_found", "conversations are off", {});
 		}
-		const { id, task, todo, words, attachments } = await body(request);
+		const { id, task, todo, words, attachments, ship } = await body(request);
 		// A new conversation's first message, judged in `task`'s tree, if named.
 		const target: AutoPickWords =
 			typeof words === "string"
@@ -73,6 +72,7 @@ export class AutoPickRoutes {
 					model,
 					settings,
 					assigned: true,
+					...(typeof ship === "string" ? { ship } : {}),
 					picking: picking.finally(() => this.#watch.changed()),
 				}),
 		});
