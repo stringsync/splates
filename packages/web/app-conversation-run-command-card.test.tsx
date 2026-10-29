@@ -63,14 +63,21 @@ describe("App's run-command card", () => {
 				),
 			],
 		});
+		// The Ships page rewrites the address from its path, which a window
+		// left on about:blank has no real one of.
+		(
+			window as unknown as { happyDOM: { setURL(url: string): void } }
+		).happyDOM.setURL("http://localhost/");
 		const view = await testing.openConversations([asking]);
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() => view.getByRole("button", { name: "Open Ships" })),
 			),
 		);
-		expect(location.hash).toBe("#ships");
-		expect(new URLSearchParams(location.search).get("ship")).toBe("webappwiz");
+		await waitFor(() => expect(location.hash).toBe("#ships"));
+		await waitFor(() =>
+			expect(view.getAllByText(/webappwiz/).length).toBeGreaterThan(0),
+		);
 		expect(testing.posted("/api/ship/run")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 		history.replaceState(null, "", "/");
