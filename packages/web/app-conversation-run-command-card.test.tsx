@@ -66,7 +66,7 @@ describe("App's run-command card", () => {
 		const view = await testing.openConversations([asking]);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Ship" })),
+				await waitFor(() => view.getByRole("button", { name: "Plan ship" })),
 			),
 		);
 		await waitFor(() =>

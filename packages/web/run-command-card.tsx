@@ -39,7 +39,7 @@ export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
  * Shows an agent's request to run a heavy command, with why and how loaded
  * the machine is, for the person to Allow or Deny. Allowing the whole test
  * suite grants the conversation its one run; Grant on `splates retry <task>`
- * runs the retry; Ship on `splates ship` opens the ship plan, and the agent
+ * runs the retry; Plan ship on `splates ship` opens the ship plan, and the agent
  * hears `[SPLATES RUN ALLOWED]` only once Approve starts the ship.
  */
 export function RunCommandCard({
@@ -258,7 +258,7 @@ export function RunCommandCard({
 								{retry !== null
 									? "Grant attempts"
 									: ship !== null
-										? "Ship"
+										? "Plan ship"
 										: "Allow"}
 							</Button>
 						</>

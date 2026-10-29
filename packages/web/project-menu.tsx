@@ -80,7 +80,7 @@ export function ProjectMenu({
 						onClick={onShip}
 					>
 						<ShipIcon />
-						Ship {project.slug}…
+						Plan a ship of {project.slug}…
 					</DropdownMenuItem>
 				)}
 				<DropdownMenuSeparator />

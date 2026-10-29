@@ -71,7 +71,7 @@ it, and dependents are reviewed as usual. A project whose release status is
 unknown is left out; ship it on its own. With nothing changed, the button is
 disabled.
 
-On the page, a project's menu in the project switcher has **Ship
+On the page, a project's menu in the project switcher has **Plan a ship of
 <project>…**, which opens the plan, as `--plan` prints it: each project in
 order, the version it goes to, what it publishes, what it takes and why it
 ships or only takes its bump. Its **Release type** picks Patch, Minor or
@@ -170,8 +170,8 @@ release is due, it ends its reply with a run-command card:
 The log rotation fix is on main and unreleased.
 ```
 
-The page shows it as a ship card, whose Ship button opens the same plan as
-the project menu's **Ship <project>…**, release type and all. Approve starts
+The page shows it as a ship card, whose Plan ship button opens the same plan as
+the project menu's **Plan a ship of <project>…**, release type and all. Approve starts
 the ship on the server as `splates ship` would, and only then does the agent
 hear `[SPLATES RUN ALLOWED]`, carrying on without running anything. Closing
 the plan leaves the card unanswered.

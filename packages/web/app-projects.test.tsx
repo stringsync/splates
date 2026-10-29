@@ -332,7 +332,9 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Plan a ship of shop…" }),
+		);
 
 		expect(
 			await waitFor(() =>
@@ -350,7 +352,7 @@ describe("App's projects", () => {
 			view.getByRole("menuitem", { name: "Remove project webappwiz" }),
 		);
 		expect(
-			view.queryByRole("menuitem", { name: "Ship webappwiz…" }),
+			view.queryByRole("menuitem", { name: "Plan a ship of webappwiz…" }),
 		).toBeNull();
 	});
 

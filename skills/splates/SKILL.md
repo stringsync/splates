@@ -210,7 +210,7 @@ and prints its Ship page link for approval under their own npm sign-in, and spla
 agent. Never run `npm login` or `npm publish` either. When you think a
 release is due (a fix on the base that users are waiting on), end your reply
 with a run-command card naming `splates ship <project>`, the why under it
-saying what the release carries; its Ship button opens the plan, where the
+saying what the release carries; its Plan ship button opens the plan, where the
 person picks patch, minor or major and approves, which starts the ship on
 `splates server`, so on `[SPLATES RUN ALLOWED]` it is already running: carry
 on without running it. A merge is never a release.
