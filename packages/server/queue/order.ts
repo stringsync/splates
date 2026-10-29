@@ -1,4 +1,9 @@
-import type { ElsewhereBlocker, TaskRecord } from "../board";
+import {
+	cleared,
+	deferralBlockers,
+	type ElsewhereBlocker,
+	type TaskRecord,
+} from "../board/browser";
 
 /**
  * The queued tasks of `all` no agent has taken, in the order the queue
@@ -155,4 +160,26 @@ export function unqueuedBlockers(
 		}
 	}
 	return found;
+}
+
+/**
+ * Whether deferred task `task` goes back to the conversation that deferred
+ * it by itself: untaken, waiting only on tasks, and each of them merged.
+ */
+export function resumesItself(
+	task: TaskRecord,
+	all: readonly TaskRecord[],
+): boolean {
+	const deferred = task.deferred;
+	return (
+		deferred !== undefined &&
+		deferred.conversation !== undefined &&
+		task.takenBy === null &&
+		task.stage !== "running" &&
+		deferred.tasks.length > 0 &&
+		deferred.questions.length === 0 &&
+		deferred.outside.length === 0 &&
+		canStart(task, all) &&
+		deferralBlockers(task, all).every(cleared)
+	);
 }

@@ -5,7 +5,7 @@ import type { TaskRecord } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
-import { canStart, queueOrder } from "./order";
+import { canStart, queueOrder, resumesItself } from "./order";
 
 /** How often the queue checks itself again when it has seen no change. */
 export const QUEUE_SWEEP = Duration.mins(1);
@@ -51,6 +51,8 @@ export class QueueRunner implements Resource {
 	#checking = Promise.resolve();
 	/** The queued tasks being started now, until their task takes them. */
 	readonly #starting = new Set<number>();
+	/** Each deferred task sent back to its conversation, by id, as deferred then (`at`), so it is told once. */
+	readonly #resumed = new Map<number, string>();
 	/**
 	 * Each queued task whose start was refused, by id: as it stood then, why,
 	 * how many times in a row, and the sweeps it has waited since; `due` once
@@ -121,8 +123,10 @@ export class QueueRunner implements Resource {
 				this.#refused.delete(id);
 			}
 		}
+		const resumed = await this.#resume(all);
 		const startable = queueOrder(all).filter(
 			(queued) =>
+				!resumed.has(queued.id) &&
 				!this.#starting.has(queued.id) &&
 				this.#refused.get(queued.id)?.due !== false &&
 				canStart(queued, all),
@@ -190,6 +194,49 @@ export class QueueRunner implements Resource {
 				}
 			})();
 		}
+	}
+
+	/**
+	 * Sends each deferred task that waited only on tasks, all merged now, back
+	 * to the conversation that deferred it, once; answers the ids it holds
+	 * there, which the queue must not also start in a new conversation. One
+	 * whose conversation is gone, or refuses, is left to the queue.
+	 */
+	async #resume(all: readonly TaskRecord[]): Promise<Set<number>> {
+		const held = new Set<number>();
+		const resume = this.deps.resume;
+		if (resume === undefined) {
+			return held;
+		}
+		for (const task of all) {
+			const at = task.deferred?.at;
+			if (at === undefined || !resumesItself(task, all)) {
+				this.#resumed.delete(task.id);
+				continue;
+			}
+			if (this.#resumed.get(task.id) === at) {
+				held.add(task.id);
+				continue;
+			}
+			if (this.deps.paused?.() === true) {
+				held.add(task.id);
+				continue;
+			}
+			try {
+				if (await resume(task)) {
+					this.#resumed.set(task.id, at);
+					held.add(task.id);
+					this.deps.log.info(
+						`the queue sent deferred task ${task.id} back to its conversation`,
+					);
+				}
+			} catch (error) {
+				this.deps.log.error(
+					`could not resume deferred task ${task.id}: ${String(error)}`,
+				);
+			}
+		}
+		return held;
 	}
 
 	/**
@@ -381,6 +428,12 @@ export interface QueueRunnerDeps {
 	/** Who works a queued task that names no agent: Auto pick. */
 	picker: QueuePicker;
 	start: QueueStarter;
+	/**
+	 * Tells the conversation that deferred `task` to take it up again, as
+	 * Resume on its card does; whether it was told, false when that
+	 * conversation is gone. Absent, deferred tasks never resume by themselves.
+	 */
+	resume?: (task: TaskRecord) => Promise<boolean>;
 	/** The conversations held for queued tasks; absent, none is held. */
 	held?: HeldConversations;
 	/**

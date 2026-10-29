@@ -13,13 +13,17 @@ import type {
 	Conversations,
 	ConversationsHeard,
 } from "../conversations";
-import { ConversationRoutes, JournalEvents } from "../conversations";
+import {
+	ConversationRoutes,
+	JournalEvents,
+	SERVER_TOLD,
+} from "../conversations";
 import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { type Needing, needs } from "../plans";
+import { type Needing, needs, taskNumberReference } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
@@ -96,6 +100,26 @@ export async function serveProject(
 					prompt,
 					held,
 				}),
+			resume: async (task) => {
+				const id = task.deferred?.conversation;
+				const conversation = (await conversations.list()).find(
+					(each) => each.state.id === id,
+				);
+				if (conversation === undefined) {
+					return false;
+				}
+				if (conversation.state.archived) {
+					await conversation.unarchive();
+				}
+				void conversation
+					.prompt(taskNumberReference(task.id), [], undefined, {
+						told: SERVER_TOLD,
+					})
+					.catch((error: unknown) =>
+						log.error(`could not resume task ${task.id}: ${String(error)}`),
+					);
+				return true;
+			},
 			held: heldFor(conversations, service, log),
 			paused: () => context.paused(),
 			log,

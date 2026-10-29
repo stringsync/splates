@@ -29,6 +29,8 @@ describe("QueueRunner", () => {
 	let timer: FakeTimer;
 	/** Whether the runner is paused, as the server's records say. */
 	let paused: boolean;
+	/** The deferred tasks sent back to their conversations, by id. */
+	let resumed: number[];
 
 	/** Waits out every start under way, and the runner's note that it ended. */
 	const settled = async (): Promise<void> => {
@@ -47,6 +49,10 @@ describe("QueueRunner", () => {
 				pending.push(start);
 				return start;
 			},
+			resume: async (task) => {
+				resumed.push(task.id);
+				return true;
+			},
 			held,
 			paused: () => paused,
 			log: new MemoryLogger(),
@@ -61,6 +67,7 @@ describe("QueueRunner", () => {
 		picker = new FakePicker();
 		timer = new FakeTimer();
 		paused = false;
+		resumed = [];
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
 			if (each.held !== undefined) {
@@ -76,6 +83,32 @@ describe("QueueRunner", () => {
 	afterEach(async () => {
 		runner.dispose();
 		await deps[Symbol.asyncDispose]();
+	});
+
+	it("sends a deferred task back to its conversation once, when the tasks it waits on merge, rather than starting it", async () => {
+		const blocker = await deps.tasks.add("Build the client", null);
+		const deferred = await deps.tasks.add("Retry on 413", null);
+		await deferred.defer(
+			{
+				why: "Needs the client.",
+				blockedBy: [blocker.id],
+				questions: [],
+				outside: [],
+			},
+			{ task: "alpha", conversation: "talk" },
+		);
+		await queueAdd(deps, [deferred.id]);
+
+		await runner.sweep();
+		expect(resumed).toEqual([]);
+
+		await (await deps.tasks.find(blocker.id)).remove("abc123");
+		await runner.sweep();
+		await runner.sweep();
+		await settled();
+
+		expect(resumed).toEqual([deferred.id]);
+		expect(started).toEqual([]);
 	});
 
 	it("starts nothing that is not queued", async () => {

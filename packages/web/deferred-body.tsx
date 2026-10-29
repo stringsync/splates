@@ -91,6 +91,13 @@ export function DeferredBody({
 			? queueTodo(task.id, true)
 			: send(taskNumberReference(task.id));
 	const queued = task.stage === "queued" && task.takenBy === null;
+	const open = blockers.filter((each) => !cleared(each));
+	// The server resumes it once every task it waits on has merged.
+	const alone =
+		deferred.conversation !== undefined &&
+		deferred.questions.length === 0 &&
+		deferred.outside.length === 0 &&
+		open.length > 0;
 	let questionIndex = -1;
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
@@ -182,6 +189,15 @@ export function DeferredBody({
 			)}
 			{task.takenBy === null && (
 				<p className="flex flex-wrap items-center justify-end gap-2 text-xs">
+					{alone && !queued && (
+						<span className="mr-auto text-muted-foreground">
+							Resumes on its own once{" "}
+							{open
+								.map((each) => (each.kind === "task" ? `#${each.id}` : ""))
+								.join(", ")}{" "}
+							merges
+						</span>
+					)}
 					{queued && (
 						<span className="mr-auto text-muted-foreground">
 							Queued
