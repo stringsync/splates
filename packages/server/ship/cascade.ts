@@ -1,6 +1,7 @@
 // scry-ignore-file compact-files: one class carries a cascade through its projects; the state transitions stay together
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
+import type { Registry } from "webappwiz/ship";
 import type { Fs } from "webappwiz/system";
 import {
 	Duration,
@@ -43,7 +44,8 @@ export function cascadeRecord(storage: Storage): Document<Cascade> {
 
 /**
  * Where one project of a cascade stands: `waiting` on the projects it takes
- * from, `bumping` while its bump task is open, `asking` while that task
+ * from, `registry` while npm does not yet serve the versions its bump takes,
+ * `bumping` while its bump task is open, `asking` while that task
  * waits on the person, `stopped` once that task was removed unmerged,
  * `shipping` while its ship runs, `failed` once the ship failed, `done`,
  * `dropped` when it has nothing to take, or `abandoned` with the whole run.
@@ -51,6 +53,7 @@ export function cascadeRecord(storage: Storage): Document<Cascade> {
  */
 export type CascadeStatus =
 	| "waiting"
+	| "registry"
 	| "bumping"
 	| "asking"
 	| "stopped"
@@ -63,6 +66,8 @@ export type CascadeStatus =
 /** One project's part in a cascade, as its plan named it and how far it came. */
 export interface CascadeStep extends ShipStep {
 	status: CascadeStatus;
+	/** When it first found its bump's versions not yet served by npm, while `registry`. */
+	registrySince?: string;
 	/** Its bump task's number in its own project, once added. */
 	task: number | null;
 	/** When its ship started, as its project's `ship.json` has it, once started. */
@@ -124,6 +129,8 @@ export interface CascadesOptions {
 	plan: (slug: string, bump: ShipBump, skip: string[]) => Promise<ShipPlan>;
 	/** The project `slug` names, opened and served. */
 	reach: (slug: string) => Promise<CascadeProject>;
+	/** Tells whether npm serves a version yet; a bump waits for that. Unchecked when absent. */
+	registry?: Pick<Registry, "published">;
 	/** The cascades kept with their logs; under `ship-history` in `storage` by default. */
 	history?: ShipHistory;
 	timer?: Timer;
@@ -132,6 +139,9 @@ export interface CascadesOptions {
 
 /** How often a cascade under way reads its projects again. */
 const EVERY = Duration.secs(5);
+
+/** How long a bump waits for npm to serve the versions it takes before the run stops. */
+const REGISTRY_DEADLINE = Duration.mins(30);
 
 /** The statuses a project ends in, holding up nothing after it. */
 const ENDED: CascadeStatus[] = ["done", "dropped", "abandoned"];
@@ -414,6 +424,7 @@ export class Cascades implements Resource {
 	private async move(cascade: Cascade, step: CascadeStep): Promise<void> {
 		switch (step.status) {
 			case "waiting":
+			case "registry":
 				return this.begin(cascade, step);
 			case "bumping":
 			case "asking":
@@ -466,6 +477,11 @@ export class Cascades implements Resource {
 			step.note = "every project it takes from was dropped";
 			return;
 		}
+		if (!(await this.served(step, takes))) {
+			return;
+		}
+		step.status = "waiting";
+		delete step.registrySince;
 		const project = await this.opts.reach(step.slug);
 		// A ship of every changed project names none of them, so a bump is
 		// from the first project it takes.
@@ -488,6 +504,39 @@ export class Cascades implements Resource {
 		step.status = "bumping";
 		bumpAdded(step, this.stamp());
 		this.opts.log.info(`${step.slug} takes its bump as task ${step.task}`);
+	}
+
+	/**
+	 * Whether npm serves every version `takes` names, polled on each read.
+	 * Otherwise `step` shows it waits on the registry, and fails once that
+	 * outlasts the deadline.
+	 */
+	private async served(step: CascadeStep, takes: BumpTake[]): Promise<boolean> {
+		const registry = this.opts.registry;
+		if (registry === undefined) {
+			return true;
+		}
+		const missing: string[] = [];
+		for (const pin of takes.flatMap((take) => take.pins)) {
+			if (!(await registry.published(pin.name, pin.version))) {
+				missing.push(`${pin.name}@${pin.version}`);
+			}
+		}
+		if (missing.length === 0) {
+			return true;
+		}
+		step.status = "registry";
+		step.registrySince ??= this.stamp();
+		if (
+			this.clock.now() - Date.parse(step.registrySince) >
+			REGISTRY_DEADLINE.ms
+		) {
+			step.status = "failed";
+			step.note = `npm still does not serve ${missing.join(", ")} after 30 minutes`;
+			return false;
+		}
+		step.note = `waiting for npm to serve ${missing.join(", ")}`;
+		return false;
 	}
 
 	/** Follows `step`'s bump task: shipping it once merged, when it ships. */

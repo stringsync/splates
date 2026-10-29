@@ -504,9 +504,8 @@ export async function dev(
 			skip,
 		);
 	const shipHistory = new ShipHistory(machineStorage, fs);
-	const recovery = new ShipRecovery(
-		new ShipRegistry({ fetch: deps.fetch ?? fetch }),
-	);
+	const shipRegistry = new ShipRegistry({ fetch: deps.fetch ?? fetch });
+	const recovery = new ShipRecovery(shipRegistry);
 	const reviews = new ShipReviews({
 		storage: machineStorage,
 		plan: drawShipPlan,
@@ -565,6 +564,7 @@ export async function dev(
 		log,
 		plan: drawShipPlan,
 		reach: projectNamed,
+		registry: shipRegistry,
 	});
 	disposer.defer(async () => cascades.dispose());
 	// A cascade the server stopped in the middle of carries on as it serves again.

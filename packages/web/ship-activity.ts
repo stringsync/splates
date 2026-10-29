@@ -76,6 +76,9 @@ export function shipLine(
 		if (step.status === "failed" || step.status === "stopped") {
 			return `${step.slug} ${step.status}`;
 		}
+		if (step.status === "registry") {
+			return `${step.slug} waits for npm`;
+		}
 		if (step.status === "asking") {
 			return `${step.slug}'s bump task asks you`;
 		}

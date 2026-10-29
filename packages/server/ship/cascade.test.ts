@@ -132,6 +132,58 @@ describe("Cascades", () => {
 		]);
 	});
 
+	it("holds a bump until npm serves the versions it takes, then fails past the deadline", async () => {
+		const served = new Set<string>();
+		const sources = (await servedProjects()).sources;
+		cascades = new Cascades({
+			storage,
+			fs,
+			log: new MemoryLogger(),
+			plan: async (slug, bump) =>
+				planShip(await readGraph(fs, sources), slug, bump),
+			reach: async (slug) => project(slug),
+			registry: {
+				published: async (name, version) => served.has(`${name}@${version}`),
+			},
+			timer,
+			clock,
+		});
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+
+		expect(await statuses()).toMatchObject({ splates: "registry" });
+		expect(project("splates").bumps.added).toEqual([]);
+		expect((await cascades.current())?.steps[1]?.note).toContain(
+			"webappwiz@0.0.51",
+		);
+
+		served.add("webappwiz@0.0.51");
+		served.add("@webappwiz/cli@0.0.51");
+		await cascades.tick();
+		expect(await statuses()).toMatchObject({ splates: "bumping" });
+	});
+
+	it("stops the run when npm never serves a bump's versions", async () => {
+		const sources = (await servedProjects()).sources;
+		cascades = new Cascades({
+			storage,
+			fs,
+			log: new MemoryLogger(),
+			plan: async (slug, bump) =>
+				planShip(await readGraph(fs, sources), slug, bump),
+			reach: async (slug) => project(slug),
+			registry: { published: async () => false },
+			timer,
+			clock,
+		});
+		await cascades.start("webappwiz");
+		await shipped("webappwiz", "0.0.51");
+		clock.advance(Duration.mins(31));
+		await cascades.tick();
+
+		expect((await cascades.current())?.status).toBe("stopped");
+	});
+
 	it("adds a bump task in each dependent once its ship is done, at the versions it published", async () => {
 		project("webappwiz").afterBump = "bunx @webappwiz/cli update";
 		await cascades.start("webappwiz");

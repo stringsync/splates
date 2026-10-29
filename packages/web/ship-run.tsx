@@ -185,6 +185,7 @@ const HELD: CascadeStatus[] = ["failed", "stopped"];
 /** What each status says of a project, beside it. */
 const STATUSES: Record<CascadeStatus, string> = {
 	waiting: "waiting",
+	registry: "waiting on npm",
 	bumping: "bumping",
 	asking: "asks you",
 	stopped: "stopped",
@@ -197,6 +198,7 @@ const STATUSES: Record<CascadeStatus, string> = {
 
 const DOTS: Record<CascadeStatus, string> = {
 	waiting: "bg-muted-foreground/40",
+	registry: "bg-amber-500",
 	bumping: "bg-info",
 	asking: "bg-amber-500",
 	stopped: "bg-destructive",
