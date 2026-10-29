@@ -33,6 +33,7 @@ import { NavigationContext, useShownProject } from "./navigation";
 import { placeKey } from "./project-places";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
+import { ShipPlanCard } from "./ship-plan-card";
 import { stageOf } from "./todo-queue";
 
 /**
@@ -67,6 +68,8 @@ export function PermissionCard({
 			return <QueueCard proposal={proposal} />;
 		case "grant":
 			return <GrantCard proposal={proposal} />;
+		case "ship-plan":
+			return <ShipPlanCard proposal={proposal} />;
 	}
 }
 

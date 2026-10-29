@@ -67,10 +67,12 @@ export {
 } from "./request";
 export {
 	abandonCascade,
+	approveShipPlan,
 	reviseCascadeBump,
 	shipGraph,
 	shipHistory,
 	shipHistoryEntry,
+	shipRun,
 	shipStageLog,
 	startShipRun,
 } from "./ship";

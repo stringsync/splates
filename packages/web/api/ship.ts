@@ -4,6 +4,7 @@ import type {
 	Ship,
 	ShipBump,
 	ShipGraph,
+	ShownRun,
 	StageKey,
 } from "@stringsync/splates-server/ship";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
@@ -18,6 +19,20 @@ export async function startShipRun(projects: string[]): Promise<string> {
 		run: { id: string };
 	};
 	return run.run.id;
+}
+
+/** The ship run the conversation drives with its plan, or null before any started. */
+export async function shipRun(): Promise<ShownRun | null> {
+	const response = await answered("/api/ship/run");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/run: ${response.status}`);
+	}
+	return (await response.json()) as ShownRun | null;
+}
+
+/** Approves the frozen plan `id`, which starts the run; only the person's page does. */
+export async function approveShipPlan(id: string): Promise<void> {
+	await sendJson("/api/ship/run/approve", "POST", { id });
 }
 
 /** Every registered project and who pins whose packages, the Ship page's tree. */

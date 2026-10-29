@@ -64,6 +64,8 @@ describe("General conversations", () => {
 			);
 			const state = (await started.json()) as ConversationState;
 			expect(state).toMatchObject({ id: ID, scratch: true, task: null });
+			// The agent launches after the start answers.
+			await eventually(async () => agent.launched.length > 0, 5_000);
 			expect(agent.launched[0]).toMatchObject({
 				cwd: `${deps.splatesHome}/general/workspaces/${ID}`,
 				env: { SPLATES_SCRATCH: "fake" },
