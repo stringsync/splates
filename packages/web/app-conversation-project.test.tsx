@@ -84,7 +84,7 @@ describe("App's new conversation, by project", () => {
 		expect(localStorage.getItem(`splates.draft.${newDraft(null)}`)).toBeNull();
 	});
 
-	it("offers General first, outside any project, carrying what was typed there", async () => {
+	it("offers General in a section above the projects, carrying what was typed there", async () => {
 		const home = view.getByRole("region", { name: "new conversation" });
 		await typeIn(
 			within(home).getByRole("textbox", { name: "Message input" }),
@@ -96,22 +96,25 @@ describe("App's new conversation, by project", () => {
 				within(home).getByRole("button", { name: /^Switch project/ }),
 			),
 		);
-		const listed = await waitFor(() =>
-			view.getByRole("list", { name: "projects" }),
+		const general = await waitFor(() =>
+			view.getByRole("list", { name: "general" }),
 		);
-		expect(
-			within(listed)
+		const rows = (list: HTMLElement) =>
+			within(list)
 				.getAllByRole("listitem")
 				.map((each) => [
 					each.textContent,
-					within(each).getAllByRole("button").length,
-				]),
-		).toEqual([
-			["GeneralNo project", 1],
+					within(each).queryAllByRole("button").length,
+				]);
+		// General in a section of its own, without a project's menu.
+		expect(rows(general)).toEqual([["GeneralNo project", 1]]);
+		expect(rows(view.getByRole("list", { name: "projects" }))).toEqual([
 			["shop/code/shop", 2],
 			["webappwiz/code/webappwizcurrent", 2],
 		]);
-		await act(async () => fireEvent.click(within(listed).getByText("General")));
+		await act(async () =>
+			fireEvent.click(within(general).getByText("General")),
+		);
 
 		const there = new URL(String(testing.visited.at(-1)));
 		expect(there.searchParams.get("project")).toBe("~general");

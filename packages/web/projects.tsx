@@ -245,6 +245,74 @@ export function ProjectSwitcher({
 			.writeText(each.root)
 			.catch((error: unknown) => refused("Path not copied", error));
 
+	// General apart from the projects, in a list of its own above them.
+	const generalAt = matching.findIndex((each) => each.slug === GENERAL);
+	const row = (each: ProjectChoice, at: number): JSX.Element => (
+		<li
+			key={each.slug}
+			className={cn(
+				"group/project flex items-center rounded-lg pr-1.5",
+				at === active && !each.gone && "bg-muted",
+			)}
+		>
+			<button
+				type="button"
+				disabled={each.gone}
+				title={
+					each.slug === GENERAL
+						? GENERAL_NAME
+						: each.gone
+							? `${each.root} is gone`
+							: each.root
+				}
+				onMouseEnter={() => setActive(at)}
+				onClick={() => go(each)}
+				className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-default disabled:opacity-50"
+			>
+				<span className="flex min-w-0 flex-1 flex-col">
+					<span
+						className={cn("truncate font-medium", each.gone && "line-through")}
+					>
+						{nameOf(each)}
+					</span>
+					<span className="truncate text-muted-foreground text-xs">
+						{each.slug === GENERAL ? "No project" : shortPath(each.root)}
+					</span>
+				</span>
+				{current(each) && (
+					<span className="shrink-0 text-muted-foreground text-xs">
+						current
+					</span>
+				)}
+				{each.waiting > 0 && (
+					<span
+						role="status"
+						aria-label={`${each.waiting} waiting on you`}
+						title={`${each.waiting} waiting on you`}
+						className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
+					>
+						<TriangleAlertIcon aria-hidden className="size-3 text-warning" />
+						{each.waiting}
+					</span>
+				)}
+			</button>
+			{each.slug !== GENERAL && (
+				<ProjectMenu
+					project={each}
+					current={current(each)}
+					hidden={!each.gone && at !== active}
+					onCopyPath={() => void copyPath(each)}
+					onShip={() => {
+						setOpen(false);
+						setShipping(new ShipApproval(each.slug));
+					}}
+					pending={forgetting.pending(each.slug)}
+					onForget={() => void forget(each)}
+				/>
+			)}
+		</li>
+	);
+
 	return (
 		<>
 			{leaving !== null && (
@@ -336,7 +404,20 @@ export function ProjectSwitcher({
 						/>
 					</div>
 					<div className="flex max-h-80 flex-col overflow-y-auto">
+						{generalAt !== -1 && (
+							<ul aria-label="general" className="flex flex-col border-b p-1.5">
+								{row(matching[generalAt] as ProjectChoice, generalAt)}
+							</ul>
+						)}
 						<ul aria-label="projects" className="flex flex-col p-1.5">
+							{generalAt !== -1 && (
+								<li
+									aria-hidden
+									className="px-2 pt-1 pb-0.5 font-medium text-muted-foreground text-xs"
+								>
+									Projects
+								</li>
+							)}
 							{projects === null && (
 								<li
 									role="status"
@@ -345,84 +426,15 @@ export function ProjectSwitcher({
 									Loading projects…
 								</li>
 							)}
-							{projects !== null && matching.length === 0 && (
-								<li className="px-2 py-1.5 text-muted-foreground text-sm">
-									No project matches
-								</li>
+							{projects !== null &&
+								matching.length === (generalAt === -1 ? 0 : 1) && (
+									<li className="px-2 py-1.5 text-muted-foreground text-sm">
+										No project matches
+									</li>
+								)}
+							{matching.map((each, at) =>
+								each.slug === GENERAL ? null : row(each, at),
 							)}
-							{matching.map((each, at) => (
-								<li
-									key={each.slug}
-									className={cn(
-										"group/project flex items-center rounded-lg pr-1.5",
-										at === active && !each.gone && "bg-muted",
-									)}
-								>
-									<button
-										type="button"
-										disabled={each.gone}
-										title={
-											each.slug === GENERAL
-												? GENERAL_NAME
-												: each.gone
-													? `${each.root} is gone`
-													: each.root
-										}
-										onMouseEnter={() => setActive(at)}
-										onClick={() => go(each)}
-										className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-default disabled:opacity-50"
-									>
-										<span className="flex min-w-0 flex-1 flex-col">
-											<span
-												className={cn(
-													"truncate font-medium",
-													each.gone && "line-through",
-												)}
-											>
-												{nameOf(each)}
-											</span>
-											<span className="truncate text-muted-foreground text-xs">
-												{each.slug === GENERAL
-													? "No project"
-													: shortPath(each.root)}
-											</span>
-										</span>
-										{current(each) && (
-											<span className="shrink-0 text-muted-foreground text-xs">
-												current
-											</span>
-										)}
-										{each.waiting > 0 && (
-											<span
-												role="status"
-												aria-label={`${each.waiting} waiting on you`}
-												title={`${each.waiting} waiting on you`}
-												className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
-											>
-												<TriangleAlertIcon
-													aria-hidden
-													className="size-3 text-warning"
-												/>
-												{each.waiting}
-											</span>
-										)}
-									</button>
-									{each.slug !== GENERAL && (
-										<ProjectMenu
-											project={each}
-											current={current(each)}
-											hidden={!each.gone && at !== active}
-											onCopyPath={() => void copyPath(each)}
-											onShip={() => {
-												setOpen(false);
-												setShipping(new ShipApproval(each.slug));
-											}}
-											pending={forgetting.pending(each.slug)}
-											onForget={() => void forget(each)}
-										/>
-									)}
-								</li>
-							))}
 						</ul>
 						{matchingServers.length > 0 && (
 							<ul aria-label="slots" className="flex flex-col border-t p-1.5">
