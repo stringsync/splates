@@ -27,7 +27,11 @@ export async function shipRun(
 	{ dev = "", json = false }: { dev?: string; json?: boolean } = {},
 ): Promise<void> {
 	const url = serverUrl(ctx, dev);
-	const response = await askServer(ctx, request(action), url);
+	const response = await askServer(
+		ctx,
+		request(action, ctx.ps.env("SPLATES_CONVERSATION") ?? null),
+		url,
+	);
 	const shown = (await response.json()) as ShownRun | null;
 	if (shown === null) {
 		fail("not_found", "no ship is planned: `splates ship start <projects>`");
@@ -63,10 +67,17 @@ export async function shipRun(
 	}
 }
 
-function request(action: RunAction): [string, string, object | undefined] {
+function request(
+	action: RunAction,
+	conversation: string | null,
+): [string, string, object | undefined] {
 	switch (action.do) {
 		case "start":
-			return ["POST", "/api/ship/run", { projects: action.projects }];
+			return [
+				"POST",
+				"/api/ship/run",
+				{ projects: action.projects, conversation },
+			];
 		case "show":
 			return ["GET", "/api/ship/run", undefined];
 		case "set":

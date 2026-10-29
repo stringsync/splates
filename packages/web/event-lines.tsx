@@ -175,6 +175,17 @@ const LINES: {
 				}
 			: null,
 	// A refused lane command named no lane, and the agent says why itself.
+	"ship start": (event) =>
+		event.reason === null
+			? {
+					words: [
+						event.projects.length === 0
+							? "Started replanning a ship"
+							: `Started a ship of ${event.projects.join(", ")}`,
+					],
+					at: event.at,
+				}
+			: null,
 	"lane add": (event) => laned("Started", event),
 	"lane update": (event) => laned("Updated", event),
 	"lane remove": (event) => laned("Removed", event),

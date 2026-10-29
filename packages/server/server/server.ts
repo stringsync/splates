@@ -610,7 +610,19 @@ export async function dev(
 		},
 		cascades,
 	});
-	const shipRunRoutes = new ShipRunRoutes(shipRuns);
+	const shipRunRoutes = new ShipRunRoutes(
+		shipRuns,
+		async (run, conversation) => {
+			// A ship of several projects is logged in the first one's journal.
+			const journal = (await projectNamed(run.projects[0] ?? "")).journal;
+			await (conversation === null ? journal : journal.in(conversation)).record(
+				"ship start",
+				null,
+				async () => {},
+				{ run: run.id, projects: run.projects },
+			);
+		},
+	);
 	const adoptRoutes = new AdoptRoutes(cascades);
 	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
 		new URL(request.url).searchParams.get("project") === CHANGED

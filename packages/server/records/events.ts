@@ -269,6 +269,13 @@ export interface Facts {
 		/** The cred waited for, by name. */
 		name: string;
 	};
+	/** A ship begun planning, logged in the project it starts from. */
+	"ship start": {
+		/** The run, by id. */
+		run: string;
+		/** The projects it ships, by slug; empty when it replans a stopped run. */
+		projects: string[];
+	};
 	"tunnel setup": None;
 	"tunnel remove": None;
 	/**
@@ -519,6 +526,7 @@ export const FACTS = {
 	"creds remove": [],
 	"creds dismiss": [],
 	"creds wait": ["until", "began", "name"],
+	"ship start": ["run", "projects"],
 	"tunnel setup": [],
 	"tunnel remove": [],
 	"note read": ["path", "hash", "tool", "subagent", "bytes", "context"],

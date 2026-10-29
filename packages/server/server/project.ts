@@ -23,7 +23,7 @@ import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
-import type { Format, Repository } from "../records";
+import type { Format, Journal, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
 import { Bumps, Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
@@ -180,6 +180,7 @@ export async function serveProject(
 		},
 		root: service.git.root,
 		afterBump: project.config.afterBump,
+		journal,
 		format,
 		conversations,
 		replica: async () =>
@@ -385,6 +386,8 @@ export interface Served extends AsyncResource {
 	root: string;
 	/** Its config's `afterBump`, for the bump tasks of a ship's cascade. */
 	afterBump: string | null;
+	/** Its journal, for the events the server logs on its behalf. */
+	journal: Journal;
 	format: Format;
 	conversations: Conversations | null;
 	/** Reads the repo again soon, telling its pages if anything moved. */

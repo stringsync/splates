@@ -1,16 +1,30 @@
 import { fail } from "../exit";
 import type { ShipBump } from "./plan";
-import type { ShipRuns } from "./runs";
+import type { ShipRun, ShipRuns } from "./runs";
 
 /**
- * The ship run over HTTP. The `splates ship` commands plan through it; only
- * the page's Approve starts a run.
+ * The HTTP routes for planning a ship: serve each handler from a path to
+ * start a plan, change it and propose it. Approving a plan is the one route
+ * that starts the run, and only the page calls it.
  */
 export class ShipRunRoutes {
 	readonly #runs: ShipRuns;
 
-	constructor(runs: ShipRuns) {
+	readonly #started: (
+		run: ShipRun,
+		conversation: string | null,
+	) => Promise<void>;
+
+	/** `started` logs a ship begun planning, in the conversation that asked for it. */
+	constructor(
+		runs: ShipRuns,
+		started: (
+			run: ShipRun,
+			conversation: string | null,
+		) => Promise<void> = async () => {},
+	) {
 		this.#runs = runs;
+		this.#started = started;
 	}
 
 	/** Answers with the run and its plan as drawn now, or null before any started. */
@@ -29,9 +43,12 @@ export class ShipRunRoutes {
 		) {
 			fail("usage", "`projects` is a list of project slugs");
 		}
-		return Response.json(await this.#runs.start(projects as string[]), {
-			status: 201,
-		});
+		const shown = await this.#runs.start(projects as string[]);
+		await this.#started(
+			shown.run,
+			typeof body.conversation === "string" ? body.conversation : null,
+		);
+		return Response.json(shown, { status: 201 });
 	};
 
 	readonly set = async (request: Request): Promise<Response> => {
