@@ -184,11 +184,16 @@ export function ShipDialog({
 						{blocked}
 					</p>
 				)}
-				<DialogFooter>
-					<Button variant="outline" onClick={onClose}>
+				<DialogFooter className="flex-row items-center gap-3 max-sm:px-4 max-sm:pb-[calc(1rem+env(safe-area-inset-bottom))]">
+					<Button
+						variant="outline"
+						className="h-11 px-4 text-base sm:h-8 sm:text-sm"
+						onClick={onClose}
+					>
 						Cancel
 					</Button>
 					<Button
+						className="h-11 flex-1 text-base sm:h-8 sm:flex-none sm:text-sm"
 						disabled={!approval.ready || starting}
 						aria-describedby={blocked === null ? undefined : blockedId}
 						onClick={() => void approve()}
@@ -287,16 +292,6 @@ function PlanProject({
 				<span className="ml-auto text-muted-foreground text-xs tabular-nums">
 					{versionOf(step)}
 				</span>
-				{onLeaveOut !== undefined && (
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label={`Leave ${step.slug} out`}
-						onClick={() => onLeaveOut(step.slug)}
-					>
-						Leave out
-					</Button>
-				)}
 			</p>
 			{step.publishes.length > 0 && (
 				<p className="pl-5.5 text-muted-foreground text-xs">
@@ -334,6 +329,16 @@ function PlanProject({
 					disabled={starting || step.review?.status === "pending"}
 					onChange={(bump) => onChoose(step.slug, bump)}
 				/>
+			)}
+			{onLeaveOut !== undefined && (
+				<Button
+					variant="outline"
+					className="mt-1 h-11 w-full text-base sm:h-8 sm:text-sm"
+					aria-label={`Leave ${step.slug} out`}
+					onClick={() => onLeaveOut(step.slug)}
+				>
+					Leave out
+				</Button>
 			)}
 		</div>
 	);
