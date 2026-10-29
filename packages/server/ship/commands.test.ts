@@ -52,7 +52,7 @@ describe("ship", () => {
 		]);
 		expect(
 			log.entries.map((entry) => String(entry.message)).join("\n"),
-		).toContain("http://localhost:4310/?project=mdom#ships");
+		).toContain("http://localhost:4310/?ship=mdom#ships");
 	});
 
 	it("prints the cascade under way rather than starting another", async () => {

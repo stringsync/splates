@@ -27,10 +27,19 @@ export function ShipsPage(): JSX.Element {
 	const [history, setHistory] = useState<CascadeSummary[]>([]);
 	const [planning, setPlanning] = useState<ShipApproval | null>(() => {
 		const query = new URLSearchParams(location.search);
-		const project = query.get("project");
+		// `?ship=` asks for a plan; `?project=` only names the focused project.
+		const project = query.get("ship");
 		if (project === null) {
 			return null;
 		}
+		query.delete("ship");
+		query.delete("bump");
+		const rest = query.toString();
+		window.history.replaceState(
+			null,
+			"",
+			`${location.pathname}${rest === "" ? "" : `?${rest}`}${location.hash}`,
+		);
 		const approval = new ShipApproval(project);
 		const bump = query.get("bump");
 		if (bump === "patch" || bump === "minor" || bump === "major") {

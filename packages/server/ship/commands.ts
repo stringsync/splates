@@ -210,7 +210,7 @@ async function shipOnServer(
 	).json()) as import("./plan").ShipPlan;
 	const page = new URL("/", url);
 	page.hash = "ships";
-	page.searchParams.set("project", slug);
+	page.searchParams.set("ship", slug);
 	if (bump !== undefined) {
 		page.searchParams.set("bump", bump);
 	}
