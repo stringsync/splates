@@ -102,3 +102,11 @@ must not be recorded as zero.
 
 `designs/` holds decisions settled with the user, rather than live documentation.
 Read their dates: later decisions may supersede earlier settled paragraphs.
+
+**Deliver screenshots before asking for visual review.** A tool preview is
+visible to you, not automatically to the user. Run `bin/splates attach <file>`,
+then copy the image Markdown it prints into your reply, outside a code block.
+Use the stored path it returns, not the original capture path. For task
+evidence, put the same image under `## Verification` in `SPLATES.md`.
+A filename, plain link or “see screenshot” does not deliver an image. If
+attachment fails, report the failure rather than claiming the user can see it.

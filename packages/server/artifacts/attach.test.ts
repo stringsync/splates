@@ -30,6 +30,8 @@ describe("attach", () => {
 		expect(deps.service.owns(stored)).toBe(true);
 		expect(stored).toEndWith("-shot.png");
 		expect(deps.out()).toContain(stored);
+		expect(deps.out()).toContain(`![${basename(stored)}](<${stored}>)`);
+		expect(deps.out()).toContain("outside a code block");
 		expect(await deps.fs.exists(stored)).toBe(true);
 	});
 

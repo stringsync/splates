@@ -7,11 +7,9 @@ import { ITEM, type Shown, useLightbox } from "./lightbox";
 const VIDEO = /\.(mp4|webm|mov)$/i;
 
 /**
- * A markdown image as the screenshot or recording it names, when that is a
- * file splates holds: an absolute path the server hands back. Anything else,
- * a file elsewhere on the machine or a link off it, reads as its alt text.
- * A click on a screenshot, or on a recording's expand button, opens it in
- * the lightbox among the others of its document.
+ * Shows an attached screenshot or recording. Pass its stored absolute path
+ * and a caption; click it to explore the document's media in the lightbox.
+ * An unavailable attachment shows instructions for repairing its delivery.
  */
 export function Media({
 	src = "",
@@ -22,7 +20,15 @@ export function Media({
 }): JSX.Element {
 	const [failed, setFailed] = useState(false);
 	const { open: show, lightbox } = useLightbox();
-	if (!src.startsWith("/") || failed) {
+	if (failed && src.startsWith("/")) {
+		return (
+			<span role="status" className="text-muted-foreground">
+				[{alt || "image"}: unavailable. Ask the agent to run splates attach with
+				the original file and paste the returned image Markdown.]
+			</span>
+		);
+	}
+	if (!src.startsWith("/")) {
 		return <Alt alt={alt} />;
 	}
 	const url = fileUrl(src);

@@ -1,5 +1,15 @@
 # Demos and artifacts
 
+## Screenshot delivery
+
+**Deliver screenshots before asking for visual review.** A tool preview is
+visible to you, not automatically to the user. Run `splates attach <file>`,
+then copy the image Markdown it prints into your reply, outside a code block.
+Use the stored path it returns, not the original capture path. For task
+evidence, put the same image under `## Verification` in `SPLATES.md`.
+A filename, plain link or “see screenshot” does not deliver an image. If
+attachment fails, report the failure rather than claiming the user can see it.
+
 ## Demos
 
 The norm is evidence, not a demo: the user reads what you verified under

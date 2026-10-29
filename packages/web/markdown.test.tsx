@@ -135,7 +135,8 @@ describe("Markdown", () => {
 
 		// The page asked, and the 404 brought the alt text back.
 		expect(container.querySelector("img")).toBeNull();
-		expect(container.textContent).toBe("[the header]");
+		expect(container.textContent).toContain("the header: unavailable");
+		expect(container.textContent).toContain("splates attach");
 	});
 
 	it("plays a recording by absolute path", () => {

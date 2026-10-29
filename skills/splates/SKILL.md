@@ -61,6 +61,14 @@ finish a rebase left in progress (`git add`, `git rebase --continue`), then
 merge again. A failed command prints `{reason}` JSON on stdout and what to do
 on stderr: do what stderr says.
 
+**Deliver screenshots before asking for visual review.** A tool preview is
+visible to you, not automatically to the user. Run `splates attach <file>`,
+then copy the image Markdown it prints into your reply, outside a code block.
+Use the stored path it returns, not the original capture path. For task
+evidence, put the same image under `## Verification` in `SPLATES.md`.
+A filename, plain link or “see screenshot” does not deliver an image. If
+attachment fails, report the failure rather than claiming the user can see it.
+
 ## Formats
 
 The `splates server` page turns these shapes, and only these, into cards the
