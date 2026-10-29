@@ -3,7 +3,7 @@
 `splates server` can publish a project to npm, under your own npm sign-in, and
 carry the release on to the registered projects that depend on it. Nothing
 publishes without you: you start each ship, and npm asks you to sign in and
-confirm each publish on its own pages. Agents never ship; they ask you to.
+confirm each publish on its own pages. Agents never start a ship; they ask you to, and the ship agent only plans and adopts.
 
 ## Naming the ship command
 
@@ -25,18 +25,17 @@ from splates.
 ## What dependents run after a bump
 
 A project whose dependents should run something once they take its new
-versions names it in its own `splates.config.ts`, so no dependent has to:
+versions names it in its own `splates.config.ts`:
 
 ```ts
 afterBump: "bunx @stringsync/splates refresh",
 ```
 
-Each bump task that takes the project's packages lists the command as a
-step after `bun install`, for the agent to run from the task's worktree and
-commit what it changes. splates names `splates refresh`, which installs the
-new release's skill and moves an older config to where it reads it, and,
-unlike `splates update`, leaves the records and a running `splates server`
-alone, since the server is running the cascade.
+When the ship agent adopts a dependent, `splates ship next` runs the command
+after `bun install` in the task's worktree and commits what it changes.
+splates names `splates refresh`, which installs the new release's skill and
+moves an older config to where it reads it, and, unlike `splates update`,
+leaves the records and a running `splates server` alone.
 
 ## Who depends on whom
 
@@ -95,37 +94,31 @@ token that lets an agent, or anything running later, publish without you.
 The ship is kept in the project's records: a server restarted partway runs it
 again to finish it.
 
-## The cascade
+## The run
 
-A ship carries on through the plan `--plan` prints. As each project's ship
-is done, the server reads the versions it published and, in each dependent
-whose every shipping dependency is now done, adds a bump task: groomed, in
-the project's untriaged lane, and queued, since you approved the plan that
-named it. A project taking from several in the run, such as vexml from
-webappwiz and mdom, waits for all of them and takes the bumps in one task.
-Once a bump task merges, a dependent the plan says ships is shipped in turn,
-one ship at a time, each asking you on npm's pages as the first did.
+Approving the plan card starts the run. The ship agent, the General
+conversation's agent, takes it from there with `splates ship next`: for each
+dependent whose every shipping dependency is done, in dependency order, the
+run opens a task in that project owned by the conversation, with the pins
+moved, `bun install` run and `afterBump` run. The agent repairs what breaks and
+runs `splates ship land <project>`, which lands the task through that
+project's own merge gate; the server then publishes the project with its
+`ship` command, one at a time, each asking you on npm's pages. A project taking
+from several in the run waits for all of them and takes the bumps in one task.
+The card in the conversation is the run's live progress card, with each
+project's stage, its task, npm's links and Stop; the Ships page shows the same.
 
-When a bump task asks you a question, the cascade waits for your answer.
-A removed bump task or a failed ship stops the whole run: what shipped
-stays published, and every other open bump task is removed. Choose **Recover**
-on the stopped run once the problem is resolved. Use `splates ship --abandon` to end a
-run under way.
+When the agent's context runs short it hands off: `splates ship handoff`
+pauses the run and adds a task that resumes it, which you queue.
 
-Release types are fixed at approval and survive server restarts. A bump task receives its approved release type. If its repairs reveal a public API change outside that plan or a break it cannot fix, the agent removes the task as blocked on a revised ship plan, stopping the run. It never asks for a different release type during the run.
+A failed gate or ship, or the agent stopping at a project it cannot land,
+stops the run and returns it to planning: what shipped stays published and
+the revised plan takes it as fixed. Release types are fixed at approval; an
+agent never asks for another during a run.
 
-One cascade runs on the machine at a time, kept in the machine's records
-(`ship-cascade.json`), so a restarted server carries on from where it stopped.
-`splates ship` while one is under way prints where each project stands
-rather than starting another, and `GET /api/ship/cascade` answers the same.
-
-Every project's page shows the cascade as a badge in its bars, whichever
-project ships, for an hour after it ends too: how many projects are through,
-amber while npm waits on you or a bump task asks you, red where it stopped.
-Its popover lists each project with where it stands, a link to its bump
-task, why it stopped, and, while a
-publish waits on you, npm's page or a field for its code, then that ship's
-output.
+One run goes at a time on the machine, kept in its records so a restarted
+server carries on. `GET /api/ship/cascade` answers where it stands, and every
+project's page shows it as a badge in its bars.
 
 ## Recovering a stopped ship
 
@@ -153,8 +146,8 @@ their confirmed release versions.
 
 ## What agents do
 
-An agent is refused `splates ship`, the plan included. When it thinks a
-release is due, it ends its reply with a run-command card:
+Agents start nothing. When one thinks a release is due, it ends its reply with
+a run-command card:
 
 ```markdown
 ## 🔐 Permission: run command: ship webappwiz
@@ -164,10 +157,8 @@ release is due, it ends its reply with a run-command card:
 The log rotation fix is on main and unreleased.
 ```
 
-The page shows it as a ship card, whose Open Ships button opens the Ships page
-with that project picked. It starts nothing itself; the card stays unanswered.
-
-The cascade's bump tasks move a project's pins to the new versions, run
-`bun install` and fix what breaks. These are ordinary tasks: an agent takes one as any queued task and lands it
-through the merge gate, with no npm credentials needed. A merge is never a
-release.
+The page shows it as a ship card whose Open Ships button opens the Ships page
+with that project picked; the card stays unanswered. A conversation started
+there gets the ship agent (`skills/splates/references/ship.md`), whose
+`splates ship plan` commands shape the plan and whose plan card you approve.
+A merge is never a release.

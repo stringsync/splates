@@ -205,35 +205,15 @@ pause or resume automatic starts across the server, as Pause on the Queue
 page does. Running agents finish, and the person can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
-Only the person ships, too: `splates ship [<project>]` prepares a plan
-and prints its Ship page link for approval under their own npm sign-in, and splates refuses it, `--plan` included, to an
-agent. Never run `npm login` or `npm publish` either. When you think a
-release is due (a fix on the base that users are waiting on), end your reply
-with a run-command card naming `splates ship <project>`, the why under it
-saying what the release carries; its Plan ship button opens the plan, where the
-person picks patch, minor or major and approves, which starts the ship on
-`splates server`, so on `[SPLATES RUN ALLOWED]` it is already running: carry
-on without running it. A merge is never a release.
-
-A ship cascades: once a package is on npm, splates queues a bump task in
-each registered project that depends on it, to move its pins to the new
-versions. Take it as `[SPLATES TASK #N]` says: move every pin it names in
-each `package.json`, `bun install`, run each command it lists after the
-install (such as `splates refresh`) and commit what it changes, fix what
-breaks, and land it through the merge gate. Publish nothing, even when the
-project ships too: the cascade ships it once your task merges. Release types
-are settled in the approved plan, where the person picks each one. Do not
-ask for a different release type during a run. If your repairs reveal a
-public API change outside the approved plan, do not merge: remove your bump
-task with `--reason blocked`, naming the revised ship plan it needs with
-`--waiting-on`. Do the same for a break you cannot fix, explaining what the
-new plan must resolve. A removed bump task, or a failed ship, stops the whole
-run: what shipped stays published, and every other open bump task is removed.
-The next plan must include unfinished bumps to those published versions,
-without publishing successful releases again; the person approves the revised
-plan before another run.
-The person ends a run under way with `splates ship --abandon`, a
-command of theirs, never yours.
+Only the person ships, and a ship starts on the Ships page, never from you.
+Never run `npm login` or `npm publish`, or `splates ship start`'s approval: only
+Approve on a plan card starts a run. When you think a release is due (a fix on
+the base that users are waiting on), end your reply with a run-command card
+naming `splates ship <project>`, the why under it saying what the release
+carries. The page shows it as a ship card whose button opens the Ships page
+with that project picked; it starts nothing, so carry on without waiting. A
+merge is never a release. A message that opens `[SPLATES SHIP <run>]` makes you
+the ship agent: read [references/ship.md](references/ship.md).
 
 ```markdown
 ## 🔐 Permission: run command: ship webappwiz
@@ -274,6 +254,7 @@ the file when one arrives.
 | `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it. Once the backlog is empty, `[SPLATES SORT ...]` follows in the same conversation to find lanes for the Untriaged tasks it names | [groom.md](references/groom.md), which covers both, Sorting Untriaged included |
 | `[SPLATES LANE N]` | Work down lane N (`untriaged` places the Untriaged tasks in lanes first) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
+| `[SPLATES SHIP <run>]`              | You are the ship agent of run `<run>`, started from the Ships page in a General conversation | [ship.md](references/ship.md), whole, before any `splates ship` command |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
 | `[SPLATES RETRIED]`                 | The user granted your task another round of merge attempts, which the page has run `splates retry` for | Merge again, as [merge.md](references/merge.md) says under When a merge fails |
@@ -293,6 +274,8 @@ which remembers none of it. These come up in most tasks:
 - Before `splates merge`, or when it stops on anything but success, and
   before asking the user for a review: [references/merge.md](references/merge.md),
   merging or asking for a review, and what to do when a merge fails.
+- On `[SPLATES SHIP <run>]`: [references/ship.md](references/ship.md), planning,
+  adopting and landing a ship.
 - Before replying with a task outcome (merged, removed, waiting on answers
   or ready for review): [references/reporting.md](references/reporting.md),
   the report formats in full, beyond those in Formats above.

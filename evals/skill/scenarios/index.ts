@@ -5,6 +5,7 @@ import { scenarios as discovery } from "./discovery";
 import { scenarios as lifecycle } from "./lifecycle";
 import { scenarios as orchestration } from "./orchestration";
 import { scenarios as resources } from "./resources";
+import { scenarios as ship } from "./ship";
 
 /** Every scenario, in the order `list` names them. */
 export const SCENARIOS: readonly Scenario[] = [
@@ -14,4 +15,5 @@ export const SCENARIOS: readonly Scenario[] = [
 	...lifecycle,
 	...orchestration,
 	...resources,
+	...ship,
 ];
