@@ -37,6 +37,35 @@ import {
 import type { Ship, Shipping } from "./run";
 import type { Stage, StageKey } from "./stages";
 
+/**
+ * A ship of one project, or of every changed one, and everything downstream
+ * of it, carried through:
+ * one at a time on the machine, kept in its records so a restarted server
+ * carries on from where it stopped.
+ */
+export interface Cascade {
+	/** Published inputs retained across recovery runs. */
+	recovery?: ShipPlan["recovery"];
+	/** What history keeps it under. */
+	id: string;
+	/** The project it started from, or {@link CHANGED}. */
+	from: string;
+	/**
+	 * `done` once every project is done or dropped, `stopped` once one
+	 * failed or its bump task went unmerged, `abandoned` once the person
+	 * ended it; whatever had shipped stays shipped.
+	 */
+	status: "running" | "done" | "stopped" | "abandoned";
+	/** Set for a run the ship conversation drives, which adopts each dependent itself. */
+	adopts?: boolean;
+	/** Set while the agent handed the run off to a task that resumes it. */
+	handoff?: { at: string; task: number | null };
+	started: string;
+	ended: string | null;
+	/** In dependency order, as the plan the person approved had them. */
+	steps: CascadeStep[];
+}
+
 /** Where the machine's records keep the cascade, under way or the last to end. */
 export function cascadeRecord(storage: Storage): Document<Cascade> {
 	return storage.document<Cascade>("ship-cascade.json");
@@ -76,33 +105,18 @@ export interface CascadeStep extends ShipStep {
 	published: Pin[];
 	/** Why it stopped, failed or was dropped; null otherwise. */
 	note: string | null;
+	/**
+	 * What the ship agent adopts here, once the versions it takes are served:
+	 * a run the conversation drives opens no bump task, the agent does the
+	 * work with `splates ship next` and `ship land`.
+	 */
+	adoption?: Adoption;
+	/** The task and tree the agent opened for the adoption. */
+	adopted?: { task: string; path: string };
+	/** Set once the agent's task landed through the project's own gate. */
+	landed?: boolean;
 	/** Its steps in the order it takes them, each with its times, last check and log. */
 	stages: Stage[];
-}
-
-/**
- * A ship of one project, or of every changed one, and everything downstream
- * of it, carried through:
- * one at a time on the machine, kept in its records so a restarted server
- * carries on from where it stopped.
- */
-export interface Cascade {
-	/** Published inputs retained across recovery runs. */
-	recovery?: ShipPlan["recovery"];
-	/** What history keeps it under. */
-	id: string;
-	/** The project it started from, or {@link CHANGED}. */
-	from: string;
-	/**
-	 * `done` once every project is done or dropped, `stopped` once one
-	 * failed or its bump task went unmerged, `abandoned` once the person
-	 * ended it; whatever had shipped stays shipped.
-	 */
-	status: "running" | "done" | "stopped" | "abandoned";
-	started: string;
-	ended: string | null;
-	/** In dependency order, as the plan the person approved had them. */
-	steps: CascadeStep[];
 }
 
 /** What a cascade reaches of each project in it. */
@@ -114,6 +128,29 @@ export interface CascadeProject {
 	shipping: Pick<Shipping, "start" | "current" | "stop">;
 	bumps: Pick<Bumps, "add" | "state" | "remove">;
 }
+
+/** What the ship agent does to take upstream releases into a project. */
+export interface Adoption {
+	/** The project the release is named from. */
+	from: string;
+	takes: BumpTake[];
+}
+
+/** What a run asks of the ship agent next, as `splates ship next` prints it. */
+export type AgentNeed =
+	| {
+			kind: "adopt";
+			project: string;
+			root: string;
+			/** The name for the task to open in the project. */
+			task: string;
+			adoption: Adoption;
+			/** What the plan noted adopting needs. */
+			adopt: string | null;
+	  }
+	| { kind: "land"; project: string; task: string; path: string }
+	| { kind: "wait"; why: string }
+	| { kind: "ended"; status: Cascade["status"] };
 
 /** What {@link Cascades} works with. */
 export interface CascadesOptions {
@@ -299,7 +336,10 @@ export class Cascades implements Resource {
 			if (going?.status === "running") {
 				return { cascade: going, started: false };
 			}
-			const cascade = await planned(plan, this.stamp(), this.history);
+			const cascade = {
+				...(await planned(plan, this.stamp(), this.history)),
+				adopts: true,
+			};
 			await this.keep(cascade);
 			await this.history.prune();
 			this.opts.log.info(
@@ -498,6 +538,19 @@ export class Cascades implements Resource {
 		step.status = "waiting";
 		delete step.registrySince;
 		const project = await this.opts.reach(step.slug);
+		if (cascade.adopts === true) {
+			step.adoption = {
+				from:
+					cascade.from === CHANGED
+						? (takes[0]?.project ?? step.slug)
+						: cascade.from,
+				takes,
+			};
+			step.status = "bumping";
+			bumpAdded(step, this.stamp(), "waiting for the ship agent to adopt it");
+			this.opts.log.info(`${step.slug} waits for the ship agent to adopt it`);
+			return;
+		}
 		// A ship of every changed project names none of them, so a bump is
 		// from the first project it takes.
 		const source =
@@ -555,6 +608,9 @@ export class Cascades implements Resource {
 
 	/** Follows `step`'s bump task: shipping it once merged, when it ships. */
 	private async bumped(cascade: Cascade, step: CascadeStep): Promise<void> {
+		if (step.adoption !== undefined) {
+			return this.adoptedBy(cascade, step);
+		}
 		if (step.task === null) {
 			step.status = "waiting";
 			return;
@@ -583,6 +639,142 @@ export class Cascades implements Resource {
 					step.status = "done";
 				}
 		}
+	}
+
+	/** Follows a step the ship agent adopts: shipping it, when it ships, once the agent landed it. */
+	private async adoptedBy(cascade: Cascade, step: CascadeStep): Promise<void> {
+		const label = `task ${step.adopted?.task ?? "not yet opened"}`;
+		if (step.landed !== true) {
+			bumpRead(step, "open", this.stamp(), label);
+			step.status = "bumping";
+			step.note = null;
+			return;
+		}
+		bumpRead(step, "merged", this.stamp(), label);
+		if (step.action === "ship") {
+			await this.ship(cascade, step);
+		} else {
+			step.status = "done";
+		}
+	}
+
+	/** What the run needs of the ship agent now. */
+	async need(): Promise<AgentNeed> {
+		const cascade = await this.current();
+		if (cascade === null) {
+			fail("not_found", "no ship is under way");
+		}
+		if (cascade.status !== "running") {
+			return { kind: "ended", status: cascade.status };
+		}
+		for (const step of cascade.steps) {
+			if (step.adoption !== undefined && step.status === "bumping") {
+				if (step.adopted === undefined) {
+					return {
+						kind: "adopt",
+						project: step.slug,
+						root: (await this.opts.reach(step.slug)).root,
+						task: adoptionTask(cascade),
+						adoption: step.adoption,
+						adopt: step.adopt ?? null,
+					};
+				}
+				if (step.landed !== true) {
+					return {
+						kind: "land",
+						project: step.slug,
+						task: step.adopted.task,
+						path: step.adopted.path,
+					};
+				}
+			}
+		}
+		const going = cascade.steps.filter((step) => !ENDED.includes(step.status));
+		return {
+			kind: "wait",
+			why: going
+				.map((step) => `${step.slug} is ${step.status}`)
+				.join(", ")
+				.replace(/^$/, "the run is finishing"),
+		};
+	}
+
+	/** Records the task and tree the agent opened to adopt into `slug`. */
+	adopt(
+		slug: string,
+		adopted: { task: string; path: string },
+	): Promise<Cascade> {
+		return this.edit(slug, "adopt", (step) => {
+			if (step.adoption === undefined || step.adopted !== undefined) {
+				fail("conflict", `${slug} is not waiting to be adopted`);
+			}
+			step.adopted = adopted;
+		});
+	}
+
+	/** Records that the agent landed `slug`'s task through its gate; its ship follows. */
+	landed(slug: string): Promise<Cascade> {
+		return this.edit(slug, "land", (step) => {
+			if (step.adopted === undefined || step.landed === true) {
+				fail("conflict", `${slug} has no adopted task to land`);
+			}
+			step.landed = true;
+		});
+	}
+
+	/** Stops the run at `slug`, whose adoption cannot land: a failed gate, or a break the agent cannot fix. */
+	stopAt(slug: string, why: string): Promise<Cascade> {
+		return this.edit(slug, "stop", (step) => {
+			if (step.adoption === undefined) {
+				fail("conflict", `${slug} is not being adopted`);
+			}
+			step.status = "stopped";
+			step.note = why;
+		});
+	}
+
+	/** Pauses the run for a task that resumes it with `ship next`; cleared by the next `need` of a resumed agent. */
+	handoff(task: number | null): Promise<Cascade> {
+		return this.serially(async () => {
+			const cascade = await this.current();
+			if (cascade?.status !== "running") {
+				fail("conflict", "no ship is under way to hand off");
+			}
+			cascade.handoff = { at: this.stamp(), task };
+			await this.keep(cascade);
+			return cascade;
+		});
+	}
+
+	/** The agent took the run up again after a handoff. */
+	resumed(): Promise<void> {
+		return this.serially(async () => {
+			const cascade = await this.current();
+			if (cascade?.handoff !== undefined) {
+				delete cascade.handoff;
+				await this.keep(cascade);
+			}
+		});
+	}
+
+	/** Applies `change` to `slug`'s step of the cascade under way, then moves the cascade on. */
+	private edit(
+		slug: string,
+		doing: string,
+		change: (step: CascadeStep) => void,
+	): Promise<Cascade> {
+		return this.serially(async () => {
+			const cascade = await this.current();
+			if (cascade?.status !== "running") {
+				fail("conflict", `no ship is under way to ${doing} in`);
+			}
+			const step = cascade.steps.find((each) => each.slug === slug);
+			if (step === undefined) {
+				fail("not_found", `${slug} is not in the ship under way`);
+			}
+			change(step);
+			return this.advance(cascade);
+		}).finally(() => this.schedule());
 	}
 
 	/** Starts `step`'s ship, unless another runs: each waits on the person's npm. */
@@ -666,6 +858,11 @@ export class Cascades implements Resource {
 	private stamp(): string {
 		return new Date(this.clock.now()).toISOString();
 	}
+}
+
+/** The name of the task opened in each dependent, one per run. */
+function adoptionTask(cascade: Cascade): string {
+	return `ship-bump-${Date.parse(cascade.started).toString(36)}`;
 }
 
 function messageOf(error: unknown): string {

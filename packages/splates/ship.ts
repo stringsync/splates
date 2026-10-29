@@ -1,6 +1,14 @@
+import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { ship, shipRun } from "@stringsync/splates-server/ship";
+import {
+	ship,
+	shipHandoff,
+	shipLand,
+	shipNext,
+	shipRun,
+	shipStop,
+} from "@stringsync/splates-server/ship";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 
@@ -149,3 +157,55 @@ plan
 	)
 	.option("dev", dev, devOption)
 	.action((opts, ctx) => shipRun(ctx, { do: "propose" }, { dev: opts.dev }));
+
+splatesShip
+	.command("next")
+	.use(repository({ needs: "read" }))
+	.description(
+		"the ship agent's loop: waits until the run needs you and prints exactly what to do. A dependent to adopt is opened for you, in a task of its own project: the new versions moved into every package.json, bun install and the upstream's afterBump run, the result committed. Then repair what breaks and `splates ship land <project>`. Run it again after each step, until it says the ship has ended",
+	)
+	.option("dev", dev, devOption)
+	.action((opts, ctx) => shipNext(ctx, { dev: opts.dev }));
+
+splatesShip
+	.command("land")
+	.use(repository({ needs: "read" }))
+	.description(
+		"land the task the run opened in a project through that project's own merge gate, after which the server publishes it with the project's `ship` command. Only the project `ship next` named, for the length of the run. A failed gate stops the run and returns it to planning from what it published; `--stop` stops it at a project you cannot land",
+	)
+	.arg("project", z.string(), { description: "the project `ship next` named" })
+	.option("message", z.string(), {
+		default: "",
+		description: "the commit message the task squashes to",
+	})
+	.option("stop", z.boolean(), {
+		default: false,
+		description:
+			"stop the run at this project instead of landing it, for a break you cannot fix or a public API change outside the approved plan; give --why",
+	})
+	.option("why", z.string(), {
+		default: "",
+		description: "with --stop, what a revised plan must resolve",
+	})
+	.option("dev", dev, devOption)
+	.action((opts, ctx) => {
+		if (opts.stop) {
+			if (opts.why.trim() === "") {
+				fail("usage", "--stop needs --why: what a revised plan must resolve");
+			}
+			return shipStop(ctx, opts.project, opts.why, { dev: opts.dev });
+		}
+		return shipLand(ctx, opts.project, {
+			message: opts.message,
+			dev: opts.dev,
+		});
+	});
+
+splatesShip
+	.command("handoff")
+	.use(repository({ needs: "read" }))
+	.description(
+		"pause the run and add a task that resumes it with `splates ship next`, for when your context runs short: ask the person to queue it with a queue card. Otherwise do the work in one go",
+	)
+	.option("dev", dev, devOption)
+	.action((opts, ctx) => shipHandoff(ctx, { dev: opts.dev }));

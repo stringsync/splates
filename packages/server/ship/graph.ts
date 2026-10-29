@@ -7,6 +7,7 @@ import type { ReleaseChanges } from "./git";
  * each pins of the others'. A `workspace:` pin is the project's own and
  * draws no edge.
  */
+// scry-ignore classes-over-function-exports: movePins joins readGraph and publishedPins, which read the same manifests; the three move into one class together
 export async function readGraph(
 	fs: Fs,
 	sources: ShipSource[],
@@ -141,6 +142,67 @@ function usesOf(
 		project,
 		pins: [...of.values()],
 	}));
+}
+
+/**
+ * Moves every pin of `pins` in the `package.json` files under `root` (the
+ * root's and each workspace member's) to its version, keeping the range
+ * mark it had; a `workspace:` pin is left alone. The files it changed.
+ */
+export async function movePins(
+	fs: Fs,
+	root: string,
+	pins: Pin[],
+): Promise<string[]> {
+	const changed: string[] = [];
+	const rootManifest = await manifestAt(fs, root);
+	if (rootManifest === null) {
+		return changed;
+	}
+	const patterns = Array.isArray(rootManifest.workspaces)
+		? rootManifest.workspaces
+		: (rootManifest.workspaces?.packages ?? []);
+	const dirs = [root, ...(await workspaceDirs(fs, root, patterns))];
+	for (const dir of dirs) {
+		const path = `${dir}/package.json`;
+		if (!(await fs.exists(path))) {
+			continue;
+		}
+		const text = await fs.read(path);
+		let manifest: Manifest;
+		try {
+			manifest = JSON.parse(text) as Manifest;
+		} catch {
+			continue;
+		}
+		let moved = false;
+		for (const field of DEPENDENCY_FIELDS) {
+			const have = manifest[field];
+			for (const pin of pins) {
+				const was = have?.[pin.name];
+				if (have === undefined || was === undefined) {
+					continue;
+				}
+				if (was.startsWith("workspace:")) {
+					continue;
+				}
+				const now = `${/^[\^~]/.exec(was)?.[0] ?? ""}${pin.version}`;
+				if (now !== was) {
+					have[pin.name] = now;
+					moved = true;
+				}
+			}
+		}
+		if (moved) {
+			const indent = /^\n?(\t| +)"/m.exec(text)?.[1] ?? "\t";
+			await fs.write(
+				path,
+				`${JSON.stringify(manifest, null, indent)}${text.endsWith("\n") ? "\n" : ""}`,
+			);
+			changed.push(path);
+		}
+	}
+	return changed;
 }
 
 /**

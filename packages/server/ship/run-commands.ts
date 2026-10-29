@@ -26,33 +26,8 @@ export async function shipRun(
 	action: RunAction,
 	{ dev = "", json = false }: { dev?: string; json?: boolean } = {},
 ): Promise<void> {
-	const url =
-		dev || ctx.ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
-	const [method, path, body] = request(action);
-	let response: Response;
-	try {
-		response = await (ctx.fetch ?? fetch)(new URL(path, url).toString(), {
-			method,
-			// The server refuses a request from any other origin than its own.
-			headers: { origin: url, "content-type": "application/json" },
-			...(body === undefined ? {} : { body: JSON.stringify(body) }),
-		});
-	} catch (error) {
-		fail(
-			"not_found",
-			`splates server at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}; give its URL with --dev`,
-		);
-	}
-	if (!response.ok) {
-		fail(
-			response.status === 404
-				? "not_found"
-				: response.status === 409
-					? "conflict"
-					: "usage",
-			`splates server at ${url} refused: ${response.status} ${await response.text()}`,
-		);
-	}
+	const url = serverUrl(ctx, dev);
+	const response = await askServer(ctx, request(action), url);
 	const shown = (await response.json()) as ShownRun | null;
 	if (shown === null) {
 		fail("not_found", "no ship is planned: `splates ship start <projects>`");
@@ -111,4 +86,42 @@ function request(action: RunAction): [string, string, object | undefined] {
 		case "propose":
 			return ["POST", "/api/ship/run/propose", {}];
 	}
+}
+
+/** Where the `splates server` to ask is: `dev`, else SPLATES_DEV, else this machine's default port. */
+export function serverUrl(ctx: Pick<ShipContext, "ps">, dev: string): string {
+	return dev || ctx.ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
+}
+
+/** Asks `url` for `[method, path, body]`, failing as the server's refusal says. */
+export async function askServer(
+	ctx: Pick<ShipContext, "fetch">,
+	[method, path, body]: [string, string, object | undefined],
+	url: string,
+): Promise<Response> {
+	let response: Response;
+	try {
+		response = await (ctx.fetch ?? fetch)(new URL(path, url).toString(), {
+			method,
+			// The server refuses a request from any other origin than its own.
+			headers: { origin: url, "content-type": "application/json" },
+			...(body === undefined ? {} : { body: JSON.stringify(body) }),
+		});
+	} catch (error) {
+		fail(
+			"not_found",
+			`splates server at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}; give its URL with --dev`,
+		);
+	}
+	if (!response.ok) {
+		fail(
+			response.status === 404
+				? "not_found"
+				: response.status === 409
+					? "conflict"
+					: "usage",
+			`splates server at ${url} refused: ${response.status} ${await response.text()}`,
+		);
+	}
+	return response;
 }

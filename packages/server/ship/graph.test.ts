@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
-import { readGraph } from "./graph";
+import { movePins, readGraph } from "./graph";
 import { servedProjects } from "./testing";
 
 describe("readGraph", () => {
@@ -84,5 +84,39 @@ describe("readGraph", () => {
 			private: true,
 			version: null,
 		});
+	});
+
+	it("moves pins in the root and workspace manifests, keeping range marks and workspace pins", async () => {
+		const fs = new FakeFs();
+		await fs.mkdir("/p/packages/a", { recursive: true });
+		await fs.mkdir("/p/packages/b", { recursive: true });
+		await fs.write(
+			"/p/package.json",
+			JSON.stringify({
+				workspaces: ["packages/*"],
+				dependencies: { webappwiz: "^0.0.50", other: "1.0.0" },
+			}),
+		);
+		await fs.write(
+			"/p/packages/a/package.json",
+			JSON.stringify({ devDependencies: { webappwiz: "workspace:*" } }),
+		);
+		await fs.write(
+			"/p/packages/b/package.json",
+			JSON.stringify({ devDependencies: { webappwiz: "0.0.50" } }),
+		);
+
+		const changed = await movePins(fs, "/p", [
+			{ name: "webappwiz", version: "0.0.51" },
+		]);
+
+		expect(changed).toEqual(["/p/package.json", "/p/packages/b/package.json"]);
+		expect(JSON.parse(await fs.read("/p/package.json")).dependencies).toEqual({
+			webappwiz: "^0.0.51",
+			other: "1.0.0",
+		});
+		expect(
+			JSON.parse(await fs.read("/p/packages/b/package.json")).devDependencies,
+		).toEqual({ webappwiz: "0.0.51" });
 	});
 });

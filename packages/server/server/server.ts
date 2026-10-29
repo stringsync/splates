@@ -30,6 +30,7 @@ import {
 	setupProjectAt,
 } from "../setup";
 import {
+	AdoptRoutes,
 	CascadeRoutes,
 	Cascades,
 	CHANGED,
@@ -610,6 +611,7 @@ export async function dev(
 		cascades,
 	});
 	const shipRunRoutes = new ShipRunRoutes(shipRuns);
+	const adoptRoutes = new AdoptRoutes(cascades);
 	const cascadeRoutes = new CascadeRoutes(cascades, async (request) =>
 		new URL(request.url).searchParams.get("project") === CHANGED
 			? CHANGED
@@ -923,6 +925,17 @@ export async function dev(
 						POST: talk(guarded(shipRunRoutes.propose)),
 					},
 					"/api/ship/run/approve": { POST: guarded(shipRunRoutes.approve) },
+					"/api/ship/run/next": { GET: talk(guarded(adoptRoutes.next)) },
+					"/api/ship/run/adopted": {
+						POST: talk(guarded(adoptRoutes.adopted)),
+					},
+					"/api/ship/run/landed": { POST: talk(guarded(adoptRoutes.landed)) },
+					"/api/ship/run/stopped": {
+						POST: talk(guarded(adoptRoutes.stopped)),
+					},
+					"/api/ship/run/handoff": {
+						POST: talk(guarded(adoptRoutes.handoff)),
+					},
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),

@@ -1,6 +1,11 @@
+export type { AdoptContext } from "./adopt";
+export { shipHandoff, shipLand, shipNext, shipStop } from "./adopt";
+export { AdoptRoutes } from "./adopt-routes";
 export type { BumpState, BumpTake } from "./bumps";
 export { Bumps } from "./bumps";
 export type {
+	Adoption,
+	AgentNeed,
 	Cascade,
 	CascadeProject,
 	CascadeStatus,

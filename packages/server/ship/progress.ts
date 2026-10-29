@@ -68,8 +68,9 @@ export function bumpRead(
 	step: CascadeStep,
 	state: BumpState,
 	at: string,
+	task = `task ${step.task}`,
 ): void {
-	const check = { at, result: `task ${step.task} is ${state}` };
+	const check = { at, result: `${task} is ${state}` };
 	switch (state) {
 		case "open":
 		case "asking":
@@ -100,10 +101,14 @@ export function bumpRead(
 }
 
 /** `step`'s bump task `task`, added and queued at `at`, begun. */
-export function bumpAdded(step: CascadeStep, at: string): void {
+export function bumpAdded(
+	step: CascadeStep,
+	at: string,
+	result = `added and queued task ${step.task}`,
+): void {
 	setStage(step, "bump", (stage) => ({
 		...begun(stage, at),
-		check: { at, result: `added and queued task ${step.task}` },
+		check: { at, result },
 	}));
 }
 
