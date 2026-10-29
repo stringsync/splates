@@ -19,6 +19,8 @@ export type ReviewShip = (
 interface Draft {
 	used?: boolean;
 	bump?: ShipBump;
+	/** The dependents the person left out of the plan. */
+	skip?: string[];
 	key: string;
 	snapshot: string;
 	plan: ShipPlan;
@@ -32,7 +34,7 @@ export class ShipReviews {
 		private readonly opts: {
 			storage: Storage;
 			log: Logger;
-			plan: (slug: string, bump: ShipBump) => Promise<ShipPlan>;
+			plan: (slug: string, bump: ShipBump, skip: string[]) => Promise<ShipPlan>;
 			recover?: (id: string) => Promise<ShipPlan>;
 			snapshot: (plan: ShipPlan) => Promise<string>;
 			review: ReviewShip;
@@ -42,14 +44,18 @@ export class ShipReviews {
 		this.ids = opts.ids ?? new UuidProvider();
 	}
 
-	/** Draws immediately, with reviews pending while their agents work. */
+	/**
+	 * Draws immediately, with reviews pending while their agents work, leaving
+	 * out the dependents `skip` names.
+	 */
 	async draw(
 		slug: string,
 		bump: ShipBump,
 		retry = false,
 		recovery?: string,
+		skip: string[] = [],
 	): Promise<ShipPlan> {
-		const plan = await this.drawPlan(slug, bump, recovery);
+		const plan = await this.drawPlan(slug, bump, recovery, skip);
 		const snapshot = await this.opts.snapshot(plan);
 		const key = JSON.stringify([plan, snapshot]);
 		const record = this.record(slug, recovery);
@@ -82,7 +88,7 @@ export class ShipReviews {
 			}
 			this.running.add(plan.id);
 			launch = true;
-			return { key, snapshot, plan, bump };
+			return { key, snapshot, plan, bump, skip };
 		});
 		const id = draft.plan.id as string;
 		if (
@@ -126,6 +132,7 @@ export class ShipReviews {
 			slug,
 			draft.bump ?? draft.plan.steps[0]?.bump ?? "patch",
 			recovery,
+			draft.skip ?? [],
 		);
 		if (
 			JSON.stringify([fresh, await this.opts.snapshot(fresh)]) !== draft.key
@@ -173,9 +180,10 @@ export class ShipReviews {
 		slug: string,
 		bump: ShipBump,
 		recovery?: string,
+		skip: string[] = [],
 	): Promise<ShipPlan> {
 		if (recovery === undefined) {
-			return this.opts.plan(slug, bump);
+			return this.opts.plan(slug, bump, skip);
 		}
 		if (this.opts.recover === undefined) {
 			fail("usage", "ship recovery is unavailable");

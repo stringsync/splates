@@ -49,16 +49,22 @@ export class CascadeRoutes {
 	readonly cascade = async (): Promise<Response> =>
 		Response.json(await this.#cascades.current());
 
-	/** The plan to ship the project at `?bump=`, what Approve on the page starts. */
-	readonly plan = async (request: Request): Promise<Response> =>
-		Response.json(
+	/**
+	 * The plan to ship the project at `?bump=`, without each dependent a
+	 * `?skip=` names, what Approve on the page starts.
+	 */
+	readonly plan = async (request: Request): Promise<Response> => {
+		const query = new URL(request.url).searchParams;
+		return Response.json(
 			await this.#cascades.plan(
 				await this.#slugOf(request),
 				bumpOf(request),
-				new URL(request.url).searchParams.get("retry") === "true",
-				new URL(request.url).searchParams.get("recovery") ?? undefined,
+				query.get("retry") === "true",
+				query.get("recovery") ?? undefined,
+				query.getAll("skip"),
 			),
 		);
+	};
 
 	/**
 	 * Starts the cascade of the project's ship, 201 with it; 200 with the one

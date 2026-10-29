@@ -492,8 +492,17 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const drawShipPlan = async (slug: string, bump: import("../ship").ShipBump) =>
-		planShip(await registeredGraph({ projects, fs, log, ps }), slug, bump);
+	const drawShipPlan = async (
+		slug: string,
+		bump: import("../ship").ShipBump,
+		skip: string[] = [],
+	) =>
+		planShip(
+			await registeredGraph({ projects, fs, log, ps }),
+			slug,
+			bump,
+			skip,
+		);
 	const shipHistory = new ShipHistory(machineStorage, fs);
 	const recovery = new ShipRecovery(
 		new ShipRegistry({ fetch: deps.fetch ?? fetch }),

@@ -61,6 +61,27 @@ describe("ShipReviews", () => {
 		).rejects.toMatchObject({ reason: "usage" });
 	});
 
+	it("reviews and approves only the dependents the person kept", async () => {
+		const setup = await fixture();
+		const plan = await setup.complete(["splates"]);
+		expect(plan.skipped).toEqual(["splates"]);
+		expect(setup.seen).toEqual(["mdom", "vexml", "sound2score"]);
+		const approved = await setup.reviews.approve(
+			"webappwiz",
+			plan.id as string,
+		);
+		expect(approved.steps.map((step) => step.slug)).toEqual([
+			"webappwiz",
+			"mdom",
+			"vexml",
+			"sound2score",
+		]);
+		expect(approved.skipped).toEqual(["splates"]);
+		const kept = await setup.complete();
+		expect(kept.id).not.toBe(plan.id);
+		expect(kept.skipped).toBeUndefined();
+	});
+
 	it("rejects changed sources and superseded drafts", async () => {
 		const setup = await fixture();
 		const plan = await setup.complete();
@@ -122,8 +143,11 @@ async function fixture() {
 		storage: new MemoryStorage(),
 		ids: new CounterIdProvider(),
 		log: new MemoryLogger(),
-		plan: async (slug: string, bump: "patch" | "minor" | "major") =>
-			planShip(await readGraph(served.fs, served.sources), slug, bump),
+		plan: async (
+			slug: string,
+			bump: "patch" | "minor" | "major",
+			skip: string[] = [],
+		) => planShip(await readGraph(served.fs, served.sources), slug, bump, skip),
 		snapshot: async () => revision,
 		review: async (step: { slug: string }) => {
 			seen.push(step.slug);
@@ -141,14 +165,14 @@ async function fixture() {
 		},
 	};
 	const reviews = new ShipReviews(opts);
-	const complete = async () => {
+	const complete = async (skip: string[] = []) => {
+		const draw = () =>
+			reviews.draw("webappwiz", "patch", false, undefined, skip);
 		await until(
 			async () =>
-				!(await reviews.draw("webappwiz", "patch")).steps.some(
-					(step) => step.review?.status === "pending",
-				),
+				!(await draw()).steps.some((step) => step.review?.status === "pending"),
 		);
-		return reviews.draw("webappwiz", "patch");
+		return draw();
 	};
 	return {
 		reviews,

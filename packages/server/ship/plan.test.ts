@@ -54,6 +54,34 @@ describe("planShip", () => {
 		]);
 	});
 
+	it("leaves out a skipped dependent and what only it carries the release to", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = await readGraph(fs, sources);
+
+		const plan = planShip(graph, "mdom", "patch", ["vexml"]);
+
+		expect(plan.steps.map((step) => [step.slug, step.action])).toEqual([
+			["mdom", "ship"],
+			["sound2score", "bump"],
+		]);
+		expect(plan.steps[1]?.takes.map((use) => use.project)).toEqual(["mdom"]);
+		expect(plan.skipped).toEqual(["vexml"]);
+	});
+
+	it("never skips the project shipped", async () => {
+		const { fs, sources } = await servedProjects();
+		const graph = await readGraph(fs, sources);
+
+		const plan = planShip(graph, "mdom", "patch", ["mdom", "webappwiz"]);
+
+		expect(plan.steps.map((step) => step.slug)).toEqual([
+			"mdom",
+			"vexml",
+			"sound2score",
+		]);
+		expect(plan.skipped).toBeUndefined();
+	});
+
 	it("only bumps a dependent that names no ship command", async () => {
 		const { fs, sources } = await servedProjects();
 		const graph = await readGraph(

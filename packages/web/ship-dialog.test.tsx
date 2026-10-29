@@ -212,6 +212,49 @@ describe("ShipDialog", () => {
 		).toHaveLength(1);
 	});
 
+	it("leaves a dependent out and adds it back, redrawing the plan each time", async () => {
+		const asked: string[][] = [];
+		const view = render(
+			<ShipDialog
+				approval={
+					new ShipApproval("webappwiz", {
+						shipPlan: async (_project, _bump, _retry, _recovery, skip = []) => {
+							asked.push(skip);
+							return skip.includes("mdom")
+								? { ...PLAN, steps: PLAN.steps.slice(0, 1), skipped: ["mdom"] }
+								: PLAN;
+						},
+						startShip: async () => {},
+					})
+				}
+				onClose={() => {}}
+			/>,
+		);
+		await waitFor(() => view.getByRole("list", { name: "Ship plan" }));
+		expect(
+			view.queryByRole("button", { name: "Leave webappwiz out" }),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Leave mdom out" })),
+		);
+		const left = await view.findByRole("region", { name: "Left out" });
+		expect(left.textContent).toContain("mdom");
+		expect(
+			within(view.getByRole("list", { name: "Ship plan" })).getAllByRole(
+				"listitem",
+			),
+		).toHaveLength(1);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add mdom back" })),
+		);
+		await waitFor(() =>
+			expect(view.queryByRole("region", { name: "Left out" })).toBeNull(),
+		);
+		expect(asked).toEqual([[], ["mdom"], []]);
+	});
+
 	it("redraws at the selected release type and approves that bump", async () => {
 		const view = open(async (_, bump) => ({
 			...PLAN,

@@ -30,7 +30,7 @@ export async function startShip(
 
 /**
  * The plan to ship `project` at `bump`: it, then each project downstream in
- * dependency order, what Approve starts; throws the server's refusal, as for
+ * dependency order but those `skip` leaves out, what Approve starts; throws the server's refusal, as for
  * a project that names no ship command.
  */
 export async function shipPlan(
@@ -38,10 +38,18 @@ export async function shipPlan(
 	bump: ShipBump = "patch",
 	retry = false,
 	recovery?: string,
+	skip: string[] = [],
 ): Promise<ShipPlan> {
-	const response = await answered(
-		`/api/ship/plan?${new URLSearchParams({ project, bump, ...(retry ? { retry: "true" } : {}), ...(recovery === undefined ? {} : { recovery }) })}`,
-	);
+	const query = new URLSearchParams({
+		project,
+		bump,
+		...(retry ? { retry: "true" } : {}),
+		...(recovery === undefined ? {} : { recovery }),
+	});
+	for (const slug of skip) {
+		query.append("skip", slug);
+	}
+	const response = await answered(`/api/ship/plan?${query}`);
 	const body = (await response.json().catch(() => ({}))) as
 		| ShipPlan
 		| { reason?: string; message?: string };

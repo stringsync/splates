@@ -24,7 +24,8 @@ import { ShipTree } from "./ship-tree";
  * The plan to ship the project `approval` names at its selected bump, drawn by
  * the server as it opens: each project in dependency order, the version it goes
  * to, what it publishes, which packages of those before it it takes, and why it
- * ships or only takes its bump. Approve starts the whole cascade on the server,
+ * ships or only takes its bump. The person may leave any dependent out, with
+ * what only it carries the release to, and add it back. Approve starts the whole cascade on the server,
  * the person's alone, and the bars' ship badge follows it from there; npm still
  * asks the person at each publish.
  */
@@ -126,7 +127,37 @@ export function ShipDialog({
 						everyRelease={changed}
 						starting={starting || !approval.ready}
 						onChoose={(slug, bump) => approval.chooseDependent(slug, bump)}
+						onLeaveOut={
+							approval.recovery === undefined && !starting
+								? (slug) => void approval.leaveOut(slug)
+								: undefined
+						}
 					/>
+				)}
+				{plan?.skipped !== undefined && (
+					<section
+						className="flex flex-col gap-1 text-sm"
+						aria-label="Left out"
+					>
+						<p className="font-medium">
+							Left out, with what only they carry the release to
+						</p>
+						{plan.skipped.map((slug) => (
+							<p key={slug} className="flex items-center gap-2">
+								<span>{slug}</span>
+								<Button
+									variant="outline"
+									size="sm"
+									className="ml-auto"
+									disabled={starting}
+									aria-label={`Add ${slug} back`}
+									onClick={() => void approval.leaveOut(slug, false)}
+								>
+									Add back
+								</Button>
+							</p>
+						))}
+					</section>
 				)}
 				{(plan?.steps.some((step) => step.review?.status === "failed") ||
 					refusal !== null) && (
@@ -162,12 +193,15 @@ function PlanSteps({
 	everyRelease,
 	starting,
 	onChoose,
+	onLeaveOut,
 }: {
 	steps: ShipStep[];
 	/** Whether each project that ships picks its own release type, with no one release type above the plan. */
 	everyRelease: boolean;
 	starting: boolean;
 	onChoose: (slug: string, bump: ShipBump) => void;
+	/** Leaves a dependent out of the ship; absent when none may be. */
+	onLeaveOut?: (slug: string) => void;
 }): JSX.Element {
 	return (
 		<ShipTree
@@ -183,6 +217,7 @@ function PlanSteps({
 					}
 					starting={starting}
 					onChoose={onChoose}
+					onLeaveOut={step.takes.length > 0 ? onLeaveOut : undefined}
 				/>
 			)}
 			className="max-h-[55vh] overflow-y-auto pr-1"
@@ -195,12 +230,15 @@ function PlanProject({
 	choosable,
 	starting,
 	onChoose,
+	onLeaveOut,
 }: {
 	step: ShipStep;
 	/** Whether the person picks this project's release type here. */
 	choosable: boolean;
 	starting: boolean;
 	onChoose: (slug: string, bump: ShipBump) => void;
+	/** Leaves this dependent out of the ship; absent when it may not be. */
+	onLeaveOut?: (slug: string) => void;
 }): JSX.Element {
 	return (
 		<div
@@ -230,6 +268,16 @@ function PlanProject({
 				<span className="ml-auto text-muted-foreground text-xs tabular-nums">
 					{versionOf(step)}
 				</span>
+				{onLeaveOut !== undefined && (
+					<Button
+						variant="ghost"
+						size="sm"
+						aria-label={`Leave ${step.slug} out`}
+						onClick={() => onLeaveOut(step.slug)}
+					>
+						Leave out
+					</Button>
+				)}
 			</p>
 			{step.publishes.length > 0 && (
 				<p className="pl-5.5 text-muted-foreground text-xs">

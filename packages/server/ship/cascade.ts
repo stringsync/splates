@@ -117,8 +117,11 @@ export interface CascadesOptions {
 	reviews?: ShipReviews;
 	fs: Fs;
 	log: Logger;
-	/** The plan to ship `slug` at `bump`; throws a {@link ShipPlanError} for none. */
-	plan: (slug: string, bump: ShipBump) => Promise<ShipPlan>;
+	/**
+	 * The plan to ship `slug` at `bump` without the dependents `skip` names;
+	 * throws a {@link ShipPlanError} for none.
+	 */
+	plan: (slug: string, bump: ShipBump, skip: string[]) => Promise<ShipPlan>;
 	/** The project `slug` names, opened and served. */
 	reach: (slug: string) => Promise<CascadeProject>;
 	/** The cascades kept with their logs; under `ship-history` in `storage` by default. */
@@ -216,21 +219,28 @@ export class Cascades implements Resource {
 	}
 
 	/**
-	 * The plan to ship `slug` at `bump`, as {@link start} would draw it now;
-	 * refused as the reason a {@link ShipPlanError} names when there is none.
+	 * The plan to ship `slug` at `bump`, as {@link start} would draw it now,
+	 * without the dependents `skip` names; refused as the reason a
+	 * {@link ShipPlanError} names when there is none.
 	 */
 	async plan(
 		slug: string,
 		bump: ShipBump = "patch",
 		retry = false,
 		recovery?: string,
+		skip: string[] = [],
 	): Promise<ShipPlan> {
 		try {
 			if (recovery !== undefined && this.opts.reviews === undefined) {
 				fail("usage", "ship recovery requires reviewed approval");
 			}
-			return await (this.opts.reviews?.draw(slug, bump, retry, recovery) ??
-				this.opts.plan(slug, bump));
+			return await (this.opts.reviews?.draw(
+				slug,
+				bump,
+				retry,
+				recovery,
+				skip,
+			) ?? this.opts.plan(slug, bump, skip));
 		} catch (error) {
 			if (error instanceof ShipPlanError) {
 				fail(error.reason, error.message, { project: slug });

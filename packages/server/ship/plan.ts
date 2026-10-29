@@ -45,6 +45,8 @@ export interface ShipPlan {
 	/** The project the ship starts from, or {@link CHANGED}. */
 	from: string;
 	steps: ShipStep[];
+	/** The dependents the person left out, with what only they reach; absent for none. */
+	skipped?: string[];
 }
 
 /** Why there is no plan to ship a project. */
@@ -73,15 +75,18 @@ export function shipName(from: string): string {
  * The plan to ship `slug` at `bump`, then each project pinning a package shipped
  * before it, in dependency order. A dependent ships at the next patch in turn
  * when it is public, names a `ship` command and has dependents of its own to
- * pass its new version on to; otherwise it only takes its bump.
+ * pass its new version on to; otherwise it only takes its bump. Each
+ * dependent `skip` names is left out, with whatever only it would carry the
+ * release to.
  */
 export function planShip(
 	graph: ShipGraph,
 	slug: string,
 	bump: ShipBump = "patch",
+	skip: string[] = [],
 ): ShipPlan {
 	if (slug === CHANGED) {
-		return planChanged(graph);
+		return planChanged(graph, skip);
 	}
 	const start = graph.projects.find((each) => each.slug === slug);
 	if (start === undefined) {
@@ -98,7 +103,13 @@ export function planShip(
 				: `${slug} names no \`ship\` command in its splates.config.ts`,
 		);
 	}
-	return planFrom(graph, slug, new Map([[slug, "the project shipped"]]), bump);
+	return planFrom(
+		graph,
+		slug,
+		new Map([[slug, "the project shipped"]]),
+		bump,
+		skip,
+	);
 }
 
 /**
@@ -120,9 +131,9 @@ export function changedProjects(graph: ShipGraph): ShipProject[] {
  * The plan to ship every changed project at a patch, in dependency order,
  * each dependent of one taking its bump first, and each project downstream
  * as {@link planShip} carries it. A changed project ships even when nothing
- * pins it.
+ * pins it, and even when `skip` names it: only dependents are left out.
  */
-export function planChanged(graph: ShipGraph): ShipPlan {
+export function planChanged(graph: ShipGraph, skip: string[] = []): ShipPlan {
 	const changed = changedProjects(graph);
 	if (changed.length === 0) {
 		throw new ShipPlanError(
@@ -139,18 +150,25 @@ export function planChanged(graph: ShipGraph): ShipPlan {
 				`it has ${each.changes?.commits} unshipped commit${each.changes?.commits === 1 ? "" : "s"} since ${each.changes?.tag}`,
 			]),
 		),
+		"patch",
+		skip,
 	);
 }
 
-/** Ships each of `roots`, saying why, and carries them downstream. */
+/**
+ * Ships each of `roots`, saying why, and carries them downstream past the
+ * dependents `skip` names.
+ */
 function planFrom(
 	graph: ShipGraph,
 	from: string,
 	roots: Map<string, string>,
 	bump: ShipBump = "patch",
+	skip: string[] = [],
 ): ShipPlan {
 	const shipping = new Set<string>();
 	const steps: ShipStep[] = [];
+	const skipped: string[] = [];
 	for (const project of dependencyOrder(graph)) {
 		const takes = project.uses.filter((use) => shipping.has(use.project));
 		const root = roots.get(project.slug);
@@ -160,6 +178,10 @@ function planFrom(
 			continue;
 		}
 		if (takes.length === 0) {
+			continue;
+		}
+		if (skip.includes(project.slug)) {
+			skipped.push(project.slug);
 			continue;
 		}
 		const why = bumpOnly(project);
@@ -180,7 +202,7 @@ function planFrom(
 		const by = project.dependents.map((each) => each.project).join(", ");
 		steps.push(shipStep(project, takes, `${by} pins it`));
 	}
-	return { from, steps };
+	return skipped.length === 0 ? { from, steps } : { from, steps, skipped };
 }
 
 /** Why a dependent in a ship only takes its bump, or null when it ships too. */

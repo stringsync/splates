@@ -13,6 +13,7 @@ export interface ShipServer {
 		bump: ShipBump,
 		retry?: boolean,
 		recovery?: string,
+		skip?: string[],
 	): Promise<ShipPlan>;
 	startShip(
 		project: string,
@@ -36,6 +37,8 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 	plan: ShipPlan | null = null;
 	/** The starting project's release type, patch until the person changes it. */
 	bump: ShipBump = "patch";
+	/** The dependents the person left out of the ship, none until they leave one out. */
+	skip: string[] = [];
 	/** Why there is no plan, or why the ship did not start; null otherwise. */
 	refusal: string | null = null;
 	/** Whether Approve waits on the server's answer. */
@@ -56,6 +59,7 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 				this.bump,
 				retry,
 				this.recovery,
+				this.skip,
 			);
 			if (drawing !== this.drawing) {
 				return;
@@ -79,6 +83,23 @@ export class ShipApproval implements Eventful<ShipApprovalEvents> {
 			return;
 		}
 		this.bump = bump;
+		this.plan = null;
+		this.refusal = null;
+		this.changed();
+		await this.draw();
+	}
+
+	/**
+	 * Leaves the dependent `slug` out of the ship, with what only it would
+	 * carry the release to, or puts it back when `out` is false, and redraws.
+	 */
+	async leaveOut(slug: string, out = true): Promise<void> {
+		if (this.starting || this.skip.includes(slug) === out) {
+			return;
+		}
+		this.skip = out
+			? [...this.skip, slug]
+			: this.skip.filter((each) => each !== slug);
 		this.plan = null;
 		this.refusal = null;
 		this.changed();
