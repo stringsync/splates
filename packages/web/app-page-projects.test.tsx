@@ -54,38 +54,39 @@ describe("App's pages and the project switcher", () => {
 		resize(1024, 768);
 	});
 
-	it("heads project pages with a switcher beside their titles, and Everywhere pages without one", async () => {
+	it("heads every desktop page with a switcher beside its title", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
 		const switchers = [
 			await switcherOn(view, "Board"),
 			await switcherOn(view, "Queue"),
+			await switcherOn(view, "Stats"),
+			await switcherOn(view, "Ship"),
+			await switcherOn(view, "Evals"),
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
 			await switcherOn(view, "Automations"),
+			await switcherOn(view, "Setup"),
 		];
-		expect(switchers).toEqual([
-			"webappwiz",
-			null,
-			null,
-			"webappwiz",
-			"webappwiz",
-		]);
+		expect(switchers).toEqual(Array(switchers.length).fill("webappwiz"));
 	});
 
-	it("heads the sidebar with the project's switcher, its own pages first under it", async () => {
+	it("heads the sidebar with the server, not the project's switcher", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 		await goTo(view, "Stats");
 
+		const head = view
+			.getByRole("heading", { level: 1, name: "splates" })
+			.closest("header") as HTMLElement;
 		const tabs = view.getByRole("tablist");
 		expect([
-			view.getByRole("button", { name: /^Switch project/ }).textContent,
+			within(head).queryByRole("button", { name: /^Switch project/ }),
 			within(tabs).queryByRole("button", { name: /^Switch project/ }),
 			within(tabs)
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
 		]).toEqual([
-			"webappwiz",
+			null,
 			null,
 			[
 				"Board",

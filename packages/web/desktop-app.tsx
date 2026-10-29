@@ -12,7 +12,7 @@ import type { Drafts } from "./drafts";
 import { OfflineBanner, useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
-import { navPage, PAGES, type Page } from "./page-route";
+import type { Page } from "./page-route";
 import { Sidebar } from "./sidebar";
 import { SidebarHead } from "./sidebar-head";
 import type { Terminals } from "./terminals";
@@ -103,15 +103,13 @@ export function DesktopApp({
 	// Where each page's bar and any banner under it go.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
-	const scoped =
-		PAGES.find(({ value }) => value === navPage(page))?.scope === "project";
 	const frame = {
 		refreshing: restartBusy,
 		slot,
 		bannerSlot,
 		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
 		project: name,
-		scoped,
+		scoped: page !== "conversations",
 		status: (
 			<AppStatus
 				snapshot={snapshot}
@@ -138,12 +136,7 @@ export function DesktopApp({
 				)}
 				style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 			>
-				<SidebarHead
-					snapshot={snapshot}
-					sidebar={sidebar}
-					name={name}
-					scoped={scoped || (page === "conversations" && open === null)}
-				/>
+				<SidebarHead snapshot={snapshot} sidebar={sidebar} />
 				{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 				<header

@@ -69,7 +69,7 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
  * The bar atop every page and conversation, one line of text and icons at
  * `--top-bar-height`: what leads it, as a way back, then the title, the
  * page's status and what `detail` adds, then its actions. On a desktop, a
- * project-scoped page puts its switcher before the title, separated by a
+ * scoped page puts its project switcher before the title, separated by a
  * slash. On a phone, a bar of the project's own, `project`, puts the
  * project's switcher under its title, and `detail` beside it. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
