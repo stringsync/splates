@@ -66,39 +66,39 @@ describe("queueFailedTests", () => {
 		expect(task?.text).toEndWith("- Unhandled error between tests");
 	});
 
-	it("folds several flakes the same way, and queues the event once across retries", async () => {
+	it("folds several failures of the environment once across retries", async () => {
 		const failed = [
 			timedOut("one", "one.test.ts"),
 			timedOut("two", "two.test.ts"),
 		];
-		await queueFailedTests(deps, "alpha", failed, "flake");
-		await queueFailedTests(deps, "alpha", failed, "flake");
+		await queueFailedTests(deps, "alpha", failed, "environment");
+		await queueFailedTests(deps, "alpha", failed, "environment");
 
 		expect((await deps.tasks.all()).map((task) => task.subject)).toEqual([
-			"Tests failed together in `alpha`'s gate: 2 tests (flake)",
+			"Tests failed together in `alpha`'s gate: 2 tests (environment)",
 		]);
 	});
 
-	it("queues a task per test when the failures are the code's", async () => {
-		await queueFailedTests(
-			deps,
-			"alpha",
-			[timedOut("one", "one.test.ts"), timedOut("two", "two.test.ts")],
-			"task",
-		);
+	it.each(["task", "flake"] as const)(
+		"queues nothing for failures blamed on %s",
+		async (kind) => {
+			await queueFailedTests(
+				deps,
+				"alpha",
+				[timedOut("one", "one.test.ts")],
+				kind,
+			);
 
-		expect((await deps.tasks.all()).map((task) => task.subject)).toEqual([
-			"Tests failed: one",
-			"Tests failed: two",
-		]);
-	});
+			expect(await deps.tasks.all()).toEqual([]);
+		},
+	);
 
-	it("names a lone flake by its test", async () => {
+	it("names a lone failure on trunk by its test", async () => {
 		await queueFailedTests(
 			deps,
 			"alpha",
 			[timedOut("one", "one.test.ts")],
-			"flake",
+			"trunk",
 		);
 
 		expect((await deps.tasks.all()).map((task) => task.subject)).toEqual([

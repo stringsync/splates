@@ -11,6 +11,11 @@ export async function queueFailedTests(
 	failed: FailedTest[],
 	kind: FailureAttribution,
 ): Promise<void> {
+	// The task fixes its own failures to land, and a flake may pass on its
+	// rerun: the caller queues a flake as `environment` if the rerun fails too.
+	if (kind === "task" || kind === "flake") {
+		return;
+	}
 	try {
 		const listed = new Set((await tasks.all()).map((each) => each.subject));
 		for (const { subject, text, slug } of wanted(task, failed, kind)) {
