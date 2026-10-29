@@ -232,7 +232,7 @@ export function StartItems({
 						void dispatch.auto(assignment).then(context.open);
 					}}
 				>
-					<AutoIcon />
+					<AutoIcon colored />
 					{AUTO_PICK_NAME}
 				</DropdownMenuItem>
 				{dispatch.agents.map((each) => (

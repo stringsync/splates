@@ -52,6 +52,7 @@ export function AgentPicker({
 					/>
 				}
 			>
+				{auto ? <AutoIcon colored /> : <AgentMark agent={agent} />}
 				{auto ? AUTO_PICK_NAME : agentName(agents, agent)}
 				<ChevronDownIcon className="size-4 text-muted-foreground" />
 			</DropdownMenuTrigger>
@@ -60,7 +61,7 @@ export function AgentPicker({
 					className="max-md:h-11"
 					onClick={() => onOpen(autoAddress(task), "replace")}
 				>
-					<AutoIcon />
+					<AutoIcon colored />
 					{AUTO_PICK_NAME}
 				</DropdownMenuItem>
 				{agents.map((each) => (
