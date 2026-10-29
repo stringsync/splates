@@ -64,7 +64,7 @@ describe("Queue page's Up next", () => {
 		expect(view.queryByText("Nothing queued")).toBeNull();
 	});
 
-	it("marks a queued task blocked by one not queued, and queues its blockers from the row", async () => {
+	it("lists blocked tasks under Blocked, not Up next, and queues one's blockers from its row", async () => {
 		const view = await testing.openTasks({
 			todos: [
 				todo({ id: 1, subject: "store licenses", stage: "ready" }),
@@ -73,34 +73,33 @@ describe("Queue page's Up next", () => {
 			],
 		});
 
-		const row = queueRow(view, "check them", "queued tasks");
-		expect(within(row).getByText("Blocker not queued")).toBeTruthy();
-		expect(
-			within(queueRow(view, "free", "queued tasks")).queryByText(
-				"Blocker not queued",
-			),
-		).toBeNull();
+		expect(names(view)).toEqual(["free"]);
+		const blocked = view.getByRole("region", { name: "Blocked" });
+		expect(within(blocked).getAllByText("check them")).not.toHaveLength(0);
+		expect(within(blocked).getAllByText("needs #1 queued")).not.toHaveLength(0);
 
 		await act(async () =>
 			fireEvent.click(
-				within(row).getByRole("button", { name: "Queue blockers" }),
+				within(blocked).getAllByRole("button", {
+					name: "Queue 1 blocker",
+				})[0] as HTMLElement,
 			),
 		);
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(within(dialog).getByText("store licenses")).toBeTruthy();
-		expect(
-			within(dialog).queryByRole("button", { name: /Queue only/ }),
-		).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Queue it" })),
-		);
+		await serve({
+			todos: [
+				todo({ id: 1, subject: "store licenses", stage: "queued" }),
+				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
+				todo({ id: 3, subject: "free", stage: "queued" }),
+			],
+		});
 
 		await waitFor(() =>
-			expect(testing.posted("/api/todos/1/queued")).toEqual([
-				{ method: "PUT", body: { queued: true } },
-			]),
+			expect(within(blocked).getByText("Queued #1 for #2")).toBeTruthy(),
 		);
-		expect(testing.posted("/api/todos/2/queued")).toEqual([]);
+		expect(testing.posted("/api/todos/1/queued")).toEqual([
+			{ method: "PUT", body: { queued: true } },
+		]);
+		expect(names(view)).toEqual(["store licenses", "check them", "free"]);
 	});
 
 	it("holds the tasks at work and what waits next in one card", async () => {

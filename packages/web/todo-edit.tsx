@@ -1,6 +1,6 @@
 import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import { queueOrder } from "@stringsync/splates-server/queue/browser";
+import { blockerLabel } from "@stringsync/splates-server/board/browser";
 import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -18,6 +18,7 @@ import {
 } from "#web/components/ui/input-group.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { assignTodo } from "./api";
+import { BlockedFixButton, blockedFix } from "./blocked-fix";
 import { Board as BoardContext } from "./board";
 import { assigned } from "./board-expectations";
 import { CopyLink } from "./card";
@@ -34,7 +35,7 @@ import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
-import { STAGE_TONES, stageLabel, stageOf } from "./todo-queue";
+import { STAGE_TONES, shownStage, stageLabel } from "./todo-queue";
 
 /** The dialog for one todo: reword it, edit its detail, agent and links, then save, start or drop it. */
 export function Edit({
@@ -86,7 +87,7 @@ export function Edit({
 		onDone();
 		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
-	const stage = stageOf(todo);
+	const stage = shownStage(todo, board.todos);
 	return (
 		<>
 			<DialogHeader className="gap-1.5">
@@ -116,10 +117,7 @@ export function Edit({
 							TONES[STAGE_TONES[stage]],
 						)}
 					>
-						{stageLabel(
-							todo,
-							todo.stage === "queued" ? queueOrder(board.todos) : [],
-						)}
+						{stageLabel(todo, board.todos)}
 					</span>
 					<DialogDescription className="min-w-0 text-foreground text-sm">
 						{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
@@ -174,6 +172,7 @@ export function Edit({
 								/>
 							)
 						)}
+						{stage === "blocked" && <BlockedPart todo={todo} />}
 						<Detail editor={editor} />
 						<FileList files={editor.files} />
 						<Dropped names={dropped} />
@@ -300,5 +299,50 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 				Edit
 			</Button>
 		</div>
+	);
+}
+
+/**
+ * What a blocked task waits on that nothing will start, in its dialog: the
+ * chain its card's button queues, blockers first, or the removed blockers
+ * it drops, with that button.
+ */
+function BlockedPart({ todo }: { todo: TaskRecord }): JSX.Element | null {
+	const { todos, lanes } = useContext(BoardContext);
+	const fix = blockedFix(todo, todos);
+	if (fix === null) {
+		return null;
+	}
+	return (
+		<section
+			aria-label="what blocks it"
+			className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2.5 text-xs"
+		>
+			<p className="text-muted-foreground">
+				{fix.kind === "queue"
+					? `It cannot start until ${fix.chain.length === 1 ? "this task is" : "these tasks are"} queued too:`
+					: fix.kind === "drop"
+						? "It still waits on a task removed without merging:"
+						: `It waits on #${fix.id}, blocked by the same tasks.`}
+			</p>
+			{fix.kind === "queue" && (
+				<ul className="flex flex-col gap-0.5">
+					{fix.chain.map((task) => (
+						<li key={task.id} className="flex min-w-0 gap-1.5">
+							<span className="shrink-0 text-muted-foreground tabular-nums">
+								{blockerLabel(task, lanes)}
+							</span>
+							<span className="min-w-0 truncate">{task.subject}</span>
+							<span className="shrink-0 text-muted-foreground">
+								{task.stage}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+			<span className="text-xs">
+				<BlockedFixButton todo={todo} />
+			</span>
+		</section>
 	);
 }

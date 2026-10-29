@@ -23,7 +23,7 @@ import { QueueEmpty, QueueRow, QueueSection } from "./queue-rows";
 import { Running, useKnown, Waiting } from "./queue-running";
 import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
-import { UpNext } from "./task-queue";
+import { BlockedTasks, UpNext } from "./task-queue";
 import { TopBar } from "./top-bar";
 import { WorkerPoolView } from "./worker-pool";
 
@@ -87,6 +87,11 @@ export function Tasks({
 				<Running held={held} known={known} />
 				<Waiting queue={queue} known={known} />
 				<UpNext
+					todos={project.todos}
+					lanes={project.lanes}
+					onOpen={onOpenTodo}
+				/>
+				<BlockedTasks
 					todos={project.todos}
 					lanes={project.lanes}
 					onOpen={onOpenTodo}

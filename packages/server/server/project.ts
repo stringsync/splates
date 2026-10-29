@@ -7,7 +7,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { ElsewhereBoards, LaneRecord, TaskRecord } from "../board";
-import { BoardRoutes, ElsewhereLinks, tasksNamed } from "../board";
+import { BoardRoutes, ElsewhereLinks } from "../board";
 import type {
 	ConversationState,
 	Conversations,
@@ -22,7 +22,7 @@ import type { AgentPick } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
-import { QUEUE_SWEEP, QueueMoves, QueueRunner } from "../queue";
+import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
 import type { ShipPlan, ShipReview, ShipStep } from "../ship";
@@ -88,13 +88,6 @@ export async function serveProject(
 					await new ElsewhereLinks(project.tasks).settle(context.boards);
 				}
 			},
-			unqueue: (going) =>
-				journal.record(
-					"queue remove",
-					null,
-					() => new QueueMoves(project.tasks).letGo(going),
-					(gone) => ({ tasks: tasksNamed(gone) }),
-				),
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			picker: new QueueAutoPick(project, conversations, { slug }),
 			start: ({ task, queued, pick, prompt, held }) =>

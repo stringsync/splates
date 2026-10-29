@@ -10,10 +10,11 @@ export {
 export { QueueMoves } from "./moves";
 export { taskName } from "./name";
 export {
+	blockage,
 	canStart,
 	holdsBack,
+	isBlocked,
 	queueOrder,
-	stalled,
 	unqueuedBlockers,
 } from "./order";
 export type {

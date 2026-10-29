@@ -1,1 +1,7 @@
-export { queueOrder, unqueuedBlockers } from "./order";
+export {
+	blockage,
+	isBlocked,
+	queueOrder,
+	unqueuedBlockers,
+	waitedOn,
+} from "./order";

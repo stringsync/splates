@@ -1,34 +1,13 @@
-import { type Task, type Tasks, unqueued } from "../board";
+import type { Tasks } from "../board";
 import { fail } from "../exit";
 import { queueOrder } from "./order";
 
 /**
- * Moves tasks out of the queue and within it, saying nothing: what the
- * queue's sweep and the page's drag do with the board's `tasks`.
+ * Moves tasks within the queue, saying nothing: what the page's drag does
+ * with the board's `tasks`.
  */
 export class QueueMoves {
 	constructor(private readonly tasks: Tasks) {}
-
-	/**
-	 * Takes each task in `going`, what `stalled` gives, out of the queue,
-	 * noting the blockers it was let go for; gives back those it took out.
-	 */
-	async letGo(going: ReadonlyMap<number, readonly number[]>): Promise<Task[]> {
-		const gone: Task[] = [];
-		for (const [id, blockers] of going) {
-			let went = false;
-			const task = await this.tasks.revise(id, (state) => {
-				went = state.stage === "queued" && state.takenBy === null;
-				return went
-					? { ...unqueued(state), unqueuedFor: [...blockers] }
-					: state;
-			});
-			if (went) {
-				gone.push(task);
-			}
-		}
-		return gone;
-	}
 
 	/**
 	 * Moves queued task `id` to `position` in the queue, from 1 for the next

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { TaskRecord } from "../board";
 import {
+	blockage,
 	canStart,
 	holdsBack,
+	isBlocked,
 	queueOrder,
-	stalled,
 	unqueuedBlockers,
 } from "./order";
 
@@ -79,23 +80,41 @@ describe("the queue's order", () => {
 		expect(canStart(waiting, all)).toBe(false);
 		expect(canStart(lost, all)).toBe(false);
 		expect(canStart(landed, all)).toBe(true);
-		// The other project's queue starts its task, so this one stays queued.
-		expect(stalled(all).size).toBe(0);
+		// The other project's queue starts its task, so this one is not blocked.
+		expect(isBlocked(waiting, all)).toBe(false);
 	});
 });
 
-describe("what the queue holds on to", () => {
-	it("keeps one blocked by a task not queued, and lets go of one blocked by a task removed", () => {
+describe("what blocks a queued task", () => {
+	it("is a blocker not queued or removed, here or under a task it waits on, never one queued or running", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2] }),
 			task({ id: 2, stage: "ready" }),
-			task({
-				id: 3,
-				blockersLost: [{ id: 9, subject: "gone" }],
-			}),
+			task({ id: 3, blockersLost: [{ id: 9, subject: "gone" }] }),
+			task({ id: 4, blockedBy: [3] }),
+			task({ id: 5, blockedBy: [6] }),
+			task({ id: 6, stage: "running", takenBy: "alpha" }),
+			task({ id: 7, blockedBy: [5] }),
+			task({ id: 8, stage: "ready", blockedBy: [2] }),
 		];
 
-		expect([...stalled(all)]).toEqual([[3, [9]]]);
+		expect(blockage(all[0] as TaskRecord, all)).toMatchObject({
+			lost: [],
+			deep: false,
+		});
+		expect(ids(blockage(all[0] as TaskRecord, all).chain)).toEqual([2]);
+		expect(blockage(all[2] as TaskRecord, all)).toMatchObject({
+			chain: [],
+			lost: [9],
+		});
+		expect(blockage(all[3] as TaskRecord, all)).toMatchObject({
+			chain: [],
+			lost: [],
+			deep: true,
+		});
+		expect(
+			all.filter((each) => isBlocked(each, all)).map((each) => each.id),
+		).toEqual([1, 3, 4]);
 	});
 });
 

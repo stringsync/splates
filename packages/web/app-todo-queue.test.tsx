@@ -160,68 +160,95 @@ describe("App's queue", () => {
 		).toBeNull();
 	});
 
-	it("offers to queue the chain of blockers not queued with a card, blockers first", async () => {
+	it("queues a card blocked by tasks not queued as Blocked, its button queuing them at once with Undo", async () => {
+		const board = (
+			third: "backlog" | "queued",
+			first: "backlog" | "queued",
+			second: "backlog" | "queued",
+		) => [
+			todo({ id: 1, subject: "store licenses", stage: first }),
+			todo({ id: 2, subject: "check them", stage: second, blockedBy: [1] }),
+			todo({ id: 3, subject: "bill for them", stage: third, blockedBy: [2] }),
+		];
 		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "store licenses" }),
-				todo({ id: 2, subject: "check them", blockedBy: [1] }),
-				todo({ id: 3, subject: "bill for them", blockedBy: [2] }),
-			],
+			todos: board("backlog", "backlog", "backlog"),
 		});
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Queue #3" })),
 		);
+		// No question asked: it goes in the queue as it is.
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(testing.posted("/api/todos/3/queued")).toEqual([
+			{ method: "PUT", body: { queued: true } },
+		]);
+		await serve({ todos: board("queued", "backlog", "backlog") });
 
-		const dialog = await waitFor(() => view.getByRole("dialog"));
+		const card = () =>
+			view
+				.getByRole("button", { name: /^bill for them/ })
+				.closest("li") as HTMLElement;
+		await waitFor(() => expect(card().textContent).toContain("Blocked"));
 		expect(
-			within(dialog).getByText("Queue what it waits on too?"),
-		).toBeTruthy();
-		const chain = within(dialog).getByRole("list", {
-			name: "blockers not queued",
-		});
-		expect(
-			within(chain)
-				.getAllByRole("listitem")
-				.map((row) => row.textContent),
-		).toEqual(["#1store licensesbacklog", "#2check thembacklog"]);
-		expect(testing.posted("/api/todos/3/queued")).toEqual([]);
+			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
+		).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Queue all 3" }),
+				within(card()).getByRole("button", { name: "Queue 2 blockers" }),
 			),
 		);
-		await serve({
-			todos: [
-				todo({ id: 1, subject: "store licenses", stage: "queued" }),
-				todo({ id: 2, subject: "check them", blockedBy: [1] }),
-				todo({ id: 3, subject: "bill for them", blockedBy: [2] }),
-			],
-		});
-		await serve({
-			todos: [
-				todo({ id: 1, subject: "store licenses", stage: "queued" }),
-				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
-				todo({ id: 3, subject: "bill for them", blockedBy: [2] }),
-			],
-		});
-
+		await serve({ todos: board("queued", "queued", "backlog") });
 		await waitFor(() =>
-			expect(testing.posted("/api/todos/3/queued")).toEqual([
-				{ method: "PUT", body: { queued: true } },
-			]),
+			expect(testing.posted("/api/todos/2/queued")).toHaveLength(1),
 		);
+		await serve({ todos: board("queued", "queued", "queued") });
+
+		await waitFor(() => expect(card().textContent).toContain("Queued #1, #2"));
 		expect(testing.posted("/api/todos/1/queued")).toHaveLength(1);
 		expect(testing.posted("/api/todos/2/queued")).toHaveLength(1);
+		expect(card().textContent).not.toContain("Blocked");
+
+		await act(async () =>
+			fireEvent.click(within(card()).getByRole("button", { name: "Undo" })),
+		);
+		// Undo takes them back out, the last queued first.
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/2/queued").at(-1)).toEqual({
+				method: "PUT",
+				body: { queued: false },
+			}),
+		);
+		await serve({ todos: board("queued", "queued", "backlog") });
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/1/queued").at(-1)).toEqual({
+				method: "PUT",
+				body: { queued: false },
+			}),
+		);
 	});
 
-	it("badges a queued card whose blocker is not queued", async () => {
+	it("gives a blocked card whose blocker holds the same fix only Blocked with that one, and counts blocked in its lane", async () => {
 		const view = await testing.open({
+			lanes: [{ id: 1, name: "Billing" }],
 			todos: [
 				todo({ id: 1, subject: "store licenses" }),
-				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
-				todo({ id: 3, subject: "bill them", stage: "queued", blockedBy: [2] }),
+				todo({
+					id: 2,
+					subject: "invoice",
+					stage: "queued",
+					blockedBy: [1],
+					lane: 1,
+					position: 1,
+				}),
+				todo({
+					id: 3,
+					subject: "email invoices",
+					stage: "queued",
+					blockedBy: [2],
+					lane: 1,
+					position: 2,
+				}),
 			],
 		});
 
@@ -229,39 +256,66 @@ describe("App's queue", () => {
 			view
 				.getByRole("button", { name: new RegExp(`^${subject}`) })
 				.closest("li") as HTMLElement;
-		expect(card("check them").textContent).toContain("blocker not queued");
-		expect(card("bill them").textContent).not.toContain("blocker not queued");
+		expect(
+			within(card("invoice")).getByRole("button", { name: "Queue 1 blocker" }),
+		).toBeTruthy();
+		expect(
+			within(card("email invoices")).getByRole("button", {
+				name: "Blocked with #2",
+			}),
+		).toBeTruthy();
+		const lane = view.getByRole("region", { name: "Billing", hidden: true });
+		expect(lane.textContent).toContain("2 blocked");
 	});
 
-	it("queues a card alone when asked, and at once when nothing blocking it waits outside the queue", async () => {
+	it("lists a blocked task's chain in its dialog, and drops a link to a removed blocker from its card", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "store licenses" }),
 				todo({ id: 2, subject: "check them", blockedBy: [1] }),
-				todo({ id: 3, subject: "free" }),
+				todo({
+					id: 3,
+					subject: "bill for them",
+					stage: "queued",
+					blockedBy: [2],
+				}),
+				todo({
+					id: 4,
+					subject: "old one",
+					stage: "queued",
+					blockersLost: [{ id: 9, subject: "gone" }],
+				}),
 			],
 		});
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Queue #3" })),
-		);
-		expect(view.queryByRole("dialog")).toBeNull();
-		expect(testing.posted("/api/todos/3/queued")).toHaveLength(1);
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Queue #2" })),
+			fireEvent.click(view.getByRole("button", { name: /^bill for them/ })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain("Blocked");
+		const part = within(dialog).getByRole("region", { name: "what blocks it" });
+		expect(
+			within(part)
+				.getAllByRole("listitem")
+				.map((row) => row.textContent),
+		).toEqual(["#1store licensesbacklog", "#2check thembacklog"]);
+		expect(
+			within(part).getByRole("button", { name: "Queue 2 blockers" }),
+		).toBeTruthy();
+
+		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		const old = view
+			.getByRole("button", { name: /^old one/ })
+			.closest("li") as HTMLElement;
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Queue only #2" }),
+				within(old).getByRole("button", { name: "Drop link to #9" }),
 			),
 		);
-
-		await waitFor(() =>
-			expect(testing.posted("/api/todos/2/queued")).toHaveLength(1),
-		);
-		expect(testing.posted("/api/todos/1/queued")).toEqual([]);
+		expect(testing.posted("/api/todos/4/blocked-by")).toEqual([
+			{ method: "PUT", body: { blockedBy: [] } },
+		]);
 	});
 
 	it("offers neither in the dialog of a todo under way", async () => {

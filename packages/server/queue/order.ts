@@ -58,24 +58,63 @@ export function canStart(
 }
 
 /**
- * The queued tasks of `all` the queue should let go, by id, each with the
- * blockers removed without merging that it can never start past; give it
- * to `QueueMoves.letGo`. One blocked by an open task not queued stays
- * queued, blocked until that is queued too, as `unqueuedBlockers` finds,
- * and one waiting on another project stays queued.
+ * What holds queued task `task` back that only the person can clear, among
+ * `all`: `chain`, the open tasks it waits on however far down that nothing
+ * will start, blockers first, as `unqueuedBlockers` finds; `lost`, its own
+ * blockers removed without merging; and `deep`, whether a task it waits on
+ * lost one of its own. Empty for a task not queued, or one taken.
  */
-export function stalled(all: readonly TaskRecord[]): Map<number, number[]> {
-	const going = new Map<number, number[]>();
-	for (const task of all) {
-		if (task.stage !== "queued" || task.takenBy !== null) {
-			continue;
-		}
-		const { lost } = holdsBack(task, all);
-		if (lost.length > 0) {
-			going.set(task.id, lost);
-		}
+export function blockage(
+	task: TaskRecord,
+	all: readonly TaskRecord[],
+): { chain: TaskRecord[]; lost: number[]; deep: boolean } {
+	if (task.stage !== "queued" || task.takenBy !== null) {
+		return { chain: [], lost: [], deep: false };
 	}
-	return going;
+	return {
+		chain: unqueuedBlockers([task.id], all),
+		lost: (task.blockersLost ?? []).map((gone) => gone.id),
+		deep: waitedOn(task, all).some(
+			(other) => (other.blockersLost ?? []).length > 0,
+		),
+	};
+}
+
+/**
+ * Whether queued task `task` is blocked, among `all`: it cannot start until
+ * the person queues a task it waits on or drops a link to one removed.
+ */
+export function isBlocked(
+	task: TaskRecord,
+	all: readonly TaskRecord[],
+): boolean {
+	const { chain, lost, deep } = blockage(task, all);
+	return chain.length > 0 || lost.length > 0 || deep;
+}
+
+/** The open tasks of `all` that `task` waits on, however far down, past any under way. */
+export function waitedOn(
+	task: TaskRecord,
+	all: readonly TaskRecord[],
+): TaskRecord[] {
+	const found = new Map<number, TaskRecord>();
+	const visit = (each: TaskRecord) => {
+		for (const id of each.blockedBy) {
+			const blocker = all.find((other) => other.id === id);
+			if (
+				blocker === undefined ||
+				found.has(id) ||
+				blocker.takenBy !== null ||
+				blocker.stage === "running"
+			) {
+				continue;
+			}
+			found.set(id, blocker);
+			visit(blocker);
+		}
+	};
+	visit(task);
+	return [...found.values()];
 }
 
 /**

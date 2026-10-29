@@ -5,6 +5,7 @@ import {
 	type DeferralBlocker,
 } from "@stringsync/splates-server/board/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
+import { isBlocked } from "@stringsync/splates-server/queue/browser";
 import {
 	CircleAlertIcon,
 	ClockIcon,
@@ -29,6 +30,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Elsewhere, heldElsewhere } from "./blocked-elsewhere";
+import { BlockedFixButton } from "./blocked-fix";
 import { Board, still, touchArea } from "./board";
 import { openForPerson } from "./deferred-body";
 import { OnIt } from "./dispatching";
@@ -62,6 +64,9 @@ export function Card({
 	// Queued, it has a conversation waiting for an agent once it can start,
 	// as one at work has.
 	const held = todo.takenBy === null && todo.stage === "queued";
+	// Queued but stuck until the person queues what it waits on, or drops a
+	// link: its badge says so and its line offers the fix instead.
+	const blocked = held && isBlocked(todo, board.todos);
 	const stale =
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
@@ -152,7 +157,9 @@ export function Card({
 								{AUTO_PICK_NAME}
 							</span>
 						)}
-					{waits.length > 0 ? (
+					{/* Kept while queued, so its Undo outlives the block it cleared. */}
+					{held && <BlockedFixButton todo={todo} />}
+					{blocked ? null : waits.length > 0 ? (
 						<span
 							className="inline-flex min-w-0 items-center gap-1 text-warning"
 							title={waitLines(waits)}
@@ -167,17 +174,9 @@ export function Card({
 					{blockers.length === 0 && awaited.length > 0 && (
 						<Awaited on={awaited} />
 					)}
-					{(todo.blockersLost ?? []).length > 0 && (
+					{!blocked && (todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
 							<span className="text-warning">needs you</span>
-						</Badge>
-					)}
-					{waits.some((wait) => wait.state === "not queued") && (
-						<Badge
-							Icon={CircleAlertIcon}
-							label="it cannot start until the task it waits on is queued too"
-						>
-							<span className="text-warning">blocker not queued</span>
 						</Badge>
 					)}
 					{leftFor.length > 0 && (

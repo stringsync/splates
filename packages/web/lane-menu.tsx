@@ -35,7 +35,6 @@ import { dropLane, joinLanes, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
 import { laneDropped, laneQueued, lanesJoined } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
-import { queueEach, useQueueChain } from "./queue-chain";
 
 /**
  * What can be done to a whole lane: rename it, queue its tasks or take them
@@ -53,7 +52,7 @@ export function LaneMenu({
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
-	const { queue, confirm } = useQueueLane(lane);
+	const queue = useQueueLane(lane);
 	const { waiting, queued } = laneQueue(lane);
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
@@ -65,7 +64,6 @@ export function LaneMenu({
 	const count = lane.todos.length;
 	return (
 		<>
-			{confirm}
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					render={
@@ -212,64 +210,36 @@ export function QueueLaneButton({
 }: {
 	lane: LaneState;
 }): JSX.Element | null {
-	const { queue, confirm } = useQueueLane(lane);
+	const queue = useQueueLane(lane);
 	const { waiting } = laneQueue(lane);
 	if (waiting === 0) {
 		return null;
 	}
 	return (
-		<>
-			<Button
-				size="xs"
-				variant="outline"
-				title={`Put the ${waiting === 1 ? "task" : `${waiting} tasks`} waiting in ${lane.name} in the queue now; each starts once what it is blocked by lands`}
-				onClick={() => queue(true)}
-				{...still}
-			>
-				<ListPlusIcon />
-				Queue {waiting} {waiting === 1 ? "task" : "tasks"}
-			</Button>
-			{confirm}
-		</>
+		<Button
+			size="xs"
+			variant="outline"
+			title={`Put the ${waiting === 1 ? "task" : `${waiting} tasks`} waiting in ${lane.name} in the queue now; each starts once what it is blocked by lands`}
+			onClick={() => queue(true)}
+			{...still}
+		>
+			<ListPlusIcon />
+			Queue {waiting} {waiting === 1 ? "task" : "tasks"}
+		</Button>
 	);
 }
 
-/**
- * Queues every task waiting in the lane, or takes its queued ones out,
- * pending until the server shows it; queueing it with tasks outside it they
- * are blocked by not queued offers, in `confirm`, to queue those too.
- */
-function useQueueLane(lane: LaneState): {
-	queue: (queued: boolean) => void;
-	confirm: JSX.Element;
-} {
-	const { refuseLane, todos, lanes } = useContext(Board);
+/** Queues every task waiting in the lane, or takes its queued ones out, pending until the server shows it. */
+function useQueueLane(lane: LaneState): (queued: boolean) => void {
+	const { refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
-	const chain = useQueueChain(todos, lanes);
-	const write = (queued: boolean, blockers: number[]) =>
-		void queueEach(expect, blockers)
-			.then(() =>
-				expect(laneQueued(lane.id, queued), queueLane(lane.id, queued)),
-			)
-			.catch((error: unknown) =>
+	return (queued) =>
+		void expect(laneQueued(lane.id, queued), queueLane(lane.id, queued)).catch(
+			(error: unknown) =>
 				refuseLane(
 					lane.id,
 					queued ? "Lane not queued" : "Lane not taken out",
 					error,
 				),
-			);
-	const waiting = lane.todos
-		.filter(
-			(todo) =>
-				todo.takenBy === null &&
-				(todo.stage === "backlog" || todo.stage === "ready"),
-		)
-		.map((todo) => todo.id);
-	return {
-		queue: (queued) =>
-			queued
-				? chain.ask(waiting, (blockers) => write(true, blockers))
-				: write(false, []),
-		confirm: chain.confirm,
-	};
+		);
 }

@@ -5,7 +5,6 @@ import { laneAdd, laneQueue, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
 import { queueAdd, queueRemove } from "./commands";
-import { QueueMoves } from "./moves";
 import {
 	type HeldConversation,
 	type HeldConversations,
@@ -40,7 +39,6 @@ describe("QueueRunner", () => {
 	const watch = (): QueueRunner =>
 		QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
-			unqueue: (going) => new QueueMoves(deps.tasks).letGo(going),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			picker,
 			start: (each) => {
@@ -296,6 +294,25 @@ describe("QueueRunner", () => {
 
 		expect(started.map(({ queued }) => queued.id)).toEqual([2]);
 		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
+	});
+
+	it("keeps queued, unstarted, a task still holding a blocker removed without merging", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await taskAdd(deps, "Breakdowns", null);
+		await queueAdd(deps, [2]);
+		await (await deps.tasks.find(1)).remove();
+		// As a record from before removing a blocker dropped its link.
+		await deps.tasks.revise(2, (state) => ({
+			...state,
+			blockersLost: [{ id: 1, subject: "Totals first" }],
+		}));
+
+		await runner.sweep();
+
+		expect(started).toEqual([]);
+		const waiting = (await deps.tasks.find(2)).state;
+		expect(waiting.stage).toBe("queued");
+		expect(waiting.blockersLost?.map((gone) => gone.id)).toEqual([1]);
 	});
 
 	it("keeps a chain queued whole when the task at its root is not queued", async () => {
