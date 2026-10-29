@@ -2,10 +2,10 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
-import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
+import { BackButton } from "./back-button";
 import {
 	agentFor,
 	autoModelChosen,
@@ -31,7 +31,7 @@ import { DONE, SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
 import { UndoDialog } from "./setup-undo";
-import { BarButton, TopBar } from "./top-bar";
+import { TopBar } from "./top-bar";
 
 /** Intentional setup: choose an area, then answer its steps a page at a time. */
 export function SetupPage({
@@ -61,12 +61,10 @@ export function SetupPage({
 			<TopBar
 				leading={
 					area ? (
-						<BarButton label="Back to setup" onClick={() => onSetup(null)}>
-							<ChevronLeftIcon />
-						</BarButton>
+						<BackButton parent="Setup" onBack={() => onSetup(null)} />
 					) : undefined
 				}
-				title="Setup"
+				title={area ? area.title : "Setup"}
 			/>
 			{progress === null &&
 				(error === null ? (

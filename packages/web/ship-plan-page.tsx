@@ -7,6 +7,7 @@ import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { shipGraph } from "./api";
 import { startShip } from "./api/ship";
+import { BackButton } from "./back-button";
 import { TopBar } from "./top-bar";
 import { useLiveShips } from "./use-live-ships";
 
@@ -88,10 +89,17 @@ export function ShipPlanPage(): JSX.Element {
 		live.cascade?.status === "stopped";
 	return (
 		<section aria-label="ship plan" className="flex min-w-0 flex-col gap-6">
-			<TopBar title="Plan a ship" />
-			<a href="#ships" className="text-sm underline">
-				Back to Ships
-			</a>
+			<TopBar
+				leading={
+					<BackButton
+						parent="Ship"
+						onBack={() => {
+							location.hash = "ships";
+						}}
+					/>
+				}
+				title="Plan a ship"
+			/>
 			{busy && (
 				<p role="status">
 					{live === null ? (

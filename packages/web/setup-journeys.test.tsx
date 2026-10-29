@@ -92,12 +92,7 @@ describe("Setup journeys", () => {
 		testing.reply = with_({ "claude-signin": "done", "claude-models": "done" });
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
-		// The bar's way back and the finished page's button share the name.
-		fireEvent.click(
-			view
-				.getAllByRole("button", { name: "Back to setup" })
-				.at(0) as HTMLElement,
-		);
+		fireEvent.click(view.getByRole("button", { name: "Back to Setup" }));
 		expect(
 			await view.findByRole("button", { name: "Set up Claude" }),
 		).toBeTruthy();
@@ -137,7 +132,7 @@ describe("Setup journeys", () => {
 		const view = open();
 		await click(view, "Set up Codex");
 		expect(view.getByRole("form", { name: "Choose Codex models" }));
-		await click(view, "Back to setup");
+		await click(view, "Back to Setup");
 		await click(view, "Set up Dictation");
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});

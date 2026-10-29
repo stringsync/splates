@@ -1,8 +1,9 @@
 import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
-import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
+import { BackButton } from "./back-button";
 import type { ConversationFeed } from "./conversation-feed";
 import { ShipPlanPage } from "./lazy-pages";
 import { shipsUrl } from "./project-places";
@@ -11,7 +12,11 @@ import { ProjectStages, ShipRun } from "./ship-run";
 import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
 
-/** Browse projects, unshipped commits and past ships; new ship planning is coming. */
+/**
+ * The Ship page: each project's unshipped commits, with a way to plan a ship
+ * of one or of every changed project, the ship under way, and past ships,
+ * each opened at `#ships/<id>`.
+ */
 export function ShipsPage(_props: {
 	feed?: ConversationFeed | null;
 }): JSX.Element {
@@ -27,7 +32,19 @@ export function ShipsPage(_props: {
 	}
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
-			<TopBar title="Ship" />
+			<TopBar
+				leading={
+					viewed === null ? undefined : (
+						<BackButton
+							parent="Ship"
+							onBack={() => {
+								location.hash = "ships";
+							}}
+						/>
+					)
+				}
+				title={viewed === null ? "Ship" : "Past ship"}
+			/>
 			{viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
@@ -132,13 +149,6 @@ function PastShip({ id }: { id: string }): JSX.Element {
 	const cascade = kept?.cascade ?? null;
 	return (
 		<section aria-label={id} className="flex flex-col gap-4">
-			<a
-				href="#ships"
-				className="flex items-center gap-1 text-muted-foreground text-sm"
-			>
-				<ArrowLeftIcon aria-hidden className="size-3.5" />
-				Ship
-			</a>
 			{kept === null && (
 				<p className="text-muted-foreground text-xs">Reading…</p>
 			)}

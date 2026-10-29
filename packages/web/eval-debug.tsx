@@ -3,9 +3,7 @@ import type {
 	EvalStep,
 } from "@stringsync/splates-server/evals/browser";
 import { targetName } from "@stringsync/splates-server/evals/browser";
-import { ArrowLeftIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
 import { ReadingNow } from "./countdown";
@@ -19,13 +17,7 @@ import { HEADING } from "./markdown";
  * it broke, each code check, the judge's verdict and reason, the reply drawn
  * as the cards a person would meet, and every step the agent took.
  */
-export function EvalDebug({
-	id,
-	onBack,
-}: {
-	id: string;
-	onBack: () => void;
-}): JSX.Element {
+export function EvalDebug({ id }: { id: string }): JSX.Element {
 	const [run, setRun] = useState<EvalDetail | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	useEffect(() => {
@@ -36,15 +28,6 @@ export function EvalDebug({
 	}, [id]);
 	return (
 		<section aria-label="eval run" className="flex min-w-0 flex-col gap-5">
-			<Button
-				type="button"
-				variant="ghost"
-				size="sm"
-				className="self-start"
-				onClick={onBack}
-			>
-				<ArrowLeftIcon /> Report
-			</Button>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

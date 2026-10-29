@@ -1,7 +1,6 @@
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -18,8 +17,9 @@ import { AutoPickOverrides } from "./auto-pick-overrides";
 import { RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";
 import { autoPickRuns } from "./auto-pick-runs";
+import { BackButton } from "./back-button";
 import { guardNavigation } from "./navigation-guard";
-import { BarButton, TopBar } from "./top-bar";
+import { TopBar } from "./top-bar";
 
 /**
  * Edit Auto pick's routing rules and inspect what they picked. Open it from
@@ -76,11 +76,7 @@ export function AutoPickPage({
 		<>
 			<section aria-label="Auto pick" className="flex min-w-0 flex-col gap-6">
 				<TopBar
-					leading={
-						<BarButton label="Back to automations" onClick={onBack}>
-							<ChevronLeftIcon />
-						</BarButton>
-					}
+					leading={<BackButton parent="Automations" onBack={onBack} />}
 					title="Auto pick"
 				/>
 				<div className="flex items-center gap-3">

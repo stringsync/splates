@@ -3,11 +3,10 @@ import type {
 	EvalGrid,
 } from "@stringsync/splates-server/evals/browser";
 import { targetName } from "@stringsync/splates-server/evals/browser";
-import { ArrowLeftIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
-import { Button } from "#web/components/ui/button.tsx";
 import { evalBatch, evalBatches } from "./api";
+import { BackButton } from "./back-button";
 import { ReadingNow } from "./countdown";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
@@ -21,9 +20,9 @@ import { TopBar } from "./top-bar";
 const FOLLOW = Duration.secs(3);
 
 /**
- * Every eval batch run on this machine, newest first, each opened as its
- * report card, and a cell of it opened as its run. Reading them costs
- * nothing: they are the files `splates dev eval report` reads.
+ * The Evals page: every eval batch run on this machine, newest first. Open a
+ * batch for its report and a cell of the report for its run; the bar leads
+ * back up a level. Browsing costs no tokens.
  */
 export function EvalsPage({
 	open: { batch: open, run },
@@ -49,7 +48,16 @@ export function EvalsPage({
 	}, [open]);
 	return (
 		<section aria-label="evals" className="flex min-w-0 flex-col gap-4">
-			<TopBar title="Evals" />
+			<TopBar
+				leading={
+					open === null ? undefined : run !== null ? (
+						<BackButton parent="Report" onBack={() => onOpen(open)} />
+					) : (
+						<BackButton parent="Evals" onBack={() => onOpen(null)} />
+					)
+				}
+				title={open === null ? "Evals" : run !== null ? "Run" : "Report"}
+			/>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}
@@ -57,13 +65,9 @@ export function EvalsPage({
 			)}
 			{open === null && <EvalAgentsView editor={agents} />}
 			{open !== null && run !== null ? (
-				<EvalDebug id={run} onBack={() => onOpen(open)} />
+				<EvalDebug id={run} />
 			) : open !== null ? (
-				<Batch
-					id={open}
-					onBack={() => onOpen(null)}
-					onOpen={(each) => onOpen(open, each)}
-				/>
+				<Batch id={open} onOpen={(each) => onOpen(open, each)} />
 			) : batches === null ? (
 				error === null && <ReadingNow label="Reading evals…" />
 			) : batches.length === 0 ? (
@@ -120,11 +124,9 @@ export function EvalsPage({
 /** One batch as its report card, read again while cells are still to land. */
 function Batch({
 	id,
-	onBack,
 	onOpen,
 }: {
 	id: string;
-	onBack: () => void;
 	onOpen: (run: string) => void;
 }): JSX.Element {
 	const [grid, setGrid] = useState<EvalGrid | null>(null);
@@ -156,15 +158,6 @@ function Batch({
 	}, [id]);
 	return (
 		<div className="flex min-w-0 flex-col gap-3">
-			<Button
-				type="button"
-				variant="ghost"
-				size="sm"
-				className="self-start"
-				onClick={onBack}
-			>
-				<ArrowLeftIcon /> All batches
-			</Button>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

@@ -83,7 +83,7 @@ describe("App's Auto pick page", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				view.getByRole("button", { name: "Back to automations" }),
+				view.getByRole("button", { name: "Back to Automations" }),
 			),
 		);
 		expect(location.hash).toBe("#automations");
@@ -122,7 +122,7 @@ describe("App's Auto pick page", () => {
 			fireEvent.change(kind, { target: { value: "bugfix" } }),
 		);
 		const back = () =>
-			view.getByRole("button", { name: "Back to automations" });
+			view.getByRole("button", { name: "Back to Automations" });
 		const unloading = new Event("beforeunload", { cancelable: true });
 		window.dispatchEvent(unloading);
 		expect(unloading.defaultPrevented).toBe(true);
