@@ -1,5 +1,8 @@
 import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
-import type { Message } from "@stringsync/splates-server/conversations";
+import type {
+	ConversationState,
+	Message,
+} from "@stringsync/splates-server/conversations";
 import { textOf } from "@stringsync/splates-server/conversations/browser";
 import { leadingDirectives } from "@stringsync/splates-server/plans/browser";
 import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
@@ -14,7 +17,7 @@ import {
 	unqueueConversation,
 } from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
-import { usePendingWrites } from "./pending";
+import { useExpect, usePendingConversation } from "./expecting";
 import { SendingLine } from "./unsent";
 
 /** What waits for a running turn's end, above the composer. */
@@ -152,23 +155,28 @@ export function useQueueEdits(
 	section: RefObject<HTMLElement | null>,
 	refused: (title: string, error: unknown) => void,
 ): QueueEdits {
+	// One pending write per conversation, shared with the halted Send, so
+	// no two of its buttons are in flight at once.
+	const expect = useExpect();
+	const pending = usePendingConversation(id);
+	const unchanged = (state: ConversationState) => state;
 	// Stops the turn so what is queued goes out now.
-	const writes = usePendingWrites();
 	const sendNow = () =>
-		writes.pending()
+		pending
 			? Promise.resolve()
-			: writes
-					.run("send", () => sendQueuedNow(id))
-					.catch((error: unknown) => refused("Not sent", error));
+			: expect(id, unchanged, sendQueuedNow(id)).catch((error: unknown) =>
+					refused("Not sent", error),
+				);
 	// Back into the composer to edit, ahead of anything typed there since: once
 	// the server has taken it back, its words and files together, so the
 	// composer never shows a message the server still holds.
 	const edit = async (index: number, message: Message) => {
-		if (writes.pending()) {
+		if (pending) {
 			return;
 		}
-		const taken = await writes
-			.run("edit", () => unqueueConversation(id, index))
+		const request = unqueueConversation(id, index);
+		const taken = await expect(id, unchanged, request)
+			.then(() => request)
 			.catch((error: unknown) => {
 				refused("Not taken back", error);
 				return null;
@@ -189,12 +197,12 @@ export function useQueueEdits(
 	};
 	// Gone before the agent hears it, its words with it.
 	const discard = (index: number) =>
-		writes.pending()
+		pending
 			? Promise.resolve()
-			: writes
-					.run("discard", () => unqueueConversation(id, index))
-					.catch((error: unknown) => refused("Not discarded", error));
-	return { sendNow, edit, discard, busy: writes.pending() };
+			: expect(id, unchanged, unqueueConversation(id, index)).catch(
+					(error: unknown) => refused("Not discarded", error),
+				);
+	return { sendNow, edit, discard, busy: pending };
 }
 
 /** What `useQueueEdits` gives a thread. */

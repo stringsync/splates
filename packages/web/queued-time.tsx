@@ -8,9 +8,9 @@ import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import { CheckIcon, HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
 import { sendQueuedNow } from "./conversation-api";
+import { useExpect, usePendingConversation } from "./expecting";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
-import { usePendingWrites } from "./pending";
 import { ThreadAction } from "./thread-action";
 import { span } from "./work";
 
@@ -89,7 +89,9 @@ function QueuedTime({
 }): JSX.Element {
 	const now = useNow(until === null && halted === undefined);
 	const stuck = until === null && halted !== undefined;
-	const writes = usePendingWrites();
+	// The same pending write as the queue's Send now: one per conversation.
+	const expect = useExpect();
+	const pending = usePendingConversation(halted ?? "");
 	return (
 		<div
 			data-slot="queued"
@@ -119,11 +121,11 @@ function QueuedTime({
 			</div>
 			{stuck ? (
 				<ThreadAction
-					disabled={writes.pending()}
+					disabled={pending}
 					onClick={() =>
-						void writes
-							.run("send", () => sendQueuedNow(halted))
-							.catch(() => undefined)
+						void expect(halted, (state) => state, sendQueuedNow(halted)).catch(
+							() => undefined,
+						)
 					}
 				>
 					Send

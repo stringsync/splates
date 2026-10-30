@@ -27,8 +27,8 @@ import { SEND_TIMEOUT, type Sending } from "./sending";
 import type { ThreadMessages } from "./thread-messages";
 
 /**
- * The assistant-ui runtime a conversation's thread runs on, and how it sends:
- * a message shows at once, and one the server refuses stays at the thread's
+ * The assistant-ui runtime a conversation's thread runs on. A message sent
+ * through it shows at once, and one the server refuses stays at the thread's
  * foot as unsent, to send again or edit.
  */
 export function useThreadRuntime(
@@ -70,8 +70,11 @@ export function useThreadRuntime(
 				sending?.id,
 				controller.signal,
 			);
-			const state = await aborts
-				.race(controller.signal, request)
+			const answer = aborts.race(controller.signal, request);
+			// The same pending write as any other to this conversation, so
+			// its buttons hold while a message is on its way.
+			void feed.expect(id, (held) => held, answer).catch(() => undefined);
+			const state = await answer
 				.catch((error: unknown) => {
 					// Kept where it shows, marked unsent, to send again or edit.
 					if (sending !== null) {
