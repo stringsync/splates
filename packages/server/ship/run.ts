@@ -4,7 +4,7 @@ import type { Fs, Ps, TerminalChild } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
-import { approvalChange } from "./approval";
+import { ApprovalWatch } from "./approval-watch";
 import { ReleaseGit } from "./git";
 import {
 	ANSI,
@@ -67,12 +67,17 @@ export interface ShippingOptions {
 	npmToken?: () => Promise<string | undefined>;
 	/** Asks for an `NPM_TOKEN` when a ship has none and falls back to the web login. */
 	requestNpmToken?: () => Promise<void>;
+	/** Milliseconds between looks at npm's scan of staged packages; 10 seconds by default. */
+	scanEvery?: number;
 	/** Release-branch checks; the project at root by default. */
 	git?: Pick<ReleaseGit, "sync">;
 }
 
 /** The error of a ship the person stopped. */
 const STOPPED = "stopped: the person abandoned the ship";
+
+/** How long to wait between looks at npm's scan of what a release staged, in milliseconds. */
+const SCAN_EVERY = 10_000;
 
 /** How many lines of output a failed ship keeps as its error. */
 const TAIL = 20;
@@ -103,10 +108,27 @@ export class Shipping implements Resource {
 	private bytes = 0;
 	/** Where in the log what the child printed last began. */
 	private heardFrom = 0;
+	/** The environment npm runs under for the ship, signed in as the person or the kept token. */
+	private npmEnv: Record<string, string> = NPM_ENV;
+	private readonly watching: ApprovalWatch;
 
 	constructor(private readonly opts: ShippingOptions) {
 		this.record = shipRecord(opts.storage);
 		this.clock = opts.clock ?? new SystemWallClock();
+		this.watching = new ApprovalWatch({
+			ps: opts.ps,
+			root: opts.root,
+			every: opts.scanEvery ?? SCAN_EVERY,
+			now: () => this.clock.now(),
+			env: () => this.npmEnv,
+			user: () => this.user,
+			stopped: () => this.disposed,
+			from: () => this.heardFrom,
+			bytes: () => this.bytes,
+			read: () => this.record.read(),
+			update: (change) => this.update(change),
+			stage: (key, change) => this.stage(key, change),
+		});
 	}
 
 	/** Where the output of a ship whose cascade names no log goes. */
@@ -272,6 +294,7 @@ export class Shipping implements Resource {
 		const token = await this.opts.npmToken?.();
 		const { env, whoami } = await checkNpm(this.opts, token);
 		const signedIn = whoami.exitCode === 0;
+		this.npmEnv = env;
 		this.user = signedIn ? whoami.stdout.trim() || null : null;
 		await this.stage("login", (stage) => ({
 			...stage,
@@ -428,7 +451,7 @@ export class Shipping implements Resource {
 								...stage,
 								releaseSteps: steps,
 							}));
-							await this.approval(steps);
+							await this.watching.keep(steps);
 						},
 					})
 				: null;
@@ -489,27 +512,6 @@ export class Shipping implements Resource {
 						: this.closed(stage, status === "done" ? "done" : "failed"),
 			);
 		}
-	}
-
-	/** The release staged packages: the ship waits on the person to approve them on npm. */
-	private async approval(steps: ReleaseStep[]): Promise<void> {
-		const ship = await this.record.read();
-		if (ship === null || this.disposed || ship.status !== "running") {
-			return;
-		}
-		const change = approvalChange(ship.waiting, steps, this.stamp(), this.user);
-		if (change === null) {
-			return;
-		}
-		await this.update(change);
-		await this.stage("approve", (stage) =>
-			change.waiting === null
-				? this.closed(stage, "done")
-				: {
-						...begun(stage, this.stamp(), "asking"),
-						log: stage.log ?? { from: this.heardFrom, to: null },
-					},
-		);
 	}
 
 	/** npm asked for a publish's second factor: its step waits on the person. */

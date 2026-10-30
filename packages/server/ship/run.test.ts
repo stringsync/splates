@@ -176,6 +176,52 @@ describe("Shipping", () => {
 		expect(await shipping.current()).toMatchObject({ status: "done" });
 	});
 
+	it("holds the wait on the person until npm's scan of the staged package is over", async () => {
+		({ shipping, ps, fs } = await project({ scanEvery: 5 }));
+		await shipping.start();
+		const child = await nth(ps, 0);
+		ps.setCaptureOutput('{"status":"scanning"}', "");
+		await fs.write(
+			`${shipping.output}.events`,
+			eventsText([
+				{
+					type: "declared",
+					id: "approve",
+					name: "Approve a",
+					stage: "approve",
+					packages: ["a"],
+					deadlineMs: 1000,
+					at: "t0",
+				},
+				{
+					type: "staged",
+					id: "approve",
+					name: "Approve a",
+					package: "a",
+					version: "1.0.1",
+					stageId: "st-1",
+					url: "https://www.npmjs.com/staged",
+					at: "t1",
+				},
+				{ type: "started", id: "approve", name: "Approve a", at: "t2" },
+			]),
+		);
+		const approve = async () =>
+			(await shipping.current())?.stages?.find(
+				(each) => each.key === "approve",
+			);
+		await until(async () => (await approve())?.check != null);
+		expect((await approve())?.state).toBe("checking");
+		expect((await shipping.current())?.waiting).toBeNull();
+		expect(ps.getCalls()).toContain("npm stage view st-1 --json");
+
+		ps.setCaptureOutput('{"status":"ready"}', "");
+		await until(async () => (await shipping.current())?.waiting != null);
+		expect((await approve())?.state).toBe("asking");
+		child.exit(0);
+		await shipping.settled();
+	});
+
 	it("keeps no release steps when its command writes none", async () => {
 		await shipping.start();
 		(await nth(ps, 0)).exit(0);
@@ -439,7 +485,9 @@ async function project({
 	git = new FakeReleaseGit(),
 	npmToken,
 	requestNpmToken,
+	scanEvery,
 }: {
+	scanEvery?: number;
 	requestNpmToken?: () => Promise<void>;
 	npmToken?: () => Promise<string | undefined>;
 	command?: string | null;
@@ -464,6 +512,7 @@ async function project({
 		command,
 		npmToken,
 		requestNpmToken,
+		scanEvery,
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});
