@@ -75,7 +75,7 @@ export function ShipRun({
 				{cascade.status === "stopped" && retry !== undefined && (
 					<Button
 						size="sm"
-						className="min-h-11"
+						className="pointer-coarse:min-h-11"
 						variant="outline"
 						disabled={acting || abandoning}
 						onClick={() => act(retry, "Not retried")}
@@ -94,7 +94,7 @@ export function ShipRun({
 					) && (
 						<Button
 							size="sm"
-							className="min-h-11"
+							className="pointer-coarse:min-h-11"
 							variant="outline"
 							disabled={acting || abandoning}
 							onClick={() => act(agent, "Not handed to an agent")}
@@ -106,7 +106,7 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant="ghost"
-						className="ml-auto min-h-11"
+						className="ml-auto pointer-coarse:min-h-11"
 						disabled={acting || abandoning || abandonRun === undefined}
 						title="Ends the ship; what published stays published"
 						onClick={abandon}
@@ -117,7 +117,7 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant="ghost"
-						className="ml-auto min-h-11"
+						className="ml-auto pointer-coarse:min-h-11"
 						onClick={onClose}
 					>
 						Close
