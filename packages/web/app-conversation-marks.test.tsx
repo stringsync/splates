@@ -158,7 +158,7 @@ Cap upload retries
 				conversation({
 					id: "c1",
 					title: "Queued task",
-					queued: 3,
+					heldForTask: 3,
 					status: "stopped",
 				}),
 			],

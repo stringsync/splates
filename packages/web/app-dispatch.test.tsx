@@ -166,7 +166,7 @@ describe("App's controls that put agents to work", () => {
 					id: "c1",
 					title: "#3 Fix the upload",
 					status: "starting",
-					queued: 3,
+					heldForTask: 3,
 					queue: {
 						position: 1,
 						of: 1,

@@ -103,7 +103,7 @@ describe("dev dispatched", () => {
 			cwd: deps.service.git.root,
 			assigned: true,
 			automatic: true,
-			queued: 1,
+			heldForTask: 1,
 			title: "#1 Alpha",
 		});
 		await add(deps, "alpha", {
@@ -122,11 +122,11 @@ describe("dev dispatched", () => {
 				(await conversations.list()).map(({ state }) => ({
 					id: state.id,
 					task: state.task,
-					queued: state.queued,
+					heldForTask: state.heldForTask,
 					archived: state.archived,
 				})),
 			).toEqual([
-				{ id: held.id, task: "alpha", queued: null, archived: false },
+				{ id: held.id, task: "alpha", heldForTask: null, archived: false },
 			]);
 		} finally {
 			await server.disposeAsync();

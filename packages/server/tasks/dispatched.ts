@@ -13,9 +13,8 @@ import type { WorktreeService } from "./worktree-service";
  * Starts the agent of each task `splates server`'s queue handed to one and
  * that has none yet, in the task's tree, on the model and thinking level
  * asked for, told to claim it: in the conversation the queue held for it,
- * when there is one. The conversation it starts goes on the record before the agent is told
- * anything, so a task is started once however often this runs, as long as
- * no two runs overlap. Answers once each is started, not told.
+ * when there is one. Safe to call again: a task is started once, as long
+ * as no two runs overlap. Answers once each is started, not told.
  */
 export async function startDispatched({
 	service,
@@ -129,7 +128,7 @@ async function heldFor(
 		return null;
 	}
 	const held = await conversations.find(id).catch(() => null);
-	return held === null || held.state.archived || held.state.queued === null
+	return held === null || held.state.archived || held.state.heldForTask === null
 		? null
 		: held;
 }

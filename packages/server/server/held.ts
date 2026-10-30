@@ -5,9 +5,9 @@ import type { HeldConversations } from "../queue";
 import type { WorktreeService } from "../tasks";
 
 /**
- * The queue's held conversations, among `conversations`: each in the main
- * tree until its task starts, on the agent, model and thinking
- * level its task names, called by its task until its agent names it.
+ * Lists the conversations the queue holds for tasks not yet started, for
+ * the queue to start. Each waits in the main tree on the agent, model and
+ * thinking level its task names, titled for its task.
  */
 export function heldFor(
 	conversations: Conversations,
@@ -23,12 +23,12 @@ export function heldFor(
 				),
 			);
 			return (await conversations.list()).flatMap(({ state }) =>
-				state.queued === null || state.archived
+				state.heldForTask === null || state.archived
 					? []
 					: [
 							{
 								id: state.id,
-								queued: state.queued,
+								queued: state.heldForTask,
 								agent: state.agent,
 								createdAt: state.createdAt,
 								handed: handed.has(state.id),
@@ -45,7 +45,7 @@ export function heldFor(
 				settings: pickSettings(pick.effort, offered),
 				assigned: true,
 				automatic: false,
-				queued: queued.id,
+				heldForTask: queued.id,
 				title: `#${queued.id} ${queued.subject}`,
 			});
 		},

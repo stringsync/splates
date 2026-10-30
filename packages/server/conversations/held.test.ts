@@ -41,7 +41,7 @@ describe("A conversation held for a queued task", () => {
 			cwd: "/repo",
 			assigned: true,
 			automatic: true,
-			queued: 7,
+			heldForTask: 7,
 			title: "#7 Totals first",
 		});
 
@@ -58,7 +58,7 @@ describe("A conversation held for a queued task", () => {
 		expect(conversation.held).toBe(true);
 		expect(conversation.state).toMatchObject({
 			status: "starting",
-			queued: 7,
+			heldForTask: 7,
 			title: "#7 Totals first",
 			queue: { position: 2, reason: "waits on #6" },
 		});
@@ -78,7 +78,7 @@ describe("A conversation held for a queued task", () => {
 		expect(conversation.held).toBe(false);
 		expect(conversation.state).toMatchObject({
 			task: "totals",
-			queued: null,
+			heldForTask: null,
 			queue: null,
 		});
 		expect(agent.launched.map(({ cwd }) => cwd)).toEqual([
@@ -98,7 +98,7 @@ describe("A conversation held for a queued task", () => {
 		const read = await conversations.find(conversation.id);
 		expect(read.state).toMatchObject({
 			status: "stopped",
-			queued: 7,
+			heldForTask: 7,
 			title: "#7 Totals first",
 		});
 

@@ -273,7 +273,7 @@ export class Conversation
 			conversation.log.write({ kind: "model-request", model });
 		}
 		conversation.request(settings);
-		if (opening.queued === undefined) {
+		if (opening.heldForTask === undefined) {
 			conversation.opening = conversation.wake(opening.agent, opening.cwd);
 		} else {
 			conversation.hold();
@@ -329,7 +329,7 @@ export class Conversation
 			startedBy = null,
 			automatic = false,
 			skill = null,
-			queued,
+			heldForTask,
 			title = null,
 			persistent,
 			automation,
@@ -356,7 +356,7 @@ export class Conversation
 		);
 		state.skill = skill;
 		state.automatic = automatic;
-		state.queued = queued ?? null;
+		state.heldForTask = heldForTask ?? null;
 		state.title = title;
 		if (persistent !== undefined) {
 			state.persistent = persistent;
@@ -382,7 +382,7 @@ export class Conversation
 			...(startedBy === null ? {} : { startedBy }),
 			...(automatic ? { automatic } : {}),
 			...(skill === null ? {} : { skill }),
-			...(queued === undefined ? {} : { queued }),
+			...(heldForTask === undefined ? {} : { heldForTask }),
 			...(persistent === undefined ? {} : { persistent }),
 			...(automation === undefined ? {} : { automation }),
 			...(ship === undefined ? {} : { ship }),
@@ -641,9 +641,8 @@ export class Conversation
 	}
 
 	/**
-	 * Follows the agent into a task's worktree, or back to the main tree: a
-	 * running session keeps the directory it opened in, and the agent works by
-	 * absolute path; a resumed one opens in the new.
+	 * Follows the agent into a task's worktree, or back to the main tree.
+	 * A running session stays where it opened; a resumed one opens in the new.
 	 */
 	move(
 		task: string | null,
@@ -681,7 +680,7 @@ export class Conversation
 		if (
 			this.latch !== null ||
 			this.opening !== null ||
-			this.state.queued === null ||
+			this.state.heldForTask === null ||
 			this.state.archived ||
 			agent === null ||
 			dir === null
@@ -719,8 +718,8 @@ export class Conversation
 		caller: string | null = null,
 	): void {
 		this.move(task, cwd, base, caller);
-		this.log.write({ kind: "queued", queued: null });
-		this.set({ queued: null, queue: null });
+		this.log.write({ kind: "held-for-task", heldForTask: null });
+		this.set({ heldForTask: null, queue: null });
 		this.letGo(true);
 	}
 
@@ -1373,7 +1372,7 @@ interface Opening {
 	/** The project's splates skill version as it starts; null when it has none. */
 	skill?: string | null;
 	/** The queued task it is held for until the queue starts it (`hold`). */
-	queued?: number;
+	heldForTask?: number;
 	/** What to call it until its agent names it. */
 	title?: string | null;
 	/** The persistent agent's role it is started for, as `"groomer"`. */

@@ -49,6 +49,18 @@ describe("ConversationLog", () => {
 		expect((await logOn(fs).replay())?.state.automatic).toBe(true);
 	});
 
+	it("reads a hold written as queued, before heldForTask was named", async () => {
+		const fs = new FakeFs();
+		await fs.write(PATH, `${JSON.stringify({ ...START, queued: 7 })}\n`);
+		expect((await logOn(fs).replay())?.state.heldForTask).toBe(7);
+
+		await fs.write(
+			PATH,
+			`${JSON.stringify({ ...START, queued: 7 })}\n${JSON.stringify({ kind: "queued", queued: null })}\n`,
+		);
+		expect((await logOn(fs).replay())?.state.heldForTask).toBeNull();
+	});
+
 	it("keeps what it writes after a line a crash cut short", async () => {
 		const fs = new FakeFs();
 		await fs.write(PATH, `${JSON.stringify(START)}\n{"kind":"rena`);

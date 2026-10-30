@@ -147,7 +147,7 @@ describe("QueueAutoPick", () => {
 			task: null,
 			cwd: deps.root,
 			assigned: true,
-			queued: id,
+			heldForTask: id,
 		});
 		await decided.tell(conversation.id);
 

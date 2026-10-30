@@ -67,7 +67,7 @@ export class Dispatch {
 	 * an agent until the queue starts it, with what it needs, as `on` says.
 	 */
 	heldFor(id: number): Needing[] {
-		return this.listed((conversation) => conversation.queued === id);
+		return this.listed((conversation) => conversation.heldForTask === id);
 	}
 
 	/** The listed conversations `which` keeps, newest first, with what each needs. */

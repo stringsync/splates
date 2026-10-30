@@ -102,7 +102,7 @@ export function conversation(
 		picking: false,
 		autoPick: null,
 		automatic: false,
-		queued: null,
+		heldForTask: null,
 		unread: false,
 		seen: 0,
 		read: null,

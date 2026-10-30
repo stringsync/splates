@@ -61,7 +61,7 @@ describe("App's composer queue", () => {
 			title: "#3 Fix the upload",
 			// As one reads back after a restart, before the queue holds it again.
 			status: "stopped",
-			queued: 3,
+			heldForTask: 3,
 			queue: spot,
 			createdAt: new Date(Date.now() - 30_000).toISOString(),
 		});

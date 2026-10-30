@@ -642,7 +642,7 @@ describe("App's conversation thread", () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "starting",
-				queued: 3,
+				heldForTask: 3,
 				queue: { position: 1, of: 1, since, reason: "starting" },
 			}),
 		]);
@@ -663,7 +663,7 @@ describe("App's conversation thread", () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "starting",
-				queued: 3,
+				heldForTask: 3,
 				queue: { position: 2, of: 2, since, reason: "waits on #2" },
 			}),
 		]);
@@ -685,7 +685,7 @@ describe("App's conversation thread", () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "starting",
-				queued: 3,
+				heldForTask: 3,
 				queue: {
 					position: 1,
 					of: 1,

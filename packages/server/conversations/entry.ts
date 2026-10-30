@@ -47,6 +47,8 @@ type Said =
 			/** What `automatic` was written as before it was renamed. */
 			capped?: boolean;
 			/** The queued task it was held for; missing for one held for none. */
+			heldForTask?: number;
+			/** Read from `queued` in logs written before it was renamed. */
 			queued?: number;
 			/** The persistent agent's role it was started for; missing for an ordinary one. */
 			persistent?: string;
@@ -83,6 +85,8 @@ type Said =
 	/** Auto picked another agent than the one it started on, before any session opened. */
 	| { kind: "agent"; agent: string }
 	/** The queue started the task it was held for, so it is held no more. */
+	| { kind: "held-for-task"; heldForTask: null }
+	/** Read from `queued` in logs written before it was renamed. */
 	| { kind: "queued"; queued: null }
 	/** Moved into a task's worktree, or back to the main tree. */
 	| {

@@ -24,12 +24,10 @@ export type RenderRow = (
 ) => ReactNode;
 
 /**
- * The sidebar's agents, a folder per project by name, the page's own
- * marked: each with those waiting on you on top, then its pinned agents,
- * then those at work, then the rest, every one of them. A
- * folder's header counts what waits on you there, folds it away as this
- * browser keeps it, and its "+" starts a conversation in it. Quiet: a name,
- * a count and its rows.
+ * The sidebar's agents, a folder per project by name. Pass `folders`, the
+ * folded ones in `folded` and `onFold` to keep them folded; `onNew` starts
+ * a conversation in a folder from its "+". Each header counts what waits on
+ * you there.
  */
 export function ProjectList({
 	folders,
@@ -162,7 +160,7 @@ export function ForeignItem({
 				<Mark
 					starting={conversation?.status === "starting"}
 					picking={conversation?.picking}
-					queued={conversation?.queued != null}
+					queued={conversation?.heldForTask != null}
 					need={need}
 					reported={conversation === null ? null : reportedAs(conversation)}
 					unread={conversation?.unread ?? false}

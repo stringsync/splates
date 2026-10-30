@@ -304,7 +304,7 @@ function Conversation({
 					<QueueBanner
 						id={conversation.id}
 						spot={conversation.queue}
-						held={conversation.queued}
+						held={conversation.heldForTask}
 						phone={onBack !== null}
 					/>
 				)}
@@ -382,7 +382,7 @@ function Conversation({
 																						<ArchiveBar offer={offer} />
 																					)}
 																					{conversation.status === "running" &&
-																						conversation.queued === null &&
+																						conversation.heldForTask === null &&
 																						queued.length > 0 && (
 																							<Queued
 																								conversation={id}

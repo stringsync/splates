@@ -237,7 +237,7 @@ export function Item({
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
 					<Mark
-						queued={conversation?.queued != null}
+						queued={conversation?.heldForTask != null}
 						starting={conversation.status === "starting"}
 						picking={conversation.picking}
 						need={need}

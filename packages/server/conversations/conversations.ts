@@ -297,7 +297,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned,
 			startedBy,
 			automatic,
-			queued,
+			heldForTask,
 			title,
 			persistent,
 			automation,
@@ -327,7 +327,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			/** Whether the server's queue or a hook starts it, to hold a place on a worker. */
 			automatic?: boolean;
 			/** The queued task it is held for, its agent unopened until `release`. */
-			queued?: number;
+			heldForTask?: number;
 			/** What to call it until its agent names it. */
 			title?: string;
 			/** The persistent agent's role it is started for, as `"groomer"`. */
@@ -361,7 +361,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				assigned,
 				startedBy,
 				automatic,
-				queued,
+				heldForTask,
 				title,
 				persistent,
 				automation,

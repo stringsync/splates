@@ -64,7 +64,7 @@ export function useThreadMessages(
 		// Held for a queued task, its agent waits for the task to start: what
 		// it will be asked opens the thread, waiting as any prompt does for an
 		// agent starting, with whatever the person said to it meanwhile after.
-		const held = conversation.queued;
+		const held = conversation.heldForTask;
 		const kept = conversation.messages.filter(
 			(each) => !each.queued || starting || held !== null,
 		);
@@ -177,7 +177,7 @@ export function useThreadMessages(
 		conversation.summary,
 		conversation.messages,
 		conversation.status,
-		conversation.queued,
+		conversation.heldForTask,
 		conversation.createdAt,
 		conversation.ask,
 		conversation.events,

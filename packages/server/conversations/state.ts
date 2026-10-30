@@ -140,7 +140,7 @@ export interface ConversationState {
 	 * The queued task it is held for, out of the line for a place until the
 	 * queue starts that task and gives it its worktree; null otherwise.
 	 */
-	queued: number | null;
+	heldForTask: number | null;
 	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
@@ -660,7 +660,7 @@ export function blank(
 		picking: false,
 		autoPick: null,
 		automatic: false,
-		queued: null,
+		heldForTask: null,
 		unread: false,
 		seen: 0,
 		read: null,

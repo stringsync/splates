@@ -140,7 +140,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		);
 		state.skill = start.skill ?? null;
 		state.automatic = start.automatic ?? start.capped ?? false;
-		state.queued = start.queued ?? null;
+		state.heldForTask = start.heldForTask ?? start.queued ?? null;
 		if (start.persistent !== undefined) {
 			state.persistent = start.persistent;
 		}
@@ -230,8 +230,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				requested = entry.picks;
 			} else if (entry.kind === "agent") {
 				runOn(state, entry.agent);
+			} else if (entry.kind === "held-for-task") {
+				state.heldForTask = entry.heldForTask;
 			} else if (entry.kind === "queued") {
-				state.queued = entry.queued;
+				state.heldForTask = entry.queued;
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
 				replayed.sessionCwd = entry.cwd ?? replayed.sessionCwd;
@@ -331,7 +333,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		if (launched === null) {
 			// A held one is held again rather than started.
 			replayed.unsaid =
-				unsaid && !replayed.running && state.queued === null && !state.archived;
+				unsaid &&
+				!replayed.running &&
+				state.heldForTask === null &&
+				!state.archived;
 			await this.stopped(replayed);
 			return replayed;
 		}
