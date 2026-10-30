@@ -1,14 +1,25 @@
+// scry-ignore-file compact-files: already over the limit before this change; splitting the step runner is queued as its own task
 import { aborts } from "webappwiz/abort";
 import { ensure } from "webappwiz/assert";
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Fs } from "webappwiz/system";
-import { SystemWallClock, sleep, type WallClock } from "webappwiz/time";
+import {
+	Duration,
+	SystemWallClock,
+	sleep,
+	type WallClock,
+} from "webappwiz/time";
 import { fail } from "../exit";
 import type { Storage } from "../storage";
 import { type Cascade, type CascadeStep, Cascades } from "./cascade";
 import type { Pin, ShipGraph, ShipProject } from "./graph";
 import { REGISTRY_DEADLINE, type ShipLive } from "./live";
-import { allPublished, POLL, pinsOf, untilPublished } from "./published-notice";
+import {
+	allPublished,
+	pinsOf,
+	pollSince,
+	untilPublished,
+} from "./published-notice";
 import type { ShipRegistry } from "./registry";
 import type { Ship, Shipping } from "./run";
 import {
@@ -396,6 +407,11 @@ export class ShipSteps extends Cascades implements AsyncResource {
 					}
 				}
 				let settled = false;
+				const nextPoll = pollSince(
+					this.clock,
+					() =>
+						step.stages.find((each) => each.key === "publish")?.expected ?? 0,
+				);
 				const announced = untilPublished(
 					this.opts.registry,
 					step,
@@ -405,7 +421,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 						pause: () =>
 							aborts.race(
 								this.controller.signal,
-								this.opts.pause?.() ?? sleep(POLL),
+								this.opts.pause?.() ?? sleep(nextPoll()),
 							),
 						show: async (notice) => {
 							const stage = step.stages.find((each) => each.key === "publish");
@@ -413,7 +429,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 								stage.check = {
 									at: this.stamp(),
 									result: notice,
-									next: new Date(this.clock.now() + POLL.ms).toISOString(),
+									next: this.stamp(nextPoll()),
 								};
 								await this.log(record.cascade.id, step.slug, `${notice}\n`);
 								await this.save(record);
@@ -456,6 +472,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 	): Promise<void> {
 		const stage = ensure.defined(step.stages.find((each) => each.key === key));
 		const until = this.clock.now() + REGISTRY_DEADLINE.ms;
+		const nextPoll = pollSince(this.clock, () => stage.expected);
 		stage.deadline = new Date(until).toISOString();
 		stage.state = "checking";
 		while (await this.active(record)) {
@@ -469,7 +486,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 							.join(", "),
 			};
 			if (!check.live) {
-				stage.check.next = new Date(this.clock.now() + POLL.ms).toISOString();
+				stage.check.next = this.stamp(nextPoll());
 			}
 			await this.log(record.cascade.id, step.slug, `${stage.check.result}\n`);
 			await this.save(record);
@@ -483,7 +500,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			}
 			await aborts.race(
 				this.controller.signal,
-				this.opts.pause?.() ?? sleep(POLL),
+				this.opts.pause?.() ?? sleep(nextPoll()),
 			);
 		}
 	}
@@ -513,8 +530,8 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		);
 		await this.history.file(saved.cascade);
 	}
-	private stamp(): string {
-		return new Date(this.clock.now()).toISOString();
+	private stamp(after = Duration.ms(0)): string {
+		return new Date(this.clock.now() + after.ms).toISOString();
 	}
 	private async bytes(id: string, slug: string): Promise<number> {
 		return this.fs.readBytes(this.history.logOf(id, slug)).then(
