@@ -12,6 +12,8 @@ export class FakeStepProjects {
 	readonly publications = new Set<string>();
 	readonly pins = new Set<string>();
 	readonly failedLive = new Set<string>();
+	/** Projects whose release tag never reached the remote. */
+	readonly untagged = new Set<string>();
 	failAdopt = false;
 	failPublish = false;
 	lagging = false;
@@ -82,6 +84,7 @@ export class FakeStepProjects {
 		}
 		return {
 			shipping,
+			released: async () => !this.untagged.has(slug),
 			adopt: async (_ship, _step, pins, log) => {
 				if (this.pins.has(slug)) {
 					await log("base already pins targets\n");

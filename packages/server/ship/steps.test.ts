@@ -236,6 +236,16 @@ describe("ship steps", () => {
 		});
 	});
 
+	it("runs the ship command again for a version published whose release tag never reached the remote", async () => {
+		const external = new FakeStepProjects();
+		external.publications.add("upstream@1.0.1");
+		external.untagged.add("upstream");
+		const ships = runner(external);
+		await ships.start(selection);
+		await ships.settled();
+		expect(external.calls).toContain("publish upstream patch");
+	});
+
 	it("keeps an unreachable live provider distinct from a successful release", async () => {
 		const external = new FakeStepProjects();
 		external.failedLive.add("upstream");

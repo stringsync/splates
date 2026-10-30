@@ -43,6 +43,23 @@ export class ReleaseGit {
 		}
 	}
 
+	/**
+	 * Whether `version`'s release tag is on the remote, or the project tags no
+	 * releases there at all, so a release that died before its tag is told apart.
+	 */
+	async tagged(version: string): Promise<boolean> {
+		const tags = await this.out(
+			"ls-remote",
+			"--tags",
+			"origin",
+			"refs/tags/v*",
+		);
+		return (
+			tags === "" ||
+			tags.split("\n").some((line) => line.endsWith(`/v${version}`))
+		);
+	}
+
 	/** Pushes only a clean, fast-forward release branch and checks the remote's actual ref. */
 	async sync(): Promise<string> {
 		const branch = await this.branch();

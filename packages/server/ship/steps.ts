@@ -13,6 +13,7 @@ import type { Storage } from "../storage";
 import { type Cascade, type CascadeStep, Cascades } from "./cascade";
 import type { Pin, ShipGraph, ShipProject } from "./graph";
 import { REGISTRY_DEADLINE, type ShipLive } from "./live";
+import { allPublished, POLL, pinsOf, untilPublished } from "./published-notice";
 import type { ShipRegistry } from "./registry";
 import type { Ship, Shipping } from "./run";
 import {
@@ -40,6 +41,8 @@ export interface StepProject {
 		assigned?: () => Promise<void>,
 	): Promise<boolean | undefined>;
 	discard?(ship: Cascade, step: CascadeStep): Promise<void>;
+	/** Whether the release's tag reached the remote, which a release that died after publishing lacks. */
+	released?(version: string): Promise<boolean>;
 }
 
 export interface ShipStepsOptions {
@@ -362,20 +365,16 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			return skipped === true;
 		}
 		if (key === "publish") {
-			const published = [];
-			for (const name of step.publishes) {
-				published.push(
-					await this.opts.registry.published(name, ensure.present(step.to)),
-				);
-			}
-			if (published.every(Boolean)) {
-				step.published = step.publishes.map((name) => ({
-					name,
-					version: ensure.present(step.to),
-				}));
+			const version = step.to ?? "";
+			const project = await this.opts.project(step.slug);
+			if (
+				(await allPublished(this.opts.registry, step, version)) &&
+				(await (project.released?.(version) ?? true))
+			) {
+				step.published = pinsOf(step);
 				return true;
 			}
-			const shipping = (await this.opts.project(step.slug)).shipping;
+			const { shipping } = project;
 			this.publisher = shipping;
 			try {
 				const left = await shipping.current();
@@ -401,7 +400,34 @@ export class ShipSteps extends Cascades implements AsyncResource {
 						await shipping.stop();
 					}
 				}
-				await shipping.settled();
+				let settled = false;
+				const announced = untilPublished(
+					this.opts.registry,
+					step,
+					ensure.present(step.to),
+					{
+						settled: () => settled || this.controller.signal.aborted,
+						pause: () =>
+							aborts.race(
+								this.controller.signal,
+								this.opts.pause?.() ?? sleep(POLL),
+							),
+						show: async (notice) => {
+							const stage = step.stages.find((each) => each.key === "publish");
+							if (stage !== undefined && (await this.active(record))) {
+								stage.check = { at: this.stamp(), result: notice };
+								await this.log(record.cascade.id, step.slug, `${notice}\n`);
+								await this.save(record);
+							}
+						},
+					},
+				);
+				try {
+					await shipping.settled();
+				} finally {
+					settled = true;
+				}
+				await announced;
 				const ship = await shipping.current();
 				if (ship?.status !== "done") {
 					throw new Error(ship?.error ?? "publish did not finish");
@@ -412,10 +438,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			} finally {
 				this.publisher = null;
 			}
-			step.published = step.publishes.map((name) => ({
-				name,
-				version: ensure.present(step.to),
-			}));
+			step.published = pinsOf(step);
 			return false;
 		}
 		if (step.action === "bump") {

@@ -32,6 +32,7 @@ import {
 import {
 	CascadeRoutes,
 	MechanicalAdoption,
+	ReleaseGit,
 	registeredGraph,
 	ShipLive,
 	ShipRegistry,
@@ -549,6 +550,8 @@ export async function dev(
 			const served = await projectNamed(slug);
 			return {
 				shipping: served.shipping,
+				released: (version) =>
+					new ReleaseGit(ps, served.root).tagged(version).catch(() => true),
 				discard: async (ship, step) => {
 					const repo = await openRepository(
 						{ fs, ps, log },

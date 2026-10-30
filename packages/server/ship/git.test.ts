@@ -31,6 +31,14 @@ describe("ReleaseGit", () => {
 		});
 	});
 
+	it("tells a release whose tag never reached the remote from one that did", async () => {
+		// A remote with no release tags at all is a project that does not tag.
+		expect(await git.tagged("1.0.1")).toBe(true);
+		await env.gitCli(env.root, "push", "origin", "v1.0.0");
+		expect(await git.tagged("1.0.0")).toBe(true);
+		expect(await git.tagged("1.0.1")).toBe(false);
+	});
+
 	it("reports unknown for a missing tag or a tag outside trunk history", async () => {
 		expect(await git.changes("2.0.0")).toMatchObject({ commits: null });
 		await env.gitCli(env.root, "checkout", "-b", "task/demo");
