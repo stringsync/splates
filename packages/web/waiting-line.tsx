@@ -1,4 +1,4 @@
-import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
+import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
@@ -7,10 +7,8 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 const NUDGE = Duration.ms(600);
 
 /**
- * A line in the sidebar, of one height, that always says how many
- * agents wait on you, so nothing moves as the count changes. Clicking it opens the next one, as
- * its shortcut does. Each time `nudges` goes up, as when that finds nothing to open,
- * it blinks a few times in place, to catch the eye, starting over on a repeat.
+ * Tells you in the sidebar how many agents wait on you. Click it to open the
+ * next one. Raise `nudges` to blink it when there was nothing to open.
  */
 export function WaitingLine({
 	waiting,
@@ -55,7 +53,7 @@ export function WaitingLine({
 				/>
 			)}
 			{waiting > 0 ? (
-				<CircleAlertIcon className="size-3.5 text-warning" />
+				<TriangleAlertIcon className="size-3.5 text-warning" />
 			) : (
 				<CircleCheckIcon className="size-3.5" />
 			)}
