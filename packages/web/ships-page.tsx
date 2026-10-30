@@ -2,11 +2,12 @@ import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { ActiveShip } from "./active-ship";
 import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
 import { BackButton } from "./back-button";
 import type { ConversationFeed } from "./conversation-feed";
 import { ShipPlan } from "./ship-plan";
-import { ProjectStages, ShipRun } from "./ship-run";
+import { ProjectStages } from "./ship-run";
 import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
 
@@ -57,7 +58,10 @@ export function ShipsPage(_props: {
 				<ActiveShip
 					live={live}
 					closed={closed}
-					onClose={setClosed}
+					onClose={(id) => {
+						setClosed(id);
+						location.hash = "ships";
+					}}
 					act={actOnShip}
 				/>
 			) : viewed !== null ? (
@@ -97,43 +101,6 @@ function useViewedShip(): string | null {
 		return () => window.removeEventListener("hashchange", sync);
 	}, []);
 	return id === null ? null : decodeURIComponent(id);
-}
-
-/** The ship under way, which a started plan brings the person to. */
-function ActiveShip({
-	live,
-	closed,
-	onClose,
-	act,
-}: {
-	live: Live | null;
-	closed: string | null;
-	onClose: (id: string | null) => void;
-	act: (action: "abandon" | "retry" | "agent") => Promise<void>;
-}): JSX.Element {
-	if (live === null) {
-		return <p className="text-muted-foreground text-sm">Reading…</p>;
-	}
-	if (live.cascade == null || live.cascade.id === closed) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				No ship is under way. <a href="#ships">Plan one</a>
-			</p>
-		);
-	}
-	return (
-		<ShipRun
-			cascade={live.cascade}
-			ship={live.ship}
-			onClose={() => {
-				onClose(live.cascade?.id ?? null);
-				location.hash = "ships";
-			}}
-			abandon={() => act("abandon")}
-			retry={() => act("retry")}
-			agent={() => act("agent")}
-		/>
-	);
 }
 
 /** The cascades that ended, newest first, each linking to its own page. */
