@@ -21,6 +21,9 @@ export function ShipsPage(_props: {
 	const viewed = useViewedShip();
 	const live = useLiveShips();
 	const [closed, setClosed] = useState<string | null>(null);
+	// The cascade on show when Start was pressed: the stream still holds it
+	// until the new ship's first message, so it must not be shown as the new one.
+	const [previous, setPrevious] = useState<string | null>(null);
 	const busy =
 		(live?.cascade?.status === "running" ||
 			live?.cascade?.status === "stopped") &&
@@ -70,6 +73,7 @@ export function ShipsPage(_props: {
 				<ActiveShip
 					live={live}
 					closed={closed}
+					previous={previous}
 					onClose={(id) => {
 						setClosed(id);
 						location.hash = "ships";
@@ -86,6 +90,7 @@ export function ShipsPage(_props: {
 						busy={busy}
 						loading={live === null}
 						onStarted={() => {
+							setPrevious(live?.cascade?.id ?? null);
 							const url = new URL(location.href);
 							url.searchParams.delete("ship");
 							history.replaceState(null, "", url);

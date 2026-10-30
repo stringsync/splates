@@ -9,15 +9,18 @@ import type { Live } from "./use-live-ships";
 export function ActiveShip({
 	live,
 	closed,
+	previous = null,
 	onClose,
 	act,
 }: {
 	live: Live | null;
 	closed: string | null;
+	/** The run that ended before this one started, not yet replaced by it. */
+	previous?: string | null;
 	onClose: (id: string | null) => void;
 	act: (action: "abandon" | "retry" | "agent") => Promise<void>;
 }): JSX.Element {
-	if (live === null) {
+	if (live === null || (previous !== null && live.cascade?.id === previous)) {
 		return <p className="text-muted-foreground text-sm">Reading…</p>;
 	}
 	if (live.cascade == null || live.cascade.id === closed) {
