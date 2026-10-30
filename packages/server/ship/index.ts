@@ -58,3 +58,4 @@ export type {
 } from "./stages";
 export type { ShipStepsOptions, StepProject } from "./steps";
 export { ShipSteps } from "./steps";
+export { NPM_TOKEN, requestNpmToken } from "./token-request";

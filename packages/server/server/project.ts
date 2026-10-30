@@ -29,7 +29,7 @@ import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Journal, Repository } from "../records";
 import { type ReplicaStatus, Replicator } from "../replica";
-import { Shipping, ShipRoutes } from "../ship";
+import { NPM_TOKEN, requestNpmToken, Shipping, ShipRoutes } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
@@ -66,7 +66,8 @@ export async function serveProject(
 		dir: project.dir,
 		command: project.config.ship,
 		slug,
-		npmToken: () => project.creds.credentials.get("NPM_TOKEN"),
+		npmToken: () => project.creds.credentials.get(NPM_TOKEN),
+		requestNpmToken: () => requestNpmToken(project.creds),
 	});
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at

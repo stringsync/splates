@@ -41,3 +41,15 @@ async function tokenEnv(
 	await fs.write(npmrc, TOKEN_NPMRC);
 	return { NPM_TOKEN: token, npm_config_userconfig: npmrc };
 }
+
+/** What a ship records of its `npm whoami` check. */
+export function whoamiResult(
+	whoami: { exitCode: number; stdout: string },
+	token: string | undefined,
+): string {
+	if (whoami.exitCode !== 0) {
+		return "npm whoami: not signed in";
+	}
+	const from = token === undefined ? "" : " (NPM_TOKEN from the creds store)";
+	return `npm whoami: ${whoami.stdout.trim() || "signed in"}${from}`;
+}

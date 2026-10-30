@@ -38,7 +38,7 @@ import {
 	type Stage,
 	type StageKey,
 } from "./stages";
-import { checkNpm, TOKEN_REFUSED } from "./token";
+import { checkNpm, TOKEN_REFUSED, whoamiResult } from "./token";
 
 export type { Ship, ShipStatus, ShipWait } from "./record";
 export { SHIP_STAGES, shipRecord } from "./record";
@@ -65,6 +65,8 @@ export interface ShippingOptions {
 	 * person for no sign-in.
 	 */
 	npmToken?: () => Promise<string | undefined>;
+	/** Asks for an `NPM_TOKEN` when a ship has none and falls back to the web login. */
+	requestNpmToken?: () => Promise<void>;
 	/** Release-branch checks; the project at root by default. */
 	git?: Pick<ReleaseGit, "sync">;
 }
@@ -275,9 +277,7 @@ export class Shipping implements Resource {
 			...stage,
 			check: {
 				at: this.stamp(),
-				result: signedIn
-					? `npm whoami: ${whoami.stdout.trim() || "signed in"}${token === undefined ? "" : " (NPM_TOKEN from the creds store)"}`
-					: "npm whoami: not signed in",
+				result: whoamiResult(whoami, token),
 			},
 		}));
 		if (!signedIn && token !== undefined) {
@@ -285,6 +285,7 @@ export class Shipping implements Resource {
 			return;
 		}
 		if (!signedIn) {
+			await this.opts.requestNpmToken?.();
 			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
 			const code = await this.watch(
 				ps.startOnTerminal(quietly("npm login --auth-type=web"), {

@@ -224,6 +224,20 @@ describe("Shipping", () => {
 		]);
 	});
 
+	it("asks for an NPM_TOKEN when none is kept and it falls back to the web login", async () => {
+		let asked = 0;
+		const { shipping, ps: fake } = await project({
+			requestNpmToken: async () => {
+				asked += 1;
+			},
+		});
+		fake.simulate(async () => 1);
+
+		await shipping.start();
+		await nth(fake, 0);
+		expect(asked).toBe(1);
+	});
+
 	it("signs in through npm's web page first, showing its link until npm moves on", async () => {
 		ps.simulate(async () => 1);
 
@@ -424,7 +438,9 @@ async function project({
 	storage = new FsStorage("/home/projects/1", fs),
 	git = new FakeReleaseGit(),
 	npmToken,
+	requestNpmToken,
 }: {
+	requestNpmToken?: () => Promise<void>;
 	npmToken?: () => Promise<string | undefined>;
 	command?: string | null;
 	fs?: FakeFs;
@@ -447,6 +463,7 @@ async function project({
 		dir: "/home/projects/1",
 		command,
 		npmToken,
+		requestNpmToken,
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});
