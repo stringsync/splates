@@ -66,6 +66,7 @@ export async function serveProject(
 		dir: project.dir,
 		command: project.config.ship,
 		slug,
+		npmToken: () => project.creds.credentials.get("NPM_TOKEN"),
 	});
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at

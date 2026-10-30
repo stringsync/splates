@@ -4,8 +4,9 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
+import { quietly, typedCodeError } from "./npm-terminal";
 import { eventsText } from "./release-steps";
-import { quietly, Shipping, typedCodeError } from "./run";
+import { Shipping } from "./run";
 import { FakeReleaseGit, nth, until } from "./testing";
 
 describe("Shipping", () => {
@@ -36,7 +37,7 @@ describe("Shipping", () => {
 		]);
 		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
 		expect(ps.getCallEnvs()).toEqual([
-			{},
+			{ npm_config_browser: "false" },
 			{
 				npm_config_browser: "false",
 				SPLATES_SHIP_BUMP: "minor",
@@ -52,6 +53,29 @@ describe("Shipping", () => {
 		expect(await fs.read(shipping.output)).toBe(
 			"origin/main verified at abc\npublished 0.1.0\norigin/main verified at abc\n",
 		);
+	});
+
+	it("publishes under the creds store's NPM_TOKEN through the child's environment, never argv or a file", async () => {
+		const { shipping, ps, fs } = await project({
+			npmToken: async () => "npm_secret",
+		});
+		ps.setCaptureOutput("someone\n", "");
+		await shipping.start();
+		const child = await nth(ps, 0);
+		child.exit(0);
+		await shipping.settled();
+
+		const npmrc = "/home/projects/1/ship.npmrc";
+		const env = {
+			npm_config_browser: "false",
+			NPM_TOKEN: "npm_secret",
+			npm_config_userconfig: npmrc,
+		};
+		expect(ps.getCallEnvs()[0]).toEqual(env);
+		expect(ps.getCallEnvs()[1]).toMatchObject(env);
+		expect(ps.getCalls().join(" ")).not.toContain("npm_secret");
+		expect(await fs.read(npmrc)).not.toContain("npm_secret");
+		expect(await shipping.current()).toMatchObject({ status: "done" });
 	});
 
 	it("keeps the release steps its command writes, and names the one that failed", async () => {
@@ -346,7 +370,9 @@ async function project({
 	fs = new FakeFs(),
 	storage = new FsStorage("/home/projects/1", fs),
 	git = new FakeReleaseGit(),
+	npmToken,
 }: {
+	npmToken?: () => Promise<string | undefined>;
 	command?: string | null;
 	fs?: FakeFs;
 	storage?: FsStorage;
@@ -367,6 +393,7 @@ async function project({
 		root: "/demo",
 		dir: "/home/projects/1",
 		command,
+		npmToken,
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});

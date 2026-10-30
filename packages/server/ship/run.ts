@@ -5,6 +5,17 @@ import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import { ReleaseGit } from "./git";
+import {
+	ANSI,
+	AROUND_LINK,
+	NPM_ENV,
+	NPM_PAGE,
+	OTP_PROMPT,
+	quietly,
+	RELEASE_PROMPT,
+	TERMINAL,
+	typedCodeError,
+} from "./npm-terminal";
 import type { ShipBump } from "./plan";
 import {
 	type ReleaseStep,
@@ -19,6 +30,7 @@ import {
 	type Stage,
 	type StageKey,
 } from "./stages";
+import { checkNpm, TOKEN_REFUSED } from "./token";
 
 /** Where a project's records keep its latest ship. */
 export function shipRecord(storage: Storage): Document<Ship> {
@@ -97,6 +109,12 @@ export interface ShippingOptions {
 	/** The project's slug. */
 	slug: () => Promise<string>;
 	clock?: WallClock;
+	/**
+	 * The long-lived npm token the project's creds keep as `NPM_TOKEN`, or
+	 * undefined for none. With one, the ship publishes under it and asks the
+	 * person for no sign-in.
+	 */
+	npmToken?: () => Promise<string | undefined>;
 	/** Release-branch checks; the project at root by default. */
 	git?: Pick<ReleaseGit, "sync">;
 }
@@ -104,50 +122,8 @@ export interface ShippingOptions {
 /** The error of a ship the person stopped. */
 const STOPPED = "stopped: the person abandoned the ship";
 
-/**
- * Why a ship stopped at npm's typed-code prompt, with the remedy: npm asks
- * on its own page instead once the account's second factor is a security
- * key. One line, since a cascade shows an error's first.
- */
-export function typedCodeError(user: string | null): string {
-	const settings =
-		user === null
-			? "https://www.npmjs.com/settings"
-			: `https://www.npmjs.com/settings/${user}/tfa`;
-	return `npm asked for a typed code, which splates never takes: add a security key to your npm 2FA at ${settings} so npm asks on its page`;
-}
-
 /** How many lines of output a failed ship keeps as its error. */
 const TAIL = 20;
-
-// biome-ignore lint/suspicious/noControlCharactersInRegex: color escapes
-const ANSI = /\u001b\[[0-9;]*[A-Za-z]/g;
-/** npm's sign-in page, and the page a publish's second factor is answered on. */
-const NPM_PAGE = /https:\/\/(?:www\.)?npmjs\.com\/(?:login|auth)\S*/;
-/** What npm prints around its link, which does not mean the person answered. */
-const AROUND_LINK =
-	/^(?:press enter|authenticate your account|login at|log in at)/i;
-/** webappwiz's release asking before it publishes. */
-const RELEASE_PROMPT = /\(y\/n\)\s*$/;
-/** npm's prompt for a typed one-time password, which ends without a newline. */
-const OTP_PROMPT = /one-time password.*:\s*$|enter otp:\s*$/i;
-
-/**
- * npm prints its pages' links rather than waiting for Enter to open them in a
- * browser on the server's machine, which the person may be nowhere near.
- */
-const NPM_ENV = { npm_config_browser: "false" };
-
-// The argv that runs a ship's `command` through `sh` with echo off, so nothing
-// typed at its terminal lands in the log.
-export function quietly(command: string): string[] {
-	// Started on a terminal, npm asks for a publish's second factor rather than
-	// failing with EOTP.
-	return ["sh", "-c", `stty -echo 2>/dev/null; ${command}`];
-}
-
-/** A terminal wide enough that npm's links are not wrapped. */
-const TERMINAL = { cols: 200, rows: 50 };
 
 /**
  * Runs a project's ship on the server's machine, under the person's own npm
@@ -341,7 +317,8 @@ export class Shipping implements Resource {
 			...begun(stage, at, "checking"),
 			log: { from: this.bytes, to: null },
 		}));
-		const whoami = await ps.spawnCapture(["npm", "whoami"], { cwd: root });
+		const token = await this.opts.npmToken?.();
+		const { env, whoami } = await checkNpm(this.opts, token);
 		const signedIn = whoami.exitCode === 0;
 		this.user = signedIn ? whoami.stdout.trim() || null : null;
 		await this.stage("login", (stage) => ({
@@ -349,10 +326,14 @@ export class Shipping implements Resource {
 			check: {
 				at: this.stamp(),
 				result: signedIn
-					? `npm whoami: ${whoami.stdout.trim() || "signed in"}`
+					? `npm whoami: ${whoami.stdout.trim() || "signed in"}${token === undefined ? "" : " (NPM_TOKEN from the creds store)"}`
 					: "npm whoami: not signed in",
 			},
 		}));
+		if (!signedIn && token !== undefined) {
+			await this.end("failed", TOKEN_REFUSED);
+			return;
+		}
 		if (!signedIn) {
 			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
 			const code = await this.watch(
@@ -386,7 +367,7 @@ export class Shipping implements Resource {
 				...TERMINAL,
 				cwd: root,
 				env: {
-					...NPM_ENV,
+					...env,
 					SPLATES_SHIP_BUMP: bump,
 					SPLATES_SHIP_EVENTS: this.events,
 				},
