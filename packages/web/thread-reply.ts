@@ -131,12 +131,44 @@ export function beforeCard(text: string): string {
 }
 
 /**
- * The agent's reply, its questions and review as cards once it has stopped
- * writing them: a list mid-stream may yet turn out not to ask any. An
- * escalation's questions come right after it, or after the demo they ask
- * about, so they are one card: the questions, headed as the escalation, the
- * demo above them. A run of todos is one part, with `turn` to say which
- * of them it added, and `next` whether it follows a merge or remove report.
+ * `text` without a numbered list that runs to its end, which may be questions
+ * not yet written enough to read as a card. Prose after the list, or fenced
+ * code, leaves the text whole.
+ */
+export function beforeList(text: string): string {
+	const lines = text.split("\n");
+	let fenced = false;
+	let start = -1;
+	for (let i = 0; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (/^[ \t]*(```|~~~)/.test(line)) {
+			fenced = !fenced;
+			start = -1;
+			continue;
+		}
+		if (fenced) {
+			continue;
+		}
+		if (/^1\.[ \t]/.test(line)) {
+			start = start === -1 ? i : start;
+		} else if (
+			start !== -1 &&
+			line.trim() !== "" &&
+			!/^(\d+\.[ \t]|[ \t])/.test(line)
+		) {
+			start = -1;
+		}
+	}
+	return start === -1 || fenced
+		? text
+		: lines.slice(0, start).join("\n").trimEnd();
+}
+
+/**
+ * The parts of the agent's reply: its questions and review as cards once it
+ * has stopped writing them, and an escalation's questions and the demo they
+ * ask about as one card. A run of todos is one part; `turn` says which of
+ * them it added.
  */
 export function replied(
 	text: string,
@@ -146,7 +178,7 @@ export function replied(
 	if (!settled) {
 		// A card not yet whole is held back rather than drawn as the text it
 		// will stop being, so nothing jumps when it turns into one.
-		const held = beforeCard(text);
+		const held = beforeList(beforeCard(text));
 		return held === "" ? [] : [{ type: "text", text: held }];
 	}
 	const all = stretches(text);

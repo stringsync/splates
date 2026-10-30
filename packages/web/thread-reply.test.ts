@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { beforeCard, replied } from "./thread-reply";
+import { beforeCard, beforeList, replied } from "./thread-reply";
 
 describe("thread-reply", () => {
 	test("cuts the text at a report title", () => {
@@ -23,5 +23,17 @@ describe("thread-reply", () => {
 		expect(replied("## 🔐 Permission: run command: x", false, turn)).toEqual(
 			[],
 		);
+	});
+
+	test("holds back a numbered list that runs to the end", () => {
+		expect(beforeList("Hm.\n\n1. Keep it?\n   - (a) yes")).toBe("Hm.");
+		expect(beforeList("Hm.\n\n1. Keep")).toBe("Hm.");
+	});
+
+	test("frees a list that prose follows, and a fenced one", () => {
+		const prose = "1. one\n2. two\n\nThat is all.";
+		expect(beforeList(prose)).toBe(prose);
+		const fenced = "```\n1. one\n";
+		expect(beforeList(fenced)).toBe(fenced);
 	});
 });
