@@ -54,15 +54,12 @@ export function ShipsPage(_props: {
 				}
 			/>
 			{viewed === ACTIVE ? (
-				<>
-					<ActiveShip
-						live={live}
-						closed={closed}
-						onClose={setClosed}
-						act={actOnShip}
-					/>
-					{past.length > 0 && <History cascades={past} />}
-				</>
+				<ActiveShip
+					live={live}
+					closed={closed}
+					onClose={setClosed}
+					act={actOnShip}
+				/>
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (

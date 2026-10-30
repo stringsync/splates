@@ -126,8 +126,77 @@ export function ShipRun({
 			</div>
 			<Refusal refusal={refusals.get("") ?? null} />
 			<ShipStatusCard cascade={cascade} ship={ship} />
-			<ProjectStages cascade={cascade} ship={ship} live={running} />
+			<ShipJobs cascade={cascade} ship={ship} live={running} />
 		</section>
+	);
+}
+
+/**
+ * The run as GitHub Actions lays out a workflow run: the projects as a list
+ * of jobs on the left, and the picked one's steps and logs on the right.
+ */
+function ShipJobs({
+	cascade,
+	ship,
+	live,
+}: {
+	cascade: Cascade;
+	ship: Ship | null;
+	live: boolean;
+}): JSX.Element {
+	const [picked, setPicked] = useState<string | null>(null);
+	const current =
+		cascade.steps.find((step) => HELD.includes(step.status)) ??
+		cascade.steps.find(
+			(step) => !["done", "dropped", "abandoned"].includes(step.status),
+		) ??
+		cascade.steps[cascade.steps.length - 1];
+	const step = cascade.steps.find((each) => each.slug === picked) ?? current;
+	return (
+		<div className="grid min-w-0 gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
+			<nav aria-label="Ship jobs" className="flex flex-col gap-1">
+				<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					Jobs
+				</h3>
+				{cascade.steps.map((each) => (
+					<button
+						key={each.slug}
+						type="button"
+						aria-current={each.slug === step?.slug}
+						onClick={() => setPicked(each.slug)}
+						className={cn(
+							"flex min-h-11 items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-muted/60",
+							each.slug === step?.slug && "bg-muted font-medium",
+						)}
+					>
+						<span
+							aria-hidden
+							className={cn(
+								"size-2.5 shrink-0 rounded-full",
+								DOTS[each.status],
+							)}
+						/>
+						<span className="min-w-0 flex-1 truncate">{each.slug}</span>
+						<span className="text-muted-foreground text-xs">
+							{STATUSES[each.status]}
+						</span>
+					</button>
+				))}
+			</nav>
+			{step !== undefined && (
+				<div className="min-w-0 rounded-lg border bg-card p-4">
+					<ol aria-label="Ship cascade" className="flex flex-col">
+						<ProjectStage
+							key={step.slug}
+							cascade={cascade}
+							step={step}
+							ship={step.status === "shipping" ? ship : null}
+							live={live}
+						/>
+					</ol>
+				</div>
+			)}
+		</div>
 	);
 }
 
