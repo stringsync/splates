@@ -130,6 +130,28 @@ Settled in the work, not with the person:
 - A retried ship adds to the same log in history, so each step's slice of an
   earlier try still reads true.
 
+## Settled (2026-10-29): updating dependencies and shipping are chosen apart
+
+The plan is the dependency tree, one row per project, with two checkboxes: **Deps**
+(move its pins to the versions its dependencies are at) and **Ship** (publish it).
+
+- **Ship turns Deps on, and Deps can be turned off again,** to ship with the
+  old pins. **Deps alone never ships:** a project can only update its
+  dependencies, which also lets a private project with stale pins take them.
+- **Shipping a project ships whoever pins it,** as before; that is where the
+  Ship checkbox of a dependent comes on by itself, and it can be turned off.
+- **Lockstep is the default, not a rule:** a project whose pins trail the
+  version of the project it pins starts with Deps on.
+- **Deps takes what is published.** A pin moves to the version of a project
+  shipping in this run, else to the version that project is at now, so
+  stale pins are taken without a release of the project they point at.
+- **Only what needs action is loud.** "N to ship" and each stale pin show as
+  plain text; a project with nothing to ship and no stale pins fades until
+  something is chosen. Release type and the agent task show under a row only
+  when it is on.
+- **A deps-only project is a `bump` step:** its upstream, adopt, publish and
+  live stages run only as far as they apply, and publish and live are skipped.
+
 ## Not settled
 - Whether a project outside the registered set, such as one on another
   machine, should hear of a release; this covers only the projects

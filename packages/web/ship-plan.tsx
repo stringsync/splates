@@ -10,6 +10,7 @@ import {
 import { ShipIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import {
 	Select,
 	SelectContent,
@@ -29,6 +30,9 @@ type Choice = {
 	instructions: string;
 };
 
+/** A pin that trails the version its project is at now. */
+type Stale = { project: string; name: string; from: string; to: string };
+
 const BUMPS: ShipBump[] = ["patch", "minor", "major"];
 
 const BUMP_HINTS: Record<ShipBump, string> = {
@@ -38,9 +42,10 @@ const BUMP_HINTS: Record<ShipBump, string> = {
 };
 
 /**
- * The ship plan: every project with whether it ships in this ship, in release
- * order, and Start at the foot. `ship` is the project the page opened with
- * picked, or `+changed` for every changed one.
+ * The plan for a ship: the projects as a tree of who pins whom, where each is
+ * given Deps (update its dependencies), Ship (publish it), or both, then
+ * started. `ship` is the project the page opened with picked, or `+changed`
+ * for every changed one.
  */
 export function ShipPlan({
 	ship,
@@ -60,11 +65,6 @@ export function ShipPlan({
 }): JSX.Element {
 	const [graph, setGraph] = useState<ShipGraph | null>(null);
 	const [failed, setFailed] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [picked, setPicked] = useState<string[] | null>(null);
-	const [excluded, setExcluded] = useState<string[]>([]);
-	const [choices, setChoices] = useState<Record<string, Choice>>({});
-	const [pending, setPending] = useState(false);
 	useEffect(() => {
 		void endedAt;
 		const refresh = () => shipGraph().then(setGraph, () => setFailed(true));
@@ -90,16 +90,62 @@ export function ShipPlan({
 			</p>
 		);
 	}
+	// Shipping a project turns its Deps on and ships whoever pins it; either can be turned off.
+	return (
+		<Plan
+			// Read again once a ship has ended, so the choices follow the new versions.
+			key={endedAt ?? ""}
+			graph={graph}
+			projects={listed}
+			ship={ship}
+			busy={busy}
+			loading={loading}
+			onStarted={onStarted}
+		/>
+	);
+}
+
+function Plan({
+	graph,
+	projects,
+	ship,
+	busy,
+	loading,
+	onStarted,
+}: {
+	graph: ShipGraph;
+	projects: ShipProject[];
+	ship: string | null;
+	busy: boolean;
+	loading: boolean;
+	onStarted: () => void;
+}): JSX.Element {
 	const changed = changedProjects(graph).map((each) => each.slug);
-	const roots =
-		picked ?? (ship === null ? [] : ship === CHANGED ? changed : [ship]);
-	const included = new Set<string>();
+	const [roots, setRoots] = useState<string[]>(
+		ship === null ? [] : ship === CHANGED ? changed : [ship],
+	);
+	const [excluded, setExcluded] = useState<string[]>([]);
+	const [updating, setUpdating] = useState<string[]>(() =>
+		projects
+			.filter((each) => staleOf(each, graph).length > 0)
+			.map((each) => each.slug),
+	);
+	const [skipped, setSkipped] = useState<string[]>([]);
+	const [choices, setChoices] = useState<Record<string, Choice>>({});
+	const [error, setError] = useState<string | null>(null);
+	const [pending, setPending] = useState(false);
+
+	// A shipped project's dependents ship after it, so they ship too.
+	const ships = new Set<string>();
 	const visit = (slug: string) => {
-		if (included.has(slug) || excluded.includes(slug)) {
+		const project = projects.find((each) => each.slug === slug);
+		if (project === undefined || ships.has(slug) || excluded.includes(slug)) {
 			return;
 		}
-		included.add(slug);
-		for (const each of graph.projects) {
+		if (shippable(project)) {
+			ships.add(slug);
+		}
+		for (const each of projects) {
 			if (each.uses.some((use) => use.project === slug)) {
 				visit(each.slug);
 			}
@@ -108,87 +154,101 @@ export function ShipPlan({
 	for (const root of roots) {
 		visit(root);
 	}
-	const shippable = (each: ShipProject) => each.ship !== null && !each.private;
-	const ordered = releaseOrder(listed);
-	const tree = treeOrder(listed);
-	const steps = ordered.filter(
-		(each) => included.has(each.slug) && shippable(each),
-	);
+	const updates = new Set([
+		...updating,
+		...[...ships].filter((slug) => !skipped.includes(slug)),
+	]);
 	const choice = (slug: string): Choice =>
 		choices[slug] ?? { bump: "patch", adopt: "mechanical", instructions: "" };
-	const update = (slug: string, patch: Partial<Choice>) =>
+	const change = (slug: string, patch: Partial<Choice>) =>
 		setChoices((current) => ({
 			...current,
 			[slug]: { ...choice(slug), ...patch },
 		}));
-	const toggle = (slug: string, on: boolean) => {
-		setPicked(on ? [...roots, slug] : roots.filter((each) => each !== slug));
+	const setShip = (slug: string, on: boolean) => {
+		setRoots(
+			on
+				? [...new Set([...roots, slug])]
+				: roots.filter((each) => each !== slug),
+		);
 		setExcluded(
 			on ? excluded.filter((each) => each !== slug) : [...excluded, slug],
 		);
+		if (on) {
+			setSkipped(skipped.filter((each) => each !== slug));
+		}
 	};
-	const includeChanged = () => {
-		setPicked([...new Set([...roots, ...changed])]);
-		setExcluded(excluded.filter((each) => !changed.includes(each)));
+	const setUpdate = (slug: string, on: boolean) => {
+		setSkipped(
+			on ? skipped.filter((each) => each !== slug) : [...skipped, slug],
+		);
+		setUpdating(
+			on
+				? [...new Set([...updating, slug])]
+				: updating.filter((each) => each !== slug),
+		);
 	};
+	const unshipped = changed.filter((slug) => !ships.has(slug));
+	const ordered = releaseOrder(projects).filter(
+		(each) => ships.has(each.slug) || updates.has(each.slug),
+	);
+	const summary = [
+		updates.size > 0 ? `Update dependencies in ${updates.size}` : null,
+		ships.size > 0 ? `ship ${ships.size}` : null,
+	]
+		.filter((part) => part !== null)
+		.join(", ");
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
-			<div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
-				<span className="flex flex-col">
-					<span className="font-medium text-sm">
-						{changed.length === 0
-							? "Every project is up to date"
-							: `${changed.length} project${changed.length === 1 ? " has" : "s have"} unshipped commits`}
-					</span>
-					<span className="text-muted-foreground text-xs">
-						{changed.length === 0
-							? "Nothing has changed since its last release."
-							: `${changed.join(", ")}, with every project that pins them.`}
-					</span>
-				</span>
+			{unshipped.length > 0 && (
 				<Button
 					variant="outline"
 					className="w-full"
-					disabled={changed.length === 0 || pending}
-					onClick={includeChanged}
+					disabled={pending}
+					onClick={() => {
+						setRoots([...new Set([...roots, ...changed])]);
+						setExcluded(excluded.filter((each) => !changed.includes(each)));
+						setSkipped(skipped.filter((each) => !changed.includes(each)));
+					}}
 				>
 					Include all changed
 				</Button>
+			)}
+			<div className="-mb-2 flex justify-end gap-4 px-3 text-muted-foreground text-xs">
+				<span className="w-9 text-center">Deps</span>
+				<span className="w-9 text-center">Ship</span>
 			</div>
-			<h2 className="mt-2 font-medium text-sm">Projects</h2>
 			<ol
 				aria-label="Ship graph"
-				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
+				className="flex flex-col overflow-hidden rounded-lg border bg-card"
 			>
-				{tree.map(({ project: each, depth, pins }) => {
-					const number = steps.indexOf(each) + 1;
+				{treeOrder(projects).map(({ project: each, depth }) => {
+					const stale = staleOf(each, graph);
+					const shipping = ships.has(each.slug);
+					const deps = updates.has(each.slug);
+					const commits = each.changes?.commits ?? 0;
 					const value = choice(each.slug);
+					const idle =
+						commits === 0 && stale.length === 0 && !shipping && !deps;
 					return (
 						<li
 							key={each.slug}
 							aria-label={each.slug}
-							style={{ paddingLeft: `${0.75 + depth * 1.25}rem` }}
 							className={cn(
-								"flex flex-col gap-3 py-2.5 pr-3",
-								depth > 0 && "border-l-2 border-l-primary/20",
-								number === 0 &&
-									(each.changes?.commits ?? 1) === 0 &&
-									"opacity-60",
+								"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
+								idle && "py-2 opacity-50",
 							)}
+							style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
 						>
-							<div className="flex items-center gap-3">
+							{depth > 0 && (
 								<span
 									aria-hidden
-									className={cn(
-										"flex size-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums",
-										number > 0
-											? "bg-primary text-primary-foreground"
-											: "border text-muted-foreground",
-									)}
-								>
-									{number > 0 ? number : ""}
-								</span>
-								<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+									className="absolute top-0 h-[1.65rem] w-3 rounded-bl-md border-b-2 border-l-2 border-primary/30"
+									style={{ left: `${0.75 + (depth - 1) * 1.5 + 0.4}rem` }}
+								/>
+							)}
+							<div className="flex items-center gap-3">
+								<div className="flex min-w-0 flex-1 flex-col gap-1">
 									<span className="flex items-baseline gap-2">
 										<span className="font-medium text-sm">{each.slug}</span>
 										{each.version !== null && (
@@ -197,92 +257,133 @@ export function ShipPlan({
 											</span>
 										)}
 									</span>
-									{each.changes !== undefined && (
-										<Changes changes={each.changes} />
-									)}
-									<span className="truncate text-muted-foreground text-xs">
-										{each.packages.length > 0
-											? each.packages.join(", ")
-											: "Takes the releases it pins"}
+									<span className="flex flex-col text-xs">
+										{each.changes?.commits === null && (
+											<span
+												className="text-muted-foreground"
+												title={each.changes.error ?? undefined}
+											>
+												Release status unknown
+											</span>
+										)}
+										{commits > 0 && (
+											<span
+												className="text-warning"
+												title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
+											>
+												{commits} to ship
+											</span>
+										)}
+										{stale.map((pin) => (
+											<span key={pin.name} className="text-muted-foreground">
+												{pin.name} {pin.from} → {pin.to}
+											</span>
+										))}
 									</span>
-									{pins.length > 0 && (
-										<span className="text-muted-foreground text-xs">
-											Pins {pins.join(", ")}: ships after{" "}
-											{pins.length === 1 ? "it" : "them"}
-										</span>
-									)}
-								</span>
-								{shippable(each) ? (
-									<Switch
-										aria-label={`Ship ${each.slug}`}
-										checked={included.has(each.slug)}
-										disabled={pending}
-										onCheckedChange={(on) => toggle(each.slug, on)}
-									/>
-								) : (
-									<span className="shrink-0 text-muted-foreground text-xs">
-										{each.private ? "" : "no ship command"}
-									</span>
-								)}
-							</div>
-							{number > 0 && (
-								<div className="flex flex-col gap-3 pl-9">
-									<div className="flex flex-wrap items-center gap-4 text-sm">
-										<span className="text-muted-foreground">Release as</span>
-										<Select
-											items={BUMPS.map((bump) => ({
-												value: bump,
-												label: bump,
-											}))}
-											value={value.bump}
+								</div>
+								<div className="flex shrink-0 gap-4">
+									<span className="flex w-9 justify-center">
+										<Checkbox
+											aria-label={`Update dependencies of ${each.slug}`}
+											checked={deps}
 											disabled={pending}
-											onValueChange={(bump) =>
-												bump !== null &&
-												update(each.slug, { bump: bump as ShipBump })
-											}
-										>
-											<SelectTrigger aria-label={`${each.slug} version bump`}>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												{BUMPS.map((bump) => (
-													<SelectItem key={bump} value={bump}>
-														{bump}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-										<div className="flex items-center gap-2">
-											<Switch
-												size="sm"
-												aria-label={`Agent task for ${each.slug}`}
-												checked={value.adopt === "agent"}
+											onCheckedChange={(on) => setUpdate(each.slug, on)}
+										/>
+									</span>
+									<span className="flex w-9 justify-center">
+										{shippable(each) ? (
+											<Checkbox
+												aria-label={`Ship ${each.slug}`}
+												checked={shipping}
 												disabled={pending}
-												onCheckedChange={(on) =>
-													update(each.slug, {
-														adopt: on ? "agent" : "mechanical",
+												onCheckedChange={(on) => setShip(each.slug, on)}
+											/>
+										) : (
+											!each.private && (
+												<span className="text-muted-foreground text-xs">
+													no ship
+												</span>
+											)
+										)}
+									</span>
+								</div>
+							</div>
+							{(shipping || deps) && (
+								<div className="flex flex-col gap-2 text-sm">
+									<div className="flex flex-wrap items-center gap-4">
+										{shipping && (
+											<span className="flex items-center gap-2">
+												<span className="text-muted-foreground">
+													Release as
+												</span>
+												<Select
+													items={BUMPS.map((bump) => ({
+														value: bump,
+														label: bump,
+													}))}
+													value={value.bump}
+													disabled={pending}
+													onValueChange={(bump) =>
+														bump !== null &&
+														change(each.slug, { bump: bump as ShipBump })
+													}
+												>
+													<SelectTrigger
+														aria-label={`${each.slug} version bump`}
+													>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{BUMPS.map((bump) => (
+															<SelectItem key={bump} value={bump}>
+																{bump}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</span>
+										)}
+										{deps && (
+											<span className="flex items-center gap-2">
+												<Switch
+													size="sm"
+													aria-label={`Agent task for ${each.slug}`}
+													checked={value.adopt === "agent"}
+													disabled={pending}
+													onCheckedChange={(on) =>
+														change(each.slug, {
+															adopt: on ? "agent" : "mechanical",
+														})
+													}
+												/>
+												<span>Agent task</span>
+											</span>
+										)}
+									</div>
+									{shipping && (
+										<p className="text-muted-foreground text-xs">
+											{BUMP_HINTS[value.bump]}
+										</p>
+									)}
+									{deps && value.adopt === "agent" && (
+										<>
+											<p className="text-muted-foreground text-xs">
+												An agent moves the pins and fixes what breaks.
+												{shipping &&
+													" When its task merges, that tells splates it is OK to ship, and splates then publishes."}
+											</p>
+											<Textarea
+												aria-label={`Instructions for ${each.slug}`}
+												placeholder="Instructions for the agent"
+												disabled={pending}
+												value={value.instructions}
+												onChange={(event) =>
+													change(each.slug, {
+														instructions: event.target.value,
 													})
 												}
 											/>
-											<span>Agent task</span>
-										</div>
-									</div>
-									<p className="text-muted-foreground text-xs">
-										{BUMP_HINTS[value.bump]}{" "}
-										{value.adopt === "agent"
-											? "An agent adopts the new versions and fixes what breaks. When its task merges, that tells splates it is OK to ship, and splates then publishes."
-											: "Splates moves the pins itself, then publishes."}
-									</p>
-									{value.adopt === "agent" && (
-										<Textarea
-											aria-label={`Instructions for ${each.slug}`}
-											placeholder="Instructions for the agent"
-											disabled={pending}
-											value={value.instructions}
-											onChange={(event) =>
-												update(each.slug, { instructions: event.target.value })
-											}
-										/>
+										</>
 									)}
 								</div>
 							)}
@@ -301,15 +402,20 @@ export function ShipPlan({
 						A ship is under way.
 					</p>
 				)}
+				<p className="text-muted-foreground text-xs">
+					{summary === "" ? "Nothing chosen" : summary}
+				</p>
 				<Button
 					className="min-h-11 w-full"
-					disabled={loading || busy || pending || steps.length === 0}
+					disabled={loading || busy || pending || ordered.length === 0}
 					onClick={() => {
 						setPending(true);
 						setError(null);
 						startShip({
-							projects: steps.map((each) => ({
+							projects: ordered.map((each) => ({
 								slug: each.slug,
+								deps: updates.has(each.slug),
+								ship: ships.has(each.slug),
 								...choice(each.slug),
 							})),
 						}).then(
@@ -327,14 +433,16 @@ export function ShipPlan({
 					<ShipIcon />
 					{pending
 						? "Starting…"
-						: steps.length === 0
-							? "Start"
-							: `Start ${steps.length} step${steps.length === 1 ? "" : "s"}`}
+						: ships.size === 0 && updates.size > 0
+							? "Update dependencies"
+							: "Start"}
 				</Button>
 			</div>
 		</section>
 	);
 }
+
+const shippable = (each: ShipProject) => each.ship !== null && !each.private;
 
 /**
  * `projects` with each after the first of its dependencies among them, as
@@ -365,27 +473,23 @@ function releaseOrder(projects: ShipProject[]): ShipProject[] {
 
 /**
  * `projects` as a tree for display: each under the first project it pins,
- * with the pinned projects it ships after, so who depends on whom shows.
+ * so who depends on whom shows.
  */
 function treeOrder(
 	projects: ShipProject[],
-): { project: ShipProject; depth: number; pins: string[] }[] {
+): { project: ShipProject; depth: number }[] {
 	const slugs = new Set(projects.map((each) => each.slug));
-	const pinsOf = (project: ShipProject) => [
-		...new Set(
-			project.uses
-				.map((use) => use.project)
-				.filter((slug) => slugs.has(slug) && slug !== project.slug),
-		),
-	];
-	const rows: { project: ShipProject; depth: number; pins: string[] }[] = [];
+	const firstPinned = (project: ShipProject) =>
+		project.uses
+			.map((use) => use.project)
+			.find((slug) => slugs.has(slug) && slug !== project.slug) ?? null;
+	const rows: { project: ShipProject; depth: number }[] = [];
 	const seen = new Set<string>();
 	const visit = (parent: string | null, depth: number) => {
 		for (const each of projects) {
-			const pins = pinsOf(each);
-			if (!seen.has(each.slug) && (pins[0] ?? null) === parent) {
+			if (!seen.has(each.slug) && firstPinned(each) === parent) {
 				seen.add(each.slug);
-				rows.push({ project: each, depth, pins });
+				rows.push({ project: each, depth });
 				visit(each.slug, depth + 1);
 			}
 		}
@@ -394,37 +498,21 @@ function treeOrder(
 	return rows;
 }
 
-/** Commits since the last release, as a dot and a short label. */
-function Changes({
-	changes,
-}: {
-	changes: NonNullable<ShipProject["changes"]>;
-}): JSX.Element {
-	const unshipped = changes.commits !== null && changes.commits > 0;
-	return (
-		<span
-			className={cn(
-				"flex items-center gap-1.5 text-xs",
-				!unshipped && "text-muted-foreground",
-			)}
-			title={changes.error ?? `Since ${changes.tag} on ${changes.branch}`}
-		>
-			<span
-				aria-hidden
-				className={cn(
-					"size-1.5 shrink-0 rounded-full",
-					changes.commits === null
-						? "bg-muted-foreground"
-						: unshipped
-							? "bg-warning"
-							: "bg-success",
-				)}
-			/>
-			{changes.commits === null
-				? "Release status unknown"
-				: changes.commits === 0
-					? "Up to date"
-					: `${changes.commits} unshipped`}
-		</span>
-	);
+/** The pins of `project` that trail the version their project is at now. */
+function staleOf(project: ShipProject, graph: ShipGraph): Stale[] {
+	return project.uses.flatMap((use) => {
+		const now = graph.projects.find(
+			(each) => each.slug === use.project,
+		)?.version;
+		return now == null
+			? []
+			: use.pins
+					.filter((pin) => pin.version !== now)
+					.map((pin) => ({
+						project: use.project,
+						name: pin.name,
+						from: pin.version,
+						to: now,
+					}));
+	});
 }

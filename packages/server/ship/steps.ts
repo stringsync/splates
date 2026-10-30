@@ -315,20 +315,30 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		const project = ensure.defined(
 			record.projects.find((each) => each.slug === step.slug),
 		);
-		const targets = step.takes.map((use) => ({
-			project: ensure.defined(
+		const targets = step.takes.map((use) => {
+			const upstream = record.cascade.steps.find(
+				(each) => each.slug === use.project,
+			);
+			const target = ensure.defined(
 				record.projects.find((each) => each.slug === use.project),
-			),
-			version:
-				record.cascade.steps.find((each) => each.slug === use.project)?.to ??
-				fail("usage", "upstream target is missing"),
-			pins: use.pins,
-		}));
+			);
+			return {
+				project: target,
+				// A project not shipping in this run is taken at the version it is at.
+				version:
+					upstream?.to ??
+					target.version ??
+					fail("usage", "upstream target is missing"),
+				pins: use.pins,
+				waits: upstream?.to != null,
+			};
+		});
 		if (key === "upstream") {
-			for (const target of targets) {
+			const waited = targets.filter((target) => target.waits);
+			for (const target of waited) {
 				await this.waitLive(record, step, target.project, target.version, key);
 			}
-			return targets.length === 0;
+			return waited.length === 0;
 		}
 		if (key === "adopt") {
 			if (targets.length === 0 && step.adopt !== "agent") {
@@ -407,6 +417,9 @@ export class ShipSteps extends Cascades implements AsyncResource {
 				version: ensure.present(step.to),
 			}));
 			return false;
+		}
+		if (step.action === "bump") {
+			return true;
 		}
 		await this.waitLive(record, step, project, ensure.present(step.to), key);
 		return false;

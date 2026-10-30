@@ -55,7 +55,7 @@ describe("ShipsPage", () => {
 		);
 	});
 
-	it("lists the projects in release order, a switch on each that names a ship command", async () => {
+	it("lists the projects in release order, a Ship checkbox on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "webappwiz", packages: ["webappwiz"] }),
 			project({
@@ -79,7 +79,9 @@ describe("ShipsPage", () => {
 				.getAllByRole("listitem")
 				.map((each) => each.getAttribute("aria-label")),
 		).toEqual(["webappwiz", "mdom", "sound2score"]);
-		expect(within(list).getAllByRole("switch")).toHaveLength(2);
+		expect(
+			within(list).getAllByRole("checkbox", { name: /^Ship / }),
+		).toHaveLength(2);
 	});
 
 	it("marks unshipped commits and distinguishes up-to-date and unknown release history", async () => {
@@ -105,14 +107,13 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		expect(await view.findByText("3 unshipped")).toBeTruthy();
-		expect(view.getByText("Up to date")).toBeTruthy();
+		expect(await view.findByText("3 to ship")).toBeTruthy();
 		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
 			"Missing release tag",
 		);
 	});
 
-	it("disables the include of every changed project when none changed", async () => {
+	it("offers no include of every changed project when none changed", async () => {
 		const graph = [
 			project({
 				changes: { commits: 0, branch: "main", tag: "v0.0.53", error: null },
@@ -121,12 +122,10 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		expect(await view.findByText("Every project is up to date")).toBeTruthy();
+		await view.findByRole("list", { name: "Ship graph" });
 		expect(
-			view
-				.getByRole("button", { name: "Include all changed" })
-				.hasAttribute("disabled"),
-		).toBe(true);
+			view.queryByRole("button", { name: "Include all changed" }),
+		).toBeNull();
 	});
 
 	it("enables planning and never requests the old run endpoint", async () => {
@@ -137,9 +136,11 @@ describe("ShipsPage", () => {
 		}) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		const list = await view.findByRole("list", { name: "Ship graph" });
-		expect(within(list).getByRole("switch").hasAttribute("disabled")).toBe(
-			false,
-		);
+		expect(
+			within(list)
+				.getByRole("checkbox", { name: "Ship webappwiz" })
+				.hasAttribute("disabled"),
+		).toBe(false);
 		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 });

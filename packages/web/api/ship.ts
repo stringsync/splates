@@ -68,6 +68,10 @@ export async function actOnShip(
 export async function startShip(selection: {
 	projects: {
 		slug: string;
+		/** Move its pins to the versions its dependencies are at. */
+		deps: boolean;
+		/** Publish it; otherwise it only takes its dependencies. */
+		ship: boolean;
 		bump: "patch" | "minor" | "major";
 		adopt: "mechanical" | "agent";
 		instructions: string;

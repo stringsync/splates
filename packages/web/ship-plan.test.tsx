@@ -68,12 +68,16 @@ describe("Ship plan", () => {
 				projects: [
 					{
 						slug: "base",
+						deps: true,
+						ship: true,
 						bump: "minor",
 						adopt: "agent",
 						instructions: "  Keep this exactly.\n",
 					},
 					{
 						slug: "consumer",
+						deps: true,
+						ship: true,
 						bump: "patch",
 						adopt: "mechanical",
 						instructions: "",
@@ -82,6 +86,103 @@ describe("Ship plan", () => {
 			}),
 		);
 		expect(await view.findByRole("alert")).toBeTruthy();
+	});
+	it("updates a stale project's dependencies alone, without shipping it", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		let body: unknown = null;
+		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+			// scry-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
+			if (opts?.method === "POST") {
+				body = JSON.parse(String(opts.body));
+				return new Response("refused", { status: 409 });
+			}
+			return Response.json(
+				answer(String(url), [
+					project({ slug: "lib", version: "2.0.0" }),
+					project({
+						slug: "app",
+						uses: [
+							{ project: "lib", pins: [{ name: "lib", version: "1.0.0" }] },
+						],
+					}),
+				]),
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await view.findByText("lib 1.0.0 → 2.0.0");
+		expect(
+			view
+				.getByRole("checkbox", { name: "Ship app" })
+				.getAttribute("aria-checked"),
+		).toBe("false");
+		fireEvent.click(view.getByRole("button", { name: "Update dependencies" }));
+		await waitFor(() =>
+			expect(body).toEqual({
+				projects: [
+					{
+						slug: "app",
+						deps: true,
+						ship: false,
+						bump: "patch",
+						adopt: "mechanical",
+						instructions: "",
+					},
+				],
+			}),
+		);
+	});
+	it("ships a project without updating its dependencies when Deps is turned off", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		let body: unknown = null;
+		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+			// scry-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
+			if (opts?.method === "POST") {
+				body = JSON.parse(String(opts.body));
+				return new Response("refused", { status: 409 });
+			}
+			return Response.json(
+				answer(String(url), [
+					project({
+						slug: "base",
+						changes: { commits: 1, branch: "main", tag: "v1", error: null },
+					}),
+				]),
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await view.findByText("base");
+		fireEvent.click(view.getByRole("checkbox", { name: "Ship base" }));
+		fireEvent.click(
+			view.getByRole("checkbox", { name: "Update dependencies of base" }),
+		);
+		fireEvent.click(view.getByRole("button", { name: "Start" }));
+		await waitFor(() =>
+			expect(body).toMatchObject({
+				projects: [{ slug: "base", deps: false, ship: true }],
+			}),
+		);
 	});
 	it("blocks another start while a ship is stopped", async () => {
 		let stream: Stream | null = null;
