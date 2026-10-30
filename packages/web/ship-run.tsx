@@ -6,7 +6,12 @@ import type {
 	ShipStep,
 } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
-import { CheckIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import {
+	CheckIcon,
+	CopyIcon,
+	ExternalLinkIcon,
+	SquareIcon,
+} from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "./lib/utils";
@@ -18,7 +23,7 @@ import { StageRow } from "./ship-stages";
 /**
  * A ship under way, or one that stopped: a stage per project in the order
  * they go, every step of each checked off as it ends, and what waits on the
- * person, or why it stopped, in the dock beneath them. Close puts away a run
+ * person, or why it stopped, in the dock beneath them. Stop puts away a run
  * that ended, and abandons one still going after asking.
  */
 export function ShipRun({
@@ -130,15 +135,16 @@ export function ShipRun({
 				{asked === null ? null : <ChipFor tone={asked.attention.tone} />}
 				<Button
 					size="xs"
-					variant="ghost"
-					className="ml-auto pointer-coarse:min-h-11"
+					variant="outline"
+					className="ml-auto gap-1.5 pointer-coarse:min-h-11"
 					disabled={acting || abandoning}
 					title={
 						live ? "Ends the ship; what published stays published" : undefined
 					}
 					onClick={close}
 				>
-					Close
+					<SquareIcon data-icon="inline-start" />
+					Stop
 				</Button>
 			</div>
 			<Refusal refusal={refusals.get("") ?? null} />

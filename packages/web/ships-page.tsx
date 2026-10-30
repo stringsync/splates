@@ -20,15 +20,27 @@ export function ShipsPage(_props: {
 }): JSX.Element {
 	const viewed = useViewedShip();
 	const live = useLiveShips();
+	const [closed, setClosed] = useState<string | null>(null);
 	const busy =
-		live?.cascade?.status === "running" || live?.cascade?.status === "stopped";
+		(live?.cascade?.status === "running" ||
+			live?.cascade?.status === "stopped") &&
+		live.cascade.id !== closed;
 	// Planning waits while a ship is under way: the Ship tab opens that ship.
 	useEffect(() => {
 		if (viewed === null && busy) {
 			location.replace(`#ships/${ACTIVE}`);
 		}
 	}, [viewed, busy]);
-	const [closed, setClosed] = useState<string | null>(null);
+	// A ship put away has no page left: land on the planner.
+	useEffect(() => {
+		if (
+			viewed === ACTIVE &&
+			live !== null &&
+			(live.cascade == null || live.cascade.id === closed)
+		) {
+			location.replace("#ships");
+		}
+	}, [viewed, live, closed]);
 	const [past, setPast] = useState<CascadeSummary[]>([]);
 	useEffect(() => {
 		shipHistory().then(setPast, () => undefined);
