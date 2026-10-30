@@ -121,6 +121,7 @@ export class MechanicalAdoption {
 				}
 			}
 			opts.signal?.throwIfAborted();
+			await this.format(tree.path, await tree.uncommitted(), log, opts.signal);
 			if ((await tree.uncommitted()).length > 0) {
 				const committed = await git.commitAll(
 					tree.path,
@@ -183,6 +184,48 @@ export class MechanicalAdoption {
 		);
 		await log("Adoption merged.\n");
 		return false;
+	}
+
+	/**
+	 * Formats the files the refresh commands rewrote with the project's Biome,
+	 * which a merge gate's check refuses otherwise: `wiz update` writes
+	 * `skills-lock.json` with spaces where the project indents with tabs.
+	 */
+	private async format(
+		cwd: string,
+		porcelain: string[],
+		log: (text: string) => Promise<void>,
+		signal?: AbortSignal,
+	): Promise<void> {
+		const { fs, ps } = this.repo;
+		if (
+			!(await fs.exists(`${cwd}/biome.json`)) &&
+			!(await fs.exists(`${cwd}/biome.jsonc`))
+		) {
+			return;
+		}
+		const paths = porcelain
+			// The status code may have lost its leading space to trimming.
+			.map((line) => line.trim().split(/\s+/))
+			.filter(([status]) => status !== "D")
+			.map((parts) => parts.slice(1).join(" ").split(" -> ").pop() ?? "")
+			.filter((path) => /\.(?:jsonc?|[cm]?[jt]sx?|css)$/.test(path));
+		if (paths.length === 0) {
+			return;
+		}
+		await log(`$ biome format --write ${paths.join(" ")}\n`);
+		const result = await ps.spawnCapture(
+			[
+				"bunx",
+				"biome",
+				"format",
+				"--write",
+				"--no-errors-on-unmatched",
+				...paths,
+			],
+			{ cwd, signal },
+		);
+		await log(result.stdout + result.stderr);
 	}
 
 	/** Discard an unfinished mechanical task once the person ends its ship. */

@@ -161,6 +161,34 @@ describe("mechanical ship adoption", () => {
 		expect(output.join("")).toContain("base already pins");
 	});
 
+	it("formats the files a refresh rewrote when the project uses Biome", async () => {
+		await using repo = await Testing.open();
+		await repo.fs.write(
+			`${repo.root}/package.json`,
+			JSON.stringify({
+				name: "consumer",
+				version: "1.0.0",
+				dependencies: { upstream: "^1.0.0" },
+			}),
+		);
+		await repo.fs.write(`${repo.root}/biome.json`, "{}");
+		await repo.git.commitAll(repo.root, "Add upstream dependency and Biome");
+		const ps = new FakePs();
+		ps.setCaptureOutput("", "");
+		const adoption = new MechanicalAdoption({ ...repo, ps, dispose: () => {} });
+		await adoption.run(
+			ship,
+			step,
+			[{ name: "upstream", version: "1.0.1" }],
+			async () => {},
+			{ afterBump: [] },
+		);
+		expect(ps.getCalls()).toEqual([
+			"sh -c bun install",
+			"bunx biome format --write --no-errors-on-unmatched package.json",
+		]);
+	});
+
 	it("does not land an adoption rejected by the project's merge gate", async () => {
 		await using repo = await Testing.open();
 		repo.config.preMerge = "false";

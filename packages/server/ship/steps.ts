@@ -185,6 +185,20 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			}
 			record.cascade.status = "abandoned";
 			record.cascade.ended = this.stamp();
+			// Kept in each step's log, so a later look at the history shows where
+			// the person ended the ship and what it was doing.
+			for (const step of record.cascade.steps) {
+				const running = step.stages.find(
+					(stage) => stage.state === "running" || stage.state === "checking",
+				);
+				if (running !== undefined) {
+					await this.log(
+						record.cascade.id,
+						step.slug,
+						`Abandoned by the person at ${record.cascade.ended} while ${step.slug} was at "${running.name}" (${running.state}${step.note === null ? "" : `; last note: ${step.note}`}).\n`,
+					);
+				}
+			}
 			await this.save(record);
 			this.controller.abort();
 			await this.publisher?.stop();
