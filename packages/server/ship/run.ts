@@ -497,7 +497,7 @@ export class Shipping implements Resource {
 		if (ship === null || this.disposed || ship.status !== "running") {
 			return;
 		}
-		const change = approvalChange(ship.waiting, steps, this.stamp());
+		const change = approvalChange(ship.waiting, steps, this.stamp(), this.user);
 		if (change === null) {
 			return;
 		}

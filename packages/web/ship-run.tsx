@@ -6,12 +6,7 @@ import type {
 	ShipStep,
 } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
-import {
-	CheckIcon,
-	CopyIcon,
-	ExternalLinkIcon,
-	SquareIcon,
-} from "lucide-react";
+import { ExternalLinkIcon, SquareIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "./lib/utils";
@@ -155,19 +150,7 @@ export function ShipRun({
 				asked={asked}
 				ask={
 					asked !== null ? (
-						<AskCard
-							asked={asked.attention}
-							recovery={recovery}
-							copy={(link) =>
-								navigator.clipboard.writeText(link).then(
-									() => true,
-									(error: unknown) => {
-										refuse("", "Link not copied", error);
-										return false;
-									},
-								)
-							}
-						/>
+						<AskCard asked={asked.attention} recovery={recovery} />
 					) : null
 				}
 			/>
@@ -451,15 +434,11 @@ function ChipFor({ tone }: { tone: Attention["tone"] }): JSX.Element {
 function AskCard({
 	asked,
 	recovery,
-	copy,
 }: {
 	asked: Attention;
 	recovery: ReactNode;
-	/** Puts the link on the clipboard, for pasting into another browser; false when it could not. */
-	copy: (link: string) => Promise<boolean>;
 }): JSX.Element {
 	const action = asked.action;
-	const [copied, setCopied] = useState(false);
 	return (
 		<div
 			role="status"
@@ -485,25 +464,6 @@ function AskCard({
 						{action.label}
 						{action.external && <ExternalLinkIcon />}
 					</a>
-				)}
-				{action?.external === true && (
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={() =>
-							copy(action.href).then((done) => {
-								if (!done) {
-									return;
-								}
-								setCopied(true);
-								setTimeout(() => setCopied(false), 2000);
-							})
-						}
-					>
-						{copied ? "Copied" : "Copy link"}
-						{copied ? <CheckIcon /> : <CopyIcon />}
-					</Button>
 				)}
 				{recovery}
 			</div>

@@ -30,6 +30,7 @@ export function approvalChange(
 	waiting: Ship["waiting"],
 	steps: ReleaseStep[],
 	now: string,
+	user: string | null = null,
 ): { waiting: ShipWait | null } | null {
 	const packages = awaitingApproval(steps);
 	const current = waiting?.kind === "approve" ? waiting : null;
@@ -44,9 +45,16 @@ export function approvalChange(
 	return {
 		waiting: {
 			kind: "approve",
-			url: packages[0]?.url ?? "",
+			url: stagedPackagesUrl(user) ?? packages[0]?.url ?? "",
 			since: current?.since ?? now,
 			packages,
 		},
 	};
+}
+
+/** The npm page that lists what `user` has staged, or null when who is signed in is unknown. */
+export function stagedPackagesUrl(user: string | null): string | null {
+	return user === null
+		? null
+		: `https://www.npmjs.com/settings/${encodeURIComponent(user)}/staged-packages`;
 }
