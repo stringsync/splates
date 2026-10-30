@@ -31,11 +31,13 @@ export function StageRow({
 	stage: Stage;
 	ship: Ship | null;
 	live: boolean;
-	/** Whether its log shows from the start, as a failed step's does. */
+	/** Whether its log shows from the start, as a failed step's does; a step under way shows it too. */
 	opened?: boolean;
 }): JSX.Element {
-	const [open, setOpen] = useState(opened);
 	const going = live && ONGOING.includes(stage.state);
+	// Until tapped, a step shows its log while it is the one under way.
+	const [tapped, setTapped] = useState<boolean | null>(null);
+	const open = tapped ?? (opened || going);
 	const now = useNow(going, SECOND);
 	const spent =
 		stage.started === null
@@ -48,7 +50,7 @@ export function StageRow({
 				type="button"
 				aria-expanded={open}
 				disabled={stage.log === null}
-				onClick={() => setOpen(!open)}
+				onClick={() => setTapped(!open)}
 				className={cn(
 					"flex flex-wrap items-center gap-x-2 text-left text-sm",
 					stage.state === "asking" && AMBER,
