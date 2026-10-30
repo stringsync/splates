@@ -75,7 +75,7 @@ import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
-import { UnsentContext } from "./unsent";
+import { PendingRow, UnsentContext } from "./unsent";
 import {
 	CompactionUI,
 	InterruptedUI,
@@ -162,7 +162,7 @@ function Conversation({
 		[refuseIn, id],
 	);
 	const thread = useThreadMessages(conversation, feed);
-	const { queued, asking, going } = thread;
+	const { queued, asking } = thread;
 	// Nothing to tell anyone: the next scroll tries again.
 	const onRead = useCallback(
 		(read: number) => void markRead(id, read).catch(() => {}),
@@ -176,6 +176,9 @@ function Conversation({
 		edit: editUnsent,
 	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
 	const unsent = useReactive(feed, (feed) => feed.unsent.get(id), ["changed"]);
+	const sending = useReactive(feed, (feed) => feed.sending.get(id), [
+		"changed",
+	]);
 	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const unsentActions = useMemo(
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
@@ -263,7 +266,7 @@ function Conversation({
 					queueKeyDown(event, runtime, {
 						queued,
 						running: conversation.status === "running",
-						pending: feed.unrecorded(id),
+						pending: sending !== undefined,
 						touch,
 						sendNow,
 						edit,
@@ -358,7 +361,6 @@ function Conversation({
 																					summary !== true && (!asking || typed)
 																				}
 																				stopping={stopping}
-																				going={going}
 																				mentions={mentions ?? undefined}
 																				references={references}
 																				commands={commands ?? undefined}
@@ -391,7 +393,6 @@ function Conversation({
 																								<Queued
 																									conversation={id}
 																									messages={queued}
-																									pending={feed.unrecorded(id)}
 																									edits={{
 																										onEdit: (index, message) =>
 																											void edit(index, message),
@@ -403,6 +404,9 @@ function Conversation({
 																									}}
 																								/>
 																							)}
+																						<PendingRow
+																							messages={sending ?? []}
+																						/>
 																						{conversation.ask !== null && (
 																							<AskPanel
 																								key={conversation.ask.id}

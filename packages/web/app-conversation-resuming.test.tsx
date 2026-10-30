@@ -32,7 +32,7 @@ describe("App's sending to a stopped conversation", () => {
 		testing.dispose();
 	});
 
-	it("shows each message to a stopped conversation at once while its agent resumes, those after the first as queued until the server has them", async () => {
+	it("holds each message to a stopped conversation in the pending row while its agent resumes, until the server has them", async () => {
 		await typeIn(box, "and the logout");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 		await typeIn(box, "and the signup");
@@ -42,7 +42,12 @@ describe("App's sending to a stopped conversation", () => {
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
-		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
+		// Both wait in the pending row, whichever way the server will place them.
+		expect(
+			within(view.getByRole("list", { name: "messages sending" })).getAllByRole(
+				"listitem",
+			),
+		).toHaveLength(2);
 		await testing.say(
 			conversation({
 				title: "Login",

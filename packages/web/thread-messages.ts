@@ -32,12 +32,8 @@ export function useThreadMessages(
 	feed: ConversationFeed,
 ): ThreadMessages {
 	const { id, status } = conversation;
-	// Only once the server says the agent works: a message still on its way
-	// has not reached a turn to cancel, nor yet holds its reply's place. It
-	// still anchors its turn atop the thread (`going`).
 	const running = status === "running";
 	const unsent = feed.unsent.get(id);
-	const going = (feed.sending.get(id) ?? []).some((each) => !each.queued);
 	// The last message is still being written while the agent works. An agent
 	// starting is coming back to answer a prompt, never to go on with the turn
 	// it last ended, which a lost connection may have cut short.
@@ -112,24 +108,12 @@ export function useThreadMessages(
 		// own, so the reply would mount afresh in its place and fade in again.
 		// It holds the work row already, so the
 		// agent's first move fills that row rather than putting one in its place.
-		// While the message is still on its way the place is held empty, so the
-		// turn anchors as it is sent but nothing says the agent works before
-		// the server does.
 		const prompt = said.at(-1);
 		const thread =
 			prompt?.role !== "user"
 				? liked
 				: !(running || starting || held !== null)
-					? going
-						? [
-								...liked,
-								{
-									id: String(said.length),
-									role: "assistant" as const,
-									content: [],
-								},
-							]
-						: liked
+					? liked
 					: [
 							...liked,
 							queuedReply(
@@ -159,16 +143,7 @@ export function useThreadMessages(
 				? []
 				: conversation.messages.filter((each) => each.queued);
 		const ended = conversation.resting === true ? rested(thread) : thread;
-		// Sent from the page, the server has yet to say when: queued since the
-		// page sent it.
-		const lastWaiting = waiting.at(-1);
-		const pendingAt = (feed.sending.get(conversation.id) ?? []).findLast(
-			(each) => each.queued,
-		)?.at;
-		const waitedOn =
-			lastWaiting?.at === null && pendingAt !== undefined
-				? { ...lastWaiting, at: new Date(pendingAt).toISOString() }
-				: lastWaiting;
+		const waitedOn = waiting.at(-1);
 		const lined =
 			waiting.length === 0
 				? ended
@@ -190,11 +165,7 @@ export function useThreadMessages(
 								conversation.id,
 							),
 							waitedOn,
-							// A message the page has yet to see recorded is still on its way.
-							(status === "stopped" || status === "failed") &&
-								lastWaiting?.at !== null
-								? id
-								: undefined,
+							status === "stopped" || status === "failed" ? id : undefined,
 						),
 					];
 		// What the server refused, after all of it, as it would go if sent again.
@@ -225,7 +196,6 @@ export function useThreadMessages(
 		conversation.resting,
 		writing,
 		running,
-		going,
 		shown,
 		feed,
 		unsent,
@@ -265,7 +235,6 @@ export function useThreadMessages(
 	const visible = useMemo(() => messages.slice(start), [messages, start]);
 	return {
 		running,
-		going,
 		writing,
 		queued,
 		messages: visible,
@@ -279,10 +248,8 @@ export function useThreadMessages(
 export interface ThreadMessages {
 	hasEarlier: boolean;
 	loadEarlier: () => Promise<void>;
-	/** Whether the agent is at work, or a message is on its way to it. */
+	/** Whether the agent is at work. */
 	running: boolean;
-	/** Whether a message just sent is on its way, before the server says the agent works. */
-	going: boolean;
 	/** Whether the last message is still being written. */
 	writing: boolean;
 	/** What waits for the turn's end, above the composer while it runs. */

@@ -88,6 +88,48 @@ export function SendingLine({ since }: { since: number | null }): JSX.Element {
 }
 
 /**
+ * Above the composer, the messages said to the conversation that its server
+ * has yet to record, in the order said, dimmed with their Sending line. They
+ * wait here whichever way the server places them, and its own copy of each
+ * appears where it puts it.
+ */
+export function PendingRow({
+	messages,
+}: {
+	messages: readonly Sending[];
+}): JSX.Element | null {
+	if (messages.length === 0) {
+		return null;
+	}
+	return (
+		<ul
+			aria-label="messages sending"
+			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2 opacity-70"
+		>
+			{messages.map((message) => (
+				<li key={message.id} className="flex items-center gap-2 pr-1 pl-2">
+					{message.images.map((image) => (
+						<img
+							key={image.name}
+							src={image.url}
+							alt=""
+							className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
+						/>
+					))}
+					<span className="min-w-0 flex-1 truncate text-sm">
+						{message.text ||
+							[...message.images, ...message.files]
+								.map((each) => each.name)
+								.join(", ")}
+					</span>
+					<SendingLine since={message.at} />
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
  * Under a message the server refused, the `at`th: that it was not sent, why
  * on hover, and a way to send it again or back to the composer.
  */

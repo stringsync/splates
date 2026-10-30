@@ -1,7 +1,4 @@
-import type {
-	ConversationState,
-	Taking,
-} from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	type ConversationDelta,
 	ConversationUpdates,
@@ -26,7 +23,7 @@ import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
 import type { PageCopy } from "./page-copy";
-import { forget, messageOf, type Sending, type Unsent } from "./sending";
+import { forget, type Sending, type Unsent } from "./sending";
 import { repeats } from "./summary-repeats";
 
 export { type AgentChoice, agentName } from "./agent-choice";
@@ -344,16 +341,10 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `text` and `files` as said in conversation `id` before its server
-	 * records them, which waits on the way there and, while the agent starts
-	 * or resumes, until it is up, so the thread does not sit as it was
-	 * meanwhile. Said while a turn runs, or behind another on its way, it shows
-	 * as queued, as the server records it unless the agent takes it into the
-	 * turn, when its echo moves it into the thread. Each goes once the server
-	 * has recorded a message with its id, whatever else it records meanwhile,
-	 * or `refused` keeps it as unsent. The files show from the page's own, as the server
-	 * has yet to keep them. `typed` is the text as the person wrote it, before
-	 * the notes on its images were added.
+	 * Say `text` and `files` to conversation `id`: the thread shows them in a
+	 * pending row until the server records a message with the returned id, and
+	 * `refused` keeps one the server turns down as unsent. `typed` is the text
+	 * as the person wrote it, before the notes on its images were added.
 	 */
 	send(
 		id: string,
@@ -362,48 +353,27 @@ export class ConversationFeed
 		typed = text,
 		dictated = false,
 	): Sending {
+		// The files show from the page's own copies, as the server has yet to keep them.
 		const kept = files.map((file) => ({
 			name: file.name,
 			title: file.name,
 			mimeType: file.type,
 			url: URL.createObjectURL(file),
 		}));
-		const sending = this.sending.get(id);
 		const message = {
 			id: this.ids.next(),
 			text,
 			images: kept.filter((each) => SEEN.includes(each.mimeType)),
 			files: kept.filter((each) => !SEEN.includes(each.mimeType)),
-			queued: this.placed(id) === "queue" || sending !== undefined,
 			typed,
 			attached: files,
 			dictated,
 			at: this.wall.now(),
 		};
-		if (sending === undefined) {
-			this.sending.set(id, [message]);
-		} else {
-			sending.push(message);
-		}
+		// Replaced, never changed in place, so a page watching it sees it change.
+		this.sending.set(id, [...(this.sending.get(id) ?? []), message]);
 		this.show(this.recorded);
 		return message;
-	}
-
-	/**
-	 * Where a message said now to conversation `id` would go, as the server
-	 * last said it will take one. Every place a message is put asks here, so
-	 * what decides it stays in one spot.
-	 */
-	private placed(id: string): Taking {
-		return this.recorded.find((each) => each.id === id)?.taking ?? "start";
-	}
-
-	/**
-	 * How many of conversation `id`'s queued messages are still on their way,
-	 * the last ones: the server has nothing of them to take back yet.
-	 */
-	unrecorded(id: string): number {
-		return (this.sending.get(id) ?? []).filter((each) => each.queued).length;
 	}
 
 	/**
@@ -458,14 +428,15 @@ export class ConversationFeed
 
 	/** Takes `message` off conversation `id`'s on their way; false when it was not. */
 	private withdraw(id: string, message: Sending): boolean {
-		const sending = this.sending.get(id);
-		const at = sending?.indexOf(message) ?? -1;
-		if (sending === undefined || at === -1) {
+		const sending = this.sending.get(id) ?? [];
+		if (!sending.includes(message)) {
 			return false;
 		}
-		sending.splice(at, 1);
-		if (sending.length === 0) {
+		const left = sending.filter((each) => each !== message);
+		if (left.length === 0) {
 			this.sending.delete(id);
+		} else {
+			this.sending.set(id, left);
 		}
 		return true;
 	}
@@ -479,33 +450,36 @@ export class ConversationFeed
 	private show(recorded: ConversationState[]): void {
 		this.draws.cancel();
 		this.recorded = recorded;
-		this.conversations = recorded.map((each) => this.withSending(each));
+		this.conversations = recorded;
+		this.release(recorded);
 		this.history.remember(recorded);
 		this.dispatcher.dispatch("changed");
 	}
 
-	/** `each` with its messages on their way said after its own. */
-	private withSending(each: ConversationState): ConversationState {
-		const sending = this.sending.get(each.id);
-		if (sending === undefined) {
-			return each;
+	/**
+	 * Lets go of the messages on their way that `recorded` now holds. Matched
+	 * by id, so what others said meanwhile, as `splates tell` or another
+	 * device, never stands in for one.
+	 */
+	private release(recorded: ConversationState[]): void {
+		for (const each of recorded) {
+			const sending = this.sending.get(each.id);
+			if (sending === undefined) {
+				continue;
+			}
+			const kept = new Set(each.messages.map((message) => message.id));
+			const left = sending.filter((message) => !kept.has(message.id));
+			sending
+				.filter((message) => kept.has(message.id))
+				.forEach((message) => {
+					forget(message);
+				});
+			if (left.length === 0) {
+				this.sending.delete(each.id);
+			} else {
+				this.sending.set(each.id, left);
+			}
 		}
-		// Its own copies by id, so what others said meanwhile, as an
-		// `splates tell` or another device, never stands in for one.
-		const kept = new Set(each.messages.map((message) => message.id));
-		const left = sending.filter((message) => !kept.has(message.id));
-		for (const message of sending.filter((each) => kept.has(each.id))) {
-			forget(message);
-		}
-		if (left.length === 0) {
-			this.sending.delete(each.id);
-			return each;
-		}
-		this.sending.set(each.id, left);
-		return {
-			...each,
-			messages: [...each.messages, ...left.map((copy) => messageOf(copy))],
-		};
 	}
 
 	/** Opens the stream again now and lists afresh, as when the person asks. */

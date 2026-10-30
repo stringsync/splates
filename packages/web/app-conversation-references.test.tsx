@@ -5,6 +5,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	newWith,
 	snapshot,
 	Testing,
@@ -280,6 +281,19 @@ describe("App's composer references", () => {
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: `see #${id}` } },
 			]),
+		);
+		// The link is drawn from the server's copy, in the thread.
+		await testing.say(
+			conversation({
+				id: "c1",
+				name: "Current thread",
+				messages: [
+					{
+						...message("user", `see #${id}`),
+						id: testing.sentId("c1", `see #${id}`),
+					},
+				],
+			}),
 		);
 		await waitFor(() =>
 			expect(

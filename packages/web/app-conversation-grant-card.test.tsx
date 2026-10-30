@@ -21,6 +21,19 @@ describe("App's grant card", () => {
 		testing.dispose();
 	});
 
+	/** Has the server record the note the page sent, as it does once it has it. */
+	async function echo(text: string): Promise<void> {
+		await testing.say(
+			conversation({
+				title: "Cart",
+				messages: [
+					ask,
+					{ ...message("user", text), id: testing.sentId("c1", text) },
+				],
+			}),
+		);
+	}
+
 	const ask = message(
 		"agent",
 		"## 🔐 Permission: grant shop tasks to splates: run the cart lane\n\nIts lane holds ours up.",
@@ -47,6 +60,7 @@ describe("App's grant card", () => {
 				.filter((post) => post.path.startsWith("/api/projects/shop/grants"))
 				.map((post) => [post.method, JSON.parse(String(post.body))]),
 		).toEqual([["PUT", { from: "splates", reach: "tasks" }]]);
+		await echo("[SPLATES GRANTED]");
 		expect(view.getByText("Granted splates tasks in shop")).toBeTruthy();
 	});
 
@@ -67,6 +81,7 @@ describe("App's grant card", () => {
 		expect(
 			testing.posts.filter((post) => post.path.includes("/grants")),
 		).toEqual([]);
+		await echo("[SPLATES GRANT DENIED]");
 		expect(view.getByText("Denied splates tasks in shop")).toBeTruthy();
 	});
 

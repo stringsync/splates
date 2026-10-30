@@ -50,6 +50,25 @@ describe("App's run evals card", () => {
 				},
 			]),
 		);
+		// The card folds once the server has the note.
+		await testing.say(
+			conversation({
+				title: "Evals",
+				messages: [
+					...asking.messages,
+					{
+						...message(
+							"user",
+							"[SPLATES RUN DENIED]\n\n> **Anything else?**\n\nToo costly today.",
+						),
+						id: testing.sentId(
+							"c1",
+							"[SPLATES RUN DENIED]\n\n> **Anything else?**\n\nToo costly today.",
+						),
+					},
+				],
+			}),
+		);
 		await waitFor(() => expect(view.getByText("Evals rejected")).toBeTruthy());
 	});
 

@@ -67,7 +67,7 @@ describe("ConversationFeed", () => {
 		stream?.onmessage?.({ data: JSON.stringify(state) });
 	}
 
-	it("merges streamed deltas over its wire copy while retaining optimistic messages", async () => {
+	it("merges streamed deltas over its wire copy while holding a message on its way apart", async () => {
 		feed.start();
 		await list([]);
 		const state = conversation({
@@ -75,7 +75,7 @@ describe("ConversationFeed", () => {
 		});
 		say(state);
 		const unchanged = feed.conversations[0]?.messages[0];
-		feed.send("c1", "pending");
+		const sent = feed.send("c1", "pending");
 		state.messages[1]?.parts.push({ type: "text", text: " more" });
 		stream?.named.get("delta")?.({
 			data: JSON.stringify({
@@ -88,7 +88,8 @@ describe("ConversationFeed", () => {
 		timer.fireTimeouts();
 		expect(feed.conversations[0]?.messages[0]).toBe(unchanged);
 		expect(feed.conversations[0]?.messages[1]).toEqual(state.messages[1]);
-		expect(feed.conversations[0]?.messages).toHaveLength(3);
+		expect(feed.conversations[0]?.messages).toHaveLength(2);
+		expect(feed.sending.get("c1")).toEqual([sent]);
 	});
 
 	it("draws streamed deltas together, each still applied to the one before", async () => {
@@ -140,9 +141,8 @@ describe("ConversationFeed", () => {
 		expect(feed.unsent.get("c1")).toEqual([
 			{ message: refused, why: "not now" },
 		]);
-		expect(feed.conversations[0]?.messages).toEqual([
-			expect.objectContaining({ queued: true }),
-		]);
+		expect(feed.conversations[0]?.messages).toEqual([]);
+		expect(feed.sending.get("c1")).toEqual([second]);
 		say({
 			...idle,
 			status: "running",
@@ -151,30 +151,8 @@ describe("ConversationFeed", () => {
 
 		expect(feed.sending.has("c1")).toBe(false);
 		expect(feed.conversations[0]?.messages).toHaveLength(1);
-		expect(second.queued).toBe(true);
 		feed.take("c1", refused);
 		expect(feed.unsent.has("c1")).toBe(false);
-	});
-
-	it("places a message by how the server says it will take one, as the server changes its mind", async () => {
-		const running = conversation({
-			status: "running",
-			taking: "steer",
-			messages: [message("user", "go")],
-		});
-		feed.start();
-		await list([running]);
-
-		const steered = feed.send("c1", "now");
-		say({ ...running, taking: "queue" });
-		const queued = feed.send("c1", "later");
-		say({ ...running, taking: "start" });
-		const started = feed.send("c1", "then");
-
-		expect(steered.queued).toBe(false);
-		expect(queued.queued).toBe(true);
-		// Behind a message on its way, whatever the server says.
-		expect(started.queued).toBe(true);
 	});
 
 	it("keeps a message on its way while the server records one told, and drops it once its own copy comes", async () => {
@@ -197,9 +175,8 @@ describe("ConversationFeed", () => {
 		expect(feed.conversations[0]?.messages).toEqual([
 			message("user", "go"),
 			told,
-			expect.objectContaining({ id: sent.id, queued: true }),
 		]);
-		expect(feed.unrecorded("c1")).toBe(1);
+		expect(feed.sending.get("c1")).toEqual([sent]);
 
 		const recorded = {
 			...message("user", "and the logout"),
@@ -209,7 +186,6 @@ describe("ConversationFeed", () => {
 		say({ ...running, messages: [...running.messages, told, recorded] });
 
 		expect(feed.sending.has("c1")).toBe(false);
-		expect(feed.unrecorded("c1")).toBe(0);
 		expect(feed.conversations[0]?.messages).toEqual([
 			message("user", "go"),
 			told,

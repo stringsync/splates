@@ -18,8 +18,6 @@ export interface Sending {
 	text: string;
 	images: Image[];
 	files: Attached[];
-	/** Whether it waits for the running turn's end, as the server will record it. */
-	queued: boolean;
 	/** What the person wrote and attached, to send again or take back. */
 	typed: string;
 	attached: File[];
@@ -50,7 +48,6 @@ export function messageOf(message: Sending): Message {
 		plan: null,
 		at: null,
 		until: null,
-		...(message.queued ? { queued: true as const } : {}),
 		sending: message.at,
 		...(message.dictated ? { dictated: true as const } : {}),
 	};

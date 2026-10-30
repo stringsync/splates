@@ -5,6 +5,7 @@ import {
 	cleanup,
 	conversation,
 	fireEvent,
+	message,
 	newWith,
 	Testing,
 	textIn,
@@ -46,10 +47,24 @@ describe("App's new conversation, held in its composer until the server answers"
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await waitFor(() =>
-			expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy(),
+			expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(1),
+		);
+		// Named once the server has the message, which waits in the pending row.
+		expect(view.getByRole("list", { name: "messages sending" })).toBeTruthy();
+		await testing.say(
+			conversation({
+				id: "c9",
+				status: "running",
+				messages: [
+					{
+						...message("user", "fix the login"),
+						id: testing.sentId("c9", "fix the login"),
+					},
+				],
+			}),
 		);
 		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(1),
+			expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy(),
 		);
 	});
 

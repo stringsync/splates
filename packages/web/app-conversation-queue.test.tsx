@@ -283,7 +283,7 @@ describe("App's composer queue", () => {
 		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(3);
 	});
 
-	it("shows a message sent mid-turn in the panel at once without sending the queue", async () => {
+	it("shows a message sent mid-turn in the pending row, apart from the queue, without sending the queue", async () => {
 		const view = await testing.openConversations([working], "c1");
 		await type(view, "more");
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
@@ -294,10 +294,9 @@ describe("App's composer queue", () => {
 			within(queued)
 				.getAllByRole("listitem")
 				.map((each) => each.textContent),
-		).toEqual([
-			expect.stringContaining("the second note"),
-			expect.stringContaining("more"),
-		]);
+		).toEqual([expect.stringContaining("the second note")]);
+		const pending = view.getByRole("list", { name: "messages sending" });
+		expect(within(pending).getByText("more")).toBeTruthy();
 		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
 	});
 

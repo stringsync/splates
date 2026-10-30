@@ -6,6 +6,7 @@ import {
 	cleanup,
 	conversation,
 	fireEvent,
+	message,
 	Testing,
 	textIn,
 	typeIn,
@@ -471,7 +472,19 @@ describe("App's composer mic", () => {
 				testing.posted(`/api/conversations/${talk.id}/prompt`),
 			).toMatchObject([{ body: { dictated: "true" } }]),
 		);
-		expect(view.getByRole("img", { name: "Dictated" })).toBeTruthy();
+		// The mic shows on the server's copy of it, in the thread.
+		const [sent] = testing.posted(`/api/conversations/${talk.id}/prompt`);
+		await testing.say({
+			...talk,
+			messages: [
+				{
+					...message("user", String(sent?.body.text)),
+					dictated: true,
+					id: testing.sentId(talk.id, String(sent?.body.text)),
+				},
+			],
+		});
+		expect(await view.findByRole("img", { name: "Dictated" })).toBeTruthy();
 	});
 
 	it("sends a message typed after the dictated one, or over a take emptied by hand, as typed", async () => {

@@ -18,19 +18,15 @@ import {
 } from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
 import { useExpect, usePendingConversation } from "./expecting";
-import { SendingLine } from "./unsent";
 
 /** What waits for a running turn's end, above the composer. */
 export function Queued({
 	conversation,
 	messages,
-	pending,
 	edits,
 }: {
 	conversation: string;
 	messages: Message[];
-	/** How many of `messages`, the last ones, the server has yet to record. */
-	pending: number;
 	edits: {
 		onEdit: (index: number, message: Message) => void;
 		onDiscard: (index: number) => void;
@@ -88,9 +84,6 @@ export function Queued({
 							: sent === 1
 								? (files[0]?.title ?? "a file")
 								: `${sent} files`);
-					// Still on its way while the agent starts: the server has nothing
-					// to take back yet.
-					const unrecorded = index >= messages.length - pending;
 					return (
 						<li
 							// Only ever added at the end and taken from anywhere, but
@@ -113,9 +106,6 @@ export function Queued({
 							<span className="min-w-0 flex-1 truncate text-sm">
 								<Directed text={rest} />
 							</span>
-							{message.sending !== undefined && (
-								<SendingLine since={message.sending} />
-							)}
 							{edits !== null && (
 								<>
 									<Button
@@ -123,7 +113,6 @@ export function Queued({
 										variant="outline"
 										className="pointer-coarse:size-10"
 										aria-label={`Edit ${label}`}
-										disabled={unrecorded}
 										onClick={() => edits.onEdit(index, message)}
 									>
 										<PencilIcon />
@@ -133,7 +122,7 @@ export function Queued({
 										variant="outline"
 										className="pointer-coarse:size-10"
 										aria-label={`Discard ${label}`}
-										disabled={unrecorded || edits.busy}
+										disabled={edits.busy}
 										onClick={() => edits.onDiscard(index)}
 									>
 										<Trash2Icon />
@@ -228,7 +217,8 @@ export function queueKeyDown(
 	}: {
 		queued: Message[];
 		running: boolean;
-		pending: number;
+		/** A message of the person's is still on its way, behind what is queued. */
+		pending: boolean;
 		touch: boolean;
 		sendNow: () => void;
 		edit: QueueEdits["edit"];
@@ -255,7 +245,7 @@ export function queueKeyDown(
 		box.getAttribute("aria-label") === "Message input" &&
 		runtime.thread.composer.getState().text === "" &&
 		last !== undefined &&
-		pending === 0
+		!pending
 	) {
 		event.preventDefault();
 		void edit(queued.length - 1, last);

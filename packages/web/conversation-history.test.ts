@@ -114,7 +114,7 @@ describe("Complete conversation reads", () => {
 	});
 
 	// scry-ignore simple-test-setup: these transitions are unique to testing pending state over a retained complete body
-	it("keeps pending writes held and sends visible over retained history during refresh", async () => {
+	it("keeps pending writes held and sends apart over retained history during refresh", async () => {
 		const old = conversation({ messages: [message("agent", "Old answer")] });
 		feed.put(old);
 		feed.put(listed({ ...old, title: "Refreshed title" }));
@@ -132,12 +132,10 @@ describe("Complete conversation reads", () => {
 			{
 				title: "Refreshed title",
 				pinned: false,
-				messages: [
-					old.messages[0],
-					{ id: sending.id, parts: [{ type: "text", text: "New prompt" }] },
-				],
+				messages: old.messages,
 			},
 		]);
+		expect(feed.sending.get("c1")).toEqual([sending]);
 		expect(feed.pending("c1")).toBe(true);
 		feed.refused("c1", sending, new Error("Not sent"));
 		expect(

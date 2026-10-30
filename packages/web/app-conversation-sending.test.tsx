@@ -102,11 +102,8 @@ describe("App's sending messages", () => {
 		);
 		const thread = view.getByRole("region", { name: "first note" });
 		expect(within(thread).getAllByText("first note")).toHaveLength(1);
-		expect(within(thread).getAllByText("second note")).toHaveLength(1);
-		const queued = within(thread).getByRole("region", {
-			name: "queued messages",
-		});
-		expect(within(queued).getByText("second note")).toBeTruthy();
+		const pending = view.getByRole("list", { name: "messages sending" });
+		expect(within(pending).getByText("second note")).toBeTruthy();
 	});
 
 	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
@@ -167,17 +164,11 @@ describe("App's sending messages", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		const thread = await waitFor(() =>
-			view.getByRole("region", { name: "fix the login" }),
+		// The message waits in the pending row, the thread yet to have it.
+		const pending = await waitFor(() =>
+			view.getByRole("list", { name: "messages sending" }),
 		);
-		// The message, and its title in the page's bar.
-		expect(within(thread).getByText("fix the login")).toBeTruthy();
-		expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy();
-		expect(
-			within(view.getByRole("navigation", { name: "conversations" })).getByText(
-				"fix the login",
-			),
-		).toBeTruthy();
+		expect(within(pending).getByText("fix the login")).toBeTruthy();
 
 		await testing.say(
 			conversation({
@@ -192,12 +183,16 @@ describe("App's sending messages", () => {
 			}),
 		);
 
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "fix the login" }),
+		);
 		await waitFor(() =>
 			expect(
 				within(thread).getByRole("button", { name: "Stop generating" }),
 			).toBeTruthy(),
 		);
 		expect(within(thread).getByText("fix the login")).toBeTruthy();
+		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
 		expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy();
 	});
 
@@ -213,15 +208,11 @@ describe("App's sending messages", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		const thread = await waitFor(() =>
-			view.getByRole("region", { name: "[Image 1]" }),
+		const pending = await waitFor(() =>
+			view.getByRole("list", { name: "messages sending" }),
 		);
-		await waitFor(() =>
-			expect(
-				within(thread)
-					.getByRole("button", { name: "Image 1" })
-					.getAttribute("title"),
-			).toBe("shot.png"),
+		expect(pending.querySelector("img")?.getAttribute("src")).toStartWith(
+			"blob:",
 		);
 
 		await testing.say(
@@ -240,11 +231,10 @@ describe("App's sending messages", () => {
 
 		await waitFor(() =>
 			expect(
-				within(thread)
-					.getByRole("button", { name: "Image 1" })
-					.getAttribute("title"),
+				view.getByRole("button", { name: "Image 1" }).getAttribute("title"),
 			).toBe("ab12.png"),
 		);
+		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
 	});
 
 	it("shows a message to a stopped conversation in its thread while its agent resumes, then as the server has it", async () => {
@@ -258,14 +248,13 @@ describe("App's sending messages", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		await waitFor(() =>
-			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		const pending = await waitFor(() =>
+			view.getByRole("list", { name: "messages sending" }),
 		);
+		expect(within(pending).getAllByText("and the logout")).toHaveLength(1);
 		expect(thread.textContent).toContain("Done.");
-		// Pending, with nothing saying the agent works before the server does.
-		expect(
-			within(thread).getByText("and the logout").closest("[aria-busy=true]"),
-		).toBeTruthy();
+		// Nothing in the thread, or saying the agent works, before the server does.
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 		expect(within(thread).queryByText(/^Working/)).toBeNull();
 
 		await testing.say(
@@ -392,7 +381,13 @@ describe("App's sending messages", () => {
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(2);
 		expect(within(thread).queryByText("Couldn't send")).toBeNull();
-		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(1);
+		// On its way again, apart from the thread until the server has it.
+		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
+		expect(
+			within(view.getByRole("list", { name: "messages sending" })).getByText(
+				"and the logout",
+			),
+		).toBeTruthy();
 	});
 
 	/** Says "and the logout" to a running conversation whose server will take it as `taking`. */
@@ -411,17 +406,20 @@ describe("App's sending messages", () => {
 		return view;
 	}
 
-	it("shows a message sent mid-turn above the composer at once when the server will queue it", async () => {
+	it("shows a message sent mid-turn in the pending row above the composer, not the queue, when the server will queue it", async () => {
 		const view = await sayMidTurn("queue");
 
-		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).getAllByText("and the logout")).toHaveLength(1);
+		const pending = view.getByRole("list", { name: "messages sending" });
+		expect(within(pending).getAllByText("and the logout")).toHaveLength(1);
+		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
 		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
 	});
 
-	it("shows a message sent mid-turn in the thread at once when the server will steer it in", async () => {
+	it("shows a message sent mid-turn in the same pending row when the server will steer it in", async () => {
 		const view = await sayMidTurn("steer");
 
+		const pending = view.getByRole("list", { name: "messages sending" });
+		expect(within(pending).getAllByText("and the logout")).toHaveLength(1);
 		expect(view.getAllByText("and the logout")).toHaveLength(1);
 		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
 	});
@@ -602,10 +600,12 @@ describe("App's sending messages", () => {
 				body: { text: "[SPLATES RECONNECT]" },
 			},
 		]);
-		// Shown as said at once, so the button goes before the server echoes it.
+		// Shown as sending, apart from the thread until the server echoes it.
 		expect(
-			within(thread).queryByRole("button", { name: "Reconnect" }),
-		).toBeNull();
+			within(view.getByRole("list", { name: "messages sending" })).getByText(
+				"[SPLATES RECONNECT]",
+			),
+		).toBeTruthy();
 	});
 
 	it("leaves the turn a lost connection cut short as it ended while the agent comes back", async () => {

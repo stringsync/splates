@@ -4,7 +4,6 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { ApiError, answered, scoped } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
 import { LANDED } from "./landed-outcomes";
-import { messageOf } from "./sending";
 
 /** Complete history kept across refreshes, and the selected histories being read. */
 export class ConversationHistory
@@ -36,12 +35,7 @@ export class ConversationHistory
 		const { summary: _, ...latest } = state;
 		return {
 			...latest,
-			messages: [
-				...kept.messages,
-				...(this.feed.sending.get(state.id) ?? []).map((each) =>
-					messageOf(each),
-				),
-			],
+			messages: kept.messages,
 			events: kept.events,
 			// An archived listing leaves these out, though it was read whole.
 			...(state.archived

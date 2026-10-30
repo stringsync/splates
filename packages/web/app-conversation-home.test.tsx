@@ -7,6 +7,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	newWith,
 	pick,
 	Testing,
@@ -174,7 +175,24 @@ describe("App's conversation home", () => {
 			]),
 		);
 		expect(location.hash).toBe("#conversations/c9");
-		expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy();
+		// Named once the server has the message, which waits in the pending row.
+		await testing.say(
+			conversation({
+				id: "c9",
+				agent: "codex",
+				task: null,
+				status: "running",
+				messages: [
+					{
+						...message("user", "fix the login"),
+						id: testing.sentId("c9", "fix the login"),
+					},
+				],
+			}),
+		);
+		expect(
+			await waitFor(() => view.getByRole("region", { name: "fix the login" })),
+		).toBeTruthy();
 	});
 
 	it("keeps a setting picked on the home composer as the agent's default at once, with nothing sent", async () => {
