@@ -87,6 +87,29 @@ describe("Conversation move", () => {
 		await reread.disposeAsync();
 	});
 
+	it("stops at the end of the turn that left its worktree, and resumes in the main tree", async () => {
+		const release = Promise.withResolvers<void>();
+		agent.turn = async () => {
+			await release.promise;
+			return "end_turn";
+		};
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await conversation.prompt("merge it");
+		await until(conversation, "running");
+
+		conversation.move(null, "/repo");
+		release.resolve();
+		await until(conversation, "stopped");
+
+		agent.turn = async () => "end_turn";
+		await conversation.prompt("go on");
+		await until(conversation, "idle");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
+	});
+
 	it("resumes in the main tree once its task's worktree is gone", async () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();

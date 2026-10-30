@@ -72,6 +72,8 @@ export class Conversation
 	opening: Promise<void> | null = null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
 	private resting: Resource | null = null;
+	/** Set when it left its task's worktree mid-turn: stop once the turn ends. */
+	private leftWorktree = false;
 	/** Says `[SPLATES RECONNECT]` once its wait is up; null while none is due. */
 	private reconnecting: Resource | null = null;
 	/** How many times in a row it has reconnected by itself. */
@@ -649,6 +651,14 @@ export class Conversation
 		base: string | null = null,
 		caller: string | null = null,
 	): void {
+		// A running session keeps the directory it opened in, which a merge
+		// deletes under it. At the turn's end it stops, so the next prompt
+		// resumes in the new one.
+		this.leftWorktree =
+			task === null &&
+			this.dir !== cwd &&
+			this.state.status === "running" &&
+			this.agent?.id !== "opencode";
 		this.dir = cwd;
 		this.log.write({ kind: "task", task, cwd, base, caller });
 		this.set({
@@ -1156,6 +1166,10 @@ export class Conversation
 		}
 		Object.assign(this.state, next);
 		this.changed();
+		if (next.status === "idle" && this.leftWorktree) {
+			this.leftWorktree = false;
+			void this.stop().then(() => this.set({ stoppedIdle: this.now() }));
+		}
 		// An agent that asks on a worker already draining lets its place go too,
 		// and one whose turn ends on a worker being replaced moves off it.
 		if (next.ask != null && this.grant?.drains() === true) {
