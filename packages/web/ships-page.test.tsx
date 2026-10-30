@@ -27,7 +27,7 @@ describe("ShipsPage", () => {
 		globalThis.EventSource = realEventSource;
 	});
 
-	it("shows streamed stages and offers Retry and Abandon on a stopped ship", async () => {
+	it("shows streamed stages and offers Retry and Close on a stopped ship", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
 			constructor() {
@@ -52,7 +52,8 @@ describe("ShipsPage", () => {
 		expect(view.queryByRole("button", { name: "Start" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "Retry" }));
 		await waitFor(() => expect(posts).toContain("POST /api/ship/steps/retry"));
-		fireEvent.click(view.getByRole("button", { name: "Abandon" }));
+		window.confirm = () => true;
+		fireEvent.click(view.getByRole("button", { name: "Close" }));
 		await waitFor(() =>
 			expect(posts).toContain("POST /api/ship/steps/abandon"),
 		);

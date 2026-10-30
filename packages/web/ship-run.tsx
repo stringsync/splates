@@ -18,8 +18,8 @@ import { StageRow } from "./ship-stages";
 /**
  * A ship under way, or one that stopped: a stage per project in the order
  * they go, every step of each checked off as it ends, and what waits on the
- * person, or why it stopped, in the dock beneath them. Abandon ends a run
- * under way; Close puts away one that stopped.
+ * person, or why it stopped, in the dock beneath them. Close puts away a run
+ * that ended, and abandons one still going after asking.
  */
 export function ShipRun({
 	cascade,
@@ -49,15 +49,32 @@ export function ShipRun({
 	};
 	const running = cascade.status === "running";
 	const held = cascade.steps.find((step) => HELD.includes(step.status));
-	const abandon = () => {
-		if (abandonRun === undefined) {
+	const live = running || cascade.status === "stopped";
+	// One way out: a run still going is abandoned after an "are you sure".
+	const close = () => {
+		if (!live) {
+			onClose();
+			return;
+		}
+		if (
+			abandonRun === undefined ||
+			!window.confirm(
+				"Abandon this ship? What already published stays published.",
+			)
+		) {
 			return;
 		}
 		setAbandoning(true);
-		abandonRun().then(askMachineNow, (error: unknown) => {
-			setAbandoning(false);
-			refuse("", "Not abandoned", error);
-		});
+		abandonRun().then(
+			() => {
+				askMachineNow();
+				onClose();
+			},
+			(error: unknown) => {
+				setAbandoning(false);
+				refuse("", "Not abandoned", error);
+			},
+		);
 	};
 	const through = cascade.steps.filter(
 		(step) => step.status === "done" || step.status === "dropped",
@@ -111,27 +128,18 @@ export function ShipRun({
 					{through} of {cascade.steps.length}
 				</span>
 				{asked === null ? null : <ChipFor tone={asked.attention.tone} />}
-				{running || cascade.status === "stopped" ? (
-					<Button
-						size="xs"
-						variant="ghost"
-						className="ml-auto pointer-coarse:min-h-11"
-						disabled={acting || abandoning || abandonRun === undefined}
-						title="Ends the ship; what published stays published"
-						onClick={abandon}
-					>
-						Abandon
-					</Button>
-				) : (
-					<Button
-						size="xs"
-						variant="ghost"
-						className="ml-auto pointer-coarse:min-h-11"
-						onClick={onClose}
-					>
-						Close
-					</Button>
-				)}
+				<Button
+					size="xs"
+					variant="ghost"
+					className="ml-auto pointer-coarse:min-h-11"
+					disabled={acting || abandoning}
+					title={
+						live ? "Ends the ship; what published stays published" : undefined
+					}
+					onClick={close}
+				>
+					Close
+				</Button>
 			</div>
 			<Refusal refusal={refusals.get("") ?? null} />
 			<ShipJobs

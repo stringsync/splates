@@ -125,7 +125,10 @@ function ActiveShip({
 		<ShipRun
 			cascade={live.cascade}
 			ship={live.ship}
-			onClose={() => onClose(live.cascade?.id ?? null)}
+			onClose={() => {
+				onClose(live.cascade?.id ?? null);
+				location.hash = "ships";
+			}}
 			abandon={() => act("abandon")}
 			retry={() => act("retry")}
 			agent={() => act("agent")}
