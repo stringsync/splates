@@ -11,12 +11,8 @@ export const MERGE_BATCH_CAP = 4;
 export const STACK_REPLY_MS = 30_000;
 
 /**
- * How merges waiting for the premerge lock gate as one batch: each posts an
- * offer in the project's `merge-batch` collection while it waits, the one
- * that takes the lock leads, inviting the others in the order they came to
- * stack their branches on its tip, and each follower reads its result there
- * once the batch's gate has run. Every record is the task's own, named for
- * it, so two processes never write one.
+ * Lets merges waiting for the premerge lock land on one gate run. The merge
+ * that takes the lock leads; the others follow and read their result here.
  */
 export class MergeBatch {
 	private readonly pollMs: number;
@@ -258,7 +254,7 @@ export type BatchResult =
 			kind: "failed";
 			attribution: FailureAttribution;
 			failedTests: FailedTest[];
-			/** The end of what the batch's gate printed. */
+			/** What the batch gate printed. */
 			output: string;
 			exitCode: number;
 			/** The commit the follower's branch was stacked on when it was gated. */

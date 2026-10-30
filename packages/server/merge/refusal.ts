@@ -8,6 +8,12 @@ import type { MergeState } from "./merge-state";
 import { failedTests } from "./test-report";
 
 const TAIL_LINES = 40;
+/** How many lines of a failing gate's output a refusal shows whole. */
+const SHOWN_LINES = 400;
+/** How many characters of them, since one line can run long. */
+const SHOWN_CHARS = 40_000;
+/** The lines kept from the start of an output too long to show whole. */
+const HEAD_LINES = 100;
 
 /** What a failing gate said and ran on, as `refuseTestsFailed` reports it. */
 export interface GateFailed {
@@ -18,8 +24,10 @@ export interface GateFailed {
 	cwd: string;
 	/** The gate's command, named in the refusal. */
 	command: string;
-	/** The gate's whole output; its tail is printed. */
+	/** The gate's whole output, printed whole up to a cap. */
 	output: string;
+	/** The file holding all of it, when the gate printed to one. */
+	log?: string;
 	exitCode: number;
 	/** The failing cases of its JUnit report, for what landed since. */
 	failing: FailedTest[];
@@ -84,7 +92,7 @@ export async function refuseTestsFailed(
 	fail(
 		"tests_failed",
 		[
-			tail(output),
+			shown(output, failed.log),
 			"",
 			`\`${failed.command}\` failed after rebasing onto ${base} (exit ${failed.exitCode}).`,
 			...(batch === undefined
@@ -94,6 +102,11 @@ export async function refuseTestsFailed(
 				: [
 						`It was gated in one batch with ${batch.tasks.filter((each) => each !== task).join(", ")}, stacked on ${base}@${failed.onto.slice(0, 8)}${taskFailed ? `, and the failing files first fail with ${task}'s commits in the stack` : ""}.`,
 						`${base} is untouched and ${branch} is now rebased onto ${base}@${failed.onto.slice(0, 8)} alone; run the failing files there (\`bun test <paths>\`) before changing anything${taskFailed ? `, and on the stack as gated (\`git worktree add --detach <dir> ${batch.at.slice(0, 8)}\`) when they pass alone` : ""}.`,
+					]),
+			...(failed.log === undefined
+				? []
+				: [
+						`The gate's complete output is in ${failed.log}: read it before asking the user to run the gate themselves.`,
 					]),
 			chargeLine({
 				...spent,
@@ -137,6 +150,32 @@ const SAID_CHARS = 4000;
 export function said(output: string): string {
 	const end = tail(output, SAID_LINES);
 	return end.length > SAID_CHARS ? `…${end.slice(-SAID_CHARS)}` : end;
+}
+
+/**
+ * What a failing gate printed, whole while it fits the caps. Past them the
+ * start and the end stay, since the first error is often the cause, and the
+ * cut says how much it left out and where all of it is.
+ */
+export function shown(output: string, log?: string): string {
+	const text = output.trim();
+	const lines = text.split("\n");
+	if (lines.length <= SHOWN_LINES && text.length <= SHOWN_CHARS) {
+		return text;
+	}
+	const keep = Math.max(1, Math.floor(SHOWN_CHARS / 2));
+	const head = lines.slice(0, HEAD_LINES).join("\n").slice(0, keep);
+	const end = lines.slice(-(SHOWN_LINES - HEAD_LINES)).join("\n");
+	const rest = end.length > keep ? end.slice(-keep) : end;
+	const omitted = Math.max(
+		0,
+		lines.length - HEAD_LINES - (SHOWN_LINES - HEAD_LINES),
+	);
+	return [
+		head,
+		`… ${omitted} lines omitted${log === undefined ? "" : `; the complete output is in ${log}`} …`,
+		rest,
+	].join("\n");
 }
 
 export function tail(output: string, lines = TAIL_LINES): string {

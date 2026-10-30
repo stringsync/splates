@@ -7,10 +7,9 @@ import type { MergeState } from "./merge-state";
 import { refuseTestsFailed } from "./refusal";
 
 /**
- * Runs the checks a merge makes before it waits for the premerge lock, which
- * need neither the lock nor the cores, so a failing one refuses now rather
- * than after the line. Refused as a failed gate, blamed on the environment
- * since no test ran.
+ * Refuses a merge whose pre-lock checks fail, before it waits for the lock.
+ * The refusal reads as a failed gate, blamed on the environment since no
+ * test ran.
  */
 export async function refuseFailedChecks(
 	{
@@ -65,6 +64,7 @@ export async function refuseFailedChecks(
 			cwd,
 			command: runner.preLock,
 			output: `${checked.stdout}\n${checked.stderr}`,
+			...(output === undefined ? {} : { log: output }),
 			exitCode: checked.exitCode,
 			failing: [],
 			onto,

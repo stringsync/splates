@@ -44,6 +44,12 @@ backgrounding it.
 
 ## When a merge fails
 
+A `tests_failed` shows the gate's output whole up to 400 lines, or its first 100
+and last 300 with a note of what it left out, and names the file holding all
+of it. That output is the whole failure, typecheck and lint errors included:
+read it, and the file when it was cut, before anything else. Never ask the user
+to run the gate for you to see why it failed.
+
 A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit
 the gate ran on. When the base moved since your last rebase, a `tests_failed`
 lists the commits that landed, each with the task it came from, those touching

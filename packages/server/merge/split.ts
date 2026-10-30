@@ -54,7 +54,8 @@ export async function splitBatch(
 	const members = stack.slice(1);
 	const names = stack.map((each) => each.task);
 	const tip = stack[stack.length - 1]?.head ?? "";
-	const output = tail(`${gated.stdout}\n${gated.stderr}`);
+	const printed = `${gated.stdout}\n${gated.stderr}`;
+	const output = tail(printed);
 	if (kind === "task") {
 		const blamed = await blame({ gate, git }, { cwd, task }, stack, failed);
 		await state.requireLease();
@@ -73,7 +74,7 @@ export async function splitBatch(
 			kind: "failed",
 			attribution: "task",
 			failedTests: blamed.failed,
-			output,
+			output: printed,
 			exitCode: gated.exitCode,
 			rebasedOnto: blamed.member.onto,
 			at: blamed.member.head,
@@ -92,7 +93,7 @@ export async function splitBatch(
 				kind: "failed",
 				attribution: "trunk",
 				failedTests: failed,
-				output,
+				output: printed,
 				exitCode: gated.exitCode,
 				rebasedOnto: stack[0]?.onto ?? tip,
 				at: tip,

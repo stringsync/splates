@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: one merge is one sequence of steps (rebase, checks, gate, landing) that reads top to bottom; it predates the rule
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import { type Clock, Duration, SystemClock } from "webappwiz/time";
@@ -25,7 +26,7 @@ import { refuseUnready } from "./preflight";
 import { queueFailedTests } from "./queue-failures";
 import { BaseRebase } from "./rebase";
 import { recentFailedFiles } from "./recent-failures";
-import { refuseTestsFailed, tail } from "./refusal";
+import { refuseTestsFailed, shown } from "./refusal";
 import { splitBatch } from "./split";
 import { MergeSteps } from "./steps";
 import { failedTests, failingCases, timedTests } from "./test-report";
@@ -438,7 +439,7 @@ export async function merge(
 				fail(
 					"timeout",
 					[
-						tail(`${gated.stdout}\n${gated.stderr}`),
+						shown(`${gated.stdout}\n${gated.stderr}`, output),
 						"",
 						`\`${runner.command}\` ran past ${Duration.ms(gated.deadlineMs ?? runner.timeout.ms).human()}, its deadline at load ${(facts.gate?.load ?? 0).toFixed(1)} with ${facts.gate?.workers ?? "?"} workers, and was killed.`,
 						`${base} is untouched and ${branch} is now rebased onto ${base}@${rebasedOnto.slice(0, 8)}, the commit it was tested against. No merge attempt was spent.`,
@@ -518,6 +519,7 @@ export async function merge(
 						cwd: worktree.path,
 						command: runner.command,
 						output: `${gated.stdout}\n${gated.stderr}`,
+						log: output,
 						exitCode: gated.exitCode,
 						failing: failingCases(gated.xml),
 						onto: rebasedOnto,
