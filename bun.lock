@@ -10,10 +10,10 @@
         "@stringsync/splates": "workspace:*",
         "@stringsync/splates-server": "workspace:*",
         "@types/bun": "1.3.14",
-        "@webappwiz/cli": "0.0.54",
-        "@webappwiz/scry": "0.0.54",
+        "@webappwiz/cli": "0.0.58",
+        "@webappwiz/scry": "0.0.58",
         "typescript": "^7",
-        "webappwiz": "0.0.54",
+        "webappwiz": "0.0.58",
         "zod": "^4.4.3",
       },
     },
@@ -22,7 +22,7 @@
       "version": "0.0.60",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
-        "webappwiz": "0.0.54",
+        "webappwiz": "0.0.58",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -38,7 +38,7 @@
       },
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
-        "webappwiz": "0.0.54",
+        "webappwiz": "0.0.58",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -50,7 +50,7 @@
       "version": "0.0.60",
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
-        "webappwiz": "0.0.54",
+        "webappwiz": "0.0.58",
       },
       "devDependencies": {
         "@assistant-ui/core": "^0.3.28",
@@ -73,7 +73,7 @@
         "@types/bun": "1.3.14",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
-        "@webappwiz/react": "0.0.54",
+        "@webappwiz/react": "0.0.58",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-webgl": "^0.19.0",
         "@xterm/xterm": "^6.0.0",
@@ -461,11 +461,11 @@
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.4.0", "", {}, "sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ=="],
 
-    "@webappwiz/cli": ["@webappwiz/cli@0.0.54", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.54", "webappwiz": "^0.0.54", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-QpiDl+HR2QbUIm+SQ5ok6fVxDnDQPBdMpu/2ZiGQ7yf+q4OMYTcM5fxc47Cny5znpPOwc2Sx474WNLDLPin49Q=="],
+    "@webappwiz/cli": ["@webappwiz/cli@0.0.58", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.58", "webappwiz": "^0.0.58", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-CRjn/TFyrd246Y0aDvq69Y1REY6p+rG5bEyifZ93NuYPcdoo4gz3n5uIicyljk6qSUgHetMkesLFk8zdbsIY7g=="],
 
-    "@webappwiz/react": ["@webappwiz/react@0.0.54", "", { "dependencies": { "webappwiz": "^0.0.54" }, "peerDependencies": { "react": "^19" } }, "sha512-aZQwhIidlYBemip0ugUpy5GOCgQVOs3x1FdM+yh//KQ8yMK1zzLSnCq1jqBW2HGDLo6nv7HJY7el0vMd8a5z1A=="],
+    "@webappwiz/react": ["@webappwiz/react@0.0.58", "", { "dependencies": { "webappwiz": "^0.0.58" }, "peerDependencies": { "react": "^19" } }, "sha512-rIxQ0V41FW4DYoL9ke23qXC6D8THBtGT6N+K2If8BKYSjNFfoHYPHqlDFGs+gNg3I9xnyna1oAvAaKHOO+FJ/A=="],
 
-    "@webappwiz/scry": ["@webappwiz/scry@0.0.54", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.54", "zod": "^4.4.3" } }, "sha512-JmZr5e1Mnxwan34pYAYdgX5lAhZP6rWrjW5+tSI/ypDsGSJha32uJ+s/hZpaKU6r2h0KYjIQ7kJsbT1GJNK/RA=="],
+    "@webappwiz/scry": ["@webappwiz/scry@0.0.58", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.58", "zod": "^4.4.3" } }, "sha512-K4xbGTo9PrV2D015h21OLHNEdRSx/XTEamv3a1wRfnyHV4eOv0/3NpxhAhZK7G9qMLLZ5pakm/stZOmOurw1VQ=="],
 
     "@xterm/addon-fit": ["@xterm/addon-fit@0.11.0", "", {}, "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g=="],
 
@@ -771,7 +771,7 @@
 
     "vfile-message": ["vfile-message@4.0.3", "", { "dependencies": { "@types/unist": "^3.0.0", "unist-util-stringify-position": "^4.0.0" } }, "sha512-QTHzsGd1EhbZs4AsQ20JX1rC3cOlt/IWJruk893DfLRr57lcnOeMaWG4K0JrRta4mIJZKth2Au3mM3u03/JWKw=="],
 
-    "webappwiz": ["webappwiz@0.0.54", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-BcMtlbg0qFrfXNaq39DojzTMzo37ZXbhH8vc1Tbb/eAsbxMydzlFSfjLgyGZ2vV79jNnST3CkAODODmXA6IeEw=="],
+    "webappwiz": ["webappwiz@0.0.58", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-0kbkColMHJIxT3B9G/MaqnFSWrs30YcVI39iGqhY8oC3Mw2G1P6l/AxKN2xXD3DOBXPatWojSSNs/0avLM2ZNQ=="],
 
     "whatwg-mimetype": ["whatwg-mimetype@3.0.0", "", {}, "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q=="],
 

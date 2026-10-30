@@ -26,7 +26,7 @@
 	},
 	"dependencies": {
 		"@stringsync/splates-server": "workspace:*",
-		"webappwiz": "0.0.54",
+		"webappwiz": "0.0.58",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
