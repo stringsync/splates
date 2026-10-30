@@ -37,9 +37,22 @@ export function ShipsPage(_props: {
 						/>
 					)
 				}
-				title={viewed === null ? "Ship" : "Past ship"}
+				title={
+					viewed === null
+						? "Ship"
+						: viewed === ACTIVE
+							? "Active ship"
+							: "Past ship"
+				}
 			/>
-			{viewed !== null ? (
+			{viewed === ACTIVE ? (
+				<ActiveShip
+					live={live}
+					closed={closed}
+					onClose={setClosed}
+					act={actOnShip}
+				/>
+			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
 				<>
@@ -65,6 +78,7 @@ export function ShipsPage(_props: {
 							const url = new URL(location.href);
 							url.searchParams.delete("ship");
 							history.replaceState(null, "", url);
+							location.hash = `ships/${ACTIVE}`;
 						}}
 					/>
 					{past.length > 0 && <History cascades={past} />}
@@ -73,6 +87,9 @@ export function ShipsPage(_props: {
 		</section>
 	);
 }
+
+/** What `#ships/active` opens: the ship under way, rather than a past one. */
+const ACTIVE = "active";
 
 const readViewed = () => location.hash.match(/^#ships\/([^/]+)$/)?.[1] ?? null;
 
@@ -85,6 +102,40 @@ function useViewedShip(): string | null {
 		return () => window.removeEventListener("hashchange", sync);
 	}, []);
 	return id === null ? null : decodeURIComponent(id);
+}
+
+/** The ship under way, which a started plan brings the person to. */
+function ActiveShip({
+	live,
+	closed,
+	onClose,
+	act,
+}: {
+	live: Live | null;
+	closed: string | null;
+	onClose: (id: string | null) => void;
+	act: (action: "abandon" | "retry" | "agent") => Promise<void>;
+}): JSX.Element {
+	if (live === null) {
+		return <p className="text-muted-foreground text-xs">Reading…</p>;
+	}
+	if (live.cascade == null || live.cascade.id === closed) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				No ship is under way. <a href="#ships">Plan one</a>
+			</p>
+		);
+	}
+	return (
+		<ShipRun
+			cascade={live.cascade}
+			ship={live.ship}
+			onClose={() => onClose(live.cascade?.id ?? null)}
+			abandon={() => act("abandon")}
+			retry={() => act("retry")}
+			agent={() => act("agent")}
+		/>
+	);
 }
 
 /** The cascades that ended, newest first, each linking to its own page. */

@@ -80,10 +80,10 @@ export async function servedProjects(
 	return { fs, sources };
 }
 
-/** The `index`th child `ps` started, once it has. */
+/** The `index`th terminal `ps` started, once it has. */
 export async function nth(ps: FakePs, index: number) {
-	await until(async () => ps.getChildren().length > index);
-	return ps.getChildren()[index] as ReturnType<FakePs["start"]>;
+	await until(async () => ps.getTerminals().length > index);
+	return ps.getTerminals()[index] as ReturnType<FakePs["startOnTerminal"]>;
 }
 
 /** Waits for `done` to answer true, failing after a second. */

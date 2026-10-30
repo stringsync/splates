@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Child, Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps, TerminalChild } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
@@ -132,21 +132,16 @@ const OTP_PROMPT = /one-time password.*:\s*$|enter otp:\s*$/i;
  */
 const NPM_ENV = { npm_config_browser: "false" };
 
-/**
- * The argv that runs `command` through `sh` under a terminal of its own, for
- * a ship whose npm must ask for a publish's second factor rather than fail
- * with EOTP. `platform` picks `script`'s flags, the host's by default.
- */
-export function inTerminal(
-	command: string,
-	platform: NodeJS.Platform = process.platform,
-): string[] {
-	// `script` gives the terminal; echo is off so nothing typed lands in the log.
-	const quiet = `stty -echo 2>/dev/null; ${command}`;
-	return platform === "linux"
-		? ["script", "-qfec", quiet, "/dev/null"]
-		: ["script", "-q", "/dev/null", "sh", "-c", quiet];
+// The argv that runs a ship's `command` through `sh` with echo off, so nothing
+// typed at its terminal lands in the log.
+export function quietly(command: string): string[] {
+	// Started on a terminal, npm asks for a publish's second factor rather than
+	// failing with EOTP.
+	return ["sh", "-c", `stty -echo 2>/dev/null; ${command}`];
 }
+
+/** A terminal wide enough that npm's links are not wrapped. */
+const TERMINAL = { cols: 200, rows: 50 };
 
 /**
  * Runs a project's ship on the server's machine, under the person's own npm
@@ -159,8 +154,7 @@ export function inTerminal(
 export class Shipping implements Resource {
 	private readonly record: Document<Ship>;
 	private readonly clock: WallClock;
-	private child: Child | null = null;
-	private stdin: WritableStreamDefaultWriter<Uint8Array> | null = null;
+	private child: TerminalChild | null = null;
 	private going: Promise<void> | null = null;
 	private disposed = false;
 	/** Whether the person stopped the ship under way. */
@@ -350,7 +344,8 @@ export class Shipping implements Resource {
 		if (!signedIn) {
 			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
 			const code = await this.watch(
-				ps.start(inTerminal("npm login --auth-type=web"), {
+				ps.startOnTerminal(quietly("npm login --auth-type=web"), {
+					...TERMINAL,
 					cwd: root,
 					env: NPM_ENV,
 				}),
@@ -375,7 +370,8 @@ export class Shipping implements Resource {
 			log: { from: this.bytes, to: null },
 		}));
 		const code = await this.watch(
-			ps.start(inTerminal(command), {
+			ps.startOnTerminal(quietly(command), {
+				...TERMINAL,
 				cwd: root,
 				env: { ...NPM_ENV, SPLATES_SHIP_BUMP: bump },
 			}),
@@ -428,10 +424,11 @@ export class Shipping implements Resource {
 	 * prints as what the ship waits on, cleared once npm says anything else,
 	 * and the release's question answered yes.
 	 */
-	private async watch(child: Child, step: Ship["step"]): Promise<number> {
+	private async watch(
+		child: TerminalChild,
+		step: Ship["step"],
+	): Promise<number> {
 		this.child = child;
-		const stdin = child.stdin.getWriter();
-		this.stdin = stdin;
 		let pending = "";
 		let asked = false;
 		const heard = async (text: string) => {
@@ -445,7 +442,7 @@ export class Shipping implements Resource {
 			}
 			if (RELEASE_PROMPT.test(pending) && !asked) {
 				asked = true;
-				await stdin.write(new TextEncoder().encode("y\n")).catch(() => {});
+				child.write("y\n");
 			} else if (!RELEASE_PROMPT.test(pending)) {
 				asked = false;
 			}
@@ -459,21 +456,25 @@ export class Shipping implements Resource {
 		};
 		// One reader at a time, so lines go in the order they came.
 		let order = Promise.resolve();
-		const read = async (stream: ReadableStream<Uint8Array>) => {
-			const decoder = new TextDecoder();
-			for await (const chunk of stream) {
+		const decoder = new TextDecoder();
+		// A terminal's output ends only when it is closed, not when the child
+		// exits, so the reader runs beside the wait and the close ends it.
+		const reading = (async () => {
+			for await (const chunk of child.output) {
 				const text = decoder.decode(chunk, { stream: true });
 				order = order.then(() => heard(text));
 			}
-		};
-		await Promise.all([read(child.stdout), read(child.stderr)]).catch(() => {});
+		})().catch(() => {});
+		const code = await child.exited;
+		// What the child printed last may still be on its way.
+		await Bun.sleep(20);
+		child.close();
+		await reading;
 		await order;
 		if (pending.trim() !== "") {
 			await this.line(pending.trim(), step);
 		}
-		this.stdin = null;
-		await stdin.close().catch(() => {});
-		return child.exited;
+		return code;
 	}
 
 	private async line(line: string, step: Ship["step"]): Promise<void> {

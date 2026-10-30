@@ -4,7 +4,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
-import { inTerminal, Shipping, typedCodeError } from "./run";
+import { quietly, Shipping, typedCodeError } from "./run";
 import { FakeReleaseGit, nth, until } from "./testing";
 
 describe("Shipping", () => {
@@ -31,7 +31,7 @@ describe("Shipping", () => {
 		});
 		expect(ps.getCalls()).toEqual([
 			"npm whoami",
-			inTerminal("wiz dev ship").join(" "),
+			quietly("wiz dev ship").join(" "),
 		]);
 		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
 		expect(ps.getCallEnvs()).toEqual([
@@ -79,19 +79,10 @@ describe("Shipping", () => {
 	});
 
 	it("gives npm a terminal, without which it fails a publish's second factor rather than asking", () => {
-		expect(inTerminal("wiz dev ship", "darwin")).toEqual([
-			"script",
-			"-q",
-			"/dev/null",
+		expect(quietly("wiz dev ship")).toEqual([
 			"sh",
 			"-c",
 			"stty -echo 2>/dev/null; wiz dev ship",
-		]);
-		expect(inTerminal("wiz dev ship", "linux")).toEqual([
-			"script",
-			"-qfec",
-			"stty -echo 2>/dev/null; wiz dev ship",
-			"/dev/null",
 		]);
 	});
 
@@ -106,7 +97,7 @@ describe("Shipping", () => {
 		await until(async () => (await shipping.current())?.waiting !== null);
 
 		expect(ps.getCalls()).toContain(
-			inTerminal("npm login --auth-type=web").join(" "),
+			quietly("npm login --auth-type=web").join(" "),
 		);
 		expect((await shipping.current())?.waiting).toMatchObject({
 			kind: "login",
@@ -126,7 +117,6 @@ describe("Shipping", () => {
 	it("shows a publish's second factor, and answers the release's question yes", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
-		const typed = readAll(ship.received);
 		ship.print("\u001b[33mpublish 2 packages as 0.0.58? (y/n)\u001b[39m ");
 		ship.print(
 			"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
@@ -140,13 +130,12 @@ describe("Shipping", () => {
 
 		ship.exit(0);
 		await shipping.settled();
-		expect(await typed).toBe("y\n");
+		expect(ship.typed).toEqual(["y\n"]);
 	});
 
 	it("stops a ship npm asks a typed one-time password of, saying how to have npm ask on its page", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
-		const typed = readAll(ship.received);
 		ship.print("This operation requires a one-time password.\nEnter OTP: ");
 		await shipping.settled();
 
@@ -154,13 +143,13 @@ describe("Shipping", () => {
 			status: "failed",
 			error: typedCodeError(null),
 		});
-		expect(await typed).toBe("");
+		expect(ship.typed).toEqual([]);
 	});
 
 	it("keeps the end of the output as why a ship failed", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
-		ship.printError("npm error 403 Forbidden\n");
+		ship.print("npm error 403 Forbidden\n");
 		ship.exit(1);
 		await shipping.settled();
 
@@ -319,8 +308,4 @@ async function project({
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});
 	return { shipping, ps, fs, storage, git };
-}
-
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
-	return new Response(stream).text();
 }

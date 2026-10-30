@@ -55,6 +55,27 @@ describe("ShipsPage", () => {
 		);
 	});
 
+	it("shows the ship under way at #ships/active, with a way back to the plan", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		location.hash = "ships/active";
+		const view = render(<ShipsPage />);
+		expect(await view.findByText("Active ship")).toBeTruthy();
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: stopped, ship: null }),
+			}),
+		);
+		expect(await view.findByText("Wait for own live")).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Start" })).toBeNull();
+		location.hash = "";
+	});
+
 	it("lists the projects in release order, a Ship checkbox on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "webappwiz", packages: ["webappwiz"] }),
