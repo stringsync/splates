@@ -3,7 +3,7 @@ import type {
 	StepProgress,
 } from "@stringsync/splates-server/setup";
 
-/** Two areas, agents required and dictation optional, as the server reads them. */
+/** Setup progress with two areas, agents required and dictation optional, for tests that need a server's answer. */
 export function setupProgress({
 	next = "agents",
 	required = true,
@@ -65,6 +65,8 @@ export function setupProgress({
 	const area = (id: string, title: string, step: StepProgress) => ({
 		id,
 		title,
+		purpose: "",
+		optional: step.optional,
 		done: step.status === "done" ? 1 : 0,
 		skipped: step.status === "skipped" ? 1 : 0,
 		left: step.status === "ready" || step.status === "waiting" ? 1 : 0,

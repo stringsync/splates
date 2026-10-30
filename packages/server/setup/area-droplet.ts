@@ -1,7 +1,7 @@
 import { REPLICA_ACCESS_KEY, REPLICA_SECRET_KEY } from "../replica";
 import type { SetupArea, SetupStep } from "./setup";
 
-/** The box the server runs on in the cloud, made once by hand, and the bucket beside it that its records are copied into. */
+/** Sets up a server on a Droplet: the box you make once by hand and the bucket beside it that its records are copied into. */
 export const DROPLET_AREA: SetupArea = dropletArea();
 
 function dropletArea(): SetupArea {
@@ -41,5 +41,11 @@ function dropletArea(): SetupArea {
 			run: async () => {},
 		},
 	};
-	return { id: "droplet", title: "Server on a Droplet", steps: [keysStep] };
+	return {
+		id: "droplet",
+		title: "Server on a Droplet",
+		purpose:
+			"Run splates server on a DigitalOcean Droplet that keeps working while your computer is off.",
+		steps: [keysStep],
+	};
 }

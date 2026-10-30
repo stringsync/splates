@@ -633,7 +633,7 @@ export class Testing implements Resource {
 							}),
 						},
 						createElement(ProjectApp, {
-							settings: new Settings(localStorage),
+							settings: this.settings(),
 							checkpointEvery: CHECKPOINT_EVERY,
 							checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
 							offlineAfter: OFFLINE_AFTER,
@@ -722,6 +722,15 @@ export class Testing implements Resource {
 			throw new Error(`no message ${text} posted to ${conversation}`);
 		}
 		return id;
+	}
+
+	/** Whether the setup welcome opens over the page, which most tests would meet as a stranger. */
+	welcome = false;
+
+	private settings(): Settings {
+		const settings = new Settings(localStorage);
+		void settings.set("welcome.show", this.welcome);
+		return settings;
 	}
 
 	/** Hands `fetch`, `EventSource` and `WebSocket` back. */

@@ -62,6 +62,13 @@ export const SETTINGS = {
 		choices: ACCENTS,
 		swatches: true,
 	},
+	"welcome.show": {
+		category: "Appearance",
+		title: "Setup welcome",
+		description:
+			"Greet this browser with the setup areas, what each is for and how far along it is, when the page opens. Closing the welcome turns this off; turn it on to see it again.",
+		default: true,
+	},
 	"conversation.widgets": {
 		category: "Appearance",
 		title: "Widgets beside conversations",

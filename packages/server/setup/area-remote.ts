@@ -206,6 +206,7 @@ function remoteAccessArea(): SetupArea {
 	return {
 		id: "remote-access",
 		title: "Remote access",
+		purpose: "Reach splates server from your phone or another computer.",
 		steps: [tokenStep, tunnelStep, accessStep, portsStep],
 	};
 }

@@ -2,7 +2,7 @@ import type { StepOption } from "./fields";
 import type { OpenCodeSetup } from "./opencode";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
-/** The device cred OpenCode's Go key is kept as, beside OpenCode's own copy. */
+/** The name to keep an OpenCode Go key under on this device, beside OpenCode's own copy. */
 export const OPENCODE_GO_KEY = "OPENCODE_GO_API_KEY";
 
 /** Where the user gets a Go key and turns Use balance off. */
@@ -159,6 +159,7 @@ function openCodeArea(): SetupArea {
 	return {
 		id: "opencode",
 		title: "OpenCode",
+		purpose: "Run agents on OpenCode, the cheapest way to start.",
 		steps: [installStep, connectStep, modelsStep, readyStep],
 	};
 }

@@ -239,6 +239,7 @@ function githubArea(): SetupArea {
 	return {
 		id: "github",
 		title: "GitHub pushing",
+		purpose: "Push each landed task to GitHub through a GitHub App.",
 		steps: [appStep, installStep, rulesetStep, pushStep],
 	};
 }

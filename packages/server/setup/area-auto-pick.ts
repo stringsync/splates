@@ -106,6 +106,7 @@ function autoPickArea(): SetupArea {
 	return {
 		id: "auto-pick",
 		title: "Auto pick",
+		purpose: "Let a small model pick which agent and model starts each task.",
 		steps: [rulesStep, judgeStep, tryStep],
 	};
 }

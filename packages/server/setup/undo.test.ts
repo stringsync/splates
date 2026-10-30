@@ -73,8 +73,8 @@ describe("Setup's undo", () => {
 		const tunnel = step("tunnel", { after: [token], cred: "TUNNEL" });
 		const workers = step("workers", { after: [tunnel], uses: ["TOKEN"] });
 		return [
-			{ id: "remote", title: "Remote", steps: [token, tunnel] },
-			{ id: "workers", title: "Workers", steps: [workers] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [token, tunnel] },
+			{ id: "workers", title: "Workers", purpose: "", steps: [workers] },
 		];
 	}
 
@@ -143,8 +143,8 @@ describe("Setup's undo", () => {
 		done.add("token").add("scry");
 		await device.set("TOKEN", "t");
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [token] },
-			{ id: "scry", title: "Scry", steps: [scry] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [token] },
+			{ id: "scry", title: "Scry", purpose: "", steps: [scry] },
 		]);
 
 		expect((await setup.undoPlan("remote")).creds).toEqual([
@@ -160,8 +160,8 @@ describe("Setup's undo", () => {
 		done.add("token").add("other");
 		await device.set("TOKEN", "t");
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [token] },
-			{ id: "other", title: "Other", steps: [other] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [token] },
+			{ id: "other", title: "Other", purpose: "", steps: [other] },
 		]);
 
 		expect((await setup.undoPlan("remote")).creds).toEqual([
@@ -188,8 +188,8 @@ describe("Setup's undo", () => {
 		const box = step("box", { uses: ["cloud.json"] });
 		done.add("choice").add("box");
 		const setup = new Setup(machine, [
-			{ id: "workers", title: "Workers", steps: [choice] },
-			{ id: "cloud", title: "Cloud server", steps: [box] },
+			{ id: "workers", title: "Workers", purpose: "", steps: [choice] },
+			{ id: "cloud", title: "Cloud server", purpose: "", steps: [box] },
 		]);
 
 		expect((await setup.undoPlan("workers")).steps[0]?.removes).toEqual([]);
@@ -203,7 +203,7 @@ describe("Setup's undo", () => {
 		await device.set("CLOUDFLARE_API_TOKEN", "t");
 
 		const plan = await new Setup(machine, [
-			{ id: "auto-pick", title: "Auto pick", steps: [judge] },
+			{ id: "auto-pick", title: "Auto pick", purpose: "", steps: [judge] },
 		]).undoPlan("auto-pick");
 
 		expect(plan.creds).toEqual([
@@ -215,7 +215,7 @@ describe("Setup's undo", () => {
 		const box = step("box", { undo: { confirm: async () => "splates-box" } });
 		done.add("box");
 		const setup = new Setup(machine, [
-			{ id: "cloud", title: "Cloud server", steps: [box] },
+			{ id: "cloud", title: "Cloud server", purpose: "", steps: [box] },
 		]);
 
 		expect((await setup.undoPlan("cloud")).confirm).toBe("splates-box");
@@ -233,10 +233,9 @@ describe("Setup's undo", () => {
 		done.add("box");
 
 		await expect(
-			new Setup(machine, [{ id: "cloud", title: "Cloud", steps: [box] }]).undo(
-				"cloud",
-				null,
-			),
+			new Setup(machine, [
+				{ id: "cloud", title: "Cloud", purpose: "", steps: [box] },
+			]).undo("cloud", null),
 		).rejects.toThrow("The server has moved to its box.");
 		expect(ran).toEqual([]);
 	});
@@ -256,7 +255,7 @@ describe("Setup's undo", () => {
 
 		await expect(
 			new Setup(machine, [
-				{ id: "remote", title: "Remote", steps: [token, tunnel] },
+				{ id: "remote", title: "Remote", purpose: "", steps: [token, tunnel] },
 			]).undo("remote", null),
 		).rejects.toThrow('Undoing "Set up tunnel" failed: Cloudflare said no');
 		expect(ran).toEqual([]);
@@ -268,7 +267,7 @@ describe("Setup's undo", () => {
 		key.check = async () => (await device.get("KEY")) !== undefined;
 		await device.set("KEY", "k");
 		const setup = new Setup(machine, [
-			{ id: "dictation", title: "Dictation", steps: [key] },
+			{ id: "dictation", title: "Dictation", purpose: "", steps: [key] },
 		]);
 
 		const plan = await setup.undoPlan("dictation");
@@ -287,7 +286,12 @@ describe("Setup's undo", () => {
 		done.add("token");
 		await device.set("TOKEN", "t").then(() => device.set("TUNNEL", "u"));
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [token, tunnel, workers] },
+			{
+				id: "remote",
+				title: "Remote",
+				purpose: "",
+				steps: [token, tunnel, workers],
+			},
 		]);
 
 		expect((await setup.read()).areas[0]?.undoable).toBe(true);
@@ -309,8 +313,8 @@ describe("Setup's undo", () => {
 		done.add("snapshot");
 		await device.set("TOKEN", "t");
 		const setup = new Setup(machine, [
-			{ id: "cloud", title: "Cloud server", steps: [box] },
-			{ id: "workers", title: "Workers", steps: [snapshot] },
+			{ id: "cloud", title: "Cloud server", purpose: "", steps: [box] },
+			{ id: "workers", title: "Workers", purpose: "", steps: [snapshot] },
 		]);
 
 		expect((await setup.read()).areas.map((area) => area.undoable)).toEqual([

@@ -37,6 +37,7 @@ function workersArea(): SetupArea {
 	return {
 		id: "workers",
 		title: "Workers",
+		purpose: "Choose which machines run agents.",
 		steps: [localStep],
 	};
 }

@@ -379,6 +379,8 @@ function progress({
 			{
 				id: "auto-pick",
 				title: "Auto pick",
+				purpose: "",
+				optional: false,
 				done: steps.filter((step) => step.status === "done").length,
 				skipped: 0,
 				left: steps.filter((step) => step.status !== "done").length,

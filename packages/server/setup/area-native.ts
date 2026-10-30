@@ -143,7 +143,12 @@ function agentJourney(id: AgentId): SetupArea {
 			run: ({ fs, home }) => Roster.in(new FsStorage(home, fs)).remove(id),
 		},
 	};
-	return { id, title: name, steps: [signIn, models] };
+	return {
+		id,
+		title: name,
+		purpose: `Run agents on ${name}, signed in on this machine.`,
+		steps: [signIn, models],
+	};
 }
 
 /** The field of a model, named so no other agent's collides. */

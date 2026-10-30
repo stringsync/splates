@@ -107,6 +107,7 @@ function replicaArea(): SetupArea {
 	return {
 		id: "replica",
 		title: "Replica",
+		purpose: "Keep a copy of your tasks and conversations in a bucket you own.",
 		steps: [placeStep, credsStep, statusStep],
 	};
 }

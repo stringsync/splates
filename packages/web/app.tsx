@@ -45,6 +45,7 @@ import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
+import { PageDialogs } from "./page-dialogs";
 import { usePageMenu } from "./page-menu";
 import { PageReadings, PageReadingsContext } from "./page-readings";
 import {
@@ -60,7 +61,6 @@ import { shownProject, useProjectName } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
-import { SettingsDialog } from "./settings-dialog";
 import { SetupProvider } from "./setup-state";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
@@ -482,10 +482,11 @@ export function App({
 																							feed={talk}
 																							pick={pick}
 																						/>
-																						<SettingsDialog
+																						<PageDialogs
 																							settings={settings}
-																							open={setting}
-																							onOpenChange={setSetting}
+																							settingsOpen={setting}
+																							onSettingsOpenChange={setSetting}
+																							onSetup={openSetup}
 																						/>
 																					</ConversationCheckpoint>
 																				</TooltipProvider>

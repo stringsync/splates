@@ -229,9 +229,9 @@ describe("Setup journeys", () => {
 			.getAllByRole("button", { name: /^Set up/ })
 			.map((row) => row.textContent);
 		expect(rows.slice(0, 3)).toEqual([
-			"Set up OpenCode4 steps",
-			"Set up ClaudeAll steps done",
-			"Set up Codex0 of 2 steps done",
+			"Set up OpenCodeOptionalRun agents on OpenCode, the cheapest way to start.4 steps",
+			"Set up ClaudeOptionalRun agents on Claude, signed in on this machine.All steps done",
+			"Set up CodexOptionalRun agents on Codex, signed in on this machine.0 of 2 steps done",
 		]);
 		expect(
 			view

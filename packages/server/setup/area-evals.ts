@@ -32,7 +32,12 @@ function evalsArea(): SetupArea {
 			run: async () => {},
 		},
 	};
-	return { id: "evals", title: "Evals", steps: [resultsStep] };
+	return {
+		id: "evals",
+		title: "Evals",
+		purpose: "Show the results of your project's evals on the Evals page.",
+		steps: [resultsStep],
+	};
 }
 
 /** What a step reads with no project open. */

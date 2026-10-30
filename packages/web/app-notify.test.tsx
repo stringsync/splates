@@ -238,6 +238,7 @@ describe("App's settings and notifications", () => {
 			true,
 		);
 		expect(JSON.parse(localStorage.getItem("splates.settings") ?? "")).toEqual({
+			"welcome.show": false,
 			"appearance.theme": "dark",
 			"appearance.accent": "rose",
 		});

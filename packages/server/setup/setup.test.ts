@@ -47,8 +47,13 @@ describe("Setup", () => {
 		const slots = fake("slots", done, { optional: true, after: [access] });
 		const key = fake("key", done, { optional: true });
 		return [
-			{ id: "remote", title: "Remote", steps: [host, access, slots] },
-			{ id: "dictation", title: "Dictation", steps: [key] },
+			{
+				id: "remote",
+				title: "Remote",
+				purpose: "",
+				steps: [host, access, slots],
+			},
+			{ id: "dictation", title: "Dictation", purpose: "", steps: [key] },
 		];
 	}
 
@@ -138,7 +143,7 @@ describe("Setup", () => {
 		};
 
 		const progress = await new Setup(machine, [
-			{ id: "area", title: "Area", steps: [broken] },
+			{ id: "area", title: "Area", purpose: "", steps: [broken] },
 		]).read();
 
 		expect(progress.areas[0]?.steps[0]).toMatchObject({
@@ -160,7 +165,7 @@ describe("Setup", () => {
 		};
 		const up = fake("up", done, { optional: true, after: [tokens] });
 		const setup = new Setup(machine, [
-			{ id: "box", title: "Box", steps: [host, tokens, up] },
+			{ id: "box", title: "Box", purpose: "", steps: [host, tokens, up] },
 		]);
 		done.add("host");
 		done.add("token-one");
@@ -196,7 +201,7 @@ describe("Setup", () => {
 		expect(
 			() =>
 				new Setup(machine, [
-					{ id: "area", title: "Area", steps: [early, later] },
+					{ id: "area", title: "Area", purpose: "", steps: [early, later] },
 				]),
 		).toThrow("setup step 'early' waits on 'later'");
 	});
@@ -205,8 +210,8 @@ describe("Setup", () => {
 		expect(
 			() =>
 				new Setup(machine, [
-					{ id: "a", title: "A", steps: [fake("same", done)] },
-					{ id: "b", title: "B", steps: [fake("same", done)] },
+					{ id: "a", title: "A", purpose: "", steps: [fake("same", done)] },
+					{ id: "b", title: "B", purpose: "", steps: [fake("same", done)] },
 				]),
 		).toThrow("setup names step 'same' twice");
 	});
@@ -246,7 +251,7 @@ describe("Setup", () => {
 	it("runs the step with its answers once each is given, then reads it done", async () => {
 		await machine.device.set("TOKEN", "token");
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [asking()] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [asking()] },
 		]);
 
 		const progress = await setup.submit("tunnel", answers);
@@ -256,7 +261,7 @@ describe("Setup", () => {
 
 	it("says which answer is missing before running anything", async () => {
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [asking()] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [asking()] },
 		]);
 
 		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
@@ -278,7 +283,7 @@ describe("Setup", () => {
 	it("turns what the work threw, or a step still not done, into one line", async () => {
 		await machine.device.set("TOKEN", "other");
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [asking()] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [asking()] },
 		]);
 
 		const failed = await setup
@@ -296,7 +301,12 @@ describe("Setup", () => {
 	it("asks for the steps it waits on first", async () => {
 		const token = fake("token", done);
 		const setup = new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [token, asking([token])] },
+			{
+				id: "remote",
+				title: "Remote",
+				purpose: "",
+				steps: [token, asking([token])],
+			},
 		]);
 
 		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
@@ -307,7 +317,7 @@ describe("Setup", () => {
 	it("lists each field for the page, a choice's options read and a cred's kept", async () => {
 		await machine.device.set("TOKEN", "token");
 		const progress = await new Setup(machine, [
-			{ id: "remote", title: "Remote", steps: [asking()] },
+			{ id: "remote", title: "Remote", purpose: "", steps: [asking()] },
 		]).read();
 
 		expect(progress.areas[0]?.steps[0]).toMatchObject({

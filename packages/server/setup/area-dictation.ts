@@ -77,6 +77,7 @@ function dictationArea(): SetupArea {
 	return {
 		id: "dictation",
 		title: "Dictation",
+		purpose: "Speak prompts instead of typing them.",
 		steps: [dictationStep, wordsStep],
 	};
 }

@@ -55,13 +55,12 @@ export class Setup {
 	}
 
 	/**
-	 * Does what step `id` needs with what the user answered on its page:
-	 * runs the step's `submit`, then checks it. The page saves a cred
-	 * pasted into it first, through the creds routes, so it fills any
-	 * request for it; here a cred need only be kept. Throws a `StepProblem`, one line for the
-	 * page, when an answer is missing, the work fails, or the step still
-	 * reads not done.
+	 * Does a step's work with the answers from its page, then checks it, and
+	 * answers the fresh progress. Throws a `StepProblem`, one line for the
+	 * page, when an answer is missing, the work fails or the step still reads
+	 * not done.
 	 */
+
 	async submit(id: string, answers: StepAnswers): Promise<SetupProgress> {
 		const step = await this.step(id);
 		for (const before of step.after) {
@@ -168,6 +167,8 @@ export class Setup {
 			areas.push({
 				id: area.id,
 				title: area.title,
+				purpose: area.purpose,
+				optional: steps.every((step) => step.optional),
 				done: steps.filter((step) => step.status === "done").length,
 				skipped: steps.filter((step) => step.status === "skipped").length,
 				left: steps.filter(
@@ -304,7 +305,7 @@ export class Setup {
 
 /** What a step's check reads: this machine's splates home and its device store. */
 export interface SetupMachine {
-	/** Explicit checks from the optional native setup panel; never launch on page load. */
+	/** Runs OpenCode's checks for the optional native setup panel, only when it asks. */
 	opencode?: OpenCodeSetup;
 	fs: Fs;
 	/** How a step runs a program, as `claude --version`; none runs nothing. */
@@ -359,9 +360,9 @@ export interface SetupProject {
 }
 
 /**
- * One thing to set up, small enough that the user does at most one thing for
- * it. Whether it is done comes from its check against real state, never a
- * stored flag, so a step undone by hand shows as left again.
+ * One thing to set up, small enough that you do at most one thing for it. It
+ * shows as done while its check against real state passes, so a step you undo
+ * by hand shows as left again.
  */
 export interface SetupStep {
 	/** How `splates setup <step>` and the page name it, lowercase-with-dashes. */
@@ -446,6 +447,8 @@ export type StepAnswers = Record<string, string | boolean>;
 export interface SetupArea {
 	readonly id: string;
 	readonly title: string;
+	/** What the area is for, in a sentence. */
+	readonly purpose: string;
 	readonly steps: readonly SetupStep[];
 }
 
@@ -484,6 +487,10 @@ export type StepData = Record<string, unknown>;
 export interface AreaProgress {
 	id: string;
 	title: string;
+	/** What the area is for, in a sentence. */
+	purpose: string;
+	/** Whether every step can be left undone, so the area is not needed. */
+	optional: boolean;
 	done: number;
 	skipped: number;
 	/** Steps neither done nor skipped. */

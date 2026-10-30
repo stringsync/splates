@@ -52,8 +52,8 @@ export function SetupIndex({
 }: {
 	areas: readonly AreaProgress[];
 	onSelect: (id: string) => void;
-	/** Asks to undo an area with a step done or started. */
-	onUndo: (id: string) => void;
+	/** Asks to undo an area with a step done or started; none hides Undo. */
+	onUndo?: (id: string) => void;
 }): JSX.Element {
 	return (
 		<nav aria-label="setup areas" className="flex w-full flex-col gap-6">
@@ -88,7 +88,7 @@ function doneLine(area: AreaProgress): string {
 		return "All steps done";
 	}
 	if (area.done === 0 && !area.undoable) {
-		return `${area.steps.length} steps`;
+		return area.steps.length === 1 ? "1 step" : `${area.steps.length} steps`;
 	}
 	return `${area.done} of ${area.steps.length} steps done`;
 }
@@ -100,7 +100,7 @@ function AreaRow({
 }: {
 	area: AreaProgress;
 	onSelect: (id: string) => void;
-	onUndo: (id: string) => void;
+	onUndo?: (id: string) => void;
 }): JSX.Element {
 	const warned = area.steps.some((step) => step.warning !== null);
 	const done = area.done === area.steps.length && !warned;
@@ -113,7 +113,15 @@ function AreaRow({
 				onClick={() => onSelect(area.id)}
 			>
 				<span className="flex min-w-0 flex-1 flex-col">
-					<span className="font-medium">Set up {area.title}</span>
+					<span className="font-medium">
+						Set up {area.title}
+						{area.optional && (
+							<span className="ml-2 font-normal text-muted-foreground text-xs">
+								Optional
+							</span>
+						)}
+					</span>
+					<span className="text-sm text-muted-foreground">{area.purpose}</span>
 					<span className="flex items-center gap-1.5 text-sm text-muted-foreground">
 						{done && (
 							<CheckIcon className="size-3.5 text-success" aria-hidden />
@@ -128,7 +136,7 @@ function AreaRow({
 					</span>
 				</span>
 			</button>
-			{area.undoable && (
+			{area.undoable && onUndo && (
 				<Button
 					variant="ghost"
 					size="sm"
