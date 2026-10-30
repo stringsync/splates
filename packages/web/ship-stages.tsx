@@ -45,7 +45,7 @@ export function StageRow({
 			: (stage.ended === null ? now : Date.parse(stage.ended)) -
 				Date.parse(stage.started);
 	return (
-		<li aria-label={stage.name} className="flex flex-col gap-0.5 py-1">
+		<li aria-label={stage.name} className="flex flex-col gap-1.5 py-1.5">
 			<button
 				type="button"
 				aria-expanded={open}

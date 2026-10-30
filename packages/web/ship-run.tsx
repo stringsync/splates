@@ -6,13 +6,14 @@ import type {
 	ShipStep,
 } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
-import { type JSX, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { ExternalLinkIcon } from "lucide-react";
+import { Fragment, type JSX, type ReactNode, useState } from "react";
+import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
+import { type Attention, attentionOf } from "./ship-dock";
 import { StageRow } from "./ship-stages";
-import { ShipStatusCard } from "./ship-status-card";
 
 /**
  * A ship under way, or one that stopped: a stage per project in the order
@@ -61,8 +62,45 @@ export function ShipRun({
 	const through = cascade.steps.filter(
 		(step) => step.status === "done" || step.status === "dropped",
 	).length;
+	const recovery = (
+		<>
+			{cascade.status === "stopped" && retry !== undefined && (
+				<Button
+					size="sm"
+					className="pointer-coarse:min-h-11"
+					variant="outline"
+					disabled={acting || abandoning}
+					onClick={() => act(retry, "Not retried")}
+				>
+					Retry
+				</Button>
+			)}
+			{cascade.status === "stopped" &&
+				agent !== undefined &&
+				cascade.steps.some(
+					(step) =>
+						step.adopt !== "agent" &&
+						step.stages.some(
+							(stage) => stage.key === "adopt" && stage.state === "failed",
+						),
+				) && (
+					<Button
+						size="sm"
+						className="pointer-coarse:min-h-11"
+						variant="outline"
+						disabled={acting || abandoning}
+						onClick={() => act(agent, "Not handed to an agent")}
+					>
+						Hand to an agent
+					</Button>
+				)}
+		</>
+	);
+	const attention = attentionOf(cascade, ship);
+	const asked =
+		attention === null ? null : { attention, slug: askedSlug(cascade, ship) };
 	return (
-		<section aria-label="under way" className="flex flex-col gap-3">
+		<section aria-label="under way" className="flex flex-col gap-5">
 			<div className="flex flex-wrap items-center gap-x-2 whitespace-nowrap">
 				<h2 className="font-medium text-sm">
 					{running || held === undefined
@@ -72,36 +110,7 @@ export function ShipRun({
 				<span className="text-muted-foreground text-sm tabular-nums">
 					{through} of {cascade.steps.length}
 				</span>
-				{cascade.status === "stopped" && retry !== undefined && (
-					<Button
-						size="sm"
-						className="pointer-coarse:min-h-11"
-						variant="outline"
-						disabled={acting || abandoning}
-						onClick={() => act(retry, "Not retried")}
-					>
-						Retry
-					</Button>
-				)}
-				{cascade.status === "stopped" &&
-					agent !== undefined &&
-					cascade.steps.some(
-						(step) =>
-							step.adopt !== "agent" &&
-							step.stages.some(
-								(stage) => stage.key === "adopt" && stage.state === "failed",
-							),
-					) && (
-						<Button
-							size="sm"
-							className="pointer-coarse:min-h-11"
-							variant="outline"
-							disabled={acting || abandoning}
-							onClick={() => act(agent, "Not handed to an agent")}
-						>
-							Hand to an agent
-						</Button>
-					)}
+				{asked === null ? null : <ChipFor tone={asked.attention.tone} />}
 				{running || cascade.status === "stopped" ? (
 					<Button
 						size="xs"
@@ -125,8 +134,17 @@ export function ShipRun({
 				)}
 			</div>
 			<Refusal refusal={refusals.get("") ?? null} />
-			<ShipStatusCard cascade={cascade} ship={ship} />
-			<ShipJobs cascade={cascade} ship={ship} live={running} />
+			<ShipJobs
+				cascade={cascade}
+				ship={ship}
+				live={running}
+				asked={asked}
+				ask={
+					asked !== null ? (
+						<AskCard asked={asked.attention} recovery={recovery} />
+					) : null
+				}
+			/>
 		</section>
 	);
 }
@@ -139,10 +157,15 @@ function ShipJobs({
 	cascade,
 	ship,
 	live,
+	asked,
+	ask,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
 	live: boolean;
+	asked: { attention: Attention; slug: string | null } | null;
+	/** The ask to show on the step that needs it. */
+	ask: ReactNode;
 }): JSX.Element {
 	const [picked, setPicked] = useState<string | null>(null);
 	const current =
@@ -151,10 +174,13 @@ function ShipJobs({
 			(step) => !["done", "dropped", "abandoned"].includes(step.status),
 		) ??
 		cascade.steps[cascade.steps.length - 1];
-	const step = cascade.steps.find((each) => each.slug === picked) ?? current;
+	const step =
+		cascade.steps.find((each) => each.slug === picked) ??
+		cascade.steps.find((each) => each.slug === asked?.slug) ??
+		current;
 	return (
-		<div className="grid min-w-0 gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
-			<nav aria-label="Ship jobs" className="flex flex-col gap-1">
+		<div className="grid min-w-0 gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
+			<nav aria-label="Ship jobs" className="flex flex-col gap-1.5">
 				<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Jobs
 				</h3>
@@ -177,14 +203,23 @@ function ShipJobs({
 							)}
 						/>
 						<span className="min-w-0 flex-1 truncate">{each.slug}</span>
-						<span className="text-muted-foreground text-xs">
+						<span
+							className={cn(
+								"text-xs",
+								each.slug === asked?.slug
+									? asked.attention.tone === "asks"
+										? "font-medium text-amber-600 dark:text-amber-400"
+										: "font-medium text-destructive"
+									: "text-muted-foreground",
+							)}
+						>
 							{STATUSES[each.status]}
 						</span>
 					</button>
 				))}
 			</nav>
 			{step !== undefined && (
-				<div className="min-w-0 rounded-lg border bg-card p-4">
+				<div className="min-w-0 rounded-lg border bg-card p-6">
 					<ol aria-label="Ship cascade" className="flex flex-col">
 						<ProjectStage
 							key={step.slug}
@@ -192,6 +227,7 @@ function ShipJobs({
 							step={step}
 							ship={step.status === "shipping" ? ship : null}
 							live={live}
+							ask={step.slug === asked?.slug ? ask : null}
 						/>
 					</ol>
 				</div>
@@ -236,17 +272,22 @@ function ProjectStage({
 	step,
 	ship,
 	live,
+	ask = null,
 }: {
 	cascade: Cascade;
 	step: CascadeStep;
 	ship: Ship | null;
 	live: boolean;
+	ask?: ReactNode;
 }): JSX.Element {
+	const asking = step.stages.find((stage) =>
+		["asking", "failed", "hung"].includes(stage.state),
+	);
 	const notRun = step.status === "abandoned" && cascade.status === "stopped";
 	return (
 		<li
 			aria-label={step.slug}
-			className={cn("flex flex-col gap-1", notRun && "opacity-60")}
+			className={cn("flex flex-col gap-3", notRun && "opacity-60")}
 		>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
 				<span
@@ -287,18 +328,28 @@ function ProjectStage({
 			{step.note && (
 				<p className="text-sm text-muted-foreground">{step.note}</p>
 			)}
-			<ol aria-label={`${step.slug} steps`} className="ml-4 flex flex-col">
+			<ol
+				aria-label={`${step.slug} steps`}
+				className="ml-5 flex flex-col gap-1"
+			>
 				{step.stages.map((stage) => (
-					<StageRow
-						key={stage.key}
-						cascade={cascade}
-						step={step}
-						stage={stage}
-						ship={ship}
-						live={live}
-						opened={stage.state === "failed" && cascade.status === "stopped"}
-					/>
+					<Fragment key={stage.key}>
+						<StageRow
+							cascade={cascade}
+							step={step}
+							stage={stage}
+							ship={ship}
+							live={live}
+							opened={stage.state === "failed" && cascade.status === "stopped"}
+						/>
+						{ask !== null && stage.key === asking?.key && (
+							<li className="my-2">{ask}</li>
+						)}
+					</Fragment>
 				))}
+				{ask !== null && asking === undefined && (
+					<li className="my-2">{ask}</li>
+				)}
 			</ol>
 		</li>
 	);
@@ -340,4 +391,73 @@ export function versionOf(step: ShipStep): string {
 		return step.from ?? "";
 	}
 	return `${step.from ?? "?"} → ${step.to}`;
+}
+
+/** The project the person is asked about, or the run stopped at. */
+function askedSlug(cascade: Cascade, ship: Ship | null): string | null {
+	if (cascade.status === "running" && ship?.waiting != null) {
+		return ship.project;
+	}
+	return (
+		cascade.steps.find((step) =>
+			["asking", "failed", "stopped"].includes(step.status),
+		)?.slug ?? null
+	);
+}
+
+/** The run's state as a chip beside its title, when it needs the person. */
+function ChipFor({ tone }: { tone: Attention["tone"] }): JSX.Element {
+	return (
+		<span
+			className={cn(
+				"rounded-full px-2 py-0.5 font-medium text-xs",
+				tone === "asks"
+					? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+					: "bg-destructive/15 text-destructive",
+			)}
+		>
+			{tone === "asks" ? "Needs you" : "Stopped"}
+		</span>
+	);
+}
+
+/** What the person is asked for, or why the run stopped, with the actions that answer it. */
+function AskCard({
+	asked,
+	recovery,
+}: {
+	asked: Attention;
+	recovery: ReactNode;
+}): JSX.Element {
+	const action = asked.action;
+	return (
+		<div
+			role="status"
+			className={cn(
+				"flex flex-col gap-3 rounded-lg border p-4 text-sm",
+				asked.tone === "asks"
+					? "border-amber-500/50 bg-amber-500/10"
+					: "border-destructive/50 bg-destructive/10",
+			)}
+		>
+			<span className="font-medium">{asked.title}</span>
+			{asked.detail !== null && (
+				<span className="text-muted-foreground">{asked.detail}</span>
+			)}
+			<div className="flex flex-wrap items-center gap-2">
+				{action !== null && (
+					<a
+						href={action.href}
+						target={action.external ? "_blank" : undefined}
+						rel={action.external ? "noreferrer" : undefined}
+						className={buttonVariants({ size: "sm", variant: "outline" })}
+					>
+						{action.label}
+						{action.external && <ExternalLinkIcon />}
+					</a>
+				)}
+				{recovery}
+			</div>
+		</div>
+	);
 }
