@@ -147,6 +147,9 @@ export class MechanicalAdoption {
 			if (opts.agent === undefined) {
 				throw new Error("Ship agent starts are not configured");
 			}
+			// The agent claims the task itself; a lease left on the server's pid
+			// would make its merge and claim refuse with lease_held.
+			await tree.save({ lease: null });
 			await opts.agent(task);
 			while (true) {
 				opts.signal?.throwIfAborted();

@@ -47,6 +47,7 @@ describe("mechanical ship adoption", () => {
 					).toThrow("ship alone");
 					const tree = await repo.service.find(task);
 					expect(await tree.commitsAhead()).toBe(1);
+					expect(tree.state?.lease).toBeFalsy();
 					expect(
 						JSON.parse(await repo.fs.read(`${tree.path}/package.json`))
 							.dependencies.upstream,
