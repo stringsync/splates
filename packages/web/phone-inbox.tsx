@@ -3,7 +3,7 @@ import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
-import { Fragment, type JSX, type ReactNode, useContext, useMemo } from "react";
+import { type JSX, type ReactNode, useContext, useMemo } from "react";
 import {
 	Empty,
 	EmptyDescription,
@@ -28,7 +28,6 @@ import { useFolded } from "./folded";
 import { InboxLoading } from "./freshness";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
-import type { Nested } from "./parts";
 import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import {
@@ -36,7 +35,6 @@ import {
 	type Folder,
 	folderKey,
 	foldersOf,
-	groupsOf,
 } from "./project-folders";
 import { useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
@@ -77,9 +75,9 @@ export function Inbox({
 	onMenu: (() => void) | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	// Those waiting on you come first, then those at work, then the rest,
-	// newest first in each, each row saying what it waits on. The agents one
-	// handed out sit under it in its group, since they answer to it. A tap on
+	// Pinned ones come first, then the rest, newest first, each row saying
+	// what it waits on, so a row stays put as its agent works. The agents one
+	// handed out sit under it, since they answer to it. A tap on
 	// one waiting goes straight to what it asks; its action button or a long
 	// press offers Rename, Mark as unread and Archive in a bottom sheet.
 	// The bar's title switches projects, the pen starts a conversation in the
@@ -106,30 +104,14 @@ export function Inbox({
 	const openNew = () => onOpen(NEW);
 	const name = useProjectName(here?.repo);
 	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
-	const { trees, hosting, waiting, pinned, working, recent } = useMemo(() => {
+	const { trees, hosting } = useMemo(() => {
 		const rows = rowsOf(tasks, conversations, todos);
 		// Each with the agents it handed out, in the group of the most pressing.
 		const nested = nestRows(tasks, rows);
-		// Grouped with every row, then only what the inbox shows (see `shownIn`).
-		const shown = (of: Nested<Needing>[]) => shownIn(of);
-		const groups = groupsOf(nested);
-		const trees = shown(nested);
+		// Listed with every row, then only what the inbox shows (see `shownIn`).
+		const trees = shownIn(nested);
 		const hosting = hostsAtWork(nested);
-		const waiting = shown(groups.waiting);
-		const pinned = shown(groups.pinned);
-		const working = shown(groups.working);
-		const recent = shown(groups.recent);
-		return {
-			rows,
-			nested,
-			groups,
-			trees,
-			hosting,
-			waiting,
-			pinned,
-			working,
-			recent,
-		};
+		return { rows, nested, trees, hosting };
 	}, [tasks, conversations, todos]);
 	const everywhere = useEverywhere((feed) => ({
 		available: feed.available,
@@ -248,43 +230,35 @@ export function Inbox({
 							agentOf: (each) => agentName(agents, each.agent),
 						}}
 					>
-						{grouped === null
-							? [
-									["Needs you", waiting],
-									["Pinned", pinned],
-									["Working", working],
-									["Recent", recent],
-								].map(([title, group]) => (
-									<Fragment key={String(title)}>
-										<Group
-											title={String(title)}
-											items={(group as Nested<Needing>[]).map((tree) => ({
-												tree,
-												folder: null,
-												hosting,
-											}))}
-											agents={agents}
-											urgent={title === "Needs you"}
-											beneath={beneath}
-											onOpen={open}
-										/>
-									</Fragment>
-								))
-							: grouped.map((folder) => {
-									const key = folderKey(folder);
-									return (
-										<ProjectSection
-											key={key}
-											folder={folder}
-											open={!folded.has(key)}
-											onFold={(open) => fold(key, open)}
-											onNew={available ? () => startIn(folder) : null}
-											agents={agents}
-											beneath={beneath}
-											onOpen={open}
-										/>
-									);
-								})}
+						{grouped === null ? (
+							<Group
+								title="Conversations"
+								items={trees.map((tree) => ({
+									tree,
+									folder: null,
+									hosting,
+								}))}
+								agents={agents}
+								beneath={beneath}
+								onOpen={open}
+							/>
+						) : (
+							grouped.map((folder) => {
+								const key = folderKey(folder);
+								return (
+									<ProjectSection
+										key={key}
+										folder={folder}
+										open={!folded.has(key)}
+										onFold={(open) => fold(key, open)}
+										onNew={available ? () => startIn(folder) : null}
+										agents={agents}
+										beneath={beneath}
+										onOpen={open}
+									/>
+								);
+							})
+						)}
 						<TerminalGroup
 							mains={mains}
 							nameOf={(key) => terminals.nameOf(key)}

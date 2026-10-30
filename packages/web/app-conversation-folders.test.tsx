@@ -87,10 +87,10 @@ describe("App's agents, in a folder per project", () => {
 		return { view, nav };
 	};
 
-	it("lists every project in a folder by name, each with its waiting agents on top and counted in its header", async () => {
+	it("lists every project in a folder by name, each newest first and its waiting agents counted in its header", async () => {
 		const { view, nav } = await inbox();
 
-		// Empty projects too, by name, and no Needs you across them.
+		// Empty projects too, by name, and no waiting agents across them.
 		expect(
 			within(nav)
 				.getAllByRole("region")
@@ -104,7 +104,7 @@ describe("App's agents, in a folder per project", () => {
 						.queryAllByRole("listitem")
 						.map((item) => item.textContent),
 				]),
-		).toEqual([[[]], [["Mine broke", "Mine"]], [["Zebra broke", "Stripes"]]]);
+		).toEqual([[[]], [["Mine broke", "Mine"]], [["Stripes", "Zebra broke"]]]);
 		expect(
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
@@ -226,7 +226,7 @@ describe("App's agents, in a folder per project", () => {
 		).toEqual(["zebra"]);
 	});
 
-	it("lists the page's own project's pinned agents first, above those at work", async () => {
+	it("lists the page's own project's pinned agents first, then the rest newest first", async () => {
 		const view = await testing.openConversations(
 			[
 				...mine,
@@ -249,7 +249,7 @@ describe("App's agents, in a folder per project", () => {
 			within(list)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Mine broke", "Mane", "Mine"]);
+		).toEqual(["Mane", "Mine broke", "Mine"]);
 	});
 
 	// scry-ignore simple-test-setup: this test alone lists these automations among the folder's conversations.
@@ -289,7 +289,7 @@ describe("App's agents, in a folder per project", () => {
 			)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Mine broke", "Pinned", "Mine", "Groomer", "Review merged"]);
+		).toEqual(["Pinned", "Mine broke", "Groomer", "Mine", "Review merged"]);
 		expect(within(here).queryByText("Automation")).toBeNull();
 		expect(within(here).queryByRole("separator")).toBeNull();
 		expect(

@@ -55,7 +55,7 @@ describe("A phone's inbox, nesting agents", () => {
 			],
 		};
 		const view = await testing.openConversations(held, null, tasks);
-		expect(inboxTrees(view)).toEqual([["alpha", "alpha-api"], ["Look around"]]);
+		expect(inboxTrees(view)).toEqual([["Look around"], ["alpha", "alpha-api"]]);
 
 		view.unmount();
 		resize(1024, 768);
@@ -121,7 +121,7 @@ describe("A phone's inbox, nesting agents", () => {
 			},
 		);
 
-		expect(inboxTrees(view)).toEqual([["split-b"], ["Look around"]]);
+		expect(inboxTrees(view)).toEqual([["Look around"], ["split-b"]]);
 	});
 
 	it("keeps a subagent's conversation under its caller's once its task merged", async () => {

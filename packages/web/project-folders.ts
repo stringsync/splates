@@ -104,11 +104,7 @@ export interface Folder {
 	hosting: Set<string>;
 	/** The trees with an agent waiting on you, which its header counts. */
 	waiting: Nested<Needing>[];
-	/**
-	 * Its trees as the folder lists them: those waiting on you, then the
-	 * pinned ones, then those with an agent at work, then the rest, each
-	 * newest first.
-	 */
+	/** The trees to list: pinned first, then newest first. */
 	listed: Nested<Needing>[];
 	/** How many of its trees have an agent at work. */
 	atWork: number;
@@ -135,25 +131,6 @@ export function folderKey(folder: Folder): string {
 	return folder.project ?? "";
 }
 
-/**
- * `trees` by what is most pressing in each: one waiting on you, then the
- * rest pinned, at work, or none of those, each in the order given.
- */
-export function groupsOf(
-	trees: Nested<Needing>[],
-): Record<"waiting" | "pinned" | "working" | "recent", Nested<Needing>[]> {
-	const waiting = trees.filter((tree) =>
-		flatten([tree]).some((row) => waitsOnYou(row)),
-	);
-	const rest = trees.filter((tree) => !waiting.includes(tree));
-	const pinned = rest.filter((tree) => tree.row.conversation?.pinned === true);
-	const working = rest.filter((tree) => !pinned.includes(tree) && atWork(tree));
-	const recent = rest.filter(
-		(tree) => !pinned.includes(tree) && !working.includes(tree),
-	);
-	return { waiting, pinned, working, recent };
-}
-
 /** Whether an agent of `tree` is at work. */
 function atWork(tree: Nested<Needing>): boolean {
 	return flatten([tree]).some(
@@ -169,9 +146,12 @@ function folder(
 	here: boolean,
 ): Folder {
 	const trees = nestRows(tasks, rowsOf(tasks, conversations, todos));
-	// Grouped with every row, so a subagent at work outside the page still
-	// puts its host with those at work, then only what the list shows.
-	const { waiting, pinned, working, recent } = groupsOf(trees);
+	// Counted with every row, so a subagent waiting outside the page still
+	// counts for its host, then only what the list shows.
+	const waiting = trees.filter((tree) =>
+		flatten([tree]).some((row) => waitsOnYou(row)),
+	);
+	// Listed by age alone, so a row keeps its place as its agents start and stop.
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
 	return {
 		project,
@@ -185,7 +165,7 @@ function folder(
 		trees: shown(trees),
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),
-		listed: shown([...waiting, ...pinned, ...working, ...recent]),
+		listed: shown(trees),
 		atWork: shownIn(trees).filter(atWork).length,
 	};
 }

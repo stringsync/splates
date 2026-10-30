@@ -128,7 +128,7 @@ describe("App on a phone", () => {
 		].join("\n"),
 	});
 
-	it("lists the agents waiting on you first in its inbox", async () => {
+	it("lists the agents newest first in its inbox, each saying what it waits on", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Quiet", status: "stopped" }),
@@ -144,8 +144,10 @@ describe("App on a phone", () => {
 			within(inbox)
 				.getAllByRole("region")
 				.map((group) => group.getAttribute("aria-label")),
-		).toEqual(["Needs you", "Recent"]);
-		const waiting = within(inbox).getByRole("region", { name: "Needs you" });
+		).toEqual(["Conversations"]);
+		const waiting = within(inbox).getByRole("region", {
+			name: "Conversations",
+		});
 		expect(waiting.textContent).toContain("Broke");
 		expect(waiting.textContent).toContain("Failed");
 	});
@@ -179,7 +181,7 @@ describe("App on a phone", () => {
 		return inbox;
 	};
 
-	it("shows every project, the page's own first, each with its waiting agents on top, another's opening on its page", async () => {
+	it("shows every project, the page's own first, each newest first, another's opening on its page", async () => {
 		const inbox = await inZebraAndHere();
 		expect(
 			within(inbox)
@@ -192,8 +194,8 @@ describe("App on a phone", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			expect.stringContaining("Zebra broke"),
 			expect.stringContaining("Stripes"),
+			expect.stringContaining("Zebra broke"),
 		]);
 		expect(
 			within(zebra).queryByRole("status", { name: "1 waiting on you" }),
@@ -273,7 +275,7 @@ describe("App on a phone", () => {
 		expect(inbox.textContent).not.toContain("gamma");
 		expect(inbox.textContent).not.toContain("omega");
 		expect(
-			within(inbox).queryByRole("region", { name: "Needs you" }),
+			within(inbox).queryByRole("region", { name: "Conversations" }),
 		).toBeNull();
 	});
 
@@ -295,9 +297,9 @@ describe("App on a phone", () => {
 
 		const waiting = within(
 			view.getByRole("region", { name: "inbox" }),
-		).getByRole("region", { name: "Needs you" });
+		).getByRole("region", { name: "Conversations" });
 		expect(within(waiting).getByRole("heading").textContent).toBe(
-			"Needs you · 1",
+			"Conversations · 1",
 		);
 		// Its task is the Tasks page's: its wait shows on the one it reports to.
 		const [orchestrator, ...others] = within(waiting).getAllByRole("button");
@@ -983,7 +985,7 @@ describe("App on a phone", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+				within(view.getByRole("region", { name: "Conversations" })).getByRole(
 					"button",
 					{ name: /alpha/ },
 				),
@@ -1020,7 +1022,7 @@ describe("App on a phone", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+				within(view.getByRole("region", { name: "Conversations" })).getByRole(
 					"button",
 					{ name: /alpha/ },
 				),
@@ -1054,7 +1056,7 @@ describe("App on a phone", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+				within(view.getByRole("region", { name: "Conversations" })).getByRole(
 					"button",
 					{ name: /alpha/ },
 				),
@@ -1447,7 +1449,7 @@ describe("App on a phone", () => {
 
 		const recent = within(
 			view.getByRole("region", { name: "inbox" }),
-		).getByRole("region", { name: "Recent" });
+		).getByRole("region", { name: "Conversations" });
 		expect(
 			within(recent)
 				.getAllByRole("listitem")
