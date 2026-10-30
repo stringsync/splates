@@ -407,6 +407,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 					}
 				}
 				let settled = false;
+				const settling = new AbortController();
 				const nextPoll = pollSince(
 					this.clock,
 					() =>
@@ -420,7 +421,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 						settled: () => settled || this.controller.signal.aborted,
 						pause: () =>
 							aborts.race(
-								this.controller.signal,
+								AbortSignal.any([this.controller.signal, settling.signal]),
 								this.opts.pause?.() ?? sleep(nextPoll()),
 							),
 						show: async (notice) => {
@@ -441,6 +442,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 					await shipping.settled();
 				} finally {
 					settled = true;
+					settling.abort();
 				}
 				await announced;
 				const ship = await shipping.current();
