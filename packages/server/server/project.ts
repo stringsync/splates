@@ -23,7 +23,7 @@ import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { type Needing, needs, taskNumberReference } from "../plans";
+import { type Needing, needs, taskNumberReference, waitsOnYou } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
@@ -581,14 +581,22 @@ export interface ProjectHeard extends ConversationsHeard {
 
 /**
  * How many agents wait on the person, counted as the page's waiting line
- * counts them, including an external agent whose reply the page copied.
+ * counts them: only conversations, and questions only while unanswered.
  */
 export function waitingOn(
 	tasks: Details[],
 	conversations: ConversationState[],
 	todos?: readonly TaskRecord[],
 ): number {
-	return needs({ tasks, conversations, todos }).filter(
+	return needs({ tasks, conversations, todos }).filter(waitsOnYou).length;
+}
+
+/**
+ * How many tasks wait on the person where no conversation is known, as for a
+ * project not opened, whose conversations are not loaded.
+ */
+export function waitingTasks(tasks: Details[]): number {
+	return needs({ tasks, conversations: [] }).filter(
 		({ need }) => need.kind === "waiting",
 	).length;
 }

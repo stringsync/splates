@@ -6,13 +6,15 @@ import {
 	type Need,
 	type Needing,
 	need,
+	waitsOnYou,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { arriveAt } from "./arrivals";
 import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
 import { isPartOf, type Nested, nest } from "./parts";
-import { unanswered } from "./unanswered";
+
+export { waitsOnYou };
 
 /**
  * Lists the rows of the sidebar and the phone's inbox, pinned first, then
@@ -185,31 +187,6 @@ function isUnread({ conversation, need }: Needing): boolean {
 		need.kind === "idle" &&
 		!waitsOn(reportedAs(conversation))
 	);
-}
-
-/**
- * Tells whether `row` waits on you, for ⌥⌘M, Needs you and the waiting counts
- * to stop on: true while its conversation has stopped on you with questions
- * no reply has answered yet.
- */
-export function waitsOnYou({ conversation, need }: Needing): boolean {
-	// An agent outside the page never does, as it asks in its own session.
-	// One the page runs asks as it works only in its plan, until its report
-	// asks again as it stops. A subagent of one here waits through that one.
-	if (conversation === null) {
-		return false;
-	}
-	if (need.kind === "waiting" && need.why !== "questions") {
-		return true;
-	}
-	if (
-		need.kind === "idle" ||
-		need.kind === "working" ||
-		need.kind === "assuming"
-	) {
-		return false;
-	}
-	return unanswered(need.questions, conversation.messages).length > 0;
 }
 
 /**

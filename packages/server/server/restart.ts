@@ -13,7 +13,7 @@ import { tasksOf } from "../tasks";
 import type { Terminals } from "../terminal";
 import { type Held, heldBy } from "../terminal";
 import type { WorkerMachine } from "../workers";
-import { type Project, type Served, waitingOn } from "./project";
+import { type Project, type Served, waitingTasks } from "./project";
 import type { ServerChoice } from "./servers";
 import { RESTART, UPDATE } from "./supervise";
 import type { Versions } from "./versions";
@@ -472,10 +472,7 @@ export class Restarts {
 			return 0;
 		}
 		const tasks = await tasksOf(opened);
-		return waitingOn(
-			tasks.map((task) => ({ ...task, takenBy: null })),
-			[],
-		);
+		return waitingTasks(tasks.map((task) => ({ ...task, takenBy: null })));
 	}
 
 	/**

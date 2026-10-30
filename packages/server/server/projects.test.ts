@@ -316,9 +316,11 @@ describe("dev projects", () => {
 				["repo-2", 2],
 			]);
 
+			// In an opened project, an agent outside the page is not one the page
+			// lists, so it does not count as waiting on the person.
 			await asking(deps, "alpha");
 			expect(await waiting()).toEqual([
-				["repo", 1],
+				["repo", 0],
 				["repo-2", 2],
 			]);
 
@@ -330,7 +332,7 @@ describe("dev projects", () => {
 					async () =>
 						JSON.stringify(await waiting()) ===
 						JSON.stringify([
-							["repo", 1],
+							["repo", 0],
 							["repo-2", 3],
 						]),
 					5_000,

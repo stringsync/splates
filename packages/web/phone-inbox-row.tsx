@@ -2,6 +2,7 @@ import { deferralBlockers } from "@stringsync/splates-server/board/browser";
 import {
 	answersTo,
 	type Needing,
+	unanswered,
 } from "@stringsync/splates-server/plans/browser";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -20,7 +21,6 @@ import { type Quiet, quietText, useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { TaskIcon } from "./task-icon";
-import { unanswered } from "./unanswered";
 
 /**
  * One agent in the inbox: its mark, name, what it waits on, and how long

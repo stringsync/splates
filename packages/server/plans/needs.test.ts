@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import { todo } from "../fixtures";
+import { waitingOn } from "../server/project";
 import type { Details } from "../tasks";
 import { ASKED_QUIET, need, needs, orphaned } from "./needs";
 import { STUB_STEPS } from "./plan";
@@ -352,6 +353,17 @@ describe("needs", () => {
 		expect(
 			need(task({ plan: stub.replace(stubStep, oldStubStep) }), talk()),
 		).toEqual({ kind: "working", subject: "ship it" });
+	});
+
+	it("counts as waiting only conversations that wait on you", () => {
+		// An orphaned task with no conversation shows nowhere, so it never counts.
+		expect(waitingOn([task({ task: "gone", status: "orphaned" })], [])).toBe(0);
+		expect(
+			waitingOn(
+				[task({ task: "gone", status: "orphaned" })],
+				[talk({ id: "late", task: null, ask: ask("2026-10-11T10:09:00Z") })],
+			),
+		).toBe(1);
 	});
 
 	it("lists waiting by oldest stop, then assuming by most questions, then the rest", () => {

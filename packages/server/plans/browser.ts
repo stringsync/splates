@@ -51,3 +51,4 @@ export {
 	takenOf,
 } from "./reply";
 export { isWholeSuite, retryOf, shipOf } from "./run-command";
+export { unanswered, waitsOnYou } from "./unanswered";
