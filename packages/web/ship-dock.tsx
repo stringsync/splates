@@ -32,8 +32,14 @@ export function attentionOf(
 			detail:
 				ship.waiting.kind === "login"
 					? "npm waits for you to sign in on its page."
-					: "npm holds the publish until you confirm it on its page.",
-			action: { label: "Open npm", href: ship.waiting.url, external: true },
+					: ship.waiting.kind === "approve"
+						? `npm holds ${(ship.waiting.packages ?? []).map((each) => `${each.package}@${each.version}`).join(", ")} until you approve ${ship.waiting.packages?.length === 1 ? "it" : "them"} on its page.`
+						: "npm holds the publish until you confirm it on its page.",
+			action: {
+				label: ship.waiting.kind === "approve" ? "Approve on npm" : "Open npm",
+				href: ship.waiting.url,
+				external: true,
+			},
 		};
 	}
 	const asking = cascade.steps.find((step) => step.status === "asking");

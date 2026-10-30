@@ -297,12 +297,7 @@ export class Pushes {
 	}
 }
 
-/**
- * Forgets every device `push.json` under `home` keeps, keeping the keys
- * their subscriptions were made with, so each browser subscribes again from
- * the page. A running server's `Pushes` reads the file before each push, so
- * it stops pushing to them too.
- */
+/** Makes every browser subscribe again from the page, after the keys changed; the running server stops pushing to the old devices. */
 export async function forgetDevices(storage: Storage): Promise<void> {
 	const file = storage.document<{ devices?: unknown[] }>("push.json");
 	const seen = await file.read();
@@ -319,6 +314,8 @@ function waitedFor(wait: ShipWait): string {
 			return "npm waits for you to sign in";
 		case "2fa":
 			return "npm waits for your second factor to publish";
+		case "approve":
+			return "npm waits for you to approve the staged release";
 	}
 }
 

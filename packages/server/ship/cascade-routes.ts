@@ -23,6 +23,7 @@ const STAGE_KEYS: StageKey[] = [
 	"login",
 	"otp",
 	"command",
+	"approve",
 	"versions",
 ];
 

@@ -124,6 +124,58 @@ describe("Shipping", () => {
 		expect(ship?.error).toBe('release step "Build" failed: tsc broke');
 	});
 
+	it("waits on the person to approve what the release staged, until its approve step is done", async () => {
+		await shipping.start();
+		const child = await nth(ps, 0);
+		const events = [
+			{
+				type: "declared",
+				id: "approve",
+				name: "Approve a",
+				stage: "approve",
+				packages: ["a"],
+				deadlineMs: 1000,
+				at: "t0",
+			},
+			{
+				type: "staged",
+				id: "approve",
+				name: "Approve a",
+				package: "a",
+				version: "1.0.1",
+				stageId: "st-1",
+				url: "https://www.npmjs.com/staged",
+				at: "t1",
+			},
+			{ type: "started", id: "approve", name: "Approve a", at: "t2" },
+		];
+		await fs.write(`${shipping.output}.events`, eventsText(events));
+		await until(async () => (await shipping.current())?.waiting != null);
+		expect((await shipping.current())?.waiting).toMatchObject({
+			kind: "approve",
+			url: "https://www.npmjs.com/staged",
+			packages: [{ package: "a", version: "1.0.1", stageId: "st-1" }],
+		});
+		const approve = async () =>
+			(await shipping.current())?.stages?.find(
+				(each) => each.key === "approve",
+			);
+		expect((await approve())?.state).toBe("asking");
+
+		await fs.write(
+			`${shipping.output}.events`,
+			eventsText([
+				...events,
+				{ type: "done", id: "approve", name: "Approve a", at: "t3" },
+			]),
+		);
+		await until(async () => (await shipping.current())?.waiting === null);
+		expect((await approve())?.state).toBe("done");
+		child.exit(0);
+		await shipping.settled();
+		expect(await shipping.current()).toMatchObject({ status: "done" });
+	});
+
 	it("keeps no release steps when its command writes none", async () => {
 		await shipping.start();
 		(await nth(ps, 0)).exit(0);
@@ -274,6 +326,7 @@ describe("Shipping", () => {
 			["login", "done"],
 			["otp", "skipped"],
 			["command", "done"],
+			["approve", "skipped"],
 			["remote", "done"],
 		]);
 		expect(stages[1]?.check?.result).toBe("npm whoami: someone");
@@ -337,7 +390,7 @@ describe("Shipping", () => {
 		});
 		expect(
 			(await shipping.current())?.stages?.map((stage) => stage.state),
-		).toEqual(["done", "done", "skipped", "failed", "skipped"]);
+		).toEqual(["done", "done", "skipped", "failed", "skipped", "skipped"]);
 	});
 
 	it("runs again a stopped server's ship at the bump it recorded", async () => {

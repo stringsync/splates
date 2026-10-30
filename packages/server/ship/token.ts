@@ -7,7 +7,7 @@ const TOKEN_NPMRC = `//registry.npmjs.org/:_authToken=\${NPM_TOKEN}
 
 /** Why a ship stopped on a token npm turned away. */
 export const TOKEN_REFUSED =
-	"npm refused the NPM_TOKEN in the creds store: it may have expired or been revoked; make a new granular token and replace it on the Creds page";
+	"npm refused the NPM_TOKEN in the creds store: it may have expired, been revoked, or be limited to IP ranges this machine is outside of; make a new granular token and replace it on the Creds page";
 
 /**
  * What `npm whoami` says under the environment a ship's npm runs in, with

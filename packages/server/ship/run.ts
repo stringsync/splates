@@ -4,6 +4,7 @@ import type { Fs, Ps, TerminalChild } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
+import { approvalChange } from "./approval";
 import { ReleaseGit } from "./git";
 import {
 	ANSI,
@@ -17,6 +18,13 @@ import {
 	typedCodeError,
 } from "./npm-terminal";
 import type { ShipBump } from "./plan";
+import {
+	SHIP_STAGES,
+	type Ship,
+	type ShipStatus,
+	type ShipWait,
+	shipRecord,
+} from "./record";
 import {
 	type ReleaseStep,
 	ReleaseStepsFollower,
@@ -32,66 +40,8 @@ import {
 } from "./stages";
 import { checkNpm, TOKEN_REFUSED } from "./token";
 
-/** Where a project's records keep its latest ship. */
-export function shipRecord(storage: Storage): Document<Ship> {
-	return storage.document<Ship>("ship.json");
-}
-
-/** Where a ship stands: going, or how it ended. */
-export type ShipStatus = "running" | "done" | "failed";
-
-/**
- * What npm waits on the person for, on its own page: signing in, as
- * `npm login --auth-type=web` asks, or a publish's second factor.
- */
-export interface ShipWait {
-	kind: "login" | "2fa";
-	/** npm's page, which the person opens from any device. */
-	url: string;
-	/** When npm began waiting, as ISO time. */
-	since: string;
-}
-
-/**
- * A project's latest ship, kept in its records so a restarted server shows it
- * and finishes one it left running.
- */
-export interface Ship {
-	/** The project's slug, as `?project=` names it. */
-	project: string;
-	/** The `ship` command from its `splates.config.ts`. */
-	command: string;
-	/** The approved release type, passed to the command and kept across restarts. */
-	bump: ShipBump;
-	status: ShipStatus;
-	/** Signing in to npm first, or running the ship command. */
-	step: "login" | "ship";
-	/** The root `package.json` version as the ship started. */
-	from: string | null;
-	/** The root `package.json` version once it is done; null before. */
-	to: string | null;
-	started: string;
-	ended: string | null;
-	/** What npm waits on the person for now, or null. */
-	waiting: ShipWait | null;
-	/** The last of the output of a ship that failed. */
-	error: string | null;
-	/** How many times a restart ran it again to finish it. */
-	resumed: number;
-	/** Where its output is; the project's own `ship.log` unless its cascade named one. */
-	log?: string;
-	/** Its steps (npm sign-in, 2FA, the ship command), each with its slice of the log; absent from older ships. */
-	stages?: Stage[];
-}
-
-/** The steps a ship takes itself, as {@link Ship.stages} keeps them. */
-export const SHIP_STAGES: StageKey[] = [
-	"push",
-	"login",
-	"otp",
-	"command",
-	"remote",
-];
+export type { Ship, ShipStatus, ShipWait } from "./record";
+export { SHIP_STAGES, shipRecord } from "./record";
 
 /** What a {@link Shipping} works with. */
 export interface ShippingOptions {
@@ -472,11 +422,13 @@ export class Shipping implements Resource {
 		const following =
 			step === "ship"
 				? new ReleaseStepsFollower(this.opts.fs, this.events, {
-						keep: (steps) =>
-							this.stage("command", (stage) => ({
+						keep: async (steps) => {
+							await this.stage("command", (stage) => ({
 								...stage,
 								releaseSteps: steps,
-							})),
+							}));
+							await this.approval(steps);
+						},
 					})
 				: null;
 		const code = await child.exited;
@@ -506,7 +458,7 @@ export class Shipping implements Resource {
 			}
 		} else if (line !== "" && !AROUND_LINK.test(line)) {
 			const ship = await this.record.read();
-			if (ship?.waiting != null) {
+			if (ship?.waiting != null && ship.waiting.kind !== "approve") {
 				await this.update({ waiting: null });
 				await this.answered(ship.waiting.kind);
 			}
@@ -536,6 +488,27 @@ export class Shipping implements Resource {
 						: this.closed(stage, status === "done" ? "done" : "failed"),
 			);
 		}
+	}
+
+	/** The release staged packages: the ship waits on the person to approve them on npm. */
+	private async approval(steps: ReleaseStep[]): Promise<void> {
+		const ship = await this.record.read();
+		if (ship === null || this.disposed || ship.status !== "running") {
+			return;
+		}
+		const change = approvalChange(ship.waiting, steps, this.stamp());
+		if (change === null) {
+			return;
+		}
+		await this.update(change);
+		await this.stage("approve", (stage) =>
+			change.waiting === null
+				? this.closed(stage, "done")
+				: {
+						...begun(stage, this.stamp(), "asking"),
+						log: stage.log ?? { from: this.heardFrom, to: null },
+					},
+		);
 	}
 
 	/** npm asked for a publish's second factor: its step waits on the person. */

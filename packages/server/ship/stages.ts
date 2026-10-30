@@ -41,7 +41,7 @@ export type StageState =
 /**
  * The steps a project's part in a ship takes: its bump task, that task's
  * merge gate and its merge, then signing in to npm, the publishes' second
- * factor, the ship command, and the versions it published checked against
+ * factor, the ship command, the approval of what it staged, and the versions it published checked against
  * the plan.
  */
 export type StageKey =
@@ -57,6 +57,7 @@ export type StageKey =
 	| "login"
 	| "otp"
 	| "command"
+	| "approve"
 	| "versions";
 
 /** What splates last asked of a step, and what it heard. */
@@ -161,6 +162,7 @@ export const STAGE_NAMES: Record<StageKey, string> = {
 	login: "npm sign-in",
 	otp: "2FA",
 	command: "Ship command",
+	approve: "Approve on npm",
 	versions: "Versions checked",
 };
 
@@ -178,6 +180,7 @@ export const STAGE_DEFAULTS: Record<StageKey, Duration> = {
 	login: Duration.mins(2),
 	otp: Duration.mins(2),
 	command: Duration.mins(5),
+	approve: Duration.mins(5),
 	versions: Duration.secs(1),
 };
 

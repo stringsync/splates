@@ -66,7 +66,9 @@ export function shipLine(
 	if (ship?.waiting != null) {
 		return ship.waiting.kind === "login"
 			? "waiting on your npm sign-in"
-			: "waiting on your 2FA";
+			: ship.waiting.kind === "approve"
+				? "waiting on your approval on npm"
+				: "waiting on your 2FA";
 	}
 	for (const step of cascade.steps) {
 		const hung = hungIn(step);

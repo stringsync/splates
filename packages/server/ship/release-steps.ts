@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
-import { z } from "zod";
+import { EVENT } from "./release-events";
 
 /**
  * The steps a project's own Release declares, as its ship command reports
@@ -30,24 +30,9 @@ export interface ReleaseStep {
 	/** Whether its last check passed, or null before any. */
 	checked: boolean | null;
 	error: string | null;
+	/** Packages this step staged on npm, which wait for the person to approve them. */
+	staged: StagedPackage[];
 }
-
-const base = { id: z.string(), name: z.string(), at: z.string() };
-
-const EVENT = z.discriminatedUnion("type", [
-	z.object({
-		...base,
-		type: z.literal("declared"),
-		stage: z.string(),
-		packages: z.array(z.string()).default([]),
-		deadlineMs: z.number(),
-	}),
-	z.object({ ...base, type: z.literal("started") }),
-	z.object({ ...base, type: z.literal("check"), passed: z.boolean() }),
-	z.object({ ...base, type: z.literal("done") }),
-	z.object({ ...base, type: z.literal("skipped") }),
-	z.object({ ...base, type: z.literal("failed"), error: z.string() }),
-]);
 
 /**
  * The release steps in an events file's `text`, in the order the Release
@@ -79,6 +64,7 @@ export function readReleaseSteps(text: string): ReleaseStep[] {
 				deadlineMs: event.deadlineMs,
 				checked: null,
 				error: null,
+				staged: [],
 			});
 			continue;
 		}
@@ -94,6 +80,24 @@ export function readReleaseSteps(text: string): ReleaseStep[] {
 					started: event.at,
 					ended: null,
 					error: null,
+				});
+				break;
+			case "staged":
+				steps.set(event.id, {
+					...step,
+					staged: [
+						...step.staged.filter(
+							(each) =>
+								each.package !== event.package ||
+								each.version !== event.version,
+						),
+						{
+							package: event.package,
+							version: event.version,
+							stageId: event.stageId,
+							url: event.url,
+						},
+					],
 				});
 				break;
 			case "check":
@@ -184,4 +188,14 @@ export class ReleaseStepsFollower implements Resource {
 			// The page shows what it has; the ship goes on.
 		}
 	}
+}
+
+/** A package the Release staged on npm, held until the person approves it. */
+export interface StagedPackage {
+	package: string;
+	version: string;
+	/** What `npm stage approve` takes. */
+	stageId: string;
+	/** The npm page to approve it on. */
+	url: string;
 }
