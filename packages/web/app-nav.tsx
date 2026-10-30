@@ -108,13 +108,6 @@ export function AppNav({
 				)}
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
-				{value === "ships" && shipping === "waiting" && (
-					<TriangleAlertIcon
-						role="img"
-						aria-label="a ship waits on you"
-						className="-top-1.5 -right-2 absolute size-3.5 fill-sidebar text-amber-500"
-					/>
-				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>
 			{value === "ships" && shipping === "running" && (
@@ -122,6 +115,13 @@ export function AppNav({
 					role="img"
 					aria-label="a ship runs"
 					className="size-3.5 animate-spin text-muted-foreground"
+				/>
+			)}
+			{value === "ships" && shipping === "waiting" && (
+				<TriangleAlertIcon
+					role="img"
+					aria-label="a ship waits on you"
+					className="size-3.5 text-amber-500"
 				/>
 			)}
 			<HeldKey shortcut={shortcut} held={held} />
