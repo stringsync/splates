@@ -47,6 +47,9 @@ describe("ShipsPage", () => {
 			}),
 		);
 		expect(await view.findByText("Wait for own live")).toBeTruthy();
+		// The plan is closed to a ship under way: #ships opens that ship.
+		expect(location.hash).toBe("#ships/active");
+		expect(view.queryByRole("button", { name: "Start" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "Retry" }));
 		await waitFor(() => expect(posts).toContain("POST /api/ship/steps/retry"));
 		fireEvent.click(view.getByRole("button", { name: "Abandon" }));

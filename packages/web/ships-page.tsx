@@ -11,14 +11,22 @@ import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
 
 /**
- * Where you plan, start and follow a ship: pick the projects that release,
- * press Start, watch the ship under way, and open past ships.
+ * Where you plan a ship: pick the projects that release, press Start, and
+ * open past ships. The ship under way, and each past one, has its own page.
  */
 export function ShipsPage(_props: {
 	feed?: ConversationFeed | null;
 }): JSX.Element {
 	const viewed = useViewedShip();
 	const live = useLiveShips();
+	const busy =
+		live?.cascade?.status === "running" || live?.cascade?.status === "stopped";
+	// Planning waits while a ship is under way: the Ship tab opens that ship.
+	useEffect(() => {
+		if (viewed === null && busy) {
+			location.replace(`#ships/${ACTIVE}`);
+		}
+	}, [viewed, busy]);
 	const [closed, setClosed] = useState<string | null>(null);
 	const [past, setPast] = useState<CascadeSummary[]>([]);
 	useEffect(() => {
@@ -28,7 +36,7 @@ export function ShipsPage(_props: {
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
 			<TopBar
 				leading={
-					viewed === null ? undefined : (
+					viewed === null || (viewed === ACTIVE && busy) ? undefined : (
 						<BackButton
 							parent="Ship"
 							onBack={() => {
@@ -46,33 +54,23 @@ export function ShipsPage(_props: {
 				}
 			/>
 			{viewed === ACTIVE ? (
-				<ActiveShip
-					live={live}
-					closed={closed}
-					onClose={setClosed}
-					act={actOnShip}
-				/>
+				<>
+					<ActiveShip
+						live={live}
+						closed={closed}
+						onClose={setClosed}
+						act={actOnShip}
+					/>
+					{past.length > 0 && <History cascades={past} />}
+				</>
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
 				<>
-					{live?.cascade != null && live.cascade.id !== closed && (
-						<ShipRun
-							cascade={live.cascade}
-							ship={live.ship}
-							onClose={() => setClosed(live.cascade?.id ?? null)}
-							abandon={() => actOnShip("abandon")}
-							retry={() => actOnShip("retry")}
-							agent={() => actOnShip("agent")}
-						/>
-					)}
 					<ShipPlan
 						ship={new URLSearchParams(location.search).get("ship")}
 						endedAt={live?.cascade?.ended ?? null}
-						busy={
-							live?.cascade?.status === "running" ||
-							live?.cascade?.status === "stopped"
-						}
+						busy={busy}
 						loading={live === null}
 						onStarted={() => {
 							const url = new URL(location.href);
