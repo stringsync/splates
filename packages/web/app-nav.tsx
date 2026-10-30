@@ -1,6 +1,11 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import { ChevronDownIcon, ChevronUpIcon, LoaderCircleIcon } from "lucide-react";
+import {
+	ChevronDownIcon,
+	ChevronUpIcon,
+	LoaderCircleIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -104,9 +109,11 @@ export function AppNav({
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
 				{value === "ships" && shipping === "waiting" && (
-					<span role="img" aria-label="a ship waits on you">
-						<UpdateDot ring="ring-sidebar" />
-					</span>
+					<TriangleAlertIcon
+						role="img"
+						aria-label="a ship waits on you"
+						className="-top-1.5 -right-2 absolute size-3.5 fill-sidebar text-amber-500"
+					/>
 				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>

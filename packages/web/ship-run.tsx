@@ -13,6 +13,7 @@ import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
 import { ShipDock } from "./ship-dock";
 import { StageRow } from "./ship-stages";
+import { ShipStatusCard } from "./ship-status-card";
 
 /**
  * A ship under way, or one that stopped: a stage per project in the order
@@ -125,6 +126,7 @@ export function ShipRun({
 				)}
 			</div>
 			<Refusal refusal={refusals.get("") ?? null} />
+			<ShipStatusCard cascade={cascade} ship={ship} />
 			<ProjectStages cascade={cascade} ship={ship} live={running} />
 			<ShipDock cascade={cascade} ship={ship} />
 		</section>
