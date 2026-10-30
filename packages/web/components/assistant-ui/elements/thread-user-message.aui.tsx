@@ -63,7 +63,7 @@ import {
 import { handOffLines, serverToldLines } from "#web/server-messages.ts";
 import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
-import { SendingLine, UnsentLine } from "#web/unsent.tsx";
+import { SendingLine } from "#web/unsent.tsx";
 
 /**
  * Has a person's message report, as its `offsetTop`, where it sits before it
@@ -156,10 +156,6 @@ export const UserMessage: FC = () => {
 	const dictated = useAuiState(
 		(s) => s.message.metadata.custom.dictated === true,
 	);
-	const unsent = useAuiState((s) => {
-		const at = s.message.metadata.custom.unsent;
-		return typeof at === "number" ? at : null;
-	});
 	const sending = useAuiState((s) => s.message.metadata.custom.sending);
 	// On its way until the server's own copy, under the same id, takes its place.
 	const pending = useAuiState(
@@ -295,7 +291,6 @@ export const UserMessage: FC = () => {
 			{pending && (
 				<SendingLine since={typeof sending === "number" ? sending : null} />
 			)}
-			{unsent !== null && <UnsentLine at={unsent} />}
 		</>
 	);
 	if (sent.length === 0 && isSoleCommand(text)) {

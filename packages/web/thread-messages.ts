@@ -13,7 +13,6 @@ import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt, queuedReply } from "./queued-time";
-import { messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
@@ -33,7 +32,6 @@ export function useThreadMessages(
 ): ThreadMessages {
 	const { id, status } = conversation;
 	const running = status === "running";
-	const unsent = feed.unsent.get(id);
 	// The last message is still being written while the agent works. An agent
 	// starting is coming back to answer a prompt, never to go on with the turn
 	// it last ended, which a lost connection may have cut short.
@@ -168,20 +166,7 @@ export function useThreadMessages(
 							status === "stopped" || status === "failed" ? id : undefined,
 						),
 					];
-		// What the server refused, after all of it, as it would go if sent again.
-		const all = [
-			...lined,
-			...(unsent ?? []).map(({ message }, at) => {
-				// Refused, so no longer on its way.
-				const { sending: _, ...refused } = messageOf(message);
-				const one = like(refused, lined.length, conversation.id);
-				return {
-					...one,
-					id: `unsent ${at}`,
-					metadata: { custom: { ...one.metadata?.custom, unsent: at } },
-				};
-			}),
-		];
+		const all = lined;
 		return { all, last: waiting.length === 0 ? all.at(-1) : ended.at(-1) };
 	}, [
 		conversation.summary,
@@ -198,7 +183,6 @@ export function useThreadMessages(
 		running,
 		shown,
 		feed,
-		unsent,
 		status,
 		id,
 	]);

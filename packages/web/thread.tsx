@@ -75,7 +75,7 @@ import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
-import { PendingRow, UnsentContext } from "./unsent";
+import { PendingRow } from "./unsent";
 import {
 	CompactionUI,
 	InterruptedUI,
@@ -180,10 +180,6 @@ function Conversation({
 		"changed",
 	]);
 	const suite = useMemo(() => () => approveSuite(id), [id]);
-	const unsentActions = useMemo(
-		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
-		[unsent, retry, editUnsent],
-	);
 	const superseded = useMemo(
 		() => supersededMerges(conversation.events),
 		[conversation.events],
@@ -329,104 +325,104 @@ function Conversation({
 								<MergeCardContext value={mergeCard}>
 									<AssistantRuntimeProvider runtime={runtime}>
 										<Composing.Provider value={runtime.thread.composer}>
-											<UnsentContext.Provider value={unsentActions}>
-												<QuestionsUI />
-												<ReviewUI />
-												<ReportUI />
-												<TodoUI />
-												<PermissionUI />
-												<DemoUI />
-												<WorkUI />
-												<QueuedUI />
-												<EventUI />
-												<StoppedUI />
-												<CompactionUI />
-												<BackgroundUI />
-												<RestedUI />
-												<InterruptedUI />
-												<EvalsConversation value={id}>
-													<SuiteGrant value={suite}>
-														<ArchiveConversation
-															value={archivable ? fileAway : null}
-														>
-															<ArchiveOfferProvider value={offer}>
-																<StartNewContext value={startNew}>
-																	<ReplyContext value={reply}>
-																		<NamedContext value={named}>
-																			<ThreadView
-																				docked
-																				historyFailure={historyFailure}
-																				onRead={onRead}
-																				autoFocus={
-																					summary !== true && (!asking || typed)
-																				}
-																				stopping={stopping}
-																				mentions={mentions ?? undefined}
-																				references={references}
-																				commands={commands ?? undefined}
-																				placeholder={
-																					archived
-																						? "Send a message to unarchive and continue"
-																						: undefined
-																				}
-																				controls={
-																					<ThreadControls
-																						conversation={conversation}
-																						refused={refused}
-																					/>
-																				}
-																				above={
-																					<>
-																						<NeedsYouBar />
+											<QuestionsUI />
+											<ReviewUI />
+											<ReportUI />
+											<TodoUI />
+											<PermissionUI />
+											<DemoUI />
+											<WorkUI />
+											<QueuedUI />
+											<EventUI />
+											<StoppedUI />
+											<CompactionUI />
+											<BackgroundUI />
+											<RestedUI />
+											<InterruptedUI />
+											<EvalsConversation value={id}>
+												<SuiteGrant value={suite}>
+													<ArchiveConversation
+														value={archivable ? fileAway : null}
+													>
+														<ArchiveOfferProvider value={offer}>
+															<StartNewContext value={startNew}>
+																<ReplyContext value={reply}>
+																	<NamedContext value={named}>
+																		<ThreadView
+																			docked
+																			historyFailure={historyFailure}
+																			onRead={onRead}
+																			autoFocus={
+																				summary !== true && (!asking || typed)
+																			}
+																			stopping={stopping}
+																			mentions={mentions ?? undefined}
+																			references={references}
+																			commands={commands ?? undefined}
+																			placeholder={
+																				archived
+																					? "Send a message to unarchive and continue"
+																					: undefined
+																			}
+																			controls={
+																				<ThreadControls
+																					conversation={conversation}
+																					refused={refused}
+																				/>
+																			}
+																			above={
+																				<>
+																					<NeedsYouBar />
 
-																						<Refusal
-																							refusal={refusal}
-																							className="px-2"
-																						/>
-																						{offer !== null && barred && (
-																							<ArchiveBar offer={offer} />
-																						)}
-																						{conversation.status ===
-																							"running" &&
-																							conversation.queued === null &&
-																							queued.length > 0 && (
-																								<Queued
-																									conversation={id}
-																									messages={queued}
-																									edits={{
-																										onEdit: (index, message) =>
-																											void edit(index, message),
-																										onDiscard: (index) =>
-																											void discard(index),
-																										onSendNow: () =>
-																											void sendNow(),
-																										busy: queueBusy,
-																									}}
-																								/>
-																							)}
-																						<PendingRow
-																							messages={sending ?? []}
-																						/>
-																						{conversation.ask !== null && (
-																							<AskPanel
-																								key={conversation.ask.id}
-																								drafts={drafts}
-																								conversation={conversation}
-																								agent={agent}
-																								ask={conversation.ask}
+																					<Refusal
+																						refusal={refusal}
+																						className="px-2"
+																					/>
+																					{offer !== null && barred && (
+																						<ArchiveBar offer={offer} />
+																					)}
+																					{conversation.status === "running" &&
+																						conversation.queued === null &&
+																						queued.length > 0 && (
+																							<Queued
+																								conversation={id}
+																								messages={queued}
+																								edits={{
+																									onEdit: (index, message) =>
+																										void edit(index, message),
+																									onDiscard: (index) =>
+																										void discard(index),
+																									onSendNow: () =>
+																										void sendNow(),
+																									busy: queueBusy,
+																								}}
 																							/>
 																						)}
-																					</>
-																				}
-																			/>
-																		</NamedContext>
-																	</ReplyContext>
-																</StartNewContext>
-															</ArchiveOfferProvider>
-														</ArchiveConversation>
-													</SuiteGrant>
-												</EvalsConversation>
-											</UnsentContext.Provider>
+																					<PendingRow
+																						messages={sending ?? []}
+																						unsent={unsent ?? []}
+																						retry={retry}
+																						edit={editUnsent}
+																					/>
+																					{conversation.ask !== null && (
+																						<AskPanel
+																							key={conversation.ask.id}
+																							drafts={drafts}
+																							conversation={conversation}
+																							agent={agent}
+																							ask={conversation.ask}
+																						/>
+																					)}
+																				</>
+																			}
+																		/>
+																	</NamedContext>
+																</ReplyContext>
+															</StartNewContext>
+														</ArchiveOfferProvider>
+													</ArchiveConversation>
+												</SuiteGrant>
+											</EvalsConversation>
 										</Composing.Provider>
 									</AssistantRuntimeProvider>
 								</MergeCardContext>

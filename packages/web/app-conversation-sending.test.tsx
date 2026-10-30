@@ -349,7 +349,7 @@ describe("App's sending messages", () => {
 		);
 	});
 
-	it("keeps a message the server refuses in the thread, saying it was not sent, to send again", async () => {
+	it("keeps a message the server refuses in the pending row, saying it was not sent, to send again", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Login", status: "stopped" }),
 		]);
@@ -369,10 +369,13 @@ describe("App's sending messages", () => {
 		expect(unsent.title).toBe("cannot resume");
 		expect(within(thread).queryByRole("alert")).toBeNull();
 		expect(textIn(box)).toBe("");
-		const said = thread.querySelectorAll('[data-role="user"]');
-		expect([...said].map((each) => each.textContent)).toEqual([
-			expect.stringContaining("and the logout"),
-		]);
+		// In place in the pending row, never at the thread's foot.
+		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
+		expect(
+			within(view.getByRole("list", { name: "messages sending" })).getByText(
+				"and the logout",
+			),
+		).toBeTruthy();
 
 		testing.refuseWrites = null;
 		await act(async () =>

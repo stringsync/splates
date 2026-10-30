@@ -1,11 +1,5 @@
 import { CircleAlertIcon } from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	useContext,
-	useEffect,
-	useState,
-} from "react";
+import { type JSX, useContext, useEffect, useState } from "react";
 import { Duration, SystemTimer, SystemWallClock } from "webappwiz/time";
 import { HeldFeed } from "./handed-out";
 import { useShowPending } from "./pending";
@@ -15,19 +9,6 @@ import {
 	STILL_SENDING,
 	type Unsent,
 } from "./sending";
-
-/** A thread's messages the server refused, and what can be done with each. */
-export interface UnsentActions {
-	unsent: readonly Unsent[];
-	retry: (message: Sending) => void;
-	edit: (message: Sending) => void;
-}
-
-export const UnsentContext = createContext<UnsentActions>({
-	unsent: [],
-	retry: () => {},
-	edit: () => {},
-});
 
 /**
  * Under a message the server has yet to answer, sent at `since` (epoch ms):
@@ -95,10 +76,16 @@ export function SendingLine({ since }: { since: number | null }): JSX.Element {
  */
 export function PendingRow({
 	messages,
+	unsent,
+	retry,
+	edit,
 }: {
 	messages: readonly Sending[];
+	unsent: readonly Unsent[];
+	retry: (message: Sending) => void;
+	edit: (message: Sending) => void;
 }): JSX.Element | null {
-	if (messages.length === 0) {
+	if (messages.length === 0 && unsent.length === 0) {
 		return null;
 	}
 	return (
@@ -106,7 +93,10 @@ export function PendingRow({
 			aria-label="messages sending"
 			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2 opacity-70"
 		>
-			{messages.map((message) => (
+			{[
+				...unsent.map((each) => ({ message: each.message, why: each.why })),
+				...messages.map((message) => ({ message, why: null })),
+			].map(({ message, why }) => (
 				<li key={message.id} className="flex items-center gap-2 pr-1 pl-2">
 					{message.images.map((image) => (
 						<img
@@ -122,47 +112,48 @@ export function PendingRow({
 								.map((each) => each.name)
 								.join(", ")}
 					</span>
-					<SendingLine since={message.at} />
+					{why === null ? (
+						<SendingLine since={message.at} />
+					) : (
+						<RefusedLine
+							why={why}
+							onRetry={() => retry(message)}
+							onEdit={() => edit(message)}
+						/>
+					)}
 				</li>
 			))}
 		</ul>
 	);
 }
 
-/**
- * Under a message the server refused, the `at`th: that it was not sent, why
- * on hover, and a way to send it again or back to the composer.
- */
-export function UnsentLine({ at }: { at: number }): JSX.Element | null {
-	const { unsent, retry, edit } = useContext(UnsentContext);
-	const each = unsent[at];
-	if (each === undefined) {
-		return null;
-	}
+/** Beside a refused message: that it was not sent, why on hover, and a way to send it again or back to the composer. */
+function RefusedLine({
+	why,
+	onRetry,
+	onEdit,
+}: {
+	why: string;
+	onRetry: () => void;
+	onEdit: () => void;
+}): JSX.Element {
 	const link =
 		"text-foreground font-medium underline-offset-2 hover:underline focus-visible:underline";
 	return (
 		<div
 			data-slot="aui_user-message-unsent"
-			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
+			className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs"
 		>
-			<span
-				className="text-destructive flex items-center gap-1"
-				title={each.why}
-			>
+			<span className="text-destructive flex items-center gap-1" title={why}>
 				<CircleAlertIcon className="size-3" aria-hidden />
 				Couldn't send
 			</span>
 			<span aria-hidden>·</span>
-			<button
-				type="button"
-				className={link}
-				onClick={() => retry(each.message)}
-			>
+			<button type="button" className={link} onClick={onRetry}>
 				Retry
 			</button>
 			<span aria-hidden>·</span>
-			<button type="button" className={link} onClick={() => edit(each.message)}>
+			<button type="button" className={link} onClick={onEdit}>
 				Edit
 			</button>
 		</div>
