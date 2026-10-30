@@ -36,7 +36,7 @@ export interface Unsent {
 }
 
 /** `message` as the thread shows it, from the page's own copies of its files. */
-export function messageOf(message: Sending, now = message.at): Message {
+export function messageOf(message: Sending): Message {
 	return {
 		id: message.id,
 		role: "user",
@@ -51,15 +51,7 @@ export function messageOf(message: Sending, now = message.at): Message {
 		at: null,
 		until: null,
 		...(message.queued ? { queued: true as const } : {}),
-		sending:
-			now - message.at >= STILL_SENDING.ms
-				? Math.max(
-						0,
-						Math.ceil(
-							(SEND_TIMEOUT.ms - (now - message.at)) / Duration.secs(1).ms,
-						),
-					)
-				: null,
+		sending: message.at,
 		...(message.dictated ? { dictated: true as const } : {}),
 	};
 }
@@ -71,25 +63,4 @@ export function forget(message: Sending): void {
 			URL.revokeObjectURL(image.url);
 		}
 	}
-}
-
-/**
- * When a message of `sending` next needs its countdown refreshed, as epoch
- * ms: as it goes unanswered for `STILL_SENDING`, then each second after;
- * null when none is on its way.
- */
-export function nextCountdown(
-	sending: readonly Sending[],
-	now: number,
-): number | null {
-	const due = sending
-		.map((each) =>
-			now < each.at + STILL_SENDING.ms
-				? each.at + STILL_SENDING.ms
-				: each.at +
-					(Math.floor((now - each.at) / Duration.secs(1).ms) + 1) *
-						Duration.secs(1).ms,
-		)
-		.filter((at) => at > now);
-	return due.length === 0 ? null : Math.min(...due);
 }

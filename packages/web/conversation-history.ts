@@ -39,7 +39,7 @@ export class ConversationHistory
 			messages: [
 				...kept.messages,
 				...(this.feed.sending.get(state.id) ?? []).map((each) =>
-					messageOf(each, this.feed.wall.now()),
+					messageOf(each),
 				),
 			],
 			events: kept.events,

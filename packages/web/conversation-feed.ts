@@ -26,13 +26,7 @@ import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
 import type { PageCopy } from "./page-copy";
-import {
-	forget,
-	messageOf,
-	nextCountdown,
-	type Sending,
-	type Unsent,
-} from "./sending";
+import { forget, messageOf, type Sending, type Unsent } from "./sending";
 import { repeats } from "./summary-repeats";
 
 export { type AgentChoice, agentName } from "./agent-choice";
@@ -431,10 +425,9 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Settles `message`, which `send` showed in conversation `id`, by the
-	 * server's answer `state` to it: when that holds the message, the server
-	 * has it, so the page takes `state` in at once if the stream has yet to
-	 * bring it, and gives up any unsent copy of it.
+	 * Call with the server's answer `state` to `message`, which `send` showed
+	 * in conversation `id`. When the answer holds the message, it is shown at
+	 * once, ahead of the stream, and any unsent copy of it is dropped.
 	 */
 	answered(id: string, message: Sending, state: ConversationState): void {
 		if (!state.messages?.some((each) => each.id === message.id)) {
@@ -460,19 +453,6 @@ export class ConversationFeed
 			this.unsent.set(id, left);
 		}
 		forget(message);
-		this.show(this.recorded);
-	}
-
-	/**
-	 * When conversation `id` next needs its sending countdown refreshed,
-	 * as epoch ms; null when nothing is on its way.
-	 */
-	nextSlow(id: string): number | null {
-		return nextCountdown(this.sending.get(id) ?? [], this.wall.now());
-	}
-
-	/** Shows what is on its way afresh, as the clock now reads. */
-	recheck(): void {
 		this.show(this.recorded);
 	}
 
@@ -522,10 +502,9 @@ export class ConversationFeed
 			return each;
 		}
 		this.sending.set(each.id, left);
-		const now = this.wall.now();
 		return {
 			...each,
-			messages: [...each.messages, ...left.map((copy) => messageOf(copy, now))],
+			messages: [...each.messages, ...left.map((copy) => messageOf(copy))],
 		};
 	}
 

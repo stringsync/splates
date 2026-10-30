@@ -338,10 +338,10 @@ export interface Message {
 	id?: string;
 	// Set only by the page, on its own copy, never by the server.
 	/**
-	 * Set while it is on its way: seconds left before it times out, once it
-	 * has gone unanswered a while, and null before.
+	 * Set while it is on its way: when the page sent it, as epoch ms, which
+	 * the line under it counts its timeout from.
 	 */
-	sending?: number | null;
+	sending?: number;
 }
 
 /** One piece of what someone in a conversation said or did. */

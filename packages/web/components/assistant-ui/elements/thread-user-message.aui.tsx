@@ -293,7 +293,7 @@ export const UserMessage: FC = () => {
 				</div>
 			)}
 			{pending && (
-				<SendingLine seconds={typeof sending === "number" ? sending : null} />
+				<SendingLine since={typeof sending === "number" ? sending : null} />
 			)}
 			{unsent !== null && <UnsentLine at={unsent} />}
 		</>

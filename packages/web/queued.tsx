@@ -111,7 +111,7 @@ export function Queued({
 								<Directed text={rest} />
 							</span>
 							{message.sending !== undefined && (
-								<SendingLine seconds={message.sending} />
+								<SendingLine since={message.sending} />
 							)}
 							{edits !== null && (
 								<>
