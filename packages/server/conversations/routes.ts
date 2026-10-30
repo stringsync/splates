@@ -25,9 +25,8 @@ import { type Tree, treeOf } from "./tree";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its
- * conversations, and hearing each change to them as it streams. Each handler
- * is a property, so `serveProject` spreads them into the project's routes;
- * what they work on stays private, out of the spread.
+ * conversations, and hearing each change to them as it streams. Spread its
+ * handlers into the project's routes, as `serveProject` does.
  */
 export class ConversationRoutes {
 	readonly #project: Project | null;
@@ -186,7 +185,7 @@ export class ConversationRoutes {
 	};
 
 	readonly startConversation = async (request: Request): Promise<Response> => {
-		const { id, agent, task, settings, model, assigned, autoPick } =
+		const { id, agent, task, settings, model, assigned, autoPick, ship } =
 			await body(request);
 		if (
 			this.#scratchRoot !== null &&
@@ -206,6 +205,7 @@ export class ConversationRoutes {
 			scratch: scratchRoot !== null,
 			model: typeof model === "string" && model !== "" ? model : undefined,
 			assigned: assigned === true,
+			ship: typeof ship === "string" && ship !== "" ? ship : undefined,
 			settings: Object.fromEntries(
 				Object.entries(
 					typeof settings === "object" && settings !== null ? settings : {},
