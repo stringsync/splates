@@ -11,7 +11,6 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
-import { ShipDock } from "./ship-dock";
 import { StageRow } from "./ship-stages";
 import { ShipStatusCard } from "./ship-status-card";
 
@@ -128,7 +127,6 @@ export function ShipRun({
 			<Refusal refusal={refusals.get("") ?? null} />
 			<ShipStatusCard cascade={cascade} ship={ship} />
 			<ProjectStages cascade={cascade} ship={ship} live={running} />
-			<ShipDock cascade={cascade} ship={ship} />
 		</section>
 	);
 }
