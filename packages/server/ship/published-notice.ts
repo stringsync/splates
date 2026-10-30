@@ -5,7 +5,7 @@ import type { Pin } from "./graph";
 import type { ShipRegistry } from "./registry";
 
 /** How often the registry is asked whether a release's packages are on it. */
-export const POLL = Duration.secs(5);
+export const POLL = Duration.secs(10);
 
 /** What the ship command is left to do once its packages are on the registry. */
 export function publishedNotice(step: CascadeStep, version: string): string {

@@ -75,7 +75,10 @@ export function StageRow({
 			</button>
 			{stage.check !== null && going && (
 				<p className="pl-5 text-muted-foreground text-sm">
-					{stage.check.result}, checked {ago(now, stage.check.at)}
+					{stage.check.result},{" "}
+					{stage.check.next !== undefined && Date.parse(stage.check.next) > now
+						? `next check in ${Math.ceil((Date.parse(stage.check.next) - now) / 1000)}s`
+						: `checked ${ago(now, stage.check.at)}`}
 				</p>
 			)}
 			{stage.releaseSteps !== undefined && (

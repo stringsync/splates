@@ -63,6 +63,8 @@ export type StageKey =
 export interface StageCheck {
 	at: string;
 	result: string;
+	/** When the next check runs, while the step polls; absent once it stops. */
+	next?: string;
 }
 
 /** Where a step's output is in its project's ship log: bytes `from` to `to`, null while it prints. */

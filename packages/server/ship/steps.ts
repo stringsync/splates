@@ -2,12 +2,7 @@ import { aborts } from "webappwiz/abort";
 import { ensure } from "webappwiz/assert";
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Fs } from "webappwiz/system";
-import {
-	Duration,
-	SystemWallClock,
-	sleep,
-	type WallClock,
-} from "webappwiz/time";
+import { SystemWallClock, sleep, type WallClock } from "webappwiz/time";
 import { fail } from "../exit";
 import type { Storage } from "../storage";
 import { type Cascade, type CascadeStep, Cascades } from "./cascade";
@@ -415,7 +410,11 @@ export class ShipSteps extends Cascades implements AsyncResource {
 						show: async (notice) => {
 							const stage = step.stages.find((each) => each.key === "publish");
 							if (stage !== undefined && (await this.active(record))) {
-								stage.check = { at: this.stamp(), result: notice };
+								stage.check = {
+									at: this.stamp(),
+									result: notice,
+									next: new Date(this.clock.now() + POLL.ms).toISOString(),
+								};
 								await this.log(record.cascade.id, step.slug, `${notice}\n`);
 								await this.save(record);
 							}
@@ -469,6 +468,9 @@ export class ShipSteps extends Cascades implements AsyncResource {
 							.map((each) => `${each.name}: ${each.deployed ?? "not live"}`)
 							.join(", "),
 			};
+			if (!check.live) {
+				stage.check.next = new Date(this.clock.now() + POLL.ms).toISOString();
+			}
 			await this.log(record.cascade.id, step.slug, `${stage.check.result}\n`);
 			await this.save(record);
 			if (check.live) {
@@ -481,7 +483,7 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			}
 			await aborts.race(
 				this.controller.signal,
-				this.opts.pause?.() ?? sleep(Duration.secs(1)),
+				this.opts.pause?.() ?? sleep(POLL),
 			);
 		}
 	}
