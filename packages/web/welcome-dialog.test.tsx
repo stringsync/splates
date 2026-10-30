@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { resize } from "./drivers";
 import { Settings } from "./settings";
 import { setupProgress } from "./setup-testing";
 import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
@@ -13,6 +14,7 @@ describe("the setup welcome", () => {
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});
@@ -37,5 +39,13 @@ describe("the setup welcome", () => {
 		const view = await testing.open();
 		await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
 		expect(view.queryByText("Welcome to splates")).toBeNull();
+	});
+
+	it("does not greet a phone, which opens to the inbox", async () => {
+		resize(390, 844);
+		const view = await testing.open();
+		await act(async () => {});
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(new Settings(localStorage).get("welcome.show")).toBe(true);
 	});
 });

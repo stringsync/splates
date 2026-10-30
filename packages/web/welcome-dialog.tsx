@@ -7,12 +7,13 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
+import { useWide } from "./app-nav";
 import type { Move } from "./page-address";
 import type { Settings } from "./settings";
 import { SetupIndex } from "./setup-form";
 import { SetupContext } from "./setup-state";
 
-/** Shows the setup areas when the app opens. Closing it stops it showing in this browser; turn on "Setup welcome" in Settings to see it again. */
+/** A welcome that lists each setup area, what it is for and how far along it is. */
 export function WelcomeDialog({
 	settings,
 	onSetup,
@@ -22,12 +23,15 @@ export function WelcomeDialog({
 	onSetup: (area: string | null, step?: string | null, how?: Move) => void;
 }): JSX.Element | null {
 	const { progress } = useContext(SetupContext);
+	const wide = useWide();
 	const show = useReactive(
 		settings,
 		(settings) => settings.get("welcome.show"),
 		["changed"],
 	);
-	if (progress === null) {
+	// Closing it turns "welcome.show" off for this browser; Settings turns it on.
+	// A phone opens straight to the inbox, with nothing over it.
+	if (progress === null || !wide) {
 		return null;
 	}
 	const close = () => void settings.set("welcome.show", false);
