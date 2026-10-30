@@ -1,4 +1,5 @@
 import { Duration } from "webappwiz/time";
+import type { ReleaseStep } from "./release-steps";
 
 /** A step not begun, expected to take `expected` ms, from ships before when `known`. */
 export function pendingStage(
@@ -86,6 +87,8 @@ export interface Stage {
 	deadline: string | null;
 	check: StageCheck | null;
 	log: StageLog | null;
+	/** On the ship command: the steps the project's own Release reports, as they stand; absent when it reports none. */
+	releaseSteps?: ReleaseStep[];
 }
 
 /** When a step that started at `started` shows hung. */

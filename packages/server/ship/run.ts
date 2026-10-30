@@ -7,6 +7,12 @@ import type { Document, Storage } from "../storage";
 import { ReleaseGit } from "./git";
 import type { ShipBump } from "./plan";
 import {
+	type ReleaseStep,
+	ReleaseStepsFollower,
+	readReleaseSteps,
+	releaseFailure,
+} from "./release-steps";
+import {
 	begun,
 	ended,
 	pendingStage,
@@ -180,6 +186,11 @@ export class Shipping implements Resource {
 		return `${this.opts.dir}/ship.log`;
 	}
 
+	/** Where the ship command writes the steps of its Release. */
+	get events(): string {
+		return `${this.log ?? this.output}.events`;
+	}
+
 	/** Where the output of the latest ship is. */
 	async outputOf(): Promise<string> {
 		return this.log ?? (await this.record.read())?.log ?? this.output;
@@ -240,6 +251,7 @@ export class Shipping implements Resource {
 			await fs.write(path, "");
 		}
 		this.log = path;
+		await fs.write(this.events, "");
 		this.bytes = (await fs.readBytes(path)).byteLength;
 		this.stopped = false;
 		this.typed = false;
@@ -373,7 +385,11 @@ export class Shipping implements Resource {
 			ps.startOnTerminal(quietly(command), {
 				...TERMINAL,
 				cwd: root,
-				env: { ...NPM_ENV, SPLATES_SHIP_BUMP: bump },
+				env: {
+					...NPM_ENV,
+					SPLATES_SHIP_BUMP: bump,
+					SPLATES_SHIP_EVENTS: this.events,
+				},
 			}),
 			"ship",
 		);
@@ -389,7 +405,14 @@ export class Shipping implements Resource {
 					? typedCodeError(this.user)
 					: code === 0
 						? null
-						: await this.tail(`${command} exited ${code}`),
+						: (releaseFailure(await this.releaseStepsOf()) ??
+							(await this.tail(`${command} exited ${code}`))),
+		);
+	}
+
+	private async releaseStepsOf(): Promise<ReleaseStep[]> {
+		return readReleaseSteps(
+			await this.opts.fs.read(this.events).catch(() => ""),
 		);
 	}
 
@@ -465,7 +488,18 @@ export class Shipping implements Resource {
 				order = order.then(() => heard(text));
 			}
 		})().catch(() => {});
+		const following =
+			step === "ship"
+				? new ReleaseStepsFollower(this.opts.fs, this.events, {
+						keep: (steps) =>
+							this.stage("command", (stage) => ({
+								...stage,
+								releaseSteps: steps,
+							})),
+					})
+				: null;
 		const code = await child.exited;
+		await following?.flush();
 		// What the child printed last may still be on its way.
 		await Bun.sleep(20);
 		child.close();

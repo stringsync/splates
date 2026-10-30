@@ -4,6 +4,7 @@ import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
+import { eventsText } from "./release-steps";
 import { quietly, Shipping, typedCodeError } from "./run";
 import { FakeReleaseGit, nth, until } from "./testing";
 
@@ -36,7 +37,11 @@ describe("Shipping", () => {
 		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
 		expect(ps.getCallEnvs()).toEqual([
 			{},
-			{ npm_config_browser: "false", SPLATES_SHIP_BUMP: "minor" },
+			{
+				npm_config_browser: "false",
+				SPLATES_SHIP_BUMP: "minor",
+				SPLATES_SHIP_EVENTS: `${shipping.output}.events`,
+			},
 		]);
 		expect(await shipping.current()).toMatchObject({
 			status: "done",
@@ -47,6 +52,63 @@ describe("Shipping", () => {
 		expect(await fs.read(shipping.output)).toBe(
 			"origin/main verified at abc\npublished 0.1.0\norigin/main verified at abc\n",
 		);
+	});
+
+	it("keeps the release steps its command writes, and names the one that failed", async () => {
+		await shipping.start();
+		const child = await nth(ps, 0);
+		await fs.write(
+			`${shipping.output}.events`,
+			`${eventsText([
+				{
+					type: "declared",
+					id: "build",
+					name: "Build",
+					stage: "build",
+					packages: ["a"],
+					deadlineMs: 1000,
+					at: "t0",
+				},
+				{
+					type: "declared",
+					id: "tag",
+					name: "Tag",
+					stage: "tag",
+					deadlineMs: 1000,
+					at: "t0",
+				},
+				{ type: "started", id: "build", name: "Build", at: "t1" },
+				{
+					type: "failed",
+					id: "build",
+					name: "Build",
+					error: "tsc broke",
+					at: "t2",
+				},
+			])}not json\n`,
+		);
+		child.exit(1);
+		await shipping.settled();
+		const ship = await shipping.current();
+		const command = ship?.stages?.find((each) => each.key === "command");
+		expect(command?.releaseSteps?.map((each) => [each.id, each.state])).toEqual(
+			[
+				["build", "failed"],
+				["tag", "pending"],
+			],
+		);
+		expect(ship?.error).toBe('release step "Build" failed: tsc broke');
+	});
+
+	it("keeps no release steps when its command writes none", async () => {
+		await shipping.start();
+		(await nth(ps, 0)).exit(0);
+		await shipping.settled();
+		expect(
+			(await shipping.current())?.stages?.find((each) => each.key === "command")
+				?.releaseSteps,
+		).toBeUndefined();
+		expect((await shipping.current())?.status).toBe("done");
 	});
 
 	it("stops before npm when the push cannot be verified", async () => {
@@ -269,6 +331,7 @@ describe("Shipping", () => {
 		expect(after.getCallEnvs()[1]).toEqual({
 			npm_config_browser: "false",
 			SPLATES_SHIP_BUMP: "major",
+			SPLATES_SHIP_EVENTS: `${restarted.output}.events`,
 		});
 		expect(await restarted.current()).toMatchObject({
 			status: "done",

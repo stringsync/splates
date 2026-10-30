@@ -1,6 +1,7 @@
 import type {
 	Cascade,
 	CascadeStep,
+	ReleaseStep,
 	Ship,
 	Stage,
 	StageState,
@@ -77,6 +78,9 @@ export function StageRow({
 					{stage.check.result}, checked {ago(now, stage.check.at)}
 				</p>
 			)}
+			{stage.releaseSteps !== undefined && (
+				<ReleaseSteps steps={stage.releaseSteps} now={now} />
+			)}
 			{open && stage.log !== null && (
 				<StageLog
 					cascade={cascade}
@@ -86,6 +90,60 @@ export function StageRow({
 				/>
 			)}
 		</li>
+	);
+}
+
+/**
+ * The steps a project's own Release reports under its ship command, each
+ * labelled by the Release's stage (preflight, build, publish...) and, while
+ * running, timed against its deadline. Release steps are the project's; the
+ * rows around them are splates's own.
+ */
+function ReleaseSteps({
+	steps,
+	now,
+}: {
+	steps: ReleaseStep[];
+	now: number;
+}): JSX.Element {
+	return (
+		<ol aria-label="Release steps" className="flex flex-col gap-0.5 pl-5">
+			{steps.map((step) => {
+				const spent =
+					step.started === null
+						? null
+						: (step.ended === null ? now : Date.parse(step.ended)) -
+							Date.parse(step.started);
+				return (
+					<li
+						key={step.id}
+						aria-label={step.name}
+						className={cn(
+							"flex flex-wrap items-center gap-x-2 text-sm",
+							step.state === "failed" && "text-destructive",
+							step.state === "skipped" && "text-muted-foreground/60",
+						)}
+					>
+						<span aria-hidden>{ICONS[step.state]}</span>
+						<span className="text-muted-foreground">{step.stage}</span>
+						<span>{step.name}</span>
+						{step.state === "skipped" && (
+							<span className="text-muted-foreground">already done</span>
+						)}
+						{spent !== null && (
+							<span className="ml-auto text-muted-foreground tabular-nums">
+								{step.state === "running"
+									? `${span(spent)} of up to ${span(step.deadlineMs)}`
+									: span(spent)}
+							</span>
+						)}
+						{step.state === "failed" && step.error !== null && (
+							<span className="basis-full pl-5">{step.error}</span>
+						)}
+					</li>
+				);
+			})}
+		</ol>
 	);
 }
 

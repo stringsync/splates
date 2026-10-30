@@ -38,6 +38,7 @@ export {
 	shipName,
 } from "./plan";
 export { ShipRegistry } from "./registry";
+export type { ReleaseStep, ReleaseStepState } from "./release-steps";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
 export { Shipping, shipRecord } from "./run";
