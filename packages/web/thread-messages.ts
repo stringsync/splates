@@ -135,13 +135,14 @@ export function useThreadMessages(
 							),
 						];
 		// A running turn's queue sits above the composer. Otherwise it follows
-		// the turn as sent, under a Queued row; held or starting, it is in `said`.
+		// the turn as sent, in the thread; held or starting, it is in `said`.
+		// Only a stopped or failed conversation adds a row, for the person to Send.
 		const waiting =
 			starting || held !== null || running
 				? []
 				: conversation.messages.filter((each) => each.queued);
 		const ended = conversation.resting === true ? rested(thread) : thread;
-		const waitedOn = waiting.at(-1);
+		const halted = status === "stopped" || status === "failed";
 		const lined =
 			waiting.length === 0
 				? ended
@@ -150,21 +151,25 @@ export function useThreadMessages(
 						...waiting.map((message, at) =>
 							like(message, ended.length + at, conversation.id),
 						),
-						queuedReply(
-							like(
-								{
-									role: "agent",
-									parts: [],
-									plan: null,
-									at: null,
-									until: null,
-								},
-								ended.length + waiting.length,
-								conversation.id,
-							),
-							waitedOn,
-							status === "stopped" || status === "failed" ? id : undefined,
-						),
+						...(halted
+							? [
+									queuedReply(
+										like(
+											{
+												role: "agent",
+												parts: [],
+												plan: null,
+												at: null,
+												until: null,
+											},
+											ended.length + waiting.length,
+											conversation.id,
+										),
+										waiting.at(-1),
+										id,
+									),
+								]
+							: []),
 					];
 		const all = lined;
 		return { all, last: waiting.length === 0 ? all.at(-1) : ended.at(-1) };
