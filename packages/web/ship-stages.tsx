@@ -50,7 +50,7 @@ export function StageRow({
 				disabled={stage.log === null}
 				onClick={() => setOpen(!open)}
 				className={cn(
-					"flex flex-wrap items-center gap-x-2 text-left text-xs",
+					"flex flex-wrap items-center gap-x-2 text-left text-sm",
 					stage.state === "asking" && AMBER,
 					(stage.state === "hung" || stage.state === "failed") &&
 						"text-destructive",
@@ -71,7 +71,7 @@ export function StageRow({
 				)}
 			</button>
 			{stage.check !== null && going && (
-				<p className="pl-5 text-muted-foreground text-xs">
+				<p className="pl-5 text-muted-foreground text-sm">
 					{stage.check.result}, checked {ago(now, stage.check.at)}
 				</p>
 			)}
@@ -131,7 +131,7 @@ function StageLog({
 		return <ShipOutput key={ship.started} project={ship.project} />;
 	}
 	return (
-		<pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
+		<pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-sm whitespace-pre-wrap">
 			{text === null ? "Reading the log…" : plain(text)}
 		</pre>
 	);

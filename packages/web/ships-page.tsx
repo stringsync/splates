@@ -115,7 +115,7 @@ function ActiveShip({
 	act: (action: "abandon" | "retry" | "agent") => Promise<void>;
 }): JSX.Element {
 	if (live === null) {
-		return <p className="text-muted-foreground text-xs">Reading…</p>;
+		return <p className="text-muted-foreground text-sm">Reading…</p>;
 	}
 	if (live.cascade == null || live.cascade.id === closed) {
 		return (
@@ -169,12 +169,12 @@ function Past({ summary }: { summary: CascadeSummary }): JSX.Element {
 				className="flex items-center gap-2 text-sm"
 			>
 				<span className="font-medium">{shipName(summary.from)}</span>
-				<span className="text-muted-foreground text-xs">
+				<span className="text-muted-foreground text-sm">
 					{stoppedAt(summary)}
 				</span>
 				<time
 					dateTime={summary.started}
-					className="ml-auto text-muted-foreground text-xs"
+					className="ml-auto text-muted-foreground text-sm"
 				>
 					{new Date(summary.started).toLocaleString()}
 				</time>
@@ -195,13 +195,13 @@ function PastShip({ id }: { id: string }): JSX.Element {
 	return (
 		<section aria-label={id} className="flex flex-col gap-4">
 			{kept === null && (
-				<p className="text-muted-foreground text-xs">Reading…</p>
+				<p className="text-muted-foreground text-sm">Reading…</p>
 			)}
 			{cascade !== null && (
 				<>
 					<div className="flex items-center gap-2">
 						<h2 className="font-medium text-sm">{shipName(cascade.from)}</h2>
-						<span className="text-muted-foreground text-xs">
+						<span className="text-muted-foreground text-sm">
 							{cascade.status}
 						</span>
 					</div>

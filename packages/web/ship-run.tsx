@@ -69,7 +69,7 @@ export function ShipRun({
 						? `Shipping ${shipName(cascade.from)}`
 						: `Stopped at ${held.slug}`}
 				</h2>
-				<span className="text-muted-foreground text-xs tabular-nums">
+				<span className="text-muted-foreground text-sm tabular-nums">
 					{through} of {cascade.steps.length}
 				</span>
 				{cascade.status === "stopped" && retry !== undefined && (
@@ -185,12 +185,12 @@ function ProjectStage({
 					className={cn("size-2 shrink-0 rounded-full", DOTS[step.status])}
 				/>
 				<span className="font-medium">{step.slug}</span>
-				<span className="text-muted-foreground text-xs tabular-nums">
+				<span className="text-muted-foreground text-sm tabular-nums">
 					{step.action === "ship" ? versionOf(step) : "takes its bump"}
 				</span>
 				<span
 					className={cn(
-						"ml-auto text-xs",
+						"ml-auto text-sm",
 						HELD.includes(step.status)
 							? "text-destructive"
 							: step.status === "asking"
@@ -210,7 +210,7 @@ function ProjectStage({
 				</a>
 			)}
 			{step.takes.map((use) => (
-				<p key={use.project} className="text-muted-foreground text-xs">
+				<p key={use.project} className="text-muted-foreground text-sm">
 					Upstream: {use.project}{" "}
 					{use.pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}
 				</p>
