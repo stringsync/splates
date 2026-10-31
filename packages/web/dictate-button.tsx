@@ -1,5 +1,5 @@
 import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	LoaderCircleIcon,
 	MicIcon,

@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { type Budgets, budgets as readBudgets } from "./api";
 
 export type BudgetReadingEvents = { changed: undefined };
@@ -9,7 +9,7 @@ export interface BudgetSource {
 }
 
 /**
- * The project's scry budgets as the Budget page shows them: read each time
+ * The project's vet budgets as the Budget page shows them: read each time
  * it is shown, since each read runs the CLI, and taken from what each
  * change answers.
  */

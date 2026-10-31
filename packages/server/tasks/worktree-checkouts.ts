@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Git, GitResult } from "../git";
 
 /** Linked worktrees of the main tree, as the local worker keeps. */

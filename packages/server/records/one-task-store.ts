@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Migration } from "./format";
 
 /**

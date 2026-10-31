@@ -1,5 +1,5 @@
 import { basename, relative, resolve, sep } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { decodeTask, encodeTask } from "../board";
 import { movedPath } from "../config";
 import type { Collection, Storage } from "../storage";

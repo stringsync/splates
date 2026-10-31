@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
-import { CompositeLogger } from "webappwiz/log";
-import { SystemTimer } from "webappwiz/time";
+import { CompositeLogger } from "core/log";
+import { SystemTimer } from "core/time";
 import { SharedBrowser, StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
 import {

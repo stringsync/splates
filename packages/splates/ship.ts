@@ -1,7 +1,7 @@
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { DEFAULT_PORT } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 
 /** `splates ship [project]` prints the Ships page link for the person to open. */

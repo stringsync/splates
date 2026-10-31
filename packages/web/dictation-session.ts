@@ -1,5 +1,5 @@
 import type { DictationAdapter } from "@assistant-ui/react";
-import { Dispatcher } from "webappwiz/events";
+import { Dispatcher } from "core/events";
 
 interface SessionEvents extends Record<string, unknown> {
 	start: undefined;

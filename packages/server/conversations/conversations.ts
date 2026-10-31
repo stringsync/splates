@@ -1,13 +1,13 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, type Lock, MemoryLock, NodeFs } from "webappwiz/system";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { type IdProvider, UuidProvider } from "core/id";
+import { type Fs, type Lock, MemoryLock, NodeFs } from "core/system";
 import {
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import type { SessionServers, Watch } from "../agents";
 import {
 	type Agent,
@@ -243,9 +243,13 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	/** Every conversation, newest first. */
 	async list(): Promise<Conversation[]> {
 		await this.load();
-		return [...this.known.values()].sort((one, other) =>
-			other.state.createdAt.localeCompare(one.state.createdAt),
-		);
+		// Newest first. Reversed before the stable sort, so of two started in
+		// the same millisecond the one started last still comes first.
+		return [...this.known.values()]
+			.reverse()
+			.sort((one, other) =>
+				other.state.createdAt.localeCompare(one.state.createdAt),
+			);
 	}
 
 	/**

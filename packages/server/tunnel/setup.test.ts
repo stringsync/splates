@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs } from "core/system/testing";
 import { Creds } from "../creds";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";

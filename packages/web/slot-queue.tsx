@@ -1,5 +1,6 @@
 import type { QueueSpot } from "@stringsync/splates-server/conversations";
 import type { QueueListing } from "@stringsync/splates-server/workers";
+import { Duration } from "core/time";
 import {
 	ArrowUpIcon,
 	ArrowUpToLineIcon,
@@ -9,7 +10,6 @@ import {
 	ServerIcon,
 } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
-import { Duration } from "webappwiz/time";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import {
 	Popover,

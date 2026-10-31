@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Storage } from "../storage";
 import type { Pin } from "./graph";
 import { ShipHistory } from "./history";

@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { BotIcon, RotateCcwIcon, TriangleAlertIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

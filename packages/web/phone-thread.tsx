@@ -1,7 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import type { JSX } from "react";
 import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";

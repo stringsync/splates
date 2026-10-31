@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
+import { MemoryLogger } from "core/log";
 import { RUNNING } from "../server/shared";
 import { DevWorkers } from "./routes";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Position, Rect } from "webappwiz/geometry";
+import { Position, Rect } from "core/geometry";
 import { Annotation, numbered } from "./annotation";
 
 /** An annotation of a 1100 by 550 image, whose marks are 5px thick. */

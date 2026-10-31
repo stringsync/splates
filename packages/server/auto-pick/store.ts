@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { fail } from "../exit";
 import { DEFAULT_RULES } from "./defaults";
 import { type AutoPickRules, checkRules, RULES_FORMAT } from "./rules";

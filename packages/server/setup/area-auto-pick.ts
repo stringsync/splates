@@ -1,4 +1,4 @@
-import { Credentials } from "webappwiz/creds";
+import { Credentials } from "core/creds";
 import { AutoPickStore, JUDGE_CREDS, judgeFrom } from "../auto-pick";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 

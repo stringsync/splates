@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ProcessEntry } from "webappwiz/system";
+import type { ProcessEntry } from "core/system";
 import { heldBy } from "./held";
 
 function entry(

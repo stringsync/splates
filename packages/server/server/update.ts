@@ -1,5 +1,5 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import { lanesFromTags } from "../board";
 import { LEGACY, removeLegacySkill, renameLegacyFiles } from "../config";
 import { typeConfig } from "../config/type-config";

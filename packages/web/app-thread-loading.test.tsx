@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { listed } from "@stringsync/splates-server/conversations/browser";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import {
 	act,
 	cleanup,
@@ -109,7 +109,7 @@ describe("Opening complete conversation history", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: the newer listing and full starting state are specific to this reconnect scenario
+	// vet-ignore simple-test-setup: the newer listing and full starting state are specific to this reconnect scenario
 	it("keeps a loaded thread through a changed reconnect listing and live updates", async () => {
 		const newer = {
 			...whole,

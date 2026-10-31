@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { FakePs } from "core/system/testing";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { eventually } from "../conversations/testing";
 import type { WorkerChannel } from "./channel";
 import { descendants, WorkerProcessHost } from "./process-host";

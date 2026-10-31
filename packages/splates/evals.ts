@@ -6,8 +6,8 @@ import {
 } from "@stringsync/splates-server/evals";
 import { fail } from "@stringsync/splates-server/exit";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
-import { color } from "webappwiz/log";
+import { cli } from "core/cmd";
+import { color } from "core/log";
 import { z } from "zod";
 
 /** `splates evals`, which the root cli mounts after `splates replica`. */

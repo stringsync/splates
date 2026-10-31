@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { type Clock, Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { type Clock, Duration, type Timer } from "core/time";
 
 /** How often `OrphanBound` counts, at most. */
 const TICK = Duration.secs(10);

@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { LOCAL_WORKER } from "./local-id";

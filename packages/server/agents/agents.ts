@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import type { Setting } from "../conversations";
 import { effortsOf, type Roster, traitsOf } from "../models";
 import { table } from "../table";

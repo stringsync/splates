@@ -6,9 +6,9 @@ import type {
 	Stage,
 	StageState,
 } from "@stringsync/splates-server/ship";
+import { Duration, SystemTimer } from "core/time";
 import { LoaderCircleIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
 import { shipStageLog } from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";

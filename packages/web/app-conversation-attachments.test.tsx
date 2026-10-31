@@ -36,7 +36,7 @@ describe("App's attachments", () => {
 		})) as unknown as typeof createImageBitmap;
 		opened = [];
 		// A new tab is outside the page.
-		// scry-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks
 		open = spyOn(window, "open").mockImplementation((url) => {
 			opened.push(url);
 			return null;
@@ -146,7 +146,7 @@ describe("App's attachments", () => {
 
 		const picked: HTMLInputElement[] = [];
 		// The picker is an input outside the page, which no listener sees clicked.
-		// scry-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks
 		const click = spyOn(HTMLInputElement.prototype, "click").mockImplementation(
 			function (this: HTMLInputElement) {
 				picked.push(this);
@@ -183,7 +183,7 @@ describe("App's attachments", () => {
 	});
 
 	it("names each file attached in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes from its chip's menu", async () => {
-		// scry-ignore simple-test-setup: these files are this test's own inputs, shared with no other
+		// vet-ignore simple-test-setup: these files are this test's own inputs, shared with no other
 		const { view, box } = await openEmpty();
 		const first = new File(["a"], "a.png", { type: "image/png" });
 		const csv = new File(["x,y"], "notes.csv", { type: "text/csv" });

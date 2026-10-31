@@ -6,7 +6,7 @@ import {
 	sign,
 	verify,
 } from "node:crypto";
-import type { SecretStore } from "webappwiz/creds";
+import type { SecretStore } from "core/creds";
 
 /** What the server's signing key is kept as, with its other creds. */
 export const COORDINATOR_SIGNING_KEY = "SPLATES_COORDINATOR_SIGNING_KEY";

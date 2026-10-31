@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { OpenPortProvider } from "core/system";
 import { FakeAgent } from "../agents/testing";
 import { Conversations } from "../conversations";
 import { Testing } from "../testing";

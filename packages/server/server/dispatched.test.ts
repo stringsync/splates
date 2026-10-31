@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { OpenPortProvider } from "webappwiz/system";
+import { MemoryLogger } from "core/log";
+import { OpenPortProvider } from "core/system";
 import { FakeAgent } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations } from "../conversations";

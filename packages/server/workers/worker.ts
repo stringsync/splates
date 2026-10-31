@@ -1,5 +1,5 @@
-import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import type { ListeningEntry, ProcessEntry } from "core/system";
+import { Duration } from "core/time";
 import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";

@@ -1,7 +1,7 @@
 import type { Said } from "@stringsync/splates-server/conversations";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration, type Timer } from "core/time";
 import { searchConversations } from "./conversation-api";
 
 /** Where conversations' words are searched: the server, which holds them whole. */

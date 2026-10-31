@@ -1,4 +1,4 @@
-import type { Registry } from "webappwiz/ship";
+import type { Registry } from "core/ship";
 import type { Pin } from "./graph";
 
 /** The exact upstream versions npm does not serve yet. */

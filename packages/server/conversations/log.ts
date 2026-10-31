@@ -1,6 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration, Throttler, type Timer } from "webappwiz/time";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration, Throttler, type Timer } from "core/time";
 import type { ProcessHandle } from "../agents";
 import {
 	agentTurn,
@@ -37,7 +37,7 @@ const COMPACT_AT = 1000;
 // numbering that a log of the last format would be misread by: a
 // conversation left running under another is stopped on restart, not
 // resumed.
-// scry-ignore doc-comments-address-users: the doc comment only names the format; the note on raising it is the regular comment above
+// vet-ignore doc-comments-address-users: the doc comment only names the format; the note on raising it is the regular comment above
 /** The log format this version reads and writes. */
 export const LOG_FORMAT = 1;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { Dispatcher } from "webappwiz/events";
+import { Dispatcher } from "core/events";
 import type {
 	EverywhereFeedEvents,
 	EverywhereSummary,

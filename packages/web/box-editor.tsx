@@ -11,7 +11,7 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	$createParagraphNode,
 	$createTextNode,

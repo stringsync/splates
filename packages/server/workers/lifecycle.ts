@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Ps } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Ps } from "core/system";
+import { Duration, type Timer } from "core/time";
 
 /**
  * The environment variable that ends a worker with the process that started

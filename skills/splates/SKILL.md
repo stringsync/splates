@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 0.0.61
+version: 1.13.3
 ---
 
 # Using splates
@@ -11,7 +11,7 @@ trunk without pull requests. Run it with `bunx @stringsync/splates <command>` (o
 `splates` if on PATH). `splates --help` explains the commands; this file covers
 only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
-repository itself.
+repository itself (its eval and ship commands).
 
 ## The short version
 
@@ -31,9 +31,9 @@ the rest:
      files the change reaches and end with a run-command card for the whole
      suite.
    - Check a change with `bun test --changed` or explicit test files. In
-     splates's own repo: `splates dev test --changed`, `--since main` or
-     file paths, and `splates dev fix` once per step (`--code-only` skips scry's model calls).
-   - An unscoped `splates dev test` or `dev premerge`, or a scoped run
+     the mono repo: `bin/mono test --since main` or file paths, and
+     `bin/mono fix` once per step.
+   - An unscoped `bin/mono test` or `bin/mono premerge` (or `bun run premerge`), or a scoped run
      reaching half the test files, is refused (`not_granted`) until the
      person allows one run.
    - Heavy means a lot of CPU or memory: a full build,
@@ -357,11 +357,19 @@ queuing work there and asking for a grant.
    committed branch tips, and a working agent hears a notice when one appears.
    These checks never rebase a worktree; commit in steps so they can see the work.
 4. **Work.** Commit each step with git as you go, and check off any under
-   `## Next` as you commit it; splates never commits for you. When something outside
+   `## Next` as you commit it; splates never commits for you. A task changes
+   one unit of the repository, the package or project its Goal names (the
+   repository's own instructions say what a unit is). When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
-   task), `splates task add` or `defer` it from your worktree and move on,
-   so the task stays one coherent change; the conversation shows what you
-   queued (see [queue.md](references/queue.md), Queueing tasks). A snag on the way, such as a lost
+   task, a change another unit needs), `splates task add` or `defer` it from
+   your worktree and move on, so the task stays one coherent change; the
+   conversation shows what you queued (see [queue.md](references/queue.md),
+   Queueing tasks). When your change breaks another unit's use of yours,
+   migrate it through expand/contract, one queued task per unit, rather than
+   fix it here (see [queue.md](references/queue.md), Changing several units).
+   A task that spans units is the rare exception, only when the change
+   cannot land in steps, and its Goal names every unit it touches, so the
+   reach is chosen and shown rather than crept into. A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
    itself for each test that failed its gate. Ask the user each call their
    answer would change, and make the rest yourself (see [Questions](references/questions.md)), bringing

@@ -6,7 +6,7 @@ import {
 	tunnelRemove,
 	tunnelSetup,
 } from "@stringsync/splates-server/tunnel";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 import { here, slotTunnelsOf } from "./flags";
 

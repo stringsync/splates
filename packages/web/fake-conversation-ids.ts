@@ -1,4 +1,4 @@
-import type { IdProvider } from "webappwiz/id";
+import type { IdProvider } from "core/id";
 
 /** The fake server, for what a write answers with. */
 export interface Replying {

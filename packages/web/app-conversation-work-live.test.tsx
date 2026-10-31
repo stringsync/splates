@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { workTimelines } from "./drivers";
 import {
 	act,

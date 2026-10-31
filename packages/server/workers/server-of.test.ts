@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import { serverOf } from "./server-of";
 
 const ps = (env: Record<string, string>) =>

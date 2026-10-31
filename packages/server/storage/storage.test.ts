@@ -2,9 +2,9 @@ import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Resource } from "webappwiz/disposable";
-import { NodeFs } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import type { Resource } from "core/disposable";
+import { NodeFs } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
 import { z } from "zod";
 import { FsStorage, SqliteStorage, type Storage } from "./index";
 import { MemoryStorage, rotated } from "./testing";
@@ -58,7 +58,7 @@ describe.each([
 		},
 	},
 ])("storage on $backend", ({ open }) => {
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("document", () => {
 		it("reads null until written, then what was written", async () => {
 			const settings = (await open()).document<{ on: boolean }>("push.json");
@@ -100,7 +100,7 @@ describe.each([
 		});
 	});
 
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("log", () => {
 		it("replays what was appended, in order", async () => {
 			const log = (await open()).log<{ n: number }>("log.jsonl");
@@ -198,7 +198,7 @@ describe.each([
 		});
 	});
 
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("collection", () => {
 		it("keeps records and blobs by name, listed sorted", async () => {
 			const tasks = (await open()).collection("tasks");
@@ -286,7 +286,7 @@ describe.each([
 		});
 	});
 
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("keys", () => {
 		it("refuses one that leaves the storage", async () => {
 			const storage = await open();
@@ -306,7 +306,7 @@ describe.each([
 		});
 	});
 
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("copies", () => {
 		let storage: Storage;
 		beforeEach(async () => {
@@ -375,9 +375,9 @@ describe.each([
 		});
 	});
 
-	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
+	// vet-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("watch", () => {
-		// scry-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
+		// vet-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
 		it("tells of a write under the key, relative to the storage", async () => {
 			const storage = await open();
 			const tasks = storage.collection("tasks");
@@ -396,7 +396,7 @@ describe.each([
 			void told.then(() => {
 				settled = true;
 			});
-			// scry-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
+			// vet-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
 			for (let i = 0; !settled && i < 100; i++) {
 				await tasks.write("1.md", `again ${i}`);
 				await Bun.sleep(50);
@@ -406,7 +406,7 @@ describe.each([
 			watch.dispose();
 		});
 
-		// scry-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
+		// vet-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
 		it("does not tell of a lock taken beside the key", async () => {
 			const storage = await open();
 			const tasks = storage.collection("tasks");
@@ -418,7 +418,7 @@ describe.each([
 
 			// Write until the watcher is ready, taking the lock each time, so
 			// the write is told and the lock is seen if it ever will be.
-			// scry-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
+			// vet-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
 			for (let i = 0; !keys.includes("tasks/1.md") && i < 100; i++) {
 				await lock.acquire();
 				await tasks.write("1.md", `again ${i}`);

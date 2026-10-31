@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { NodePs } from "webappwiz/system";
+import { NodePs } from "core/system";
 import { SERVING } from "../server/shared";
 import { Pty } from "./pty";
 import { written } from "./testing";

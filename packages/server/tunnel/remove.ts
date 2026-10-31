@@ -1,5 +1,5 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import type { Fs } from "core/system";
 import { z } from "zod";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";

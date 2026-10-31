@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeDictationLink, FakeMicrophone } from "webappwiz/dictate/testing";
+import { FakeDictationLink, FakeMicrophone } from "core/dictate/testing";
 import { Dictation, SILENCE } from "./dictation";
 import {
 	act,
@@ -239,7 +239,7 @@ describe("App's composer mic", () => {
 		await waitFor(() => expect(send().disabled).toBe(false));
 	});
 
-	// scry-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
+	// vet-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
 	it("keeps the draft while transcribing and sends once with the final text", async () => {
 		const link = new FakeDictationLink();
 		let finish: (text: string) => void = () => {};
@@ -298,7 +298,7 @@ describe("App's composer mic", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: only this send scenario needs a link that fails on finish
+	// vet-ignore simple-test-setup: only this send scenario needs a link that fails on finish
 	it("keeps the draft instead of sending when transcription fails", async () => {
 		const link = new FakeDictationLink();
 		link.finish = async () => {
@@ -406,7 +406,7 @@ describe("App's composer mic", () => {
 		expect(view.queryByRole("alert")).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: only this test talks to the link, so it holds its own rather than share one every test ignores
+	// vet-ignore simple-test-setup: only this test talks to the link, so it holds its own rather than share one every test ignores
 	it("points to the Creds page when the server lacks a key", async () => {
 		const link = new FakeDictationLink();
 		testing.dictation?.dispose();

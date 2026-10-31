@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
+import { Duration, sleep } from "core/time";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { WorkerDaemon } from "./daemon";
 import { CoordinatorIdentity } from "./identity";
@@ -94,7 +94,7 @@ describe("a worker checking its coordinator", () => {
 		return log;
 	}
 
-	// scry-ignore simple-test-setup: each case builds its own coordinator, signing or not, and points a worker at it with its own verify.
+	// vet-ignore simple-test-setup: each case builds its own coordinator, signing or not, and points a worker at it with its own verify.
 	it("joins a coordinator that signs its nonce, sending its key after", async () => {
 		const identity = CoordinatorIdentity.generate();
 		const ours = coordinator(identity, true);
@@ -124,7 +124,7 @@ describe("a worker checking its coordinator", () => {
 		expect(JSON.stringify(log.entries)).not.toContain(KEY);
 	});
 
-	// scry-ignore simple-test-setup: this case needs a server that never answers a challenge, unlike the signing servers in other cases.
+	// vet-ignore simple-test-setup: this case needs a server that never answers a challenge, unlike the signing servers in other cases.
 	it("refuses an impostor that never answers the challenge", async () => {
 		const real = CoordinatorIdentity.generate();
 		const silent = Bun.serve<Connection>({

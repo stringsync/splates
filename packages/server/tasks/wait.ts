@@ -1,6 +1,6 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { color, type Logger } from "core/log";
+import type { Fs } from "core/system";
+import { Duration, sleep } from "core/time";
 import type { Tasks } from "../board";
 import { fail } from "../exit";
 import { need } from "../plans";

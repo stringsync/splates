@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NodeFs } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { NodeFs } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { SqliteStorage } from "./index";
 import { rotated } from "./testing";
 
@@ -147,7 +147,7 @@ describe("SqliteStorage", () => {
 		expect(await fs.read(path)).toBe('{"n":1}\n');
 	});
 
-	// scry-ignore simple-test-setup: older than this task, and its old database is its own input
+	// vet-ignore simple-test-setup: older than this task, and its old database is its own input
 	it("shrinks a database made before it gave space back, once, keeping what it holds", async () => {
 		await open();
 		const path = `${made[0]}/state.db`;

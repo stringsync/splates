@@ -1,5 +1,5 @@
-import { Disposer, type Resource } from "webappwiz/disposable";
-import type { Duration } from "webappwiz/time";
+import { Disposer, type Resource } from "core/disposable";
+import type { Duration } from "core/time";
 import type { Negotiated } from "./protocol";
 import type { WorkerSocket } from "./socket";
 

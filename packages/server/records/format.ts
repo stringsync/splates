@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Lock } from "core/system";
 import { fail } from "../exit";
 import type { DatabaseStamp } from "./home";
 import { ONE_TASK_STORE } from "./one-task-store";

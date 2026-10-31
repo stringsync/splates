@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
+import { FakePs } from "core/system/testing";
 import type { Config } from "../config";
 import { REGISTRY_DEADLINE, ShipLive } from "./live";
 import { LiveRegistryHttp } from "./live-registry-http";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { NodeFs, OpenPortProvider } from "webappwiz/system";
+import { NodeFs, OpenPortProvider } from "core/system";
 import { FakeAgent, heard, say } from "../agents/testing";
 import { dev, SuiteGrants } from "../server";
 import { eventually, json, readUntil, serving } from "../server/testing";
@@ -286,7 +286,7 @@ describe("dev conversations", () => {
 		expect(agent.killed).toBe(1);
 	});
 
-	// scry-ignore simple-test-setup: only the server's automations start a persistent agent, never the page, so this one starts it directly.
+	// vet-ignore simple-test-setup: only the server's automations start a persistent agent, never the page, so this one starts it directly.
 	it("archives a persistent agent's conversation like any other", async () => {
 		const groomer = await conversations.start("fake", {
 			task: null,
@@ -305,7 +305,7 @@ describe("dev conversations", () => {
 		expect(groomer.state.archived).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: only this test's turn runs a tool, which the summary drops
+	// vet-ignore simple-test-setup: only this test's turn runs a tool, which the summary drops
 	it.each([false, true])(
 		"lists a summary with archived=%s, and serves it whole",
 		async (archived) => {

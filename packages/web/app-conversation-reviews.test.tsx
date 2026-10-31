@@ -205,7 +205,7 @@ describe("App's review panel and demo cards", () => {
 		expect(card.textContent).not.toContain("tried");
 	});
 
-	// scry-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
+	// vet-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
 	it("shows an escalation's demo in its questions' card, above them", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -269,7 +269,7 @@ describe("App's review panel and demo cards", () => {
 		expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
 	});
 
-	// scry-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
+	// vet-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
 	it("orders a review by what deciding takes: summary, demo, checks, then the details folded", async () => {
 		const view = await testing.openConversations([
 			conversation({

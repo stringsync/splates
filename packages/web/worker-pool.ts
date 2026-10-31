@@ -1,8 +1,8 @@
 import type { WorkerPool } from "@stringsync/splates-server/workers";
-import { WindowBackgroundObserver } from "webappwiz/browser";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { WindowBackgroundObserver } from "core/browser";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration, SystemTimer } from "core/time";
 import { updateWorker, type WorkerChange, workerPool } from "./api";
 import { LOCAL } from "./local-worker";
 

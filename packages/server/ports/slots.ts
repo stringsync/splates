@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 import { z } from "zod";
 import { LEGACY_DIR } from "../config";
 import { splatesHome } from "../models";

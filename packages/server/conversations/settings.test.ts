@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { until } from "./testing";
@@ -118,7 +118,7 @@ describe("Conversation settings", () => {
 		expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
 	});
 
-	// scry-ignore simple-test-setup: only this case rereads a stopped conversation to verify a persisted setting.
+	// vet-ignore simple-test-setup: only this case rereads a stopped conversation to verify a persisted setting.
 	it("keeps a setting picked while stopped across a restart", async () => {
 		const conversation = await started();
 		await conversation.stop();

@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 
 /** Who holds a lock, as `FileLock` writes it. */
 interface Holder {
@@ -66,7 +66,7 @@ export class LeaseLock implements Lock {
 		this.held = true;
 	}
 
-	// scry-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
+	// vet-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
 	async release(): Promise<void> {
 		if (!this.held) {
 			return;

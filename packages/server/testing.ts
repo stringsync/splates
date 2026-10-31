@@ -3,11 +3,11 @@ import { mkdirSync } from "node:fs";
 import { cp, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { CounterIdProvider } from "webappwiz/id";
-import { color, MemoryLogger } from "webappwiz/log";
-import { FileLock, NodeFs, NodePs } from "webappwiz/system";
-import { FakeProcess } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { CounterIdProvider } from "core/id";
+import { color, MemoryLogger } from "core/log";
+import { FileLock, NodeFs, NodePs } from "core/system";
+import { FakeProcess } from "core/system/testing";
 import { TaskStore, Tasks } from "./board";
 import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
@@ -141,7 +141,7 @@ export class Testing implements AsyncDisposable {
 			artifactFileCapacity: 50 * 1024 * 1024,
 			artifactConversationCapacity: 250 * 1024 * 1024,
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
-			wiz: "wiz",
+			vet: "vet",
 			tunnel: null,
 			platform: null,
 			replica: null,
@@ -447,7 +447,7 @@ export class Testing implements AsyncDisposable {
 }
 
 /** Where the seeded repo lives: made at the first test, gone after the last. */
-// scry-ignore tests-own-their-state: each test copies it, so none shares the repo itself
+// vet-ignore tests-own-their-state: each test copies it, so none shares the repo itself
 let template: Promise<string> | null = null;
 
 /**

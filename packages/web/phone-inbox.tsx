@@ -1,7 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useMemo } from "react";
 import {

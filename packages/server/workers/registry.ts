@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Logger } from "webappwiz/log";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import type { Logger } from "core/log";
 import {
 	type Clock,
 	Duration,
@@ -10,7 +10,7 @@ import {
 	type Timer,
 	timeouts,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import type { WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import type { CoordinatorIdentity } from "./identity";

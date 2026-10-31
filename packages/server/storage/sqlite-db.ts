@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Dispatcher } from "webappwiz/events";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import { Disposer, type Resource } from "core/disposable";
+import { Dispatcher } from "core/events";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import type { StorageChanges, Watch, WatchOptions } from "./storage";
 
 export interface SqliteDbOptions {

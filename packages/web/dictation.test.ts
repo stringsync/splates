@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { DictationAdapter } from "@assistant-ui/react";
-import { FakeDictationLink, FakeMicrophone } from "webappwiz/dictate/testing";
+import { FakeDictationLink, FakeMicrophone } from "core/dictate/testing";
 import { Dictation, SILENCE } from "./dictation";
 
 describe("Dictation", () => {
@@ -85,7 +85,7 @@ describe("Dictation", () => {
 		expect(microphone.open).toBe(false);
 	});
 
-	// scry-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
+	// vet-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
 	it("waits for the same final transcript when stopped twice", async () => {
 		const { session, said } = await record();
 		let finish: (text: string) => void = () => {};
@@ -102,7 +102,7 @@ describe("Dictation", () => {
 		expect(said).toEqual([{ transcript: "Final words.", isFinal: true }]);
 	});
 
-	// scry-ignore simple-test-setup: this scenario alone replaces a take while its transcript is pending
+	// vet-ignore simple-test-setup: this scenario alone replaces a take while its transcript is pending
 	it("ignores a late transcript after a new recording replaces it", async () => {
 		const { session, said } = await record();
 		let finish: (text: string) => void = () => {};

@@ -1,4 +1,4 @@
-import type { Fs, OutputWatcher } from "webappwiz/system";
+import type { Fs, OutputWatcher } from "core/system";
 
 /**
  * A merge step's command output, appended to the file at `path` as it

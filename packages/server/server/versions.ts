@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Duration } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Duration } from "core/time";
 import type { Served } from "./project";
 import { type Behind, isNewer, type Release } from "./release";
 

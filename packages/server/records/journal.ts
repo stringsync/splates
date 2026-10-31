@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NodePs, type Ps } from "webappwiz/system";
+import { NodePs, type Ps } from "core/system";
 import { Exit } from "../exit";
 import type { Log, Storage, Watch } from "../storage";
 import {

@@ -1,5 +1,5 @@
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Duration, SystemTimer, Throttler } from "webappwiz/time";
+import { Disposer, type Resource } from "core/disposable";
+import { Duration, SystemTimer, Throttler } from "core/time";
 import { type EventSink, eventStream } from "../server/shared";
 import type { Conversations } from "./conversations";
 import { type ConversationState, listed } from "./state";

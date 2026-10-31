@@ -1,4 +1,4 @@
-import type { Lock } from "webappwiz/system";
+import type { Lock } from "core/system";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import type { Facts } from "../records";

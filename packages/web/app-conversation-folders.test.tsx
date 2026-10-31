@@ -252,7 +252,7 @@ describe("App's agents, in a folder per project", () => {
 		).toEqual(["Mane", "Mine broke", "Mine"]);
 	});
 
-	// scry-ignore simple-test-setup: this test alone lists these automations among the folder's conversations.
+	// vet-ignore simple-test-setup: this test alone lists these automations among the folder's conversations.
 	it("lists a folder's automations among its conversations by recency, untagged, each with an Archive", async () => {
 		const view = await testing.openConversations(
 			[

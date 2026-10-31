@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { MemoryLock } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { MemoryLock } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
 import { FsStorage } from "../storage";
 import { SERVER_PID, SLOT_POOL, Slots, slotOf } from "./slots";
 

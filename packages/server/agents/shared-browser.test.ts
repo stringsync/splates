@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { GUARD } from "../tunnel";
 import { IDLE, PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 import { served } from "./testing";

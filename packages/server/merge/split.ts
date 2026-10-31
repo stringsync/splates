@@ -1,4 +1,4 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import type { Git } from "../git";
 import type { FailedTest } from "../tasks";
 import type { FailureAttribution } from "./attribution";

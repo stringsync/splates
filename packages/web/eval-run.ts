@@ -9,9 +9,9 @@ import type {
 	EvalAsk,
 	PermissionProposal,
 } from "@stringsync/splates-server/plans";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import {
 	type EvalRunAsk,
 	evalAgents,

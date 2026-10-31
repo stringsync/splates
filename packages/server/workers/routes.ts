@@ -1,6 +1,6 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs } from "core/system";
 import { z } from "zod";
 import { RUNNING, refuse } from "../server/shared";
 import { CoordinatorIdentity } from "./identity";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import type { ReplicaPlace, ReplicaStatus } from "../replica";
 import { REPLICA_AREA } from "./area-replica";
 import { Setup, type SetupMachine } from "./setup";

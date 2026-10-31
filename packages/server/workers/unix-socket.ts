@@ -1,4 +1,4 @@
-import { Dispatcher } from "webappwiz/events";
+import { Dispatcher } from "core/events";
 import type { WorkerSocket, WorkerSocketEvents } from "./socket";
 
 /** Bun's socket, whose handlers hand each event to the `UnixWorkerSocket` it carries. */

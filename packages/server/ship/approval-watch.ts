@@ -1,4 +1,4 @@
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import { approvalChange, awaitingApproval } from "./approval";
 import type { Ship } from "./record";
 import type { ReleaseStep } from "./release-steps";

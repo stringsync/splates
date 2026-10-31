@@ -123,7 +123,7 @@ describe("App's work row", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: its layout spy is its own, which no other test shares
+	// vet-ignore simple-test-setup: its layout spy is its own, which no other test shares
 	it("shows the task added along the way beside the thread while its line is scrolled up out of sight, until a report that it merged comes up", async () => {
 		const thread = await opened({
 			...turn([
@@ -155,7 +155,7 @@ describe("App's work row", () => {
 		let cardTop = 200;
 		let reportTop = 2000;
 		const rect = HTMLElement.prototype.getBoundingClientRect;
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
+		// vet-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
 		const placed = spyOn(
 			HTMLElement.prototype,
 			"getBoundingClientRect",
@@ -206,7 +206,7 @@ describe("App's work row", () => {
 		}
 	});
 
-	// scry-ignore simple-test-setup: its layout spy is its own, which no other test shares
+	// vet-ignore simple-test-setup: its layout spy is its own, which no other test shares
 	it("shows the task the agent claimed beside the thread, not one it added for another agent after", async () => {
 		const thread = await opened({
 			...turn([
@@ -270,7 +270,7 @@ describe("App's work row", () => {
 			}),
 		);
 		const rect = HTMLElement.prototype.getBoundingClientRect;
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
+		// vet-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
 		const placed = spyOn(
 			HTMLElement.prototype,
 			"getBoundingClientRect",

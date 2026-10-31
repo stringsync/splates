@@ -1,10 +1,10 @@
-// scry-ignore-file export-leads-the-file: moved into server/ unchanged; it predates the rule
-import type { Deps } from "webappwiz/cmd";
-import type { Transcriber } from "webappwiz/dictate";
-import type { AsyncResource, Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import { Debouncer, SystemTimer } from "webappwiz/time";
+// vet-ignore-file export-leads-the-file: moved into server/ unchanged; it predates the rule
+import type { Deps } from "core/cmd";
+import type { Transcriber } from "core/dictate";
+import type { AsyncResource, Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
+import { Debouncer, SystemTimer } from "core/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { ElsewhereBoards, LaneRecord, TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks } from "../board";

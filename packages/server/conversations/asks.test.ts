@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { once, until } from "./testing";
@@ -172,7 +172,7 @@ describe("Conversation asks", () => {
 		await reread.disposeAsync();
 	});
 
-	// scry-ignore simple-test-setup: the elicitation payload belongs only to this question-form test.
+	// vet-ignore simple-test-setup: the elicitation payload belongs only to this question-form test.
 	it("asks the person an agent's question form and hands back the answer", async () => {
 		const seen: { response?: acp.CreateElicitationResponse } = {};
 		agent.turn = async (client, sessionId) => {

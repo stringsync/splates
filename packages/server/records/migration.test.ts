@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FileLock } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { FileLock } from "core/system";
+import { Duration } from "core/time";
 import { Testing } from "../testing";
 import { Format, type Migration as Step } from "./format";
 import { Migration, type MigrationOptions } from "./migration";

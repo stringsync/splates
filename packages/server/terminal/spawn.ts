@@ -4,7 +4,7 @@ import {
 	type SpawnCaptureResult,
 	type SpawnOptions,
 	type SpawnResult,
-} from "webappwiz/system";
+} from "core/system";
 
 /** What a `Shell` spawns through; the real process by default. */
 export interface ShellOptions {

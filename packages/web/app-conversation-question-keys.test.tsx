@@ -125,7 +125,7 @@ describe("App's question card keys", () => {
 
 	it("scrolls the card to its top as it arrives, clear of the person's message", async () => {
 		const scrolled: Element[] = [];
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
+		// vet-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
 		const scroll = spyOn(
 			HTMLElement.prototype,
 			"scrollIntoView",
@@ -154,7 +154,7 @@ describe("App's question card keys", () => {
 		);
 		await waitFor(() => expect(document.activeElement === first).toBe(true));
 		const scrolled: Element[] = [];
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
+		// vet-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
 		const scroll = spyOn(
 			HTMLElement.prototype,
 			"scrollIntoView",
@@ -202,7 +202,7 @@ describe("App's question card keys", () => {
 		const second = await waitFor(() => card(view, "2"));
 		const note = within(second).getByRole("textbox");
 
-		// scry-ignore matchers-over-test-logic: each step types on from the last, checked as typed
+		// vet-ignore matchers-over-test-logic: each step types on from the last, checked as typed
 		for (const typed of ["a", "a ", "a lot"]) {
 			await typeIn(note, typed);
 			expect(textIn(note)).toBe(typed);

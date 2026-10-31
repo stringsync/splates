@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeTimer } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeTimer } from "core/time/testing";
 import { laneAdd, laneQueue, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";

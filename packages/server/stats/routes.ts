@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import type { Handler } from "../server/shared";

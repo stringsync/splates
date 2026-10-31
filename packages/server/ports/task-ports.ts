@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
+import type { ListeningEntry, ProcessEntry } from "core/system";
 
 /**
  * What ties a process to a task: its worktree, and the agents at work in

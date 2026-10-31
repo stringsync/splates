@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import { Duration, SystemTimer, SystemWallClock, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import { Duration, SystemTimer, SystemWallClock, sleep } from "core/time";
 import { openReplica, Replicator } from "../replica";
 import type { Project } from "./project";
 

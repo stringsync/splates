@@ -1,4 +1,4 @@
-import type { Lock } from "webappwiz/system";
+import type { Lock } from "core/system";
 import type { Document } from "./document";
 import { documentText } from "./json";
 import type { Schema } from "./schema";

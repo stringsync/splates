@@ -1,4 +1,4 @@
-import { useDisposerEffect } from "@webappwiz/react";
+import { useDisposerEffect } from "core/react";
 import {
 	type ComponentProps,
 	type JSX,

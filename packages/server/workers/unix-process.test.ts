@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
+import { Duration, sleep } from "core/time";
 import { printed } from "../agents/testing";
 import { Testing } from "../testing";
 import { WorkerDaemon } from "./daemon";

@@ -3,7 +3,7 @@ import type {
 	UndoCred,
 	UndoPlan,
 } from "@stringsync/splates-server/setup";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { setupUndoPlan, undoSetup } from "./setup-api";
 
 /** Where undoing stands: asking, under way, failed, or done with what is left. */

@@ -1,10 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import {
-	Duration,
-	SystemTimer,
-	type Timer,
-	type WallClock,
-} from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Duration, SystemTimer, type Timer, type WallClock } from "core/time";
 import { type FireDeps, fire } from "./runner";
 import { scheduleOf } from "./schedule";
 import type { Automation } from "./store";

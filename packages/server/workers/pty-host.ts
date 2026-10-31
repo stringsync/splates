@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Ps } from "webappwiz/system";
+import type { Resource } from "core/disposable";
+import type { Ps } from "core/system";
 import { z } from "zod";
 import { Pty } from "../terminal";
 import type { WorkerChannel } from "./channel";

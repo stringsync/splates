@@ -6,8 +6,8 @@ import {
 	type SetupProgress,
 	type StepStatus,
 } from "@stringsync/splates-server/setup";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { AppSetupPage } from "./app-setup-page";
 import { SetupIndex, StepForm } from "./setup-form";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";

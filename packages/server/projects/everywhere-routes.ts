@@ -1,5 +1,5 @@
-import type { AsyncResource, Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
+import type { AsyncResource, Resource } from "core/disposable";
+import type { Logger } from "core/log";
 import { type LaneRecord, lanesTaken } from "../board";
 import {
 	type ConversationState,

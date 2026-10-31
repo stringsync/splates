@@ -278,7 +278,7 @@ describe.concurrent("outcomes", () => {
 		expect(outcome?.usage).toBeUndefined();
 	});
 
-	// scry-ignore simple-test-setup: each test opens its own repo with `await using`, as every test here does, since they run concurrently
+	// vet-ignore simple-test-setup: each test opens its own repo with `await using`, as every test here does, since they run concurrently
 	it("reads the task's own usage, working time, turns and findings off its conversation", async () => {
 		await using deps = await Testing.open();
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
@@ -405,7 +405,7 @@ describe.concurrent("outcomes", () => {
 		});
 	});
 
-	// scry-ignore simple-test-setup: older than this task, which only added the merge times backfill beside it
+	// vet-ignore simple-test-setup: older than this task, which only added the merge times backfill beside it
 	it("backfills the API list price of a Codex task that ended before it was priced, once, leaving one with no log unpriced", async () => {
 		await using deps = await Testing.open();
 		const priced = await listPriced(deps, "claude", (at) => [
@@ -503,7 +503,7 @@ describe.concurrent("outcomes", () => {
 		expect(beta?.usage?.output).toBe(12);
 	});
 
-	// scry-ignore simple-test-setup: the conversation env and the first turn are this test's own inputs.
+	// vet-ignore simple-test-setup: the conversation env and the first turn are this test's own inputs.
 	it("credits a task merged in its first turn with that turn's usage once the turn ends, beside the outcomes", async () => {
 		await using deps = await Testing.open();
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };

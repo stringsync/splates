@@ -1,5 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { useDisposerEffect, useReactive } from "core/react";
+import { Duration, SystemClock, SystemTimer, type Timer } from "core/time";
 import { CheckIcon, PowerIcon } from "lucide-react";
 import {
 	createContext,
@@ -13,7 +14,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Duration, SystemClock, SystemTimer, type Timer } from "webappwiz/time";
 import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
 import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";

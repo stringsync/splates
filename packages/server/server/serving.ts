@@ -1,4 +1,4 @@
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import { z } from "zod";
 import type { Document, Storage } from "../storage";
 

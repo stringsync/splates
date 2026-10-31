@@ -1,9 +1,5 @@
-import {
-	projectName,
-	type SecretStore,
-	SystemSecretStore,
-} from "webappwiz/creds";
-import { type Fs, NodeFs, NodePs } from "webappwiz/system";
+import { projectName, type SecretStore, SystemSecretStore } from "core/creds";
+import { type Fs, NodeFs, NodePs } from "core/system";
 import { KeyFileStore } from "./key-file";
 
 /** Where a cred is kept: for this project alone, or every project on this device. */

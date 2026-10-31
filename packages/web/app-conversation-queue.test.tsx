@@ -87,7 +87,7 @@ describe("App's composer queue", () => {
 		).toMatch(/Task\s*#\s*3/);
 	});
 
-	// scry-ignore simple-test-setup: The starting conversation and its timestamp belong only to this startup-queue test.
+	// vet-ignore simple-test-setup: The starting conversation and its timestamp belong only to this startup-queue test.
 	it("pins startup-held messages in the thread above a shimmering Queued label until the first turn starts", async () => {
 		const first = {
 			...message("user", "Fix login"),
@@ -208,7 +208,7 @@ describe("App's composer queue", () => {
 		expect(within(queued).getByText("then stop")).toBeTruthy();
 	});
 
-	// scry-ignore simple-test-setup: each test opens the conversation its case needs
+	// vet-ignore simple-test-setup: each test opens the conversation its case needs
 	it("shows a directive mid-way through a queued message as a chip where it stands", async () => {
 		const view = await testing.openConversations(
 			[

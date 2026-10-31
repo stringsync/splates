@@ -17,7 +17,7 @@ import {
 } from "@stringsync/splates-server/queue";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 import { position } from "./flags";
 

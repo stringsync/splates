@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeDictationLink, FakeMicrophone } from "webappwiz/dictate/testing";
+import { FakeDictationLink, FakeMicrophone } from "core/dictate/testing";
 import { Dictation } from "./dictation";
 import {
 	act,

@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
-import type { SecretStore } from "webappwiz/creds";
-import type { Fs } from "webappwiz/system";
+import type { SecretStore } from "core/creds";
+import type { Fs } from "core/system";
 
 /**
  * Secrets kept in a file only its user may read (`0600`), as `NAME=value`

@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates",
-	"version": "0.0.61",
+	"version": "1.13.3",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -16,7 +16,9 @@
 		"arbor": "./index.ts"
 	},
 	"exports": {
-		".": "./index.ts"
+		".": "./index.ts",
+		"./config": "./config.ts",
+		"./mirror": "./mirror.ts"
 	},
 	"engines": {
 		"bun": ">=1.3"
@@ -26,11 +28,11 @@
 	},
 	"dependencies": {
 		"@stringsync/splates-server": "workspace:*",
-		"webappwiz": "0.0.58",
-		"zod": "^4.4.3"
+		"core": "workspace:*",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "1.3.14"
+		"@types/bun": "catalog:"
 	},
 	"scripts": {
 		"build": "bun run --cwd ../web build"

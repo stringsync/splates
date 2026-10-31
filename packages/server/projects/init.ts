@@ -1,5 +1,5 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import type { Git } from "../git";
 import { projectSkills, RUNNING } from "../server/shared";
 import type { Projects } from "./projects";

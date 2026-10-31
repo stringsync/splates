@@ -27,7 +27,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
-# a release under way; the last part to land deletes it (splates dev ship)
+# a release under way; the last part to land deletes it (wiz dev ship)
 RELEASE
 
 # IntelliJ based IDEs
@@ -37,11 +37,13 @@ RELEASE
 .DS_Store
 
 # agent scratch notes (splates worktrees)
+ARBOR.md
 SPLATES.md
 
 # snapshots and screenshots an agent's browser leaves behind
 .playwright-mcp
+.arbor-shots
 .splates-shots
 
-# the splates server page, compiled by packages/web/build.ts
+# the splates server page, compiled by splates/packages/web/build.ts
 packages/server/web-build

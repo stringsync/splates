@@ -140,6 +140,30 @@ end, and leave it at that: whatever the user picks, carry on with any work
 under way, and do none of the work on the card in this conversation unless
 they ask you to.
 
+## Changing several units
+
+A task changes one unit of the repository, the package or project its Goal
+names, so a change that reaches several lands as several tasks, in order,
+rather than one that touches them all. When a unit's change breaks what
+another unit takes from it (an export's signature, a schema, a config
+key), the merge gate fails on the consumer's tests, which is no reason to
+widen the task. Expand, migrate, contract instead:
+
+1. **Expand.** This task adds the new form beside the old, so every
+   consumer still works, and lands.
+2. **Migrate.** One task per consuming unit moves it to the new form,
+   `--blocked-by` the expanding task, so the queue starts them once it
+   merges, in a lane when they are many.
+3. **Contract.** A last task removes the old form, `--blocked-by` every
+   migration.
+
+Queue steps 2 and 3 before merging step 1, each written as Queueing tasks
+says, its detail naming the old and new forms and the files it reaches.
+Only a change that cannot land in steps (a rename the old form cannot
+survive beside, a format both sides must switch at once) takes one task
+across units, and then its Goal names every unit it touches, so the reach
+is chosen and shown rather than crept into.
+
 ## Links
 
 When a task cannot start before another merges, it is blocked by that one:

@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { readIfThere, replace } from "./atomic";
 import type { Collection, CollectionEntry } from "./collection";
 import { checkName } from "./key";

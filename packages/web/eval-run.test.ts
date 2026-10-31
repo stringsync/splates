@@ -4,7 +4,7 @@ import type {
 	EvalLaunch,
 } from "@stringsync/splates-server/evals/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
 
 describe("EvalRun", () => {

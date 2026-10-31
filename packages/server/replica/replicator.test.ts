@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { Duration } from "webappwiz/time";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { Duration } from "core/time";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { MemoryStorage, rotated } from "../storage/testing";
 import { Replicator } from "./replicator";
 import { FakeReplica } from "./testing";

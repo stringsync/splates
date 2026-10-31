@@ -1,6 +1,6 @@
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
-/** Where the project's scry budgets stand, as `scry budgets` reports. */
+/** Where the project's vet budgets stand, as `vet budgets` reports. */
 export async function budgets(): Promise<Budgets> {
 	const response = await answered(scoped("/api/budgets"));
 	const body = (await response.json().catch(() => ({}))) as Budgets & {
@@ -16,7 +16,7 @@ export async function budgets(): Promise<Budgets> {
 	return body;
 }
 
-/** Where a project's scry budgets stand, and the models scry asks. */
+/** Where a project's vet budgets stand, and the models scry asks. */
 export interface Budgets {
 	/** Whether any config or change declares budgets. */
 	declared: boolean;

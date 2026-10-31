@@ -27,13 +27,20 @@ export function typedConfig(source: string): string | null {
 	}
 	return (
 		source.slice(0, from) +
-		'import type { ConfigFile } from "@stringsync/splates-server/config";' +
+		CONFIG_IMPORT +
 		source.slice(from + imported[0].length, call.index) +
 		source.slice(open + 1, close.index).trim() +
 		" satisfies ConfigFile" +
 		source.slice(close.index + 1)
 	);
 }
+
+/**
+ * The import a typed config starts with, put together when it runs: written
+ * out whole, the release would read it as the server importing
+ * `@stringsync/splates`, the package carrying it.
+ */
+const CONFIG_IMPORT = `import type { ConfigFile } from ${JSON.stringify("@stringsync/splates/config")};`;
 
 /** An import of `defineConfig` alone from splates's config. */
 const DEFINE_CONFIG_IMPORT =

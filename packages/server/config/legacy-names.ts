@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { basename } from "node:path";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 
 // Everything splates still answers to from when it was arbor, kept for one
 // release so projects, machines and webappwiz's `wiz` move over without
@@ -143,7 +143,7 @@ export interface LegacyRepoOptions {
 /**
  * Renames `arbor.config.ts` to splates's names, through
  * git when it tracks them so the rename is staged as one, and points their
- * imports of `@webappwiz/arbor` at `@stringsync/splates-server`. Leaves a file
+ * imports of `@webappwiz/arbor` at `@stringsync/splates`. Leaves a file
  * alone when one under the new name is already there.
  */
 export async function renameLegacyFiles({
@@ -172,7 +172,7 @@ export async function renameLegacyFiles({
 			path,
 			(await fs.read(path)).replaceAll(
 				"@webappwiz/arbor",
-				"@stringsync/splates-server",
+				"@stringsync/splates",
 			),
 		);
 		log.info(`renamed ${old} to ${next}`);

@@ -5,7 +5,7 @@ import {
 	KINDS,
 } from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {

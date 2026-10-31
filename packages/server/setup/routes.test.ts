@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { OpenPortProvider } from "core/system";
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";

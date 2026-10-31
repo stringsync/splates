@@ -1,0 +1,4 @@
+[install]
+# A package imports only what its package.json declares: hoisting would let
+# sound2score reach vexml without saying so.
+linker = "isolated"

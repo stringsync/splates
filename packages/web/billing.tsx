@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	PauseIcon,
 	PencilIcon,

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FORMAT } from "../records";
 import { Testing } from "../testing";
 import { Replicator, restoreFromReplica } from "./index";

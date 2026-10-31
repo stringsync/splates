@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs } from "webappwiz/system";
+import { MemoryLogger } from "core/log";
+import { NodeFs } from "core/system";
 import { ConfigFiles } from "./load";
 import { typeConfig } from "./type-config";
 
@@ -39,7 +39,7 @@ export default defineConfig({
 
 		expect(
 			await config(),
-		).toBe(`import type { ConfigFile } from "@stringsync/splates-server/config";
+		).toBe(`import type { ConfigFile } from "@stringsync/splates/config";
 
 export default {
 	preMerge: "bun test",

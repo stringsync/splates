@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import type { EvalsConfig } from "../config";
 import { fail } from "../exit";
 import type { Handler } from "../server/shared";

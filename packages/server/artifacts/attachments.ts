@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
-import { type IdProvider, UuidProvider } from "webappwiz/id";
-import type { Fs, Ps } from "webappwiz/system";
+import { type IdProvider, UuidProvider } from "core/id";
+import type { Fs, Ps } from "core/system";
 import { fail } from "../exit";
 import type { Collection, Storage } from "../storage";
 

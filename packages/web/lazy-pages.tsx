@@ -1,3 +1,4 @@
+import { aborts } from "core/abort";
 import {
 	Component,
 	type ComponentType,
@@ -7,7 +8,6 @@ import {
 	Suspense,
 	useState,
 } from "react";
-import { aborts } from "webappwiz/abort";
 import { expiring, WAITS } from "./api";
 import { ReadFailed, StillWaiting } from "./countdown";
 

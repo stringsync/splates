@@ -1,4 +1,6 @@
-import { useReactive } from "@webappwiz/react";
+import { Device } from "core/browser";
+import { TICK } from "core/dictate";
+import { useReactive } from "core/react";
 import { XIcon } from "lucide-react";
 import {
 	useContext,
@@ -8,8 +10,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Device } from "webappwiz/browser";
-import { TICK } from "webappwiz/dictate";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { COMPOSER, type Dictation, type DictationPhase } from "./dictation";

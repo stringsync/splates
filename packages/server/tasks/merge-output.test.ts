@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { mergeOutput } from "./merge-output";

@@ -1,4 +1,4 @@
-import type { Fs, Lock } from "webappwiz/system";
+import type { Fs, Lock } from "core/system";
 import { readIfThere, replace } from "./atomic";
 import type { Document } from "./document";
 import { documentText } from "./json";

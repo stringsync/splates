@@ -1,6 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
-import type { Deps } from "webappwiz/cmd";
-import type { Fs } from "webappwiz/system";
+import type { Deps } from "core/cmd";
+import type { Fs } from "core/system";
 import type { SecretStores } from "../creds";
 import { fail } from "../exit";
 import { openRepository } from "../records";

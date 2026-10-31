@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLock } from "webappwiz/system";
-import { SystemClock } from "webappwiz/time";
+import { MemoryLock } from "core/system";
+import { SystemClock } from "core/time";
 import type { Config } from "../config";
 import { MergeGate, QUEUED_AFTER_MS } from "./gate";
 import { MergeTiming } from "./timing";

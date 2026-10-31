@@ -27,7 +27,7 @@ export interface ModelChoice {
 export type ScryModels = Record<"som" | "llm", ModelChoice[]>;
 
 /**
- * Reads which models scry will ask, from the project's `scry.config.ts` and
+ * Reads which models scry will ask, from the project's `vet.config.ts` and
  * then the user's, which lays its own over the project's, over scry's
  * defaults. A config that cannot load names nothing.
  */
@@ -39,8 +39,8 @@ export class ScryModelsReader {
 
 	async read(): Promise<ScryModels> {
 		const layers = [
-			join(this.root, "scry.config.ts"),
-			join(this.home, ".config", "scry", "config.ts"),
+			join(this.root, "vet.config.ts"),
+			join(this.home, ".config", "vet", "config.ts"),
 		];
 		const chosen: Record<"som" | "llm", Map<string, ModelChoice>> = {
 			som: new Map(),

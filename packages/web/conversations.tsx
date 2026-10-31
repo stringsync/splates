@@ -9,7 +9,8 @@ import {
 } from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { WindowBackgroundObserver } from "core/browser";
+import { useReactive } from "core/react";
 import { ChevronLeftIcon } from "lucide-react";
 import {
 	type JSX,
@@ -20,7 +21,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Dialog } from "#web/components/ui/dialog.tsx";
 import { Board, takenTask } from "./board";
 import {

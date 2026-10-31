@@ -1,11 +1,11 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
 import {
 	SystemClock,
 	SystemTimer,
 	SystemWallClock,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import type { ConversationPlacer, PlaceRequest } from "../conversations";
 import { RUNNING } from "../server/shared";
 import { GoneWorkers } from "./gone";

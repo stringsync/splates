@@ -1,6 +1,6 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Child, Ps } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Child, Ps } from "core/system";
 import type { TunnelProvider, TunnelRoute } from "./provider";
 
 /** What `cloudflared` prints once a connection to Cloudflare's edge is up. */

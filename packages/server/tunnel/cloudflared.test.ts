@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { NodePs } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
+import { MemoryLogger } from "core/log";
+import { NodePs } from "core/system";
+import { FakePs } from "core/system/testing";
 import { CloudflaredTunnelProvider, GUARD } from "./cloudflared";
 
 describe("CloudflaredTunnelProvider", () => {

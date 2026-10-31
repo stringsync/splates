@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Eventful } from "webappwiz/events";
-import type { Lock } from "webappwiz/system";
+import type { Resource } from "core/disposable";
+import type { Eventful } from "core/events";
+import type { Lock } from "core/system";
 import type { Collection } from "./collection";
 import type { Document, DocumentOptions } from "./document";
 import type { Log, LogOptions } from "./log";

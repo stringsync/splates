@@ -1,5 +1,5 @@
-import { Credentials, credentialName, type SecretStore } from "webappwiz/creds";
-import { Duration, sleep } from "webappwiz/time";
+import { Credentials, credentialName, type SecretStore } from "core/creds";
+import { Duration, sleep } from "core/time";
 import { renamed } from "../config";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";

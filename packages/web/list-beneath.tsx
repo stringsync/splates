@@ -1,5 +1,5 @@
 import type { Needing } from "@stringsync/splates-server/plans/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type ReactNode, useContext } from "react";
 import { useCloseTerminal } from "./close-terminal";
 import { terminalAddress } from "./conversation-address";

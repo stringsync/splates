@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import { MemoryStorage } from "../storage/testing";
 import { type Cascade, Cascades } from "./cascade";
 import { CascadeRoutes } from "./cascade-routes";

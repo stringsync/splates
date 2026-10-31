@@ -15,7 +15,7 @@ import { Refusal, useRefusal } from "./refusal";
  * While a card is in hand it is where to drop it to start a lane of its
  * own, and a card dropped there waits in it for the lane's name.
  */
-// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddLane({
 	dragging,
 	naming,

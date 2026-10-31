@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
 import { FORMAT } from "../records";
 import type { SplatesDeps } from "./runtime-deps";
 import { recordsFirst } from "./update-records";

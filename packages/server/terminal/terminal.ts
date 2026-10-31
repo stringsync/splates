@@ -1,4 +1,4 @@
-import { SystemTimer, type Timer } from "webappwiz/time";
+import { SystemTimer, type Timer } from "core/time";
 import { Exit, fail } from "../exit";
 import type { Connection, Served } from "../server/shared";
 import { type HostGate, refuse } from "../server/shared";

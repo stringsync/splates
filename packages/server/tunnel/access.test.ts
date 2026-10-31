@@ -1,8 +1,8 @@
-// scry-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
+// vet-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
 import { beforeAll, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { Duration } from "webappwiz/time";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { Duration } from "core/time";
+import { FakeWallClock } from "core/time/testing";
 import { Exit } from "../exit";
 import { HostGate } from "../server/shared";
 import { Access, accessConfig } from "./access";

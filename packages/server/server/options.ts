@@ -1,6 +1,6 @@
-import type { Pusher, VapidKeys } from "webappwiz/push";
-import type { PortProvider } from "webappwiz/system";
-import type { Duration } from "webappwiz/time";
+import type { Pusher, VapidKeys } from "core/push";
+import type { PortProvider } from "core/system";
+import type { Duration } from "core/time";
 import type { Config } from "../config";
 import type { Conversations } from "../conversations";
 import type { Creds } from "../creds";

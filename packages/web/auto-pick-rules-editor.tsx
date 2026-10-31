@@ -6,7 +6,7 @@ import {
 	KINDS,
 } from "@stringsync/splates-server/auto-pick/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	ArrowDownIcon,
 	ArrowUpIcon,

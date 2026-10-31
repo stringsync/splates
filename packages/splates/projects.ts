@@ -5,7 +5,7 @@ import {
 } from "@stringsync/splates-server/projects";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 
 /** `splates projects`, which the root cli mounts after `splates lane`. */

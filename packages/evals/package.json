@@ -1,0 +1,12 @@
+{
+	"name": "@splates/evals",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@stringsync/splates-server": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:"
+	},
+	"version": "1.13.3"
+}

@@ -1,4 +1,4 @@
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import {
 	type Child,
 	NodePs,
@@ -9,7 +9,7 @@ import {
 	type StartOptions,
 	type TerminalChild,
 	type TerminalOptions,
-} from "webappwiz/system";
+} from "core/system";
 import { legacyName, legacyWarnings } from "./legacy-names";
 
 /**

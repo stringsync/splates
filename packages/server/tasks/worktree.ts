@@ -12,7 +12,7 @@ import type { WorktreeService } from "./worktree-service";
  * existence checks themselves.
  */
 export class Worktree {
-	// scry-ignore classes-over-function-exports: the service is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the service's Git
+	// vet-ignore classes-over-function-exports: the service is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the service's Git
 	constructor(
 		private readonly service: WorktreeService,
 		private readonly snapshot: WorktreeSnapshot,
@@ -416,9 +416,16 @@ export interface LivePhase {
 export interface MergeProgress {
 	/**
 	 * Each step it reached, in order, with when it began; the last runs now.
-	 * A step that runs a command names the file it prints to, `output`.
+	 * A step that runs a command names the file it prints to, `output`. A
+	 * premerge run in another merge's batch, which split before it landed,
+	 * is `dissolved`: the branch's own turn was still to come.
 	 */
-	steps: { step: MergeStep; at: string; output?: string }[];
+	steps: {
+		step: MergeStep;
+		at: string;
+		output?: string;
+		dissolved?: true;
+	}[];
 	/** The premerge's phases so far, while it tests. */
 	phases?: LivePhase[];
 }
@@ -435,7 +442,7 @@ export interface LeaseState {
 	conversation?: string;
 }
 
-// scry-ignore doc-comments-address-users: a retired record's shape, kept only for old records
+// vet-ignore doc-comments-address-users: a retired record's shape, kept only for old records
 /**
  * A hand-over to a person from before `splates escalate` was retired, which
  * old records still carry for the Stats page.

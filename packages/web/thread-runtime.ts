@@ -5,8 +5,8 @@ import {
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { aborts } from "core/abort";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { aborts } from "webappwiz/abort";
 import { useAdapters } from "./adapters";
 import {
 	filesOf,

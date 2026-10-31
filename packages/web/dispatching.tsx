@@ -2,7 +2,7 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { thinkingOf } from "@stringsync/splates-server/models/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
 import {
 	createContext,

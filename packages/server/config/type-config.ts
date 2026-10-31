@@ -1,5 +1,5 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import type { Fs } from "core/system";
 import { CONFIG_FILE, ConfigFiles, typedConfig } from ".";
 
 /**

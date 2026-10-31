@@ -1,7 +1,7 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps, TerminalChild } from "webappwiz/system";
-import { SystemWallClock, type WallClock } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs, Ps, TerminalChild } from "core/system";
+import { SystemWallClock, type WallClock } from "core/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
 import { ApprovalWatch } from "./approval-watch";

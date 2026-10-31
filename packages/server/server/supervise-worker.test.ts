@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import type { SpawnOptions } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { SUPERVISOR } from "../workers";
 import { supervise, UPDATE } from "./supervise";
 

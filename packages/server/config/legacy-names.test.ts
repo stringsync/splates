@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, readlink, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
 import {
 	legacyName,
 	movedPath,
@@ -125,7 +125,7 @@ describe("legacy names", () => {
 			old: await fs.exists(join(root, "arbor.config.ts")),
 		}).toEqual({
 			config:
-				'import type { ConfigFile } from "@stringsync/splates-server/config";\nexport default {} satisfies ConfigFile;\n',
+				'import type { ConfigFile } from "@stringsync/splates/config";\nexport default {} satisfies ConfigFile;\n',
 			old: false,
 		});
 	});

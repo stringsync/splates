@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Fs } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Fs } from "core/system";
+import { Duration, type Timer } from "core/time";
 import type { WorktreeService } from "./worktree-service";
 
 /** How often a merge step's output is read again while it runs. */

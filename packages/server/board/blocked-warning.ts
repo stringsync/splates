@@ -1,4 +1,4 @@
-import { color } from "webappwiz/log";
+import { color } from "core/log";
 import { elsewhereName } from "./elsewhere";
 import type { Task } from "./task";
 

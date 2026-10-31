@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { ensure } from "webappwiz/assert";
-import { FakePs } from "webappwiz/system/testing";
+import { ensure } from "core/assert";
+import { FakePs } from "core/system/testing";
 import { enqueued } from "../board";
 import { merge } from "../merge";
 import { remove } from "../tasks";

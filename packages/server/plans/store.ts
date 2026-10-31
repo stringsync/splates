@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Collection, Storage } from "../storage";
 import { PLAN_FILE, Plans } from "./plan";
 

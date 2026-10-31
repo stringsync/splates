@@ -7,7 +7,7 @@ import type {
 	Tool,
 } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { tierOf } from "./event-tier";
 import { workingSpan } from "./work-time";
 

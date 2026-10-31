@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { CONTEXT_CLASSES, DEPTH_IDS, KIND_IDS } from "./classes";
 import { classify, DETAIL_CHARS } from "./classify";
 import { FakeJudge } from "./testing";

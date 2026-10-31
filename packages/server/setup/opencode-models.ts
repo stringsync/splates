@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { z } from "zod";
 import { DEFAULT_AGENTS, type Roster, type RosterFile } from "../models";
 import { OpenCodeModelError } from "./opencode-model-error";

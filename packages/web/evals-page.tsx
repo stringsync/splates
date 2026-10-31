@@ -3,8 +3,8 @@ import type {
 	EvalGrid,
 } from "@stringsync/splates-server/evals/browser";
 import { targetName } from "@stringsync/splates-server/evals/browser";
+import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
 import { evalBatch, evalBatches } from "./api";
 import { BackButton } from "./back-button";
 import { ReadingNow } from "./countdown";

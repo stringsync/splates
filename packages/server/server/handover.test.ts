@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { OpenPortProvider } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { OpenPortProvider } from "core/system";
+import { Duration } from "core/time";
 import { FakeAgent, FakeAgentPs } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { color } from "webappwiz/log";
+import { color } from "core/log";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { list } from "./list";

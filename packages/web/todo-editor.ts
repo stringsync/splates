@@ -1,5 +1,5 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { removeTodo, updateTodo } from "./api";
 import { todoEdited, todoRemoved } from "./board-expectations";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
@@ -20,7 +20,7 @@ export type TodoEditorEvents = { changed: undefined };
  * with: the board shows what changed. The changes stay kept until the write
  * lands, so a refused one comes back as `restored` when the todo opens again.
  */
-// scry-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
+// vet-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
 export class TodoEditor implements Eventful<TodoEditorEvents> {
 	private readonly dispatcher = new Dispatcher<TodoEditorEvents>();
 	readonly events = this.dispatcher.events;

@@ -1,5 +1,5 @@
 import type { Needing } from "@stringsync/splates-server/plans";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { PencilIcon, SquareTerminalIcon, XIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { useCloseTerminal } from "./close-terminal";

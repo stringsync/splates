@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
-import type { Ps } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import type { Ps } from "core/system";
+import { Duration } from "core/time";
 import manifest from "../package.json" with { type: "json" };
 
 /** The version of splates running now, as `ship` stamped it. */
@@ -45,9 +45,7 @@ export const SOURCE = [
 function webappwizSource(): string[] {
 	try {
 		return [
-			dirname(
-				dirname(Bun.fileURLToPath(import.meta.resolve("webappwiz/time"))),
-			),
+			dirname(dirname(Bun.fileURLToPath(import.meta.resolve("core/time")))),
 		];
 	} catch {
 		return [];

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { FakeAgent, heard, say } from "../agents/testing";
 import { Conversations } from "./index";
 import { eventually, once, until } from "./testing";
@@ -283,7 +283,7 @@ describe("OpenCode ACP fixtures (not a recorded executable handshake)", () => {
 		expect(conversation.state.settings[0]?.current).toBe(MODEL);
 	});
 
-	// scry-ignore simple-test-setup: moving and reopening are the persistence behavior exercised here.
+	// vet-ignore simple-test-setup: moving and reopening are the persistence behavior exercised here.
 	it("prefers negotiated resume and keeps original cwd after a task move and restart", async () => {
 		const conversation = await start();
 		await until(conversation, "idle");

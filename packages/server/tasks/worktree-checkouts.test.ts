@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Git, GitResult } from "../git";
 import { WorktreeCheckouts } from "./worktree-checkouts";
 

@@ -1,5 +1,5 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	ChevronDownIcon,
 	ChevronUpIcon,

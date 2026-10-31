@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Creds } from "../creds";
 import { DirReplica } from "./dir";
 import type { Replica } from "./replica";

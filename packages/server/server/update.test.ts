@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
 import { encodeTask } from "../board";
 import { RUNNING } from "./release";
 import { UPDATING, update } from "./update";

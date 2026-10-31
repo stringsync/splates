@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 
 /**
  * Writes `data` to `path` through a file beside it renamed into place, so a

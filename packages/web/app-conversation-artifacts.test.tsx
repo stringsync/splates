@@ -36,7 +36,7 @@ describe("App's artifacts", () => {
 		testing = new Testing();
 		followed = [];
 		// A download leaves the page.
-		// scry-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks
 		click = spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
 			function (this: HTMLAnchorElement) {
 				followed.push({ href: this.href, download: this.download });
@@ -249,7 +249,7 @@ describe("App's artifacts", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: one artifact of each kind is what this test alone opens
+	// vet-ignore simple-test-setup: one artifact of each kind is what this test alone opens
 	it("opens an image or a recording in the lightbox among the others beside it, and downloads anything else", async () => {
 		const { view } = await opened([
 			artifact("a.png", [version(1, 10, "image/png")]),

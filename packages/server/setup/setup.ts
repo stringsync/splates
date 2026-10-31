@@ -1,5 +1,5 @@
-import type { SecretStore } from "webappwiz/creds";
-import type { Fs, Ps } from "webappwiz/system";
+import type { SecretStore } from "core/creds";
+import type { Fs, Ps } from "core/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";

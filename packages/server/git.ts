@@ -1,5 +1,5 @@
-// scry-ignore-file compact-files: every git call splates makes goes through this one class, so the identity it signs with moved out and the rest stays together
-import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+// vet-ignore-file compact-files: every git call splates makes goes through this one class, so the identity it signs with moved out and the rest stays together
+import { type Fs, NodeFs, NodePs, type Ps } from "core/system";
 import {
 	type Author,
 	authorOf,

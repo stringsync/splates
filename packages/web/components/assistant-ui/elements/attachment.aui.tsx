@@ -1,7 +1,7 @@
 "use client";
 
 import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { PlusIcon, XIcon } from "lucide-react";
 import { type FC, useContext } from "react";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";

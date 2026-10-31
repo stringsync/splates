@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
 import {
 	type DOMAttributes,

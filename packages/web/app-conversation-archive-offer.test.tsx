@@ -154,7 +154,7 @@ describe("App's offer to archive a conversation whose task is over", () => {
 		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
+	// vet-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
 	it("leaves the bar out while the report card's own Archive is in sight, which archives too", async () => {
 		const real = globalThis.IntersectionObserver;
 		// The card's Archive, as the observer last watched it.

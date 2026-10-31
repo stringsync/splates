@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import { Duration, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import { Duration, sleep } from "core/time";
 import type { Git } from "../git";
 import type { MergeBatch, Settled } from "./batch";
 
@@ -45,8 +45,11 @@ export async function follow(
 		requireLease: () => Promise<unknown>;
 		/** Called once the branch is on a batch's stack, whose gate is this merge's. */
 		onStacked: () => Promise<void>;
-		/** Called when a batch let the branch go, back on `ownHead`, to wait on. */
-		onUnstacked: () => Promise<void>;
+		/**
+		 * Called when a batch let the branch go, back on `ownHead`: to wait
+		 * on once the batch `dissolved`, or refused by its result otherwise.
+		 */
+		onUnstacked: (dissolved: boolean) => Promise<void>;
 	},
 	reserve: (signal: AbortSignal) => Promise<AsyncDisposable>,
 ): Promise<Followed> {
@@ -57,11 +60,11 @@ export async function follow(
 	let stacked = false;
 	let done = false;
 	let gaveUp = false;
-	const unstack = async () => {
+	const unstack = async (dissolved = true) => {
 		if (stacked) {
 			stacked = false;
 			await git.resetHard(path, ownHead);
-			await onUnstacked();
+			await onUnstacked(dissolved);
 		}
 	};
 	const stack = async (onto: string): Promise<string | null> => {
@@ -130,7 +133,7 @@ export async function follow(
 		if (result.kind === "landed") {
 			await git.resetHard(path, result.head);
 		} else {
-			await unstack();
+			await unstack(false);
 		}
 		await batch.clear(task);
 		return { result };

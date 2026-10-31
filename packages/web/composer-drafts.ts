@@ -17,7 +17,7 @@ import { fileShelf } from "./files";
  * leaving for another conversation loses nothing. Hands back what puts text
  * back after a send was refused.
  */
-// scry-ignore classes-over-function-exports: useDraft and useReply are React hooks, called by components, which a class's methods cannot be
+// vet-ignore classes-over-function-exports: useDraft and useReply are React hooks, called by components, which a class's methods cannot be
 export function useDraft(
 	runtime: AssistantRuntime,
 	drafts: Drafts,

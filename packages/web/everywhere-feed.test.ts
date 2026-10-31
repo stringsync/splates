@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import { EverywhereFeed } from "./everywhere-feed";
 import { conversation, details } from "./testing";
 
@@ -87,7 +87,7 @@ describe("EverywhereFeed", () => {
 
 	const stream = () => streams.at(-1) as Stream;
 
-	// scry-ignore simple-test-setup: the two projects and their unchanged neighbours are this identity regression's own inputs
+	// vet-ignore simple-test-setup: the two projects and their unchanged neighbours are this identity regression's own inputs
 	it("retains other tasks, conversations and project summaries on a streamed delta", async () => {
 		held = feed.hold();
 		const state = conversation({ id: "a1" });

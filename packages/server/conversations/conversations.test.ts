@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { Limits, Offered } from "../models";
 import type { Outcome } from "../stats";
@@ -92,10 +92,10 @@ describe("Conversations", () => {
 
 		expect(conversation.state.id).toBe(id);
 		expect(await conversations.find(id)).toBe(conversation);
-		await expect(
+		expect(
 			conversations.start("fake", { id, task: null, cwd: "/repo" }),
 		).rejects.toThrow(`conversation ${id} already exists`);
-		await expect(
+		expect(
 			conversations.start("fake", { id: "../x", task: null, cwd: "/repo" }),
 		).rejects.toThrow("not a conversation id");
 	});
@@ -171,7 +171,7 @@ describe("Conversations", () => {
 		expect(agent.opened).toEqual([ASK_IN_SPLATES]);
 	});
 
-	// scry-ignore simple-test-setup: starting, archiving and reading the logs back in a second Conversations is the persistence exercised here.
+	// vet-ignore simple-test-setup: starting, archiving and reading the logs back in a second Conversations is the persistence exercised here.
 	it("finds a persistent agent's conversation by its role, past a restart and an archive", async () => {
 		const groomer = await shop.start("fake", {
 			task: null,
@@ -193,7 +193,24 @@ describe("Conversations", () => {
 		expect(await later.persistent("planner")).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: opening, choosing, and restarting are the persistence behavior exercised here; shared services are in beforeEach.
+	it("finds the newest of a persistent agent's conversations started in the same millisecond", async () => {
+		const first = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			persistent: "groomer",
+		});
+		const second = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			persistent: "groomer",
+		});
+
+		expect(second.state.createdAt).toBe(first.state.createdAt);
+		expect((await shop.persistent("groomer"))?.id).toBe(second.id);
+		await shop.disposeAsync();
+	});
+
+	// vet-ignore simple-test-setup: opening, choosing, and restarting are the persistence behavior exercised here; shared services are in beforeEach.
 	it("remembers what an agent's sessions offer for every project, as last left", async () => {
 		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
 		await until(conversation, "idle");
@@ -232,10 +249,10 @@ describe("Conversations", () => {
 			["model", "small"],
 			["fast", "off"],
 		]);
-		await expect(shop.chooseDefault("fake", "model", "huge")).rejects.toThrow(
+		expect(shop.chooseDefault("fake", "model", "huge")).rejects.toThrow(
 			"'huge' is not a model this agent offers",
 		);
-		await expect(shop.chooseDefault("fake", "color", "red")).rejects.toThrow(
+		expect(shop.chooseDefault("fake", "color", "red")).rejects.toThrow(
 			"agent 'fake' has no setting 'color'",
 		);
 	});
@@ -370,7 +387,7 @@ describe("Conversations", () => {
 		expect((await later.all()).fake).toEqual((await offered.all()).fake);
 	});
 
-	// scry-ignore simple-test-setup: the restart and the stored skill version are this test's own inputs.
+	// vet-ignore simple-test-setup: the restart and the stored skill version are this test's own inputs.
 	it("keeps the project's splates skill version from the start, past a restart", async () => {
 		await fs.write(
 			"/repo/.agents/skills/splates/SKILL.md",
@@ -517,7 +534,7 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 	});
 
-	// scry-ignore simple-test-setup: this usage frame and second-process read are specific inputs to the cross-project persistence check.
+	// vet-ignore simple-test-setup: this usage frame and second-process read are specific inputs to the cross-project persistence check.
 	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
 		agent.turn = async (connection) => {
 			await connection.sessionUpdate({
@@ -631,7 +648,7 @@ describe("Conversations", () => {
 	});
 
 	it("refuses an agent it does not know", async () => {
-		await expect(
+		expect(
 			conversations.start("nobody", { task: null, cwd: "/repo" }),
 		).rejects.toThrow("no agent 'nobody': use one of fake");
 	});

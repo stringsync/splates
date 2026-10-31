@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { OPENERS, ZED } from "./openers";
 import { NONE, type Shortcut, valid } from "./shortcuts";
 
@@ -321,7 +321,7 @@ const STORED = "splates.settings";
  * The page's settings, kept in `storage` for the next visit: each one
  * changed reads as what it was set to, and every other as its default.
  */
-// scry-ignore resources-are-disposable: it holds nothing but its listeners, which unlisten themselves
+// vet-ignore resources-are-disposable: it holds nothing but its listeners, which unlisten themselves
 export class Settings implements Eventful<SettingsEvents> {
 	private readonly dispatcher = new Dispatcher<SettingsEvents>();
 	readonly events = this.dispatcher.events;

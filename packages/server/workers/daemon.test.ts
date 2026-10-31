@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
+import { Duration, sleep } from "core/time";
 import { printed } from "../agents/testing";
 import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
@@ -129,7 +129,7 @@ describe("WorkerDaemon", () => {
 		expect(child.pid).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: its shell and what it types are its own; no other test opens a pty
+	// vet-ignore simple-test-setup: its shell and what it types are its own; no other test opens a pty
 	it("runs a shell on a pseudo-terminal and hears what it types back", async () => {
 		const shell = worker.pty({
 			argv: ["/bin/sh", "-c", 'read line; printf "got:%s" "$line"'],
@@ -180,7 +180,7 @@ describe("WorkerDaemon", () => {
 		expect(ran).toMatchObject({ code: 0, stdout: "hello\n" });
 	});
 
-	// scry-ignore simple-test-setup: it alone drops and brings back the server, which is what it tests
+	// vet-ignore simple-test-setup: it alone drops and brings back the server, which is what it tests
 	it("stalls a process while the coordinator is away past the bound, and loses nothing", async () => {
 		const child = worker.start(
 			["/bin/sh", "-c", "sleep 0.3; head -c 2000000 /dev/zero"],
@@ -221,7 +221,7 @@ describe("WorkerDaemon", () => {
 		expect(new NodePs().alive(pid)).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: it alone drops the server for good, which is what it tests
+	// vet-ignore simple-test-setup: it alone drops the server for good, which is what it tests
 	it("ends a process when the coordinator does not return within the bound", async () => {
 		await teardown();
 		await boot(Duration.ms(400));
@@ -232,9 +232,9 @@ describe("WorkerDaemon", () => {
 		await listener.disposeAsync();
 		await sleep(Duration.ms(100));
 		expect(new NodePs().alive(pid)).toBe(true);
-		await sleep(Duration.ms(400));
 
-		await sleep(Duration.ms(100));
+		// A loaded machine delays the bound's ticks, so poll rather than sleep a fixed time.
+		await eventually(() => !new NodePs().alive(pid), 50);
 		expect(new NodePs().alive(pid)).toBe(false);
 	});
 });

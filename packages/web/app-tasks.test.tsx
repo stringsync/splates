@@ -151,7 +151,7 @@ describe("App's Queue page", () => {
 		expect(view.queryByRole("complementary")).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the spent merge attempts belong only to this retry test, not shared setup
+	// vet-ignore simple-test-setup: the spent merge attempts belong only to this retry test, not shared setup
 	it("grants a task out of merge attempts another round, saying so where it was asked", async () => {
 		const spent = { task: "alpha", mergeAttempts: 3, budgetSpent: true };
 		const view = await testing.openTasks({

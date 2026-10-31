@@ -1,5 +1,5 @@
-import { type AsyncResource, Disposer } from "webappwiz/disposable";
-import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
+import { type AsyncResource, Disposer } from "core/disposable";
+import { Debouncer, Duration, SystemTimer } from "core/time";
 import { type Conversations, SERVER_TOLD } from "../conversations";
 import {
 	ConflictChecks,

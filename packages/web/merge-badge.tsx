@@ -1,7 +1,7 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
+import { Duration } from "core/time";
 import { GitMergeIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
-import { Duration } from "webappwiz/time";
 import {
 	Popover,
 	PopoverContent,

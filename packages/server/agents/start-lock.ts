@@ -1,11 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import {
-	FileLock,
-	type Fs,
-	type Lock,
-	MemoryLock,
-	type Ps,
-} from "webappwiz/system";
+import type { Logger } from "core/log";
+import { FileLock, type Fs, type Lock, MemoryLock, type Ps } from "core/system";
 import { splatesHome } from "../models";
 
 /**
@@ -38,7 +32,7 @@ export class StartLock implements Lock {
 		}
 	}
 
-	// scry-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
+	// vet-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
 	async release(): Promise<void> {
 		try {
 			await this.file.release();

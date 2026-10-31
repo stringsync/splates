@@ -229,7 +229,7 @@ describe("App's composer drafts", () => {
 		expect(view.queryByText("Couldn't send")).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: only this case needs a conversation asking a question
+	// vet-ignore simple-test-setup: only this case needs a conversation asking a question
 	it("keeps what was typed into a question's box while away", async () => {
 		const asking = conversation({
 			id: "c1",

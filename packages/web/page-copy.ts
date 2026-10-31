@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Duration, type Timer } from "core/time";
 import type { PageCopies } from "./page-copies";
 
 /**

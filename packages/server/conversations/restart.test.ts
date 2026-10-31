@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeClock, FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent, FakeAgentPs, say } from "../agents/testing";
 import { ConnectedWorker, WorkerProcessHost, WorkerSession } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
@@ -171,7 +171,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		expect(kinds.filter((kind) => kind === "launched")).toHaveLength(1);
 	});
 
-	// scry-ignore simple-test-setup: only this case needs two sequential processes with different frame counts.
+	// vet-ignore simple-test-setup: only this case needs two sequential processes with different frame counts.
 	it("takes back a process started after another, from its own frames, not the first's", async () => {
 		const turn = agent.turn;
 		// The first process runs its frames' seqs up past the second's.

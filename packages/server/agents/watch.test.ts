@@ -94,6 +94,7 @@ describe("Watch", () => {
 		).toEqual([]);
 	});
 
+	// vet-ignore simple-test-setup: copied from the splates repository as it was; reworking it is its own task
 	describe("with a remote", () => {
 		beforeEach(async () => {
 			const remote = join(env.config.worktreeRoot, "..", "remote.git");

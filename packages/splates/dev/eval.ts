@@ -1,4 +1,4 @@
-import { NodePs, type Ps } from "webappwiz/system";
+import { NodePs, type Ps } from "core/system";
 import { ROOT } from "./root";
 
 export interface EvalOptions {
@@ -7,11 +7,11 @@ export interface EvalOptions {
 	ps?: Ps;
 }
 
-/** Runs the skill's eval scenarios (`evals/skill`); with no arguments, its help. */
+/** Runs the skill's eval scenarios (`packages/evals/skill`); with no arguments, its help. */
 export async function evalSkill(opts: EvalOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const { exitCode } = await ps.spawn(
-		["bun", "evals/skill/index.ts", ...opts.args],
+		["bun", "packages/evals/skill/index.ts", ...opts.args],
 		{ cwd: ROOT },
 	);
 	if (exitCode !== 0) {

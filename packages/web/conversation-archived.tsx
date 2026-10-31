@@ -1,5 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { Duration } from "core/time";
 import { ChevronLeftIcon } from "lucide-react";
 import {
 	type JSX,
@@ -9,7 +10,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import { type AgentChoice, agentName } from "./conversation-feed";
 import { conversationIndex } from "./conversation-index";

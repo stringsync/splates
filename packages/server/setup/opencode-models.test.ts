@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "core/system/testing";
 import { DEFAULT_AGENTS, Roster } from "../models";
 import { MemoryStorage } from "../storage/testing";
 import { type OpenCodeMetadata, OpenCodeModels } from "./opencode-models";

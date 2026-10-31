@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { jittered } from "./daemon";
 
 describe("jittered", () => {

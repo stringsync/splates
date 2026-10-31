@@ -1,5 +1,5 @@
 import type { WorkerPool } from "@stringsync/splates-server/workers";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { InfoIcon, PauseIcon, PlayIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";

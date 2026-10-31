@@ -1,4 +1,4 @@
-import { Markdown as Parsed } from "webappwiz/md";
+import { Markdown as Parsed } from "core/md";
 
 /** A task's SPLATES.md, split into what each tab shows. */
 export interface PlanParts {

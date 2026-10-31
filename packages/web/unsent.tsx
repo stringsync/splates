@@ -1,6 +1,6 @@
+import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import { CircleAlertIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useState } from "react";
-import { Duration, SystemTimer, SystemWallClock } from "webappwiz/time";
 import { HeldFeed } from "./handed-out";
 import { useShowPending } from "./pending";
 import {

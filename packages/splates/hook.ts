@@ -20,7 +20,7 @@ import {
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import type { Storage } from "@stringsync/splates-server/storage";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 import { assigneeIn } from "./flags";
 

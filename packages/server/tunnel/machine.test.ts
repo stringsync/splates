@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { asideOf, machineTunnel } from "./machine";

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import type { ConversationState } from "../conversations";
 import { conversation, message, tool } from "../fixtures";
 import { FsStorage } from "../storage";

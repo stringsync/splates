@@ -1,5 +1,5 @@
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Disposer, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { conversationIn, TASK } from "./conversation-address";
 import { followShown } from "./navigation";
 import { attemptNavigation } from "./navigation-guard";

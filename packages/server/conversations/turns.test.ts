@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent, say } from "../agents/testing";
 import { kimiUsagePath } from "../models";
 import { RECONNECT } from "../plans";

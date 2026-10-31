@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import { z } from "zod";
 import { LEGACY_DIR, unmigrated } from "../config";
 import type { Agent, Setting } from "../conversations";

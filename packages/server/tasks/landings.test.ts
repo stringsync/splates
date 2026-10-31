@@ -4,7 +4,7 @@ import { add } from "./add";
 import { landingNotice, landingsOverlapping } from "./landings";
 
 describe("landings overlapping an open task", () => {
-	// scry-ignore simple-test-setup: the landing and the open task are the scenario.
+	// vet-ignore simple-test-setup: the landing and the open task are the scenario.
 	it("names a landed task's shared files until the branch rebases past it", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");

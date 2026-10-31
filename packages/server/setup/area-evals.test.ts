@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { EVALS_AREA } from "./area-evals";
 import { Setup, type SetupMachine } from "./setup";
 

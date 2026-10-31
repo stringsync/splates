@@ -1,6 +1,6 @@
-// scry-ignore-file compact-files: one service over a task's record, tree and checkout, which adding, discarding and amending its record share
+// vet-ignore-file compact-files: one service over a task's record, tree and checkout, which adding, discarding and amending its record share
 import { relative, resolve, sep } from "node:path";
-import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { type Fs, NodeFs, NodePs, type Ps } from "core/system";
 import { Attachments } from "../artifacts";
 import { TaskStore } from "../board";
 import type { Config } from "../config";
@@ -57,7 +57,7 @@ export class WorktreeService {
 	private readonly worktrees: WorktreeCheckouts;
 	readonly ps: Ps;
 
-	// scry-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
+	// vet-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
 	constructor(
 		readonly git: Git,
 		readonly config: Config,

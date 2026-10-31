@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { OpenPortProvider } from "webappwiz/system";
+import { OpenPortProvider } from "core/system";
 import { dev } from "../server";
 import { json, post, serving } from "../server/testing";
 import { Testing } from "../testing";

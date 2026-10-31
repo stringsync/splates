@@ -1,5 +1,5 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { AsyncResource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { z } from "zod";
 import type { ProcessHandle } from "../agents";
 import type { WorkerChannel, WorkerSession } from "../workers";

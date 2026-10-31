@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import { fail } from "../exit";
 import type { Cascades } from "./cascade";
 import { SHIP_SELECTION } from "./selection";

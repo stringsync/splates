@@ -7,7 +7,7 @@ import {
 	setDefaultTimeout,
 } from "bun:test";
 import { join } from "node:path";
-import { FakePs } from "webappwiz/system/testing";
+import { FakePs } from "core/system/testing";
 import type { Facts } from "../records";
 import { TicketedLock } from "../server/ticketed-lock";
 import { add } from "../tasks";
@@ -62,7 +62,7 @@ describe("merge batches", () => {
 		await deps.disposeAsync();
 	});
 
-	// scry-ignore simple-test-setup: the held lock and the base moving under the waiting merge are this case's inputs.
+	// vet-ignore simple-test-setup: the held lock and the base moving under the waiting merge are this case's inputs.
 	it("refuses a waiting merge once the base moves to conflict with it, without the lock released", async () => {
 		await deps.commit(alpha, "README.md", "task side\n", "task edit");
 		await deps.finish(alpha);
@@ -77,7 +77,7 @@ describe("merge batches", () => {
 		await premerge.release();
 	});
 
-	// scry-ignore simple-test-setup: the two merges, their counted shells and the held lock are this case's concurrent inputs.
+	// vet-ignore simple-test-setup: the two merges, their counted shells and the held lock are this case's concurrent inputs.
 	it("gates the merges queued behind the lock's holder as one batch, landing them all with one gate", async () => {
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
@@ -134,7 +134,7 @@ describe("merge batches", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: the held lock and the follower that breaks the gate are this case's inputs.
+	// vet-ignore simple-test-setup: the held lock and the follower that breaks the gate are this case's inputs.
 	it("refuses the follower whose commits the failing tests fail with, and lands the rest without it", async () => {
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(beta, "mode.txt", "bad", "break mode");
@@ -174,7 +174,53 @@ describe("merge batches", () => {
 		expect(await deps.storage.collection("merge-batch").list()).toEqual([]);
 	});
 
-	// scry-ignore simple-test-setup: the held lock and the broken base are this case's inputs.
+	// vet-ignore simple-test-setup: the held lock, the leader that breaks the gate and the follower's counted shell are this case's inputs.
+	it("waits again once a batch it stacked on splits, telling that premerge from its own", async () => {
+		await deps.commit(alpha, "mode.txt", "bad", "break mode");
+		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
+		await deps.finish(alpha);
+		await deps.finish(beta);
+		const betaPs = new FakePs();
+		let stepsAtGate: { step: string; dissolved?: true }[] = [];
+		betaPs.simulate(async () => {
+			const record = await deps.service.find("beta");
+			stepsAtGate = (record.mergeSteps?.steps ?? []).map(
+				({ step, dissolved }) => ({
+					step,
+					...(dissolved ? { dissolved } : {}),
+				}),
+			);
+			return 0;
+		});
+		const betaFacts: Partial<Facts["merge"]> = {};
+		await premerge.acquire();
+
+		const first = merge({ ...deps, premerge }, alpha);
+		await offered("alpha");
+		const second = merge(
+			{ ...deps, premerge, shell: new Shell({ ps: betaPs }) },
+			beta,
+			betaFacts,
+		);
+		await offered("beta");
+		void first.catch(() => {});
+		await premerge.release();
+		await expect(first).toBail("tests_failed");
+		await second;
+
+		expect(betaPs.getCalls()).toHaveLength(1);
+		expect(stepsAtGate).toEqual([
+			{ step: "rebase" },
+			{ step: "wait" },
+			{ step: "test", dissolved: true },
+			{ step: "wait" },
+			{ step: "test" },
+		]);
+		expect(betaFacts.batch).toBeUndefined();
+		expect(betaFacts.commit).toEqual(expect.any(String));
+	});
+
+	// vet-ignore simple-test-setup: the held lock and the broken base are this case's inputs.
 	it("holds every member of a batch free when the base fails the tests alone", async () => {
 		await deps.commit(deps.root, "mode.txt", "bad", "break trunk");
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");

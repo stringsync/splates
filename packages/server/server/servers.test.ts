@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { MemoryLock } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { MemoryLogger } from "core/log";
+import { MemoryLock } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
 import { MACHINE_HOME, SLOT, Slots } from "../ports";
 import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";

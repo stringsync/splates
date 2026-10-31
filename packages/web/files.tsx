@@ -1,7 +1,7 @@
-import { useReactive } from "@webappwiz/react";
+import { Dispatcher, type Eventful } from "core/events";
+import { useReactive } from "core/react";
 import { EyeIcon, FileIcon, ImageIcon, XIcon } from "lucide-react";
 import { type JSX, useRef } from "react";
-import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
 	DropdownMenu,
 	DropdownMenuContent,

@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 
 /**
  * Where Kimi Code's installer puts `kimi`, under the home and off the PATH,

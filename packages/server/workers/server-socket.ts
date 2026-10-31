@@ -1,4 +1,4 @@
-import { Dispatcher } from "webappwiz/events";
+import { Dispatcher } from "core/events";
 import type { Connection } from "../server/shared";
 import type { WorkerRegistry } from "./registry";
 import type { WorkerSocket, WorkerSocketEvents } from "./socket";

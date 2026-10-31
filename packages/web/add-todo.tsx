@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import {
 	type FormEvent,
@@ -23,7 +23,7 @@ import { TodoDraft } from "./todo-draft";
  * leaves the box open for the next, Escape puts it away. `@` names a file
  * in the repo, and a pasted or attached file goes with it.
  */
-// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddTodo({ lane }: { lane: number | null }): JSX.Element {
 	const { drafts } = useContext(Board);
 	const key = todoDraft(

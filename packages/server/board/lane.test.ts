@@ -1,6 +1,6 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
-import { color } from "webappwiz/log";
-import { Duration } from "webappwiz/time";
+import { color } from "core/log";
+import { Duration } from "core/time";
 import { merge } from "../merge";
 import { ASKED_QUIET } from "../plans";
 import { add, taskWait } from "../tasks";

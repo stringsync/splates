@@ -6,8 +6,8 @@ import {
 	MessagePrimitive,
 	useAuiState,
 } from "@assistant-ui/react";
+import { SystemTimer } from "core/time";
 import { type FC, useContext, useEffect, useRef, useState } from "react";
-import { SystemTimer } from "webappwiz/time";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	Reasoning,

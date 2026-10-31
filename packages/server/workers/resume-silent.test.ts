@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { ANSWER_WITHIN, type WorkerProcess } from "./process";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";

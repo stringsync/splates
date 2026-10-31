@@ -1,5 +1,5 @@
+import type { Duration } from "core/time";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
-import type { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { WAITS } from "./api";

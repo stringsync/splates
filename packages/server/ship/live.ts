@@ -1,6 +1,6 @@
-import type { Registry } from "webappwiz/ship";
-import type { Ps } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import type { Registry } from "core/ship";
+import type { Ps } from "core/system";
+import { Duration } from "core/time";
 import { z } from "zod";
 import { ConfigFiles } from "../config";
 import type { ShipProject } from "./graph";

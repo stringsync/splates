@@ -45,7 +45,7 @@ export function useBinding(name: ShortcutKey | undefined): Shortcut {
  */
 export function useShortcut(
 	name: ShortcutKey,
-	// scry-ignore objects-over-callbacks: a handler for one key, kept in a ref so a fresh arrow does not re-listen
+	// vet-ignore objects-over-callbacks: a handler for one key, kept in a ref so a fresh arrow does not re-listen
 	run: (event: KeyboardEvent) => unknown,
 	enabled = true,
 ): void {

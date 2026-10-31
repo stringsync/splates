@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import { z } from "zod";
 import { commaList } from "../comma-list";
 import type { Creds } from "../creds";

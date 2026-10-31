@@ -1,5 +1,5 @@
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
 import { Tabs, TabsContent } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";

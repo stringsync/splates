@@ -1,7 +1,7 @@
-import type { Events } from "webappwiz/events";
-import type { IdProvider } from "webappwiz/id";
-import type { Fs, Lock } from "webappwiz/system";
-import type { Timer, WallClock } from "webappwiz/time";
+import type { Events } from "core/events";
+import type { IdProvider } from "core/id";
+import type { Fs, Lock } from "core/system";
+import type { Timer, WallClock } from "core/time";
 import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits, ArtifactRoom } from "../artifacts";
 import type { Reach } from "../projects";

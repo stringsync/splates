@@ -1,5 +1,5 @@
-import type { StartOptions } from "webappwiz/system";
-import { type FakeChild, FakePs } from "webappwiz/system/testing";
+import type { StartOptions } from "core/system";
+import { type FakeChild, FakePs } from "core/system/testing";
 import type { FakeAgent } from "./testing";
 
 /**

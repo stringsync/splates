@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
-import type { Deps, Middleware } from "webappwiz/cmd";
-import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
+import type { Deps, Middleware } from "core/cmd";
+import { FileLock, type Fs, type Lock, type Ps } from "core/system";
 import { TaskStore, Tasks } from "../board";
 import type { Config } from "../config";
 import {

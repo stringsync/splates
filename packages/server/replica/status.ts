@@ -1,4 +1,4 @@
-import { Duration, timeAgo } from "webappwiz/time";
+import { Duration, timeAgo } from "core/time";
 
 /** Where a replica stands, for `splates replica` and the page. */
 export interface ReplicaStatus {

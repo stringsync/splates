@@ -1,5 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
-import type { FakeChild, FakePs } from "webappwiz/system/testing";
+import type { FakeChild, FakePs } from "core/system/testing";
 import { type AgentProcess, framed } from "./process";
 
 /** What the agent does with each prompt, given the connection back to splates. */

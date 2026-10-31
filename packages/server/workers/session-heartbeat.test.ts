@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { Duration } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
 

@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { Disposer, disposables, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Disposer, disposables, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { scoped } from "./api";
 
 export type BackgroundOutputEvents = { changed: undefined };

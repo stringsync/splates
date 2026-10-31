@@ -1,4 +1,4 @@
-import { ensure } from "webappwiz/assert";
+import { ensure } from "core/assert";
 import type { ShipGraph, ShipProject } from "./graph";
 import type { ShipLive } from "./live";
 import type { ShipBump } from "./plan";

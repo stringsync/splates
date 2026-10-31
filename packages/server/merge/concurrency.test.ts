@@ -7,8 +7,8 @@ import {
 	setDefaultTimeout,
 } from "bun:test";
 import { join } from "node:path";
-import type { Lock } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
+import type { Lock } from "core/system";
+import { FakePs } from "core/system/testing";
 import type { Facts } from "../records";
 import { eventually } from "../server/testing";
 import { add } from "../tasks";
@@ -53,7 +53,7 @@ describe("merge concurrency", () => {
 	afterEach(async () => {
 		await deps.disposeAsync();
 	});
-	// scry-ignore simple-test-setup: the two live merges and tested-tip log are this case's concurrent inputs; shared signal setup is in beforeEach.
+	// vet-ignore simple-test-setup: the two live merges and tested-tip log are this case's concurrent inputs; shared signal setup is in beforeEach.
 	it("serializes merge gates and rebases a waiting merge before testing", async () => {
 		const tested: string[] = [];
 		const facts: Partial<Facts["merge"]> = {};
@@ -110,7 +110,7 @@ describe("merge concurrency", () => {
 		}
 	});
 
-	// scry-ignore simple-test-setup: this case records the tested tips and pauses the gate to move its base from outside the merge.
+	// vet-ignore simple-test-setup: this case records the tested tips and pauses the gate to move its base from outside the merge.
 	it("retests a moved base before landing without charging an attempt", async () => {
 		const tested: string[] = [];
 		const facts: Partial<Facts["merge"]> = {};
@@ -167,7 +167,7 @@ describe("merge concurrency", () => {
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
-	// scry-ignore simple-test-setup: the child branch and failing parent gate define this case; sibling merges use a different base and a passing gate.
+	// vet-ignore simple-test-setup: the child branch and failing parent gate define this case; sibling merges use a different base and a passing gate.
 	it("keeps a child landing out of its parent's running gate without holding the repository lock", async () => {
 		await add(deps, "beta", { base: "task/alpha" });
 		beta = (await deps.service.find("beta")).path;

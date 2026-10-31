@@ -1,7 +1,7 @@
 import * as acp from "@agentclientprotocol/sdk";
-import type { Resource } from "webappwiz/disposable";
-import type { Lock } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Lock } from "core/system";
+import { Duration, type Timer } from "core/time";
 import { systemPs } from "../config";
 import { SERVING } from "../server/shared";
 import { scratchLaunch } from "./scratch";

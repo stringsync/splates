@@ -170,7 +170,7 @@ describe("Notifier", () => {
 		]);
 	});
 
-	// scry-ignore simple-test-setup: only this test sets a quiet time, and the times it looks at follow from it
+	// vet-ignore simple-test-setup: only this test sets a quiet time, and the times it looks at follow from it
 	it("tells once of a running conversation with no word for the quiet time", async () => {
 		await settings.set("notifications.quietAfter", 5);
 		const said = {

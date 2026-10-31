@@ -22,7 +22,22 @@ your contribution, or have your employer sign too.
 
 - Open an issue first for anything large, so we can agree on the direction.
 - Keep a pull request to one coherent change.
-- Run `splates dev fix` and `splates dev test` before you push.
+- Run `bin/mono fix` and `bin/mono test --since main` before you push.
+
+## What happens to your pull request
+
+This repository is a mirror: the maintainers develop Spinning Plates in a
+private monorepo and rebuild this repository from it on every release. So a
+pull request is never merged on GitHub. A maintainer imports it into the
+monorepo as a task, with you as the commit's author, and it reaches this
+repository with the next release. Your pull request is then closed with a
+comment linking the commit that carries it, and your authorship stays on it.
+
+Because of that, the root files this repository generates (`package.json`,
+`biome.json`, `tsconfig.base.json`, `bunfig.toml`, `bun.lock`) and
+`packages/core` are not edited here: they come from the monorepo. A change to
+one of them may be carried over by hand rather than imported as it is, so
+expect a maintainer to ask about it or to port it themselves.
 
 ## Workspace conventions
 

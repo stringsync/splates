@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import { KIMI_ARGV } from "./kimi";
 import { isKimi, kimiLimits, limitsIn } from "./kimi-limits";
 

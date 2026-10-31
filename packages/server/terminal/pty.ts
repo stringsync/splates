@@ -1,6 +1,6 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Ps, TerminalChild } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import type { Ps, TerminalChild } from "core/system";
 import { systemPs } from "../config";
 import { SERVING } from "../server/shared";
 

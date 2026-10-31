@@ -1,4 +1,4 @@
-// Test-only: `splates dev test` preloads this into the page's own test run,
+// Test-only: `bin/mono test` preloads this into the page's own test run,
 // apart from the server's, whose files must never see happy-dom's globals.
 // That run keeps one global and module registry per worker across the files
 // it hands it (`--no-isolate`), sparing each file the second or so it takes

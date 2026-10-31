@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeClock, FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent, FakeAgentPs, say } from "../agents/testing";
 import { ConnectedWorker, WorkerProcessHost, WorkerSession } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";

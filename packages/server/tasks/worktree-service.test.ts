@@ -1,14 +1,14 @@
-// scry-ignore-file one-class-per-file: the same two fakes are local to this suite
+// vet-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import type {
 	Fs,
 	MkdirOptions,
 	RmOptions,
 	StatResult,
 	WatchOptions,
-} from "webappwiz/system";
-import { FakeFs } from "webappwiz/system/testing";
+} from "core/system";
+import { FakeFs } from "core/system/testing";
 import type { Config } from "../config";
 import { Git } from "../git";
 import { FakeGitPs } from "../git-testing";
@@ -44,7 +44,7 @@ describe("WorktreeService", () => {
 			artifactFileCapacity: 50 * 1024 * 1024,
 			artifactConversationCapacity: 250 * 1024 * 1024,
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
-			wiz: "wiz",
+			vet: "vet",
 			tunnel: null,
 			platform: null,
 			replica: null,

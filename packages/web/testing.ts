@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: the page tests' one fake server; its routes belong together
+// vet-ignore-file compact-files: the page tests' one fake server; its routes belong together
 import type {
 	BillingView,
 	SpendReport,
@@ -32,11 +32,11 @@ import type {
 } from "@stringsync/splates-server/tasks";
 import type { Held } from "@stringsync/splates-server/terminal";
 import type { WorkerPool } from "@stringsync/splates-server/workers";
+import { aborts } from "core/abort";
+import type { Resource } from "core/disposable";
+import { Duration } from "core/time";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { createElement } from "react";
-import { aborts } from "webappwiz/abort";
-import type { Resource } from "webappwiz/disposable";
-import { Duration } from "webappwiz/time";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import type { Budgets, KeptCreds, MachineStatus } from "./api";
 import { WAITS } from "./api";
 import type { AutoRestart } from "./auto-restart";
@@ -44,6 +44,7 @@ import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { agentList, nameIn, openRow } from "./drivers";
+import { forgetShownEvals } from "./eval-run";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { RepliedIds } from "./fake-conversation-ids";
@@ -129,7 +130,7 @@ export class Testing implements Resource {
 			},
 		},
 	};
-	/** What `/api/budgets` says of the project's scry budgets. */
+	/** What `/api/budgets` says of the project's vet budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
 	/** What `/api/billing` says of the currency and each provider's pull. */
 	billingView: BillingView = {
@@ -733,8 +734,12 @@ export class Testing implements Resource {
 		return settings;
 	}
 
-	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
+	/**
+	 * Hands `fetch`, `EventSource` and `WebSocket` back, and forgets what evals
+	 * cards showed, which would otherwise paint the next test's card.
+	 */
 	dispose(): void {
+		forgetShownEvals();
 		localStorage.clear();
 		sessionStorage.clear();
 		globalThis.fetch = this.#fetch;

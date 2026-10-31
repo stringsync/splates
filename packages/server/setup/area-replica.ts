@@ -1,4 +1,4 @@
-import { Duration, timeAgo } from "webappwiz/time";
+import { Duration, timeAgo } from "core/time";
 import {
 	REPLICA_ACCESS_KEY,
 	REPLICA_SECRET_KEY,

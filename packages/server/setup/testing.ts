@@ -1,9 +1,5 @@
-import type {
-	SpawnOptions,
-	StartOptions,
-	TerminalOptions,
-} from "webappwiz/system";
-import { FakePs, type FakeTerminalChild } from "webappwiz/system/testing";
+import type { SpawnOptions, StartOptions, TerminalOptions } from "core/system";
+import { FakePs, type FakeTerminalChild } from "core/system/testing";
 
 /**
  * OpenCode 2 as Setup sees it, for tests, never a real account: its

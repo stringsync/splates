@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { Duration } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { RUNNING } from "../server/shared";
 import { type Negotiated, UPDATE, WorkerProtocol } from "./protocol";
 import { WorkerSession } from "./session";
@@ -57,7 +57,7 @@ describe("WorkerSession handshake", () => {
 		});
 	});
 
-	// scry-ignore simple-test-setup: it speaks as a worker on another major by hand, which no session can, so its frames are its own
+	// vet-ignore simple-test-setup: it speaks as a worker on another major by hand, which no session can, so its frames are its own
 	it("refuses a worker on another major and hangs up, giving the reason", async () => {
 		const answers: unknown[] = [];
 		pair.worker.events.on("frame", (frame) =>

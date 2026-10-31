@@ -82,7 +82,7 @@ describe("App's machine stats", () => {
 		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 
-	// scry-ignore simple-test-setup: the waiting agents are this test's own inputs
+	// vet-ignore simple-test-setup: the waiting agents are this test's own inputs
 	it("says how many agents wait to start in the header, each a tap away to move up", async () => {
 		const since = new Date(Date.now() - 4 * 60_000).toISOString();
 		testing.machine = reading({

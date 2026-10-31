@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Storage } from "../storage";
 import type { Cascade } from "./cascade";
 import { STAGE_DEFAULTS, type StageKey, type StageLog, took } from "./stages";

@@ -14,7 +14,7 @@ import {
 	replyOf,
 	takenOf,
 } from "@stringsync/splates-server/plans/browser";
-import { useReactive, useResource } from "@webappwiz/react";
+import { useReactive, useResource } from "core/react";
 import {
 	CheckIcon,
 	ChevronLeftIcon,

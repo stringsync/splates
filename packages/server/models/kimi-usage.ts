@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 
 /** Where Kimi Code writes the main agent's records for `session` in `cwd`. */
 export function kimiUsagePath({

@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";

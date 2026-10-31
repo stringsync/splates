@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { DEFAULT_PORT } from "../server/shared";

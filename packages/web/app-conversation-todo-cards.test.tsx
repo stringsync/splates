@@ -116,7 +116,7 @@ describe("App's todo cards", () => {
 		expect(view.getByText("Next up")).toBeTruthy();
 	});
 
-	// scry-ignore simple-test-setup: its board, with an assignee, is this test's own
+	// vet-ignore simple-test-setup: its board, with an assignee, is this test's own
 	it("drafts a proposed todo with its assigned agent and model, sending only after review", async () => {
 		const view = await testing.openConversations(
 			[conversation({ ...proposing, agent: "codex" })],
@@ -255,7 +255,7 @@ describe("App's todo cards", () => {
 		expect(other.textContent).not.toContain("Started");
 	});
 
-	// scry-ignore simple-test-setup: its conversation and board are this test's own
+	// vet-ignore simple-test-setup: its conversation and board are this test's own
 	it("gathers the todos the reply's task added while it ran under the lane they went to, and not one from before or elsewhere", async () => {
 		const at = (minute: number) =>
 			new Date(Date.UTC(2026, 9, 13, 12, minute)).toISOString();

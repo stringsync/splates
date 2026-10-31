@@ -3,7 +3,7 @@ import type {
 	StepAnswers,
 	UndoPlan,
 } from "@stringsync/splates-server/setup";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { ApiError, answered, scoped, sendJson } from "./api";
 
 /** How long a step's Next may take: it may install a tool, which the server gives ten minutes. */

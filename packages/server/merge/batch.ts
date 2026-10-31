@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 import type { Storage } from "../storage";
 import type { FailedTest } from "../tasks";
 import type { FailureAttribution } from "./attribution";

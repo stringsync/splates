@@ -1,12 +1,7 @@
 import { basename } from "node:path";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import {
-	Duration,
-	SystemWallClock,
-	timeAgo,
-	type WallClock,
-} from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
+import { Duration, SystemWallClock, timeAgo, type WallClock } from "core/time";
 import { z } from "zod";
 import { fail } from "../exit";
 import { table } from "../table";

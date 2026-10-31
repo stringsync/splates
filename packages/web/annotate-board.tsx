@@ -1,5 +1,6 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { useReactive } from "@webappwiz/react";
+import { Position, Rect } from "core/geometry";
+import { useReactive } from "core/react";
 import { MoveUpRightIcon, SquareIcon, Undo2Icon, XIcon } from "lucide-react";
 import {
 	type JSX,
@@ -10,7 +11,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Position, Rect } from "webappwiz/geometry";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";

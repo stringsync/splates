@@ -9,9 +9,9 @@ import {
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
+import { Duration, sleep } from "core/time";
 import { printed } from "../agents/testing";
 import { eventually } from "../conversations/testing";
 import { CONNECTIONS, type Connection } from "../server/shared";
@@ -161,7 +161,7 @@ describe("the worker link through a faulty network", () => {
 		expect(joins).toBeGreaterThan(1);
 	});
 
-	// scry-ignore simple-test-setup: it alone writes to the agent, around the cut
+	// vet-ignore simple-test-setup: it alone writes to the agent, around the cut
 	it("keeps an agent's output when the coordinator's frame is cut in half", async () => {
 		const child = worker.start(["cat"], dir);
 		const received = printed(child);
@@ -222,7 +222,7 @@ describe("the worker link through a faulty network", () => {
 		expect(await answered).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: it alone restarts the server, which is what it tests
+	// vet-ignore simple-test-setup: it alone restarts the server, which is what it tests
 	it("keeps its process through a server restart, and reattaches to it", async () => {
 		const child = worker.start(["/bin/sh", "-c", COUNT(40)], dir);
 		const received = printed(child);

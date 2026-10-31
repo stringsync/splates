@@ -1,4 +1,4 @@
-import type { Clock } from "webappwiz/time";
+import type { Clock } from "core/time";
 import type { Facts, GatePhases } from "../records";
 import type { MergeTimes } from "../tasks";
 import type { MergeSteps } from "./steps";

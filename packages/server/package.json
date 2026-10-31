@@ -1,29 +1,20 @@
 {
 	"name": "@stringsync/splates-server",
-	"version": "0.0.61",
+	"version": "1.13.3",
+	"private": true,
 	"description": "The Spinning Plates server and shared backend",
-	"license": "MIT",
-	"author": "stringsync LLC",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/stringsync/splates.git",
-		"directory": "packages/server"
-	},
 	"type": "module",
 	"module": "server/index.ts",
 	"engines": {
 		"bun": ">=1.3"
 	},
-	"publishConfig": {
-		"access": "public"
-	},
 	"dependencies": {
 		"@agentclientprotocol/sdk": "^1.7.0",
-		"webappwiz": "0.0.58",
-		"zod": "^4.4.3"
+		"core": "workspace:*",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "1.3.14"
+		"@types/bun": "catalog:"
 	},
 	"exports": {
 		".": "./server/index.ts",

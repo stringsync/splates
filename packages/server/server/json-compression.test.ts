@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
+import { MemoryLogger } from "core/log";
 import { HostGate } from "./http";
 
 describe("JSON response compression", () => {

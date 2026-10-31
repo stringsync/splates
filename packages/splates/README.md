@@ -220,8 +220,8 @@ To use another tunnel, give `splates.config.ts` a `tunnel`, any object that
 implements `TunnelProvider`:
 
 ```ts
-import type { ConfigFile } from "@stringsync/splates-server/config";
-import type { TunnelProvider } from "@stringsync/splates-server/tunnel";
+import type { ConfigFile } from "@stringsync/splates/config";
+import type { TunnelProvider } from "@stringsync/splates/config";
 
 const myTunnel: TunnelProvider = {
 	// throw, saying what to do, unless the tunnel can run

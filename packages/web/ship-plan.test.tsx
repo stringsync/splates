@@ -27,7 +27,7 @@ describe("Ship plan", () => {
 		} as unknown as typeof EventSource;
 		let body: unknown = null;
 		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-			// scry-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
+			// vet-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
 			if (opts?.method === "POST") {
 				body = JSON.parse(String(opts.body));
 				return new Response("refused", { status: 409 });
@@ -97,7 +97,7 @@ describe("Ship plan", () => {
 		} as unknown as typeof EventSource;
 		let body: unknown = null;
 		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-			// scry-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
+			// vet-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
 			if (opts?.method === "POST") {
 				body = JSON.parse(String(opts.body));
 				return new Response("refused", { status: 409 });
@@ -152,7 +152,7 @@ describe("Ship plan", () => {
 		} as unknown as typeof EventSource;
 		let body: unknown = null;
 		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-			// scry-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
+			// vet-ignore matchers-over-test-logic: the fake transport distinguishes reads from the submitted write
 			if (opts?.method === "POST") {
 				body = JSON.parse(String(opts.body));
 				return new Response("refused", { status: 409 });

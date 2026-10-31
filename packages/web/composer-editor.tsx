@@ -7,6 +7,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $dfs } from "@lexical/utils";
 import { DIRECTIVES } from "@stringsync/splates-server/plans/browser";
+import { Debouncer, Duration, SystemTimer } from "core/time";
 import {
 	$createTextNode,
 	$getRoot,
@@ -25,7 +26,6 @@ import {
 	TextNode,
 } from "lexical";
 import { type RefObject, useEffect, useLayoutEffect } from "react";
-import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import {
 	attachmentName,
 	attachmentNumber,

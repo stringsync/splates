@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs } from "core/system";
+import { FakePs } from "core/system/testing";
+import { Duration } from "core/time";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
@@ -74,7 +74,7 @@ describe("splates worker list", () => {
 		return log.entries.map((entry) => String(entry.message)).join("\n");
 	}
 
-	// scry-ignore simple-test-setup: it alone dials both a socket and a WebSocket
+	// vet-ignore simple-test-setup: it alone dials both a socket and a WebSocket
 	it("lists this machine’s worker over its Unix socket", async () => {
 		await join_("local", () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),

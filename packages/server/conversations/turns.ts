@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { Duration } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Duration } from "core/time";
 import type { AgentConnection } from "../agents";
 import { agentTurn, requestError, tally } from "../agents";
 import { fail } from "../exit";

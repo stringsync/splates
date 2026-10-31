@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Fs } from "webappwiz/system";
-import { Duration, SystemTimer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Fs } from "core/system";
+import { Duration, SystemTimer } from "core/time";
 import { EVENT } from "./release-events";
 
 /**

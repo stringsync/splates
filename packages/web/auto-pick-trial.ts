@@ -1,5 +1,5 @@
 import type { AutoPickTrial } from "@stringsync/splates-server/auto-pick";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { tryAutoPick } from "./auto-pick-api";
 
 /** Which task to try Auto pick on, as the page's task select names it. */

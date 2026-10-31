@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration, sleep } from "webappwiz/time";
+import { Duration, sleep } from "core/time";
 import { ASKED_QUIET } from "../plans";
 import { Testing } from "../testing";
 import { add } from "./add";

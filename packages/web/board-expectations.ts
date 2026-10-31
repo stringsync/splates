@@ -27,7 +27,7 @@ export function assigned(id: number, assignee: AgentPick | null) {
  * Todo `id` blocked by `blockedBy`. A blocker removed without merging that
  * `blockedBy` leaves out is let go of.
  */
-// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function linked(id: number, blockedBy: readonly number[]) {
 	return keyed(
 		`todo:${id}`,

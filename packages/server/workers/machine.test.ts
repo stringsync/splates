@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
+import { FakePs } from "core/system/testing";
 import { platformLabel } from "./list";
 import { hostOf } from "./machine";
 

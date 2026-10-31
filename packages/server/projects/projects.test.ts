@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FileLock } from "webappwiz/system";
+import { FileLock } from "core/system";
 import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import { Projects } from "./projects";

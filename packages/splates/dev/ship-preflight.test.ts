@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
+import { FakePs } from "core/system/testing";
 import { preflight } from "./ship-preflight";
 
 describe("the ship preflight", () => {

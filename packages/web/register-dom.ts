@@ -6,7 +6,7 @@
 // alone gets its DOM too. A bunfig preload would register happy-dom for every
 // file, and it replaces 33 globals: not just the HTTP classes below but
 // `setTimeout`, `URL`, `AbortSignal` and the stream types, which the server
-// side is tested against. `splates dev test` runs the page's tests apart,
+// side is tested against. `bin/mono test` runs the page's tests apart,
 // preloading `test-preload.ts`, which imports this.
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 

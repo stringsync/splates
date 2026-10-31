@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { SqliteDb } from "./sqlite-db";
 import { decode } from "./sqlite-keys";
 

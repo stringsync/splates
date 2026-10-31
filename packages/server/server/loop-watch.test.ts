@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { Duration } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { Duration } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { LoopWatch } from "./loop-watch";
 
 describe("LoopWatch", () => {

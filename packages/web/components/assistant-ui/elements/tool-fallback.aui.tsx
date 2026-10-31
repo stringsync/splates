@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: vendored from the assistant-ui registry with a few local edits; splitting it would make updating from upstream harder
+// vet-ignore-file compact-files: vendored from the assistant-ui registry with a few local edits; splitting it would make updating from upstream harder
 "use client";
 
 import {

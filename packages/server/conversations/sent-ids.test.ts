@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { eventually, finish, type Held, working } from "./testing";
@@ -36,7 +36,7 @@ describe("A conversation's messages the page named", () => {
 
 	const ids = (of: Conversation) => of.state.messages.map((each) => each.id);
 
-	// scry-ignore simple-test-setup: only this scenario holds initialization to inspect a prompt queued before startup
+	// vet-ignore simple-test-setup: only this scenario holds initialization to inspect a prompt queued before startup
 	it("keeps the page's id while startup waits and after the queued prompt runs", async () => {
 		let ready = () => {};
 		agent.hold = new Promise<void>((resolve) => {

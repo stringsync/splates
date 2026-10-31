@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 

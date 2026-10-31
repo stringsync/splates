@@ -6,7 +6,7 @@ import type {
 } from "@stringsync/splates-server/hooks";
 import type { TaskEventName } from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 
 export type AutomationDraftEvents = { changed: undefined };
 

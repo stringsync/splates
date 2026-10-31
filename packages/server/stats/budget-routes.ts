@@ -4,11 +4,11 @@ import { body } from "../server/shared";
 import { ScryModelsReader } from "./scry-models";
 
 /**
- * The API a project's Budget page reads and changes its scry budgets with.
+ * The API a project's Budget page reads and changes its vet budgets with.
  * Spread one into the project's routes.
  */
 export class BudgetRoutes {
-	// each route runs `scry budgets` through the repo's `wiz` command, so the
+	// each route runs `vet budgets` through the repo's `vet` command, so the
 	// CLI stays the one place that knows how budgets are kept; each handler is
 	// a property, so it can be spread
 	readonly #project: Project;
@@ -67,7 +67,7 @@ export class BudgetRoutes {
 	};
 
 	/**
-	 * Runs `scry budgets` with `args`, answering with its report, or its
+	 * Runs `vet budgets` with `args`, answering with its report, or its
 	 * error as the refusal. The args go in as `sh`'s own, never into the
 	 * command line, so nothing typed on the page is read by the shell.
 	 */
@@ -77,9 +77,8 @@ export class BudgetRoutes {
 			[
 				"sh",
 				"-c",
-				`${service.config.wiz} "$@"`,
+				`${service.config.vet} "$@"`,
 				"sh",
-				"scry",
 				"budgets",
 				...args,
 				"--format",
@@ -93,7 +92,7 @@ export class BudgetRoutes {
 					.trim()
 					.split("\n")
 					.at(-1)
-					?.replace(/^error: /, "") || `scry budgets exited ${exitCode}`;
+					?.replace(/^error: /, "") || `vet budgets exited ${exitCode}`;
 			fail("usage", message);
 		}
 		const models = await new ScryModelsReader(service.git.root).read();
@@ -102,7 +101,7 @@ export class BudgetRoutes {
 }
 
 /**
- * The report `scry budgets` printed. With no budget set up it may print
+ * The report `vet budgets` printed. With no budget set up it may print
  * nothing, or not JSON, which reads as nothing declared rather than a failure.
  */
 function reportOf(stdout: string): unknown {

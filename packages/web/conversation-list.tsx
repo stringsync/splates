@@ -4,7 +4,7 @@ import {
 } from "@stringsync/splates-server/board/browser";
 import type { Needing } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { ArchiveIcon } from "lucide-react";
 import {
 	type JSX,

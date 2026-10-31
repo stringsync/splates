@@ -2,7 +2,7 @@ import type {
 	BillingView,
 	SpendReport,
 } from "@stringsync/splates-server/spend";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { type Answering, ApiError, answered } from "./request";
 
 /** The dollars spent from `since` to `until` (ISO timestamps), across every project on this machine. */

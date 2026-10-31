@@ -1,5 +1,5 @@
-import type { StartOptions } from "webappwiz/system";
-import { FakeChild, FakePs } from "webappwiz/system/testing";
+import type { StartOptions } from "core/system";
+import { FakeChild, FakePs } from "core/system/testing";
 
 /** A git command exits on its own, unlike a protocol child a test drives. */
 export class FakeGitPs extends FakePs {

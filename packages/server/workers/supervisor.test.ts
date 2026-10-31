@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakePs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakePs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { endWithSupervisor, SUPERVISOR } from "./lifecycle";
 
 describe("endWithSupervisor", () => {

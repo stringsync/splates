@@ -1,6 +1,6 @@
-// scry-ignore-file compact-files: one end of the link, whose handshake, replay, acks and channel bookkeeping are one state machine
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+// vet-ignore-file compact-files: one end of the link, whose handshake, replay, acks and channel bookkeeping are one state machine
+import { Disposer, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import {
 	type Clock,
 	Duration,
@@ -9,7 +9,7 @@ import {
 	SystemWallClock,
 	type Timer,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import { RUNNING } from "../server/shared";
 import { WorkerChannel, type WorkerChannelLink } from "./channel";
 import { WorkerConnection } from "./connection";

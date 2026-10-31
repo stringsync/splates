@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { fold, tally } from "../agents";
 import { blank, ConversationLog } from "../conversations";
 import { taskLog } from "../stats";
@@ -131,7 +131,7 @@ describe("OpenCode usage observations", () => {
 		expect(state.usage.opencode?.retry).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the old log on disk is this test's own input.
+	// vet-ignore simple-test-setup: the old log on disk is this test's own input.
 	it("keeps old logs readable without inventing dispatch times or zero token observations", async () => {
 		const log = new ConversationLog(
 			new MemoryStorage().log("old.jsonl"),
@@ -177,7 +177,7 @@ describe("OpenCode usage observations", () => {
 		},
 	);
 
-	// scry-ignore simple-test-setup: the replayed observations are this test's own inputs.
+	// vet-ignore simple-test-setup: the replayed observations are this test's own inputs.
 	it("replays observations once, retaining model snapshots and missing usage in later turns", async () => {
 		const log = new ConversationLog(
 			new MemoryStorage().log("log.jsonl"),

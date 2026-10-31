@@ -1,5 +1,5 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
-import { color } from "webappwiz/log";
+import { color } from "core/log";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import { add, recommend, remove } from "../tasks";

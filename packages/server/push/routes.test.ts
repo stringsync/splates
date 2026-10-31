@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakePusher } from "webappwiz/push/testing";
-import { OpenPortProvider } from "webappwiz/system";
+import { FakePusher } from "core/push/testing";
+import { OpenPortProvider } from "core/system";
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";

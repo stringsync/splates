@@ -1,5 +1,5 @@
 import type { Background } from "@stringsync/splates-server/conversations";
-import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { useDisposerEffect, useReactive } from "core/react";
 import { SquareIcon, XIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

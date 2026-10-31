@@ -338,7 +338,7 @@ Cap upload retries
 		).toBeDefined();
 	});
 
-	// scry-ignore simple-test-setup: only this test opens a task with a plan, which its dialog shows
+	// vet-ignore simple-test-setup: only this test opens a task with a plan, which its dialog shows
 	it("tops a conversation's widgets with its branch, which opens its task", async () => {
 		const view = await testing.openConversations(
 			[

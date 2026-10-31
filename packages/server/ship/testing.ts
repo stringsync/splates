@@ -1,6 +1,6 @@
 export { FakeReleaseGit } from "./fake-release-git";
 
-import { FakeFs, type FakePs } from "webappwiz/system/testing";
+import { FakeFs, type FakePs } from "core/system/testing";
 import type { ShipGraph, ShipSource } from "./graph";
 
 /** A `package.json` a fixture writes. */

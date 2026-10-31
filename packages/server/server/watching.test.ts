@@ -1,7 +1,7 @@
-// scry-ignore-file simple-test-setup: moved into server/ unchanged; it predates the rule
+// vet-ignore-file simple-test-setup: moved into server/ unchanged; it predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { OpenPortProvider } from "core/system";
+import { Duration } from "core/time";
 import type { Snapshot } from "../tasks";
 import { add } from "../tasks";
 import { Testing } from "../testing";
@@ -39,7 +39,7 @@ describe("dev", () => {
 					ready = changed;
 					return changed;
 				});
-				// scry-ignore matchers-over-test-logic: native watchers have no ready signal, so repeat the handshake until a change is heard
+				// vet-ignore matchers-over-test-logic: native watchers have no ready signal, so repeat the handshake until a change is heard
 				for (let attempt = 0; !ready && attempt < 40; attempt++) {
 					await deps.fs.write(
 						`${tree}/SPLATES.md`,

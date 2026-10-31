@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport } from "./conversation-names";

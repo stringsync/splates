@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { dirname } from "node:path";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { eventually, post, serving, taskForm } from "./testing";

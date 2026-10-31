@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { SETUP_AREAS } from "./areas";
 import { Setup } from "./setup";
 

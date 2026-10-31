@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";

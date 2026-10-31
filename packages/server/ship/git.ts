@@ -1,4 +1,4 @@
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 
 /** Commits on the release branch since its version tag, or why that is unknown. */
 export type ReleaseChanges =

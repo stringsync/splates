@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
 import { assets } from "./assets";
 import { type DevFlags, serveDev } from "./start";
 

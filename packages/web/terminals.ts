@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { SystemTimer, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { SystemTimer, type Timer } from "core/time";
 import type { TerminalSession } from "./terminal-session";
 
 export type TerminalsEvents = {
@@ -51,7 +51,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	/** Its shells leave to the page each key `toggles` says shows or hides one. */
 	constructor(
 		private readonly storage: Storage,
-		// scry-ignore objects-over-callbacks: a test of one key, handed to each shell
+		// vet-ignore objects-over-callbacks: a test of one key, handed to each shell
 		private readonly toggles: (event: KeyboardEvent) => boolean,
 		{ timer = new SystemTimer() }: { timer?: Timer } = {},
 	) {

@@ -1,8 +1,8 @@
-// scry-ignore-file compact-files: ACP requests, replay, asks, and reattachment share one connection state machine.
+// vet-ignore-file compact-files: ACP requests, replay, asks, and reattachment share one connection state machine.
 import { homedir } from "node:os";
 import * as acp from "@agentclientprotocol/sdk";
-import { Disposer } from "webappwiz/disposable";
-import { Duration } from "webappwiz/time";
+import { Disposer } from "core/disposable";
+import { Duration } from "core/time";
 import type {
 	Answer,
 	Asked,
@@ -884,7 +884,7 @@ export class AgentConnection {
 		this.loading = false;
 	}
 
-	// scry-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
+	// vet-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
 	/** Stops the agent, dismissing any question it was asking the person. */
 	close(): void {
 		this.settled({ type: "dismiss" });

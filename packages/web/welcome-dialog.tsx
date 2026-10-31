@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {

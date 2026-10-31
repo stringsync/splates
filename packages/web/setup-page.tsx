@@ -1,7 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";

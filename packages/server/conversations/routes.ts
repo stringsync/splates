@@ -1,4 +1,4 @@
-import { NodeFs } from "webappwiz/system";
+import { NodeFs } from "core/system";
 import {
 	addVersion,
 	artifactResponse,

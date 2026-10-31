@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import { ProjectSkills, SKILLS_DIR, versionOf } from "webappwiz/skills";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import { ProjectSkills, SKILLS_DIR, versionOf } from "core/skills";
+import type { Fs, Ps } from "core/system";
 
 /**
  * The repository splates's skill comes from: each release is a tag in it, and

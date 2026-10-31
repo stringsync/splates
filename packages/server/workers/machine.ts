@@ -1,4 +1,4 @@
-import type { Fs, ListeningEntry, ProcessEntry, Ps } from "webappwiz/system";
+import type { Fs, ListeningEntry, ProcessEntry, Ps } from "core/system";
 import { prepareScratch } from "../agents";
 import { type GitResult, type GitRunner, processGit } from "../git";
 

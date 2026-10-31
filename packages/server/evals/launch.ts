@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
-import type { AsyncResource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Child, Ps } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import type { Child, Ps } from "core/system";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";

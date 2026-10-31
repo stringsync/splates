@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
+import type { SpawnOptions } from "core/system";
+import { FakePs } from "core/system/testing";
 import { RESTART, supervise, UNBUILT, UPDATE } from "./supervise";
 
 describe("supervise", () => {

@@ -1,5 +1,5 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
 
 /** What a provider is asked to publish. */
 export interface TunnelRoute {

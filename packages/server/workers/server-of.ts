@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 
 /** How a command sends the `splates server` a request: `fetch`, or a stand-in. */
 export type ServerSend = (url: string, init: RequestInit) => Promise<Response>;

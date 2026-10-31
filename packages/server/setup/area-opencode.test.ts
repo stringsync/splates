@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { OPENCODE_AREA, OPENCODE_GO_KEY } from "./area-opencode";
 import { OpenCodeSetup } from "./opencode";
 import { Setup, type StepStatus } from "./setup";

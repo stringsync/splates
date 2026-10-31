@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Fs } from "webappwiz/system";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Fs } from "core/system";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import type { Shipping } from "./run";
 
 /** How often a running ship's output is read again. */

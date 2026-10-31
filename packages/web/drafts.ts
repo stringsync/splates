@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import type { DraftFiles } from "./draft-files";
 
 /** Says which draft was written, or thrown away, by its key. */
@@ -20,7 +20,7 @@ const OPENED = "splates.draftOpen.";
  * names. Files attached to a draft are kept beside it in `kept`, since
  * `storage` holds only text, and come back from it soon after a reload.
  */
-// scry-ignore resources-are-disposable: it holds nothing but its listeners, which unlisten themselves
+// vet-ignore resources-are-disposable: it holds nothing but its listeners, which unlisten themselves
 export class Drafts implements Eventful<DraftsEvents> {
 	private readonly dispatcher = new Dispatcher<DraftsEvents>();
 	readonly events = this.dispatcher.events;
@@ -335,7 +335,7 @@ export interface KeptTodo extends TodoWords {
 }
 
 /** The todo draft under `key`, or null when there is none. */
-// scry-ignore classes-over-function-exports: a pair of pure conversions between a draft's text and a todo, with no state for a class to hold
+// vet-ignore classes-over-function-exports: a pair of pure conversions between a draft's text and a todo, with no state for a class to hold
 export function readTodo(drafts: Drafts, key: string): KeptTodo | null {
 	const text = drafts.read(key);
 	if (text === "") {

@@ -1,7 +1,7 @@
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import type { IdProvider } from "webappwiz/id";
-import type { Duration, Timer, WallClock } from "webappwiz/time";
+import type { IdProvider } from "core/id";
+import type { Duration, Timer, WallClock } from "core/time";
 import { ConversationFeed } from "./conversation-feed";
 import type { EverywhereFeed } from "./everywhere-feed";
 import { Feed } from "./feed";

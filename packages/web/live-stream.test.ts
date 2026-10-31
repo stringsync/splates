@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { LiveStream, RETRY } from "./live-stream";
 import { Wakes } from "./wakes";
 

@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import { type Pushed, pushedLine, type TaskBranches } from "../merge";

@@ -1,8 +1,4 @@
-import {
-	MAX_PORT,
-	OpenPortProvider,
-	type PortProvider,
-} from "webappwiz/system";
+import { MAX_PORT, OpenPortProvider, type PortProvider } from "core/system";
 import { fail } from "../exit";
 import { LOOPBACK } from "./http";
 

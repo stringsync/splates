@@ -131,7 +131,7 @@ describe("add", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: the queued task is the input these adds race and roll back over; the other tests take none.
+	// vet-ignore simple-test-setup: the queued task is the input these adds race and roll back over; the other tests take none.
 	it("leaves no worktree behind when another add takes its queued task first", async () => {
 		const queued = await deps.tasks.add("Retry on 413", null);
 		const results = await Promise.allSettled([
@@ -150,7 +150,7 @@ describe("add", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: the queued task is the input the failed add must put back; the other tests take none.
+	// vet-ignore simple-test-setup: the queued task is the input the failed add must put back; the other tests take none.
 	it("puts its queued tasks back when the worktree cannot be made", async () => {
 		const queued = await deps.tasks.add("Retry on 413", null);
 
@@ -161,7 +161,7 @@ describe("add", () => {
 		expect((await deps.tasks.find(queued.id)).takenBy).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the queued task is the input a failed hook must put back; the other tests take none.
+	// vet-ignore simple-test-setup: the queued task is the input a failed hook must put back; the other tests take none.
 	it("puts its queued tasks back when the postCheckout hook fails", async () => {
 		deps.config.postCheckout = "exit 3";
 		const queued = await deps.tasks.add("Retry on 413", null);

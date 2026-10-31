@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { Duration } from "core/time";
+import { FakeWallClock } from "core/time/testing";
 import { MemoryStorage } from "../storage/testing";
 import {
 	CATALOG,
@@ -84,7 +84,7 @@ describe("prices", () => {
 		expect(inputKey("codex", "gpt-6.1-sol", null)).toBe("openai/gpt-6.1-sol");
 	});
 
-	// scry-ignore simple-test-setup: the clock it moves and the network going down are this test's own inputs.
+	// vet-ignore simple-test-setup: the clock it moves and the network going down are this test's own inputs.
 	it("keeps the catalog a day, then fetches it again, standing on the old one offline", async () => {
 		const clock = new FakeWallClock(1_000);
 		const { prices, asked } = answering(

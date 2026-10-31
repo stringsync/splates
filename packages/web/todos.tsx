@@ -8,7 +8,7 @@ import {
 	named,
 } from "@stringsync/splates-server/board/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Dialog } from "#web/components/ui/dialog.tsx";

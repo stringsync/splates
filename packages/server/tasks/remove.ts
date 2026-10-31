@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import type { DeferralAsk, Task, Tasks } from "../board";
 import { deferralProblem } from "../board";
 import { fail } from "../exit";

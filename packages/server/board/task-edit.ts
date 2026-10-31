@@ -1,6 +1,6 @@
 import { basename } from "node:path";
-import { color, type Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";

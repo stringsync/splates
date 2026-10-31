@@ -57,7 +57,7 @@ describe("App's checkpoint dialog", () => {
 		]);
 	});
 
-	// scry-ignore simple-test-setup: this test alone holds an old listing across confirmation and checkpoint to exercise the response race
+	// vet-ignore simple-test-setup: this test alone holds an old listing across confirmation and checkpoint to exercise the response race
 	it("goes straight to Checkpointing, though a listing asked before the checkpoint lands after", async () => {
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
 		const view = await testing.openConversations(

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
 import { FsStorage } from "../storage";
 import { CloudflaredTunnelProvider } from "./cloudflared";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved";

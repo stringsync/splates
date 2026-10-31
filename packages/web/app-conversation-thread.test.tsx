@@ -529,7 +529,7 @@ describe("App's conversation thread", () => {
 			const grow = async (by: number) => {
 				height += by;
 				await act(async () => {
-					// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
+					// vet-ignore matchers-over-test-logic: fires every resize watched, building no subject
 					for (const fire of watchers) {
 						fire();
 					}

@@ -1,7 +1,7 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Child, ProcessEntry, Ps } from "webappwiz/system";
-import type { Timer } from "webappwiz/time";
-import { Duration } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Child, ProcessEntry, Ps } from "core/system";
+import type { Timer } from "core/time";
+import { Duration } from "core/time";
 import { z } from "zod";
 import { scratchLaunch } from "../agents";
 import { SERVING } from "../server/shared";

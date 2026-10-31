@@ -100,7 +100,7 @@ describe("Project controls in conversation lists", () => {
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
-	// scry-ignore simple-test-setup: each test opens the page after its own resize, which a beforeEach would run before
+	// vet-ignore simple-test-setup: each test opens the page after its own resize, which a beforeEach would run before
 	it("lists every project in the inbox by name, those with no conversations too", async () => {
 		resize(390, 844);
 		testing.everywhere = [

@@ -57,7 +57,7 @@ describe("Conversation bottom after loading", () => {
 	const resize = async (next: number) => {
 		height = next;
 		await act(async () => {
-			// scry-ignore matchers-over-test-logic: delivers the browser's resize callbacks
+			// vet-ignore matchers-over-test-logic: delivers the browser's resize callbacks
 			for (const fire of watchers) {
 				fire();
 			}

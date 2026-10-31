@@ -3,7 +3,7 @@ import {
 	GENERAL_NAME,
 } from "@stringsync/splates-server/projects/browser";
 import type { ServerChoice } from "@stringsync/splates-server/server";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,

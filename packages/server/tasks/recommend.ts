@@ -1,4 +1,4 @@
-import { color } from "webappwiz/log";
+import { color } from "core/log";
 import { age } from "../age";
 import type { Task, Tasks } from "../board";
 import {

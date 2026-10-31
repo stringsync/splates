@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import { type Clock, Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import { type Clock, Duration, type Timer } from "core/time";
 import type { Scheduler } from "./scheduler";
 
 /** How long a worker may be away before its agents carry on elsewhere. */

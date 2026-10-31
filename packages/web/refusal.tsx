@@ -55,6 +55,7 @@ export function useRefusals<K>(): {
  * One control's refusal, said for a moment; `attempt` makes a write and says
  * whether it landed, refusing it as `failed` when it did not.
  */
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 export function useRefusal(): {
 	refusal: string | null;
 	refuse: Refuse;

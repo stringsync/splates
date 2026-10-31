@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "core/system/testing";
 import { SUITE_GRANT_MS, SuiteGrants } from "./suite-grant";
 
 function grantsAt(clock: { now: number }) {

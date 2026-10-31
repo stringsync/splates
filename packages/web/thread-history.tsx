@@ -1,5 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { useEffect } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import { ThreadAction } from "./thread-action";

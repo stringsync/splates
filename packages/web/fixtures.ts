@@ -37,7 +37,7 @@ export function project(
 	};
 }
 
-// scry-ignore tests-own-their-state: the roster every conversation test opens with by default; a test about the agents passes its own to openConversations
+// vet-ignore tests-own-their-state: the roster every conversation test opens with by default; a test about the agents passes its own to openConversations
 export const AGENTS: AgentChoice[] = [
 	{ id: "claude", name: "Claude", settings: [], limits: [] },
 	{ id: "codex", name: "Codex", settings: [], limits: [] },

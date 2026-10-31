@@ -1,6 +1,6 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Fs } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import type { Fs } from "core/system";
 import { UNIX_HANDLERS, UnixWorkerSocket } from "./unix-socket";
 
 /** What a `UnixWorkerListener` hears: a worker dialed in. */

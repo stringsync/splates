@@ -2,8 +2,8 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NodeFs } from "webappwiz/system";
-import { FakeFs } from "webappwiz/system/testing";
+import { NodeFs } from "core/system";
+import { FakeFs } from "core/system/testing";
 import { DirReplica, type Replica, S3Replica } from "./index";
 import { FakeReplica, FakeS3 } from "./testing";
 

@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import type { Middleware } from "webappwiz/cmd";
+import type { Middleware } from "core/cmd";
 import { fail } from "../exit";
 import { Projects } from "../projects";
 import { recordsMigration } from "../records";

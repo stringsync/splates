@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import type { AgentFrame, AgentProcess } from "./process";
 
 /** What an `AgentStream` says beyond the messages it carries. */

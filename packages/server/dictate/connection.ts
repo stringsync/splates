@@ -2,7 +2,7 @@ import {
 	DictationFailure,
 	DictationRelay,
 	type Transcriber,
-} from "webappwiz/dictate";
+} from "core/dictate";
 import type { Connection } from "../server/shared";
 import { OPENAI_KEY } from "./transcriber";
 

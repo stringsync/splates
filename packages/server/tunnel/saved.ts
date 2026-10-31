@@ -1,4 +1,4 @@
-import type { SecretStore } from "webappwiz/creds";
+import type { SecretStore } from "core/creds";
 import { z } from "zod";
 import type { Document, Storage } from "../storage";
 import { CloudflareApi } from "./cloudflare-api";

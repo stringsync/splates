@@ -1,5 +1,5 @@
-// scry-ignore-file doc-comments-address-users: the conversation's state is the server's and the page's own shape, whose doc comments say what each field holds for those who read it
-import { Duration } from "webappwiz/time";
+// vet-ignore-file doc-comments-address-users: the conversation's state is the server's and the page's own shape, whose doc comments say what each field holds for those who read it
+import { Duration } from "core/time";
 import type { Flag } from "../agents";
 import type { Artifact } from "../artifacts";
 import type { OpenCodeUsage } from "../models";

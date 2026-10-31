@@ -4,7 +4,7 @@ import {
 	TASK_EVENTS,
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type FormEvent, type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";

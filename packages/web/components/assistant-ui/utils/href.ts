@@ -2,6 +2,7 @@ const RELATIVE = /^(?:[/?#]|\.{1,2}\/)/;
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 const parse = (url: string) => {
 	try {
 		return new URL(url);

@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Duration, type Timer } from "core/time";
 
 /** How long streamed deltas wait to be drawn together. */
 const DRAW = Duration.ms(100);

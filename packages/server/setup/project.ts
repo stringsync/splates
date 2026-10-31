@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { loadConfig } from "../config";
 import { Git } from "../git";
 import type { SetupProject } from "./setup";

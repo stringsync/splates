@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 
 /** Set on an agent process that must write only in its scratch and agent state. */
 export const SCRATCH = "SPLATES_SCRATCH";

@@ -152,7 +152,7 @@ describe("App's work row commands", () => {
 		expect(opens()).toHaveLength(1);
 	});
 
-	// scry-ignore simple-test-setup: these file types and line ranges are unique inputs to this test
+	// vet-ignore simple-test-setup: these file types and line ranges are unique inputs to this test
 	it("shows each file a call names as a chip, opening in Zed at its lines", async () => {
 		const thread = await opened(
 			turn([
@@ -232,7 +232,7 @@ describe("App's work row commands", () => {
 		expect(warnings.textContent).not.toContain("git status");
 	});
 
-	// scry-ignore simple-test-setup: these three permission outcomes are the cases this test alone exercises
+	// vet-ignore simple-test-setup: these three permission outcomes are the cases this test alone exercises
 	it("shows permission decisions inline outside the folded work details", async () => {
 		const at = "2026-10-11T12:00:00.000Z";
 		const thread = await opened(

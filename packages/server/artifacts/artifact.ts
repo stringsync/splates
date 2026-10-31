@@ -1,7 +1,7 @@
 import { extname } from "node:path";
-import { color, type Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import { SystemTimer } from "webappwiz/time";
+import { color, type Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
+import { SystemTimer } from "core/time";
 import { ConversationLog } from "../conversations";
 import { EXIT, fail, type Reason } from "../exit";
 import { SERVER_WAIT_MS, type WorktreeService } from "../tasks";

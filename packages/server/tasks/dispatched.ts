@@ -1,4 +1,4 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import {
 	type Conversation,
 	type Conversations,

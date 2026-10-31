@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import { PersonalWords, parseWords } from "./personal";
 
 const PATH = "/home/.splates/dictation.json";

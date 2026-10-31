@@ -1,5 +1,5 @@
-import type { Ps } from "webappwiz/system";
-import { SystemTimer } from "webappwiz/time";
+import type { Ps } from "core/system";
+import { SystemTimer } from "core/time";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";

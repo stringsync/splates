@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
-import { SystemWallClock, type WallClock } from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Fs } from "core/system";
+import { SystemWallClock, type WallClock } from "core/time";
 
 /** How large the log grows before it is moved aside to `<path>.1`, replacing the one there. */
 export const LOG_FILE_BYTES = 1024 * 1024;

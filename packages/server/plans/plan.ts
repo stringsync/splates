@@ -1,5 +1,5 @@
-import { Markdown } from "webappwiz/md";
-import type { Fs } from "webappwiz/system";
+import { Markdown } from "core/md";
+import type { Fs } from "core/system";
 import { LEGACY_PLAN_FILE } from "../config/browser";
 
 /** The plan each task keeps at its worktree root, excluded from git. */

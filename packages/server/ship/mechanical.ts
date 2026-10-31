@@ -1,7 +1,7 @@
-import { aborts } from "webappwiz/abort";
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { aborts } from "core/abort";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import type { Repository } from "../records";

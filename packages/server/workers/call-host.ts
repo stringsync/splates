@@ -1,4 +1,4 @@
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import { z } from "zod";
 import type { WorkerChannel } from "./channel";
 import { FrameTooLarge } from "./frame-too-large";

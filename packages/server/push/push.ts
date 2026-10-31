@@ -1,12 +1,12 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import {
 	generateVapidKeys,
 	type Pusher,
 	PushFailure,
 	type VapidKeys,
 	WebPusher,
-} from "webappwiz/push";
-import { Duration, SystemTimer } from "webappwiz/time";
+} from "core/push";
+import { Duration, SystemTimer } from "core/time";
 import { z } from "zod";
 import { nameOf } from "../conversations";
 import { fail } from "../exit";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ProcessEntry } from "webappwiz/system";
+import type { ProcessEntry } from "core/system";
 import { taskPorts } from "./task-ports";
 
 const proc = (pid: number, ppid: number): ProcessEntry => ({

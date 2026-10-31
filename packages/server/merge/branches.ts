@@ -1,4 +1,4 @@
-import { color } from "webappwiz/log";
+import { color } from "core/log";
 import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import type { Creds } from "../creds";

@@ -1,7 +1,7 @@
-import type { DictationLink } from "webappwiz/dictate";
-import { type Recording, TICK } from "webappwiz/dictate";
-import type { Resource } from "webappwiz/disposable";
-import { Duration } from "webappwiz/time";
+import type { DictationLink } from "core/dictate";
+import { type Recording, TICK } from "core/dictate";
+import type { Resource } from "core/disposable";
+import { Duration } from "core/time";
 import type { DictationSession } from "./dictation-session";
 
 /** Below this level a tick counts as silence: a muted mic or a sleeping headset. */

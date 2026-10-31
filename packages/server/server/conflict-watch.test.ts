@@ -9,7 +9,7 @@ import { eventually } from "./testing";
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("server conflict notices", () => {
-	// scry-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.
+	// vet-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.
 	it("detects a base move without an open page and nudges the working agent once", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");
@@ -63,7 +63,7 @@ describe("server conflict notices", () => {
 		}
 	}, 20000);
 
-	// scry-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.
+	// vet-ignore simple-test-setup: a working agent and a later base commit are the integration scenario, not setup shared by other tests.
 	it("interrupts an agent that cannot steer so it hears the warning now", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");

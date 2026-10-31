@@ -1,4 +1,4 @@
-import type { ProcessEntry } from "webappwiz/system";
+import type { ProcessEntry } from "core/system";
 
 /** A command a restart would kill: where it runs, and what it runs. */
 export interface Held {

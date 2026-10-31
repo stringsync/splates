@@ -19,9 +19,9 @@ import {
 	type UndoPlan,
 } from "@stringsync/splates-server/setup";
 import { fetchWorkers } from "@stringsync/splates-server/workers";
-import type { Logger } from "webappwiz/log";
-import { color } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import { color } from "core/log";
+import type { Ps } from "core/system";
 
 /** What `splates setup` was asked for. */
 export interface SetupOptions {

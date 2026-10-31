@@ -1,4 +1,4 @@
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { z } from "zod";
 import type { AgentFrame, AgentProcess, ProcessHandle } from "../agents";
 import type { WorkerChannel } from "./channel";

@@ -1,5 +1,5 @@
-import { ensure } from "webappwiz/assert";
-import { Duration } from "webappwiz/time";
+import { ensure } from "core/assert";
+import { Duration } from "core/time";
 import type { CascadeStep } from "./cascade";
 import type { Pin } from "./graph";
 import type { ShipRegistry } from "./registry";

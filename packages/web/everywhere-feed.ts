@@ -10,8 +10,8 @@ import type {
 } from "@stringsync/splates-server/projects";
 import { GENERAL } from "@stringsync/splates-server/projects/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { answered } from "./api";
 import { LiveStream } from "./live-stream";
 import type { PageCopy } from "./page-copy";

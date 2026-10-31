@@ -7,8 +7,8 @@ import {
 	removeWorker,
 	workerRun,
 } from "@stringsync/splates-server/workers";
-import { cli } from "webappwiz/cmd";
-import { CompositeLogger } from "webappwiz/log";
+import { cli } from "core/cmd";
+import { CompositeLogger } from "core/log";
 import { z } from "zod";
 import { splatesWaiting } from "./waiting";
 

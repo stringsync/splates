@@ -122,7 +122,7 @@ describe("App's conversation list", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
-	// scry-ignore simple-test-setup: the seven agents, more than a folded list once showed, are what it checks
+	// vet-ignore simple-test-setup: the seven agents, more than a folded list once showed, are what it checks
 	it("lists every agent, with nothing to unfold or fold", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
@@ -156,7 +156,7 @@ describe("App's conversation list", () => {
 		expect(within(nav).queryByRole("button", { name: "Show less" })).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
+	// vet-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
 	it("lists archived conversations last first, each with its project and latest message", async () => {
 		const view = await testing.openConversations(
 			[

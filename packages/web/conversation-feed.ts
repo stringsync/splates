@@ -4,15 +4,15 @@ import {
 	ConversationUpdates,
 	listed,
 } from "@stringsync/splates-server/conversations/browser";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { type IdProvider, UuidProvider } from "webappwiz/id";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { type IdProvider, UuidProvider } from "core/id";
 import {
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import type { AgentChoice } from "./agent-choice";
 import { answered, scoped } from "./api";
 import { Draws } from "./conversation-draws";

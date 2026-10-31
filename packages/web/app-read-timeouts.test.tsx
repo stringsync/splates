@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { setupProgress } from "./setup-testing";
 import { act, cleanup, fireEvent, Testing, waitFor } from "./testing";
 

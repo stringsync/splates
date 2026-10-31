@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs, OpenPortProvider } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs, NodePs, OpenPortProvider } from "core/system";
+import { Duration } from "core/time";
 import { eventually } from "../conversations/testing";
 import { type DevServer, dev } from "../server";
 import { RESTART } from "../server/shared";

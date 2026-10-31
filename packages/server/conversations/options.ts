@@ -1,6 +1,6 @@
-import type { IdProvider } from "webappwiz/id";
-import type { Fs, Lock } from "webappwiz/system";
-import type { Timer, WallClock } from "webappwiz/time";
+import type { IdProvider } from "core/id";
+import type { Fs, Lock } from "core/system";
+import type { Timer, WallClock } from "core/time";
 import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
 import type { Limits, Offered } from "../models";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
 import { DEFAULT_RULES } from "../auto-pick";
 import { AUTO_PICK_AREA } from "./area-auto-pick";
 import { Setup, type SetupMachine, type StepStatus } from "./setup";

@@ -1,5 +1,5 @@
 import { basename, resolve } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type * as Board from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";

@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { ReleaseChanges } from "./git";
 
 /**
@@ -7,7 +7,7 @@ import type { ReleaseChanges } from "./git";
  * each pins of the others'. A `workspace:` pin is the project's own and
  * draws no edge.
  */
-// scry-ignore classes-over-function-exports: movePins joins readGraph and publishedPins, which read the same manifests; the three move into one class together
+// vet-ignore classes-over-function-exports: movePins joins readGraph and publishedPins, which read the same manifests; the three move into one class together
 export async function readGraph(
 	fs: Fs,
 	sources: ShipSource[],

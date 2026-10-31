@@ -1,4 +1,4 @@
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import { ConversationRoutes, type Conversations } from "../conversations";
 import { fail } from "../exit";
 import { continuedReference, needs } from "../plans";

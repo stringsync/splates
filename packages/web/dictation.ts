@@ -1,13 +1,9 @@
 import type { DictationAdapter } from "@assistant-ui/react";
-import type { OpenLink } from "webappwiz/dictate";
-import {
-	BufferedSink,
-	DictationFailure,
-	type Microphone,
-} from "webappwiz/dictate";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration } from "webappwiz/time";
+import type { OpenLink } from "core/dictate";
+import { BufferedSink, DictationFailure, type Microphone } from "core/dictate";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration } from "core/time";
 import { DictationSession } from "./dictation-session";
 import { TakeUnderWay } from "./take-under-way";
 

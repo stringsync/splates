@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Duration } from "core/time";
 import { createElement } from "react";
-import { Duration } from "webappwiz/time";
 import { Leaving } from "./leaving";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 

@@ -26,7 +26,7 @@ describe("A phone's inbox, nesting agents", () => {
 		testing.dispose();
 	});
 
-	// scry-ignore simple-test-setup: each test builds its own tree of conversations and tasks, which is what it tests
+	// vet-ignore simple-test-setup: each test builds its own tree of conversations and tasks, which is what it tests
 	it("nests a part's conversations under the task it was handed out from, in a phone's inbox and the sidebar", async () => {
 		const held = [
 			conversation({
@@ -150,7 +150,7 @@ describe("A phone's inbox, nesting agents", () => {
 		expect(inboxTrees(view)).toEqual([["Orchestrate", "split-a"]]);
 	});
 
-	// scry-ignore simple-test-setup: the unnamed conversations it lists are what it checks, and no other test opens with them
+	// vet-ignore simple-test-setup: the unnamed conversations it lists are what it checks, and no other test opens with them
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await testing.openConversations(
 			[

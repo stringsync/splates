@@ -1,6 +1,6 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
-import { FakePs } from "webappwiz/system/testing";
+import { FakePs } from "core/system/testing";
 import { PLAN_FILE } from "../plans";
 import type { Facts } from "../records";
 import { add } from "../tasks";
@@ -296,7 +296,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
+	// vet-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
 	it.each(["task", "base"])(
 		"preserves a %s index lock without spending an attempt",
 		async (where) => {
@@ -513,7 +513,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	// vet-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
 	it("holds the machine's premerge lock while the gate runs, and lets it go", async () => {
 		await using deps = await Testing.open();
 		deps.config.preMerge = `test -d ${deps.premerge.path}`;
@@ -528,7 +528,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	// vet-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
 	it("tells the gate it holds the premerge lock, and the cores it may use", async () => {
 		await using deps = await Testing.open();
 		deps.config.preMerge =
@@ -544,7 +544,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	// vet-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
 	it("logs its start, and before it that it is queued only when the premerge lock is held", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");
@@ -560,7 +560,7 @@ describe.concurrent("merge", () => {
 			void deps.journal
 				.tail(1)
 				.then(([event]) => {
-					// scry-ignore matchers-over-test-logic: the watch also hears unrelated writes; only the queued event releases the held lock.
+					// vet-ignore matchers-over-test-logic: the watch also hears unrelated writes; only the queued event releases the held lock.
 					if (event?.action === "merge queued" && event.task === "alpha") {
 						queuedEvent.resolve();
 					}
@@ -584,7 +584,7 @@ describe.concurrent("merge", () => {
 		expect(facts.began).toBe(queued?.id ?? "");
 	});
 
-	// scry-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
+	// vet-ignore simple-test-setup: each case owns a separate repo, as the timeout case beside it does.
 	it("logs only its start when the premerge lock is free", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");
@@ -600,7 +600,7 @@ describe.concurrent("merge", () => {
 		expect(facts.began).toBe(started?.id ?? "");
 	});
 
-	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.
+	// vet-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.
 	it("keeps on the outcome how long the landing merge queued for the premerge lock and ran", async () => {
 		await using deps = await Testing.open();
 
@@ -823,7 +823,7 @@ describe.concurrent("merge", () => {
 		expect((await deps.service.find("alpha")).status).toBe("working");
 	});
 
-	// scry-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
+	// vet-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
 	it("keeps a task working, not merging, while its merge waits on the lock", async () => {
 		await using deps = await Testing.open();
 

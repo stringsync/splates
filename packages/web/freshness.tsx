@@ -1,4 +1,5 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
+import { Duration } from "core/time";
 import { LoaderCircleIcon, WifiOffIcon } from "lucide-react";
 import {
 	createContext,
@@ -10,7 +11,6 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Popover,

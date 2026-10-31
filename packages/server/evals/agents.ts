@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";

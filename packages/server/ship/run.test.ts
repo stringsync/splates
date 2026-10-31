@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs, FakePs } from "core/system/testing";
+import { FakeWallClock } from "core/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
 import { quietly, typedCodeError } from "./npm-terminal";

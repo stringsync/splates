@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { keyIn, replace } from "../storage";
 import { byKey, md5, type Replica, type ReplicaObject } from "./replica";
 

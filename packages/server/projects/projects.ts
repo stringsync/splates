@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
 

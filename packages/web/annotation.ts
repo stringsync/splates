@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Position, Rect } from "webappwiz/geometry";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Position, Rect } from "core/geometry";
 import {
 	around,
 	distance,

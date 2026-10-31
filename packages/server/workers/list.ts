@@ -1,11 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import {
-	Duration,
-	SystemWallClock,
-	timeAgo,
-	type WallClock,
-} from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
+import { Duration, SystemWallClock, timeAgo, type WallClock } from "core/time";
 import { z } from "zod";
 import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";

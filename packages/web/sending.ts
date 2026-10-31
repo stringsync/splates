@@ -3,7 +3,7 @@ import type {
 	Image,
 	Message,
 } from "@stringsync/splates-server/conversations";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 
 /** How long a message goes unanswered before the page says it is still sending. */
 export const STILL_SENDING = Duration.secs(3);

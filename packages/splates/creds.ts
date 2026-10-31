@@ -3,9 +3,9 @@ import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { untilAfter } from "@stringsync/splates-server/tasks";
-import { cli } from "webappwiz/cmd";
-import { color } from "webappwiz/log";
-import { Duration } from "webappwiz/time";
+import { cli } from "core/cmd";
+import { color } from "core/log";
+import { Duration } from "core/time";
 import { z } from "zod";
 import { here } from "./flags";
 

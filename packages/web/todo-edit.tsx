@@ -1,7 +1,7 @@
 import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { blockerLabel } from "@stringsync/splates-server/board/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

@@ -3,8 +3,8 @@ import type {
 	ConversationState,
 	Tool,
 } from "@stringsync/splates-server/conversations";
+import { Duration } from "core/time";
 import { useCallback, useContext, useSyncExternalStore } from "react";
-import { Duration } from "webappwiz/time";
 import { cancelConversation } from "./conversation-api";
 import { EverywhereContext } from "./everywhere-context";
 import type { useExpect } from "./expecting";

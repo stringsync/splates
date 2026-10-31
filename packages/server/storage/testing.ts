@@ -1,5 +1,5 @@
-import { Dispatcher } from "webappwiz/events";
-import { type Fs, type Lock, MemoryLock } from "webappwiz/system";
+import { Dispatcher } from "core/events";
+import { type Fs, type Lock, MemoryLock } from "core/system";
 import { replace } from "./atomic";
 import type { Collection } from "./collection";
 import type { Document, DocumentOptions } from "./document";

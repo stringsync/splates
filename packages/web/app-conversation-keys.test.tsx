@@ -31,7 +31,7 @@ describe("App's sidebar keys", () => {
 		options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
 	};
 
-	// scry-ignore simple-test-setup: the four agents at work and the external one asking are the rows it numbers
+	// vet-ignore simple-test-setup: the four agents at work and the external one asking are the rows it numbers
 	it("shows each key while ⌥⌘ is held, and opens a row shown with ⌥⌘ and its digit, an external agent's task listing none", async () => {
 		const view = await testing.openConversations(
 			newestFirst([

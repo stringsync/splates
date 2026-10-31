@@ -96,7 +96,7 @@ describe("Complete conversation reads", () => {
 	it("bounds retries when summaries keep changing during reads", async () => {
 		testing.wholes.c1 = conversation();
 		const reading = feed.whole("c1");
-		// scry-ignore matchers-over-test-logic: each round holds the next HTTP response until a newer summary arrives
+		// vet-ignore matchers-over-test-logic: each round holds the next HTTP response until a newer summary arrives
 		for (let attempt = 1; attempt <= 3; attempt++) {
 			await waitFor(() =>
 				expect(
@@ -113,7 +113,7 @@ describe("Complete conversation reads", () => {
 		expect(feed.current("c1")?.summary).toBe(true);
 	});
 
-	// scry-ignore simple-test-setup: these transitions are unique to testing pending state over a retained complete body
+	// vet-ignore simple-test-setup: these transitions are unique to testing pending state over a retained complete body
 	it("keeps pending writes held and sends apart over retained history during refresh", async () => {
 		const old = conversation({ messages: [message("agent", "Old answer")] });
 		feed.put(old);

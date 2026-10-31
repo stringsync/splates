@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
+import { FakeWallClock } from "core/time/testing";
 import { GateTrail, gateCores, gateDeadline, lingering } from "./cores";
 
 const MINUTE = 60_000;

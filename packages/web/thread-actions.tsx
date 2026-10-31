@@ -3,6 +3,7 @@ import { paused } from "@stringsync/splates-server/conversations/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { DEFER, RESUME } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { Duration } from "core/time";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
@@ -17,7 +18,6 @@ import {
 	WalletIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
-import { Duration } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";

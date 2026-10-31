@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { FakeFs } from "core/system/testing";
+import { FakeWallClock } from "core/time/testing";
 import { FileLogger, LOG_FILE_BYTES } from "./log-file";
 
 describe("FileLogger", () => {

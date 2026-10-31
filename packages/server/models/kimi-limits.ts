@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Agent, Limit } from "../conversations";
 
 /** Where Kimi Code asks for its plan's usage when its config names none. */

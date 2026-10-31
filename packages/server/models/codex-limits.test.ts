@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { framed } from "../agents";
 import type { AgentProcess } from "../conversations";
 import { codexLimits, isCodex } from "./codex-limits";

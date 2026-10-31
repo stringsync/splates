@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { ListTodoIcon, type LucideIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type JSX,

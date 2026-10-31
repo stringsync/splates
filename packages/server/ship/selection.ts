@@ -1,4 +1,4 @@
-import { ensure } from "webappwiz/assert";
+import { ensure } from "core/assert";
 import { z } from "zod";
 import { fail } from "../exit";
 import type { Cascade, CascadeStep } from "./cascade";

@@ -1,4 +1,4 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import { addedFacts, type Tasks, wording } from "../board";
 import type { Journal } from "../records";
 import type { FailedTest } from "../tasks";

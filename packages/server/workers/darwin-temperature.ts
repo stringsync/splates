@@ -68,7 +68,7 @@ function dieSensors(): Pointer[] {
 		const read = cf.CFStringGetCString(called, ptr(name), name.length, UTF8);
 		cf.CFRelease(called);
 		if (read && DIE.test(new CString(ptr(name)).toString())) {
-			found.push(service);
+			found.push(service as Pointer);
 		}
 	}
 	if (product !== null) {

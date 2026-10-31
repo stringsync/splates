@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { Limits } from "../models";
 import { FsStorage } from "../storage";

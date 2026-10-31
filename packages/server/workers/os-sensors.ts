@@ -1,5 +1,5 @@
 import os from "node:os";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { darwinFootprint } from "./darwin-footprint";
 import { darwinTemperature } from "./darwin-temperature";
 import type { MachineSensors, ProcessUse } from "./load";

@@ -1,4 +1,4 @@
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 import type { GitRunner } from "./git";
 
 let resolvedGit: string | undefined;

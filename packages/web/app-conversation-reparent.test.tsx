@@ -103,7 +103,7 @@ describe("App's moving a conversation under another", () => {
 		]);
 	});
 
-	// scry-ignore simple-test-setup: the parents it opens with are what it tests, and no other test opens with them
+	// vet-ignore simple-test-setup: the parents it opens with are what it tests, and no other test opens with them
 	it("nests one where the person put it, over where its task would", async () => {
 		const view = await testing.openConversations(
 			[

@@ -11,7 +11,7 @@ The file default-exports only what differs from the defaults, typed by a
 type-only import, so it loads without splates installed:
 
 ```ts
-import type { ConfigFile } from "@stringsync/splates-server/config";
+import type { ConfigFile } from "@stringsync/splates/config";
 
 export default {
 	postCheckout: "bun install",
@@ -22,7 +22,7 @@ export default {
 A config wrapping its export in `defineConfig(...)` is from before
 `ConfigFile`; `splates update` rewrites it. Every command below runs via
 `sh -c`. When an option here is missing or seems out of date, the `Config`
-interface in `@stringsync/splates-server/config` (`packages/server/config/config.ts`
+interface in `@stringsync/splates/config` (`packages/server/config/config.ts`
 in the splates repository) documents each one, and its defaults are in
 `load.ts` beside it.
 
@@ -84,4 +84,4 @@ Byte and millisecond options take plain numbers, as `100 * 1024 * 1024`.
 | `replica`        | `null`                  | Where the server keeps a copy of the project's records, to move them to another machine: `{ provider: "s3", endpoint, bucket }`, whose keys the Creds page asks for, or `{ provider: "dir", path }` ([transfer.md](transfer.md)). |
 | `evals`          | `null` (no Evals page)  | `{ results, list?, run?, plan? }`: where eval batches land for the Evals page and the commands its run card lists, prices and starts them with (`docs/evals.md` in the splates repository).            |
 | `dictationWords` | `[]`                    | Words the composer's mic spells as written for everyone on the project, as `["webappwiz", "scry"]`; each person adds their own on the Setup page.                                                       |
-| `wiz`            | `"bunx @webappwiz/cli"` | The command the Budget page runs `scry budgets` with, for a repo that wraps webappwiz's CLI, as `"./bin/wiz"`.                                                                                          |
+| `vet`            | `"vet/bin/vet"`         | The command the Budget page runs `budgets` with, from the repo's root.                                                                                                                              |

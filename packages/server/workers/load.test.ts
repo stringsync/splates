@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { NodePs, OpenPortProvider } from "webappwiz/system";
-import { FakeFs } from "webappwiz/system/testing";
+import { NodePs, OpenPortProvider } from "core/system";
+import { FakeFs } from "core/system/testing";
 import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";

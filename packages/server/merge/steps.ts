@@ -3,7 +3,7 @@ import {
 	SystemClock,
 	SystemWallClock,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 import type { LivePhase, MergeProgress, MergeStep } from "../tasks";
 import { outputPath } from "./output";
 
@@ -51,6 +51,18 @@ export class MergeSteps {
 		return this.progress;
 	}
 
+	/**
+	 * Marks the premerge under way as a batch's that split, the branch let
+	 * go to wait for its own turn, and begins that wait.
+	 */
+	leftBatch(): MergeProgress {
+		const last = this.steps.at(-1);
+		if (last?.step === "test") {
+			this.steps = [...this.steps.slice(0, -1), { ...last, dissolved: true }];
+		}
+		return this.enter("wait");
+	}
+
 	/** Takes the premerge's phases so far, and gives the record to save. */
 	phased(phases: LivePhase[]): MergeProgress {
 		this.phases = phases;
@@ -59,12 +71,14 @@ export class MergeSteps {
 
 	/**
 	 * The milliseconds spent in each step so far, each step's runs summed
-	 * across retests, the one under way up to now.
+	 * across retests, the one under way up to now. A premerge in a batch
+	 * that split counts as waiting, the branch's own turn still to come.
 	 */
 	get ms(): Partial<Record<MergeStep, number>> {
 		const now = this.clock.now().ms;
 		const ms: Partial<Record<MergeStep, number>> = {};
-		this.steps.forEach(({ step }, index) => {
+		this.steps.forEach(({ step: taken, dissolved }, index) => {
+			const step = dissolved ? "wait" : taken;
 			// Calendar timestamps go to the page; elapsed times must survive clock adjustments.
 			const took =
 				(this.starts[index + 1] ?? now) - (this.starts[index] ?? now);

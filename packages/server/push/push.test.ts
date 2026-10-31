@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakePusher } from "webappwiz/push/testing";
-import { Duration } from "webappwiz/time";
+import { FakePusher } from "core/push/testing";
+import { Duration } from "core/time";
 import type { ConversationState } from "../conversations";
 import { conversation } from "../fixtures";
 import { type Needing, need } from "../plans";

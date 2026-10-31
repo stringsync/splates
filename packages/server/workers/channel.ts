@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { type Json, WorkerProtocol } from "./protocol";
 
 /** What a `WorkerChannel` hears from the other end, each with its seq. */

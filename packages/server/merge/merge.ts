@@ -1,7 +1,7 @@
-// scry-ignore-file compact-files: one merge is one sequence of steps (rebase, checks, gate, landing) that reads top to bottom; it predates the rule
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock } from "webappwiz/system";
-import { type Clock, Duration, SystemClock } from "webappwiz/time";
+// vet-ignore-file compact-files: one merge is one sequence of steps (rebase, checks, gate, landing) that reads top to bottom; it predates the rule
+import type { Logger } from "core/log";
+import type { Fs, Lock } from "core/system";
+import { type Clock, Duration, SystemClock } from "core/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
@@ -207,12 +207,18 @@ export async function merge(
 		};
 		let queuedBefore = false;
 		let lastPlace: number | undefined;
+		// On a batch's stack, its gate is this merge's: a place in line that
+		// moves meanwhile is kept for when the batch lets the branch go.
+		let stacked = false;
 		const onQueued = async (place: number) => {
 			if (!queuedBefore) {
 				queuedBefore = true;
 				facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
 			}
 			lastPlace = place;
+			if (stacked) {
+				return;
+			}
 			worktree = await worktree.save({
 				mergePlace: place,
 				mergeSteps: steps.enter("wait"),
@@ -276,11 +282,16 @@ export async function merge(
 					path: worktree.path,
 					ownHead,
 					requireLease: () => state.requireLease(),
-					onStacked: startGate,
-					onUnstacked: async () => {
+					onStacked: async () => {
+						stacked = true;
+						await startGate();
+					},
+					onUnstacked: async (dissolved) => {
+						stacked = false;
 						worktree = await worktree.save({
 							gate: "queued",
 							mergePlace: lastPlace,
+							...(dissolved ? { mergeSteps: steps.leftBatch() } : {}),
 						});
 					},
 				},

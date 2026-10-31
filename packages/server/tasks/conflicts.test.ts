@@ -7,7 +7,7 @@ import { TaskOverlaps } from "./overlaps";
 import { show } from "./show";
 
 describe("early conflict checks", () => {
-	// scry-ignore simple-test-setup: the conflicting commits and dirty file are the scenario this test exercises, not shared setup.
+	// vet-ignore simple-test-setup: the conflicting commits and dirty file are the scenario this test exercises, not shared setup.
 	it("predicts conflicts, keeps dirty files and leases untouched, and clears resolved warnings", async () => {
 		await using deps = await Testing.open();
 		await deps.commit(deps.root, "with spaces.txt", "seed\n", "another file");

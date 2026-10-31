@@ -1,8 +1,8 @@
-import { aborts } from "webappwiz/abort";
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import { aborts } from "core/abort";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
+import { Duration, type Timer } from "core/time";
 import { descendants } from "../workers";
 
 /** Stops the server command on Ctrl-C, even when a child ignores its stop signal. */

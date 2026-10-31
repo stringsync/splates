@@ -1,7 +1,7 @@
-import { color, type Logger } from "webappwiz/log";
-import { MarkdownWriter } from "webappwiz/md";
-import type { Fs } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { color, type Logger } from "core/log";
+import { MarkdownWriter } from "core/md";
+import type { Fs } from "core/system";
+import { Duration, sleep } from "core/time";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";

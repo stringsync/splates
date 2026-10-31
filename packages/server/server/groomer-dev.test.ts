@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { OpenPortProvider } from "core/system";
 import { FakeAgent } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations } from "../conversations";
@@ -11,7 +11,7 @@ import { eventually } from "./testing";
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
 describe("dev groomer", () => {
-	// scry-ignore simple-test-setup: the groomer turned on in hooks.json, a server started over it and a task deferred while it runs are the wiring exercised here.
+	// vet-ignore simple-test-setup: the groomer turned on in hooks.json, a server started over it and a task deferred while it runs are the wiring exercised here.
 	it("grooms the backlog as it starts, and each task deferred while it runs", async () => {
 		await using deps = await Testing.open();
 		const agent = new FakeAgent();

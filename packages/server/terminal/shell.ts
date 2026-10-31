@@ -1,6 +1,6 @@
-import type { AsyncResource, Resource } from "webappwiz/disposable";
-import type { ProcessEntry } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import type { AsyncResource, Resource } from "core/disposable";
+import type { ProcessEntry } from "core/system";
+import { Duration, type Timer } from "core/time";
 import { z } from "zod";
 import type { ProcessHandle } from "../agents";
 import type { Connection } from "../server/shared";

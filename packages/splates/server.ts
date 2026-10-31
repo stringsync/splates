@@ -3,7 +3,7 @@ import {
 	type SplatesDeps,
 	serveDev,
 } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 
 /**

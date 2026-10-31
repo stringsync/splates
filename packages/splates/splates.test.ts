@@ -88,7 +88,7 @@ describe("splates cli", () => {
 		expect(await env.secrets.device.get("OPENAI_API_KEY")).toBe("sk-test");
 	});
 
-	// scry-ignore simple-test-setup: the started task is what numbers the queued task after it, which this case checks.
+	// vet-ignore simple-test-setup: the started task is what numbers the queued task after it, which this case checks.
 	it("edits the queued tasks added beside a started one", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
 		await env.fs.write(join(env.root, "a.png"), "a");

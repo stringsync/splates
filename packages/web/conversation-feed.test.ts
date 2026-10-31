@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeTimer } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeTimer } from "core/time/testing";
 import { ConversationFeed } from "./conversation-feed";
 import { conversation, message } from "./testing";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { versionOf } from "webappwiz/skills";
+import { versionOf } from "core/skills";
 import { RUNNING } from "./release";
 
 describe("the splates skill", () => {

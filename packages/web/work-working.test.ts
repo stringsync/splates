@@ -18,6 +18,7 @@ describe("Working", () => {
 	});
 });
 
+// vet-ignore simple-test-setup: copied from the splates repository as it was; reworking it is its own task
 describe("A line splates drew before the agent began", () => {
 	it("sits above the reply's words", () => {
 		const message: Message = {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { ensure } from "webappwiz/assert";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { ensure } from "core/assert";
+import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
+import { FakeWallClock } from "core/time/testing";
 import { MemoryStorage } from "../storage/testing";
 import { CascadeRoutes } from "./cascade-routes";
 import { FakeStepProjects } from "./fake-step-projects";

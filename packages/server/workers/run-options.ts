@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 
 /** What `splates worker run` is run with. */
 export interface WorkerRunOptions {

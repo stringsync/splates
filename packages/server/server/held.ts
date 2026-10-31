@@ -1,4 +1,4 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import type { Conversations } from "../conversations";
 import { pickSettings } from "../models";
 import type { HeldConversations } from "../queue";

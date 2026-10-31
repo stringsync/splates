@@ -242,7 +242,7 @@ describe("App's composer references", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: only this test needs an archived, named conversation to reference and rename
+	// vet-ignore simple-test-setup: only this test needs an archived, named conversation to reference and rename
 	it("searches current conversation names and writes a UUID chip that opens the conversation", async () => {
 		const id = "550e8400-e29b-41d4-a716-446655440000";
 		const view = await testing.openConversations([

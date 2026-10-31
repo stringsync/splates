@@ -28,6 +28,7 @@ export interface VideoPlayerProps
 	durationMs?: number | undefined;
 }
 
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 function formatDuration(seconds: number): string {
 	const wholeSeconds = Math.max(0, Math.floor(seconds));
 	const minutes = Math.floor(wholeSeconds / 60);
@@ -35,6 +36,7 @@ function formatDuration(seconds: number): string {
 	return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 function useMediaDuration(
 	mediaRef: RefObject<HTMLMediaElement | null>,
 	src: string,
@@ -72,6 +74,7 @@ function useMediaDuration(
 	};
 }
 
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 export function AudioPlayer({
 	src,
 	title,

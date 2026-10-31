@@ -1,5 +1,5 @@
-import { aborts } from "webappwiz/abort";
-import { Duration } from "webappwiz/time";
+import { aborts } from "core/abort";
+import { Duration } from "core/time";
 import {
 	CONTEXT_CLASSES,
 	DEPTHS,

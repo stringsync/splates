@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import { Duration, SystemTimer, Throttler, type Timer } from "core/time";
 import type { TaskStage } from "../board";
 import type { Journal } from "../records";
 import type { Document, Storage } from "../storage";

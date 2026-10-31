@@ -1,5 +1,5 @@
-import type { Registry } from "webappwiz/ship";
-import { Duration } from "webappwiz/time";
+import type { Registry } from "core/ship";
+import { Duration } from "core/time";
 
 /** Exact public npm publications, with failures kept distinct from absence. */
 export class ShipRegistry implements Pick<Registry, "published" | "deployed"> {

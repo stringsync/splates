@@ -1,5 +1,6 @@
 import type { CredRequest } from "@stringsync/splates-server/creds";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
+import { WindowBackgroundObserver } from "core/browser";
 import {
 	createContext,
 	type JSX,
@@ -10,7 +11,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { WindowBackgroundObserver } from "webappwiz/browser";
 import { UpdateDot } from "./release";
 import { setup } from "./setup-api";
 import { HeldJourneys } from "./setup-held";

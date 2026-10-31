@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs } from "core/system/testing";
 import { Creds } from "../creds";
 import { slotTunnelSetup } from "../ports";
 import { FsStorage } from "../storage";
@@ -40,7 +40,7 @@ describe("tunnelRemove", () => {
 		expect([...store.values.keys()]).toEqual([API_TOKEN]);
 	});
 
-	// scry-ignore simple-test-setup: this case alone seeds the Access policy and tokens it deletes from; the others delete none
+	// vet-ignore simple-test-setup: this case alone seeds the Access policy and tokens it deletes from; the others delete none
 	it("deletes the workers' policy and the service tokens it lets in, not other tokens", async () => {
 		const { cloudflare, remove } = await account();
 		const app = cloudflare.apps[0] ?? expect.unreachable();

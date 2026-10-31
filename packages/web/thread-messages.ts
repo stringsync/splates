@@ -7,8 +7,8 @@ import type {
 import type { TaskReport } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
+import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";

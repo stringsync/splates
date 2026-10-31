@@ -1,5 +1,5 @@
+import { Dispatcher, type Eventful } from "core/events";
 import type { JSX, KeyboardEvent, PointerEvent } from "react";
-import { Dispatcher, type Eventful } from "webappwiz/events";
 
 export type SidebarEvents = { changed: undefined };
 

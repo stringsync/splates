@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { MemoryStorage } from "../storage/testing";
 import { compacted } from "./compact";
 import { ConversationLog, type Entry } from "./log";

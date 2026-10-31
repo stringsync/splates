@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { ApiError, answered, answeredFrom, expiring, send } from "./api";
 import { EarlyReads } from "./early-reads";
 import { Testing } from "./testing";

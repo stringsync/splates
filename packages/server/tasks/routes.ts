@@ -1,6 +1,6 @@
-// scry-ignore-file doc-comments-address-users: its imports moved to server/; it predates the rule
+// vet-ignore-file doc-comments-address-users: its imports moved to server/; it predates the rule
 
-import { SystemTimer } from "webappwiz/time";
+import { SystemTimer } from "core/time";
 import { movedPath } from "../config";
 import type { Conversations } from "../conversations";
 import { fail } from "../exit";

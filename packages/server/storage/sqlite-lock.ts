@@ -1,6 +1,6 @@
-import type { Logger } from "webappwiz/log";
-import type { Lock, Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import type { Logger } from "core/log";
+import type { Lock, Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 import type { SqliteDb } from "./sqlite-db";
 
 /** Who holds a lock, as its row records. */
@@ -52,7 +52,7 @@ export class SqliteLock implements Lock {
 		}
 	}
 
-	// scry-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
+	// vet-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
 	async release(): Promise<void> {
 		const { db, ps } = this.deps;
 		db.db

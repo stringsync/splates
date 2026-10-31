@@ -1,7 +1,7 @@
 import type { Question } from "@stringsync/splates-server/plans";
 import { type Answer, replyOf } from "@stringsync/splates-server/plans/browser";
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Disposer, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import { ATTACHMENT_REFERENCE, attachmentName } from "./attachment-chips";
 import { Files, fileShelf } from "./files";
 

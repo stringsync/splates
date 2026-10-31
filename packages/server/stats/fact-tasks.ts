@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import type { Tasks } from "../board";
 import { addedFacts, wording } from "../board";
 import type { Git } from "../git";

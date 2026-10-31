@@ -1,7 +1,7 @@
 import { loadavg } from "node:os";
 import { basename } from "node:path";
-import type { Fs } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import type { Fs } from "core/system";
+import { Duration } from "core/time";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import {

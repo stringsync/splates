@@ -1,5 +1,5 @@
-import { Dispatcher } from "webappwiz/events";
-import { Duration } from "webappwiz/time";
+import { Dispatcher } from "core/events";
+import { Duration } from "core/time";
 import { WorkerProtocol } from "./protocol";
 import type { WorkerSocket, WorkerSocketEvents } from "./socket";
 

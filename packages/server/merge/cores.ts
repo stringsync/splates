@@ -1,6 +1,6 @@
 import { availableParallelism, loadavg } from "node:os";
-import type { Fs, Ps } from "webappwiz/system";
-import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
+import type { Fs, Ps } from "core/system";
+import { Duration, SystemWallClock, type WallClock } from "core/time";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 
@@ -24,7 +24,7 @@ export function gateCores(cores: number, load: number): number {
 }
 
 /** The most a gate's deadline may stretch to under load, as a multiple of its base. */
-// Twice `PREMERGE_TIMEOUT_MS` is `TEST_DEADLINE`, the cap `dev test` gives itself.
+// Twice `PREMERGE_TIMEOUT_MS` is `TEST_DEADLINE`, the cap `bin/mono test` gives itself.
 export const DEADLINE_STRETCH = 2;
 
 /**

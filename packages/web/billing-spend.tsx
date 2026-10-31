@@ -3,7 +3,7 @@ import type {
 	SpendReport,
 	SpendTotal,
 } from "@stringsync/splates-server/spend";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

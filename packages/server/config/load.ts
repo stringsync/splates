@@ -1,6 +1,6 @@
 import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { type Fs, NodeFs } from "webappwiz/system";
+import { type Fs, NodeFs } from "core/system";
 import type { ArtifactLimits } from "../artifacts";
 import { Git } from "../git";
 import type { Config } from "./config";
@@ -84,7 +84,7 @@ function defaults(root: string, trunk: string): Config {
 		artifactFileCapacity: ARTIFACT_LIMITS.file,
 		artifactConversationCapacity: ARTIFACT_LIMITS.conversation,
 		artifactProjectCapacity: ARTIFACT_LIMITS.project,
-		wiz: "bunx @webappwiz/cli",
+		vet: "vet/bin/vet",
 		tunnel: null,
 		platform: null,
 		replica: null,

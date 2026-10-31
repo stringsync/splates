@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import type { WorkerChannel } from "./channel";
 import { WorkerProtocol } from "./protocol";
 import { WorkerSession } from "./session";

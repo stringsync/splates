@@ -1,4 +1,4 @@
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import type { ReleaseStep } from "./release-steps";
 
 /** A step not begun, expected to take `expected` ms, from ships before when `known`. */

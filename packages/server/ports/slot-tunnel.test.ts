@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import { MemoryLogger } from "core/log";
+import { FakeFs } from "core/system/testing";
 import { Creds } from "../creds";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
@@ -10,7 +10,7 @@ import { FakeCloudflare } from "../tunnel/testing";
 import { slotTunnelSetup } from "./slot-tunnel";
 
 describe("slotTunnelSetup", () => {
-	// scry-ignore simple-test-setup: the fakes in `account` are each case's whole setup
+	// vet-ignore simple-test-setup: the fakes in `account` are each case's whole setup
 	it("makes the slot's tunnel and route, and one wildcard Access app for every slot", async () => {
 		const { cloudflare, store, fs, machine, setup } = await account();
 

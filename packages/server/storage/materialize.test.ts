@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "core/system/testing";
 import { FsStorage, SqliteStorage, type Storage } from "./index";
 import { MemoryStorage } from "./testing";
 

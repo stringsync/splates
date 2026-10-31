@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { type Clock, Duration, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { type Clock, Duration, type Timer } from "core/time";
 import type { Projects } from "./project-api";
 import { ontoOf } from "./release";
 import type { Settings } from "./settings";

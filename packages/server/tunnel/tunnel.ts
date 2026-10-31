@@ -1,6 +1,6 @@
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
 import { fail } from "../exit";
 import { type AccessConfig, accessConfig } from "./access";
 import { CloudflaredTunnelProvider } from "./cloudflared";

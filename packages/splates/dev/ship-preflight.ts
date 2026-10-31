@@ -1,4 +1,4 @@
-import type { Ps } from "webappwiz/system";
+import type { Ps } from "core/system";
 
 /**
  * Makes sure the machine can finish a release before anything is built or

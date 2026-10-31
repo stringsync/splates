@@ -200,7 +200,7 @@ describe("StatsReport", () => {
 		expect(report.buckets[0]?.label).toBe("Week of 2026-10-13");
 	});
 
-	// scry-ignore simple-test-setup: older than this task, which only gave its fixture baselines
+	// vet-ignore simple-test-setup: older than this task, which only gave its fixture baselines
 	it("drops a load that lands after a later one was asked for", async () => {
 		const slow = Promise.withResolvers<Stats>();
 		const later = { ...stats, since: "later" };

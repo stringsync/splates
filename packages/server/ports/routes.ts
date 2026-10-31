@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import { type Clock, Duration, SystemClock } from "webappwiz/time";
+import type { Logger } from "core/log";
+import { type Clock, Duration, SystemClock } from "core/time";
 import type { Connection, Served } from "../server/shared";
 import { hostname, LOOPBACK, refuse } from "../server/shared";
 import { ACCESS_COOKIE, ACCESS_HEADER, type Access } from "../tunnel";

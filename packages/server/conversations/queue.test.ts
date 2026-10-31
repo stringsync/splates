@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent, say } from "../agents/testing";
 import { Conversations } from "./index";
 import {
@@ -321,7 +321,7 @@ describe("Conversation queue", () => {
 		await finish(conversation, held);
 	});
 
-	// scry-ignore simple-test-setup: stopping and reopening this queue is the behavior under test
+	// vet-ignore simple-test-setup: stopping and reopening this queue is the behavior under test
 	it("reads back what still waits from its log", async () => {
 		const conversation = await working(conversations, held);
 		await conversation.prompt("two");

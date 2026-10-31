@@ -1,6 +1,6 @@
+import { WindowBackgroundObserver } from "core/browser";
+import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useRef, useState } from "react";
-import { WindowBackgroundObserver } from "webappwiz/browser";
-import { Duration, SystemTimer } from "webappwiz/time";
 import {
 	Popover,
 	PopoverContent,

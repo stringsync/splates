@@ -158,7 +158,7 @@ describe("App's controls that put agents to work", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: the waiting agents are this test's own inputs
+	// vet-ignore simple-test-setup: the waiting agents are this test's own inputs
 	it("shows a queued todo's held conversation waiting in line on its card and in its dialog, and opens it", async () => {
 		const view = await board(
 			[

@@ -1,4 +1,4 @@
-import { Position, Rect } from "webappwiz/geometry";
+import { Position, Rect } from "core/geometry";
 
 /**
  * One mark: a box between two corners, an arrow from its tail to its head, or

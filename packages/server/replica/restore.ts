@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import type { Storage } from "../storage";
 import { replace } from "../storage";
 import { readListing, readManifest } from "./layout";

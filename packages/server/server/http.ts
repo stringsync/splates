@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import { SystemTimer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import { SystemTimer } from "core/time";
 import type { Attachment } from "../artifacts";
 import { Exit, type Reason } from "../exit";
 import type { Access, Identity } from "../tunnel";

@@ -46,7 +46,8 @@ export interface StepRow {
  * merge under way. A merge with no premerge to run neither waits nor tests,
  * and one past its premerge waits no more. With `estimates`, the steps and
  * phases under way or to come say how long they took in recent merges, and
- * a premerge under way lists the phases it has yet to start.
+ * a premerge under way lists the phases it has yet to start. A premerge
+ * run in another merge's batch that split says so, apart from its own.
  */
 export function mergeChecklist(
 	task: Details,
@@ -58,13 +59,17 @@ export function mergeChecklist(
 		return [];
 	}
 	const { steps } = progress;
-	const lastTest = steps.findLastIndex((each) => each.step === "test");
+	const lastTest = steps.findLastIndex(
+		(each) => each.step === "test" && each.dissolved === undefined,
+	);
 	const taken: StepRow[] = steps.map((each, index) => {
 		const ends = steps[index + 1]?.at;
 		const running = ends === undefined;
 		return {
 			step: each.step,
-			label: labelOf(task, each.step, running),
+			label: each.dissolved
+				? "Premerge in a batch that split"
+				: labelOf(task, each.step, running),
 			standing: running ? "running" : "done",
 			ms: Math.max(0, (ends ? Date.parse(ends) : now) - Date.parse(each.at)),
 			typical: running ? (estimates?.steps[each.step] ?? null) : null,

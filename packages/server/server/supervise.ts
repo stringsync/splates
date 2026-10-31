@@ -1,13 +1,13 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Child, Fs, Ps } from "webappwiz/system";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Child, Fs, Ps } from "core/system";
 import {
 	type Clock,
 	Duration,
 	SystemClock,
 	SystemTimer,
 	type Timer,
-} from "webappwiz/time";
+} from "core/time";
 import { EXIT } from "../exit";
 import { SUPERVISOR } from "../workers";
 import { ServerInterrupt } from "./interrupt";

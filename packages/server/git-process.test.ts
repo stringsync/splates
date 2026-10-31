@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Worker } from "node:worker_threads";
-import { type Child, NodePs } from "webappwiz/system";
+import { type Child, NodePs } from "core/system";
 import { Git } from "./git";
 import { processGit } from "./git-process";
 
@@ -64,14 +64,15 @@ describe("processGit", () => {
 		await expect(git.commonDir()).rejects.toThrow("empty path");
 	});
 
-	// scry-ignore simple-test-setup: Only this regression uses workers and their synchronization; there is no shared setup to move.
+	// vet-ignore simple-test-setup: Only this regression uses workers and their synchronization; there is no shared setup to move.
 	it("keeps concurrent workers' git output separate even though they share a pid", async () => {
 		const module = new URL("./git-process.ts", import.meta.url).href;
+		const system = import.meta.resolve("core/system");
 		const code = `
 			const { parentPort, workerData } = require("node:worker_threads");
 			(async () => {
 				const { processGit } = await import(workerData.module);
-				const { NodePs } = await import("webappwiz/system");
+				const { NodePs } = await import(workerData.system);
 				parentPort.postMessage("ready");
 				parentPort.once("message", async () => {
 					try {
@@ -87,7 +88,10 @@ describe("processGit", () => {
 			})();`;
 		const workers = ["alpha", "beta"].map(
 			(marker) =>
-				new Worker(code, { eval: true, workerData: { module, marker } }),
+				new Worker(code, {
+					eval: true,
+					workerData: { module, system, marker },
+				}),
 		);
 		try {
 			await Promise.all(workers.map(nextMessage));

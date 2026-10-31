@@ -1,5 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { useDisposerEffect, useReactive } from "core/react";
 import {
 	ChevronLeftIcon,
 	MessageSquareIcon,

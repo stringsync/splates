@@ -1,8 +1,8 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Child, Fs, Ps } from "webappwiz/system";
-import { Duration, type Timer } from "webappwiz/time";
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Child, Fs, Ps } from "core/system";
+import { Duration, type Timer } from "core/time";
 import { GUARD } from "../tunnel";
 
 /** Pinned, so the browser it installs is the one it launches. */

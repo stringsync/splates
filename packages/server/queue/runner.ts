@@ -1,6 +1,6 @@
-import { Disposer, type Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import { Disposer, type Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import type { TaskRecord } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";

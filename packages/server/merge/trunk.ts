@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import type { Git } from "../git";

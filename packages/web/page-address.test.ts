@@ -1,6 +1,6 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Resource } from "webappwiz/disposable";
+import type { Resource } from "core/disposable";
 import { showAddress } from "./navigation";
 import { PageAddress, ruleAddress, todoAddress } from "./page-address";
 

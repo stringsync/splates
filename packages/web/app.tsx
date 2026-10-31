@@ -1,6 +1,7 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { useDisposerEffect, useReactive } from "core/react";
+import { type Duration, SystemClock, SystemTimer, type Timer } from "core/time";
 import {
 	Fragment,
 	type JSX,
@@ -10,12 +11,6 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import {
-	type Duration,
-	SystemClock,
-	SystemTimer,
-	type Timer,
-} from "webappwiz/time";
 import { TooltipProvider } from "#web/components/ui/tooltip.tsx";
 import { Opening } from "./add-project";
 import { stats } from "./api";

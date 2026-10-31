@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { FakePageCopies } from "./fake-page-copies";
 import { Feed } from "./feed";
 import { PageCopy } from "./page-copy";

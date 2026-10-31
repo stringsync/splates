@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { Exit } from "../exit";
 import { effortsOf, Offered, Roster } from "../models";
 import { body } from "../server/shared";

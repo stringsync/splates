@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Said } from "@stringsync/splates-server/conversations";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeTimer } from "core/time/testing";
 import { ConversationSearch, type WordsServer } from "./conversation-search";
 
 /** A server that answers each search as `answers` says, once released. */

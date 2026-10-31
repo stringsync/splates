@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Fs } from "core/system";
 import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import { fail } from "../exit";

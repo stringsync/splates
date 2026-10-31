@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
 import { handoffWorker, isHandoffWorker, LOCAL_WORKER } from "./local-id";
 import { UPDATE } from "./protocol";
 import type { WorkerRecords } from "./records";

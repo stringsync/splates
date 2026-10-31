@@ -1,6 +1,6 @@
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { listQueue, moveQueued } from "@stringsync/splates-server/workers";
-import { cli } from "webappwiz/cmd";
+import { cli } from "core/cmd";
 import { z } from "zod";
 
 const DEV = {

@@ -497,6 +497,26 @@ describe("App's archiving conversations", () => {
 		).not.toBeNull();
 	});
 
+	it("leaves the idle banner off an archived conversation, whose own banner says sending wakes it", async () => {
+		const view = await testing.openConversations([], null);
+		await testing.say(
+			conversation({
+				status: "stopped",
+				stoppedIdle: "2026-10-14T10:00:00.000Z",
+				archived: true,
+			}),
+		);
+		await act(async () => {
+			location.hash = "#conversations/c1";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+
+		await view.findByText("This conversation is archived.");
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="idle-banner"]'),
+		).toBeNull();
+	});
+
 	it("lets the archived banner be dismissed", async () => {
 		const view = await testing.openConversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));

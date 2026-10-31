@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
-import { color, type Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { color, type Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
+import { Duration } from "core/time";
 import { z } from "zod";
 import { fail } from "../exit";
 import type { Format } from "./format";

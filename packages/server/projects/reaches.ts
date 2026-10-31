@@ -1,5 +1,5 @@
-import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import type { Ps } from "core/system";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import type { Projects, Reach } from "./projects";

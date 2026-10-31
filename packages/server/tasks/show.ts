@@ -1,5 +1,5 @@
-import { color, type Logger } from "webappwiz/log";
-import { type Fs, NodeFs } from "webappwiz/system";
+import { color, type Logger } from "core/log";
+import { type Fs, NodeFs } from "core/system";
 import { age } from "../age";
 import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";

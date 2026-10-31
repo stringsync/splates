@@ -1,4 +1,4 @@
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 
 /**
  * How often `splates server` says a stream it serves is still there, so the page

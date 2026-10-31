@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { NPM_ENV } from "./npm-terminal";
 
 /** The npmrc line that signs npm in as the token in `NPM_TOKEN`, which npm expands itself. */

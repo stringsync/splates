@@ -1,14 +1,9 @@
-// scry-ignore-file compact-files: already over the limit before this change; splitting the step runner is queued as its own task
-import { aborts } from "webappwiz/abort";
-import { ensure } from "webappwiz/assert";
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Fs } from "webappwiz/system";
-import {
-	Duration,
-	SystemWallClock,
-	sleep,
-	type WallClock,
-} from "webappwiz/time";
+// vet-ignore-file compact-files: already over the limit before this change; splitting the step runner is queued as its own task
+import { aborts } from "core/abort";
+import { ensure } from "core/assert";
+import type { AsyncResource } from "core/disposable";
+import type { Fs } from "core/system";
+import { Duration, SystemWallClock, sleep, type WallClock } from "core/time";
 import { fail } from "../exit";
 import type { Storage } from "../storage";
 import { type Cascade, type CascadeStep, Cascades } from "./cascade";

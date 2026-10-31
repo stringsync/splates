@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { FakeFs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { FsStorage } from "../storage";
 import { ConversationLog, type Entry } from "./log";
 

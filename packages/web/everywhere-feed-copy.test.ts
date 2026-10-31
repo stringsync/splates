@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
-import type { Resource } from "webappwiz/disposable";
-import { FakeTimer } from "webappwiz/time/testing";
+import type { Resource } from "core/disposable";
+import { FakeTimer } from "core/time/testing";
 import { EverywhereFeed } from "./everywhere-feed";
 import { FakePageCopies } from "./fake-page-copies";
 import { PageCopy } from "./page-copy";

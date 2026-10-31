@@ -1,0 +1,4 @@
+[test]
+# The page's tests need a DOM; the server's must never see happy-dom's globals,
+# so this applies to this package's run alone.
+preload = ["./test-preload.ts"]

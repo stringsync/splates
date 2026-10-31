@@ -4,7 +4,7 @@ import type { TaskReport } from "@stringsync/splates-server/plans";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { ArchiveIcon, XIcon } from "lucide-react";
 import {
 	type JSX,
@@ -296,7 +296,8 @@ function Conversation({
 						phone={onBack !== null}
 					/>
 				)}
-				{conversation.status === "stopped" &&
+				{!archived &&
+					conversation.status === "stopped" &&
 					conversation.stoppedIdle !== null && (
 						<IdleBanner phone={onBack !== null} />
 					)}

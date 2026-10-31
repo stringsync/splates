@@ -17,8 +17,8 @@ import {
 	statusLines,
 } from "@stringsync/splates-server/replica";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { cli } from "webappwiz/cmd";
-import { Credentials } from "webappwiz/creds";
+import { cli } from "core/cmd";
+import { Credentials } from "core/creds";
 import { z } from "zod";
 
 /** `splates replica`, which the root cli mounts after `splates budget`. */

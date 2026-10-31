@@ -1,22 +1,31 @@
 {
-	"name": "splates-workspace",
-	"version": "0.0.61",
+	"name": "splates",
+	"version": "1.13.3",
 	"private": true,
 	"type": "module",
-	"workspaces": [
-		"packages/*"
-	],
+	"workspaces": {
+		"packages": [
+			"packages/evals",
+			"packages/server",
+			"packages/splates",
+			"packages/tooling",
+			"packages/web",
+			"packages/core"
+		],
+		"catalog": {
+			"@types/bun": "^1.4",
+			"@happy-dom/global-registrator": "^20.3.1",
+			"@testing-library/react": "^16.3.1",
+			"@types/react": "^19.1.13",
+			"react": "^19.2.4",
+			"react-dom": "^19.2.4",
+			"zod": "^4.4.3"
+		}
+	},
 	"devDependencies": {
-		"@agentclientprotocol/sdk": "^1.7.0",
-		"@biomejs/biome": "^2.5.7",
-		"@types/bun": "1.3.14",
-		"@webappwiz/cli": "0.0.58",
-		"@webappwiz/scry": "0.0.58",
-		"@stringsync/splates": "workspace:*",
-		"typescript": "^7",
-		"webappwiz": "0.0.58",
-		"zod": "^4.4.3",
-		"@stringsync/splates-server": "workspace:*"
+		"@biomejs/biome": "2.5.7",
+		"@types/bun": "catalog:",
+		"typescript": "^7.0.2"
 	},
 	"scripts": {
 		"postinstall": "bun run --cwd packages/web build"

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeTimer } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeTimer } from "core/time/testing";
 import type { Agent } from "../agents";
 import { FakeAgent } from "../agents/testing";
 import { taskAdd, taskUpdate } from "../board";

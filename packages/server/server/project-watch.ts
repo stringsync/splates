@@ -1,6 +1,6 @@
 import { basename } from "node:path";
-import type { Resource } from "webappwiz/disposable";
-import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Debouncer, Duration, SystemTimer } from "core/time";
 import { ElsewhereStanding } from "../board";
 import { LEGACY_PLAN_FILE } from "../config";
 import { PLAN_FILE } from "../plans";

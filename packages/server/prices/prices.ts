@@ -1,4 +1,4 @@
-import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
+import { Duration, SystemWallClock, type WallClock } from "core/time";
 import type { Document, Storage } from "../storage";
 
 /** Where the public API list prices come from: OpenCode prices models by it too. */

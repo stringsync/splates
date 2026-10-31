@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import { fail } from "../exit";
 import { type AgentPick, pickLabel } from "../models";
 import { changed, type HookChange } from "./edit";

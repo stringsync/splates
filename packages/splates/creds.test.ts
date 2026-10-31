@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Testing } from "@stringsync/splates-server/testing";
-import { Duration, sleep } from "webappwiz/time";
+import { Duration, sleep } from "core/time";
 import { splates } from "./splates";
 
 const WHY = "To read the build logs through the dashboard's API.";
@@ -221,7 +221,7 @@ describe("creds", () => {
 	});
 });
 
-// scry-ignore simple-test-setup: one describe per command, as the file groups the CLI's cases
+// vet-ignore simple-test-setup: one describe per command, as the file groups the CLI's cases
 describe("splates creds", () => {
 	let env: Testing;
 	let deps: Parameters<typeof splates.run>[0];
@@ -302,7 +302,7 @@ describe("splates creds", () => {
 	});
 });
 
-// scry-ignore simple-test-setup: copyLegacy reads a store the other commands never touch
+// vet-ignore simple-test-setup: copyLegacy reads a store the other commands never touch
 describe("copyLegacy", () => {
 	let deps: Testing;
 

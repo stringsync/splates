@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { FakeAgent } from "../agents/testing";
 import { type ArtifactLimits, Artifacts } from "../artifacts";
 import type { Exit } from "../exit";
@@ -243,7 +243,7 @@ describe("Conversation artifacts", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: it starts the two conversations whose eviction order it compares; the other cases start one
+	// vet-ignore simple-test-setup: it starts the two conversations whose eviction order it compares; the other cases start one
 	it("evicts what archived conversations show before what live ones do", async () => {
 		const live = await started();
 		const archived = await started();
@@ -337,7 +337,7 @@ describe("Conversation artifacts", () => {
 		expect(new TextDecoder().decode(current?.bytes)).toBe("two");
 	});
 
-	// scry-ignore simple-test-setup: it reads back a log written before archiving cleaned up, which no other case sets up
+	// vet-ignore simple-test-setup: it reads back a log written before archiving cleaned up, which no other case sets up
 	it("tidies a conversation archived before archiving cleaned up, as it is read back", async () => {
 		const conversation = await started();
 		await conversation.artifacts.add(file("report.html", "one"));

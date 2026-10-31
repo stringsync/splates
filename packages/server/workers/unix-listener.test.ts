@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs } from "webappwiz/system";
+import { MemoryLogger } from "core/log";
+import { NodeFs } from "core/system";
 import { Testing } from "../testing";
 import { WorkerRegistry } from "./registry";
 import { WorkerSession } from "./session";
@@ -32,7 +32,7 @@ describe("UnixWorkerListener startup", () => {
 		await deps.disposeAsync();
 	});
 
-	// scry-ignore simple-test-setup: starting the listener with permissions held is the race under test.
+	// vet-ignore simple-test-setup: starting the listener with permissions held is the race under test.
 	it("turns away a worker arriving before permissions finish so it can reconnect to the ready listener", async () => {
 		const path = join(deps.splatesHome, "worker.sock");
 		const listening = UnixWorkerListener.listen(path, fs);

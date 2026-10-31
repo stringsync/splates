@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
 import { MemoryStorage } from "../storage/testing";
 import { Attachments } from "./attachments";
 

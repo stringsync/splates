@@ -1,5 +1,5 @@
-import type { Lock } from "webappwiz/system";
-import type { Timer } from "webappwiz/time";
+import type { Lock } from "core/system";
+import type { Timer } from "core/time";
 import {
 	type Agent,
 	type Launcher,

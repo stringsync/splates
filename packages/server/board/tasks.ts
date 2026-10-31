@@ -1,5 +1,5 @@
 import { relative, resolve, sep } from "node:path";
-import { type IdProvider, UuidProvider } from "webappwiz/id";
+import { type IdProvider, UuidProvider } from "core/id";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
 import { changeLane } from "./change-lane";

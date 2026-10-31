@@ -1,5 +1,5 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Eventful } from "webappwiz/events";
+import type { Resource } from "core/disposable";
+import type { Eventful } from "core/events";
 
 /** What a `WorkerSocket` hears: one whole frame, or that it is gone. */
 export interface WorkerSocketEvents extends Record<string, unknown> {

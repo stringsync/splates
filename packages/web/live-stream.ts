@@ -1,6 +1,6 @@
 import { PULSE } from "@stringsync/splates-server/server/browser";
-import type { Resource } from "webappwiz/disposable";
-import { Debouncer, Duration, SystemTimer, type Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Debouncer, Duration, SystemTimer, type Timer } from "core/time";
 import { WAKES, type Wakes } from "./wakes";
 
 /** What a stream's events go to, each named event by its name. */

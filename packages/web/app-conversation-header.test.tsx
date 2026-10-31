@@ -75,7 +75,7 @@ describe("App's conversation header", () => {
 		expect(view.queryByRole("button", { name: /of context used/ })).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the tasks and todos it opens with are what it takes up, and no other test opens with them
+	// vet-ignore simple-test-setup: the tasks and todos it opens with are what it takes up, and no other test opens with them
 	it("takes up a task no conversation runs in, or an open todo, from the branch atop a main-tree conversation's widgets", async () => {
 		const view = await testing.openConversations(
 			[
@@ -635,7 +635,7 @@ describe("App's conversation header", () => {
 		).toBe("bun build --watch\nStarted by Check the build");
 	});
 
-	// scry-ignore simple-test-setup: only this test reads a command's output, so it holds its own rather than share one every test ignores
+	// vet-ignore simple-test-setup: only this test reads a command's output, so it holds its own rather than share one every test ignores
 	it("opens a command's output beside the page from its row in the card, with a Stop while it runs", async () => {
 		testing.outputs = { b1: "listening on 3000" };
 		const running = {

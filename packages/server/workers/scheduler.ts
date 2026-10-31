@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { WallClock } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import type { WallClock } from "core/time";
 
 /**
  * Places agents on workers at once, however many run: nothing caps how

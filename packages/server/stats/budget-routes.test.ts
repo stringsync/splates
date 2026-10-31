@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { json, serving } from "../server/testing";
 import { Testing } from "../testing";
 
-/** A `wiz` that answers with the args it was given, as one JSON string. */
+/** A `vet` that answers with the args it was given, as one JSON string. */
 const ECHO = `f() { printf '{"args":"%s"}' "$*"; }; f`;
 
 describe("dev budgets", () => {
@@ -10,12 +10,12 @@ describe("dev budgets", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		deps.config.wiz = ECHO;
+		deps.config.vet = ECHO;
 	});
 
 	afterEach(() => deps.disposeAsync());
 
-	it("runs scry budgets through the repo's wiz, answering with what it prints", async () => {
+	it("runs vet budgets through the repo's vet command, answering with what it prints", async () => {
 		await serving(deps, async (_snapshot, port) => {
 			const answers = await Promise.all([
 				fetch(`http://127.0.0.1:${port}/api/budgets`),
@@ -40,32 +40,32 @@ describe("dev budgets", () => {
 					answers.map(async (each) => (await each.json()).args),
 				),
 			).toEqual([
-				"scry budgets --format json",
-				"scry budgets set llm 2m/month --format json",
-				"scry budgets reset llm --format json",
-				"scry budgets raise som 2m --for 4h --format json",
-				"scry budgets raise som 1m --for 1d --project --format json",
-				"scry budgets end 3 --format json",
-				"scry budgets pause llm --for 1d --format json",
-				"scry budgets resume llm --format json",
+				"budgets --format json",
+				"budgets set llm 2m/month --format json",
+				"budgets reset llm --format json",
+				"budgets raise som 2m --for 4h --format json",
+				"budgets raise som 1m --for 1d --project --format json",
+				"budgets end 3 --format json",
+				"budgets pause llm --for 1d --format json",
+				"budgets resume llm --format json",
 			]);
 		});
 	});
 
-	it("hands what the page sends to wiz as args, never to the shell", async () => {
+	it("hands what the page sends to vet as args, never to the shell", async () => {
 		await serving(deps, async (_snapshot, port) => {
 			const answer = await json(port, "/api/budgets/llm", "PUT", {
 				spend: "$(echo pwned)",
 			});
 
 			expect((await answer.json()).args).toBe(
-				"scry budgets set llm $(echo pwned) --format json",
+				"budgets set llm $(echo pwned) --format json",
 			);
 		});
 	});
 
-	it("refuses with what wiz said when it fails", async () => {
-		deps.config.wiz = `echo "error: expected limits like 5m/day" >&2; exit 1; :`;
+	it("refuses with what vet said when it fails", async () => {
+		deps.config.vet = `echo "error: expected limits like 5m/day" >&2; exit 1; :`;
 
 		await serving(deps, async (_snapshot, port) => {
 			const answer = await json(port, "/api/budgets/llm", "PUT", {
@@ -80,7 +80,7 @@ describe("dev budgets", () => {
 	});
 
 	it("reads an empty report as no budget declared", async () => {
-		deps.config.wiz = "true; :";
+		deps.config.vet = "true; :";
 
 		await serving(deps, async (_snapshot, port) => {
 			const answer = await fetch(`http://127.0.0.1:${port}/api/budgets`);

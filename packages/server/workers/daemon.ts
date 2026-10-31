@@ -1,6 +1,6 @@
-import type { AsyncResource, Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { AsyncResource, Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import {
 	type Clock,
 	Duration,
@@ -8,7 +8,7 @@ import {
 	SystemTimer,
 	type Timer,
 	timeouts,
-} from "webappwiz/time";
+} from "core/time";
 import { RUNNING } from "../server/shared";
 import { WorkerCallHost } from "./call-host";
 import type { WorkerChannel } from "./channel";

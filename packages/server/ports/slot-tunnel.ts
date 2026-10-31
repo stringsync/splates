@@ -1,4 +1,4 @@
-import type { Logger } from "webappwiz/log";
+import type { Logger } from "core/log";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
 import type { CloudflareApi, SavedTunnel, TunnelRecord } from "../tunnel";

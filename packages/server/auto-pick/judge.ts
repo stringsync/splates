@@ -1,4 +1,4 @@
-import type { Credentials } from "webappwiz/creds";
+import type { Credentials } from "core/creds";
 import { splatesHome } from "../models";
 import type { Project } from "../server/shared";
 import { Spend } from "../spend";

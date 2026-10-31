@@ -1,5 +1,5 @@
-import { Credentials } from "webappwiz/creds";
-import { MemoryLogger } from "webappwiz/log";
+import { Credentials } from "core/creds";
+import { MemoryLogger } from "core/log";
 import { FsStorage } from "../storage";
 import {
 	API_TOKEN,

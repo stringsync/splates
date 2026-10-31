@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemorySecretStore } from "webappwiz/creds";
-import { NodeFs } from "webappwiz/system";
+import { MemorySecretStore } from "core/creds";
+import { NodeFs } from "core/system";
 import { cannotReach, systemStores } from "./stores";
 
 describe("systemStores with SPLATES_SECRET_STORE=file", () => {

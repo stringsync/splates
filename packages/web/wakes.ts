@@ -1,13 +1,13 @@
 import { PULSE } from "@stringsync/splates-server/server/browser";
-import { Disposer, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Disposer, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
 import {
 	Duration,
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
 	type WallClock,
-} from "webappwiz/time";
+} from "core/time";
 
 export type WakesEvents = { woke: undefined };
 

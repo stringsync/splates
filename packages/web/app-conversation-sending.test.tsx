@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import {
 	act,
 	cleanup,
@@ -49,7 +49,7 @@ describe("App's sending messages", () => {
 		expect(view.getAllByText("second note")).toHaveLength(1);
 	});
 
-	// scry-ignore simple-test-setup: this scenario alone substitutes an HTTP acknowledgement without a stream echo
+	// vet-ignore simple-test-setup: this scenario alone substitutes an HTTP acknowledgement without a stream echo
 	it("settles the first message from its HTTP acknowledgement before the live stream catches up", async () => {
 		const view = await testing.openConversations([], null);
 		await newWith(view, "Claude");
@@ -58,7 +58,7 @@ describe("App's sending messages", () => {
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
 			const response = await fetch(path, init);
 			const form = init?.body;
-			// scry-ignore matchers-over-test-logic: fake server routing returns the acknowledgement only for the first prompt
+			// vet-ignore matchers-over-test-logic: fake server routing returns the acknowledgement only for the first prompt
 			if (
 				path === "/api/conversations/c9/prompt" &&
 				form instanceof FormData &&

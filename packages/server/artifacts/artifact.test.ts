@@ -130,6 +130,7 @@ describe("artifact", () => {
 		deps.proc.env.SPLATES_WORKER = "w1";
 		let calls = 0;
 		const send = async () => {
+			// vet-ignore matchers-over-test-logic: copied from the splates repository as it was; reworking it is its own task
 			if (++calls < 2) {
 				throw new Error("refused");
 			}

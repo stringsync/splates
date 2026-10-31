@@ -1,8 +1,8 @@
-// scry-ignore-file compact-files: the conversation lifecycle coordinates its delegated turns, files, connection, and log as one public object.
+// vet-ignore-file compact-files: the conversation lifecycle coordinates its delegated turns, files, connection, and log as one public object.
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration } from "core/time";
 import type { Agent, AgentProcess, ProcessHandle } from "../agents";
 import { AgentConnection, endBackground, fold, heard } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
@@ -738,8 +738,8 @@ export class Conversation
 	}
 
 	/** Stops the agent; the next prompt resumes where it left off. */
-	async stop(): Promise<void> {
-		await this.halt(false);
+	async stop({ idle = false }: { idle?: boolean } = {}): Promise<void> {
+		await this.halt(false, idle);
 	}
 
 	/**
@@ -766,11 +766,11 @@ export class Conversation
 	}
 
 	/** Stops the agent, leaving what it was told `unsaid` for the next run or not. */
-	private async halt(unsaid: boolean): Promise<void> {
+	private async halt(unsaid: boolean, idle = false): Promise<void> {
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
 		this.unkeep();
-		await this.close(null, { unsaid });
+		await this.close(null, { unsaid, idle });
 	}
 
 	/** Keeps `picks`, to set once the session opens, through a restart before it does. */
@@ -1079,7 +1079,7 @@ export class Conversation
 	 */
 	async close(
 		error: string | null,
-		{ unsaid = false }: { unsaid?: boolean } = {},
+		{ unsaid = false, idle = false }: { unsaid?: boolean; idle?: boolean } = {},
 	): Promise<void> {
 		if (this.detached) {
 			return;
@@ -1108,6 +1108,8 @@ export class Conversation
 			error,
 			ask: null,
 			background: [],
+			// Only a stop the idle wait made, and that nothing failed, says so.
+			stoppedIdle: idle && error === null ? this.now() : null,
 		});
 		// Lost rather than stopped: the person stopping it, or the server
 		// shutting down, ends it with no error.
@@ -1167,7 +1169,7 @@ export class Conversation
 		this.changed();
 		if (next.status === "idle" && this.leftWorktree) {
 			this.leftWorktree = false;
-			void this.stop().then(() => this.set({ stoppedIdle: this.now() }));
+			void this.stop();
 		}
 		// An agent that asks on a worker already draining lets its place go too,
 		// and one whose turn ends on a worker being replaced moves off it.
@@ -1211,7 +1213,7 @@ export class Conversation
 		this.resting ??= this.deps.timer.setTimeout(() => {
 			this.resting = null;
 			if (idle()) {
-				void this.stop().then(() => this.set({ stoppedIdle: this.now() }));
+				void this.stop({ idle: true });
 			}
 		}, IDLE_STOP);
 	}

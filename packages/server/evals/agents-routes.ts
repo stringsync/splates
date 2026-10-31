@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { type AutoPickAgent, pickableAgents } from "../auto-pick";
 import type { AgentPick } from "../models";
 import { body, type Handler } from "../server/shared";

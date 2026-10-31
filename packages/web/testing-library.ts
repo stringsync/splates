@@ -13,5 +13,5 @@ export const { act, cleanup, fireEvent, render, waitFor, within } = library;
 // A merge gate tests while other agents test and build, and there a page
 // that shows within a second alone can take several: under load, waitFor's
 // default of one second failed whole suites of App tests at once. Each test
-// still has `splates dev test`'s 30 seconds.
+// still has `bin/mono test`'s 30 seconds.
 library.configure({ asyncUtilTimeout: 10_000 });

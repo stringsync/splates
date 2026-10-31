@@ -43,7 +43,7 @@ export type Archive = {
  * down first scrolls instead, and one moving right is left to the browser,
  * whose swipe from the edge goes back.
  */
-// scry-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
+// vet-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
 export function Swipeable({
 	archive,
 	held = false,
@@ -220,7 +220,7 @@ const EDGE_PX = 24;
  * archiving that asks first slides back as the question opens, and any other
  * slides off before it is filed.
  */
-// scry-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
+// vet-ignore logic-lives-in-controllers: older than this task, which only widens the gesture's tap tolerance
 export function EdgeSwipe({
 	archive,
 	target,

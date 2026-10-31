@@ -1,7 +1,7 @@
-// scry-ignore-file doc-comments-address-users: moved into server/ unchanged; it predates the rule
-import type { AsyncResource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+// vet-ignore-file doc-comments-address-users: moved into server/ unchanged; it predates the rule
+import type { AsyncResource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs, Ps } from "core/system";
 import type { After, Conversation, ConversationState } from "../conversations";
 import { realName } from "../conversations";
 import { fail } from "../exit";

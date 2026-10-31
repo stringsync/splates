@@ -1,4 +1,4 @@
-import { useReactive, useResource } from "@webappwiz/react";
+import { useReactive, useResource } from "core/react";
 import { PlusIcon, XIcon } from "lucide-react";
 import {
 	type JSX,

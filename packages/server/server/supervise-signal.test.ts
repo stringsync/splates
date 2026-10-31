@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import type { SpawnOptions } from "core/system";
+import { FakePs } from "core/system/testing";
+import { FakeTimer } from "core/time/testing";
 import { supervise } from "./supervise";
 
 describe("supervise, signalled", () => {

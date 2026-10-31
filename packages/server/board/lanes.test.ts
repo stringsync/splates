@@ -73,7 +73,7 @@ describe("lanes", () => {
 		expect(cycle(tasks, 5, 5)).toEqual([5, 5]);
 	});
 
-	// scry-ignore simple-test-setup: these five tasks, two lanes and their links are the case it checks, and no other test uses them.
+	// vet-ignore simple-test-setup: these five tasks, two lanes and their links are the case it checks, and no other test uses them.
 	it("moves a task below what it comes after in its lane, and nothing else", () => {
 		const one = task({ id: 1, lane: 1, position: 1, blockedBy: [3] });
 		const two = task({ id: 2, lane: 2, position: 2 });

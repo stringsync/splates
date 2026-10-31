@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
+import { MemoryLogger } from "core/log";
 import { FakeAgent, say } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations, GROOMER_ROLE } from "../conversations";

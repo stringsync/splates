@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
+// vet-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
 
 import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/artifacts";
@@ -43,8 +43,8 @@ import {
 	untilAfter,
 	wait,
 } from "@stringsync/splates-server/tasks";
-import { cli } from "webappwiz/cmd";
-import { Duration } from "webappwiz/time";
+import { cli } from "core/cmd";
+import { Duration } from "core/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
 import { blockerFlags } from "./blockers";

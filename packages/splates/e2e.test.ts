@@ -4,8 +4,8 @@ import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Testing } from "@stringsync/splates-server/testing";
-import { ensure } from "webappwiz/assert";
-import { color } from "webappwiz/log";
+import { ensure } from "core/assert";
+import { color } from "core/log";
 
 // Every test here drives real git in a repo of its own, dozens of processes
 // each: fast alone, but starved past bun's 5s default when the whole suite
@@ -37,7 +37,7 @@ describe.concurrent("splates", () => {
 		expect(exitCode).toBe(1);
 		expect(stderr).toContain("only in a splates checkout");
 		expect(stdout).not.toContain("Usage: splates dev");
-		expect(stdout).not.toContain("  fix ");
+		expect(stdout).not.toContain("  eval ");
 	});
 
 	it.each([{ args: [] }, { args: ["--help"] }])(
@@ -53,8 +53,8 @@ describe.concurrent("splates", () => {
 
 			expect(exitCode).toBe(0);
 			expect(stdout).toContain("Usage: splates dev <command>");
-			expect(stdout).toContain("  fix ");
-			expect(stdout).toContain("  test ");
+			expect(stdout).toContain("  eval ");
+			expect(stdout).toContain("  ship ");
 			expect(stdout).not.toContain("  server ");
 		},
 	);
@@ -281,7 +281,7 @@ describe.concurrent("splates", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: its killing preMerge and marker file are this test's alone, and older than this task
+	// vet-ignore simple-test-setup: its killing preMerge and marker file are this test's alone, and older than this task
 	it("lands the tree on a retry when an agent is killed mid-merge", async () => {
 		await using cli = await setup();
 		const { env, splates, rows } = cli;

@@ -1,7 +1,7 @@
+import { BrowserMicrophone, DictationSocket } from "core/dictate/browser";
+import { SystemTimer } from "core/time";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserMicrophone, DictationSocket } from "webappwiz/dictate/browser";
-import { SystemTimer } from "webappwiz/time";
 import { scoped } from "./api";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";

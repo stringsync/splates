@@ -530,7 +530,7 @@ describe("App's conversation home", () => {
 		]);
 	});
 
-	// scry-ignore simple-test-setup: these plan-window fixtures belong only to this test; no other home test shares them.
+	// vet-ignore simple-test-setup: these plan-window fixtures belong only to this test; no other home test shares them.
 	it("shows how much of the plan is used and when each window resets, the newest said, yellow from 80% and red from 90%, for each agent that says", async () => {
 		const view = await testing.openConversations(
 			[

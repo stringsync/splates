@@ -7,7 +7,7 @@ import {
 	GROOMER_AUTOMATION,
 	runsNow,
 } from "@stringsync/splates-server/hooks/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import {
 	ChevronRightIcon,
 	CirclePlayIcon,

@@ -1,5 +1,5 @@
-import { Markdown } from "webappwiz/md";
-import { Duration } from "webappwiz/time";
+import { Markdown } from "core/md";
+import { Duration } from "core/time";
 import type { TaskRecord } from "../board";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../tasks";

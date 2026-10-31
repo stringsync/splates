@@ -1,6 +1,6 @@
 import { basename } from "node:path";
-import type { Transcriber } from "webappwiz/dictate";
-import { OpenAiTranscriber } from "webappwiz/dictate/server";
+import type { Transcriber } from "core/dictate";
+import { OpenAiTranscriber } from "core/dictate/server";
 import { splatesHome } from "../models";
 import type { Project } from "../server/shared";
 import { PersonalWords, personalWordsPath } from "./personal";

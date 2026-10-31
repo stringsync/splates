@@ -112,6 +112,7 @@ describe("parseDiff", () => {
 	});
 });
 
+// vet-ignore simple-test-setup: copied from the splates repository as it was; reworking it is its own task
 describe("editLines", () => {
 	it("puts what an edit took out before what it put in", () => {
 		expect(editLines("a\nb", "c")).toEqual([

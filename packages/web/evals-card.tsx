@@ -2,7 +2,7 @@ import { useAuiState } from "@assistant-ui/react";
 import type { EvalPlan } from "@stringsync/splates-server/evals/browser";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { BanIcon, FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
 import {
 	createContext,

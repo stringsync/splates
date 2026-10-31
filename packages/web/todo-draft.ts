@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { addTodo } from "./api";
 import { todoAdded } from "./board-expectations";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
@@ -12,8 +12,8 @@ export type TodoDraftEvents = { changed: undefined };
  * A todo being written, before it is added to the list, kept in `drafts`
  * under `key` as it is typed, so it outlives the box it is typed in.
  */
-// scry-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
-// scry-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
+// vet-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
 export class TodoDraft implements Eventful<TodoDraftEvents> {
 	private readonly dispatcher = new Dispatcher<TodoDraftEvents>();
 	readonly events = this.dispatcher.events;

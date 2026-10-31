@@ -17,7 +17,7 @@ test("names scry's defaults when no config sets a model", async () => {
 test("a bare name from a config replaces the role's models", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "scry-models-"));
 	writeFileSync(
-		join(dir, "scry.config.ts"),
+		join(dir, "vet.config.ts"),
 		'export default { models: { som: "jev-latest" } };',
 	);
 	const models = await new ScryModelsReader(dir, dir).read();
@@ -25,7 +25,7 @@ test("a bare name from a config replaces the role's models", async () => {
 		{
 			effort: "default",
 			model: "jev-latest",
-			from: join(dir, "scry.config.ts"),
+			from: join(dir, "vet.config.ts"),
 		},
 	]);
 	expect(models.llm[0]?.from).toBeNull();

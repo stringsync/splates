@@ -1,4 +1,6 @@
-import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { useDisposerEffect, useReactive } from "core/react";
 import { FileIcon, FolderIcon } from "lucide-react";
 import {
 	type ChangeEvent,
@@ -8,8 +10,6 @@ import {
 	useEffect,
 	useRef,
 } from "react";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
 import { cn } from "#web/lib/utils.ts";
 import { paths as fetchPaths } from "./api";
 

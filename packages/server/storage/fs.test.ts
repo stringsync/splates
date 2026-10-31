@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { FakeFs } from "core/system/testing";
 import { FsStorage } from "./index";
 
 describe("FsStorage", () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeSecretStore } from "core/creds/testing";
+import type { SpawnOptions } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
 import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
 import { Setup, type SetupMachine } from "./setup";
 

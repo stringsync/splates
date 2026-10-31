@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { Duration } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { AutoRestart } from "./auto-restart";
 import { listProjects, restartIdle } from "./project-api";
 import { Settings } from "./settings";

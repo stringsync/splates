@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
-// scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
+// vet-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 
-import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
-import { Duration } from "webappwiz/time";
+import { AsyncDisposer, type AsyncResource } from "core/disposable";
+import { Duration } from "core/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
 import { ConfigFiles } from "../config";
 import { SERVER_TOLD } from "../conversations";

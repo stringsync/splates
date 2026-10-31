@@ -1,10 +1,24 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
-	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-	"files": {
-		"includes": ["**", "!.agents", "!.wiz/scry/*/evals"]
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
 	},
-	"css": { "parser": { "tailwindDirectives": true } },
+	"files": {
+		"includes": [
+			"**",
+			"!skills-lock.json",
+			"!**/catalog/*/evals",
+			"!.vet/rules/*/evals",
+			"!packages/core"
+		]
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -16,18 +30,29 @@
 					"options": {
 						"conventions": [
 							{
-								"selector": { "kind": "typeLike" },
+								"selector": {
+									"kind": "typeLike"
+								},
 								"match": "([^I].*|I|I[^A-Z].*)"
 							},
 							{
-								"selector": { "kind": "variable" },
+								"selector": {
+									"kind": "variable"
+								},
 								"match": "(.{2,}|[ijk])"
 							},
 							{
-								"selector": { "kind": "functionParameter" },
+								"selector": {
+									"kind": "functionParameter"
+								},
 								"match": "(.{2,}|[ijk])"
 							},
-							{ "selector": { "kind": "any" }, "match": ".*" }
+							{
+								"selector": {
+									"kind": "any"
+								},
+								"match": ".*"
+							}
 						]
 					}
 				},
@@ -37,17 +62,29 @@
 						"patterns": [
 							{
 								"group": ["**/packages/**"],
-								"message": "Import the package's public API (e.g. '@stringsync/splates-server/config') instead of reaching into packages/."
+								"message": "Import the package's public API (its name and an exports subpath) instead of reaching into packages/."
 							}
 						]
 					}
 				}
 			},
-			"correctness": { "noUndeclaredDependencies": "error" }
+			"correctness": {
+				"noUndeclaredDependencies": "error"
+			}
 		}
 	},
-	"formatter": { "enabled": true },
+	"formatter": {
+		"enabled": true
+	},
 	"overrides": [
+		{
+			"includes": ["**/react/**"],
+			"linter": {
+				"domains": {
+					"react": "recommended"
+				}
+			}
+		},
 		{
 			"includes": ["packages/web/**/*.test.{ts,tsx}"],
 			"linter": {
@@ -62,7 +99,7 @@
 								"patterns": [
 									{
 										"group": ["**/packages/**"],
-										"message": "Import the package's public API (e.g. '@stringsync/splates-server/config') instead of reaching into packages/."
+										"message": "Import the package's public API (its name and an exports subpath) instead of reaching into packages/."
 									}
 								]
 							}
@@ -72,12 +109,22 @@
 			}
 		},
 		{
+			"includes": ["packages/web/**"],
+			"linter": {
+				"domains": {
+					"react": "recommended"
+				}
+			}
+		},
+		{
 			"includes": [
 				"packages/web/components/ui/**",
 				"packages/web/components/assistant-ui/**",
 				"packages/web/hooks/**"
 			],
-			"linter": { "enabled": false }
+			"linter": {
+				"enabled": false
+			}
 		}
 	]
 }

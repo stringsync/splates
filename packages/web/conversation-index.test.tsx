@@ -63,7 +63,7 @@ describe("conversation render subscriptions", () => {
 		testing.dispose();
 	});
 
-	// scry-ignore simple-test-setup: the baseline and streamed states are the behavior this case compares; the shared feed is in beforeEach
+	// vet-ignore simple-test-setup: the baseline and streamed states are the behavior this case compares; the shared feed is in beforeEach
 	it("keeps streaming words and usage out of the list, while preserving state and report changes", () => {
 		const original = one;
 		const before = conversationIndex(feed);
@@ -116,7 +116,7 @@ describe("conversation render subscriptions", () => {
 		expect(conversationIndex(source)).toEqual([]);
 	});
 
-	// scry-ignore simple-test-setup: only this case renders three measured subscription probes and counts their separate commits
+	// vet-ignore simple-test-setup: only this case renders three measured subscription probes and counts their separate commits
 	it("profiles zero list and unrelated-thread commits while another conversation streams, and switches selection without an event", async () => {
 		const commits = { list: 0, one: 0, two: 0 };
 		function List(): JSX.Element {
@@ -156,7 +156,7 @@ describe("conversation render subscriptions", () => {
 		);
 		const view = render(tree("two"));
 		const before = { ...commits };
-		// scry-ignore matchers-over-test-logic: ten independent stream events measure whether each subscriber commits, rather than asserting inside a loop
+		// vet-ignore matchers-over-test-logic: ten independent stream events measure whether each subscriber commits, rather than asserting inside a loop
 		for (let index = 0; index < 10; index++) {
 			await act(async () =>
 				feed.put({ ...one, messages: [message("agent", `Word ${index}`)] }),
@@ -167,7 +167,7 @@ describe("conversation render subscriptions", () => {
 		expect(view.getAllByText("Word 9 / 2")).toHaveLength(2);
 		feed.dispose();
 	});
-	// scry-ignore simple-test-setup: only this case renders the actual sidebar and thread tree; the feed and resources are shared in beforeEach
+	// vet-ignore simple-test-setup: only this case renders the actual sidebar and thread tree; the feed and resources are shared in beforeEach
 	it("profiles a stable sidebar and open thread while another conversation streams", async () => {
 		const commits = { list: 0, thread: 0 };
 		const open = () => {};

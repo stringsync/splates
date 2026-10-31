@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "webappwiz/log";
-import { NodeFs } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
-import { Duration, SystemTimer, SystemWallClock } from "webappwiz/time";
+import { MemoryLogger } from "core/log";
+import { NodeFs } from "core/system";
+import { FakePs } from "core/system/testing";
+import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import { SqliteStorage } from "../storage";
 import { DirReplica, Replicator } from "./index";
 
@@ -52,7 +52,7 @@ describe("Replicator over a SQLite database", () => {
 		const replica = new DirReplica(`${dir}/replica`, new NodeFs());
 		const shipped = async () =>
 			(await replica.list("")).map((object) => `${object.key} ${object.size}`);
-		// scry-ignore matchers-over-test-logic: the poll of the database and the batch run on real timers, so the test waits for them to land
+		// vet-ignore matchers-over-test-logic: the poll of the database and the batch run on real timers, so the test waits for them to land
 		for (let i = 0; i < 200 && (await shipped()).length < 3; i++) {
 			await Bun.sleep(10);
 		}

@@ -43,6 +43,47 @@ describe("mergeChecklist", () => {
 		]);
 	});
 
+	it("tells a premerge in a batch that split from the branch's own", () => {
+		const rows = mergeChecklist(
+			details({
+				base: "main",
+				gate: "running",
+				mergeSince: at(0),
+				mergeSteps: {
+					steps: [
+						{ step: "rebase", at: at(0) },
+						{ step: "wait", at: at(2) },
+						{ step: "test", at: at(4), dissolved: true },
+						{ step: "wait", at: at(40) },
+						{ step: "test", at: at(42), dissolved: true },
+						{ step: "wait", at: at(80) },
+						{ step: "test", at: at(82) },
+					],
+					phases: [{ phase: "biome", at: at(83), ms: 1000 }],
+				},
+			}),
+			NOW,
+		);
+
+		expect(
+			rows.map(({ label, standing, phases }) => ({
+				label,
+				standing,
+				phases: phases.length,
+			})),
+		).toEqual([
+			{ label: "Rebase onto main", standing: "done", phases: 0 },
+			{ label: "Wait for its turn", standing: "done", phases: 0 },
+			{ label: "Premerge in a batch that split", standing: "done", phases: 0 },
+			{ label: "Wait for its turn", standing: "done", phases: 0 },
+			{ label: "Premerge in a batch that split", standing: "done", phases: 0 },
+			{ label: "Wait for its turn", standing: "done", phases: 0 },
+			{ label: "Premerge", standing: "running", phases: 1 },
+			{ label: "Land on main", standing: "next", phases: 0 },
+			{ label: "Clean up", standing: "next", phases: 0 },
+		]);
+	});
+
 	it("nests the premerge's phases, those under way counting up", () => {
 		const [, test] = mergeChecklist(
 			details({

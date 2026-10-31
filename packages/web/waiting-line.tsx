@@ -1,6 +1,6 @@
+import { Duration, SystemTimer } from "core/time";
 import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 
 /** How long the line blinks once its shortcut finds nothing: three blinks of `animate-blink`. */

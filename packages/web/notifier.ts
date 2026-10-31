@@ -5,7 +5,7 @@ import {
 	Notices,
 	type Wants,
 } from "@stringsync/splates-server/push/browser";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { Duration, SystemTimer } from "core/time";
 import { openedBy } from "./conversation-address";
 import type { Settings } from "./settings";
 import type { Opening } from "./worker";

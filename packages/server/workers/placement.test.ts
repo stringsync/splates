@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeWallClock } from "core/time/testing";
 import { AgentPlacement } from "./placement";
 import { WorkerRegistry } from "./registry";
 

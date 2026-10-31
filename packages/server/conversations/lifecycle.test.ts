@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
-import { CounterIdProvider } from "webappwiz/id";
-import { FakeFs } from "webappwiz/system/testing";
-import { Duration } from "webappwiz/time";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { CounterIdProvider } from "core/id";
+import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { Watch } from "../agents";
 import { FakeAgent, say } from "../agents/testing";
 import { Testing } from "../testing";
@@ -162,7 +162,7 @@ describe("Conversation lifecycle", () => {
 		expect(read.state.messages[0]?.queued).toBeUndefined();
 	});
 
-	// scry-ignore simple-test-setup: only this test configures usage and a cumulative session cost
+	// vet-ignore simple-test-setup: only this test configures usage and a cumulative session cost
 	it("adds up the tokens each turn used and what the session cost, through a restart", async () => {
 		agent.usage = {
 			inputTokens: 10,
@@ -615,6 +615,16 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.state.stoppedIdle).toBeNull();
 	});
 
+	it("does not say idle for a stop the idle wait did not make", async () => {
+		const conversation = await started();
+
+		restOut();
+		await conversation.close("agent closed its connection");
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		expect(conversation.state.status).toBe("failed");
+		expect(conversation.state.stoppedIdle).toBeNull();
+	});
+
 	it("leaves an agent be while its turn runs", async () => {
 		let finish = () => {};
 		agent.turn = () =>
@@ -726,7 +736,7 @@ describe("Conversation lifecycle", () => {
 		expect(JSON.parse(lines[6] ?? "").update.content.text).toBe("bc");
 	});
 
-	// scry-ignore simple-test-setup: only this test needs a real repository and a git command watcher
+	// vet-ignore simple-test-setup: only this test needs a real repository and a git command watcher
 	it("flags a command for what it did to git, and keeps the flag in the log", async () => {
 		await using env = await Testing.open();
 		await env.fs.write(join(env.root, "README.md"), "edited\n");

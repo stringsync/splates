@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
-import type { Logger } from "webappwiz/log";
-import { FileLock, type Fs, type Ps } from "webappwiz/system";
+import type { Logger } from "core/log";
+import { FileLock, type Fs, type Ps } from "core/system";
 import { splatesHome } from "../models";
 import { MACHINE_HOME } from "../ports";
 import {
@@ -10,10 +10,10 @@ import {
 	TicketedLock,
 } from "./ticketed-lock";
 
-/** Set for what a merge's gate runs: a `splates dev premerge` that sees it runs without waiting for the premerge lock, which the gate holds. */
+/** Set for what a merge's gate runs: a `bin/mono premerge` that sees it runs without waiting for the premerge lock, which the gate holds. */
 export const PREMERGE_HELD = "SPLATES_PREMERGE";
 
-/** The commit the `preLock` checks passed on, set for the gate's `dev premerge`. */
+/** The commit the `preLock` checks passed on, set for the gate's `bin/mono premerge`. */
 export const CHECKED_COMMIT = "SPLATES_CHECKED";
 
 /**
@@ -28,7 +28,7 @@ export const BESIDE_GATE_NICE = 10;
 
 /**
  * Set for a merge's gate to the test files that failed recent gates, one
- * path a line, which `dev premerge` runs before the whole suite.
+ * path a line, which `bin/mono premerge` runs before the whole suite.
  */
 export const RECENT_FAILED_FILES = "SPLATES_RECENT_FAILED_FILES";
 
@@ -42,7 +42,7 @@ export const GATE_PHASES = "SPLATES_GATE_PHASES";
 /** How long a merge's gate may run before it is killed, on a machine whose cores it fits. */
 export const PREMERGE_TIMEOUT_MS = 3 * 60 * 1000;
 
-/** Set for a merge's gate to its deadline in milliseconds, which `dev premerge` stops its tests by. */
+/** Set for a merge's gate to its deadline in milliseconds, which `bin/mono premerge` stops its tests by. */
 export const GATE_DEADLINE = "SPLATES_GATE_DEADLINE_MS";
 
 /** How long one holder may keep the premerge lock before it is let go of; a gate given a longer deadline renews it for that long. */
@@ -91,7 +91,7 @@ export class TimedLock implements PlacedLock {
 		this.#timer.unref();
 	}
 
-	// scry-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
+	// vet-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
 	async release(): Promise<void> {
 		this.#stop();
 		await this.inner.release();
@@ -112,7 +112,7 @@ export class TimedLock implements PlacedLock {
 
 /**
  * A project's one premerge: every task's merge gate in that project, and a
- * `splates dev premerge` run by hand there, holds it while the whole suite
+ * `bin/mono premerge` run by hand there, holds it while the whole suite
  * runs, so a project's full suite runs one at a time. Projects take theirs
  * apart, since they cannot stomp on each other's checkouts. Waiters take it
  * in the order they asked, told their place in line meanwhile, and a holder

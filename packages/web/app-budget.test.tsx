@@ -36,7 +36,7 @@ describe("App's budget", () => {
 		expect(
 			within(som).getByRole("button", { name: "end raise 1" }),
 		).toBeTruthy();
-		expect(som.textContent).toContain("From scry.config.ts.");
+		expect(som.textContent).toContain("From vet.config.ts.");
 		expect((await card(view, "llm")).textContent).toContain(
 			"Asks nothing: questions for it go unasked.",
 		);
@@ -285,7 +285,7 @@ function declared(paused: RoleBudget["paused"] = null): Budgets {
 			{
 				role: "som",
 				spend: "5m/day",
-				from: "scry.config.ts",
+				from: "vet.config.ts",
 				set: false,
 				shared: false,
 				standing: [
@@ -312,7 +312,7 @@ function declared(paused: RoleBudget["paused"] = null): Budgets {
 			{
 				role: "llm",
 				spend: "nothing",
-				from: "scry.config.ts",
+				from: "vet.config.ts",
 				set: false,
 				shared: false,
 				standing: [],

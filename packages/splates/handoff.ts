@@ -23,10 +23,9 @@ export function checkoutAbove(cwd: string): string | null {
 }
 
 /**
- * The release has no `splates dev`, and would print help and exit 0, which
- * reads as a passing `splates dev test`. Standing in a checkout, run the
- * checkout's own `bin/splates` instead; anywhere else, fail saying so.
- * Returns the exit code, or null when `argv` is no `dev` command.
+ * Runs a `splates dev` command from the checkout you are standing in, since the
+ * release has none; anywhere else it fails saying so. Returns the exit code, or
+ * null when `argv` is no `dev` command.
  */
 export async function handOffDev(
 	argv: string[],

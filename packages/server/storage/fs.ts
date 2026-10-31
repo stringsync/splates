@@ -1,7 +1,7 @@
 import { dirname, relative } from "node:path";
-import { Dispatcher } from "webappwiz/events";
-import type { Logger } from "webappwiz/log";
-import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
+import { Dispatcher } from "core/events";
+import type { Logger } from "core/log";
+import { FileLock, type Fs, type Lock, type Ps } from "core/system";
 import { splatesHome } from "../models";
 import type { Collection } from "./collection";
 import type { Document, DocumentOptions } from "./document";

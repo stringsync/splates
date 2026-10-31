@@ -1,5 +1,5 @@
-import { Disposer } from "webappwiz/disposable";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { Disposer } from "core/disposable";
+import { Duration, SystemTimer } from "core/time";
 
 /** Which way bytes go through a `FaultProxy`. */
 export type FaultDirection = "toCoordinator" | "toWorker";

@@ -1,12 +1,8 @@
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import type { Cli } from "webappwiz/cmd";
+import type { Cli } from "core/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
-import { fix } from "./fix";
-import { postCheckout, postRewrite } from "./install";
-import { premerge } from "./premerge";
-import { ship } from "./ship";
-import { approveSuite, test } from "./test";
+import { publish, ship, trust } from "./ship";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
 export function mountDev(program: Cli<SplatesDeps>): void {
@@ -16,18 +12,6 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	const dev = program
 		.group("dev")
 		.description("work on the splates repository");
-
-	dev
-		.command("approve-suite")
-		.description(
-			"let an agent's conversation run the whole test suite once outside the merge gate, as Allow on its run-command card does; refused from an agent",
-		)
-		.arg("conversation", z.string(), {
-			description: "the conversation whose agent asked",
-		})
-		.action(({ conversation }, { log, ps }) =>
-			approveSuite({ conversation, log, ps }),
-		);
 
 	dev
 		.command("eval")
@@ -42,100 +26,27 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 		.action((opts, { ps }) => evalSkill({ ...opts, ps }));
 
 	dev
-		.command("fix")
-		.description("format, check, and typecheck the repository")
-		.option("check", z.boolean(), {
-			default: false,
-			description: "report problems without writing fixes (for CI)",
-		})
-		.option("code-only", z.boolean(), {
-			default: false,
-			description: "run Scry code rules without credentials or model calls",
-		})
-		.action(({ "code-only": codeOnly, ...opts }, { log, ps }) =>
-			fix({ ...opts, codeOnly, log, ps }),
-		);
-
-	dev
-		.command("postcheckout")
-		.description(
-			"what `postCheckout` runs in a new worktree: install its dependencies",
-		)
-		.action((_opts, { log, ps }) => postCheckout({ log, ps }));
-
-	dev
-		.command("postrewrite")
-		.description(
-			"what `postRewrite` runs after a merge's rebase: install the dependencies the rebase may have brought",
-		)
-		.action((_opts, { log, ps }) => postRewrite({ log, ps }));
-
-	dev
-		.command("premerge")
-		.description(
-			"what the merge gate runs: the checks of `dev fix` without writing, then the full suite here, one run at a time on the machine",
-		)
-		.option("evals", z.boolean(), {
-			default: false,
-			description: "run only free eval harness tests (no model calls)",
-		})
-		.option("all", z.boolean(), {
-			default: false,
-			description: "run the package's and the eval harness's tests together",
-		})
-		.option("checks", z.boolean(), {
-			default: false,
-			description:
-				"run the checks alone, without the lock or the tests, as a merge does before it waits for the lock",
-		})
-		.action((opts, { log, ps }) => premerge({ ...opts, log, ps }));
-
-	dev
 		.command("ship")
 		.description("release the package, with its skill stamped at its version")
-		.action((_opts, { log, fs, ps }) => ship({ log, fs, ps }));
+		.option("dry-run", z.boolean(), {
+			default: false,
+			description: "rehearse the release, publishing and pushing nothing",
+		})
+		.action((opts, { log, fs, ps }) =>
+			ship({ log, fs, ps, dryRun: opts["dry-run"] }),
+		);
 
 	dev
-		.command("test")
+		.command("publish")
 		.description(
-			"test a small portion while developing: --changed, --since main, file paths or --test-name-pattern; focused runs use one worker by default; the full suite is for the merge gate, which runs it here one at a time",
+			"build @stringsync/splates, the server folded in, and publish it at this checkout's version: what stringsync/splates's publish workflow runs, from a job npm trusts",
 		)
-		.option("evals", z.boolean(), {
-			default: false,
-			description: "run only free eval harness tests (no model calls)",
-		})
-		.option("all", z.boolean(), {
-			default: false,
-			description: "run the package's and the eval harness's tests together",
-		})
-		.option("changed", z.boolean(), {
-			default: false,
-			description:
-				"run only tests affected by uncommitted changes (bun test --changed)",
-		})
-		.option("since", z.string(), {
-			default: "",
-			description:
-				"run only tests affected by changes since a git ref, e.g. --since main; implies --changed",
-		})
-		.option("test-name-pattern", z.string(), {
-			default: "",
-			description:
-				"run only tests whose name matches this regex; combine with file paths or --changed to narrow further",
-		})
-		.option("workers", z.coerce.number().int().positive().optional(), {
-			description:
-				"maximum test workers; focused checks default to 1, full runs half the cores",
-		})
-		.option("ci", z.boolean(), {
-			default: false,
-			description:
-				"print only the failing tests and each run's summary, not every passing test",
-		})
-		.rest("files", z.string(), {
-			description: "run only the test files whose path has one of these",
-		})
-		.action(({ "test-name-pattern": testNamePattern, ...opts }, { log, ps }) =>
-			test({ ...opts, testNamePattern, log, ps }),
-		);
+		.action((_opts, { log, fs, ps }) => publish({ log, fs, ps }));
+
+	dev
+		.command("trust")
+		.description(
+			"have npm trust stringsync/splates's publish workflow to publish @stringsync/splates; once, signing in in a browser",
+		)
+		.action((_opts, { log, ps }) => trust({ log, ps }));
 }

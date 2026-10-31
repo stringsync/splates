@@ -130,11 +130,10 @@ export interface Config {
 	/** How many bytes of artifacts every conversation in the project may keep together. */
 	artifactProjectCapacity: number;
 	/**
-	 * The command the `splates server` Budget page runs `scry budgets` with, from
-	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
-	 * name a wrapper of the repo's own otherwise, like `"./bin/wiz"`.
+	 * The command the `splates server` Budget page runs `budgets` with, from
+	 * the repo's root: vet, whose `budgets` command keeps them.
 	 */
-	wiz: string;
+	vet: string;
 	/**
 	 * What carries `splates server --tunnel` to its public host, a TunnelProvider
 	 * of your own for any tunnel; null runs `cloudflared`.
@@ -200,14 +199,10 @@ export interface EvalsConfig {
 }
 
 /**
- * What `splates.config.ts` exports as its default, typed by a type-only import
- * so a reader can import the file without splates installed:
- *
- * ```ts
- * import type { ConfigFile } from "@stringsync/splates-server/config";
- *
- * export default { preMerge: "bun test" } satisfies ConfigFile;
- * ```
+ * What `splates.config.ts` exports as its default, as
+ * `{ preMerge: "bun test" } satisfies ConfigFile`, with `ConfigFile` imported
+ * type-only from `@stringsync/splates/config` so a reader can import the file
+ * without splates installed.
  */
 export type ConfigFile = Partial<Config>;
 

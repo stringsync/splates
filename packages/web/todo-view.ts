@@ -1,6 +1,6 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 
 export type TodoViewEvents = { changed: undefined };
 

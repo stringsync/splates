@@ -1,9 +1,9 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import { Disposer, disposables, type Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import { Disposer, disposables, type Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { Duration, SystemTimer, type Timer } from "core/time";
 import { scoped } from "./api";
 import { tabId } from "./tab";
 
@@ -84,7 +84,7 @@ export class TerminalSession
 	constructor(
 		readonly key: string,
 		readonly task: string | null,
-		// scry-ignore objects-over-callbacks: a test of one key, read as each key comes
+		// vet-ignore objects-over-callbacks: a test of one key, read as each key comes
 		toggles: (event: KeyboardEvent) => boolean,
 		{
 			timer = new SystemTimer(),

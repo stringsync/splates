@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
 import { FinishedByName } from "./finished-tasks";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";

@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { type IdProvider, UuidProvider } from "webappwiz/id";
+import { type IdProvider, UuidProvider } from "core/id";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import type { Collection, Storage } from "../storage";

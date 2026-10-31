@@ -1,4 +1,4 @@
-import { Duration } from "webappwiz/time";
+import { Duration } from "core/time";
 import type { Need, Needing } from "../plans";
 
 /** Something a row did worth telling the person about, away from the page. */

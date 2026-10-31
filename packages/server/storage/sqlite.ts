@@ -1,7 +1,7 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
-import type { Timer } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
+import type { Timer } from "core/time";
 import { replace } from "./atomic";
 import type { Collection } from "./collection";
 import type { Document, DocumentOptions } from "./document";

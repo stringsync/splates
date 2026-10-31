@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import type { Fs } from "webappwiz/system";
+import type { Fs } from "core/system";
 import { readIfThere, replace } from "./atomic";
 import { entriesOf, logLines } from "./json";
 import type { Log, Segment } from "./log";

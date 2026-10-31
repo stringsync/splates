@@ -1,6 +1,6 @@
-import type { Resource } from "webappwiz/disposable";
-import type { Logger } from "webappwiz/log";
-import { Duration, type Timer, type WallClock } from "webappwiz/time";
+import type { Resource } from "core/disposable";
+import type { Logger } from "core/log";
+import { Duration, type Timer, type WallClock } from "core/time";
 import { z } from "zod";
 import { limited } from "../limited";
 import type { Kept, Storage, Watch } from "../storage";

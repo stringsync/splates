@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { ConsoleLogger } from "webappwiz/log";
+import { ConsoleLogger } from "core/log";
 import { TimedLock } from "./premerge";
 
 describe("TimedLock", () => {

@@ -16,7 +16,7 @@ import {
 } from "@stringsync/splates-server/auto-pick/browser";
 import { checkRules } from "@stringsync/splates-server/auto-pick/check";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import {
 	autoPickRules,
 	resetAutoPickRules,

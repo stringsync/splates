@@ -1,7 +1,4 @@
 import { join } from "node:path";
 
-/**
- * The checkout this `splates dev` runs from, which `bin/_run` picks as the one you
- * are standing in: a git worktree's own copy, so testing it tests your work.
- */
+/** The checkout `splates dev` acts on: the one you are standing in, so in a worktree it is that worktree's own copy. */
 export const ROOT = join(import.meta.dir, "../../..");

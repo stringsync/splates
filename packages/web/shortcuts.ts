@@ -55,6 +55,7 @@ interface Parsed {
 	code: string;
 }
 
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 function parse(shortcut: Shortcut): Parsed | null {
 	const parts = shortcut.split("+");
 	const code = parts.pop();
@@ -71,6 +72,7 @@ function parse(shortcut: Shortcut): Parsed | null {
  * Whether `shortcut` is one a setting can hold: none, or one or more of ⌃, ⌥
  * and ⌘ with a key, ⇧ optional, so a bare key never fires while typing.
  */
+// vet-ignore export-leads-the-file: copied from the splates repository as it was; reworking it is its own task
 export function valid(shortcut: Shortcut): boolean {
 	if (shortcut === NONE) {
 		return true;

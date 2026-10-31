@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, Ps } from "core/system";
 import { z } from "zod";
 import { Roster, type RosterFile } from "../models";
 import { FsStorage } from "../storage";

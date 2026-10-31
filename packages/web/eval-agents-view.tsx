@@ -1,4 +1,4 @@
-import { useReactive } from "@webappwiz/react";
+import { useReactive } from "core/react";
 import { type JSX, useEffect } from "react";
 import { PickChips } from "./auto-pick-pick-chips";
 import type { EvalAgentsEditor } from "./eval-agents";

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeWallClock } from "webappwiz/time/testing";
+import { FakeWallClock } from "core/time/testing";
 import { type PoolWorker, Scheduler, type StartRequest } from "./scheduler";
 
 describe("Scheduler", () => {
@@ -80,7 +80,7 @@ describe("Scheduler", () => {
 	});
 
 	it("tells each grant on a worker released that it is lost, and places the next elsewhere", async () => {
-		// scry-ignore simple-test-setup: the two workers and the grants on each are this test's own inputs
+		// vet-ignore simple-test-setup: the two workers and the grants on each are this test's own inputs
 		workers = [worker("local"), worker("box")];
 		const here = await take("a");
 		const there = await take("b");

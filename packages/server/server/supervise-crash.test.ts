@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { Resource } from "webappwiz/disposable";
-import { MemoryLogger } from "webappwiz/log";
-import { FakePs } from "webappwiz/system/testing";
-import { Duration, type Timer } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import type { Resource } from "core/disposable";
+import { MemoryLogger } from "core/log";
+import { FakePs } from "core/system/testing";
+import { Duration, type Timer } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 import { RESTART, supervise } from "./supervise";
 
 describe("supervise, crashed", () => {

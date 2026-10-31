@@ -1,5 +1,5 @@
-import type { SecretStore } from "webappwiz/creds";
-import type { Fs } from "webappwiz/system";
+import type { SecretStore } from "core/creds";
+import type { Fs } from "core/system";
 import { FsStorage, type Storage } from "../storage";
 import { SavedTunnel, type TunnelRecord } from "./saved";
 

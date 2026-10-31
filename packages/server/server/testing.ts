@@ -1,4 +1,4 @@
-import { OpenPortProvider } from "webappwiz/system";
+import { OpenPortProvider } from "core/system";
 import type { FakeAgent } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import type { Snapshot } from "../tasks";

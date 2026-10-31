@@ -1,6 +1,6 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
-import { MemorySecretStore } from "webappwiz/creds";
-import { Duration, sleep } from "webappwiz/time";
+import { MemorySecretStore } from "core/creds";
+import { Duration, sleep } from "core/time";
 import { CoordinatorIdentity, challengeNonce, proofHolds } from "./identity";
 
 setDefaultTimeout(10_000);

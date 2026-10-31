@@ -1,5 +1,5 @@
+import { Duration, SystemTimer } from "core/time";
 import { useEffect, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
 
 /** The clock, as epoch ms, moving each minute. */
 export function useMinute(): number {

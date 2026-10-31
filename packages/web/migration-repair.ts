@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Dispatcher, type Eventful } from "core/events";
 import { ApiError, answered, scoped, send } from "./api";
 import type { Feed } from "./feed";
 import type { Terminals } from "./terminals";

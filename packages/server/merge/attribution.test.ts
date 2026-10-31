@@ -6,8 +6,8 @@ import {
 	it,
 	setDefaultTimeout,
 } from "bun:test";
-import { Duration } from "webappwiz/time";
-import { FakeClock } from "webappwiz/time/testing";
+import { Duration } from "core/time";
+import { FakeClock } from "core/time/testing";
 import type { Facts } from "../records";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
@@ -48,7 +48,7 @@ describe("merge failure attribution", () => {
 	afterEach(async () => {
 		await deps[Symbol.asyncDispose]();
 	});
-	// scry-ignore simple-test-setup: only this case measures attribution time; the other cases share the repository setup above.
+	// vet-ignore simple-test-setup: only this case measures attribution time; the other cases share the repository setup above.
 	it("charges only a failure reproduced on the task after passing on the exact base", async () => {
 		await deps.commit(tree, "mode.txt", "bad", "break mode");
 		const before = await deps.git.head(tree);

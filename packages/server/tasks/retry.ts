@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import type { Journal } from "../records";

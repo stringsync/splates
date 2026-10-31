@@ -98,7 +98,7 @@ remote workers cannot join. Check `GET /api/workers` of the `splates server`
 in `SPLATES_DEV` as the steps at the top say.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
-implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:
+implementing `TunnelProvider` from `@stringsync/splates/config`:
 `ready()` throws, saying what to do, unless the tunnel can run, and
 `run({ host, url, log })` carries `host` to `url` and returns a resource
 whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.

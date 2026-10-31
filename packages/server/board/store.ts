@@ -1,4 +1,4 @@
-import type { Lock } from "webappwiz/system";
+import type { Lock } from "core/system";
 import type { Collection, Storage } from "../storage";
 import type { TaskState } from "../tasks";
 import type { TaskRecord, WaitingStage } from "./task";

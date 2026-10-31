@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "webappwiz/log";
-import { MemoryLock } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { MemoryLogger } from "core/log";
+import { MemoryLock } from "core/system";
+import { FakeFs, FakePs } from "core/system/testing";
 import { TicketedLock } from "./ticketed-lock";
 
 describe("TicketedLock", () => {
@@ -129,7 +129,7 @@ describe("TicketedLock", () => {
 		expect(seen).toEqual([2, 1]);
 	});
 
-	// scry-ignore simple-test-setup: older than this task, and its aborted waiter is its own input
+	// vet-ignore simple-test-setup: older than this task, and its aborted waiter is its own input
 	it("gives up its place when its signal aborts, leaving no ticket and the lock to the next", async () => {
 		await waiter(0);
 		const gone = new AbortController();

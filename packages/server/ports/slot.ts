@@ -1,4 +1,4 @@
-import { color, type Logger } from "webappwiz/log";
+import { color, type Logger } from "core/log";
 import { SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { splatesHome } from "../models";

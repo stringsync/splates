@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeDictationLink, FakeMicrophone } from "webappwiz/dictate/testing";
+import { FakeDictationLink, FakeMicrophone } from "core/dictate/testing";
 import { Dictation } from "./dictation";
 import {
 	act,
@@ -137,7 +137,7 @@ describe("App's card answer boxes", () => {
 		expect(testing.dictation?.state.phase).toBe("idle");
 	});
 
-	// scry-ignore simple-test-setup: only this regression needs a phone sheet and deliberately delayed transcription
+	// vet-ignore simple-test-setup: only this regression needs a phone sheet and deliberately delayed transcription
 	it("waits for a card transcript on Next and keeps it when returning", async () => {
 		resize(390, 844);
 		const finished = Promise.withResolvers<void>();
@@ -405,7 +405,7 @@ describe("App's card answer boxes", () => {
 		expect(view.getAllByRole("alert")).toHaveLength(1);
 	});
 
-	// scry-ignore simple-test-setup: only this test opens a review card; the other scenarios use questions
+	// vet-ignore simple-test-setup: only this test opens a review card; the other scenarios use questions
 	it("sends the files attached to a review's changes with them", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -470,7 +470,7 @@ describe("App's card answer boxes", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
-	// scry-ignore simple-test-setup: only this scenario needs a todo to pick from the reference menu
+	// vet-ignore simple-test-setup: only this scenario needs a todo to pick from the reference menu
 	it("writes what a # in a box picks as its reference, leaving out the composer's directives and actions", async () => {
 		const view = await testing.openConversations([asking], asking.id, {
 			todos: [todo({ id: 12, subject: "Retry the upload on a 413" })],

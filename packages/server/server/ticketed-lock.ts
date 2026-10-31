@@ -1,7 +1,7 @@
-import { aborts } from "webappwiz/abort";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Lock, Ps } from "webappwiz/system";
-import { Duration, sleep } from "webappwiz/time";
+import { aborts } from "core/abort";
+import type { Logger } from "core/log";
+import type { Fs, Lock, Ps } from "core/system";
+import { Duration, sleep } from "core/time";
 
 /**
  * A lock whose waiters are told their place in line as they wait: 1 is next
@@ -10,7 +10,7 @@ import { Duration, sleep } from "webappwiz/time";
  * it already holds the lock.
  */
 export interface PlacedLock extends Lock {
-	// scry-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
+	// vet-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
 	acquire(
 		onPlace?: (place: number) => void | Promise<void>,
 		signal?: AbortSignal,
@@ -74,7 +74,7 @@ export class TicketedLock implements PlacedLock {
 	 * the ticket goes and the call rejects with the signal's reason, unless
 	 * the lock was had already.
 	 */
-	// scry-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
+	// vet-ignore objects-over-callbacks: `onPlace` runs within the call, reporting the wait's progress, as `MergeGate.reserve` takes its `onQueued`.
 	async acquire(
 		onPlace?: (place: number) => void | Promise<void>,
 		signal?: AbortSignal,

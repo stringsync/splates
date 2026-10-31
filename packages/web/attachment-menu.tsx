@@ -262,7 +262,7 @@ export function AttachedMenu({
 function useMarkUpAtCaret(
 	editor: LexicalEditor,
 	id: string | null,
-	// scry-ignore objects-over-callbacks: what the shortcut runs, kept in a ref so a fresh arrow does not re-listen
+	// vet-ignore objects-over-callbacks: what the shortcut runs, kept in a ref so a fresh arrow does not re-listen
 	markUp: () => Promise<void>,
 ): string | null {
 	const label = useShortcutLabel("shortcuts.markUp");

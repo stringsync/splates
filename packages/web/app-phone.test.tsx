@@ -252,7 +252,7 @@ describe("App on a phone", () => {
 		).toEqual(["zebra"]);
 	});
 
-	// scry-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
+	// vet-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
 	it("leaves a task its conversation left, and one at work outside the page, and one asking outside it, to the Tasks page", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c9", task: "delta", archived: true })],
@@ -731,7 +731,7 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 1"]);
 	});
 
-	// scry-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
+	// vet-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
 	it("leaves the bar above the composer out while the card's own line is in sight", async () => {
 		const real = globalThis.IntersectionObserver;
 		// The one line in the thread, as the observer last watched it.
@@ -830,7 +830,7 @@ describe("App on a phone", () => {
 		}
 	});
 
-	// scry-ignore simple-test-setup: its layout stubs are its own, which no other test shares
+	// vet-ignore simple-test-setup: its layout stubs are its own, which no other test shares
 	it("keeps the field typed in above the keyboard as it comes up after the focus", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -872,7 +872,7 @@ describe("App on a phone", () => {
 		);
 	});
 
-	// scry-ignore simple-test-setup: its layout and resize stubs are its own, which no other test shares
+	// vet-ignore simple-test-setup: its layout and resize stubs are its own, which no other test shares
 	it("keeps the field typed in above the keyboard as it grows a line with no input event", async () => {
 		// The field's resizes, fired by hand, as the page has no layout to make.
 		const watchers = new Set<() => void>();
@@ -927,7 +927,7 @@ describe("App on a phone", () => {
 			// A new line, laid out by the editor itself, takes it under the foot.
 			foot = end + 24;
 			await act(async () => {
-				// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
+				// vet-ignore matchers-over-test-logic: fires every resize watched, building no subject
 				for (const fire of watchers) {
 					fire();
 				}
@@ -1411,7 +1411,7 @@ describe("App on a phone", () => {
 		expect(view.queryByRole("region", { name: "Terminals" })).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: the background commands it lists are what it checks, and no other test opens with them
+	// vet-ignore simple-test-setup: the background commands it lists are what it checks, and no other test opens with them
 	it("nests a conversation's shell under it in the inbox, and marks it while a command runs", async () => {
 		const running = {
 			id: "b1",

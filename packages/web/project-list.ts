@@ -1,8 +1,8 @@
 import type { ServerChoice } from "@stringsync/splates-server/server";
-import { useDisposerEffect } from "@webappwiz/react";
+import type { Resource } from "core/disposable";
+import { Dispatcher, type Eventful } from "core/events";
+import { useDisposerEffect } from "core/react";
 import { createContext, useContext, useState } from "react";
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
 import { EverywhereContext } from "./everywhere-context";
 import type { EverywhereFeed } from "./everywhere-feed";
 import { listProjects, type ProjectChoice } from "./project-api";

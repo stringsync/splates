@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Replicator } from "@stringsync/splates-server/replica";
 import { FakeReplica } from "@stringsync/splates-server/replica/testing";
 import { Testing } from "@stringsync/splates-server/testing";
-import { MemoryLogger } from "webappwiz/log";
-import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { MemoryLogger } from "core/log";
+import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { splates } from "./splates";
 
 describe("splates replica status", () => {

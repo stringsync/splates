@@ -1,4 +1,4 @@
-import { NodePs, type StartOptions } from "webappwiz/system";
+import { NodePs, type StartOptions } from "core/system";
 
 export { type FaultDirection, FaultProxy } from "./fault-proxy";
 export { WorkerSocketPair } from "./socket-pair";

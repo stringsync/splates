@@ -418,7 +418,7 @@ describe("App's lanes", () => {
 		).toBeNull();
 	});
 
-	// scry-ignore simple-test-setup: each test here opens its own board; this one only lost a neighbour.
+	// vet-ignore simple-test-setup: each test here opens its own board; this one only lost a neighbour.
 	it("asks for a new lane's name in place when one is picked in the dialog", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

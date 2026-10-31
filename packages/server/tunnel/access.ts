@@ -1,4 +1,4 @@
-import { SystemWallClock, type WallClock } from "webappwiz/time";
+import { SystemWallClock, type WallClock } from "core/time";
 import { z } from "zod";
 import { fail } from "../exit";
 
