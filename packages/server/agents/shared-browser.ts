@@ -250,6 +250,11 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 			config,
 			"--port",
 			String(port),
+			// Sessions arrive through the proxy as 127.0.0.1:<its port>, which
+			// the MCP refuses with a 403 unless its host check is off, and an
+			// agent reports a refused server as needing authorization.
+			"--allowed-hosts",
+			"*",
 		];
 		// Windows has no sh, so there the MCP runs bare and can outlive a crash.
 		const child = ps.start(

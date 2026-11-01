@@ -12,11 +12,11 @@
     },
     "packages/@evals/evals": {
       "name": "@evals/evals",
-      "version": "1.13.4",
+      "version": "1.13.5",
     },
     "packages/core": {
       "name": "core",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },
@@ -32,7 +32,7 @@
     },
     "packages/evals": {
       "name": "@splates/evals",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@stringsync/splates-server": "workspace:*",
@@ -43,7 +43,7 @@
     },
     "packages/server": {
       "name": "@stringsync/splates-server",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
         "@evals/evals": "workspace:*",
@@ -56,7 +56,7 @@
     },
     "packages/splates": {
       "name": "@stringsync/splates",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "bin": {
         "splates": "./index.ts",
         "arbor": "./index.ts",
@@ -73,7 +73,7 @@
     },
     "packages/tooling": {
       "name": "@splates/tooling",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
       },
@@ -83,7 +83,7 @@
     },
     "packages/web": {
       "name": "@splates/web",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@stringsync/splates-server": "workspace:*",
         "core": "workspace:*",
@@ -130,7 +130,7 @@
     },
     "skills/splates/evals": {
       "name": "@splates/skill-evals",
-      "version": "1.13.4",
+      "version": "1.13.5",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@stringsync/splates-server": "workspace:*",

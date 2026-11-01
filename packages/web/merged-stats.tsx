@@ -13,19 +13,19 @@ import { Markdown } from "./markdown";
 import { type Decided, mergedFacts } from "./merged-facts";
 
 /**
- * What the page holds of `task`'s merge, for its card: null while it loads,
- * for no task, or for one whose merge was never recorded here.
+ * What the page holds of `task`'s merge, for its card: undefined while it
+ * loads, null for no task or for one whose merge was never recorded here.
  */
-export function useLanded(task: string | null): Landed | null {
-	const [landed, setLanded] = useState<Landed | null>(
-		task === null ? null : (LANDED.get(task) ?? null),
+export function useLanded(task: string | null): Landed | null | undefined {
+	const [landed, setLanded] = useState<Landed | null | undefined>(
+		task === null ? null : LANDED.get(task),
 	);
 	useEffect(() => {
 		if (task === null) {
 			return;
 		}
 		let current = true;
-		// A card says what it can; the report above it stands alone.
+		// A read that failed leaves the card without its footer, not unshown.
 		void LANDED.load(task).then(() => {
 			if (current) {
 				setLanded(LANDED.get(task) ?? null);

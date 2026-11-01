@@ -9,7 +9,7 @@ import { served } from "./testing";
 
 const INSTALL = `bunx ${PLAYWRIGHT_MCP} install-browser chromium-headless-shell`;
 const serve = (port: number) =>
-	`sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port ${port}`;
+	`sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port ${port} --allowed-hosts *`;
 
 describe("SharedBrowser", () => {
 	let ps: FakePs;

@@ -10,7 +10,6 @@ import {
 	ArchiveIcon,
 	ArrowRightIcon,
 	CheckIcon,
-	ChevronDownIcon,
 	HourglassIcon,
 	ListPlusIcon,
 	ListTodoIcon,
@@ -18,15 +17,7 @@ import {
 	PaperclipIcon,
 	PlayIcon,
 } from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from "react";
+import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { CardArchive, useArchivable } from "./archive-offer";
@@ -104,6 +95,10 @@ export function ReportCard({
 	const { sent } = useCardReply();
 	const resumed =
 		deferral !== null && (sent !== null || deferral.takenBy !== null);
+	// A merge shows once its outcome is read, so it never grows a footer.
+	if (landed === undefined) {
+		return <div ref={ended} data-ends={ended === undefined ? undefined : ""} />;
+	}
 	return (
 		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
 			<CardShell
@@ -150,9 +145,7 @@ export function ReportCard({
 							<MergedBody text={text} outcome={landed?.outcome.outcome} />
 						) : (
 							text !== "" && (
-								<Folded>
-									<CardBody text={text} lead={report.reason !== null} />
-								</Folded>
+								<CardBody text={text} lead={report.reason !== null} />
 							)
 						)}
 						{held !== null && <HeldBlockers task={held} />}
@@ -161,54 +154,6 @@ export function ReportCard({
 					</>
 				)}
 			</CardShell>
-		</div>
-	);
-}
-
-/**
- * `children` cut to a few lines in a narrow thread, as on a phone, with More
- * to read the rest; in full anywhere wider, or once it fits.
- */
-function Folded({ children }: { children: ReactNode }): JSX.Element {
-	const [open, setOpen] = useState(false);
-	const box = useRef<HTMLDivElement>(null);
-	const [cut, setCut] = useState(false);
-	useLayoutEffect(() => {
-		const element = box.current;
-		if (element === null || open) {
-			return;
-		}
-		const measure = () =>
-			setCut(element.scrollHeight > element.clientHeight + 1);
-		measure();
-		const observer = new ResizeObserver(measure);
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, [open]);
-	return (
-		<div className="relative">
-			<div
-				ref={box}
-				className={cn(
-					!open && "@max-md:max-h-32 @max-md:overflow-hidden",
-					// Faded only where words are cut, so text that fits reads whole.
-					cut &&
-						!open &&
-						"@max-md:[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
-				)}
-			>
-				{children}
-			</div>
-			{cut && !open && (
-				<button
-					type="button"
-					onClick={() => setOpen(true)}
-					className="flex h-10 w-full items-center justify-center gap-1 border-t font-medium text-muted-foreground text-sm active:bg-muted @md:hidden"
-				>
-					More
-					<ChevronDownIcon className="size-4" />
-				</button>
-			)}
 		</div>
 	);
 }
