@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { ComponentProps, JSX } from "react";
 import { ShipRun } from "./ship-run";
 import type { Live } from "./use-live-ships";
 
@@ -12,6 +12,7 @@ export function ActiveShip({
 	previous = null,
 	onClose,
 	act,
+	sendToAgent,
 }: {
 	live: Live | null;
 	closed: string | null;
@@ -19,6 +20,8 @@ export function ActiveShip({
 	previous?: string | null;
 	onClose: (id: string | null) => void;
 	act: (action: "abandon" | "retry" | "agent") => Promise<void>;
+	/** Hands a failed ship to an agent; the button shows only when given. */
+	sendToAgent?: ComponentProps<typeof ShipRun>["sendToAgent"];
 }): JSX.Element {
 	if (live === null || (previous !== null && live.cascade?.id === previous)) {
 		return <p className="text-muted-foreground text-sm">Reading…</p>;
@@ -38,6 +41,7 @@ export function ActiveShip({
 			abandon={() => act("abandon")}
 			retry={() => act("retry")}
 			agent={() => act("agent")}
+			sendToAgent={sendToAgent}
 		/>
 	);
 }

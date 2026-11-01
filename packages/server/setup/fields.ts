@@ -10,10 +10,11 @@ export async function fieldsOf(
 	for (const field of await fieldsIn(step, machine).catch(() => [])) {
 		switch (field.kind) {
 			case "cred": {
-				const { optional: _, ...rest } = field;
 				fields.push({
-					...rest,
+					...field,
 					help: field.help ?? null,
+					multiline: field.multiline ?? false,
+					optional: field.optional ?? false,
 					saved: (await machine.device.get(field.name)) !== undefined,
 				});
 				break;
@@ -22,12 +23,19 @@ export async function fieldsOf(
 				fields.push({
 					...field,
 					placeholder: field.placeholder ?? null,
+					help: field.help ?? null,
 					value: field.value ?? null,
 					optional: field.optional ?? false,
 				});
 				break;
 			case "yes-no":
 				fields.push(field);
+				break;
+			case "manifest":
+				fields.push(field);
+				break;
+			case "config":
+				fields.push({ ...field, task: configTaskOf(step) });
 				break;
 			case "choice": {
 				const { options, ...rest } = field;
@@ -67,18 +75,47 @@ export type StepField =
 			 * the step's check then says whether it is done.
 			 */
 			optional?: boolean;
+			/** Pasted into a box of several lines, as a PEM file. */
+			multiline?: boolean;
 	  }
 	| {
 			kind: "text";
 			name: string;
 			label: string;
 			placeholder?: string;
+			/** One line under the box on what it is for. */
+			help?: string;
 			/** What the box holds to start with, as a list saved before, to edit. */
 			value?: string;
 			/** May be left empty, as a team name only some accounts need. */
 			optional?: boolean;
 	  }
 	| { kind: "yes-no"; name: string; label: string }
+	| {
+			/**
+			 * A button that has GitHub make something from a manifest: the page
+			 * fetches `endpoint` for where to post and what, and posts it. It
+			 * asks no answer.
+			 */
+			kind: "manifest";
+			name: string;
+			label: string;
+			endpoint: string;
+	  }
+	| {
+			/**
+			 * A change to the project's `splates.config.ts`, which only a task
+			 * may make: the page has an agent make it in a task named
+			 * `setup-<step>`, shows that task's diff to approve, and once it
+			 * has landed offers to restart `splates server` to pick it up. It
+			 * asks no answer; the step's check says whether the config holds it.
+			 */
+			kind: "config";
+			name: string;
+			label: string;
+			/** What the agent changes, in markdown, as "Add `evals: { results: \".evals\" }`." */
+			change: string;
+	  }
 	| {
 			kind: "choice";
 			name: string;
@@ -101,14 +138,32 @@ export type FieldProgress =
 			label: string;
 			help: string | null;
 			saved: boolean;
+			multiline?: boolean;
+			optional: boolean;
 	  }
 	| {
 			kind: "text";
 			name: string;
 			label: string;
 			placeholder: string | null;
+			/** One line under the box on what it is for, or null. */
+			help: string | null;
 			value: string | null;
 			optional: boolean;
 	  }
 	| { kind: "yes-no"; name: string; label: string }
+	| { kind: "manifest"; name: string; label: string; endpoint: string }
+	| {
+			kind: "config";
+			name: string;
+			label: string;
+			change: string;
+			/** The task the agent makes the change in, which the page reads the diff of. */
+			task: string;
+	  }
 	| { kind: "choice"; name: string; label: string; options: StepOption[] };
+
+/** The task that changes `step`'s config: named, so the page finds its diff. */
+export function configTaskOf(step: SetupStep): string {
+	return `setup-${step.id}`;
+}

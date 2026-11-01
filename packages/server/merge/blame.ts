@@ -1,7 +1,7 @@
 import type { Git } from "../git";
 import type { FailedTest } from "../tasks";
-import type { Member } from "./batch";
 import type { MergeGate } from "./gate";
+import type { Member } from "./line";
 import { failingCases } from "./test-report";
 
 /**

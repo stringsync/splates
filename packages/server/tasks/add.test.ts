@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { getPriority } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { decodeTask } from "../board";
 import { Testing } from "../testing";
@@ -78,6 +78,117 @@ describe("add", () => {
 		expect(await deps.fs.read(join(path, "SPLATES.md"))).toContain(
 			"## Goal\n\nStop the retries.\n\nRetry on 413\n\nin upload.ts",
 		);
+	});
+
+	describe("project", () => {
+		const declare = () => {
+			deps.config.projects = { core: ["core/**"], wren: ["wren/**"] };
+		};
+
+		it("is the only project of a repository that declares none", async () => {
+			await add(deps, "alpha");
+
+			expect((await deps.service.find("alpha")).scope).toBe(
+				basename(deps.root),
+			);
+		});
+
+		it("is named by the flag, or by the folder it is added from", async () => {
+			declare();
+			await add(deps, "alpha", { project: "wren" });
+			await add(deps, "beta", { folder: "core/packages/a" });
+			await add(deps, "gamma", { project: "wren", folder: "core" });
+
+			expect((await deps.service.find("alpha")).scope).toBe("wren");
+			expect((await deps.service.find("beta")).scope).toBe("core");
+			expect((await deps.service.find("gamma")).scope).toBe("wren");
+			expect(deps.out()).toContain("project:  core");
+		});
+
+		it("is inherited from the queued task it starts", async () => {
+			declare();
+			const queued = await deps.tasks.add("Retry on 413", null, {
+				scope: "wren",
+			});
+			await add(deps, "alpha", { tasks: [queued.id] });
+
+			expect((await deps.service.find("alpha")).scope).toBe("wren");
+		});
+
+		it("is refused when it is another's than the queued task's", async () => {
+			declare();
+			const queued = await deps.tasks.add("Retry on 413", null, {
+				scope: "wren",
+			});
+
+			await expect(
+				add(deps, "alpha", { tasks: [queued.id], project: "core" }),
+			).rejects.toThrow("is for project 'wren'");
+			expect((await deps.service.find("alpha")).gone).toBe(true);
+			expect((await deps.tasks.find(queued.id)).takenBy).toBeNull();
+		});
+
+		it("is refused when the config lacks it or nothing says", async () => {
+			declare();
+
+			await expect(add(deps, "alpha", { project: "nope" })).rejects.toThrow(
+				"no project 'nope'",
+			);
+			await expect(add(deps, "beta")).rejects.toThrow("say which project");
+			expect((await deps.service.find("beta")).gone).toBe(true);
+		});
+	});
+
+	describe("tags", () => {
+		it("are named by the flag, repeated or as a comma list, and shown", async () => {
+			await add(deps, "alpha", { tag: ["web,infra", "web"] });
+
+			expect((await deps.service.find("alpha")).tags).toEqual(["web", "infra"]);
+			expect(deps.out()).toContain("tags:     web, infra");
+		});
+
+		it("are refused when not lowercase with dashes", async () => {
+			await expect(add(deps, "alpha", { tag: ["Web App"] })).rejects.toThrow(
+				"lowercase",
+			);
+		});
+
+		it("are refused when the config allows others, naming the allowed", async () => {
+			deps.config.tags = { allowed: ["web", "infra"] };
+
+			await expect(add(deps, "alpha", { tag: ["db"] })).rejects.toThrow(
+				"no tag 'db' in splates.config.ts: web, infra",
+			);
+			expect((await deps.service.find("alpha")).gone).toBe(true);
+		});
+
+		it("default to the allowed tag of the folder it is added from", async () => {
+			deps.config.tags = { allowed: ["web", "infra"] };
+			await add(deps, "alpha", { folder: "web/packages/a" });
+			await add(deps, "beta", { folder: "web", tag: ["infra"] });
+
+			expect((await deps.service.find("alpha")).tags).toEqual(["web"]);
+			expect((await deps.service.find("beta")).tags).toEqual(["infra"]);
+		});
+
+		it("are required of a new task when the config says so, not of a queued one", async () => {
+			deps.config.tags = { required: true };
+			const queued = await deps.tasks.add("Old", null);
+
+			await expect(add(deps, "alpha")).rejects.toThrow("say which tag");
+			await add(deps, "beta", { tasks: [queued.id] });
+			await add(deps, "gamma", { tag: ["x"] });
+
+			expect((await deps.service.find("beta")).tags).toEqual([]);
+			expect((await deps.service.find("gamma")).tags).toEqual(["x"]);
+		});
+
+		it("are inherited from the queued task it starts", async () => {
+			const queued = await deps.tasks.add("Retry", null, { tags: ["web"] });
+			await add(deps, "alpha", { tasks: [queued.id], tag: ["infra"] });
+
+			expect((await deps.service.find("alpha")).tags).toEqual(["web", "infra"]);
+		});
 	});
 
 	it("excludes the plan from git, once, so no task can commit it", async () => {

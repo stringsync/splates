@@ -115,7 +115,7 @@ export function described(automation: Automation): string {
 	return `${automation.id}. ${triggerLabel(automation.trigger)}: ${hookLabel(automation.hook)}${automation.paused === true ? " (paused)" : ""}`;
 }
 
-/** `trigger` in a few words, as `task.created in backlog, lane 3` or `every 1h`. */
+/** `trigger` in a few words, as `task.created in available, lane 3` or `every 1h`. */
 export function triggerLabel(trigger: Trigger): string {
 	if ("every" in trigger) {
 		return `every ${trigger.every}`;
@@ -141,6 +141,6 @@ export function hookLabel(hook: Hook): string {
 		case "run":
 			return `run \`${hook.command}\``;
 		case "groom":
-			return `groom the backlog with ${pickLabel(hook)}`;
+			return `groom Untriaged with ${pickLabel(hook)}`;
 	}
 }

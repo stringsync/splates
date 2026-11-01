@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
+import type { Repo } from "@evals/evals/scenario";
 import {
 	CHECKPOINT,
 	RECONNECT,
 	RESUME,
 } from "@stringsync/splates-server/plans";
-import type { Repo, Scenario } from "../scenario";
+import type { Scenario } from "../box";
 import { firstStep, opens } from "./discovery";
 
 const aspect = "continuity";
@@ -42,11 +43,11 @@ export function oneSentence(reply: string): boolean {
 
 /** The Removed report's title for `name`, or null when the reply has none. */
 export function removedReport(reply: string, name: string): string | null {
-	const title = reply.split("\n").find((line) => /^## 🛑 Removed /.test(line));
+	const title = reply.split("\n").find((line) => /^## 🧹 Removed /.test(line));
 	if (title === undefined) {
 		return null;
 	}
-	return title.slice("## 🛑 Removed ".length).split(":")[0]?.trim() === name
+	return title.slice("## 🧹 Removed ".length).split(":")[0]?.trim() === name
 		? title
 		: null;
 }

@@ -171,7 +171,9 @@ export class Restarts {
 					focused: each.root === focused?.root,
 					conversations: await this.checkpointable(each.root),
 					waiting: each.gone ? 0 : await this.waitingIn(each.root),
-					ships: each.gone ? false : await shipsFrom(this.home, each.root),
+					ships: each.gone
+						? false
+						: await shipsFrom(this.home, each.root, each.slug),
 				})),
 			),
 			servers: await this.opts.servers(),

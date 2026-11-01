@@ -526,7 +526,6 @@ function noteOf(event: Updated): string | undefined {
 			(changed.assignee === null
 				? "names no agent"
 				: `names ${changed.assignee.agent}${changed.assignee.model === undefined ? "" : ` (${changed.assignee.model})`}`),
-		changed.ready && "groomed, now ready",
 	].filter((note) => typeof note === "string");
 	return notes.length === 0 ? undefined : notes.join("\n");
 }

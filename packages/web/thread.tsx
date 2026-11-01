@@ -1,7 +1,6 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { TaskReport } from "@stringsync/splates-server/plans";
-import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "core/react";
@@ -20,6 +19,7 @@ import { Dialog } from "#web/components/ui/dialog.tsx";
 import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
+import { useAged } from "./aged";
 import {
 	ArchiveBar,
 	ArchiveConversation,
@@ -54,18 +54,19 @@ import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { MergeCardContext } from "./merge-card";
+import { newestMerges, supersededMerges } from "./merge-events";
 import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
-import { Queued, queueKeyDown, useQueueEdits } from "./queued";
-import { QueuedUI } from "./queued-time";
+import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SuiteGrant } from "./run-command-card";
+import { heldAfter } from "./sending";
 import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
@@ -179,14 +180,24 @@ function Conversation({
 	const sending = useReactive(feed, (feed) => feed.sending.get(id), [
 		"changed",
 	]);
+	const { aged: agedSending } = useAged(
+		feed,
+		sending ?? [],
+		(each) => each.at,
+		heldAfter(),
+	);
 	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const superseded = useMemo(
 		() => supersededMerges(conversation.events),
 		[conversation.events],
 	);
+	const newest = useMemo(
+		() => newestMerges(conversation.events),
+		[conversation.events],
+	);
 	const mergeCard = useMemo(
-		() => ({ conversation: id, task, superseded }),
-		[id, task, superseded],
+		() => ({ conversation: id, task, tasks, superseded, newest }),
+		[id, task, tasks, superseded, newest],
 	);
 	const section = useRef<HTMLElement>(null);
 	const reply = useReply(id, drafts, send);
@@ -333,7 +344,6 @@ function Conversation({
 											<PermissionUI />
 											<DemoUI />
 											<WorkUI />
-											<QueuedUI />
 											<EventUI />
 											<StoppedUI />
 											<CompactionUI />
@@ -351,6 +361,11 @@ function Conversation({
 																	<NamedContext value={named}>
 																		<ThreadView
 																			docked
+																			occupied={
+																				(sending?.length ?? 0) > 0 ||
+																				(unsent?.length ?? 0) > 0 ||
+																				queued.length > 0
+																			}
 																			historyFailure={historyFailure}
 																			onRead={onRead}
 																			autoFocus={
@@ -382,26 +397,16 @@ function Conversation({
 																					{offer !== null && barred && (
 																						<ArchiveBar offer={offer} />
 																					)}
-																					{conversation.status === "running" &&
-																						conversation.heldForTask === null &&
-																						queued.length > 0 && (
-																							<Queued
-																								conversation={id}
-																								messages={queued}
-																								edits={{
-																									onEdit: (index, message) =>
-																										void edit(index, message),
-																									onDiscard: (index) =>
-																										void discard(index),
-																									onSendNow: () =>
-																										void sendNow(),
-																									busy: queueBusy,
-																								}}
-																							/>
-																						)}
 																					<PendingRow
-																						messages={sending ?? []}
+																						messages={agedSending}
 																						unsent={unsent ?? []}
+																						held={queued}
+																						edits={heldEdits(conversation, {
+																							sendNow,
+																							edit,
+																							discard,
+																							busy: queueBusy,
+																						})}
 																						retry={retry}
 																						edit={editUnsent}
 																					/>
@@ -516,25 +521,4 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
 			</button>
 		</p>
 	);
-}
-
-/** Ids of the refused merges that a later merge attempt for the same task followed. */
-function supersededMerges(events: readonly Event[]): Set<string> {
-	const out = new Set<string>();
-	for (const event of events) {
-		if (event.action === "merge" && event.reason !== null) {
-			const later = events.some(
-				(each) =>
-					each.at > event.at &&
-					each.task === event.task &&
-					(each.action === "merge" ||
-						each.action === "merge queued" ||
-						each.action === "merge start"),
-			);
-			if (later) {
-				out.add(event.id);
-			}
-		}
-	}
-	return out;
 }

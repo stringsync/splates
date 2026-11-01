@@ -21,6 +21,47 @@ that card already tags a `(chosen)` choice, so one card asks everything.
 2. What should its button say?
 ```
 
+## Showing the change
+
+A proposal shows what it would change, in a picture, when the change is
+big enough to need one: a backend change touching more than one service,
+table or flow, and any visible frontend change. A small change needs none.
+
+- **Backend: a D2 diagram.** Write the `.d2` source (a sequence, flow, data or
+  state diagram, whichever the change is) in a scratch directory outside the
+  worktree and render it to SVG. When `d2` is on the PATH (`command -v d2`),
+  use it: `d2 in.d2 out.svg`. Otherwise use `@terrastruct/d2`, the WASM build
+  of D2 on npm. It ships no command, and nothing is added to any repository:
+  write this script beside the source, where Bun installs the import on the
+  first run and caches it after, and run `bun render-d2.ts in.d2 out.svg`.
+
+  ```ts
+  import { D2 } from "@terrastruct/d2";
+
+  const [input, output] = process.argv.slice(2);
+  const d2 = new D2();
+  const result = await d2.compile(await Bun.file(input).text());
+  await Bun.write(output, await d2.render(result.diagram, result.renderOptions));
+  process.exit(0); // the WASM runtime keeps the process alive otherwise
+  ```
+
+  Open the SVG in the browser tool and screenshot it to a PNG: cards show
+  attached images, not SVGs. `splates attach` the PNG and put it in the
+  proposal under a short heading for what it shows. Keep the sections beside
+  it in the same order each time (`Flow`, `Data`, `Risks`), each a few lines,
+  so the page can fold them later.
+- **Frontend: a lo-fi screenshot.** Build a throwaway mock in plain HTML,
+  grey boxes and system text, no styling, in a scratch directory, and
+  capture it with the browser tool. `splates attach` it and put it under the
+  question or choice it shows. For variants, one choice each, lettered
+  A, B, C in order, each with its own image.
+
+Every visual is a before and after, side by side or one under the other, so
+the change is what the eye finds. The before is the code as it is now: a D2
+diagram of today's flow, a real screenshot of today's screen (a new screen has
+no before, so say so). The after is the intent: the proposed diagram, or the
+lo-fi mock. Label each `Before` and `After`, and label a mock as a mock.
+
 In a task, write each call under `## Blocked` too, then end your turn; ask
 nothing else beside it.
 

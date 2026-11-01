@@ -76,6 +76,9 @@ export class Setup {
 				}
 				continue;
 			}
+			if (field.kind === "manifest" || field.kind === "config") {
+				continue;
+			}
 			if (field.kind === "cred") {
 				if (
 					!field.optional &&
@@ -159,6 +162,9 @@ export class Setup {
 					doing: step.doing ?? null,
 					detail:
 						(await step.detail?.(this.#machine).catch(() => null)) ?? null,
+					found: done
+						? ((await step.found?.(this.#machine).catch(() => null)) ?? null)
+						: null,
 					warning:
 						(await step.warning?.(this.#machine).catch(() => null)) ?? null,
 					data: (await step.data?.(this.#machine).catch(() => null)) ?? null,
@@ -346,7 +352,12 @@ export type SetupWorker = Pick<
 export interface SetupProject {
 	readonly root: string;
 	/** Its `splates.config.ts`, as it stands now. */
-	config(): Promise<Pick<Config, "trunk" | "remote" | "replica" | "evals">>;
+	config(): Promise<
+		Pick<
+			Config,
+			"trunk" | "remote" | "replica" | "evals" | "ship" | "shipStatus" | "ships"
+		>
+	>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;
 	/**
@@ -393,6 +404,11 @@ export interface SetupStep {
 	readonly of?: SetupStep;
 	/** Markdown on this machine's own state for the step, as what a choice costs; none when absent. */
 	detail?(machine: SetupMachine): Promise<string | null>;
+	/**
+	 * Markdown on what the check found once the step is done, as the version
+	 * or the account; null when it has nothing to say, and none when absent.
+	 */
+	found?(machine: SetupMachine): Promise<string | null>;
 	/**
 	 * Markdown on what wants putting right though the step may be done, and
 	 * how, as a root key signing in; null when nothing does, and none when
@@ -475,6 +491,8 @@ export interface StepProgress {
 	doing: string | null;
 	/** Markdown on this machine's state for it, or null. */
 	detail: string | null;
+	/** Markdown on what the check found, once the step is done, or null. */
+	found: string | null;
 	/** Markdown on what wants putting right, and how, or null. */
 	warning: string | null;
 	/** What its own page body draws, or null. */

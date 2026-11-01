@@ -49,6 +49,12 @@ export async function show(
 
 export interface Details {
 	task: string;
+	/** Its number, as `[SPLATES TASK #N]` names it; null for a record without one. */
+	number: number | null;
+	/** The project it changes; null for a record without one. */
+	project: string | null;
+	/** The tags grouping it. */
+	tags: string[];
 	/** Files predicted to conflict at the last checked committed tips. */
 	comingConflict?: string[];
 	landed?: string[];
@@ -72,6 +78,8 @@ export interface Details {
 	mergePlace: number | null;
 	/** How far its merge under way has got; null with none under way. */
 	mergeSteps: MergeProgress | null;
+	/** The merges gated in one batch with it, its leader first; absent outside one, and from older servers. */
+	mergeBatch?: string[];
 	ahead: number | null;
 	/**
 	 * Whether removing it would lose work: commits its base does not have, or
@@ -182,6 +190,9 @@ export class TaskDetails {
 		const { stat, ahead, committedAt, uncommitted } = await this.git(worktree);
 		return {
 			task: worktree.task,
+			number: state?.id ?? null,
+			project: worktree.scope,
+			tags: worktree.tags,
 			comingConflict: (await worktree.comingConflict())?.files ?? [],
 			landed: await landingNotices(worktree),
 			status: worktree.status,
@@ -353,8 +364,13 @@ function pathOf(line: string): string {
 function report(details: Details): string {
 	const lines = [
 		`${color.bold(details.task)} ${details.status}`,
+		...(details.number === null ? [] : [`  number:    #${details.number}`]),
 		`  branch:    ${details.branch}`,
 		`  base:      ${details.base}`,
+		...(details.project === null ? [] : [`  project:   ${details.project}`]),
+		...(details.tags.length === 0
+			? []
+			: [`  tags:      ${details.tags.join(", ")}`]),
 		`  worktree:  ${details.worktree}`,
 		`  lease:     ${details.lease}`,
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,

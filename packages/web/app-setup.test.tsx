@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setHeldAfterMs } from "./sending";
 import { setupProgress } from "./setup-testing";
 import {
 	act,
@@ -18,12 +19,15 @@ describe("App's setup", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
+		// Held above the composer at once, as its first message is looked for there.
+		setHeldAfterMs(0);
 		testing = new Testing();
 	});
 
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		setHeldAfterMs(5000);
 		resize(1024, 768);
 	});
 

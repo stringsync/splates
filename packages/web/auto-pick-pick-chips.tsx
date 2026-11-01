@@ -71,9 +71,12 @@ export interface PickList {
 export function PickChips({
 	list,
 	picks,
+	indent = "pl-7",
 }: {
 	list: PickList;
 	picks: readonly AgentPick[];
+	/** The padding that sets the chips in from the left, for a place with its own. */
+	indent?: string;
 }): JSX.Element {
 	const sensors = useSensors(
 		useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
@@ -99,7 +102,7 @@ export function PickChips({
 			<SortableContext items={ids} strategy={horizontalListSortingStrategy}>
 				<ol
 					aria-label={`${list.label} picks`}
-					className="flex flex-wrap items-center gap-2 pl-7"
+					className={cn("flex flex-wrap items-center gap-2", indent)}
 				>
 					{picks.map((pick, at) => (
 						<PickChip
@@ -117,7 +120,9 @@ export function PickChips({
 				</ol>
 			</SortableContext>
 			{picks.length > 1 && list.note !== null && (
-				<p className="pl-7 text-muted-foreground text-xs">{list.note}</p>
+				<p className={cn("text-muted-foreground text-xs", indent)}>
+					{list.note}
+				</p>
 			)}
 		</DndContext>
 	);

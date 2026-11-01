@@ -89,7 +89,7 @@ Cap upload retries
 
 		// Not beta at work, delta orphaned nor gamma asking: those are the
 		// Tasks page's, and gamma asks in its own session.
-		expect(sidebar(view)).toEqual([["alpha", null]]);
+		expect(sidebar(view)).toEqual([["alphaFix login", null]]);
 		expect(
 			view.getByRole("status", { name: "Nothing waiting on you" }),
 		).toBeTruthy();

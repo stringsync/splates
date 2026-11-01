@@ -208,7 +208,9 @@ export function Waiting({
 									(conversation ? nameOf(conversation) : "A conversation")
 								}
 								by={
-									entry.reason === "paused" ? "paused" : startedBy(conversation)
+									entry.reason === "paused" || entry.reason === "machine busy"
+										? entry.reason
+										: startedBy(conversation)
 								}
 								age={age(entry.since)}
 								id={here ? undefined : known.project(entry.project)?.name}

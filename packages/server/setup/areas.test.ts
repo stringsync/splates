@@ -23,12 +23,15 @@ describe("SETUP_AREAS", () => {
 				step.after.length === 0 ? "ready" : "waiting",
 			]),
 		);
-		expect(progress.next).toBe("opencode-install");
+		expect(progress.next).toBe("claude-install");
 		expect(progress.required).toBe(false);
 	});
 
 	it("lists each journey once, the agents first", () => {
 		expect(SETUP_AREAS.map((area) => area.id)).toEqual([
+			"claude",
+			"codex",
+			"kimi",
 			"opencode",
 			"remote-access",
 			"workers",
@@ -36,11 +39,9 @@ describe("SETUP_AREAS", () => {
 			"dictation",
 			"droplet",
 			"evals",
+			"ships",
 			"auto-pick",
 			"github",
-			"claude",
-			"codex",
-			"kimi",
 		]);
 	});
 });

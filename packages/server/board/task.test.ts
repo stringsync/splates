@@ -381,33 +381,33 @@ describe.concurrent("task", () => {
 		await expect(add(deps, "missing", { tasks: [9] })).toBail("not_found");
 	});
 
-	it("is ready once groomed, whether it names an agent or not, and stays groomed once started", async () => {
+	it("is available whether it names an agent or not, and groomed once it sits in a lane", async () => {
 		await using deps = await Testing.open();
-		await taskAdd(deps, "rough", null);
-		await taskAdd(deps, "groomed", null, { ready: true });
+		await taskAdd(deps, "untriaged", null);
+		await taskAdd(deps, "in a lane", null, { lane: "new" });
 		await taskUpdate(deps, 1, { assignee: { agent: "claude" } });
 		const stages = async () =>
 			(await deps.tasks.all()).map((task) => task.state.stage);
-		expect(await stages()).toEqual(["backlog", "ready"]);
+		expect(await stages()).toEqual(["available", "available"]);
 
-		await taskUpdate(deps, 1, { ready: true });
-		expect(await stages()).toEqual(["ready", "ready"]);
-
-		await taskAdd(deps, "started rough", null);
-		await add(deps, "rough", { tasks: [3] });
-		await taskUpdate(deps, 3, { ready: true });
-		const started = (await deps.tasks.find(3)).state;
-		expect([started.stage, started.groomed]).toEqual(["running", true]);
 		deps.log.clear();
-		await taskShow(deps, 3);
+		await taskShow(deps, 1);
+		expect(deps.out()).toContain("groomed:   no");
+		deps.log.clear();
+		await taskShow(deps, 2);
+		expect(deps.out()).toContain("groomed:   yes");
+
+		await taskUpdate(deps, 1, { lane: "new" });
+		deps.log.clear();
+		await taskShow(deps, 1);
 		expect(deps.out()).toContain("groomed:   yes");
 	});
 
-	it("is claimed for one groomer at a time, until a take or grooming ends the claim", async () => {
+	it("is claimed for one groomer at a time, until a take or a lane ends the claim", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "rough", null);
 		await taskAdd(deps, "taken", null);
-		await taskAdd(deps, "groomed", null, { ready: true });
+		await taskAdd(deps, "groomed", null, { lane: "new" });
 		await add(deps, "work", { tasks: [2] });
 		const claim = async (id: number, by: string) =>
 			(await deps.tasks.find(id)).groom(by);
@@ -424,7 +424,7 @@ describe.concurrent("task", () => {
 		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
 		await (await deps.tasks.find(1)).release();
 		await claim(1, "groomer-b");
-		await taskUpdate(deps, 1, { ready: true });
+		await taskUpdate(deps, 1, { lane: "new" });
 		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
 	});
 

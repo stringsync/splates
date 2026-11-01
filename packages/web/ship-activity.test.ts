@@ -1,6 +1,25 @@
 import { describe, expect, it } from "bun:test";
-import type { Cascade, CascadeStep } from "@stringsync/splates-server/ship";
-import { shipLine } from "./ship-activity";
+import type {
+	Cascade,
+	CascadeStep,
+	Ship,
+} from "@stringsync/splates-server/ship";
+import { shipActivity, shipLine } from "./ship-activity";
+
+describe("shipActivity", () => {
+	it("is null for a failed ship with no cascade under way", () => {
+		const ship = { status: "failed" } as unknown as Ship;
+		expect(shipActivity({ cascade: null, ship })).toBeNull();
+	});
+
+	it("is an error once the cascade stopped", () => {
+		const stopped = {
+			...cascade([step({ status: "failed" })]),
+			status: "stopped" as const,
+		};
+		expect(shipActivity({ cascade: stopped, ship: null })).toBe("error");
+	});
+});
 
 describe("shipLine", () => {
 	it("says nothing before the cascade speaks", () => {
@@ -9,7 +28,7 @@ describe("shipLine", () => {
 
 	it("names the project publishing", () => {
 		expect(shipLine({ cascade: cascade([step({})]), ship: null })).toBe(
-			"webappwiz publishing",
+			"wren publishing",
 		);
 	});
 
@@ -21,7 +40,7 @@ describe("shipLine", () => {
 		} as unknown as CascadeStep["stages"][number];
 		expect(
 			shipLine({ cascade: cascade([step({ stages: [hung] })]), ship: null }),
-		).toBe("webappwiz hung at build");
+		).toBe("wren hung at build");
 	});
 
 	it("names a failed step", () => {
@@ -30,13 +49,13 @@ describe("shipLine", () => {
 				cascade: cascade([step({ status: "failed" })]),
 				ship: null,
 			}),
-		).toBe("webappwiz failed");
+		).toBe("wren failed");
 	});
 });
 
 function step(over: Partial<CascadeStep>): CascadeStep {
 	return {
-		slug: "webappwiz",
+		slug: "wren",
 		action: "ship",
 		from: "1.4.2",
 		bump: "patch",
@@ -57,7 +76,7 @@ function step(over: Partial<CascadeStep>): CascadeStep {
 function cascade(steps: CascadeStep[]): Cascade {
 	return {
 		id: "x",
-		from: "webappwiz",
+		from: "wren",
 		status: "running",
 		started: "2026-10-27T12:00:00.000Z",
 		ended: null,

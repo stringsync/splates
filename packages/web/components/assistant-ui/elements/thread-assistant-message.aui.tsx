@@ -185,8 +185,8 @@ function useStreaming(tail: string | null): boolean {
  * The shimmering Working label under a busy reply, hidden while its text
  * streams and back once it pauses. Also hidden under streaming reasoning, in
  * a turn whose row of what the agent is doing still says Working above the
- * reply, or under the Queued row of what waits for the turn: the turn itself
- * says it works. Never after the
+ * reply: the turn itself says it works. Also hidden under a message still
+ * being sent, which has no turn of its own yet. Never after the
  * line saying the person stopped the turn, even before the status catches up.
  */
 export const WorkingIndicator: FC = () => {
@@ -196,6 +196,10 @@ export const WorkingIndicator: FC = () => {
 		return last?.type === "text" ? last.text : null;
 	});
 	const streaming = useStreaming(tail);
+	const sending = useAuiState(
+		(s) =>
+			s.thread.messages[s.message.index - 1]?.metadata.custom.pending === true,
+	);
 	const labelled = useAuiState((s) => {
 		const last = s.message.parts.at(-1);
 		return (
@@ -205,13 +209,11 @@ export const WorkingIndicator: FC = () => {
 					part.type === "data" &&
 					(part.name === "stopped" ||
 						(part.name === "work" &&
-							(part.data as { work: Work }).work.working) ||
-						(part.name === "queued" &&
-							(part.data as { until: string | null }).until === null)),
+							(part.data as { work: Work }).work.working)),
 			)
 		);
 	});
-	if (labelled || streaming) {
+	if (labelled || streaming || sending) {
 		return null;
 	}
 	// Laid out as the work row's line: its spacing, its size, and its words

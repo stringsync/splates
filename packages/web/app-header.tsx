@@ -6,21 +6,24 @@ import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { OfflineBanner } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
+import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
 import { STATUS_PILL } from "./status-pill";
-import { TITLE } from "./top-bar";
 
 /**
- * The head of a phone's drawer: the slot mark, the server's name and its
+ * The head of a phone's drawer: the project switcher and the server's
  * state, with how a restart goes and why a checkpoint could not start under
  * them when they show. Pass the server's snapshot and machine reading.
  */
 export function AppHeader({
 	snapshot,
+	name,
 	outdated,
 	offline,
 	machine,
 }: {
+	/** The project's name. */
+	name: string;
 	snapshot: Snapshot | null;
 	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
@@ -30,8 +33,12 @@ export function AppHeader({
 	return (
 		<header className="flex min-w-0 flex-col">
 			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
-				<SlotMark snapshot={snapshot} />
-				<h1 className={cn(TITLE, "truncate")}>splates</h1>
+				<ProjectSwitcher
+					name={name}
+					path={false}
+					servers={false}
+					className="mx-0 min-w-0 max-w-full shrink"
+				/>
 				<ServerBadges
 					snapshot={snapshot}
 					outdated={outdated}
@@ -71,32 +78,6 @@ export function AppStatus({
 			/>
 			<Restarting offline={offline} className="min-w-0" />
 		</>
-	);
-}
-
-/**
- * Which `splates server --slot` this is, when several are open, or splates's tree
- * for the one plain `splates server`.
- */
-export function SlotMark({
-	snapshot,
-}: {
-	snapshot: Snapshot | null;
-}): JSX.Element {
-	const slot = snapshot?.slot ?? null;
-	return (
-		<span
-			role="img"
-			aria-label={slot === null ? "Spinning Plates" : `slot ${slot.word}`}
-			title={
-				slot === null
-					? "Served by splates server"
-					: `Served by the ${slot.word} slot of splates server`
-			}
-			className="shrink-0 text-base leading-none"
-		>
-			{slot?.emoji ?? "🍽️"}
-		</span>
 	);
 }
 

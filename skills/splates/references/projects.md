@@ -16,11 +16,11 @@ this project:
   update`, `task remove`, `lane` and `queue`.
 
 Name another project's task with its slug before the number, as
-`webappwiz #404`: the page links it to that project's board, where a bare
+`wren #404`: the page links it to that project's board, where a bare
 `#404` is this project's.
 
 When work here cannot go on before a task there merges, link it:
-`--blocked-by webappwiz#404` on `splates task add`, `task update` or
+`--blocked-by wren#404` on `splates task add`, `task update` or
 `remove --reason blocked`, as Links in [queue.md](queue.md) says.
 
 You never start or take a task in another project yourself: you do not
@@ -37,14 +37,14 @@ other project's slug before the numbers, for the user to queue it now or
 leave it:
 
 ```markdown
-## 🔐 Permission: queue webappwiz #404: format() takes a locale
+## 🔐 Permission: queue wren #404: format() takes a locale
 
-`splates --project webappwiz queue add 404`
+`splates --project wren queue add 404`
 
 The report page here needs it to show prices by locale.
 ```
 
-Several tasks for the same project go on one card (`queue webappwiz #404,
+Several tasks for the same project go on one card (`queue wren #404,
 #405: ...`). The card is an offer: the work is the user's to start.
 
 ## Asking for a grant
@@ -55,10 +55,10 @@ first, then the reach, then this project, and under it what you would do
 with it. End your turn after it.
 
 ```markdown
-## 🔐 Permission: grant webappwiz queue to splates: queue the locale change
+## 🔐 Permission: grant wren queue to splates: queue the locale change
 
 The report page here needs `format()` to take a locale; once allowed, this
-queues that in webappwiz for its own agent.
+queues that in wren for its own agent.
 ```
 
 Its Allow grants the reach from the page and sends `[SPLATES GRANTED]`:

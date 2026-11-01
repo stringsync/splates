@@ -37,6 +37,29 @@ describe("readReleaseSteps", () => {
 		});
 	});
 
+	it("keeps the status and link a check reports", () => {
+		const [step] = readReleaseSteps(
+			eventsText([
+				declared("a"),
+				{ type: "started", id: "a", name: "A", at: "t1" },
+				{
+					type: "check",
+					id: "a",
+					name: "A",
+					passed: false,
+					status: "in_progress",
+					url: "https://github.com/o/r/actions/runs/1",
+					at: "t2",
+				},
+			]),
+		);
+		expect(step).toMatchObject({
+			checked: false,
+			status: "in_progress",
+			url: "https://github.com/o/r/actions/runs/1",
+		});
+	});
+
 	it("skips lines it does not know and events for undeclared steps", () => {
 		const steps = readReleaseSteps(
 			`garbage\n{"type":"mystery","id":"a"}\n${eventsText([

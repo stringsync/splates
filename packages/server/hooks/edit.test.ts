@@ -66,7 +66,7 @@ const NONE: HookChange = {
 
 const NOTIFY: Automation = {
 	id: "1",
-	trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+	trigger: { event: "task.created", filter: { stages: ["available"] } },
 	hook: { kind: "agent", prompt: "say hi", agent: "claude", model: "sonnet" },
 	createdAt: "2026-10-19T00:00:00.000Z",
 };

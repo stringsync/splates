@@ -4,7 +4,6 @@ import type { Event } from "../records";
 export const TASK_EVENTS = [
 	"task.created",
 	"task.updated",
-	"task.ready",
 	"task.queued",
 	"task.started",
 	"task.done",
@@ -42,15 +41,9 @@ export function taskEventsOf(event: Event): TaskEvent[] {
 	});
 	switch (event.action) {
 		case "task add":
-			return [
-				of("task.created", [event.number]),
-				...(event.ready ? [of("task.ready", [event.number])] : []),
-			];
+			return [of("task.created", [event.number])];
 		case "task update":
-			return [
-				of("task.updated", [event.number]),
-				...(event.changed.ready ? [of("task.ready", [event.number])] : []),
-			];
+			return [of("task.updated", [event.number])];
 		case "queue add":
 			return [
 				of(

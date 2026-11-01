@@ -34,20 +34,11 @@ export function scheduleReference(automation: string): string {
 }
 
 /**
- * What tells the project's groomer to groom backlog task `id`, which
+ * What tells the project's groomer to groom Untriaged task `id`, which
  * `splates server` claimed for it: the splates skill says what it means.
  */
 export function groomReference(id: number): string {
 	return `[SPLATES GROOM #${id}]`;
-}
-
-/**
- * What tells the project's groomer to look for lanes for Untriaged tasks
- * `ids`, which `splates server` marked as looked at: the splates skill says
- * what it means.
- */
-export function sortReference(ids: readonly number[]): string {
-	return `[SPLATES SORT ${ids.map((id) => `#${id}`).join(" ")}]`;
 }
 
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
@@ -101,6 +92,38 @@ export function continuedReference(transcript: string): string {
 /** What a chat with an agent takes to mean "walk the user through setup step `step`". */
 export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;
+}
+
+/**
+ * What asks an agent to look into ship `ship`, stopped at `project`'s `stage`:
+ * read its logs from the server at `origin`, prescribe a fix and land it,
+ * then continue the ship. The person asked for the retry by sending this, so
+ * the agent may make it; it starts no ship of its own.
+ */
+export function shipFailureReference(
+	ship: { id: string; project: string; stage: string | null },
+	origin: string,
+): string {
+	const where =
+		ship.stage === null
+			? `\`${ship.project}\``
+			: `the \`${ship.stage}\` stage of \`${ship.project}\``;
+	const log = `${origin}/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
+	return `Ship \`${ship.id}\` stopped at ${where}. Examine its logs, find why it failed, and prescribe a fix.
+
+- The stage's log: \`curl '${log}'\`. The ship itself is at ${origin}/api/ship/steps (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
+- When the fix is a code change, make it as a task and land it as the splates skill says. When it is not (a registry, a credential, something outside the repository), say what the person must do.
+- Once the fix is in, continue the ship by retrying it in place: \`curl -X POST ${origin}/api/ship/steps/retry\`. The person asked for this by sending you here. Retry nothing else, and never start a ship, bump a version or publish by hand.
+- Report what failed, what you changed, and where the ship stands.`;
+}
+
+/**
+ * What asks an agent to make a change to the project's `splates.config.ts`
+ * for a setup step, in a task named `task` so the page can show its diff,
+ * and to merge it only once the person has seen the diff and approved.
+ */
+export function configChangeReference(task: string, change: string): string {
+	return `Setup needs a change to this project's \`splates.config.ts\`. Start a task named \`${task}\` with \`splates add ${task}\` and make this change in it, and nothing else: ${change}\n\nThe setup page shows the task's diff to the person. Ask for their review as the splates skill says, and merge once they approve.`;
 }
 
 /**

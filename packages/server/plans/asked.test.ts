@@ -134,7 +134,7 @@ describe("stretches", () => {
 
 	it("reads the skill's merge and remove reports", async () => {
 		const merged = await skillExample("## ✅ Merged");
-		const removed = await skillExample("## 🛑 Removed");
+		const removed = await skillExample("## 🧹 Removed");
 
 		expect(stretches(merged).map((each) => each.type)).toEqual(["report"]);
 		expect(stretches(merged)[0]).toEqual({
@@ -158,7 +158,7 @@ describe("stretches", () => {
 				reason: "superseded by a fix on main",
 				body: "The task set out to stop uploads retrying a 413.",
 				source:
-					"## 🛑 Removed <task>: superseded by a fix on main\n\nThe task set out to stop uploads retrying a 413.",
+					"## 🧹 Removed <task>: superseded by a fix on main\n\nThe task set out to stop uploads retrying a 413.",
 			},
 		});
 	});
@@ -361,13 +361,13 @@ describe("stretches", () => {
 	it("reads another project's queue card and a grant card", () => {
 		const found = stretches(
 			[
-				"## 🔐 Permission: queue webappwiz #404: A locale for format()",
+				"## 🔐 Permission: queue wren #404: A locale for format()",
 				"",
-				"`splates --project webappwiz queue add 404`",
+				"`splates --project wren queue add 404`",
 				"",
 				"The report page needs it.",
 				"",
-				"## 🔐 Permission: grant webappwiz tasks to splates: reorder its lane",
+				"## 🔐 Permission: grant wren tasks to splates: reorder its lane",
 				"",
 				"Other should come before Base.",
 			].join("\n"),
@@ -380,7 +380,7 @@ describe("stretches", () => {
 					action: "queue",
 					lane: null,
 					tasks: [404],
-					project: "webappwiz",
+					project: "wren",
 					title: "A locale for format()",
 					body: "The report page needs it.",
 				},
@@ -393,7 +393,7 @@ describe("stretches", () => {
 					tasks: [],
 					title: "reorder its lane",
 					body: "Other should come before Base.",
-					grant: { in: "webappwiz", reach: "tasks", from: "splates" },
+					grant: { in: "wren", reach: "tasks", from: "splates" },
 				},
 			},
 		]);

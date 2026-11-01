@@ -7,6 +7,10 @@ import {
 	BotIcon,
 	CheckIcon,
 	ChevronRightIcon,
+	CircleCheckIcon,
+	CircleDotIcon,
+	CircleIcon,
+	ClockIcon,
 	InfoIcon,
 	RotateCwIcon,
 	TriangleAlertIcon,
@@ -30,10 +34,12 @@ import {
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
+import { Textarea } from "#web/components/ui/textarea.tsx";
 import { StillWaiting } from "./countdown";
 import { CredPrivacy } from "./cred-privacy";
 import { Markdown } from "./markdown";
 import { SETUP_WORK } from "./setup-api";
+import { ConfigChangeField } from "./setup-config-field";
 import { StepBar, StepRail } from "./setup-step-nav";
 
 /** The agents' areas, which the index lists first, in this order. */
@@ -49,29 +55,42 @@ export function SetupIndex({
 	areas,
 	onSelect,
 	onUndo,
+	heading,
 }: {
 	areas: readonly AreaProgress[];
 	onSelect: (id: string) => void;
+	/** Lists the areas as one group under this heading, in the order given. */
+	heading?: string;
 	/** Asks to undo an area with a step done or started; none hides Undo. */
 	onUndo?: (id: string) => void;
 }): JSX.Element {
 	return (
-		<nav aria-label="setup areas" className="flex w-full flex-col gap-6">
-			{ordered(areas).map((group) => (
-				<ul
-					key={group[0]?.id}
-					className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
-				>
-					{group.map((area) => (
-						<AreaRow
-							key={area.id}
-							area={area}
-							onSelect={onSelect}
-							onUndo={onUndo}
-						/>
-					))}
-				</ul>
-			))}
+		<nav
+			aria-label="setup areas"
+			className="mx-auto flex w-full max-w-2xl flex-col gap-10"
+		>
+			{(heading === undefined ? ordered(areas) : [[...areas]]).map(
+				(group, at) => (
+					<div key={group[0]?.id} className="flex flex-col gap-2">
+						<h2 className="px-3 font-medium text-muted-foreground text-sm">
+							{heading ??
+								(at === 0 && group[0] && AGENT_JOURNEYS.includes(group[0].id)
+									? "Run agents"
+									: "Set up more")}
+						</h2>
+						<ul className="flex flex-col gap-0.5">
+							{group.map((area) => (
+								<AreaRow
+									key={area.id}
+									area={area}
+									onSelect={onSelect}
+									onUndo={onUndo}
+								/>
+							))}
+						</ul>
+					</div>
+				),
+			)}
 		</nav>
 	);
 }
@@ -105,15 +124,16 @@ function AreaRow({
 	const warned = area.steps.some((step) => step.warning !== null);
 	const done = area.done === area.steps.length && !warned;
 	return (
-		<li className="flex min-h-16 items-center gap-2 pr-3 hover:bg-muted/50">
+		<li className="group flex items-center gap-1 rounded-lg pr-2 hover:bg-muted/60 has-[:focus-visible]:bg-muted/60">
 			<button
 				type="button"
 				aria-label={`Set up ${area.title}`}
-				className="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 pl-4 text-left outline-none focus-visible:bg-muted/50"
+				className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-lg px-3 py-3.5 text-left outline-none"
 				onClick={() => onSelect(area.id)}
 			>
-				<span className="flex min-w-0 flex-1 flex-col">
-					<span className="font-medium">
+				<AreaMark done={done} warned={warned} started={area.done > 0} />
+				<span className="flex min-w-0 flex-1 flex-col gap-1">
+					<span className="font-medium leading-5">
 						Set up {area.title}
 						{area.optional && (
 							<span className="ml-2 font-normal text-muted-foreground text-xs">
@@ -121,17 +141,10 @@ function AreaRow({
 							</span>
 						)}
 					</span>
-					<span className="text-sm text-muted-foreground">{area.purpose}</span>
-					<span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-						{done && (
-							<CheckIcon className="size-3.5 text-success" aria-hidden />
-						)}
-						{warned && (
-							<TriangleAlertIcon
-								className="size-3.5 text-warning"
-								aria-hidden
-							/>
-						)}
+					<span className="text-muted-foreground text-sm leading-5">
+						{area.purpose}
+					</span>
+					<span className="text-muted-foreground text-xs">
 						{progressLine(area)}
 					</span>
 				</span>
@@ -140,15 +153,49 @@ function AreaRow({
 				<Button
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground"
+					className="text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:group-hover:opacity-100"
 					aria-label={`Undo ${area.title}`}
 					onClick={() => onUndo(area.id)}
 				>
 					<Undo2Icon aria-hidden /> Undo
 				</Button>
 			)}
-			<ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+			<ChevronRightIcon
+				className="size-4 shrink-0 text-muted-foreground/60"
+				aria-hidden
+			/>
 		</li>
+	);
+}
+
+/** The mark before an area: a check when done, a warning, a half circle once started, else an empty circle. */
+function AreaMark({
+	done,
+	warned,
+	started,
+}: {
+	done: boolean;
+	warned: boolean;
+	started: boolean;
+}): JSX.Element {
+	const className = "mt-0.5 size-5 shrink-0";
+	if (warned) {
+		return (
+			<TriangleAlertIcon className={`${className} text-warning`} aria-hidden />
+		);
+	}
+	if (done) {
+		return (
+			<CircleCheckIcon className={`${className} text-success`} aria-hidden />
+		);
+	}
+	return started ? (
+		<CircleDotIcon className={`${className} text-foreground/70`} aria-hidden />
+	) : (
+		<CircleIcon
+			className={`${className} text-muted-foreground/40`}
+			aria-hidden
+		/>
 	);
 }
 
@@ -183,6 +230,8 @@ export function StepForm({
 	title,
 	why,
 	detail,
+	found,
+	waiting,
 	warning,
 	at,
 	of,
@@ -199,6 +248,10 @@ export function StepForm({
 	why?: ReactNode;
 	/** What stands on the step now, as what the box will cost, in a box of its own under `why`. */
 	detail?: ReactNode;
+	/** What the check found on a done step, shown in place of its to-do copy. */
+	found?: ReactNode;
+	/** The steps a waiting step waits on, as links. */
+	waiting?: ReactNode;
 	/** What wants putting right on the step, and how, shown above its fields. */
 	warning?: ReactNode;
 	/** This page's place in the journey, from 1. */
@@ -219,7 +272,7 @@ export function StepForm({
 	children?: ReactNode;
 }): JSX.Element {
 	const working = next.kind === "working";
-	const progress = steps !== undefined && steps.length > 1;
+	const progress = steps !== undefined;
 	return (
 		<div className="flex w-full flex-col gap-6">
 			<div className="flex items-center justify-end gap-4">
@@ -277,6 +330,19 @@ export function StepForm({
 							<AlertDescription>{detail}</AlertDescription>
 						</Alert>
 					)}
+					{found !== undefined && (
+						<Alert className="border-success/50 *:[svg]:text-success">
+							<CheckIcon aria-hidden />
+							<AlertTitle>Done</AlertTitle>
+							<AlertDescription>{found}</AlertDescription>
+						</Alert>
+					)}
+					{waiting !== undefined && (
+						<Alert>
+							<ClockIcon aria-hidden />
+							<AlertDescription>{waiting}</AlertDescription>
+						</Alert>
+					)}
 					{warning !== undefined && (
 						<Alert variant="warning">
 							<TriangleAlertIcon aria-hidden />
@@ -321,13 +387,13 @@ export function StepForm({
 								<BotIcon /> Set it up with an agent
 							</Button>
 						)}
+						{onAgent !== null && (
+							<span className="text-muted-foreground text-xs">
+								Starts a conversation; the agent spends tokens.
+							</span>
+						)}
 						{/* Together, so on a phone they wrap under the link as one. */}
 						<span className="ml-auto flex items-center gap-4">
-							{!progress && (
-								<span className="text-muted-foreground text-sm tabular-nums">
-									{at} of {of}
-								</span>
-							)}
 							<Button type="submit" className="min-w-24" disabled={working}>
 								{working ? (
 									"Working…"
@@ -358,7 +424,11 @@ export function CredField({
 	label,
 	help,
 	saved = false,
+	multiline = false,
+	optional = false,
 }: {
+	/** Pasted into a box of several lines, as a PEM file. */
+	multiline?: boolean;
 	/** The cred's environment-variable name, as `OPENCODE_GO_API_KEY`. */
 	name: string;
 	label: string;
@@ -366,20 +436,37 @@ export function CredField({
 	help?: ReactNode;
 	/** Whether the store keeps it already, so the field offers to replace it. */
 	saved?: boolean;
+	/** Whether it may be left empty, so Next does not insist on it. */
+	optional?: boolean;
 }): JSX.Element {
 	return (
 		<Field>
 			<FieldLabel htmlFor={name}>{label}</FieldLabel>
-			<Input
-				id={name}
-				name={name}
-				type="password"
-				autoComplete="off"
-				placeholder={
-					saved ? "Saved. Paste again to replace it" : "Paste it here"
-				}
-				className="font-mono max-md:placeholder:font-sans"
-			/>
+			{multiline ? (
+				<Textarea
+					id={name}
+					name={name}
+					required={!saved && !optional}
+					autoComplete="off"
+					rows={6}
+					placeholder={
+						saved ? "Saved. Paste again to replace it" : "Paste it here"
+					}
+					className="font-mono max-md:placeholder:font-sans [-webkit-text-security:disc]"
+				/>
+			) : (
+				<Input
+					id={name}
+					name={name}
+					required={!saved && !optional}
+					type="password"
+					autoComplete="off"
+					placeholder={
+						saved ? "Saved. Paste again to replace it" : "Paste it here"
+					}
+					className="font-mono max-md:placeholder:font-sans"
+				/>
+			)}
 			{help !== undefined && <FieldDescription>{help}</FieldDescription>}
 			<CredPrivacy />
 		</Field>
@@ -437,8 +524,14 @@ export function StepField({ field }: { field: FieldProgress }): JSX.Element {
 						)
 					}
 					saved={field.saved}
+					multiline={field.multiline}
+					optional={field.optional}
 				/>
 			);
+		case "config":
+			return <ConfigChangeField field={field} />;
+		case "manifest":
+			return <ManifestButton endpoint={field.endpoint} label={field.label} />;
 		case "text":
 			return (
 				<Field>
@@ -448,14 +541,23 @@ export function StepField({ field }: { field: FieldProgress }): JSX.Element {
 						name={field.name}
 						placeholder={field.placeholder ?? undefined}
 						defaultValue={field.value ?? undefined}
+						required={!field.optional}
 					/>
+					{field.help !== null && (
+						<FieldDescription>
+							<Markdown text={field.help} inline />
+						</FieldDescription>
+					)}
 				</Field>
 			);
 		case "choice":
 			return (
 				<Field>
 					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
-					<NativeSelect id={field.name} name={field.name}>
+					<NativeSelect id={field.name} name={field.name} defaultValue="">
+						<NativeSelectOption value="" disabled>
+							Choose one
+						</NativeSelectOption>
 						{field.options.map((option) => (
 							<NativeSelectOption key={option.value} value={option.value}>
 								{option.label}
@@ -472,4 +574,45 @@ export function StepField({ field }: { field: FieldProgress }): JSX.Element {
 				</Field>
 			);
 	}
+}
+
+/**
+ * A button that has GitHub make an App from a manifest: it fetches where to
+ * post and what, then posts a form to GitHub in this tab, which sends the
+ * browser back to the server once the person confirms.
+ */
+function ManifestButton({
+	endpoint,
+	label,
+}: {
+	endpoint: string;
+	label: string;
+}): JSX.Element {
+	const start = async () => {
+		const response = await fetch(endpoint);
+		if (!response.ok) {
+			return;
+		}
+		const { url, manifest } = (await response.json()) as {
+			url: string;
+			manifest: string;
+		};
+		const form = document.createElement("form");
+		form.method = "post";
+		form.action = url;
+		const input = document.createElement("input");
+		input.type = "hidden";
+		input.name = "manifest";
+		input.value = manifest;
+		form.append(input);
+		document.body.append(form);
+		form.submit();
+	};
+	return (
+		<Field>
+			<Button type="button" variant="outline" onClick={() => void start()}>
+				{label}
+			</Button>
+		</Field>
+	);
 }

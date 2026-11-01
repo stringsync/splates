@@ -41,7 +41,7 @@ describe("App's offer to archive a conversation whose task is over", () => {
 							"",
 							"The footer is gray.",
 							"",
-							"## 🛑 Removed sidebar: superseded by a fix on main",
+							"## 🧹 Removed sidebar: superseded by a fix on main",
 							"",
 							"It set out to fold the sidebar.",
 						].join("\n"),

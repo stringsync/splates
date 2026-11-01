@@ -1,5 +1,5 @@
 // vet-ignore-file compact-files: one merge is one sequence of steps (rebase, checks, gate, landing) that reads top to bottom; it predates the rule
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import type { Fs, Lock } from "core/system";
 import { type Clock, Duration, SystemClock } from "core/time";
 import type { Tasks } from "../board";
@@ -9,10 +9,9 @@ import type { Git } from "../git";
 import type { Slots } from "../ports";
 import type { Facts, Journal } from "../records";
 import type { PlacedLock } from "../server/shared";
-import type { LivePhase, MergeStep, WorktreeService } from "../tasks";
+import type { LivePhase, MergeStep, Worktree, WorktreeService } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
-import { type Member, MergeBatch } from "./batch";
 import type { TaskBranches } from "./branches";
 import { clearGate } from "./clear-gate";
 import { GateTrail } from "./cores";
@@ -20,9 +19,11 @@ import { finishLanding } from "./finish";
 import { conflictsOnBase, type Followed, follow, waitAlone } from "./follow";
 import { type Checkout, MergeGate } from "./gate";
 import { landTested } from "./landing";
+import { type Member, MergeLine } from "./line";
 import { MergeState } from "./merge-state";
 import { refuseFailedChecks } from "./pre-lock";
 import { refuseUnready } from "./preflight";
+import { allQuarantined, quarantinedTests } from "./quarantine";
 import { queueFailedTests } from "./queue-failures";
 import { BaseRebase } from "./rebase";
 import { recentFailedFiles } from "./recent-failures";
@@ -45,7 +46,8 @@ import type { TrunkLanding } from "./trunk";
 // `splates/<task>` and asks the server to move trunk there, which only it
 // does. A batch's first merge stacks the others' branches on its own and
 // gates the stack's tip once; a failing batch is split by whose commits the
-// failing tests first fail with (`MergeBatch`).
+// failing tests first fail with. Merges wait in the project's `MergeLine`,
+// which the server's one process holds for every merge it runs.
 export async function merge(
 	{
 		service,
@@ -63,7 +65,7 @@ export async function merge(
 		phasesEveryMs,
 		branches,
 		trunk,
-		batch = new MergeBatch(service.storage, service.ps, log),
+		line = MergeLine.of(git.root, log),
 		clock = new SystemClock(),
 	}: {
 		service: WorktreeService;
@@ -85,7 +87,7 @@ export async function merge(
 		branches: TaskBranches;
 		trunk: TrunkLanding;
 		/** Where this merge forms or joins a batch with the others waiting. */
-		batch?: MergeBatch;
+		line?: MergeLine;
 		clock?: Clock;
 	},
 	cwd: string,
@@ -179,11 +181,12 @@ export async function merge(
 		facts,
 	);
 	const rebaseOntoBase = () => rebase.onto();
-	const line = state.line();
+	const ticket = state.line();
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
 	await treeLock.acquire();
 	try {
 		worktree = await state.requireLease();
+		worktree = await offStack(git, worktree);
 		// Before the wait: a conflict costs the agent none of it.
 		const firstOnto = await rebaseOntoBase();
 		if (message !== "") {
@@ -262,44 +265,47 @@ export async function merge(
 				facts,
 			);
 		}
-		// Only a gated merge landing here batches: with a central remote each
-		// task pushes its own tested branch for the server to land.
-		const batching = remote === null && runner.command !== "";
-		if (batching) {
-			await batch.offer(task, base);
-		}
+		// Only a gated merge batches. With a central remote the batch's stack
+		// tip is what the server lands on the remote's trunk.
+		const batching = runner.command !== "";
 		// While waiting, a base that moved under the branch and now conflicts
 		// with it ends the wait: the rebase after refuses it as it would
 		// have, without the line. Never lets anything through.
 		const doomed = conflictsOnBase(git, base, firstOnto, ownHead);
-		const watching = remote === null && runner.command !== "";
+		const watching = runner.command !== "";
 		let followed: Followed;
 		if (batching) {
 			followed = await follow(
-				{ batch, git, log, doomed: watching ? doomed : undefined },
+				{ line, git, log, doomed: watching ? doomed : undefined },
 				{
 					task,
+					base,
 					path: worktree.path,
 					ownHead,
 					requireLease: () => state.requireLease(),
-					onStacked: async () => {
+					onStacked: async (head) => {
 						stacked = true;
+						// Kept so a merge cut off on the stack is put back on its own head.
+						worktree = await worktree.save({
+							mergeStack: { own: ownHead, head },
+						});
 						await startGate();
 					},
 					onUnstacked: async (dissolved) => {
 						stacked = false;
 						worktree = await worktree.save({
+							mergeStack: undefined,
 							gate: "queued",
 							mergePlace: lastPlace,
 							...(dissolved ? { mergeSteps: steps.leftBatch() } : {}),
 						});
 					},
 				},
-				(signal) => runner.reserve(onQueued, signal, line),
+				(signal) => runner.reserve(onQueued, signal, ticket),
 			);
 		} else {
 			followed = await waitAlone(
-				(signal) => runner.reserve(onQueued, signal, line),
+				(signal) => runner.reserve(onQueued, signal, ticket),
 				watching ? doomed : undefined,
 			);
 		}
@@ -308,8 +314,9 @@ export async function merge(
 			await rebaseOntoBase();
 			// Only reached when the rebase found no conflict after all: the
 			// prediction never lets anything through, so wait for the turn.
-			await batch.clear(task);
-			followed = { capacity: await runner.reserve(onQueued, undefined, line) };
+			followed = {
+				capacity: await runner.reserve(onQueued, undefined, ticket),
+			};
 		}
 		if ("result" in followed) {
 			const { result } = followed;
@@ -394,18 +401,19 @@ export async function merge(
 			// is the same either way, and one gate reports one failure however far down
 			// it got.
 			const testedHead = await git.head(worktree.path);
-			const members = alone ? [] : await batch.form(task, base, testedHead);
+			const members = alone ? [] : await line.form(task, base, testedHead);
 			const stack: Member[] = [
 				{ task, onto: rebasedOnto, head: testedHead },
 				...members,
 			];
 			const tip = stack[stack.length - 1]?.head ?? testedHead;
 			const names = stack.map((each) => each.task);
+			using _gating = line.gating(task, members);
 			let checkout: Checkout | null = null;
 			if (members.length > 0) {
 				facts.batch = names;
 				log.info(
-					`gating in one batch with ${members.map((each) => each.task).join(", ")}`,
+					`${color.green("gating")} in one batch with ${members.map((each) => each.task).join(", ")}`,
 				);
 				try {
 					checkout = await runner.checkout(worktree.path, tip, "splates-batch");
@@ -413,7 +421,7 @@ export async function merge(
 					log.error(
 						`could not check the batch's tip out, gating alone: ${error instanceof Error ? error.message : String(error)}`,
 					);
-					await batch.dissolve(members);
+					await line.dissolve(members);
 					alone = true;
 					continue;
 				}
@@ -443,7 +451,7 @@ export async function merge(
 			if (gated.timedOut) {
 				// A gate this long has hung rather than failed: nothing to attribute,
 				// and no attempt spent.
-				await batch.dissolve(members);
+				await line.dissolve(members);
 				// Back to the tested commit, dropping what the gate wrote: the branch
 				// stays rebased, so the agent can run the files there.
 				await git.resetHard(worktree.path, testedHead);
@@ -460,6 +468,20 @@ export async function merge(
 					{ task },
 				);
 			}
+			// A test that keeps flaking is quarantined: a gate it alone fails lands.
+			const excused =
+				gated.exitCode !== 0 && !gated.timedOut ? failingCases(gated.xml) : [];
+			if (
+				excused.length > 0 &&
+				allQuarantined(excused, await quarantinedTests(journal))
+			) {
+				facts.failureAttribution = "flake";
+				facts.failedTests = excused;
+				log.error(
+					`Quarantined, so not refusing the merge: ${excused.map((test) => test.name).join(", ")}`,
+				);
+				gated = { ...gated, exitCode: 0 };
+			}
 			if (gated.exitCode !== 0) {
 				const attribution = await attributeFailure({ gate: runner }, gated, {
 					cwd,
@@ -471,17 +493,28 @@ export async function merge(
 				facts.failedTests = attribution.failed.length
 					? attribution.failed
 					: failedTests(`${gated.stdout}\n${gated.stderr}`);
-				await queueFailedTests(
-					{ tasks, log, journal },
-					task,
-					facts.failedTests,
-					attribution.kind,
-				);
+				// A flake is queued once the rerun says whether it was one.
+				if (attribution.kind !== "flake") {
+					await queueFailedTests(
+						{ tasks, log, journal },
+						task,
+						facts.failedTests,
+						attribution.kind,
+					);
+				}
 				log.error(attribution.why);
 				if (attribution.kind === "flake") {
 					await onPhases([]);
 					gated = await runner.run(cwd, task, { onPhases, output });
-					if (gated.exitCode !== 0) {
+					if (gated.exitCode === 0) {
+						// The merge lands, so the flaky test is left to a task of its own.
+						await queueFailedTests(
+							{ tasks, log, journal },
+							task,
+							facts.failedTests,
+							"flake",
+						);
+					} else {
 						// A selective pass cannot excuse a later failure anywhere in the
 						// complete gate. Keep the tree out without spending an attempt.
 						facts.failureAttribution = "environment";
@@ -499,7 +532,7 @@ export async function merge(
 				}
 				if (gated.exitCode !== 0 && members.length > 0) {
 					const next = await splitBatch(
-						{ batch, gate: runner, git, log, state },
+						{ line, gate: runner, git, log, state },
 						{
 							cwd,
 							task,
@@ -554,13 +587,13 @@ export async function merge(
 				facts,
 			);
 			if (result === null) {
-				await batch.dissolve(members);
+				await line.dissolve(members);
 				facts.retests = (facts.retests ?? 0) + 1;
 				worktree = await worktree.reload();
 				continue;
 			}
 			for (const member of members) {
-				await batch.tell(member, {
+				line.tell(member, {
 					kind: "landed",
 					head: member.head,
 					batch: names,
@@ -577,4 +610,20 @@ export async function merge(
 	} finally {
 		await treeLock.release();
 	}
+}
+
+/**
+ * Puts a branch a cut-off merge left on a batch's stack back on its own
+ * head, as the merge had it before it was stacked; a branch that has moved
+ * since is left as it is.
+ */
+async function offStack(git: Git, worktree: Worktree): Promise<Worktree> {
+	const stacked = worktree.state?.mergeStack;
+	if (stacked === undefined) {
+		return worktree;
+	}
+	if ((await git.head(worktree.path)) === stacked.head) {
+		await git.resetHard(worktree.path, stacked.own);
+	}
+	return worktree.save({ mergeStack: undefined });
 }

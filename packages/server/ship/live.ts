@@ -2,7 +2,7 @@ import type { Registry } from "core/ship";
 import type { Ps } from "core/system";
 import { Duration } from "core/time";
 import { z } from "zod";
-import { ConfigFiles } from "../config";
+import { ConfigFiles, shipSettings } from "../config";
 import type { ShipProject } from "./graph";
 import { ShipRegistry } from "./registry";
 
@@ -21,7 +21,13 @@ export class ShipLive {
 
 	/** Read from shipStatus in the main tree, or npm latest for the graph's public packages. */
 	async read(project: LiveProject): Promise<LiveVersions> {
-		const command = (await this.configs.read(project.root)).shipStatus;
+		const command =
+			project.shipStatus !== undefined
+				? project.shipStatus
+				: shipSettings(
+						await this.configs.read(project.root),
+						project.slug ?? "",
+					).shipStatus;
 		if (command !== undefined && command !== null) {
 			if (typeof command !== "string" || command.trim() === "") {
 				throw new Error(
@@ -72,7 +78,8 @@ export class ShipLive {
 }
 
 /** The graph fields needed to read a project's release status. */
-export type LiveProject = Pick<ShipProject, "root" | "version" | "packages">;
+export type LiveProject = Pick<ShipProject, "root" | "version" | "packages"> &
+	Partial<Pick<ShipProject, "slug" | "shipStatus">>;
 
 /** Dependencies to replace when reading live versions. */
 export interface ShipLiveOptions {

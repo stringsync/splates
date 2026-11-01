@@ -53,9 +53,9 @@ export function GroomerOff({ onGroom }: { onGroom: Groom }): JSX.Element {
 					<Badge variant="secondary">Off</Badge>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					On, it takes each task deferred rough to the backlog: checks no other
-					task asks it, splits one too big, links what blocks it and picks its
-					lane, then marks it ready, never doing it.
+					On, it takes each task in Untriaged: checks no other task asks it,
+					splits one too big, links what blocks it and picks its lane, never
+					doing it.
 				</p>
 			</div>
 			<Button size="sm" variant="outline" onClick={() => setPicking(true)}>
@@ -100,9 +100,8 @@ export function GroomerForm({
 				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
 			</div>
 			<p className="text-muted-foreground text-sm">
-				It grooms each task deferred rough to the backlog, one at a time, then
-				finds lanes for Untriaged tasks, in a conversation of its own, as the
-				agent picked here.
+				It grooms each task in Untriaged, one at a time, placing it in a lane,
+				in a conversation of its own, as the agent picked here.
 			</p>
 			<AssigneeMenu assignee={picked} onPick={setPicked} />
 			<Refusal refusal={refusal} />

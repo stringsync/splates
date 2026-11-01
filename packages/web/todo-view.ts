@@ -1,6 +1,7 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { Dispatcher, type Eventful } from "core/events";
+import { TaskFilter } from "./task-filter";
 
 export type TodoViewEvents = { changed: undefined };
 
@@ -33,8 +34,12 @@ export class TodoView implements Eventful<TodoViewEvents> {
 	/** The only todos the board shows, by id, or null for every one. */
 	only: readonly number[] | null = null;
 
-	/** `storage` keeps the hidden lanes for the next visit, when given. */
+	/** Which projects and tags the board and the queue are narrowed to. */
+	readonly taskFilter: TaskFilter;
+
+	/** `storage` keeps the hidden lanes and the filter for the next visit, when given. */
 	constructor(private readonly storage?: Storage) {
+		this.taskFilter = new TaskFilter(storage);
 		this.hidden = hiddenIn(storage);
 	}
 
@@ -55,12 +60,10 @@ export class TodoView implements Eventful<TodoViewEvents> {
 		this.set({ opened: null });
 	}
 
-	openTask(snapshot: Snapshot, name: string): void {
-		// Only a task the page knows of opens: one merged a moment ago has no
-		// details left to show.
-		if (snapshot.tasks.some((found) => found.task === name)) {
-			this.set({ openedTask: name });
-		}
+	openTask(name: string): void {
+		// A task the page no longer lists opens from its finished record, if
+		// one is kept on disk.
+		this.set({ openedTask: name });
 	}
 
 	closeTask(): void {

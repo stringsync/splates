@@ -3,6 +3,7 @@ import type { Cascade, ShipProject } from "@stringsync/splates-server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
+import type { ConversationFeed } from "./conversation-feed";
 import { FakeStream, type Stream } from "./fake-stream";
 import { ShipsPage } from "./ships-page";
 import {
@@ -52,11 +53,51 @@ describe("ShipsPage", () => {
 		expect(view.queryByRole("button", { name: "Start" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "Retry" }));
 		await waitFor(() => expect(posts).toContain("POST /api/ship/steps/retry"));
-		window.confirm = () => true;
 		fireEvent.click(view.getByRole("button", { name: "Stop" }));
+		const dialog = await view.findByRole("dialog");
+		fireEvent.click(within(dialog).getByRole("button", { name: "Stop" }));
 		await waitFor(() =>
 			expect(posts).toContain("POST /api/ship/steps/abandon"),
 		);
+	});
+
+	it("sends a stopped ship to an agent on Auto pick, with its logs to examine", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		const bodies: Record<string, string> = {};
+		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+			if (opts?.method === "POST") {
+				bodies[String(url)] = String(opts.body ?? "");
+			}
+			if (String(url) === "/api/conversations/auto") {
+				return Response.json({ id: "c1" });
+			}
+			return Response.json(answer(String(url), []));
+		}) as unknown as typeof fetch;
+		const feed = {
+			agents: [],
+			conversations: [],
+			put: () => undefined,
+			send: () => ({ id: "m1" }),
+			answered: () => undefined,
+			refused: () => undefined,
+		} as unknown as ConversationFeed;
+		const view = render(<ShipsPage feed={feed} />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: stopped, ship: null }),
+			}),
+		);
+		fireEvent.click(await view.findByRole("button", { name: "Send to agent" }));
+		await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
+		const words = JSON.parse(bodies["/api/conversations/auto"] ?? "{}").words;
+		expect(words).toContain("Ship `example` stopped at the `live` stage");
+		expect(words).toContain("/api/ship/history/example/log");
 	});
 
 	it("shows the ship under way at #ships/active, with a way back to the plan", async () => {
@@ -82,7 +123,7 @@ describe("ShipsPage", () => {
 
 	it("lists the projects in release order, a Ship checkbox on each that names a ship command", async () => {
 		const graph = [
-			project({ slug: "webappwiz", packages: ["webappwiz"] }),
+			project({ slug: "wren", packages: ["wren"] }),
 			project({
 				slug: "sound2score",
 				ship: null,
@@ -92,7 +133,7 @@ describe("ShipsPage", () => {
 			project({
 				slug: "mdom",
 				packages: ["mdom"],
-				uses: [{ project: "webappwiz", pins: [] }],
+				uses: [{ project: "wren", pins: [] }],
 			}),
 		];
 		globalThis.fetch = (async (url: string) =>
@@ -103,7 +144,7 @@ describe("ShipsPage", () => {
 			within(list)
 				.getAllByRole("listitem")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "mdom", "sound2score"]);
+		).toEqual(["wren", "mdom", "sound2score"]);
 		expect(
 			within(list).getAllByRole("checkbox", { name: /^Ship / }),
 		).toHaveLength(2);
@@ -163,7 +204,7 @@ describe("ShipsPage", () => {
 		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
 			within(list)
-				.getByRole("checkbox", { name: "Ship webappwiz" })
+				.getByRole("checkbox", { name: "Ship wren" })
 				.hasAttribute("disabled"),
 		).toBe(false);
 		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
@@ -172,8 +213,8 @@ describe("ShipsPage", () => {
 
 function project(over: Partial<ShipProject>): ShipProject {
 	return {
-		slug: "webappwiz",
-		root: "/webappwiz",
+		slug: "wren",
+		root: "/wren",
 		ship: "wiz dev ship",
 		version: "0.0.53",
 		packages: [],

@@ -7,15 +7,13 @@ import {
 	type TaskBlockerStatus,
 	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
-import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
-import { CheckIcon, CircleIcon, LinkIcon, PlayIcon } from "lucide-react";
+import { CheckIcon, CircleIcon, LinkIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { answerDeferral, linkTodo, queueTodo } from "./api";
 import { Board } from "./board";
 import { linked } from "./board-expectations";
-import { useCardReply } from "./card-reply";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
 import { ElsewhereMention, HEADING } from "./markdown";
@@ -23,8 +21,7 @@ import { Refusal, useRefusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
 const TASK_STATUS: Record<string, string> = {
-	backlog: "in backlog",
-	ready: "in backlog, ready",
+	available: "available",
 	queued: "queued",
 	working: "being worked on",
 	merged: "merged",
@@ -61,9 +58,7 @@ export function blockersLeft(
 /**
  * The body of a Deferred card, built from the board record of the deferred
  * task: why it stopped, what it waits on and where each stands, an answer
- * box for each open question, and Resume, which sends the task back to the
- * conversation that deferred it, for its agent to check what it waits on and
- * carry on or defer again. Each action shows at once and is undone, with the
+ * box for each open question. Each action shows at once and is undone, with the
  * refusal said, if the server refuses it.
  */
 export function DeferredBody({
@@ -80,16 +75,9 @@ export function DeferredBody({
 	);
 	const { refusal, pending, act } = useActs();
 	const [answers, setAnswers] = useState<Record<number, string>>({});
-	const send = useCardReply().reply?.send ?? null;
 	if (deferred === undefined) {
 		return null;
 	}
-	// Told to the agent that deferred it, as anything typed here would wake
-	// it; where nothing can be sent, the queue gives it to a new one.
-	const resume = () =>
-		send === null
-			? queueTodo(task.id, true)
-			: send(taskNumberReference(task.id));
 	const queued = task.stage === "queued" && task.takenBy === null;
 	const open = blockers.filter((each) => !cleared(each));
 	// The server resumes it once every task it waits on has merged.
@@ -205,15 +193,6 @@ export function DeferredBody({
 								` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
 						</span>
 					)}
-					<Button
-						type="button"
-						size="sm"
-						disabled={pending.has("resume")}
-						onClick={() => void act("resume", resume)}
-					>
-						<PlayIcon data-icon="inline-start" />
-						Resume
-					</Button>
 				</p>
 			)}
 			<Refusal refusal={refusal} />
@@ -348,10 +327,7 @@ function linkedBlockers(
 
 /** Whether `task` sits on the board waiting for the person to start it. */
 function waiting(task: TaskRecord): boolean {
-	return (
-		task.takenBy === null &&
-		(task.stage === "backlog" || task.stage === "ready")
-	);
+	return task.takenBy === null && task.stage === "available";
 }
 
 /**
@@ -417,7 +393,7 @@ function TaskBlocker({
 }): JSX.Element {
 	const board = useContext(Board);
 	const status = blocker.status;
-	const open = status === "backlog" || status === "ready";
+	const open = status === "available";
 	// Another project's task is queued from its own board, which the link opens.
 	if (blocker.project !== undefined) {
 		return (

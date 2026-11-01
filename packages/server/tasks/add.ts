@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import { color, type Logger } from "core/log";
 import { MarkdownWriter } from "core/md";
 import type { Fs } from "core/system";
@@ -5,6 +6,7 @@ import { Duration, sleep } from "core/time";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
+import { Scopes, Tags } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
 import { PLAN_FILE, Plans } from "../plans";
@@ -40,6 +42,25 @@ export interface AddOptions {
 	dispatch?: Dispatched;
 	/** The roster's agents, which `dispatch` must name one of, and its model. */
 	agents?: RosterAgent[];
+	/**
+	 * The project of `splates.config.ts` the task changes, as `--project`
+	 * names it; refused when the config declares no such project, or when
+	 * the queued task it starts is another's.
+	 */
+	project?: string;
+	/**
+	 * Where the add runs, relative to the repository root, without a leading
+	 * `./`: the project that folder is in is the task's when nothing else
+	 * says. Empty at the root.
+	 */
+	folder?: string;
+	/**
+	 * The tags grouping the task, as `--tag` names them (a comma list is
+	 * one): refused when the config allows others, or, for a task no queued
+	 * task starts, requires one and none is given; the folder's, if an
+	 * allowed tag, when none is named. The queued tasks' tags are kept.
+	 */
+	tag?: string[];
 	/** Added from another project, as `splates --project` does, which is refused. */
 	away?: boolean;
 }
@@ -69,6 +90,9 @@ export async function add(
 		dispatch,
 		agents = [],
 		away = false,
+		project,
+		folder = "",
+		tag = [],
 	}: AddOptions = {},
 ): Promise<void> {
 	if (away) {
@@ -86,6 +110,12 @@ export async function add(
 		);
 	}
 	checkSlug(task, { task });
+	const scopes = new Scopes(config, basename(service.git.root));
+	// Checked before anything is created, so a project the config lacks refuses early.
+	scopes.pick(project, folder);
+	const tagging = new Tags(config);
+	const named = tagging.parse(tag);
+	tagging.check(named);
 	// Agents start no agents, so they never multiply: work goes to the queue,
 	// whose worker starts it. The server starts its tasks with neither set.
 	const asking =
@@ -158,6 +188,33 @@ export async function add(
 		throw error;
 	}
 
+	let scope: string | null;
+	try {
+		scope = chooseScope(scopes, {
+			task,
+			named: project,
+			queued: taken.map((each) => each.scope),
+			folder,
+		});
+	} catch (error) {
+		await letGo(tookNow);
+		throw error;
+	}
+
+	let tags: string[];
+	try {
+		// A queued task starts as it was queued: only a fresh one needs a tag.
+		tags = [
+			...new Set([
+				...taken.flatMap((each) => each.tags),
+				...tagging.forNew(named, folder, taken.length === 0),
+			]),
+		];
+	} catch (error) {
+		await letGo(tookNow);
+		throw error;
+	}
+
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
 		await letGo(tookNow);
@@ -185,6 +242,8 @@ export async function add(
 	const caller = service.ps.env("SPLATES_CONVERSATION");
 	const worktree = await (await service.find(task)).take({
 		base,
+		scope,
+		...(tags.length === 0 ? {} : { labels: tags }),
 		...(caller === undefined ? {} : { caller }),
 		...(handOff === undefined
 			? {}
@@ -254,6 +313,8 @@ export async function add(
 			`  worktree: ${worktree.path}`,
 			`  branch:   ${worktree.branch}`,
 			`  base:     ${base}`,
+			`  project:  ${scope}`,
+			...(tags.length === 0 ? [] : [`  tags:     ${tags.join(", ")}`]),
 			...(handOff === undefined
 				? []
 				: [
@@ -263,6 +324,60 @@ export async function add(
 			...overlaps.map((warning) => color.yellow(`  ${warning}`)),
 		].join("\n"),
 	);
+}
+
+/**
+ * The project a task changes: the one named, else the one its queued task
+ * was added for, else the one the folder it is added from is in, else the
+ * only one there is; refused when none of them says.
+ */
+function chooseScope(
+	scopes: Scopes,
+	{
+		task,
+		named,
+		queued,
+		folder,
+	}: {
+		task: string;
+		named: string | undefined;
+		queued: (string | null)[];
+		folder: string;
+	},
+): string {
+	const inherited = new Set(queued.filter((each) => each !== null));
+	if (named !== undefined) {
+		const [other] = [...inherited].filter((each) => each !== named);
+		if (other !== undefined) {
+			fail(
+				"usage",
+				`the queued task is for project '${other}', not '${named}': a task changes one project`,
+				{ task, project: named },
+			);
+		}
+		return named;
+	}
+	if (inherited.size > 1) {
+		fail(
+			"usage",
+			`the queued tasks are for different projects (${[...inherited].join(", ")}): start each alone`,
+			{ task },
+		);
+	}
+	const [from] = inherited;
+	if (from !== undefined) {
+		// A project the config has dropped since is still the task's.
+		return from;
+	}
+	const picked = scopes.pick(undefined, folder);
+	if (picked === null) {
+		fail(
+			"usage",
+			`say which project it changes: \`--project <slug>\`, one of ${scopes.slugs().join(", ")}, or run it from that project's folder`,
+			{ task, projects: scopes.slugs() },
+		);
+	}
+	return picked;
 }
 
 /**

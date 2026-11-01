@@ -3,33 +3,28 @@ import type { Event } from "../records";
 import { taskEventsOf } from "./events";
 
 describe("taskEventsOf", () => {
-	it("makes a task ready when it is added groomed, not deferred", () => {
-		const added = (number: number, ready: boolean) =>
+	it("makes a task created when it is added, and updated when it changes", () => {
+		expect(
 			names(
 				event({
 					action: "task add",
-					number,
+					number: 4,
 					subject: "Totals",
 					lane: null,
-					position: number,
-					ready,
+					position: 4,
 				}),
-			);
-
-		expect(added(4, true)).toEqual(["task.created", "task.ready"]);
-		expect(added(5, false)).toEqual(["task.created"]);
-	});
-
-	it("makes a task ready when an update grooms it, not when it names a model", () => {
-		const updated = (changed: Record<string, unknown>) =>
+			),
+		).toEqual(["task.created"]);
+		expect(
 			names(
-				event({ action: "task update", number: 3, subject: "Totals", changed }),
-			);
-
-		expect(updated({ ready: true })).toEqual(["task.updated", "task.ready"]);
-		expect(updated({ assignee: { agent: "claude" } })).toEqual([
-			"task.updated",
-		]);
+				event({
+					action: "task update",
+					number: 3,
+					subject: "Totals",
+					changed: { assignee: { agent: "claude" } },
+				}),
+			),
+		).toEqual(["task.updated"]);
 	});
 
 	it("names the started task a merge or start is about", () => {

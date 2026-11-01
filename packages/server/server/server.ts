@@ -29,6 +29,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
+import { GitHubAppManifest } from "../setup/github-app-manifest";
 import {
 	CascadeRoutes,
 	MechanicalAdoption,
@@ -36,6 +37,7 @@ import {
 	registeredGraph,
 	ShipLive,
 	ShipRegistry,
+	ShipRoutes,
 	ShipSteps,
 } from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
@@ -234,6 +236,29 @@ export async function dev(
 			);
 	};
 
+	/**
+	 * The ship `slug` names: a registered project's, or one target of the
+	 * repository whose `ships` name it, with the runner, paths and
+	 * `afterBump` that is its own.
+	 */
+	const shipTarget = async (slug: string) => {
+		const target = (await registeredGraph({ projects, fs, log })).projects.find(
+			(each) => each.slug === slug && each.repo !== undefined,
+		);
+		const served = await projectNamed(target?.repo ?? slug);
+		const shipping =
+			target === undefined ? null : served.targetShipping(target.slug);
+		return {
+			served,
+			shipping: shipping ?? served.shipping,
+			paths: target?.paths,
+			afterBump:
+				target === undefined
+					? served.afterBump
+					: served.afterBumpOf(target.slug),
+		};
+	};
+
 	/** The project a request names with `?project=`, or the focused one. */
 	const projectFor = (request: Request): Promise<Served> =>
 		projectNamed(new URL(request.url).searchParams.get("project") ?? "");
@@ -270,6 +295,20 @@ export async function dev(
 				const project = await projectFor(request);
 				await project.format.check();
 				return pick(project)(request);
+			})(request);
+
+	/** Like `scoped`, for a route of the ship that `?project=` names, a ship target included. */
+	const shipScoped =
+		(pick: (routes: ShipRoutes) => Handler) =>
+		(request: Request): Promise<Response> =>
+			guarded(async (request) => {
+				const slug = new URL(request.url).searchParams.get("project") ?? "";
+				const { served, shipping } =
+					slug === ""
+						? { served: await projectFor(request), shipping: null }
+						: await shipTarget(slug);
+				await served.format.check();
+				return pick(new ShipRoutes(shipping ?? served.shipping, fs))(request);
 			})(request);
 
 	const talkingFor = async (request: Request): Promise<Served | General> => {
@@ -547,9 +586,9 @@ export async function dev(
 	const cascades = new ShipSteps(machineStorage, fs, {
 		graph: () => registeredGraph({ projects, fs, log, ps }),
 		project: async (slug) => {
-			const served = await projectNamed(slug);
+			const { served, shipping, paths } = await shipTarget(slug);
 			return {
-				shipping: served.shipping,
+				shipping,
 				released: (version) =>
 					new ReleaseGit(ps, served.root).tagged(version).catch(() => true),
 				discard: async (ship, step) => {
@@ -574,7 +613,7 @@ export async function dev(
 					try {
 						const commands: string[] = [];
 						for (const use of step.takes) {
-							const command = (await projectNamed(use.project)).afterBump;
+							const command = (await shipTarget(use.project)).afterBump;
 							if (command !== null) {
 								commands.push(command);
 							}
@@ -586,6 +625,7 @@ export async function dev(
 							output,
 							{
 								afterBump: commands,
+								paths,
 								signal,
 								assigned,
 								agent: (task) => served.startShipTask(task, ship.id),
@@ -719,6 +759,10 @@ export async function dev(
 		);
 	});
 
+	const githubApp = new GitHubAppManifest(
+		(deps.secrets ?? SYSTEM_STORES).device,
+		{ fetch: deps.fetch },
+	);
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
 	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
 
@@ -838,6 +882,8 @@ export async function dev(
 							),
 						),
 					},
+					"/api/setup/github-app/manifest": local(guarded(githubApp.start)),
+					"/api/setup/github-app/callback": local(guarded(githubApp.callback)),
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },
 					"/api/setup/:step/next": { POST: guarded(setup.next) },
@@ -874,7 +920,7 @@ export async function dev(
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
-					"/api/ship": { GET: scoped((project) => project.ship) },
+					"/api/ship": { GET: shipScoped((routes) => routes.ship) },
 					"/api/ship/graph": guarded(async () =>
 						Response.json(await registeredGraph({ projects, fs, log, ps })),
 					),
@@ -890,13 +936,25 @@ export async function dev(
 					"/api/ship/history": guarded(cascadeRoutes.history),
 					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
 					"/api/ship/history/:id/log": guarded(cascadeRoutes.historyLog),
-					"/api/ship/output": scoped((project) => project.shipOutput),
+					"/api/ship/output": shipScoped((routes) => routes.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
+					"/api/quarantined": scoped((project) => project.quarantined),
 					"/api/finished/:key": scoped((project) => project.finishedTask),
 					"/api/tasks/:task/outcome": scoped((project) =>
 						ended.landed(project.root),
 					),
+					// Runs on this machine, in the asking command's worktree and environment.
+					"/api/merges": {
+						POST: local(scoped((project) => project.startMerge)),
+					},
+					"/api/merges/:task": {
+						GET: local(scoped((project) => project.readMerge)),
+						DELETE: local(scoped((project) => project.doneMerge)),
+					},
+					"/api/tasks/:task/bump": {
+						POST: scoped((project) => project.bumpMerge),
+					},
 					"/api/tasks/:task/retry": {
 						POST: scoped((project) => project.retryTask),
 					},

@@ -52,7 +52,7 @@ describe("App's agents, in a folder per project", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		testing = new Testing();
-		// The fixture's snapshot is webappwiz's, at /repo.
+		// The fixture's snapshot is wren's, at /repo.
 		testing.everywhere = [
 			listed("zebra", "/code/zebra", [
 				conversation({
@@ -69,7 +69,7 @@ describe("App's agents, in a folder per project", () => {
 				}),
 			]),
 			listed("apple", "/code/apple", []),
-			listed("webappwiz", "/repo", []),
+			listed("wren", "/repo", []),
 		];
 	});
 
@@ -95,7 +95,7 @@ describe("App's agents, in a folder per project", () => {
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["apple", "webappwiz", "zebra"]);
+		).toEqual(["apple", "wren", "zebra"]);
 		expect(
 			within(nav)
 				.getAllByRole("region")
@@ -104,7 +104,11 @@ describe("App's agents, in a folder per project", () => {
 						.queryAllByRole("listitem")
 						.map((item) => item.textContent),
 				]),
-		).toEqual([[[]], [["Mine broke", "Mine"]], [["Stripes", "Zebra broke"]]]);
+		).toEqual([
+			[[]],
+			[["Mine brokeFailed", "MineWorking"]],
+			[["Stripes", "Zebra broke"]],
+		]);
 		expect(
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
@@ -173,7 +177,7 @@ describe("App's agents, in a folder per project", () => {
 			listed("apple", "/code/apple", [
 				conversation({ id: "a1", title: "Core", status: "running" }),
 			]),
-			listed("webappwiz", "/repo", []),
+			listed("wren", "/repo", []),
 		];
 		const view = await testing.openConversations(mine, null);
 		const nav = agentList(view);
@@ -183,7 +187,7 @@ describe("App's agents, in a folder per project", () => {
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["apple", "webappwiz"]);
+		).toEqual(["apple", "wren"]);
 		expect(within(nav).queryByRole("img", { name: "shown" })).toBeNull();
 	});
 
@@ -200,7 +204,7 @@ describe("App's agents, in a folder per project", () => {
 					}),
 				),
 			),
-			listed("webappwiz", "/repo", []),
+			listed("wren", "/repo", []),
 		];
 		const { nav } = await inbox();
 
@@ -241,7 +245,7 @@ describe("App's agents, in a folder per project", () => {
 		);
 		const list = await waitFor(() =>
 			within(agentList(view)).getByRole("list", {
-				name: "webappwiz conversations",
+				name: "wren conversations",
 			}),
 		);
 
@@ -249,7 +253,7 @@ describe("App's agents, in a folder per project", () => {
 			within(list)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Mane", "Mine broke", "Mine"]);
+		).toEqual(["Manemain", "Mine brokeFailed", "MineWorking"]);
 	});
 
 	// vet-ignore simple-test-setup: this test alone lists these automations among the folder's conversations.
@@ -280,16 +284,20 @@ describe("App's agents, in a folder per project", () => {
 		);
 		const nav = agentList(view);
 		const here = await waitFor(() =>
-			within(nav).getByRole("region", { name: "webappwiz" }),
+			within(nav).getByRole("region", { name: "wren" }),
 		);
 
 		expect(
-			within(
-				within(here).getByRole("list", { name: "webappwiz conversations" }),
-			)
+			within(within(here).getByRole("list", { name: "wren conversations" }))
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Pinned", "Mine broke", "Groomer", "Mine", "Review merged"]);
+		).toEqual([
+			"Pinnedmain",
+			"Mine brokeFailed",
+			"Groomermain",
+			"MineWorking",
+			"Review mergedmain",
+		]);
 		expect(within(here).queryByText("Automation")).toBeNull();
 		expect(within(here).queryByRole("separator")).toBeNull();
 		expect(
@@ -316,7 +324,7 @@ describe("App's agents, in a folder per project", () => {
 			null,
 		);
 		const here = await waitFor(() =>
-			within(agentList(view)).getByRole("region", { name: "webappwiz" }),
+			within(agentList(view)).getByRole("region", { name: "wren" }),
 		);
 
 		expect(within(here).queryByText("Groomer")).toBeNull();
@@ -340,7 +348,7 @@ describe("App's agents, in a folder per project", () => {
 			const here = await waitFor(() =>
 				within(view.getByRole("region", { name: "inbox" })).getByRole(
 					"region",
-					{ name: "webappwiz" },
+					{ name: "wren" },
 				),
 			);
 
@@ -379,7 +387,7 @@ describe("App's agents, in a folder per project", () => {
 		await act(async () =>
 			fireEvent.click(
 				within(nav).getByRole("button", {
-					name: "New conversation in webappwiz",
+					name: "New conversation in wren",
 				}),
 			),
 		);

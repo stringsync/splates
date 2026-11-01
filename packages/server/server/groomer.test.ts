@@ -43,9 +43,9 @@ describe("Groomer", () => {
 		await deps.disposeAsync();
 	});
 
-	it("grooms the backlog in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
+	it("grooms Untriaged in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
 		await taskAdd(deps, "rough", null);
-		await taskAdd(deps, "groomed", null, { ready: true, lane: "new" });
+		await taskAdd(deps, "groomed", null, { lane: "new" });
 		await taskAdd(deps, "taken", null);
 		await taskAdd(deps, "rougher", null);
 		await add(deps, "work", { tasks: [3] });
@@ -57,7 +57,8 @@ describe("Groomer", () => {
 		expect((await conversations.list()).map(({ id }) => id)).toEqual([
 			kept?.id ?? "",
 		]);
-		expect((await deps.tasks.find(1)).state.grooming).toBe(kept?.id);
+		// Placed in a lane, the claim has done its work.
+		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
 		expect((await deps.tasks.find(1)).lane).toBe(0);
 		expect(kept?.state).toMatchObject({ archived: true, resting: true });
 		expect(kept?.state.status).toBe("stopped");
@@ -125,7 +126,7 @@ describe("Groomer", () => {
 		expect((await conversations.list()).map(({ id }) => id)).toEqual([
 			asking?.id ?? "",
 		]);
-		expect((await deps.tasks.find(2)).state.grooming).toBe(asking?.id);
+		expect((await deps.tasks.find(2)).lane).toBe(0);
 	});
 
 	it("goes round again for a wake that comes mid-turn", async () => {
@@ -178,29 +179,27 @@ describe("Groomer", () => {
 		expect(await conversations.persistent(GROOMER_ROLE)).toBeNull();
 	});
 
-	it("once the backlog is empty, asks for lanes for the Untriaged tasks no run looked at, once each", async () => {
+	it("leaves a task already in a lane or taken be, and grooms the rest once each", async () => {
 		await taskAdd(deps, "rough", null);
-		await taskAdd(deps, "ready", null, { ready: true });
-		await taskAdd(deps, "laned", null, { ready: true, lane: "new" });
-		await taskAdd(deps, "also ready", null, { ready: true });
-		await taskAdd(deps, "taken", null, { ready: true });
-		await add(deps, "work", { tasks: [5] });
+		await taskAdd(deps, "laned", null, { lane: "new" });
+		await taskAdd(deps, "also rough", null);
+		await taskAdd(deps, "taken", null);
+		await add(deps, "work", { tasks: [4] });
 
 		await groomer.wake({ agent: "fake" });
-		await taskAdd(deps, "later", null, { ready: true });
+		await taskAdd(deps, "later", null);
 		await groomer.wake({ agent: "fake" });
 
 		expect(told).toEqual([
 			"[SPLATES GROOM #1]",
-			"[SPLATES SORT #2 #4]",
-			"[SPLATES SORT #6]",
+			"[SPLATES GROOM #3]",
+			"[SPLATES GROOM #5]",
 		]);
-		expect((await deps.tasks.find(2)).state.sorted).toBe(true);
 	});
 
 	it("preserves a themed lane chosen during grooming", async () => {
 		const lane = await deps.tasks.addLane("Editor");
-		await taskAdd(deps, "editor work", null, { ready: true });
+		await taskAdd(deps, "editor work", null);
 		agent.turn = async () => {
 			await deps.tasks.arrange(1, lane.id);
 			return "end_turn";
@@ -209,23 +208,15 @@ describe("Groomer", () => {
 		expect((await deps.tasks.find(1)).lane).toBe(lane.id);
 	});
 
-	it("revisits tasks an older groomer marked sorted but left in Untriaged", async () => {
-		await taskAdd(deps, "unplaced", null, { ready: true });
-		await (await deps.tasks.find(1)).sort();
-		await groomer.wake({ agent: "fake" });
-		expect(told).toEqual(["[SPLATES SORT #1]"]);
-		expect((await deps.tasks.find(1)).lane).toBe(0);
-	});
-
-	it("sorts even a lone Untriaged task into the permanent Backlog when no themed lane fits", async () => {
-		await taskAdd(deps, "alone", null, { ready: true });
+	it("places even a lone Untriaged task in the permanent Backlog when no themed lane fits", async () => {
+		await taskAdd(deps, "alone", null);
 
 		await groomer.wake({ agent: "fake" });
-		expect(told).toEqual(["[SPLATES SORT #1]"]);
+		expect(told).toEqual(["[SPLATES GROOM #1]"]);
 		expect((await deps.tasks.find(1)).lane).toBe(0);
 
-		await taskAdd(deps, "another", null, { ready: true });
+		await taskAdd(deps, "another", null);
 		await groomer.wake({ agent: "fake" });
-		expect(told).toEqual(["[SPLATES SORT #1]", "[SPLATES SORT #2]"]);
+		expect(told).toEqual(["[SPLATES GROOM #1]", "[SPLATES GROOM #2]"]);
 	});
 });

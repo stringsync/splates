@@ -31,7 +31,7 @@ export async function init({
 			`${color.green("registered")} ${git.root} in the project registry`,
 		);
 	} else {
-		log.info(`${git.root} is already registered`);
+		log.info(`${color.green("unchanged")} ${git.root} is already registered`);
 	}
 	log.info(
 		"commit what it wrote, skills-lock.json too, so every task's worktree has the skill, and `splates update` now and then to keep it current",
@@ -55,5 +55,5 @@ export async function forget({
 		log.info(`${color.green("forgot")} ${git.root} in the project registry`);
 		return;
 	}
-	log.info(`${git.root} is not registered`);
+	log.info(`${color.green("unchanged")} ${git.root} is not registered`);
 }

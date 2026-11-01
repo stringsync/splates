@@ -55,7 +55,6 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
 		...(same(before.assignee, after.assignee)
 			? {}
 			: { assignee: after.assignee ?? null }),
-		...(after.groomed && !before.groomed ? { ready: true as const } : {}),
 	};
 	return { number: after.id, subject: after.subject, changed };
 }

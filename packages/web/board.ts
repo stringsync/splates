@@ -46,6 +46,8 @@ export interface BoardContext {
 	openTodos: (ids: readonly number[]) => void;
 	/** Every live task, by name: those a chip naming one opens. */
 	tasks: readonly string[];
+	/** The tags of each live task, by name; absent outside a board. */
+	taskTags?: ReadonlyMap<string, readonly string[]>;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
 	/** What was refused of each card, by its id, said on the card. */

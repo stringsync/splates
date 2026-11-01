@@ -8,7 +8,7 @@ function visit(url: string): void {
 	).happyDOM.setURL(url);
 }
 
-const WEBAPPWIZ = { root: "/code/webappwiz", repo: "webappwiz" };
+const WREN = { root: "/code/wren", repo: "wren" };
 
 describe("App's New, by project", () => {
 	let testing: Testing;
@@ -20,8 +20,8 @@ describe("App's New, by project", () => {
 		testing = new Testing();
 		testing.projects = [
 			{
-				slug: "webappwiz",
-				root: "/code/webappwiz",
+				slug: "wren",
+				root: "/code/wren",
 				gone: false,
 				focused: true,
 				conversations: [],
@@ -41,7 +41,7 @@ describe("App's New, by project", () => {
 		view = await testing.openConversations(
 			[conversation({ id: "c1" })],
 			"c1",
-			WEBAPPWIZ,
+			WREN,
 		);
 	});
 

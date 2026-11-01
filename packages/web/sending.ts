@@ -8,6 +8,21 @@ import { Duration } from "core/time";
 /** How long a message goes unanswered before the page says it is still sending. */
 export const STILL_SENDING = Duration.secs(3);
 
+/**
+ * How long a message looks sent, in the thread, before it is held in the row
+ * above the composer as waiting.
+ */
+export function heldAfter(): Duration {
+	return Duration.ms(heldAfterMs);
+}
+
+let heldAfterMs = Duration.secs(5).ms;
+
+/** Tests shorten the wait before a message is held above the composer. */
+export function setHeldAfterMs(ms: number): void {
+	heldAfterMs = ms;
+}
+
 /** How long the page waits for a prompt acknowledgement. */
 export const SEND_TIMEOUT = Duration.secs(30);
 

@@ -50,7 +50,7 @@ splatesHook
 	.option("stage", z.string(), {
 		default: "",
 		description:
-			"only for tasks in these stages, comma separated: backlog, ready, queued, running",
+			"only for tasks in these stages, comma separated: available, queued, running",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -118,7 +118,7 @@ splatesHook
 	.option("stage", z.string(), {
 		default: "",
 		description:
-			"only for tasks in these stages, comma separated, or `any`: backlog, ready, queued, running",
+			"only for tasks in these stages, comma separated, or `any`: available, queued, running",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -218,7 +218,7 @@ splatesHook
 	.command("groomer")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Automations page does: on each task deferred to the backlog, and the backlog as `splates server` starts, a conversation of its own per run, archived as the run ends, organizes each task in order and marks it ready, never doing it. `--off` turns it off, retiring its conversations",
+		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Automations page does: on each task deferred to Untriaged, and Untriaged as `splates server` starts, a conversation of its own per run, archived as the run ends, organizes each task in order and places it in a lane, never doing it. `--off` turns it off, retiring its conversations",
 	)
 	.option("agent", z.string(), {
 		default: "",

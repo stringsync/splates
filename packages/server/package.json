@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates-server",
-	"version": "1.13.3",
+	"version": "1.13.4",
 	"private": true,
 	"description": "The Spinning Plates server and shared backend",
 	"type": "module",
@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@agentclientprotocol/sdk": "^1.7.0",
+		"@evals/evals": "workspace:*",
 		"core": "workspace:*",
 		"zod": "catalog:"
 	},

@@ -50,12 +50,10 @@ describe("recordsFirst", () => {
 			next.push(ctx);
 		});
 
-	/** As the child `splates migrate` does, from the second spawn on: git asks first. */
+	/** As the child `splates migrate` does, once it is spawned: git asks first. */
 	const migrating = () => {
-		let spawns = 0;
 		ps.simulate(async () => {
-			spawns += 1;
-			if (spawns > 1) {
+			if (ps.getCalls().some((call) => call.endsWith(" migrate"))) {
 				await fs.write("/repo/.git/splates/format", `${FORMAT}\n`);
 			}
 			return 0;

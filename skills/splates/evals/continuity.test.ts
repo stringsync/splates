@@ -1,0 +1,54 @@
+import { expect, it } from "bun:test";
+import { join } from "node:path";
+import { oneSentence, removedReport, scenarios } from "./continuity";
+
+it.each([
+	["checkpoint", undefined, "Which output label should follow ready?"],
+	["resume", undefined, "## Blocked\n"],
+	["reconnect", "rea", "## Blocked\n"],
+] as const)(
+	"seeds %s in the task worktree",
+	async (id, output, savedContext) => {
+		const files = new Map<string, string>();
+		const dir = "/sandbox/repo";
+		const task = "/sandbox/repo-splates.noindex/continuity";
+		await scenarios
+			.find((scenario) => scenario.id === `continuity/${id}`)
+			?.change?.({
+				dir,
+				async write(path, text) {
+					files.set(join(dir, path), text);
+				},
+				async run() {
+					return task;
+				},
+			});
+		const notes = files.get(join(task, "SPLATES.md"));
+		expect(notes).toContain("Paused before writing result.txt.");
+		expect(notes).toContain("## Blocked\n");
+		expect(notes).toContain(savedContext);
+		expect(files.get(join(task, "result.txt"))).toBe(output);
+	},
+);
+
+it("finds the Removed report for a task", () => {
+	const reply = "## 🧹 Removed continuity: moot\n\nIt set out to write a file.";
+	expect(removedReport(reply, "continuity")).toBe(
+		"## 🧹 Removed continuity: moot",
+	);
+	expect(removedReport(reply, "other")).toBeNull();
+	expect(removedReport("## ✅ Done: nothing", "continuity")).toBeNull();
+});
+
+it.each([
+	["Checkpointed `continuity`: paused before writing `result.txt`.", true],
+	["Checkpoint saved; paused before writing result.txt, question kept.", true],
+	[
+		"Checkpointed `continuity`. `SPLATES.md` was already current, so I left it.",
+		false,
+	],
+	["Checkpointed.\nThe question is open.", false],
+	["", false],
+] as const)("reads %j as one sentence: %p", (reply, expected) => {
+	expect(oneSentence(reply)).toBe(expected);
+});

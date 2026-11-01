@@ -24,6 +24,7 @@ import { credAddress } from "./page-address";
 import { PendingSpinner, useShowPending } from "./pending";
 
 import { Stamp, useStamps } from "./stamp";
+import { TagChips } from "./tag-chips";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
@@ -34,7 +35,7 @@ import { LaneIcon, TaskIcon } from "./task-icon";
  * it, when it has one: a red X for a command that failed, a green check for
  * one that landed. An early warning's mark, of a conflict or an overlap, is
  * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
- * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room, the names it
+ * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room it wraps, the hairlines going on a phone, and the names it
  * holds give way, each cut short and whole in its title. A burst of todos it
  * names lists each beneath, whole, with no hairlines of their own.
  */
@@ -199,7 +200,7 @@ function Line({
 	return (
 		<p
 			title={event.title}
-			className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap"
+			className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-1 whitespace-nowrap"
 		>
 			{mark === "failed" && (
 				<XIcon
@@ -303,6 +304,7 @@ export function NamedChip({
 					className={GIVES_WAY}
 				>
 					{task}
+					<TagChips tags={board.taskTags?.get(task)} className="ml-1" />
 				</Chip>
 			);
 		}
@@ -456,7 +458,9 @@ function Chip({
 }): JSX.Element {
 	const look = cn(
 		"flex items-center gap-1 rounded-md border px-1.5",
-		whole ? "min-h-6 max-w-full py-0.5 text-left" : "h-6 max-w-80",
+		whole
+			? "min-h-6 max-w-full py-0.5 text-left"
+			: "h-6 max-w-80 max-sm:max-w-full",
 		(open !== undefined || href !== undefined) &&
 			"cursor-pointer hover:bg-muted",
 		missing && "line-through opacity-60",
@@ -515,7 +519,12 @@ export function Action({ act }: { act: Act }): JSX.Element {
 
 /** A plain hairline beside an event, taking what room the line leaves. */
 function Rule(): JSX.Element {
-	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
+	return (
+		<span
+			aria-hidden
+			className="hidden h-px min-w-3 flex-1 bg-border sm:block"
+		/>
+	);
 }
 
 /** `ms` as `M:SS`: `9:00`, `12:30`. */

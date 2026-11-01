@@ -1,5 +1,4 @@
 import { useAuiState } from "@assistant-ui/react";
-import type { EvalPlan } from "@stringsync/splates-server/evals/browser";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
 import { useReactive } from "core/react";
@@ -18,7 +17,7 @@ import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
-import { ORDER, spent } from "./eval-status";
+import { ORDER, planText, spent } from "./eval-status";
 import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -294,21 +293,4 @@ export function EvalsCard({
 			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
 	);
-}
-
-/** What the plan says of the run: its ceiling, its refusal, or that the project prints none. */
-function planText(plan: EvalPlan): string {
-	if (plan.refused) {
-		return plan.output;
-	}
-	if (plan.usd === null) {
-		return plan.output !== ""
-			? plan.output
-			: "This project prints no plan, so the run shows no cost ceiling.";
-	}
-	const runs =
-		plan.cells === null
-			? ""
-			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
-	return `At most $${plan.usd.toFixed(2)}${runs}.`;
 }

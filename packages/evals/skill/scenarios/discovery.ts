@@ -1,4 +1,5 @@
-import type { Check, Repo, Scenario, Step } from "../scenario";
+import type { Check, Repo, Step } from "@evals/evals/scenario";
+import type { Scenario } from "../box";
 
 const aspect = "discovery";
 

@@ -7,12 +7,15 @@ import type {
 import type { TaskReport } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
+import { useReactive } from "core/react";
 import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAged } from "./aged";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
-import { heldPrompt, queuedReply } from "./queued-time";
+import { heldPrompt } from "./held-prompt";
+import { heldAfter, messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
@@ -37,7 +40,23 @@ export function useThreadMessages(
 	// it last ended, which a lost connection may have cut short.
 	const writing = status === "running";
 	// What waits for the turn's end, which the person can take back.
-	const queued = conversation.messages.filter((each) => each.queued);
+	// Said a moment ago, it still looks sent, in the thread; held longer, it
+	// waits in the row above the composer.
+	const { young: youngQueued, aged: queued } = useAged(
+		feed,
+		conversation.messages.filter((each) => each.queued),
+		(each) => (each.at === null ? null : Date.parse(each.at)),
+		heldAfter(),
+	);
+	const sendingNow = useReactive(feed, (feed) => feed.sending.get(id), [
+		"changed",
+	]);
+	const { young: youngSending } = useAged(
+		feed,
+		sendingNow ?? [],
+		(each) => each.at,
+		heldAfter(),
+	);
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);
 	const due = writing && latest?.role === "agent" ? replyDue(latest) : null;
@@ -66,7 +85,7 @@ export function useThreadMessages(
 		// agent starting, with whatever the person said to it meanwhile after.
 		const held = conversation.heldForTask;
 		const kept = conversation.messages.filter(
-			(each) => !each.queued || starting || held !== null,
+			(each) => !each.queued || youngQueued.includes(each),
 		);
 		const said =
 			held === null
@@ -79,24 +98,21 @@ export function useThreadMessages(
 			: -1;
 		const liked = workingTimes(
 			said.map((message, index) =>
-				queuedReply(
-					like(
-						message,
-						index,
-						conversation.id,
-						!writing || index < said.length - 1,
-						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
-						now,
-						conversation.lastTask,
-						happened[index],
-						writing &&
-							index === said.length - 1 &&
-							conversation.ask?.type === "permission"
-							? conversation.ask.at
-							: null,
-						said[index + 1]?.steered === true || index === resumed,
-					),
-					said[index - 1],
+				like(
+					message,
+					index,
+					conversation.id,
+					!writing || index < said.length - 1,
+					said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+					now,
+					conversation.lastTask,
+					happened[index],
+					writing &&
+						index === said.length - 1 &&
+						conversation.ask?.type === "permission"
+						? conversation.ask.at
+						: null,
+					said[index + 1]?.steered === true || index === resumed,
 				),
 			),
 			said,
@@ -114,35 +130,37 @@ export function useThreadMessages(
 					? liked
 					: [
 							...liked,
-							queuedReply(
-								like(
-									{
-										role: "agent",
-										parts: [],
-										plan: null,
-										at: null,
-										until: null,
-									},
-									said.length,
-									conversation.id,
-									false,
-									prompt.sentAt ?? prompt.at,
-									now,
-									null,
-									happened[said.length],
-								),
-								prompt,
+							like(
+								{
+									role: "agent",
+									parts: [],
+									plan: null,
+									at: null,
+									until: null,
+								},
+								said.length,
+								conversation.id,
+								false,
+								prompt.sentAt ?? prompt.at,
+								now,
+								null,
+								happened[said.length],
 							),
 						];
-		// A running turn's queue sits above the composer. Otherwise it follows
-		// the turn as sent, in the thread; held or starting, it is in `said`.
-		// Only a stopped or failed conversation adds a row, for the person to Send.
+		// A running turn's queue sits above the composer once it has waited.
+		// Otherwise it follows the turn as sent, in the thread; held or
+		// starting, or stopped, it is listed above the composer too.
 		const waiting =
-			starting || held !== null || running
+			starting ||
+			held !== null ||
+			running ||
+			status === "stopped" ||
+			status === "failed"
 				? []
-				: conversation.messages.filter((each) => each.queued);
+				: conversation.messages.filter(
+						(each) => each.queued && !youngQueued.includes(each),
+					);
 		const ended = conversation.resting === true ? rested(thread) : thread;
-		const halted = status === "stopped" || status === "failed";
 		const lined =
 			waiting.length === 0
 				? ended
@@ -151,28 +169,18 @@ export function useThreadMessages(
 						...waiting.map((message, at) =>
 							like(message, ended.length + at, conversation.id),
 						),
-						...(halted
-							? [
-									queuedReply(
-										like(
-											{
-												role: "agent",
-												parts: [],
-												plan: null,
-												at: null,
-												until: null,
-											},
-											ended.length + waiting.length,
-											conversation.id,
-										),
-										waiting.at(-1),
-										id,
-									),
-								]
-							: []),
 					];
-		const all = lined;
-		return { all, last: waiting.length === 0 ? all.at(-1) : ended.at(-1) };
+		// What the person just sent looks sent, the server yet to have said so.
+		const all = [
+			...lined,
+			...youngSending.map((each, at) =>
+				like(messageOf(each), lined.length + at, conversation.id),
+			),
+		];
+		const lingering = conversation.messages.some(
+			(each) => each.queued && !youngQueued.includes(each),
+		);
+		return { all, last: lingering ? ended.at(-1) : lined.at(-1) };
 	}, [
 		conversation.summary,
 		conversation.messages,
@@ -189,7 +197,8 @@ export function useThreadMessages(
 		shown,
 		feed,
 		status,
-		id,
+		youngQueued,
+		youngSending,
 	]);
 	const { all: messages, last } = built;
 	// Its last word asks questions, escalates, or asks for a review, or it

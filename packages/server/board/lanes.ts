@@ -273,8 +273,8 @@ export const MENTION = /(?<![\w/#&\\])#(\d+)\b/g;
 
 /**
  * A `#N` named as the task of another project, by its slug among `others`
- * just before it, as agents write it: `webappwiz #404`, `webappwiz task #404`,
- * `webappwiz#404` or `#webappwiz #404`, the slug in any case. Group 1 is the
+ * just before it, as agents write it: `wren #404`, `wren task #404`,
+ * `wren#404` or `#wren #404`, the slug in any case. Group 1 is the
  * slug as written, group 2 the number; null when there are no others.
  */
 export function elsewhereMention(others: readonly string[]): RegExp | null {

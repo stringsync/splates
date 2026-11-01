@@ -67,7 +67,7 @@ describe("QueueWork", () => {
 				linked: true,
 				lanes: [],
 				todos: [
-					todo({ id: 4, stage: "ready" }),
+					todo({ id: 4, stage: "available" }),
 					todo({ id: 5, stage: "queued" }),
 					todo({ id: 6, takenBy: "fix-upload" }),
 				],

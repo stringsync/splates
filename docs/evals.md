@@ -1,5 +1,7 @@
 # Evals from any framework
 
+<!-- The format's types are `@evals/evals/contract` in the shared evals project. -->
+
 Splates builds no eval framework. Run evals with whatever you like and write
 the results as files in the `splates-evals/1` format below; the Evals page
 draws them. A file write from any language is enough, and the page reads them

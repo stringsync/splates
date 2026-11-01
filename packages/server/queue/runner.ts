@@ -1,5 +1,5 @@
 import { Disposer, type Resource } from "core/disposable";
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import { Duration, SystemTimer, type Timer } from "core/time";
 import type { TaskRecord } from "../board";
 import type { QueueSpot } from "../conversations";
@@ -12,6 +12,16 @@ export const QUEUE_SWEEP = Duration.mins(1);
 
 /** The most sweeps the queue waits before trying a refused start again. */
 export const RETRY_SWEEPS_MAX = 30;
+
+/**
+ * The most queued tasks the queue has starting at once, each readying its
+ * worktree and opening its agent, so a lane queued at once does not hit the
+ * machine and the agents' providers all together.
+ */
+export const QUEUE_STARTS_MAX = 2;
+
+/** The least time between two of the queue's starts, so agents connect one after another. */
+export const QUEUE_START_GAP = Duration.secs(5);
 
 /** One queued task the queue starts, as `QueueRunner` hands it to its `start`. */
 export interface QueueStart {
@@ -39,7 +49,9 @@ export class QueueRunner implements Resource {
 	// queued, or by one removed without merging, stays queued as blocked
 	// until the person queues that or drops the link, as the page offers.
 	// Checked as tasks change and every `QUEUE_SWEEP`. Queue starts take no
-	// slot, so all go at once. A task gets a held conversation only once it
+	// slot, but go one at a time, in queue order, at most `QUEUE_STARTS_MAX`
+	// under way and `QUEUE_START_GAP` apart; each that ends, and each gap
+	// that passes, checks again. A task gets a held conversation only once it
 	// can start, so none
 	// waits at an agent on another task. A refused start is tried again at
 	// once when its task changes or on `retry`, otherwise after a wait that
@@ -66,10 +78,12 @@ export class QueueRunner implements Resource {
 	readonly #startingSince = new Map<number, string>();
 	/** The pick each held conversation was made on, by its id, while this runs. */
 	readonly #heldOn = new Map<string, string>();
+	/** The gap after the last start, until it passes; null once it has. */
+	#gap: Resource | null = null;
 
 	private constructor(
 		private readonly deps: QueueRunnerDeps,
-		timer: Timer,
+		private readonly timer: Timer,
 	) {
 		this.#disposer.use(
 			timer.setInterval(() => {
@@ -89,7 +103,7 @@ export class QueueRunner implements Resource {
 		return runner;
 	}
 
-	/** Starts every queued task nothing blocks now. */
+	/** Starts the next queued task nothing blocks, when the pace leaves room. */
 	sweep(): Promise<void> {
 		const next = this.#checking.then(() => this.#check());
 		this.#checking = next.catch((error: unknown) =>
@@ -134,15 +148,24 @@ export class QueueRunner implements Resource {
 		// Paused, nothing starts, though each held conversation still says why
 		// it waits; the scheduler's change on resume sweeps again.
 		const paused = this.deps.paused?.() === true;
-		const next = paused ? [] : startable;
+		// Overloaded, the same: the machine is given room to catch up.
+		const busy = !paused && this.deps.overloaded?.() === true;
+		// One start per check, while there is room and the gap has passed.
+		const room =
+			this.#gap === null && this.#starting.size < QUEUE_STARTS_MAX ? 1 : 0;
+		const next = paused || busy ? [] : startable.slice(0, room);
 		const picks = await this.#picks(all, next);
 		const held =
 			this.deps.held === undefined
 				? new Map<number, string>()
-				: await this.#hold(this.deps.held, all, picks.of, paused);
+				: await this.#hold(this.deps.held, all, picks.of, paused, busy);
 		if (next.length === 0) {
 			return;
 		}
+		this.#gap = this.timer.setTimeout(() => {
+			this.#gap = null;
+			void this.sweep();
+		}, QUEUE_START_GAP);
 		const names = new Set(await this.deps.tasks());
 		const starts: (QueueStart & { decided?: QueuePicked })[] = [];
 		for (const queued of next) {
@@ -172,7 +195,7 @@ export class QueueRunner implements Resource {
 					await this.deps.start(start);
 					this.#refused.delete(start.queued.id);
 					this.deps.log.info(
-						`the queue started task ${start.queued.id} as ${start.task}`,
+						`${color.green("started")} task ${start.queued.id} as ${start.task}`,
 					);
 				} catch (error) {
 					const tries = (this.#refused.get(start.queued.id)?.tries ?? 0) + 1;
@@ -186,12 +209,12 @@ export class QueueRunner implements Resource {
 					this.deps.log.error(
 						`the queue could not start task ${start.queued.id} as ${start.task}, and tries it again in ${retryAfter(tries)} sweeps or once it changes: ${String(error)}`,
 					);
-					// Its held conversation says so now, not at the next sweep;
-					// the check runs after `finally`, so it is no longer starting.
-					void this.sweep();
 				} finally {
 					this.#starting.delete(start.queued.id);
 				}
+				// Its room goes to the next, and a refusal says so on its held
+				// conversation now, not at the next sweep.
+				void this.sweep();
 			})();
 		}
 	}
@@ -241,11 +264,11 @@ export class QueueRunner implements Resource {
 
 	/**
 	 * Whom each queued task goes to: the agent it names, else Auto pick's
-	 * pick. Every task in the backlog or the queue that names none has its
+	 * pick. Every Untriaged available task or queued task that names none has its
 	 * words judged in the background as it is added and once for each new
 	 * wording, so the queued ones take what that judged, guessed without
 	 * asking again; those about to start, `next`, are decided now on fresh
-	 * plan limits. A ready task is left until it is queued.
+	 * plan limits. A groomed available task is left until it is queued.
 	 */
 	async #picks(
 		all: readonly TaskRecord[],
@@ -256,7 +279,8 @@ export class QueueRunner implements Resource {
 	}> {
 		const waiting = all.filter(
 			(task) =>
-				(task.stage === "backlog" || task.stage === "queued") &&
+				(task.stage === "queued" ||
+					(task.stage === "available" && task.lane === null)) &&
 				task.takenBy === null &&
 				task.assignee === undefined,
 		);
@@ -301,6 +325,8 @@ export class QueueRunner implements Resource {
 		pickOf: (queued: TaskRecord) => AgentPick,
 		/** Whether the queue is paused, so what would start waits instead. */
 		paused: boolean,
+		/** Whether the load holds the queue back, as `QueueRunnerDeps.overloaded` says. */
+		busy: boolean,
 	): Promise<Map<number, string>> {
 		const queue = queueOrder(all);
 		const listed = await conversations.list();
@@ -359,7 +385,9 @@ export class QueueRunner implements Resource {
 					? `could not start: ${refused.why}`
 					: paused
 						? "paused"
-						: "starting";
+						: busy
+							? "machine busy"
+							: "starting";
 			if (reason !== "starting") {
 				this.#startingSince.delete(queued.id);
 			} else if (!this.#startingSince.has(queued.id)) {
@@ -376,6 +404,8 @@ export class QueueRunner implements Resource {
 	}
 
 	dispose(): void {
+		this.#gap?.dispose();
+		this.#gap = null;
 		this.#disposer.dispose();
 	}
 }
@@ -441,6 +471,12 @@ export interface QueueRunnerDeps {
 	 * starts; absent, never paused.
 	 */
 	paused?: () => boolean;
+	/**
+	 * Whether the machine's load is too high to start more agents, so no
+	 * queued task starts until the next check finds it down; the person's own
+	 * starts are never held. Absent, never overloaded.
+	 */
+	overloaded?: () => boolean;
 	log: Logger;
 }
 
@@ -503,7 +539,7 @@ export interface HeldConversations {
 /**
  * What a queued task's agent is told beyond claiming its task: that the
  * queue started it, the commit each task it was blocked by landed as,
- * which it builds on, and to groom it first when it is not yet groomed.
+ * which it builds on, and to groom it first when it is still in Untriaged.
  */
 export function queuePrompt(queued: TaskRecord): string {
 	// The page reads a lane's words back as an event line (`queueStartOf` in
@@ -520,10 +556,10 @@ export function queuePrompt(queued: TaskRecord): string {
 			(landed) =>
 				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
 		),
-		...(queued.groomed
+		...(queued.lane !== null
 			? []
 			: [
-					"Groom it first, since nothing has yet, as the splates skill's `references/groom.md` says under Grooming a task you start.",
+					"Groom it first, since it is still in Untriaged, as the splates skill's `references/groom.md` says under Grooming a task you start.",
 				]),
 		"Work it as the splates skill says, ending in `splates merge` or `splates remove`, or in questions for the user.",
 	].join("\n");

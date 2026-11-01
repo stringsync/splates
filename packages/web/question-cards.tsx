@@ -10,6 +10,7 @@ import {
 	answerIn,
 	besides,
 	changes,
+	directive,
 	isEmpty,
 	replyOf,
 	takenOf,
@@ -547,6 +548,10 @@ export function QuestionCards({
 		<div className="my-6">
 			<SplatesEvent
 				event={{
+					mark:
+						proposal !== null && sent !== null && directive(sent) === APPROVE
+							? "approved"
+							: null,
 					words: questionOutcome(questions.length, escalation, proposal, sent),
 					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
 				}}

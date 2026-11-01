@@ -8,15 +8,16 @@ release to be live. The settled design is in
 `splates ship [<project>] [--dev <server-url>]` prints the Ships page link.
 Every Ship button opens `#ships?ship=<project>`, the Ships page with that
 project picked (`+changed` picks every changed one). Each project there is a
-switch; included projects are numbered in release order, and dependents of a
-picked project come in with it. Include all changed picks every changed project
-and what pins it. Pick a patch, minor or major bump for each included project,
+switch, one row per project; included projects are numbered in release order.
+Dependents are not rows of their own: shipping a project adopts its pins in its
+dependents automatically. Include all changed picks every changed project. Pick a patch, minor or major bump for each included project,
 or enable Agent task and write instructions. Start, at the foot of the page,
 submits the choices. A ship already
 running or stopped links to its progress instead of allowing another Start.
 
-Ships shows each project's stages, registry checks, task links and history.
-Retry resumes a stopped stage; Hand to an agent is offered after mechanical
+Ships shows the run like a GitHub Actions run: status icons and a duration on
+each job and step, task links and history.
+Retry and Abandon sit on the run header. Retry resumes a stopped stage; Hand to an agent is offered after mechanical
 adoption fails. Abandon ends the ship while retaining published versions.
 
 ## Step API
@@ -30,7 +31,7 @@ adoption fails. Abandon ends the ship while retaining published versions.
 The server computes target versions, pins and release order from the registered
 graph. Agent tasks start only when their step reaches adoption; instructions
 are carried verbatim into the task. `GET /api/ship/steps` reads the ship. The existing
-`/api/ship/events` stream reports its stages and the active npm prompt.
+`/api/ship/events` stream reports its stages and the active stage.
 
 Any failure stops the whole ship. `POST /api/ship/steps/retry` resumes the failed
 stage, skipping adoption if the base already pins its targets and skipping a
@@ -52,7 +53,7 @@ ship: "./bin/splates dev ship",
 It is a shell command, run from the project's main tree as `preMerge` is. It
 publishes the project's public packages at their next version and leaves the
 release committed and tagged on the base branch. splates sets
-`SPLATES_SHIP_BUMP` to `patch`, `minor` or `major`, the selected release type, and the command releases at that type. A webappwiz project's is
+`SPLATES_SHIP_BUMP` to `patch`, `minor` or `major`, the selected release type, and the command releases at that type. A wren project's is
 `wiz dev ship`. Leave it out, or set it to null, for a project never shipped
 from splates.
 
@@ -67,34 +68,36 @@ skip adoption.
 ## Mechanical publish runner
 
 Publishes run one at a time.
-The server runs the ship on its own machine, under your npm sign-in:
+The server runs the ship on its own machine. It handles no npm sign-in, 2FA,
+token or approval; no step waits on the person:
 
 1. **Push and verify** requires a clean tree on the default release branch,
    fetches origin, refuses a remote that is ahead or diverged, pushes local
    commits without forcing, and checks the remote ref matches the local commit.
-2. When `npm whoami` knows no one, it runs `npm login --auth-type=web` first.
-3. Then it runs the project's `ship` command from its main tree, answering
+2. Then it runs the project's `ship` command from its main tree, answering
    the release's own question yes, since you asked for the ship.
-4. **Release pushed** checks and pushes again after the ship command, verifying
+3. **Release pushed** checks and pushes again after the ship command, verifying
    that its release commit is on origin too. A failed check stops the publish.
 
-While npm waits on you, the page's bars show the ship as an amber badge with
-an Open button to npm's sign-in or 2FA page, so you can answer from any
-device, your phone included; its popover holds the ship's output. npm's
-sign-in lasts about two hours and each publish needs 2FA, so nothing keeps a
-token that lets an agent, or anything running later, publish without you.
+Only the person starts a ship, so nothing keeps a token that lets an agent
+publish.
 
 The ship and its stages are saved on the machine. A restarted server resumes
 the unfinished stage, checking external evidence before repeating work.
 
 ## Agents and releases
 
+A ship's task may be a deliberate "check this upstream update for API breaks"
+task chosen up front with Agent task, not only a fix after a failed adoption.
+Either way the agent fixes what breaks and lands with `splates merge`, never
+bumping further.
+
 Only the person starts a publish. Agents may ask with a run-command card:
 
 ```markdown
-## 🔐 Permission: run command: ship webappwiz
+## 🔐 Permission: run command: ship wren
 
-`splates ship webappwiz`
+`splates ship wren`
 
 The log rotation fix is on main and unreleased.
 ```

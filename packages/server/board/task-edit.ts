@@ -36,12 +36,14 @@ export interface TaskAddOptions extends TaskFileOptions {
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
 	origin?: TaskOrigin;
-	/** Whether whoever wrote it groomed it, for ready; the backlog by default. */
-	ready?: boolean;
 	/** This project's slug, when added from another: the task is then written `slug #N`. */
 	project?: string;
 	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
 	boards?: Pick<ElsewhereBoards, "slug">;
+	/** The project of `splates.config.ts` the task changes. */
+	scope?: string;
+	/** The tags grouping the task; none by default. */
+	tags?: string[];
 }
 
 export async function taskAdd(
@@ -58,9 +60,10 @@ export async function taskAdd(
 		lane,
 		assignee,
 		origin,
-		ready,
 		project,
 		boards,
+		scope,
+		tags,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.add(subject, from, {
@@ -73,14 +76,15 @@ export async function taskAdd(
 		lane,
 		assignee,
 		origin,
-		ready,
+		scope,
+		tags,
 	});
 	const named =
 		project === undefined ? `task ${task.id}` : `${project} #${task.id}`;
 	const blockers = await blockersSaid(task, boards);
 	deps.log.info(
 		[
-			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
+			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.lane === null ? "untriaged, for grooming" : "available"}`,
 			...task.files.map((path) => `  ${path}`),
 			// Another project's task is its own to start: the person queues it
 			// there from the card the agent's reply ends with.
@@ -101,7 +105,6 @@ export function addedFacts(task: Task): Facts["task add"] {
 		subject: task.subject,
 		lane: task.lane,
 		position: task.position,
-		ready: task.state.stage === "ready",
 	};
 }
 
@@ -128,10 +131,12 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
 	assignee?: AgentPick | null;
-	/** Marks it groomed, moving it from the backlog to ready. */
-	ready?: boolean;
 	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
 	boards?: Pick<ElsewhereBoards, "slug">;
+	/** Tags it has from now on, besides those it already has. */
+	tags?: string[];
+	/** Tags it no longer has. */
+	removeTags?: string[];
 }
 
 export async function taskUpdate(
@@ -150,8 +155,9 @@ export async function taskUpdate(
 		removeElsewhere = [],
 		lane,
 		assignee,
-		ready,
 		boards,
+		tags = [],
+		removeTags = [],
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.find(id);
@@ -192,6 +198,14 @@ export async function taskUpdate(
 			{ number: id, file: unknown },
 		);
 	}
+	const missing = removeTags.find((each) => !task.tags.includes(each));
+	if (missing !== undefined) {
+		fail(
+			"not_found",
+			`task ${id} has no tag '${missing}': nothing was changed`,
+			{ number: id, tag: missing },
+		);
+	}
 	const dropped = task.files.filter((path) =>
 		removeFiles.some((named) => matches(path, named)),
 	);
@@ -221,7 +235,12 @@ export async function taskUpdate(
 					),
 		lane,
 		assignee,
-		ready,
+		tags:
+			tags.length === 0 && removeTags.length === 0
+				? undefined
+				: [...new Set([...task.tags, ...tags])].filter(
+						(each) => !removeTags.includes(each),
+					),
 	});
 	const blockers = await blockersSaid(updated, boards);
 	deps.log.info(

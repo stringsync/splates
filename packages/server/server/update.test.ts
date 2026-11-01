@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "core/log";
+import { color, MemoryLogger } from "core/log";
 import { FakeFs, FakePs } from "core/system/testing";
 import { encodeTask } from "../board";
 import { RUNNING } from "./release";
@@ -53,6 +53,23 @@ describe("update", () => {
 		]);
 	});
 
+	it("installs from the default branch when the release's tag is missing", async () => {
+		let runs = 0;
+		ps.simulate(async () => (++runs === 1 ? 1 : 0));
+		ps.setCaptureOutput(
+			"",
+			`Remote branch v999.0.0 not found in upstream origin`,
+		);
+
+		expect(
+			await update({ root: "/repo", fs, ps, log, release: "999.0.0" }),
+		).toBe(0);
+		expect(ps.getCalls()).toEqual([
+			"bunx skills@1 add stringsync/splates#v999.0.0 --yes --skill splates",
+			"bunx skills@1 add stringsync/splates --yes --skill splates",
+		]);
+	});
+
 	it("moves queued tasks saved with tags into a lane a tag", async () => {
 		await fs.mkdir("/repo/.git/splates/tasks", { recursive: true });
 		await fs.write(
@@ -72,8 +89,8 @@ describe("update", () => {
 
 		await run(RUNNING);
 
-		expect(log.entries.map((entry) => String(entry.message))).toContain(
-			"moved #1 into lane 1 Uploads, from their tag",
-		);
+		expect(
+			log.entries.map((entry) => color.strip(String(entry.message))),
+		).toContain("moved #1 into lane 1 Uploads, from their tag");
 	});
 });

@@ -119,6 +119,11 @@ describe("QueueAutoPick", () => {
 			start: async (each) => {
 				started.push(each);
 				await (await deps.tasks.find(each.queued.id)).take(each.task);
+				// Its held conversation is handed the task, as `--held` does.
+				const conversation = held.held.find((one) => one.id === each.held);
+				if (conversation !== undefined) {
+					conversation.handed = true;
+				}
 			},
 			held: held.conversations,
 			log: new MemoryLogger(),

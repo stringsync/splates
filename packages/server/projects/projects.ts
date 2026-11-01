@@ -26,7 +26,7 @@ export interface ProjectRecord {
 /** A registered repository, as the registry reads it back. */
 export interface Project extends ProjectRecord {
 	/**
-	 * What a URL names it by: the root's last part, `webappwiz`, with `-2`
+	 * What a URL names it by: the root's last part, `wren`, with `-2`
 	 * and on for a second of the same name, in the order they joined.
 	 */
 	slug: string;

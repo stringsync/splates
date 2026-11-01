@@ -20,13 +20,13 @@ import { AssigneeMenu } from "./dispatching";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
 
-const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
+const STAGES: TaskStage[] = ["available", "queued", "running"];
 
 /** The form that adds an automation, clearing what was typed once it is added. */
 export function AddForm({
 	onAdd,
 }: {
-	onAdd: (trigger: Trigger, hook: Hook) => Promise<boolean>;
+	onAdd: (trigger: Trigger, hook: Hook, name: string) => Promise<boolean>;
 }): JSX.Element {
 	const [draft] = useState(() => new AutomationDraft());
 	return (
@@ -34,8 +34,8 @@ export function AddForm({
 			draft={draft}
 			title="Add an automation"
 			submit="Add"
-			onSubmit={(trigger, hook) =>
-				void onAdd(trigger, hook).then((added) => {
+			onSubmit={(trigger, hook, name) =>
+				void onAdd(trigger, hook, name).then((added) => {
 					if (added) {
 						draft.added();
 					}
@@ -56,12 +56,22 @@ export function AutomationForm({
 	draft: AutomationDraft;
 	title: string;
 	submit: string;
-	onSubmit: (trigger: Trigger, hook: Hook) => void;
+	onSubmit: (trigger: Trigger, hook: Hook, name: string) => void;
 	onCancel?: () => void;
 }): JSX.Element {
 	const lanes = useContext(Lanes);
-	const { when, event, stage, lane, schedule, kind, pick, prompt, command } =
-		useReactive(draft, (draft) => draft.fields, ["changed"]);
+	const {
+		name,
+		when,
+		event,
+		stage,
+		lane,
+		schedule,
+		kind,
+		pick,
+		prompt,
+		command,
+	} = useReactive(draft, (draft) => draft.fields, ["changed"]);
 	const { refusal, refuse } = useRefusal();
 	const submitted = (form: FormEvent) => {
 		form.preventDefault();
@@ -72,7 +82,7 @@ export function AutomationForm({
 			refuse(`Not ${submit === "Add" ? "added" : "saved"}`, error);
 			return;
 		}
-		onSubmit(made.trigger, made.hook);
+		onSubmit(made.trigger, made.hook, made.name);
 	};
 	return (
 		<form
@@ -81,6 +91,12 @@ export function AutomationForm({
 			className="flex flex-col gap-3 rounded-xl border p-3"
 		>
 			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			<Input
+				aria-label="Name"
+				placeholder="Name (optional)"
+				value={name}
+				onChange={(change) => draft.set("name", change.target.value)}
+			/>
 			<div className="flex flex-wrap items-center gap-2">
 				<NativeSelect
 					aria-label="When"

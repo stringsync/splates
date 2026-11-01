@@ -26,8 +26,8 @@ describe("App coming back to a project", () => {
 		testing = new Testing();
 		testing.projects = [
 			{
-				slug: "webappwiz",
-				root: "/code/webappwiz",
+				slug: "wren",
+				root: "/code/wren",
 				gone: false,
 				focused: true,
 				conversations: [],
@@ -71,15 +71,15 @@ describe("App coming back to a project", () => {
 			fireEvent.click(back.getByRole("tab", { name: /Creds/ })),
 		);
 		await waitFor(() => expect(location.hash).toBe("#creds"));
-		await pick(back, "/code/webappwiz");
+		await pick(back, "/code/wren");
 
 		const returned = new URL(String(testing.visited[1]));
-		expect(returned.search).toBe("?project=webappwiz");
+		expect(returned.search).toBe("?project=wren");
 		expect(returned.hash).toBe("#creds");
 	});
 
 	it("comes back to the page it left a project on through another project's task", async () => {
-		visit("http://localhost/?project=webappwiz");
+		visit("http://localhost/?project=wren");
 		testing.everywhere = [
 			{
 				project: "shop",
@@ -98,9 +98,9 @@ describe("App coming back to a project", () => {
 		await openQueueRow(view, "checkout");
 		await waitFor(() => expect(location.hash).toBe("#tasks/checkout"));
 
-		await pick(within(document.body), "/code/webappwiz");
+		await pick(within(document.body), "/code/wren");
 
-		expect(location.search).toBe("?project=webappwiz");
+		expect(location.search).toBe("?project=wren");
 		expect(location.hash).toBe("#tasks");
 	});
 
@@ -122,14 +122,14 @@ describe("App coming back to a project", () => {
 
 	// vet-ignore simple-test-setup: older than this task, which only gave its projects the ships field
 	it("names the project started in while it opens again", async () => {
-		await testing.open({ repo: "webappwiz" });
+		await testing.open({ repo: "wren" });
 		cleanup();
 
 		const arrive = testing.holdSnapshots();
 
 		const opening = testing.open();
 		const screen = within(document.body);
-		await waitFor(() => screen.getByText("Opening webappwiz"));
+		await waitFor(() => screen.getByText("Opening wren"));
 		arrive();
 		await opening;
 	});

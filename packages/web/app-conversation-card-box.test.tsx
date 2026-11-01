@@ -491,6 +491,7 @@ describe("App's card answer boxes", () => {
 			"Retry the upload on a 413#12",
 			"alphaworking",
 			`${asking.title}${asking.id}`,
+			"repo/code/repo",
 		]);
 		await typeIn(box, "#12");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));

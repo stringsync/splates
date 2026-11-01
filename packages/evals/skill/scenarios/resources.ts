@@ -1,5 +1,6 @@
+import type { Repo } from "@evals/evals/scenario";
 import { stretches } from "@stringsync/splates-server/plans";
-import type { Repo, Scenario } from "../scenario";
+import type { Scenario } from "../box";
 
 const aspect = "resource-control";
 

@@ -19,6 +19,7 @@ export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
 	CHECKPOINT,
+	configChangeReference,
 	DEFER,
 	DIRECTIVES,
 	demoReference,
@@ -35,6 +36,7 @@ export {
 	RUN_ALLOWED,
 	RUN_DENIED,
 	setupReference,
+	shipFailureReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

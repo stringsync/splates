@@ -27,14 +27,14 @@ Cards on a phone now drag on a long press. Restart `splates server` to pick it u
 ```
 
 ```markdown
-## 🛑 Removed <task>: superseded by a fix on main
+## 🧹 Removed <task>: superseded by a fix on main
 
 The task set out to stop uploads retrying a 413.
 ```
 
 A task blocked on other work is deferred, not discarded: `splates remove
 <task> --reason blocked`, then the report below, so the user does not read it
-as lost. It keeps `## 🛑 Removed` for work that really ended. The remove
+as lost. It keeps `## 🧹 Removed` for work that really ended. The remove
 takes `--why`, what you found that stops the work, and at least one
 blocker: `--blocked-by <n>` for a task that has to merge first, `--ask
 "<question>"` for the person's call, `--waiting-on "<what>"` for something
@@ -54,13 +54,22 @@ The task set out to stop uploads retrying a 413; it is back on the list.
 Work over with no task to merge or remove, such as a question you were
 asked to look into, a setup step or an automation's run, ends on a Done
 report, what came of it after the colon. It too asks and offers nothing, and
-a reply in a talk that carries on is none:
+a reply in a talk that carries on is none. Done says nothing is left, so it
+is for a finished answer or a finished step, never for a finding that leaves
+something to do: "I found the bug" with the fix not made ends on the
+finding and a numbered question (`1. Should I fix it this way?`), not Done.
+Without the user's go-ahead on what remains, the request is not complete:
 
 ```markdown
 ## ✅ Done: the upload 413s come from the proxy, not the app
 
 Its body limit is 1 MB; nothing in this repository needs to change.
 ```
+
+When what came of it is something to see, such as a flow you traced, put a
+D2 diagram of it (see [proposing.md](proposing.md), Showing the change) under
+the colon line, attached and named as `![flow](/abs/path.png)`, as a before and
+after when it changed anything.
 
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.

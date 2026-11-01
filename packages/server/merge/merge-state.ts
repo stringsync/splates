@@ -14,6 +14,7 @@ export class MergeState {
 	 */
 	line(): PlacedAcquireOptions {
 		return {
+			task: this.worktree.task,
 			ahead: this.worktree.state?.gateFailures?.at(-1)?.reason === "conflict",
 		};
 	}

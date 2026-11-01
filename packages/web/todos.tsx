@@ -6,6 +6,7 @@ import {
 	type LaneState,
 	lanes as laneList,
 	named,
+	type TaskRecord,
 } from "@stringsync/splates-server/board/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "core/react";
@@ -17,11 +18,14 @@ import { AddLane } from "./add-lane";
 import { Board as BoardContext, takenTask } from "./board";
 import { BoardDrag } from "./board-drag";
 import type { Drafts } from "./drafts";
+import { FinishedByName } from "./finished-tasks";
 import { fadeOf, useEdges } from "./hooks/use-edges";
 import { columnId, Lane, Untriaged } from "./lanes";
 import { useRefusals } from "./refusal";
 import { shownLanes } from "./shown-lanes";
 import { Task } from "./task-dialog";
+import { type Filtered, projectOptions, tagOptions } from "./task-filter";
+import { taskFilterAction } from "./task-filter-menu";
 import { TodoBoard } from "./todo-board";
 import { TodoDialog } from "./todo-dialog";
 import type { TodoView } from "./todo-view";
@@ -50,7 +54,7 @@ export function Todos({
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
 	// applies them to whichever snapshot came last.
-	const { hidden, only } = useReactive(
+	const { hidden, only, openedTask } = useReactive(
 		view,
 		({ opened, openedTask, hidden, only }) => ({
 			opened,
@@ -71,6 +75,10 @@ export function Todos({
 		}),
 		["changed"],
 	);
+	const filter = view.taskFilter;
+	useReactive(filter, ({ projects, tags }) => ({ projects, tags }), [
+		"changed",
+	]);
 	const { current, task } = view.show(snapshot);
 	// What was dropped and is pending, until the server's word on it arrives.
 	const moving = board.moving(snapshot.todos);
@@ -82,13 +90,13 @@ export function Todos({
 	const records = useMemo(() => named(all, shownLanes), [all, shownLanes]);
 	// Blockers and the lanes' next todos are read from every todo; only what
 	// each column lists is narrowed.
-	const lanes = laneList(all, records).map((lane) =>
-		only === null
-			? lane
-			: { ...lane, todos: lane.todos.filter((todo) => only.includes(todo.id)) },
-	);
-	const kept =
-		only === null ? all : all.filter((todo) => only.includes(todo.id));
+	const passes = (todo: TaskRecord) =>
+		(only === null || only.includes(todo.id)) && filter.passes(filtered(todo));
+	const lanes = laneList(all, records).map((lane) => ({
+		...lane,
+		todos: lane.todos.filter(passes),
+	}));
+	const kept = all.filter(passes);
 	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
 	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
 	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<
@@ -105,13 +113,14 @@ export function Todos({
 				if (task === null) {
 					view.open(id);
 				} else {
-					view.openTask(snapshot, task);
+					view.openTask(task);
 				}
 			},
-			openTask: (name: string) => view.openTask(snapshot, name),
+			openTask: (name: string) => view.openTask(name),
 			openTodos: (ids: readonly number[]) => view.filter(ids),
 			openLane: onLane,
 			tasks: snapshot.tasks.map((each) => each.task),
+			taskTags: new Map(snapshot.tasks.map((each) => [each.task, each.tags])),
 			moveLane: (id: number, position: number) =>
 				void board
 					.moveLane(snapshot.lanes, id, position)
@@ -219,6 +228,14 @@ export function Todos({
 					untriaged={kept.filter((todo) => todo.lane === null).length}
 					hidden={hidden}
 					view={view}
+					filterOptions={{
+						projects: projectOptions(all.map(filtered), filter.projects),
+						tags: tagOptions(
+							snapshot.allowedTags,
+							all.map(filtered),
+							filter.tags,
+						),
+					}}
 				/>
 				<div
 					ref={scroller}
@@ -268,14 +285,18 @@ export function Todos({
 			</BoardDrag>
 			<TodoDialog todo={current} onClose={() => view.close()} />
 			<Dialog
-				open={task !== undefined}
+				open={openedTask !== null}
 				onOpenChange={(open) => {
 					if (!open) {
 						view.closeTask();
 					}
 				}}
 			>
-				{task && <Task task={task} />}
+				{task ? (
+					<Task task={task} />
+				) : (
+					openedTask !== null && <FinishedByName name={openedTask} />
+				)}
 			</Dialog>
 		</BoardContext>
 	);
@@ -287,7 +308,9 @@ function TodosBar({
 	untriaged,
 	hidden,
 	view,
+	filterOptions,
 }: {
+	filterOptions: { projects: string[]; tags: string[] };
 	lanes: LaneState[];
 	/** How many todos shown are in no lane. */
 	untriaged: number;
@@ -305,7 +328,13 @@ function TodosBar({
 					onToggle: (lane) => view.toggleLane(lane),
 					onHide: (lanes) => view.hide(lanes),
 				}),
+				taskFilterAction({ filter: view.taskFilter, ...filterOptions }),
 			]}
 		/>
 	);
+}
+
+/** What the filter reads of a todo. */
+function filtered(todo: TaskRecord): Filtered {
+	return { project: todo.scope ?? null, tags: todo.labels ?? [] };
 }

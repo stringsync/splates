@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FileLock } from "core/system";
 import { Duration } from "core/time";
+import { fail } from "../exit";
 import { Testing } from "../testing";
 import { Format, type Migration as Step } from "./format";
 import { Migration, type MigrationOptions } from "./migration";
@@ -16,7 +17,7 @@ describe("Migration", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("moves older records forward in its child and keeps no backup once done", async () => {
+	it("moves older records forward in its child and keeps a copy of the old records once done", async () => {
 		const ran: string[] = [];
 		const format = formatOf(deps, [step("splits lanes", ran)]);
 
@@ -25,9 +26,27 @@ describe("Migration", () => {
 		expect(ran).toEqual(["splits lanes"]);
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("2\n");
 		expect(await deps.fs.exists(`${deps.splatesDir}-backup`)).toBe(false);
+		expect(
+			await deps.fs.read(`${deps.splatesDir}-backup-format-1/format`),
+		).toBe("1\n");
 		expect(await deps.fs.exists(`${deps.splatesDir}-migration.json`)).toBe(
 			false,
 		);
+	});
+
+	it("leaves older records alone when its guard refuses", async () => {
+		const format = formatOf(deps, [step("splits lanes", [])]);
+		const guarded = migration(deps, format, () => format.migrate(), {
+			guard: async () => {
+				fail("not_granted", "not from a worktree");
+			},
+		});
+
+		await expect(guarded.run()).toBail("not_granted", {
+			message: ["not from a worktree"],
+		});
+
+		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("1\n");
 	});
 
 	it("puts the records back as they were when a step fails, and keeps why", async () => {
@@ -148,7 +167,7 @@ function migration(
 	deps: Testing,
 	format: Format,
 	steps: (() => Promise<void>) | null,
-	given: Partial<Pick<MigrationOptions, "child" | "limit">> = {},
+	given: Partial<Pick<MigrationOptions, "child" | "limit" | "guard">> = {},
 ): Migration {
 	return new Migration(format, {
 		fs: deps.fs,

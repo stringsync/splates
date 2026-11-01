@@ -77,7 +77,8 @@ export class Tasks {
 			lane = null,
 			assignee = null,
 			origin,
-			ready = false,
+			scope,
+			tags = [],
 		}: TaskNew = {},
 	): Promise<Task> {
 		const words = wording(subject, text);
@@ -112,8 +113,10 @@ export class Tasks {
 					? {}
 					: { blockedElsewhere: distinct(blockedElsewhere) }),
 				lane: null,
-				stage: ready ? "ready" : "backlog",
+				stage: "available",
 				...(origin === undefined ? {} : { origin }),
+				...(scope === undefined ? {} : { scope }),
+				...(tags.length === 0 ? {} : { labels: tags }),
 			};
 			const task = await this.save(
 				assigned(

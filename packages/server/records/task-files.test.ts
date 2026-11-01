@@ -25,13 +25,15 @@ describe("TASK_FILES", () => {
 		expect(await deps.fs.read(`${store}/2.md`)).toEndWith(
 			"---\nWhat is left of task 2.\n",
 		);
-		const [one, two] = await deps.legacyRecords().tasks.all();
-		expect(one?.state).toMatchObject({
+		// As format 3 has them, so before the stages merged: raw, not through today's reader.
+		expect(decodeTask(await deps.fs.read(`${store}/1.md`))).toMatchObject({
 			id: 1,
 			stage: "ready",
 			text: "What is left of task 1.",
 		});
-		expect(two?.state.stage).toBe("backlog");
+		expect(decodeTask(await deps.fs.read(`${store}/2.md`))).toMatchObject({
+			stage: "backlog",
+		});
 		expect(decodeTask(await deps.fs.read(`${store}/3.md`))).not.toHaveProperty(
 			"stage",
 		);

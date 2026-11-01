@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
-	act,
 	cleanup,
 	conversation,
-	fireEvent,
 	message,
 	Testing,
 	todo,
@@ -12,7 +10,7 @@ import {
 } from "./testing";
 
 const LOCALE = {
-	project: "/repos/webappwiz",
+	project: "/repos/wren",
 	id: 404,
 	subject: "format() takes a locale",
 };
@@ -40,7 +38,7 @@ describe("App's blockers in other projects", () => {
 			],
 			lanes: [],
 			elsewhere: {
-				blockers: { 7: [{ ...LOCALE, slug: "webappwiz", status: "queued" }] },
+				blockers: { 7: [{ ...LOCALE, slug: "wren", status: "queued" }] },
 				following: {
 					7: [
 						{
@@ -49,7 +47,7 @@ describe("App's blockers in other projects", () => {
 							slug: "shop",
 							id: 12,
 							subject: "Checkout in euros",
-							stage: "ready",
+							stage: "available",
 						},
 					],
 				},
@@ -59,8 +57,8 @@ describe("App's blockers in other projects", () => {
 		const list = await waitFor(() =>
 			view.getByRole("list", { name: "Untriaged tasks" }),
 		);
-		const waits = within(list).getByTitle("#404 in webappwiz, another project");
-		expect(waits.getAttribute("href")).toContain("project=webappwiz");
+		const waits = within(list).getByTitle("#404 in wren, another project");
+		expect(waits.getAttribute("href")).toContain("project=wren");
 		expect(list.textContent).toContain("waits on");
 		expect(list.textContent).toContain("queued");
 		within(list).getByTitle("#12 in shop, another project");
@@ -72,7 +70,7 @@ describe("App's blockers in other projects", () => {
 			messages: [
 				message(
 					"agent",
-					"## ⏸ Deferred locale-prices: waiting on webappwiz #404\n\nIt set out to show prices by locale.",
+					"## ⏸ Deferred locale-prices: waiting on wren #404\n\nIt set out to show prices by locale.",
 				),
 			],
 		});
@@ -83,7 +81,7 @@ describe("App's blockers in other projects", () => {
 					subject: "Show prices by locale",
 					blockedElsewhere: [LOCALE],
 					deferred: {
-						why: "Needs the locale change in webappwiz.",
+						why: "Needs the locale change in wren.",
 						at: "2026-10-27T10:00:00.000Z",
 						task: "locale-prices",
 						tasks: [LOCALE],
@@ -94,7 +92,7 @@ describe("App's blockers in other projects", () => {
 			],
 			lanes: [],
 			elsewhere: {
-				blockers: { 20: [{ ...LOCALE, slug: "webappwiz", status: "working" }] },
+				blockers: { 20: [{ ...LOCALE, slug: "wren", status: "working" }] },
 				following: {},
 			},
 		});
@@ -102,15 +100,9 @@ describe("App's blockers in other projects", () => {
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "deferred locale-prices" }),
 		);
-		within(card).getByTitle("#404 in webappwiz, another project");
+		within(card).getByTitle("#404 in wren, another project");
 		expect(card.textContent).toContain("being worked on");
 		expect(within(card).queryByRole("button", { name: /#404/ })).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Resume" })),
-		);
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[SPLATES TASK #20]" } },
-		]);
+		expect(within(card).queryByRole("button", { name: "Resume" })).toBeNull();
 	});
 });

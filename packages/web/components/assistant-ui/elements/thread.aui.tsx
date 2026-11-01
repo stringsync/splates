@@ -64,8 +64,9 @@ export const Thread: FC<ThreadProps> = ({
 	onRead,
 	docked = false,
 	historyFailure,
+	occupied = false,
 }) => {
-	const isEmpty = useAuiState(isNewChatView);
+	const isEmpty = useAuiState(isNewChatView) && !occupied;
 
 	return (
 		<ThreadComponentsContext.Provider value={components}>
@@ -87,6 +88,7 @@ export const Thread: FC<ThreadProps> = ({
 				<ThreadRoot
 					historyFailure={historyFailure}
 					isEmpty={isEmpty}
+					occupied={occupied}
 					autoFocus={autoFocus}
 					onRead={onRead}
 					docked={docked}
@@ -103,7 +105,17 @@ const ThreadRoot: FC<{
 	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
 	going: boolean;
-}> = ({ isEmpty, autoFocus, onRead, docked, going, historyFailure }) => {
+	occupied: boolean;
+}> = ({
+	isEmpty,
+	autoFocus,
+	onRead,
+	docked,
+	going,
+	historyFailure,
+	occupied,
+}) => {
+	const isNew = (s: AssistantState) => !occupied && isNewChatView(s);
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const historyReady = useAuiState((s) => !s.thread.isLoading);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
@@ -182,7 +194,7 @@ const ThreadRoot: FC<{
 						isEmpty && !docked && "pt-[20dvh]",
 					)}
 				>
-					<AuiIf condition={isNewChatView}>
+					<AuiIf condition={isNew}>
 						{docked ? (
 							<div className="my-auto">{welcome ?? <Welcome />}</div>
 						) : (
@@ -225,10 +237,10 @@ const ThreadRoot: FC<{
 						<ThreadFollowupSuggestions />
 						<ThreadAbove />
 						{composer ?? <Composer autoFocus={autoFocus && !touch} />}
-						<AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
+						<AuiIf condition={(s) => isNew(s) && s.composer.isEmpty}>
 							<ThreadSuggestions />
 						</AuiIf>
-						<AuiIf condition={isNewChatView}>{below}</AuiIf>
+						<AuiIf condition={isNew}>{below}</AuiIf>
 					</ThreadPrimitive.ViewportFooter>
 				</div>
 			</ThreadPrimitive.Viewport>

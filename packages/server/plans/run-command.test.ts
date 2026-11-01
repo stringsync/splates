@@ -32,15 +32,15 @@ describe("a run-command permission card", () => {
 	});
 
 	it("names the project of a `splates ship`, or none for the conversation's own", () => {
-		expect(shipOf("splates ship webappwiz")).toBe("webappwiz");
+		expect(shipOf("splates ship wren")).toBe("wren");
 		expect(shipOf("bin/splates ship")).toBe("");
 		expect(shipOf("bunx @stringsync/splates ship mdom")).toBe("mdom");
 	});
 
 	it("names no ship for a plan or any other command", () => {
-		expect(shipOf("splates ship --plan webappwiz")).toBeNull();
-		expect(shipOf("splates ship webappwiz --json")).toBeNull();
+		expect(shipOf("splates ship --plan wren")).toBeNull();
+		expect(shipOf("splates ship wren --json")).toBeNull();
 		expect(shipOf("splates merge --message x")).toBeNull();
-		expect(shipOf("npm ship webappwiz")).toBeNull();
+		expect(shipOf("npm ship wren")).toBeNull();
 	});
 });

@@ -25,3 +25,17 @@ it("passes recover-budget's retry card only as the skill shapes it", async () =>
 		),
 	).toBe(false);
 });
+
+it("fails finding-is-not-done when the reply ends on a Done card", async () => {
+	const check = scenarios
+		.find((each) => each.id === "lifecycle/finding-is-not-done")
+		?.checks?.find((each) => each.id === "no-done-card");
+	const graded = (reply: string) =>
+		check?.test({ reply, commands: [], transcript: [] } as never);
+	expect(
+		await graded("## ✅ Done: found the bug\n\nvalue.txt holds one."),
+	).toBe(false);
+	expect(
+		await graded("value.txt holds one.\n\n1. Should I change it to two?"),
+	).toBe(true);
+});

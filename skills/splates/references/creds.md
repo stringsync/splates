@@ -28,6 +28,6 @@ it, again on `timeout`, doing meanwhile what does not need it; it ends on
 
 You never see the value: it goes into the system's store (the macOS
 Keychain, Windows Credential Manager, a Linux secret service), and code
-reads it in-process through `webappwiz/creds`, never through the
+reads it in-process through `core/creds`, never through the
 environment, argv or a file. `splates creds list` names what is requested and
 kept.

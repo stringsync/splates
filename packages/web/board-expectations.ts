@@ -96,8 +96,8 @@ export function arranged(id: number, lane: number | "new" | null, name = "") {
 }
 
 /**
- * Todo `id` in the queue, or out of it, where the server puts it: ready
- * once groomed, else the backlog.
+ * Todo `id` in the queue, or out of it, where the server puts it:
+ * available again.
  */
 export function queued(id: number, queued: boolean) {
 	return keyed(
@@ -105,7 +105,7 @@ export function queued(id: number, queued: boolean) {
 		(snapshot: Snapshot): Snapshot =>
 			changed(snapshot, id, (todo) => ({
 				...todo,
-				stage: queued ? "queued" : todo.groomed ? "ready" : "backlog",
+				stage: queued ? "queued" : "available",
 			})),
 	);
 }
@@ -171,9 +171,8 @@ export function lanesJoined(from: number, into: number) {
 }
 
 /**
- * Each todo of lane `id` no agent has queued, from the backlog or ready, or
- * when not `queued`, each of its queued ones back in ready when groomed,
- * else the backlog.
+ * Each todo of lane `id` no agent has queued, available, or when not
+ * `queued`, each of its queued ones back to available.
  */
 export function laneQueued(id: number, queued: boolean) {
 	return keyed(
@@ -184,11 +183,11 @@ export function laneQueued(id: number, queued: boolean) {
 				todo.lane !== id || todo.takenBy !== null
 					? todo
 					: queued
-						? todo.stage === "backlog" || todo.stage === "ready"
+						? todo.stage === "available"
 							? { ...todo, stage: "queued" }
 							: todo
 						: todo.stage === "queued"
-							? { ...todo, stage: todo.groomed ? "ready" : "backlog" }
+							? { ...todo, stage: "available" }
 							: todo,
 			),
 		}),
@@ -295,7 +294,7 @@ export function todoAdded(adding: Adding, known: ReadonlySet<number>) {
 			files: [],
 			blockedBy: [],
 			lane: adding.lane,
-			stage: "backlog",
+			stage: "available",
 		};
 		const at =
 			adding.position === undefined

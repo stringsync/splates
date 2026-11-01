@@ -148,7 +148,7 @@ export const ENDINGS: Record<
 	// names what merged where.
 	merged: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
-	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "neutral" },
 	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },
 	// From before escalating was retired.
 	escalated: {

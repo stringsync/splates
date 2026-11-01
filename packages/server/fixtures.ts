@@ -4,9 +4,9 @@ import type { Details, Snapshot } from "./tasks";
 
 export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
-		project: "webappwiz",
-		repo: "webappwiz",
-		path: "~/Projects/webappwiz",
+		project: "wren",
+		repo: "wren",
+		path: "~/Projects/wren",
 		root: "/repo",
 		worktreeRoot: "/repo-splates",
 		taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
@@ -27,6 +27,9 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 export function details(overrides: Partial<Details> = {}): Details {
 	return {
 		task: "alpha",
+		number: null,
+		project: null,
+		tags: [],
 		comingConflict: [],
 		status: "working",
 		branch: "task/alpha",
@@ -73,7 +76,7 @@ export function todo(overrides: Partial<TaskRecord> = {}): TaskRecord {
 		files: [],
 		blockedBy: [],
 		lane: null,
-		stage: "backlog",
+		stage: "available",
 		...overrides,
 	};
 }
@@ -126,6 +129,7 @@ export function conversation(
 		},
 		lastTask: overrides.task ?? null,
 		lastBase: null,
+		lastTags: null,
 		lastCaller: null,
 		background: [],
 		artifacts: [],

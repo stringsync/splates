@@ -32,6 +32,7 @@ import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
+import { TagChips } from "./tag-chips";
 import { TaskIcon } from "./task-icon";
 import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
@@ -173,6 +174,7 @@ export function Edit({
 							)
 						)}
 						{stage === "blocked" && <BlockedPart todo={todo} />}
+						<TagChips tags={todo.labels} />
 						<Detail editor={editor} />
 						<FileList files={editor.files} />
 						<Dropped names={dropped} />

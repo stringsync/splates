@@ -59,7 +59,7 @@ describe.skip("App's run-command card", () => {
 			messages: [
 				message(
 					"agent",
-					"## 🔐 Permission: run command: ship webappwiz\n\n`splates ship webappwiz`\n\nThe log fix is on main and unreleased.",
+					"## 🔐 Permission: run command: ship wren\n\n`splates ship wren`\n\nThe log fix is on main and unreleased.",
 				),
 			],
 		});
@@ -76,7 +76,7 @@ describe.skip("App's run-command card", () => {
 		);
 		await waitFor(() => expect(location.hash).toBe("#ships"));
 		await waitFor(() =>
-			expect(view.getAllByText(/webappwiz/).length).toBeGreaterThan(0),
+			expect(view.getAllByText(/wren/).length).toBeGreaterThan(0),
 		);
 		expect(testing.posted("/api/ship/run")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);

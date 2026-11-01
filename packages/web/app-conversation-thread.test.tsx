@@ -557,7 +557,7 @@ describe("App's conversation thread", () => {
 			await scroll(1000);
 			await grow(150);
 			expect(thread.scrollTop).toBe(1150);
-			expect(view.getByText(/Working/)).toBeTruthy();
+			expect(view.getAllByText(/Working/).length).toBeGreaterThan(0);
 		} finally {
 			globalThis.ResizeObserver = real;
 		}

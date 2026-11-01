@@ -32,7 +32,10 @@ export class MechanicalAdoption {
 				`mechanical adoption requires a clean ${config.trunk} main tree`,
 			);
 		}
-		if (step.adopt !== "agent" && (await pinsMatch(fs, git.root, pins))) {
+		if (
+			step.adopt !== "agent" &&
+			(await pinsMatch(fs, git.root, pins, opts.paths))
+		) {
 			const left = await service.find(task);
 			if (!left.gone) {
 				await remove(repo, task, { reason: "nothing" });
@@ -60,7 +63,6 @@ export class MechanicalAdoption {
 			numbered = await repo.tasks.add(`Check ${step.slug} for its ship`, null, {
 				slug: task,
 				ship: { run: ship.id, step: step.slug },
-				ready: true,
 				text: this.detail(ship, step),
 			});
 			await repo.tasks.revise(numbered.id, (state) => ({
@@ -87,9 +89,9 @@ export class MechanicalAdoption {
 		await log(`Adopting in ${tree.path}\n`);
 		const prepared = numbered?.state.ship?.prepared === true;
 		if (!prepared) {
-			await movePins(fs, tree.path, pins);
+			await movePins(fs, tree.path, pins, opts.paths);
 		}
-		if (!(await pinsMatch(fs, tree.path, pins))) {
+		if (!(await pinsMatch(fs, tree.path, pins, opts.paths))) {
 			throw new Error(
 				"the adoption tree no longer contains every target dependency",
 			);
@@ -262,6 +264,8 @@ export class MechanicalAdoption {
 
 export interface MechanicalAdoptionOptions {
 	afterBump: string[];
+	/** The paths of the ship target adopting, whose manifests alone are read and moved. */
+	paths?: string[];
 	agent?: (task: string) => Promise<void>;
 	assigned?: () => Promise<void>;
 	signal?: AbortSignal;

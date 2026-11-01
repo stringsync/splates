@@ -152,6 +152,7 @@ export const Conversations = memo(function Conversations({
 			openTodos: onTodos,
 			openLane: onLane,
 			tasks: tasks.map((each) => each.task),
+			taskTags: new Map(tasks.map((each) => [each.task, each.tags])),
 			moveLane: () => {},
 			refusedTodos,
 			refuseTodo,

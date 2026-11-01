@@ -58,6 +58,9 @@ export class ServerInterrupt {
 			const under = descendants(await this.ps.processes(), this.ps.pid);
 			if (under.length > 0) {
 				await this.ps.spawnCapture(["kill", "-KILL", ...under.map(String)]);
+				// SIGKILL lands asynchronously: exit only once they are gone, so the
+				// command's caller never sees a child outlive it.
+				await this.gone(under);
 			}
 		} catch (error) {
 			this.opts.log?.error(`Could not stop every child: ${String(error)}`);
@@ -65,6 +68,21 @@ export class ServerInterrupt {
 			this.forced.abort();
 			this.ps.exit(130);
 		}
+	}
+
+	/** Waits, up to a second, until none of `pids` is alive. */
+	private async gone(pids: number[]): Promise<void> {
+		for (let tries = 0; tries < 50; tries++) {
+			if (!pids.some((pid) => this.ps.alive(pid))) {
+				return;
+			}
+			await new Promise<void>((resolve) => {
+				this.opts.timer.setTimeout(resolve, Duration.ms(20));
+			});
+		}
+		this.opts.log?.error(
+			`Children still alive after a forced stop: ${pids.filter((pid) => this.ps.alive(pid)).join(" ")}`,
+		);
 	}
 }
 

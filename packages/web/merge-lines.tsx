@@ -48,6 +48,7 @@ export function MergeLines({
 	if (
 		end === null &&
 		going &&
+		card?.newest.has(first.id) === true &&
 		card !== null &&
 		task !== null &&
 		task.task === first.task &&

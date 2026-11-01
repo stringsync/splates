@@ -4,16 +4,27 @@ import type {
 	CascadeStep,
 	Ship,
 	ShipStep,
+	StageState,
 } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
-import { ExternalLinkIcon, SquareIcon } from "lucide-react";
+import { Duration } from "core/time";
+import { ExternalLinkIcon, RotateCcwIcon, SquareIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#web/components/ui/dialog.tsx";
+import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
 import { type Attention, attentionOf } from "./ship-dock";
-import { StageRow } from "./ship-stages";
+import { ICONS, StageRow, span } from "./ship-stages";
 
 /**
  * A ship under way, or one that stopped: a stage per project in the order
@@ -28,6 +39,7 @@ export function ShipRun({
 	abandon: abandonRun,
 	retry,
 	agent,
+	sendToAgent,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
@@ -35,11 +47,18 @@ export function ShipRun({
 	abandon?: () => Promise<void>;
 	retry?: () => Promise<void>;
 	agent?: () => Promise<void>;
+	/** Starts a conversation with an agent about the stage the ship failed at. */
+	sendToAgent?: (failure: {
+		id: string;
+		project: string;
+		stage: string | null;
+	}) => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
 }): JSX.Element {
 	const { refusals, refuse } = useRefusals<string>();
 	const [abandoning, setAbandoning] = useState(false);
+	const [confirming, setConfirming] = useState(false);
 	const [acting, setActing] = useState(false);
 	const act = (run: () => Promise<void>, title: string) => {
 		setActing(true);
@@ -50,20 +69,21 @@ export function ShipRun({
 	const running = cascade.status === "running";
 	const held = cascade.steps.find((step) => HELD.includes(step.status));
 	const live = running || cascade.status === "stopped";
-	// One way out: a run still going is abandoned after an "are you sure".
+	// One way out: a run still going is stopped after an "are you sure".
 	const close = () => {
 		if (!live) {
 			onClose();
 			return;
 		}
-		if (
-			abandonRun === undefined ||
-			!window.confirm(
-				"Abandon this ship? What already published stays published.",
-			)
-		) {
+		if (abandonRun !== undefined) {
+			setConfirming(true);
+		}
+	};
+	const stop = () => {
+		if (abandonRun === undefined) {
 			return;
 		}
+		setConfirming(false);
 		setAbandoning(true);
 		abandonRun().then(
 			() => {
@@ -72,26 +92,43 @@ export function ShipRun({
 			},
 			(error: unknown) => {
 				setAbandoning(false);
-				refuse("", "Not abandoned", error);
+				refuse("", "Not stopped", error);
 			},
 		);
 	};
 	const through = cascade.steps.filter(
 		(step) => step.status === "done" || step.status === "dropped",
 	).length;
+	const failed = cascade.steps.find((step) => HELD.includes(step.status));
+	const sending =
+		cascade.status === "stopped" &&
+		sendToAgent !== undefined &&
+		failed !== undefined ? (
+			<Button
+				size="sm"
+				className="pointer-coarse:min-h-11"
+				variant="outline"
+				disabled={acting || abandoning}
+				onClick={() =>
+					act(
+						() =>
+							sendToAgent({
+								id: cascade.id,
+								project: failed.slug,
+								stage:
+									failed.stages.find((stage) => stage.state === "failed")
+										?.key ?? null,
+							}),
+						"Not sent to an agent",
+					)
+				}
+			>
+				Send to agent
+			</Button>
+		) : null;
 	const recovery = (
 		<>
-			{cascade.status === "stopped" && retry !== undefined && (
-				<Button
-					size="sm"
-					className="pointer-coarse:min-h-11"
-					variant="outline"
-					disabled={acting || abandoning}
-					onClick={() => act(retry, "Not retried")}
-				>
-					Retry
-				</Button>
-			)}
+			{sending}
 			{cascade.status === "stopped" &&
 				agent !== undefined &&
 				cascade.steps.some(
@@ -128,20 +165,55 @@ export function ShipRun({
 					{through} of {cascade.steps.length}
 				</span>
 				{asked === null ? null : <ChipFor tone={asked.attention.tone} />}
-				<Button
-					size="xs"
-					variant="outline"
-					className="ml-auto gap-1.5 pointer-coarse:min-h-11"
-					disabled={acting || abandoning}
-					title={
-						live ? "Ends the ship; what published stays published" : undefined
-					}
-					onClick={close}
-				>
-					<SquareIcon data-icon="inline-start" />
-					Stop
-				</Button>
+				<div className="ml-auto flex items-center gap-2">
+					{cascade.status === "stopped" && retry !== undefined && (
+						<Button
+							size="xs"
+							variant="outline"
+							className="gap-1.5 pointer-coarse:min-h-11"
+							disabled={acting || abandoning}
+							onClick={() => act(retry, "Not retried")}
+						>
+							<RotateCcwIcon data-icon="inline-start" />
+							Retry
+						</Button>
+					)}
+					<Button
+						size="xs"
+						variant={live ? "destructive" : "outline"}
+						className="gap-1.5 pointer-coarse:min-h-11"
+						disabled={acting || abandoning}
+						title={
+							live ? "Ends the ship; what published stays published" : undefined
+						}
+						onClick={close}
+					>
+						<SquareIcon
+							data-icon="inline-start"
+							className={live ? "fill-current" : undefined}
+						/>
+						{live ? "Stop" : "Close"}
+					</Button>
+				</div>
 			</div>
+			<Dialog open={confirming} onOpenChange={setConfirming}>
+				<DialogContent showCloseButton={false}>
+					<DialogHeader>
+						<DialogTitle>Stop this ship?</DialogTitle>
+						<DialogDescription>
+							What already published stays published.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setConfirming(false)}>
+							Keep going
+						</Button>
+						<Button variant="destructive" onClick={stop}>
+							Stop
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			<Refusal refusal={refusals.get("") ?? null} />
 			<ShipJobs
 				cascade={cascade}
@@ -204,14 +276,11 @@ function ShipJobs({
 							each.slug === step?.slug && "bg-muted font-medium",
 						)}
 					>
-						<span
-							aria-hidden
-							className={cn(
-								"size-2.5 shrink-0 rounded-full",
-								DOTS[each.status],
-							)}
-						/>
+						<span aria-hidden className="shrink-0">
+							{ICONS[jobState(each)]}
+						</span>
 						<span className="min-w-0 flex-1 truncate">{each.slug}</span>
+						<JobTime step={each} live={live} />
 						<span
 							className={cn(
 								"text-xs",
@@ -222,7 +291,7 @@ function ShipJobs({
 									: "text-muted-foreground",
 							)}
 						>
-							{STATUSES[each.status]}
+							{statusLabel(each)}
 						</span>
 					</button>
 				))}
@@ -299,10 +368,9 @@ function ProjectStage({
 			className={cn("flex flex-col gap-3", notRun && "opacity-60")}
 		>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-				<span
-					aria-hidden
-					className={cn("size-2 shrink-0 rounded-full", DOTS[step.status])}
-				/>
+				<span aria-hidden className="shrink-0">
+					{ICONS[jobState(step)]}
+				</span>
 				<span className="font-medium">{step.slug}</span>
 				<span className="text-muted-foreground text-sm tabular-nums">
 					{step.action === "ship" ? versionOf(step) : "takes its bump"}
@@ -317,7 +385,7 @@ function ProjectStage({
 								: "text-muted-foreground",
 					)}
 				>
-					{notRun ? "not run" : STATUSES[step.status]}
+					{notRun ? "not run" : statusLabel(step)}
 				</span>
 			</div>
 			{step.task && (
@@ -327,6 +395,13 @@ function ProjectStage({
 				>
 					Task: {step.task}
 				</a>
+			)}
+			{step.adopt === "agent" && step.status === "bumping" && (
+				<p className="text-sm text-muted-foreground">
+					{step.adoptFailure
+						? "Handed to an agent after the mechanical adopt failed; waiting for its task to merge."
+						: "Waiting for the ship agent to adopt upstream; its task has no bump."}
+				</p>
 			)}
 			{step.takes.map((use) => (
 				<p key={use.project} className="text-muted-foreground text-sm">
@@ -368,6 +443,12 @@ function ProjectStage({
 const HELD: CascadeStatus[] = ["failed", "stopped"];
 
 /** What each status says of a project, beside it. */
+function statusLabel(step: CascadeStep): string {
+	return step.adopt === "agent" && step.status === "bumping"
+		? "waiting for agent"
+		: STATUSES[step.status];
+}
+
 const STATUSES: Record<CascadeStatus, string> = {
 	waiting: "waiting",
 	registry: "waiting on npm",
@@ -381,18 +462,55 @@ const STATUSES: Record<CascadeStatus, string> = {
 	abandoned: "abandoned",
 };
 
-const DOTS: Record<CascadeStatus, string> = {
-	waiting: "bg-muted-foreground/40",
-	registry: "bg-amber-500",
-	bumping: "bg-info",
-	asking: "bg-amber-500",
-	stopped: "bg-destructive",
-	shipping: "bg-info",
-	failed: "bg-destructive",
-	done: "bg-emerald-500",
-	dropped: "bg-muted-foreground/40",
-	abandoned: "bg-muted-foreground/40",
-};
+/** The icon state a project's job shows: its stages' worst, else where its status stands. */
+function jobState(step: CascadeStep): StageState {
+	switch (step.status) {
+		case "done":
+			return "done";
+		case "failed":
+		case "stopped":
+			return "failed";
+		case "asking":
+			return "asking";
+		case "waiting":
+		case "registry":
+		case "bumping":
+		case "shipping":
+			return step.stages.some((stage) => stage.started !== null)
+				? "running"
+				: "pending";
+		default:
+			return "skipped";
+	}
+}
+
+/** How long a project's job has run, from its first stage's start to its last's end. */
+function JobTime({
+	step,
+	live,
+}: {
+	step: CascadeStep;
+	live: boolean;
+}): JSX.Element | null {
+	const now = useNow(live, Duration.secs(1));
+	const started = step.stages
+		.map((stage) => stage.started)
+		.filter((at): at is string => at !== null)
+		.map((at) => Date.parse(at));
+	if (started.length === 0) {
+		return null;
+	}
+	const ended = step.stages.map((stage) => stage.ended);
+	const finished = ended.every((at) => at !== null) && !live;
+	const end = finished
+		? Math.max(...ended.map((at) => Date.parse(at as string)))
+		: now;
+	return (
+		<span className="text-muted-foreground text-xs tabular-nums">
+			{span(end - Math.min(...started))}
+		</span>
+	);
+}
 
 /** The version a step goes to from where it is, or where it stays for a bump. */
 export function versionOf(step: ShipStep): string {

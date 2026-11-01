@@ -35,12 +35,15 @@ export function UpNext({
 	todos,
 	lanes,
 	onOpen,
+	shown = () => true,
 }: {
+	/** Which of the queue to list; blockers are still read from every todo. */
+	shown?: (todo: TaskRecord) => boolean;
 	todos: readonly TaskRecord[];
 	lanes: LaneRecord[];
 	onOpen: (id: number) => void;
 }): JSX.Element {
-	const queue = upNext(todos);
+	const queue = upNext(todos).filter(shown);
 	const expect = useExpectSnapshot();
 	const { refusal, refuse } = useRefusal();
 	// The task last removed from here, kept for Undo to put back.
@@ -104,6 +107,7 @@ export function UpNext({
 								grip={grip}
 								dragging={dragging}
 								name={todo.subject}
+								tags={todo.labels}
 								by={
 									waits.length > 0 ? (
 										<span title={waitLines(waits)}>{waitsShort(waits)}</span>
@@ -158,12 +162,15 @@ export function BlockedTasks({
 	todos,
 	lanes,
 	onOpen,
+	shown = () => true,
 }: {
+	/** Which of the blocked to list; blockers are still read from every todo. */
+	shown?: (todo: TaskRecord) => boolean;
 	todos: readonly TaskRecord[];
 	lanes: LaneRecord[];
 	onOpen: (id: number) => void;
 }): JSX.Element | null {
-	const blocked = blockedQueue(todos);
+	const blocked = blockedQueue(todos).filter(shown);
 	const apply = useApplyFix();
 	const undo = useUndoQueued();
 	const { refusal, refuse } = useRefusal();
@@ -209,6 +216,7 @@ export function BlockedTasks({
 						key={todo.id}
 						pendingKey={`todo:${todo.id}`}
 						name={todo.subject}
+						tags={todo.labels}
 						by={
 							holds === undefined ? undefined : (
 								<span

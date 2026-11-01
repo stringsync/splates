@@ -22,6 +22,10 @@ function workersArea(): SetupArea {
 			);
 			return local !== undefined && !local.draining && !local.removing;
 		},
+		found: async (machine) => {
+			const count = (await pool(machine)).length;
+			return `This Mac's worker is taking agents; ${count} ${count === 1 ? "worker is" : "workers are"} in the pool.`;
+		},
 		notDone:
 			"This Mac is not taking agents yet: run `splates worker drain local --undo`, then press Next.",
 		undo: {

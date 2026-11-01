@@ -73,6 +73,10 @@ export class TimedLock implements PlacedLock {
 		this.#hold();
 	}
 
+	bump(task: string): Promise<void> {
+		return this.inner.bump?.(task) ?? Promise.resolve();
+	}
+
 	renew(holdMs: number = this.holdMs): void {
 		if (this.#timer !== null) {
 			this.#stop();

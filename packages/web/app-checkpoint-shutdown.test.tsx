@@ -39,7 +39,7 @@ describe("App's shutdown confirmation", () => {
 
 	beforeEach(async () => {
 		testing = new Testing();
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.projects = [project("wren", [live("c1", "One")], true)];
 		view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
@@ -59,9 +59,7 @@ describe("App's shutdown confirmation", () => {
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 		testing.restarting = { resume: false, shutdown: true };
 		await act(async () =>
 			fireEvent.click(
@@ -72,7 +70,7 @@ describe("App's shutdown confirmation", () => {
 		expect(testing.posted("/api/checkpoint")).toEqual([
 			{
 				method: "POST",
-				body: { projects: ["webappwiz"], after: "shutdown" },
+				body: { projects: ["wren"], after: "shutdown" },
 			},
 		]);
 		const going = await waitFor(() =>
@@ -110,9 +108,7 @@ describe("App's shutdown confirmation", () => {
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 		testing.restarting = { resume: false, shutdown: true };
 		await act(async () =>
 			fireEvent.click(
@@ -126,9 +122,7 @@ describe("App's shutdown confirmation", () => {
 
 		testing.restarting = null;
 		testing.run = "run-2";
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "done")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "done")], true)];
 		testing.comeBack();
 
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());

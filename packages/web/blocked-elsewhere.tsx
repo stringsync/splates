@@ -87,8 +87,7 @@ function blockersNow(
 
 /** How a blocker's standing reads on a card. */
 const STATUS: Record<ElsewhereBlockerNow["status"], string> = {
-	backlog: "in its backlog",
-	ready: "ready",
+	available: "available",
 	queued: "queued",
 	working: "under way",
 	merged: "merged",

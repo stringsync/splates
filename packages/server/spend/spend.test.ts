@@ -199,7 +199,7 @@ describe("spend", () => {
 
 	test("a report splits the range by project, what has none apart", async () => {
 		await spend.record(
-			entry({ project: "webappwiz", dollars: 2 }),
+			entry({ project: "wren", dollars: 2 }),
 			entry({ project: "splates" }),
 			entry({ project: "splates", provider: "typesafe", kind: "billed" }),
 			entry({ provider: "cloudflare", service: "workers", kind: "billed" }),
@@ -211,7 +211,7 @@ describe("spend", () => {
 			report.projects.map((row) => [row.project, row.billed, row.equivalent]),
 		).toEqual([
 			["splates", 1, 1],
-			["webappwiz", 0, 2],
+			["wren", 0, 2],
 			[null, 1, 0],
 		]);
 	});

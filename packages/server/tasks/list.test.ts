@@ -50,6 +50,26 @@ describe("list", () => {
 		]);
 	});
 
+	it("shows a waiting merge's place in the merge queue beside its status", async () => {
+		await add(deps, "alpha");
+		const alpha = await deps.service.find("alpha");
+		await alpha.save({
+			lease: {
+				pid: deps.ps.pid,
+				hostname: "host",
+				heartbeatAt: new Date().toISOString(),
+			},
+			mergePlace: 2,
+		});
+
+		await list(deps);
+		expect(color.strip(deps.out())).toContain("(queued 2)");
+
+		deps.log.clear();
+		await list(deps, { json: true });
+		expect(JSON.parse(deps.out())).toMatchObject([{ mergePlace: 2 }]);
+	});
+
 	it("names each task's Goal and changed files with --files", async () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;

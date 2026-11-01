@@ -125,8 +125,8 @@ export class Testing implements Resource {
 		providers: ["system"],
 		labels: {
 			system: {
-				project: 'the macOS Keychain as "webappwiz:webappwiz"',
-				device: 'the macOS Keychain as "webappwiz"',
+				project: 'the macOS Keychain as "mono:wren"',
+				device: 'the macOS Keychain as "mono"',
 			},
 		},
 	};
@@ -199,7 +199,17 @@ export class Testing implements Resource {
 	/** The conversations' own stream, once the page opens it. */
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
-	projects: ProjectChoice[] = [];
+	projects: ProjectChoice[] = [
+		{
+			slug: "repo",
+			root: "/code/repo",
+			gone: false,
+			focused: true,
+			conversations: [],
+			waiting: 0,
+			ships: false,
+		},
+	];
 	/** The `splates server`s on this machine the page is told of. */
 	servers: ServerChoice[] = [];
 	/** The restart `/api/projects` says follows the checkpoint, if any. */
@@ -725,13 +735,20 @@ export class Testing implements Resource {
 		return id;
 	}
 
-	/** Whether the setup welcome opens over the page, which most tests would meet as a stranger. */
+	/** Whether the page opens on the Welcome page, which most tests would meet as a stranger. */
 	welcome = false;
 
 	private settings(): Settings {
-		const settings = new Settings(localStorage);
-		void settings.set("welcome.show", this.welcome);
-		return settings;
+		if (!this.welcome) {
+			localStorage.setItem(
+				"splates.settings",
+				JSON.stringify({
+					...JSON.parse(localStorage.getItem("splates.settings") ?? "{}"),
+					"startup.welcome": false,
+				}),
+			);
+		}
+		return new Settings(localStorage);
 	}
 
 	/**

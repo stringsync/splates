@@ -2,15 +2,16 @@ import type { Ending, Need } from "@stringsync/splates-server/plans";
 import {
 	CircleCheckIcon,
 	CirclePauseIcon,
-	CircleXIcon,
+	CircleSlashIcon,
 	FlaskConicalIcon,
 	GitMergeIcon,
 	HourglassIcon,
 	Loader2Icon,
 	type LucideIcon,
+	StarIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import type { ComponentProps, JSX } from "react";
+import type { ComponentProps, CSSProperties, JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
@@ -53,10 +54,23 @@ export function Mark({
 			<span
 				role="status"
 				aria-label="merging"
-				title="Merging"
-				className="flex size-3.5 shrink-0 items-center justify-center"
+				title={need.leads === true ? "Merging, leading a batch" : "Merging"}
+				className="relative flex size-3.5 shrink-0 items-center justify-center"
 			>
-				<GitMergeIcon className="size-3.5 text-muted-foreground" />
+				<GitMergeIcon className="size-3.5 text-info" />
+				{need.leads === true ? (
+					<StarIcon
+						aria-hidden
+						className="-top-1 -right-1 absolute size-2.5 animate-pulse fill-info text-info"
+						style={pulseInSync()}
+					/>
+				) : (
+					<span
+						aria-hidden
+						className="-top-0.5 -right-0.5 absolute size-1.5 animate-pulse rounded-full bg-info ring-2 ring-info/25"
+						style={pulseInSync()}
+					/>
+				)}
 			</span>
 		);
 	}
@@ -70,9 +84,17 @@ export function Mark({
 						? "Waiting to merge"
 						: `Waiting to merge, ${placeInLine(need.mergePlace)}`
 				}
-				className="flex size-3.5 shrink-0 items-center justify-center"
+				className="relative flex size-3.5 shrink-0 items-center justify-center"
 			>
-				<HourglassIcon className="size-3.5 text-muted-foreground" />
+				<GitMergeIcon className="size-3.5 text-muted-foreground" />
+				{need.mergePlace !== undefined && (
+					<span
+						aria-hidden
+						className="-top-1 -right-1.5 absolute flex h-2.5 min-w-2.5 items-center justify-center rounded-full bg-muted px-px font-semibold text-[7px] text-muted-foreground leading-[10px]"
+					>
+						{need.mergePlace}
+					</span>
+				)}
 			</span>
 		);
 	}
@@ -144,10 +166,10 @@ export function Mark({
 	if (reported === "removed" && shows && !hosting) {
 		return (
 			<Glyph
-				icon={CircleXIcon}
+				icon={CircleSlashIcon}
 				role="img"
 				aria-label="removed"
-				color="text-destructive"
+				color="text-muted-foreground"
 			/>
 		);
 	}
@@ -222,4 +244,15 @@ function Glyph({
 			<Icon className={cn("size-3.5", color)} />
 		</span>
 	);
+}
+
+/** Tailwind's `animate-pulse` period. */
+const PULSE_MS = 2000;
+
+/**
+ * A negative delay that puts a pulse at the same point of its cycle as every
+ * other merging mark, however late it mounted, so they glow together.
+ */
+function pulseInSync(): CSSProperties {
+	return { animationDelay: `-${Date.now() % PULSE_MS}ms` };
 }

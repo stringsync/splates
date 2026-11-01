@@ -11,7 +11,8 @@
 			"!skills-lock.json",
 			"!**/catalog/*/evals",
 			"!.vet/rules/*/evals",
-			"!packages/core"
+			"!packages/core",
+			"!packages/@evals/evals"
 		]
 	},
 	"css": {

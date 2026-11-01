@@ -4,7 +4,7 @@ import { SystemTimer } from "core/time";
 import { movedPath } from "../config";
 import type { Conversations } from "../conversations";
 import { fail } from "../exit";
-import { mergeEstimates, TaskBranches } from "../merge";
+import { mergeEstimates, quarantinedTests, TaskBranches } from "../merge";
 import type { Project, ProjectWatch } from "../server/shared";
 import { fileResponse, MEDIA_TYPES, refuse } from "../server/shared";
 import { editorOf } from "./editors";
@@ -120,6 +120,11 @@ export class TaskRoutes {
 	readonly mergeEstimates = async (): Promise<Response> =>
 		Response.json(mergeEstimates(await this.#project.journal.tail(5000)));
 
+	// The tests that flaked in merges often enough that their failures no
+	// longer refuse one, for the Stats page.
+	readonly quarantined = async (): Promise<Response> =>
+		Response.json(await quarantinedTests(this.#project.journal));
+
 	// What a step of a task's merge under way printed, as it prints it, for
 	// the merge card's step to open: its checks, or its premerge.
 	readonly mergeOutput = async (request: Request): Promise<Response> => {
@@ -180,6 +185,22 @@ export class TaskRoutes {
 		);
 		this.#watch.tick();
 		return Response.json(worktree.state);
+	};
+
+	// A merge waiting for the premerge lock moved to the front of the line,
+	// for a critical merge. The waiting `splates merge` takes the request on
+	// its next look at the line.
+	readonly bumpMerge = async (request: Request): Promise<Response> => {
+		const task = decodeURIComponent(
+			new URL(request.url).pathname.split("/")[3] ?? "",
+		);
+		const { service, premerge } = this.#project;
+		const worktree = await service.find(task);
+		if (worktree === null || worktree.mergePlace === null) {
+			return refuse(409, "not_waiting", `'${task}' is not waiting to merge`);
+		}
+		await premerge.bump?.(task);
+		return Response.json({});
 	};
 
 	// `splates remove` from the page, which asks first while an agent works on

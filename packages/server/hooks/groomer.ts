@@ -4,7 +4,7 @@ import type { Trigger } from "./store";
 export const GROOMER_AUTOMATION = "groomer";
 
 /**
- * What wakes the groomer: a task added, to the backlog for grooming, or
- * ready and Untriaged for a lane.
+ * What wakes the groomer: a task added, which waits in Untriaged for a lane
+ * until it is groomed.
  */
 export const GROOMER_TRIGGER: Trigger = { event: "task.created" };

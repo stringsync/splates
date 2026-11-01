@@ -151,11 +151,22 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		});
 	}
 
-	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
-	openEval(batch: string | null, run: string | null = null): void {
+	/**
+	 * Opens batch `batch` on the Evals page, and its run `run` when given; none
+	 * for null. The batch `plan` opens the plan of the scenario or scenarios
+	 * `run` instead.
+	 */
+	openEval(batch: string | null, run: string | string[] | null = null): void {
 		this.attempt(() => {
 			this.page = "evals";
-			this.evals = { batch, run: batch === null ? null : run };
+			this.evals =
+				batch === PLAN && run !== null
+					? { batch: null, run: null, plan: [run].flat() }
+					: {
+							batch,
+							run: batch === null || Array.isArray(run) ? null : run,
+							plan: null,
+						};
 			this.move(evalsAddress(this.evals));
 		});
 	}
@@ -324,6 +335,9 @@ function pageIn(hash: string): Page {
 	if (hash === AUTO_PICK || hash === "#auto-pick" || ruleIn(hash) !== null) {
 		return "auto-pick";
 	}
+	if (hash === "#welcome") {
+		return "welcome";
+	}
 	if (hash === "#setup" || hash.startsWith("#setup/")) {
 		return "setup";
 	}
@@ -431,27 +445,46 @@ export function setupAddress({ area, step }: SetupOpen): string {
 	return step === null ? base : `${base}/${encodeURIComponent(step)}`;
 }
 
-/** What the Evals page has open: a batch, and one of its runs. */
+/** What the Evals page has open: a batch and one of its runs, or the plan of a scenario. */
 export interface EvalsOpen {
 	batch: string | null;
 	run: string | null;
+	/** The scenarios whose run is being planned; null for none. */
+	plan: string[] | null;
 }
 
-const NO_EVALS: EvalsOpen = { batch: null, run: null };
+/** The word standing for the plan page where an Evals address names a batch; a batch directory is always `batch-…`. */
+export const PLAN = "plan";
 
-/** The batch and run `#evals/<batch>[/<run>]` opens. */
+const NO_EVALS: EvalsOpen = { batch: null, run: null, plan: null };
+
+/** The batch and run `#evals/<batch>[/<run>]` opens, or the plan `#evals/plan/<scenario>[,<scenario>…]`. */
 function evalsIn(hash: string): EvalsOpen {
 	const [, batch, run] = hash.match(/^#evals\/([^/]+)(?:\/(.+))?$/) ?? [];
-	return batch === undefined
-		? NO_EVALS
-		: {
-				batch: decodeURIComponent(batch),
-				run: run === undefined ? null : decodeURIComponent(run),
-			};
+	if (batch === undefined) {
+		return NO_EVALS;
+	}
+	if (batch === PLAN) {
+		return run === undefined
+			? NO_EVALS
+			: {
+					batch: null,
+					run: null,
+					plan: run.split(",").map(decodeURIComponent),
+				};
+	}
+	return {
+		batch: decodeURIComponent(batch),
+		run: run === undefined ? null : decodeURIComponent(run),
+		plan: null,
+	};
 }
 
 /** The address of the Evals page with `open` open. */
-function evalsAddress({ batch, run }: EvalsOpen): string {
+function evalsAddress({ batch, run, plan }: EvalsOpen): string {
+	if (plan !== null) {
+		return `#evals/${PLAN}/${plan.map(encodeURIComponent).join(",")}`;
+	}
 	return batch === null
 		? "#evals"
 		: `#evals/${encodeURIComponent(batch)}${run === null ? "" : `/${encodeURIComponent(run)}`}`;

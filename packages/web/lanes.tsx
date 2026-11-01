@@ -27,7 +27,7 @@ import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
 import { Refusal } from "./refusal";
 import { TONES } from "./task-sections";
-import { StageCounts } from "./todo-queue";
+import { StageBar, StageCounts } from "./todo-queue";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
 export function columnId(lane: number | null | "new"): string {
@@ -239,7 +239,19 @@ export function Lane({
 						</div>
 					</div>
 					{/* A line of its own, so a long name keeps its room. */}
-					{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
+					{lane.todos.length > 0 && (
+						<>
+							<StageCounts todos={lane.todos} />
+							<StageBar todos={lane.todos} />
+							{/* What starts next, so a lane is read without its cards; who is at work is the chip below. */}
+							{next !== undefined && (
+								<p className="truncate text-muted-foreground text-xs">
+									Next <span className="tabular-nums">#{next.id}</span>{" "}
+									{next.subject}
+								</p>
+							)}
+						</>
+					)}
 					{/* Always there, at the chips' height, so a task starting or landing
 				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
 					<div className="flex min-w-0 items-center justify-between gap-2">

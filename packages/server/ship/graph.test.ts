@@ -4,6 +4,40 @@ import { movePins, readGraph } from "./graph";
 import { servedProjects } from "./testing";
 
 describe("readGraph", () => {
+	it("draws each ship target of one repository from the manifests under its paths", async () => {
+		const fs = new FakeFs();
+		const json = async (path: string, value: object) => {
+			await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+			await fs.write(path, JSON.stringify(value));
+		};
+		await json("/repo/package.json", {
+			private: true,
+			workspaces: ["*/packages/*"],
+		});
+		await json("/repo/mdom/packages/mdom/package.json", {
+			name: "@stringsync/mdom",
+			version: "1.2.0",
+		});
+		await json("/repo/vexml/packages/vexml/package.json", {
+			name: "@stringsync/vexml",
+			version: "3.0.0",
+			dependencies: { "@stringsync/mdom": "^1.1.0" },
+		});
+
+		const graph = await readGraph(fs, [
+			{ slug: "mdom", root: "/repo", paths: ["mdom/**"], ship: "a" },
+			{ slug: "vexml", root: "/repo", paths: ["vexml/**"], ship: "b" },
+		]);
+
+		const [mdom, vexml] = graph.projects;
+		expect(mdom?.packages).toEqual(["@stringsync/mdom"]);
+		expect(mdom?.version).toBe("1.2.0");
+		expect(vexml?.packages).toEqual(["@stringsync/vexml"]);
+		expect(vexml?.version).toBe("3.0.0");
+		expect(vexml?.uses.map((each) => each.project)).toEqual(["mdom"]);
+		expect(mdom?.dependents.map((each) => each.project)).toEqual(["vexml"]);
+	});
+
 	it("draws who pins whose public packages across the served projects", async () => {
 		const { fs, sources } = await servedProjects();
 
@@ -11,9 +45,9 @@ describe("readGraph", () => {
 
 		const of = (slug: string) =>
 			graph.projects.find((each) => each.slug === slug);
-		expect(of("webappwiz")?.packages).toEqual(["@webappwiz/cli", "webappwiz"]);
-		expect(of("webappwiz")?.uses).toEqual([]);
-		expect(of("webappwiz")?.dependents.map((each) => each.project)).toEqual([
+		expect(of("wren")?.packages).toEqual(["@wren/cli", "wren"]);
+		expect(of("wren")?.uses).toEqual([]);
+		expect(of("wren")?.dependents.map((each) => each.project)).toEqual([
 			"splates",
 			"mdom",
 			"vexml",
@@ -22,10 +56,10 @@ describe("readGraph", () => {
 		expect(of("splates")?.packages).toEqual(["@stringsync/splates-server"]);
 		expect(of("splates")?.uses).toEqual([
 			{
-				project: "webappwiz",
+				project: "wren",
 				pins: [
-					{ name: "@webappwiz/cli", version: "0.0.50" },
-					{ name: "webappwiz", version: "0.0.50" },
+					{ name: "@wren/cli", version: "0.0.50" },
+					{ name: "wren", version: "0.0.50" },
 				],
 			},
 		]);
@@ -45,16 +79,16 @@ describe("readGraph", () => {
 		const { fs, sources } = await servedProjects();
 		const path = "/splates/packages/server/package.json";
 		const manifest = JSON.parse(await fs.read(path));
-		manifest.dependencies.webappwiz = "0.0.51";
+		manifest.dependencies.wren = "0.0.51";
 		await fs.write(path, JSON.stringify(manifest));
 		const graph = await readGraph(fs, sources);
 		expect(
 			graph.projects.find((project) => project.slug === "splates")?.uses[0]
 				?.pins,
 		).toEqual([
-			{ name: "@webappwiz/cli", version: "0.0.50" },
-			{ name: "webappwiz", version: "0.0.50" },
-			{ name: "webappwiz", version: "0.0.51" },
+			{ name: "@wren/cli", version: "0.0.50" },
+			{ name: "wren", version: "0.0.50" },
+			{ name: "wren", version: "0.0.51" },
 		]);
 	});
 
@@ -94,29 +128,29 @@ describe("readGraph", () => {
 			"/p/package.json",
 			JSON.stringify({
 				workspaces: ["packages/*"],
-				dependencies: { webappwiz: "^0.0.50", other: "1.0.0" },
+				dependencies: { wren: "^0.0.50", other: "1.0.0" },
 			}),
 		);
 		await fs.write(
 			"/p/packages/a/package.json",
-			JSON.stringify({ devDependencies: { webappwiz: "workspace:*" } }),
+			JSON.stringify({ devDependencies: { wren: "workspace:*" } }),
 		);
 		await fs.write(
 			"/p/packages/b/package.json",
-			JSON.stringify({ devDependencies: { webappwiz: "0.0.50" } }),
+			JSON.stringify({ devDependencies: { wren: "0.0.50" } }),
 		);
 
 		const changed = await movePins(fs, "/p", [
-			{ name: "webappwiz", version: "0.0.51" },
+			{ name: "wren", version: "0.0.51" },
 		]);
 
 		expect(changed).toEqual(["/p/package.json", "/p/packages/b/package.json"]);
 		expect(JSON.parse(await fs.read("/p/package.json")).dependencies).toEqual({
-			webappwiz: "^0.0.51",
+			wren: "^0.0.51",
 			other: "1.0.0",
 		});
 		expect(
 			JSON.parse(await fs.read("/p/packages/b/package.json")).devDependencies,
-		).toEqual({ webappwiz: "0.0.51" });
+		).toEqual({ wren: "0.0.51" });
 	});
 });

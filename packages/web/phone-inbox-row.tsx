@@ -1,25 +1,21 @@
-import { deferralBlockers } from "@stringsync/splates-server/board/browser";
 import {
 	answersTo,
 	type Needing,
-	unanswered,
 } from "@stringsync/splates-server/plans/browser";
-import { type JSX, useContext } from "react";
+import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
-import { Board } from "./board";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { automated, shipped } from "./conversation-rows";
-import { blockersLeft, deferredTask } from "./deferred-body";
-import { Trunk } from "./dispatching";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
-import { placeInLine } from "./merge-place";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { useEnding } from "./queued-ending";
-import { type Quiet, quietText, useQuiet } from "./quiet";
+import { useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
+import { useRowStatus, useRowTags } from "./row-status";
+import { TagChips } from "./tag-chips";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -43,37 +39,17 @@ export function Row({
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
-	const trunk = useContext(Trunk);
 	const { conversation, task, need } = row;
 	// One that answers to another is not yours to address.
 	const subagent = answersTo(row, useHeldConversations()) !== null;
-	const { reported: ended, queued } = useEnding(conversation);
+	const { reported: ended } = useEnding(conversation);
 	const reported =
 		conversation === null ? null : (lastReport(conversation)?.ending ?? ended);
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const quiet = useQuiet(conversation);
-	const board = useContext(Board);
-	const last = conversation === null ? null : lastReport(conversation);
-	const deferral =
-		last?.ending === "deferred" ? deferredTask(board.todos, last.task) : null;
-	const { text, urgent } = statusOf(
-		row,
-		name,
-		trunk,
-		quiet,
-		queued,
-		deferral === null
-			? null
-			: {
-					left: blockersLeft(deferral, board.todos, board.elsewhere),
-					total: deferralBlockers(
-						deferral,
-						board.todos,
-						board.elsewhere?.blockers[deferral.id],
-					).length,
-				},
-	);
+	const { text, label } = useRowStatus(row);
+	const tags = useRowTags(row);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -82,6 +58,7 @@ export function Row({
 		<button
 			type="button"
 			onClick={onOpen}
+			title={text}
 			{...press}
 			className={cn(
 				// No callout or selection to fight the long press.
@@ -120,7 +97,7 @@ export function Row({
 				)}
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="flex items-baseline gap-2">
+				<span className="flex items-center gap-2">
 					<span className="flex min-w-0 flex-1 items-center gap-1.5">
 						<span
 							className={cn(
@@ -138,16 +115,6 @@ export function Row({
 							{moved}
 						</span>
 					)}
-				</span>
-				<span className="flex items-center gap-2">
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate text-sm",
-							urgent ? "text-warning" : "text-muted-foreground",
-						)}
-					>
-						{text}
-					</span>
 					<Mark
 						starting={conversation?.status === "starting"}
 						picking={conversation?.picking}
@@ -165,6 +132,12 @@ export function Row({
 						}
 					/>
 				</span>
+				<span className="flex items-center gap-2">
+					<TagChips tags={tags} max={3} className="shrink-0 flex-nowrap" />
+					<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground leading-4">
+						{label}
+					</span>
+				</span>
 			</span>
 		</button>
 	);
@@ -180,111 +153,6 @@ export function Row({
 			<Refusal refusal={refusal} className="px-4 pb-1.5" />
 		</>
 	);
-}
-
-/** What a row says under its name: what it waits on, does, or last did. */
-export function statusOf(
-	{ conversation, task, need }: Needing,
-	name: string,
-	trunk: string | null,
-	quiet: Quiet | null = null,
-	// Its last card asked to queue its work, which the board has queued.
-	queued = false,
-	// How many blockers its deferred task still waits on, of all it named.
-	blockers: { left: number; total: number } | null = null,
-): { text: string; urgent: boolean } {
-	if (need.kind === "working" && need.merge === "running") {
-		return {
-			text: `Merging onto ${task?.base ?? trunk ?? "trunk"}`,
-			urgent: false,
-		};
-	}
-	if (need.kind === "working" && need.merge === "queued") {
-		// Its place in line, where the lock has told it: quiet, one phrase.
-		const place =
-			need.mergePlace === undefined ? "" : ` · ${placeInLine(need.mergePlace)}`;
-		return { text: `Waiting to merge${place}`, urgent: false };
-	}
-	if (need.kind === "working" && need.evals === true) {
-		return { text: "Running evals", urgent: false };
-	}
-	if (conversation?.heldForTask != null) {
-		return { text: "Queued", urgent: false };
-	}
-	if (conversation?.status === "starting") {
-		return {
-			text: conversation.picking
-				? "Auto pick is choosing the agent"
-				: "Waiting for agent to start",
-			urgent: false,
-		};
-	}
-	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
-		return { text: quietText(quiet), urgent: true };
-	}
-	if (need.kind === "waiting") {
-		const open =
-			need.why === "questions"
-				? unanswered(need.questions, conversation?.messages ?? []).length
-				: need.questions.length;
-		const label =
-			need.why === "ask"
-				? "Asks to go on"
-				: need.why === "review"
-					? "Ready to merge"
-					: need.why === "failed"
-						? "Failed"
-						: need.why === "orphaned"
-							? "Orphaned"
-							: open > 0
-								? `${open} ${open === 1 ? "question" : "questions"}`
-								: "Questions";
-		// Named, when it waits for an agent this one handed out.
-		const subject =
-			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
-		return { text: `${label} · ${subject}`, urgent: true };
-	}
-	if (need.kind === "assuming") {
-		const subject =
-			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
-		return { text: `Working · ${subject}`, urgent: false };
-	}
-	if (need.kind === "working") {
-		return { text: need.subject ?? "Working", urgent: false };
-	}
-	const report = conversation === null ? null : lastReport(conversation);
-	if (report === null && queued) {
-		return { text: "Queued", urgent: false };
-	}
-	if (report !== null) {
-		const how = {
-			merged: "Done",
-			done: "Done",
-			removed: "Removed",
-			deferred:
-				blockers !== null && blockers.left > 0
-					? `Deferred · ${blockers.left} of ${blockers.total} left`
-					: "Deferred",
-			// From before escalating was retired.
-			escalated: "Escalated",
-			working: "Working",
-		}[report.ending];
-		return {
-			text: report.reason === null ? how : `${how} · ${report.reason}`,
-			urgent: false,
-		};
-	}
-	if (conversation?.unread === true) {
-		return { text: "New reply", urgent: false };
-	}
-	// What the agent called it, under the task it goes by.
-	if (conversation?.title != null && conversation.title !== name) {
-		return { text: conversation.title, urgent: false };
-	}
-	return {
-		text: conversation?.task ?? task?.task ?? trunk ?? "main",
-		urgent: false,
-	};
 }
 
 /** How long since a row's conversation last moved, shortly: "5m", "3h", "2d". */

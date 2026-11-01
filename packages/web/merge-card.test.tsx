@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Event } from "@stringsync/splates-server/records";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { details } from "./fixtures";
-import { EndedMergeCard, LiveMergeCard, WatchMerge } from "./merge-card";
+import {
+	EndedMergeCard,
+	LiveMergeCard,
+	MergeCardContext,
+	WatchMerge,
+} from "./merge-card";
 import type { WatchMergeStep } from "./side-panes";
 import { cleanup, fireEvent, render, within } from "./testing-library";
 
@@ -41,6 +46,43 @@ describe("merge cards", () => {
 				<LiveMergeCard conversation="c1" task={merging} />
 			</WatchMerge>,
 		);
+
+	/** `merging` as a follower in a batch led by `lead`, whose premerge is under way. */
+	const followingLead = () => {
+		const batch = ["lead", "alpha", "other"];
+		const lead = details({
+			task: "lead",
+			mergeBatch: batch,
+			mergeSteps: {
+				steps: [{ step: "test", at: ago(60), output: "/g/0-test.log" }],
+				phases: [{ phase: "biome", at: ago(58), ms: 4000 }],
+			},
+		});
+		merging = { ...merging, mergeBatch: batch };
+
+		return render(
+			<MergeCardContext
+				value={{
+					conversation: "c1",
+					task: merging,
+					tasks: [lead, merging],
+					superseded: new Set(),
+					newest: new Set(),
+				}}
+			>
+				<LiveMergeCard conversation="c1" task={merging} />
+			</MergeCardContext>,
+		);
+	};
+
+	it("names a merge's role in its batch and shows a follower the leader's premerge", () => {
+		const view = followingLead();
+
+		expect(
+			view.getByRole("note", { name: "Batch role" }).textContent,
+		).toContain("Riding along withTasklead");
+		expect(view.getByRole("listitem", { name: "biome, done" })).toBeTruthy();
+	});
 
 	it("lays a merge under way on a rail, the premerge's phases under it, and opens what a command step printed", () => {
 		const view = live(true);

@@ -6,9 +6,7 @@ describe("deferral", () => {
 	it("follows each blocker it named, keeping those that cleared", async () => {
 		await using deps = await Testing.open();
 		const merges = await deps.tasks.add("Build the upload client", null);
-		const waits = await deps.tasks.add("Sign the uploads", null, {
-			ready: true,
-		});
+		const waits = await deps.tasks.add("Sign the uploads", null);
 		const deferred = await deps.tasks.add("Retry on 413", null);
 		await deferred.defer(
 			{
@@ -39,7 +37,7 @@ describe("deferral", () => {
 				kind: "task",
 				id: waits.id,
 				subject: "Sign the uploads",
-				status: "ready",
+				status: "available",
 			},
 			{
 				kind: "question",

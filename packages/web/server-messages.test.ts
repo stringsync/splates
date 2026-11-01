@@ -4,7 +4,6 @@ import {
 	groomReference,
 	handOffReference,
 	scheduleReference,
-	sortReference,
 	taskReference,
 } from "@stringsync/splates-server/plans";
 import { handOffLines, serverToldLines } from "./server-messages";
@@ -36,12 +35,12 @@ describe("server-authored message lines", () => {
 		]);
 	});
 
-	it("names the todos a groom or sort asks about", () => {
+	it("names the todos a groom asks about, and a sort an older server asked", () => {
 		expect(words(groomReference(7))).toEqual([
 			"Groom",
 			{ kind: "todo", id: 7, subject: "Fix upload" },
 		]);
-		expect(words(sortReference([7, 8]))).toEqual([
+		expect(words("[SPLATES SORT #7 #8]")).toEqual([
 			"Sort",
 			{
 				kind: "todos",

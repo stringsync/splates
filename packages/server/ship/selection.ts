@@ -14,17 +14,13 @@ export const SHIP_SELECTION = z.object({
 			z.object({
 				slug: z.string().min(1),
 				bump: z.enum(["patch", "minor", "major"]),
-				/** Move its pins to the versions its dependencies are at, or shipping in this run. */
-				deps: z.boolean().default(true),
-				/** Publish it; without this it only takes its dependencies. */
-				ship: z.boolean().default(true),
 				adopt: z.enum(["mechanical", "agent"]).default("mechanical"),
 				instructions: z.string().default(""),
 			}),
 		)
 		.min(1),
 });
-/** The choices as sent: `deps`, `ship` and `adopt` default when left out. */
+/** The choices as sent: `adopt` and `instructions` default when left out. */
 export type ShipSelection = z.input<typeof SHIP_SELECTION>;
 type ParsedSelection = z.output<typeof SHIP_SELECTION>;
 
@@ -48,37 +44,23 @@ export class ShipSelections {
 		) {
 			fail("usage", "ship projects must be distinct registered projects");
 		}
-		if (selection.projects.some((each) => !each.deps && !each.ship)) {
-			fail("usage", "each project must update its dependencies, ship, or both");
-		}
 		const projects = dependencyOrder(graph).filter((each) =>
 			choices.has(each.slug),
 		);
-		const publishing = new Set(
-			selection.projects.filter((each) => each.ship).map((each) => each.slug),
-		);
+		const publishing = new Set(selection.projects.map((each) => each.slug));
 		const steps: CascadeStep[] = [];
 		for (const project of projects) {
 			const choice = ensure.defined(choices.get(project.slug));
-			const takes = choice.deps
-				? project.uses.filter((use) => takenFrom(graph, use, publishing))
-				: [];
-			const step: ShipStep = choice.ship
-				? shipStep(project, takes, "selected by the person", choice.bump)
-				: {
-						slug: project.slug,
-						action: "bump",
-						from: project.version,
-						bump: null,
-						to: null,
-						publishes: [],
-						takes,
-						why: "updates its dependencies only",
-					};
-			if (
-				choice.ship &&
-				(project.ship === null || project.private || step.to === null)
-			) {
+			const takes = project.uses.filter((use) =>
+				takenFrom(graph, use, publishing),
+			);
+			const step: ShipStep = shipStep(
+				project,
+				takes,
+				"selected by the person",
+				choice.bump,
+			);
+			if (project.ship === null || project.private || step.to === null) {
 				fail(
 					"usage",
 					`${project.slug} needs a ship command, public packages and a release version`,
@@ -86,7 +68,7 @@ export class ShipSelections {
 			}
 			steps.push({
 				...step,
-				adopt: choice.deps ? choice.adopt : "mechanical",
+				adopt: choice.adopt,
 				instructions: choice.instructions,
 				status: "waiting",
 				task: null,

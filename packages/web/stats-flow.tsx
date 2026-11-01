@@ -73,6 +73,62 @@ export function Closing({
 	);
 }
 
+/**
+ * How long a task took from add to close, over the period and bar by bar,
+ * so it can be watched coming down.
+ */
+export function TimePerTask({
+	rates,
+	period,
+	weekly,
+}: {
+	rates: FlowRates;
+	period: Period;
+	/** Whether a bar is a week, so the newest is "This week" rather than "Now". */
+	weekly: boolean;
+}): JSX.Element {
+	const { toClose } = rates;
+	return (
+		<section
+			aria-label="Time per task"
+			className="flex min-w-0 flex-col gap-4 text-foreground"
+		>
+			<h3 className="font-medium text-xs">Time per task</h3>
+			<figure
+				aria-label="Time per task over the period"
+				className="flex flex-col gap-3 rounded-lg border p-3"
+			>
+				<figcaption>
+					<Side
+						title="Add to close"
+						color={CLOSED}
+						shown={toClose.value === null ? NONE : duration(toClose.value)}
+						suffix="a task"
+						detail={
+							toClose.count === 0
+								? "No task timed"
+								: `Over ${plural(toClose.count, "task")} ${within(period)}`
+						}
+						moved={movement(toClose, "down", period, duration)}
+					/>
+				</figcaption>
+				<Chart
+					bars={rates.bars}
+					axis={rates.toCloseAxis}
+					weekly={weekly}
+					tick={(at) => duration(at * 60_000)}
+					series={[{ color: CLOSED, value: (bar) => bar.toCloseMinutes }]}
+					label={(bar) =>
+						bar.toCloseMinutes === null
+							? `${bar.label}: no task timed`
+							: `${bar.label}: ${duration(bar.toCloseMinutes * 60_000)} per task, over ${plural(bar.timed, "task")}`
+					}
+				/>
+			</figure>
+		</section>
+	);
+}
+
 /** One headline figure: its swatch when charted, the figure, and how it moved. */
 function Side({
 	title,

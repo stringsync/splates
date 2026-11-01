@@ -18,6 +18,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#web/components/ui/select.tsx";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { shipGraph } from "./api";
@@ -43,8 +44,8 @@ const BUMP_HINTS: Record<ShipBump, string> = {
 
 /**
  * The plan for a ship: the projects as a tree of who pins whom, where each is
- * given Deps (update its dependencies), Ship (publish it), or both, then
- * started. `ship` is the project the page opened with picked, or `+changed`
+ * given a Ship checkbox, then started; shipping a project moves its
+ * dependents' pins to the version released, and ships them too. `ship` is the project the page opened with picked, or `+changed`
  * for every changed one.
  */
 export function ShipPlan({
@@ -73,10 +74,12 @@ export function ShipPlan({
 		return () => window.removeEventListener("focus", refresh);
 	}, [endedAt]);
 	if (graph === null) {
-		return (
+		return failed ? (
 			<p role="status" className="text-muted-foreground text-sm">
-				{failed ? "The projects did not load." : "Reading the projects…"}
+				The projects did not load.
 			</p>
+		) : (
+			<PlanSkeleton />
 		);
 	}
 	const listed = graph.projects.filter(
@@ -90,7 +93,6 @@ export function ShipPlan({
 			</p>
 		);
 	}
-	// Shipping a project turns its Deps on and ships whoever pins it; either can be turned off.
 	return (
 		<Plan
 			// Read again once a ship has ended, so the choices follow the new versions.
@@ -102,6 +104,44 @@ export function ShipPlan({
 			loading={loading}
 			onStarted={onStarted}
 		/>
+	);
+}
+
+/**
+ * The plan's shape while the projects are read, so the list and the Start bar
+ * hold their places and nothing moves when the real rows arrive.
+ */
+function PlanSkeleton(): JSX.Element {
+	return (
+		<section aria-label="ship plan" aria-busy className="flex flex-col gap-3">
+			<p role="status" className="sr-only">
+				Reading the projects…
+			</p>
+			<ol
+				aria-hidden
+				className="flex animate-pulse flex-col overflow-hidden rounded-lg border bg-card"
+			>
+				{[0, 1, 2, 3].map((row) => (
+					<li
+						key={row}
+						className="flex min-h-[4.5rem] items-center gap-3 border-b px-3 py-3 last:border-b-0"
+					>
+						<div className="flex flex-1 flex-col gap-2">
+							<Skeleton className="h-4 w-32" />
+							<Skeleton className="h-3 w-20" />
+						</div>
+						<Skeleton className="mr-2.5 size-4" />
+					</li>
+				))}
+			</ol>
+			<div className="flex flex-col gap-2 py-3">
+				<p className="text-muted-foreground text-xs">Nothing chosen</p>
+				<Button className="min-h-11 w-full" disabled>
+					<ShipIcon />
+					Start
+				</Button>
+			</div>
+		</section>
 	);
 }
 
@@ -125,12 +165,6 @@ function Plan({
 		ship === null ? [] : ship === CHANGED ? changed : [ship],
 	);
 	const [excluded, setExcluded] = useState<string[]>([]);
-	const [updating, setUpdating] = useState<string[]>(() =>
-		projects
-			.filter((each) => staleOf(each, graph).length > 0)
-			.map((each) => each.slug),
-	);
-	const [skipped, setSkipped] = useState<string[]>([]);
 	const [choices, setChoices] = useState<Record<string, Choice>>({});
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
@@ -154,10 +188,6 @@ function Plan({
 	for (const root of roots) {
 		visit(root);
 	}
-	const updates = new Set([
-		...updating,
-		...[...ships].filter((slug) => !skipped.includes(slug)),
-	]);
 	const choice = (slug: string): Choice =>
 		choices[slug] ?? { bump: "patch", adopt: "mechanical", instructions: "" };
 	const change = (slug: string, patch: Partial<Choice>) =>
@@ -174,30 +204,17 @@ function Plan({
 		setExcluded(
 			on ? excluded.filter((each) => each !== slug) : [...excluded, slug],
 		);
-		if (on) {
-			setSkipped(skipped.filter((each) => each !== slug));
-		}
 	};
-	const setUpdate = (slug: string, on: boolean) => {
-		setSkipped(
-			on ? skipped.filter((each) => each !== slug) : [...skipped, slug],
-		);
-		setUpdating(
-			on
-				? [...new Set([...updating, slug])]
-				: updating.filter((each) => each !== slug),
-		);
+	const selectable = projects.filter(shippable).map((each) => each.slug);
+	const allShip =
+		selectable.length > 0 && selectable.every((slug) => ships.has(slug));
+	const setAll = (on: boolean) => {
+		setRoots(on ? selectable : []);
+		setExcluded(on ? [] : selectable);
 	};
 	const unshipped = changed.filter((slug) => !ships.has(slug));
-	const ordered = releaseOrder(projects).filter(
-		(each) => ships.has(each.slug) || updates.has(each.slug),
-	);
-	const summary = [
-		updates.size > 0 ? `Update dependencies in ${updates.size}` : null,
-		ships.size > 0 ? `ship ${ships.size}` : null,
-	]
-		.filter((part) => part !== null)
-		.join(", ");
+	const ordered = releaseOrder(projects).filter((each) => ships.has(each.slug));
+	const summary = ships.size > 0 ? `Ship ${ships.size}` : "";
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
 			{unshipped.length > 0 && (
@@ -208,15 +225,23 @@ function Plan({
 					onClick={() => {
 						setRoots([...new Set([...roots, ...changed])]);
 						setExcluded(excluded.filter((each) => !changed.includes(each)));
-						setSkipped(skipped.filter((each) => !changed.includes(each)));
 					}}
 				>
 					Include all changed
 				</Button>
 			)}
-			<div className="-mb-2 flex justify-end gap-4 px-3 text-muted-foreground text-xs">
-				<span className="w-9 text-center">Deps</span>
-				<span className="w-9 text-center">Ship</span>
+			<div className="-mb-2 flex items-center justify-end gap-4 px-3 text-muted-foreground text-xs">
+				<span className="flex items-center gap-2">
+					Select all
+					<span className="flex w-9 justify-center">
+						<Checkbox
+							aria-label="Select all"
+							checked={allShip}
+							disabled={pending || selectable.length === 0}
+							onCheckedChange={setAll}
+						/>
+					</span>
+				</span>
 			</div>
 			<ol
 				aria-label="Ship graph"
@@ -225,11 +250,10 @@ function Plan({
 				{treeOrder(projects).map(({ project: each, depth }) => {
 					const stale = staleOf(each, graph);
 					const shipping = ships.has(each.slug);
-					const deps = updates.has(each.slug);
 					const commits = each.changes?.commits ?? 0;
 					const value = choice(each.slug);
-					const idle =
-						commits === 0 && stale.length === 0 && !shipping && !deps;
+					const idle = commits === 0 && stale.length === 0 && !shipping;
+					const adopts = shipping;
 					return (
 						<li
 							key={each.slug}
@@ -283,14 +307,6 @@ function Plan({
 								</div>
 								<div className="flex shrink-0 gap-4">
 									<span className="flex w-9 justify-center">
-										<Checkbox
-											aria-label={`Update dependencies of ${each.slug}`}
-											checked={deps}
-											disabled={pending}
-											onCheckedChange={(on) => setUpdate(each.slug, on)}
-										/>
-									</span>
-									<span className="flex w-9 justify-center">
 										{shippable(each) ? (
 											<Checkbox
 												aria-label={`Ship ${each.slug}`}
@@ -308,10 +324,11 @@ function Plan({
 									</span>
 								</div>
 							</div>
-							{(shipping || deps) && (
-								<div className="flex flex-col gap-2 text-sm">
-									<div className="flex flex-wrap items-center gap-4">
-										{shipping && (
+							{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
+							<div className={cn("text-sm", shippable(each) && "min-h-14")}>
+								{shipping && (
+									<div className="flex flex-col gap-2">
+										<div className="flex flex-wrap items-center gap-4">
 											<span className="flex items-center gap-2">
 												<span className="text-muted-foreground">
 													Release as
@@ -342,51 +359,49 @@ function Plan({
 													</SelectContent>
 												</Select>
 											</span>
-										)}
-										{deps && (
-											<span className="flex items-center gap-2">
-												<Switch
-													size="sm"
-													aria-label={`Agent task for ${each.slug}`}
-													checked={value.adopt === "agent"}
-													disabled={pending}
-													onCheckedChange={(on) =>
-														change(each.slug, {
-															adopt: on ? "agent" : "mechanical",
-														})
-													}
-												/>
-												<span>Agent task</span>
-											</span>
-										)}
-									</div>
-									{shipping && (
+											{adopts && (
+												<span className="flex items-center gap-2">
+													<Switch
+														size="sm"
+														aria-label={`Agent task for ${each.slug}`}
+														checked={value.adopt === "agent"}
+														disabled={pending}
+														onCheckedChange={(on) =>
+															change(each.slug, {
+																adopt: on ? "agent" : "mechanical",
+															})
+														}
+													/>
+													<span>Agent task</span>
+												</span>
+											)}
+										</div>
 										<p className="text-muted-foreground text-xs">
 											{BUMP_HINTS[value.bump]}
 										</p>
-									)}
-									{deps && value.adopt === "agent" && (
-										<>
-											<p className="text-muted-foreground text-xs">
-												An agent moves the pins and fixes what breaks.
-												{shipping &&
-													" When its task merges, that tells splates it is OK to ship, and splates then publishes."}
-											</p>
-											<Textarea
-												aria-label={`Instructions for ${each.slug}`}
-												placeholder="Instructions for the agent"
-												disabled={pending}
-												value={value.instructions}
-												onChange={(event) =>
-													change(each.slug, {
-														instructions: event.target.value,
-													})
-												}
-											/>
-										</>
-									)}
-								</div>
-							)}
+										{adopts && value.adopt === "agent" && (
+											<>
+												<p className="text-muted-foreground text-xs">
+													An agent moves the pins and fixes what breaks. When
+													its task merges, that tells splates it is OK to ship,
+													and splates then publishes.
+												</p>
+												<Textarea
+													aria-label={`Instructions for ${each.slug}`}
+													placeholder="Instructions for the agent"
+													disabled={pending}
+													value={value.instructions}
+													onChange={(event) =>
+														change(each.slug, {
+															instructions: event.target.value,
+														})
+													}
+												/>
+											</>
+										)}
+									</div>
+								)}
+							</div>
 						</li>
 					);
 				})}
@@ -414,8 +429,6 @@ function Plan({
 						startShip({
 							projects: ordered.map((each) => ({
 								slug: each.slug,
-								deps: updates.has(each.slug),
-								ship: ships.has(each.slug),
 								...choice(each.slug),
 							})),
 						}).then(
@@ -431,11 +444,7 @@ function Plan({
 					}}
 				>
 					<ShipIcon />
-					{pending
-						? "Starting…"
-						: ships.size === 0 && updates.size > 0
-							? "Update dependencies"
-							: "Start"}
+					{pending ? "Starting…" : "Start"}
 				</Button>
 			</div>
 		</section>

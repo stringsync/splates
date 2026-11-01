@@ -44,8 +44,7 @@ describe("App's queue", () => {
 					id: 2,
 					subject: "groomed",
 					position: 2,
-					stage: "ready",
-					groomed: true,
+					stage: "available",
 					assignee: { agent: "claude" },
 				}),
 				todo({ id: 3, subject: "first up", position: 3, stage: "queued" }),
@@ -61,8 +60,7 @@ describe("App's queue", () => {
 					id: 6,
 					subject: "groomed, no agent",
 					position: 6,
-					stage: "ready",
-					groomed: true,
+					stage: "available",
 				}),
 			],
 		});
@@ -70,13 +68,14 @@ describe("App's queue", () => {
 		const cards = within(view.getByRole("list", { name: "Untriaged tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
-		expect(cards[0]).toContain("Backlog");
-		expect(cards[1]).toContain("Ready");
+		expect(cards[0]).toContain("Available");
+		expect(cards[0]).toContain("Auto pick");
+		expect(cards[1]).toContain("Available");
 		expect(cards[1]).not.toContain("Auto pick");
 		expect(cards[2]).toContain("Queued · 1");
 		expect(cards[3]).toContain("Queued · 2");
-		expect(cards[4]).not.toMatch(/Backlog|Ready|Queue/);
-		expect(cards[5]).toContain("Ready");
+		expect(cards[4]).not.toMatch(/Available|Queue/);
+		expect(cards[5]).toContain("Available");
 		expect(cards[5]).toContain("Auto pick");
 	});
 
@@ -102,7 +101,7 @@ describe("App's queue", () => {
 		const header = view
 			.getByRole("region", { name: "Licensing" })
 			.querySelector("header");
-		expect(header?.textContent).toContain("1 running · 2 queued · 3 backlog");
+		expect(header?.textContent).toContain("1 running · 2 queued · 3 available");
 		expect(header?.textContent).not.toContain("ready");
 	});
 
@@ -154,7 +153,7 @@ describe("App's queue", () => {
 
 		await serve({ todos: [todo({ id: 1, subject: "retry the upload" })] });
 
-		await waitFor(() => expect(dialog.textContent).toContain("Backlog"));
+		await waitFor(() => expect(dialog.textContent).toContain("Available"));
 		expect(
 			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
 		).toBeNull();
@@ -162,16 +161,16 @@ describe("App's queue", () => {
 
 	it("queues a card blocked by tasks not queued as Blocked, its button queuing them at once with Undo", async () => {
 		const board = (
-			third: "backlog" | "queued",
-			first: "backlog" | "queued",
-			second: "backlog" | "queued",
+			third: "available" | "queued",
+			first: "available" | "queued",
+			second: "available" | "queued",
 		) => [
 			todo({ id: 1, subject: "store licenses", stage: first }),
 			todo({ id: 2, subject: "check them", stage: second, blockedBy: [1] }),
 			todo({ id: 3, subject: "bill for them", stage: third, blockedBy: [2] }),
 		];
 		const view = await testing.open({
-			todos: board("backlog", "backlog", "backlog"),
+			todos: board("available", "available", "available"),
 		});
 
 		await act(async () =>
@@ -182,7 +181,7 @@ describe("App's queue", () => {
 		expect(testing.posted("/api/todos/3/queued")).toEqual([
 			{ method: "PUT", body: { queued: true } },
 		]);
-		await serve({ todos: board("queued", "backlog", "backlog") });
+		await serve({ todos: board("queued", "available", "available") });
 
 		const card = () =>
 			view
@@ -198,7 +197,7 @@ describe("App's queue", () => {
 				within(card()).getByRole("button", { name: "Queue 2 blockers" }),
 			),
 		);
-		await serve({ todos: board("queued", "queued", "backlog") });
+		await serve({ todos: board("queued", "queued", "available") });
 		await waitFor(() =>
 			expect(testing.posted("/api/todos/2/queued")).toHaveLength(1),
 		);
@@ -219,7 +218,7 @@ describe("App's queue", () => {
 				body: { queued: false },
 			}),
 		);
-		await serve({ todos: board("queued", "queued", "backlog") });
+		await serve({ todos: board("queued", "queued", "available") });
 		await waitFor(() =>
 			expect(testing.posted("/api/todos/1/queued").at(-1)).toEqual({
 				method: "PUT",
@@ -298,7 +297,7 @@ describe("App's queue", () => {
 			within(part)
 				.getAllByRole("listitem")
 				.map((row) => row.textContent),
-		).toEqual(["#1store licensesbacklog", "#2check thembacklog"]);
+		).toEqual(["#1store licensesavailable", "#2check themavailable"]);
 		expect(
 			within(part).getByRole("button", { name: "Queue 2 blockers" }),
 		).toBeTruthy();

@@ -6,6 +6,7 @@ import {
 	cleanup,
 	clickShown,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	newestFirst,
@@ -35,6 +36,22 @@ describe("App's conversation list", () => {
 			view.queryByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
 		).toBeNull();
 		expect(view.queryByRole("button", { name: "New" })).toBeNull();
+	});
+
+	it("shows a task's tags as chips on its row", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha", lease: "held", tags: ["web", "bug"] }),
+				],
+			},
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		expect(within(nav).getByTitle("Tag web")).toBeTruthy();
+		expect(within(nav).getByTitle("Tag bug")).toBeTruthy();
 	});
 
 	it("puts New atop the sidebar, above its tabs and out of the list", async () => {
@@ -72,7 +89,7 @@ describe("App's conversation list", () => {
 			within(within(nav).getByRole("list", { name: "conversation list" }))
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Fix login", "Groomer"]);
+		).toEqual(["Fix loginmain", "Groomermain"]);
 		expect(within(nav).queryByRole("separator")).toBeNull();
 	});
 
@@ -103,11 +120,11 @@ describe("App's conversation list", () => {
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Look around", "alpha"]);
+		).toEqual(["Look aroundWorking", "alphaWorking"]);
 		expect(within(nav).queryAllByRole("heading")).toEqual([]);
 		expect(
-			within(nav).getByRole("button", { name: "Claude alpha" }).title,
-		).toBe("alpha");
+			within(nav).getByRole("button", { name: /^Claude alpha/ }).title,
+		).toBe("Working");
 		// Pinned at the sidebar's foot, under the list rather than in it.
 		expect(within(nav).queryByRole("button", { name: /Archived/ })).toBeNull();
 		expect(
@@ -144,13 +161,13 @@ describe("App's conversation list", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			"Broke",
-			"First",
-			"Rests",
-			"Second",
-			"Third",
-			"Fourth",
-			"Fifth",
+			"BrokeFailed",
+			"FirstWorking",
+			"Restsmain",
+			"SecondWorking",
+			"ThirdWorking",
+			"FourthWorking",
+			"FifthWorking",
 		]);
 		expect(within(nav).queryByRole("button", { name: /more$/ })).toBeNull();
 		expect(within(nav).queryByRole("button", { name: "Show less" })).toBeNull();
@@ -198,9 +215,9 @@ describe("App's conversation list", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			"Archived last1h agowebappwiz· Latest reply",
-			"Archived between2h agowebappwiz",
-			"Archived first3h agowebappwiz",
+			"Archived last1h agowren· Latest reply",
+			"Archived between2h agowren",
+			"Archived first3h agowren",
 		]);
 	});
 
@@ -232,7 +249,7 @@ describe("App's conversation list", () => {
 			within(archived)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Lately3h agowebappwiz", "Too old to saywebappwiz"]);
+		).toEqual(["Lately3h agowren", "Too old to saywren"]);
 	});
 
 	it("drops an archived conversation once the server deletes it", async () => {
@@ -405,7 +422,7 @@ describe("App's conversation list", () => {
 
 		await act(async () =>
 			fireEvent.doubleClick(
-				within(nav).getByRole("button", { name: "Claude alpha" }),
+				within(nav).getByRole("button", { name: /^Claude alpha/ }),
 			),
 		);
 		const inList = await waitFor(() =>

@@ -38,13 +38,11 @@ describe("App's Queue page, every project's tasks", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		testing = new Testing();
-		// The fixture's snapshot is webappwiz's, at /repo.
+		// The fixture's snapshot is wren's, at /repo.
 		testing.everywhere = [
 			listed("zebra", "zebra", "/code/zebra", [details({ task: "stripes" })]),
 			listed("empty", "empty", "/code/empty", []),
-			listed("webappwiz", "webappwiz", "/repo", [
-				details({ task: "stale-listing" }),
-			]),
+			listed("wren", "wren", "/repo", [details({ task: "stale-listing" })]),
 			listed("apple", "apple", "/code/apple", [
 				details({ task: "core" }),
 				details({ task: "core-part", base: "task/core" }),
@@ -79,7 +77,7 @@ describe("App's Queue page, every project's tasks", () => {
 		expect(
 			within(queueRow(view, "stripes")).getAllByText("zebra"),
 		).not.toHaveLength(0);
-		expect(queueRow(view, "mine").textContent).not.toContain("webappwiz");
+		expect(queueRow(view, "mine").textContent).not.toContain("wren");
 		expect(view.queryByRole("region", { name: "apple" })).toBeNull();
 	});
 

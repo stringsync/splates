@@ -17,6 +17,7 @@ import {
 	useRef,
 } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { Board } from "./board";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
@@ -51,6 +52,7 @@ import {
 	foldersOf,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
+import { useTaggedBoard } from "./row-status";
 import type { Terminals } from "./terminals";
 
 /** How many rows ⌥⌘ and a digit can open. */
@@ -234,6 +236,7 @@ export const ConversationList = memo(function ConversationList({
 				hint={held ? hintOf(shown, row) : null}
 				hosting={hosting.has(row.conversation.id)}
 				nested={nested}
+				task={row.task}
 			/>
 		) : null;
 	const renderRow: RenderRow = (folder, row, nested) =>
@@ -254,78 +257,81 @@ export const ConversationList = memo(function ConversationList({
 		);
 	const beneathOf = (folder: Folder, row: Needing) =>
 		folder.here ? beneath(row) : [];
+	const tagged = useTaggedBoard(tasks);
 	return (
-		<nav
-			aria-label="conversations"
-			className="flex flex-col gap-3"
-			onKeyDown={(event) => {
-				const step =
-					event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
-				if (step === 0) {
-					return;
-				}
-				const all = [
-					...event.currentTarget.querySelectorAll<HTMLElement>("[data-row]"),
-				];
-				const at = all.indexOf(event.target as HTMLElement);
-				const target = all[at + step];
-				// Not from a dialog the list opened, whose keys bubble here too.
-				if (at !== -1 && target !== undefined) {
-					event.preventDefault();
-					target.focus();
-				}
-			}}
-		>
-			{mains.map((each) => (
-				<TerminalRow
-					key={each}
-					name={terminals.nameOf(each)}
-					onRename={(name) => terminals.rename(each, name)}
-					current={open === each}
-					onOpen={() => onOpen(each)}
-					onClose={() =>
-						closing.close(each, () => {
-							if (open === each) {
-								onOpen(NEW);
-							}
-						})
+		<Board value={tagged}>
+			<nav
+				aria-label="conversations"
+				className="flex flex-col gap-3"
+				onKeyDown={(event) => {
+					const step =
+						event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+					if (step === 0) {
+						return;
 					}
-				/>
-			))}
-
-			{/* Held while the listing of every project is on its way, so the rows
-				    are not drawn flat and then moved into folders as it comes. */}
-			{everywhere.listing ? (
-				<ListLoading />
-			) : grouped !== null ? (
-				<Placing value={placing}>
-					<ProjectList
-						folders={grouped}
-						folded={folded}
-						onFold={fold}
-						onNew={(folder) =>
-							folder.here || folder.project === null
-								? onOpen(NEW)
-								: navigation.show(newConversationUrl(folder.project))
+					const all = [
+						...event.currentTarget.querySelectorAll<HTMLElement>("[data-row]"),
+					];
+					const at = all.indexOf(event.target as HTMLElement);
+					const target = all[at + step];
+					// Not from a dialog the list opened, whose keys bubble here too.
+					if (at !== -1 && target !== undefined) {
+						event.preventDefault();
+						target.focus();
+					}
+				}}
+			>
+				{mains.map((each) => (
+					<TerminalRow
+						key={each}
+						name={terminals.nameOf(each)}
+						onRename={(name) => terminals.rename(each, name)}
+						current={open === each}
+						onOpen={() => onOpen(each)}
+						onClose={() =>
+							closing.close(each, () => {
+								if (open === each) {
+									onOpen(NEW);
+								}
+							})
 						}
-						render={renderRow}
-						beneath={beneathOf}
 					/>
-				</Placing>
-			) : /* None, and no list either: an empty one would still take a gap. */
-			listed.length === 0 ? null : (
-				<Placing value={placing}>
-					<Rows
-						label="conversation list"
-						rows={listed}
-						beneath={beneath}
-						render={(row, nested) => renderHere(row, nested)}
-					/>
-				</Placing>
-			)}
+				))}
 
-			{closing.confirm}
-		</nav>
+				{/* Held while the listing of every project is on its way, so the rows
+				    are not drawn flat and then moved into folders as it comes. */}
+				{everywhere.listing ? (
+					<ListLoading />
+				) : grouped !== null ? (
+					<Placing value={placing}>
+						<ProjectList
+							folders={grouped}
+							folded={folded}
+							onFold={fold}
+							onNew={(folder) =>
+								folder.here || folder.project === null
+									? onOpen(NEW)
+									: navigation.show(newConversationUrl(folder.project))
+							}
+							render={renderRow}
+							beneath={beneathOf}
+						/>
+					</Placing>
+				) : /* None, and no list either: an empty one would still take a gap. */
+				listed.length === 0 ? null : (
+					<Placing value={placing}>
+						<Rows
+							label="conversation list"
+							rows={listed}
+							beneath={beneath}
+							render={(row, nested) => renderHere(row, nested)}
+						/>
+					</Placing>
+				)}
+
+				{closing.confirm}
+			</nav>
+		</Board>
 	);
 });
 

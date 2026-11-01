@@ -56,7 +56,7 @@ describe("splates across projects", () => {
 		});
 	});
 
-	it("queues a task in its untriaged lane, saying where it came from", async () => {
+	it("queues a task in the Backlog lane, saying where it came from", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "Land it."]);
 		here.ps.cd((await here.service.find("alpha")).path);
 
@@ -79,7 +79,7 @@ describe("splates across projects", () => {
 		expect(queued?.state).toMatchObject({
 			subject: "Export the parser",
 			from: null,
-			lane: null,
+			lane: 0,
 			origin: { project: here.root, task: "alpha" },
 		});
 		expect(await here.tasks.all()).toEqual([]);

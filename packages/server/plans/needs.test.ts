@@ -45,6 +45,21 @@ describe("needs", () => {
 		expect(need(task(), running)).toEqual({ kind: "working", subject: null });
 	});
 
+	it("says a running merge leads only when its batch holds several and it is first", () => {
+		const running = talk({ status: "running" });
+		const gate = "running" as const;
+
+		expect(
+			need(task({ gate, task: "a", mergeBatch: ["a", "b"] }), running),
+		).toMatchObject({ leads: true });
+		expect(
+			need(task({ gate, task: "b", mergeBatch: ["a", "b"] }), running),
+		).not.toHaveProperty("leads");
+		expect(
+			need(task({ gate, task: "a", mergeBatch: ["a"] }), running),
+		).not.toHaveProperty("leads");
+	});
+
 	it("says a merge is under way while its gate tests, and waiting its turn before", () => {
 		const running = talk({ status: "running" });
 
@@ -167,7 +182,7 @@ describe("needs", () => {
 		expect(need(null, asking)).toMatchObject({ kind: "waiting", why: "ask" });
 		expect(
 			need(null, asking, Date.now(), [
-				todo({ id: 1, lane: 3, stage: "ready" }),
+				todo({ id: 1, lane: 3, stage: "available" }),
 				todo({ id: 2, lane: 3, stage: "queued" }),
 			]),
 		).toMatchObject({ kind: "waiting", why: "ask" });
@@ -547,6 +562,9 @@ ship it
 function task(overrides: Partial<Details> = {}): Details {
 	return {
 		task: "alpha",
+		number: null,
+		project: null,
+		tags: [],
 		status: "working",
 		branch: "task/alpha",
 		base: "main",
@@ -589,6 +607,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		lastTask: "alpha",
 		lastBase: "main",
 		lastCaller: null,
+		lastTags: null,
 		title: null,
 		name: null,
 		status: "running",

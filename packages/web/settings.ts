@@ -7,6 +7,7 @@ export type SettingsEvents = { changed: undefined };
 /** The groups the Settings dialog lists down its left, in order. */
 export const CATEGORIES = [
 	"Appearance",
+	"Startup",
 	"Editor",
 	"Notifications",
 	"Updates",
@@ -42,6 +43,13 @@ export const ACCENTS = [
 
 /** Every setting, in the order the dialog shows them. */
 export const SETTINGS = {
+	"startup.welcome": {
+		category: "Startup",
+		title: "Show the welcome page on startup",
+		description:
+			"Open the app on the welcome page, which lists the setup areas, as an IDE opens its welcome tab. A link to a page of its own still goes there. Phones open on the board.",
+		default: true,
+	},
 	"appearance.theme": {
 		category: "Appearance",
 		title: "Theme",
@@ -61,13 +69,6 @@ export const SETTINGS = {
 		default: "graphite",
 		choices: ACCENTS,
 		swatches: true,
-	},
-	"welcome.show": {
-		category: "Appearance",
-		title: "Setup welcome",
-		description:
-			"Greet this browser with the setup areas, what each is for and how far along it is, when the page opens. Closing the welcome turns this off; turn it on to see it again.",
-		default: true,
 	},
 	"conversation.widgets": {
 		category: "Appearance",

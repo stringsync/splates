@@ -115,7 +115,7 @@ export class Release {
 			(await ManifestWorkspace.at(ps.cwd(), { fs, ps, project: opts.project }));
 		const git = opts.git ?? new CliGit(workspace.root, { ps });
 		const packages = order(await workspace.packages());
-		const file = new ReleaseFile(workspace.root, { fs });
+		const file = new ReleaseFile(workspace.root, { fs, project: opts.project });
 		const found = await file.read();
 		const next: Next = {
 			bump: opts.bump ?? "patch",
@@ -138,14 +138,7 @@ export class Release {
 			dryRun,
 		});
 		const runner = new StepRunner(
-			new StepEvents(
-				ps.env("WEBAPPWIZ_SHIP_EVENTS") ?? ps.env("SPLATES_SHIP_EVENTS"),
-				fs,
-				opts.wallClock,
-				ps.env("WEBAPPWIZ_SHIP_PROGRESS") === "1"
-					? { line: (text) => log.info(text) }
-					: undefined,
-			),
+			new StepEvents(ps.env("SPLATES_SHIP_EVENTS"), fs, opts.wallClock),
 			opts.timer,
 		);
 
@@ -264,11 +257,7 @@ export class Release {
 				step,
 			}));
 		const runner = new StepRunner(
-			new StepEvents(
-				ps.env("WEBAPPWIZ_SHIP_EVENTS") ?? ps.env("SPLATES_SHIP_EVENTS"),
-				fs,
-				opts.wallClock,
-			),
+			new StepEvents(ps.env("SPLATES_SHIP_EVENTS"), fs, opts.wallClock),
 			opts.timer,
 		);
 		await runner.declare(steps);
@@ -381,7 +370,10 @@ export class Release {
 			(await ManifestWorkspace.at(ps.cwd(), { fs, ps, project: opts.project }));
 		const git = opts.git ?? new CliGit(workspace.root, { ps });
 		const packages = order(await workspace.packages());
-		const found = await new ReleaseFile(workspace.root, { fs }).read();
+		const found = await new ReleaseFile(workspace.root, {
+			fs,
+			project: opts.project,
+		}).read();
 		const version =
 			found?.version ?? bump(await workspace.version(), opts.bump ?? "patch");
 		const cut = new Cut(version, packages, {

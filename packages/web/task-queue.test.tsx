@@ -44,7 +44,7 @@ describe("Queue page's Up next", () => {
 	it("lists the queued tasks no agent has taken, in the order workers start them", async () => {
 		const view = await testing.openTasks({
 			todos: [
-				todo({ id: 1, subject: "waiting", stage: "ready", position: 0 }),
+				todo({ id: 1, subject: "waiting", stage: "available", position: 0 }),
 				todo({ id: 2, subject: "second", stage: "queued", position: 2 }),
 				todo({ id: 3, subject: "first", stage: "queued", position: 1 }),
 				todo({
@@ -67,7 +67,7 @@ describe("Queue page's Up next", () => {
 	it("lists blocked tasks under Blocked, not Up next, and queues one's blockers from its row", async () => {
 		const view = await testing.openTasks({
 			todos: [
-				todo({ id: 1, subject: "store licenses", stage: "ready" }),
+				todo({ id: 1, subject: "store licenses", stage: "available" }),
 				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
 				todo({ id: 3, subject: "free", stage: "queued" }),
 			],

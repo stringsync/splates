@@ -3,6 +3,7 @@ import type { Event } from "@stringsync/splates-server/records";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	CheckIcon,
+	ChevronsUpIcon,
 	CircleIcon,
 	GitMergeIcon,
 	Loader2Icon,
@@ -18,7 +19,7 @@ import {
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { mergeEstimates } from "./api";
+import { bumpMerge, mergeEstimates } from "./api";
 import { CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import {
@@ -30,6 +31,7 @@ import {
 } from "./merge-checklist";
 import { MergeWhy } from "./merge-failed-line";
 import { spanOf } from "./merge-lines";
+import { TaskChip } from "./reference-chip";
 import type { WatchMergeStep } from "./side-panes";
 
 type MergeEvent = Extract<Event, { action: "merge" }>;
@@ -38,9 +40,29 @@ type MergeEvent = Extract<Event, { action: "merge" }>;
 export const MergeCardContext = createContext<{
 	conversation: string;
 	task: Details | null;
+	/** Every live task, for a batch's leader. */
+	tasks: readonly Details[];
 	/** Ids of refused merges a later attempt for the same task followed. */
 	superseded: ReadonlySet<string>;
+	/** Ids of the newest merge each task began, the only one that can still be live. */
+	newest: ReadonlySet<string>;
 } | null>(null);
+
+/** Where `task` stands in the batch gating it: its leader, and who else is in it; null outside one. */
+export function batchRole(
+	task: string,
+	batch: readonly string[],
+): { role: "leader" | "follower"; leader: string; others: string[] } | null {
+	if (batch.length < 2) {
+		return null;
+	}
+	const leader = batch[0] ?? task;
+	return {
+		role: leader === task ? "leader" : "follower",
+		leader,
+		others: batch.filter((each) => each !== task && each !== leader),
+	};
+}
 
 /** Opens what a merge step printed in the pane beside the page; null where the page has no pane. */
 export const WatchMerge = createContext<WatchMergeStep | null>(null);
@@ -59,6 +81,7 @@ export function LiveMergeCard({
 	task: Details;
 	conversation: string;
 }): JSX.Element {
+	const tasks = useContext(MergeCardContext)?.tasks ?? [];
 	const merging = task.mergeSteps !== null && task.mergeSince !== null;
 	const now = useNow(merging);
 	const [estimates, setEstimates] = useState<MergeEstimates | null>(null);
@@ -77,10 +100,18 @@ export function LiveMergeCard({
 			current = false;
 		};
 	}, [merging]);
-	const rows = mergeChecklist(task, now, estimates);
+	const batch = batchRole(task.task, task.mergeBatch ?? []);
+	const lead =
+		batch?.role === "follower"
+			? (tasks.find((each) => each.task === batch.leader) ?? null)
+			: null;
+	const rows = mergeChecklist(task, now, { estimates, lead });
 	const waiting =
 		rows.find((row) => row.standing === "running")?.step === "wait";
 	const watch = useContext(WatchMerge);
+	const [bumping, setBumping] = useState(false);
+	// The first in line is already next for the lock, so it has nowhere to skip to.
+	const bumpable = waiting && task.mergePlace !== null && task.mergePlace > 1;
 	return (
 		<CardShell
 			label="Merge"
@@ -90,13 +121,34 @@ export function LiveMergeCard({
 			task={task.task}
 			base={task.base}
 			aside={
-				task.mergeSince !== null && (
-					<span className="text-muted-foreground text-xs tabular-nums">
-						{spanOf(now - Date.parse(task.mergeSince))}
-					</span>
-				)
+				<>
+					{bumpable && (
+						<Button
+							size="xs"
+							variant="outline"
+							className="mr-2"
+							disabled={bumping}
+							title="Skip ahead of the merges waiting for the premerge, for a critical merge"
+							onClick={() => {
+								setBumping(true);
+								bumpMerge(task.task)
+									.catch(() => {})
+									.finally(() => setBumping(false));
+							}}
+						>
+							<ChevronsUpIcon aria-hidden />
+							Bump to front
+						</Button>
+					)}
+					{task.mergeSince !== null && (
+						<span className="text-muted-foreground text-xs tabular-nums">
+							{spanOf(now - Date.parse(task.mergeSince))}
+						</span>
+					)}
+				</>
 			}
 		>
+			{batch !== null && <BatchRole task={task.task} batch={batch} />}
 			<Timeline
 				rows={rows}
 				open={
@@ -105,13 +157,58 @@ export function LiveMergeCard({
 						: (row, index) =>
 								watch({
 									conversation,
-									task: task.task,
+									task: row.from ?? task.task,
 									index,
 									label: row.label,
 								})
 				}
 			/>
 		</CardShell>
+	);
+}
+
+/** Says whether the merge leads the batch it tests in or follows another's, and who else is in it. */
+function BatchRole({
+	task,
+	batch,
+}: {
+	task: string;
+	batch: NonNullable<ReturnType<typeof batchRole>>;
+}): JSX.Element {
+	const leads = batch.role === "leader";
+	const chips = (list: string[]) =>
+		list.map((each) => <TaskChip key={each} task={each} inline />);
+	return (
+		<div
+			role="note"
+			aria-label="Batch role"
+			className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b px-4 py-2 text-muted-foreground text-xs @max-md:px-3"
+		>
+			{leads ? (
+				<>
+					<span className="font-medium">
+						Leading a batch of {batch.others.length + 1}.
+					</span>
+					<span>One premerge run tests these together:</span>
+					{chips(batch.others)}
+				</>
+			) : (
+				<>
+					<span className="font-medium">Riding along with</span>
+					<TaskChip task={batch.leader} inline />
+					<span>
+						Its premerge run, shown below, tests this task too. If it fails for{" "}
+						{task} alone, {task} is told and the rest are tested again.
+					</span>
+					{batch.others.length > 0 && (
+						<>
+							<span>Also in the batch:</span>
+							{chips(batch.others)}
+						</>
+					)}
+				</>
+			)}
+		</div>
 	);
 }
 

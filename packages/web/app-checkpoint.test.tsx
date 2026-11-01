@@ -26,7 +26,7 @@ describe("App's checkpoint dialog", () => {
 
 	it("restarts at once with agents at work, naming the one a restart stops, and checkpoints none", async () => {
 		testing.projects = [
-			project("webappwiz", [live("c1", "Fix login")], true),
+			project("wren", [live("c1", "Fix login")], true),
 			project("shop", [
 				live("s1", "Fix cart", null, true),
 				live("s2", "Fix tax", null, true),
@@ -59,7 +59,7 @@ describe("App's checkpoint dialog", () => {
 
 	// vet-ignore simple-test-setup: this test alone holds an old listing across confirmation and checkpoint to exercise the response race
 	it("goes straight to Checkpointing, though a listing asked before the checkpoint lands after", async () => {
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.projects = [project("wren", [live("c1", "One")], true)];
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
@@ -85,9 +85,7 @@ describe("App's checkpoint dialog", () => {
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 		testing.restarting = { resume: false, shutdown: true };
 		await act(async () =>
 			fireEvent.click(
@@ -106,7 +104,7 @@ describe("App's checkpoint dialog", () => {
 	});
 
 	it("shows Checkpoint while no project has an agent running, with nothing to pick", async () => {
-		testing.projects = [project("webappwiz", [], true)];
+		testing.projects = [project("wren", [], true)];
 		const view = await testing.openConversations(
 			[conversation({ id: "c2", title: "Old one", status: "stopped" })],
 			null,
@@ -155,7 +153,7 @@ describe("App's checkpoint dialog", () => {
 	});
 
 	it("restarts with no checkpoint, saying what that stops, then reloads the page once back", async () => {
-		testing.projects = [project("webappwiz", [live("c1", "Fix login")], true)];
+		testing.projects = [project("wren", [live("c1", "Fix login")], true)];
 		testing.held = [{ where: "terminal", command: "vim" }];
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login", status: "running" })],
@@ -193,9 +191,7 @@ describe("App's checkpoint dialog", () => {
 	});
 
 	it("shuts down with no checkpoint, saying what that stops where a restart would keep it", async () => {
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", null, true)], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", null, true)], true)];
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
@@ -249,7 +245,7 @@ describe("App's checkpoint dialog", () => {
 	});
 
 	it("confirms shutdown even with no agents and cancels back to Power without a request", async () => {
-		testing.projects = [project("webappwiz", [], true)];
+		testing.projects = [project("wren", [], true)];
 		const view = await testing.openConversations([], null);
 		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 		const dialog = await waitFor(() =>
@@ -282,7 +278,7 @@ describe("App's checkpoint dialog", () => {
 	});
 
 	it("offers no restart with no agent running where splates server cannot make one", async () => {
-		testing.projects = [project("webappwiz", [], true)];
+		testing.projects = [project("wren", [], true)];
 		testing.restartable = false;
 		const view = await testing.openConversations([], null);
 
@@ -298,7 +294,7 @@ describe("App's checkpoint dialog", () => {
 
 	it("says how a checkpoint under way gets on, naming only the one it missed, closing and opening again from the button", async () => {
 		testing.projects = [
-			project("webappwiz", [live("c1", "Fix login")], true),
+			project("wren", [live("c1", "Fix login")], true),
 			project("shop", [
 				live("s1", "One", "done"),
 				live("s2", "Two", "asked"),
@@ -348,7 +344,7 @@ describe("App's checkpoint dialog", () => {
 	it("keeps a done checkpoint on the button while looking at the agent it missed", async () => {
 		testing.projects = [
 			project(
-				"webappwiz",
+				"wren",
 				[live("c1", "One", "done"), live("c2", "Two", "unanswered")],
 				true,
 			),
@@ -370,7 +366,7 @@ describe("App's checkpoint dialog", () => {
 
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		expect(
-			testing.posted("/api/conversations/checkpoint?project=webappwiz"),
+			testing.posted("/api/conversations/checkpoint?project=wren"),
 		).toEqual([]);
 		await act(async () =>
 			fireEvent.click(await menuItem(view, "Agents checkpointed")),

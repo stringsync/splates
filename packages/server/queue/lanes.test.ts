@@ -23,7 +23,7 @@ describe.concurrent("queueing a lane", () => {
 		expect(await stages(deps)).toEqual({
 			1: "queued",
 			2: "queued",
-			3: "backlog",
+			3: "available",
 		});
 		expect((await deps.tasks.find(2)).state.queuedBy).toEqual({
 			by: "lane",
@@ -31,7 +31,7 @@ describe.concurrent("queueing a lane", () => {
 		});
 
 		await taskAdd(deps, "added later", null, { lane: 1 });
-		expect((await deps.tasks.find(4)).state.stage).toBe("backlog");
+		expect((await deps.tasks.find(4)).state.stage).toBe("available");
 		// Queued again, only what waits now joins.
 		expect((await laneQueue(deps, 1, true)).map((task) => task.id)).toEqual([
 			4,
@@ -53,13 +53,13 @@ describe.concurrent("queueing a lane", () => {
 	it("takes its queued tasks back out, leaving the rest", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
-		await taskAdd(deps, "store licenses", null, { lane: 1, ready: true });
+		await taskAdd(deps, "store licenses", null, { lane: 1 });
 		await taskAdd(deps, "check them", null, { lane: 1 });
 		await laneQueue(deps, 1, true);
 
 		const out = await laneQueue(deps, 1, false);
 		expect(out.map((task) => task.id)).toEqual([1, 2]);
-		expect(await stages(deps)).toEqual({ 1: "ready", 2: "backlog" });
+		expect(await stages(deps)).toEqual({ 1: "available", 2: "available" });
 	});
 
 	it("keeps a task blocked by one outside the queue queued, naming that blocker as not queued", async () => {

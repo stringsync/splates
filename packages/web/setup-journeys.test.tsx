@@ -9,7 +9,7 @@ import {
 import { FakeSecretStore } from "core/creds/testing";
 import { FakeFs } from "core/system/testing";
 import { AppSetupPage } from "./app-setup-page";
-import { SetupIndex, StepForm } from "./setup-form";
+import { SetupIndex, StepField, StepForm } from "./setup-form";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
 describe("Setup journeys", () => {
@@ -68,28 +68,35 @@ describe("Setup journeys", () => {
 		expect(view.getByRole("button", { name: "Set up Dictation" })).toBeTruthy();
 		await click(view, "Set up Claude");
 
-		expect(view.getByRole("form", { name: "Install and sign in to Claude" }));
-		expect(view.getByText("Step 1 of 2")).toBeTruthy();
+		expect(view.getByRole("form", { name: "Install Claude" }));
+		expect(view.getByText("Step 1 of 3")).toBeTruthy();
 		expect(view.queryByRole("progressbar")).toBeNull();
 		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
 		expect(view.queryByRole("button", { name: "Skip" })).toBeNull();
 
-		testing.reply = with_({ "claude-signin": "done" });
+		testing.reply = with_({
+			"claude-install": "done",
+			"claude-signin": "done",
+		});
 		await click(view, "Next");
-		expect(testing.posted("/api/setup/claude-signin/next")[0]?.body).toEqual({
+		expect(testing.posted("/api/setup/claude-install/next")[0]?.body).toEqual({
 			answers: {},
 		});
 		await waitFor(() =>
 			view.getByRole("form", { name: "Choose Claude models" }),
 		);
-		expect(view.getByText("Step 2 of 2")).toBeTruthy();
+		expect(view.getByText("Step 3 of 3")).toBeTruthy();
 		expect(
 			view
 				.getAllByRole("switch")
 				.every((each) => each.getAttribute("aria-checked") === "true"),
 		).toBe(true);
 
-		testing.reply = with_({ "claude-signin": "done", "claude-models": "done" });
+		testing.reply = with_({
+			"claude-install": "done",
+			"claude-signin": "done",
+			"claude-models": "done",
+		});
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
 		fireEvent.click(view.getByRole("button", { name: "Back to Setup" }));
@@ -97,6 +104,15 @@ describe("Setup journeys", () => {
 			await view.findByRole("button", { name: "Set up Claude" }),
 		).toBeTruthy();
 		expect(testing.asked).not.toContain("/api/setup/opencode");
+	});
+
+	it("makes Replica, Evals and GitHub push config changes an agent makes, not edits by hand", () => {
+		const steps = progress.areas.flatMap((area) => area.steps);
+		for (const id of ["replica-place", "evals-results", "github-push"]) {
+			const step = steps.find((each) => each.id === id);
+			expect(step?.fields.map((field) => field.kind)).toEqual(["config"]);
+			expect(step?.user).not.toContain("restart `splates server`");
+		}
 	});
 
 	it("stays on the page with one line on what went wrong, Next becoming Try again", async () => {
@@ -114,9 +130,12 @@ describe("Setup journeys", () => {
 				"Codex is not installed here.",
 			),
 		);
-		expect(view.getByRole("form", { name: "Install and sign in to Codex" }));
+		expect(view.getByRole("form", { name: "Install Codex" }));
 		testing.refuseWrites = null;
-		testing.reply = with_({ "codex-signin": "done" });
+		testing.reply = with_({
+			"codex-install": "done",
+			"codex-signin": "done",
+		});
 		await click(view, "Try again");
 		await waitFor(() =>
 			view.getByRole("form", { name: "Choose Codex models" }),
@@ -125,6 +144,7 @@ describe("Setup journeys", () => {
 
 	it("opens a journey at its first step not done, and a finished one at its first", async () => {
 		progress = with_({
+			"codex-install": "done",
 			"codex-signin": "done",
 			dictation: "done",
 			"dictation-words": "done",
@@ -138,7 +158,7 @@ describe("Setup journeys", () => {
 	});
 
 	it("stops on a done step with something to put right, saying what and how", async () => {
-		progress = with_({ "codex-signin": "done" });
+		progress = with_({ "codex-install": "done", "codex-signin": "done" });
 		progress = {
 			...progress,
 			areas: progress.areas.map((area) => ({
@@ -152,12 +172,12 @@ describe("Setup journeys", () => {
 		};
 		const view = open();
 		const row = view.getByRole("button", { name: "Set up Codex" });
-		expect(row.textContent).toContain("1 of 2 steps done, 1 to put right");
+		expect(row.textContent).toContain("2 of 3 steps done, 1 to put right");
 		await click(view, "Set up Codex");
 		const alert = view.getByRole("alert");
 		expect(alert.textContent).toContain("To put right");
 		expect(alert.querySelector("strong")?.textContent).toBe("make ESC");
-		expect(view.getByText("Step 1 of 2")).toBeTruthy();
+		expect(view.getByText("Step 2 of 3")).toBeTruthy();
 	});
 
 	it("saves a pasted cred for the device before Next checks the step", async () => {
@@ -231,7 +251,7 @@ describe("Setup journeys", () => {
 		expect(rows.slice(0, 3)).toEqual([
 			"Set up OpenCodeOptionalRun agents on OpenCode, the cheapest way to start.4 steps",
 			"Set up ClaudeOptionalRun agents on Claude, signed in on this machine.All steps done",
-			"Set up CodexOptionalRun agents on Codex, signed in on this machine.0 of 2 steps done",
+			"Set up CodexOptionalRun agents on Codex, signed in on this machine.0 of 3 steps done",
 		]);
 		expect(
 			view
@@ -255,12 +275,42 @@ describe("Setup journeys", () => {
 				onAgent={null}
 			/>,
 		);
-		expect(view.getByText("2 of 4")).toBeTruthy();
+		expect(view.queryByText("2 of 4")).toBeNull();
 		expect(view.getByRole("alert").textContent).toBe(
 			"npm is not on your PATH.",
 		);
 		fireEvent.click(view.getByRole("button", { name: "Try again" }));
 		expect(nexts).toBe(1);
 		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
+	});
+
+	it("marks an empty required field for the browser, keeping Next", () => {
+		const view = render(
+			<StepForm
+				undo={null}
+				title="Make the tunnel"
+				at={1}
+				of={2}
+				next={{ kind: "ready" }}
+				onNext={() => {}}
+				onAgent={null}
+			>
+				<StepField
+					field={{
+						kind: "text",
+						name: "host",
+						label: "Host name",
+						placeholder: null,
+						help: null,
+						value: null,
+						optional: false,
+					}}
+				/>
+			</StepForm>,
+		);
+		expect(view.getByLabelText("Host name").hasAttribute("required")).toBe(
+			true,
+		);
+		expect(view.getByRole("button", { name: "Next" })).toBeTruthy();
 	});
 });

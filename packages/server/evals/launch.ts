@@ -78,6 +78,8 @@ export interface EvalScenario {
 	group: string | null;
 	/** What the case checks, as `about` in `batch.json`. */
 	about: string | null;
+	/** The skill the case belongs to, when the project's `list` says. */
+	skill?: string;
 }
 
 const TAIL = 20;
@@ -135,6 +137,7 @@ export class EvalLaunches
 							id: each.case,
 							group: typeof each.group === "string" ? each.group : null,
 							about: typeof each.about === "string" ? each.about : null,
+							...(typeof each.skill === "string" ? { skill: each.skill } : {}),
 						},
 					];
 		});

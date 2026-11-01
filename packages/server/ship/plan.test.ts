@@ -10,16 +10,16 @@ import {
 import { servedProjects, withChanges } from "./testing";
 
 describe("planShip", () => {
-	it("ships webappwiz, then each dependent with dependents of its own, and bumps the leaves", async () => {
+	it("ships wren, then each dependent with dependents of its own, and bumps the leaves", async () => {
 		const { fs, sources } = await servedProjects();
 		const graph = await readGraph(fs, sources);
 
-		const plan = planShip(graph, "webappwiz");
+		const plan = planShip(graph, "wren");
 
 		expect(
 			plan.steps.map((step) => [step.slug, step.action, step.from, step.to]),
 		).toEqual([
-			["webappwiz", "ship", "0.0.50", "0.0.51"],
+			["wren", "ship", "0.0.50", "0.0.51"],
 			["splates", "ship", "0.0.57", "0.0.58"],
 			["mdom", "ship", "1.4.2", "1.4.3"],
 			["vexml", "ship", "2.0.9", "2.0.10"],
@@ -28,7 +28,7 @@ describe("planShip", () => {
 		expect(plan.steps[3]?.why).toBe("sound2score pins it");
 		expect(plan.steps[4]?.why).toBe("private");
 		expect(plan.steps[4]?.takes.map((use) => use.project)).toEqual([
-			"webappwiz",
+			"wren",
 			"splates",
 			"mdom",
 			"vexml",
@@ -72,7 +72,7 @@ describe("planShip", () => {
 		const { fs, sources } = await servedProjects();
 		const graph = await readGraph(fs, sources);
 
-		const plan = planShip(graph, "mdom", "patch", ["mdom", "webappwiz"]);
+		const plan = planShip(graph, "mdom", "patch", ["mdom", "wren"]);
 
 		expect(plan.steps.map((step) => step.slug)).toEqual([
 			"mdom",
@@ -123,7 +123,7 @@ describe("planShip", () => {
 		const { fs, sources } = await servedProjects();
 		const graph = await readGraph(fs, sources);
 
-		const plan = planShip(graph, "webappwiz", "major");
+		const plan = planShip(graph, "wren", "major");
 
 		expect(plan.steps[0]).toMatchObject({ bump: "major", to: "1.0.0" });
 		expect(plan.steps[1]).toMatchObject({ bump: "patch", to: "0.0.58" });
@@ -132,7 +132,7 @@ describe("planShip", () => {
 	it("ships every changed project, dependencies first, carrying each downstream", async () => {
 		const { fs, sources } = await servedProjects();
 		const graph = withChanges(await readGraph(fs, sources), {
-			webappwiz: 2,
+			wren: 2,
 			mdom: 1,
 			splates: 0,
 		});
@@ -147,11 +147,11 @@ describe("planShip", () => {
 				step.takes.map((use) => use.project),
 			]),
 		).toEqual([
-			["webappwiz", "ship", []],
-			["splates", "ship", ["webappwiz"]],
-			["mdom", "ship", ["webappwiz"]],
-			["vexml", "ship", ["webappwiz", "mdom"]],
-			["sound2score", "bump", ["webappwiz", "splates", "mdom", "vexml"]],
+			["wren", "ship", []],
+			["splates", "ship", ["wren"]],
+			["mdom", "ship", ["wren"]],
+			["vexml", "ship", ["wren", "mdom"]],
+			["sound2score", "bump", ["wren", "splates", "mdom", "vexml"]],
 		]);
 		expect(plan.steps[0]?.why).toBe("it has 2 unshipped commits since v0.0.50");
 		expect(plan.steps[2]?.why).toBe("it has 1 unshipped commit since v1.4.2");
@@ -172,7 +172,7 @@ describe("planShip", () => {
 
 	it("refuses a ship of changed projects when none changed", async () => {
 		const { fs, sources } = await servedProjects();
-		const graph = withChanges(await readGraph(fs, sources), { webappwiz: 0 });
+		const graph = withChanges(await readGraph(fs, sources), { wren: 0 });
 
 		expect(() => planShip(graph, CHANGED)).toThrow(
 			"no project has changed since its last release",

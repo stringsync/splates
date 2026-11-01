@@ -2,9 +2,10 @@ import type { Logger } from "core/log";
 import type { Git } from "../git";
 import type { FailedTest } from "../tasks";
 import type { FailureAttribution } from "./attribution";
-import type { Member, MergeBatch } from "./batch";
+import { bisect, type Culprit, pinByFile } from "./bisect";
 import { blame } from "./blame";
 import type { GateRun, MergeGate } from "./gate";
+import type { Member, MergeLine } from "./line";
 import type { MergeState } from "./merge-state";
 import { tail } from "./refusal";
 
@@ -13,19 +14,20 @@ import { tail } from "./refusal";
  * says what the leader does next: `again` gates the batch once more without
  * the follower whose commits the failing tests first fail with, told its
  * refusal; `alone` lets every follower go and gates the leader by itself,
- * since the failure told nothing one task can be blamed for; `refuse` ends
+ * since nothing could be blamed (a failure naming no test is pinned on the
+ * member whose diff touches a file it names, else bisected); `refuse` ends
  * the leader's merge as the gate said, every follower told the same where
  * the base fails alone.
  */
 export async function splitBatch(
 	{
-		batch,
+		line,
 		gate,
 		git,
 		log,
 		state,
 	}: {
-		batch: MergeBatch;
+		line: MergeLine;
 		gate: MergeGate;
 		git: Git;
 		log: Logger;
@@ -63,14 +65,14 @@ export async function splitBatch(
 			log.error(
 				`could not tell which task of the batch the failing tests fail with: gating alone\n${output}`,
 			);
-			await batch.dissolve(members);
+			await line.dissolve(members);
 			return "alone";
 		}
 		if (blamed.member.task === task) {
-			await batch.dissolve(members);
+			await line.dissolve(members);
 			return "refuse";
 		}
-		await batch.tell(blamed.member, {
+		line.tell(blamed.member, {
 			kind: "failed",
 			attribution: "task",
 			failedTests: blamed.failed,
@@ -80,7 +82,7 @@ export async function splitBatch(
 			at: blamed.member.head,
 			batch: names,
 		});
-		batch.exclude(blamed.member.task);
+		line.exclude(task, blamed.member.task);
 		log.error(
 			`the failing tests fail with ${blamed.member.task}'s commits: gating again without it`,
 		);
@@ -89,7 +91,7 @@ export async function splitBatch(
 	if (kind === "trunk") {
 		// The base fails them alone: every member is held, free.
 		for (const member of members) {
-			await batch.tell(member, {
+			line.tell(member, {
 				kind: "failed",
 				attribution: "trunk",
 				failedTests: failed,
@@ -102,10 +104,45 @@ export async function splitBatch(
 		}
 		return "refuse";
 	}
-	// Inconclusive: one at a time tells which merge it is about.
+	// Inconclusive: pin it on the member whose diff touches a file the output
+	// names, else bisect the stack; one at a time only when neither tells.
+	let culprit: Culprit | null = null;
+	try {
+		culprit =
+			(await pinByFile(git, cwd, stack, printed)) ??
+			(await bisect({ gate }, { cwd, task }, stack));
+	} catch (error) {
+		log.error(
+			`could not bisect the batch: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+	await state.requireLease();
+	if (culprit === null) {
+		log.error(
+			`the batch's gate told nothing conclusive (exit ${gated.exitCode}): gating alone\n${output}`,
+		);
+		await line.dissolve(members);
+		return "alone";
+	}
 	log.error(
-		`the batch's gate told nothing conclusive (exit ${gated.exitCode}): gating alone\n${output}`,
+		`the batch's gate failed (exit ${gated.exitCode}) and ${culprit.member.task} is to blame: ${culprit.how}`,
 	);
-	await batch.dissolve(members);
-	return "alone";
+	if (culprit.member.task === task) {
+		await line.dissolve(members);
+		return "refuse";
+	}
+	line.tell(culprit.member, {
+		kind: "failed",
+		attribution: "inconclusive",
+		failedTests: failed,
+		output: `Blamed on ${culprit.member.task}: ${culprit.how}.\n${printed}`,
+		exitCode: gated.exitCode,
+		rebasedOnto: culprit.member.onto,
+		at: culprit.member.head,
+		batch: names,
+	});
+	line.exclude(task, culprit.member.task);
+	// The others go back to waiting, to be stacked again without the culprit.
+	await line.dissolve(members);
+	return "again";
 }

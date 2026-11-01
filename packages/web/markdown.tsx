@@ -168,7 +168,7 @@ const ELSEWHERE_LINK = /^#todo-(\d+)&project=([^&]+)$/;
 
 /**
  * `text` with each `#N` outside code that names the task of another project
- * among `projects`, as `webappwiz #404` does, made a link that `elsewhereIn`
+ * among `projects`, as `wren #404` does, made a link that `elsewhereIn`
  * reads back, its `#` escaped so `linkMentions` leaves it to this one.
  */
 export function linkElsewhere(
@@ -327,7 +327,7 @@ export function Mention({ id }: { id: number }): JSX.Element {
 }
 
 /**
- * A task of another project, mentioned as `webappwiz #404`: the project's
+ * A task of another project, mentioned as `wren #404`: the project's
  * name before its number, and a tap opens it on that project's board.
  */
 export function ElsewhereMention({

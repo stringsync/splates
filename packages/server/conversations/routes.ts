@@ -201,6 +201,7 @@ export class ConversationRoutes {
 			task: tree?.[0] ?? null,
 			base: tree?.[2] ?? null,
 			caller: tree?.[3] ?? null,
+			tags: tree?.[4] ?? null,
 			cwd: tree?.[1] ?? ((id) => `${scratchRoot as string}/${id}`),
 			scratch: scratchRoot !== null,
 			model: typeof model === "string" && model !== "" ? model : undefined,
@@ -234,7 +235,7 @@ export class ConversationRoutes {
 	/** Brings in a session an agent holds, as a conversation in `task`'s tree. */
 	readonly bringSession = async (request: Request): Promise<Response> => {
 		const { agent, session, task, title } = await body(request);
-		const [named, cwd, base, caller] = await this.treeFor(task);
+		const [named, cwd, base, caller, tags] = await this.treeFor(task);
 		const conversation = await this.held().bring(
 			String(agent ?? ""),
 			String(session ?? ""),
@@ -242,6 +243,7 @@ export class ConversationRoutes {
 				task: named,
 				base,
 				caller,
+				tags,
 				cwd,
 				title: typeof title === "string" && title !== "" ? title : null,
 			},
@@ -258,11 +260,11 @@ export class ConversationRoutes {
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { task, from, base: sent } = await body(request);
-		const [named, cwd, recorded, caller] = await this.treeFor(task);
+		const [named, cwd, recorded, caller, tags] = await this.treeFor(task);
 		const base = typeof sent === "string" ? sent : recorded;
 		const leaving = from === undefined || from === conversation.state.task;
 		if (leaving && !(await this.isPartOf(base, conversation.state.task))) {
-			conversation.move(named, cwd, base, caller);
+			conversation.move(named, cwd, base, caller, tags);
 		}
 		return Response.json(conversation.state);
 	};

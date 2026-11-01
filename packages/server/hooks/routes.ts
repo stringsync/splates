@@ -16,7 +16,7 @@ import {
 
 /** One automation as the Automations page lists it. */
 export interface AutomationRow extends Automation {
-	/** Its trigger in a few words, as `task.created in backlog`. */
+	/** Its trigger in a few words, as `task.created in available`. */
 	when: string;
 	/** What it runs in a few words. */
 	does: string;
@@ -57,8 +57,8 @@ export class AutomationRoutes {
 	readonly listAutomations = (): Promise<Response> => this.#list();
 
 	readonly addAutomation = async (request: Request): Promise<Response> => {
-		const { trigger, hook } = await body(request);
-		await this.#store.add(triggerIn(trigger), hookIn(hook));
+		const { trigger, hook, name } = await body(request);
+		await this.#store.add(triggerIn(trigger), hookIn(hook), nameIn(name));
 		this.#changed();
 		return this.#list();
 	};
@@ -69,12 +69,17 @@ export class AutomationRoutes {
 	 * and its prompt are splates's own.
 	 */
 	readonly editAutomation = async (request: Request): Promise<Response> => {
-		const { trigger, hook } = await body(request);
+		const { trigger, hook, name } = await body(request);
 		const id = idIn(request);
 		if (id === GROOMER_AUTOMATION) {
 			await this.#store.groomer(pickIn(hook));
 		} else {
-			await this.#store.edit(id, triggerIn(trigger), hookIn(hook));
+			await this.#store.edit(
+				id,
+				triggerIn(trigger),
+				hookIn(hook),
+				nameIn(name),
+			);
 		}
 		this.#changed();
 		return this.#list();
@@ -176,6 +181,14 @@ function pickIn(raw: unknown): AgentPick {
 			? { effort: given.effort }
 			: {}),
 	};
+}
+
+/** The name a request sent, if any, refusing one that is no text. */
+function nameIn(raw: unknown): string | undefined {
+	if (raw !== undefined && raw !== null && typeof raw !== "string") {
+		fail("usage", "an automation's name is text", {});
+	}
+	return raw ?? undefined;
 }
 
 /** The hook a request sent, refusing one of the wrong shape. */

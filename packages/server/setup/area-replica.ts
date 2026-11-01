@@ -5,6 +5,7 @@ import {
 	type ReplicaPlace,
 	type ReplicaStatus,
 } from "../replica";
+import { REPLICA_KEY_FIELDS } from "./replica-key-fields";
 import type { SetupArea, SetupMachine, SetupProject, SetupStep } from "./setup";
 
 /** The copy of a project's records `splates server` keeps in a bucket or a folder. */
@@ -15,13 +16,22 @@ function replicaArea(): SetupArea {
 		id: "replica-place",
 		title: "Name a replica",
 		why: "A replica is a copy of this project's records a few seconds behind every change, in a bucket or a folder, so they outlive this machine and can move to another.",
-		user: 'Add a `replica` to this project\'s `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next. For a bucket of any S3-compatible store, `replica: { provider: "s3", endpoint: "https://<region>.digitaloceanspaces.com", bucket: "<bucket>" }`, adding `prefix` for projects that share a bucket; for a folder, `replica: { provider: "dir", path: "/Volumes/Backup/splates" }`.',
+		user: "Have an agent add a `replica` to this project's `splates.config.ts` in a task: tell it the bucket (and endpoint and prefix) or the folder, approve its diff here, restart the server, then press Next.",
 		agent:
-			"In a task of its own, add the `replica` the user names to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup replica-place`.",
+			"The page makes the `replica` change in a task named `setup-replica-place`, and you ask the user for the bucket or folder there; they approve it and restart the server on the page, then run `splates setup replica-place`.",
 		notDone:
-			"`splates.config.ts` names no `replica` yet: add it, merge it, then press Next.",
+			"`splates.config.ts` names no `replica` yet: have an agent make the change above and approve it, then press Next.",
 		optional: true,
 		after: [],
+		fields: [
+			{
+				kind: "config",
+				name: "replica",
+				label: "Name a replica",
+				change:
+					'Ask the user where the replica goes, then add it to `splates.config.ts`: for a bucket of any S3-compatible store, `replica: { provider: "s3", endpoint: "https://<region>.digitaloceanspaces.com", bucket: "<bucket>" }` (adding `prefix` for projects that share a bucket); for a folder, `replica: { provider: "dir", path: "/Volumes/Backup/splates" }`.',
+			},
+		],
 		detail: async (machine) => {
 			const place = (await projectOf(machine).config()).replica;
 			return place === null ? null : `Named: \`${whereIs(place)}\`.`;
@@ -31,7 +41,7 @@ function replicaArea(): SetupArea {
 		undo: {
 			removes: async () => [],
 			leaves: async () => [
-				"`replica` in this project's `splates.config.ts`: take it out in a task and merge it, then restart `splates server`, or it keeps copying.",
+				"`replica` in this project's `splates.config.ts`: take it out in a task and merge it, then restart the server, or it keeps copying.",
 				"The copy already made, in the bucket or folder: delete it there if you no longer want it.",
 			],
 			run: async () => {},
@@ -42,11 +52,12 @@ function replicaArea(): SetupArea {
 		id: "replica-creds",
 		title: "Give splates the bucket's key",
 		why: "splates signs each request to the bucket with a key and secret of yours, kept in the project's creds and never shown again.",
-		user: `In the store's control panel, make an access key limited to the bucket if it can be, and fill \`${REPLICA_ACCESS_KEY}\` with its key id and \`${REPLICA_SECRET_KEY}\` with its secret on the [Creds page](#creds). The replica starts as soon as both are saved; then press Next.`,
-		agent: `\`splates server\` asks for \`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` on the Creds page once it starts the replica: have the user fill both there, then run \`splates setup replica-creds\`.`,
-		notDone: `\`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` are not both saved yet: fill them on the Creds page, then press Next.`,
+		user: "In the store's control panel, make an access key limited to the bucket if it can be, and paste its key id and its secret here, then press Next. The replica starts as soon as both are saved.",
+		agent: `Have the user paste \`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` in this step (or fill them on the Creds page), then run \`splates setup replica-creds\`.`,
+		notDone: `\`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` are not both saved yet: paste them here, then press Next.`,
 		optional: true,
 		after: [placeStep],
+		fields: REPLICA_KEY_FIELDS,
 		shown: async (machine) =>
 			(await projectOf(machine).config()).replica?.provider === "s3",
 		check: async (machine) => {
@@ -61,7 +72,7 @@ function replicaArea(): SetupArea {
 		undo: {
 			removes: async () => [],
 			leaves: async () => [
-				`\`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` in the project's creds: forget them on the Creds page, and delete the key in the store's control panel.`,
+				`\`${REPLICA_ACCESS_KEY}\` and \`${REPLICA_SECRET_KEY}\` in the project's creds: forget them on the [Creds page](#creds), and delete the key in the store's control panel.`,
 			],
 			run: async () => {},
 		},
@@ -71,7 +82,7 @@ function replicaArea(): SetupArea {
 		id: "replica",
 		title: "Keep the replica caught up",
 		why: "A replica is only as good as the last time it held every change.",
-		user: "Nothing to do while it keeps up: this says where it stands. Restart `splates server` if it ran before the replica was named.",
+		user: "Nothing to do while it keeps up: this says where it stands. Restart the server from the replica step above if it ran before the replica was named.",
 		agent:
 			"Run `splates replica status`; when it is failing, put right what it says, then run `splates setup replica`.",
 		notDone:

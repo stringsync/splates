@@ -1,10 +1,10 @@
 import type { Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
-import { ConfigFiles } from "../config";
+import { ConfigFiles, shipSettings, shipTargets } from "../config";
 import type { Git } from "../git";
 import type { Projects } from "../projects";
 import { ReleaseGit } from "./git";
-import { readGraph, type ShipGraph } from "./graph";
+import { readGraph, type ShipGraph, type ShipSource } from "./graph";
 
 /** Dependencies for reading registered shipping projects. */
 export interface ShipContext {
@@ -24,18 +24,27 @@ export interface ShipContext {
 export async function shipsFrom(
 	ctx: Pick<ShipContext, "fs" | "configs">,
 	root: string,
+	slug = "",
 ): Promise<boolean> {
 	// The two things `planShip` refuses a start for. One whose config does
 	// not load ships nothing, as in `registeredGraph`.
 	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
-	const ship = await files.read(root).then(
-		(config) => config.ship ?? null,
-		() => null,
+	const sources = await files.read(root).then(
+		(config): ShipSource[] =>
+			config.ships
+				? shipTargets(config, slug).map((target) => ({
+						slug: target.name,
+						root,
+						paths: target.paths,
+						ship: target.ship,
+					}))
+				: [{ slug: "", root, ship: shipSettings(config, slug).ship ?? null }],
+		() => [],
 	);
-	if (ship === null) {
-		return false;
-	}
-	const graph = await readGraph(ctx.fs, [{ slug: "", root, ship }]);
+	const graph = await readGraph(
+		ctx.fs,
+		sources.filter((each) => each.ship !== null),
+	);
 	return graph.projects.some((each) => !each.private);
 }
 
@@ -50,20 +59,36 @@ export async function registeredGraph(
 	// One whose config does not load is warned of and drawn as never
 	// shipped, rather than leaving every plan without it.
 	const files = ctx.configs ?? new ConfigFiles(ctx.fs);
-	const sources = await Promise.all(
-		(await ctx.projects.list())
-			.filter((each) => !each.gone)
-			.map(async ({ slug, root }) => {
-				const ship = await files.read(root).then(
-					(config) => config.ship ?? null,
-					(error: unknown) => {
+	const sources = (
+		await Promise.all(
+			(
+				await ctx.projects.list()
+			)
+				.filter((each) => !each.gone)
+				.map(async ({ slug, root }): Promise<ShipSource[]> => {
+					try {
+						const config = await files.read(root);
+						// A repository naming `ships` draws each target as its own entry.
+						if (config.ships) {
+							return shipTargets(config, slug).map((target) => ({
+								slug: target.name,
+								root,
+								repo: slug,
+								paths: target.paths,
+								ship: target.ship,
+								shipStatus: target.shipStatus,
+							}));
+						}
+						return [
+							{ slug, root, ship: shipSettings(config, slug).ship ?? null },
+						];
+					} catch (error) {
 						ctx.log.error(`${slug}: ${error}; drawn as never shipped`);
-						return null;
-					},
-				);
-				return { slug, root, ship };
-			}),
-	);
+						return [{ slug, root, ship: null }];
+					}
+				}),
+		)
+	).flat();
 	const graph = await readGraph(ctx.fs, sources);
 	if (ctx.ps !== undefined) {
 		const ps = ctx.ps;

@@ -66,7 +66,7 @@ export {
 	RUN_DENIED,
 	scheduleReference,
 	setupReference,
-	sortReference,
+	shipFailureReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

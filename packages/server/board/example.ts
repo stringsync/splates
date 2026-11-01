@@ -57,7 +57,7 @@ export function sound2score({
 		files: [],
 		blockedBy,
 		lane: lanes ? lane : null,
-		stage: "backlog",
+		stage: "available",
 	}));
 }
 

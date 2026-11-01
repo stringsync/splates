@@ -13,64 +13,35 @@ const TAP_MS = 300;
 /** Farthest a tap moves, and farthest apart a double tap's two are, in px. */
 const TAP_SLOP = 24;
 
-/**
- * How an image is zoomed: its scale, and how far it is moved from where it
- * lies, scaled from its top left corner.
- */
-export interface View {
-	scale: number;
-	x: number;
-	y: number;
-}
-
-export const UNZOOMED: View = { scale: 1, x: 0, y: 0 };
-
-/**
- * `view` zoomed to `scale`, keeping still the point `at` px from the image's
- * shown top left corner.
- */
-export function zoomAt(
-	view: View,
-	at: { x: number; y: number },
-	scale: number,
-): View {
-	const to = Math.min(MAX, Math.max(1, scale));
-	const by = 1 - to / view.scale;
-	return { scale: to, x: view.x + at.x * by, y: view.y + at.y * by };
-}
-
-/**
- * `view` kept over the image's own box, `width` by `height`, so a pan never
- * drags the image off the space it lies in.
- */
-export function within(view: View, width: number, height: number): View {
-	const clamp = (at: number, size: number) =>
-		Math.min(0, Math.max(size * (1 - view.scale), at));
-	return {
-		scale: view.scale,
-		x: clamp(view.x, width),
-		y: clamp(view.y, height),
-	};
-}
-
 interface Point {
 	x: number;
 	y: number;
 }
 
-interface Down {
-	x: number;
-	y: number;
-	/** Where the pointer was at the last move, to pan or pinch by. */
-	last: { x: number; y: number };
-	at: number;
+/** `scale` kept between no zoom and `MAX`. */
+export function clampScale(scale: number): number {
+	return Math.min(MAX, Math.max(1, scale));
 }
 
 /**
- * An image that zooms in: a pinch, the wheel or a trackpad pinch zooms at
- * the fingers or the pointer, a double tap or click zooms in there or back
- * out, and a drag pans it while zoomed. The page itself never zooms, so this
- * is how a phone sees a screenshot close up.
+ * Where the scroll position goes so the point `at` px into the viewport stays
+ * over the same part of the image when it grows by `ratio`.
+ */
+export function scrollAfterZoom(
+	scroll: number,
+	at: number,
+	ratio: number,
+): number {
+	return (scroll + at) * ratio - at;
+}
+
+/**
+ * An image that zooms in. It is laid out larger inside a box that scrolls, so
+ * the browser pans it natively, with momentum, and redraws it sharp at each
+ * size rather than stretching a bitmap. A pinch, a trackpad pinch or ctrl and
+ * the wheel zooms at the fingers or the pointer, a double tap or click zooms
+ * in there or back out, and a mouse drags it while zoomed. The page itself
+ * never zooms, so this is how a phone sees a screenshot close up.
  */
 export function ZoomableImage({
 	src,
@@ -79,111 +50,135 @@ export function ZoomableImage({
 }: {
 	src: string;
 	alt: string;
+	/** Sizes the box the image fits in at no zoom. */
 	className?: string;
 }): JSX.Element {
+	const box = useRef<HTMLDivElement>(null);
 	const image = useRef<HTMLImageElement>(null);
-	const view = useRef<View>(UNZOOMED);
-	const pointers = useRef(new Map<number, Down>());
-	const lastTap = useRef<{ x: number; y: number; at: number } | null>(null);
+	const scale = useRef(1);
+	const press = useRef<(Point & { at: number; moved: boolean }) | null>(null);
+	const lastTap = useRef<(Point & { at: number }) | null>(null);
 
-	// Set on the image itself rather than rendered, so a pinch keeps up with
-	// the fingers, and its box is where the next move measures from.
-	const show = (next: View) => {
+	const zoomTo = (next: number, at: Point) => {
+		const scroller = box.current;
 		const shown = image.current;
-		if (!shown) {
+		if (!scroller || !shown) {
 			return;
 		}
-		view.current =
-			next.scale === 1
-				? UNZOOMED
-				: within(next, shown.offsetWidth, shown.offsetHeight);
-		const { scale, x, y } = view.current;
-		shown.style.transform =
-			scale === 1 ? "" : `translate(${x}px, ${y}px) scale(${scale})`;
-		shown.style.cursor = scale === 1 ? "" : "grab";
+		const to = clampScale(next);
+		const ratio = to / scale.current;
+		const rect = scroller.getBoundingClientRect();
+		const from = { x: at.x - rect.left, y: at.y - rect.top };
+		scale.current = to;
+		shown.style.width = shown.style.height = to === 1 ? "" : `${to * 100}%`;
+		scroller.dataset.scale = String(to);
+		scroller.scrollLeft = scrollAfterZoom(scroller.scrollLeft, from.x, ratio);
+		scroller.scrollTop = scrollAfterZoom(scroller.scrollTop, from.y, ratio);
 	};
-	const fromCorner = (at: Point): Point => {
-		const box = image.current?.getBoundingClientRect();
-		return { x: at.x - (box?.left ?? 0), y: at.y - (box?.top ?? 0) };
+	const centre = (): Point => {
+		const rect = box.current?.getBoundingClientRect();
+		return {
+			x: (rect?.left ?? 0) + (rect?.width ?? 0) / 2,
+			y: (rect?.top ?? 0) + (rect?.height ?? 0) / 2,
+		};
 	};
 
-	// React's wheel listener is passive, and the wheel must not scroll the page.
+	// Listeners React would make passive, which must stop the page scrolling
+	// or zooming under a pinch.
 	useEffect(() => {
-		const shown = image.current;
+		const scroller = box.current;
+		if (!scroller) {
+			return;
+		}
 		const onWheel = (event: WheelEvent) => {
+			// A trackpad pinch comes as the wheel with ctrl held. Any other wheel
+			// scrolls the zoomed image natively.
+			if (!event.ctrlKey && !event.metaKey) {
+				return;
+			}
 			event.preventDefault();
-			// A trackpad pinch comes as the wheel with ctrl held, in small steps,
-			// spreading the fingers as a negative delta. A scroll zooms the other
-			// way, so fingers moving up a trackpad with macOS's natural scrolling
-			// zoom in.
-			const rate = event.ctrlKey ? -0.01 : 0.002;
-			show(
-				zoomAt(
-					view.current,
-					fromCorner({ x: event.clientX, y: event.clientY }),
-					view.current.scale * Math.exp(event.deltaY * rate),
-				),
-			);
+			zoomTo(scale.current * Math.exp(-event.deltaY * 0.01), {
+				x: event.clientX,
+				y: event.clientY,
+			});
 		};
-		shown?.addEventListener("wheel", onWheel, { passive: false });
-		return () => shown?.removeEventListener("wheel", onWheel);
+		let pinch: { gap: number; scale: number; mid: Point } | null = null;
+		const touches = (event: TouchEvent): [Point, Point] | null => {
+			const [one, two] = [event.touches[0], event.touches[1]];
+			return one && two
+				? [
+						{ x: one.clientX, y: one.clientY },
+						{ x: two.clientX, y: two.clientY },
+					]
+				: null;
+		};
+		const onTouchStart = (event: TouchEvent) => {
+			const both = touches(event);
+			pinch = both
+				? { gap: gap(...both), scale: scale.current, mid: middle(...both) }
+				: null;
+		};
+		const onTouchMove = (event: TouchEvent) => {
+			const both = touches(event);
+			if (!both || !pinch) {
+				return;
+			}
+			event.preventDefault();
+			const mid = middle(...both);
+			zoomTo(pinch.scale * (gap(...both) / (pinch.gap || 1)), mid);
+			// Two fingers dragging pan too.
+			scroller.scrollLeft -= mid.x - pinch.mid.x;
+			scroller.scrollTop -= mid.y - pinch.mid.y;
+			pinch.mid = mid;
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "+" || event.key === "=") {
+				zoomTo(scale.current * 1.5, centre());
+			} else if (event.key === "-") {
+				zoomTo(scale.current / 1.5, centre());
+			} else if (event.key === "0") {
+				zoomTo(1, centre());
+			}
+		};
+		scroller.addEventListener("wheel", onWheel, { passive: false });
+		scroller.addEventListener("touchstart", onTouchStart, { passive: true });
+		scroller.addEventListener("touchmove", onTouchMove, { passive: false });
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			scroller.removeEventListener("wheel", onWheel);
+			scroller.removeEventListener("touchstart", onTouchStart);
+			scroller.removeEventListener("touchmove", onTouchMove);
+			document.removeEventListener("keydown", onKeyDown);
+		};
 	});
 
-	const onPointerDown = (event: PointerEvent<HTMLImageElement>) => {
-		event.currentTarget.setPointerCapture(event.pointerId);
+	const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
 		const at = { x: event.clientX, y: event.clientY };
-		pointers.current.set(event.pointerId, {
-			...at,
-			last: at,
-			at: event.timeStamp,
-		});
+		// Touch pans natively; only a mouse is dragged by hand.
+		if (event.pointerType === "mouse") {
+			event.currentTarget.setPointerCapture(event.pointerId);
+		}
+		press.current = { ...at, at: event.timeStamp, moved: false };
 	};
-	const onPointerMove = (event: PointerEvent<HTMLImageElement>) => {
-		const moved = pointers.current.get(event.pointerId);
-		if (!moved) {
+	const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+		const down = press.current;
+		if (!down || event.pointerType !== "mouse" || scale.current === 1) {
 			return;
 		}
-		const to = { x: event.clientX, y: event.clientY };
-		const [first, second] = [...pointers.current.values()];
-		if (first && second) {
-			const other = moved === first ? second : first;
-			const before = {
-				mid: middle(moved.last, other.last),
-				gap: gap(moved.last, other.last),
-			};
-			const mid = middle(to, other.last);
-			const zoomed = zoomAt(
-				view.current,
-				fromCorner(before.mid),
-				view.current.scale * (gap(to, other.last) / (before.gap || 1)),
-			);
-			show({
-				...zoomed,
-				x: zoomed.x + mid.x - before.mid.x,
-				y: zoomed.y + mid.y - before.mid.y,
-			});
-		} else if (view.current.scale > 1) {
-			show({
-				...view.current,
-				x: view.current.x + to.x - moved.last.x,
-				y: view.current.y + to.y - moved.last.y,
-			});
-		}
-		moved.last = to;
+		const scroller = event.currentTarget;
+		scroller.scrollLeft -= event.clientX - down.x;
+		scroller.scrollTop -= event.clientY - down.y;
+		down.x = event.clientX;
+		down.y = event.clientY;
+		down.moved = true;
 	};
-	const onPointerUp = (event: PointerEvent<HTMLImageElement>) => {
-		const down = pointers.current.get(event.pointerId);
-		const alone = pointers.current.size === 1;
-		pointers.current.delete(event.pointerId);
-		if (
-			!down ||
-			!alone ||
-			event.timeStamp - down.at > TAP_MS ||
-			gap(down, { x: event.clientX, y: event.clientY }) > TAP_SLOP
-		) {
-			return;
-		}
+	const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+		const down = press.current;
+		press.current = null;
 		const tap = { x: event.clientX, y: event.clientY, at: event.timeStamp };
+		if (!down || down.moved || tap.at - down.at > TAP_MS) {
+			return;
+		}
 		const before = lastTap.current;
 		if (
 			before &&
@@ -191,34 +186,37 @@ export function ZoomableImage({
 			gap(before, tap) <= TAP_SLOP
 		) {
 			lastTap.current = null;
-			show(
-				view.current.scale > 1
-					? UNZOOMED
-					: zoomAt(view.current, fromCorner(tap), TAP_ZOOM),
-			);
+			zoomTo(scale.current > 1 ? 1 : TAP_ZOOM, tap);
 		} else {
 			lastTap.current = tap;
 		}
 	};
-	const onPointerCancel = (event: PointerEvent<HTMLImageElement>) => {
-		pointers.current.delete(event.pointerId);
-	};
 
 	return (
-		<img
-			ref={image}
-			src={src}
-			alt={alt}
-			draggable={false}
+		<div
+			ref={box}
+			data-scale="1"
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
-			onPointerCancel={onPointerCancel}
+			onPointerCancel={() => {
+				press.current = null;
+			}}
+			// Only a pan is left to the browser, so a pinch reaches the touch
+			// listeners and the page never zooms.
 			className={cn(
-				"origin-top-left cursor-zoom-in touch-none select-none",
+				"w-full cursor-grab touch-pan-x touch-pan-y overflow-auto overscroll-contain select-none outline-none [-webkit-tap-highlight-color:transparent] active:cursor-grabbing",
 				className,
 			)}
-		/>
+		>
+			<img
+				ref={image}
+				src={src}
+				alt={alt}
+				draggable={false}
+				className="block h-full w-full max-w-none object-contain"
+			/>
+		</div>
 	);
 }
 

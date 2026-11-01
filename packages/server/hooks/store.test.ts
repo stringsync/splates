@@ -8,7 +8,7 @@ describe("HookStore", () => {
 		expect(await hooks.read()).toEqual([]);
 
 		await hooks.add(
-			{ event: "task.created", filter: { stages: ["backlog"] } },
+			{ event: "task.created", filter: { stages: ["available"] } },
 			{ kind: "run", command: "notify" },
 		);
 		await hooks.add(
@@ -25,6 +25,19 @@ describe("HookStore", () => {
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["2", "3", "4"]);
 		await hooks.remove("task.created");
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["3", "4"]);
+	});
+
+	it("names an automation, trims it, and clears it when edited blank", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		const run = { kind: "run" as const, command: "tidy" };
+		await hooks.add({ every: "1h" }, run, "  Tidy up ");
+		await hooks.add({ every: "2h" }, run);
+		const [first, second] = await hooks.read();
+		expect(first?.name).toBe("Tidy up");
+		expect(second).not.toHaveProperty("name");
+
+		await hooks.edit("1", { every: "1h" }, run, "");
+		expect((await hooks.read())[0]).not.toHaveProperty("name");
 	});
 
 	it("turns the groomer on and off as built-in automation groomer, keeping its pause", async () => {
@@ -56,7 +69,7 @@ describe("HookStore", () => {
 			automations: [
 				{
 					id: "groomer",
-					trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+					trigger: { event: "task.created", filter: { stages: ["available"] } },
 					hook: { kind: "groom", agent: "claude" },
 					createdAt: "2026-10-01T00:00:00.000Z",
 					source: "builtin",
@@ -197,7 +210,7 @@ describe("HookStore", () => {
 		).rejects.toThrow("no task event");
 		await expect(
 			hooks.add(
-				{ event: "task.created", filter: { stages: ["done" as "ready"] } },
+				{ event: "task.created", filter: { stages: ["done" as "queued"] } },
 				run,
 			),
 		).rejects.toThrow("no stage");

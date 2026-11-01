@@ -61,7 +61,7 @@ export function AutomationFace({
 }): JSX.Element {
 	const adding = row.id === "";
 	const pending = adding || saving;
-	const named = row.id === GROOMER_AUTOMATION ? "Groomer" : null;
+	const named = row.id === GROOMER_AUTOMATION ? "Groomer" : (row.name ?? null);
 	const when = adding ? "Adding…" : pending ? "Saving…" : row.when;
 	const last = row.runs.at(-1);
 	return (
@@ -198,7 +198,7 @@ function Runs({ hook, does }: { hook: Hook; does: string }): JSX.Element {
 			>
 				{hook.kind === "agent"
 					? hook.prompt
-					: "Grooms each task deferred rough to the backlog, then marks it ready, and finds lanes for Untriaged tasks."}
+					: "Grooms each task in Untriaged: checks no other task asks it, links what blocks it, and places it in a lane."}
 			</p>
 		</div>
 	);

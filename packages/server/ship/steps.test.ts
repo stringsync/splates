@@ -31,11 +31,11 @@ describe("ship steps", () => {
 		});
 	});
 
-	it("ships a project without updating its dependencies", async () => {
+	it("ships a project whose pins are already current", async () => {
 		const external = new FakeStepProjects();
 		const ships = runner(external);
 		await ships.start({
-			projects: [{ slug: "downstream", bump: "minor", deps: false }],
+			projects: [{ slug: "downstream", bump: "minor" }],
 		});
 		await ships.settled();
 		expect(external.calls).toEqual([
@@ -57,45 +57,6 @@ describe("ship steps", () => {
 				},
 			],
 		});
-	});
-
-	it("updates a project's dependencies to what is published, without shipping it", async () => {
-		const external = new FakeStepProjects();
-		const stale = ensure.defined(external.graph.projects[1]?.uses[0]?.pins[0]);
-		stale.version = "0.9.0";
-		const ships = runner(external);
-		await ships.start({
-			projects: [{ slug: "downstream", bump: "patch", ship: false }],
-		});
-		await ships.settled();
-		expect(external.calls).toEqual(["adopt downstream upstream@1.0.0"]);
-		expect(await ships.current()).toMatchObject({
-			status: "done",
-			steps: [
-				{
-					slug: "downstream",
-					action: "bump",
-					status: "done",
-					stages: [
-						{ key: "upstream", state: "skipped" },
-						{ key: "adopt", state: "done" },
-						{ key: "publish", state: "skipped" },
-						{ key: "live", state: "skipped" },
-					],
-				},
-			],
-		});
-	});
-
-	it("refuses a project that neither updates its dependencies nor ships", async () => {
-		const ships = runner(new FakeStepProjects());
-		await expect(
-			ships.start({
-				projects: [
-					{ slug: "downstream", bump: "patch", deps: false, ship: false },
-				],
-			}),
-		).rejects.toMatchObject({ reason: "usage" });
 	});
 
 	it("runs a root agent adoption before publishing and waits for its merge", async () => {

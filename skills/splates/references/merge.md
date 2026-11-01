@@ -42,6 +42,17 @@ and the page cannot show the task as merging. A merge can take minutes while
 the gate runs; wait it out, and use a long enough timeout rather than
 backgrounding it.
 
+## After a merge: close what it settled
+
+Once `splates merge` lands, before your report, look at the board
+(`splates task list`) for tasks the merge made moot, and `splates task remove`
+each one, saying why in the report. The usual ones are tasks opened from a
+failing test (their goal begins `Tests failed:`) when your merge fixed that
+test or the gate has since passed it, and any task whose goal your change
+already carries out. Check each against the code or `git log`, not its title
+alone. Leave a task you only suspect is done, and ask about it as a numbered
+question; never remove one that is started, since its agent owns it.
+
 ## When a merge fails
 
 A `tests_failed` shows the gate's output whole up to 400 lines, or its first 100
@@ -57,6 +68,16 @@ the failing tests, what they import or your files first: read those before the
 test, since a change that just landed is the likeliest cause. Then reproduce
 the failure there (`bun test <paths>` on the failing files), fix, commit and
 merge again.
+
+Under `splates server`, `splates merge` hands the merge to the server, which
+runs it in your worktree with the server's own merge code and prints back
+what it says; the command still waits in the foreground and ends as the
+merge does. With a central remote, `splates merge` pushes the branch untested as
+`splates/<task>` and the server rebases, gates and lands its own checkout of it in the same
+line; a refusal (a conflict, failing tests) leaves nothing on the server, so rebase your own tree
+onto trunk and merge again. With no server to reach, it merges itself. A server that
+restarts mid-merge runs it again once the waiting command reconnects, so
+keep waiting rather than merging again.
 
 Merges waiting for the gate at once are gated as one batch: the first to
 go stacks the others' branches on its own, runs the gate once and lands
@@ -144,3 +165,5 @@ rewrite of the base's history:
    after it adjusted, revert only part, or undo it by hand with a forward
    fix), and go on from the answer. A later task that builds on it is one
    to name, never to revert along with it unasked.
+
+A test that flakes in two merges within a week is quarantined: a gate it alone fails lands anyway, noted as a flake, and the Stats page lists it. Its fix is already a queued task.

@@ -189,6 +189,48 @@ describe("App's merge steps", () => {
 		expect(pane.textContent).toContain("Premerge");
 	});
 
+	it("draws one live card when an earlier attempt never ended", async () => {
+		const view = await testing.openConversations(
+			[
+				{
+					...turn(
+						[
+							tool({
+								id: "x1",
+								command: "splates merge",
+								status: "in_progress",
+								at: second(2),
+							}),
+						],
+						{ status: "running" },
+					),
+					task: "alpha",
+					name: "Landing",
+					events: [queued(), { ...started(null, second(20)), id: "s2" }],
+				},
+			],
+			"c1",
+			{
+				tasks: [
+					details({
+						task: "alpha",
+						lease: "held",
+						base: "main",
+						gate: "running",
+						mergeSince: second(20),
+						mergeSteps: {
+							steps: [{ step: "rebase", at: second(20) }],
+						},
+					}),
+				],
+			},
+		);
+		const cards = await waitFor(() =>
+			view.getAllByRole("region", { name: "Merge" }),
+		);
+		expect(cards).toHaveLength(1);
+	});
+
 	it("says a merge whose turn ended without its end was interrupted", async () => {
 		expect(await lines([queued()], 1, false)).toEqual([
 			"Merge interruptedalpha",

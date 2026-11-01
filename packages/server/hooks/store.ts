@@ -15,7 +15,7 @@ import { scheduleOf } from "./schedule";
 export type Hook =
 	| ({ kind: "agent"; prompt: string } & AgentPick)
 	| { kind: "run"; command: string }
-	/** The project's groomer, told to groom the backlog, as built-in automation `groomer` runs. */
+	/** The project's groomer, told to groom Untriaged, as built-in automation `groomer` runs. */
 	| ({ kind: "groom" } & AgentPick);
 
 /** Which tasks an event hook fires for; a field left out matches any. */
@@ -39,6 +39,8 @@ export type Trigger =
 export interface Automation {
 	/** Its number among the person's, or a name for one splates or the project sets. */
 	id: string;
+	/** What the person calls it; the built-in groomer has none. */
+	name?: string;
 	trigger: Trigger;
 	hook: Hook;
 	/** Set while the person has it paused: it keeps its place and runs nothing. */
@@ -96,13 +98,19 @@ export class HookStore {
 	}
 
 	/** Adds an automation of `hook` on `trigger`, numbered after the others. */
-	async add(trigger: Trigger, hook: Hook): Promise<Automation> {
+	async add(trigger: Trigger, hook: Hook, name?: string): Promise<Automation> {
 		checked(trigger);
 		const createdAt = new Date().toISOString();
 		let added: Automation | undefined;
 		await this.change((automations) => {
 			const last = Math.max(0, ...automations.map(({ id }) => Number(id) || 0));
-			added = { id: String(last + 1), trigger, hook, createdAt };
+			added = {
+				id: String(last + 1),
+				...named(name),
+				trigger,
+				hook,
+				createdAt,
+			};
 			return [...automations, added];
 		});
 		return added as Automation;
@@ -165,7 +173,12 @@ export class HookStore {
 	 * its number, its pause and its runs; refuses one there is none of. A
 	 * changed trigger is stamped, so its schedule counts from now.
 	 */
-	async edit(id: string, trigger: Trigger, hook: Hook): Promise<Automation> {
+	async edit(
+		id: string,
+		trigger: Trigger,
+		hook: Hook,
+		name?: string,
+	): Promise<Automation> {
 		checked(trigger);
 		let found: Automation | undefined;
 		await this.change((automations) =>
@@ -175,8 +188,10 @@ export class HookStore {
 				}
 				const retriggered =
 					JSON.stringify(each.trigger) !== JSON.stringify(trigger);
+				const { name: _, ...unnamed } = each;
 				found = {
-					...each,
+					...unnamed,
+					...named(name),
 					trigger,
 					hook,
 					...(retriggered ? { editedAt: new Date().toISOString() } : {}),
@@ -258,6 +273,12 @@ export class HookStore {
 export type Hooks = Partial<Record<TaskEventName, Hook[]>>;
 
 /** The old form's hooks as automations, numbered in event order. */
+/** `name` as the field an automation keeps it in, or nothing when blank. */
+function named(name: string | undefined): { name?: string } {
+	const trimmed = name?.trim() ?? "";
+	return trimmed === "" ? {} : { name: trimmed };
+}
+
 export function fromHooks(
 	hooks: Hooks,
 	source?: Automation["source"],
@@ -286,7 +307,7 @@ export function eventNamed(name: string): TaskEventName {
 }
 
 /** The stages a filter can narrow a task event to, in the order a task goes through them. */
-const STAGES: readonly TaskStage[] = ["backlog", "ready", "queued", "running"];
+const STAGES: readonly TaskStage[] = ["available", "queued", "running"];
 
 /** `names` as task stages, refusing one that is none. */
 export function stagesNamed(names: readonly string[]): TaskStage[] {

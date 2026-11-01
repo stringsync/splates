@@ -47,7 +47,7 @@ describe("skill checks", () => {
 				say("## ✅ Merged upload-413 onto main\n\nUploads stop retrying."),
 				user(),
 				run("splates remove old --reason moot", "removed old"),
-				say("## 🛑 Removed old: moot after the rewrite"),
+				say("## 🧹 Removed old: moot after the rewrite"),
 				user(),
 				say(
 					'## 🔍 Ready to merge next onto main\n\nChecks: `bun test`\n\nReply "merge", or say what to change.',
@@ -86,7 +86,7 @@ describe("skill checks", () => {
 				say("Done! It landed."),
 				user(),
 				run("splates remove old", "removed old"),
-				say("## 🛑 Removed old: it was moot."),
+				say("## 🧹 Removed old: it was moot."),
 			]),
 		).toEqual([false, false]);
 	});

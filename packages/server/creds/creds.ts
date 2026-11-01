@@ -28,7 +28,7 @@ const POLL = Duration.secs(2);
 /**
  * A project's creds: the requests agents make for them, which `splates server`
  * shows on its Creds page for a person to fill, and the two stores they are
- * kept in, the project's and the device's, as `wiz creds` keeps them. A value
+ * kept in, the project's and the device's, as `bin/mono creds` keeps them. A value
  * goes into a store and never comes out through here but to code reading it
  * through `credentials`, so no agent, page or log ever holds it.
  */

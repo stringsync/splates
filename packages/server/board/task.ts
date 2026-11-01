@@ -39,6 +39,16 @@ export class Task {
 		return this.state.from;
 	}
 
+	/** The project it changes, or null for a task recorded without one. */
+	get scope(): string | null {
+		return this.state.scope ?? null;
+	}
+
+	/** The tags grouping it, none for a task recorded without any. */
+	get tags(): string[] {
+		return this.state.labels ?? [];
+	}
+
 	get takenBy(): string | null {
 		return this.state.takenBy;
 	}
@@ -85,8 +95,8 @@ export class Task {
 
 	/**
 	 * Claims it for groomer conversation `by` to groom, saying whether `by`
-	 * now has it: false for one taken, out of the backlog, or `by`'s already,
-	 * which had its turn on it. Taking it or marking it ready ends the claim.
+	 * now has it: false for one taken, in a lane, or `by`'s already, which
+	 * had its turn on it. Taking it or placing it in a lane ends the claim.
 	 */
 	async groom(by: string): Promise<boolean> {
 		// One compare-and-set under the store's lock; a claim by another
@@ -95,32 +105,16 @@ export class Task {
 		await this.tasks.revise(this.id, (state) => {
 			if (
 				state.takenBy !== null ||
-				state.stage !== "backlog" ||
+				state.stage !== "available" ||
+				state.lane !== null ||
 				state.grooming === by
 			) {
 				return state;
 			}
 			claimed = true;
-			// Grooming places it in a lane too, so no sort looks at it again.
-			return { ...state, grooming: by, sorted: true };
+			return { ...state, grooming: by };
 		});
 		return claimed;
-	}
-
-	/**
-	 * Marks it as looked at for a lane, so no sort looks again; says whether
-	 * it did, false for one taken or already in a lane.
-	 */
-	async sort(): Promise<boolean> {
-		let marked = false;
-		await this.tasks.revise(this.id, (state) => {
-			if (state.takenBy !== null || state.lane !== null) {
-				return state;
-			}
-			marked = true;
-			return { ...state, sorted: true };
-		});
-		return marked;
 	}
 
 	/** Places a groomed task in Backlog if nobody placed or took it meanwhile. */
@@ -176,7 +170,7 @@ export class Task {
 		blockedElsewhere,
 		lane,
 		assignee,
-		ready,
+		tags,
 	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -202,13 +196,7 @@ export class Task {
 					...words,
 					...(slug === undefined ? {} : { slug }),
 					files: [...kept, ...added],
-					// Groomed once running, it stays running.
-					...(ready
-						? {
-								groomed: true as const,
-								stage: state.stage === "backlog" ? "ready" : state.stage,
-							}
-						: {}),
+					...(tags === undefined ? {} : { labels: tags }),
 				},
 				assignee === undefined ? state.assignee : assignee,
 			),
@@ -397,18 +385,25 @@ export interface TaskRecord {
 	blockedBy: number[];
 	/** The lane it runs in, or null for none. */
 	lane: number | null;
-	/** How far it has come: groomed, queued, running, or none of them yet. */
+	/** How far it has come: available, queued or running. */
 	stage: TaskStage;
-	/** Whether it was groomed, kept once queued and running, so one let go goes back to ready. */
-	groomed?: true;
-	/** The groomer conversation that claimed it, in the backlog untaken; absent for none. */
+	/** The groomer conversation that claimed it, in Untriaged untaken; absent for none. */
 	grooming?: string;
-	/** Set once a groomer has looked for a lane to put it in, so none looks again. */
-	sorted?: true;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
 	origin?: TaskOrigin;
+	/**
+	 * The project of `splates.config.ts` it changes, which the task that takes
+	 * it inherits; absent for one added before tasks had one.
+	 */
+	scope?: string;
+	/**
+	 * The tags grouping it, which the task that takes it inherits; absent for
+	 * none. Kept as `labels` because `tags` is the field lanes replaced,
+	 * which a record is refused for.
+	 */
+	labels?: string[];
 	/**
 	 * Tasks it was blocked by that merged, and the commit each landed as, so
 	 * whoever starts it can read what it builds on; absent for none.
@@ -466,24 +461,22 @@ export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
 export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 
 /**
- * `state` taken out of the queue: back in ready when it was groomed, else
- * the backlog. The queue lets one go itself, saying why in `unqueuedFor`.
+ * `state` taken out of the queue, available again. The queue lets one go
+ * itself, saying why in `unqueuedFor`.
  */
 export function unqueued<T extends TaskRecord>(
 	state: T,
-): T & { stage: "ready" | "backlog" } {
+): T & { stage: "available" } {
 	const { queuedBy: _, queuedAt: __, ...rest } = state;
-	return { ...rest, stage: state.groomed ? "ready" : "backlog" } as T & {
-		stage: "ready" | "backlog";
-	};
+	return { ...rest, stage: "available" } as T & { stage: "available" };
 }
 
 /**
  * `state` as it is to be saved: pass whether it has started, which makes it
- * `running`. A task once ready stays groomed.
+ * `running`.
  */
 export function staged(state: TaskRecord, running: boolean): TaskRecord {
-	const { groomed: _, grooming, ...rest } = state;
+	const { grooming, ...rest } = state;
 	const stage = running
 		? "running"
 		: state.stage === "running"
@@ -492,11 +485,11 @@ export function staged(state: TaskRecord, running: boolean): TaskRecord {
 	return {
 		...rest,
 		stage,
-		...(state.groomed || state.stage === "ready"
-			? { groomed: true as const }
-			: {}),
-		// A groomer's claim lasts only while the task waits in the backlog untaken.
-		...(grooming !== undefined && stage === "backlog" && state.takenBy === null
+		// A groomer's claim lasts only while the task waits in Untriaged untaken.
+		...(grooming !== undefined &&
+		stage === "available" &&
+		state.lane === null &&
+		state.takenBy === null
 			? { grooming }
 			: {}),
 	};
@@ -524,8 +517,8 @@ export interface TaskChange {
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
 	assignee?: AgentPick | null;
-	/** Marks it groomed, moving it from the backlog to ready; absent leaves it as it is. */
-	ready?: boolean;
+	/** Every tag it has from now on, none for none; the old stay when this is absent. */
+	tags?: string[];
 }
 
 /**
@@ -572,11 +565,10 @@ export interface TaskNew {
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
 	origin?: TaskOrigin;
-	/**
-	 * Whether whoever wrote it groomed it, so it goes in ready; by default it
-	 * goes in the backlog, for grooming.
-	 */
-	ready?: boolean;
+	/** The project of `splates.config.ts` it changes; none by default. */
+	scope?: string;
+	/** The tags grouping it; none by default. */
+	tags?: string[];
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */
@@ -638,13 +630,13 @@ export interface LandedBlocker extends GoneBlocker {
 }
 
 /**
- * Where a task stands: `backlog` until grooming has looked for a duplicate
- * and linked what it depends on, then `ready`, whether or not it names an
- * agent, which is picked when it runs otherwise; `queued` once the person
- * puts it in the queue, from either, for a worker to start; and `running`
- * while an agent works it in a worktree.
+ * Where a task stands: `available` until the person puts it in the queue,
+ * whether or not it names an agent, which is picked when it runs otherwise;
+ * `queued` for a worker to start; and `running` while an agent works it in
+ * a worktree. Whether it was groomed is where it sits: one in Untriaged
+ * still waits for the groomer.
  */
-export type TaskStage = "backlog" | "ready" | "queued" | "running";
+export type TaskStage = "available" | "queued" | "running";
 
 /** The stages a task waits in before it starts, which it goes back to if let go. */
 export type WaitingStage = Exclude<TaskStage, "running">;

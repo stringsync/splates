@@ -64,6 +64,8 @@ export type StageKey =
 export interface StageCheck {
 	at: string;
 	result: string;
+	/** A page on the registry to look at while the check waits, such as the package on npmjs.com. */
+	link?: string;
 	/** When the next check runs, while the step polls; absent once it stops. */
 	next?: string;
 }

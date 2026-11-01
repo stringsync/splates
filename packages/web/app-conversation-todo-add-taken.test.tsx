@@ -32,7 +32,6 @@ describe("App's todo add events for a todo a task has taken", () => {
 								subject: "Upload retries forever on a 413",
 								lane: null,
 								position: 1,
-								ready: true,
 							},
 						],
 					},

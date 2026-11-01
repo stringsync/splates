@@ -33,10 +33,10 @@ export interface RemoveOptions {
  * than a hard rebase, so this is meant to be used freely.
  *
  * What it took leaves the board too, unless blocked work is being deferred.
- * Deferred work goes back to ready or the backlog, outside the queue and
+ * Deferred work goes back to available, outside the queue and
  * any queued lane until the person queues it again, holding why it stopped
  * and what it waits on; work that took no board task gets one of its own,
- * ready, so the deferral is kept somewhere.
+ * available, so the deferral is kept somewhere.
  */
 export async function remove(
 	{
@@ -109,7 +109,6 @@ export async function remove(
 			held = await queue.add(goalLine(plan) ?? task, task, {
 				slug: task,
 				text: deferral.detail ?? plan,
-				ready: true,
 			});
 			holding.push(held);
 		}
@@ -175,7 +174,7 @@ export async function remove(
 	for (const each of released) {
 		lines.push(
 			each === held
-				? `  task ${each.id} holds the deferred work, ready and out of the queue until queued by hand: ${each.subject}`
+				? `  task ${each.id} holds the deferred work, available and out of the queue until queued by hand: ${each.subject}`
 				: `  task ${each.id} is open again, out of the queue until queued by hand: ${each.subject}`,
 		);
 	}

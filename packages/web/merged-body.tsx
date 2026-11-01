@@ -25,10 +25,7 @@ export function MergedBody({
 	].filter((each) => each !== "");
 	return (
 		<div>
-			<CardBody
-				text={`### Summary\n\n${first}`}
-				className="[&_p]:first-letter:uppercase"
-			/>
+			<CardBody text={`### Summary\n\n${first}`} />
 			{more.length > 0 && (
 				<section aria-label="outcome">
 					{more.map((each) => (

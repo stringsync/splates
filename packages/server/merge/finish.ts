@@ -120,7 +120,9 @@ export async function finishLanding(
 				]),
 		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
 		...(unpushed === null ? [] : [unpushed]),
-		...done.map((each) => `  done task ${each.id}: ${each.subject}`),
+		...done.map(
+			(each) => `  ${color.green("done")} task ${each.id}: ${each.subject}`,
+		),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its
 	// parent's branch hands back to that parent, which is not done yet.

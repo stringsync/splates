@@ -75,7 +75,7 @@ describe("AutomationList", () => {
 		expect(list.isPending("groomer")).toBe(true);
 		settle();
 		expect(await turning).toBe(true);
-		expect(list.groomer).toMatchObject({ when: "task.created in backlog" });
+		expect(list.groomer).toMatchObject({ when: "task.created in available" });
 
 		const editing = list.groom({ agent: "codex", model: "gpt-5" });
 		expect(list.groomer).toMatchObject({ hook: { agent: "claude" } });
@@ -135,11 +135,11 @@ function held(rows: AutomationRow[]) {
 				{
 					...TIDY,
 					id: "groomer",
-					trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+					trigger: { event: "task.created", filter: { stages: ["available"] } },
 					hook: { kind: "groom", ...pick },
 					source: "builtin",
-					when: "task.created in backlog",
-					does: `groom the backlog with ${pick.agent}`,
+					when: "task.created in available",
+					does: `groom Untriaged with ${pick.agent}`,
 				},
 			]),
 	};

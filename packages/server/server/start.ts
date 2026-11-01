@@ -26,7 +26,7 @@ import {
 } from "../models";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
-import { Journal, ProjectHome } from "../records";
+import { inLinkedWorktree, Journal, ProjectHome } from "../records";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -43,6 +43,7 @@ import {
 	FileLogger,
 	LOCAL_WORKER,
 	SUPERVISOR,
+	UnixWorkerListener,
 	WorkerRecords,
 	workerGit,
 	workerSocketPath,
@@ -58,7 +59,13 @@ import {
 	savedTunnelOf,
 	seeded,
 } from "./start-settings";
-import { awakeCommand, SERVING, supervise, UNBUILT } from "./supervise";
+import {
+	awakeCommand,
+	NO_WORKER,
+	SERVING,
+	supervise,
+	UNBUILT,
+} from "./supervise";
 
 /**
  * Runs `splates server` with its flags: the page for every registered
@@ -152,10 +159,29 @@ async function start(
 		// Agents run on the local worker, beside the server, so a restart
 		// leaves them running.
 		const worker = ["worker", "run", "--id", LOCAL_WORKER, "--quiet"];
+		// None beside a second server sharing a home: its worker would dial
+		// the first one's socket and end the agents running there.
+		const socket =
+			slot === null
+				? workerSocketPath(ctx.ps)
+				: `${slot.env.SPLATES_HOME}/worker.sock`;
+		const taken = await UnixWorkerListener.answers(socket);
+		if (taken && slot === null && (await inLinkedWorktree(ctx.ps))) {
+			fail(
+				"usage",
+				`another splates server listens at ${socket}, and this is a task worktree: a server here would share its state db and tunnel. Give it its own home with --slot`,
+				{ at: socket },
+			);
+		}
+		if (taken) {
+			ctx.log.error(
+				`another splates server listens at ${socket}: starting no worker or tunnel beside this one, so it runs no agents (give it its own home with --slot)`,
+			);
+		}
 		const code = await supervise(ctx.ps, {
 			build,
-			env: slot?.env,
-			worker,
+			env: { ...slot?.env, ...(taken ? { [NO_WORKER]: "1" } : {}) },
+			worker: taken ? null : worker,
 			checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
 			awake: opts.keepalive,
 			log: ctx.log,
@@ -172,7 +198,13 @@ async function start(
 		opts["access-team"],
 		opts["access-aud"],
 	].some((flag) => flag.trim() !== "");
-	if (!flagged) {
+	// A server without the worker serves no agents, so the tunnel's traffic
+	// is not for it: a second connector would take half of the page requests.
+	const workerless = ctx.ps.env(NO_WORKER) !== undefined;
+	if (workerless) {
+		access = null;
+		tunnel = null;
+	} else if (!flagged) {
 		const saved = await savedTunnelConfig(savedTunnelOf(ctx), ctx.ps, ctx.log);
 		access = saved?.access ?? null;
 		tunnel = saved?.tunnel ?? null;

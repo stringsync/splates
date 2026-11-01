@@ -29,7 +29,7 @@ export async function typeConfig({
 	const after = typedConfig(before);
 	if (after === null) {
 		log.info(
-			`left ${CONFIG_FILE} calling \`defineConfig\`: type it with \`satisfies ConfigFile\` by hand`,
+			`${color.green("left")} ${CONFIG_FILE} calling \`defineConfig\`: type it with \`satisfies ConfigFile\` by hand`,
 		);
 		return;
 	}
@@ -41,7 +41,7 @@ export async function typeConfig({
 	if (JSON.stringify(rewritten) !== JSON.stringify(config)) {
 		await fs.write(path, before);
 		log.info(
-			`left ${CONFIG_FILE} calling \`defineConfig\`: type it with \`satisfies ConfigFile\` by hand`,
+			`${color.green("left")} ${CONFIG_FILE} calling \`defineConfig\`: type it with \`satisfies ConfigFile\` by hand`,
 		);
 		return;
 	}

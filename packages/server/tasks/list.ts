@@ -11,10 +11,16 @@ interface Row {
 	/** Its number, as `[SPLATES TASK #N]` and `splates task show` name it; null for a record without one. */
 	number: number | null;
 	task: string;
+	/** The project it changes; null for a record without one. */
+	project: string | null;
+	/** The tags grouping it. */
+	tags: string[];
 	comingConflict: string[];
 	/** Landings that changed files the task also changed, as notices. */
 	landed: string[];
 	status: string;
+	/** Its place in the server's merge queue while it waits for its turn, 1 next; null otherwise. */
+	mergePlace: number | null;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
 	added: number | null;
@@ -36,14 +42,19 @@ export interface ListOptions {
 	 * and a file read per task.
 	 */
 	files?: boolean;
+	/** Only the tasks with this tag. */
+	tag?: string;
 }
 
 export async function list(
 	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
-	{ json = false, files = false }: ListOptions = {},
+	{ json = false, files = false, tag }: ListOptions = {},
 ): Promise<void> {
 	const rows: Row[] = [];
 	for (const worktree of await service.list()) {
+		if (tag !== undefined && !worktree.tags.includes(tag)) {
+			continue;
+		}
 		const base = await row(worktree);
 		rows.push(files ? { ...base, ...(await paths(worktree, fs)) } : base);
 	}
@@ -65,11 +76,14 @@ async function row(worktree: Worktree): Promise<Row> {
 	return {
 		number: state?.id ?? null,
 		task: worktree.task,
+		project: worktree.scope,
+		tags: worktree.tags,
 		comingConflict: (await worktree.comingConflict())?.files ?? [],
 		landed: await landingNotices(worktree),
 		// One unreadable record shows as `unknown` instead of taking down the
 		// whole listing.
 		status: worktree.status,
+		mergePlace: worktree.mergePlace,
 		lease: worktree.leaseStatus,
 		ahead: state ? await worktree.commitsAhead() : null,
 		added: diff?.added ?? null,
@@ -101,14 +115,31 @@ function listing(rows: Row[]): string {
 	const cells = rows.map((row) => [
 		row.number === null ? "" : `#${row.number}`,
 		row.task,
-		row.status,
+		row.project ?? "",
+		row.tags.join(","),
+		row.mergePlace === null
+			? row.status
+			: `${row.status} (queued ${row.mergePlace})`,
 		row.lease,
 		row.ahead === null ? "?" : String(row.ahead),
 		diff(row),
 		row.age,
 	]);
 	const out = [
-		table(["#", "TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
+		table(
+			[
+				"#",
+				"TASK",
+				"PROJECT",
+				"TAGS",
+				"STATUS",
+				"LEASE",
+				"AHEAD",
+				"DIFF",
+				"AGE",
+			],
+			cells,
+		),
 	];
 	for (const row of rows) {
 		if (row.comingConflict.length > 0) {
@@ -142,6 +173,10 @@ function files(row: Row): string[] {
 	const changed = (row.changed ?? []).map((path) => `  changed  ${path}`);
 	return [
 		color.bold(row.task),
+		...(row.project ? [`  ${color.dim("project")}  ${row.project}`] : []),
+		...(row.tags.length > 0
+			? [`  ${color.dim("tags")}     ${row.tags.join(", ")}`]
+			: []),
 		...(row.goal ? [`  ${color.dim("goal")}     ${row.goal}`] : []),
 		...(changed.length > 0 ? changed : [color.dim("  no files yet")]),
 	];

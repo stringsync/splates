@@ -36,7 +36,11 @@ describe("App's Deferred card", () => {
 
 	const board = {
 		todos: [
-			todo({ id: 812, subject: "Rewrite the upload client", stage: "backlog" }),
+			todo({
+				id: 812,
+				subject: "Rewrite the upload client",
+				stage: "available",
+			}),
 			todo({
 				id: 20,
 				subject: "Retry on 413",
@@ -54,7 +58,7 @@ describe("App's Deferred card", () => {
 		lanes: [],
 	};
 
-	it("says why it stopped and what it waits on, with Resume its one way on", async () => {
+	it("says why it stopped and what it waits on, with Archive its one way on", async () => {
 		const view = await testing.openConversations([deferring], undefined, board);
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "deferred upload-retry" }),
@@ -63,7 +67,8 @@ describe("App's Deferred card", () => {
 		expect(card.textContent).toContain("Rewrite the upload client");
 		expect(card.textContent).toContain("Keep the retry for old clients?");
 		expect(card.textContent).toContain("an upstream release");
-		// Resume is its one way on; the rest open the task or answer it.
+		// Archive puts the conversation away; the
+		// rest open the task or answer it.
 		expect(
 			within(card)
 				.getAllByRole("button")
@@ -72,14 +77,7 @@ describe("App's Deferred card", () => {
 			"Taskupload-retry",
 			"#812 Rewrite the upload client",
 			"Answer",
-			"Resume",
-		]);
-
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Resume" })),
-		);
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[SPLATES TASK #20]" } },
+			"Archive",
 		]);
 	});
 
@@ -129,7 +127,7 @@ describe("App's Deferred card", () => {
 				todo({
 					id: 812,
 					subject: "Rewrite the upload client",
-					stage: "backlog",
+					stage: "available",
 				}),
 				todo({ id: 20, subject: "Retry on 413", slug: "upload-retry" }),
 			],
@@ -162,7 +160,7 @@ describe("App's Deferred card", () => {
 				todo({
 					id: 812,
 					subject: "Rewrite the upload client",
-					stage: "backlog",
+					stage: "available",
 				}),
 				todo({
 					id: 20,

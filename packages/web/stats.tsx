@@ -1,25 +1,31 @@
 import { useReactive } from "core/react";
-import { type JSX, useEffect } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { quarantined } from "./api";
 import { ReadFailed, ReadingNow } from "./countdown";
 import { BY_MODEL } from "./stats-columns";
+import { CostPerTask } from "./stats-cost";
+import { TimePerTask } from "./stats-flow";
 import { PERIODS, type Row, type StatsReport } from "./stats-report";
 import { TopBar } from "./top-bar";
 
 /** Essential task stats by model over the selected period. */
 export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
-	const { stats, error, empty, period, ended, models } = useReactive(
-		report,
-		(report) => ({
-			stats: report.stats,
-			error: report.error,
-			empty: report.empty,
-			period: report.period,
-			ended: report.ended,
-			models: report.models,
-		}),
-		["changed"],
-	);
+	const { stats, error, empty, period, ended, models, cost, flow } =
+		useReactive(
+			report,
+			(report) => ({
+				stats: report.stats,
+				error: report.error,
+				empty: report.empty,
+				period: report.period,
+				ended: report.ended,
+				models: report.models,
+				cost: report.cost,
+				flow: report.flow,
+			}),
+			["changed"],
+		);
 	// Read each time the page is shown: tasks end while it is away.
 	useEffect(() => {
 		void report.refresh();
@@ -60,7 +66,22 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				</p>
 			) : (
 				<>
+					{cost !== null && (
+						<CostPerTask
+							rates={cost}
+							period={period}
+							weekly={period.id === "all"}
+						/>
+					)}
+					{flow !== null && (
+						<TimePerTask
+							rates={flow}
+							period={period}
+							weekly={period.id === "all"}
+						/>
+					)}
 					<ModelStats rows={models} />
+					<QuarantinedTests />
 					{stats.since && (
 						<p className="text-muted-foreground text-xs">
 							{ended} task{ended === 1 ? "" : "s"} ended{" "}
@@ -125,6 +146,43 @@ function ModelStats({ rows }: { rows: Row[] }): JSX.Element {
 				Tasks includes merges and removals. Time and cost are averages per task
 				with recorded data. Duration runs from add to end; working time is the
 				agent's active time. A dash means no recorded data.
+			</p>
+		</section>
+	);
+}
+
+/** The tests that keep flaking in merge gates, whose failures no longer refuse a merge. */
+function QuarantinedTests(): JSX.Element | null {
+	const [tests, setTests] = useState<Awaited<ReturnType<typeof quarantined>>>(
+		[],
+	);
+	useEffect(() => {
+		void quarantined().then(
+			(found) => setTests(Array.isArray(found) ? found : []),
+			() => {},
+		);
+	}, []);
+	if (tests.length === 0) {
+		return null;
+	}
+	return (
+		<section aria-label="Quarantined tests" className="flex flex-col gap-2">
+			<h2 className="font-medium text-sm">Quarantined tests</h2>
+			<ul className="flex flex-col gap-1 text-sm">
+				{tests.map((test) => (
+					<li key={`${test.file ?? ""}:${test.name}`} className="wrap-anywhere">
+						{test.name}
+						<span className="text-muted-foreground text-xs">
+							{test.file === undefined ? "" : ` ${test.file}`} · flaked in{" "}
+							{test.flakes} merges, last{" "}
+							{new Date(test.last).toLocaleDateString()}
+						</span>
+					</li>
+				))}
+			</ul>
+			<p className="text-muted-foreground text-xs">
+				A test that flakes in two merges within a week stops refusing merges;
+				each has a task queued to fix it.
 			</p>
 		</section>
 	);

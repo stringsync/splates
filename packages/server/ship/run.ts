@@ -4,27 +4,16 @@ import type { Fs, Ps, TerminalChild } from "core/system";
 import { SystemWallClock, type WallClock } from "core/time";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
-import { ApprovalWatch } from "./approval-watch";
 import { ReleaseGit } from "./git";
 import {
 	ANSI,
-	AROUND_LINK,
 	NPM_ENV,
-	NPM_PAGE,
-	OTP_PROMPT,
 	quietly,
 	RELEASE_PROMPT,
 	TERMINAL,
-	typedCodeError,
 } from "./npm-terminal";
 import type { ShipBump } from "./plan";
-import {
-	SHIP_STAGES,
-	type Ship,
-	type ShipStatus,
-	type ShipWait,
-	shipRecord,
-} from "./record";
+import { SHIP_STAGES, type Ship, type ShipStatus, shipRecord } from "./record";
 import {
 	type ReleaseStep,
 	ReleaseStepsFollower,
@@ -38,7 +27,6 @@ import {
 	type Stage,
 	type StageKey,
 } from "./stages";
-import { checkNpm, TOKEN_REFUSED, whoamiResult } from "./token";
 
 export type { Ship, ShipStatus, ShipWait } from "./record";
 export { SHIP_STAGES, shipRecord } from "./record";
@@ -56,39 +44,39 @@ export interface ShippingOptions {
 	dir: string;
 	/** The `ship` command its `splates.config.ts` names, or null for none. */
 	command: string | null;
-	/** The project's slug. */
+	/** The project's slug, or the name of the ship target that `target` names. */
 	slug: () => Promise<string>;
-	clock?: WallClock;
 	/**
-	 * The long-lived npm token the project's creds keep as `NPM_TOKEN`, or
-	 * undefined for none. With one, the ship publishes under it and asks the
-	 * person for no sign-in.
+	 * The name of the ship target this runs, for a repository whose `ships`
+	 * name several: its record and output are its own.
 	 */
-	npmToken?: () => Promise<string | undefined>;
-	/** Asks for an `NPM_TOKEN` when a ship has none and falls back to the web login. */
-	requestNpmToken?: () => Promise<void>;
-	/** Milliseconds between looks at npm's scan of staged packages; 10 seconds by default. */
-	scanEvery?: number;
+	target?: string;
+	/** The version the target is at; the root `package.json`'s by default. */
+	version?: () => Promise<string | null>;
+	/** Shared by the targets of one repository, so only one ships at a time. */
+	lock?: ShipLock;
+	clock?: WallClock;
 	/** Release-branch checks; the project at root by default. */
 	git?: Pick<ReleaseGit, "sync">;
+}
+
+/** Held by the one ship running in a repository, since each commits to its trunk. */
+export class ShipLock {
+	holder: object | null = null;
 }
 
 /** The error of a ship the person stopped. */
 const STOPPED = "stopped: the person abandoned the ship";
 
-/** How long to wait between looks at npm's scan of what a release staged, in milliseconds. */
-const SCAN_EVERY = 10_000;
-
 /** How many lines of output a failed ship keeps as its error. */
 const TAIL = 20;
 
 /**
- * Runs a project's ship on the server's machine, under the person's own npm
- * sign-in: `npm login --auth-type=web` when `npm whoami` says there is none,
- * then the project's `ship` command from its main tree. The link each npm
- * page asks the person to open is kept as `waiting` for the page to show,
- * and the release's own question is answered yes, since the person asked for
- * the ship. Its output goes to a file for the page to follow.
+ * Runs a project's ship on the server's machine: pushes the release branch,
+ * then runs the project's `ship` command from its main tree. Publishing runs
+ * in a job npm trusts, so no step waits on the person; the release's own
+ * question is answered yes, since the person asked for the ship. Its output
+ * goes to a file for the page to follow.
  */
 export class Shipping implements Resource {
 	private readonly record: Document<Ship>;
@@ -98,42 +86,18 @@ export class Shipping implements Resource {
 	private disposed = false;
 	/** Whether the person stopped the ship under way. */
 	private stopped = false;
-	/** Whether npm asked for a typed one-time password, which stops the ship. */
-	private typed = false;
-	/** Who `npm whoami` says is signed in, for the link to their 2FA settings. */
-	private user: string | null = null;
 	/** Where the ship under way writes its output. */
 	private log: string | null = null;
 	/** How many bytes its log holds, where the next step's slice begins. */
 	private bytes = 0;
-	/** Where in the log what the child printed last began. */
-	private heardFrom = 0;
-	/** The environment npm runs under for the ship, signed in as the person or the kept token. */
-	private npmEnv: Record<string, string> = NPM_ENV;
-	private readonly watching: ApprovalWatch;
-
 	constructor(private readonly opts: ShippingOptions) {
-		this.record = shipRecord(opts.storage);
+		this.record = shipRecord(opts.storage, opts.target);
 		this.clock = opts.clock ?? new SystemWallClock();
-		this.watching = new ApprovalWatch({
-			ps: opts.ps,
-			root: opts.root,
-			every: opts.scanEvery ?? SCAN_EVERY,
-			now: () => this.clock.now(),
-			env: () => this.npmEnv,
-			user: () => this.user,
-			stopped: () => this.disposed,
-			from: () => this.heardFrom,
-			bytes: () => this.bytes,
-			read: () => this.record.read(),
-			update: (change) => this.update(change),
-			stage: (key, change) => this.stage(key, change),
-		});
 	}
 
 	/** Where the output of a ship whose cascade names no log goes. */
 	get output(): string {
-		return `${this.opts.dir}/ship.log`;
+		return `${this.opts.dir}/ship${this.opts.target === undefined ? "" : `.${this.opts.target}`}.log`;
 	}
 
 	/** Where the ship command writes the steps of its Release. */
@@ -178,12 +142,18 @@ export class Shipping implements Resource {
 				root: this.opts.root,
 			});
 		}
+		const { lock } = this.opts;
+		if (lock !== undefined && lock.holder !== null && lock.holder !== this) {
+			fail("conflict", "another ship is under way in this repository", {
+				root: this.opts.root,
+			});
+		}
 		const ship: Ship = {
 			project: await this.opts.slug(),
 			command,
 			bump,
 			status: "running",
-			step: "login",
+			step: "ship",
 			from: await this.version(),
 			to: null,
 			started: this.stamp(),
@@ -204,7 +174,6 @@ export class Shipping implements Resource {
 		await fs.write(this.events, "");
 		this.bytes = (await fs.readBytes(path)).byteLength;
 		this.stopped = false;
-		this.typed = false;
 		await this.record.write(ship);
 		this.run(command, bump);
 		return ship;
@@ -226,11 +195,10 @@ export class Shipping implements Resource {
 			.then((bytes) => bytes.byteLength)
 			.catch(() => 0);
 		this.stopped = false;
-		this.typed = false;
 		await this.record.write({
 			...left,
 			command,
-			step: "login",
+			step: "ship",
 			waiting: null,
 			resumed: left.resumed + 1,
 			// What did not end runs again; what ended stays as it was.
@@ -273,11 +241,17 @@ export class Shipping implements Resource {
 	}
 
 	private run(command: string, bump: ShipBump): void {
+		if (this.opts.lock !== undefined) {
+			this.opts.lock.holder = this;
+		}
 		this.going = this.steps(command, bump)
 			.catch(async (error: unknown) => {
 				await this.end("failed", String(error));
 			})
 			.finally(() => {
+				if (this.opts.lock?.holder === this) {
+					this.opts.lock.holder = null;
+				}
 				this.going = null;
 				this.child = null;
 			});
@@ -286,51 +260,6 @@ export class Shipping implements Resource {
 	private async steps(command: string, bump: ShipBump): Promise<void> {
 		const { ps, root } = this.opts;
 		await this.sync("push");
-		const at = this.stamp();
-		await this.stage("login", (stage) => ({
-			...begun(stage, at, "checking"),
-			log: { from: this.bytes, to: null },
-		}));
-		const token = await this.opts.npmToken?.();
-		const { env, whoami } = await checkNpm(this.opts, token);
-		const signedIn = whoami.exitCode === 0;
-		this.npmEnv = env;
-		this.user = signedIn ? whoami.stdout.trim() || null : null;
-		await this.stage("login", (stage) => ({
-			...stage,
-			check: {
-				at: this.stamp(),
-				result: whoamiResult(whoami, token),
-			},
-		}));
-		if (!signedIn && token !== undefined) {
-			await this.end("failed", TOKEN_REFUSED);
-			return;
-		}
-		if (!signedIn) {
-			await this.opts.requestNpmToken?.();
-			await this.stage("login", (stage) => ({ ...stage, state: "running" }));
-			const code = await this.watch(
-				ps.startOnTerminal(quietly("npm login --auth-type=web"), {
-					...TERMINAL,
-					cwd: root,
-					env: NPM_ENV,
-				}),
-				"login",
-			);
-			if (code !== 0 || this.stopped || this.typed) {
-				await this.end(
-					"failed",
-					this.stopped
-						? STOPPED
-						: this.typed
-							? typedCodeError(this.user)
-							: await this.tail(`npm login exited ${code}`),
-				);
-				return;
-			}
-		}
-		await this.stage("login", (stage) => this.closed(stage, "done"));
 		await this.update({ step: "ship", waiting: null });
 		await this.stage("command", (stage) => ({
 			...begun(stage, this.stamp()),
@@ -341,27 +270,25 @@ export class Shipping implements Resource {
 				...TERMINAL,
 				cwd: root,
 				env: {
-					...env,
+					...NPM_ENV,
 					SPLATES_SHIP_BUMP: bump,
 					SPLATES_SHIP_EVENTS: this.events,
 				},
 			}),
 			"ship",
 		);
-		if (code === 0 && !this.stopped && !this.typed) {
+		if (code === 0 && !this.stopped) {
 			await this.stage("command", (stage) => this.closed(stage, "done"));
 			await this.sync("remote");
 		}
 		await this.end(
-			code === 0 && !this.stopped && !this.typed ? "done" : "failed",
+			code === 0 && !this.stopped ? "done" : "failed",
 			this.stopped
 				? STOPPED
-				: this.typed
-					? typedCodeError(this.user)
-					: code === 0
-						? null
-						: (releaseFailure(await this.releaseStepsOf()) ??
-							(await this.tail(`${command} exited ${code}`))),
+				: code === 0
+					? null
+					: (releaseFailure(await this.releaseStepsOf()) ??
+						(await this.tail(`${command} exited ${code}`))),
 		);
 	}
 
@@ -398,9 +325,8 @@ export class Shipping implements Resource {
 	}
 
 	/**
-	 * Follows `child` to its exit: its output to the file, each npm link it
-	 * prints as what the ship waits on, cleared once npm says anything else,
-	 * and the release's question answered yes.
+	 * Follows `child` to its exit: its output to the file and the release's
+	 * question answered yes.
 	 */
 	private async watch(
 		child: TerminalChild,
@@ -410,26 +336,13 @@ export class Shipping implements Resource {
 		let pending = "";
 		let asked = false;
 		const heard = async (text: string) => {
-			this.heardFrom = this.bytes;
 			await this.say(text);
-			pending += text.replace(ANSI, "");
-			const lines = pending.split(/\r?\n/);
-			pending = lines.pop() ?? "";
-			for (const line of lines) {
-				await this.line(line.trim(), step);
-			}
+			pending = (pending + text.replace(ANSI, "")).split(/\r?\n/).pop() ?? "";
 			if (RELEASE_PROMPT.test(pending) && !asked) {
 				asked = true;
 				child.write("y\n");
 			} else if (!RELEASE_PROMPT.test(pending)) {
 				asked = false;
-			}
-			if (OTP_PROMPT.test(pending) && !this.typed) {
-				// splates never takes a typed code: the ship stops, saying how to
-				// have npm ask on its own page instead.
-				this.typed = true;
-				await this.asked();
-				child.kill();
 			}
 		};
 		// One reader at a time, so lines go in the order they came.
@@ -451,7 +364,6 @@ export class Shipping implements Resource {
 								...stage,
 								releaseSteps: steps,
 							}));
-							await this.watching.keep(steps);
 						},
 					})
 				: null;
@@ -462,31 +374,7 @@ export class Shipping implements Resource {
 		child.close();
 		await reading;
 		await order;
-		if (pending.trim() !== "") {
-			await this.line(pending.trim(), step);
-		}
 		return code;
-	}
-
-	private async line(line: string, step: Ship["step"]): Promise<void> {
-		const url = NPM_PAGE.exec(line)?.[0];
-		if (url !== undefined) {
-			const kind = step === "login" || url.includes("/login") ? "login" : "2fa";
-			await this.update({
-				waiting: { kind, url, since: this.stamp() },
-			});
-			if (kind === "login") {
-				await this.stage("login", (stage) => ({ ...stage, state: "asking" }));
-			} else {
-				await this.asked();
-			}
-		} else if (line !== "" && !AROUND_LINK.test(line)) {
-			const ship = await this.record.read();
-			if (ship?.waiting != null && ship.waiting.kind !== "approve") {
-				await this.update({ waiting: null });
-				await this.answered(ship.waiting.kind);
-			}
-		}
 	}
 
 	private async end(status: ShipStatus, error: string | null): Promise<void> {
@@ -507,26 +395,11 @@ export class Shipping implements Resource {
 				stage.ended !== null
 					? stage
 					: stage.started === null
-						? // npm never asked for a second factor, or the ship never got there.
+						? // The ship never got there.
 							{ ...stage, state: "skipped", ended: at }
 						: this.closed(stage, status === "done" ? "done" : "failed"),
 			);
 		}
-	}
-
-	/** npm asked for a publish's second factor: its step waits on the person. */
-	private async asked(): Promise<void> {
-		await this.stage("otp", (stage) => ({
-			...begun(stage, this.stamp(), "asking"),
-			log: stage.log ?? { from: this.heardFrom, to: null },
-		}));
-	}
-
-	/** npm moved on from what it waited on the person for. */
-	private async answered(kind: ShipWait["kind"]): Promise<void> {
-		await this.stage(kind === "login" ? "login" : "otp", (stage) =>
-			stage.state === "asking" ? { ...stage, state: "running" } : stage,
-		);
 	}
 
 	/** `stage` ended now in `state`, its log slice closed where the log is. */
@@ -574,6 +447,9 @@ export class Shipping implements Resource {
 
 	/** The root `package.json` version, or null when it has none. */
 	private async version(): Promise<string | null> {
+		if (this.opts.version !== undefined) {
+			return this.opts.version();
+		}
 		try {
 			const { version } = JSON.parse(
 				await this.opts.fs.read(`${this.opts.root}/package.json`),

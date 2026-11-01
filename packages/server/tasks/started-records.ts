@@ -93,7 +93,7 @@ export class StartedRecords {
 			startedAt: createdAt,
 			startedFrom:
 				record.startedFrom ??
-				(record.stage === "running" ? "backlog" : record.stage),
+				(record.stage === "running" ? "available" : record.stage),
 			status,
 		});
 	}
@@ -118,7 +118,7 @@ export class StartedRecords {
 				).clear();
 			} else {
 				const back = queuedOf(record);
-				const stage = record.startedFrom ?? "backlog";
+				const stage = record.startedFrom ?? "available";
 				await this.store.write(
 					unqueue && stage === "queued" ? unqueued(back) : { ...back, stage },
 				);
@@ -186,7 +186,7 @@ export class StartedRecords {
 			files: [],
 			blockedBy: [],
 			lane: null,
-			stage: "backlog",
+			stage: "available",
 			listed: false,
 		};
 	}

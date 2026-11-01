@@ -86,7 +86,7 @@ function openCodeArea(): SetupArea {
 	const modelsStep: SetupStep = {
 		id: "opencode-models",
 		title: "Choose your models",
-		why: `Turn **Use balance** off in the [OpenCode Console](${CONSOLE}), so conversations stay on your Go plan.`,
+		why: `Turn **Use balance** off in the [OpenCode Console](${CONSOLE}), so conversations stay on your Go plan instead of drawing down your account balance. OpenCode cannot report the setting, so say here that you turned it off.`,
 		user: "Pick a main and an auxiliary model.",
 		agent: "Have the user pick on the page; no prompts or credential exports.",
 		optional: true,

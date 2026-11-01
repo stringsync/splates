@@ -169,7 +169,7 @@ export type Ending =
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## ✅ Done:
- * <what came of it>` (work over with no task, such as an automation's run), `## 🛑 Removed
+ * <what came of it>` (work over with no task, such as an automation's run), `## 🧹 Removed
  * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
  * Working <task>: on <agent>`.
  */
@@ -207,7 +207,7 @@ const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 /** A conversation's work is over with no task: `## ✅ Done: <what came of it>`. */
 const DONE = /^## ✅ Done(?::[ \t]*(.*?))?[ \t]*$/;
 const ENDED =
-	/^## (?:(🛑) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+	/^## (?:(🧹) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;

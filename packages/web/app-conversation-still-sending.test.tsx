@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "core/time";
+import { setHeldAfterMs } from "./sending";
 import {
 	act,
 	cleanup,
@@ -17,6 +18,7 @@ describe("App's messages still sending", () => {
 	let view: Awaited<ReturnType<Testing["openConversations"]>>;
 
 	beforeEach(async () => {
+		setHeldAfterMs(0);
 		testing = new Testing();
 		view = await testing.openConversations([
 			conversation({
@@ -36,6 +38,7 @@ describe("App's messages still sending", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		setHeldAfterMs(5000);
 	});
 
 	it("says a message is sending after a moment, and when it times out once unanswered for a few seconds", async () => {
@@ -125,10 +128,13 @@ describe("App's messages still sending", () => {
 		await act(async () => testing.release());
 
 		const thread = view.getByRole("region", { name: "Login" });
+		// The server's copy replaces the page's, held for the agent now.
 		await waitFor(() =>
-			expect(within(thread).queryByText(/Sending…/)).toBeNull(),
+			expect(within(thread).queryByText(/times out in/)).toBeNull(),
 		);
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(await within(thread).findAllByText("and the logout")).toHaveLength(
+			1,
+		);
 		await act(async () => {
 			testing.wall.advance(Duration.secs(30));
 			testing.timer.fireTimeouts();

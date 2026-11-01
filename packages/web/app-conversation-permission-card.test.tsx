@@ -3,7 +3,6 @@ import {
 	act,
 	cleanup,
 	conversation,
-	details,
 	fireEvent,
 	message,
 	snapshot,
@@ -21,7 +20,7 @@ describe("App's permission card", () => {
 		testing.servedOf.shop = snapshot({
 			project: "shop",
 			todos: [
-				todo({ id: 404, subject: "Fix the cart", stage: "ready" }),
+				todo({ id: 404, subject: "Fix the cart", stage: "available" }),
 				todo({ id: 405, subject: "Ship the cart", stage: "queued" }),
 			],
 		});
@@ -61,8 +60,13 @@ describe("App's permission card", () => {
 
 	const board = {
 		todos: [
-			todo({ id: 31, subject: "Write the CSV", lane: 3, stage: "ready" }),
-			todo({ id: 32, subject: "Serve the export", lane: 3, stage: "ready" }),
+			todo({ id: 31, subject: "Write the CSV", lane: 3, stage: "available" }),
+			todo({
+				id: 32,
+				subject: "Serve the export",
+				lane: 3,
+				stage: "available",
+			}),
 		],
 		lanes: [{ id: 3, name: "Billing export" }],
 	};
@@ -70,12 +74,12 @@ describe("App's permission card", () => {
 	// A queue with more ahead than the card shows, and a lane task blocked.
 	const busy = {
 		todos: [
-			todo({ id: 31, subject: "Write the CSV", lane: 3, stage: "ready" }),
+			todo({ id: 31, subject: "Write the CSV", lane: 3, stage: "available" }),
 			todo({
 				id: 32,
 				subject: "Serve the export",
 				lane: 3,
-				stage: "ready",
+				stage: "available",
 				blockedBy: [31],
 			}),
 			...[11, 12, 13, 14].map((id) =>
@@ -111,26 +115,6 @@ describe("App's permission card", () => {
 			view.getByRole("region", { name: "queue Billing export" }),
 		);
 	};
-
-	it("counts as running only the todos an agent is still on", async () => {
-		const view = await testing.openConversations([asking], undefined, {
-			...board,
-			todos: [
-				...board.todos,
-				todo({ id: 41, subject: "Live", stage: "running", takenBy: "alpha" }),
-				todo({ id: 42, subject: "Gone", stage: "running", takenBy: "ghost" }),
-				todo({ id: 43, subject: "Dead", stage: "running", takenBy: "dead" }),
-			],
-			tasks: [
-				details({ task: "alpha", lease: "held" }),
-				details({ task: "dead", status: "working", lease: "stale" }),
-			],
-		});
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "queue Billing export" }),
-		);
-		expect(card.textContent).toContain("1 running");
-	});
 
 	it("lists the lane's tasks, and Queue lane queues the lane from the page itself", async () => {
 		const card = await queueCard(board);
@@ -196,16 +180,12 @@ describe("App's permission card", () => {
 		);
 	});
 
-	it("shows the queue it joins: what is queued ahead, then each task joining or after what blocks it", async () => {
+	it("names only what a lane's task waits for", async () => {
 		const card = await queueCard(busy);
 		const rows = [...card.querySelectorAll("li")].map((li) => li.textContent);
 		expect(rows).toEqual([
-			"1 more queued ahead",
-			"#12Queued 12queued · 2",
-			"#13Queued 13queued · 3",
-			"#14Queued 14queued · 4",
-			"#31Write the CSVjoins",
-			"#32Serve the exportafter #31",
+			"#31Write the CSV",
+			"#32Serve the exportwaits for #31",
 		]);
 	});
 
@@ -270,8 +250,8 @@ describe("App's permission card", () => {
 				name: "copy splates --project shop queue add 404",
 			}),
 		).toBeTruthy();
-		// Its place in shop's queue, and each task opens shop's board.
-		expect(card.textContent).toContain("queued · 1");
+		// It starts at once, and each task opens shop's board.
+		expect(card.textContent).toContain("Fix the cart");
 		expect(
 			within(card).getByRole("button", { name: "Fix the cart" }),
 		).toBeTruthy();

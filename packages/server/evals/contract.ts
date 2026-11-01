@@ -1,20 +1,25 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-import type {
-	EvalCell,
-	EvalCheck,
-	EvalDetail,
-	EvalRun,
-	EvalStep,
-	EvalTarget,
-	EvalVerdict,
-} from "./types";
+import {
+	CONTRACT_FORMAT,
+	type ContractBatch,
+	type ContractCell,
+	type ContractDetail,
+	type ContractResult,
+	type ContractTarget,
+	RESULTS_FILE,
+} from "@evals/evals/contract";
+import type { EvalCell, EvalDetail, EvalRun, EvalTarget } from "./types";
 
-/** What a `batch.json` in the public format says it is. */
-export const CONTRACT_FORMAT = "splates-evals/1";
-
-/** The file each finished cell appends its line to, in its batch's directory. */
-export const RESULTS_FILE = "results.jsonl";
+export {
+	CONTRACT_FORMAT,
+	type ContractBatch,
+	type ContractCell,
+	type ContractDetail,
+	type ContractResult,
+	type ContractTarget,
+	RESULTS_FILE,
+};
 
 /** Whether `saved`, a `batch.json`, is in the public format. */
 export function isContractBatch(saved: unknown): saved is ContractBatch {
@@ -172,66 +177,4 @@ async function detailOf(
 		(text) => JSON.parse(text) as ContractDetail,
 		() => ({}),
 	);
-}
-
-/**
- * `batch.json` as any framework writes it (`designs/evals-contract.md`):
- * every cell it plans, before any runs.
- */
-export interface ContractBatch {
-	format: typeof CONTRACT_FORMAT;
-	/** As ISO 8601. */
-	startedAt: string;
-	title?: string;
-	/** Who wrote the batch; `splates` for splates's own harness, which the page gives its skill controls. */
-	producer?: string;
-	cells: ContractCell[];
-}
-
-/** One case on one target at one repetition. */
-export interface ContractCell {
-	/** Unique in its batch; what a result line names it by. */
-	id: string;
-	case: string;
-	/** What the page groups cases under. */
-	group?: string;
-	/** What the case asks, in words. */
-	about?: string;
-	target: ContractTarget;
-	repetition?: number;
-}
-
-/** Free-form labels for what a cell ran on. */
-export interface ContractTarget {
-	model: string;
-	agent?: string;
-	effort?: string;
-	/** Anything else the run varied, such as a prompt's revision. */
-	variant?: string;
-}
-
-/** A line of `results.jsonl`: how one cell ended. */
-export interface ContractResult {
-	cell: string;
-	status: "pass" | "fail" | "error";
-	/** From 0 to 1, for a framework that grades on a scale. */
-	score?: number;
-	reason?: string;
-	tokens?: number;
-	costUsd?: number;
-	milliseconds?: number;
-	/** The framework's own view of the cell. */
-	url?: string;
-	/** A JSON file in the batch's directory with what the cell did, `ContractDetail`. */
-	detail?: string;
-}
-
-/** What a result's `detail` file holds, every field optional. */
-export interface ContractDetail {
-	input?: string;
-	rubric?: string;
-	reply?: string;
-	checks?: EvalCheck[];
-	judge?: EvalVerdict;
-	transcript?: EvalStep[];
 }

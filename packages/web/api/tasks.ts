@@ -1,4 +1,7 @@
-import type { MergeEstimates } from "@stringsync/splates-server/merge";
+import type {
+	MergeEstimates,
+	QuarantinedTest,
+} from "@stringsync/splates-server/merge";
 import type {
 	Landed,
 	PeriodId,
@@ -41,6 +44,15 @@ export async function mergeEstimates(): Promise<MergeEstimates> {
 	return (await response.json()) as MergeEstimates;
 }
 
+/** The tests whose failures no longer refuse a merge here, because they keep flaking. */
+export async function quarantined(): Promise<QuarantinedTest[]> {
+	const response = await answered(scoped("/api/quarantined"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/quarantined: ${response.status}`);
+	}
+	return (await response.json()) as QuarantinedTest[];
+}
+
 /**
  * How `task` went once it merged, beside its project's week before; null
  * when it never merged here.
@@ -61,6 +73,11 @@ export async function taskOutcome(task: string): Promise<Landed | null> {
  */
 export async function retryTask(task: string): Promise<void> {
 	await send(`/api/tasks/${encodeURIComponent(task)}/retry`, {});
+}
+
+/** Moves `task`'s merge, waiting for the premerge lock, to the front of the line. */
+export async function bumpMerge(task: string): Promise<void> {
+	await send(`/api/tasks/${encodeURIComponent(task)}/bump`, {});
 }
 
 /**

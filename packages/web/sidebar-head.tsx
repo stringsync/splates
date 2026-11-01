@@ -1,19 +1,19 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "core/react";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { type JSX, useEffect, useRef } from "react";
 import { useShortcutLabel } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
-import { SlotMark } from "./app-header";
+import { ProjectSwitcher } from "./projects";
 import type { Sidebar } from "./sidebar";
-import { BarButton, TITLE } from "./top-bar";
+import { BarButton } from "./top-bar";
 
 /** Heads the sidebar with its server and visibility control. */
 export function SidebarHead({
-	snapshot,
+	name,
 	sidebar,
 }: {
-	snapshot: Snapshot | null;
+	/** The project's name. */
+	name: string;
 	sidebar: Sidebar;
 }): JSX.Element {
 	const { shown } = useReactive(
@@ -48,8 +48,11 @@ export function SidebarHead({
 				shown && "w-(--sidebar-width)",
 			)}
 		>
-			<SlotMark snapshot={snapshot} />
-			<h1 className={cn(TITLE, "truncate")}>splates</h1>
+			<ProjectSwitcher
+				name={name}
+				path={false}
+				className="mx-0 min-w-0 max-w-full shrink"
+			/>
 			<BarButton
 				label={key === null ? label : `${label} (${key})`}
 				onClick={() => sidebar.toggle()}

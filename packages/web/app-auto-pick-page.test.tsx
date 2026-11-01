@@ -81,11 +81,10 @@ describe("App's Auto pick page", () => {
 		const automations = view.getByRole("tab", { name: /Automations/ });
 		expect(automations.className).toContain("tabs-list:bg-accent");
 
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "Back to Automations" }),
-			),
+		const back = await waitFor(() =>
+			view.getByRole("button", { name: "Back to Automations" }),
 		);
+		await act(async () => fireEvent.click(back));
 		expect(location.hash).toBe("#automations");
 		const card = await waitFor(() =>
 			view.getByRole("button", { name: /^Auto pick/ }),

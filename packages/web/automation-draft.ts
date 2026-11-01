@@ -15,6 +15,8 @@ export type When = "event" | "every" | "cron";
 
 /** The fields of the form that adds or edits an automation, as typed so far. */
 export interface DraftFields {
+	/** What the person calls it, or "" for no name. */
+	name: string;
 	when: When;
 	event: TaskEventName;
 	/** The stages it narrows the event to, comma separated, or "" for any. */
@@ -39,6 +41,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 	readonly events = this.dispatcher.events;
 
 	fields: DraftFields = {
+		name: "",
 		when: "event",
 		event: "task.created",
 		stage: "",
@@ -51,9 +54,9 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 	};
 
 	/** A draft holding what `automation` sets off and runs, to edit it. */
-	static of({ trigger, hook }: Automation): AutomationDraft {
+	static of({ name, trigger, hook }: Automation): AutomationDraft {
 		const draft = new AutomationDraft();
-		const fields = { ...draft.fields };
+		const fields = { ...draft.fields, name: name ?? "" };
 		if ("event" in trigger) {
 			fields.when = "event";
 			fields.event = trigger.event;
@@ -85,9 +88,19 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 	}
 
 	/** What the form holds, as a trigger and a hook; throws what is missing. */
-	made(): { trigger: Trigger; hook: Hook } {
-		const { when, event, stage, lane, schedule, kind, pick, prompt, command } =
-			this.fields;
+	made(): { trigger: Trigger; hook: Hook; name: string } {
+		const {
+			name,
+			when,
+			event,
+			stage,
+			lane,
+			schedule,
+			kind,
+			pick,
+			prompt,
+			command,
+		} = this.fields;
 		if (kind === "agent" && pick === null) {
 			throw new Error("pick the agent to run");
 		}
@@ -107,12 +120,18 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			kind === "run"
 				? { kind, command }
 				: { kind, prompt, ...(pick as AgentPick) };
-		return { trigger, hook };
+		return { trigger, hook, name: name.trim() };
 	}
 
 	/** Clears what was typed once it was added, keeping the choices. */
 	added(): void {
-		this.fields = { ...this.fields, prompt: "", command: "", schedule: "" };
+		this.fields = {
+			...this.fields,
+			name: "",
+			prompt: "",
+			command: "",
+			schedule: "",
+		};
 		this.dispatcher.dispatch("changed");
 	}
 }

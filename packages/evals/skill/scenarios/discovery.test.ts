@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import type { Step } from "../scenario";
+import type { Step } from "@evals/evals/scenario";
 import { opens, readBefore } from "./discovery";
 
 const tool = (name: string, input: object): Step => ({

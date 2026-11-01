@@ -4,6 +4,7 @@ import type { Config } from "../config";
 import { REGISTRY_DEADLINE, ShipLive } from "./live";
 import { LiveRegistryHttp } from "./live-registry-http";
 import { ShipRegistry } from "./registry";
+import { scanning } from "./step-live";
 
 const project = {
 	root: "/project",
@@ -140,3 +141,10 @@ class LiveConfig {
 		return this.command === undefined ? {} : { shipStatus: this.command };
 	}
 }
+
+describe("scanning", () => {
+	it("says a version is scanning, then possibly held past the usual window", () => {
+		expect(scanning(1_000, 300_000)).toBe("Scanning on npm");
+		expect(scanning(300_000, 300_000)).toBe("Possibly held for review");
+	});
+});

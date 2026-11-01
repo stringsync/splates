@@ -1,4 +1,11 @@
-export type { Config, ConfigFile, EvalsConfig } from "./config";
+export type {
+	Config,
+	ConfigFile,
+	EvalsConfig,
+	ProjectConfig,
+	ShipTargetConfig,
+	TagsConfig,
+} from "./config";
 export { defineConfig } from "./config";
 export {
 	LEGACY,
@@ -20,4 +27,9 @@ export {
 	ConfigFiles,
 	loadConfig,
 } from "./load";
+export type { PathScope, ShipSettings } from "./scopes";
+export { Scopes, shipSettings } from "./scopes";
+export type { ShipTarget } from "./ships";
+export { shipTargets } from "./ships";
 export { typedConfig } from "./source";
+export { Tags } from "./tags";

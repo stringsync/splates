@@ -25,7 +25,7 @@ const PRIVACY: { title: string; body: string }[] = [
 	},
 	{
 		title: "Only code reads it",
-		body: "Code reads it in-process through webappwiz/creds, never through an environment variable, a command's arguments or a file. Code that reads it could still print it, as with any secret.",
+		body: "Code reads it in-process through core/creds, never through an environment variable, a command's arguments or a file. Code that reads it could still print it, as with any secret.",
 	},
 ];
 

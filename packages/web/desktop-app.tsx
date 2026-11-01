@@ -36,6 +36,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	automations: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	"auto-pick": "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	setup: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	welcome: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	// A thread reaches across its right padding, so its scrollbar sits at the
 	// window's edge (`--thread-bleed-end`).
 	conversations: "min-w-0 px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
@@ -109,7 +110,6 @@ export function DesktopApp({
 		bannerSlot,
 		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
 		project: name,
-		scoped: page !== "conversations",
 		status: (
 			<AppStatus
 				snapshot={snapshot}
@@ -136,7 +136,7 @@ export function DesktopApp({
 				)}
 				style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 			>
-				<SidebarHead snapshot={snapshot} sidebar={sidebar} />
+				<SidebarHead name={name} sidebar={sidebar} />
 				{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 				<header

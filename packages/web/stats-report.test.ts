@@ -104,7 +104,7 @@ describe("StatsReport", () => {
 			{ name: "Phone and desktop", ended: 1 },
 			{ name: "No prompts", ended: 1 },
 		]);
-		expect(report.projects).toMatchObject([{ name: "webappwiz", ended: 1 }]);
+		expect(report.projects).toMatchObject([{ name: "wren", ended: 1 }]);
 	});
 
 	it("averages duration, cost, working time and lines over the tasks that kept each", async () => {
@@ -273,7 +273,7 @@ const stats: Stats = {
 		{ device: "both", ...bar("", { merged: 1 }) },
 		{ device: null, ...bar("", { merged: 1 }) },
 	],
-	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
+	projects: [{ project: "/Users/me/wren", ...bar("", { merged: 1 }) }],
 
 	since: "2026-08-25T10:00:00.000Z",
 	skill: [],

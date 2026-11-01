@@ -78,6 +78,14 @@ describe("StatsPage", () => {
 			].map((label) => page.queryByText(label)),
 		).toEqual([null, null, null, null, null, null, null]);
 		expect(page.getByText(/2 tasks ended in the last day/)).toBeTruthy();
+		// Cost per task leads, then time per task.
+		const charts = page
+			.getAllByRole("figure")
+			.map((each) => each.getAttribute("aria-label"));
+		expect(charts).toEqual([
+			"Cost per task over the period",
+			"Time per task over the period",
+		]);
 	});
 
 	it("says when the selected period has no tasks", async () => {

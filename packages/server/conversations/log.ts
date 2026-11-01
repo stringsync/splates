@@ -137,6 +137,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.assigned,
 			start.startedBy ?? null,
 			start.scratch === true,
+			start.tags ?? null,
 		);
 		state.skill = start.skill ?? null;
 		state.automatic = start.automatic ?? start.capped ?? false;
@@ -243,6 +244,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.lastTask = entry.task ?? state.lastTask;
 				state.lastBase =
 					entry.task === null ? state.lastBase : (entry.base ?? null);
+				state.lastTags =
+					entry.task === null ? state.lastTags : (entry.tags ?? null);
 				replayed.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;

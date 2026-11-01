@@ -46,6 +46,16 @@ export class Worktree {
 		return this.snapshot.state?.caller ?? null;
 	}
 
+	/** The project it changes, or null for a task recorded without one. */
+	get scope(): string | null {
+		return this.snapshot.state?.scope ?? null;
+	}
+
+	/** The tags grouping it; none for a task recorded without any. */
+	get tags(): string[] {
+		return this.snapshot.state?.labels ?? [];
+	}
+
 	get path(): string {
 		return this.snapshot.path;
 	}
@@ -329,8 +339,8 @@ export interface DiscardOptions {
 	/** Why it was removed, as `splates remove --reason` gives it. */
 	reason?: RemoveReason;
 	/**
-	 * Whether the queued task it started from goes back to ready or the
-	 * backlog rather than the queue, as when the person removes it.
+	 * Whether the queued task it started from goes back to available
+	 * rather than the queue, as when the person removes it.
 	 */
 	unqueue?: boolean;
 	/** The commit a merge landed it as. */
@@ -503,6 +513,10 @@ export interface TaskState {
 	worktree: string;
 	/** The branch this task lands on. Absent in old records: trunk. */
 	base?: string;
+	/** The project of `splates.config.ts` it changes. Absent in old records. */
+	scope?: string;
+	/** The tags grouping it, as the queue records them. Absent for none. */
+	labels?: string[];
 	status: RecordStatus;
 	lease: LeaseState | null;
 	mergeAttempts: number;
@@ -537,6 +551,12 @@ export interface TaskState {
 	mergePlace?: number;
 	/** The steps the merge under way has taken, and its premerge's phases. Absent otherwise. */
 	mergeSteps?: MergeProgress;
+	/**
+	 * While a batch has the branch on its stack: `head` there, and `own`, its
+	 * head on the base alone, which a merge cut off meanwhile puts it back on.
+	 * Absent otherwise.
+	 */
+	mergeStack?: { own: string; head: string };
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];

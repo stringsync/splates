@@ -294,6 +294,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task,
 			base,
 			caller,
+			tags,
 			cwd,
 			scratch,
 			settings,
@@ -318,6 +319,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base?: string | null;
 			/** The conversation whose agent added `task`. */
 			caller?: string | null;
+			/** The tags of `task`. */
+			tags?: string[] | null;
 			cwd: string | ((id: string) => string | Promise<string>);
 			/** Runs projectless in its own scratch workspace. */
 			scratch?: boolean;
@@ -358,6 +361,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				task,
 				base,
 				caller,
+				tags,
 				cwd: directory,
 				scratch,
 				settings,
@@ -420,6 +424,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task,
 			base,
 			caller,
+			tags,
 			cwd,
 			title = null,
 		}: {
@@ -428,6 +433,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base?: string | null;
 			/** The conversation whose agent added `task`. */
 			caller?: string | null;
+			/** The tags of `task`. */
+			tags?: string[] | null;
 			cwd: string;
 			title?: string | null;
 		},
@@ -454,6 +461,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				task,
 				base,
 				caller,
+				tags,
 				cwd,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},

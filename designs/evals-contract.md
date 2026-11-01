@@ -1,5 +1,9 @@
 # Evals from any framework
 
+The contract types, `CONTRACT_FORMAT` and the reporter live in the shared
+`evals` project (`evals/packages/evals/contract.ts`, `CONTRACT.md`); splates
+imports them as `@evals/evals/contract` and keeps only the reading half.
+
 ## Settled (2026-10-26)
 
 Splates builds no eval framework. A project runs evals with whatever it likes

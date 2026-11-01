@@ -1,4 +1,5 @@
 import { REPLICA_ACCESS_KEY, REPLICA_SECRET_KEY } from "../replica";
+import { REPLICA_KEY_FIELDS } from "./replica-key-fields";
 import type { SetupArea, SetupStep } from "./setup";
 
 /** Sets up a server on a Droplet: the box you make once by hand and the bucket beside it that its records are copied into. */
@@ -9,24 +10,11 @@ function dropletArea(): SetupArea {
 		id: "replica-keys",
 		title: "Give the server its replica bucket's keys",
 		why: "A server on a Droplet keeps its records in a Spaces bucket beside it, which is what lets it move between machines or come back after its box is lost.",
-		user: "Make a Spaces access key limited to the bucket in the DigitalOcean control panel, then paste its key and its secret here.",
+		user: "First make, in the DigitalOcean control panel, a Droplet to run the server on and a Spaces bucket beside it (naming the bucket is the [Replica area](#setup/replica/replica-place)'s first step). Then make a Spaces access key limited to the bucket and paste its key and its secret here; the [Replica area](#setup/replica/replica-creds) asks for the same two.",
 		agent: `Follow "Server on a Droplet" in setup.md. Request each with \`splates creds request ${REPLICA_ACCESS_KEY} --device\` and \`splates creds request ${REPLICA_SECRET_KEY} --device\`, with how to make the key, and \`splates creds wait\` for each. On the Droplet, with \`SPLATES_SECRET_STORE=file\` set, they are kept in files only the user may read.`,
 		optional: true,
 		after: [],
-		fields: [
-			{
-				kind: "cred",
-				name: REPLICA_ACCESS_KEY,
-				label: "Spaces access key",
-				help: "In DigitalOcean's **API** page, under **Spaces Keys**, **Generate New Key**, limited to the bucket; paste its key id.",
-			},
-			{
-				kind: "cred",
-				name: REPLICA_SECRET_KEY,
-				label: "Spaces secret key",
-				help: "The secret shown once beside that key.",
-			},
-		],
+		fields: REPLICA_KEY_FIELDS,
 		check: async ({ device }) =>
 			(await device.get(REPLICA_ACCESS_KEY)) !== undefined &&
 			(await device.get(REPLICA_SECRET_KEY)) !== undefined,
@@ -45,7 +33,7 @@ function dropletArea(): SetupArea {
 		id: "droplet",
 		title: "Server on a Droplet",
 		purpose:
-			"Run splates server on a DigitalOcean Droplet that keeps working while your computer is off.",
+			"Run splates server on a DigitalOcean Droplet that keeps working while your computer is off. Make the Droplet and a Spaces bucket first; the keys here are the same ones the Replica area asks for.",
 		steps: [keysStep],
 	};
 }

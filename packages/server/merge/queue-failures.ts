@@ -1,4 +1,4 @@
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import { addedFacts, type Tasks, wording } from "../board";
 import type { Journal } from "../records";
 import type { FailedTest } from "../tasks";
@@ -11,9 +11,9 @@ export async function queueFailedTests(
 	failed: FailedTest[],
 	kind: FailureAttribution,
 ): Promise<void> {
-	// The task fixes its own failures to land, and a flake may pass on its
-	// rerun: the caller queues a flake as `environment` if the rerun fails too.
-	if (kind === "task" || kind === "flake") {
+	// The task fixes its own failures to land. A flake is queued by the caller
+	// once its rerun passed; if the rerun failed too, as `environment`.
+	if (kind === "task") {
 		return;
 	}
 	try {
@@ -27,7 +27,7 @@ export async function queueFailedTests(
 			const added = journal
 				? await journal.record("task add", task, add, addedFacts)
 				: await add();
-			log.info(`  found task ${added.id}: ${subject}`);
+			log.info(`  ${color.green("found")} task ${added.id}: ${subject}`);
 		}
 	} catch (error) {
 		log.error(`Could not queue failing-test tasks: ${String(error)}`);
@@ -53,7 +53,7 @@ function wanted(
 	kind: FailureAttribution,
 ): Wanted[] {
 	const found = `Found while merging \`${task}\`. Attribution: ${kind}.`;
-	if (failed.length > 1 && (kind === "environment" || kind === "flake")) {
+	if (failed.length > 1 && kind === "environment") {
 		return [
 			{
 				...wording(
@@ -73,6 +73,21 @@ function wanted(
 			},
 		];
 	}
+	if (kind === "flake") {
+		return failed.map((test) => ({
+			...wording(
+				`Flaky test: ${test.name}`,
+				[
+					found,
+					"",
+					"This test failed in the gate and then passed on a rerun, with no change to the code, so the merge landed. Treat it as flaky, not as a regression: look for what makes it nondeterministic (timing, ordering, shared state, ports, load) and make it deterministic. Do not just retry or loosen it.",
+					"",
+					test.message,
+				].join("\n"),
+			),
+			slug: failureSlug(test.name, "flaky"),
+		}));
+	}
 	return failed.map((test) => ({
 		...wording(
 			`Tests failed: ${test.name}`,
@@ -91,12 +106,12 @@ function firstLine(message: string): string {
 	return line === undefined ? "" : `: ${line}`;
 }
 
-/** A short slug for a failed test's task: `fix-` and the test name's first words. */
-function failureSlug(name: string): string {
+/** A short slug for a failed test's task: the prefix and the test name's first words. */
+function failureSlug(name: string, prefix = "fix"): string {
 	const words = name
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
 		.filter(Boolean)
 		.slice(0, 4);
-	return `fix-${words.join("-") || "test"}`;
+	return `${prefix}-${words.join("-") || "test"}`;
 }

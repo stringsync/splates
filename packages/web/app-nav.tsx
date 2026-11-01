@@ -3,6 +3,7 @@ import { useReactive } from "core/react";
 import {
 	ChevronDownIcon,
 	ChevronUpIcon,
+	CircleAlertIcon,
 	LoaderCircleIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -27,7 +28,6 @@ import { SetupDot } from "./setup-state";
 import { shipActivity } from "./ship-activity";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
-import { NAV_HEADING } from "./top-bar";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 export const WIDE = "(min-width: 768px)";
@@ -117,6 +117,13 @@ export function AppNav({
 					className="size-3.5 animate-spin text-muted-foreground"
 				/>
 			)}
+			{value === "ships" && shipping === "error" && (
+				<CircleAlertIcon
+					role="img"
+					aria-label="the ship failed"
+					className="size-3.5 text-destructive"
+				/>
+			)}
 			{value === "ships" && shipping === "waiting" && (
 				<TriangleAlertIcon
 					role="img"
@@ -146,9 +153,6 @@ export function AppNav({
 					/>
 				)}
 				{PAGES.filter(({ scope }) => scope === "project").map(tab)}
-				<h2 hidden={!pagesShown} className={cn(NAV_HEADING, "mt-3 py-1")}>
-					Everywhere
-				</h2>
 				{PAGES.filter(({ scope }) => scope === "everywhere").map(tab)}
 				{/* Under their tab, so one is a click away from any page. */}
 				{available && snapshot !== null && (
@@ -211,7 +215,7 @@ export function useWide(): boolean {
 
 /**
  * The border between the sidebar's tabs and its agents, with a button on it
- * that folds the tabs away and unfolds them again.
+ * (the whole line is its target) that folds the tabs away and unfolds them again.
  */
 function PagesFold({
 	sidebar,
@@ -236,9 +240,15 @@ function PagesFold({
 				aria-expanded={shown}
 				title={key === null ? label : `${label} (${key})`}
 				onClick={() => sidebar.togglePages()}
-				className="absolute top-1/2 left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-sidebar text-muted-foreground shadow-xs outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3"
+				className="group absolute inset-x-0 top-1/2 flex h-5 -translate-y-1/2 cursor-pointer items-center justify-center text-muted-foreground outline-none hover:text-foreground"
 			>
-				{shown ? <ChevronUpIcon /> : <ChevronDownIcon />}
+				<span
+					aria-hidden
+					className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-foreground/25 opacity-0 transition-opacity group-hover:opacity-100"
+				/>
+				<span className="relative flex size-5 items-center justify-center rounded-full border bg-sidebar shadow-xs transition-colors group-hover:border-foreground/40 group-focus-visible:ring-3 group-focus-visible:ring-ring/50 [&_svg]:size-3">
+					{shown ? <ChevronUpIcon /> : <ChevronDownIcon />}
+				</span>
 			</button>
 		</div>
 	);

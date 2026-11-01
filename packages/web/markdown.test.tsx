@@ -10,7 +10,7 @@ import { act, fireEvent, render, waitFor } from "./testing-library";
 
 describe("Markdown", () => {
 	// An App test run before this one in the same worker may have focused another
-	// project; these name webappwiz and vexml as projects other than this one.
+	// project; these name wren and vexml as projects other than this one.
 	beforeEach(() => knowFocused("splates"));
 
 	it("renders a heading at its own level", () => {
@@ -248,16 +248,16 @@ describe("Markdown", () => {
 	it("links a #N another project's slug names, however it is written", () => {
 		expect(
 			linkElsewhere(
-				"Waits on webappwiz task #404, Webappwiz#405 and #vexml #6.",
+				"Waits on wren task #404, Wren#405 and #vexml #6.",
 				PROJECTS,
 			),
 		).toBe(
-			"Waits on [webappwiz \\#404](#todo-404&project=webappwiz), [webappwiz \\#405](#todo-405&project=webappwiz) and [vexml \\#6](#todo-6&project=vexml).",
+			"Waits on [wren \\#404](#todo-404&project=wren), [wren \\#405](#todo-405&project=wren) and [vexml \\#6](#todo-6&project=vexml).",
 		);
 	});
 
 	it("leaves a bare #N, an unknown name and code", () => {
-		const text = "#12, other #13, `webappwiz #404`";
+		const text = "#12, other #13, `wren #404`";
 
 		expect(linkElsewhere(text, PROJECTS)).toBe(text);
 	});
@@ -265,26 +265,26 @@ describe("Markdown", () => {
 		const page = render(
 			<NamedContext
 				value={{
-					projects: [{ slug: "webappwiz", root: "/r/webappwiz" }],
+					projects: [{ slug: "wren", root: "/r/wren" }],
 					paths: new Set(),
 					tree: null,
 					resolving: { paths: false, projects: false },
 				}}
 			>
 				<Board value={{ ...NO_BOARD, linked: true }}>
-					<Markdown text="Waits on webappwiz #404, then #12." />
+					<Markdown text="Waits on wren #404, then #12." />
 				</Board>
 			</NamedContext>,
 		);
 
-		const link = page.getByTitle("#404 in webappwiz, another project");
-		expect(link.textContent).toBe("webappwiz#404");
+		const link = page.getByTitle("#404 in wren, another project");
+		expect(link.textContent).toBe("wren#404");
 		const href = new URL(link.getAttribute("href") ?? "");
-		expect(href.searchParams.get("project")).toBe("webappwiz");
+		expect(href.searchParams.get("project")).toBe("wren");
 		expect(href.hash).toBe("#todos/404");
 		// This project's #12, archived since the board has no such todo.
 		expect(page.getByTitle("#12 is archived: merged or removed")).toBeTruthy();
 	});
 });
 
-const PROJECTS = [{ slug: "webappwiz" }, { slug: "vexml" }];
+const PROJECTS = [{ slug: "wren" }, { slug: "vexml" }];

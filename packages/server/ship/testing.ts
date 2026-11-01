@@ -8,7 +8,7 @@ type Manifest = Record<string, unknown>;
 
 /**
  * The projects served today, as `package.json` files on a fake disk:
- * webappwiz → splates, mdom, vexml, sound2score; mdom → vexml, sound2score;
+ * wren → splates, mdom, vexml, sound2score; mdom → vexml, sound2score;
  * vexml and splates → sound2score. sound2score is private.
  */
 export async function servedProjects(
@@ -18,32 +18,32 @@ export async function servedProjects(
 		await fs.mkdir(path, { recursive: true });
 		await fs.write(`${path}/package.json`, JSON.stringify(manifest));
 	};
-	await write("/webappwiz", {
-		name: "webappwiz-workspace",
+	await write("/wren", {
+		name: "wren-workspace",
 		version: "0.0.50",
 		private: true,
 		workspaces: ["packages/*"],
 	});
-	await write("/webappwiz/packages/webappwiz", {
-		name: "webappwiz",
+	await write("/wren/packages/wren", {
+		name: "wren",
 		version: "0.0.50",
 	});
-	await write("/webappwiz/packages/cli", {
-		name: "@webappwiz/cli",
+	await write("/wren/packages/cli", {
+		name: "@wren/cli",
 		version: "0.0.50",
-		dependencies: { webappwiz: "workspace:*" },
+		dependencies: { wren: "workspace:*" },
 	});
 	await write("/splates", {
 		name: "splates-workspace",
 		version: "0.0.57",
 		private: true,
 		workspaces: ["packages/*"],
-		devDependencies: { "@webappwiz/cli": "0.0.50", webappwiz: "0.0.50" },
+		devDependencies: { "@wren/cli": "0.0.50", wren: "0.0.50" },
 	});
 	await write("/splates/packages/server", {
 		name: "@stringsync/splates-server",
 		version: "0.0.57",
-		dependencies: { webappwiz: "0.0.50" },
+		dependencies: { wren: "0.0.50" },
 	});
 	await write("/splates/packages/web", {
 		name: "@stringsync/splates-web",
@@ -52,12 +52,12 @@ export async function servedProjects(
 	await write("/mdom", {
 		name: "@stringsync/mdom",
 		version: "1.4.2",
-		dependencies: { webappwiz: "0.0.50" },
+		dependencies: { wren: "0.0.50" },
 	});
 	await write("/vexml", {
 		name: "@stringsync/vexml",
 		version: "2.0.9",
-		dependencies: { "@stringsync/mdom": "1.4.2", webappwiz: "0.0.50" },
+		dependencies: { "@stringsync/mdom": "1.4.2", wren: "0.0.50" },
 	});
 	await write("/sound2score", {
 		name: "sound2score",
@@ -67,11 +67,11 @@ export async function servedProjects(
 			"@stringsync/mdom": "1.4.2",
 			"@stringsync/splates-server": "0.0.57",
 			"@stringsync/vexml": "2.0.9",
-			webappwiz: "0.0.50",
+			wren: "0.0.50",
 		},
 	});
 	const sources: ShipSource[] = [
-		{ slug: "webappwiz", root: "/webappwiz", ship: "wiz dev ship" },
+		{ slug: "wren", root: "/wren", ship: "wiz dev ship" },
 		{ slug: "splates", root: "/splates", ship: "./bin/splates dev ship" },
 		{ slug: "mdom", root: "/mdom", ship: "wiz dev ship" },
 		{ slug: "vexml", root: "/vexml", ship: "wiz dev ship" },

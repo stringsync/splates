@@ -1,6 +1,8 @@
 import type { Logger } from "core/log";
 import type { Fs, Lock } from "core/system";
 import { fail } from "../exit";
+import type { Storage } from "../storage";
+import { AVAILABLE_STAGE } from "./available-stage";
 import type { DatabaseStamp } from "./home";
 import { ONE_TASK_STORE } from "./one-task-store";
 import { TASK_FILES } from "./task-files";
@@ -22,6 +24,8 @@ export interface Migration {
 export interface Into {
 	/** Copies the files under `splatesDir` in, stamping the database with the format the records end in. */
 	import(splatesDir: string): Promise<void>;
+	/** The project's database, for a step that changes records already in it. */
+	storage?(): Promise<Storage>;
 }
 
 /**
@@ -33,6 +37,7 @@ export const MIGRATIONS: readonly Migration[] = [
 	TASK_FILES,
 	TASK_STAGES,
 	TO_SQLITE,
+	AVAILABLE_STAGE,
 ];
 
 /**
@@ -59,7 +64,10 @@ export interface FormatOptions {
 	 * Where the step that leaves the files moves them, told the format the
 	 * database is stamped with.
 	 */
-	into?: { import(splatesDir: string, format: number): Promise<void> };
+	into?: {
+		import(splatesDir: string, format: number): Promise<void>;
+		open?(): Promise<Storage>;
+	};
 }
 
 /** The format of one repository's records, kept in `<splatesDir>/format`. */
@@ -80,7 +88,15 @@ export class Format {
 		this.into =
 			into === undefined
 				? undefined
-				: { import: (dir) => into.import(dir, this.current) };
+				: {
+						import: (dir) => into.import(dir, this.current),
+						storage: async () => {
+							if (into.open === undefined) {
+								throw new Error("no database to open");
+							}
+							return into.open();
+						},
+					};
 		this.fs = fs;
 		this.lock = lock;
 		this.log = log;

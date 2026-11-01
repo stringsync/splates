@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { SERVING } from "@stringsync/splates-server/server";
 import { Testing } from "@stringsync/splates-server/testing";
+import type { SpawnOptions } from "core/system";
 import { splates } from "./splates";
 
 /**
@@ -16,10 +17,19 @@ describe("splates cli", () => {
 	beforeEach(async () => {
 		env = await Testing.open();
 		env.ps.cd(env.root);
+		// Setup probes each agent's CLI; asking the machine's real ones is slow
+		// and makes the result depend on what is installed, so none is found.
+		const spawnCapture = env.ps.spawnCapture.bind(env.ps);
+		const ps = Object.assign(Object.create(env.ps), {
+			spawnCapture: (argv: string[], opts?: SpawnOptions) =>
+				argv[0] === "git"
+					? spawnCapture(argv, opts)
+					: Promise.resolve({ exitCode: 127, stdout: "", stderr: "" }),
+		});
 		deps = {
 			log: env.log,
 			fs: env.fs,
-			ps: env.ps,
+			ps,
 			assets: env.assets,
 			secrets: env.secrets,
 			fetch: Object.assign(
@@ -67,7 +77,7 @@ describe("splates cli", () => {
 		await splates.run(deps, ["setup", "--json"]);
 
 		const progress = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(progress.next).toBe("opencode-install");
+		expect(progress.next).toStartWith("claude-");
 		expect(
 			progress.areas.find((area: { id: string }) => area.id === "dictation")
 				.skipped,
@@ -210,7 +220,7 @@ describe("splates cli", () => {
 		await splates.run(deps, ["task", "show", "3"]);
 		expect(env.out()).toContain("task 3 retry on 413");
 		expect(env.out()).toContain("It needs the new client.");
-		expect(env.out()).toContain("[ ] #1 build the client (ready)");
+		expect(env.out()).toContain("[ ] #1 build the client (available)");
 		expect(env.out()).toContain(
 			"[ ] the person: Keep the retry for old clients? (open)",
 		);

@@ -1,7 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
 	CircleCheckIcon,
@@ -25,7 +24,6 @@ import { answered, dropLane, queueLane, queueTodo, scoped } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
-import { Dispatching } from "./dispatching";
 import { EvalsCard } from "./evals-card";
 import { type SnapshotExpecter, useExpectSnapshot } from "./expecting";
 import { GrantCard } from "./grant-card";
@@ -128,9 +126,6 @@ function RemoveLaneCard({
 	);
 }
 
-/** The queued work above the card's own that the panel shows, the rest counted. */
-const AHEAD = 3;
-
 /**
  * Queuing a lane whole or tasks one by one, in this project or, as the card
  * names one, another.
@@ -217,7 +212,6 @@ function OtherQueueCard({
 				<QueuePanel
 					todos={todos}
 					board={snapshot.todos}
-					live={snapshot.tasks.map((each) => each.task)}
 					whole={false}
 					onOpen={(id) => navigation.show(todoUrl(project, id))}
 				/>
@@ -236,7 +230,6 @@ function OwnQueueCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	const board = useContext(Board);
-	const dispatching = useContext(Dispatching);
 	const expect = useExpectSnapshot();
 	const work = new QueueWork(proposal, board);
 	const { name, todos } = work;
@@ -271,8 +264,6 @@ function OwnQueueCard({
 				<QueuePanel
 					todos={todos}
 					board={board.todos}
-					live={board.tasks}
-					orphaned={(task) => dispatching?.dispatch.orphaned(task) ?? false}
 					whole={whole}
 					onOpen={board.open}
 				/>
@@ -290,61 +281,26 @@ function todoUrl(project: string, id: number): string {
 }
 
 /**
- * The queue as it stands on `board`, then the card's `todos` joining it.
- * `live` names the tasks at work, less any `orphaned`: a todo is running
- * when an agent is on the task that took it.
+ * The card's `todos`, each saying only what holds it back: nothing, when it
+ * starts at once.
  */
 function QueuePanel({
 	todos,
 	board,
-	live,
-	orphaned,
 	whole,
 	onOpen,
 }: {
 	todos: readonly TaskRecord[];
 	board: readonly TaskRecord[];
-	live: readonly string[];
-	orphaned?: (task: string) => boolean;
 	whole: boolean;
 	onOpen: (id: number) => void;
 }): JSX.Element {
-	const mine = new Set(todos.map((todo) => todo.id));
-	const queue = queueOrder(board);
-	const ahead = queue.filter((todo) => !mine.has(todo.id));
-	// Running means an agent is on the task that took it: not one whose
-	// conversation is gone, nor a taker the page no longer lists.
-	const running = board.filter(
-		(todo) =>
-			todo.takenBy !== null &&
-			!mine.has(todo.id) &&
-			live.includes(todo.takenBy) &&
-			!orphaned?.(todo.takenBy),
-	).length;
-	const hidden = Math.max(0, ahead.length - AHEAD);
-	const shown = ahead.slice(hidden);
-	const aheadRow = (todo: TaskRecord) => (
-		<Row
-			key={todo.id}
-			todo={todo}
-			Icon={HourglassIcon}
-			status={`queued · ${queue.indexOf(todo) + 1}`}
-			tone="quiet"
-			onOpen={onOpen}
-		/>
-	);
 	return (
 		<Panel>
-			{running > 0 && <Line Icon={HourglassIcon}>{running} running</Line>}
-			{hidden > 0 && (
-				<Line Icon={HourglassIcon}>{hidden} more queued ahead</Line>
-			)}
-			{shown.map(aheadRow)}
 			{todos.map((todo) => (
 				<QueueItem
 					key={todo.id}
 					todo={todo}
-					queue={queue}
 					board={board}
 					whole={whole}
 					onOpen={onOpen}
@@ -354,41 +310,25 @@ function QueuePanel({
 	);
 }
 
-/**
- * One of the card's tasks: where it stands once it is queued or running,
- * otherwise that it joins, or for a lane's, after what blocks it.
- */
+/** One of the card's tasks, with a status only when it is not ready to start: queued, running, or what it waits for. */
 function QueueItem({
 	todo,
-	queue,
 	board,
 	whole,
 	onOpen,
 }: {
 	todo: TaskRecord;
-	queue: readonly TaskRecord[];
 	board: readonly TaskRecord[];
 	whole: boolean;
 	onOpen: (id: number) => void;
 }): JSX.Element {
 	const stage = stageOf(todo);
-	if (stage === "running") {
+	if (stage === "running" || stage === "queued") {
 		return (
 			<Row
 				todo={todo}
 				Icon={HourglassIcon}
-				status="running"
-				tone="quiet"
-				onOpen={onOpen}
-			/>
-		);
-	}
-	if (stage === "queued") {
-		return (
-			<Row
-				todo={todo}
-				Icon={HourglassIcon}
-				status={`queued · ${queue.findIndex((each) => each.id === todo.id) + 1}`}
+				status={stage}
 				tone="quiet"
 				onOpen={onOpen}
 			/>
@@ -410,9 +350,9 @@ function QueueItem({
 			Icon={ListPlusIcon}
 			status={
 				blocker === undefined
-					? "joins"
+					? undefined
 					: starts
-						? `after #${blocker.id}`
+						? `waits for #${blocker.id}`
 						: `left out: queue #${blocker.id} first`
 			}
 			tone="plain"
@@ -444,22 +384,6 @@ function Panel({
 	);
 }
 
-/** A line of the panel that stands for several tasks it leaves out. */
-function Line({
-	Icon,
-	children,
-}: {
-	Icon: LucideIcon;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<li className="flex items-center gap-2 border-t px-4 py-1.5 text-muted-foreground text-xs first:border-t-0 @max-md:px-3">
-			<Icon className="size-3.5" />
-			{children}
-		</li>
-	);
-}
-
 const ROW_TONES = {
 	quiet: { row: "text-muted-foreground", icon: "", status: "" },
 	plain: {
@@ -486,7 +410,8 @@ function Row({
 }: {
 	todo: TaskRecord;
 	Icon: LucideIcon;
-	status: string;
+	/** Left off for a task with nothing to say. */
+	status?: string;
 	tone: keyof typeof ROW_TONES;
 	onOpen: (id: number) => void;
 }): JSX.Element {
@@ -509,7 +434,9 @@ function Row({
 			>
 				{todo.subject}
 			</button>
-			<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
+			{status !== undefined && (
+				<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
+			)}
 		</li>
 	);
 }

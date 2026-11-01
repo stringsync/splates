@@ -7,7 +7,7 @@ import { fail } from "@stringsync/splates-server/exit";
 
 /**
  * Reads `--blocked-by` and `--remove-blocked-by` in the project at `here`:
- * a number names a task here, `webappwiz#404` or `webappwiz #404` one of
+ * a number names a task here, `wren#404` or `wren #404` one of
  * another project, as `boards` finds it, and this project's own slug a task
  * here. A task of another project that `--blocked-by` names has to be open
  * there; one `--remove-blocked-by` names need not.

@@ -7,7 +7,7 @@ import { Clef } from "./clef";
 import { type Attribution, Jev, type JevOptions } from "./jev";
 import type { Judge } from "./system-one";
 
-/** The creds each judge reads, named as `wiz creds` names them. */
+/** The creds each judge reads, named as `bin/mono creds` names them. */
 export const JUDGE_CREDS = {
 	jev: ["TYPESAFE_API_KEY"],
 	clef: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],

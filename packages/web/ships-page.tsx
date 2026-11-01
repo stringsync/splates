@@ -1,10 +1,13 @@
+import { shipFailureReference } from "@stringsync/splates-server/plans/browser";
 import type { CascadeSummary } from "@stringsync/splates-server/ship";
 import { shipName } from "@stringsync/splates-server/ship/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { ActiveShip } from "./active-ship";
 import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
 import { BackButton } from "./back-button";
+import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { ShipPlan } from "./ship-plan";
 import { ProjectStages } from "./ship-run";
@@ -15,7 +18,9 @@ import { type Live, useLiveShips } from "./use-live-ships";
  * Where you plan a ship: pick the projects that release, press Start, and
  * open past ships. The ship under way, and each past one, has its own page.
  */
-export function ShipsPage(_props: {
+export function ShipsPage({
+	feed = null,
+}: {
 	feed?: ConversationFeed | null;
 }): JSX.Element {
 	const viewed = useViewedShip();
@@ -44,7 +49,7 @@ export function ShipsPage(_props: {
 			location.replace("#ships");
 		}
 	}, [viewed, live, closed]);
-	const [past, setPast] = useState<CascadeSummary[]>([]);
+	const [past, setPast] = useState<CascadeSummary[] | null>(null);
 	useEffect(() => {
 		shipHistory().then(setPast, () => undefined);
 	}, []);
@@ -79,6 +84,14 @@ export function ShipsPage(_props: {
 						location.hash = "ships";
 					}}
 					act={actOnShip}
+					sendToAgent={
+						feed === null
+							? undefined
+							: async (failure) => {
+									const opened = await sendShipToAgent(feed, failure);
+									location.hash = `conversations/${opened}`;
+								}
+					}
 				/>
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
@@ -97,11 +110,29 @@ export function ShipsPage(_props: {
 							location.hash = `ships/${ACTIVE}`;
 						}}
 					/>
-					{past.length > 0 && <History cascades={past} />}
+					{(past === null || past.length > 0) && <History cascades={past} />}
 				</>
 			)}
 		</section>
 	);
+}
+
+/**
+ * Starts a conversation, on Auto pick, that
+ * is told to look into the ship's failure; answers its id.
+ */
+async function sendShipToAgent(
+	feed: ConversationFeed,
+	failure: { id: string; project: string; stage: string | null },
+): Promise<string> {
+	const text = shipFailureReference(failure, location.origin);
+	const state = await startAutoPick({ words: text, task: null });
+	feed.put(state);
+	const sending = feed.send(state.id, text);
+	void promptConversation(state.id, text, [], false, sending.id)
+		.then((answered) => feed.answered(state.id, sending, answered))
+		.catch((error: unknown) => feed.refused(state.id, sending, error));
+	return state.id;
 }
 
 /** What `#ships/active` opens: the ship under way, rather than a past one. */
@@ -121,16 +152,25 @@ function useViewedShip(): string | null {
 }
 
 /** The cascades that ended, newest first, each linking to its own page. */
-function History({ cascades }: { cascades: CascadeSummary[] }): JSX.Element {
+function History({
+	cascades,
+}: {
+	/** Null until the list arrives, when its place is held. */
+	cascades: CascadeSummary[] | null;
+}): JSX.Element {
 	return (
 		<section aria-label="history" className="flex flex-col gap-2">
 			<h2 className="font-medium text-sm">History</h2>
 			<ul className="flex flex-col divide-y">
-				{cascades
-					.filter((each) => each.status !== "running")
-					.map((each) => (
-						<Past key={each.id} summary={each} />
-					))}
+				{cascades === null ? (
+					<li aria-hidden className="py-2">
+						<Skeleton className="h-5 w-full animate-pulse" />
+					</li>
+				) : (
+					cascades
+						.filter((each) => each.status !== "running")
+						.map((each) => <Past key={each.id} summary={each} />)
+				)}
 			</ul>
 		</section>
 	);

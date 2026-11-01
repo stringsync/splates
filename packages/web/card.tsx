@@ -1,9 +1,6 @@
 import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import {
-	blockerLabel,
-	type DeferralBlocker,
-} from "@stringsync/splates-server/board/browser";
+import { blockerLabel } from "@stringsync/splates-server/board/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import { isBlocked } from "@stringsync/splates-server/queue/browser";
 import {
@@ -37,6 +34,7 @@ import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
+import { TagChips } from "./tag-chips";
 import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
 import { waitLines, waitsOn, waitsShort } from "./waits-on";
 
@@ -67,6 +65,8 @@ export function Card({
 	// Queued but stuck until the person queues what it waits on, or drops a
 	// link: its badge says so and its line offers the fix instead.
 	const blocked = held && isBlocked(todo, board.todos);
+	// Named only where the board holds more than one project, or it says nothing.
+	const mixed = new Set(board.todos.map((each) => each.scope)).size > 1;
 	const stale =
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
@@ -91,6 +91,41 @@ export function Card({
 		todo.stage === "queued"
 			? []
 			: (todo.unqueuedFor ?? []).filter((id) => todo.blockedBy.includes(id));
+	// What stands in its way, most pressing first; the card shows the first and
+	// counts the rest, so a card with several kinds of trouble stays one line.
+	const notes: Note[] = [];
+	if (leftFor.length > 0) {
+		const text = `left the queue: queue ${leftFor.map((id) => `#${id}`).join(", ")} first`;
+		notes.push({ key: "left", text, Icon: CircleAlertIcon });
+	}
+	if (!blocked && (todo.blockersLost ?? []).length > 0) {
+		notes.push({
+			key: "lost",
+			text: "needs you: a blocker was removed",
+			short: "needs you",
+			Icon: CircleAlertIcon,
+		});
+	}
+	if (!blocked && waits.length > 0) {
+		notes.push({
+			key: "waits",
+			text: waitLines(waits),
+			short: waitsShort(waits),
+			Icon: HourglassIcon,
+		});
+	} else if (!blocked && blockers.length > 0) {
+		const text = `Blocked by ${blockers.map((other) => blockerLabel(other, board.lanes)).join(", ")}`;
+		notes.push({ key: "blocked", text, short: text, Icon: HourglassIcon });
+	}
+	if (blockers.length === 0 && awaited.length > 0) {
+		const text = `Waiting on ${awaited.map((each) => (each.kind === "question" ? `your answer: ${each.text.split("\n")[0]}` : each.kind === "outside" ? each.what : "")).join("; ")}`;
+		notes.push({
+			key: "awaited",
+			text,
+			short: "waiting on you",
+			Icon: HourglassIcon,
+		});
+	}
 	return (
 		<div
 			{...pointer}
@@ -152,10 +187,16 @@ export function Card({
 							{todo.slug}
 						</span>
 					)}
+					{mixed && todo.scope !== undefined && (
+						<span className="min-w-0 truncate" title="The project it changes">
+							{todo.scope}
+						</span>
+					)}
+					<TagChips tags={todo.labels} />
 					<StageBadge todo={todo} />
-					{/* Groomed with no agent named, it runs on whichever is picked then. */}
+					{/* With no agent named, it runs on whichever is picked then. */}
 					{todo.takenBy === null &&
-						todo.stage === "ready" &&
+						todo.stage === "available" &&
 						todo.assignee === undefined && (
 							<span className="inline-flex items-center gap-1">
 								<AutoIcon className="size-3" />
@@ -164,37 +205,8 @@ export function Card({
 						)}
 					{/* Kept while queued, so its Undo outlives the block it cleared. */}
 					{held && <BlockedFixButton todo={todo} />}
-					{blocked ? null : waits.length > 0 ? (
-						<span
-							className="inline-flex min-w-0 items-center gap-1 text-warning"
-							title={waitLines(waits)}
-						>
-							<HourglassIcon aria-hidden className="size-3 shrink-0" />
-							<span className="truncate">{waitsShort(waits)}</span>
-						</span>
-					) : (
-						blockers.length > 0 && <Blocked by={blockers} />
-					)}
 					<Elsewhere todo={todo} />
-					{blockers.length === 0 && awaited.length > 0 && (
-						<Awaited on={awaited} />
-					)}
-					{!blocked && (todo.blockersLost ?? []).length > 0 && (
-						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
-							<span className="text-warning">needs you</span>
-						</Badge>
-					)}
-					{leftFor.length > 0 && (
-						<Badge
-							Icon={CircleAlertIcon}
-							label="the queue let it go: what it waits on is not queued"
-						>
-							<span className="text-warning">
-								left the queue: queue {leftFor.map((id) => `#${id}`).join(", ")}{" "}
-								first
-							</span>
-						</Badge>
-					)}
+					<Notes notes={notes} />
 					{todo.files.length > 0 && (
 						<Badge Icon={PaperclipIcon} label="files">
 							{todo.files.length}
@@ -249,44 +261,41 @@ export function Card({
 	);
 }
 
-/**
- * A lone hourglass saying the card cannot start yet: what blocks it has to
- * merge first. Which todos those are is in its label, on hover, and in the
- * dialog, so the card stays quiet.
- */
-function Blocked({ by }: { by: TaskRecord[] }): JSX.Element {
-	const { lanes } = useContext(Board);
-	const label = `Blocked by ${by.map((other) => blockerLabel(other, lanes)).join(", ")}`;
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={<span {...still} />}
-				aria-label={label}
-				className="relative inline-flex cursor-default rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				<HourglassIcon aria-hidden className="size-3 text-warning" />
-			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
-		</Tooltip>
-	);
+interface Note {
+	key: string;
+	/** The whole of it, for hover and screen readers. */
+	text: string;
+	/** What the card says of it, when `text` is too long for a line. */
+	short?: string;
+	Icon: LucideIcon;
 }
 
 /**
- * A lone hourglass on a deferred card waiting on no other task: the
- * questions and outside things it waits on are in its label.
+ * The one thing most in the card's way, in the warning tone, and how many
+ * others there are; every note is in its label, on hover.
  */
-function Awaited({ on }: { on: DeferralBlocker[] }): JSX.Element {
-	const label = `Waiting on ${on.map((each) => (each.kind === "question" ? `your answer: ${each.text.split("\n")[0]}` : each.kind === "outside" ? each.what : "")).join("; ")}`;
+function Notes({ notes }: { notes: Note[] }): JSX.Element | null {
+	const [first, ...rest] = notes;
+	if (first === undefined) {
+		return null;
+	}
+	const label = notes.map((note) => note.text).join("\n");
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				render={<span {...still} />}
 				aria-label={label}
-				className="relative inline-flex cursor-default rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative inline-flex min-w-0 cursor-default items-center gap-1 rounded text-warning outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
-				<HourglassIcon aria-hidden className="size-3 text-warning" />
+				<first.Icon aria-hidden className="size-3 shrink-0" />
+				<span className="truncate" title={first.text}>
+					{first.short ?? first.text}
+				</span>
+				{rest.length > 0 && (
+					<span className="shrink-0 tabular-nums">+{rest.length}</span>
+				)}
 			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
+			<TooltipContent className="whitespace-pre-line">{label}</TooltipContent>
 		</Tooltip>
 	);
 }

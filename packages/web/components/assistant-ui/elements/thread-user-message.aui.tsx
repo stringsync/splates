@@ -52,7 +52,6 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { useShowPending } from "#web/pending.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
 import {
 	type Sent,
@@ -372,7 +371,6 @@ const Bubble: FC<PropsWithChildren<{ pending: boolean }>> = ({
 	children,
 	pending,
 }) => {
-	const showPending = useShowPending(pending);
 	const box = useRef<HTMLDivElement>(null);
 	const [held, setHeld] = useState(false);
 	const press = useLongPress(() => setHeld(true));
@@ -392,7 +390,6 @@ const Bubble: FC<PropsWithChildren<{ pending: boolean }>> = ({
 				ref={box}
 				className={cn(
 					"aui-user-message-content-wrapper group/user relative min-w-0 transition-[opacity,transform,scale] duration-200 max-sm:flex max-sm:max-w-[85%] max-sm:flex-col max-sm:items-end max-sm:data-held:scale-[1.03]",
-					showPending && "opacity-60",
 				)}
 				aria-busy={pending}
 				data-held={held || undefined}

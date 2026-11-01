@@ -11,12 +11,12 @@ credentials.
   `ship: "<command>"`, run from the project's root through `sh -c` as
   `preMerge` is, which publishes the project's public packages at their next
   version and leaves the release committed and tagged on the base branch. In
-  this repository that is `./bin/splates dev ship`; a webappwiz project's is
+  this repository that is `./bin/splates dev ship`; a wren project's is
   `wiz dev ship`. Null means the project is never shipped from splates.
 - **splates knows who depends on whom.** It reads every registered project's
   `package.json` files (the root's and each workspace member's), takes the
   public package names each publishes, and the exact versions each pins of
-  the others', and draws the graph from that. Today: webappwiz → splates,
+  the others', and draws the graph from that. Today: wren → splates,
   mdom, vexml, sound2score; mdom → vexml, sound2score; vexml and splates →
   sound2score.
 - **Only the person starts a ship.** A Ship action on a project in the page,
@@ -54,7 +54,7 @@ credentials.
   the run. When the person is away as the next publish comes due, the ship
   waits on the server with its login or 2FA card showing until they are back.
   A ship that dies partway (the server restarted) is finished from where it
-  stopped: webappwiz's release leaves a RELEASE file for its own packages, and
+  stopped: wren's release leaves a RELEASE file for its own packages, and
   splates keeps the cascade's state in its records.
 
 ## Settled (2026-10-27): release types
@@ -71,7 +71,7 @@ credentials.
   which type to release, and the cascade waits on the answer.
 - **The ship command is told the type.** splates runs each `ship` command
   with `SPLATES_SHIP_BUMP=patch|minor|major`; splates's own `dev ship` and
-  webappwiz's `wiz dev ship` release at it, and splates checks the version
+  wren's `wiz dev ship` release at it, and splates checks the version
   published is the one planned.
 - **An agent's ship card opens the same plan.** Its Ship button opens the
   dialog the project menu does; Approve starts the ship and then tells the
@@ -112,7 +112,7 @@ original decision to wait on a bump agent's questions during a cascade.
   failed or skipped), started, ended, expected time, deadline, the last check
   tried and what it said, and its slice of the log. A project that takes a
   bump has its bump task, that task's merge gate, and its merge; one that
-  ships has npm sign-in, 2FA, the ship command (one step until webappwiz #20
+  ships has npm sign-in, 2FA, the ship command (one step until wren #20
   splits it), and the versions checked against the plan.
 - **Expected time comes from the step's last few ships,** else a declared
   default. The deadline is three times that, or ten minutes the first time.

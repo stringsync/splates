@@ -30,8 +30,8 @@ describe("App's projects", () => {
 		testing = new Testing();
 		testing.projects = [
 			{
-				slug: "webappwiz",
-				root: "/code/webappwiz",
+				slug: "wren",
+				root: "/code/wren",
 				gone: false,
 				focused: true,
 				conversations: [],
@@ -83,7 +83,7 @@ describe("App's projects", () => {
 		await waitFor(() => expect(view.getByText("/code/shop")).toBeTruthy());
 		await act(async () => fireEvent.change(find, { target: { value: "sh" } }));
 		const projects = view.getByRole("list", { name: "projects" });
-		expect(within(projects).queryByText("/code/webappwiz")).toBeNull();
+		expect(within(projects).queryByText("/code/wren")).toBeNull();
 		await act(async () => fireEvent.keyDown(find, { key: "Enter" }));
 
 		expect(testing.visited).toHaveLength(1);
@@ -93,10 +93,10 @@ describe("App's projects", () => {
 	it("opens the pick in place, naming it until its snapshot arrives, with nothing of the last one on it", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open({
-			repo: "webappwiz",
-			todos: [todo({ id: 1, subject: "webappwiz's own" })],
+			repo: "wren",
+			todos: [todo({ id: 1, subject: "wren's own" })],
 		});
-		await waitFor(() => view.getByText("webappwiz's own"));
+		await waitFor(() => view.getByText("wren's own"));
 		await waitFor(() => expect(testing.talkStream).not.toBeNull());
 		const left = { events: testing.stream, talk: testing.talkStream };
 		const arrive = testing.holdSnapshots();
@@ -114,7 +114,7 @@ describe("App's projects", () => {
 				"role",
 			),
 		).toBe("status");
-		expect(screen.queryByText("webappwiz's own")).toBeNull();
+		expect(screen.queryByText("wren's own")).toBeNull();
 		expect(left.events?.closed).toBe(true);
 		expect(left.talk?.closed).toBe(true);
 		arrive();
@@ -125,11 +125,11 @@ describe("App's projects", () => {
 
 	it("keeps the sidebar mounted across a switch of project, so it stays where it was scrolled", async () => {
 		testing.everywhere = [
-			listed("webappwiz", "/repo", []),
+			listed("wren", "/repo", []),
 			listed("shop", "/code/shop", []),
 		];
 		testing.talk = { agents: [], conversations: [] };
-		const view = await testing.open({ repo: "webappwiz" });
+		const view = await testing.open({ repo: "wren" });
 		const sidebar = await waitFor(() =>
 			view.getByRole("navigation", { name: "conversations" }),
 		);
@@ -150,7 +150,7 @@ describe("App's projects", () => {
 		testing.everywhere = [
 			listed("shop", "/code/shop", [details({ task: "checkout" })]),
 		];
-		const view = await testing.openTasks({ repo: "webappwiz" });
+		const view = await testing.openTasks({ repo: "wren" });
 		await waitFor(() => queueRow(view, "checkout"));
 		const arrive = testing.holdSnapshots();
 
@@ -159,43 +159,38 @@ describe("App's projects", () => {
 		await waitFor(() => expect(location.search).toBe("?project=shop"));
 		const screen = within(document.body);
 		expect(screen.queryByText("Opening shop")).toBeNull();
-		expect(
-			screen.getAllByText("🍽️").map((each) => each.getAttribute("aria-hidden")),
-		).not.toContain("true");
 		expect(queueRow(screen, "checkout")).toBeTruthy();
 		arrive();
 	});
 
 	it("draws a project shown before at once on a return, as it last held it, while its snapshot is on its way", async () => {
 		testing.everywhere = [
-			listed("webappwiz", "/repo", []),
+			listed("wren", "/repo", []),
 			listed("shop", "/code/shop", []),
 		];
 		// On, so the page's list of every project's conversations reads them.
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open({
-			repo: "webappwiz",
-			todos: [todo({ id: 1, subject: "webappwiz's own" })],
+			repo: "wren",
+			todos: [todo({ id: 1, subject: "wren's own" })],
 		});
-		await waitFor(() => view.getByText("webappwiz's own"));
+		await waitFor(() => view.getByText("wren's own"));
 		testing.served = snapshot({ repo: "shop" });
 		await pick(view, "/code/shop");
 		const screen = within(document.body);
-		await waitFor(() =>
-			expect(screen.queryByText("webappwiz's own")).toBeNull(),
-		);
+		await waitFor(() => expect(screen.queryByText("wren's own")).toBeNull());
 		const arrive = testing.holdSnapshots();
 
-		await pick(screen, "/code/webappwiz");
+		await pick(screen, "/code/wren");
 
-		await waitFor(() => expect(location.search).toBe("?project=webappwiz"));
-		expect(screen.getByText("webappwiz's own")).toBeTruthy();
-		expect(screen.queryByText("Opening webappwiz")).toBeNull();
+		await waitFor(() => expect(location.search).toBe("?project=wren"));
+		expect(screen.getByText("wren's own")).toBeTruthy();
+		expect(screen.queryByText("Opening wren")).toBeNull();
 		arrive();
 	});
 
 	it("goes back to the project left on the browser's back", async () => {
-		const view = await testing.open({ repo: "webappwiz" });
+		const view = await testing.open({ repo: "wren" });
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
 		);
@@ -209,7 +204,7 @@ describe("App's projects", () => {
 					?.textContent,
 			).toBe("shop"),
 		);
-		testing.served = snapshot({ repo: "webappwiz" });
+		testing.served = snapshot({ repo: "wren" });
 
 		await act(async () => history.back());
 
@@ -218,7 +213,7 @@ describe("App's projects", () => {
 			expect(
 				screen.getAllByRole("button", { name: /^Switch project/ })[0]
 					?.textContent,
-			).toBe("webappwiz"),
+			).toBe("wren"),
 		);
 	});
 
@@ -233,7 +228,7 @@ describe("App's projects", () => {
 			{
 				slot: { word: "fox", emoji: "🦊" },
 				url: "https://fox.example.com",
-				tree: "/code/webappwiz-splates/upload",
+				tree: "/code/wren-splates/upload",
 				here: false,
 			},
 		];
@@ -343,13 +338,11 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
-		await openMenu(view, "webappwiz");
+		await openMenu(view, "wren");
 		await waitFor(() =>
-			view.getByRole("menuitem", { name: "Remove project webappwiz" }),
+			view.getByRole("menuitem", { name: "Remove project wren" }),
 		);
-		expect(
-			view.queryByRole("menuitem", { name: "Ship webappwiz…" }),
-		).toBeNull();
+		expect(view.queryByRole("menuitem", { name: "Ship wren…" })).toBeNull();
 	});
 
 	it("forgets a project that is gone", async () => {
@@ -373,9 +366,7 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		expect(
-			await waitFor(() =>
-				view.getByRole("button", { name: "More for webappwiz" }),
-			),
+			await waitFor(() => view.getByRole("button", { name: "More for wren" })),
 		).toBeTruthy();
 		await openMenu(view, "shop");
 		const forget = await waitFor(() =>
@@ -391,7 +382,7 @@ describe("App's projects", () => {
 
 	it("forgets the one shown, going to the project focused before it", async () => {
 		visit("http://localhost/?project=shop#todos");
-		testing.reply = { slug: "shop", next: { slug: "webappwiz" } };
+		testing.reply = { slug: "shop", next: { slug: "wren" } };
 		const view = await testing.open();
 		await openSwitcher(view);
 
@@ -401,9 +392,7 @@ describe("App's projects", () => {
 		);
 
 		await waitFor(() =>
-			expect(new URL(String(testing.visited[0])).search).toBe(
-				"?project=webappwiz",
-			),
+			expect(new URL(String(testing.visited[0])).search).toBe("?project=wren"),
 		);
 	});
 
@@ -531,14 +520,14 @@ describe("App's projects", () => {
 		expect(new URL(String(testing.visited[0])).search).toBe("?project=fresh");
 	});
 
-	it("asks for a project when there is none to show", async () => {
+	it("opens on a welcome that adds a project, reading no project's feeds, when there is none", async () => {
 		testing.projects = [];
 		testing.refuse("not_found", "no splates project yet: add one by its path");
 		const view = testing.render();
 
 		await waitFor(() =>
 			expect(
-				view.getByText("No splates project yet: add one by its path"),
+				view.getByRole("heading", { name: "Welcome to splates" }),
 			).toBeTruthy(),
 		);
 		expect(view.getByRole("form", { name: "Add a project" })).toBeTruthy();

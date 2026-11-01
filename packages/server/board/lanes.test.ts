@@ -5,12 +5,12 @@ import type { TaskRecord } from "./task";
 
 describe("lanes", () => {
 	it("is not ready on a lost blocker or one still open in another project", () => {
-		const external = { project: "/repos/webappwiz", id: 20, subject: "Events" };
+		const external = { project: "/repos/wren", id: 20, subject: "Events" };
 		const record = { id: 1, name: "A" };
 		const waiting = task({
 			id: 1,
 			lane: 1,
-			stage: "ready",
+			stage: "available",
 			blockedElsewhere: [external],
 		});
 
@@ -102,8 +102,8 @@ describe("lanes", () => {
 	it("leaves out a task another project's slug names", () => {
 		expect(
 			mentioned(
-				"Waits on webappwiz task #404, Webappwiz#405, #webappwiz #406 and webappwiz #407; then #12, and app #13.",
-				["webappwiz", "app-2"],
+				"Waits on wren task #404, Wren#405, #wren #406 and wren #407; then #12, and app #13.",
+				["wren", "app-2"],
 			),
 		).toEqual([12, 13]);
 	});
@@ -121,7 +121,7 @@ function task(overrides: Partial<TaskRecord>): TaskRecord {
 		files: [],
 		blockedBy: [],
 		lane: null,
-		stage: "backlog",
+		stage: "available",
 		...overrides,
 	};
 }

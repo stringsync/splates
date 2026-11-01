@@ -1,20 +1,12 @@
-// vet-ignore-file compact-files: already over the limit before this change; splitting the step runner is queued as its own task
-import { aborts } from "core/abort";
 import { ensure } from "core/assert";
 import type { AsyncResource } from "core/disposable";
 import type { Fs } from "core/system";
-import { Duration, SystemWallClock, sleep, type WallClock } from "core/time";
+import { Duration, SystemWallClock, type WallClock } from "core/time";
 import { fail } from "../exit";
 import type { Storage } from "../storage";
 import { type Cascade, type CascadeStep, Cascades } from "./cascade";
-import type { Pin, ShipGraph, ShipProject } from "./graph";
-import { REGISTRY_DEADLINE, type ShipLive } from "./live";
-import {
-	allPublished,
-	pinsOf,
-	pollSince,
-	untilPublished,
-} from "./published-notice";
+import type { Pin, ShipGraph } from "./graph";
+import type { ShipLive } from "./live";
 import type { ShipRegistry } from "./registry";
 import type { Ship, Shipping } from "./run";
 import {
@@ -23,12 +15,9 @@ import {
 	ShipSelections,
 } from "./selection";
 import { begun, ended, type StageKey } from "./stages";
-
-/** A new ship keeps its project snapshots alongside the legacy-compatible timeline. */
-interface StepRecord {
-	cascade: Cascade;
-	projects: ShipProject[];
-}
+import type { StepContext, StepRecord } from "./step-context";
+import { waitLive } from "./step-live";
+import { publishStep } from "./step-publish";
 
 /** A project’s publisher and adoption operations, including cleanup after Abandon. */
 export interface StepProject {
@@ -354,7 +343,14 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		if (key === "upstream") {
 			const waited = targets.filter((target) => target.waits);
 			for (const target of waited) {
-				await this.waitLive(record, step, target.project, target.version, key);
+				await waitLive(
+					this.context(),
+					record,
+					step,
+					target.project,
+					target.version,
+					key,
+				);
 			}
 			return waited.length === 0;
 		}
@@ -380,140 +376,44 @@ export class ShipSteps extends Cascades implements AsyncResource {
 			return skipped === true;
 		}
 		if (key === "publish") {
-			const version = step.to ?? "";
-			const project = await this.opts.project(step.slug);
-			if (
-				(await allPublished(this.opts.registry, step, version)) &&
-				(await (project.released?.(version) ?? true))
-			) {
-				step.published = pinsOf(step);
-				return true;
-			}
-			const { shipping } = project;
-			this.publisher = shipping;
-			try {
-				const left = await shipping.current();
-				if (!(await this.active(record))) {
-					return false;
-				}
-				if (left?.status === "running") {
-					if (
-						left.log !== this.history.logOf(record.cascade.id, step.slug) ||
-						left.bump !== step.bump
-					) {
-						throw new Error(
-							"another publish is already running for this project",
-						);
-					}
-					await shipping.resume();
-				} else {
-					const ship = await shipping.start(ensure.present(step.bump), {
-						log: this.history.logOf(record.cascade.id, step.slug),
-					});
-					step.ship = ship.started;
-					if (!(await this.active(record))) {
-						await shipping.stop();
-					}
-				}
-				let settled = false;
-				const settling = new AbortController();
-				const nextPoll = pollSince(
-					this.clock,
-					() =>
-						step.stages.find((each) => each.key === "publish")?.expected ?? 0,
-				);
-				const announced = untilPublished(
-					this.opts.registry,
-					step,
-					ensure.present(step.to),
-					{
-						settled: () => settled || this.controller.signal.aborted,
-						pause: () =>
-							aborts.race(
-								AbortSignal.any([this.controller.signal, settling.signal]),
-								this.opts.pause?.() ?? sleep(nextPoll()),
-							),
-						show: async (notice) => {
-							const stage = step.stages.find((each) => each.key === "publish");
-							if (stage !== undefined && (await this.active(record))) {
-								stage.check = {
-									at: this.stamp(),
-									result: notice,
-									next: this.stamp(nextPoll()),
-								};
-								await this.log(record.cascade.id, step.slug, `${notice}\n`);
-								await this.save(record);
-							}
-						},
-					},
-				);
-				try {
-					await shipping.settled();
-				} finally {
-					settled = true;
-					settling.abort();
-				}
-				await announced;
-				const ship = await shipping.current();
-				if (ship?.status !== "done") {
-					throw new Error(ship?.error ?? "publish did not finish");
-				}
-				if (ship.to !== step.to) {
-					throw new Error(`published ${ship.to}, expected ${step.to}`);
-				}
-			} finally {
-				this.publisher = null;
-			}
-			step.published = pinsOf(step);
-			return false;
+			return publishStep(
+				this.context(),
+				record,
+				step,
+				await this.opts.project(step.slug),
+			);
 		}
 		if (step.action === "bump") {
 			return true;
 		}
-		await this.waitLive(record, step, project, ensure.present(step.to), key);
+		await waitLive(
+			this.context(),
+			record,
+			step,
+			project,
+			ensure.present(step.to),
+			key,
+		);
 		return false;
 	}
 
-	private async waitLive(
-		record: StepRecord,
-		step: CascadeStep,
-		project: ShipProject,
-		version: string,
-		key: StageKey,
-	): Promise<void> {
-		const stage = ensure.defined(step.stages.find((each) => each.key === key));
-		const until = this.clock.now() + REGISTRY_DEADLINE.ms;
-		const nextPoll = pollSince(this.clock, () => stage.expected);
-		stage.deadline = new Date(until).toISOString();
-		stage.state = "checking";
-		while (await this.active(record)) {
-			const check = await this.opts.live.check(project, version);
-			stage.check = {
-				at: this.stamp(),
-				result: check.live
-					? `${project.slug}@${version} is live`
-					: check.lagging
-							.map((each) => `${each.name}: ${each.deployed ?? "not live"}`)
-							.join(", "),
-			};
-			if (!check.live) {
-				stage.check.next = this.stamp(nextPoll());
-			}
-			await this.log(record.cascade.id, step.slug, `${stage.check.result}\n`);
-			await this.save(record);
-			if (check.live) {
-				return;
-			}
-			if (this.clock.now() >= until) {
-				throw new Error(
-					`timed out waiting for ${project.slug}@${version} to go live`,
-				);
-			}
-			await aborts.race(
-				this.controller.signal,
-				this.opts.pause?.() ?? sleep(nextPoll()),
-			);
-		}
+	private context(): StepContext {
+		return {
+			clock: this.clock,
+			signal: this.controller.signal,
+			live: this.opts.live,
+			registry: this.opts.registry,
+			pause: this.opts.pause,
+			logOf: (id, slug) => this.history.logOf(id, slug),
+			active: (record) => this.active(record),
+			save: (record) => this.save(record),
+			log: (id, slug, text) => this.log(id, slug, text),
+			stamp: (after) => this.stamp(after),
+			publishing: (shipping) => {
+				this.publisher =
+					shipping === null ? null : (shipping as StepProject["shipping"]);
+			},
+		};
 	}
 
 	private async discard(ship: Cascade): Promise<void> {

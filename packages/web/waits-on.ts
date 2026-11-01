@@ -6,7 +6,7 @@ import {
 
 /** One thing a task waits on to start: a task here or in another project, and where it stands. */
 export interface Wait {
-	/** The task, as `#12` or `webappwiz #404`. */
+	/** The task, as `#12` or `wren #404`. */
 	id: string;
 	/** The task with its lane, as `#12 in Licensing`, or `id` for one in none or elsewhere. */
 	label: string;

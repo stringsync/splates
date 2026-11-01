@@ -11,8 +11,10 @@ import {
 	useState,
 } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { Board } from "./board";
 import { CardShell, toCardTop } from "./card-shell";
 import { Markdown } from "./markdown";
+import { TagChips } from "./tag-chips";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -29,6 +31,7 @@ export function CurrentTask({
 	version: number;
 }): JSX.Element | null {
 	const registry = useContext(RegistryContext);
+	const board = useContext(Board);
 	// The card whose task shows, and the last one shown, kept while it fades.
 	const [current, setCurrent] = useState<HTMLElement | null>(null);
 	const [last, setLast] = useState<HTMLElement | null>(null);
@@ -92,6 +95,7 @@ export function CurrentTask({
 				title={named}
 				ringed={false}
 			>
+				<TagChips tags={board.taskTags?.get(named)} className="px-3 pt-2" />
 				{start.goal !== "" && (
 					// Back to where the task was taken up; its chip opens the task.
 					<button

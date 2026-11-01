@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "core/log";
+import { color, MemoryLogger } from "core/log";
 import { FakeFs, FakePs } from "core/system/testing";
 import { lanesFromTags } from "./lanes-from-tags";
 import { decodeTask, encodeTask } from "./task-file";
@@ -20,7 +20,8 @@ describe("lanesFromTags", () => {
 			files: [],
 			tags,
 		});
-	const said = () => log.entries.map((entry) => String(entry.message));
+	const said = () =>
+		log.entries.map((entry) => color.strip(String(entry.message)));
 
 	beforeEach(async () => {
 		fs = new FakeFs();

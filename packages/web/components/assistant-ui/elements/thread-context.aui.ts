@@ -75,6 +75,11 @@ export type ThreadProps = {
 	 * rather than under the greeting.
 	 */
 	docked?: boolean | undefined;
+	/**
+	 * Something is in the thread that its messages do not hold, such as a
+	 * message on its way or queued, so the thread is not shown as empty.
+	 */
+	occupied?: boolean | undefined;
 };
 export const ThreadExtrasContext = createContext<
 	Pick<

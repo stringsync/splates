@@ -113,8 +113,8 @@ function MarkdownTextImpl({
 					remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
 					// Each `#N` a link to that todo, which `a` draws as a mention, and
 					// each system, path and task the page names one `a` draws as its
-					// chip. Another project's task, `webappwiz #404`, is linked
-					// before its `#webappwiz` could be read as the project alone.
+					// chip. Another project's task, `wren #404`, is linked
+					// before its `#wren` could be read as the project alone.
 					preprocess={(text: string) =>
 						linkMentions(
 							linkNamed(

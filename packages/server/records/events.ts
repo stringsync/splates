@@ -170,8 +170,6 @@ export interface Facts {
 		lane: number | null;
 		/** Where it went in the list, 1 at the top. */
 		position: number;
-		/** Whether it went in ready, groomed, rather than the backlog. */
-		ready: boolean;
 	};
 	"task update": {
 		/** The task, by number. */
@@ -200,8 +198,6 @@ export interface Facts {
 			detached?: string[];
 			/** The agent, model and thinking level it now names, null once it names none. */
 			assignee?: { agent: string; model?: string; effort?: string } | null;
-			/** Whether it was groomed, from the backlog to ready. */
-			ready?: true;
 		};
 	};
 	"task take": TasksFacts;
@@ -507,7 +503,7 @@ export const FACTS = {
 	"artifact add": ["name", "version", "bytes"],
 	"artifact remove": ["name", "version"],
 	retry: ["attempts"],
-	"task add": ["number", "subject", "lane", "position", "ready"],
+	"task add": ["number", "subject", "lane", "position"],
 	"task update": ["number", "subject", "changed"],
 	"task take": ["tasks"],
 	"task wait": ["until", "began", "number", "subject"],
@@ -571,12 +567,10 @@ const TODO_ACTIONS: Record<string, "todo" | "todos"> = {
  */
 // Before todos became tasks, a `todo ...` action was logged for `task ...`, a
 // todo's id as its `number`, and the todos an action names as its `tasks`. A
-// task added before tasks could be added ready went in the backlog.
+// task added before tasks could be added ready went in the backlog; a `ready`
+// an old `task add` or `task update` carries is no longer read.
 export function renamed(event: Event): Event {
-	const named = asTask(event);
-	return named.action === "task add" && !("ready" in named)
-		? { ...named, ready: false }
-		: named;
+	return asTask(event);
 }
 
 function asTask(event: Event): Event {

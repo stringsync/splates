@@ -94,7 +94,7 @@ export async function assignTodo(
 
 /**
  * Puts todo `id` in the queue, for a worker to start once nothing it is
- * blocked by is open, or takes it out, back to the backlog. Given
+ * blocked by is open, or takes it out, available again. Given
  * `project`, a slug, that project's todo `id` instead of this page's.
  */
 export async function queueTodo(

@@ -188,8 +188,8 @@ export function LaneMenu({
 }
 
 /**
- * How many of `lane`'s tasks queueing it would queue, those no agent has in
- * the backlog or ready, and how many no agent has are queued now.
+ * How many of `lane`'s tasks queueing it would queue, those no agent has
+ * available, and how many no agent has are queued now.
  */
 export function laneQueue(lane: LaneState): {
 	waiting: number;
@@ -197,9 +197,7 @@ export function laneQueue(lane: LaneState): {
 } {
 	const open = lane.todos.filter((todo) => todo.takenBy === null);
 	return {
-		waiting: open.filter(
-			(todo) => todo.stage === "backlog" || todo.stage === "ready",
-		).length,
+		waiting: open.filter((todo) => todo.stage === "available").length,
 		queued: open.filter((todo) => todo.stage === "queued").length,
 	};
 }

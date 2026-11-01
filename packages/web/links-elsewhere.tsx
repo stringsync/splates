@@ -23,7 +23,7 @@ import { Board } from "./board";
 
 /**
  * The tasks of other projects it waits on, a chip each: named as
- * `webappwiz #404`, its × unlinks it.
+ * `wren #404`, its × unlinks it.
  */
 export function ElsewhereList({
 	todoId,

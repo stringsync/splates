@@ -1,6 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { AsyncResource } from "core/disposable";
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import type { Child, Fs, Ps } from "core/system";
 import { Duration, type Timer } from "core/time";
 import { GUARD } from "../tunnel";
@@ -39,10 +39,18 @@ export interface SessionServers {
  * a browser context of its own in one chrome-headless-shell, in place of a
  * full Chrome and an MCP per session. One that cannot start, or dies, is
  * logged and offered to no session, which then runs its agent's own.
+ *
+ * Sessions are offered a small proxy on a port kept across restarts, not the
+ * MCP itself. A connection it takes starts the MCP again when it is gone, so
+ * a session that began before the browser stopped (idle, crashed, splates
+ * restarted) reconnects to the same URL and finds it up.
  */
 export class SharedBrowser implements SessionServers, AsyncResource {
 	/** The MCP while it starts or runs; null before the first ask, or once it died. */
 	private running: Promise<{ child: Child; url: string } | null> | null = null;
+
+	/** The proxy sessions connect to, once listening. */
+	private proxy: { port: number; stop(): void } | null = null;
 
 	constructor(
 		private readonly deps: {
@@ -56,14 +64,21 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 	) {}
 
 	async servers(): Promise<acp.McpServer[]> {
-		this.running ??= this.start();
-		const running = await this.running;
-		return running === null
-			? []
-			: [{ type: "http", name: BROWSER_SERVER, url: running.url, headers: [] }];
+		const running = await this.ensure();
+		if (running === null) {
+			return [];
+		}
+		this.proxy ??= await this.listen();
+		const url =
+			this.proxy === null
+				? running.url
+				: `http://127.0.0.1:${this.proxy.port}/mcp`;
+		return [{ type: "http", name: BROWSER_SERVER, url, headers: [] }];
 	}
 
 	async disposeAsync(): Promise<void> {
+		this.proxy?.stop();
+		this.proxy = null;
 		const running = await this.running;
 		this.running = null;
 		if (running !== null) {
@@ -71,6 +86,99 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 			running.child.kill();
 			await running.child.exited.catch(() => 0);
 		}
+	}
+
+	/** The MCP, started when it is not up; concurrent callers share one start. */
+	private ensure(): Promise<{ child: Child; url: string } | null> {
+		this.running ??= this.start();
+		return this.running;
+	}
+
+	/**
+	 * Listens on the port the last proxy did (any free one when it is taken),
+	 * passing each connection to the MCP, which it starts first when down.
+	 * Null when no port can be bound, so sessions get the MCP's own URL.
+	 */
+	private async listen(): Promise<{ port: number; stop(): void } | null> {
+		const { fs, log } = this.deps;
+		const portFile = `${this.dir}/playwright-proxy.port`;
+		const remembered = await this.remembered(portFile);
+		type Link = {
+			upstream: Bun.Socket<unknown> | null;
+			queued: Uint8Array[];
+			closed: boolean;
+		};
+		const handlers: Bun.SocketHandler<Link> = {
+			open: (client) => {
+				client.data = { upstream: null, queued: [], closed: false };
+				this.ensure()
+					.then(async (running) => {
+						if (running === null) {
+							client.end();
+							return;
+						}
+						const { hostname, port } = new URL(running.url);
+						const upstream = await Bun.connect({
+							hostname,
+							port: Number(port),
+							socket: {
+								data: (_up, chunk) => void client.write(chunk),
+								close: () => void client.end(),
+								error: () => void client.end(),
+							},
+						});
+						client.data.upstream = upstream;
+						for (const chunk of client.data.queued) {
+							upstream.write(chunk);
+						}
+						client.data.queued = [];
+						if (client.data.closed) {
+							upstream.end();
+						}
+					})
+					.catch(() => client.end());
+			},
+			data: (client, chunk) => {
+				if (client.data.upstream === null) {
+					client.data.queued.push(new Uint8Array(chunk));
+				} else {
+					client.data.upstream.write(chunk);
+				}
+			},
+			close: (client) => {
+				client.data.closed = true;
+				client.data.upstream?.end();
+			},
+			error: (client) => {
+				client.data.closed = true;
+				client.data.upstream?.end();
+			},
+		};
+		const bind = (port: number) => {
+			try {
+				return Bun.listen<Link>({
+					hostname: "127.0.0.1",
+					port,
+					socket: handlers,
+				});
+			} catch {
+				return null;
+			}
+		};
+		const server = (remembered === null ? null : bind(remembered)) ?? bind(0);
+		if (server === null) {
+			log.error(
+				"the shared browser proxy could not listen, so sessions keep the browser's own URL, which dies with it",
+			);
+			return null;
+		}
+		if (remembered !== null && remembered !== server.port) {
+			log.info(
+				`the shared browser proxy moved from port ${remembered} to ${server.port}; sessions started before keep the old URL`,
+			);
+		}
+		await fs.write(portFile, String(server.port)).catch(() => {});
+		return { port: server.port, stop: () => void server.stop(true) };
 	}
 
 	private async start(): Promise<{ child: Child; url: string } | null> {
@@ -102,32 +210,64 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 				timeouts: { idle: IDLE.ms },
 			}),
 		);
-		const command = ["bunx", PLAYWRIGHT_MCP, "--config", config, "--port", "0"];
-		// Windows has no sh, so there the MCP runs bare and can outlive a crash.
-		const child = ps.start(
-			ps.platform === "win32" ? command : ["sh", "-c", GUARD, "sh", ...command],
-		);
-		const url = await this.listening(child);
-		if (url === null) {
-			child.kill();
+		const launched = await this.launch(0, config);
+		if (launched === null) {
 			this.running = null;
 			return null;
 		}
+		const { child, url } = launched;
 		const started = this.running;
 		void child.exited.then((code) => {
 			if (this.running === started) {
 				this.running = null;
 				log.error(
-					`the shared browser exited with ${code}; the next agent to start starts it again`,
+					`the shared browser exited with ${code}; the next connection starts it again`,
 				);
 			}
 		});
-		log.info(`shared browser at ${url}`);
+		log.info(`${color.green("started")} shared browser at ${url}`);
 		return { child, url };
 	}
 
-	/** Where `child` listens, once it says, or null once it dies or `START_WAIT` passes. */
-	private async listening(child: Child): Promise<string | null> {
+	/** The port the last browser listened on, or null when none is kept. */
+	private async remembered(file: string): Promise<number | null> {
+		const { fs } = this.deps;
+		const text = await fs.read(file).catch(() => "");
+		const port = Number(text.trim());
+		return Number.isInteger(port) && port > 0 && port < 65536 ? port : null;
+	}
+
+	/** The MCP on `port` (0 for any free one), once it says where it listens, or null. */
+	private async launch(
+		port: number,
+		config: string,
+	): Promise<{ child: Child; url: string } | null> {
+		const { ps } = this.deps;
+		const command = [
+			"bunx",
+			PLAYWRIGHT_MCP,
+			"--config",
+			config,
+			"--port",
+			String(port),
+		];
+		// Windows has no sh, so there the MCP runs bare and can outlive a crash.
+		const child = ps.start(
+			ps.platform === "win32" ? command : ["sh", "-c", GUARD, "sh", ...command],
+		);
+		const url = await this.listening(child, port !== 0);
+		if (url === null) {
+			child.kill();
+			return null;
+		}
+		return { child, url };
+	}
+
+	/** Where `child` listens, once it says, or null once it dies or `START_WAIT` passes; `quiet` leaves that unlogged. */
+	private async listening(
+		child: Child,
+		quiet: boolean,
+	): Promise<string | null> {
 		const { timer, log } = this.deps;
 		let tail = "";
 		let found: (url: string) => void = () => {};
@@ -160,7 +300,7 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 			}),
 		]);
 		giveUp?.dispose();
-		if (url === null) {
+		if (url === null && !quiet) {
 			log.error(
 				`the shared browser did not start, so each agent runs its own: ${tail.trim()}`,
 			);

@@ -19,7 +19,7 @@ describe("the queue's order", () => {
 		const all = [
 			task({ id: 1, position: 2 }),
 			task({ id: 2, position: 1 }),
-			task({ id: 3, position: 3, stage: "ready" }),
+			task({ id: 3, position: 3, stage: "available" }),
 			task({ id: 4, position: 4, takenBy: "alpha" }),
 		];
 
@@ -40,7 +40,7 @@ describe("the queue's order", () => {
 	it("leaves one blocked by a task out of the queue where it sits", () => {
 		const all = [
 			task({ id: 1, position: 1, blockedBy: [2] }),
-			task({ id: 2, position: 2, stage: "backlog" }),
+			task({ id: 2, position: 2, stage: "available" }),
 			task({ id: 3, position: 3 }),
 		];
 
@@ -67,7 +67,7 @@ describe("the queue's order", () => {
 	});
 
 	it("holds a task until its blockers in other projects merge there", () => {
-		const open = { project: "/repos/webappwiz", id: 404, subject: "locale" };
+		const open = { project: "/repos/wren", id: 404, subject: "locale" };
 		const waiting = task({ id: 1, stage: "queued", blockedElsewhere: [open] });
 		const lost = task({
 			id: 2,
@@ -91,13 +91,13 @@ describe("the queue's order", () => {
 	it("is a blocker not queued or removed, here or under a task it waits on, never one queued or running", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2] }),
-			task({ id: 2, stage: "ready" }),
+			task({ id: 2, stage: "available" }),
 			task({ id: 3, blockersLost: [{ id: 9, subject: "gone" }] }),
 			task({ id: 4, blockedBy: [3] }),
 			task({ id: 5, blockedBy: [6] }),
 			task({ id: 6, stage: "running", takenBy: "alpha" }),
 			task({ id: 7, blockedBy: [5] }),
-			task({ id: 8, stage: "ready", blockedBy: [2] }),
+			task({ id: 8, stage: "available", blockedBy: [2] }),
 		];
 
 		expect(blockage(all[0] as TaskRecord, all)).toMatchObject({
@@ -122,9 +122,9 @@ describe("the queue's order", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2, 5] }),
 			task({ id: 2, stage: "queued", blockedBy: [3] }),
-			task({ id: 3, stage: "backlog", blockedBy: [4] }),
-			task({ id: 4, stage: "ready" }),
-			task({ id: 5, stage: "ready", blockedBy: [4] }),
+			task({ id: 3, stage: "available", blockedBy: [4] }),
+			task({ id: 4, stage: "available" }),
+			task({ id: 5, stage: "available", blockedBy: [4] }),
 		];
 
 		expect(ids(unqueuedBlockers([1], all))).toEqual([4, 3, 5]);
@@ -134,8 +134,8 @@ describe("the queue's order", () => {
 	it("stops at a task under way, and finds none for one free to start", () => {
 		const all = [
 			task({ id: 1, blockedBy: [2] }),
-			task({ id: 2, stage: "ready", takenBy: "alpha", blockedBy: [3] }),
-			task({ id: 3, stage: "ready" }),
+			task({ id: 2, stage: "available", takenBy: "alpha", blockedBy: [3] }),
+			task({ id: 3, stage: "available" }),
 			task({ id: 4 }),
 		];
 

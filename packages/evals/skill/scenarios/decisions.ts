@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Check, Repo } from "@evals/evals/scenario";
 import {
 	APPROVE,
 	questions,
 	stretches,
 } from "@stringsync/splates-server/plans";
-import type { Check, Repo, Scenario } from "../scenario";
+import type { Scenario } from "../box";
 
 const aspect = "decisions";
 const task = "decision";

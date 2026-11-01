@@ -109,23 +109,33 @@ export class ProjectSkills {
 		if (wanted.length === 0) {
 			return;
 		}
-		const { exitCode } = await ps.spawn(
-			[
-				"bunx",
-				CLI,
-				"add",
-				`${this.opts.source}#v${version}`,
-				"--yes",
-				"--skill",
-				...wanted,
-			],
-			// `skills` reports each install to skills.sh unless told not to,
-			// and a project updating its tools has not asked for that
-			{ cwd: this.root, env: { DISABLE_TELEMETRY: "1" } },
-		);
-		if (exitCode !== 0) {
+		const install = (ref: string) =>
+			ps.spawnCapture(
+				["bunx", CLI, "add", ref, "--yes", "--skill", ...wanted],
+				// `skills` reports each install to skills.sh unless told not to,
+				// and a project updating its tools has not asked for that
+				{ cwd: this.root, env: { DISABLE_TELEMETRY: "1" } },
+			);
+		const tag = `v${version}`;
+		let result = await install(`${this.opts.source}#${tag}`);
+		// a release can die between publishing and tagging, so its tag may not
+		// be there yet; the default branch's copy is the nearest thing
+		if (
+			result.exitCode !== 0 &&
+			`${result.stdout}\n${result.stderr}`.includes(
+				`Remote branch ${tag} not found`,
+			)
+		) {
+			log.info(
+				color.yellow(
+					`${this.opts.source} has no ${tag} tag yet; installing ${wanted.join(", ")} from its default branch, which may not match ${version}. Refresh again once the tag exists.`,
+				),
+			);
+			result = await install(this.opts.source);
+		}
+		if (result.exitCode !== 0) {
 			throw new Error(
-				`\`bunx ${CLI} add\` exited ${exitCode} installing ${wanted.join(", ")} ${version}`,
+				`\`bunx ${CLI} add\` exited ${result.exitCode} installing ${wanted.join(", ")} ${version}`,
 			);
 		}
 	}

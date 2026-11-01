@@ -1,3 +1,4 @@
+import { useAuiState } from "@assistant-ui/react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
 	ChevronRightIcon,
@@ -34,6 +35,11 @@ interface Sheet {
 	tone: Tone;
 	/** What its line and the bar call a tap on it. */
 	action: string;
+	/**
+	 * Whether an arrival opens it. Not when its message has words beside it,
+	 * which are read in the thread first.
+	 */
+	bare: boolean;
 	/**
 	 * Opens it, over the thread, or over where the page was at `from` when it
 	 * came from there, going back to it on a close.
@@ -110,7 +116,9 @@ export function PhoneSheets({
 		];
 		setShown(all.current);
 		if (arriving.current !== null && complete.current) {
-			sheet.open(arriving.current);
+			if (sheet.bare) {
+				sheet.open(arriving.current);
+			}
 			arriving.current = null;
 		}
 		return () => {
@@ -127,7 +135,7 @@ export function PhoneSheets({
 		const latest = all.current.at(-1);
 		if (latest === undefined || !complete.current) {
 			arriving.current = from;
-		} else {
+		} else if (latest.bare) {
 			latest.open(from);
 		}
 	});
@@ -164,6 +172,12 @@ export function Sheeted({
 	const sheets = useContext(SheetsContext);
 	const { reply, sent } = useCardReply();
 	const live = sent === null && reply?.send != null;
+	// Whether the message holds no words beside the card.
+	const bare = useAuiState((state) =>
+		state.message.content.every(
+			(part) => part.type !== "text" || part.text.trim() === "",
+		),
+	);
 	const [open, setOpen] = useState(false);
 	// The address it was opened from, to go back to on a close, or null.
 	const from = useRef<string | null>(null);
@@ -187,9 +201,9 @@ export function Sheeted({
 	const add = sheets?.add;
 	useEffect(() => {
 		if (add !== undefined && live) {
-			return add({ id, title, Icon, tone, action, open: show });
+			return add({ id, title, Icon, tone, action, bare, open: show });
 		}
-	}, [add, live, id, title, Icon, tone, action, show]);
+	}, [add, live, id, title, Icon, tone, action, bare, show]);
 	const [line, setLine] = useState<HTMLButtonElement | null>(null);
 	useLineInSight(line, id, sheets?.sight);
 	if (sheets === null || !live) {

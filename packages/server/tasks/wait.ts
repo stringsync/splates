@@ -136,7 +136,7 @@ export async function taskWait(
 		const queued = (await queue.all()).find((each) => each.id === id);
 		if (queued === undefined) {
 			log.info(
-				`${color.bold(`task ${id}`)} landed or was removed: whatever came after it no longer waits on it`,
+				`${color.bold(`task ${id}`)} ${color.green("landed")} or was removed: whatever came after it no longer waits on it`,
 			);
 			return;
 		}

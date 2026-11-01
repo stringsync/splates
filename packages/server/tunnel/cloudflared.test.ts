@@ -59,7 +59,9 @@ describe("CloudflaredTunnelProvider", () => {
 		expect(child?.signals).toEqual(["SIGTERM"]);
 		expect(log.entries).toEqual([
 			expect.objectContaining({
-				message: "splates server reachable at https://splates.example.com",
+				message: expect.stringContaining(
+					"splates server at https://splates.example.com",
+				),
 			}),
 		]);
 	});

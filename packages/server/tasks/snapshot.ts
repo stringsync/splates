@@ -3,61 +3,12 @@ import type { Fs } from "core/system";
 import type * as Board from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
-import { BatchGroups } from "../merge";
+import { MergeLine } from "../merge";
 import type { Slot } from "../ports";
 import type { Behind, Release } from "../server/shared";
 import type { Ship } from "../ship";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
-
-/**
- * Everything one page shows: `task list`, and `list` and `show` for each
- * task.
- */
-export interface Snapshot {
-	/** What `?project=` names the project by, which the registry gives it. */
-	project: string;
-	/** The repository's directory name, so a page among many says whose it is. */
-	repo: string;
-	/** Where the repository sits, with the home directory as `~`. */
-	path: string;
-	/** The main tree, absolute, which agents' file paths start from. */
-	root: string;
-	/** The directory that holds each task's worktree, absolute. */
-	worktreeRoot: string;
-	/** Past this age a queued task is offered for removal rather than recommended. */
-	taskStalenessMs: number;
-	todos: Board.TaskRecord[];
-	/** Its tasks' blockers in other projects, and theirs it blocks; absent unread. */
-	elsewhere?: Board.ElsewhereOnBoard;
-	/** Every lane, in board order, empty ones too. */
-	lanes: Board.LaneRecord[];
-	/**
-	 * The name of every lane there has been, those on the board first, to
-	 * name a lane's orchestrator after it once the lane is done.
-	 */
-	laneNames: Board.LaneRecord[];
-	tasks: Details[];
-	/** The merge batches running now, each leader first; absent from older servers. */
-	mergeBatches?: string[][];
-	/** Every cred agents requested, open or not, the latest first; never a value. */
-	creds: CredRequest[];
-	/** The branch tasks land on, which the main tree has checked out. */
-	trunk: string;
-	/** A newer splates than the one serving, once `splates server` has seen one on npm. */
-	release: Release | null;
-	/** Commits to splates's own source since `splates server` started from it. */
-	behind: Behind | null;
-	/**
-	 * Whether building the page failed as `splates server` started, so the page
-	 * serving is the one built before, and may be out of date.
-	 */
-	unbuilt: boolean;
-	/** The slot `splates server --slot` serves under, shown beside the project's name. */
-	slot: Slot | null;
-	/** The project's latest ship, going or ended. Absent from older servers. */
-	ship?: Ship | null;
-}
 
 /**
  * Reads the whole repo the way the CLI's read commands do. Takes no lease, so
@@ -93,7 +44,18 @@ export async function snapshot({
 	unbuilt?: boolean;
 	slot?: Slot | null;
 }): Promise<Snapshot> {
-	const tasks = await tasksOf({ service, fs, details });
+	const read = await tasksOf({ service, fs, details });
+	// The server runs every merge, so its line holds every batch gating now.
+	const running = new Set(
+		read.filter((task) => task.gate === "running").map((task) => task.task),
+	);
+	const mergeBatches = MergeLine.of(service.git.root)
+		.groups()
+		.filter((group) => group.every((task) => running.has(task)));
+	const tasks = read.map((task) => {
+		const batch = mergeBatches.find((each) => each.includes(task.task));
+		return batch === undefined ? task : { ...task, mergeBatch: batch };
+	});
 	return {
 		project,
 		repo: basename(service.git.root),
@@ -101,13 +63,17 @@ export async function snapshot({
 		root: service.git.root,
 		worktreeRoot: resolve(service.config.worktreeRoot),
 		taskStalenessMs: service.config.taskStalenessMs,
+		...(service.config.tags?.allowed === undefined
+			? {}
+			: { allowedTags: service.config.tags.allowed }),
+		...(service.config.tags?.colors === undefined
+			? {}
+			: { tagColors: service.config.tags.colors }),
 		todos: (await queue.all()).map((each) => each.state),
 		lanes: await queue.lanes(),
 		laneNames: await queue.laneNames(),
 		tasks,
-		mergeBatches: await new BatchGroups(service.storage).active(
-			tasks.filter((task) => task.gate === "running").map((task) => task.task),
-		),
+		mergeBatches,
 		creds: await creds.requests(),
 		trunk: service.config.trunk,
 		release,
@@ -115,6 +81,59 @@ export async function snapshot({
 		unbuilt,
 		slot,
 	};
+}
+
+/**
+ * Everything one page shows: `task list`, and `list` and `show` for each
+ * task.
+ */
+export interface Snapshot {
+	/** What `?project=` names the project by, which the registry gives it. */
+	project: string;
+	/** The repository's directory name, so a page among many says whose it is. */
+	repo: string;
+	/** Where the repository sits, with the home directory as `~`. */
+	path: string;
+	/** The main tree, absolute, which agents' file paths start from. */
+	root: string;
+	/** The directory that holds each task's worktree, absolute. */
+	worktreeRoot: string;
+	/** Past this age a queued task is offered for removal rather than recommended. */
+	taskStalenessMs: number;
+	/** The only tags a task may carry, from `splates.config.ts`; absent when any is allowed. */
+	allowedTags?: string[];
+	/** The color of each tag's chips, by tag, from `splates.config.ts`; absent when none is set. */
+	tagColors?: Record<string, string>;
+	todos: Board.TaskRecord[];
+	/** Its tasks' blockers in other projects, and theirs it blocks; absent unread. */
+	elsewhere?: Board.ElsewhereOnBoard;
+	/** Every lane, in board order, empty ones too. */
+	lanes: Board.LaneRecord[];
+	/**
+	 * The name of every lane there has been, those on the board first, to
+	 * name a lane's orchestrator after it once the lane is done.
+	 */
+	laneNames: Board.LaneRecord[];
+	tasks: Details[];
+	/** The merge batches running now, each leader first; absent from older servers. */
+	mergeBatches?: string[][];
+	/** Every cred agents requested, open or not, the latest first; never a value. */
+	creds: CredRequest[];
+	/** The branch tasks land on, which the main tree has checked out. */
+	trunk: string;
+	/** A newer splates than the one serving, once `splates server` has seen one on npm. */
+	release: Release | null;
+	/** Commits to splates's own source since `splates server` started from it. */
+	behind: Behind | null;
+	/**
+	 * Whether building the page failed as `splates server` started, so the page
+	 * serving is the one built before, and may be out of date.
+	 */
+	unbuilt: boolean;
+	/** The slot `splates server --slot` serves under, shown beside the project's name. */
+	slot: Slot | null;
+	/** The project's latest ship, going or ended. Absent from older servers. */
+	ship?: Ship | null;
 }
 
 /** `list` and `show` for each task, as {@link snapshot} reads them. */

@@ -99,6 +99,8 @@ export type Need =
 			mergeSince?: string;
 			/** A queued merge's place in line for the lock, 1 being next. */
 			mergePlace?: number;
+			/** Its running merge leads a batch of several, whose one premerge run gates them all. */
+			leads?: true;
 			/** Its turn is over and a run its eval card started goes on. */
 			evals?: true;
 	  }
@@ -217,7 +219,12 @@ function working(task: Details | null): Extract<Need, { kind: "working" }> {
 	const subject = task?.plan ? doing(task.plan) : null;
 	const since = task?.mergeSince ? { mergeSince: task.mergeSince } : {};
 	if (task?.status === "merging" || task?.gate === "running") {
-		return { kind: "working", subject, merge: "running", ...since };
+		const batch = task.mergeBatch ?? [];
+		const leads =
+			batch.length > 1 && batch[0] === task.task
+				? { leads: true as const }
+				: {};
+		return { kind: "working", subject, merge: "running", ...since, ...leads };
 	}
 	if (task?.gate !== "queued") {
 		return { kind: "working", subject };

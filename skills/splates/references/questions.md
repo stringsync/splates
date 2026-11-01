@@ -38,13 +38,19 @@ Number questions 1, 2, … in the order you write them. A question's line is
 its subject, short enough to scan and ending at its `?`, with nothing after
 it; everything else, the why included, goes in markdown lines indented under
 it, code blocks included. When checking your own work, ask for what is wrong
-rather than a bare yes or no. A yes or no decision is one of a few: give it
-`- (a) ...` choices, each saying what happens, never a bare "Yes" or "No", so
-the answer cannot be read two ways. When the answer is one of a few, end with
+rather than a bare yes or no. A yes or no question is a question like any other: ask
+it as a numbered item with `- (a) Yes` and `- (b) No` choices, your pick
+first and marked `(chosen)`, and never as free-form prose. Say what each
+answer does when that is not plain from the question (`- (a) Yes, keep it for
+one release (chosen)`). The user can always add words of their own to any
+answer, so never ask for a reason or a caveat as a second question. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Describe every choice, the one you went with too, and mark that one
-`(chosen)`: never a bare "That". List it first, as `(a)`: the `splates server`
-page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which task
+`(chosen)`: never a bare "That". Order the choices first of all by any order
+they already have: variants lettered A, B, C, D (as in lo-fi mockups), steps,
+sizes, a timeline. Then list them in that order, even when your pick is not
+the first, since the pick is marked `(chosen)` wherever it sits. With no
+implicit order, any order works, and putting your pick first is a fine default. When the answer is an order (what lands first, which task
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
 
@@ -57,8 +63,8 @@ crowd the choices.
 
 ```markdown
 1. Should the old upload endpoint stay for a release?
-   - (a) Keep it for one release, logging each call (chosen)
-   - (b) Remove it now
+   - (a) Yes, keep it for one release, logging each call (chosen)
+   - (b) No, remove it now
 2. What looks wrong in the header at 390px?
    ![header at 390px](/abs/path/shot.png)
 3. How should existing sessions move to the new tokens?

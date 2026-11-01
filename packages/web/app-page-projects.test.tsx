@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	setDefaultTimeout,
+} from "bun:test";
 import {
 	act,
 	cleanup,
@@ -18,6 +25,9 @@ function visit(url: string): void {
 	).happyDOM.setURL(url);
 }
 
+// Walking every page in turn outlasts the default under a loaded gate.
+setDefaultTimeout(30_000);
+
 describe("App's pages and the project switcher", () => {
 	let testing: Testing;
 
@@ -26,8 +36,8 @@ describe("App's pages and the project switcher", () => {
 		testing = new Testing();
 		testing.projects = [
 			{
-				slug: "webappwiz",
-				root: "/code/webappwiz",
+				slug: "wren",
+				root: "/code/wren",
 				gone: false,
 				focused: true,
 				conversations: [],
@@ -54,8 +64,8 @@ describe("App's pages and the project switcher", () => {
 		resize(1024, 768);
 	});
 
-	it("heads every desktop page with a switcher beside its title", async () => {
-		const view = await testing.open({ repo: "webappwiz" });
+	it("leaves a desktop page's bar to its title, the sidebar's head holding the switcher", async () => {
+		const view = await testing.open({ repo: "wren" });
 
 		const switchers = [
 			await switcherOn(view, "Board"),
@@ -68,24 +78,26 @@ describe("App's pages and the project switcher", () => {
 			await switcherOn(view, "Automations"),
 			await switcherOn(view, "Setup"),
 		];
-		expect(switchers).toEqual(Array(switchers.length).fill("webappwiz"));
+		expect(switchers).toEqual(Array(switchers.length).fill(null));
 	});
 
-	it("heads the sidebar with the server, not the project's switcher", async () => {
-		const view = await testing.open({ repo: "webappwiz" });
+	it("heads the sidebar with the project's switcher, not the server's name", async () => {
+		const view = await testing.open({ repo: "wren" });
 		await goTo(view, "Stats");
 
 		const head = view
-			.getByRole("heading", { level: 1, name: "splates" })
+			.getByRole("button", { name: /^Switch project/ })
 			.closest("header") as HTMLElement;
 		const tabs = view.getByRole("tablist");
 		expect([
-			within(head).queryByRole("button", { name: /^Switch project/ }),
+			within(head).getByRole("button", { name: /^Switch project/ }).textContent,
+			within(head).queryByRole("heading", { name: "splates" }),
 			within(tabs).queryByRole("button", { name: /^Switch project/ }),
 			within(tabs)
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
 		]).toEqual([
+			"wren",
 			null,
 			null,
 			[
@@ -117,18 +129,19 @@ describe("App's pages and the project switcher", () => {
 	it("heads a phone's drawer with the server and its pages, and a page's bar with the project, its chips naming the page", async () => {
 		resize(390, 844);
 		const view = await testing.open({
-			repo: "webappwiz",
+			repo: "wren",
 			todos: [todo()],
 			tasks: [details()],
 		});
 
 		const drawer = await openDrawer(view);
 		expect([
-			within(drawer).getByRole("heading", { level: 1 }).textContent,
-			within(drawer).queryByRole("button", { name: /^Switch project/ }),
+			within(drawer).queryByRole("heading", { name: "splates" }),
+			within(drawer).getByRole("button", { name: /^Switch project/ })
+				.textContent,
 			within(drawer).getByRole("button", { name: "Board" }).textContent,
 			within(drawer).getByRole("button", { name: "Queue" }).textContent,
-		]).toEqual(["splates", null, "Board", "Queue"]);
+		]).toEqual([null, "wren", "Board", "Queue"]);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
@@ -147,13 +160,13 @@ describe("App's pages and the project switcher", () => {
 					"button",
 					{ current: "page" },
 				).textContent,
-			]).toEqual([null, "webappwiz", "Creds"]),
+			]).toEqual([null, "wren", "Creds"]),
 		);
 	});
 
 	it("keeps a phone on its page when the bar's switcher picks another project", async () => {
 		resize(390, 844);
-		const view = await testing.open({ repo: "webappwiz", tasks: [details()] });
+		const view = await testing.open({ repo: "wren", tasks: [details()] });
 		const drawer = await openDrawer(view);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
@@ -184,7 +197,7 @@ describe("App's pages and the project switcher", () => {
 			"splates.places",
 			JSON.stringify({ shop: { hash: "#conversations/abc" } }),
 		);
-		const view = await testing.open({ repo: "webappwiz" });
+		const view = await testing.open({ repo: "wren" });
 		await act(async () =>
 			fireEvent.click(
 				view.getAllByRole("button", {
@@ -207,7 +220,7 @@ describe("App's pages and the project switcher", () => {
 			"splates.places",
 			JSON.stringify({ shop: { hash: "#conversations/abc" } }),
 		);
-		const view = await testing.open({ repo: "webappwiz" });
+		const view = await testing.open({ repo: "wren" });
 		await act(async () =>
 			fireEvent.click(
 				view.getAllByRole("button", {
@@ -231,7 +244,7 @@ describe("App's pages and the project switcher", () => {
 			"splates.places",
 			JSON.stringify({ shop: { hash: "#conversations/abc" } }),
 		);
-		const view = await testing.open({ repo: "webappwiz" });
+		const view = await testing.open({ repo: "wren" });
 		const drawer = await openDrawer(view);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Board" })),
@@ -268,10 +281,12 @@ async function goTo(
 	await act(async () =>
 		fireEvent.click(view.getByRole("tab", { name: new RegExp(name) })),
 	);
-	await waitFor(() =>
-		expect(
-			view.getAllByRole("heading", { level: 2, name }).length,
-		).toBeGreaterThan(0),
+	await waitFor(
+		() =>
+			expect(
+				view.getAllByRole("heading", { level: 2, name }).length,
+			).toBeGreaterThan(0),
+		{ timeout: 4000 },
 	);
 }
 

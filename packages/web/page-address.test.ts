@@ -92,6 +92,28 @@ describe("PageAddress", () => {
 		expect(address.cred).toBeNull();
 	});
 
+	it("opens the plan of a scenario, whose id holds slashes, from the Evals page", () => {
+		address.openEval("plan", "resources/focused-tests");
+
+		expect(location.hash).toBe("#evals/plan/resources%2Ffocused-tests");
+		expect(address.page).toBe("evals");
+		expect(address.evals).toEqual({
+			batch: null,
+			run: null,
+			plan: ["resources/focused-tests"],
+		});
+
+		address.openEval("plan", ["a/b", "c"]);
+
+		expect(location.hash).toBe("#evals/plan/a%2Fb,c");
+		expect(address.evals.plan).toEqual(["a/b", "c"]);
+
+		address.openEval("batch-a", "run-1");
+
+		expect(location.hash).toBe("#evals/batch-a/run-1");
+		expect(address.evals.plan).toBeNull();
+	});
+
 	it("sets Setup on a journey and step, and the nav entry returns to them", () => {
 		address.openSetup("cloud", "coordinator-up");
 

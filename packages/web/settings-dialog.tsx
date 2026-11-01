@@ -35,11 +35,13 @@ export function SettingsDialog({
 	settings,
 	open,
 	onOpenChange,
+	onWelcome,
 }: {
 	settings: Settings;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** Opens the Setup page, once the dialog has closed. */
+	/** Opens the Welcome page, once the dialog has closed. */
+	onWelcome: () => void;
 }): JSX.Element {
 	const [query, setQuery] = useState("");
 	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
@@ -70,6 +72,16 @@ export function SettingsDialog({
 			<DialogContent className="flex h-[min(36rem,85dvh)] flex-col gap-0 p-0 sm:max-w-3xl">
 				<div className="flex items-center gap-4 border-b py-3 pr-12 pl-4">
 					<DialogTitle className="shrink-0">Settings</DialogTitle>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							onOpenChange(false);
+							onWelcome();
+						}}
+					>
+						Welcome page
+					</Button>
 					<div className="relative flex-1">
 						<SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
 						<Input

@@ -7,7 +7,15 @@ import type {
 	StageState,
 } from "@stringsync/splates-server/ship";
 import { Duration, SystemTimer } from "core/time";
-import { LoaderCircleIcon } from "lucide-react";
+import {
+	CircleCheckIcon,
+	CircleDotIcon,
+	CircleIcon,
+	CircleSlashIcon,
+	CircleXIcon,
+	LoaderCircleIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { shipStageLog } from "./api";
 import { useNow } from "./hooks/use-now";
@@ -60,7 +68,9 @@ export function StageRow({
 					stage.state === "skipped" && "text-muted-foreground/60 line-through",
 				)}
 			>
-				<span aria-hidden>{ICONS[stage.state]}</span>
+				<span aria-hidden className="shrink-0">
+					{ICONS[stage.state]}
+				</span>
 				<span className="font-medium">{stage.name}</span>
 				<span className="text-muted-foreground">
 					{STAGE_STATES[stage.state]}
@@ -75,7 +85,23 @@ export function StageRow({
 			</button>
 			{stage.check !== null && going && (
 				<p className="pl-5 text-muted-foreground text-sm">
-					{stage.check.result},{" "}
+					{stage.check.result}
+					{stage.check.link !== undefined && (
+						<>
+							{" "}
+							(
+							<a
+								href={stage.check.link}
+								target="_blank"
+								rel="noreferrer"
+								className="underline"
+							>
+								on npmjs.com
+							</a>
+							)
+						</>
+					)}
+					,{" "}
 					{stage.check.next !== undefined && Date.parse(stage.check.next) > now
 						? `next check in ${Math.ceil((Date.parse(stage.check.next) - now) / 1000)}s`
 						: `checked ${ago(now, stage.check.at)}`}
@@ -127,9 +153,24 @@ function ReleaseSteps({
 							step.state === "skipped" && "text-muted-foreground/60",
 						)}
 					>
-						<span aria-hidden>{ICONS[step.state]}</span>
+						<span aria-hidden className="shrink-0">
+							{ICONS[step.state]}
+						</span>
 						<span className="text-muted-foreground">{step.stage}</span>
 						<span>{step.name}</span>
+						{step.state === "running" && step.status !== null && (
+							<span className="text-muted-foreground">{step.status}</span>
+						)}
+						{step.url !== null && (
+							<a
+								href={step.url}
+								target="_blank"
+								rel="noreferrer"
+								className="underline"
+							>
+								run on GitHub
+							</a>
+						)}
 						{step.state === "skipped" && (
 							<span className="text-muted-foreground">already done</span>
 						)}
@@ -214,15 +255,25 @@ const STAGE_STATES: Record<StageState, string> = {
 	skipped: "",
 };
 
-const ICONS: Record<StageState, JSX.Element | string> = {
-	pending: "○",
-	running: <LoaderCircleIcon className="size-3 animate-spin" />,
-	checking: <LoaderCircleIcon className="size-3 animate-spin" />,
-	asking: "●",
-	hung: "⚠",
-	done: "✓",
-	failed: "✕",
-	skipped: "·",
+const ICON = "size-4 shrink-0";
+
+export const ICONS: Record<StageState, JSX.Element> = {
+	pending: <CircleIcon className={cn(ICON, "text-muted-foreground/50")} />,
+	running: (
+		<LoaderCircleIcon
+			className={cn(ICON, "animate-spin text-muted-foreground")}
+		/>
+	),
+	checking: (
+		<LoaderCircleIcon
+			className={cn(ICON, "animate-spin text-muted-foreground")}
+		/>
+	),
+	asking: <CircleDotIcon className={cn(ICON, AMBER)} />,
+	hung: <TriangleAlertIcon className={cn(ICON, AMBER)} />,
+	done: <CircleCheckIcon className={cn(ICON, "text-emerald-500")} />,
+	failed: <CircleXIcon className={cn(ICON, "text-destructive")} />,
+	skipped: <CircleSlashIcon className={cn(ICON, "text-muted-foreground/60")} />,
 };
 
 /** `ms` as "45s", "3m" or "1h 5m". */

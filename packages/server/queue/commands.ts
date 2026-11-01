@@ -57,7 +57,7 @@ export async function queueList(
 }
 
 /**
- * Puts tasks `ids` in the queue, from the backlog or groomed, for a worker
+ * Puts tasks `ids` in the queue, for a worker
  * to start once nothing they are blocked by is open. Refuses one an agent
  * has taken, which is already under way.
  */
@@ -118,8 +118,8 @@ export async function sayUnqueuedBlockers(
 }
 
 /**
- * Takes tasks `ids` out of the queue, back to `ready` when they were
- * groomed, else `backlog`. Refuses one not in it.
+ * Takes tasks `ids` out of the queue, available again. Refuses one not
+ * in it.
  */
 export async function queueRemove(
 	{ tasks, log }: QueueDeps,

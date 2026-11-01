@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { basename } from "node:path";
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
 
 // Everything splates still answers to from when it was arbor, kept for one
@@ -98,7 +98,7 @@ export async function moveLegacyDir(
 		throw error;
 	}
 	await link(basename(next), old);
-	log.info(`moved ${old} to ${next}, left a link behind`);
+	log.info(`${color.green("moved")} ${old} to ${next}, left a link behind`);
 	return true;
 }
 
@@ -175,7 +175,7 @@ export async function renameLegacyFiles({
 				"@stringsync/splates",
 			),
 		);
-		log.info(`renamed ${old} to ${next}`);
+		log.info(`${color.green("renamed")} ${old} to ${next}`);
 	}
 	const manifest = await fs.read(`${root}/package.json`).catch(() => "");
 	if (manifest.includes('"@webappwiz/arbor"')) {
@@ -197,5 +197,7 @@ export async function removeLegacySkill(
 		return;
 	}
 	await fs.rm(path, { recursive: true });
-	log.info(`removed arbor's skill at ${path}: the splates skill replaces it`);
+	log.info(
+		`${color.green("removed")} arbor's skill at ${path}: the splates skill replaces it`,
+	);
 }

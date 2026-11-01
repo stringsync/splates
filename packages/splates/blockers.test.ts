@@ -55,7 +55,7 @@ describe("blockers in other projects", () => {
 
 		await splates.run(deps, ["task", "show", String(task?.id)]);
 		expect(said()).toContain(
-			`blocked by: ${thereSlug} #${parser.id} Export the parser (backlog)`,
+			`blocked by: ${thereSlug} #${parser.id} Export the parser (available)`,
 		);
 
 		const hereSlug = (await here.projects.list()).find(
@@ -64,7 +64,7 @@ describe("blockers in other projects", () => {
 		here.ps.cd(there.root);
 		await splates.run(deps, ["task", "show", String(parser.id)]);
 		expect(said()).toContain(
-			`blocking:  ${hereSlug} #${task?.id} Use the parser (ready, in another project)`,
+			`blocking:  ${hereSlug} #${task?.id} Use the parser (available, in another project)`,
 		);
 
 		here.ps.cd(here.root);

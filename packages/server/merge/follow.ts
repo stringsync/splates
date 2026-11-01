@@ -1,7 +1,6 @@
-import type { Logger } from "core/log";
-import { Duration, sleep } from "core/time";
+import { color, type Logger } from "core/log";
 import type { Git } from "../git";
-import type { MergeBatch, Settled } from "./batch";
+import type { MergeLine, Settled } from "./line";
 
 /** What following came to: the lock, to lead, or a batch's result. */
 export type Followed =
@@ -10,21 +9,21 @@ export type Followed =
 	| { doomed: true };
 
 /**
- * Waits for the premerge lock as a merge offered to any batch, and says
- * what came of it: the result of a batch that landed or refused the branch,
+ * Waits for the premerge lock as a merge in `line`, and says what came of
+ * it: the result of a batch that landed or refused the branch,
  * `{ doomed: true }` once `doomed` answers true while the branch is on no
  * stack, or the lock, which makes this merge the next leader. The branch is
  * left on `ownHead` unless a batch landed it.
  */
 export async function follow(
 	{
-		batch,
+		line,
 		git,
 		log,
 		pollMs = 1000,
 		doomed,
 	}: {
-		batch: MergeBatch;
+		line: MergeLine;
 		git: Git;
 		log: Logger;
 		pollMs?: number;
@@ -32,6 +31,7 @@ export async function follow(
 	},
 	{
 		task,
+		base,
 		path,
 		ownHead,
 		requireLease,
@@ -39,12 +39,14 @@ export async function follow(
 		onUnstacked,
 	}: {
 		task: string;
+		/** The branch it lands on; a batch holds one base's merges only. */
+		base: string;
 		path: string;
 		/** The branch's tip rebased on the base alone, which every stacking starts from. */
 		ownHead: string;
 		requireLease: () => Promise<unknown>;
-		/** Called once the branch is on a batch's stack, whose gate is this merge's. */
-		onStacked: () => Promise<void>;
+		/** Called once the branch is on a batch's stack at `head`, whose gate is this merge's. */
+		onStacked: (head: string) => Promise<void>;
 		/**
 		 * Called when a batch let the branch go, back on `ownHead`: to wait
 		 * on once the batch `dissolved`, or refused by its result otherwise.
@@ -53,12 +55,11 @@ export async function follow(
 	},
 	reserve: (signal: AbortSignal) => Promise<AsyncDisposable>,
 ): Promise<Followed> {
-	// Each leader's invitation is answered by stacking the branch on the tip
-	// it names; a batch's result gives the wait up, the ticket gone.
+	// A leader stacks the branch on its tip by calling `stack`; a batch's
+	// result gives the wait up, the ticket gone.
 	const controller = new AbortController();
-	let result: Settled | null = null;
+	let result = null as Settled | null;
 	let stacked = false;
-	let done = false;
 	let gaveUp = false;
 	const unstack = async (dissolved = true) => {
 		if (stacked) {
@@ -75,84 +76,76 @@ export async function follow(
 			await git.run(path, "rebase", "--abort");
 			await git.resetHard(path, ownHead);
 			log.info(
-				`not gating in a batch: the rebase onto its stack ${onto.slice(0, 8)} conflicted`,
+				`${color.yellow("not gating")} in a batch: the rebase onto its stack ${onto.slice(0, 8)} conflicted`,
 			);
 			return null;
 		}
+		const head = await git.head(path);
 		stacked = true;
-		await onStacked();
-		return git.head(path);
+		await onStacked(head);
+		return head;
 	};
-	const polling = (async () => {
-		while (!done) {
-			const found = await batch.result(task);
-			if (found !== null && found.kind === "dissolved") {
-				await batch.unstack(task);
-				await unstack();
-			} else if (found !== null) {
-				result = found;
-				controller.abort(new Error("the batch has finished"));
-				return;
-			}
-			const invite = await batch.invited(task);
-			if (invite !== null) {
-				const head = await stack(invite.onto);
-				await batch.stacked(task, invite.onto, head);
-			}
-			if (doomed !== undefined && !stacked && (await doomed())) {
-				gaveUp = true;
-				controller.abort(new Error("the branch conflicts with the base"));
-				return;
-			}
-			await sleep(Duration.ms(pollMs));
-		}
-	})();
+	using offer = line.join(task, base, stack, () => unstack());
+	void offer.settled.then((found) => {
+		result = found;
+		controller.abort(new Error("the batch has finished"));
+	});
+	let asking = false;
+	const poll =
+		doomed === undefined
+			? undefined
+			: setInterval(() => {
+					if (asking || stacked || offer.stacked()) {
+						return;
+					}
+					asking = true;
+					void doomed()
+						.then((yes) => {
+							if (yes && !stacked && !offer.stacked()) {
+								gaveUp = true;
+								controller.abort(
+									new Error("the branch conflicts with the base"),
+								);
+							}
+						})
+						.finally(() => {
+							asking = false;
+						});
+				}, pollMs);
 	let capacity: AsyncDisposable | null = null;
 	try {
 		capacity = await reserve(controller.signal);
 	} catch (error) {
 		if (!controller.signal.aborted) {
-			done = true;
-			await polling;
 			throw error;
 		}
+	} finally {
+		clearInterval(poll);
 	}
-	done = true;
-	await polling;
-	if (capacity !== null) {
-		// The leader says before it lets the lock go, so a result is read
-		// once more with the lock had.
-		const found = result ?? (await batch.result(task));
-		if (found !== null && found.kind !== "dissolved") {
-			await capacity[Symbol.asyncDispose]();
-			capacity = null;
-			result = found;
-		}
-	}
+	// Leading now, or done: no leader may stack the branch from here.
+	line.leave(task);
 	if (result !== null) {
-		if (result.kind === "landed") {
-			await git.resetHard(path, result.head);
+		// The leader says before it lets the lock go, so a result is had
+		// before the lock is.
+		if (capacity !== null) {
+			await capacity[Symbol.asyncDispose]();
+		}
+		const settled: Settled = result;
+		if (settled.kind === "landed") {
+			stacked = false;
+			await git.resetHard(path, settled.head);
 		} else {
 			await unstack(false);
 		}
-		await batch.clear(task);
-		return { result };
+		return { result: settled };
 	}
+	// A leader that stopped without a word leaves the branch on its stack.
 	await unstack();
-	await batch.clear(task);
-	if (gaveUp) {
+	if (gaveUp || capacity === null) {
 		if (capacity !== null) {
 			await capacity[Symbol.asyncDispose]();
 		}
 		return { doomed: true };
-	}
-	if (capacity === null) {
-		// Aborted by a result that then turned out dissolved: wait again.
-		return follow(
-			{ batch, git, log, pollMs, doomed },
-			{ task, path, ownHead, requireLease, onStacked, onUnstacked },
-			reserve,
-		);
 	}
 	return { capacity };
 }

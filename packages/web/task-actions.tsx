@@ -152,7 +152,7 @@ export function ActionBar({
 		<div
 			role="toolbar"
 			aria-label="actions"
-			className="flex w-full flex-col gap-2 [&_button]:h-10"
+			className="flex w-full flex-col gap-2"
 		>
 			{/* A row of its own, so it names whose spinner it is. */}
 			{chatting && <OnIt task={task.task} variant="rows" className="-mx-2" />}
@@ -182,9 +182,8 @@ export function ActionBar({
 							render={
 								<Button
 									variant="outline"
-									size="icon"
+									size="icon-sm"
 									aria-label="More actions"
-									className="size-10"
 								/>
 							}
 						>

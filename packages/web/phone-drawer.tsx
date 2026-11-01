@@ -11,7 +11,6 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
-import { NAV_HEADING } from "./top-bar";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -109,7 +108,6 @@ export function Drawer({
 								urgent
 							/>
 							{PAGES.filter(({ scope }) => scope === "project").map(entry)}
-							<h2 className={cn(NAV_HEADING, "mt-3 py-2")}>Everywhere</h2>
 							{PAGES.filter(({ scope }) => scope === "everywhere").map(entry)}
 							<Entry
 								current={false}

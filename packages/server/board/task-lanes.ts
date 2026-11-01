@@ -118,8 +118,8 @@ export class TaskLanes {
 	}
 
 	/**
-	 * Queues every task waiting in lane `id`, once: each nobody has taken, in
-	 * the backlog or ready, goes in the queue as the lane's, which starts it
+	 * Queues every task waiting in lane `id`, once: each nobody has taken,
+	 * available, goes in the queue as the lane's, which starts it
 	 * once nothing blocks it. A task put in the lane later is not queued. With
 	 * `queued` false, takes each of its queued tasks nobody has taken back
 	 * out. Gives back the lane and the tasks it queued or took out.
@@ -137,7 +137,7 @@ export class TaskLanes {
 				if (state.lane !== id || state.takenBy !== null) {
 					continue;
 				}
-				if (queued && (state.stage === "backlog" || state.stage === "ready")) {
+				if (queued && state.stage === "available") {
 					const next = enqueued(state, { by: "lane", lane: id });
 					changed.push((await this.tasks.save(next)).state);
 				} else if (!queued && state.stage === "queued") {

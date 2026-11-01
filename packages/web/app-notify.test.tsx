@@ -79,6 +79,7 @@ describe("App's settings and notifications", () => {
 				.map((each) => each.textContent),
 		).toEqual([
 			"Appearance",
+			"Startup",
 			"Editor",
 			"Notifications",
 			"Updates",
@@ -238,9 +239,9 @@ describe("App's settings and notifications", () => {
 			true,
 		);
 		expect(JSON.parse(localStorage.getItem("splates.settings") ?? "")).toEqual({
-			"welcome.show": false,
 			"appearance.theme": "dark",
 			"appearance.accent": "rose",
+			"startup.welcome": false,
 		});
 	});
 

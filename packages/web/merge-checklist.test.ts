@@ -162,6 +162,17 @@ describe("mergeChecklist", () => {
 		]);
 	});
 
+	it("shows a follower the leader's phases and output for its premerge", () => {
+		const { lead, follower } = batchOf();
+
+		const rows = mergeChecklist(follower, NOW, { lead });
+
+		expect(rows[1]?.phases.map((phase) => phase.phase)).toEqual(["biome"]);
+		expect(rows[1]?.from).toBe("alpha");
+		expect(rows[1]?.output).toBe(1);
+		expect(mergeChecklist(follower, NOW)[1]?.from).toBeNull();
+	});
+
 	it("says how long the steps and phases under way and to come took in recent merges, listing the phases to come", () => {
 		const rows = mergeChecklist(
 			details({
@@ -180,14 +191,16 @@ describe("mergeChecklist", () => {
 			}),
 			NOW,
 			{
-				steps: { rebase: 3000, test: 200_000, land: 1000 },
-				phases: [
-					{ phase: "biome", ms: 4000 },
-					{ phase: "tests", ms: 150_000 },
-					{ phase: "server tests", ms: 140_000, within: "tests" },
-					{ phase: "scry", ms: 20_000 },
-				],
-				merges: 20,
+				estimates: {
+					steps: { rebase: 3000, test: 200_000, land: 1000 },
+					phases: [
+						{ phase: "biome", ms: 4000 },
+						{ phase: "tests", ms: 150_000 },
+						{ phase: "server tests", ms: 140_000, within: "tests" },
+						{ phase: "scry", ms: 20_000 },
+					],
+					merges: 20,
+				},
 			},
 		);
 
@@ -224,3 +237,29 @@ describe("mergeChecklist", () => {
 		]);
 	});
 });
+
+/** A leader in its premerge and a follower stacked on its batch, the follower's own run bare. */
+function batchOf() {
+	const lead = details({
+		task: "alpha",
+		mergeSteps: {
+			steps: [
+				{ step: "rebase", at: at(0) },
+				{ step: "test", at: at(2), output: "/g/1-test.log" },
+			],
+			phases: [{ phase: "biome", at: at(3), ms: 5000 }],
+		},
+	});
+	const follower = details({
+		task: "beta",
+		gate: "running",
+		mergeSince: at(0),
+		mergeSteps: {
+			steps: [
+				{ step: "rebase", at: at(0) },
+				{ step: "test", at: at(4), output: "/g/1-test.log" },
+			],
+		},
+	});
+	return { lead, follower };
+}

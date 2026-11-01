@@ -29,6 +29,8 @@ describe("QueueRunner", () => {
 	let timer: FakeTimer;
 	/** Whether the runner is paused, as the server's records say. */
 	let paused: boolean;
+	/** Whether the machine's load holds the queue back. */
+	let overloaded: boolean;
 	/** The deferred tasks sent back to their conversations, by id. */
 	let resumed: number[];
 
@@ -36,6 +38,13 @@ describe("QueueRunner", () => {
 	const settled = async (): Promise<void> => {
 		await Promise.allSettled(pending);
 		await Bun.sleep(0);
+	};
+
+	/** Lets the gap after the last start pass, waiting out what that starts. */
+	const gapPasses = async (): Promise<void> => {
+		timer.fireTimeouts();
+		await runner.sweep();
+		await settled();
 	};
 
 	const watch = (): QueueRunner =>
@@ -55,6 +64,7 @@ describe("QueueRunner", () => {
 			},
 			held,
 			paused: () => paused,
+			overloaded: () => overloaded,
 			log: new MemoryLogger(),
 			timer,
 		});
@@ -67,6 +77,7 @@ describe("QueueRunner", () => {
 		picker = new FakePicker();
 		timer = new FakeTimer();
 		paused = false;
+		overloaded = false;
 		resumed = [];
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
@@ -158,19 +169,19 @@ describe("QueueRunner", () => {
 		expect((await deps.tasks.find(4)).state.stage).toBe("queued");
 
 		await (await deps.tasks.find(1)).remove("abc123");
-		await runner.sweep();
-		await settled();
+		await gapPasses();
 
 		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
 	});
 
-	it("asks the agent to groom a task from the backlog before working it, and not one groomed", async () => {
+	it("asks the agent to groom a task still in Untriaged before working it, and not one in a lane", async () => {
 		await taskAdd(deps, "Raw", null);
-		await taskAdd(deps, "Groomed", null, { ready: true });
+		await taskAdd(deps, "Groomed", null, { lane: "new" });
 		await queueAdd(deps, [1, 2]);
 
 		await runner.sweep();
 		await settled();
+		await gapPasses();
 
 		const prompts = new Map(
 			started.map(({ queued, prompt }) => [queued.id, prompt]),
@@ -198,16 +209,61 @@ describe("QueueRunner", () => {
 		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
 	});
 
-	it("starts every queued task nothing blocks at once, taking no slot", async () => {
+	it("starts nothing while the machine is overloaded, saying so, and starts on the sweep after the load falls", async () => {
+		await taskAdd(deps, "One", null);
+		await queueAdd(deps, [1]);
+		overloaded = true;
+
+		await runner.sweep();
+		await settled();
+		expect(started).toEqual([]);
+		expect(held.placed()).toEqual([
+			{ queued: 1, position: 1, reason: "machine busy" },
+		]);
+
+		overloaded = false;
+		await runner.sweep();
+		await settled();
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+	});
+
+	it("starts queued tasks nothing blocks one at a time, a gap apart, with at most two starting at once", async () => {
 		await taskAdd(deps, "One", null);
 		await taskAdd(deps, "Two", null);
 		await taskAdd(deps, "Three", null);
 		await queueAdd(deps, [1, 2, 3]);
+		/** Ends each start once the test says, by queued task. */
+		const finish = new Map<number, () => void>();
+		starting = (each) =>
+			new Promise<void>((resolve) => {
+				finish.set(each.queued.id, resolve);
+			}).then(async () => {
+				await (await deps.tasks.find(each.queued.id)).take(each.task);
+			});
+		const ids = () => started.map(({ queued }) => queued.id);
 
 		await runner.sweep();
-		await settled();
+		await runner.sweep();
+		expect(ids()).toEqual([1]);
 
-		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2, 3]);
+		timer.fireTimeouts();
+		await runner.sweep();
+		expect(ids()).toEqual([1, 2]);
+
+		// Two are starting, so the third waits past the gap for one to end.
+		timer.fireTimeouts();
+		await runner.sweep();
+		expect(ids()).toEqual([1, 2]);
+
+		finish.get(1)?.();
+		await pending[0];
+		await Bun.sleep(0);
+		await runner.sweep();
+		expect(ids()).toEqual([1, 2, 3]);
+
+		finish.get(2)?.();
+		finish.get(3)?.();
+		await settled();
 	});
 
 	it("tries a refused queued task again after a wait that doubles with each refusal", async () => {
@@ -218,6 +274,7 @@ describe("QueueRunner", () => {
 		};
 		/** Lets a sweep of the clock go by, waiting out what it starts. */
 		const sweep = async (): Promise<void> => {
+			timer.fireTimeouts();
 			timer.fireIntervals();
 			await runner.sweep();
 			await settled();
@@ -260,6 +317,7 @@ describe("QueueRunner", () => {
 		expect(started).toHaveLength(1);
 
 		await taskUpdate(deps, 1, { text: "with the hook fixed" });
+		timer.fireTimeouts();
 		await runner.sweep();
 		expect(started).toHaveLength(2);
 	});
@@ -283,6 +341,7 @@ describe("QueueRunner", () => {
 		]);
 
 		starting = async () => {};
+		timer.fireTimeouts();
 		await runner.retry(1);
 		expect(started).toHaveLength(2);
 	});
@@ -308,7 +367,7 @@ describe("QueueRunner", () => {
 	});
 
 	it("keeps queued a task waiting on one neither queued nor running, starting that once it is queued", async () => {
-		await taskAdd(deps, "Breakdowns", null, { ready: true });
+		await taskAdd(deps, "Breakdowns", null);
 		await taskAdd(deps, "Totals first", null);
 		await taskUpdate(deps, 1, { blockedBy: [2] });
 		await queueAdd(deps, [1]);
@@ -440,12 +499,12 @@ describe("QueueRunner", () => {
 		expect(picker.told).toEqual([{ queued: 1, conversation: "h1" }]);
 	});
 
-	it("has Auto pick judge a backlog task that names no agent as it is added, not a ready one", async () => {
+	it("has Auto pick judge an Untriaged task that names no agent as it is added, not one in a lane", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Named", null, {
 			assignee: { agent: "codex", model: "o3" },
 		});
-		await taskAdd(deps, "Groomed", null, { ready: true });
+		await taskAdd(deps, "Groomed", null, { lane: "new" });
 
 		await runner.sweep();
 		await settled();

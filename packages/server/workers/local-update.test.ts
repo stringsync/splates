@@ -73,8 +73,12 @@ describe("LocalWorkerUpdate", () => {
 		for (const session of sessions.splice(0)) {
 			session.dispose();
 		}
+		links.clear();
 		registry.dispose();
 	});
+
+	/** The link each worker last joined on, by its id. */
+	const links = new Map<string, WorkerSocketPair>();
 
 	/** Joins worker `id` on `build`, offering `update` unless `offers` is false. */
 	async function join(
@@ -85,7 +89,10 @@ describe("LocalWorkerUpdate", () => {
 			offers = true,
 		}: { kind?: WorkerKind; offers?: boolean } = {},
 	): Promise<void> {
+		// The one it replaces exits first, as one told to restart does.
+		links.get(id)?.drop();
 		const pair = new WorkerSocketPair();
+		links.set(id, pair);
 		const session = new WorkerSession("worker", {
 			capabilities: offers ? [UPDATE] : [],
 			timer,

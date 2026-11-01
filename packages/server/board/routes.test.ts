@@ -104,7 +104,7 @@ describe("dev tasks", () => {
 				200,
 			);
 			expect(await stages()).toEqual([
-				[2, "backlog"],
+				[2, "available"],
 				[1, "queued"],
 			]);
 			expect(
@@ -244,7 +244,7 @@ describe("dev tasks", () => {
 	});
 
 	it("keeps only the blockers in other projects the page's list names", async () => {
-		const wiz = { project: "/repos/webappwiz", subject: "locale" };
+		const wiz = { project: "/repos/wren", subject: "locale" };
 		await deps.tasks.add("prices", null, {
 			blockedElsewhere: [
 				{ ...wiz, id: 404 },
@@ -290,7 +290,7 @@ describe("dev tasks", () => {
 
 			const response = await json(port, "/api/todos/1/blocked-by", "PUT", {
 				blockedBy: [],
-				blockedElsewhere: [{ project: "/repos/webappwiz", id: 404 }],
+				blockedElsewhere: [{ project: "/repos/wren", id: 404 }],
 			});
 			expect(response.status).toBe(404);
 			expect(

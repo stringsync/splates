@@ -8,21 +8,17 @@ import { shipName } from "@stringsync/splates-server/ship/browser";
 
 /**
  * What the ship under way asks of the page: `waiting` while it needs the
- * person (npm's sign-in or code, a bump task's questions, a project stopped
- * or failed), `running` while it goes on its own, null while none runs.
+ * person (a bump task's questions), `error` once its cascade stopped and so waits on the person to retry or abandon it, `running` while it goes on its own, null while none runs.
  */
-export type ShipActivity = "waiting" | "running" | null;
+export type ShipActivity = "error" | "waiting" | "running" | null;
 
 /** Whether the cascade under way, with its ship, waits on the person. */
-export function needsYou(cascade: Cascade, ship: Ship | null): boolean {
-	return (
-		ship?.waiting != null ||
-		cascade.steps.some(
-			(step) =>
-				step.status === "asking" ||
-				step.status === "stopped" ||
-				step.status === "failed",
-		)
+export function needsYou(cascade: Cascade): boolean {
+	return cascade.steps.some(
+		(step) =>
+			step.status === "asking" ||
+			step.status === "stopped" ||
+			step.status === "failed",
 	);
 }
 
@@ -30,14 +26,13 @@ export function shipActivity(
 	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
 ): ShipActivity {
 	const { cascade, ship } = reading ?? { cascade: null, ship: null };
-	if (cascade === null || cascade.status !== "running") {
-		return ship?.status === "running"
-			? ship.waiting === null
-				? "running"
-				: "waiting"
-			: null;
+	if (cascade?.status === "stopped") {
+		return "error";
 	}
-	return needsYou(cascade, ship) ? "waiting" : "running";
+	if (cascade === null || cascade.status !== "running") {
+		return ship?.status === "running" ? "running" : null;
+	}
+	return needsYou(cascade) ? "waiting" : "running";
 }
 
 /** The step of `step` past its deadline, or null while none is. */
@@ -47,13 +42,13 @@ export function hungIn(step: CascadeStep): Stage | null {
 
 /**
  * One line on where the ship cascade stands, for a card that follows it:
- * "webappwiz publishing", "waiting on your 2FA", "splates hung at build";
+ * "wren publishing", "waiting on your 2FA", "splates hung at build";
  * null before it first speaks.
  */
 export function shipLine(
 	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
 ): string | null {
-	const { cascade, ship } = reading ?? { cascade: null, ship: null };
+	const { cascade } = reading ?? { cascade: null, ship: null };
 	if (cascade === null) {
 		return null;
 	}
@@ -62,13 +57,6 @@ export function shipLine(
 	}
 	if (cascade.status === "abandoned") {
 		return `${shipName(cascade.from)} ship abandoned`;
-	}
-	if (ship?.waiting != null) {
-		return ship.waiting.kind === "login"
-			? "waiting on your npm sign-in"
-			: ship.waiting.kind === "approve"
-				? "waiting on your approval on npm"
-				: "waiting on your 2FA";
 	}
 	for (const step of cascade.steps) {
 		const hung = hungIn(step);

@@ -18,7 +18,7 @@ function visit(url: string): void {
 	).happyDOM.setURL(url);
 }
 
-const WEBAPPWIZ = { root: "/code/webappwiz", repo: "webappwiz" };
+const WREN = { root: "/code/wren", repo: "wren" };
 
 describe("App's new conversation, by project", () => {
 	let testing: Testing;
@@ -30,8 +30,8 @@ describe("App's new conversation, by project", () => {
 		testing = new Testing();
 		testing.projects = [
 			{
-				slug: "webappwiz",
-				root: "/code/webappwiz",
+				slug: "wren",
+				root: "/code/wren",
 				gone: false,
 				focused: true,
 				conversations: [],
@@ -49,7 +49,7 @@ describe("App's new conversation, by project", () => {
 			},
 		];
 		// With none open, the page starts a new one.
-		view = await testing.openConversations([], null, WEBAPPWIZ);
+		view = await testing.openConversations([], null, WREN);
 	});
 
 	afterEach(() => {
@@ -63,7 +63,7 @@ describe("App's new conversation, by project", () => {
 	it("names its project above the composer alone, and a pick shows that project's, what was typed carried along", async () => {
 		const home = view.getByRole("region", { name: "new conversation" });
 		expect(
-			view.getAllByRole("button", { name: "Switch project" }),
+			within(home).getAllByRole("button", { name: "Switch project" }),
 		).toHaveLength(1);
 		const box = within(home).getByRole("textbox", { name: "Message input" });
 		await typeIn(box, "fix the login");
@@ -110,7 +110,7 @@ describe("App's new conversation, by project", () => {
 		expect(rows(general)).toEqual([["GeneralNo project", 1]]);
 		expect(rows(view.getByRole("list", { name: "projects" }))).toEqual([
 			["shop/code/shop", 2],
-			["webappwiz/code/webappwizcurrent", 2],
+			["wren/code/wrencurrent", 2],
 		]);
 		await act(async () =>
 			fireEvent.click(within(general).getByText("General")),

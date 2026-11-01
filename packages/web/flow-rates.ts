@@ -27,6 +27,8 @@ export function flowRates(
 		start: each.start,
 		label: buckets[index]?.label ?? each.start,
 		closed: ((each.merged + each.removed) / bucket) * per,
+		timed: each.timed,
+		toCloseMinutes: average(each.spentMs, each.timed, MINUTE),
 		merges: each.mergeTimed,
 		queuedMinutes: average(each.mergeQueuedMs, each.mergeTimed, MINUTE),
 		ranMinutes: average(each.mergeRanMs, each.mergeTimed, MINUTE),
@@ -66,6 +68,9 @@ export function flowRates(
 		},
 		bars,
 		closedAxis: axis(Math.max(0, ...bars.map((each) => each.closed))),
+		toCloseAxis: axis(
+			Math.max(0, ...bars.map((each) => each.toCloseMinutes ?? 0)),
+		),
 		mergeAxis: axis(
 			Math.max(
 				0,
@@ -99,6 +104,8 @@ export interface FlowRates {
 	bars: FlowBar[];
 	/** The axis tasks closed per `unit` is drawn on. */
 	closedAxis: Axis;
+	/** The axis add to close is drawn on, in minutes. */
+	toCloseAxis: Axis;
 	/** The axis merge times are drawn on, in minutes. */
 	mergeAxis: Axis;
 }
@@ -119,6 +126,10 @@ export interface FlowBar {
 	label: string;
 	/** Tasks closed per `unit`. */
 	closed: number;
+	/** Tasks timed from add to close in it. */
+	timed: number;
+	/** Average minutes from add to close; null when no task timed ended in it. */
+	toCloseMinutes: number | null;
 	/** Landing merges timed in it. */
 	merges: number;
 	/** Average minutes queued and ran; null when no merge timed landed in it. */

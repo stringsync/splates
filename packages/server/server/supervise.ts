@@ -25,6 +25,12 @@ export const UPDATE = 76;
 export const SERVING = "SPLATES_DEV_SERVING";
 
 /**
+ * Set in the server's environment when another server owns the local worker
+ * socket, so this one runs no worker and no tunnel connector.
+ */
+export const NO_WORKER = "SPLATES_DEV_NO_WORKER";
+
+/**
  * Set in the server's environment when its page failed to build: the page
  * then says it may be out of date.
  */

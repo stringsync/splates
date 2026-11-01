@@ -39,7 +39,7 @@ function dictationArea(): SetupArea {
 	const wordsStep: SetupStep = {
 		id: "dictation-words",
 		title: "Teach it your words",
-		why: "The mic spells splates, the project's name and the project's `dictationWords` as written; add the names you say in every project, such as your tools and the people you mention.",
+		why: "The mic spells these words as you write them, not as it hears them. Add the names you say in every project, such as your tools and the people you mention; words for one project only go in its `splates.config.ts`, under `dictationWords`.",
 		user: "List your words, separated by commas, then press Next. They are kept in `~/.splates/dictation.json`.",
 		agent:
 			'Have the user list them on the page, or write `~/.splates/dictation.json` as `{ "words": [...] }`. Words for one project go in its `splates.config.ts` as `dictationWords` instead.',

@@ -25,11 +25,14 @@ export function QueueControls({
 	view,
 	pool,
 	waiting,
+	busy = 0,
 }: {
 	view: WorkerPoolView;
 	pool: WorkerPool;
 	/** How many agents wait to start. */
 	waiting: number;
+	/** How many of those the machine's load holds back. */
+	busy?: number;
 }): JSX.Element {
 	const { refusal, refuse } = useRefusal();
 	const { writing } = useReactive(
@@ -99,7 +102,7 @@ export function QueueControls({
 					role="status"
 					className="text-muted-foreground text-sm max-md:basis-full"
 				>
-					{standing({ paused, running, waiting })}
+					{standing({ paused, running, waiting, busy })}
 				</span>
 			</div>
 			<Refusal refusal={refusal} />
@@ -120,15 +123,23 @@ export function standing({
 	paused,
 	running,
 	waiting,
+	busy = 0,
 }: {
 	paused: boolean;
 	/** How many agents run, every one, the person's own included. */
 	running: number;
 	waiting: number;
+	/** How many waiting agents the machine's load holds back. */
+	busy?: number;
 }): string {
 	const line =
 		waiting === 0
 			? `${running} running`
 			: `${running} running · ${waiting} waiting`;
-	return paused ? `Paused · ${line} · yours still start` : line;
+	if (paused) {
+		return `Paused · ${line} · yours still start`;
+	}
+	return busy > 0
+		? `Machine busy, holding ${busy} back until its load falls · ${line} · yours still start`
+		: line;
 }

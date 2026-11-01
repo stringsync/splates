@@ -29,6 +29,7 @@ import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
 import { usePendingSnapshot } from "./expecting";
 import { pendingRow, useShowPending } from "./pending";
+import { TagChips } from "./tag-chips";
 
 /**
  * One part of the Queue page's card: a plain band naming it and how many
@@ -78,6 +79,7 @@ export interface RowAction {
  */
 export function QueueRow({
 	name,
+	tags,
 	by,
 	age,
 	id,
@@ -91,6 +93,8 @@ export function QueueRow({
 	pendingKey,
 }: {
 	name: ReactNode;
+	/** The task's tags, as chips after its name. */
+	tags?: readonly string[];
 	by?: ReactNode;
 	age?: ReactNode;
 	id?: ReactNode;
@@ -135,8 +139,13 @@ export function QueueRow({
 					<span className="min-w-0 truncate max-md:font-medium max-md:text-[15px]">
 						{name}
 					</span>
+					<TagChips
+						tags={tags}
+						className="shrink-0 flex-nowrap max-md:hidden"
+					/>
 					{marks}
 				</span>
+				<TagChips tags={tags} className="mt-0.5 md:hidden" />
 				{meta.length > 0 && (
 					<span className="truncate text-muted-foreground text-xs md:hidden">
 						{meta.map((each, at) => (

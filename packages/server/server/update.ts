@@ -21,7 +21,7 @@ export const UPDATING = "SPLATES_UPDATING";
  * one's skill over whatever copy is there, through `bunx skills add` from
  * this release's tag, and moves what an older config holds to where this
  * one reads it. Offline, the running release is the newest there is to
- * have. `wiz update` names the release instead, as it pins every webappwiz
+ * have. `wiz update` names the release instead, as it pins every wren
  * package to one. Answers with the exit code to end on.
  */
 export async function update({

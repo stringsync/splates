@@ -44,7 +44,7 @@ export async function refuseGroomer(
 	if (task === undefined) {
 		fail(
 			"usage",
-			`the groomer organizes tasks and never does them, so it runs no \`splates ${command}\`: groom the task and mark it ready, and the person queues it`,
+			`the groomer organizes tasks and never does them, so it runs no \`splates ${command}\`: groom the task and place it in a lane, and the person queues it`,
 			{ command },
 		);
 	}

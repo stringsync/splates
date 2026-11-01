@@ -37,7 +37,7 @@ describe("Project controls in conversation lists", () => {
 		localStorage.clear();
 		testing = new Testing();
 		testing.everywhere = [
-			listed("webappwiz", "/repo"),
+			listed("wren", "/repo"),
 			{
 				...listed("shop", "/code/shop"),
 				conversations: [
@@ -88,7 +88,7 @@ describe("Project controls in conversation lists", () => {
 		const list = agentList(view);
 		const shop = await shopIn(list);
 		expect(
-			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
+			within(within(list).getByRole("region", { name: "wren" })).getByText(
 				"No conversations",
 			),
 		).toBeTruthy();
@@ -96,7 +96,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["apple", "shop", "webappwiz"]);
+		).toEqual(["apple", "shop", "wren"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -111,7 +111,7 @@ describe("Project controls in conversation lists", () => {
 		const list = agentList(view);
 		const shop = await shopIn(list);
 		expect(
-			within(within(list).getByRole("region", { name: "webappwiz" })).getByText(
+			within(within(list).getByRole("region", { name: "wren" })).getByText(
 				"No conversations",
 			),
 		).toBeTruthy();
@@ -119,7 +119,7 @@ describe("Project controls in conversation lists", () => {
 			within(list)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["apple", "shop", "webappwiz"]);
+		).toEqual(["apple", "shop", "wren"]);
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
@@ -162,7 +162,7 @@ describe("Project controls in conversation lists", () => {
 		);
 		const list = agentList(view);
 		const here = await waitFor(() =>
-			within(list).getByRole("region", { name: "webappwiz" }),
+			within(list).getByRole("region", { name: "wren" }),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -241,15 +241,13 @@ describe("Project controls in conversation lists", () => {
 	it("lists every project's folder when every project is empty", async () => {
 		resize(390, 844);
 		testing.everywhere = [
-			listed("webappwiz", "/repo"),
+			listed("wren", "/repo"),
 			listed("shop", "/code/shop"),
 		];
 		const view = await testing.openConversations([], null, { tasks: [] });
 		const list = agentList(view);
 		await shopIn(list);
-		expect(
-			within(list).getByRole("region", { name: "webappwiz" }),
-		).toBeTruthy();
+		expect(within(list).getByRole("region", { name: "wren" })).toBeTruthy();
 		expect(
 			within(list).queryByText("No conversations yet. Start one below."),
 		).toBeNull();

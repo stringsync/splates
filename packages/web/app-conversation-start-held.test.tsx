@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setHeldAfterMs } from "./sending";
 import {
 	act,
 	type ConversationsView,
@@ -18,6 +19,8 @@ describe("App's new conversation, held in its composer until the server answers"
 	let view: ConversationsView;
 
 	beforeEach(async () => {
+		// Held above the composer at once, which these look for.
+		setHeldAfterMs(0);
 		testing = new Testing();
 		view = await testing.openConversations([], null);
 		await newWith(view, "Claude");
@@ -31,6 +34,7 @@ describe("App's new conversation, held in its composer until the server answers"
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		setHeldAfterMs(5000);
 	});
 
 	it("keeps its composer busy while the start is on its way, then opens its thread and sends", async () => {

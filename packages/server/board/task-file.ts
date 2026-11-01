@@ -37,12 +37,12 @@ export function decodeTask(raw: string): Record<string, unknown> | null {
 	}
 }
 
-/** The stage of a task whose record has none: `ready` when a model is named for it, else `backlog`. */
+/** The stage of a task whose record has none: `available`. */
 export function stageOf(state: {
 	stage?: TaskStage;
 	assignee?: unknown;
 }): TaskStage {
-	return state.stage ?? (state.assignee === undefined ? "backlog" : "ready");
+	return state.stage ?? "available";
 }
 
 /**

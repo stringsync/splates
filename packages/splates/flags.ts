@@ -141,6 +141,19 @@ export function taskIds(raw: string): number[] {
 }
 
 /**
+ * Where the command runs inside its repository's tree (the main tree or a
+ * task's worktree), without a trailing slash; empty at the root, and for a
+ * place git cannot place.
+ */
+export async function folderOf({
+	git,
+	ps,
+}: SplatesDeps & Repository): Promise<string> {
+	const prefix = await git.run(ps.cwd(), "rev-parse", "--show-prefix");
+	return prefix.code === 0 ? prefix.stdout.trim().replace(/\/+$/, "") : "";
+}
+
+/**
  * Which task a command that takes no task name is about, so the journal can
  * name it. `merge` reads it off the current branch.
  */

@@ -29,6 +29,10 @@ export interface ReleaseStep {
 	deadlineMs: number;
 	/** Whether its last check passed, or null before any. */
 	checked: boolean | null;
+	/** What its last check still waits on, such as a publish workflow run's `in_progress`. */
+	status: string | null;
+	/** Where to look into it, such as the publish workflow run on GitHub. */
+	url: string | null;
 	error: string | null;
 	/** Packages this step staged on npm, which wait for the person to approve them. */
 	staged: StagedPackage[];
@@ -63,6 +67,8 @@ export function readReleaseSteps(text: string): ReleaseStep[] {
 				ended: null,
 				deadlineMs: event.deadlineMs,
 				checked: null,
+				status: null,
+				url: null,
 				error: null,
 				staged: [],
 			});
@@ -101,7 +107,12 @@ export function readReleaseSteps(text: string): ReleaseStep[] {
 				});
 				break;
 			case "check":
-				steps.set(event.id, { ...step, checked: event.passed });
+				steps.set(event.id, {
+					...step,
+					checked: event.passed,
+					status: event.status ?? null,
+					url: event.url ?? step.url,
+				});
 				break;
 			case "done":
 				steps.set(event.id, { ...step, state: "done", ended: event.at });

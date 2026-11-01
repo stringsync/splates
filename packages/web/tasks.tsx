@@ -1,4 +1,5 @@
 import { age } from "@stringsync/splates-server/age";
+import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
@@ -23,6 +24,13 @@ import { QueueEmpty, QueueRow, QueueSection } from "./queue-rows";
 import { Running, useKnown, Waiting } from "./queue-running";
 import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
+import {
+	type Filtered,
+	projectOptions,
+	type TaskFilter,
+	tagOptions,
+} from "./task-filter";
+import { taskFilterAction } from "./task-filter-menu";
 import { BlockedTasks, UpNext } from "./task-queue";
 import { TopBar } from "./top-bar";
 import { WorkerPoolView } from "./worker-pool";
@@ -40,7 +48,10 @@ export function Tasks({
 	open,
 	onOpen,
 	onOpenTodo,
+	filter,
 }: {
+	/** The projects and tags the page is narrowed to, shared with the board. */
+	filter: TaskFilter;
 	/** This project, as its snapshot has it, to find among every project the feed lists. */
 	project: Here;
 	/** The task whose dialog is open, by name, so it follows the task as the page reads it again. */
@@ -49,8 +60,12 @@ export function Tasks({
 	/** Opens queued task `id` on the board. */
 	onOpenTodo: (id: number) => void;
 }): JSX.Element {
-	const { tasks } = project;
-	const opened = tasks.find((task) => task.task === open) ?? null;
+	useReactive(filter, ({ projects, tags }) => ({ projects, tags }), [
+		"changed",
+	]);
+	const everyTask = project.tasks;
+	const tasks = everyTask.filter((task) => filter.passes(task));
+	const opened = everyTask.find((task) => task.task === open) ?? null;
 	const view = useReading("workers", () => new WorkerPoolView());
 	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
 	const { pool } = useReactive(view, ({ pool }) => ({ pool }), ["changed"]);
@@ -76,9 +91,30 @@ export function Tasks({
 
 	return (
 		<section aria-label="queue" className="flex flex-col gap-4">
-			<TopBar title="Queue" />
+			<TopBar
+				title="Queue"
+				actions={[
+					taskFilterAction({
+						filter,
+						projects: projectOptions(
+							[...project.todos.map(todoFiltered), ...everyTask],
+							filter.projects,
+						),
+						tags: tagOptions(
+							project.allowedTags,
+							[...project.todos.map(todoFiltered), ...everyTask],
+							filter.tags,
+						),
+					}),
+				]}
+			/>
 			{pool !== null && (
-				<QueueControls view={view} pool={pool} waiting={queue.length} />
+				<QueueControls
+					view={view}
+					pool={pool}
+					waiting={queue.length}
+					busy={queue.filter((each) => each.reason === "machine busy").length}
+				/>
 			)}
 			<section
 				aria-label="queue card"
@@ -90,11 +126,13 @@ export function Tasks({
 					todos={project.todos}
 					lanes={project.lanes}
 					onOpen={onOpenTodo}
+					shown={(todo) => filter.passes(todoFiltered(todo))}
 				/>
 				<BlockedTasks
 					todos={project.todos}
 					lanes={project.lanes}
 					onOpen={onOpenTodo}
+					shown={(todo) => filter.passes(todoFiltered(todo))}
 				/>
 				<QueueSection title="Started by you" count={yours}>
 					{groups === null ? (
@@ -125,7 +163,15 @@ export function Tasks({
 }
 
 /** What the Tasks page reads of this project's snapshot. */
-type Here = Pick<Snapshot, "tasks" | "todos" | "lanes" | "root" | "repo">;
+type Here = Pick<
+	Snapshot,
+	"tasks" | "todos" | "lanes" | "root" | "repo" | "allowedTags"
+>;
+
+/** What the filter reads of a queued task. */
+function todoFiltered(todo: TaskRecord): Filtered {
+	return { project: todo.scope ?? null, tags: todo.labels ?? [] };
+}
 
 /** One project's tasks on the Tasks page. */
 interface Group {
@@ -331,6 +377,7 @@ function TaskRow({
 	return (
 		<QueueRow
 			name={task.task}
+			tags={task.tags}
 			marks={
 				<>
 					{task.comingConflict && task.comingConflict.length > 0 && (

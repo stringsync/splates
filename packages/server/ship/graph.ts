@@ -15,7 +15,7 @@ export async function readGraph(
 	const read = await Promise.all(
 		sources.map(async (source) => ({
 			source,
-			manifests: await manifestsOf(fs, source.root),
+			manifests: await manifestsOf(fs, source.root, source.paths),
 		})),
 	);
 	const owner = new Map<string, string>();
@@ -33,7 +33,11 @@ export async function readGraph(
 			.map((each) => each.name as string);
 		return {
 			...source,
-			version: manifests[0]?.version ?? null,
+			version:
+				(source.paths === undefined
+					? manifests[0]?.version
+					: (manifests.find((each) => each.private !== true)?.version ??
+						manifests[0]?.version)) ?? null,
 			packages,
 			private: packages.length === 0,
 			uses: usesOf(manifests, source.slug, owner).sort(
@@ -72,6 +76,19 @@ export async function publishedPins(fs: Fs, root: string): Promise<Pin[]> {
 export interface ShipSource {
 	slug: string;
 	root: string;
+	/**
+	 * The slug of the registered repository a ship target lives in, for a
+	 * source that is one of several its `ships` names; absent when the slug is
+	 * the repository's own.
+	 */
+	repo?: string;
+	/**
+	 * The path globs a ship target owns, relative to `root`: only manifests
+	 * under them are read. Absent for the whole repository.
+	 */
+	paths?: string[];
+	/** The target's `shipStatus`, null for npm latest; absent to read the repository's config. */
+	shipStatus?: string | null;
 	/** Its `splates.config.ts`'s `ship`, null when it is never shipped. */
 	ship: string | null;
 }
@@ -147,14 +164,17 @@ function usesOf(
 /**
  * Moves every pin of `pins` in the `package.json` files under `root` (the
  * root's and each workspace member's) to its version, keeping the range
- * mark it had; a `workspace:` pin is left alone. The files it changed.
+ * mark it had; a `workspace:` pin is left alone. With `paths`, only the
+ * manifests they own. The files it changed.
  */
 export async function movePins(
 	fs: Fs,
 	root: string,
 	pins: Pin[],
+	paths?: string[],
 ): Promise<string[]> {
 	const changed: string[] = [];
+	const owned = ownedBy(paths);
 	const rootManifest = await manifestAt(fs, root);
 	if (rootManifest === null) {
 		return changed;
@@ -165,6 +185,9 @@ export async function movePins(
 	const dirs = [root, ...(await workspaceDirs(fs, root, patterns))];
 	for (const dir of dirs) {
 		const path = `${dir}/package.json`;
+		if (!owned(path.slice(root.length + 1))) {
+			continue;
+		}
 		if (!(await fs.exists(path))) {
 			continue;
 		}
@@ -209,7 +232,11 @@ export async function movePins(
  * The root's manifest, then each workspace member's, those missing skipped:
  * a project with no `package.json` publishes and pins nothing.
  */
-async function manifestsOf(fs: Fs, root: string): Promise<Manifest[]> {
+async function manifestsOf(
+	fs: Fs,
+	root: string,
+	paths?: string[],
+): Promise<Manifest[]> {
 	const rootManifest = await manifestAt(fs, root);
 	if (rootManifest === null) {
 		return [];
@@ -217,19 +244,35 @@ async function manifestsOf(fs: Fs, root: string): Promise<Manifest[]> {
 	const patterns = Array.isArray(rootManifest.workspaces)
 		? rootManifest.workspaces
 		: (rootManifest.workspaces?.packages ?? []);
+	const owned = ownedBy(paths);
 	const members: Manifest[] = [];
 	for (const dir of await workspaceDirs(fs, root, patterns)) {
+		if (!owned(`${dir.slice(root.length + 1)}/package.json`)) {
+			continue;
+		}
 		const manifest = await manifestAt(fs, dir);
 		if (manifest !== null) {
 			members.push(manifest);
 		}
 	}
-	return [rootManifest, ...members];
+	return owned("package.json") ? [rootManifest, ...members] : members;
+}
+
+/** Whether a path relative to the root is one of `paths`, every path for none. */
+function ownedBy(paths: string[] | undefined): (path: string) => boolean {
+	if (paths === undefined) {
+		return () => true;
+	}
+	const globs = paths.map(
+		(path) =>
+			new Bun.Glob(path.replace(/^\.\//, "").replace(/\/+$/, "") || "**"),
+	);
+	return (path) => globs.some((glob) => glob.match(path));
 }
 
 /**
- * The directories `patterns` name under `root`: each a path, or a path
- * ending in `/*` for every directory in it, as workspaces are declared.
+ * The directories `patterns` name under `root`: each a path, with `*` for
+ * every directory at that depth, as workspaces are declared.
  */
 async function workspaceDirs(
 	fs: Fs,
@@ -238,18 +281,26 @@ async function workspaceDirs(
 ): Promise<string[]> {
 	const dirs: string[] = [];
 	for (const pattern of patterns) {
-		const path = `${root}/${pattern.replace(/^\.\//, "").replace(/\/$/, "")}`;
-		if (!path.endsWith("/*")) {
-			dirs.push(path);
-			continue;
+		let found = [root];
+		for (const segment of pattern
+			.replace(/^\.\//, "")
+			.replace(/\/$/, "")
+			.split("/")) {
+			if (segment !== "*") {
+				found = found.map((dir) => `${dir}/${segment}`);
+				continue;
+			}
+			const next: string[] = [];
+			for (const parent of found) {
+				if (await fs.exists(parent)) {
+					for (const entry of (await fs.readdir(parent)).sort()) {
+						next.push(`${parent}/${entry}`);
+					}
+				}
+			}
+			found = next;
 		}
-		const parent = path.slice(0, -2);
-		if (!(await fs.exists(parent))) {
-			continue;
-		}
-		for (const entry of (await fs.readdir(parent)).sort()) {
-			dirs.push(`${parent}/${entry}`);
-		}
+		dirs.push(...found);
 	}
 	return dirs;
 }
@@ -292,8 +343,9 @@ export async function pinsMatch(
 	fs: Fs,
 	root: string,
 	pins: Pin[],
+	paths?: string[],
 ): Promise<boolean> {
-	const manifests = await manifestsOf(fs, root);
+	const manifests = await manifestsOf(fs, root, paths);
 	return pins.every((pin) => {
 		const versions = manifests.flatMap((manifest) =>
 			DEPENDENCY_FIELDS.flatMap((field) => {

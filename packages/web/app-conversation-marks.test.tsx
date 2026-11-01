@@ -148,7 +148,7 @@ Cap upload retries
 		expect(
 			view
 				.getByRole("status", { name: "waiting to merge" })
-				.querySelector(".lucide-hourglass"),
+				.querySelector(".lucide-git-merge"),
 		).toBeTruthy();
 	});
 
@@ -243,7 +243,7 @@ Cap upload retries
 					messages: [
 						message(
 							"agent",
-							"## 🛑 Removed footer: superseded\n\nIt moved the footer.",
+							"## 🧹 Removed footer: superseded\n\nIt moved the footer.",
 						),
 					],
 				}),
@@ -353,7 +353,7 @@ Cap upload retries
 			{ tasks: [details({ task: "alpha", plan: PLAN })] },
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			fireEvent.click(view.getByRole("button", { name: /^Claude alpha/ })),
 		);
 		const about = within(
 			view.getByRole("navigation", { name: "actions" }),
@@ -375,8 +375,8 @@ Cap upload retries
 		await openRow(view, "Fix login");
 
 		const title = view.getByRole("heading", { name: "Fix login" });
-		expect(title.nextElementSibling?.textContent).toBe("webappwiz");
-		expect(title.parentElement?.textContent).toBe("Fix loginwebappwiz");
+		expect(title.nextElementSibling?.textContent).toBe("wren");
+		expect(title.parentElement?.textContent).toBe("Fix loginwren");
 	});
 
 	it("counts the agents waiting on you in the title, as the sidebar does, an external agent's ask never", async () => {
@@ -401,6 +401,6 @@ Cap upload retries
 				name: "1 waiting on you",
 			}),
 		).toBeTruthy();
-		expect(document.title).toBe("(1) webappwiz");
+		expect(document.title).toBe("(1) wren");
 	});
 });

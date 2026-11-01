@@ -242,6 +242,36 @@ describe("Setup", () => {
 			notDone: "Make the tunnel first.",
 		};
 	}
+	it("draws a config field with the task that makes its change", async () => {
+		const step: SetupStep = {
+			...fake("evals-results", done),
+			fields: [
+				{
+					kind: "config",
+					name: "config",
+					label: "Evals config",
+					change: "Add `evals`.",
+				},
+			],
+		};
+		const setup = new Setup(machine, [
+			{ id: "evals", title: "Evals", purpose: "Evals.", steps: [step] },
+		]);
+		const read = await setup.read();
+		expect(read.areas[0]?.steps[0]?.fields).toEqual([
+			{
+				kind: "config",
+				name: "config",
+				label: "Evals config",
+				change: "Add `evals`.",
+				task: "setup-evals-results",
+			},
+		]);
+		// It asks no answer: Next only checks.
+		done.add("evals-results");
+		await setup.submit("evals-results", {});
+	});
+
 	const answers = {
 		host: "splates.example.com",
 		zone: "example.com",

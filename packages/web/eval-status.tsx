@@ -1,4 +1,7 @@
-import type { EvalStatus } from "@stringsync/splates-server/evals/browser";
+import type {
+	EvalPlan,
+	EvalStatus,
+} from "@stringsync/splates-server/evals/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 
@@ -59,3 +62,20 @@ export const ORDER: EvalStatus[] = [
 	"pending",
 	"pass",
 ];
+
+/** What the plan says of the run: its ceiling, its refusal, or that the project prints none. */
+export function planText(plan: EvalPlan): string {
+	if (plan.refused) {
+		return plan.output;
+	}
+	if (plan.usd === null) {
+		return plan.output !== ""
+			? plan.output
+			: "This project prints no plan, so the run shows no cost ceiling.";
+	}
+	const runs =
+		plan.cells === null
+			? ""
+			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
+	return `At most $${plan.usd.toFixed(2)}${runs}.`;
+}

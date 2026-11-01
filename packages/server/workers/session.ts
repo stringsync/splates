@@ -371,6 +371,21 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			socket.dispose();
 			return { ok: false, reason, refused: true };
 		}
+		// Another process saying it is this worker, as one beside a second
+		// server sharing this home, would take over and end what the
+		// connected one runs: it is hung up on, and redials more slowly.
+		if (
+			this.connection?.live === true &&
+			this.peer !== null &&
+			this.peer !== hello.session
+		) {
+			socket.dispose();
+			return {
+				ok: false,
+				reason: "another process is connected as this worker",
+				refused: false,
+			};
+		}
 		const connection = this.attach(socket);
 		if (this.resumed && this.peer === null) {
 			this.takeBack(hello.held);

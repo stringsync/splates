@@ -64,7 +64,7 @@ describe("App's composer references", () => {
 			within(categories)
 				.getAllByRole("option")
 				.map((option) => option.textContent),
-		).toEqual(["Directives", "Board", "Tasks"]);
+		).toEqual(["Directives", "Board", "Tasks", "Projects"]);
 		await act(async () =>
 			fireEvent.click(
 				within(categories).getByRole("option", { name: /Board/ }),
@@ -113,7 +113,7 @@ describe("App's composer references", () => {
 			within(view.getByRole("listbox", { name: "references" }))
 				.getAllByRole("option")
 				.map((option) => option.textContent),
-		).toEqual(["Directives", "Board", "Tasks"]);
+		).toEqual(["Directives", "Board", "Tasks", "Projects"]);
 		expect(textIn(box)).toBe("#");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});

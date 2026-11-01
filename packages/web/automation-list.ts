@@ -24,6 +24,7 @@ const ADDING = "";
 interface Adding {
 	trigger: Trigger;
 	hook: Hook;
+	name: string;
 }
 
 export type AutomationListEvents = { changed: undefined };
@@ -31,8 +32,13 @@ export type AutomationListEvents = { changed: undefined };
 /** How the list reaches the server; the page's api by default. */
 export interface AutomationsApi {
 	read: () => Promise<AutomationRow[]>;
-	add: (trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
-	edit: (id: string, trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
+	add: (trigger: Trigger, hook: Hook, name: string) => Promise<AutomationRow[]>;
+	edit: (
+		id: string,
+		trigger: Trigger,
+		hook: Hook,
+		name: string,
+	) => Promise<AutomationRow[]>;
 	remove: (id: string) => Promise<AutomationRow[]>;
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
 	run: (id: string) => Promise<AutomationRow[]>;
@@ -76,8 +82,9 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 		// Rows being added come last, unnumbered and unlabeled until the server answers.
 		return [
 			...own,
-			...this.#adds.map(({ trigger, hook }) => ({
+			...this.#adds.map(({ trigger, hook, name }) => ({
 				id: ADDING,
+				...(name.trim() === "" ? {} : { name: name.trim() }),
 				trigger,
 				hook,
 				createdAt: "",
@@ -132,21 +139,26 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	}
 
 	/** Adds one; it lists as "Adding…" until the server numbers it. */
-	add(trigger: Trigger, hook: Hook): Promise<boolean> {
-		const adding: Adding = { trigger, hook };
+	add(trigger: Trigger, hook: Hook, name = ""): Promise<boolean> {
+		const adding: Adding = { trigger, hook, name };
 		this.#adds.push(adding);
 		return this.#change(
 			"Not added",
 			ADDING,
-			() => this.api.add(trigger, hook),
+			() => this.api.add(trigger, hook, name),
 			() => this.#adds.splice(this.#adds.indexOf(adding), 1),
 		);
 	}
 
 	/** Edits one, held pending until the server says what it now is. */
-	edit(row: AutomationRow, trigger: Trigger, hook: Hook): Promise<boolean> {
+	edit(
+		row: AutomationRow,
+		trigger: Trigger,
+		hook: Hook,
+		name = "",
+	): Promise<boolean> {
 		return this.#change("Not saved", row.id, () =>
-			this.api.edit(row.id, trigger, hook),
+			this.api.edit(row.id, trigger, hook, name),
 		);
 	}
 

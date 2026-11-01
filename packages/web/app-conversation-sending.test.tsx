@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "core/time";
+import { setHeldAfterMs } from "./sending";
 import {
 	act,
 	cleanup,
@@ -21,12 +22,15 @@ describe("App's sending messages", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
+		// Held above the composer at once, as most of these look for it there.
+		setHeldAfterMs(0);
 		testing = new Testing();
 	});
 
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		setHeldAfterMs(5000);
 	});
 
 	it("sends each note once while acknowledgements are delayed, without carrying notes into a new conversation", async () => {
@@ -326,6 +330,24 @@ describe("App's sending messages", () => {
 		).toBeTruthy();
 	});
 
+	it("keeps an empty conversation's thread from showing as new while its first message is sending", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "stopped", messages: [] }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		expect(within(thread).getByText("How can I help you today?")).toBeTruthy();
+		testing.holdWrites();
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "first note");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("first note")).toHaveLength(1),
+		);
+		expect(within(thread).queryByText("How can I help you today?")).toBeNull();
+	});
+
 	it("marks a message the agent took into its running turn as steered", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -425,6 +447,27 @@ describe("App's sending messages", () => {
 		expect(within(pending).getAllByText("and the logout")).toHaveLength(1);
 		expect(view.getAllByText("and the logout")).toHaveLength(1);
 		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
+	});
+
+	it("shows a message just sent in the thread as sent, with a small Sending line, until it has waited a few seconds, then holds it above the composer", async () => {
+		setHeldAfterMs(5000);
+		const view = await sayMidTurn("queue");
+
+		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
+		expect(view.getAllByText("and the logout")).toHaveLength(1);
+
+		await act(async () => {
+			testing.wall.advance(Duration.secs(5));
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === 5000,
+				),
+			);
+		});
+
+		const held = view.getByRole("list", { name: "messages sending" });
+		expect(within(held).getAllByText("and the logout")).toHaveLength(1);
+		expect(view.getAllByText("and the logout")).toHaveLength(1);
 	});
 
 	it("names the layout each message is sent from, for the Stats page", async () => {

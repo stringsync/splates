@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
-import { ConsoleLogger, type Logger } from "core/log";
+import { ConsoleLogger, color, type Logger } from "core/log";
 import { FileLock, type Fs, NodeFs, NodePs, type Ps } from "core/system";
 import { FsStorage } from "../storage";
 import { TaskStore } from "./store";
@@ -44,7 +44,7 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	);
 	for (const { lane, tasks: moved } of await tasks.moveTagsToLanes()) {
 		log.info(
-			`moved ${moved.map((id) => `#${id}`).join(", ")} into lane ${lane.id} ${lane.name}, from their tag`,
+			`${color.green("moved")} ${moved.map((id) => `#${id}`).join(", ")} into lane ${lane.id} ${lane.name}, from their tag`,
 		);
 	}
 }

@@ -1,141 +1,14 @@
-import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
+import type { AssistantRuntime } from "@assistant-ui/react";
 import type {
 	ConversationState,
 	Message,
 } from "@stringsync/splates-server/conversations";
 import { textOf } from "@stringsync/splates-server/conversations/browser";
-import { leadingDirectives } from "@stringsync/splates-server/plans/browser";
-import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
-import type { JSX, RefObject } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { Kbd } from "#web/components/ui/kbd.tsx";
-import { useTouch } from "#web/hooks/use-touch.ts";
+import type { RefObject } from "react";
 import { focusComposer } from "./composer-editor";
-import {
-	conversationAttachment,
-	sendQueuedNow,
-	unqueueConversation,
-} from "./conversation-api";
-import { Directed, DirectiveChip } from "./directives";
+import { sendQueuedNow, unqueueConversation } from "./conversation-api";
 import { useExpect, usePendingConversation } from "./expecting";
-
-/** What waits for a running turn's end, above the composer. */
-export function Queued({
-	conversation,
-	messages,
-	edits,
-}: {
-	conversation: string;
-	messages: Message[];
-	edits: {
-		onEdit: (index: number, message: Message) => void;
-		onDiscard: (index: number) => void;
-		onSendNow: () => void;
-		/** Sending or discarding is on its way: held until the server answers. */
-		busy: boolean;
-	} | null;
-}): JSX.Element {
-	// Enter sends the queue only with nothing typed; otherwise it queues what is.
-	const empty = useAuiState((state) => state.composer.isEmpty);
-	const touch = useTouch();
-	return (
-		<section
-			aria-label="queued messages"
-			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2"
-		>
-			<header className="flex items-center gap-2 pl-2">
-				<h3 className="flex-1 text-muted-foreground text-xs">
-					Queued for when the agent's turn ends
-				</h3>
-				{edits !== null && (
-					<Button
-						size="sm"
-						variant="outline"
-						disabled={edits.busy}
-						onClick={edits.onSendNow}
-					>
-						<SendHorizontalIcon />
-						Send now
-						{empty && !touch && (
-							<Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>
-						)}
-					</Button>
-				)}
-			</header>
-			<ul className="flex flex-col">
-				{messages.map((message, index) => {
-					const text = message.parts
-						.map((part) => (part.type === "text" ? part.text : ""))
-						.join("");
-					const images = message.parts.flatMap((part) =>
-						part.type === "image" ? [part] : [],
-					);
-					const files = message.parts.flatMap((part) =>
-						part.type === "file" ? [part] : [],
-					);
-					const { directives, rest } = leadingDirectives(text);
-					const sent = images.length + files.length;
-					const label =
-						text ||
-						(files.length === 0
-							? images.length === 1
-								? "an image"
-								: `${images.length} images`
-							: sent === 1
-								? (files[0]?.title ?? "a file")
-								: `${sent} files`);
-					return (
-						<li
-							// Only ever added at the end and taken from anywhere, but
-							// each one's words are what the person sees.
-							// biome-ignore lint/suspicious/noArrayIndexKey: see above
-							key={index}
-							className="flex items-center gap-2 rounded-lg py-1 pr-1 pl-2"
-						>
-							{images.map((image) => (
-								<img
-									key={image.name}
-									src={conversationAttachment(conversation, image)}
-									alt=""
-									className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
-								/>
-							))}
-							{directives.map((directive) => (
-								<DirectiveChip key={directive} directive={directive} />
-							))}
-							<span className="min-w-0 flex-1 truncate text-sm">
-								<Directed text={rest} />
-							</span>
-							{edits !== null && (
-								<>
-									<Button
-										size="icon-xs"
-										variant="outline"
-										className="pointer-coarse:size-10"
-										aria-label={`Edit ${label}`}
-										onClick={() => edits.onEdit(index, message)}
-									>
-										<PencilIcon />
-									</Button>
-									<Button
-										size="icon-xs"
-										variant="outline"
-										className="pointer-coarse:size-10"
-										aria-label={`Discard ${label}`}
-										disabled={edits.busy}
-										onClick={() => edits.onDiscard(index)}
-									>
-										<Trash2Icon />
-									</Button>
-								</>
-							)}
-						</li>
-					);
-				})}
-			</ul>
-		</section>
-	);
-}
+import type { HeldEdits } from "./unsent";
 
 /** Send queued messages now, take one back to edit, or throw one away. */
 export function useQueueEdits(
@@ -192,6 +65,24 @@ export function useQueueEdits(
 					(error: unknown) => refused("Not discarded", error),
 				);
 	return { sendNow, edit, discard, busy: pending };
+}
+
+/** What the row above the composer does with what the server holds for the agent. */
+export function heldEdits(
+	state: ConversationState,
+	edits: QueueEdits,
+): HeldEdits {
+	return {
+		conversation: state.id,
+		onEdit: (index, message) => void edits.edit(index, message),
+		onDiscard: (index) => void edits.discard(index),
+		// Not while the agent is held for a task or starting: there is no turn to stop.
+		onSendNow:
+			state.status === "starting" || state.heldForTask !== null
+				? null
+				: () => void edits.sendNow(),
+		busy: edits.busy,
+	};
 }
 
 /** What `useQueueEdits` gives a thread. */

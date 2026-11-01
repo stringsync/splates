@@ -8,7 +8,7 @@ import {
 } from "./elsewhere";
 import { ElsewhereLinks } from "./elsewhere-links";
 
-const WIZ = "/repos/webappwiz";
+const WIZ = "/repos/wren";
 
 describe("blockers in other projects", () => {
 	it("links them, keeps them once, and unlinks them", async () => {
@@ -41,7 +41,7 @@ describe("blockers in other projects", () => {
 			[1, { status: "queued", subject: "a", lane: null, takenBy: null }],
 		]);
 		const boards = fakeBoards(there);
-		const task = await deps.tasks.add("Waits on webappwiz", null, {
+		const task = await deps.tasks.add("Waits on wren", null, {
 			blockedElsewhere: [1, 2, 3].map((id) => ({
 				project: WIZ,
 				id,
@@ -79,7 +79,7 @@ describe("blockers in other projects", () => {
 		const deferred = await deps.tasks.add("Retry on 413", null);
 		await deferred.defer(
 			{
-				why: "Needs the locale change in webappwiz.",
+				why: "Needs the locale change in wren.",
 				blockedBy: [],
 				blockedElsewhere: [{ project: WIZ, id: 404, subject: "locale" }],
 				questions: [],
@@ -101,7 +101,7 @@ describe("blockers in other projects", () => {
 				id: 404,
 				subject: "locale",
 				project: WIZ,
-				slug: "webappwiz",
+				slug: "wren",
 				status: "working",
 			},
 		]);
@@ -111,8 +111,8 @@ describe("blockers in other projects", () => {
 /** Another project's board as `there` holds it, by task number. */
 function fakeBoards(there: Map<number, ElsewhereTask>): ElsewhereBoards {
 	return {
-		root: async (slug) => (slug === "webappwiz" ? WIZ : null),
-		slug: async () => "webappwiz",
+		root: async (slug) => (slug === "wren" ? WIZ : null),
+		slug: async () => "wren",
 		find: async (_root, id) => there.get(id) ?? null,
 		following: async () => [],
 		openTasks: async () => [],

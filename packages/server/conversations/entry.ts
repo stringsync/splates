@@ -35,6 +35,8 @@ type Said =
 			base?: string | null;
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
+			/** The task's tags; missing from logs written before conversations kept them. */
+			tags?: string[];
 			createdAt: string;
 			/** Missing from logs written before assignments were kept apart. */
 			assigned?: boolean;
@@ -97,6 +99,8 @@ type Said =
 			base?: string | null;
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
+			/** The task's tags; missing from logs written before conversations kept them. */
+			tags?: string[];
 	  }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }

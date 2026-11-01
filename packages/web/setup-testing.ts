@@ -34,6 +34,7 @@ export function setupProgress({
 		fields: [],
 		doing: null,
 		detail: null,
+		found: null,
 		warning: null,
 		data: null,
 	};
@@ -55,10 +56,12 @@ export function setupProgress({
 				label: "OpenAI API key",
 				help: null,
 				saved: false,
+				optional: true,
 			},
 		],
 		doing: null,
 		detail: null,
+		found: null,
 		warning: null,
 		data: null,
 	};

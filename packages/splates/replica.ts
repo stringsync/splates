@@ -76,7 +76,7 @@ splatesReplica
 				credentials,
 				request: async () => {
 					throw new Error(
-						`fill ${REPLICA_ACCESS_KEY} and ${REPLICA_SECRET_KEY} with \`wiz creds\` first`,
+						`fill ${REPLICA_ACCESS_KEY} and ${REPLICA_SECRET_KEY} with \`bin/mono creds\` first`,
 					);
 				},
 			},

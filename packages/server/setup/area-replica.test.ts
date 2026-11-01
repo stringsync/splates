@@ -43,6 +43,9 @@ describe("REPLICA_AREA", () => {
 					remote: null,
 					replica: place,
 					evals: null,
+					ship: null,
+					shipStatus: null,
+					ships: null,
 				}),
 				remoteUrl: async () => null,
 				replica: async () => status,
@@ -63,11 +66,11 @@ describe("REPLICA_AREA", () => {
 		const { "replica-place": named, replica } = await steps();
 
 		expect(named).toMatchObject({ status: "ready", detail: null });
-		expect(named?.user).toContain('provider: "s3"');
+		expect(named?.fields).toMatchObject([{ kind: "config" }]);
 		expect(replica).toMatchObject({ status: "waiting", detail: null });
 	});
 
-	it("says where a named bucket is and asks for its key on the Creds page", async () => {
+	it("says where a named bucket is and asks for its key in the step", async () => {
 		place = BUCKET;
 
 		const { "replica-place": named, "replica-creds": creds } = await steps();
@@ -77,7 +80,10 @@ describe("REPLICA_AREA", () => {
 			detail: "Named: `s3://records/splates`.",
 		});
 		expect(creds?.status).toBe("ready");
-		expect(creds?.user).toContain("[Creds page](#creds)");
+		expect(creds?.fields.map((field) => field.name)).toEqual([
+			"REPLICA_ACCESS_KEY",
+			"REPLICA_SECRET_KEY",
+		]);
 	});
 
 	it("is done with the key once both creds are kept", async () => {

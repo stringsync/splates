@@ -146,7 +146,9 @@ describe("merge failure attribution", () => {
 			commit: expect.any(String),
 		});
 		expect(await deps.fs.read(`${deps.root}/mode.txt`)).toBe("flake");
-		expect(await deps.tasks.all()).toEqual([]);
+		expect((await deps.tasks.all()).map((task) => task.subject)).toEqual([
+			expect.stringMatching(/^Flaky test: /),
+		]);
 	});
 
 	it("holds when a selective flake retry passes but the full gate still fails", async () => {

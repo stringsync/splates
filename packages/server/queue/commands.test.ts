@@ -10,10 +10,10 @@ import {
 } from "./commands";
 
 describe("queue commands", () => {
-	it("queues tasks from the backlog or groomed, and takes them out to where they were", async () => {
+	it("queues tasks, and takes them out to available again", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "Ungroomed", null);
-		await taskAdd(deps, "Groomed", null, { ready: true });
+		await taskAdd(deps, "Groomed", null);
 
 		await queueAdd(deps, [1, 2]);
 		expect((await deps.tasks.all()).map((task) => task.state.stage)).toEqual([
@@ -28,8 +28,8 @@ describe("queue commands", () => {
 
 		await queueRemove(deps, [1, 2]);
 		expect((await deps.tasks.all()).map((task) => task.state.stage)).toEqual([
-			"backlog",
-			"ready",
+			"available",
+			"available",
 		]);
 		expect((await deps.tasks.find(1)).state.queuedBy).toBeUndefined();
 		expect((await deps.tasks.find(1)).state.queuedAt).toBeUndefined();
@@ -40,15 +40,15 @@ describe("queue commands", () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "Charts", null);
 		await taskAdd(deps, "Breakdowns", null);
-		await taskAdd(deps, "Totals first", null, { ready: true });
+		await taskAdd(deps, "Totals first", null);
 		await taskUpdate(deps, 1, { blockedBy: [2] });
 		await taskUpdate(deps, 2, { blockedBy: [3] });
 		deps.log.clear();
 
 		await queueAdd(deps, [1]);
 
-		expect(deps.out()).toContain("#3 Totals first (ready)");
-		expect(deps.out()).toContain("#2 Breakdowns (backlog)");
+		expect(deps.out()).toContain("#3 Totals first (available)");
+		expect(deps.out()).toContain("#2 Breakdowns (available)");
 		expect(deps.out()).toContain("`splates queue add 3 2`");
 
 		deps.log.clear();
@@ -81,7 +81,7 @@ describe("queue commands", () => {
 
 		deps.log.clear();
 		await queueList(deps);
-		expect(deps.out()).toContain("#3 (backlog)");
+		expect(deps.out()).toContain("#3 (available)");
 	});
 
 	it("moves a task in the queue, as far as its links allow", async () => {

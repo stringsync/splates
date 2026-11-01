@@ -7,6 +7,7 @@ import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
 import { OPENCODE_AREA } from "./area-opencode";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { REPLICA_AREA } from "./area-replica";
+import { SHIPS_AREA } from "./area-ships";
 import { WORKERS_AREA } from "./area-workers";
 import type { SetupArea } from "./setup";
 
@@ -16,6 +17,9 @@ import type { SetupArea } from "./setup";
  * step at a time.
  */
 export const SETUP_AREAS: readonly SetupArea[] = [
+	CLAUDE_AREA,
+	CODEX_AREA,
+	KIMI_AREA,
 	OPENCODE_AREA,
 	REMOTE_ACCESS_AREA,
 	WORKERS_AREA,
@@ -23,9 +27,7 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	DICTATION_AREA,
 	DROPLET_AREA,
 	EVALS_AREA,
+	SHIPS_AREA,
 	AUTO_PICK_AREA,
 	GITHUB_AREA,
-	CLAUDE_AREA,
-	CODEX_AREA,
-	KIMI_AREA,
 ];

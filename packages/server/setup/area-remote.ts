@@ -22,7 +22,7 @@ function remoteAccessArea(): SetupArea {
 		id: "cloudflare-token",
 		title: "Give splates a Cloudflare API token",
 		why: "To reach `splates server` from your phone or another computer, splates makes a Cloudflare tunnel with Cloudflare Access in front, through Cloudflare's API.",
-		user: `Create a [Cloudflare API token](${TOKENS_PAGE}) with ${TOKEN_PERMISSIONS.join(", ")}, for your account and your zone, and paste it here. Skip to keep \`splates server\` on this machine only, or to run your own \`TunnelProvider\` from \`splates.config.ts\`.`,
+		user: `Create a [Cloudflare API token](${TOKENS_PAGE}) with these permissions (${TOKEN_PERMISSIONS.join("; ")}), for your account and your zone, and paste it here. Skip to keep \`splates server\` on this machine only, or to use a tunnel of your own, which \`splates.config.ts\` can name instead.`,
 		agent: `Request it with \`splates creds request ${API_TOKEN} --device\`, with how to make it, or let \`splates tunnel setup\` request it.`,
 		optional: true,
 		after: [],
@@ -73,8 +73,8 @@ function remoteAccessArea(): SetupArea {
 			{
 				kind: "text",
 				name: "team",
-				label:
-					"Zero Trust team name, only if your account has none yet (for <team>.cloudflareaccess.com)",
+				label: "Cloudflare team name (only for a new account)",
+				help: "Cloudflare Access needs a team name, which becomes `<team>.cloudflareaccess.com`. Leave this empty if your account has one already; fill it in to make one.",
 				optional: true,
 			},
 		],

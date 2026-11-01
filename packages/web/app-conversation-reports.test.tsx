@@ -35,7 +35,7 @@ describe("App's report cards", () => {
 							"",
 							"The header wraps now.",
 							"",
-							"## 🛑 Removed footer: superseded by a fix on main",
+							"## 🧹 Removed footer: superseded by a fix on main",
 							"",
 							"It set out to move the footer.",
 							"",

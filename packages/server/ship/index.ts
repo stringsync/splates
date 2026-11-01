@@ -45,7 +45,7 @@ export type {
 } from "./release-steps";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
-export { Shipping, shipRecord } from "./run";
+export { ShipLock, Shipping, shipRecord } from "./run";
 export type { ShipSelection } from "./selection";
 export { SHIP_SELECTION } from "./selection";
 export { unserved } from "./served";
@@ -58,4 +58,3 @@ export type {
 } from "./stages";
 export type { ShipStepsOptions, StepProject } from "./steps";
 export { ShipSteps } from "./steps";
-export { NPM_TOKEN, requestNpmToken } from "./token-request";

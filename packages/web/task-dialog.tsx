@@ -29,6 +29,7 @@ import {
 	useHeldConversation,
 	useHeldConversations,
 } from "./handed-out";
+import { TagChips } from "./tag-chips";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
 import { useDemo } from "./task-demo";
@@ -153,6 +154,14 @@ function Header({
 					<TaskIcon aria-hidden className="size-4 shrink-0" />
 					<span className="min-w-0 break-words">{task.task}</span>
 				</DialogTitle>
+				{task.number !== null && (
+					<span
+						className="shrink-0 rounded-md bg-muted px-1.5 py-px font-semibold text-sm tabular-nums"
+						title="Task number"
+					>
+						#{task.number}
+					</span>
+				)}
 				<span
 					className={cn(
 						"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
@@ -167,6 +176,7 @@ function Header({
 					{why}
 				</DialogDescription>
 			)}
+			<TagChips tags={task.tags} />
 			<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
 				<GitBranchIcon aria-hidden className="size-3 shrink-0" />
 				<span className="min-w-0 truncate" title={task.branch}>

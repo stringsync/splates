@@ -16,9 +16,11 @@ import {
 } from "./lazy-pages";
 import type { Page, PageRoute } from "./page-route";
 import type { StatsReport } from "./stats-report";
+import { TagFilterContext } from "./tag-chips";
 import { Tasks } from "./tasks";
 import type { Terminals } from "./terminals";
 import type { TodoView } from "./todo-view";
+import { WelcomePage } from "./welcome-page";
 import { TreesContext } from "./work-row";
 
 /** The bodies of the app's pages, for `App` to show the one open. */
@@ -80,24 +82,29 @@ export function useAppPages({
 				? null
 				: {
 						todos: (
-							<Todos
-								snapshot={snapshot}
-								drafts={drafts}
-								view={todoView}
-								lane={lane}
-								onLane={openLane}
-							/>
+							<TagFilterContext.Provider value={todoView.taskFilter}>
+								<Todos
+									snapshot={snapshot}
+									drafts={drafts}
+									view={todoView}
+									lane={lane}
+									onLane={openLane}
+								/>
+							</TagFilterContext.Provider>
 						),
 						tasks: (
-							<Tasks
-								project={snapshot}
-								open={task}
-								onOpen={openTask}
-								onOpenTodo={(id) => {
-									go("todos");
-									todoView.open(id);
-								}}
-							/>
+							<TagFilterContext.Provider value={todoView.taskFilter}>
+								<Tasks
+									filter={todoView.taskFilter}
+									project={snapshot}
+									open={task}
+									onOpen={openTask}
+									onOpenTodo={(id) => {
+										go("todos");
+										todoView.open(id);
+									}}
+								/>
+							</TagFilterContext.Provider>
 						),
 						stats: <StatsPage report={report} />,
 						ships: <ShipsPage feed={available ? talk : null} />,
@@ -132,6 +139,13 @@ export function useAppPages({
 								onOpen={openConversation}
 								open={setup}
 								onSetup={openSetup}
+								onWelcome={() => go("welcome")}
+							/>
+						),
+						welcome: (
+							<WelcomePage
+								onSetup={openSetup}
+								onConversation={() => openConversation(null)}
 							/>
 						),
 						conversations: available && (

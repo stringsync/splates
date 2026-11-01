@@ -57,6 +57,9 @@ describe("GITHUB_AREA", () => {
 					remote,
 					replica: null,
 					evals: null,
+					ship: null,
+					shipStatus: null,
+					ships: null,
 				}),
 				remoteUrl: async (name) => (name === "origin" ? url : null),
 			},
@@ -82,6 +85,16 @@ describe("GITHUB_AREA", () => {
 			"github-ruleset": { status: "done", problem: null },
 			"github-push": { status: "done", problem: null },
 		});
+	});
+
+	it("warns on the App's step that the repository has no remote", async () => {
+		url = null;
+
+		const progress = await new Setup(machine, [GITHUB_AREA]).read();
+
+		expect(progress.areas[0]?.steps[0]?.warning).toContain(
+			"This repository has no remote `origin`.",
+		);
 	});
 
 	it("starts at making the App while its creds are not kept", async () => {

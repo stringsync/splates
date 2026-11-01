@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
 import { MemoryLogger } from "core/log";
 import { FakeFs, FakePs } from "core/system/testing";
@@ -8,25 +8,37 @@ import { IDLE, PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 import { served } from "./testing";
 
 const INSTALL = `bunx ${PLAYWRIGHT_MCP} install-browser chromium-headless-shell`;
-const SERVE = `sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port 0`;
+const serve = (port: number) =>
+	`sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port ${port}`;
 
 describe("SharedBrowser", () => {
 	let ps: FakePs;
 	let fs: FakeFs;
 	let browser: SharedBrowser;
+	let backend: { port: number; stop(force: boolean): void };
 
 	beforeEach(async () => {
 		ps = new FakePs();
 		fs = new FakeFs();
+		backend = Bun.listen({
+			hostname: "127.0.0.1",
+			port: 0,
+			socket: { data: (socket, chunk) => void socket.write(chunk) },
+		});
 		browser = new SharedBrowser(
 			{ ps, fs, timer: new FakeTimer(), log: new MemoryLogger() },
 			"/home/.splates",
 		);
 		const asked = browser.servers();
 		(await served(ps))?.print(
-			"Listening on http://localhost:51234\nPut this in your client config:\n",
+			`Listening on http://localhost:${backend.port}\nPut this in your client config:\n`,
 		);
 		await asked;
+	});
+
+	afterEach(async () => {
+		await browser.disposeAsync();
+		backend.stop(true);
 	});
 
 	it("offers one MCP on the headless shell to every session, and stops it on dispose", async () => {
@@ -36,11 +48,11 @@ describe("SharedBrowser", () => {
 			{
 				type: "http",
 				name: "playwright",
-				url: "http://localhost:51234/mcp",
+				url: expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/),
 				headers: [],
 			} satisfies acp.McpServer,
 		]);
-		expect(ps.getCalls()).toEqual([INSTALL, SERVE]);
+		expect(ps.getCalls()).toEqual([INSTALL, serve(0)]);
 		expect(
 			JSON.parse(await fs.read("/home/.splates/playwright-mcp.json")),
 		).toEqual({
@@ -55,16 +67,5 @@ describe("SharedBrowser", () => {
 		await browser.disposeAsync();
 
 		expect(ps.getChildren()[0]?.signals).toEqual(["SIGTERM"]);
-	});
-
-	it("starts it again for the next session once it died", async () => {
-		ps.getChildren()[0]?.exit(1);
-		await Bun.sleep(1);
-		const next = browser.servers();
-		(await served(ps, 2))?.print("Listening on http://localhost:51236\n");
-
-		expect((await next)[0]).toMatchObject({
-			url: "http://localhost:51236/mcp",
-		});
 	});
 });

@@ -38,10 +38,10 @@ describe("PersonalWords", () => {
 	});
 
 	it("parses a typed list on commas and lines, dropping blanks", () => {
-		expect(parseWords(" Pulumi, Fly\n\nwebappwiz ,")).toEqual([
+		expect(parseWords(" Pulumi, Fly\n\nwren ,")).toEqual([
 			"Pulumi",
 			"Fly",
-			"webappwiz",
+			"wren",
 		]);
 	});
 });

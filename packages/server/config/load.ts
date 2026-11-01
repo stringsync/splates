@@ -3,8 +3,10 @@ import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "core/system";
 import type { ArtifactLimits } from "../artifacts";
 import { Git } from "../git";
+import { QUEUE_LOAD_DEFAULT } from "../queue/load";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
+import { Scopes } from "./scopes";
 
 /** What `splates.config.ts` leaves the artifact limits at unless it says otherwise. */
 export const ARTIFACT_LIMITS: ArtifactLimits = {
@@ -40,6 +42,9 @@ export async function loadConfig(
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
 	const config = { ...defaults(root, trunk), ...found };
+	// Refused here, as a config splates half understood would put a task's
+	// changes in the wrong project.
+	new Scopes(config, basename(root));
 	return config;
 }
 
@@ -73,6 +78,7 @@ function defaults(root: string, trunk: string): Config {
 		shipStatus: null,
 		afterBump: null,
 		on: {},
+		queueLoad: QUEUE_LOAD_DEFAULT,
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 5,
 		mergeConflictCount: 10,
@@ -90,6 +96,10 @@ function defaults(root: string, trunk: string): Config {
 		replica: null,
 		dictationWords: [],
 		evals: null,
+		projects: null,
+		ships: null,
+		shared: [],
+		tags: null,
 	};
 }
 

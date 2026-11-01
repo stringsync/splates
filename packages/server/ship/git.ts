@@ -5,7 +5,7 @@ export type ReleaseChanges =
 	| { commits: number; branch: string; tag: string; error: null }
 	| { commits: null; branch: string | null; tag: string | null; error: string };
 
-/** Git checks specific to shipping, using the same origin and version tags as webappwiz. */
+/** Git checks specific to shipping, using the same origin and version tags as wren. */
 export class ReleaseGit {
 	constructor(
 		private readonly ps: Ps,

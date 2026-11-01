@@ -11,7 +11,7 @@ import { here } from "./flags";
 
 /** `splates creds`, which the root cli mounts after `splates lane`. */
 export const splatesCreds = cli<SplatesDeps>("creds").description(
-	"creds an agent needs a person for, such as an API token: request one saying what it is for, with instructions for getting it, which the Creds page of `splates server` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through webappwiz/creds",
+	"creds an agent needs a person for, such as an API token: request one saying what it is for, with instructions for getting it, which the Creds page of `splates server` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through core/creds",
 );
 
 splatesCreds

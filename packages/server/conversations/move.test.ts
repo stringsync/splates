@@ -56,12 +56,16 @@ describe("Conversation move", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 
-		conversation.move("signup", "/repo-splates/signup", "task/auth", "c0");
+		conversation.move("signup", "/repo-splates/signup", "task/auth", "c0", [
+			"splates",
+			"feat",
+		]);
 
 		expect(conversation.state.task).toBe("signup");
 		expect(conversation.state.lastTask).toBe("signup");
 		expect(conversation.state.lastBase).toBe("task/auth");
 		expect(conversation.state.lastCaller).toBe("c0");
+		expect(conversation.state.lastTags).toEqual(["splates", "feat"]);
 		await conversation.stop();
 		await conversation.prompt("go on");
 		await until(conversation, "idle");
@@ -70,6 +74,7 @@ describe("Conversation move", () => {
 		conversation.move(null, "/repo");
 		expect(conversation.state.lastTask).toBe("signup");
 		expect(conversation.state.lastBase).toBe("task/auth");
+		expect(conversation.state.lastTags).toEqual(["splates", "feat"]);
 		await conversation.stop();
 		const reread = new Conversations(
 			"/repo/.git/splates/conversations",
@@ -81,6 +86,7 @@ describe("Conversation move", () => {
 		expect(read?.state.lastTask).toBe("signup");
 		expect(read?.state.lastBase).toBe("task/auth");
 		expect(read?.state.lastCaller).toBe("c0");
+		expect(read?.state.lastTags).toEqual(["splates", "feat"]);
 		await read?.prompt("and on");
 		await until(read as Conversation, "idle");
 		expect(agent.launched.at(-1)?.cwd).toBe("/repo");

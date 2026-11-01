@@ -1,56 +1,52 @@
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render } from "./testing-library";
-import { MAX, UNZOOMED, within, ZoomableImage, zoomAt } from "./zoom";
+import { clampScale, MAX, scrollAfterZoom, ZoomableImage } from "./zoom";
 
 describe("ZoomableImage", () => {
-	const tap = (image: Element) => {
+	const tap = (box: Element) => {
 		const at = { pointerId: 1, clientX: 10, clientY: 10 };
-		fireEvent.pointerDown(image, at);
-		fireEvent.pointerUp(image, at);
+		fireEvent.pointerDown(box, at);
+		fireEvent.pointerUp(box, at);
+	};
+	const open = () => {
+		const page = render(<ZoomableImage src="/shot.png" alt="shot" />);
+		const image = page.getByRole("img", { name: "shot" });
+		return { image, box: image.parentElement as HTMLElement };
 	};
 
 	it("keeps still the point it zooms at", () => {
-		const view = zoomAt(UNZOOMED, { x: 100, y: 40 }, 2);
-		expect(view).toEqual({ scale: 2, x: -100, y: -40 });
-		// What lay 100, 40 into the image is drawn at 100, 40 still.
-		expect(view.x + 100 * view.scale).toBe(100);
-		expect(view.y + 40 * view.scale).toBe(40);
+		// 100px into a viewport not yet scrolled, doubled: scroll by 100.
+		expect(scrollAfterZoom(0, 100, 2)).toBe(100);
+		expect(scrollAfterZoom(100, 100, 0.5)).toBe(0);
 	});
 
 	it("zooms no further than MAX, and never out past the image's size", () => {
-		expect(zoomAt(UNZOOMED, { x: 0, y: 0 }, 100).scale).toBe(MAX);
-		expect(zoomAt(UNZOOMED, { x: 0, y: 0 }, 0.2).scale).toBe(1);
+		expect(clampScale(100)).toBe(MAX);
+		expect(clampScale(0.2)).toBe(1);
 	});
 
-	it("keeps a zoomed image over its own box", () => {
-		const view = { scale: 2, x: 30, y: -500 };
-		expect(within(view, 200, 100)).toEqual({ scale: 2, x: 0, y: -100 });
-	});
-
-	it("zooms in on a scroll up and a pinch out alike", () => {
-		const page = render(<ZoomableImage src="/shot.png" alt="shot" />);
-		const image = page.getByRole("img", { name: "shot" });
-		// Fingers moving up a trackpad, with natural scrolling.
-		fireEvent.wheel(image, { deltaY: 200 });
-		expect(image.style.transform).toContain("scale(1.4");
-		fireEvent.wheel(image, { deltaY: -200 });
-		expect(image.style.transform).toBe("");
+	it("zooms on ctrl and the wheel, as a trackpad pinch does, but not on a plain scroll", () => {
+		const { image, box } = open();
+		fireEvent.wheel(box, { deltaY: 200 });
+		expect(box.dataset.scale).toBe("1");
 		// Fingers spreading apart. happy-dom's WheelEvent drops ctrlKey.
 		const pinch = new WheelEvent("wheel", { deltaY: -40, cancelable: true });
 		Object.defineProperty(pinch, "ctrlKey", { value: true });
-		fireEvent(image, pinch);
-		expect(image.style.transform).toContain("scale(1.4");
+		fireEvent(box, pinch);
+		expect(Number(box.dataset.scale)).toBeGreaterThan(1.4);
+		expect(image.style.width).toContain("%");
 	});
 
 	it("zooms in on a double tap, and back out on the next", () => {
-		const page = render(<ZoomableImage src="/shot.png" alt="shot" />);
-		const image = page.getByRole("img", { name: "shot" });
-		tap(image);
-		expect(image.style.transform).toBe("");
-		tap(image);
-		expect(image.style.transform).toContain("scale(2.5)");
-		tap(image);
-		tap(image);
-		expect(image.style.transform).toBe("");
+		const { image, box } = open();
+		tap(box);
+		expect(box.dataset.scale).toBe("1");
+		tap(box);
+		expect(box.dataset.scale).toBe("2.5");
+		expect(image.style.width).toBe("250%");
+		tap(box);
+		tap(box);
+		expect(box.dataset.scale).toBe("1");
+		expect(image.style.width).toBe("");
 	});
 });

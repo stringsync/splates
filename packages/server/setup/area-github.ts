@@ -69,11 +69,23 @@ function githubArea(): SetupArea {
 		id: "github-app",
 		title: "Make the splates GitHub App",
 		why: "Workers push each task's branch with an hour-long token the App mints for one repository's contents, never with a credential of yours.",
-		user: `[Make a GitHub App](${NEW_APP_PAGE}): any name, Webhook off, Repository permissions **Contents: Read and write** and nothing else, only on this account. Then paste its App ID, and the private key it generates, here.`,
+		user: `Press **Make the App on GitHub**, confirm there, and the App comes back made with the right permissions. Or [make one yourself](${NEW_APP_PAGE}): any name, Webhook off, Repository permissions **Contents: Read and write** and nothing else, only on this account. Then paste its App ID, and the private key it generates, here.`,
 		agent: `Request both as device creds, \`splates creds request ${APP_ID} --device\` and \`splates creds request ${APP_KEY} --device\`, with how to make the App: ${NEW_APP_PAGE}, Webhook off, Contents read and write alone, then the App ID and a generated private key.`,
 		optional: true,
 		after: [],
+		warning: async (machine) =>
+			projectRepo(machine).then(
+				() => null,
+				(error: unknown) =>
+					`${error instanceof Error ? error.message : String(error)} The steps after this one cannot pass until it has a GitHub remote.`,
+			),
 		fields: [
+			{
+				kind: "manifest",
+				name: "manifest",
+				label: "Make the App on GitHub",
+				endpoint: "/api/setup/github-app/manifest",
+			},
 			{
 				kind: "cred",
 				name: APP_ID,
@@ -84,6 +96,7 @@ function githubArea(): SetupArea {
 				kind: "cred",
 				name: APP_KEY,
 				label: "Private key",
+				multiline: true,
 				help: "Generate a private key at the foot of its General page, and paste the whole `.pem` file.",
 			},
 		],
@@ -218,13 +231,21 @@ function githubArea(): SetupArea {
 		id: "github-push",
 		title: "Turn pushing on",
 		why: "With a remote named, each task's branch is pushed after every commit and checkpoint, and trunk becomes the remote's, which only `splates server` pushes.",
-		user: 'Add `remote: "origin"` to this project\'s `splates.config.ts` and merge it, as a task, then press Next.',
+		user: 'Have an agent add `remote: "origin"` to this project\'s `splates.config.ts` in a task: approve its diff here, restart the server, then press Next.',
 		agent:
-			'In a task of its own, add `remote: "origin"` to `splates.config.ts` and merge it; then run `splates setup github-push`.',
+			"The page makes the `remote` change in a task named `setup-github-push` and offers the restart: have the user approve it there, then run `splates setup github-push`.",
 		notDone:
-			"`splates.config.ts` names no `remote` yet: add it, merge it, then press Next.",
+			"`splates.config.ts` names no `remote` yet: have an agent make the change above and approve it, then press Next.",
 		optional: true,
 		after: [rulesetStep],
+		fields: [
+			{
+				kind: "config",
+				name: "remote",
+				label: "Name the remote to push to",
+				change: 'Add `remote: "origin"` to `splates.config.ts`.',
+			},
+		],
 		check: async (machine) =>
 			(await requireProject(machine).config()).remote !== null,
 		undo: {

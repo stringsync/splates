@@ -2,19 +2,19 @@
 
 Writing a task (Queueing tasks), deferring it, asking the user to queue it, and linking,
 placing and ordering it. Grooming one, whether you write it, start it or
-groom the backlog, is in [groom.md](groom.md). Ordering is the user's (see
+groom Untriaged, is in [groom.md](groom.md). Ordering is the user's (see
 Positions).
 
 ## Queueing tasks
 
 When something outside your Goal comes up, queue it as a task and move on:
-its subject and what you know. `splates task add` makes it ready, which
+its subject and what you know. `splates task add` puts it in a lane, which
 says you groomed it: you checked no task already asks it, linked what
-blocks it, and put it in a lane when its lane is plain (see
+blocks it, and put it in a lane (`--lane`, Backlog when none is plain; see
 [groom.md](groom.md)). When you know too little of it
 to do that without looking into it, as for a rough idea or a request
 deferred as it came, `splates task defer` it instead, which takes the same
-flags and leaves it in the backlog for whoever grooms it. Leave its position
+flags and leaves it in Untriaged for whoever grooms it. Leave its position
 to the user and the queue, unless the user names it. Leave its model off
 too, unless the user names one: a task that names none goes to Auto pick,
 which judges its words and starts it on the agent, model and thinking level
@@ -24,6 +24,10 @@ Give each task a `--slug`: a short lowercase-with-dashes name for what it
 changes, a few words such as `upload-413`, never the subject cut short. The
 task that takes it starts under that name, and its branch, worktree and
 conversation carry it.
+
+Give each task its tag with `--tag <name>` when the config lists tags
+(`splates task update <id> --tag <name>` adds one later), and leave the
+project's name out of the subject and the slug: the tag says it.
 
 Write a task's subject short enough to scan. Put the why, the where, the
 files and the feature in its detail, as markdown the `splates server` page
@@ -98,14 +102,31 @@ You never change the queue: splates refuses an agent `splates queue add`,
 `remove`, `move`, `pause` and `resume`, and `splates lane queue` and `unqueue`. The user
 queues, from the board or from the queue card your reply ends with.
 
-When a conversation asks for several tasks, more than one coherent change,
-such as a feature in steps or a list of fixes, add them as a lane rather
-than do them all here: `splates lane add '<name>'`, named for what they add
-up to, then `splates task add` each into it, groomed and linked as Lanes
-says. Leave one change with a follow-up or two to a task and its follow-ups,
-and do the change itself when the user asked for it. Then end your reply
-with the lane's queue card, naming it by number, and what the tasks add up
-to under it:
+A task is one medium-sized change: one coherent thing you can state in a
+sentence, that an agent can finish without carrying decisions from an earlier
+step. When a request is several of those, such as a feature in steps or a
+list of fixes, or needs a second project, judge that from the request itself,
+before reading code, and offer a lane rather than do them all here. Ask it as
+a numbered Yes/No question, naming the tasks it would split into and picking
+Yes, and do no part of the work until it is answered:
+
+```markdown
+1. Should I split this into a lane of three tasks?
+   Smaller tasks land faster and are easier to review: the CSV writer, the
+   endpoint that uses it, and the page's export button.
+   - (a) Yes, add a lane and queue nothing yet (chosen)
+   - (b) No, do all of it in this task
+```
+
+On Yes, `splates lane add '<name>'`, named for what they add up to, then
+`splates task add` each into it, groomed and linked as Lanes says, and
+`splates remove` the task you started with `--reason superseded` once they
+are added. On No, do it all in this task, without raising it again and
+without queuing split points as follow-ups. Leave one change with a
+follow-up or two to a task and its follow-ups, and do the change itself when
+the user asked for it, so a request that is one medium change gets no offer.
+Then end your reply with the lane's queue card, naming it by number, and what
+the tasks add up to under it:
 
 ```markdown
 ## 🔐 Permission: queue lane 7: Billing export
@@ -181,15 +202,15 @@ Link only for a real order (one needs the other's code or data), never for
 priority, which is the position's job.
 
 A task that waits on another project's task links it the same way, with
-that project's slug before the number: `--blocked-by webappwiz#404` (or
-`'webappwiz #404'`), mixed freely with numbers here. The task there has to
-be open; when there is none yet, `splates --project webappwiz task defer`
+that project's slug before the number: `--blocked-by wren#404` (or
+`'wren #404'`), mixed freely with numbers here. The task there has to
+be open; when there is none yet, `splates --project wren task defer`
 it first (see [projects.md](projects.md)). The queue holds this task until
 that one merges there, and the board, `splates task show` and `splates
 queue list` name it with where it stands, while `task show` there lists
 this task under `blocking:`. A blocker removed there without merging holds
 the task for the person, as one here does; `--remove-blocked-by
-webappwiz#404` lets go of it. Never leave such a wait only in a task's
+wren#404` lets go of it. Never leave such a wait only in a task's
 detail or a deferral's `--waiting-on`: unlinked, the person cannot see what
 holds the work up.
 

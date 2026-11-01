@@ -11,6 +11,7 @@ describe("fold", () => {
 		lastTask: null,
 		lastBase: null,
 		lastCaller: null,
+		lastTags: null,
 		title: null,
 		name: null,
 		status: "running",

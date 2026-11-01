@@ -45,11 +45,18 @@ export function startedOf(record: StoredTask): Started | null {
 	) as Started;
 }
 
-/** `record` without what starting it added, its status or whether it is listed. */
+/**
+ * `record` without what starting it added, its status or whether it is
+ * listed. Its project and tags stay: a started task and the queued task it started
+ * from change the same one.
+ */
 export function queuedOf(record: StoredTask): TaskRecord & { tags?: string[] } {
 	return Object.fromEntries(
 		Object.entries(record).filter(
-			([key]) => !(key in STARTED) && key !== "status" && key !== "listed",
+			([key]) =>
+				(!(key in STARTED) || key === "scope" || key === "labels") &&
+				key !== "status" &&
+				key !== "listed",
 		),
 	) as TaskRecord;
 }
@@ -190,9 +197,12 @@ const STARTED = {
 	mergeSince: true,
 	mergePlace: true,
 	mergeSteps: true,
+	mergeStack: true,
 	retries: true,
 	startedAt: true,
 	startedFrom: true,
+	scope: true,
+	labels: true,
 	updatedAt: true,
 	escalations: true,
 	dispatch: true,

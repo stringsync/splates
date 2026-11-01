@@ -27,14 +27,7 @@ export class UnixWorkerListener
 
 	static async listen(path: string, fs: Fs): Promise<UnixWorkerListener> {
 		if (await fs.exists(path)) {
-			const answered = await UnixWorkerSocket.connect(path).then(
-				(socket) => {
-					socket.dispose();
-					return true;
-				},
-				() => false,
-			);
-			if (answered) {
+			if (await UnixWorkerListener.answers(path)) {
 				throw new Error(`another coordinator is listening at ${path}`);
 			}
 			await fs.rm(path, { force: true });
@@ -64,6 +57,17 @@ export class UnixWorkerListener
 		await fs.chmod(path, 0o600);
 		ready = true;
 		return listening;
+	}
+
+	/** Whether a coordinator still answers at `path`, rather than a socket left by one that died. */
+	static answers(path: string): Promise<boolean> {
+		return UnixWorkerSocket.connect(path).then(
+			(socket) => {
+				socket.dispose();
+				return true;
+			},
+			() => false,
+		);
 	}
 
 	async disposeAsync(): Promise<void> {

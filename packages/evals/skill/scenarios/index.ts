@@ -1,4 +1,4 @@
-import type { Scenario } from "../scenario";
+import type { Scenario } from "../box";
 import { scenarios as continuity } from "./continuity";
 import { scenarios as decisions } from "./decisions";
 import { scenarios as delivery } from "./delivery";

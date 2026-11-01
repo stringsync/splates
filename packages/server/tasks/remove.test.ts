@@ -156,8 +156,8 @@ describe("remove", () => {
 		});
 
 		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
-			{ id: started.id, stage: "backlog", takenBy: null },
-			{ id: taken.id, stage: "backlog", takenBy: null },
+			{ id: started.id, stage: "available", takenBy: null },
+			{ id: taken.id, stage: "available", takenBy: null },
 		]);
 	});
 
@@ -220,7 +220,7 @@ describe("remove", () => {
 			"deferred:  from alpha, 0m ago: The fix needs the new upload client.",
 		);
 		expect(deps.out()).toContain(
-			`[ ] #${blocker.id} Build the upload client (backlog)`,
+			`[ ] #${blocker.id} Build the upload client (available)`,
 		);
 		expect(deps.out()).toContain(
 			"[ ] the person: Keep the 413 retry for old clients? (open)",
@@ -248,7 +248,7 @@ describe("remove", () => {
 			subject: "Stop uploads retrying a 413",
 			slug: "alpha",
 			from: "alpha",
-			stage: "ready",
+			stage: "available",
 			takenBy: null,
 			deferred: { why: "It needs a key.", outside: [{ what: "a key" }] },
 		});

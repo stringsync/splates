@@ -6,10 +6,14 @@ import { commaList } from "@stringsync/splates-server/comma-list";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { exits, fail } from "@stringsync/splates-server/exit";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
-import { merge } from "@stringsync/splates-server/merge";
+import {
+	merge,
+	mergeOnServer,
+	mergeViaServer,
+} from "@stringsync/splates-server/merge";
 import { portsLs } from "@stringsync/splates-server/ports";
 import { forget, init } from "@stringsync/splates-server/projects";
-import type { Facts } from "@stringsync/splates-server/records";
+import type { Facts, Repository } from "@stringsync/splates-server/records";
 import {
 	MIGRATING,
 	MIGRATION_LIMIT,
@@ -43,6 +47,7 @@ import {
 	untilAfter,
 	wait,
 } from "@stringsync/splates-server/tasks";
+import { serverOf } from "@stringsync/splates-server/workers";
 import { cli } from "core/cmd";
 import { Duration } from "core/time";
 import { z } from "zod";
@@ -50,7 +55,7 @@ import { splatesArtifact } from "./artifact";
 import { blockerFlags } from "./blockers";
 import { splatesCreds } from "./creds";
 import { splatesEvals } from "./evals";
-import { effortIn, here, offeredOf, taskIds } from "./flags";
+import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
 import { splatesProjects } from "./projects";
@@ -162,6 +167,15 @@ splates
 		description:
 			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
 	})
+	.option("project", z.string(), {
+		default: "",
+		description:
+			"the project of splates.config.ts the task changes (default: the queued task's, else the one whose folder you run it in, else the only project)",
+	})
+	.repeated("tag", z.string(), {
+		description:
+			"a tag grouping the task, comma separated or the flag repeated; splates.config.ts may allow only some, or require one (default: the allowed tag whose folder you run it in)",
+	})
 	.option("task", z.string(), {
 		default: "",
 		description:
@@ -234,6 +248,7 @@ splates
 		const subjects = taskIds(opts.task).flatMap(
 			(id) => all.find((each) => each.id === id)?.subject ?? [],
 		);
+		const folder = await folderOf(ctx);
 		await ctx.journal.record(
 			"add",
 			opts.slug,
@@ -242,6 +257,9 @@ splates
 					base: opts.base || undefined,
 					tasks: taskIds(opts.task),
 					goal: opts.goal.trim() || undefined,
+					project: opts.project || undefined,
+					folder,
+					tag: opts.tag,
 					dispatch,
 					agents,
 					away: ctx.elsewhere !== null,
@@ -303,10 +321,7 @@ splates
 		await ctx.journal.record(
 			"merge",
 			task,
-			() =>
-				merge(ctx, ctx.ps.cwd(), facts, {
-					message: opts.message,
-				}),
+			() => mergeServed(ctx, task, facts, opts.message),
 			facts as Facts["merge"],
 		);
 		if (task !== null) {
@@ -320,6 +335,80 @@ splates
 			await follow(ctx, null, { from: task });
 		}
 	});
+
+/**
+ * Hands the merge to the `splates server` the agent runs under, so it runs
+ * the server's merge code in the server's line; with none to reach, or a
+ * central remote, merges here.
+ */
+async function mergeServed(
+	ctx: SplatesDeps & Repository,
+	task: string | null,
+	facts: Partial<Facts["merge"]>,
+	message: string,
+): Promise<void> {
+	const cwd = ctx.ps.cwd();
+	const server = await serverOf(ctx);
+	const slug = (await ctx.projects.list()).find(
+		(each) => each.root === ctx.git.root,
+	)?.slug;
+	// With a central remote the worker's worktree is not on the server's disk:
+	// it pushes the branch and the server merges its own checkout of it.
+	if (
+		server !== null &&
+		slug !== undefined &&
+		task !== null &&
+		ctx.config.remote !== null
+	) {
+		const served = await mergeViaServer(ctx, {
+			server,
+			slug,
+			task,
+			message,
+			facts,
+		});
+		if (served === "landed") {
+			ctx.ps.cd(ctx.git.root);
+			return;
+		}
+	} else if (
+		server !== null &&
+		slug !== undefined &&
+		task !== null &&
+		ctx.config.remote === null
+	) {
+		const served = await mergeOnServer(
+			{ server, slug, log: ctx.log },
+			{
+				task,
+				cwd,
+				pid: ctx.ps.pid,
+				hostname: ctx.ps.hostname,
+				env: environment(),
+				message,
+			},
+			facts,
+		);
+		if (served === "landed") {
+			// The worktree is gone with the task.
+			ctx.ps.cd(ctx.git.root);
+			return;
+		}
+		ctx.log.error(
+			`the splates server at ${server.url} could not be reached, or runs no merges yet: merging here, alone`,
+		);
+	}
+	await merge(ctx, cwd, facts, { message });
+}
+
+/** This command's environment, which a merge the server runs gates with. */
+function environment(): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(process.env).filter(
+			(each): each is [string, string] => each[1] !== undefined,
+		),
+	);
+}
 
 splates
 	.command("remove")
@@ -390,7 +479,7 @@ splates
 	.command("list")
 	.use(repository({ needs: "read" }))
 	.description(
-		"list every started task: its number, name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age; `splates task list` lists the queue",
+		"list every started task: its number, name, status (a merge waiting its turn adds its place in the server merge queue, `merging (queued 2)`), lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age; `splates task list` lists the queue",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.option("files", z.boolean(), {
@@ -398,7 +487,17 @@ splates
 		description:
 			"add each task's Goal and changed files (committed or not), to check for overlap before starting",
 	})
-	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
+	.option("tag", z.string(), {
+		default: "",
+		description: "only the tasks with this tag",
+	})
+	.action((opts, ctx) =>
+		list(ctx, {
+			json: opts.json,
+			files: opts.files,
+			tag: opts.tag || undefined,
+		}),
+	);
 
 splates
 	.command("show")

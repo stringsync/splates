@@ -122,6 +122,9 @@ function waitSays(spot: QueueSpot, _held: number | null, span: string): string {
 	if (reason === "paused") {
 		return `The queue is paused, so what splates starts on its own waits. It has waited ${span}, and starts once you resume it on the Queue page.`;
 	}
+	if (reason === "machine busy") {
+		return `The machine is overloaded, so the queue starts no more agents until its load falls. It has waited ${span}, and starts once it does.`;
+	}
 	if (reason === "worker draining") {
 		return `This machine's worker is draining, so it takes no new agents (as when it is being updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
 	}
@@ -144,7 +147,10 @@ function lateSays(spot: QueueSpot, held: number | null): string | null {
 	if (reason === "starting") {
 		return "Taking longer than usual. A fresh install can take a few minutes; if the start fails, this says why.";
 	}
-	return held === null || reason === "worker draining" || reason === "paused"
+	return held === null ||
+		reason === "worker draining" ||
+		reason === "paused" ||
+		reason === "machine busy"
 		? "Taking longer than usual. The Queue page shows what waits and why."
 		: null;
 }

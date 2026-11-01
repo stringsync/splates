@@ -11,7 +11,7 @@ export const PROVIDERS = ["system"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**
- * The operating system's own stores, shared with `wiz creds`.
+ * The operating system's own stores, shared with `bin/mono creds`.
  * `SPLATES_SECRET_STORE=keyring` or `file` settles which; unset, the keyring.
  * `file` keeps them in files only this user may read under
  * `~/.splates/secrets/`, for a Linux with no secret service.

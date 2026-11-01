@@ -1,15 +1,21 @@
 # Grooming tasks
 
-A task is ready once groomed: no other task asks it, what blocks it is
-linked, and it is in its lane when that is plain. Whoever writes a task
-grooms it as they add it with `splates task add`, which makes it ready, or,
-knowing too little of it, `splates task defer`s it to the backlog, rough. A
-backlog task is groomed later, by the project's groomer or the agent that
-starts it, which `splates task update N --ready` moves to ready. Linking and
-placing are in [queue.md](queue.md); this file is what grooming checks, and
-who does it when.
+Grooming is optional, and a task is available to start without it. A task is
+groomed once it sits in a lane: no other task asks it, what blocks it is
+linked, and it is placed. Whoever writes a task grooms it as they add it with
+`splates task add`, which puts it in a lane (Backlog by default), or,
+knowing too little of it, `splates task defer`s it to Untriaged, rough. An
+Untriaged task is groomed later, by the project's groomer or the agent that
+starts it, which `splates task update N --lane <n>` places. Nothing records
+that it was groomed, so a task can stop being groomed whenever the board or
+the code changes; its lane is all there is. Linking and placing are in
+[queue.md](queue.md); this file is what grooming checks, and who does it
+when.
 
 ## Grooming a task you write
+
+Give it its tag (`--tag <name>`) when the config lists tags, and none of the
+project's name in its subject or slug.
 
 Before `splates task add`, check none already asks it (see One that already
 asks it), give it `--blocked-by` for each task whose code it needs or whose
@@ -19,9 +25,9 @@ needs looking into code you have not read, `splates task defer` it instead.
 
 ## Grooming a task you start
 
-A task from the backlog, which `splates task show N` shows as `groomed: no`,
-is groomed once, by the agent that starts it, before any work on it. A ready
-one was groomed when it was written: start work on it.
+A task in Untriaged, which `splates task show N` shows as `groomed: no`,
+is groomed once, by the agent that starts it, before any work on it. One in
+a lane (`groomed: yes`) was groomed when it was written: start work on it.
 
 1. **One that already asks it.** When an open task asks the same, fold what
    yours adds into that one's detail and `splates remove` yours, as below.
@@ -38,8 +44,8 @@ one was groomed when it was written: start work on it.
    each question its detail holds under `#### Questions from grooming` or
    `#### Open questions` that it does not already answer; make every other
    call yourself.
-4. **Mark it groomed** with `splates task update N --ready`, so it goes back
-   to ready rather than the backlog should it be let go.
+4. **Place it** with `splates task update N --lane <n>`, or `--lane backlog`
+   when no lane fits, which is what marks it groomed.
 
 ## One that already asks it
 
@@ -60,11 +66,9 @@ reading it again.
 ## The project's groomer
 
 `[SPLATES GROOM #N]` comes from `splates server`: you are the project's
-groomer, and task N waits in the backlog, deferred rough, for you to
-organize. splates claimed it for you, and tells you of the next once your
-turn ends, one directive a turn, in this same conversation. Once the
-backlog is empty, `[SPLATES SORT ...]` asks you to find lanes for
-Untriaged tasks, as Sorting Untriaged says. When neither holds any more,
+groomer, and task N waits in Untriaged for you to organize. splates
+claimed it for you, and tells you of the next once your turn ends, one
+directive a turn, in this same conversation. When Untriaged holds no more,
 splates archives the conversation and stops you; the next run starts a
 conversation of its own, with a fresh context.
 
@@ -74,7 +78,7 @@ code, and start, merge and queue nothing: splates refuses you `splates add`,
 few `splates task` commands, then your turn ends.
 
 1. **Look at it.** `splates task show N`. When it is gone, taken, or
-   `groomed: yes`, someone made its calls first: leave it. Should someone
+   `groomed: yes`, it is in a lane and someone made its calls first: leave it. Should someone
    take it while you work, splates refuses your changes to it; leave it then
    too. When its detail holds `#### Questions from grooming`, a groomer
    before you asked them: those the user has answered since, in this
@@ -108,18 +112,21 @@ few `splates task` commands, then your turn ends.
    [queue.md](queue.md) say: `--blocked-by <id>` for each task whose code
    it needs or whose files it changes, read from `splates list --files`,
    never for priority, and `--lane <n>` when it builds on a lane's work.
-   When it shares a theme with an Untriaged task instead, `splates lane
-   add` a lane for them and move that one into it too. When no themed lane
-   fits, use `--lane backlog`: the permanent catch-all lane for deferred work.
-6. **Mark it ready**, last and in one `splates task update N '<detail>'
-   --blocked-by <id> (repeated per id) --lane <n> --ready`. Pick no agent, model or
+   When it shares a theme with another Untriaged task, `splates lane
+   add` a lane for them and move that one into it too, so read the board
+   first: `splates lane list`, then `splates task list` by subject. When no
+   themed lane fits, use `--lane backlog`: the permanent catch-all lane for
+   deferred work.
+6. **Place it**, last and in one `splates task update N '<detail>'
+   --blocked-by <id> (repeated per id) --lane <n>`. When the config lists tags and it has none, add
+   `--tag <name>` for the project it changes. Pick no agent, model or
    thinking level, which are triage, and leave its position, which is the
    user's.
 
 ### Conflicts and open questions
 
 The groomer makes every call a revert would undo itself. It asks the user,
-rather than mark it ready, when N:
+rather than place it, when N:
 
 - asks the opposite of another task, open or under way;
 - would undo work already merged, or go against a call the code or a past
@@ -127,7 +134,7 @@ rather than mark it ready, when N:
 - is too unclear to organize: you cannot tell what it asks, so not what it
   duplicates, splits into or touches.
 
-Leave it in the backlog, unmarked, and ask the user as numbered questions
+Leave it in Untriaged, and ask the user as numbered questions
 in your reply, as [questions.md](questions.md) says, naming the task or commit
 each conflict is with. You have no `SPLATES.md`, so write the same questions
 into its detail under a `#### Questions from grooming` heading, keeping the
@@ -137,47 +144,34 @@ its detail, drop that heading, and groom it.
 
 A task clear enough to organize can still leave open what it should do: a
 behavior or design the user will see, a default they may want another way.
-Those are not yours to settle, and need not hold it in the backlog: mark it
-ready, with each such question in its detail under `#### Open questions`,
+Those are not yours to settle, and need not hold it in Untriaged: place it,
+with each such question in its detail under `#### Open questions`,
 for whoever takes it to ask the user before building on a guess.
 
-### Sorting Untriaged
+### Pruning the board
 
-`[SPLATES SORT #N ...]` comes once the rough backlog is empty: the tasks it
-names wait ready in Untriaged, including any an older groomer left there.
-splates marks them looked at before the turn. One at a time a task
-shows no theme it shares with others; here you see them together.
+Reading the board whole, as step 5 has you, shows what to prune:
 
-1. **Read the board.** `splates lane list`, then `splates task list`,
-   reading each lane's tasks and Untriaged by subject; `splates task show`
-   only those whose subject leaves their theme unclear.
-2. **Place each one named**, as Lanes in [queue.md](queue.md) says: into a
-   lane whose work it builds on, `splates task update <id> --lane <n>`, or,
-   with each other Untriaged task it shares a theme with, named or not,
-   into a lane you `splates lane add` for them. Two tasks are enough for a
-   lane. Move any that fit with no other into Backlog with
-   `splates task update <id> --lane backlog`. Never leave a processed task
-   in Untriaged. Backlog can be worked and queued like other lanes, but
-   cannot be renamed, removed or merged away, even when empty.
-3. **Prune the board** while you see it whole, as a grooming job would:
-   - **Empty lanes**: `splates lane remove <n>` each lane with no tasks
-     in it (neither queued nor started), left over from work that landed
-     or moved. Never Backlog, which is permanent, and never a lane that
-     holds a task: removing one needs the person's remove-lane card.
-   - **Obsolete tasks**: a task whose subject `git log` or the code shows
-     already done, superseded, or against a call since made, is no longer
-     needed. `splates task remove <id>` one that is plainly moot, saying why
-     in your reply. When unsure, leave it and ask the user as a numbered
-     question, as Conflicts and open questions says.
-4. **Change nothing else**: no detail, link, position or readiness, and no
-   task taken, which splates refuses you. No queue card either: the user
-   queues lanes from the board.
+1. **Empty lanes**: `splates lane remove <n>` each lane with no tasks
+   in it (neither queued nor started), left over from work that landed
+   or moved. Never Backlog, which is permanent, and never a lane that
+   holds a task: removing one needs the person's remove-lane card.
+2. **Obsolete tasks**: a task whose subject `git log` or the code shows
+   already done, superseded, or against a call since made, is no longer
+   needed. `splates task remove <id>` one that is plainly moot, saying why
+   in your reply. When unsure, leave it and ask the user as a numbered
+   question, as Conflicts and open questions says.
+
+Change nothing else: no position, and no task taken, which splates refuses
+you. No queue card either: the user queues lanes from the board. Never
+leave a processed task in Untriaged: Backlog can be worked and queued like
+other lanes, but cannot be renamed, removed or merged away, even when empty.
 
 ### Replying
 
-Reply with one line per task on where it went, such as `#12: ready in lane 3
+Reply with one line per task on where it went, such as `#12: in lane 3
 Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and
-#16`, `#17: left in the backlog on the questions below` or, for a sort,
-`#18 and #19: into new lane 4 Auto pick`, `lane 5 Old tests: removed, empty`, `#20: removed, already merged in a1b2c3d`, then those questions, and nothing
+#16`, `#17: left in Untriaged on the questions below`, `#18 and #19: into new
+lane 4 Auto pick`, `lane 5 Old tests: removed, empty`, `#20: removed, already merged in a1b2c3d`, then those questions, and nothing
 more, then end your turn. Never wait, sleep or poll for the next task:
 splates tells you.

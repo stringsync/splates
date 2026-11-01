@@ -69,7 +69,6 @@ describe("HookRunner", () => {
 				subject: task.subject,
 				lane: null,
 				position: task.position,
-				ready: false,
 			}),
 		);
 
@@ -171,7 +170,7 @@ describe("HookRunner", () => {
 		expect(ran).toEqual(["queued task.queued #2"]);
 	});
 
-	it("wakes the groomer for each task added, to the backlog or ready", async () => {
+	it("wakes the groomer for each task added", async () => {
 		automations = [
 			automation("groomer", GROOMER_TRIGGER, {
 				kind: "groom",
@@ -183,13 +182,12 @@ describe("HookRunner", () => {
 		await deps.journal.record(
 			"task add",
 			null,
-			() => taskAdd(deps, "Groomed", null, { ready: true }),
+			() => taskAdd(deps, "Groomed", null),
 			(task) => ({
 				number: task.id,
 				subject: task.subject,
 				lane: null,
 				position: task.position,
-				ready: true,
 			}),
 		);
 

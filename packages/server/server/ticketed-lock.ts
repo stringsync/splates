@@ -22,6 +22,12 @@ export interface PlacedLock extends Lock {
 	 * the step's bound as `holdMs` when it is longer than the lock's own.
 	 */
 	renew?(holdMs?: number): void;
+	/**
+	 * Asks the waiter that named itself `task` in its `acquire` options to
+	 * move to the front of the line, ahead of every waiter but the one
+	 * already next. Does nothing for a task not waiting.
+	 */
+	bump?(task: string): Promise<void>;
 }
 
 export interface PlacedAcquireOptions {
@@ -31,6 +37,8 @@ export interface PlacedAcquireOptions {
 	 * conflict, so its resolution does not go stale behind the whole line.
 	 */
 	ahead?: boolean;
+	/** Names the waiter, so a `bump` for it finds it. */
+	task?: string;
 }
 
 /**
@@ -51,6 +59,8 @@ export class TicketedLock implements PlacedLock {
 	private readonly log: Logger;
 	private readonly pollMs: number;
 	private readonly stalenessMs: number;
+	/** Where a `bump` leaves its request for the waiter, beside the tickets so they never count it. */
+	private readonly bumps: string;
 	/** Tells one waiter's tickets apart within a process, as tests make several. */
 	private issued = 0;
 
@@ -64,6 +74,7 @@ export class TicketedLock implements PlacedLock {
 		this.log = opts.log;
 		this.pollMs = opts.pollMs ?? 1000;
 		this.stalenessMs = opts.stalenessMs ?? 60_000;
+		this.bumps = `${dir}-bumps`;
 	}
 
 	/**
@@ -80,11 +91,19 @@ export class TicketedLock implements PlacedLock {
 		signal?: AbortSignal,
 		opts: PlacedAcquireOptions = {},
 	): Promise<void> {
-		const ticket = await this.issue(opts.ahead === true);
+		let ticket = await this.issue(opts.ahead === true ? AHEAD : "");
 		try {
 			let place: number | null = null;
 			for (;;) {
 				signal?.throwIfAborted();
+				if (!ticket.startsWith(BUMPED) && (await this.takeBump(opts.task))) {
+					// Reissued ahead of the rest, then the old one goes, so the
+					// waiter is never without a ticket.
+					const old = ticket;
+					ticket = await this.issue(BUMPED);
+					await this.fs.rm(`${this.dir}/${old}`, { force: true });
+					place = null;
+				}
 				const ahead = await this.ahead(ticket);
 				if (ahead + 1 !== place) {
 					place = ahead + 1;
@@ -122,6 +141,11 @@ export class TicketedLock implements PlacedLock {
 		}
 	}
 
+	async bump(task: string): Promise<void> {
+		await this.fs.mkdir(this.bumps, { recursive: true });
+		await this.fs.write(`${this.bumps}/${encodeURIComponent(task)}`, "");
+	}
+
 	async release(): Promise<void> {
 		await this.inner.release();
 	}
@@ -133,14 +157,32 @@ export class TicketedLock implements PlacedLock {
 	/**
 	 * Leaves a ticket named so that names sort in the order they were issued:
 	 * the time, then the process, then a count within it. One `ahead` starts
-	 * with `AHEAD`, which sorts before every digit.
+	 * with `AHEAD`, which sorts before every digit, and one bumped with `BUMPED`, before that.
 	 */
-	private async issue(ahead: boolean): Promise<string> {
+	private async issue(prefix: string): Promise<string> {
 		await this.fs.mkdir(this.dir, { recursive: true });
 		const at = new Date();
-		const name = `${ahead ? AHEAD : ""}${String(at.getTime()).padStart(15, "0")}-${this.ps.pid}-${this.issued++}`;
+		const name = `${prefix}${String(at.getTime()).padStart(15, "0")}-${this.ps.pid}-${this.issued++}`;
 		await this.fs.write(`${this.dir}/${name}`, JSON.stringify(this.holder()));
 		return name;
+	}
+
+	/** Whether a bump was asked for `task` since the last look, which it then forgets. */
+	private async takeBump(task: string | undefined): Promise<boolean> {
+		if (task === undefined) {
+			return false;
+		}
+		const path = `${this.bumps}/${encodeURIComponent(task)}`;
+		if (
+			!(await this.fs.read(path).then(
+				() => true,
+				() => false,
+			))
+		) {
+			return false;
+		}
+		await this.fs.rm(path, { force: true });
+		return true;
 	}
 
 	private holder(): { pid: number; hostname: string; at: string } {
@@ -202,7 +244,7 @@ export class TicketedLock implements PlacedLock {
 		}
 		if (holder === null) {
 			// Still being written, most likely: only one unreadable for long is gone.
-			return Date.now() - Number(name.replace(AHEAD, "").split("-")[0]) >
+			return Date.now() - Number(name.replace(/^!+/, "").split("-")[0]) >
 				this.stalenessMs
 				? { pid: "?", why: "it cannot be read" }
 				: null;
@@ -215,6 +257,9 @@ export class TicketedLock implements PlacedLock {
 
 /** Starts the name of a ticket that waits ahead of the plain ones. */
 const AHEAD = "!";
+
+/** Starts the name of a ticket bumped to the front, which sorts before every `AHEAD` one. */
+const BUMPED = "!!";
 
 export interface TicketedLockOptions {
 	fs: Fs;

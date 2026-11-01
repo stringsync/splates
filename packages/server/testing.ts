@@ -13,7 +13,7 @@ import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
 import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
-import { CoordinatorLanding, MergeBatch, TaskBranches } from "./merge";
+import { CoordinatorLanding, MergeLine, TaskBranches } from "./merge";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
@@ -74,8 +74,8 @@ export class Testing implements AsyncDisposable {
 	readonly shell: Shell;
 	/** The premerge lock a merge under test holds, apart from the machine's own. */
 	readonly premerge: FileLock;
-	/** Where merges under test form batches, polled fast. */
-	readonly batch: MergeBatch;
+	/** Where merges under test wait and form batches. */
+	readonly line: MergeLine;
 	readonly journal: Journal;
 	/** The project's records, in its database under `dir`. */
 	readonly storage: SqliteStorage;
@@ -129,7 +129,9 @@ export class Testing implements AsyncDisposable {
 			ship: null,
 			shipStatus: null,
 			afterBump: null,
+			ships: null,
 			on: {},
+			queueLoad: null,
 			leaseStalenessMs: 90_000,
 			removedCapacity: 50,
 			finishedCapacity: 500,
@@ -147,6 +149,9 @@ export class Testing implements AsyncDisposable {
 			replica: null,
 			dictationWords: [],
 			evals: null,
+			projects: null,
+			shared: [],
+			tags: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = alongside?.splatesHome ?? join(base, "home", ".splates");
@@ -177,10 +182,7 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			log: this.log,
 		});
-		this.batch = new MergeBatch(this.storage, this.ps, this.log, {
-			pollMs: 20,
-			replyMs: 5000,
-		});
+		this.line = MergeLine.of(this.git.root, this.log);
 		this.journal = new Journal(this.storage, this.config.logCapacity, {
 			ps: this.ps,
 		});

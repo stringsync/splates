@@ -79,9 +79,11 @@ export {
 	spend,
 } from "./spend";
 export {
+	bumpMerge,
 	mergeEstimates,
 	openFile,
 	paths,
+	quarantined,
 	removeTask,
 	retryTask,
 	stats,

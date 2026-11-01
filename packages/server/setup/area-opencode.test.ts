@@ -103,6 +103,14 @@ describe("OPENCODE_AREA", () => {
 		});
 	});
 
+	it("refuses to save models the user has not picked", async () => {
+		await device.set(OPENCODE_GO_KEY, "go-secret");
+		await expect(
+			setup.submit("opencode-models", { ...MODELS, model: "" }),
+		).rejects.toThrow("Fill in");
+		expect(await fs.exists(`${HOME}/agents.json`)).toBe(false);
+	});
+
 	it("saves the models only once Use balance is said to be off", async () => {
 		await device.set(OPENCODE_GO_KEY, "go-secret");
 		await expect(

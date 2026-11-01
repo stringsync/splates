@@ -5,7 +5,7 @@ export const BY_HAND = "by hand";
 
 /**
  * Whether `automation` can be run at once by hand: one on a schedule, or the
- * groomer, which grooms the backlog as it stands. One on any other task
+ * groomer, which grooms Untriaged as it stands. One on any other task
  * event needs the event's tasks, so it runs only on that event.
  */
 export function runsNow({

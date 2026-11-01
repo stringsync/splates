@@ -1,5 +1,7 @@
+import { basename } from "node:path";
 import {
 	addedFacts,
+	BACKLOG_LANE,
 	recordUpdate,
 	taskAdd,
 	taskList,
@@ -9,6 +11,7 @@ import {
 	taskUpdate,
 } from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
+import { Scopes, Tags } from "@stringsync/splates-server/config";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { fail } from "@stringsync/splates-server/exit";
 import { OpenBoards, repository } from "@stringsync/splates-server/records";
@@ -22,7 +25,7 @@ import { cli } from "core/cmd";
 import { Duration } from "core/time";
 import { z } from "zod";
 import { blockerFlags } from "./blockers";
-import { assigneeIn, here, laneIn, position } from "./flags";
+import { assigneeIn, folderOf, here, laneIn, position } from "./flags";
 
 /** `splates task`, the queue, which the root cli mounts after the commands for the task you work on. */
 export const splatesTask = cli<SplatesDeps>("task").description(
@@ -31,7 +34,7 @@ export const splatesTask = cli<SplatesDeps>("task").description(
 
 /**
  * This project's slug when the command is run from another with `--project`,
- * so what it prints names a task as `webappwiz #12`, which the page links to
+ * so what it prints names a task as `wren #12`, which the page links to
  * this project; undefined from this project itself, where `#12` is bare.
  */
 async function projectFrom(ctx: {
@@ -47,10 +50,10 @@ async function projectFrom(ctx: {
 }
 
 /**
- * `splates task add` or `defer`: one writes a task its agent groomed, for
- * ready, the other a rough one, for the backlog and whoever grooms it.
+ * `splates task add` or `defer`: one writes a task its agent groomed, which
+ * goes in a lane, the other a rough one, left in Untriaged for whoever grooms it.
  */
-function adding(name: string, description: string, ready: boolean) {
+function adding(name: string, description: string, groomed: boolean) {
 	splatesTask
 		.command(name)
 		.use(repository({ needs: "queue" }))
@@ -76,12 +79,21 @@ function adding(name: string, description: string, ready: boolean) {
 		})
 		.repeated("blocked-by", z.string(), {
 			description:
-				"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`webappwiz#404`); each has to merge before this one starts",
+				"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`wren#404`); each has to merge before this one starts",
+		})
+		.option("project", z.string(), {
+			default: "",
+			description:
+				"the project of splates.config.ts it changes, which the task that takes it inherits (default: the one whose folder you run it in, else the only project)",
+		})
+		.repeated("tag", z.string(), {
+			description:
+				"a tag grouping it, comma separated or the flag repeated; splates.config.ts may allow only some, or require one (default: the allowed tag whose folder you run it in)",
 		})
 		.option("lane", z.string(), {
 			default: "",
 			description:
-				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: none, untriaged)",
+				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: `backlog` for `add`, none, untriaged, for `defer`)",
 		})
 		.option("agent", z.string(), {
 			default: "",
@@ -126,6 +138,26 @@ function adding(name: string, description: string, ready: boolean) {
 										),
 						};
 			const project = await projectFrom(ctx);
+			// Run with `--project`, the folder is in the other repository, so
+			// only the flag places the task.
+			const scope = new Scopes(ctx.config, basename(ctx.git.root)).pick(
+				opts.project || undefined,
+				ctx.elsewhere === null ? await folderOf(ctx) : "",
+			);
+			if (scope === null && groomed) {
+				fail(
+					"usage",
+					"say which project it changes: `--project <slug>`, or run it from that project's folder",
+					{ subject: opts.subject },
+				);
+			}
+			const tagging = new Tags(ctx.config);
+			// Run with `--project`, the folder is in the other repository, so
+			// only the flag tags it.
+			const tags = tagging.forNew(
+				tagging.parse(opts.tag),
+				ctx.elsewhere === null ? await folderOf(ctx) : "",
+			);
 			using boards = new OpenBoards(ctx, ctx.projects);
 			const { blockedBy, blockedElsewhere } = await blockerFlags({
 				boards,
@@ -143,12 +175,13 @@ function adding(name: string, description: string, ready: boolean) {
 						files: commaList(opts.file.join(",")),
 						blockedBy,
 						blockedElsewhere,
-						lane: laneIn(opts.lane) ?? null,
+						lane: laneIn(opts.lane) ?? (groomed ? BACKLOG_LANE : null),
 						assignee,
 						origin,
-						ready,
 						project,
 						boards,
+						...(scope === null ? {} : { scope }),
+						tags,
 					}),
 				addedFacts,
 			);
@@ -157,13 +190,13 @@ function adding(name: string, description: string, ready: boolean) {
 
 adding(
 	"add",
-	"queue a task to do later and move on, groomed, so it goes in ready: you checked no task already asks it, and linked what blocks it; run from a worktree, it records the task it came up in",
+	"queue a task to do later and move on, groomed, so it goes in a lane (Backlog by default): you checked no task already asks it, and linked what blocks it; run from a worktree, it records the task it came up in",
 	true,
 );
 
 adding(
 	"defer",
-	"queue a task as it is, rough, in the backlog for whoever grooms it: to check for one that already asks it, link what blocks it, and mark it ready; run from a worktree, it records the task it came up in",
+	"queue a task as it is, rough, in Untriaged for whoever grooms it: to check for one that already asks it, link what blocks it, and place it in a lane; run from a worktree, it records the task it came up in",
 	false,
 );
 
@@ -184,8 +217,13 @@ splatesTask
 		description:
 			"only tasks free to start now: none has taken them, and nothing blocking them is still open",
 	})
+	.option("tag", z.string(), {
+		default: "",
+		description: "only the tasks with this tag",
+	})
 	.action(async (opts, ctx) =>
 		taskList(ctx, {
+			tag: opts.tag || undefined,
 			json: opts.json,
 			open: opts.open,
 			ready: opts.ready,
@@ -246,7 +284,7 @@ splatesTask
 	})
 	.repeated("blocked-by", z.string(), {
 		description:
-			"more tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`webappwiz#404`); each has to merge before this one starts; refused when that makes a loop",
+			"more tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`wren#404`); each has to merge before this one starts; refused when that makes a loop",
 	})
 	.repeated("remove-blocked-by", z.string(), {
 		description:
@@ -271,10 +309,12 @@ splatesTask
 		description:
 			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
 	})
-	.option("ready", z.boolean(), {
-		default: false,
+	.repeated("tag", z.string(), {
 		description:
-			"mark it groomed, moving it from the backlog to ready: no task already asks it, and what blocks it is linked",
+			"more tags grouping it, comma separated or the flag repeated; splates.config.ts may allow only some",
+	})
+	.repeated("remove-tag", z.string(), {
+		description: "tags it no longer has, comma separated or the flag repeated",
 	})
 	.action(async (opts, ctx) => {
 		await refuseGroomer(
@@ -283,6 +323,9 @@ splatesTask
 			await ctx.tasks.find(opts.id),
 		);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
+		const tagging = new Tags(ctx.config);
+		const tags = tagging.parse(opts.tag);
+		tagging.check(tags);
 		using boards = new OpenBoards(ctx, ctx.projects);
 		const { blockedBy, blockedElsewhere, unblocked } = await blockerFlags({
 			boards,
@@ -304,8 +347,9 @@ splatesTask
 				removeElsewhere: unblocked.elsewhere,
 				lane: laneIn(opts.lane),
 				assignee,
-				ready: opts.ready,
 				boards,
+				tags,
+				removeTags: tagging.parse(opts["remove-tag"]),
 			}),
 		);
 	});

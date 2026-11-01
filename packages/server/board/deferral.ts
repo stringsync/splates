@@ -76,8 +76,7 @@ export type DeferralBlocker =
  * one of another project that cannot be read.
  */
 export type TaskBlockerStatus =
-	| "backlog"
-	| "ready"
+	| "available"
 	| "queued"
 	| "working"
 	| "merged"
@@ -87,7 +86,7 @@ export type TaskBlockerStatus =
 
 /** Whether a blocker no longer holds the work back. */
 export function cleared(blocker: DeferralBlocker): boolean {
-	return !["backlog", "ready", "queued", "working", "open", "unknown"].includes(
+	return !["available", "queued", "working", "open", "unknown"].includes(
 		blocker.status,
 	);
 }

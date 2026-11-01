@@ -13,7 +13,7 @@ import {
 	SendHorizontalIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -23,7 +23,7 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { BoxFiles } from "./box-files";
-import { CardBox } from "./card-box";
+import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
@@ -75,6 +75,18 @@ export function ReviewPanel({
 		}
 	};
 	const box = useRef<HTMLDivElement>(null);
+	const footer = useRef<HTMLElement>(null);
+	const finishThen = useCardDictationTurn(footer);
+	const taking = useBoxTaking();
+	// A take under way sends once it is done, from the render that holds its
+	// words: the click's own `ask` reads the box from before them.
+	const [sendTaken, setSendTaken] = useState(false);
+	useEffect(() => {
+		if (sendTaken) {
+			setSendTaken(false);
+			ask();
+		}
+	});
 	useArrival(send !== null, () => box.current);
 	const approved =
 		(typeof sent === "string" && directive(sent) === MERGE) ||
@@ -120,7 +132,10 @@ export function ReviewPanel({
 				</footer>
 			)}
 			{send !== null && (
-				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
+				<footer
+					ref={footer}
+					className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3"
+				>
 					<CardBox
 						ref={box}
 						aria-label={`Changes to ${review.task}`}
@@ -151,8 +166,9 @@ export function ReviewPanel({
 								))}
 						</p>
 						{/* One button, for what the box holds: written changes go
-						out as they are, and nothing written merges. */}
-						{asked === "" && !attached ? (
+						out as they are, and nothing written merges, unless a take is
+						under way, whose words will be changes. */}
+						{asked === "" && !attached && !taking ? (
 							<Button
 								size="sm"
 								onClick={() => void attempt(send(MERGE), "Not sent")}
@@ -164,7 +180,7 @@ export function ReviewPanel({
 						) : (
 							<Button
 								size="sm"
-								onClick={ask}
+								onClick={() => finishThen(() => setSendTaken(true))}
 								className="pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
 							>
 								<SendHorizontalIcon data-icon="inline-start" />

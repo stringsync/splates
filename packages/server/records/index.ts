@@ -17,6 +17,7 @@ export { ProjectHome } from "./home";
 export { Journal } from "./journal";
 export type { MigrationFailure } from "./migration";
 export {
+	inLinkedWorktree,
 	LAST_READ,
 	MIGRATING,
 	MIGRATION_LIMIT,

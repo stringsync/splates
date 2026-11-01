@@ -41,7 +41,7 @@ describe("App's lanes", () => {
 			each.lane === 1 &&
 			queued &&
 			each.takenBy === null &&
-			(each.stage === "backlog" || each.stage === "ready")
+			each.stage === "available"
 				? { ...each, stage: "queued" as const }
 				: each,
 		);
@@ -354,7 +354,7 @@ describe("App's lanes", () => {
 
 	it("names a blocker in another project on a lane", async () => {
 		const blocker = {
-			project: "/repos/webappwiz",
+			project: "/repos/wren",
 			id: 20,
 			subject: "Declare release events",
 		};
@@ -364,24 +364,24 @@ describe("App's lanes", () => {
 					id: 1,
 					subject: "Read release events",
 					lane: 1,
-					stage: "ready",
+					stage: "available",
 					blockedElsewhere: [blocker],
 				}),
 			],
 			lanes: [{ id: 1, name: "Ships" }],
 			elsewhere: {
 				blockers: {
-					1: [{ ...blocker, slug: "webappwiz", status: "ready" }],
+					1: [{ ...blocker, slug: "wren", status: "available" }],
 				},
 				following: {},
 			},
 		});
 		const lane = within(view.getByRole("region", { name: "Ships" }));
 
-		expect(lane.getByText("Blocked by webappwiz #20")).toBeTruthy();
+		expect(lane.getByText("Blocked by wren #20")).toBeTruthy();
 		expect(
 			lane.getByTitle(
-				"Read release events waits on webappwiz #20 Declare release events, so the lane will not run until it lands",
+				"Read release events waits on wren #20 Declare release events, so the lane will not run until it lands",
 			),
 		).toBeTruthy();
 	});
@@ -393,9 +393,7 @@ describe("App's lanes", () => {
 		});
 		const waiting = sound2score().filter(
 			(each) =>
-				each.lane === 1 &&
-				each.takenBy === null &&
-				(each.stage === "backlog" || each.stage === "ready"),
+				each.lane === 1 && each.takenBy === null && each.stage === "available",
 		).length;
 		await act(async () =>
 			fireEvent.click(

@@ -84,6 +84,13 @@ export interface Config {
 	 * from the Setup page or `splates hook add`.
 	 */
 	on: Partial<Record<TaskEventName, string>>;
+	/**
+	 * How many times the machine's cores the one-minute load average may reach
+	 * before the queue starts no more agents; they wait, and the Queue page
+	 * says so, until it falls. Agents the person starts by hand are never held.
+	 * Null never holds.
+	 */
+	queueLoad: number | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/** Failed `merge` attempts a task gets before only a person's `splates retry` lets it try again. */
@@ -158,7 +165,7 @@ export interface Config {
 	/**
 	 * Words the composer's mic should spell as written, for everyone who
 	 * dictates in the project: its tools, modules and names, as
-	 * `["webappwiz", "scry"]`. Splates and the project's name are always
+	 * `["wren", "scry"]`. Splates and the project's name are always
 	 * told; each person adds their own on the Setup page.
 	 */
 	dictationWords: string[];
@@ -170,6 +177,80 @@ export interface Config {
 	 * (`designs/evals-contract.md`). Null shows no Evals page.
 	 */
 	evals: EvalsConfig | null;
+	/**
+	 * The projects inside this repository, each a slug and the path globs
+	 * (relative to the root, as `core/**`) it owns, as
+	 * `{ core: ["core/**"], wren: ["wren/**"] }`. A repository keeps the git
+	 * side (trunk, remote, worktrees, merge lock, hooks); a project is a set
+	 * of its paths, and may override `ship`, `shipStatus` and `afterBump` as
+	 * `{ wren: { paths: ["wren/**"], ship: "wren/bin/ship" } }`, falling back
+	 * to the repository's for any it leaves out. Two projects may not claim
+	 * overlapping paths. Null
+	 * makes the whole repository one project at its root.
+	 */
+	projects: Record<string, string[] | ProjectConfig> | null;
+	/**
+	 * The ship targets of this repository, each a name, the paths it owns and
+	 * the command that ships it, as `{ mdom: { paths: ["mdom/**"], ship:
+	 * "bin/mdom ship" } }`. Unlike `projects` it splits no tasks, queues or
+	 * gates: it only names what the Ships page can ship from one repository.
+	 * `shipStatus` and `afterBump` fall back to the repository's. Two targets
+	 * may not claim overlapping paths. Null makes the repository one target,
+	 * as its `ship` and `projects` say.
+	 */
+	ships: Record<string, ShipTargetConfig> | null;
+	/**
+	 * Path globs that count against no project, such as the root `package.json`
+	 * or `bun.lock`, which every project shares. Only read with `projects`.
+	 */
+	shared: string[];
+	/**
+	 * How tasks are grouped by free labels, as
+	 * `{ allowed: ["web", "infra"], required: true }`. With `allowed`, a task
+	 * may carry only those, and one added from a folder named for an allowed
+	 * tag gets it by default; with `required`, a new task needs at least one.
+	 * Tags group tasks without making them projects: ships, queues and the
+	 * merge gate ignore them. Null allows any tag and requires none.
+	 */
+	tags: TagsConfig | null;
+}
+
+/** The tags a project's tasks may carry (`tags` in `splates.config.ts`). */
+export interface TagsConfig {
+	/** The only tags a task may carry, lowercase with dashes; any tag when absent. */
+	allowed?: string[];
+	/** Whether a new task needs a tag; false when absent. */
+	required?: boolean;
+	/**
+	 * A color for a tag's chips, by tag, as `{ splates: "indigo" }`: one of
+	 * red, orange, amber, green, teal, blue, indigo, violet, pink or gray. A
+	 * tag with none, or one this does not know, gets a neutral chip.
+	 */
+	colors?: Record<string, string>;
+}
+
+/** A project inside a repository: its paths, and the ship settings it overrides. */
+export interface ProjectConfig {
+	/** The path globs the project owns, as `["wren/**"]`. */
+	paths: string[];
+	/** Overrides `ship` for this project; `null` never ships it. */
+	ship?: string | null;
+	/** Overrides `shipStatus` for this project. */
+	shipStatus?: string | null;
+	/** Overrides `afterBump` for this project. */
+	afterBump?: string | null;
+}
+
+/** A ship target inside a repository: its paths and how it ships. */
+export interface ShipTargetConfig {
+	/** The path globs the target owns, as `["mdom/**"]`. */
+	paths: string[];
+	/** The command that ships it, as `ship`; `null` never ships it. */
+	ship: string | null;
+	/** Overrides `shipStatus` for this target. */
+	shipStatus?: string | null;
+	/** Overrides `afterBump` for this target. */
+	afterBump?: string | null;
 }
 
 /**

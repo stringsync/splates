@@ -88,6 +88,38 @@ describe("TicketedLock", () => {
 		expect(order).toEqual(["next", "ahead", "behind"]);
 	});
 
+	it("moves a bumped waiter to the front of the line, past one that asked to go ahead", async () => {
+		places = [[], [], [], []];
+		await waiter(0);
+		const next = waiter(1);
+		await Bun.sleep(20);
+		const behind = waiter(2);
+		const bumped = lock.acquire(
+			(place) => {
+				places[3]?.push(place);
+			},
+			undefined,
+			{ task: "critical" },
+		);
+		await Bun.sleep(20);
+		expect(places[3]).toEqual([3]);
+
+		await lock.bump("critical");
+		await Bun.sleep(30);
+		expect(places[3]).toEqual([3, 2]);
+
+		const order: string[] = [];
+		void next.then(() => order.push("next"));
+		void behind.then(() => order.push("behind"));
+		void bumped.then(() => order.push("bumped"));
+		for (let held = 0; held < 4; held++) {
+			await lock.release();
+			await Bun.sleep(20);
+		}
+		expect(order).toEqual(["next", "bumped", "behind"]);
+		expect(await fs.readdir("/home/premerge.queue")).toEqual([]);
+	});
+
 	it("drops the ticket of a waiter whose process is gone, whatever hostname it was written under", async () => {
 		await fs.mkdir("/home/premerge.queue", { recursive: true });
 		await fs.write(

@@ -21,7 +21,7 @@ const SVG = /\.svg$/i;
 /**
  * A screenshot or recording at the size of the window over a dimmed page,
  * with its caption, and arrows to the others of its document. An image zooms
- * in with a pinch, a double tap or the wheel. Escape, the close button, or a
+ * in with a pinch, a double tap or ctrl and the wheel, and pans natively. Escape, the close button, or a
  * click off the media closes it.
  */
 export function Lightbox({
@@ -118,7 +118,7 @@ export function Lightbox({
 										key={shown.url}
 										src={shown.url}
 										alt={shown.alt}
-										className="min-h-0 max-w-full rounded-md object-contain"
+										className="min-h-0 flex-1"
 									/>
 								)}
 								<div className="flex max-w-full items-center gap-3 text-sm text-white/80">

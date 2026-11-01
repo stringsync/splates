@@ -3,7 +3,7 @@ import { MAX_WORDS, vocabulary, words } from "./vocabulary";
 
 describe("vocabulary", () => {
 	it("lists splates and the project once", () => {
-		expect(words("webappwiz")).toEqual(["splates", "webappwiz"]);
+		expect(words("wren")).toEqual(["splates", "wren"]);
 		expect(words("splates")).toEqual(["splates"]);
 	});
 	it("adds the project's words, then the person's, each once", () => {
@@ -21,8 +21,8 @@ describe("vocabulary", () => {
 		expect(listed.slice(0, 2)).toEqual(["splates", "app"]);
 	});
 	it("hints the spelling of what it lists", () => {
-		expect(vocabulary(["splates", "webappwiz"])).toBe(
-			"A developer dictating a prompt for a coding agent. Words that may come up: splates, webappwiz.",
+		expect(vocabulary(["splates", "wren"])).toBe(
+			"A developer dictating a prompt for a coding agent. Words that may come up: splates, wren.",
 		);
 	});
 });

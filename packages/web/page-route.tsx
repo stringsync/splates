@@ -99,7 +99,8 @@ export type Page =
 	| "billing"
 	| "automations"
 	| "auto-pick"
-	| "setup";
+	| "setup"
+	| "welcome";
 
 /**
  * Each page in the nav, with the shortcut that opens it, if any, and whether
@@ -169,6 +170,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
+	welcome: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };
 
@@ -235,5 +237,5 @@ export interface PageRoute {
 	/** Sets Setup on journey `area` and its `step`, or on the index for a null `area`. */
 	openSetup: (area: string | null, step?: string | null, how?: Move) => void;
 	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
-	openEval: (batch: string | null, run?: string | null) => void;
+	openEval: (batch: string | null, run?: string | string[] | null) => void;
 }

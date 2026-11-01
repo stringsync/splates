@@ -9,6 +9,7 @@ import {
 	message,
 	newestFirst,
 	Testing,
+	todo,
 	waitFor,
 	within,
 } from "./testing";
@@ -167,12 +168,12 @@ Cap upload retries
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
 		const runs = within(nav).getByRole("button", {
-			name: "Claude Runs",
+			name: /^Claude Runs/,
 		});
 		runs.focus();
 
 		await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));
-		expect(document.activeElement?.textContent).toBe("Asks");
+		expect(document.activeElement?.textContent).toBe("AsksAsks to go on");
 		await act(async () =>
 			fireEvent.keyDown(document.activeElement as HTMLElement, {
 				key: "ArrowUp",
@@ -223,6 +224,31 @@ Cap upload retries
 		await pressNext();
 		expect(location.hash).toBe("#conversations/c1");
 		expect(lineOf(quiet).hasAttribute("data-lit")).toBe(true);
+	});
+
+	it("leaves out a deferred task asking for your answer, which no row in the sidebar shows", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Runs", status: "running" })],
+			"c1",
+			{
+				todos: [
+					todo({
+						id: 20,
+						subject: "Retry on 413",
+						deferred: {
+							why: "It needs a call.",
+							at: "2026-10-27T10:00:00.000Z",
+							task: "upload-retry",
+							tasks: [],
+							questions: [{ text: "Keep the retry for old clients?" }],
+							outside: [],
+						},
+					}),
+				],
+				lanes: [],
+			},
+		);
+		expect(waiting(view)).toBe("Nothing waiting on you");
 	});
 
 	it("opens merged conversations with ⌥⌘M once none but the open one waits on you", async () => {

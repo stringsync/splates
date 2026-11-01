@@ -65,7 +65,11 @@ describe("A phone's inbox, nesting agents", () => {
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Look around", "alphaalpha-api", "alpha-api"]);
+		).toEqual([
+			"Look aroundmain",
+			"alphaWorkingalpha-apialpha-api",
+			"alpha-apialpha-api",
+		]);
 	});
 
 	it("keeps a part's conversation under its caller's once both merged", async () => {

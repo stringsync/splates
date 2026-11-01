@@ -27,13 +27,25 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 	it("reads the sign-in step done only once the CLI answers and is signed in", async () => {
 		const status = async (programs: Record<string, number>) =>
 			(await new Setup(machine(programs), [CLAUDE_AREA]).read()).areas[0]
-				?.steps[0]?.status;
+				?.steps[1]?.status;
 
-		expect(await status({})).toBe("ready");
+		expect(await status({})).toBe("waiting");
 		expect(
 			await status({ "claude --version": 0, "claude auth status": 1 }),
 		).toBe("ready");
 		expect(await status(SIGNED_IN)).toBe("done");
+	});
+
+	it("installs a CLI from the page, then reads it installed once it answers", async () => {
+		const programs = { "": 0 };
+		const setup = new Setup(machine(programs), [CODEX_AREA]);
+
+		await expect(setup.submit("codex-install", {})).rejects.toThrow(
+			"Codex installed, but splates cannot find it on its PATH.",
+		);
+		await new Setup(machine({ ...programs, "codex --version": 0 }), [
+			CODEX_AREA,
+		]).submit("codex-install", {});
 	});
 
 	it("tells where to install a CLI that does not answer, and to sign in one that is signed out", async () => {
@@ -42,8 +54,8 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			CODEX_AREA,
 		]);
 
-		await expect(missing.submit("codex-signin", {})).rejects.toThrow(
-			"Codex is not installed here: install it with npm install --global @openai/codex, then run codex once to sign in.",
+		await expect(missing.submit("codex-install", {})).rejects.toThrow(
+			"Could not install Codex from here. Run `npm install --global @openai/codex` in a terminal to see why, then press Next.",
 		);
 		await expect(signedOut.submit("codex-signin", {})).rejects.toThrow(
 			"Codex is installed but not signed in: run codex once to sign in.",
@@ -53,7 +65,7 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 	it("finds Kimi off the PATH, and reads it signed in only while its own provider is configured", async () => {
 		const status = async (programs: ConstructorParameters<typeof CliPs>[0]) =>
 			(await new Setup(machine(programs), [KIMI_AREA]).read()).areas[0]
-				?.steps[0]?.status;
+				?.steps[1]?.status;
 		const signedOut = {
 			"kimi --version": 0,
 			"kimi provider list": {
@@ -78,10 +90,8 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			"Kimi is installed but not signed in: run kimi login once to sign in.",
 		);
 		await expect(
-			new Setup(machine({}), [KIMI_AREA]).submit("kimi-signin", {}),
-		).rejects.toThrow(
-			"Kimi is not installed here: install it with curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash, then run kimi login once to sign in.",
-		);
+			new Setup(machine({}), [KIMI_AREA]).submit("kimi-install", {}),
+		).rejects.toThrow("Could not install Kimi from here.");
 	});
 
 	it("creates the roster with just this agent, and refuses no model ticked", async () => {
@@ -140,11 +150,19 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			},
 			{
 				id: "claude-signin",
-				title: "Install and sign in to Claude",
+				title: "Sign in to Claude",
 				done: true,
 				removes: [],
 				leaves: [
 					"Claude stays signed in: run `claude auth logout` to sign out.",
+				],
+			},
+			{
+				id: "claude-install",
+				title: "Install Claude",
+				done: true,
+				removes: [],
+				leaves: [
 					"Claude stays installed: run `rm -f ~/.local/bin/claude && rm -rf ~/.local/share/claude` to remove it.",
 				],
 			},
@@ -153,13 +171,14 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 
 		expect(progress.areas[0]?.steps.map((step) => step.status)).toEqual([
 			"done",
+			"done",
 			"ready",
 		]);
 		const saved = JSON.parse(await fs.read(`${HOME}/agents.json`));
 		expect(saved.agents.map((agent: { id: string }) => agent.id)).toEqual([
 			"codex",
 		]);
-		await CLAUDE_AREA.steps[1]?.undo?.run(machine(programs));
+		await CLAUDE_AREA.steps[2]?.undo?.run(machine(programs));
 		expect(JSON.parse(await fs.read(`${HOME}/agents.json`))).toEqual(saved);
 	});
 });

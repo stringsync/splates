@@ -30,8 +30,8 @@ describe("dev's setup routes", () => {
 				answers: {},
 			});
 
-			// OpenCode's steps read this machine, so which comes next varies.
-			expect(fresh.next).toStartWith("opencode-");
+			// Claude's steps read this machine, so which comes next varies.
+			expect(fresh.next).toStartWith("claude-");
 			expect(unsaved.status).toBe(422);
 			expect(await unsaved.json()).toEqual({
 				reason: "step",

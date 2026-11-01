@@ -70,7 +70,7 @@ export function sameBlocker(
 	return one.project === other.project && one.id === other.id;
 }
 
-/** How a blocker in another project is written: `webappwiz #404`. */
+/** How a blocker in another project is written: `wren #404`. */
 export function elsewhereName(
 	blocker: Pick<ElsewhereBlocker, "project" | "id"> & { slug?: string },
 ): string {
@@ -122,7 +122,7 @@ export function elsewhereLine(blocker: ElsewhereBlockerNow): string {
 }
 
 /**
- * A task of another splates project, `webappwiz #404`, that has to merge
+ * A task of another splates project, `wren #404`, that has to merge
  * before the task it is kept on starts. Link one with
  * `ElsewhereLinks.link`; the queue holds the task until `landed` is set.
  */

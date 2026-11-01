@@ -5,7 +5,7 @@ import { EVALS_AREA } from "./area-evals";
 import { Setup, type SetupMachine } from "./setup";
 
 describe("EVALS_AREA", () => {
-	let evals: { results: string } | null;
+	let evals: { results: string; list?: string; run?: string } | null;
 	let machine: SetupMachine;
 
 	beforeEach(() => {
@@ -21,6 +21,9 @@ describe("EVALS_AREA", () => {
 					remote: null,
 					replica: null,
 					evals,
+					ship: null,
+					shipStatus: null,
+					ships: null,
 				}),
 				remoteUrl: async () => null,
 			},
@@ -42,5 +45,17 @@ describe("EVALS_AREA", () => {
 		const done = await step();
 		expect(done?.status).toBe("done");
 		expect(done?.detail).toContain(".evals");
+	});
+
+	it("offers running evals from the page once results show", async () => {
+		const statuses = async () =>
+			(await new Setup(machine, [EVALS_AREA]).read()).areas[0]?.steps.map(
+				(step) => step.status,
+			);
+		expect(await statuses()).toEqual(["ready", "waiting"]);
+		evals = { results: ".evals" };
+		expect(await statuses()).toEqual(["done", "ready"]);
+		evals = { results: ".evals", list: "x", run: "y" };
+		expect(await statuses()).toEqual(["done", "done"]);
 	});
 });

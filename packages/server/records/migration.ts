@@ -22,6 +22,7 @@ export class Migration {
 	private readonly child: MigrationOptions["child"];
 	private readonly limit: Duration;
 	private readonly settle: MigrationOptions["settle"];
+	private readonly guard: MigrationOptions["guard"];
 	/** Where the failure is kept: beside the records, since a restore replaces them. */
 	readonly failurePath: string;
 	readonly backupPath: string;
@@ -36,8 +37,10 @@ export class Migration {
 			child,
 			limit = MIGRATION_LIMIT,
 			settle,
+			guard,
 		}: MigrationOptions,
 	) {
+		this.guard = guard;
 		this.settle = settle;
 		this.fs = fs;
 		this.log = log;
@@ -103,6 +106,10 @@ export class Migration {
 		if (kept !== null && kept.release === this.release && !retry) {
 			this.refuse(kept);
 		}
+		const behind = await this.format.stored();
+		if (behind !== null && behind < this.format.current) {
+			await this.guard?.(behind);
+		}
 		await this.lock.acquire();
 		let failed: MigrationFailure | null = null;
 		try {
@@ -139,7 +146,12 @@ export class Migration {
 		);
 		if (exitCode === 0 && !signal.aborted) {
 			await this.fs.rm(this.failurePath, { force: true });
+			// Kept, so a migration that went wrong later can still be undone.
+			const kept = `${this.backupPath}-format-${from}`;
+			await this.fs.rm(kept, { recursive: true, force: true });
+			await copyTree(this.fs, this.backupPath, kept);
 			await this.fs.rm(this.backupPath, { recursive: true, force: true });
+			this.log.info(`kept the records as they were before it in ${kept}`);
 			return null;
 		}
 		// The step it stopped on is the one after the last stamped.
@@ -245,6 +257,23 @@ export interface MigrationOptions {
 	 * them or found them so: clears what the steps left behind.
 	 */
 	settle?: () => Promise<void>;
+	/**
+	 * Runs before the records move from `stored` (null for none yet) when they
+	 * are behind this splates; throws to refuse the move.
+	 */
+	guard?: (stored: number | null) => Promise<void>;
+}
+
+/** Whether the working directory is a linked git worktree, not a main tree. */
+export async function inLinkedWorktree(ps: Ps): Promise<boolean> {
+	const rev = async (flag: string) =>
+		(
+			await ps
+				.spawnCapture(["git", "rev-parse", "--path-format=absolute", flag])
+				.catch(() => ({ stdout: "" }))
+		).stdout.trim();
+	const [dir, common] = [await rev("--git-dir"), await rev("--git-common-dir")];
+	return dir !== "" && common !== "" && dir !== common;
 }
 
 /** Copies `from` to `to`, a file or a tree, leaving out locks, which name this machine's processes. */

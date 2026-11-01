@@ -26,6 +26,22 @@ describe("StageRow release steps", () => {
 		expect(within(list).getByText("already done")).toBeTruthy();
 	});
 
+	it("links a release step to the publish run it waits on", () => {
+		const view = show(
+			command([
+				step("a", "running", {
+					status: "in_progress",
+					url: "https://github.com/o/r/actions/runs/1",
+				}),
+			]),
+		);
+		const link = view.getByRole("link", { name: "run on GitHub" });
+		expect(link.getAttribute("href")).toBe(
+			"https://github.com/o/r/actions/runs/1",
+		);
+		expect(view.getByText("in_progress")).toBeTruthy();
+	});
+
 	it("shows the command alone when its project reports no steps", () => {
 		const view = show(command());
 		expect(view.queryByRole("list", { name: "Release steps" })).toBeNull();
@@ -44,6 +60,8 @@ function step(id: string, state: string, extra = {}) {
 		ended: state === "running" ? null : "2026-10-30T12:00:05.000Z",
 		deadlineMs: 60_000,
 		checked: null,
+		status: null,
+		url: null,
 		error: null,
 		...extra,
 	};

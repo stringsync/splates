@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, dirname } from "node:path";
+import { MergeLine } from "../merge";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { fingerprint, snapshot } from "./snapshot";
@@ -47,6 +48,7 @@ describe("snapshot", () => {
 		expect(path).toBe(deps.root);
 		expect((await snapshot({ project: "repo", ...deps })).path).toBe(deps.root);
 	});
+	// vet-ignore simple-test-setup: the two running merges and the batch gating them are this case's inputs.
 	it("exposes confirmed running batches and fingerprints their membership and merge progress", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
@@ -58,15 +60,10 @@ describe("snapshot", () => {
 			gate: "running",
 			mergeSince: new Date().toISOString(),
 		});
-		const records = deps.storage.collection("merge-batch");
-		await records.write(
-			"invite:beta",
-			JSON.stringify({ leader: "alpha", onto: "tip" }),
-		);
-		await records.write(
-			"stacked:beta",
-			JSON.stringify({ onto: "tip", head: "beta" }),
-		);
+		const line = MergeLine.of(deps.git.root);
+		const gating = line.gating("alpha", [
+			{ task: "beta", onto: "tip", head: "beta" },
+		]);
 		const read = await snapshot({ ...deps, project: "repo" });
 		expect(read.mergeBatches).toEqual([["alpha", "beta"]]);
 		expect(fingerprint(read)).not.toBe(
@@ -77,7 +74,7 @@ describe("snapshot", () => {
 			tasks: read.tasks.map((task) => ({ ...task, gate: "queued" as const })),
 		};
 		expect(fingerprint(read)).not.toBe(fingerprint(queued));
-		await records.write("result:beta", JSON.stringify({ kind: "dissolved" }));
+		gating[Symbol.dispose]();
 		expect((await snapshot({ ...deps, project: "repo" })).mergeBatches).toEqual(
 			[],
 		);

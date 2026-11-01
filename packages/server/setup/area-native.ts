@@ -12,6 +12,9 @@ async function rosterAgents({ fs, home }: SetupMachine) {
 /** How long a CLI gets to answer before it counts as not answering. */
 const PROBE_MS = 10_000;
 
+/** How long an install gets before it counts as failed. */
+const INSTALL_MS = 10 * 60_000;
+
 /** How a CLI is run, installed and signed in, and how the person signs out of it and uninstalls it. */
 interface Cli {
 	name: string;
@@ -73,21 +76,70 @@ export const KIMI_AREA: SetupArea = agentJourney("kimi");
 
 function agentJourney(id: AgentId): SetupArea {
 	const { name, install, signIn: login, signOut, uninstall }: Cli = CLIS[id];
-	const signIn: SetupStep = {
-		id: `${id}-signin`,
-		title: `Install and sign in to ${name}`,
-		why: `splates starts ${name} through its own CLI, which has to be installed and signed in on this machine.`,
-		user: `Press Next and splates checks that \`${id}\` answers and is signed in. If it is not, install it with \`${install}\`, then run \`${login}\` once to sign in.`,
-		agent: `Help set up only ${name}: check \`${id} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${login}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
+	const installStep: SetupStep = {
+		id: `${id}-install`,
+		title: `Install ${name}`,
+		why: `splates starts ${name} through its own CLI, which has to be installed on this machine. One agent is enough, so skip the ones you will not use.`,
+		user: `${name} is not on this machine yet. Next installs it with \`${install}\`.`,
+		agent: `Press Next on the page, or run \`${install}\`. Do not sign in for the user or send a test prompt.`,
 		optional: true,
 		after: [],
+		doing: `Installing ${name}…`,
+		check: async (machine) => (await probe(machine, id)) !== "missing",
+		submit: async (machine) => {
+			const { ps } = machine;
+			const result = await ps
+				?.spawnCapture(["sh", "-c", install], {
+					timeoutMs: INSTALL_MS,
+					stdin: "",
+				})
+				.catch(() => null);
+			if (result?.exitCode !== 0) {
+				throw new Error(
+					`Could not install ${name} from here. Run \`${install}\` in a terminal to see why, then press Next.`,
+				);
+			}
+			if ((await probe(machine, id)) === "missing") {
+				throw new Error(
+					`${name} installed, but splates cannot find it on its PATH. Restart \`splates server\`, then press Next.`,
+				);
+			}
+		},
+		// Other tools may use it, so only the person takes it out.
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				`${name} stays installed: run \`${uninstall}\` to remove it.`,
+			],
+			run: async () => {},
+		},
+	};
+	const signIn: SetupStep = {
+		id: `${id}-signin`,
+		title: `Sign in to ${name}`,
+		why: `${name} has to be signed in on this machine, which only you can do.`,
+		user: `Run \`${login}\` once in a terminal and sign in. This page notices when you have, then press Next.`,
+		agent: `Help set up only ${name}: check \`${id} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${login}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
+		optional: true,
+		after: [installStep],
 		doing: `Checking that ${id} answers and is signed in…`,
 		check: async (machine) => (await probe(machine, id)) === "ready",
+		found: async ({ ps }) => {
+			const { command = [id] }: Cli = CLIS[id];
+			const version = (
+				await ps?.spawnCapture([...command, "--version"], {
+					timeoutMs: PROBE_MS,
+				})
+			)?.stdout.trim();
+			return version
+				? `${name} ${version} is installed and signed in.`
+				: `${name} is installed and signed in.`;
+		},
 		submit: async (machine) => {
 			switch (await probe(machine, id)) {
 				case "missing":
 					throw new Error(
-						`${name} is not installed here: install it with ${install}, then run ${login} once to sign in.`,
+						`${name} is not installed here: go back and install it with ${install}.`,
 					);
 				case "signed-out":
 					throw new Error(
@@ -100,10 +152,7 @@ function agentJourney(id: AgentId): SetupArea {
 		// splates installed and signed in nothing, so it takes nothing out.
 		undo: {
 			removes: async () => [],
-			leaves: async () => [
-				`${name} stays signed in: ${signOut} to sign out.`,
-				`${name} stays installed: run \`${uninstall}\` to remove it.`,
-			],
+			leaves: async () => [`${name} stays signed in: ${signOut} to sign out.`],
 			run: async () => {},
 		},
 	};
@@ -123,6 +172,12 @@ function agentJourney(id: AgentId): SetupArea {
 			(await rosterAgents(machine)).some(
 				(agent) => agent.id === id && agent.models.length > 0,
 			),
+		found: async (machine) => {
+			const models =
+				(await rosterAgents(machine)).find((agent) => agent.id === id)
+					?.models ?? [];
+			return `${models.length} ${models.length === 1 ? "model is" : "models are"} on the roster: ${models.map((model) => model.name).join(", ")}.`;
+		},
 		submit: async ({ fs, home }, answers) => {
 			const chosen = chosenModels(id, answers);
 			if (chosen.length === 0) {
@@ -147,7 +202,7 @@ function agentJourney(id: AgentId): SetupArea {
 		id,
 		title: name,
 		purpose: `Run agents on ${name}, signed in on this machine.`,
-		steps: [signIn, models],
+		steps: [installStep, signIn, models],
 	};
 }
 

@@ -323,6 +323,7 @@ export class Conversation
 			task,
 			base = null,
 			caller = null,
+			tags = null,
 			cwd,
 			scratch = false,
 			assigned = false,
@@ -353,6 +354,7 @@ export class Conversation
 			assigned,
 			startedBy,
 			scratch,
+			tags,
 		);
 		state.skill = skill;
 		state.automatic = automatic;
@@ -377,6 +379,7 @@ export class Conversation
 			...(scratch ? { scratch: true as const } : {}),
 			base,
 			caller,
+			...(tags === null ? {} : { tags }),
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(startedBy === null ? {} : { startedBy }),
@@ -649,6 +652,7 @@ export class Conversation
 		cwd: string,
 		base: string | null = null,
 		caller: string | null = null,
+		tags: string[] | null = null,
 	): void {
 		// A running session keeps the directory it opened in, which a merge
 		// deletes under it. At the turn's end it stops, so the next prompt
@@ -659,12 +663,20 @@ export class Conversation
 			this.state.status === "running" &&
 			this.agent?.id !== "opencode";
 		this.dir = cwd;
-		this.log.write({ kind: "task", task, cwd, base, caller });
+		this.log.write({
+			kind: "task",
+			task,
+			cwd,
+			base,
+			caller,
+			...(tags === null ? {} : { tags }),
+		});
 		this.set({
 			task,
 			lastTask: task ?? this.state.lastTask,
 			lastBase: task === null ? this.state.lastBase : base,
 			lastCaller: callerAfter(this.state, task, caller),
+			lastTags: task === null ? this.state.lastTags : tags,
 		});
 	}
 
@@ -716,8 +728,9 @@ export class Conversation
 		cwd: string,
 		base: string | null = null,
 		caller: string | null = null,
+		tags: string[] | null = null,
 	): void {
-		this.move(task, cwd, base, caller);
+		this.move(task, cwd, base, caller, tags);
 		this.log.write({ kind: "held-for-task", heldForTask: null });
 		this.set({ heldForTask: null, queue: null });
 		this.letGo(true);
@@ -1362,6 +1375,8 @@ interface Opening {
 	base?: string | null;
 	/** The conversation whose agent added `task`. */
 	caller?: string | null;
+	/** The tags of `task`. */
+	tags?: string[] | null;
 	cwd: string;
 	/** Runs projectless in its own scratch workspace. */
 	scratch?: boolean;

@@ -1,4 +1,4 @@
-import { useDisposerEffect } from "core/react";
+import { useDisposerEffect, useReactive } from "core/react";
 import {
 	type ComponentProps,
 	type JSX,
@@ -6,6 +6,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { AddProject } from "./add-project";
 import { App } from "./app";
 import { EverywhereContext, useHoldEverywhere } from "./everywhere-context";
 import { useShownProject } from "./navigation";
@@ -59,9 +60,35 @@ export function ProjectApp({
 	// One `App` for every project, so the sidebar and bars stay put across a
 	// switch; it makes its pages and shells afresh for the new feeds, and the
 	// last project's feeds, kept, stop streaming.
+	// Known to be none only once listed; the page then asks for one rather than
+	// reading project APIs that have nothing to answer with.
+	const listed = useReactive(projects, (list) => list.projects, ["changed"]);
+	if (listed !== null && listed.length === 0 && project === "") {
+		return (
+			<ProjectListContext value={projects}>
+				<FirstOpen />
+			</ProjectListContext>
+		);
+	}
 	return (
 		<ProjectListContext value={projects}>
 			<App {...props} {...feeds.of(project)} />
 		</ProjectListContext>
+	);
+}
+
+/** What a server with no project opens on: what splates is, and a way to add one. */
+export function FirstOpen(): JSX.Element {
+	return (
+		<main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4 py-12">
+			<h1 className="font-semibold text-xl">Welcome to splates</h1>
+			<p className="max-w-sm text-center text-muted-foreground text-sm">
+				splates runs many agents on one repository, each in its own git
+				worktree, and lands their work on trunk without pull requests. Add a
+				repository to begin, or run{" "}
+				<code className="font-mono">splates init</code> in it.
+			</p>
+			<AddProject autoFocus className="w-full max-w-sm" />
+		</main>
 	);
 }

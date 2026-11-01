@@ -34,7 +34,7 @@ describe("App on a phone", () => {
 	const headerSummary = () => {
 		const [, first] = [
 			message("user", "fix the header"),
-			message("agent", report),
+			message("agent", bareReport),
 		];
 		return conversation({
 			id: "c1",
@@ -114,6 +114,8 @@ describe("App on a phone", () => {
 		"   - (b) A badge",
 		"3. Ready to merge?",
 	].join("\n");
+	/** `report` without the words ahead of its questions. */
+	const bareReport = report.split("\n").slice(2).join("\n");
 	/** Task alpha, asking what `report` asks. */
 	const asking = details({
 		task: "alpha",
@@ -126,6 +128,22 @@ describe("App on a phone", () => {
 			"- [ ] 2. How should a stale todo be shown?",
 			"- [ ] 3. Ready to merge?",
 		].join("\n"),
+	});
+
+	it("shows a task's tags as chips on its inbox row", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha", lease: "held", tags: ["web", "bug"] }),
+				],
+			},
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+
+		expect(within(inbox).getByTitle("Tag web")).toBeTruthy();
+		expect(within(inbox).getByTitle("Tag bug")).toBeTruthy();
 	});
 
 	it("lists the agents newest first in its inbox, each saying what it waits on", async () => {
@@ -187,7 +205,7 @@ describe("App on a phone", () => {
 			within(inbox)
 				.getAllByRole("region")
 				.map((group) => group.getAttribute("aria-label")),
-		).toEqual(["webappwiz", "zebra"]);
+		).toEqual(["wren", "zebra"]);
 		const zebra = within(inbox).getByRole("region", { name: "zebra" });
 		expect(
 			within(zebra)
@@ -216,7 +234,7 @@ describe("App on a phone", () => {
 		await act(async () =>
 			fireEvent.click(
 				within(inbox).getByRole("button", {
-					name: "New conversation in webappwiz",
+					name: "New conversation in wren",
 				}),
 			),
 		);
@@ -303,7 +321,7 @@ describe("App on a phone", () => {
 		);
 		// Its task is the Tasks page's: its wait shows on the one it reports to.
 		const [orchestrator, ...others] = within(waiting).getAllByRole("button");
-		expect(orchestrator?.textContent).toContain("sub: Which look?");
+		expect(orchestrator?.title).toContain("sub: Which look?");
 		expect(others.map((button) => button.getAttribute("aria-label"))).toEqual([
 			"Conversation actions",
 		]);
@@ -656,7 +674,10 @@ describe("App on a phone", () => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Header",
-				messages: [message("user", "fix the header"), message("agent", report)],
+				messages: [
+					message("user", "fix the header"),
+					message("agent", bareReport),
+				],
 			}),
 		]);
 		await toThread(view);
@@ -754,7 +775,7 @@ describe("App on a phone", () => {
 					title: "Header",
 					messages: [
 						message("user", "fix the header"),
-						message("agent", report),
+						message("agent", bareReport),
 					],
 				}),
 			]);
@@ -966,7 +987,7 @@ describe("App on a phone", () => {
 		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
 	});
 
-	it("goes from a sheet the inbox opened to the conversation behind it", async () => {
+	it("leaves a sheet closed when the inbox opens a message with words beside its questions", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -976,6 +997,38 @@ describe("App on a phone", () => {
 					messages: [
 						message("user", "fix the header"),
 						message("agent", report),
+					],
+				}),
+			],
+			null,
+			{ tasks: [asking] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "Conversations" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+
+		await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(view.getByText("The header wraps now.")).toBeTruthy();
+	});
+
+	it("goes from a sheet the inbox opened to the conversation behind it", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Header",
+					task: "alpha",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", bareReport),
 					],
 				}),
 			],
@@ -1046,7 +1099,7 @@ describe("App on a phone", () => {
 					task: "alpha",
 					messages: [
 						message("user", "fix the header"),
-						message("agent", report),
+						message("agent", bareReport),
 					],
 				}),
 			],
@@ -1150,7 +1203,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations");
 	});
 
-	it("keeps branding in the drawer alone, and the project switcher in every bar, titling the inbox and pages", async () => {
+	it("keeps no branding, and the project switcher in the drawer and every bar, titling the inbox and pages", async () => {
 		const view = await testing.openConversations([], null);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		expect(
@@ -1167,11 +1220,11 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		expect(
-			within(drawer).queryByRole("button", { name: "Switch project" }),
-		).toBeNull();
-		expect(
-			within(drawer).getByRole("img", { name: "Spinning Plates" }),
+			within(drawer).getByRole("button", { name: "Switch project" }),
 		).toBeTruthy();
+		expect(
+			within(drawer).queryByRole("img", { name: /Spinning Plates|slot / }),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);

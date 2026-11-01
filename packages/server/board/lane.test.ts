@@ -52,6 +52,26 @@ describe.concurrent("task links and lanes", () => {
 		).toBail("not_found");
 	});
 
+	it("tags a task, adds and removes tags on update, and lists by tag", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "a", null, { tags: ["web"] });
+		await taskAdd(deps, "b", null);
+
+		await taskUpdate(deps, 2, { tags: ["web", "infra"] });
+		await taskUpdate(deps, 1, { removeTags: ["web"], tags: ["db"] });
+		await expect(taskUpdate(deps, 2, { removeTags: ["nope"] })).toBail(
+			"not_found",
+		);
+
+		expect((await deps.tasks.find(1)).tags).toEqual(["db"]);
+		expect((await deps.tasks.find(2)).tags).toEqual(["web", "infra"]);
+		deps.log.clear();
+		await taskList(deps, { json: true, tag: "web" });
+		expect(
+			JSON.parse(deps.out()).map((task: { id: number }) => task.id),
+		).toEqual([2]);
+	});
+
 	it("links and unlinks in one command each, refusing a loop by name", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "a", null);

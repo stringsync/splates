@@ -41,9 +41,7 @@ describe("App's checkpoint restart", () => {
 	});
 
 	it("restarts and resumes on one screen, though the page never saw the last answer", async () => {
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 		testing.restarting = { resume: true, shutdown: false };
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
@@ -64,16 +62,14 @@ describe("App's checkpoint restart", () => {
 		testing.restarting = null;
 		testing.restarted = "resuming";
 		testing.run = "run-2";
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "done")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "done")], true)];
 		testing.comeBack();
 		await waitFor(() => expect(current(dialog)).toBe("Resume"));
 		expect(dialog.textContent).toContain("0 of 1 agent back at work.");
 		within(dialog).getByText("splates 0.0.1");
 
 		testing.restarted = null;
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.projects = [project("wren", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
 		await waitFor(() => within(dialog).getByText("1 agent back at work."));
 		// The same screen throughout, rather than one sliding in per step.
@@ -86,9 +82,7 @@ describe("App's checkpoint restart", () => {
 	it.each([502, 503, 530])(
 		"waits quietly through a proxy %s during restart",
 		async (status) => {
-			testing.projects = [
-				project("webappwiz", [live("c1", "One", "asked")], true),
-			];
+			testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 			testing.restarting = { resume: true, shutdown: false };
 			const view = await testing.openConversations(
 				[conversation({ id: "c1", status: "running" })],
@@ -127,9 +121,7 @@ describe("App's checkpoint restart", () => {
 	});
 
 	it("confirms inline after reload while its agents resume", async () => {
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "asked")], true)];
 		testing.restarting = { resume: true, shutdown: false };
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
@@ -139,9 +131,7 @@ describe("App's checkpoint restart", () => {
 		testing.restarting = null;
 		testing.restarted = "resuming";
 		testing.run = "run-2";
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "done")], true),
-		];
+		testing.projects = [project("wren", [live("c1", "One", "done")], true)];
 		await waitFor(() => expect(testing.reloads).toBe(1));
 		cleanup();
 
@@ -154,13 +144,13 @@ describe("App's checkpoint restart", () => {
 		expect(updated.querySelector("svg")).toBeNull();
 		expect(again.queryByRole("dialog")).toBeNull();
 		testing.restarted = null;
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.projects = [project("wren", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
 		expect(again.queryByRole("dialog")).toBeNull();
 	});
 
 	it("confirms inline after an update, until another update is needed", async () => {
-		testing.projects = [project("webappwiz", [], true)];
+		testing.projects = [project("wren", [], true)];
 		testing.restarting = { resume: false, shutdown: false };
 		const view = await testing.openConversations([], null, {
 			release: { running: "0.0.43", newest: "0.0.44" },
@@ -208,7 +198,7 @@ describe("App's checkpoint restart", () => {
 
 	it("names the agents a checkpoint missed, and no others", async () => {
 		testing.projects = [
-			project("webappwiz", [
+			project("wren", [
 				live("c1", "One", "done"),
 				live("c2", "Two", "unanswered"),
 			]),

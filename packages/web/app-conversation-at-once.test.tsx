@@ -187,7 +187,7 @@ describe("App's list actions on a conversation, pending until the server says so
 		const inbox = agentList(view);
 		const row = () =>
 			within(inbox).getAllByText("Quiet")[0]?.closest("li") as HTMLElement;
-		expect(within(row()).getByText(/^Possibly stuck · quiet /)).toBeTruthy();
+		expect(within(row()).getByText("Possibly stuck")).toBeTruthy();
 		testing.holdWrites();
 
 		await pick(view, "Quiet", "Stop turn");

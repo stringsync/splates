@@ -4,6 +4,7 @@ import {
 	openingOf,
 } from "@stringsync/splates-server/conversations/browser";
 import type { Need } from "@stringsync/splates-server/plans";
+import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
@@ -36,6 +37,7 @@ import {
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
 import { unnamed, useNameOf } from "./conversation-names";
+import { automated, shipped } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect, usePendingConversation } from "./expecting";
 import { Mark } from "./mark";
@@ -45,6 +47,8 @@ import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
+import { useRowStatus, useRowTags } from "./row-status";
+import { TagChips } from "./tag-chips";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
@@ -69,6 +73,7 @@ export function Item({
 	hint = null,
 	hosting = false,
 	nested = false,
+	task = null,
 }: {
 	conversation: ConversationState;
 	agent: string;
@@ -91,6 +96,8 @@ export function Item({
 	hosting?: boolean;
 	/** Whether it sits under another row, as a part does under its host. */
 	nested?: boolean;
+	/** The live task it runs in, whose tags and status the line under its name says. */
+	task?: Details | null;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
@@ -107,6 +114,9 @@ export function Item({
 	const { file, confirm } = useArchive(conversation, refuse);
 	const { reported } = useEnding(conversation);
 	const quiet = useQuiet(conversation);
+	const row = { conversation, task, need };
+	const status = useRowStatus(row);
+	const tags = useRowTags(row);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
 	const pins = !archived && !nested;
@@ -147,7 +157,7 @@ export function Item({
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
 				onDoubleClick={() => setRenaming(true)}
-				title={where ? undefined : (conversation.task ?? undefined)}
+				title={where ? undefined : status.text}
 				// Room for the buttons only while they show, and for a mark while
 				// there is one.
 				className={cn(
@@ -165,11 +175,20 @@ export function Item({
 							: "pr-6",
 				)}
 			>
-				<RowIcon
-					conversation={conversation}
-					name={agent}
-					className="size-3.5 text-foreground/70"
-				/>
+				<span
+					className={cn(
+						"flex shrink-0 items-center justify-center rounded-full bg-muted",
+						automated(conversation) && "bg-violet-500/15",
+						shipped(conversation) && "bg-sky-500/15",
+						nested ? "size-6" : "size-7",
+					)}
+				>
+					<RowIcon
+						conversation={conversation}
+						name={agent}
+						className={cn("text-foreground/80", nested ? "size-3.5" : "size-4")}
+					/>
+				</span>
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span className="flex items-center gap-1.5">
 						<span
@@ -186,6 +205,18 @@ export function Item({
 							</span>
 						)}
 					</span>
+					{preview === undefined && (
+						<span className="flex min-w-0 items-center gap-1.5">
+							<TagChips
+								tags={tags}
+								max={3}
+								className="shrink overflow-hidden flex-nowrap"
+							/>
+							<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground leading-4">
+								{status.label}
+							</span>
+						</span>
+					)}
 					{preview !== undefined && (
 						<span className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
 							{project !== null && (

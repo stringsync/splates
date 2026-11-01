@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.3
+version: 1.13.4
 ---
 
 # Using splates
@@ -19,7 +19,9 @@ Most of what follows fills in these steps. Hold to them even when you skip
 the rest:
 
 1. **Add a task before you look.** When a request may end in a code change,
-   run `splates add <task> --goal "<what done means>"` first, then read and
+   run `splates add <task> --goal "<what done means>"` first (with `--tag
+   <project>` when the repository's config lists tags, and the project's name
+   left out of the task name), then read and
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
@@ -52,6 +54,8 @@ the rest:
 6. **Land with `splates merge --message "<what the base gains>"`**, run in
    the foreground, never in the background, then `cd`
    to the main tree it prints. When it fails, do what its stderr says.
+   Then close the board tasks the merge made moot, as
+   [merge.md](references/merge.md) says.
 7. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
    report asks nothing and offers nothing.
@@ -75,8 +79,10 @@ The `splates server` page turns these shapes, and only these, into cards the
 user taps. Copy them exactly, filling in the `<...>`.
 
 A question, a lone one numbered `1.` too, the why indented under it and,
-when the answer is one of a few, `- (a)` choices, your pick first and
-marked `(chosen)`:
+when the answer is one of a few, `- (a)` choices marked with your pick
+`(chosen)`. Choices with an implicit order (mockup variants A, B, C, D, steps,
+sizes) are listed in that order, the pick wherever it falls; otherwise any
+order, your pick first by default:
 
 ```markdown
 1. Should the old upload endpoint stay for a release?
@@ -84,6 +90,8 @@ marked `(chosen)`:
    - (a) Keep it for one release, logging each call (chosen)
    - (b) Remove it now
 ```
+
+A plain yes or no is asked the same way, as `- (a) Yes` and `- (b) No` choices; the user can always add words to the answer.
 
 Never as `Should I keep the old endpoint? I'd lean yes.`, a bold line, or
 your harness's own question tool: the page shows none of those as a card.
@@ -101,14 +109,14 @@ Cards on a phone now drag on a long press. Restart `splates server` to pick it u
 After a remove, why it went after the colon:
 
 ```markdown
-## 🛑 Removed <task>: superseded by a fix on main
+## 🧹 Removed <task>: superseded by a fix on main
 
 The task set out to stop uploads retrying a 413.
 ```
 
 When the work is blocked and only set aside for later, remove it with
 `--reason blocked`, which asks why it stopped and what it waits on (a task
-in another project as `--blocked-by webappwiz#404`), and report it
+in another project as `--blocked-by wren#404`), and report it
 deferred, the blockers in short after the colon, not removed:
 
 ```markdown
@@ -122,7 +130,13 @@ removed or deferred (a question you were asked to look into answered, a
 setup step finished, an automation's run from a hook prompt, `[SPLATES EVENT
 ...]` or `[SPLATES SCHEDULE <n>]`), its last reply is a Done report, what came
 of it after the colon, so the user sees the work is over and archives it. A
-reply in a talk that carries on is no Done report:
+Done report claims nothing is left: use it only when the request is fully
+met and no step, fix or follow-up remains that the user might want. A
+finding that leaves something to do (a bug found, a fix identified, a
+change proposed) is not over: say what you found and ask whether to
+proceed, as a numbered question, with no Done title. Never end on Done
+when the user asked for a change and none was made, or when the next move is
+theirs to approve. A reply in a talk that carries on is no Done report:
 
 ```markdown
 ## ✅ Done: two merged tasks reviewed, nothing to fix
@@ -214,7 +228,10 @@ page does. Running agents finish, and the person can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
 Only the person ships, and a ship starts on the Ships page, never from you.
-Never run `npm login` or `npm publish`: only the person starts a publish. When you think a release is due (a fix on
+A project that cannot ship yet, or has no evals on the Evals page, has a setup
+journey for each on the welcome page and in Setup (`splates setup ships`,
+`splates setup evals`): see [setup.md](references/setup.md), Ships and evals.
+Never run `npm login` or `npm publish`: only the person starts a publish, and a ship signs in to nothing. When you think a release is due (a fix on
 the base that users are waiting on), end your reply with a run-command card
 naming `splates ship <project>`, the why under it saying what the release
 carries. The page shows it as a ship card whose button opens the Ships page
@@ -222,9 +239,9 @@ with that project picked; it starts nothing, so carry on without waiting. A
 merge is never a release.
 
 ```markdown
-## 🔐 Permission: run command: ship webappwiz
+## 🔐 Permission: run command: ship wren
 
-`splates ship webappwiz`
+`splates ship wren`
 
 The log rotation fix is on main and unreleased; mdom and vexml take it next.
 ```
@@ -234,11 +251,13 @@ tasks needs the person's remove-lane permission card (see
 [reporting.md](references/reporting.md)). Backlog is permanent.
 
 You never change the queue, which splates refuses an agent: when a
-conversation asks for several tasks, add them as a lane, and when the user
+conversation asks for several tasks, or a request is several medium changes,
+offer a lane and add it once the user agrees (see
+[queue.md](references/queue.md), Asking the user to queue), and when the user
 asks you to queue work, add it; either way, end your reply with its queue
 card for the user to queue it now or later.
 
-A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task.
+A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
 
 ## Directives
 
@@ -260,7 +279,7 @@ the file when one arrives.
 | `[SPLATES TASK <task>]`             | Resume a task                                                                                                                                     | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands                                                                                                                                                                                                                                                                                                                                                                               |
 | `[SPLATES MERGE]`                   | The user approved your review, from the Ready to merge card                                                                                       | As for a reply of "merge": [merge.md](references/merge.md), Merge or review                                                                                                                                                                                                                                                                                                                                                                                    |
 | `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
-| `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it. Once the backlog is empty, `[SPLATES SORT ...]` follows in the same conversation to find lanes for the Untriaged tasks it names | [groom.md](references/groom.md), which covers both, Sorting Untriaged included |
+| `[SPLATES GROOM #N]` | You are the project's groomer: organize Untriaged task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES LANE N]` | Work down lane N (`untriaged` places the Untriaged tasks in lanes first) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
@@ -293,7 +312,7 @@ which remembers none of it. These come up in most tasks:
   a queue card, or `splates task update` or `splates lane update` with
   `--lane`, `--position` or `--blocked-by`: [references/queue.md](references/queue.md), writing,
   deferring, linking, placing and ordering tasks.
-- Before `splates task add` or `--ready`, when you take a task `splates task
+- Before `splates task add`, when you take a task `splates task
 show` says is `groomed: no`, and as the project's groomer:
   [references/groom.md](references/groom.md), everything grooming checks
   and who does it when.
@@ -342,7 +361,10 @@ queuing work there and asking for a grant.
    it in your conversation as splates's own line, the Goal on its task, so say
    nothing about adding it. When your harness asks right after for a word on
    what you are doing, say in one line what you will do next, without the
-   task's name or Goal, which that line already shows.
+   task's name or Goal, which that line already shows. A task is one
+   medium-sized change: when the request is several, offer a lane before
+   investigating (see [queue.md](references/queue.md), Asking the user to
+   queue).
 2. **Plan.** Once you know what done means, sharpen the Goal in `SPLATES.md`
    before touching code, and when the work will take several commits, list
    them under `## Next` (see SPLATES.md below).
@@ -459,6 +481,16 @@ What came of it, written just before you merge: a summary of what changed
 and any pivot from the original Goal, then `### Demo` (how to trigger it)
 and `### Verification` (checks run, screenshots as `![what](/abs/path.png)`).
 ```
+
+When the change was proposed with a picture (see
+[proposing.md](references/proposing.md), Showing the change), the Outcome
+carries a before and after right under the summary, each attached with
+`splates attach` and named as `![what](/abs/path.png)`, labelled `Before` and
+`After`. The before is the proposal's before. The after is as built: a backend
+change as a D2 diagram redrawn to match what landed, since the proposal's may
+no longer be true; a frontend change as a real screenshot of the shipped UI,
+not the mock. Show a before and after in the Done report too when the finding
+is something to see.
 
 Keep the summary quick to read, since the merged card shows it first and the
 user reads it to grasp what landed: one to three plain sentences, or up to

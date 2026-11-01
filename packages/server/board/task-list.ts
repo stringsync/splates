@@ -33,16 +33,26 @@ export interface TaskListOptions {
 	ready?: boolean;
 	/** This project's slug, when listed from another: ids are then written `slug #N`. */
 	project?: string;
+	/** Only the tasks with this tag. */
+	tag?: string;
 }
 
 export async function taskList(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
-	{ json = false, open = false, ready = false, project }: TaskListOptions = {},
+	{
+		json = false,
+		open = false,
+		ready = false,
+		project,
+		tag,
+	}: TaskListOptions = {},
 ): Promise<void> {
 	const every = await tasks.all();
 	const listed = every.filter(
 		(task) =>
-			(!open || task.takenBy === null) && (!ready || isReady(task.state)),
+			(!open || task.takenBy === null) &&
+			(!ready || isReady(task.state)) &&
+			(tag === undefined || task.tags.includes(tag)),
 	);
 	if (json) {
 		log.info(
@@ -71,6 +81,8 @@ export async function taskList(
 			[
 				"POS",
 				"ID",
+				"PROJECT",
+				"TAGS",
 				"SUBJECT",
 				"STAGE",
 				"BLOCKED BY",
@@ -83,6 +95,8 @@ export async function taskList(
 			listed.map((task) => [
 				String(task.position),
 				project === undefined ? String(task.id) : `${project} #${task.id}`,
+				task.scope ?? "",
+				task.tags.join(","),
 				task.subject,
 				task.state.stage,
 				[
@@ -104,7 +118,7 @@ export async function taskList(
 export interface TaskShowOptions {
 	/** Print the task as JSON instead of prose. */
 	json?: boolean;
-	/** The other projects' slugs, whose tasks a `webappwiz #4` names, not this one's. */
+	/** The other projects' slugs, whose tasks a `wren #4` names, not this one's. */
 	others?: readonly string[];
 	/** This project's slug, when shown from another: the task is then written `slug #N`. */
 	project?: string;
@@ -179,10 +193,12 @@ export async function taskShow(
 		...(task.state.slug === undefined
 			? []
 			: [`  slug:      ${task.state.slug}`]),
+		...(task.scope === null ? [] : [`  project:   ${task.scope}`]),
+		...(task.tags.length === 0 ? [] : [`  tags:      ${task.tags.join(", ")}`]),
 		`  position:  ${task.position}`,
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.
-		`  groomed:   ${task.state.groomed ? "yes" : "no, groom it before work on it"}`,
+		`  groomed:   ${task.lane === null ? "no, groom it before work on it" : "yes, it is in a lane"}`,
 		...(task.state.grooming === undefined
 			? []
 			: [`  grooming:  the groomer has it, until it is groomed or taken`]),

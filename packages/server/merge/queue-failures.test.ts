@@ -79,7 +79,7 @@ describe("queueFailedTests", () => {
 		]);
 	});
 
-	it.each(["task", "flake"] as const)(
+	it.each(["task"] as const)(
 		"queues nothing for failures blamed on %s",
 		async (kind) => {
 			await queueFailedTests(
@@ -92,6 +92,22 @@ describe("queueFailedTests", () => {
 			expect(await deps.tasks.all()).toEqual([]);
 		},
 	);
+
+	it("queues each flaky test by name, telling its agent to treat it as flaky", async () => {
+		await queueFailedTests(
+			deps,
+			"alpha",
+			[timedOut("one", "one.test.ts"), timedOut("two", "two.test.ts")],
+			"flake",
+		);
+
+		const all = await deps.tasks.all();
+		expect(all.map((task) => task.subject)).toEqual([
+			"Flaky test: one",
+			"Flaky test: two",
+		]);
+		expect(all[0]?.text).toContain("Treat it as flaky");
+	});
 
 	it("names a lone failure on trunk by its test", async () => {
 		await queueFailedTests(

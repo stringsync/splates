@@ -12,7 +12,7 @@ import { useExpectSnapshot } from "./expecting";
 import { TONES, type Tone } from "./task-sections";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
-const STAGES = ["running", "queued", "blocked", "ready", "backlog"] as const;
+const STAGES = ["running", "queued", "blocked", "available"] as const;
 
 type Stage = (typeof STAGES)[number];
 
@@ -51,8 +51,7 @@ export const STAGE_TONES: Record<Stage, Tone> = {
 	running: "working",
 	queued: "working",
 	blocked: "waiting",
-	ready: "ready",
-	backlog: "quiet",
+	available: "quiet",
 };
 
 /** Where a todo stands, in a badge on its card toned as in its task dialog. */
@@ -137,6 +136,49 @@ export function StageCounts({
 		>
 			{counts.map(([stage, count]) => `${count} ${stage}`).join(" · ")}
 		</span>
+	);
+}
+
+const BAR_COLORS: Record<Stage, string> = {
+	running: "bg-success",
+	queued: "bg-primary/50",
+	blocked: "bg-warning",
+	available: "bg-border",
+};
+
+/**
+ * A lane's tasks as one bar, a segment each in the colors of their stages,
+ * in the order the counts above it read, so how far a lane has come and
+ * what holds it up show before a card is read.
+ */
+export function StageBar({
+	todos,
+	className,
+}: {
+	todos: readonly TaskRecord[];
+	className?: string;
+}): JSX.Element {
+	const board = useContext(Board);
+	const all = board.linked ? board.todos : todos;
+	return (
+		<div
+			role="presentation"
+			className={cn(
+				"flex h-1.5 gap-px overflow-hidden rounded-full",
+				className,
+			)}
+		>
+			{STAGES.flatMap((stage) =>
+				todos
+					.filter((todo) => shownStage(todo, all) === stage)
+					.map((todo) => (
+						<span
+							key={todo.id}
+							className={cn("h-full flex-1", BAR_COLORS[stage])}
+						/>
+					)),
+			)}
+		</div>
 	);
 }
 

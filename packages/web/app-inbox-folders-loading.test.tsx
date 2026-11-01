@@ -38,7 +38,7 @@ describe("App's folders while every project's listing is on its way", () => {
 		listed("zebra", "/code/zebra", [
 			conversation({ id: "z1", title: "Stripes", status: "running" }),
 		]),
-		listed("webappwiz", "/repo", []),
+		listed("wren", "/repo", []),
 	];
 
 	beforeEach(() => {
@@ -73,7 +73,7 @@ describe("App's folders while every project's listing is on its way", () => {
 			within(nav).queryByRole("status", { name: "Loading conversations" }),
 		).toBeNull();
 		expect(
-			within(within(nav).getByRole("region", { name: "webappwiz" })).getByText(
+			within(within(nav).getByRole("region", { name: "wren" })).getByText(
 				"Mine",
 			),
 		).toBeTruthy();

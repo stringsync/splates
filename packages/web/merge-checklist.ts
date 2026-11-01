@@ -38,6 +38,8 @@ export interface StepRow {
 	phases: PhaseRow[];
 	/** Its index among the merge's steps when it ran a command whose output the server keeps; null otherwise. */
 	output: number | null;
+	/** The task whose merge printed that output, when it is another's: the leader of the batch it gated in. */
+	from: string | null;
 }
 
 /**
@@ -48,11 +50,16 @@ export interface StepRow {
  * phases under way or to come say how long they took in recent merges, and
  * a premerge under way lists the phases it has yet to start. A premerge
  * run in another merge's batch that split says so, apart from its own.
+ * A follower in a batch, whose gate is its `lead`'s, shows the leader's
+ * phases and output for its premerge.
  */
 export function mergeChecklist(
 	task: Details,
 	now: number,
-	estimates: MergeEstimates | null = null,
+	{
+		estimates = null,
+		lead = null,
+	}: { estimates?: MergeEstimates | null; lead?: Details | null } = {},
 ): StepRow[] {
 	const progress = task.mergeSteps;
 	if (progress === null || progress.steps.length === 0) {
@@ -62,6 +69,11 @@ export function mergeChecklist(
 	const lastTest = steps.findLastIndex(
 		(each) => each.step === "test" && each.dissolved === undefined,
 	);
+	const leadSteps = lead?.mergeSteps ?? null;
+	const leadTest =
+		leadSteps?.steps.findLastIndex(
+			(each) => each.step === "test" && each.dissolved === undefined,
+		) ?? -1;
 	const taken: StepRow[] = steps.map((each, index) => {
 		const ends = steps[index + 1]?.at;
 		const running = ends === undefined;
@@ -75,9 +87,22 @@ export function mergeChecklist(
 			typical: running ? (estimates?.steps[each.step] ?? null) : null,
 			phases:
 				index === lastTest
-					? phaseRows(progress.phases ?? [], running, now, estimates)
+					? phaseRows(
+							(lead === null ? progress : leadSteps)?.phases ?? [],
+							running,
+							now,
+							estimates,
+						)
 					: [],
-			output: each.output === undefined ? null : index,
+			...(lead !== null &&
+			index === lastTest &&
+			leadTest >= 0 &&
+			leadSteps?.steps[leadTest]?.output !== undefined
+				? { output: leadTest, from: lead.task }
+				: {
+						output: each.output === undefined ? null : index,
+						from: null,
+					}),
 		};
 	});
 	const gated = task.gate !== null;
@@ -102,6 +127,7 @@ export function mergeChecklist(
 				typical: estimates?.steps[step] ?? null,
 				phases: [],
 				output: null,
+				from: null,
 			}),
 		),
 	];
@@ -130,6 +156,7 @@ export function endedChecklist(
 			typical: null,
 			phases: step === "test" ? gatePhaseRows(event.gate, failed) : [],
 			output: null,
+			from: null,
 		};
 	});
 }

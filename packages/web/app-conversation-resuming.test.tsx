@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setHeldAfterMs } from "./sending";
 import {
 	act,
 	cleanup,
@@ -19,6 +20,7 @@ describe("App's sending to a stopped conversation", () => {
 	let box: HTMLElement;
 
 	beforeEach(async () => {
+		setHeldAfterMs(0);
 		testing = new Testing();
 		view = await testing.openConversations([
 			conversation({ title: "Login", status: "stopped", messages: said }),
@@ -30,6 +32,7 @@ describe("App's sending to a stopped conversation", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		setHeldAfterMs(5000);
 	});
 
 	it("holds each message to a stopped conversation in the pending row while its agent resumes, until the server has them", async () => {
@@ -67,7 +70,9 @@ describe("App's sending to a stopped conversation", () => {
 			}),
 		);
 
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(await within(thread).findAllByText("and the logout")).toHaveLength(
+			1,
+		);
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
 	});
 
@@ -90,7 +95,9 @@ describe("App's sending to a stopped conversation", () => {
 		await waitFor(() =>
 			expect(within(thread).getAllByText("carry on")).toHaveLength(1),
 		);
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(await within(thread).findAllByText("and the logout")).toHaveLength(
+			1,
+		);
 
 		await testing.say(
 			conversation({
@@ -108,6 +115,8 @@ describe("App's sending to a stopped conversation", () => {
 			}),
 		);
 
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(await within(thread).findAllByText("and the logout")).toHaveLength(
+			1,
+		);
 	});
 });

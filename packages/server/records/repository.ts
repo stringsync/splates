@@ -15,7 +15,7 @@ import { fail } from "../exit";
 import { Git } from "../git";
 import { CoordinatorLanding, TaskBranches, type TrunkLanding } from "../merge";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
-import { Slots } from "../ports";
+import { SLOT, Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { RUNNING } from "../server/release";
 import { type PlacedLock, premergeLockOfProject } from "../server/shared";
@@ -27,7 +27,7 @@ import { Format } from "./format";
 import { ProjectHome } from "./home";
 import { Journal } from "./journal";
 import { LeaseLock } from "./lease-lock";
-import { MIGRATING, Migration } from "./migration";
+import { inLinkedWorktree, MIGRATING, Migration } from "./migration";
 
 /**
  * Runs the action against the repository `cwd` sits in, or the registered
@@ -223,6 +223,9 @@ async function mainTree(ps: Ps): Promise<string | null> {
 	return exitCode === 0 ? dirname(stdout.trim()) : null;
 }
 
+/** Lets a linked worktree move the shared records anyway. */
+const ALLOW_WORKTREE_MIGRATION = "SPLATES_ALLOW_WORKTREE_MIGRATION";
+
 /**
  * How `format`'s records move forward under the guard `Migration` keeps:
  * backed up, run in a child `splates migrate` of this splates, and put back
@@ -246,6 +249,22 @@ export function migrationOf(
 		release: RUNNING,
 		child: Migration.childOf(ps, dirname(dirname(format.splatesDir))),
 		settle: home && (() => home.leaveAside(format.splatesDir)),
+		// A linked worktree shares the records of the main tree, which may
+		// still run an older splates that could no longer read them.
+		guard: async (stored) => {
+			if (
+				ps.env(MIGRATING) === undefined &&
+				ps.env(ALLOW_WORKTREE_MIGRATION) === undefined &&
+				ps.env(SLOT) === undefined &&
+				(await inLinkedWorktree(ps))
+			) {
+				fail(
+					"not_granted",
+					`this splates is run from a linked worktree and would move the repository's shared records from format ${stored} to ${format.current}, which the main tree's splates may not read. Land the change that adds the migration first, run \`splates migrate\` from the main tree, or set ${ALLOW_WORKTREE_MIGRATION}=1 to move them anyway (a copy is kept beside them).`,
+					{ from: stored, to: format.current },
+				);
+			}
+		},
 	});
 }
 

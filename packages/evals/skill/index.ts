@@ -2,13 +2,19 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { AGENTS, type AgentPick } from "@evals/evals/agents";
+import {
+	type Cell,
+	type Result,
+	runBatch,
+	type SkillUsed,
+} from "@evals/evals/run";
 import {
 	type EvalDetail,
 	EvalStore,
 	targetName,
 } from "@stringsync/splates-server/evals";
-import { AGENTS, type AgentPick } from "./agents";
-import { type Cell, type Result, runBatch, type SkillUsed } from "./run";
+import { splatesSandbox } from "./box";
 import { SCENARIOS } from "./scenarios";
 
 const HELP = `splates dev eval: run the splates skill's eval scenarios on real agents.
@@ -202,6 +208,8 @@ async function main(argv: string[]): Promise<number> {
 		const batch = await runBatch(cells, {
 			directory: values.directory,
 			skill: "splates",
+			producer: "splates",
+			sandbox: splatesSandbox(SCENARIOS),
 			parallel: Number(values.parallel) || 2,
 			landed: (result) =>
 				console.log(

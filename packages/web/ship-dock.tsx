@@ -14,34 +14,14 @@ export interface Attention {
 const LINK = /https?:\/\/[^\s,]+/;
 
 /**
- * What `cascade` waits on the person for first, or why it stopped: npm's
- * sign-in or second factor, a bump task's question, or the project it
+ * What `cascade` waits on the person for first, or why it stopped: a bump
+ * task's question, or the project it
  * stopped at; null while it goes on its own.
  */
 export function attentionOf(
 	cascade: Cascade,
-	ship: Ship | null,
+	_ship: Ship | null,
 ): Attention | null {
-	if (cascade.status === "running" && ship?.waiting != null) {
-		return {
-			tone: "asks",
-			title:
-				ship.waiting.kind === "login"
-					? "Sign in to npm"
-					: `Approve ${ship.project} on npm`,
-			detail:
-				ship.waiting.kind === "login"
-					? "npm waits for you to sign in on its page."
-					: ship.waiting.kind === "approve"
-						? `npm holds ${(ship.waiting.packages ?? []).map((each) => `${each.package}@${each.version}`).join(", ")} until you approve ${ship.waiting.packages?.length === 1 ? "it" : "them"} on its page.`
-						: "npm holds the publish until you confirm it on its page.",
-			action: {
-				label: ship.waiting.kind === "approve" ? "Approve on npm" : "Open npm",
-				href: ship.waiting.url,
-				external: true,
-			},
-		};
-	}
 	const asking = cascade.steps.find((step) => step.status === "asking");
 	if (cascade.status === "running" && asking !== undefined) {
 		const project = new URLSearchParams({ project: asking.slug });

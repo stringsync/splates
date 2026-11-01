@@ -28,8 +28,11 @@ export async function automations(): Promise<AutomationRow[]> {
 export async function addAutomation(
 	trigger: Trigger,
 	hook: Hook,
+	name = "",
 ): Promise<AutomationRow[]> {
-	return rows(await sendJson("/api/automations", "POST", { trigger, hook }));
+	return rows(
+		await sendJson("/api/automations", "POST", { trigger, hook, name }),
+	);
 }
 
 /** Sets what the person's automation `id` runs on and runs, answering with every automation. */
@@ -37,9 +40,10 @@ export async function editAutomation(
 	id: string,
 	trigger: Trigger,
 	hook: Hook,
+	name = "",
 ): Promise<AutomationRow[]> {
 	return rows(
-		await sendJson(`/api/automations/${id}`, "PUT", { trigger, hook }),
+		await sendJson(`/api/automations/${id}`, "PUT", { trigger, hook, name }),
 	);
 }
 

@@ -26,7 +26,7 @@ describe.concurrent("TaskStore", () => {
 			takenBy: "dark",
 			task: "dark",
 			stage: "running",
-			startedFrom: "backlog",
+			startedFrom: "available",
 			status: "working",
 		});
 		expect(await stored(deps, 2)).toMatchObject({ takenBy: null });
@@ -68,7 +68,7 @@ describe.concurrent("TaskStore", () => {
 			subject: "support dark mode",
 			lane: 1,
 			takenBy: null,
-			stage: "backlog",
+			stage: "available",
 		});
 		expect(record).not.toHaveProperty("task");
 		expect(record).not.toHaveProperty("status");

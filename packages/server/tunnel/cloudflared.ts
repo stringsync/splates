@@ -1,5 +1,5 @@
 import type { AsyncResource } from "core/disposable";
-import type { Logger } from "core/log";
+import { color, type Logger } from "core/log";
 import type { Child, Ps } from "core/system";
 import type { TunnelProvider, TunnelRoute } from "./provider";
 
@@ -169,7 +169,9 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 				line = lines.pop() ?? "";
 				if (!reached && lines.some((each) => each.includes(REGISTERED))) {
 					reached = true;
-					log.info(`splates server reachable at https://${host}`);
+					log.info(
+						`${color.green("reachable")} splates server at https://${host}`,
+					);
 				}
 			}
 		})().catch(() => {});
@@ -195,7 +197,7 @@ export interface Waiter {
 const REAL_WAITER: Waiter = { wait: (ms) => Bun.sleep(ms) };
 
 export interface CloudflaredOptions {
-	/** Tests pass one that returns at once. */
+	/** Pauses between restarts; the default sleeps for real. */
 	waiter?: Waiter;
 }
 

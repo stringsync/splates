@@ -15,6 +15,8 @@ describe("WorkerSession after the other end starts again", () => {
 	let claude: WorkerChannel;
 	/** The channels the worker was opened, in order. */
 	let opened: WorkerChannel[];
+	/** The link the worker first joined on. */
+	let first: WorkerSocketPair;
 
 	beforeEach(async () => {
 		timer = new FakeTimer();
@@ -23,7 +25,8 @@ describe("WorkerSession after the other end starts again", () => {
 		coordinator = new WorkerSession("coordinator", { timer, clock });
 		opened = [];
 		worker.events.on("channel", (channel) => opened.push(channel));
-		await link(worker, coordinator);
+		first = new WorkerSocketPair();
+		await link(worker, coordinator, first);
 		claude = coordinator.open("process", { argv: ["claude"] });
 		await Bun.sleep(0);
 	});
@@ -49,12 +52,28 @@ describe("WorkerSession after the other end starts again", () => {
 	it("ends the coordinator's channels when a worker started again joins it", async () => {
 		const restarted = new WorkerSession("worker", { timer, clock });
 
+		first.drop();
 		await link(restarted, coordinator);
 		await Bun.sleep(0);
 
 		expect(claude.closed).toBe(true);
 		expect(coordinator.writable).toBe(true);
 		// The worker gone never hears.
+		expect(opened.map(({ closed }) => closed)).toEqual([false]);
+	});
+
+	it("hangs up on another worker joining as this one while it is connected, keeping its channels", async () => {
+		const other = new WorkerSession("worker", { timer, clock });
+		const lost: string[] = [];
+		coordinator.events.on("lost", ({ reason }) => lost.push(reason));
+
+		const joined = await link(other, coordinator);
+		await Bun.sleep(0);
+
+		expect(joined.ok).toBe(false);
+		expect(lost).toEqual([]);
+		expect(claude.closed).toBe(false);
+		expect(claude.write(bytes("hi"))).toBe(true);
 		expect(opened.map(({ closed }) => closed)).toEqual([false]);
 	});
 });

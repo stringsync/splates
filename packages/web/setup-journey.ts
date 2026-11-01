@@ -102,6 +102,14 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 		}
 	}
 
+	/** Reads setup again, as while a page waits on something done elsewhere. */
+	async recheck(): Promise<void> {
+		if (this.next.kind !== "working") {
+			await this.reread();
+			this.dispatcher.dispatch("changed");
+		}
+	}
+
 	/** Reads setup again, keeping the area as it was when it will not read. */
 	private async reread(): Promise<void> {
 		const fresh = await setup().catch(() => null);

@@ -31,18 +31,18 @@ export interface Behind {
 }
 
 /**
- * The directories splates runs from in a checkout: its own, and the webappwiz
+ * The directories splates runs from in a checkout: its own, and the wren
  * library it imports, whose commits change what the server runs just as much.
  */
 export const SOURCE = [
 	dirname(import.meta.dirname),
 	`${dirname(dirname(import.meta.dirname))}/splates`,
 	`${dirname(dirname(import.meta.dirname))}/web`,
-	...webappwizSource(),
+	...coreSource(),
 ];
 
-/** webappwiz's directory, or none in a compiled binary, which has no files to resolve. */
-function webappwizSource(): string[] {
+/** wren's directory, or none in a compiled binary, which has no files to resolve. */
+function coreSource(): string[] {
 	try {
 		return [
 			dirname(dirname(Bun.fileURLToPath(import.meta.resolve("core/time")))),

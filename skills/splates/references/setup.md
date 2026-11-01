@@ -109,6 +109,26 @@ splates's `tunnel/provider.ts` first. A provider that is not ready is
 logged and skipped, so check the `splates server` log, not the page, to see
 whether it came up.
 
+## Ships and evals
+
+Two journeys set up a project rather than the machine, and both show on the
+welcome page while any step is left. Their steps check the project's
+`splates.config.ts`, so run `splates setup` in the project's main tree, and
+make each change in a task (the page opens `setup-<step>` for it), then ask
+the user to restart `splates server`.
+
+- **Ships** (`ships-command`, `ships-status`): name the command that
+  releases the project as `ship`, or one target a time under `ships`
+  (`{ paths, ship }`), then optionally a `shipStatus` command that reads
+  live versions where npm's latest is not the truth. Find the project's
+  existing release script before writing one. Only the person ships, so
+  never run the ship command; a `--dry-run` rehearsal is fine.
+- **Evals** (`evals-results`, `evals-run`): `evals: { results }` shows
+  results from any framework on the Evals page; adding `list` and `run`
+  (and optionally `plan`) lets the page's run card start a batch. The
+  format is in `docs/evals.md` of the splates repository. Never run evals
+  yourself.
+
 ## Server on a Droplet
 
 When the user asks to run `splates server` in the cloud, that is the Server

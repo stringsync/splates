@@ -4,7 +4,7 @@ import { FakeFs, FakePs } from "core/system/testing";
 import { FakeWallClock } from "core/time/testing";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
-import { quietly, typedCodeError } from "./npm-terminal";
+import { quietly } from "./npm-terminal";
 import { eventsText } from "./release-steps";
 import { Shipping } from "./run";
 import { FakeReleaseGit, nth, until } from "./testing";
@@ -31,13 +31,9 @@ describe("Shipping", () => {
 			status: "running",
 			bump: "minor",
 		});
-		expect(ps.getCalls()).toEqual([
-			"npm whoami",
-			quietly("wiz dev ship").join(" "),
-		]);
-		expect(ps.getCallDirs()).toEqual(["/demo", "/demo"]);
+		expect(ps.getCalls()).toEqual([quietly("wiz dev ship").join(" ")]);
+		expect(ps.getCallDirs()).toEqual(["/demo"]);
 		expect(ps.getCallEnvs()).toEqual([
-			{ npm_config_browser: "false" },
 			{
 				npm_config_browser: "false",
 				SPLATES_SHIP_BUMP: "minor",
@@ -53,29 +49,6 @@ describe("Shipping", () => {
 		expect(await fs.read(shipping.output)).toBe(
 			"origin/main verified at abc\npublished 0.1.0\norigin/main verified at abc\n",
 		);
-	});
-
-	it("publishes under the creds store's NPM_TOKEN through the child's environment, never argv or a file", async () => {
-		const { shipping, ps, fs } = await project({
-			npmToken: async () => "npm_secret",
-		});
-		ps.setCaptureOutput("someone\n", "");
-		await shipping.start();
-		const child = await nth(ps, 0);
-		child.exit(0);
-		await shipping.settled();
-
-		const npmrc = "/home/projects/1/ship.npmrc";
-		const env = {
-			npm_config_browser: "false",
-			NPM_TOKEN: "npm_secret",
-			npm_config_userconfig: npmrc,
-		};
-		expect(ps.getCallEnvs()[0]).toEqual(env);
-		expect(ps.getCallEnvs()[1]).toMatchObject(env);
-		expect(ps.getCalls().join(" ")).not.toContain("npm_secret");
-		expect(await fs.read(npmrc)).not.toContain("npm_secret");
-		expect(await shipping.current()).toMatchObject({ status: "done" });
 	});
 
 	it("keeps the release steps its command writes, and names the one that failed", async () => {
@@ -124,104 +97,6 @@ describe("Shipping", () => {
 		expect(ship?.error).toBe('release step "Build" failed: tsc broke');
 	});
 
-	it("waits on the person to approve what the release staged, until its approve step is done", async () => {
-		await shipping.start();
-		const child = await nth(ps, 0);
-		const events = [
-			{
-				type: "declared",
-				id: "approve",
-				name: "Approve a",
-				stage: "approve",
-				packages: ["a"],
-				deadlineMs: 1000,
-				at: "t0",
-			},
-			{
-				type: "staged",
-				id: "approve",
-				name: "Approve a",
-				package: "a",
-				version: "1.0.1",
-				stageId: "st-1",
-				url: "https://www.npmjs.com/staged",
-				at: "t1",
-			},
-			{ type: "started", id: "approve", name: "Approve a", at: "t2" },
-		];
-		await fs.write(`${shipping.output}.events`, eventsText(events));
-		await until(async () => (await shipping.current())?.waiting != null);
-		expect((await shipping.current())?.waiting).toMatchObject({
-			kind: "approve",
-			url: "https://www.npmjs.com/staged",
-			packages: [{ package: "a", version: "1.0.1", stageId: "st-1" }],
-		});
-		const approve = async () =>
-			(await shipping.current())?.stages?.find(
-				(each) => each.key === "approve",
-			);
-		expect((await approve())?.state).toBe("asking");
-
-		await fs.write(
-			`${shipping.output}.events`,
-			eventsText([
-				...events,
-				{ type: "done", id: "approve", name: "Approve a", at: "t3" },
-			]),
-		);
-		await until(async () => (await shipping.current())?.waiting === null);
-		expect((await approve())?.state).toBe("done");
-		child.exit(0);
-		await shipping.settled();
-		expect(await shipping.current()).toMatchObject({ status: "done" });
-	});
-
-	it("holds the wait on the person until npm's scan of the staged package is over", async () => {
-		({ shipping, ps, fs } = await project({ scanEvery: 5 }));
-		await shipping.start();
-		const child = await nth(ps, 0);
-		ps.setCaptureOutput('{"status":"scanning"}', "");
-		await fs.write(
-			`${shipping.output}.events`,
-			eventsText([
-				{
-					type: "declared",
-					id: "approve",
-					name: "Approve a",
-					stage: "approve",
-					packages: ["a"],
-					deadlineMs: 1000,
-					at: "t0",
-				},
-				{
-					type: "staged",
-					id: "approve",
-					name: "Approve a",
-					package: "a",
-					version: "1.0.1",
-					stageId: "st-1",
-					url: "https://www.npmjs.com/staged",
-					at: "t1",
-				},
-				{ type: "started", id: "approve", name: "Approve a", at: "t2" },
-			]),
-		);
-		const approve = async () =>
-			(await shipping.current())?.stages?.find(
-				(each) => each.key === "approve",
-			);
-		await until(async () => (await approve())?.check != null);
-		expect((await approve())?.state).toBe("checking");
-		expect((await shipping.current())?.waiting).toBeNull();
-		expect(ps.getCalls()).toContain("npm stage view st-1 --json");
-
-		ps.setCaptureOutput('{"status":"ready"}', "");
-		await until(async () => (await shipping.current())?.waiting != null);
-		expect((await approve())?.state).toBe("asking");
-		child.exit(0);
-		await shipping.settled();
-	});
-
 	it("keeps no release steps when its command writes none", async () => {
 		await shipping.start();
 		(await nth(ps, 0)).exit(0);
@@ -262,7 +137,7 @@ describe("Shipping", () => {
 		});
 	});
 
-	it("gives npm a terminal, without which it fails a publish's second factor rather than asking", () => {
+	it("runs the command through sh with echo off", () => {
 		expect(quietly("wiz dev ship")).toEqual([
 			"sh",
 			"-c",
@@ -270,78 +145,15 @@ describe("Shipping", () => {
 		]);
 	});
 
-	it("asks for an NPM_TOKEN when none is kept and it falls back to the web login", async () => {
-		let asked = 0;
-		const { shipping, ps: fake } = await project({
-			requestNpmToken: async () => {
-				asked += 1;
-			},
-		});
-		fake.simulate(async () => 1);
-
-		await shipping.start();
-		await nth(fake, 0);
-		expect(asked).toBe(1);
-	});
-
-	it("signs in through npm's web page first, showing its link until npm moves on", async () => {
-		ps.simulate(async () => 1);
-
-		await shipping.start();
-		const login = await nth(ps, 0);
-		login.print(
-			"Login at:\nhttps://www.npmjs.com/login?next=/login/cli/abc\nPress ENTER to open in the browser...\n",
-		);
-		await until(async () => (await shipping.current())?.waiting !== null);
-
-		expect(ps.getCalls()).toContain(
-			quietly("npm login --auth-type=web").join(" "),
-		);
-		expect((await shipping.current())?.waiting).toMatchObject({
-			kind: "login",
-			url: "https://www.npmjs.com/login?next=/login/cli/abc",
-		});
-
-		login.print("Logged in on https://registry.npmjs.org/.\n");
-		await until(async () => (await shipping.current())?.waiting === null);
-		login.exit(0);
-		const ship = await nth(ps, 1);
-		ship.exit(0);
-		await shipping.settled();
-
-		expect(await shipping.current()).toMatchObject({ status: "done" });
-	});
-
-	it("shows a publish's second factor, and answers the release's question yes", async () => {
+	it("answers the release's question yes", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
 		ship.print("\u001b[33mpublish 2 packages as 0.0.58? (y/n)\u001b[39m ");
-		ship.print(
-			"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
-		);
-		await until(async () => (await shipping.current())?.waiting !== null);
-
-		expect((await shipping.current())?.waiting).toMatchObject({
-			kind: "2fa",
-			url: "https://www.npmjs.com/auth/cli/xyz",
-		});
+		await until(async () => ship.typed.length > 0);
 
 		ship.exit(0);
 		await shipping.settled();
 		expect(ship.typed).toEqual(["y\n"]);
-	});
-
-	it("stops a ship npm asks a typed one-time password of, saying how to have npm ask on its page", async () => {
-		await shipping.start();
-		const ship = await nth(ps, 0);
-		ship.print("This operation requires a one-time password.\nEnter OTP: ");
-		await shipping.settled();
-
-		expect(await shipping.current()).toMatchObject({
-			status: "failed",
-			error: typedCodeError(null),
-		});
-		expect(ship.typed).toEqual([]);
 	});
 
 	it("keeps the end of the output as why a ship failed", async () => {
@@ -372,8 +184,7 @@ describe("Shipping", () => {
 		expect((refused as Exit).reason).toBe("not_found");
 	});
 
-	it("records its steps, each with its slice of the log, 2FA skipped when npm never asked", async () => {
-		ps.setCaptureOutput("someone\n", "");
+	it("records its steps, each with its slice of the log", async () => {
 		await shipping.start();
 		const ship = await nth(ps, 0);
 		ship.print("building\npublished 0.0.58\n");
@@ -383,39 +194,14 @@ describe("Shipping", () => {
 		const stages = (await shipping.current())?.stages ?? [];
 		expect(stages.map((stage) => [stage.key, stage.state])).toEqual([
 			["push", "done"],
-			["login", "done"],
-			["otp", "skipped"],
 			["command", "done"],
-			["approve", "skipped"],
 			["remote", "done"],
 		]);
-		expect(stages[1]?.check?.result).toBe("npm whoami: someone");
-		expect(stages[3]).toMatchObject({
+		expect(stages[1]).toMatchObject({
 			started: "2026-10-27T12:00:00.000Z",
 			ended: "2026-10-27T12:00:00.000Z",
 			log: { from: 28, to: 54 },
 		});
-	});
-
-	it("waits on the person at a publish's second factor, then carries on", async () => {
-		await shipping.start();
-		const ship = await nth(ps, 0);
-		ship.print(
-			"Authenticate your account at:\nhttps://www.npmjs.com/auth/cli/xyz\n",
-		);
-		await until(async () => (await shipping.current())?.waiting !== null);
-
-		const otp = () =>
-			shipping
-				.current()
-				.then((ship) => ship?.stages?.find((each) => each.key === "otp"));
-		expect((await otp())?.state).toBe("asking");
-
-		ship.print("+ demo@0.0.58\n");
-		await until(async () => (await otp())?.state === "running");
-		ship.exit(0);
-		await shipping.settled();
-		expect(await otp()).toMatchObject({ state: "done", log: { from: 28 } });
 	});
 
 	it("adds to a log its cascade names, its slices counted from what was there", async () => {
@@ -450,7 +236,7 @@ describe("Shipping", () => {
 		});
 		expect(
 			(await shipping.current())?.stages?.map((stage) => stage.state),
-		).toEqual(["done", "done", "skipped", "failed", "skipped", "skipped"]);
+		).toEqual(["done", "failed", "skipped"]);
 	});
 
 	it("runs again a stopped server's ship at the bump it recorded", async () => {
@@ -465,7 +251,7 @@ describe("Shipping", () => {
 		(await nth(after, 0)).exit(0);
 		await restarted.settled();
 
-		expect(after.getCallEnvs()[1]).toEqual({
+		expect(after.getCallEnvs()[0]).toEqual({
 			npm_config_browser: "false",
 			SPLATES_SHIP_BUMP: "major",
 			SPLATES_SHIP_EVENTS: `${restarted.output}.events`,
@@ -483,13 +269,7 @@ async function project({
 	fs = new FakeFs(),
 	storage = new FsStorage("/home/projects/1", fs),
 	git = new FakeReleaseGit(),
-	npmToken,
-	requestNpmToken,
-	scanEvery,
 }: {
-	scanEvery?: number;
-	requestNpmToken?: () => Promise<void>;
-	npmToken?: () => Promise<string | undefined>;
 	command?: string | null;
 	fs?: FakeFs;
 	storage?: FsStorage;
@@ -510,9 +290,6 @@ async function project({
 		root: "/demo",
 		dir: "/home/projects/1",
 		command,
-		npmToken,
-		requestNpmToken,
-		scanEvery,
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});

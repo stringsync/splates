@@ -28,6 +28,7 @@ export function AppSetupPage({
 				todos={[]}
 				open={open}
 				onSetup={(area, step = null) => setOpen({ area, step })}
+				onWelcome={() => {}}
 			/>
 		</SetupContext>
 	);

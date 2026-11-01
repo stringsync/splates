@@ -11,6 +11,7 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { arriveAt } from "./arrivals";
+import { Board } from "./board";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
@@ -39,6 +40,7 @@ import {
 import { useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
 import { Placing, placesOf } from "./reparent";
+import { useTaggedBoard } from "./row-status";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
 
@@ -164,122 +166,129 @@ export function Inbox({
 	// flat list without them has an empty state.
 	const empty = grouped === null && trees.length === 0;
 	const wide = onMenu === null;
+	const tagged = useTaggedBoard(tasks);
 	return (
-		<section
-			aria-label="inbox"
-			className={cn(
-				"flex flex-col bg-background",
-				wide ? "mx-auto w-full max-w-3xl" : "min-h-dvh",
-			)}
-		>
-			<TopBar
-				className="sticky top-0 z-10 box-content border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur"
-				leading={
-					onMenu !== null && (
-						<BarButton label="Open menu" onClick={onMenu}>
-							<MenuIcon />
-						</BarButton>
-					)
-				}
-				title={
-					wide ? (
-						"Inbox"
-					) : (
-						<ProjectSwitcher
-							name={name}
-							// The inbox stays the page, not the last thread there.
-							hash="#conversations"
-							path={false}
-							servers={false}
-							className="mx-0"
-						/>
-					)
-				}
-				actions={[
-					{
-						label: "New conversation",
-						icon: <SquarePenIcon />,
-						run: () => {
-							if (available) {
-								openNew();
-							}
-						},
-					},
-				]}
-			/>
-			{!wide && chips}
-			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
-				<UnstartedGroup unstarted={unstarted} agents={agents} onOpen={onOpen} />
-				{/* Held while the all-projects listing is on its way, so the folders' headers and + do not push the flat groups down. */}
-				{loading || pending || everywhere.listing ? (
-					<InboxLoading />
-				) : empty && mains.length === 0 && unstarted.length === 0 ? (
-					<Empty className="py-16">
-						<EmptyHeader>
-							<EmptyDescription>
-								{available
-									? "No conversations yet. Start one below."
-									: "No conversations yet."}
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<Placing
-						value={{
-							places: placesOf(trees),
-							agentOf: (each) => agentName(agents, each.agent),
-						}}
-					>
-						{grouped === null ? (
-							<Group
-								title="Conversations"
-								items={trees.map((tree) => ({
-									tree,
-									folder: null,
-									hosting,
-								}))}
-								agents={agents}
-								beneath={beneath}
-								onOpen={open}
-							/>
+		<Board value={tagged}>
+			<section
+				aria-label="inbox"
+				className={cn(
+					"flex flex-col bg-background",
+					wide ? "mx-auto w-full max-w-3xl" : "min-h-dvh",
+				)}
+			>
+				<TopBar
+					className="sticky top-0 z-10 box-content border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur"
+					leading={
+						onMenu !== null && (
+							<BarButton label="Open menu" onClick={onMenu}>
+								<MenuIcon />
+							</BarButton>
+						)
+					}
+					title={
+						wide ? (
+							"Inbox"
 						) : (
-							grouped.map((folder) => {
-								const key = folderKey(folder);
-								return (
-									<ProjectSection
-										key={key}
-										folder={folder}
-										open={!folded.has(key)}
-										onFold={(open) => fold(key, open)}
-										onNew={available ? () => startIn(folder) : null}
-										agents={agents}
-										beneath={beneath}
-										onOpen={open}
-									/>
-								);
-							})
-						)}
-						<TerminalGroup
-							mains={mains}
-							nameOf={(key) => terminals.nameOf(key)}
-							onRename={(key, name) => terminals.rename(key, name)}
-							onOpen={onOpen}
-							onClose={close}
-						/>
-					</Placing>
-				)}
-				{available && (
-					<button
-						type="button"
-						onClick={() => onOpen(ARCHIVED)}
-						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
-					>
-						<ArchiveIcon className="size-3.5" />
-						<span>Archived</span>
-					</button>
-				)}
-			</div>
-			{confirm}
-		</section>
+							<ProjectSwitcher
+								name={name}
+								// The inbox stays the page, not the last thread there.
+								hash="#conversations"
+								path={false}
+								servers={false}
+								className="mx-0"
+							/>
+						)
+					}
+					actions={[
+						{
+							label: "New conversation",
+							icon: <SquarePenIcon />,
+							run: () => {
+								if (available) {
+									openNew();
+								}
+							},
+						},
+					]}
+				/>
+				{!wide && chips}
+				<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
+					<UnstartedGroup
+						unstarted={unstarted}
+						agents={agents}
+						onOpen={onOpen}
+					/>
+					{/* Held while the all-projects listing is on its way, so the folders' headers and + do not push the flat groups down. */}
+					{loading || pending || everywhere.listing ? (
+						<InboxLoading />
+					) : empty && mains.length === 0 && unstarted.length === 0 ? (
+						<Empty className="py-16">
+							<EmptyHeader>
+								<EmptyDescription>
+									{available
+										? "No conversations yet. Start one below."
+										: "No conversations yet."}
+								</EmptyDescription>
+							</EmptyHeader>
+						</Empty>
+					) : (
+						<Placing
+							value={{
+								places: placesOf(trees),
+								agentOf: (each) => agentName(agents, each.agent),
+							}}
+						>
+							{grouped === null ? (
+								<Group
+									title="Conversations"
+									items={trees.map((tree) => ({
+										tree,
+										folder: null,
+										hosting,
+									}))}
+									agents={agents}
+									beneath={beneath}
+									onOpen={open}
+								/>
+							) : (
+								grouped.map((folder) => {
+									const key = folderKey(folder);
+									return (
+										<ProjectSection
+											key={key}
+											folder={folder}
+											open={!folded.has(key)}
+											onFold={(open) => fold(key, open)}
+											onNew={available ? () => startIn(folder) : null}
+											agents={agents}
+											beneath={beneath}
+											onOpen={open}
+										/>
+									);
+								})
+							)}
+							<TerminalGroup
+								mains={mains}
+								nameOf={(key) => terminals.nameOf(key)}
+								onRename={(key, name) => terminals.rename(key, name)}
+								onOpen={onOpen}
+								onClose={close}
+							/>
+						</Placing>
+					)}
+					{available && (
+						<button
+							type="button"
+							onClick={() => onOpen(ARCHIVED)}
+							className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
+						>
+							<ArchiveIcon className="size-3.5" />
+							<span>Archived</span>
+						</button>
+					)}
+				</div>
+				{confirm}
+			</section>
+		</Board>
 	);
 }

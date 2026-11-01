@@ -96,7 +96,9 @@ export function AutomationsPage({
 						rows={own}
 						saving={saving}
 						opens={opens}
-						onEdit={(row, trigger, hook) => list.edit(row, trigger, hook)}
+						onEdit={(row, trigger, hook, name) =>
+							list.edit(row, trigger, hook, name)
+						}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRun={(row) => void list.run(row)}
 						onRemove={(row) => void list.remove(row)}
@@ -127,7 +129,7 @@ export function AutomationsPage({
 					</Group>
 				</>
 			)}
-			<AddForm onAdd={(trigger, hook) => list.add(trigger, hook)} />
+			<AddForm onAdd={(trigger, hook, name) => list.add(trigger, hook, name)} />
 		</section>
 	);
 }
@@ -217,6 +219,7 @@ type Edit = (
 	row: AutomationRow,
 	trigger: Trigger,
 	hook: Hook,
+	name: string,
 ) => Promise<boolean>;
 
 /**
@@ -275,10 +278,10 @@ function Card({
 					draft={editing}
 					title={`Edit automation ${row.id}`}
 					submit="Save"
-					onSubmit={(trigger, hook) => {
+					onSubmit={(trigger, hook, name) => {
 						// Pending until the server answers; a refusal is said above the list.
 						setEditing(null);
-						void onEdit(row, trigger, hook);
+						void onEdit(row, trigger, hook, name);
 					}}
 					onCancel={() => setEditing(null)}
 				/>

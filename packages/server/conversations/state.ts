@@ -53,6 +53,11 @@ export interface ConversationState {
 	 * the page still nests it under that one; null for none.
 	 */
 	lastCaller: string | null;
+	/**
+	 * The tags of `lastTask`, kept once it merges or goes so the page still
+	 * shows them on the row; null when none were recorded.
+	 */
+	lastTags: string[] | null;
 	/** What the agent calls it, once it says. */
 	title: string | null;
 	/** What the person renamed it to, over the agent's title. */
@@ -628,6 +633,7 @@ export function blank(
 	assigned = false,
 	startedBy: string | null = null,
 	scratch = false,
+	tags: string[] | null = null,
 ): ConversationState {
 	return {
 		id,
@@ -637,6 +643,7 @@ export function blank(
 		lastTask: task,
 		lastBase: task === null ? null : base,
 		lastCaller: task === null ? null : caller,
+		lastTags: task === null ? null : tags,
 		title: null,
 		name: null,
 		status: "starting",
