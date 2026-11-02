@@ -3,7 +3,6 @@ import type {
 	EvalCheck,
 	EvalGrid,
 	EvalScenario,
-	StoredEvalLoop,
 } from "@splates/server/evals/browser";
 import { FlaskConicalIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
@@ -17,14 +16,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
-import {
-	answered,
-	evalBatch,
-	evalBatches,
-	evalRun,
-	evalScenarios,
-	scoped,
-} from "./api";
+import { evalBatch, evalBatches, evalRun, evalScenarios } from "./api";
 import { CardShell } from "./card-shell";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -56,9 +48,17 @@ export function EvalScenarios({
 	const [history, setHistory] = useState<EvalGrid[]>([]);
 	const [last, setLast] = useState<Map<string, LastResult>>(new Map());
 	const [error, setError] = useState<string | null>(null);
-	// The conversation working each scenario: one an improvement loop is
-	// recorded in, or one started from this page.
-	const [working, setWorking] = useState<Map<string, string>>(new Map());
+	// The conversation Start opened for each scenario, kept across reloads
+	// and counted as working until it is archived or gone.
+	const [opened, setOpened] = useState<Map<string, string>>(() => readOpened());
+	const [, redraw] = useState(0);
+	useEffect(() => feed?.subscribe(() => redraw((count) => count + 1)), [feed]);
+	const working = new Map(
+		[...opened].filter(([, id]) => {
+			const state = feed?.current(id);
+			return state !== undefined && !state.archived;
+		}),
+	);
 	const [asking, setAsking] = useState<string[] | null>(null);
 	const [pending, setPending] = useState<string[]>([]);
 	const [started, setStarted] = useState(0);
@@ -84,7 +84,11 @@ export function EvalScenarios({
 				void promptConversation(state.id, text, [], false, sending.id)
 					.then((reply) => feed.answered(state.id, sending, reply))
 					.catch((failed: unknown) => feed.refused(state.id, sending, failed));
-				setWorking((now) => new Map(now).set(id, state.id));
+				setOpened((now) => {
+					const next = new Map(now).set(id, state.id);
+					writeOpened(next);
+					return next;
+				});
 				opened = state.id;
 				count += 1;
 			}
@@ -109,29 +113,6 @@ export function EvalScenarios({
 			(each) => current && setScenarios(Array.isArray(each) ? each : []),
 			fail,
 		);
-		answered(scoped("/api/evals/loop"))
-			.then(async (response) => {
-				if (!response.ok) {
-					return;
-				}
-				const body = (await response.json()) as StoredEvalLoop[] | unknown;
-				const saved = Array.isArray(body) ? (body as StoredEvalLoop[]) : [];
-				if (current) {
-					setWorking((now) => {
-						const next = new Map(now);
-						for (const each of saved) {
-							if (
-								each.loop.stage.kind !== "complete" &&
-								each.loop.stage.kind !== "stopped"
-							) {
-								next.set(each.loop.contract.scenario, each.conversation);
-							}
-						}
-						return next;
-					});
-				}
-			})
-			.catch(() => {});
 		evalBatches()
 			.then(async (batches: EvalBatch[] | null) => {
 				const grids: EvalGrid[] = await Promise.all(
@@ -180,7 +161,7 @@ export function EvalScenarios({
 									ids.length > 1 ? setAsking(ids) : void start(ids)
 								}
 							/>
-							<ul className="flex flex-col gap-3 pb-3">
+							<ul className="flex flex-col gap-3">
 								{section.scenarios.map((scenario) => {
 									const result = last.get(scenario.id);
 									return (
@@ -239,6 +220,30 @@ export function EvalScenarios({
 			</Dialog>
 		</section>
 	);
+}
+
+const OPENED_KEY = "splates.evals.conversations";
+
+function readOpened(): Map<string, string> {
+	try {
+		const saved = JSON.parse(localStorage.getItem(OPENED_KEY) ?? "{}");
+		return new Map(
+			Object.entries(saved).filter(
+				(entry): entry is [string, string] => typeof entry[1] === "string",
+			),
+		);
+	} catch {
+		return new Map();
+	}
+}
+
+function writeOpened(opened: Map<string, string>): void {
+	try {
+		localStorage.setItem(
+			OPENED_KEY,
+			JSON.stringify(Object.fromEntries(opened)),
+		);
+	} catch {}
 }
 
 /** One scenario's call to action: start its conversation, or open the one already working it. */

@@ -8,5 +8,5 @@
 	"devDependencies": {
 		"@types/bun": "catalog:"
 	},
-	"version": "1.13.10"
+	"version": "1.13.11"
 }

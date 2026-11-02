@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "core/log";
 import { FakeClock, FakeTimer } from "core/time/testing";
+import { WORKER_CAPABILITIES } from "./daemon";
 import { LocalWorkerUpdate } from "./local-update";
 import { UPDATE } from "./protocol";
 import { WorkerRecords } from "./records";
@@ -87,14 +88,15 @@ describe("LocalWorkerUpdate", () => {
 		{
 			kind = "local",
 			offers = true,
-		}: { kind?: WorkerKind; offers?: boolean } = {},
+			full = false,
+		}: { kind?: WorkerKind; offers?: boolean; full?: boolean } = {},
 	): Promise<void> {
 		// The one it replaces exits first, as one told to restart does.
 		links.get(id)?.drop();
 		const pair = new WorkerSocketPair();
 		links.set(id, pair);
 		const session = new WorkerSession("worker", {
-			capabilities: offers ? [UPDATE] : [],
+			capabilities: full ? WORKER_CAPABILITIES : offers ? [UPDATE] : [],
 			timer,
 			clock,
 		});
@@ -130,6 +132,21 @@ describe("LocalWorkerUpdate", () => {
 		await updater.look();
 		await Bun.sleep(0);
 		expect(told.get("local")).toEqual(["2.0.0"]);
+	});
+
+	it("leaves a compatible worker on its build, saying so once", async () => {
+		await join("local", "1.0.0", { full: true });
+		const updater = start();
+		await updater.look();
+		await updater.look();
+		expect(updating()).toEqual([]);
+		expect(records.of("local")?.draining).not.toBe(true);
+		expect(told.get("local")).toBeUndefined();
+		expect(
+			log.entries.filter((entry) =>
+				String(entry.message).includes("leaving it"),
+			),
+		).toHaveLength(1);
 	});
 
 	it("asks an empty worker to restart on the build once, and lets it take agents again once it is back on it", async () => {

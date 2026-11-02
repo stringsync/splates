@@ -1,6 +1,5 @@
 import { afterEach, expect, it } from "bun:test";
 import type { ConversationFeed } from "./conversation-feed";
-import { EvalActivity } from "./eval-activity";
 import { EvalScenarios } from "./eval-scenarios-view";
 import { cleanup, fireEvent, render, waitFor } from "./testing";
 
@@ -28,6 +27,8 @@ const feed = {
 	agents: [],
 	conversations: [],
 	put: () => undefined,
+	current: () => ({ archived: false }),
+	subscribe: () => () => {},
 	send: () => ({ id: "m1" }),
 	answered: () => undefined,
 	refused: () => undefined,
@@ -52,6 +53,7 @@ const scenariosFetch = (bodies: Record<string, string[]>) =>
 		);
 	}) as typeof fetch;
 it("starts a conversation with the eval loop directive and opens it", async () => {
+	localStorage.clear();
 	const bodies: Record<string, string[]> = {};
 	globalThis.fetch = scenariosFetch(bodies);
 	const view = render(<EvalScenarios onOpenBatch={() => {}} feed={feed} />);
@@ -69,6 +71,7 @@ it("starts a conversation with the eval loop directive and opens it", async () =
 	expect(view.queryByRole("button", { name: "Start a/one" })).toBeNull();
 });
 it("starts a conversation per scenario in a section after asking", async () => {
+	localStorage.clear();
 	const bodies: Record<string, string[]> = {};
 	globalThis.fetch = scenariosFetch(bodies);
 	const view = render(<EvalScenarios onOpenBatch={() => {}} feed={feed} />);
@@ -82,24 +85,32 @@ it("starts a conversation per scenario in a section after asking", async () => {
 	await waitFor(() => expect(view.getByText("All started")).toBeTruthy());
 	expect(bodies["/api/conversations/auto"]?.length).toBe(2);
 });
-it("links active improvement state to its owning conversation", async () => {
-	globalThis.fetch = (async () =>
-		Response.json([
-			{
-				id: "loop",
-				version: 3,
-				conversation: "owner",
-				loop: {
-					contract: { scenario: "a/one" },
-					stage: { kind: "editing", round: { number: 1 } },
-					rounds: [],
-				},
-			},
-		])) as unknown as typeof fetch;
-	const view = render(<EvalActivity />);
-	await waitFor(() => expect(view.getByText(/Round 1/)).toBeTruthy());
-	expect(view.getByRole("link").getAttribute("href")).toBe(
-		"#conversations/owner",
+it("keeps an opened conversation until it is archived", async () => {
+	localStorage.clear();
+	const bodies: Record<string, string[]> = {};
+	globalThis.fetch = scenariosFetch(bodies);
+	let archived = false;
+	let changed = () => {};
+	const kept = {
+		...feed,
+		current: () => ({ id: "c1", archived }),
+		subscribe: (fn: () => void) => {
+			changed = fn;
+			return () => {};
+		},
+	} as unknown as ConversationFeed;
+	const view = render(<EvalScenarios onOpenBatch={() => {}} feed={kept} />);
+	await waitFor(() => expect(view.getByText("a/one")).toBeTruthy());
+	fireEvent.click(view.getByRole("button", { name: "Start a/one" }));
+	await waitFor(() =>
+		expect(
+			view.getByRole("link", { name: "Open the conversation for a/one" }),
+		).toBeTruthy(),
 	);
-	expect(view.getAllByRole("button").length).toBe(1);
+	archived = true;
+	changed();
+	await waitFor(() =>
+		expect(view.getByRole("button", { name: "Start a/one" })).toBeTruthy(),
+	);
+	localStorage.clear();
 });

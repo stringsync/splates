@@ -7,9 +7,9 @@ import { QueueBlockersIcon } from "./queue-blockers";
 import { QueueToggle } from "./todo-queue";
 
 /**
- * A folder's queued tasks under its agents, muted and italic with an
- * hourglass where an agent's mark would be: what waits for an agent, and
- * what is blocked from getting one, so the queue reads at a glance.
+ * A folder's queued tasks under its agents: what waits for an agent, and what
+ * is blocked from getting one. Click a row to open the task; the icon buttons
+ * beside it unqueue it or clear what blocks it.
  */
 export function QueuedRows({
 	folder,
@@ -51,7 +51,7 @@ export function QueuedRows({
 							</span>
 						</span>
 					</button>
-					<QueueToggle todo={queued.todo} />
+					<QueueToggle todo={queued.todo} phone={phone} />
 					<QueueBlockersIcon
 						todo={queued.todo}
 						chain={queued.unqueued}

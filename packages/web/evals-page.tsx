@@ -5,7 +5,6 @@ import { type JSX, useEffect, useState } from "react";
 import { evalBatch, evalBatches } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
-import { EvalActivity } from "./eval-activity";
 import { EvalDebug } from "./eval-debug";
 import { EvalReport } from "./eval-report";
 import { EvalScenarios } from "./eval-scenarios-view";
@@ -71,7 +70,6 @@ export function EvalsPage({
 					{error}
 				</p>
 			)}
-			{open === null && <EvalActivity />}
 			{open === null && plan === null && (
 				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} feed={feed} />
 			)}
@@ -97,9 +95,12 @@ export function EvalsPage({
 					count={batches.length}
 					defaultOpen={false}
 				>
-					<ul className="flex flex-col divide-y">
+					<ul className="flex flex-col gap-3">
 						{batches.map((batch) => (
-							<li key={batch.id}>
+							<li
+								key={batch.id}
+								className="overflow-hidden rounded-xl border bg-card px-4 shadow-xs"
+							>
 								<button
 									type="button"
 									onClick={() => onOpen(batch.id)}

@@ -1,5 +1,6 @@
 import type { Resource } from "core/disposable";
 import type { Logger } from "core/log";
+import { WORKER_CAPABILITIES } from "./daemon";
 import { handoffWorker, isHandoffWorker, LOCAL_WORKER } from "./local-id";
 import { UPDATE } from "./protocol";
 import type { WorkerRecords } from "./records";
@@ -30,8 +31,9 @@ export interface LocalWorkerUpdateOptions {
 }
 
 /**
- * Drains and restarts the local worker on the server's build, preserving
- * its agents until they finish. A handoff worker started on the build
+ * Drains and restarts the local worker on the server's build when it
+ * cannot serve the server, preserving its agents until they finish; a
+ * compatible worker on another build is left alone. A handoff worker started on the build
  * beside it takes new agents meanwhile, and once this machine's own is back
  * on the build, takes none, stopping once its last agent ends.
  */
@@ -43,6 +45,8 @@ export class LocalWorkerUpdate implements Resource {
 	private readonly passed = new Set<string>();
 	/** Those asked to restart on the build, until they join again. */
 	private readonly asked = new Set<string>();
+	/** Those on another build said to be compatible, so it is said once. */
+	private readonly left = new Set<string>();
 	private looking: Promise<void> | null = null;
 	private again = false;
 	private readonly unlisten: () => void;
@@ -61,10 +65,9 @@ export class LocalWorkerUpdate implements Resource {
 	}
 
 	/**
-	 * Carries the local update on: finishes the worker under way once it is back
-	 * on the build, replaces it once it is empty, and starts on the next once
-	 * none is under way. Looks once at a time, and once more after for what
-	 * changed meanwhile.
+	 * Carries the local worker update on one step, when a worker joins or the
+	 * server starts. Safe to call often: runs one at a time, and once more
+	 * after for what changed meanwhile.
 	 */
 	look(): Promise<void> {
 		if (this.looking !== null) {
@@ -227,9 +230,35 @@ export class LocalWorkerUpdate implements Resource {
 				worker.info.build !== build &&
 				record?.removing !== true &&
 				(record?.updating === true || record?.draining !== true) &&
-				!this.passed.has(worker.id)
+				!this.passed.has(worker.id) &&
+				this.needed(worker)
 			);
 		});
+	}
+
+	/**
+	 * Whether `worker`, on another build, cannot serve this server: it lacks a
+	 * capability the server uses. One that serves it stays on its build, said
+	 * once.
+	 */
+	private needed(worker: ConnectedWorker): boolean {
+		const negotiated = worker.session.negotiated;
+		if (negotiated?.ok !== true) {
+			return false;
+		}
+		const missing = WORKER_CAPABILITIES.filter(
+			(name) => !negotiated.capabilities.includes(name),
+		);
+		if (missing.length === 0) {
+			if (!this.left.has(worker.id)) {
+				this.left.add(worker.id);
+				this.opts.log.info(
+					`worker ${worker.id} runs ${String(worker.info.build)}, compatible with ${this.opts.build}: leaving it`,
+				);
+			}
+			return false;
+		}
+		return true;
 	}
 
 	private pool(): ConnectedWorker[] {

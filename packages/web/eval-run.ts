@@ -125,9 +125,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		const ask = proposal.evals as EvalAsk;
 		return new EvalRun(
 			ask,
-			ask.loop === undefined
-				? `${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`
-				: `loop:${ask.loop.id}:${ask.loop.version}`,
+			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`,
 			opts,
 		);
 	}
@@ -192,12 +190,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 	/** Change repetitions before starting an unlinked run and refresh its cost plan. */
 	async repeat(repetitions: number): Promise<void> {
-		if (
-			this.started ||
-			this.ask.loop !== undefined ||
-			!Number.isSafeInteger(repetitions) ||
-			repetitions < 1
-		) {
+		if (this.started || !Number.isSafeInteger(repetitions) || repetitions < 1) {
 			return;
 		}
 		this.repetitions = repetitions;
@@ -269,7 +262,6 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			baseline: this.ask.baseline,
 			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
 			conversation: this.conversation,
-			...(this.ask.loop === undefined ? {} : { loop: this.ask.loop }),
 		};
 	}
 

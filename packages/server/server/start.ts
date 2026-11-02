@@ -323,6 +323,11 @@ async function start(
 					env: { [SUPERVISOR]: String(supervisor) },
 					unset: [SERVING, UNBUILT],
 				})
+				.then((result) => {
+					if (result.exitCode !== 0) {
+						ctx.log.error(`worker ${id} exited with code ${result.exitCode}`);
+					}
+				})
 				.catch((error: unknown) => {
 					ctx.log.error(`worker ${id} could not run: ${String(error)}`);
 				});

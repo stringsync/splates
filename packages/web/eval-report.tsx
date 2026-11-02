@@ -1,4 +1,8 @@
-import type { EvalCell, EvalGrid } from "@splates/server/evals/browser";
+import type {
+	EvalCell,
+	EvalGrid,
+	EvalStatus,
+} from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -160,86 +164,71 @@ export function EvalReport({
 	);
 }
 
+/** Segment colors by outcome, matching the chips. */
+const SEGMENTS: Record<EvalStatus, string> = {
+	pass: "bg-emerald-500",
+	fail: "bg-destructive",
+	error: "bg-amber-500",
+	unreadable: "bg-destructive",
+	pending: "bg-muted-foreground/40",
+};
+
 /**
- * A batch condensed for the card that started it: each scenario's outcome on
- * each agent, a chip per repetition opening its run on the Evals page.
+ * A batch condensed for the card that started it: one row per agent, a
+ * segment per run (each opening its run on the Evals page) and the counts.
+ * The full grid is on the report.
  */
 export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
-	const scenarios = useMemo(
-		() => [...new Set(grid.grid.map((cell) => cell.scenario))],
-		[grid.grid],
-	);
 	const open = (run: string): void => {
 		location.hash = `#evals/${encodeURIComponent(grid.id)}/${encodeURIComponent(run)}`;
 	};
 	return (
 		<>
-			{grid.remarks !== undefined && <Remarks text={grid.remarks} />}
-			<div className="hidden md:block">
-				<table
-					aria-label="eval summary"
-					className="w-full border-collapse text-xs"
-				>
-					<thead>
-						<tr>
-							<th className="sr-only">Scenario</th>
-							{grid.targets.map((target) => (
-								<th
-									key={target.key}
-									className="px-1.5 pb-1 text-left align-top font-normal text-muted-foreground"
-								>
-									{targetName(target)}
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{scenarios.map((scenario) => (
-							<tr key={scenario}>
-								<td className="py-0.5 pr-2">
-									<code>{scenario}</code>
-								</td>
-								{grid.targets.map((target) => (
-									<td key={target.key} className="px-1.5 py-0.5">
-										<Cells
-											cells={grid.grid.filter(
-												(cell) =>
-													cell.scenario === scenario &&
-													cell.target === target.key,
+			<ul aria-label="eval summary" className="flex flex-col gap-1 text-xs">
+				{grid.targets.map((target) => {
+					const cells = grid.grid.filter((cell) => cell.target === target.key);
+					const counts = ORDER.filter((status) =>
+						cells.some((cell) => (cell.run?.status ?? "pending") === status),
+					)
+						.reverse()
+						.map(
+							(status) =>
+								`${cells.filter((cell) => (cell.run?.status ?? "pending") === status).length} ${status}`,
+						)
+						.join(" · ");
+					return (
+						<li
+							key={target.key}
+							className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+						>
+							<span className="min-w-0 flex-1 break-words text-muted-foreground">
+								{targetName(target)}
+							</span>
+							<span className="flex gap-0.5">
+								{cells.map((cell) => {
+									const status = cell.run?.status ?? "pending";
+									return (
+										<button
+											key={`${cell.scenario}:${cell.repetition}`}
+											type="button"
+											disabled={cell.run === null}
+											title={`${cell.scenario}: ${status}`}
+											aria-label={`${cell.scenario} on ${cell.target}, repetition ${cell.repetition + 1}: ${status}`}
+											onClick={() => open(cell.run?.id ?? "")}
+											className={cn(
+												"h-2 w-4 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+												SEGMENTS[status],
 											)}
-											onOpen={open}
 										/>
-									</td>
-								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-			<div className="text-xs md:hidden">
-				{scenarios.map((scenario) => (
-					<div key={scenario} className="py-1">
-						<code>{scenario}</code>
-						{grid.targets.map((target) => (
-							<div
-								key={target.key}
-								className="flex items-center justify-between gap-2 py-0.5"
-							>
-								<span className="text-muted-foreground">
-									{targetName(target)}
-								</span>
-								<Cells
-									cells={grid.grid.filter(
-										(cell) =>
-											cell.scenario === scenario && cell.target === target.key,
-									)}
-									onOpen={open}
-								/>
-							</div>
-						))}
-					</div>
-				))}
-			</div>
+									);
+								})}
+							</span>
+							<span className="w-36 text-right tabular-nums">{counts}</span>
+						</li>
+					);
+				})}
+			</ul>
+			{grid.remarks !== undefined && <Remarks text={grid.remarks} plain />}
 		</>
 	);
 }
@@ -318,11 +307,22 @@ function rowsOf(cells: EvalCell[], aspect: string | null): Row[] {
 }
 
 /** What an agent found reading a batch, kept with it. */
-function Remarks({ text }: { text: string }): JSX.Element {
+function Remarks({
+	text,
+	plain = false,
+}: {
+	text: string;
+	/** A section under a divider rather than a boxed card, for the conversation card. */
+	plain?: boolean;
+}): JSX.Element {
 	return (
 		<section
 			aria-label="remarks"
-			className="rounded-lg border bg-muted/40 p-3 text-sm"
+			className={
+				plain
+					? "border-border/60 border-t pt-3 text-sm"
+					: "rounded-lg border bg-muted/40 p-3 text-sm"
+			}
 		>
 			<h3 className="mb-1 font-medium text-muted-foreground text-xs">
 				Remarks

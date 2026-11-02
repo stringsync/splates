@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.10
+version: 1.13.11
 ---
 
 # Using splates
@@ -195,7 +195,8 @@ run card, the word after `run evals` naming the skill or suite: the
 scenarios you picked, one `` - `id` `` item each, and optionally the
 revision the change is judged against and how many times to run each cell
 (`Repetitions: <n>`, to tell a change from noise) and the saved agents to
-run on (`Agents:` then each as `` `agent:model@effort` ``), leaving out those that need no
+run on (`Agents:` then each as `` `agent:model@effort` ``), chosen only from the saved
+eval agents the project allows, never an agent you invent, leaving out those that need no
 rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
 the saved eval agents, only those named ticked, and, when the project prints a plan, what the run
 costs at most; it runs in your worktree, and its Run button is the user's:
@@ -226,11 +227,8 @@ run `splates evals import inspect <log> <batch-dir>` in its place, and the
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
 and the report condensed: each scenario's pass rate on each agent, and for
 each run that failed, the checks that failed, the judge's reason and the
-reply, with the runs that errored listed apart. On `[SPLATES EVAL LOOP RESUME <id> at <version>]`, read `splates evals resume <id>` and restore its current card without replaying paid runs; see [evals.md](references/evals.md). Guided loop cards use `## 🧪 Eval loop <id> at <version>` and linked run cards
-add a Loop line with the ID in backticks and `at <version>`; the complete format is in [evals.md](references/evals.md).
-Improvement loops are durable records: `splates evals improve` creates one,
-`show` recovers its evidence and next action, and lifecycle commands record work
-without starting paid runs. Leave remarks on a batch
+reply, with the runs that errored listed apart.
+Leave remarks on a batch
 with `splates evals remarks <batch-dir> <file>` ([evals.md](references/evals.md)):
 what failed and why, what held up, any special circumstance. They stay
 viewable and show in its card.

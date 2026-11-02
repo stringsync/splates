@@ -190,8 +190,11 @@ export function StageBar({
  */
 export function QueueToggle({
 	todo,
+	phone,
 }: {
 	todo: TaskRecord;
+	/** Set to draw a round icon button for a list row (taller on the phone). */
+	phone?: boolean;
 }): JSX.Element | null {
 	const { refuseTodo } = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -202,10 +205,12 @@ export function QueueToggle({
 	const queue = stage !== "queued";
 	const Icon = queue ? ListPlusIcon : ListXIcon;
 	const label = queue ? "Queue" : "Unqueue";
+	const row = phone !== undefined;
 	return (
 		<button
 			type="button"
 			aria-label={`${label} #${todo.id}`}
+			title={row ? label : undefined}
 			onClick={() =>
 				void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
 					(error: unknown) =>
@@ -216,12 +221,15 @@ export function QueueToggle({
 			// Brought out by hover, as the grip is, so every card's line
 			// stays quiet; always there on a touch screen.
 			className={cn(
-				"relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
-				touchArea,
+				row
+					? "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					: "relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
+				!row && touchArea,
+				row && phone && "size-9",
 			)}
 		>
-			<Icon aria-hidden className="size-3" />
-			{label}
+			<Icon aria-hidden className={row ? "size-4" : "size-3"} />
+			{row ? null : label}
 		</button>
 	);
 }

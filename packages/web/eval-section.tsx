@@ -22,21 +22,18 @@ export function EvalSection({
 }): JSX.Element {
 	const [open, setOpen] = useState(defaultOpen);
 	return (
-		<section
-			aria-label={label}
-			className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-xs"
-		>
+		<section aria-label={label} className="flex min-w-0 flex-col gap-3">
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={() => setOpen((now) => !now)}
-				className={`flex w-full items-center gap-2 bg-muted/40 px-4 py-2 text-left ${open ? "border-b" : ""}`}
+				className="flex w-full items-center gap-2 border-b pb-2 text-left"
 			>
 				<ChevronDownIcon
 					aria-hidden
-					className={`size-4 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`}
+					className={`size-5 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`}
 				/>
-				<h2 className="font-semibold text-sm">{title}</h2>
+				<h2 className="font-semibold text-lg tracking-tight">{title}</h2>
 				{count !== undefined && (
 					<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs tabular-nums">
 						{count}
@@ -44,9 +41,9 @@ export function EvalSection({
 				)}
 			</button>
 			{open && about !== undefined && (
-				<p className="px-4 pt-2 text-muted-foreground text-xs">{about}</p>
+				<p className="text-muted-foreground text-xs">{about}</p>
 			)}
-			{open && <div className="px-4 py-1">{children}</div>}
+			{open && <div className="flex flex-col gap-3">{children}</div>}
 		</section>
 	);
 }

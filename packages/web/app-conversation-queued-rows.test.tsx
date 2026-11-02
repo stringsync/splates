@@ -61,8 +61,8 @@ describe("App's queued rows in the sidebar", () => {
 		const rows = within(queue).getAllByRole("listitem");
 
 		expect(rows.map((row) => row.textContent)).toEqual([
-			"Waits for an agentWaiting for an agent · 1 in lineUnqueue",
-			"Needs the thirdBlocked · waits on #3Unqueue",
+			"Waits for an agentWaiting for an agent · 1 in line",
+			"Needs the thirdBlocked · waits on #3",
 		]);
 		expect(within(queue).queryByText("Not queued yet")).toBeNull();
 	});

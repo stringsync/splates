@@ -82,6 +82,6 @@ export function lastResults(grids: EvalGrid[]): Map<string, LastResult> {
 export function loopTask(scenario: string): { subject: string; text: string } {
 	return {
 		subject: `Run the eval loop for ${scenario}`,
-		text: `Work the eval loop in the splates skill's \`references/evals.md\` for the scenario \`${scenario}\`: run it with 3 repetitions for its starting pass rate, label each failure (harness, scenario, judge or skill), fix one thing in that layer, rerun, and log the round in SPLATES.md, until it passes every repetition or three rounds bring no gain. Never start an eval yourself: ask with the run evals card.`,
+		text: `Work the eval loop in the splates skill's \`references/evals.md\` for the scenario \`${scenario}\`: ask for a run with the run evals card (3 repetitions for its starting pass rate), read the report when it is done, leave remarks on the batch, fix one thing in the layer that failed (harness, scenario, judge or skill), and ask for the next run, until it passes every repetition or three rounds bring no gain, then stop. Never start an eval yourself.`,
 	};
 }

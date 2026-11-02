@@ -97,7 +97,7 @@ export function EvalsCard({
 				label={`run evals ${run.ask.skill}`}
 				Icon={FlaskConicalIcon}
 				title="Loading evals"
-				tone="info"
+				tone="eval"
 			/>
 		);
 	}
@@ -143,35 +143,25 @@ export function EvalsCard({
 									? "Evals stopped"
 									: "Evals done"
 			}
-			tone="info"
+			tone="eval"
 		>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{run.ask.loop !== undefined && (
-				<p className="mx-4 mb-3 text-muted-foreground text-xs">
-					Loop {run.ask.loop.id} · v{run.ask.loop.version} · {run.ask.reps}{" "}
-					repetitions · frozen contract
-				</p>
-			)}
 			{open && (
 				<details className="mx-4 mb-3 text-sm">
 					<summary>Configure run and saved agents</summary>
 					<EvalAgentsView editor={editor} />
-					{run.ask.loop === undefined && (
-						<label>
-							Repetitions
-							<input
-								aria-label="Run repetitions"
-								className="ml-2 w-20 rounded border p-2"
-								type="number"
-								min={1}
-								defaultValue={run.ask.reps}
-								placeholder="Default"
-								onChange={(event) =>
-									void run.repeat(Number(event.target.value))
-								}
-							/>
-						</label>
-					)}
+					<label>
+						Repetitions
+						<input
+							aria-label="Run repetitions"
+							className="ml-2 w-20 rounded border p-2"
+							type="number"
+							min={1}
+							defaultValue={run.ask.reps}
+							placeholder="Default"
+							onChange={(event) => void run.repeat(Number(event.target.value))}
+						/>
+					</label>
 					<Button size="sm" variant="outline" onClick={() => void run.load()}>
 						Refresh saved agents
 					</Button>

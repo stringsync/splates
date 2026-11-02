@@ -135,93 +135,9 @@ Copy it beside your framework and change the reading half; the writing half is
 the contract. A reporter running cells one at a time can write `batch.json`
 first and append to `results.jsonl` as each finishes.
 
-## Durable improvement loops
-
-A loop tracks one scenario independently of a code task. Its current state,
-conversation, optional code-task link, frozen contract, evidence and ordered event
-and round history live together in the project's server database. Worktrees share
-that database; restarting the server or agent does not reset the loop. No existing
-rows need migration. These commands only record lifecycle progress: they never
-start a paid eval, edit code, merge a task or revert a commit.
-
-Create `start.json` with the exact subject revision and frozen test contract:
-
-```json
-{
-  "contract": {
-    "scenario": "resources/focused-tests",
-    "suiteRevision": "<suite-commit>",
-    "target": { "model": "<model>", "agent": "<agent>" },
-    "repetitions": 3
-  },
-  "revision": "<baseline-commit>",
-  "conversation": "<conversation-id>",
-  "task": "<optional-code-task>"
-}
-```
-
-```sh
-splates evals improve focused-tests start.json
-splates evals show focused-tests
-```
-
-`start` is an alias of `improve`. Repeating creation with the same loop ID and
-input returns the existing loop; different input is refused. IDs use letters,
-numbers, dots, dashes or underscores, starting with a letter or number.
-`show` and every successful mutation print JSON containing the full record and
-`next`, the command or wait needed to continue. `version` is a monotonic store
-version, distinct from the subject's git `revision`.
-
-Each transition takes a JSON file with the payload below, the version from `show`,
-and a stable event ID chosen once and reused for retries:
-
-```sh
-splates evals diagnose focused-tests diagnosis.json --version 2 --event diagnosis-1 --task clarify-rule
-```
-
-| Command | Payload (without `type` or `action`) |
-| --- | --- |
-| `request` | `{"batch":{"id":"<batch-id>","contract":{...},"revision":"<commit>"}}` |
-| `record` | `{"completion":{"batch":{...},"results":["pass","fail","error"]}}` |
-| `diagnose` | `{"diagnosis":"What failed and why","hypothesis":"One change to test"}` |
-| `propose` | `{"revision":"<candidate-commit>","contract":{...}}` |
-| `keep` | `{"reason":"Why the comparison warrants keeping the candidate"}` |
-| `revert` | `{"reason":"Why the candidate should be discarded"}` |
-| `rebaseline` | `{"contract":{...}}` |
-| `stop` | `{"reason":"Why this loop ends here"}` |
-
-Use the run-request ID as `request`'s event ID, and the actual result-batch ID in
-`batch.id`. A request records the planned batch as running; the person still has
-to start it using the eval run card. While waiting for that approval or execution,
-`show` retains the request and exact batch. There is no automatic run launch or
-batch ingestion in these commands. `record` accepts the completed batch's evidence:
-copy the batch descriptor exactly, and give one ordered result per repetition.
-For comparisons, `batch.baselineBatchId` names the accepted baseline batch and
-`completion.baselineResults` contains the fresh baseline results from that same
-comparison, alongside the candidate's `results`. Do not substitute old baseline
-results. Each result is `pass`, `fail`, or `error`.
-
-The normal sequence is request, record, diagnose, edit/commit in a linked task,
-propose, request comparison, record, then keep or revert. Apply keep/revert to code
-in the linked task separately; these commands record the decision only. The loop
-continues from diagnosis until all repetitions pass or three rounds make no gain.
-A manual stop retains interrupted work. `rebaseline` is allowed only while waiting
-for a baseline or diagnosing it, when the contract changes; it preserves history.
-`--task` on any transition links the code task (and keeps the old links in history).
-
-All writes compare the expected version while holding the storage lock, and save
-state plus history in one atomic document. A stale writer must `show` again before
-choosing its next action. An identical event retry returns current state even if
-its expected version is now old; reusing its ID with different input is refused.
-An identical completed batch also cannot advance twice, including delivery under
-a new event ID. Conflicting evidence for the same batch is refused. History is
-retained for the loop's lifetime and grows with its transitions and repetitions.
-
-### Browsing evidence
+## Browsing evidence
 
 The Evals page is a read-only catalog: browse scenarios, their latest health
 and run history, batch reports and individual runs with checks, judges, replies
-and transcripts. Active improvements show their round and state and link to the
-owning conversation. Start runs, edit saved eval agents and guide improvement
-loops through conversation cards; the catalog has no execution or lifecycle controls.
+and transcripts. Start runs and edit saved eval agents through conversation cards; the catalog has no execution or lifecycle controls.
 Old links to an Evals plan return to the catalog.

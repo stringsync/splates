@@ -3,6 +3,7 @@ import type { SplatesDeps } from "@splates/server/server";
 import {
 	drainWorker,
 	FileLogger,
+	isLocalWorker,
 	listWorkers,
 	removeWorker,
 	workerRun,
@@ -11,6 +12,11 @@ import { cli } from "core/cmd";
 import { CompositeLogger } from "core/log";
 import { z } from "zod";
 import { splatesWaiting } from "./waiting";
+
+/** The ids `worker run` takes: this machine's own worker, or one taking over while it updates. */
+export const workerRunId = z.string().refine(isLocalWorker, {
+	message: "expected local, or local-<build> for a stand-in worker",
+});
 
 /** `splates worker`, which the root cli mounts after `splates slots`. */
 export const splatesWorker = cli<SplatesDeps>("worker").description(
@@ -37,7 +43,7 @@ splatesWorker
 		description:
 			"ignored: nothing caps how many agents a worker runs; still read, since a `splates server` started before it was dropped passes it",
 	})
-	.option("id", z.literal("local"), {
+	.option("id", workerRunId, {
 		default: "local",
 		description:
 			"what the server knows this worker by, kept across restarts so it picks up where it was; by default local",

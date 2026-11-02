@@ -105,7 +105,13 @@ export function CardShell({
 }
 
 /** How a card's header is tinted: by what the person is to make of it. */
-export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
+export type Tone =
+	| "neutral"
+	| "success"
+	| "warning"
+	| "destructive"
+	| "info"
+	| "eval";
 
 export const TONES: Record<
 	Tone,
@@ -136,6 +142,12 @@ export const TONES: Record<
 		header: "bg-info/[0.07]",
 		icon: "text-info",
 		focus: "focus-within:border-info/50 focus-within:ring-info/15",
+	},
+	// Evals are orange, as automations are violet.
+	eval: {
+		header: "bg-orange-500/15",
+		icon: "text-orange-600 dark:text-orange-400",
+		focus: "focus-within:border-orange-500/50 focus-within:ring-orange-500/15",
 	},
 };
 

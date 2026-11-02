@@ -18,7 +18,7 @@ export type {
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
 export { Machine } from "./load";
-export { LOCAL_WORKER } from "./local-id";
+export { handoffWorker, isLocalWorker, LOCAL_WORKER } from "./local-id";
 export { LocalWorkerUpdate } from "./local-update";
 export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
