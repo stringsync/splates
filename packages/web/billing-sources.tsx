@@ -1,4 +1,4 @@
-import type { BillingView } from "@stringsync/splates-server/spend";
+import type { BillingView } from "@splates/server/spend";
 import type { JSX } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";

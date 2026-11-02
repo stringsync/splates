@@ -1,8 +1,4 @@
-import type {
-	SetupProgress,
-	UndoCred,
-	UndoPlan,
-} from "@stringsync/splates-server/setup";
+import type { SetupProgress, UndoCred, UndoPlan } from "@splates/server/setup";
 import { Dispatcher, type Eventful } from "core/events";
 import { setupUndoPlan, undoSetup } from "./setup-api";
 

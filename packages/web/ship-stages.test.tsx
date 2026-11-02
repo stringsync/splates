@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type {
-	Cascade,
-	CascadeStep,
-	Stage,
-} from "@stringsync/splates-server/ship";
+import type { Cascade, CascadeStep, Stage } from "@splates/server/ship";
 import "./register-dom";
 import { StageRow } from "./ship-stages";
 import { cleanup, render, within } from "./testing-library";

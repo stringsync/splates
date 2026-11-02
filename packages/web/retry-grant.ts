@@ -1,4 +1,4 @@
-import { RETRIED } from "@stringsync/splates-server/plans/browser";
+import { RETRIED } from "@splates/server/plans/browser";
 import { retryTask } from "./api";
 import type { Reply } from "./card-reply";
 

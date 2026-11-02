@@ -1,5 +1,5 @@
-import type { CredRequest } from "@stringsync/splates-server/creds";
-import type { SetupProgress } from "@stringsync/splates-server/setup";
+import type { CredRequest } from "@splates/server/creds";
+import type { SetupProgress } from "@splates/server/setup";
 import { WindowBackgroundObserver } from "core/browser";
 import {
 	createContext,
@@ -19,6 +19,10 @@ import { HeldJourneys } from "./setup-held";
 export interface SetupState {
 	/** Null before the first read answers. */
 	progress: SetupProgress | null;
+	/** The last progress this device read, to show at once while `progress` is still null; stale until it answers. */
+	cached: SetupProgress | null;
+	/** Whether a read is under way. */
+	reading: boolean;
 	/** Why the last read failed, as when it timed out, or null. */
 	error: string | null;
 	/** Reads it again, as after "I did it". */
@@ -32,6 +36,8 @@ export interface SetupState {
 /** What the Setup page reads. */
 export const SetupContext = createContext<SetupState>({
 	progress: null,
+	cached: null,
+	reading: false,
 	error: null,
 	refresh: () => {},
 	settle: () => {},
@@ -45,18 +51,30 @@ export const SetupContext = createContext<SetupState>({
  */
 export function useSetupState(changed: unknown): SetupState {
 	const [progress, setProgress] = useState<SetupProgress | null>(null);
+	const [cached] = useState(readCache);
+	const [reading, setReading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	// Only the newest read counts, so one that gives up late cannot undo a later one.
 	const reads = useRef(0);
 	const refresh = useCallback(() => {
 		const read = ++reads.current;
 		setError(null);
+		setReading(true);
 		// A failed read keeps what the last one showed, to be read and copied.
 		setup().then(
-			(fresh) => read === reads.current && setProgress(fresh),
-			(failed: unknown) =>
-				read === reads.current &&
-				setError(failed instanceof Error ? failed.message : String(failed)),
+			(fresh) => {
+				if (read === reads.current) {
+					setProgress(fresh);
+					setReading(false);
+					writeCache(fresh);
+				}
+			},
+			(failed: unknown) => {
+				if (read === reads.current) {
+					setError(failed instanceof Error ? failed.message : String(failed));
+					setReading(false);
+				}
+			},
 		);
 	}, []);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: read again whenever `changed` moves
@@ -71,7 +89,34 @@ export function useSetupState(changed: unknown): SetupState {
 		return () => observer.dispose();
 	}, [refresh]);
 	const [held] = useState(() => new HeldJourneys());
-	return { progress, error, refresh, settle: setProgress, held };
+	return {
+		progress,
+		cached,
+		reading,
+		error,
+		refresh,
+		settle: setProgress,
+		held,
+	};
+}
+
+const CACHE_KEY = "splates.setup-progress";
+
+/** The progress the device last read, or null when none was kept or it no longer parses. */
+function readCache(): SetupProgress | null {
+	try {
+		const kept = localStorage.getItem(CACHE_KEY);
+		return kept === null ? null : (JSON.parse(kept) as SetupProgress);
+	} catch {
+		return null;
+	}
+}
+
+/** Keeps `progress` for the next load; a full or blocked store just goes without. */
+function writeCache(progress: SetupProgress): void {
+	try {
+		localStorage.setItem(CACHE_KEY, JSON.stringify(progress));
+	} catch {}
 }
 
 /**

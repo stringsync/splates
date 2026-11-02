@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import { todo } from "@stringsync/splates-server/fixtures";
+import type { TaskRecord } from "@splates/server/board";
+import { todo } from "@splates/server/fixtures";
 import { QueueWork, type QueueWrites } from "./queue-work";
 
 /** Writes that only note what they were asked, as the server would take them. */

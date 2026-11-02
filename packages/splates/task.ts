@@ -9,18 +9,14 @@ import {
 	taskShow,
 	tasksNamed,
 	taskUpdate,
-} from "@stringsync/splates-server/board";
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { Scopes, Tags } from "@stringsync/splates-server/config";
-import { refuseGroomer } from "@stringsync/splates-server/conversations";
-import { fail } from "@stringsync/splates-server/exit";
-import { OpenBoards, repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import {
-	DEFAULT_TIMEOUT,
-	taskWait,
-	untilAfter,
-} from "@stringsync/splates-server/tasks";
+} from "@splates/server/board";
+import { commaList } from "@splates/server/comma-list";
+import { Scopes, Tags } from "@splates/server/config";
+import { refuseGroomer } from "@splates/server/conversations";
+import { fail } from "@splates/server/exit";
+import { OpenBoards, repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { DEFAULT_TIMEOUT, taskWait, untilAfter } from "@splates/server/tasks";
 import { cli } from "core/cmd";
 import { Duration } from "core/time";
 import { z } from "zod";
@@ -51,7 +47,7 @@ async function projectFrom(ctx: {
 
 /**
  * `splates task add` or `defer`: one writes a task its agent groomed, which
- * goes in a lane, the other a rough one, left in Untriaged for whoever grooms it.
+ * goes in a lane, the other a rough one, left in Backlog for whoever grooms it.
  */
 function adding(name: string, description: string, groomed: boolean) {
 	splatesTask
@@ -93,7 +89,7 @@ function adding(name: string, description: string, groomed: boolean) {
 		.option("lane", z.string(), {
 			default: "",
 			description:
-				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: `backlog` for `add`, none, untriaged, for `defer`)",
+				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: `backlog` for `add`; `defer` leaves it in `backlog` ungroomed)",
 		})
 		.option("agent", z.string(), {
 			default: "",
@@ -113,7 +109,7 @@ function adding(name: string, description: string, groomed: boolean) {
 			if (ctx.elsewhere !== null && opts.lane !== "") {
 				fail(
 					"not_granted",
-					"a task from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
+					"a task from another project goes in its Backlog, for whoever orchestrates it there to place: leave --lane off",
 					{ subject: opts.subject },
 				);
 			}
@@ -196,7 +192,7 @@ adding(
 
 adding(
 	"defer",
-	"queue a task as it is, rough, in Untriaged for whoever grooms it: to check for one that already asks it, link what blocks it, and place it in a lane; run from a worktree, it records the task it came up in",
+	"queue a task as it is, rough, in Backlog for whoever grooms it: to check for one that already asks it, link what blocks it, and place it in a lane; run from a worktree, it records the task it came up in",
 	false,
 );
 
@@ -293,7 +289,7 @@ splatesTask
 	.option("lane", z.string(), {
 		default: "",
 		description:
-			"move it to a lane, at the bottom: a lane's number, `backlog` for the permanent catch-all, `new` for one of its own, or `none` for untriaged",
+			"move it to a lane, at the bottom: a lane's number, `backlog` for the permanent catch-all, `new` for one of its own",
 	})
 	.option("agent", z.string(), {
 		default: "",

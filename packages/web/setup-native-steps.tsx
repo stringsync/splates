@@ -1,4 +1,4 @@
-import type { StepProgress } from "@stringsync/splates-server/setup";
+import type { StepProgress } from "@splates/server/setup";
 import { type JSX, useEffect } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Field, FieldLabel } from "#web/components/ui/field.tsx";

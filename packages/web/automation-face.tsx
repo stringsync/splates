@@ -3,11 +3,8 @@ import type {
 	AutomationRun,
 	Hook,
 	Trigger,
-} from "@stringsync/splates-server/hooks";
-import {
-	BY_HAND,
-	GROOMER_AUTOMATION,
-} from "@stringsync/splates-server/hooks/browser";
+} from "@splates/server/hooks";
+import { BY_HAND, GROOMER_AUTOMATION } from "@splates/server/hooks/browser";
 import { ClockIcon, ListTodoIcon, TerminalIcon, ZapIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";

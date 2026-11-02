@@ -1,7 +1,4 @@
-import type {
-	BillingView,
-	SpendReport,
-} from "@stringsync/splates-server/spend";
+import type { BillingView, SpendReport } from "@splates/server/spend";
 import { Duration } from "core/time";
 import { type Answering, ApiError, answered } from "./request";
 

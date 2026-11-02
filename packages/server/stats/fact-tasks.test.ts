@@ -27,8 +27,8 @@ describe.concurrent("addFactTasks", () => {
 				lane,
 			})),
 		).toEqual([
-			{ id: 1, subject: "Tests failed: adds up", from: null, lane: null },
-			{ id: 2, subject: "Tests failed: counts", from: "alpha", lane: null },
+			{ id: 1, subject: "Tests failed: adds up", from: null, lane: 0 },
+			{ id: 2, subject: "Tests failed: counts", from: "alpha", lane: 0 },
 		]);
 		expect(
 			(await deps.journal.tail(10)).filter(

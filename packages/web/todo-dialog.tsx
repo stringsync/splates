@@ -1,4 +1,4 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import { type JSX, useRef } from "react";
 import { Dialog, DialogContent } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";

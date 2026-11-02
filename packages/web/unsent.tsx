@@ -1,6 +1,6 @@
 import { useAuiState } from "@assistant-ui/react";
-import type { Message } from "@stringsync/splates-server/conversations";
-import { leadingDirectives } from "@stringsync/splates-server/plans/browser";
+import type { Message } from "@splates/server/conversations";
+import { leadingDirectives } from "@splates/server/plans/browser";
 import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import {
 	CircleAlertIcon,

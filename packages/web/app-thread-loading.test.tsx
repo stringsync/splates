@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { listed } from "@stringsync/splates-server/conversations/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import { listed } from "@splates/server/conversations/browser";
 import { Duration } from "core/time";
 import {
 	act,

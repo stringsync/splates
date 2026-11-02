@@ -1,3 +1,4 @@
+export { OPENCODE_NEEDS_SERVER } from "./area-opencode";
 export { SETUP_AREAS } from "./areas";
 export type { FieldProgress } from "./fields";
 export { OpenCodeSetup } from "./opencode";

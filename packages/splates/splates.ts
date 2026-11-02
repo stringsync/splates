@@ -1,27 +1,23 @@
 // vet-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
 
-import { agents } from "@stringsync/splates-server/agents";
-import { attach } from "@stringsync/splates-server/artifacts";
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { refuseGroomer } from "@stringsync/splates-server/conversations";
-import { exits, fail } from "@stringsync/splates-server/exit";
-import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
-import {
-	merge,
-	mergeOnServer,
-	mergeViaServer,
-} from "@stringsync/splates-server/merge";
-import { portsLs } from "@stringsync/splates-server/ports";
-import { forget, init } from "@stringsync/splates-server/projects";
-import type { Facts, Repository } from "@stringsync/splates-server/records";
+import { agents } from "@splates/server/agents";
+import { attach } from "@splates/server/artifacts";
+import { commaList } from "@splates/server/comma-list";
+import { refuseGroomer } from "@splates/server/conversations";
+import { exits, fail } from "@splates/server/exit";
+import { DEFAULT_COUNT, log as showLog } from "@splates/server/log";
+import { merge, mergeOnServer } from "@splates/server/merge";
+import { portsLs } from "@splates/server/ports";
+import { forget, init } from "@splates/server/projects";
+import type { Facts, Repository } from "@splates/server/records";
 import {
 	MIGRATING,
 	MIGRATION_LIMIT,
 	migrateRecords,
 	OpenBoards,
 	repository,
-} from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+} from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
 import {
 	newest,
 	recordsFirst,
@@ -29,8 +25,8 @@ import {
 	rosterOf,
 	seeded,
 	update,
-} from "@stringsync/splates-server/server";
-import { addFactTasks } from "@stringsync/splates-server/stats";
+} from "@splates/server/server";
+import { addFactTasks } from "@splates/server/stats";
 import {
 	add,
 	checkpoint,
@@ -46,13 +42,14 @@ import {
 	show,
 	untilAfter,
 	wait,
-} from "@stringsync/splates-server/tasks";
-import { serverOf } from "@stringsync/splates-server/workers";
+} from "@splates/server/tasks";
+import { serverOf } from "@splates/server/workers";
 import { cli } from "core/cmd";
 import { Duration } from "core/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
 import { blockerFlags } from "./blockers";
+import { splatesBoard } from "./board";
 import { splatesCreds } from "./creds";
 import { splatesEvals } from "./evals";
 import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
@@ -352,31 +349,10 @@ async function mergeServed(
 	const slug = (await ctx.projects.list()).find(
 		(each) => each.root === ctx.git.root,
 	)?.slug;
-	// With a central remote the worker's worktree is not on the server's disk:
-	// it pushes the branch and the server merges its own checkout of it.
-	if (
-		server !== null &&
-		slug !== undefined &&
-		task !== null &&
-		ctx.config.remote !== null
-	) {
-		const served = await mergeViaServer(ctx, {
-			server,
-			slug,
-			task,
-			message,
-			facts,
-		});
-		if (served === "landed") {
-			ctx.ps.cd(ctx.git.root);
-			return;
-		}
-	} else if (
-		server !== null &&
-		slug !== undefined &&
-		task !== null &&
-		ctx.config.remote === null
-	) {
+	// With a central remote, workers on other machines merge as before: their
+	// worktrees are not on the server's disk.
+	const local = ctx.config.remote === null;
+	if (server !== null && slug !== undefined && task !== null && local) {
 		const served = await mergeOnServer(
 			{ server, slug, log: ctx.log },
 			{
@@ -686,6 +662,7 @@ splates
 	.mount("artifact", splatesArtifact)
 	.mount("task", splatesTask)
 	.mount("lane", splatesLane)
+	.mount("board", splatesBoard)
 	.mount("ship", splatesShip)
 	.mount("projects", splatesProjects)
 	.mount("creds", splatesCreds)

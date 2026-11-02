@@ -29,7 +29,6 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
-import { GitHubAppManifest } from "../setup/github-app-manifest";
 import {
 	CascadeRoutes,
 	MechanicalAdoption,
@@ -51,7 +50,6 @@ import {
 	Machine,
 	OsSensors,
 	queueListing,
-	type WorkerPool,
 } from "../workers";
 import { General } from "./general";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
@@ -699,23 +697,6 @@ export async function dev(
 				device: (deps.secrets ?? SYSTEM_STORES).device,
 				opencode: opencode.setup,
 				fetch: deps.fetch,
-				workers: async () =>
-					(
-						(await workers
-							.list()
-							.then((response) => response.json())) as WorkerPool
-					).workers,
-				removeWorker: async (id) => {
-					const response = await workers.remove(
-						new Request(
-							`http://localhost/api/workers/${encodeURIComponent(id)}`,
-							{ method: "DELETE" },
-						),
-					);
-					if (!response.ok) {
-						throw new Error(`worker ${id} was not removed`);
-					}
-				},
 				removeTunnel:
 					project == null
 						? undefined
@@ -759,10 +740,6 @@ export async function dev(
 		);
 	});
 
-	const githubApp = new GitHubAppManifest(
-		(deps.secrets ?? SYSTEM_STORES).device,
-		{ fetch: deps.fetch },
-	);
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
 	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
 
@@ -882,8 +859,6 @@ export async function dev(
 							),
 						),
 					},
-					"/api/setup/github-app/manifest": local(guarded(githubApp.start)),
-					"/api/setup/github-app/callback": local(guarded(githubApp.callback)),
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },
 					"/api/setup/:step/next": { POST: guarded(setup.next) },
@@ -1003,6 +978,7 @@ export async function dev(
 						POST: scoped((project) => project.joinLane),
 					},
 					"/api/lanes": { POST: scoped((project) => project.addLane) },
+					"/api/boards": { POST: scoped((project) => project.addBoard) },
 					// Through a tunnel only once Access verified who is asking, as a
 					// conversation is: a cred is worth as much as what it opens.
 					"/api/creds": talk(scoped((project) => project.listCreds)),
@@ -1045,6 +1021,10 @@ export async function dev(
 					"/api/lanes/:id": {
 						PUT: scoped((project) => project.updateLane),
 						DELETE: scoped((project) => project.dropLane),
+					},
+					"/api/boards/:id": {
+						PUT: scoped((project) => project.updateBoard),
+						DELETE: scoped((project) => project.dropBoard),
 					},
 					"/events": conversationScoped((project) => project.events),
 					"/api/conversations": {

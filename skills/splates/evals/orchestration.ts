@@ -95,7 +95,7 @@ export const scenarios: Scenario[] = [
 		id: "orchestration/groom-duplicate",
 		aspect,
 		requirement:
-			"As the groomer, fold an Untriaged task that duplicates another into it with `splates task remove`, never start or queue it.",
+			"As the groomer, fold an ungroomed Backlog task that duplicates another into it with `splates task remove`, never start or queue it.",
 		initialized: true,
 		async change(repo) {
 			await board(repo);
@@ -132,10 +132,10 @@ export const scenarios: Scenario[] = [
 		id: "orchestration/defer",
 		aspect,
 		requirement:
-			"`[SPLATES DEFER]` saves the request as given with `splates task defer`, untriaged, without investigating it.",
+			"`[SPLATES DEFER]` saves the request as given with `splates task defer`, rough in Backlog, without investigating it.",
 		initialized: true,
 		message:
-			"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and slug 'add-widget'; leave it untriaged.",
+			"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and slug 'add-widget'; leave it ungroomed in Backlog.",
 		checks: [
 			{
 				id: "saved",

@@ -1,7 +1,4 @@
-import type {
-	EvalPlan,
-	EvalStatus,
-} from "@stringsync/splates-server/evals/browser";
+import type { EvalPlan, EvalStatus } from "@splates/server/evals/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 

@@ -1,6 +1,6 @@
 import "./testing-dom";
 import { afterEach, describe, expect, it } from "bun:test";
-import { switched } from "@stringsync/splates-server/conversations/browser";
+import { switched } from "@splates/server/conversations/browser";
 import { RowIcon } from "./agent-icons";
 import { cleanup, conversation, render } from "./testing";
 

@@ -115,7 +115,7 @@ export class WorkerRegistry
 	 * given it before it does: its session keeps what it is sent until then.
 	 * `kind` is how it will connect.
 	 */
-	expect(id: string, kind: WorkerKind = "registered"): ConnectedWorker {
+	expect(id: string, kind: WorkerKind = "local"): ConnectedWorker {
 		const known = this.byId.get(id);
 		if (known !== undefined) {
 			return known;
@@ -143,7 +143,7 @@ export class WorkerRegistry
 	 */
 	async accept(
 		socket: WorkerSocket,
-		kind: WorkerKind = "registered",
+		kind: WorkerKind = "local",
 		identity?: string | null | ((id: string) => boolean),
 	): Promise<void> {
 		const { identity: signer } = this.opts;

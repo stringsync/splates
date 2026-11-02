@@ -1,5 +1,5 @@
-import type { FieldProgress } from "@stringsync/splates-server/setup";
-import type { FileDiff } from "@stringsync/splates-server/tasks";
+import type { FieldProgress } from "@splates/server/setup";
+import type { FileDiff } from "@splates/server/tasks";
 import {
 	createContext,
 	type JSX,

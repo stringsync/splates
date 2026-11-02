@@ -1,8 +1,5 @@
-import type {
-	EvalDetail,
-	EvalStep,
-} from "@stringsync/splates-server/evals/browser";
-import { targetName } from "@stringsync/splates-server/evals/browser";
+import type { EvalDetail, EvalStep } from "@splates/server/evals/browser";
+import { targetName } from "@splates/server/evals/browser";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";

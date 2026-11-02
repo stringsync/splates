@@ -54,6 +54,7 @@ describe("the tunnel setup step's undo", () => {
 		expect(plan.steps.map((step) => step.id)).toEqual([
 			"ports-host",
 			"tunnel",
+			"cloudflare-domain",
 			"cloudflare-token",
 		]);
 		expect(plan.steps[1]?.removes).toEqual([
@@ -62,7 +63,7 @@ describe("the tunnel setup step's undo", () => {
 			"The workers' Access policy and its service tokens: workers joined through the tunnel lose their access",
 			"Each slot's tunnel, and the Access application in front of every slot",
 		]);
-		expect(plan.steps[2]?.leaves[0]).toContain(
+		expect(plan.steps[3]?.leaves[0]).toContain(
 			"https://dash.cloudflare.com/profile/api-tokens",
 		);
 		expect(plan.creds).toEqual([{ name: API_TOKEN, keptFor: null }]);

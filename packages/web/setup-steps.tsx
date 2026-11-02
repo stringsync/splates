@@ -1,5 +1,5 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { StepProgress } from "@stringsync/splates-server/setup";
+import type { TaskRecord } from "@splates/server/board";
+import type { StepProgress } from "@splates/server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";

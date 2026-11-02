@@ -1,10 +1,6 @@
-import { age } from "@stringsync/splates-server/age";
-import {
-	answersTo,
-	type Need,
-	need,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import { age } from "@splates/server/age";
+import { answersTo, type Need, need } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { GitBranchIcon } from "lucide-react";
 import {
 	type JSX,

@@ -1,12 +1,12 @@
-import type { Flag } from "@stringsync/splates-server/agents";
+import type { Flag } from "@splates/server/agents";
 import type {
 	Compaction,
 	Message,
 	Part,
 	Step,
 	Tool,
-} from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/records";
+} from "@splates/server/conversations";
+import type { Event } from "@splates/server/records";
 import { Duration } from "core/time";
 import { tierOf } from "./event-tier";
 import { workingSpan } from "./work-time";

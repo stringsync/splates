@@ -4,7 +4,7 @@ import {
 	type Need,
 	type Needing,
 	questions,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import {
 	automated,
 	isHostOf,

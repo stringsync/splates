@@ -105,6 +105,30 @@ describe("App's queue", () => {
 		expect(header?.textContent).not.toContain("ready");
 	});
 
+	it("marks a card pending while its own Queue is held, until the server lists it", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "retry the upload" })],
+		});
+		testing.holdWrites();
+		const busy = () =>
+			view
+				.getByRole("button", { name: /^retry the upload/, hidden: true })
+				.closest("[aria-busy]")
+				?.getAttribute("aria-busy");
+		expect(busy()).not.toBe("true");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Queue #1" })),
+		);
+		expect(busy()).toBe("true");
+
+		await serve({
+			todos: [todo({ id: 1, subject: "retry the upload", stage: "queued" })],
+		});
+		await act(async () => testing.release());
+		await waitFor(() => expect(busy()).not.toBe("true"));
+	});
+
 	it("queues and unqueues from the card, held pending until the server lists it, its dialog saying so then", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],

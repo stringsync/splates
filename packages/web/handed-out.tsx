@@ -1,7 +1,4 @@
-import type {
-	ConversationState,
-	Tool,
-} from "@stringsync/splates-server/conversations";
+import type { ConversationState, Tool } from "@splates/server/conversations";
 import { GitBranchIcon, LockIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -193,7 +190,7 @@ export function ReadOnlyBanner({
 			role="status"
 			className={cn(
 				bleed(phone),
-				"flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
+				"flex shrink-0 items-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
 			)}
 		>
 			<LockIcon className="size-4 shrink-0" />

@@ -7,10 +7,7 @@ splates's `setup-area-*.ts`, one file per area, each step with a check that
 decides whether it is done; `splates setup` lists them by area. Setup changes the machine
 (`~/.splates`, the creds store), not the repo, so it needs no task: stay in the
 main tree. A code change it turns up, such as a check that is wrong, goes in
-a task of its own, as Workflow says. The GitHub pushing area's steps after
-`github-app` check the repository of the project setup is opened from: run
-`splates setup` in its main tree, and make its last step's change to
-`splates.config.ts` in a task, as the step says.
+a task of its own, as Workflow says.
 
 1. **Read the step first.** `splates setup <step> --json`, before you run or
    change anything else, prints its `title`, its `why`, the one thing the
@@ -61,7 +58,7 @@ marked `started`.
 Never undo one yourself, by its routes or by hand, as with `splates server
 destroy`. `splates setup <area> --undo` prints what it would remove, the creds
 it forgets and keeps, and what only the user can remove after, such as the
-GitHub App itself or a token in a provider's dashboard: say that in a few
+token in a provider's dashboard: say that in a few
 lines and send them to the page. When it is `refused`, say why, from its
 reason.
 
@@ -90,8 +87,7 @@ Access: that host then reaches only the tasks.
 
 Nothing caps how many agents run: merges take turns on the premerge lock,
 and agents ask before other heavy work. When the user asks to run more agents at once on this Mac, tell them
-so; when agents do not start at all, that is the Workers setup area:
-`local-worker`. Run `splates worker drain local --undo`; the person can also
+so; when agents do not start at all, run `splates worker drain local --undo`; the person can also
 pause or resume what splates starts on its own at the top of the page's
 Queue tab. Agents run only on this machine;
 remote workers cannot join. Check `GET /api/workers` of the `splates server`
@@ -128,66 +124,3 @@ the user to restart `splates server`.
   (and optionally `plan`) lets the page's run card start a batch. The
   format is in `docs/evals.md` of the splates repository. Never run evals
   yourself.
-
-## Server on a Droplet
-
-When the user asks to run `splates server` in the cloud, that is the Server
-on a Droplet setup area (`replica-keys`), with the rest of this section
-done by you on the box. The box is a DigitalOcean Droplet the user makes
-once by hand, and a Spaces bucket beside it in the same account holds the
-server's records as its replica,
-so both go from one dashboard. Ask the user for the Droplet's address and
-how you reach it, and the bucket's name and region; never write them into a
-checked-in file but the project's `splates.config.ts`, where the replica names its
-`endpoint` and `bucket`: `replica: { provider: "s3", endpoint:
-"https://<region>.digitaloceanspaces.com", bucket }`. Secrets are entered
-on the box and never pass through chat or the environment.
-
-1. **The box.** A Debian Droplet; as a user that is not root (agents
-   refuse to run as root), install `git`, `curl`, `unzip` and `ca-certificates`
-   with apt, bun from [bun.sh](https://bun.sh), and `splates` from the release
-   with `bun add -g @stringsync/splates`.
-2. **Where secrets are kept.** The box has no secret service: put
-   `SPLATES_SECRET_STORE=file` in the unit below and in the login
-   environment, so creds are `0600` files under `~/.splates/secrets/`
-   (see [creds.md](creds.md)). Set it for every `splates` run there, or the
-   CLI looks for a keyring.
-3. **The project.** Clone it to a folder of its own, with its remote's
-   credentials as for any machine: the GitHub credential the merge pushes
-   with is the GitHub pushing area's steps, run on the box.
-4. **The bucket's keys.** `splates setup replica-keys` (the Creds page,
-   `--device`): `REPLICA_ACCESS_KEY` and `REPLICA_SECRET_KEY`.
-5. **Restore.** With no server running, `splates replica restore` in the
-   clone rebuilds the records from the replica and adopts its origin, so
-   the server started next copies into it on. If the server ran on the Mac
-   before, check `splates replica status` there says caught up, stop it,
-   and `splates replica retire <name>` it after (see
-   [transfer.md](transfer.md)). The roster and Auto pick rules are not in
-   the replica: set those steps up again.
-6. **Run it.** A systemd unit, `/etc/systemd/system/splates.service`, made
-   as root, with the user and the clone's path filled in:
-
-   ```ini
-   [Unit]
-   Description=splates server
-   After=network-online.target
-   Wants=network-online.target
-
-   [Service]
-   User=<user>
-   WorkingDirectory=<the clone>
-   Environment=SPLATES_SECRET_STORE=file
-   Environment=PATH=/home/<user>/.bun/bin:/usr/local/bin:/usr/bin:/bin
-   ExecStart=/home/<user>/.bun/bin/splates server run
-   Restart=on-failure
-
-   [Install]
-   WantedBy=multi-user.target
-   ```
-
-   then `systemctl enable --now splates`, and `journalctl -u splates` for
-   its log. `splates server run` keeps its own crash backoff; systemd only
-   brings it back after the process is gone.
-7. **Reaching it.** As for a Mac, the Remote access area: `splates tunnel
-   setup <host> --email <theirs>` on the box, whose server then comes up
-   tunneled. Never open the page's port on the Droplet's firewall.

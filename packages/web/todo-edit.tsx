@@ -1,6 +1,6 @@
-import { age } from "@stringsync/splates-server/age";
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import { blockerLabel } from "@stringsync/splates-server/board/browser";
+import { age } from "@splates/server/age";
+import type { TaskRecord } from "@splates/server/board";
+import { blockerLabel } from "@splates/server/board/browser";
 import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -89,6 +89,10 @@ export function Edit({
 		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
 	const stage = shownStage(todo, board.todos);
+	// Those that wait on it, which removing it holds for the person.
+	const heldBack = board.todos.filter((other) =>
+		other.blockedBy.includes(todo.id),
+	);
 	return (
 		<>
 			<DialogHeader className="gap-1.5">
@@ -200,6 +204,16 @@ export function Edit({
 					<Refusal refusal={refusal} />
 				</Section>
 			</SectionTabs>
+			{confirming && heldBack.length > 0 && (
+				<p className="text-muted-foreground text-sm">
+					Removing this holds{" "}
+					{heldBack.map((other) => `#${other.id} ${other.subject}`).join(", ")}{" "}
+					as Blocked, since {heldBack.length === 1 ? "it waits" : "they wait"}{" "}
+					on this task. Let go of the link on{" "}
+					{heldBack.length === 1 ? "its" : "each"} card to keep{" "}
+					{heldBack.length === 1 ? "it" : "them"} queued.
+				</p>
+			)}
 			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button
 					variant={confirming ? "destructive" : "ghost"}

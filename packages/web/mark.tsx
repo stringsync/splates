@@ -1,4 +1,4 @@
-import type { Ending, Need } from "@stringsync/splates-server/plans";
+import type { Ending, Need } from "@splates/server/plans";
 import {
 	CircleCheckIcon,
 	CirclePauseIcon,

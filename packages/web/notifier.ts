@@ -1,10 +1,10 @@
-import type { Needing } from "@stringsync/splates-server/plans";
+import type { Needing } from "@splates/server/plans";
 import {
 	keyOf,
 	type Notice,
 	Notices,
 	type Wants,
-} from "@stringsync/splates-server/push/browser";
+} from "@splates/server/push/browser";
 import { Duration, SystemTimer } from "core/time";
 import { openedBy } from "./conversation-address";
 import type { Settings } from "./settings";

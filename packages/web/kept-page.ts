@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import { SystemTimer, type Timer } from "core/time";
 import type { Listing } from "./conversation-feed";
 import { IndexedPageCopies, type PageCopies } from "./page-copies";

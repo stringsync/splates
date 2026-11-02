@@ -40,7 +40,7 @@ const CONFIG_IMPORT = `import type { ConfigFile } from "@stringsync/splates/conf
 
 /** An import of `defineConfig` alone from splates's config. */
 const DEFINE_CONFIG_IMPORT =
-	/import\s*\{\s*defineConfig\s*\}\s*from\s*["'](?:@stringsync\/)?splates(?:-server)?\/config["'];?/;
+	/import\s*\{\s*defineConfig\s*\}\s*from\s*["'](?:(?:@stringsync\/)?splates(?:-server)?|@splates\/server)\/config["'];?/;
 
 /**
  * One character of code, or the start of a string: anything not inside a

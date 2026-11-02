@@ -1,6 +1,6 @@
 import "./register-dom";
 import { describe, expect, it } from "bun:test";
-import type { Message, Tool } from "@stringsync/splates-server/conversations";
+import type { Message, Tool } from "@splates/server/conversations";
 import { like } from "./thread-messages";
 
 describe("like's reply", () => {

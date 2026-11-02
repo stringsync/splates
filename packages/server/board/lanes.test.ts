@@ -6,7 +6,7 @@ import type { TaskRecord } from "./task";
 describe("lanes", () => {
 	it("is not ready on a lost blocker or one still open in another project", () => {
 		const external = { project: "/repos/wren", id: 20, subject: "Events" };
-		const record = { id: 1, name: "A" };
+		const record = { id: 1, name: "A", board: 1 };
 		const waiting = task({
 			id: 1,
 			lane: 1,
@@ -50,7 +50,7 @@ describe("lanes", () => {
 			[200, 209].includes(each.id) ? { ...each, takenBy: "decoder" } : each,
 		);
 
-		const two = lane(tasks, { id: 2, name: "Two" });
+		const two = lane(tasks, { id: 2, name: "Two", board: 1 });
 
 		expect(two.next?.id).toBe(186);
 		expect(two.ready).toBe(false);

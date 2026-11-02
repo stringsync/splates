@@ -1,6 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
-import type { Message } from "@stringsync/splates-server/conversations";
-import type { TaskReport } from "@stringsync/splates-server/plans";
+import type { Message } from "@splates/server/conversations";
+import type { TaskReport } from "@splates/server/plans";
 
 export interface ReportTiming {
 	at: string;

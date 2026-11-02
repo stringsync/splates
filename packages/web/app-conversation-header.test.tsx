@@ -154,7 +154,13 @@ describe("App's conversation header", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["main", "Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
+		).toEqual([
+			"main",
+			"Terminal⌃`",
+			"Put back on boardkeeps chat",
+			"Show timestamps",
+			"Archive⌥⌘⌫",
+		]);
 	});
 
 	it("carries a General conversation on in a picked project, opening it there", async () => {
@@ -286,7 +292,9 @@ describe("App's conversation header", () => {
 		const actions = view.getByRole("navigation", { name: "actions" });
 
 		await act(async () =>
-			fireEvent.click(within(actions).getByRole("button", { name: "Defer" })),
+			fireEvent.click(
+				within(actions).getByRole("button", { name: /^Put back on board/ }),
+			),
 		);
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1),
@@ -296,7 +304,7 @@ describe("App's conversation header", () => {
 		]);
 	});
 
-	it("offers Defer whether or not the agent is working, though not while it checkpoints", async () => {
+	it("offers Put back on board whether or not the agent is working, though not while it checkpoints", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				id: "c1",
@@ -306,7 +314,7 @@ describe("App's conversation header", () => {
 		]);
 		const actions = () => view.getByRole("navigation", { name: "actions" });
 		const defer = () =>
-			within(actions()).queryByRole("button", { name: "Defer" });
+			within(actions()).queryByRole("button", { name: /^Put back on board/ });
 
 		await act(async () => fireEvent.click(defer() as HTMLElement));
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([

@@ -1,4 +1,4 @@
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { Details } from "@splates/server/tasks";
 import { useEffect, useRef, useState } from "react";
 import { NEW, TASK } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "core/creds/testing";
-import { FakeFs } from "core/system/testing";
+import { FakeFs, FakePs } from "core/system/testing";
 import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
@@ -60,7 +60,7 @@ describe("the access setup step", () => {
 			});
 
 		expect((await access())?.status).toBe("done");
-		expect(asked).toEqual([
+		expect(asked.filter((each) => each.redirect === "manual")).toEqual([
 			{ url: "https://splates.example.com/", redirect: "manual" },
 		]);
 	});
@@ -129,15 +129,69 @@ describe("the access setup step", () => {
 		expect(
 			await SavedPortsHost.in(new FsStorage(`${HOME}`, machine.fs)).read(),
 		).toBe("ports.example.com");
-		expect(progress.areas[0]?.left).toBe(0);
+		expect(
+			progress.areas[0]?.steps.find((step) => step.id === "ports-host")?.status,
+		).toBe("done");
+	});
+
+	it("is done with cloudflared once it answers --version", async () => {
+		const step = REMOTE_ACCESS_AREA.steps.find(
+			(each) => each.id === "cloudflared",
+		);
+		const missing = new CloudflaredPs(127);
+		const installed = new CloudflaredPs(0);
+
+		expect(await step?.check({ ...machine, ps: missing })).toBe(false);
+		expect(await step?.check({ ...machine, ps: installed })).toBe(true);
+		expect(await step?.found?.({ ...machine, ps: installed })).toContain(
+			"2025.1.0",
+		);
+	});
+
+	it("is done with the domain once the token sees a zone of the account", async () => {
+		const step = REMOTE_ACCESS_AREA.steps.find(
+			(each) => each.id === "cloudflare-domain",
+		);
+		const zones: unknown[] = [];
+		const seen = {
+			...machine,
+			fetch: (async () =>
+				Response.json({
+					success: true,
+					result: zones,
+					result_info: { total_pages: 1 },
+				})) as unknown as typeof fetch,
+		};
+
+		expect(await step?.check(seen)).toBe(false);
+		zones.push({ name: "example.com" });
+		expect(await step?.check(seen)).toBe(true);
+		expect(await step?.found?.(seen)).toContain("example.com");
 	});
 
 	it("has no page for slot tunnels", () => {
 		expect(REMOTE_ACCESS_AREA.steps.map((step) => step.id)).toEqual([
+			"cloudflared",
 			"cloudflare-token",
+			"cloudflare-domain",
 			"tunnel",
 			"access",
 			"ports-host",
 		]);
 	});
 });
+
+/** A machine whose `cloudflared --version` exits `code`, printing its version at 0. */
+class CloudflaredPs extends FakePs {
+	constructor(private readonly code: number) {
+		super();
+	}
+
+	override async spawnCapture() {
+		return {
+			exitCode: this.code,
+			stdout: this.code === 0 ? "cloudflared version 2025.1.0\n" : "",
+			stderr: "",
+		};
+	}
+}

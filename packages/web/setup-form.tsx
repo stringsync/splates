@@ -2,7 +2,7 @@ import type {
 	AreaProgress,
 	FieldProgress,
 	StepProgress,
-} from "@stringsync/splates-server/setup";
+} from "@splates/server/setup";
 import {
 	BotIcon,
 	CheckIcon,
@@ -99,12 +99,16 @@ export function SetupIndex({
 function progressLine(area: AreaProgress): string {
 	const warned = area.steps.filter((step) => step.warning !== null).length;
 	const line = doneLine(area);
-	return warned === 0 ? line : `${line}, ${warned} to put right`;
+	const extras =
+		area.extras === 0
+			? line
+			: `${line}, ${area.extras} optional ${area.extras === 1 ? "step" : "steps"}`;
+	return warned === 0 ? extras : `${extras}, ${warned} to put right`;
 }
 
 function doneLine(area: AreaProgress): string {
-	if (area.done === area.steps.length) {
-		return "All steps done";
+	if (area.complete) {
+		return area.done === area.steps.length ? "All steps done" : "Set up";
 	}
 	if (area.done === 0 && !area.undoable) {
 		return area.steps.length === 1 ? "1 step" : `${area.steps.length} steps`;
@@ -122,7 +126,7 @@ function AreaRow({
 	onUndo?: (id: string) => void;
 }): JSX.Element {
 	const warned = area.steps.some((step) => step.warning !== null);
-	const done = area.done === area.steps.length && !warned;
+	const done = area.complete && !warned;
 	return (
 		<li className="group flex items-center gap-1 rounded-lg pr-2 hover:bg-muted/60 has-[:focus-visible]:bg-muted/60">
 			<button

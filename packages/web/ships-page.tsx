@@ -1,14 +1,14 @@
-import { shipFailureReference } from "@stringsync/splates-server/plans/browser";
-import type { CascadeSummary } from "@stringsync/splates-server/ship";
-import { shipName } from "@stringsync/splates-server/ship/browser";
-import { ChevronRightIcon } from "lucide-react";
+import { shipFailureReference } from "@splates/server/plans/browser";
+import type { CascadeSummary, StageKey } from "@splates/server/ship";
+import { shipName } from "@splates/server/ship/browser";
+import { HistoryIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { ActiveShip } from "./active-ship";
-import { actOnShip, shipHistory, shipHistoryEntry } from "./api";
+import { actOnShip, shipHistory, shipHistoryEntry, shipStageLog } from "./api";
 import { BackButton } from "./back-button";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import { LastShip, ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
 import { ProjectStages } from "./ship-run";
 import { TopBar } from "./top-bar";
@@ -71,7 +71,23 @@ export function ShipsPage({
 						? "Ship"
 						: viewed === ACTIVE
 							? "Active ship"
-							: "Past ship"
+							: viewed === HISTORY
+								? "History"
+								: "Past ship"
+				}
+				actions={
+					viewed === null
+						? [
+								{
+									label: "History",
+									text: "History",
+									icon: <HistoryIcon />,
+									run: () => {
+										location.hash = `ships/${HISTORY}`;
+									},
+								},
+							]
+						: []
 				}
 			/>
 			{viewed === ACTIVE ? (
@@ -93,6 +109,8 @@ export function ShipsPage({
 								}
 					}
 				/>
+			) : viewed === HISTORY ? (
+				<ShipHistory cascades={past} />
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
@@ -110,7 +128,7 @@ export function ShipsPage({
 							location.hash = `ships/${ACTIVE}`;
 						}}
 					/>
-					{(past === null || past.length > 0) && <History cascades={past} />}
+					<LastShip cascades={past} />
 				</>
 			)}
 		</section>
@@ -123,9 +141,21 @@ export function ShipsPage({
  */
 async function sendShipToAgent(
 	feed: ConversationFeed,
-	failure: { id: string; project: string; stage: string | null },
+	failure: {
+		id: string;
+		project: string;
+		stage: StageKey | null;
+		note: string | null;
+	},
 ): Promise<string> {
-	const text = shipFailureReference(failure, location.origin);
+	// What the stage printed goes in the text: the agent may not reach the server.
+	const log =
+		failure.stage === null
+			? null
+			: await shipStageLog(failure.id, failure.project, failure.stage).catch(
+					() => null,
+				);
+	const text = shipFailureReference({ ...failure, log }, location.origin);
 	const state = await startAutoPick({ words: text, task: null });
 	feed.put(state);
 	const sending = feed.send(state.id, text);
@@ -138,6 +168,9 @@ async function sendShipToAgent(
 /** What `#ships/active` opens: the ship under way, rather than a past one. */
 const ACTIVE = "active";
 
+/** What `#ships/history` opens: every ship that ended. */
+const HISTORY = "history";
+
 const readViewed = () => location.hash.match(/^#ships\/([^/]+)$/)?.[1] ?? null;
 
 /** The id `#ships/<id>` opens, kept as the hash changes. */
@@ -149,63 +182,6 @@ function useViewedShip(): string | null {
 		return () => window.removeEventListener("hashchange", sync);
 	}, []);
 	return id === null ? null : decodeURIComponent(id);
-}
-
-/** The cascades that ended, newest first, each linking to its own page. */
-function History({
-	cascades,
-}: {
-	/** Null until the list arrives, when its place is held. */
-	cascades: CascadeSummary[] | null;
-}): JSX.Element {
-	return (
-		<section aria-label="history" className="flex flex-col gap-2">
-			<h2 className="font-medium text-sm">History</h2>
-			<ul className="flex flex-col divide-y">
-				{cascades === null ? (
-					<li aria-hidden className="py-2">
-						<Skeleton className="h-5 w-full animate-pulse" />
-					</li>
-				) : (
-					cascades
-						.filter((each) => each.status !== "running")
-						.map((each) => <Past key={each.id} summary={each} />)
-				)}
-			</ul>
-		</section>
-	);
-}
-
-function stoppedAt(summary: CascadeSummary): string {
-	const stopped = summary.projects.find(
-		(each) => each.status !== "done" && each.status !== "dropped",
-	);
-	return summary.status === "abandoned" || summary.status === "stopped"
-		? `${summary.status}${stopped === undefined ? "" : ` at ${stopped.slug}`}`
-		: `${summary.projects.length} project${summary.projects.length === 1 ? "" : "s"}`;
-}
-
-function Past({ summary }: { summary: CascadeSummary }): JSX.Element {
-	return (
-		<li aria-label={summary.id} className="py-2">
-			<a
-				href={`#ships/${encodeURIComponent(summary.id)}`}
-				className="flex items-center gap-2 text-sm"
-			>
-				<span className="font-medium">{shipName(summary.from)}</span>
-				<span className="text-muted-foreground text-sm">
-					{stoppedAt(summary)}
-				</span>
-				<time
-					dateTime={summary.started}
-					className="ml-auto text-muted-foreground text-sm"
-				>
-					{new Date(summary.started).toLocaleString()}
-				</time>
-				<ChevronRightIcon aria-hidden className="size-3.5" />
-			</a>
-		</li>
-	);
 }
 
 /** One legacy ship with its recorded timeline. */

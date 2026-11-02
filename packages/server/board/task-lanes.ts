@@ -1,7 +1,8 @@
 import { fail } from "../exit";
-import { BACKLOG_LANE, protectBacklog } from "./backlog";
+import { BACKLOG_LANE, PLACED, protectBacklog } from "./backlog";
+import { type BoardRecord, boardsOf, DEFAULT_BOARD } from "./boards";
 import { aptName, type LaneRecord, named, settle } from "./lanes";
-import { enqueued, type Task, type TaskRecord, unqueued } from "./task";
+import { enqueued, type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
@@ -11,18 +12,6 @@ import type { Tasks } from "./tasks";
  */
 export class TaskLanes {
 	constructor(private readonly tasks: Tasks) {}
-
-	/** Places unmatched work in Backlog, settling dependencies and preserving a concurrent move. */
-	async backlog(id: number): Promise<Task> {
-		return this.tasks.locked(async () => {
-			const { state } = await this.tasks.find(id);
-			if (state.lane === null && state.takenBy === null) {
-				await this.tasks.save({ ...state, lane: BACKLOG_LANE });
-				await this.tasks.renumber(settle(await this.tasks.stored()));
-			}
-			return this.tasks.find(id);
-		});
-	}
 
 	/**
 	 * Moves every task in lane `from` to the bottom of lane `into`, in the
@@ -54,14 +43,21 @@ export class TaskLanes {
 		});
 	}
 
-	/** Starts an empty lane called `name`, after the others. */
-	async addLane(name: string): Promise<LaneRecord> {
+	/** Starts an empty lane called `name`, after the others, on `board` or the default one. */
+	async addLane(name: string, board = DEFAULT_BOARD): Promise<LaneRecord> {
 		return this.tasks.locked(async () => {
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
+			if (!(await this.boards()).some((each) => each.id === board)) {
+				fail("not_found", `no board ${board}`, { board });
+			}
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
-			const record = { id: await this.nextLaneId(states), name: called };
+			const record = {
+				id: await this.nextLaneId(states),
+				name: called,
+				board,
+			};
 			await this.writeLanes([...records, record]);
 			return record;
 		});
@@ -86,33 +82,97 @@ export class TaskLanes {
 	}
 
 	/**
-	 * Puts lane `id` at `position` among the lanes, 1 the first column, past
-	 * the last meaning the last; the others close up around it.
+	 * Puts lane `id` at `position`, 1 the first column, past the last meaning
+	 * the last; the others close up around it. With a `board` the position is
+	 * among that board's lanes; without one the lane stays on its board and
+	 * the position is among every lane. Without a `position` it goes last. Its tasks, queue state and links do not change.
 	 */
-	async moveLane(id: number, position: number): Promise<LaneRecord[]> {
-		if (!Number.isInteger(position) || position <= 0) {
+	async moveLane(
+		id: number,
+		position?: number,
+		board?: number,
+	): Promise<LaneRecord[]> {
+		if (
+			position !== undefined &&
+			(!Number.isInteger(position) || position <= 0)
+		) {
 			fail("usage", `'${position}' is not a position: 1 is the first lane`, {
 				position,
 			});
 		}
 		if (id === BACKLOG_LANE) {
-			fail(
-				"usage",
-				"Backlog is static: it always comes first, after untriaged",
-				{
-					lane: id,
-				},
-			);
+			fail("usage", "Backlog is static: it always comes first", {
+				lane: id,
+			});
 		}
 		return this.tasks.locked(async () => {
 			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
-			const moved = records.find((record) => record.id === id) as LaneRecord;
+			const found = records.find((record) => record.id === id) as LaneRecord;
+			const onto = board ?? found.board ?? DEFAULT_BOARD;
+			if (!(await this.boards()).some((each) => each.id === onto)) {
+				fail("not_found", `no board ${onto}`, { board: onto });
+			}
+			const moved = { ...found, board: onto };
 			const rest = records.filter((record) => record.id !== id);
-			// Past Backlog, which stays first.
-			const at = Math.min(Math.max(position - 1, 1), rest.length);
-			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
+			if (board === undefined) {
+				// Among every lane, as the board lists them; Backlog stays first.
+				const at = Math.min(
+					Math.max((position ?? rest.length + 1) - 1, 1),
+					rest.length,
+				);
+				const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
+				await this.writeLanes(order);
+				return order;
+			}
+			const peers = rest.filter((record) => record.board === onto);
+			// Past Backlog, which stays first on its board.
+			const floor = peers[0]?.id === BACKLOG_LANE ? 1 : 0;
+			const at = Math.min(
+				Math.max((position ?? peers.length + 1) - 1, floor),
+				peers.length,
+			);
+			// Right after the lane it follows on the board, or before the
+			// first one, or last when the board is empty.
+			const after = peers[at - 1];
+			const before = peers[at];
+			let index = rest.length;
+			if (after !== undefined) {
+				index = rest.indexOf(after) + 1;
+			} else if (before !== undefined) {
+				index = rest.indexOf(before);
+			}
+			const order = [...rest.slice(0, index), moved, ...rest.slice(index)];
 			await this.writeLanes(order);
+			return order;
+		});
+	}
+
+	/**
+	 * Puts board `id` at `position` among the boards, 1 the first, past the
+	 * last meaning the last; the others close up around it.
+	 */
+	async moveBoard(id: number, position: number): Promise<BoardRecord[]> {
+		if (!Number.isInteger(position) || position <= 0) {
+			fail("usage", `'${position}' is not a position: 1 is the first board`, {
+				position,
+			});
+		}
+		return this.tasks.locked(async () => {
+			const boards = await this.boards();
+			const moved = boards.find((each) => each.id === id);
+			if (moved === undefined) {
+				fail("not_found", `no board ${id}`, { board: id });
+			}
+			const rest = boards.filter((each) => each.id !== id);
+			const at = Math.min(position - 1, rest.length);
+			const order = [...rest.slice(0, at), moved, ...rest.slice(at)].map(
+				(each, i) => ({ ...each, position: i + 1 }),
+			);
+			await this.tasks.store.records.write(
+				"boards",
+				`${JSON.stringify(order, null, "\t")}\n`,
+			);
 			return order;
 		});
 	}
@@ -151,7 +211,7 @@ export class TaskLanes {
 		});
 	}
 
-	/** Removes lane `id`, putting its tasks back in none, untriaged. */
+	/** Removes lane `id`, putting its tasks back in Backlog. */
 	async dropLane(
 		id: number,
 		opts: { emptyOnly?: boolean } = {},
@@ -173,7 +233,11 @@ export class TaskLanes {
 				);
 			}
 			for (const state of states.filter((state) => state.lane === id)) {
-				await this.tasks.save({ ...state, lane: null });
+				await this.tasks.save({
+					...state,
+					lane: BACKLOG_LANE,
+					grooming: state.grooming ?? PLACED,
+				});
 			}
 			await this.writeLanes(records.filter((record) => record.id !== id));
 		});
@@ -238,7 +302,7 @@ export class TaskLanes {
 					continue;
 				}
 				let lane = state.lane;
-				if (lane === null) {
+				if (lane === null || lane === BACKLOG_LANE) {
 					const [tag] = [...tags].sort(
 						(left, right) =>
 							(counts.get(right) ?? 0) - (counts.get(left) ?? 0) ||
@@ -249,7 +313,11 @@ export class TaskLanes {
 						(each) => each.name.toLowerCase() === name.toLowerCase(),
 					);
 					if (record === undefined) {
-						record = { id: await this.nextLaneId(states), name };
+						record = {
+							id: await this.nextLaneId(states),
+							name,
+							board: DEFAULT_BOARD,
+						};
 						records.push(record);
 						await this.writeLanes(records);
 					}
@@ -278,7 +346,7 @@ export class TaskLanes {
 		name?: string,
 	): Promise<number | null> {
 		if (lane === null) {
-			return null;
+			return BACKLOG_LANE;
 		}
 		if (lane !== "new") {
 			lacking(await this.records(states), lane);
@@ -305,7 +373,11 @@ export class TaskLanes {
 						records.map((each) => each.name),
 					)
 				: laneName(name, records);
-		const record = { id: await this.nextLaneId(states), name: called };
+		const record = {
+			id: await this.nextLaneId(states),
+			name: called,
+			board: DEFAULT_BOARD,
+		};
 		await this.writeLanes([...records, record]);
 		return record;
 	}
@@ -335,12 +407,89 @@ export class TaskLanes {
 	async records(states: TaskRecord[]): Promise<LaneRecord[]> {
 		const records = await this.read("lanes");
 		if (!records.some((record) => record.id === BACKLOG_LANE)) {
-			records.push({ id: BACKLOG_LANE, name: "Backlog" });
+			records.push({
+				id: BACKLOG_LANE,
+				name: "Backlog",
+				board: DEFAULT_BOARD,
+			});
 		}
-		// Backlog is static: always the first lane, right after untriaged.
-		const backlog = records.filter((record) => record.id === BACKLOG_LANE);
-		const others = records.filter((record) => record.id !== BACKLOG_LANE);
+		// A lane whose board is gone, or one from before boards, is on the
+		// default board; Backlog is always there.
+		const boards = await this.boards();
+		const placed = records.map((record) =>
+			record.id === BACKLOG_LANE ||
+			!boards.some((board) => board.id === record.board)
+				? { ...record, board: DEFAULT_BOARD }
+				: record,
+		);
+		// Backlog is static: always the first lane.
+		const backlog = placed.filter((record) => record.id === BACKLOG_LANE);
+		const others = placed.filter((record) => record.id !== BACKLOG_LANE);
 		return named(states, [...backlog, ...others]);
+	}
+
+	/**
+	 * The project's boards, in order. A project from before boards has the
+	 * default one alone, which every lane is on.
+	 */
+	async boards(): Promise<BoardRecord[]> {
+		const raw = await this.tasks.store.records.read("boards").catch(() => null);
+		try {
+			return boardsOf(raw === null ? null : JSON.parse(raw));
+		} catch {
+			return boardsOf(null);
+		}
+	}
+
+	/** Starts a board called `name`, after the others. */
+	async addBoard(name: string): Promise<BoardRecord> {
+		return this.tasks.locked(async () => {
+			const boards = await this.boards();
+			const called = boardName(name, boards);
+			const id = Math.max(...boards.map((each) => each.id)) + 1;
+			const added = {
+				id,
+				name: called,
+				position: boards.length + 1,
+				archived: false,
+			};
+			await this.writeBoards([...boards, added]);
+			return added;
+		});
+	}
+
+	/** Calls board `id` by another name. */
+	async renameBoard(id: number, name: string): Promise<BoardRecord> {
+		return this.tasks.locked(async () => {
+			const boards = await this.boards();
+			const found = boards.find((each) => each.id === id);
+			if (!found) {
+				fail("not_found", `no board ${id}`, { board: id });
+			}
+			const renamed = {
+				...found,
+				name: boardName(
+					name,
+					boards.filter((each) => each.id !== id),
+				),
+			};
+			await this.writeBoards(
+				boards.map((each) => (each.id === id ? renamed : each)),
+			);
+			return renamed;
+		});
+	}
+
+	/** Writes the boards whole, in order. Call it under the lock. */
+	private async writeBoards(boards: BoardRecord[]): Promise<void> {
+		await this.tasks.store.records.write(
+			"boards",
+			`${JSON.stringify(
+				boards.map(({ id, name, archived }) => ({ id, name, archived })),
+				null,
+				"\t",
+			)}\n`,
+		);
 	}
 
 	/**
@@ -371,7 +520,11 @@ export class TaskLanes {
 						(each) =>
 							Number.isInteger(each?.id) && typeof each?.name === "string",
 					)
-					.map(({ id, name }) => ({ id, name }));
+					.map(({ id, name, board }) => ({
+						id,
+						name,
+						board: Number.isInteger(board) ? board : DEFAULT_BOARD,
+					}));
 			}
 		} catch {}
 		return [];
@@ -402,6 +555,25 @@ export class TaskLanes {
 			`${JSON.stringify(records, null, "\t")}\n`,
 		);
 	}
+}
+
+/** `name` trimmed, refused when empty or another board's. */
+function boardName(name: string, others: BoardRecord[]): string {
+	const trimmed = name.trim();
+	if (trimmed === "") {
+		fail("usage", "a board needs a name", {});
+	}
+	const same = others.find(
+		(other) => other.name.toLowerCase() === trimmed.toLowerCase(),
+	);
+	if (same) {
+		fail(
+			"exists",
+			`board ${same.id} is already called '${same.name}': pick another name`,
+			{ board: same.id, name: same.name },
+		);
+	}
+	return trimmed;
 }
 
 /** The lane a tag becomes: `dark-mode` is `Dark mode`. */

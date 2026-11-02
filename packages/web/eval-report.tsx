@@ -1,8 +1,5 @@
-import type {
-	EvalCell,
-	EvalGrid,
-} from "@stringsync/splates-server/evals/browser";
-import { targetName } from "@stringsync/splates-server/evals/browser";
+import type { EvalCell, EvalGrid } from "@splates/server/evals/browser";
+import { targetName } from "@splates/server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";

@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import type { IdProvider } from "core/id";
 import type { AgentChoice } from "./agent-choice";
 import type { PageCopy } from "./page-copy";

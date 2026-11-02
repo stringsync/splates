@@ -1,7 +1,7 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { Needing } from "@stringsync/splates-server/plans";
-import { keyOf } from "@stringsync/splates-server/push/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { Needing } from "@splates/server/plans";
+import { keyOf } from "@splates/server/push/browser";
+import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useRef, useState } from "react";

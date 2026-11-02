@@ -53,7 +53,7 @@ describe("readGraph", () => {
 			"vexml",
 			"sound2score",
 		]);
-		expect(of("splates")?.packages).toEqual(["@stringsync/splates-server"]);
+		expect(of("splates")?.packages).toEqual(["@splates/server"]);
 		expect(of("splates")?.uses).toEqual([
 			{
 				project: "wren",

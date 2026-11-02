@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EvalGrid } from "@stringsync/splates-server/evals/browser";
+import type { EvalGrid } from "@splates/server/evals/browser";
 import { lastResults, sectionsOf } from "./eval-scenarios";
 
 function grid(

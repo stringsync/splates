@@ -8,15 +8,11 @@ import {
 	laneUpdate,
 	laneUpdated,
 	recordLaneRemove,
-} from "@stringsync/splates-server/board";
-import { refuseGroomer } from "@stringsync/splates-server/conversations";
-import { UNTRIAGED } from "@stringsync/splates-server/plans";
-import {
-	refuseAgentQueue,
-	sayUnqueuedBlockers,
-} from "@stringsync/splates-server/queue";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+} from "@splates/server/board";
+import { refuseGroomer } from "@splates/server/conversations";
+import { refuseAgentQueue, sayUnqueuedBlockers } from "@splates/server/queue";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 import { position } from "./flags";
@@ -45,30 +41,28 @@ splatesLane
 	.command("show")
 	.use(repository({ needs: "read" }))
 	.description(
-		"one lane step by step, and what its agent does next: start the next task, or wait for the one blocking it in another lane to land first; `untriaged` lists the tasks in no lane, to place in lanes",
+		"one lane step by step, and what its agent does next: start the next task, or wait for the one blocking it in another lane to land first; `backlog` lists the tasks waiting to be groomed and placed",
 	)
-	.arg(
-		"lane",
-		z.union([z.literal(UNTRIAGED).transform(() => null), laneNumber], {
-			error: "pass a lane's number, backlog, or untriaged",
-		}),
-		{ description: "lane number, `backlog`, or `untriaged`" },
-	)
+	.arg("lane", laneNumber, { description: "lane number, or `backlog`" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => laneShow(ctx, opts.lane, { json: opts.json }));
 
 splatesLane
 	.command("add")
 	.use(repository({ needs: "tasks" }))
-	.description("start an empty lane, after the others")
+	.description("start an empty lane, after the others on its board")
 	.arg("name", z.string(), {
 		description: "what its tasks are for, like `Licensing`",
+	})
+	.option("board", z.coerce.number().int().positive().optional(), {
+		description:
+			"the board it goes on (`splates board list`); the default board when absent",
 	})
 	.action(async (opts, ctx) => {
 		await ctx.journal.record(
 			"lane add",
 			null,
-			() => laneAdd(ctx, opts.name),
+			() => laneAdd(ctx, opts.name, opts.board),
 			(lane) => ({ lane: lane.id, name: lane.name }),
 		);
 	});
@@ -76,7 +70,9 @@ splatesLane
 splatesLane
 	.command("update")
 	.use(repository({ needs: "tasks" }))
-	.description("rename a lane, or move it among the others")
+	.description(
+		"rename a lane, move it among the others, or move it to another board",
+	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
@@ -87,8 +83,16 @@ splatesLane
 		description:
 			"where to move it among the lanes, 1 the first column on the board; the others close up around it",
 	})
+	.option("board", z.coerce.number().int().positive().optional(), {
+		description:
+			"move it to this board (`splates board list`), at --position there or last; Backlog stays put",
+	})
 	.action(async (opts, ctx) => {
-		const change = { name: opts.name, position: opts.position };
+		const change = {
+			name: opts.name,
+			position: opts.position,
+			board: opts.board,
+		};
 		await ctx.journal.record(
 			"lane update",
 			null,

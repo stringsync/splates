@@ -3,7 +3,7 @@ import type {
 	SetupProgress,
 	StepAnswers,
 	StepProgress,
-} from "@stringsync/splates-server/setup";
+} from "@splates/server/setup";
 import { Dispatcher, type Eventful } from "core/events";
 import { saveCred } from "./api";
 import { nextSetupStep, setup } from "./setup-api";

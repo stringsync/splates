@@ -1,9 +1,6 @@
-import { deferralBlockers } from "@stringsync/splates-server/board/browser";
-import {
-	type Needing,
-	unanswered,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import { deferralBlockers } from "@splates/server/board/browser";
+import { type Needing, unanswered } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { useContext, useMemo } from "react";
 import type { BoardContext } from "./board";
 import { Board } from "./board";
@@ -80,8 +77,13 @@ export function useRowTags({
 }: Needing): readonly string[] | undefined {
 	const board = useContext(Board);
 	const name = conversation?.task ?? conversation?.lastTask;
+	const held = conversation?.heldForTask;
 	return (
 		task?.tags ??
+		// A queued row has no task yet: the board task it waits for names them.
+		(held == null
+			? undefined
+			: board.todos.find((each) => each.id === held)?.labels) ??
 		(name == null ? undefined : board.taskTags?.get(name)) ??
 		conversation?.lastTags ??
 		undefined
@@ -144,7 +146,7 @@ function fullStatus(
 		return { text: "Running evals", urgent: false };
 	}
 	if (conversation?.heldForTask != null) {
-		return { text: "Queued", urgent: false };
+		return { text: "Agent assigned · waiting to start", urgent: false };
 	}
 	if (conversation?.status === "starting") {
 		return {

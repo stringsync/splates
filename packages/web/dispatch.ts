@@ -1,9 +1,6 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { AgentPick } from "@stringsync/splates-server/models";
-import {
-	effortSettings,
-	thinkingOf,
-} from "@stringsync/splates-server/models/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import type { AgentPick } from "@splates/server/models";
+import { effortSettings, thinkingOf } from "@splates/server/models/browser";
 import {
 	type DemoPoint,
 	demoReference,
@@ -14,8 +11,8 @@ import {
 	orphaned,
 	taskNumberReference,
 	taskReference,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { agentFor, NEW, newAddress, settingsFor } from "./conversation-address";
 import {
 	promptConversation,

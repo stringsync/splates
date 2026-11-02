@@ -3,12 +3,9 @@ import type {
 	EvalLaunch,
 	EvalPlan,
 	EvalScenario,
-} from "@stringsync/splates-server/evals/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
-import type {
-	EvalAsk,
-	PermissionProposal,
-} from "@stringsync/splates-server/plans";
+} from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
+import type { EvalAsk, PermissionProposal } from "@splates/server/plans";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration, SystemTimer, type Timer } from "core/time";

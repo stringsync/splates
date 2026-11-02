@@ -1,4 +1,4 @@
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 import { type JSX, useContext } from "react";
 import { lineOf } from "./event-lines";
 import { EndedMergeCard, LiveMergeCard, MergeCardContext } from "./merge-card";

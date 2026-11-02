@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdirSync } from "node:fs";
 import { Testing } from "../testing";
 import { ReleaseGit } from "./git";
 
@@ -45,6 +46,27 @@ describe("ReleaseGit", () => {
 		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "task only");
 		await env.gitCli(env.root, "tag", "v2.0.0");
 		expect(await git.changes("2.0.0")).toMatchObject({ commits: null });
+	});
+
+	it("counts a project's commits since the one that stamped its version, under its own paths", async () => {
+		mkdirSync(`${env.root}/a`);
+		mkdirSync(`${env.root}/b`);
+		await env.commit(
+			env.root,
+			"a/package.json",
+			'{"version": "3.0.0"}',
+			"Release 3.0.0",
+		);
+		await env.commit(env.root, "b/file.txt", "other", "another project's work");
+		expect(await git.changes("3.0.0", ["a/**"])).toMatchObject({
+			commits: 0,
+			tag: "v3.0.0",
+		});
+		await env.commit(env.root, "a/file.txt", "mine", "unreleased work");
+		expect(await git.changes("3.0.0", ["a/**"])).toMatchObject({ commits: 1 });
+		expect(await git.changes("9.9.9", ["a/**"])).toMatchObject({
+			commits: null,
+		});
 	});
 
 	it("pushes unpushed commits and verifies the remote ref", async () => {

@@ -1,13 +1,9 @@
 import { dirname } from "node:path";
-import { loadConfig } from "@stringsync/splates-server/config";
-import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
-import { fail } from "@stringsync/splates-server/exit";
-import { Projects } from "@stringsync/splates-server/projects";
-import {
-	FORMAT,
-	ProjectHome,
-	repository,
-} from "@stringsync/splates-server/records";
+import { loadConfig } from "@splates/server/config";
+import { SYSTEM_STORES } from "@splates/server/creds";
+import { fail } from "@splates/server/exit";
+import { Projects } from "@splates/server/projects";
+import { FORMAT, ProjectHome, repository } from "@splates/server/records";
 import {
 	openReplica,
 	REPLICA_ACCESS_KEY,
@@ -15,8 +11,8 @@ import {
 	Replicator,
 	restoreFromReplica,
 	statusLines,
-} from "@stringsync/splates-server/replica";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+} from "@splates/server/replica";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { Credentials } from "core/creds";
 import { z } from "zod";

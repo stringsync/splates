@@ -1,12 +1,8 @@
-import { age } from "@stringsync/splates-server/age";
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import {
-	CLARITIES,
-	DEPTHS,
-	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
-import type { TaskRecord } from "@stringsync/splates-server/board/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import { age } from "@splates/server/age";
+import type { AutoPicked } from "@splates/server/auto-pick";
+import { CLARITIES, DEPTHS, KINDS } from "@splates/server/auto-pick/browser";
+import type { TaskRecord } from "@splates/server/board/browser";
+import type { Details } from "@splates/server/tasks";
 import { ChevronRightIcon, PencilIcon, ZapIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

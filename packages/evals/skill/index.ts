@@ -9,11 +9,7 @@ import {
 	runBatch,
 	type SkillUsed,
 } from "@evals/evals/run";
-import {
-	type EvalDetail,
-	EvalStore,
-	targetName,
-} from "@stringsync/splates-server/evals";
+import { type EvalDetail, EvalStore, targetName } from "@splates/server/evals";
 import { splatesSandbox } from "./box";
 import { SCENARIOS } from "./scenarios";
 

@@ -4,9 +4,10 @@ import type {
 	CascadeStep,
 	Ship,
 	ShipStep,
+	StageKey,
 	StageState,
-} from "@stringsync/splates-server/ship";
-import { shipName } from "@stringsync/splates-server/ship/browser";
+} from "@splates/server/ship";
+import { shipName } from "@splates/server/ship/browser";
 import { Duration } from "core/time";
 import { ExternalLinkIcon, RotateCcwIcon, SquareIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useState } from "react";
@@ -51,7 +52,8 @@ export function ShipRun({
 	sendToAgent?: (failure: {
 		id: string;
 		project: string;
-		stage: string | null;
+		stage: StageKey | null;
+		note: string | null;
 	}) => Promise<void>;
 	/** Puts away a run that stopped. */
 	onClose: () => void;
@@ -118,6 +120,7 @@ export function ShipRun({
 								stage:
 									failed.stages.find((stage) => stage.state === "failed")
 										?.key ?? null,
+								note: failed.note ?? null,
 							}),
 						"Not sent to an agent",
 					)
@@ -260,8 +263,8 @@ function ShipJobs({
 		cascade.steps.find((each) => each.slug === asked?.slug) ??
 		current;
 	return (
-		<div className="grid min-w-0 gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
-			<nav aria-label="Ship jobs" className="flex flex-col gap-1.5">
+		<div className="grid min-w-0 overflow-hidden rounded-lg border bg-card md:grid-cols-[14rem_minmax(0,1fr)] md:divide-x">
+			<nav aria-label="Ship jobs" className="flex flex-col gap-1.5 p-2">
 				<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Jobs
 				</h3>
@@ -297,7 +300,7 @@ function ShipJobs({
 				))}
 			</nav>
 			{step !== undefined && (
-				<div className="min-w-0 rounded-lg border bg-card p-6">
+				<div className="min-w-0 p-4">
 					<ol aria-label="Ship cascade" className="flex flex-col">
 						<ProjectStage
 							key={step.slug}

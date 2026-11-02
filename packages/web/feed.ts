@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration, SystemTimer, type Timer } from "core/time";

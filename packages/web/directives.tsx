@@ -1,5 +1,5 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
-import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
+import { SERVER_TOLD } from "@splates/server/conversations/browser";
 import {
 	APPROVE,
 	DIRECTIVES,
@@ -9,7 +9,7 @@ import {
 	RUN_ALLOWED,
 	RUN_DENIED,
 	UNTRIAGED,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import { UtensilsIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";

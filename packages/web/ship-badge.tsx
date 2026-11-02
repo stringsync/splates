@@ -1,8 +1,11 @@
-import { SHIP_KEY } from "@stringsync/splates-server/push/browser";
+import { SHIP_KEY } from "@splates/server/push/browser";
+import { useReactive } from "core/react";
 import { TerminalIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { BackgroundOutput } from "./background-output";
 import { Output } from "./background-pane";
+import { cn } from "./lib/utils";
+import { CopyFrame } from "./ship-copy";
 import type { Opened } from "./worker";
 
 /**
@@ -43,13 +46,47 @@ export function ShipOutput({ project }: { project: string }): JSX.Element {
 			),
 	);
 	useEffect(() => () => output.dispose(), [output]);
+	const { printed, status } = useReactive(
+		output,
+		(output) => ({ printed: output.printed, status: output.status }),
+		["changed"],
+	);
+	const finished = status === "ended" || status === "closed";
+	const compact = !printed && finished;
 	return (
-		<div className="min-h-48 overflow-hidden rounded-lg bg-[#0a0a0a]">
+		<CopyFrame
+			title="Terminal"
+			read={() => output.text()}
+			className="overflow-hidden bg-[#0a0a0a]"
+		>
 			<div className="flex items-center gap-1.5 border-b border-white/10 px-2 py-1 font-mono text-xs text-white/50">
 				<TerminalIcon className="size-3" />
 				Terminal
 			</div>
-			<Output output={output} className="h-56 min-h-40 overflow-hidden p-2" />
-		</div>
+			<div className="relative">
+				<Output
+					output={output}
+					className={cn(
+						"overflow-hidden p-2 transition-[height] duration-200",
+						compact ? "h-10" : "h-56 min-h-40",
+					)}
+				/>
+				{!printed && (
+					<div
+						role="status"
+						className="pointer-events-none absolute inset-0 p-2 font-mono text-[13px] text-white/40"
+					>
+						{finished ? (
+							"This step printed nothing"
+						) : (
+							<>
+								Running…
+								<span className="ml-1 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse bg-white/50" />
+							</>
+						)}
+					</div>
+				)}
+			</div>
+		</CopyFrame>
 	);
 }

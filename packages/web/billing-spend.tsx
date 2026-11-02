@@ -2,7 +2,7 @@ import type {
 	BillingView,
 	SpendReport,
 	SpendTotal,
-} from "@stringsync/splates-server/spend";
+} from "@splates/server/spend";
 import { useReactive } from "core/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useMemo, useState } from "react";

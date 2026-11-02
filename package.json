@@ -1,6 +1,6 @@
 {
 	"name": "splates",
-	"version": "1.13.5",
+	"version": "1.13.6",
 	"private": true,
 	"type": "module",
 	"workspaces": {
@@ -16,12 +16,12 @@
 		],
 		"catalog": {
 			"@types/bun": "^1.4",
+			"zod": "^4.4.3",
 			"@happy-dom/global-registrator": "^20.3.1",
 			"@testing-library/react": "^16.3.1",
 			"@types/react": "^19.1.13",
 			"react": "^19.2.4",
-			"react-dom": "^19.2.4",
-			"zod": "^4.4.3"
+			"react-dom": "^19.2.4"
 		}
 	},
 	"devDependencies": {

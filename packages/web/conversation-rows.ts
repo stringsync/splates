@@ -1,5 +1,5 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { TaskRecord } from "@splates/server/board";
+import type { ConversationState } from "@splates/server/conversations";
 import {
 	answeredThrough,
 	externals,
@@ -7,8 +7,8 @@ import {
 	type Needing,
 	need,
 	waitsOnYou,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { arriveAt } from "./arrivals";
 import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";

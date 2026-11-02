@@ -5,6 +5,8 @@ import { QueueMoves, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { protectBacklog } from "./backlog";
+import { BoardLifecycle } from "./board-lifecycle";
+import { DEFAULT_BOARD } from "./boards";
 import {
 	type ElsewhereBlocker,
 	type ElsewhereBoards,
@@ -205,24 +207,64 @@ export class BoardRoutes {
 		return Response.json(lane);
 	};
 
+	readonly addBoard = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const { name } = await body(request);
+		const board = await journal.record(
+			"board add",
+			null,
+			() => tasks.addBoard(String(name ?? "")),
+			(added) => ({ board: added.id, name: added.name }),
+		);
+		this.#watch.tick();
+		return Response.json(board);
+	};
+
+	readonly renameBoard = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const id = Number(new URL(request.url).pathname.split("/").at(-1));
+		if (!Number.isInteger(id)) {
+			fail("usage", "that is not a board", {});
+		}
+		const { name } = await body(request);
+		const board = await journal.record(
+			"board rename",
+			null,
+			() => tasks.renameBoard(id, String(name ?? "")),
+			(renamed) => ({ board: renamed.id, name: renamed.name }),
+		);
+		this.#watch.tick();
+		return Response.json(board);
+	};
+
 	// A new name, a new place among the lanes, or both; `queued` queues every
 	// task waiting in it now, or takes its queued ones out, as `splates lane
 	// queue` and `unqueue` do.
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		const { name, position, queued } = await body(request);
+		const { name, position, board, queued } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
+			board: board === undefined ? undefined : Number(board),
 		};
 		let lane: LaneRecord | undefined;
-		if (change.name !== undefined || change.position !== undefined) {
+		if (
+			change.name !== undefined ||
+			change.position !== undefined ||
+			change.board !== undefined
+		) {
 			lane = await journal.record(
 				"lane update",
 				null,
 				async () => (await tasks.changeLane(id, change)).record,
-				(record) => laneUpdated(id, record ?? { id, name: "" }, change),
+				(record) =>
+					laneUpdated(
+						id,
+						record ?? { id, name: "", board: DEFAULT_BOARD },
+						change,
+					),
 			);
 		}
 		if (queued !== undefined) {
@@ -230,6 +272,19 @@ export class BoardRoutes {
 		}
 		this.#watch.tick();
 		return Response.json(lane ?? { id });
+	};
+
+	/** Puts a board at a position among the boards, `{position}`, 1 the first. */
+	readonly moveBoard = async (request: Request): Promise<Response> => {
+		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+		const id = Number(raw);
+		if (raw === "" || !Number.isInteger(id) || id <= 0) {
+			fail("usage", `'${raw}' is not a board`, { board: raw });
+		}
+		const { position } = await body(request);
+		const order = await this.#project.tasks.moveBoard(id, Number(position));
+		this.#watch.tick();
+		return Response.json(order);
 	};
 
 	readonly assignQueued = async (request: Request): Promise<Response> => {
@@ -316,6 +371,46 @@ export class BoardRoutes {
 		await new QueueMoves(this.#project.tasks).move(found.id, position);
 		this.#watch.tick();
 		return Response.json((await this.#project.tasks.find(found.id)).state);
+	};
+
+	// Puts a board away or brings it back with `archived`, true or false, or
+	// reorders it with `position`.
+	readonly updateBoard = async (request: Request): Promise<Response> => {
+		const { archived } = await body(request.clone());
+		if (archived === undefined) {
+			return this.moveBoard(request);
+		}
+		if (typeof archived !== "boolean") {
+			fail("usage", "say `archived`, true or false");
+		}
+		const { tasks } = this.#project;
+		const id = boardAt(request);
+		const lifecycle = new BoardLifecycle(tasks);
+		const board = await (archived
+			? lifecycle.archive(id)
+			: lifecycle.restore(id));
+		this.#watch.tick();
+		return Response.json(board);
+	};
+
+	/**
+	 * Deletes a board. The page asks the person first when its lanes hold
+	 * tasks, whose lanes go with it, kept to restore as removing a lane keeps
+	 * them.
+	 */
+	readonly dropBoard = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const id = boardAt(request);
+		const lifecycle = new BoardLifecycle(tasks);
+		await lifecycle.delete(id, {
+			force: true,
+			drop: (lane) =>
+				recordLaneRemove(journal, tasks, lane, () =>
+					laneRemove({ tasks, log: this.#project.log }, lane),
+				),
+		});
+		this.#watch.tick();
+		return Response.json({ board: id });
 	};
 
 	/** Removes a lane with the tasks in it, which can be put back. */
@@ -419,6 +514,16 @@ function laneAt(request: Request): number {
 	const id = Number(raw);
 	if (raw === "" || !Number.isInteger(id) || id < 0) {
 		fail("usage", `'${raw}' is not a lane`, { lane: raw });
+	}
+	return id;
+}
+
+/** The board a `/api/boards/<id>` path names. */
+function boardAt(request: Request): number {
+	const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+	const id = Number(raw);
+	if (raw === "" || !Number.isInteger(id) || id < 1) {
+		fail("usage", `'${raw}' is not a board`, { board: raw });
 	}
 	return id;
 }

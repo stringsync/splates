@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { combine, type Stats } from "@stringsync/splates-server/stats/browser";
+import { combine, type Stats } from "@splates/server/stats/browser";
 import { costRates } from "./cost-rates";
 
 describe("costRates", () => {

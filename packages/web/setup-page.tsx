@@ -1,13 +1,10 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import {
 	configChangeReference,
 	MERGE,
 	setupReference,
-} from "@stringsync/splates-server/plans/browser";
-import type {
-	AreaProgress,
-	StepProgress,
-} from "@stringsync/splates-server/setup";
+} from "@splates/server/plans/browser";
+import type { AreaProgress, StepProgress } from "@splates/server/setup";
 import { useReactive } from "core/react";
 import {
 	Fragment,

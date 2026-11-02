@@ -1,5 +1,5 @@
-import type { Decision, Tool } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Decision, Tool } from "@splates/server/conversations";
+import type { Event } from "@splates/server/records";
 import { EDITS, label, type Work } from "./work";
 
 /** One row of a turn's timeline. */

@@ -1,4 +1,4 @@
-import type { Cascade, Ship } from "@stringsync/splates-server/ship";
+import type { Cascade, Ship } from "@splates/server/ship";
 import { useEffect, useState } from "react";
 import { LiveStream } from "./live-stream";
 

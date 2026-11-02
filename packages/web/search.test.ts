@@ -20,6 +20,26 @@ const titles = (query: string, of: Searched) =>
 	]);
 
 describe("search", () => {
+	it("names a board task's board when the project has several", () => {
+		const boards = [
+			{ id: 1, name: "Main", position: 1, archived: false },
+			{ id: 2, name: "Ideas", position: 2, archived: false },
+		];
+		const lanes = [
+			{ id: 10, name: "A", board: 1 },
+			{ id: 11, name: "B", board: 2 },
+		];
+		const found = (of: Searched) =>
+			search("logo", of).flatMap((group) =>
+				group.found.map((each) => each.detail),
+			);
+		const todos = [todo({ id: 5, subject: "Logo", lane: 11 })];
+		expect(found(searched({ todos, lanes, boards }))).toEqual(["#5 · Ideas"]);
+		expect(
+			found(searched({ todos, lanes, boards: boards.slice(0, 1) })),
+		).toEqual(["#5"]);
+	});
+
 	it("ranks a title's start over a word in it over anywhere in it", () => {
 		const of = searched({
 			todos: [

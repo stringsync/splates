@@ -1,4 +1,4 @@
-import type { SpendTotal } from "@stringsync/splates-server/spend";
+import type { SpendTotal } from "@splates/server/spend";
 import { createContext, useContext } from "react";
 
 /** The currency the Billing page's amounts are in. */

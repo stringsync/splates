@@ -56,17 +56,6 @@ describe("AgentPlacement", () => {
 		});
 	});
 
-	it("places on this machine's worker alone, never a registered one", async () => {
-		registry.expect("box");
-		const any = slots.project("/repo");
-		const grants = await Promise.all(
-			["a", "b"].map((id) =>
-				any.take({ id, task: null, agent: "claude", automatic: true }, signal),
-			),
-		);
-		expect(grants.map((grant) => grant.worker)).toEqual(["local", "local"]);
-	});
-
 	it("says what each worker runs, by task or by conversation", async () => {
 		const any = slots.project("/repo");
 		await any.take(

@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import {
 	createContext,

@@ -34,9 +34,9 @@ describe.concurrent("task restore", () => {
 		expect(await deps.fs.readBytes(second.files[0] ?? "")).toEqual(
 			new Uint8Array([1]),
 		);
-		// Restoring does not reintroduce dependencies already cleared by removal.
+		// Those its removal held for the person wait on it again.
 		expect((await deps.tasks.find(3)).state).toMatchObject({
-			blockedBy: [],
+			blockedBy: [2],
 		});
 		expect((await deps.tasks.find(3)).state.blockersLost).toBeUndefined();
 		await expect(deps.tasks.restore(2)).toBail("not_found");

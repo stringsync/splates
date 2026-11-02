@@ -14,6 +14,10 @@ const UNINSTALL = "npm uninstall --global @opencode/cli";
 /** How the person signs OpenCode out of Go, which keeps its own copy of the key. */
 const LOGOUT = "opencode auth logout";
 
+/** Why an OpenCode step cannot be checked with no server, which the CLI reads to say so instead of counting steps. */
+export const OPENCODE_NEEDS_SERVER =
+	"OpenCode setup runs only under `splates server`.";
+
 /** OpenCode on an OpenCode Go account, beside the other agents. */
 export const OPENCODE_AREA: SetupArea = openCodeArea();
 
@@ -167,7 +171,7 @@ function openCodeArea(): SetupArea {
 /** The machine's OpenCode, which every OpenCode step reads. */
 function native(machine: SetupMachine): OpenCodeSetup {
 	if (machine.opencode === undefined) {
-		throw new Error("OpenCode setup runs only under `splates server`.");
+		throw new Error(OPENCODE_NEEDS_SERVER);
 	}
 	return machine.opencode;
 }

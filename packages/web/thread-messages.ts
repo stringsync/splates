@@ -3,10 +3,10 @@ import type {
 	ConversationState,
 	Message,
 	Part,
-} from "@stringsync/splates-server/conversations";
-import type { TaskReport } from "@stringsync/splates-server/plans/browser";
-import type { Event } from "@stringsync/splates-server/records";
-import { isEscalation } from "@stringsync/splates-server/records/browser";
+} from "@splates/server/conversations";
+import type { TaskReport } from "@splates/server/plans/browser";
+import type { Event } from "@splates/server/records";
+import { isEscalation } from "@splates/server/records/browser";
 import { useReactive } from "core/react";
 import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";

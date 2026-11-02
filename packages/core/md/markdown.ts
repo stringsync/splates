@@ -1,4 +1,4 @@
-// scry-ignore-file one-class-per-file: Section is a view Markdown hands out;
+// vet-ignore-file one-class-per-file: Section is a view Markdown hands out;
 // splitting the document model across files would hide that coupling
 /**
  * A markdown document you can pull data out of: frontmatter fields, sections

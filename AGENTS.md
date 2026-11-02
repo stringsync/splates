@@ -50,7 +50,7 @@ release tag with `bunx skills add`.
   processes or `bun:` modules breaks that build. When the page needs values
   from such a directory, put those in `browser.ts`, re-exported from
   browser-safe files only, and have the page import its values from
-  `@stringsync/splates-server/<dir>/browser`; `import type` from the index
+  `@splates/server/<dir>/browser`; `import type` from the index
   is erased and stays fine. Check with a browser `Bun.build` of `packages/web/main.tsx`.
 - In `packages/server/package.json`, one `exports` entry per directory,
   `"./<dir>": "./<dir>/index.ts"`, replacing the entries of the files it took

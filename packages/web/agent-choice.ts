@@ -1,4 +1,4 @@
-import type { Limit, Setting } from "@stringsync/splates-server/conversations";
+import type { Limit, Setting } from "@splates/server/conversations";
 
 /** An agent a conversation can be started with. */
 export interface AgentChoice {

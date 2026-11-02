@@ -1,13 +1,6 @@
-import type {
-	MergeEstimates,
-	QuarantinedTest,
-} from "@stringsync/splates-server/merge";
-import type {
-	Landed,
-	PeriodId,
-	Stats,
-} from "@stringsync/splates-server/stats/browser";
-import type { FileDiff } from "@stringsync/splates-server/tasks";
+import type { MergeEstimates, QuarantinedTest } from "@splates/server/merge";
+import type { Landed, PeriodId, Stats } from "@splates/server/stats/browser";
+import type { FileDiff } from "@splates/server/tasks";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**

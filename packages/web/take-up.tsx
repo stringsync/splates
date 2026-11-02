@@ -1,8 +1,8 @@
 import {
 	taskNumberReference,
 	taskReference,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { ListTodoIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import {

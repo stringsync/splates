@@ -1,10 +1,7 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import {
-	namedForTask,
-	openingOf,
-} from "@stringsync/splates-server/conversations/browser";
-import type { Need } from "@stringsync/splates-server/plans";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import { namedForTask, openingOf } from "@splates/server/conversations/browser";
+import type { Need } from "@splates/server/plans";
+import type { Details } from "@splates/server/tasks";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,

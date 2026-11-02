@@ -1,6 +1,6 @@
 {
-	"name": "@stringsync/splates-server",
-	"version": "1.13.5",
+	"name": "@splates/server",
+	"version": "1.13.6",
 	"private": true,
 	"description": "The Spinning Plates server and shared backend",
 	"type": "module",

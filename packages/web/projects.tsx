@@ -1,8 +1,5 @@
-import {
-	GENERAL,
-	GENERAL_NAME,
-} from "@stringsync/splates-server/projects/browser";
-import type { ServerChoice } from "@stringsync/splates-server/server";
+import { GENERAL, GENERAL_NAME } from "@splates/server/projects/browser";
+import type { ServerChoice } from "@splates/server/server";
 import { useReactive } from "core/react";
 import {
 	CheckIcon,

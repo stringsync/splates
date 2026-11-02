@@ -1,5 +1,5 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { Snapshot } from "@splates/server/tasks";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
 import { Board } from "./board";

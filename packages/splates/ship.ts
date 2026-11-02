@@ -1,6 +1,6 @@
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { DEFAULT_PORT } from "@stringsync/splates-server/server";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { DEFAULT_PORT } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 

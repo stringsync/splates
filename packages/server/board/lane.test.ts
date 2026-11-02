@@ -260,38 +260,6 @@ describe.concurrent("task links and lanes", () => {
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 
-	it("shows the untriaged tasks and how to place them in lanes", async () => {
-		await using deps = await Testing.open();
-		await seed(
-			deps.tasks,
-			sound2score().map((task) =>
-				task.id === 198 || task.id === 201
-					? { ...task, lane: null, blockedBy: task.id === 201 ? [177] : [] }
-					: task,
-			),
-		);
-		deps.log.clear();
-
-		await laneShow(deps, null);
-
-		const out = color.strip(deps.out());
-		expect(out).toContain("untriaged: 2 tasks in no lane");
-		expect(out).toContain("2. #198 Detect tempo in swing rhythms");
-		expect(out).toContain(
-			"1. #201 Rename the export menu  (blocked by #177 in Licensing)",
-		);
-		expect(out).toContain(
-			"next: place each in a lane, if one fits, linking what blocks each:",
-		);
-		expect(out).toContain("splates task update <id> --lane new");
-
-		await taskUpdate(deps, 198, { lane: 3 });
-		await taskUpdate(deps, 201, { lane: 3 });
-		deps.log.clear();
-		await laneShow(deps, null);
-		expect(color.strip(deps.out())).toContain("Nothing to place.");
-	});
-
 	it("goes on down the lane after a merge, waiting on another lane when it must", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
@@ -327,10 +295,12 @@ describe.concurrent("task links and lanes", () => {
 		const out = color.strip(deps.out());
 		expect(out).toContain("lane 1 only step is done");
 		expect(out).toContain("next task 2: elsewhere");
-		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 0, name: "Backlog", board: 1 },
+		]);
 		expect(await deps.tasks.laneNames()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "only step" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "only step", board: 1 },
 		]);
 	});
 
@@ -343,13 +313,13 @@ describe.concurrent("task links and lanes", () => {
 		await deps.tasks.dropLane(1);
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 2, name: "Billing" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 2, name: "Billing", board: 1 },
 		]);
 		expect(await deps.tasks.laneNames()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 2, name: "Billing" },
-			{ id: 1, name: "Licenses" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 2, name: "Billing", board: 1 },
+			{ id: 1, name: "Licenses", board: 1 },
 		]);
 	});
 
@@ -361,8 +331,8 @@ describe.concurrent("task links and lanes", () => {
 		await taskRemove(deps, 1);
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licensing", board: 1 },
 		]);
 	});
 
@@ -376,13 +346,15 @@ describe.concurrent("task links and lanes", () => {
 
 		await taskRemove(deps, 1);
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licensing", board: 1 },
 		]);
 		deps.log.clear();
 		await taskRemove(deps, 2);
 
-		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 0, name: "Backlog", board: 1 },
+		]);
 		expect(color.strip(deps.out())).toContain(
 			"lane 1 Licensing is done: nothing is left in it, so it is gone",
 		);
@@ -401,9 +373,9 @@ describe.concurrent("task links and lanes", () => {
 		await expect(laneUpdate(deps, 9, { name: "x" })).toBail("not_found");
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licensing" },
-			{ id: 2, name: "Score editor" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licensing", board: 1 },
+			{ id: 2, name: "Score editor", board: 1 },
 		]);
 		await laneRemove(deps, 2);
 		expect(await deps.tasks.all()).toEqual([]);
@@ -431,10 +403,10 @@ describe.concurrent("task links and lanes", () => {
 		expect(await order()).toEqual([0, 1, 2, 3]);
 		await laneUpdate(deps, 1, { name: "Licenses", position: 2 });
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licenses" },
-			{ id: 2, name: "Editor" },
-			{ id: 3, name: "Docs" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licenses", board: 1 },
+			{ id: 2, name: "Editor", board: 1 },
+			{ id: 3, name: "Docs", board: 1 },
 		]);
 		expect((await deps.tasks.find(1)).lane).toBe(3);
 
@@ -475,8 +447,8 @@ describe.concurrent("task links and lanes", () => {
 		await laneUpdate(deps, 1, { name: "Licenses" });
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licenses" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licenses", board: 1 },
 		]);
 		expect(await deps.readRecord("tasks/lanes")).not.toContain("assignee");
 	});

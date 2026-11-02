@@ -4,7 +4,7 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { aborts } from "core/abort";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdapters } from "./adapters";

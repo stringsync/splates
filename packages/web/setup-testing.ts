@@ -1,7 +1,4 @@
-import type {
-	SetupProgress,
-	StepProgress,
-} from "@stringsync/splates-server/setup";
+import type { SetupProgress, StepProgress } from "@splates/server/setup";
 
 /** Setup progress with two areas, agents required and dictation optional, for tests that need a server's answer. */
 export function setupProgress({
@@ -26,6 +23,7 @@ export function setupProgress({
 		why: "Only agents on the roster start.",
 		user: "Say which agents you have.",
 		agent: "Run `splates agents`.",
+		extra: false,
 		optional: false,
 		after: [],
 		status: agents,
@@ -44,6 +42,7 @@ export function setupProgress({
 		why: "The mic transcribes on your key.",
 		user: "Paste an OpenAI key.",
 		agent: "Request the key.",
+		extra: false,
 		optional: true,
 		after: [],
 		status: dictation,
@@ -73,6 +72,8 @@ export function setupProgress({
 		done: step.status === "done" ? 1 : 0,
 		skipped: step.status === "skipped" ? 1 : 0,
 		left: step.status === "ready" || step.status === "waiting" ? 1 : 0,
+		extras: 0,
+		complete: step.status === "done" || step.status === "skipped",
 		undoable: step.status === "done" || started.includes(id),
 		steps: [step],
 	});

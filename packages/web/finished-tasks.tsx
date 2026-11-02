@@ -1,8 +1,5 @@
-import { age } from "@stringsync/splates-server/age";
-import type {
-	FinishedPlan,
-	FinishedTask,
-} from "@stringsync/splates-server/tasks";
+import { age } from "@splates/server/age";
+import type { FinishedPlan, FinishedTask } from "@splates/server/tasks";
 import {
 	BotMessageSquareIcon,
 	CircleCheckIcon,

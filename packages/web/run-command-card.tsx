@@ -1,4 +1,4 @@
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
+import type { PermissionProposal } from "@splates/server/plans";
 import {
 	isWholeSuite,
 	RETRIED,
@@ -6,7 +6,7 @@ import {
 	RUN_DENIED,
 	retryOf,
 	shipOf,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import {
 	BanIcon,
 	CheckIcon,
@@ -21,6 +21,7 @@ import { actOnShip } from "./api";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
+import { useEnterDoes } from "./enter-while-taking";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
 import { NavigationContext } from "./navigation";
@@ -84,6 +85,12 @@ export function RunCommandCard({
 	const live = useLiveMachine(choice === null && retry === null);
 	const now = useNow(choice === null && retry === null);
 	const send = reply?.send ?? null;
+	const enterDoes = useEnterDoes(
+		panel,
+		send === null || busy !== null || ship !== null
+			? null
+			: () => turn(() => answer(RUN_ALLOWED, "Not allowed")),
+	);
 	const answer = (directive: string, failed: string): void => {
 		if (send === null) {
 			return;
@@ -180,6 +187,7 @@ export function RunCommandCard({
 						value={more}
 						placeholder="Your answer (optional)"
 						files={null}
+						onKeyDown={enterDoes}
 						onValue={(text) => {
 							written.current = text;
 							setMore(text);

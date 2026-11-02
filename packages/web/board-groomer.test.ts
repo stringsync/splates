@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AutomationRow } from "@stringsync/splates-server/hooks";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AutomationRow } from "@splates/server/hooks";
+import type { AgentPick } from "@splates/server/models";
 import { BoardGroomer } from "./board-groomer";
 
 describe("BoardGroomer", () => {

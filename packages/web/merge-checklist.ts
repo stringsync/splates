@@ -1,11 +1,7 @@
-import type { MergeEstimates } from "@stringsync/splates-server/merge";
-import type { Event, GatePhases } from "@stringsync/splates-server/records";
-import type {
-	Details,
-	LivePhase,
-	MergeStep,
-} from "@stringsync/splates-server/tasks";
-import { MERGE_STEPS } from "@stringsync/splates-server/tasks/browser";
+import type { MergeEstimates } from "@splates/server/merge";
+import type { Event, GatePhases } from "@splates/server/records";
+import type { Details, LivePhase, MergeStep } from "@splates/server/tasks";
+import { MERGE_STEPS } from "@splates/server/tasks/browser";
 import { placeInLine } from "./merge-place";
 
 /**

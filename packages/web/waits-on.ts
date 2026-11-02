@@ -1,8 +1,5 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import {
-	blockerLabel,
-	elsewhereName,
-} from "@stringsync/splates-server/board/browser";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
+import { blockerLabel, elsewhereName } from "@splates/server/board/browser";
 
 /** One thing a task waits on to start: a task here or in another project, and where it stands. */
 export interface Wait {

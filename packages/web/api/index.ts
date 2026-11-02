@@ -31,6 +31,7 @@ export {
 	stopEvalRun,
 } from "./evals";
 export {
+	addBoard,
 	addLane,
 	addTodo,
 	answerDeferral,
@@ -42,12 +43,15 @@ export {
 	fileUrl,
 	joinLanes,
 	linkTodo,
+	moveBoard,
 	moveInQueue,
 	moveLane,
+	moveLaneToBoard,
 	moveTodo,
 	queueLane,
 	queueTodo,
 	removeTodo,
+	renameBoard,
 	renameLane,
 	restoreTodo,
 	retryQueuedStart,

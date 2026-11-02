@@ -120,7 +120,7 @@ const Listings = z.object({
 	workers: z.array(
 		z.object({
 			id: z.string(),
-			kind: z.enum(["local", "registered"]),
+			kind: z.literal("local"),
 			platform: z.string().nullable(),
 			host: z.string().nullable().default(null),
 			build: z.string().nullable(),

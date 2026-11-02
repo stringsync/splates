@@ -2,6 +2,8 @@ import { relative, resolve, sep } from "node:path";
 import { type IdProvider, UuidProvider } from "core/id";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
+import { BACKLOG_LANE, PLACED } from "./backlog";
+import type { BoardRecord } from "./boards";
 import { changeLane } from "./change-lane";
 import { distinct } from "./elsewhere-links";
 import type { LaneUpdateOptions } from "./lane";
@@ -112,7 +114,7 @@ export class Tasks {
 				...(blockedElsewhere.length === 0
 					? {}
 					: { blockedElsewhere: distinct(blockedElsewhere) }),
-				lane: null,
+				lane: BACKLOG_LANE,
 				stage: "available",
 				...(origin === undefined ? {} : { origin }),
 				...(scope === undefined ? {} : { scope }),
@@ -123,6 +125,7 @@ export class Tasks {
 					{
 						...state,
 						lane: await this.laneFiles.laneId(lane, stored, [state]),
+						...(lane === BACKLOG_LANE ? { grooming: PLACED } : {}),
 					},
 					assignee,
 				),
@@ -232,9 +235,14 @@ export class Tasks {
 		return this.locked(async () => {
 			const states = await this.stored();
 			const state = states.find((other) => other.id === id) ?? missing(id);
+			const into = await this.laneFiles.laneId(lane, states, [state], name);
 			const moved = {
 				...state,
-				lane: await this.laneFiles.laneId(lane, states, [state], name),
+				lane: into,
+				// Placed in Backlog by hand, it needs no groomer.
+				...(into === BACKLOG_LANE && state.grooming === undefined
+					? { grooming: PLACED }
+					: {}),
 			};
 			const rest = states.filter((other) => other.id !== id);
 			let at: number;
@@ -244,9 +252,7 @@ export class Tasks {
 					missing(before);
 				}
 			} else {
-				const tail = rest.findLastIndex(
-					(other) => moved.lane !== null && other.lane === moved.lane,
-				);
+				const tail = rest.findLastIndex((other) => other.lane === moved.lane);
 				at =
 					tail === -1 ? states.findIndex((other) => other.id === id) : tail + 1;
 			}
@@ -258,14 +264,24 @@ export class Tasks {
 		});
 	}
 
-	/** Places an unmatched task in Backlog, preserving concurrent placement or taking. */
-	backlog(id: number): Promise<Task> {
-		return this.laneFiles.backlog(id);
-	}
-
 	/** Every lane, in board order. */
 	async lanes(): Promise<LaneRecord[]> {
 		return this.laneFiles.records(await this.stored());
+	}
+
+	/** The project's boards, in order. */
+	boards(): Promise<BoardRecord[]> {
+		return this.laneFiles.boards();
+	}
+
+	/** Starts a board called `name`, after the others. */
+	addBoard(name: string): Promise<BoardRecord> {
+		return this.laneFiles.addBoard(name);
+	}
+
+	/** Calls board `id` by another name. */
+	renameBoard(id: number, name: string): Promise<BoardRecord> {
+		return this.laneFiles.renameBoard(id, name);
 	}
 
 	/** The name of every lane there has been, those on the board first. */
@@ -278,9 +294,9 @@ export class Tasks {
 		return this.laneFiles.joinLanes(from, into);
 	}
 
-	/** Starts an empty lane called `name`, after the others. */
-	addLane(name: string): Promise<LaneRecord> {
-		return this.laneFiles.addLane(name);
+	/** Starts an empty lane called `name`, after the others, on `board` or the default one. */
+	addLane(name: string, board?: number): Promise<LaneRecord> {
+		return this.laneFiles.addLane(name, board);
 	}
 
 	/** Calls lane `id` by another name. */
@@ -288,9 +304,18 @@ export class Tasks {
 		return this.laneFiles.renameLane(id, name);
 	}
 
-	/** Puts lane `id` at `position` among the lanes, 1 the first column. */
-	moveLane(id: number, position: number): Promise<LaneRecord[]> {
-		return this.laneFiles.moveLane(id, position);
+	/** Puts lane `id` at `position` among the lanes of `board`, as `moveLane` says. */
+	moveLane(
+		id: number,
+		position?: number,
+		board?: number,
+	): Promise<LaneRecord[]> {
+		return this.laneFiles.moveLane(id, position, board);
+	}
+
+	/** Puts board `id` at `position` among the boards, 1 the first. */
+	moveBoard(id: number, position: number): Promise<BoardRecord[]> {
+		return this.laneFiles.moveBoard(id, position);
 	}
 
 	/** Makes each change asked of lane `id`, as `changeLane` says. */
@@ -306,7 +331,7 @@ export class Tasks {
 		return this.laneFiles.queueLane(id, queued);
 	}
 
-	/** Removes lane `id`, putting its tasks back in none, untriaged. */
+	/** Removes lane `id`, putting its tasks back in Backlog. */
 	dropLane(id: number, opts: { emptyOnly?: boolean } = {}): Promise<void> {
 		return this.laneFiles.dropLane(id, opts);
 	}
@@ -316,7 +341,7 @@ export class Tasks {
 		return this.laneFiles.endLanes(ids);
 	}
 
-	/** Moves tasks saved while splates kept tags into lanes, one lane a tag. */
+	/** Gives each tag that tasks were saved under a lane of its own, and moves those tasks into it. */
 	moveTagsToLanes(): Promise<{ lane: LaneRecord; tasks: number[] }[]> {
 		return this.laneFiles.moveTagsToLanes();
 	}
@@ -351,7 +376,9 @@ export class Tasks {
 	/**
 	 * @internal Removes one, moving those below it up to close the gap. What
 	 * came after it no longer waits on it, so no task is left naming one that
-	 * is gone. A merged blocker keeps the commit it landed as.
+	 * is gone. A merged blocker keeps the commit it landed as; one removed
+	 * without merging is kept as a lost blocker, which holds what came after
+	 * it for the person to let go of.
 	 */
 	async delete(id: number, landed?: string): Promise<boolean> {
 		return this.locked(async () => {
@@ -372,7 +399,7 @@ export class Tasks {
 						...state,
 						blockedBy: state.blockedBy.filter((before) => before !== id),
 						...(landed === undefined
-							? {}
+							? { blockersLost: [...(state.blockersLost ?? []), blocker] }
 							: {
 									blockersLanded: [
 										...(state.blockersLanded ?? []),
@@ -439,7 +466,10 @@ export class Tasks {
 			const restored = await this.save({
 				...state,
 				takenBy: null,
-				lane: lanes.some((lane) => lane.id === state.lane) ? state.lane : null,
+				lane: lanes.some((lane) => lane.id === state.lane)
+					? state.lane
+					: BACKLOG_LANE,
+				grooming: PLACED,
 				blockedBy: state.blockedBy.filter((before) =>
 					stored.some((other) => other.id === before),
 				),
@@ -592,6 +622,14 @@ export class Tasks {
 				].join("\n"),
 				{ number: found.state.id },
 			);
+		}
+		// Tasks from before Backlog held the ungroomed ones wait in no lane.
+		if (
+			found !== null &&
+			found.state.lane === null &&
+			found.state.takenBy === null
+		) {
+			return { ...found.state, lane: BACKLOG_LANE };
 		}
 		return found?.state ?? null;
 	}

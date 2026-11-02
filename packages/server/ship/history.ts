@@ -20,7 +20,14 @@ export interface CascadeSummary {
 	started: string;
 	ended: string | null;
 	/** Each project in it and where it stands, in dependency order. */
-	projects: { slug: string; status: string }[];
+	projects: {
+		slug: string;
+		status: string;
+		/** The version its ship took it to; null for a bump or before it ships. */
+		to: string | null;
+		/** Why it stopped or failed; null otherwise. */
+		note: string | null;
+	}[];
 }
 
 /** The ships the machine ran lately, the last {@link KEPT} of them with their steps and logs, for the page to list and open. */
@@ -65,6 +72,8 @@ export class ShipHistory {
 			projects: cascade.steps.map((step) => ({
 				slug: step.slug,
 				status: step.status,
+				to: step.to,
+				note: step.note,
 			})),
 		}));
 	}

@@ -1,6 +1,6 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { orphaned } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import { orphaned } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import type { JSX } from "react";
 import { UpdateDot } from "./release";
 

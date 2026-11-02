@@ -1,4 +1,4 @@
-import type { AreaProgress } from "@stringsync/splates-server/setup";
+import type { AreaProgress } from "@splates/server/setup";
 import { type JSX, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "../components/ui/button";
@@ -139,7 +139,7 @@ const SCREENS: Record<string, () => JSX.Element> = {
 		</JourneyDone>
 	),
 	// The dev server answers each area's plan from its fixtures.
-	undo: () => <UndoScreen area="workers" />,
+	undo: () => <UndoScreen area="dictation" />,
 	"undo-refused": () => <UndoScreen area="remote-access" />,
 };
 

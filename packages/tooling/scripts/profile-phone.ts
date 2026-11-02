@@ -16,8 +16,8 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { conversation } from "@stringsync/splates-server/fixtures";
+import type { ConversationState } from "@splates/server/conversations";
+import { conversation } from "@splates/server/fixtures";
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: string) => {

@@ -4,7 +4,7 @@ import {
 	type Stats,
 	type Tally,
 	type WorkedFrom,
-} from "@stringsync/splates-server/stats/browser";
+} from "@splates/server/stats/browser";
 import { Dispatcher, type Eventful } from "core/events";
 import { type CostRates, costRates } from "./cost-rates";
 import { type FlowRates, flowRates } from "./flow-rates";

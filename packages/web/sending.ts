@@ -1,8 +1,4 @@
-import type {
-	Attached,
-	Image,
-	Message,
-} from "@stringsync/splates-server/conversations";
+import type { Attached, Image, Message } from "@splates/server/conversations";
 import { Duration } from "core/time";
 
 /** How long a message goes unanswered before the page says it is still sending. */

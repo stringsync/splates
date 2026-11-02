@@ -1,7 +1,7 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import { lanesTaken } from "@stringsync/splates-server/board/browser";
-import { needs } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import { lanesTaken } from "@splates/server/board/browser";
+import { needs } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import {
 	type JSX,
 	useCallback,

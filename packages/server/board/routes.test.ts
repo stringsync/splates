@@ -32,7 +32,7 @@ describe("dev tasks", () => {
 				action: "task add",
 				number: task?.id,
 				subject: "write the docs",
-				lane: null,
+				lane: 0,
 				position: 1,
 			});
 		});
@@ -172,6 +172,7 @@ describe("dev tasks", () => {
 					await send("PUT", "/api/todos/2/lane", {
 						lane: "new",
 						name: "Second",
+						board: 1,
 					})
 				).status,
 			).toBe(200);
@@ -179,17 +180,18 @@ describe("dev tasks", () => {
 			expect((await snapshot()).lanes.find((lane) => lane.id === 3)).toEqual({
 				id: 3,
 				name: "Second",
+				board: 1,
 			});
 			// A lane goes with its tasks, each kept to put back, in no lane.
 			expect((await send("DELETE", "/api/lanes/3")).status).toBe(200);
 			expect(await state(2)).toBeUndefined();
 			expect((await snapshot()).lanes.map(({ id }) => id)).not.toContain(3);
 			expect((await send("POST", "/api/todos/2/restore")).status).toBe(200);
-			expect((await state(2))?.lane).toBeNull();
+			expect((await state(2))?.lane).toBe(0);
 			expect((await send("DELETE", "/api/lanes/9")).status).toBe(404);
 
 			const added = await send("POST", "/api/lanes", { name: "Docs" });
-			expect(await added.json()).toEqual({ id: 4, name: "Docs" });
+			expect(await added.json()).toEqual({ id: 4, name: "Docs", board: 1 });
 			expect(
 				(await send("PUT", "/api/lanes/4", { name: "Guides" })).status,
 			).toBe(200);
@@ -199,11 +201,16 @@ describe("dev tasks", () => {
 			expect((await snapshot()).lanes.find((lane) => lane.id === 4)).toEqual({
 				id: 4,
 				name: "Guides",
+				board: 1,
 			});
 
 			const moved = await send("PUT", "/api/lanes/4", { position: 1 });
-			expect(await moved.json()).toEqual({ id: 4, name: "Guides" });
-			expect((await snapshot()).lanes[1]).toEqual({ id: 4, name: "Guides" });
+			expect(await moved.json()).toEqual({ id: 4, name: "Guides", board: 1 });
+			expect((await snapshot()).lanes[1]).toEqual({
+				id: 4,
+				name: "Guides",
+				board: 1,
+			});
 			expect((await send("PUT", "/api/lanes/4", { position: 0 })).status).toBe(
 				400,
 			);

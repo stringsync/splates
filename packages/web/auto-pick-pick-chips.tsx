@@ -15,8 +15,8 @@ import {
 	useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { AutoPickAgent } from "@stringsync/splates-server/auto-pick";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AutoPickAgent } from "@splates/server/auto-pick";
+import type { AgentPick } from "@splates/server/models";
 import { PlusIcon, XIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";

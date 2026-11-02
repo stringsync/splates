@@ -31,7 +31,7 @@ same way.
 
 ## Offering to start it
 
-Queuing a task there adds it to that project's Untriaged, where nothing
+Queuing a task there adds it to that project's Backlog, ungroomed, where nothing
 starts it until someone queues it. End your reply with its queue card, the
 other project's slug before the numbers, for the user to queue it now or
 leave it:

@@ -1,7 +1,4 @@
-import type {
-	BillingView,
-	SpendReport,
-} from "@stringsync/splates-server/spend";
+import type { BillingView, SpendReport } from "@splates/server/spend";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { billing, pullBilling, setCurrency, spend } from "./api";

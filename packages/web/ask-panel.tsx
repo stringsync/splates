@@ -3,11 +3,11 @@ import type {
 	Ask,
 	ConversationState,
 	Field,
-} from "@stringsync/splates-server/conversations";
+} from "@splates/server/conversations";
 import type {
 	Answer as CardAnswer,
 	Question as PlanQuestion,
-} from "@stringsync/splates-server/plans";
+} from "@splates/server/plans";
 import { type JSX, useEffect } from "react";
 import { PermissionGrant } from "#web/components/assistant-ui/elements/permission-grant.tsx";
 import { Button } from "#web/components/ui/button.tsx";

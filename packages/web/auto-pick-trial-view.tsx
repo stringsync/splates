@@ -1,10 +1,6 @@
-import type { AutoPickTrial } from "@stringsync/splates-server/auto-pick";
-import {
-	CLARITIES,
-	DEPTHS,
-	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { AutoPickTrial } from "@splates/server/auto-pick";
+import { CLARITIES, DEPTHS, KINDS } from "@splates/server/auto-pick/browser";
+import type { TaskRecord } from "@splates/server/board";
 import { useReactive } from "core/react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

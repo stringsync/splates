@@ -1,5 +1,5 @@
-import type { Hook } from "@stringsync/splates-server/hooks";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { Hook } from "@splates/server/hooks";
+import type { AgentPick } from "@splates/server/models";
 import { type FormEvent, type JSX, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";

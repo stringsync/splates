@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/plans";
+import type { Needing } from "@splates/server/plans";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -12,6 +12,7 @@ import { Row } from "./phone-inbox-row";
 import { ProjectEmpty } from "./project-controls";
 import { InLanes } from "./project-folder-list";
 import type { Folder } from "./project-folders";
+import { QueuedRows } from "./queued-rows";
 import { Placing, placesOf } from "./reparent";
 
 /** A tree to list, with the folder it is of; null while the inbox is not in folders. */
@@ -75,6 +76,7 @@ export function ProjectSection({
 	agents,
 	beneath,
 	onOpen,
+	onOpenQueued,
 }: {
 	folder: Folder;
 	/** Whether it is unfolded. */
@@ -85,6 +87,8 @@ export function ProjectSection({
 	agents: AgentChoice[];
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
+	/** Opens a queued task's page, at its address. */
+	onOpenQueued: (address: string) => void;
 }): JSX.Element {
 	const items = folder.listed.map((tree) => ({ tree, folder }));
 	return (
@@ -122,7 +126,9 @@ export function ProjectSection({
 					</Button>
 				)}
 			</div>
-			{open && folder.trees.length === 0 && <ProjectEmpty phone />}
+			{open && folder.trees.length === 0 && folder.queue.length === 0 && (
+				<ProjectEmpty phone />
+			)}
 			{open && items.length > 0 && (
 				<Lines
 					items={items}
@@ -131,6 +137,7 @@ export function ProjectSection({
 					onOpen={onOpen}
 				/>
 			)}
+			{open && <QueuedRows folder={folder} phone onOpen={onOpenQueued} />}
 		</section>
 	);
 }

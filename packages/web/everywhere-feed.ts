@@ -1,15 +1,15 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import {
 	type ConversationDelta,
 	ConversationUpdates,
-} from "@stringsync/splates-server/conversations/browser";
+} from "@splates/server/conversations/browser";
 import type {
 	EverywhereBoard,
 	EverywhereListing,
 	EverywhereProject,
-} from "@stringsync/splates-server/projects";
-import { GENERAL } from "@stringsync/splates-server/projects/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/projects";
+import { GENERAL } from "@splates/server/projects/browser";
+import type { Details } from "@splates/server/tasks";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { answered } from "./api";

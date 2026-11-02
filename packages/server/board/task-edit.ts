@@ -5,6 +5,7 @@ import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts } from "../records";
+import { ungroomed } from "./backlog";
 import {
 	type ElsewhereBlocker,
 	type ElsewhereBoards,
@@ -84,7 +85,7 @@ export async function taskAdd(
 	const blockers = await blockersSaid(task, boards);
 	deps.log.info(
 		[
-			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.lane === null ? "untriaged, for grooming" : "available"}`,
+			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${ungroomed(task.state) ? "in Backlog, for grooming" : "available"}`,
 			...task.files.map((path) => `  ${path}`),
 			// Another project's task is its own to start: the person queues it
 			// there from the card the agent's reply ends with.

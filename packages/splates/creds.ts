@@ -1,8 +1,8 @@
-import { DEFAULT_TIMEOUT, PROVIDERS } from "@stringsync/splates-server/creds";
-import { fail } from "@stringsync/splates-server/exit";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { untilAfter } from "@stringsync/splates-server/tasks";
+import { DEFAULT_TIMEOUT, PROVIDERS } from "@splates/server/creds";
+import { fail } from "@splates/server/exit";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { untilAfter } from "@splates/server/tasks";
 import { cli } from "core/cmd";
 import { color } from "core/log";
 import { Duration } from "core/time";

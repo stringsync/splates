@@ -1,6 +1,6 @@
 import type { Resource } from "core/disposable";
 import type { Logger } from "core/log";
-import type { Task } from "../board";
+import { type Task, ungroomed } from "../board";
 import {
 	type Conversation,
 	type Conversations,
@@ -12,14 +12,14 @@ import { groomReference, need } from "../plans";
 
 /**
  * The project's groomer, one at a time: woken by a task added, or as
- * `splates server` starts, it works down the Untriaged lane in order,
+ * `splates server` starts, it works down the Backlog lane in order,
  * claiming each available task there before telling the run's conversation
  * `[SPLATES GROOM #N]`, and waits for that turn to end before the next. The
  * lane as it stands decides what it grooms, never the event that woke it,
  * so a wake missed or doubled changes nothing. A task is groomed by being
  * placed in a lane, so none is marked.
  *
- * Each run, from a wake to an empty Untriaged lane, starts a conversation of
+ * Each run, from a wake to an empty Backlog lane, starts a conversation of
  * its own (unless one waits on you, below), so its agent starts from a fresh
  * context, and archives it resting as
  * the run ends, which stops its agent; the newest holds the groomer's row
@@ -29,7 +29,7 @@ import { groomReference, need } from "../plans";
  *
  * A task someone takes meanwhile, or one already in a lane, is left be, as
  * the claim (`Task.groom`) refuses it; one a groomer had its turn on and
- * left in Untriaged keeps its claim, so no later run grooms it again.
+ * left in Backlog keeps its claim, so no later run grooms it again.
  */
 export class Groomer implements Resource {
 	/** The drain running now, which a wake meanwhile asks to go round again. */
@@ -58,9 +58,9 @@ export class Groomer implements Resource {
 	}
 
 	/**
-	 * Grooms Untriaged as `pick`; `"paused"`, puts its run away resting
+	 * Grooms Backlog as `pick`; `"paused"`, puts its run away resting
 	 * once it is idle, so its row stays; null, as when the groomer is off,
-	 * retires its conversation, row and all. Settles once Untriaged holds
+	 * retires its conversation, row and all. Settles once Backlog holds
 	 * nothing more to claim.
 	 */
 	wake(pick: AgentPick | "paused" | null): Promise<void> {
@@ -96,11 +96,7 @@ export class Groomer implements Resource {
 			// Turned off or paused meanwhile, it stops after the turn it was on.
 			while (this.#pick !== null && this.#pick !== "paused") {
 				const untriaged = (await this.deps.tasks()).filter(
-					(task) =>
-						task.state.stage === "available" &&
-						task.lane === null &&
-						task.takenBy === null &&
-						task.state.grooming === undefined,
+					(task) => task.state.stage === "available" && ungroomed(task.state),
 				);
 				if (untriaged.length === 0) {
 					return;
@@ -121,21 +117,9 @@ export class Groomer implements Resource {
 				this.deps.log.info(`the groomer had its turn on ${told}`);
 				if (conversation.state.status === "failed") {
 					this.deps.log.error(
-						`the groomer's agent failed, so Untriaged waits for its next wake: ${conversation.state.error ?? "no reason given"}`,
+						`the groomer's agent failed, so Backlog waits for its next wake: ${conversation.state.error ?? "no reason given"}`,
 					);
 					return;
-				}
-				// A groomer may find no theme, or leave questions. Either way,
-				// a task it had its turn on belongs in Backlog rather than staying Untriaged.
-				const current = await this.deps.tasks();
-				for (const task of current) {
-					if (
-						task.id === next.id &&
-						task.lane === null &&
-						task.takenBy === null
-					) {
-						await task.backlog();
-					}
 				}
 			}
 		} finally {

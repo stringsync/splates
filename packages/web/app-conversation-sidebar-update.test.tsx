@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { listed } from "@stringsync/splates-server/conversations";
+import { listed } from "@splates/server/conversations";
 import { details } from "./fixtures";
 import {
 	act,

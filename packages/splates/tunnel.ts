@@ -1,11 +1,7 @@
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { savedTunnelOf } from "@stringsync/splates-server/server";
-import {
-	API_TOKEN,
-	tunnelRemove,
-	tunnelSetup,
-} from "@stringsync/splates-server/tunnel";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { savedTunnelOf } from "@splates/server/server";
+import { API_TOKEN, tunnelRemove, tunnelSetup } from "@splates/server/tunnel";
 import { cli } from "core/cmd";
 import { z } from "zod";
 import { here, slotTunnelsOf } from "./flags";

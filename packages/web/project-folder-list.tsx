@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/plans";
+import type { Needing } from "@splates/server/plans";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import {
@@ -14,6 +14,7 @@ import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { ProjectEmpty } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
+import { QueuedRows } from "./queued-rows";
 import { TaskIcon } from "./task-icon";
 
 /** Draws a row of `folder`'s. */
@@ -36,6 +37,7 @@ export function ProjectList({
 	render,
 	beneath,
 	onNew,
+	onOpen,
 }: {
 	folders: Folder[];
 	folded: ReadonlySet<string>;
@@ -44,6 +46,8 @@ export function ProjectList({
 	beneath: (folder: Folder, row: Needing) => ReactNode[];
 	/** Starts a conversation in `folder`'s project, showing it. */
 	onNew: (folder: Folder) => void;
+	/** Opens a queued task's page, at its address. */
+	onOpen: (address: string) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
@@ -81,7 +85,9 @@ export function ProjectList({
 							</button>
 						</div>
 						<CollapsibleContent>
-							{folder.trees.length === 0 && <ProjectEmpty />}
+							{folder.trees.length === 0 && folder.queue.length === 0 && (
+								<ProjectEmpty />
+							)}
 							{folder.listed.length > 0 && (
 								<InLanes folder={folder}>
 									<Rows
@@ -92,6 +98,7 @@ export function ProjectList({
 									/>
 								</InLanes>
 							)}
+							<QueuedRows folder={folder} onOpen={onOpen} />
 						</CollapsibleContent>
 					</Collapsible>
 				);

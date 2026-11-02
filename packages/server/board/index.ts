@@ -1,5 +1,15 @@
-export { BACKLOG_LANE, protectBacklog } from "./backlog";
+export { BACKLOG_LANE, PLACED, protectBacklog, ungroomed } from "./backlog";
 export { blockedWarning } from "./blocked-warning";
+export {
+	boardAdd,
+	boardList,
+	boardRemove,
+	boardRenamed,
+	boardShow,
+	boardUpdate,
+} from "./board";
+export type { BoardRecord } from "./boards";
+export { DEFAULT_BOARD, DEFAULT_BOARD_NAME } from "./boards";
 export type {
 	Deferral,
 	DeferralAsk,

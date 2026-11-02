@@ -1,5 +1,5 @@
-import { type Held, Slots } from "@stringsync/splates-server/ports";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { type Held, Slots } from "@splates/server/ports";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 

@@ -1,4 +1,4 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import { Dispatcher, type Eventful } from "core/events";
 import { removeTodo, updateTodo } from "./api";
 import { todoEdited, todoRemoved } from "./board-expectations";

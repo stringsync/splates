@@ -1,11 +1,7 @@
-import type { TaskStage } from "@stringsync/splates-server/board";
-import type {
-	Automation,
-	Hook,
-	Trigger,
-} from "@stringsync/splates-server/hooks";
-import type { TaskEventName } from "@stringsync/splates-server/hooks/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { TaskStage } from "@splates/server/board";
+import type { Automation, Hook, Trigger } from "@splates/server/hooks";
+import type { TaskEventName } from "@splates/server/hooks/browser";
+import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 
 export type AutomationDraftEvents = { changed: undefined };

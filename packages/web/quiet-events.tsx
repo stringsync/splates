@@ -1,4 +1,4 @@
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 import { FilesIcon, ListTodoIcon, PackageIcon, XIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";

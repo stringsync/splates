@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Testing } from "@stringsync/splates-server/testing";
+import { Testing } from "@splates/server/testing";
 import { splates } from "./splates";
 
 describe("queue pause and resume", () => {

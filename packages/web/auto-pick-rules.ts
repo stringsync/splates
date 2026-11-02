@@ -7,15 +7,15 @@ import type {
 	KindId,
 	Pace,
 	Rule,
-} from "@stringsync/splates-server/auto-pick";
+} from "@splates/server/auto-pick";
 import {
 	ANY,
 	DEFAULT_PACE,
 	DEFAULT_RULES,
 	KIND_IDS,
-} from "@stringsync/splates-server/auto-pick/browser";
-import { checkRules } from "@stringsync/splates-server/auto-pick/check";
-import type { AgentPick } from "@stringsync/splates-server/models";
+} from "@splates/server/auto-pick/browser";
+import { checkRules } from "@splates/server/auto-pick/check";
+import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 import {
 	autoPickRules,

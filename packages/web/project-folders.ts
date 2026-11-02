@@ -9,11 +9,12 @@
  * each list draws its own rows.
  */
 
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Needing } from "@stringsync/splates-server/plans";
-import { GENERAL } from "@stringsync/splates-server/projects/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Needing } from "@splates/server/plans";
+import { GENERAL } from "@splates/server/projects/browser";
+import { isBlocked, queueOrder } from "@splates/server/queue/browser";
+import type { Details } from "@splates/server/tasks";
 import {
 	flatten,
 	hostsAtWork,
@@ -108,6 +109,17 @@ export interface Folder {
 	listed: Nested<Needing>[];
 	/** How many of its trees have an agent at work. */
 	atWork: number;
+	/**
+	 * Its queued tasks no agent has yet, starting next first and the blocked
+	 * last, for the list to draw under its agents; empty where the board is not known.
+	 */
+	queue: Queued[];
+}
+
+/** A queued task waiting for an agent, and what holds it back: null when it starts in turn. */
+export interface Queued {
+	todo: TaskRecord;
+	blockedBy: number[] | null;
 }
 
 /** The page's own project, as its snapshot and conversation feed have it. */
@@ -167,7 +179,33 @@ function folder(
 		waiting: shown(waiting),
 		listed: shown(trees),
 		atWork: shownIn(trees).filter(atWork).length,
+		queue: queuedOf(todos ?? [], conversations),
 	};
+}
+
+/**
+ * The queued `todos` that wait for an agent, the blocked after those that
+ * start next, leaving out one a held conversation already shows as a row.
+ */
+function queuedOf(
+	todos: readonly TaskRecord[],
+	conversations: readonly ConversationState[],
+): Queued[] {
+	const order = queueOrder(todos)
+		.filter(
+			(todo) => !conversations.some((each) => each.heldForTask === todo.id),
+		)
+		.map((todo) => ({
+			todo,
+			// Only the blockers still on the board; a merged one is gone from it.
+			blockedBy: isBlocked(todo, todos)
+				? todo.blockedBy.filter((id) => todos.some((each) => each.id === id))
+				: null,
+		}));
+	return [
+		...order.filter((each) => each.blockedBy === null),
+		...order.filter((each) => each.blockedBy !== null),
+	];
 }
 
 /** Where this browser keeps which projects the sidebar and the inbox fold away. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { combine, type Stats } from "@stringsync/splates-server/stats/browser";
+import { combine, type Stats } from "@splates/server/stats/browser";
 import { flowRates } from "./flow-rates";
 import { PERIODS, type Period } from "./stats-report";
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { toggle, unfoldCards, workTimeline } from "./drivers";
 import { act, cleanup, Testing, tool, turn, waitFor, within } from "./testing";
 

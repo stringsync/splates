@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type {
-	AutoPicked,
-	AutoPickRulesView,
-} from "@stringsync/splates-server/auto-pick";
+import type { AutoPicked, AutoPickRulesView } from "@splates/server/auto-pick";
 import { AGENTS } from "./fixtures";
 import {
 	act,

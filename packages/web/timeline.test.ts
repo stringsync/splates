@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 import { tool } from "./fixtures";
 import { timeline } from "./timeline";
 import type { Work } from "./work";

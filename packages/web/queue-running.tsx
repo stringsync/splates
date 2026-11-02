@@ -1,9 +1,6 @@
-import { age } from "@stringsync/splates-server/age";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type {
-	HeldListing,
-	QueueListing,
-} from "@stringsync/splates-server/workers";
+import { age } from "@splates/server/age";
+import type { ConversationState } from "@splates/server/conversations";
+import type { HeldListing, QueueListing } from "@splates/server/workers";
 import { type JSX, useContext } from "react";
 import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
 import { moveQueued } from "./api";

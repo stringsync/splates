@@ -4,8 +4,8 @@ import type {
 	Question,
 	Review,
 	TaskReport,
-} from "@stringsync/splates-server/plans";
-import type { Escalated } from "@stringsync/splates-server/records";
+} from "@splates/server/plans";
+import type { Escalated } from "@splates/server/records";
 import type { JSX } from "react";
 import { InMessage } from "./card-reply";
 import { MessageQuestions } from "./message-questions";

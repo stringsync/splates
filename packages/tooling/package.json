@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"dependencies": {
-		"@stringsync/splates-server": "workspace:*"
+		"@splates/server": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"
 	},
-	"version": "1.13.5"
+	"version": "1.13.6"
 }

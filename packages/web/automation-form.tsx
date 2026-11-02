@@ -1,9 +1,6 @@
-import type { TaskStage } from "@stringsync/splates-server/board";
-import type { Hook, Trigger } from "@stringsync/splates-server/hooks";
-import {
-	TASK_EVENTS,
-	type TaskEventName,
-} from "@stringsync/splates-server/hooks/browser";
+import type { TaskStage } from "@splates/server/board";
+import type { Hook, Trigger } from "@splates/server/hooks";
+import { TASK_EVENTS, type TaskEventName } from "@splates/server/hooks/browser";
 import { useReactive } from "core/react";
 import { type FormEvent, type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

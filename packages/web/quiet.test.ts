@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Message } from "@stringsync/splates-server/conversations";
+import type { Message } from "@splates/server/conversations";
 import { quietOf, quietText, quietTitle } from "./quiet";
 import { conversation, message, second, tool } from "./testing";
 

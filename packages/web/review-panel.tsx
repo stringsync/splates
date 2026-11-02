@@ -1,10 +1,6 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type { Review } from "@stringsync/splates-server/plans";
-import {
-	directive,
-	MERGE,
-	replyOf,
-} from "@stringsync/splates-server/plans/browser";
+import type { Review } from "@splates/server/plans";
+import { directive, MERGE, replyOf } from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
 import {
 	CheckIcon,
@@ -27,6 +23,7 @@ import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
+import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
 import { Sheeted } from "./phone-sheets";
 import { Refusal, useRefusal } from "./refusal";
@@ -87,6 +84,14 @@ export function ReviewPanel({
 			ask();
 		}
 	});
+	// Enter mid-dictation lands on the bare page: finish the take, then send.
+	useEnterWhileTaking(send !== null, () => {
+		if (footer.current?.querySelector("[data-dictation-owner]") == null) {
+			return false;
+		}
+		finishThen(() => setSendTaken(true));
+		return true;
+	});
 	useArrival(send !== null, () => box.current);
 	const approved =
 		(typeof sent === "string" && directive(sent) === MERGE) ||
@@ -110,7 +115,7 @@ export function ReviewPanel({
 			}
 		>
 			{/* What deciding to merge takes, in order: what changed, how to see
-			it, what passed, and the details, folded. */}
+			it, what passed, and the details. */}
 			<div className="divide-y">
 				{review.summary !== "" && <CardBody text={review.summary} />}
 				{review.demo !== null && (
@@ -267,21 +272,12 @@ function Outcome({ passed }: { passed: boolean }): JSX.Element {
 	);
 }
 
-/** Whatever else a review says past its summary, closed until opened. */
+/** Whatever else a review says past its summary, under a Details header. */
 function Details({ text }: { text: string }): JSX.Element {
 	return (
-		<Collapsible
-			render={<section aria-label="Details" />}
-			className="group/details"
-		>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/details:rotate-90" />
-				Details
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<CardBody text={text} className="pt-0" />
-			</CollapsibleContent>
-		</Collapsible>
+		<section aria-label="Details">
+			<CardBody text={`### Details\n\n${text}`} />
+		</section>
 	);
 }
 

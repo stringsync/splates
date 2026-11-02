@@ -1,4 +1,4 @@
-import type { Fact, Landed } from "@stringsync/splates-server/stats/browser";
+import type { Fact, Landed } from "@splates/server/stats/browser";
 import {
 	ArrowUpIcon,
 	CircleAlertIcon,

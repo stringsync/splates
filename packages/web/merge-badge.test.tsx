@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { Details } from "@splates/server/tasks";
 import { details, snapshot } from "./fixtures";
 import { MergeBadge } from "./merge-badge";
 import { NavigationContext } from "./navigation";

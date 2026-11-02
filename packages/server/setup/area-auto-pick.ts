@@ -98,6 +98,7 @@ function autoPickArea(): SetupArea {
 		agent:
 			"Have the user pick a task on the page; trying starts nothing and changes no task.",
 		optional: true,
+		extra: true,
 		after: [rulesStep],
 		// A look, which sets nothing up of its own: done once there are rules to try.
 		check: async (machine) => machine.fs.exists(rulesPath(machine)),

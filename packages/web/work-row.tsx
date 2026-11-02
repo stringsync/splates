@@ -1,10 +1,6 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type {
-	Compaction,
-	Step,
-	Tool,
-} from "@stringsync/splates-server/conversations";
-import { RECONNECT } from "@stringsync/splates-server/plans/browser";
+import type { Compaction, Step, Tool } from "@splates/server/conversations";
+import { RECONNECT } from "@splates/server/plans/browser";
 import {
 	CheckIcon,
 	ChevronRightIcon,

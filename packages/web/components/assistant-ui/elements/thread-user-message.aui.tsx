@@ -8,12 +8,12 @@ import {
 	type TextMessagePartComponent,
 	useAuiState,
 } from "@assistant-ui/react";
-import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
+import { SERVER_TOLD } from "@splates/server/conversations/browser";
 import {
 	APPROVE,
 	leadingDirectives,
 	MERGE,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import {
 	CheckIcon,
 	CopyIcon,
@@ -571,6 +571,10 @@ const Clamped: FC<
 			<div
 				ref={text}
 				className={cn(
+					// Positioned, so what the text holds placed absolutely, such as
+					// the sr-only label of each copy button, is cut with it rather
+					// than reaching the thread's scroll height by the whole text.
+					"relative",
 					!open && [CLAMP, "overflow-hidden"],
 					// Open, it still sticks atop a wide thread, so it scrolls past
 					// half the screen rather than hide the reply.

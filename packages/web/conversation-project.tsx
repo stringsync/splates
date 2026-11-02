@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Details } from "@splates/server/tasks";
 import { createContext, type ReactNode, useContext } from "react";
 import { usePendingWrites } from "./pending";
 import { RowRefusals } from "./row-refusal";

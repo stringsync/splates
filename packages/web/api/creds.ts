@@ -1,8 +1,4 @@
-import type {
-	KeptCred,
-	Provider,
-	Scope,
-} from "@stringsync/splates-server/creds";
+import type { KeptCred, Provider, Scope } from "@splates/server/creds";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /** What the project's store and the device's keep, by name, and what each store is called. */

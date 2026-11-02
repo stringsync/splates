@@ -1,4 +1,4 @@
-import type { WorkerPool } from "@stringsync/splates-server/workers";
+import type { WorkerPool } from "@splates/server/workers";
 import { useReactive } from "core/react";
 import { InfoIcon, PauseIcon, PlayIcon } from "lucide-react";
 import type { JSX } from "react";

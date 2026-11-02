@@ -16,20 +16,6 @@ export const MergeAsk = z.object({
 	/** Its environment, which the gate runs with. */
 	env: z.record(z.string(), z.string()),
 	message: z.string(),
-	/**
-	 * Set for a worker on another machine with a central remote: its branch,
-	 * pushed untested as `splates/<task>` at `head`, is what the server
-	 * merges in a checkout of its own, `cwd` being the worker's. The counts
-	 * are the task's merge budget spent so far, which the server charges and
-	 * a refusal returns.
-	 */
-	remote: z
-		.object({
-			head: z.string(),
-			attempts: z.number(),
-			conflicts: z.number(),
-		})
-		.optional(),
 });
 export type MergeAsk = z.infer<typeof MergeAsk>;
 

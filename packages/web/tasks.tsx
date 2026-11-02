@@ -1,8 +1,8 @@
-import { age } from "@stringsync/splates-server/age";
-import type { TaskRecord } from "@stringsync/splates-server/board/browser";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
-import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
+import { age } from "@splates/server/age";
+import type { TaskRecord } from "@splates/server/board/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import { type Needing, needs } from "@splates/server/plans/browser";
+import type { Details, Snapshot } from "@splates/server/tasks";
 import { useDisposerEffect, useReactive } from "core/react";
 import { Duration } from "core/time";
 import { type JSX, useContext } from "react";

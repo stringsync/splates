@@ -1,6 +1,6 @@
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import type { TaskRecord } from "@stringsync/splates-server/board/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { AutoPicked } from "@splates/server/auto-pick";
+import type { TaskRecord } from "@splates/server/board/browser";
+import type { Details } from "@splates/server/tasks";
 
 /** One start Auto pick decided, as the task it started keeps it. */
 export interface AutoPickRun {

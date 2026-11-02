@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { CredRequest } from "@stringsync/splates-server/creds";
+import type { CredRequest } from "@splates/server/creds";
 import { REQUEST } from "./creds-testing";
 import {
 	act,

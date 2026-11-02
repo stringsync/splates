@@ -1,6 +1,6 @@
 # Spinning Plates server
 
-`@stringsync/splates-server` owns the HTTP server and backend operations shared
+`@splates/server` owns the HTTP server and backend operations shared
 by the web app and CLI. Its `index.ts` exports `dev`, the server factory;
 `start.ts` constructs the machine services used by `splates server`.
 

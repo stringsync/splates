@@ -1,3 +1,4 @@
+import { DEFAULT_BOARD } from "./boards";
 import type { TaskRecord } from "./task";
 
 /**
@@ -23,12 +24,19 @@ export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
 export interface LaneRecord {
 	id: number;
 	name: string;
+	/**
+	 * The board it is on; its place among that board's lanes is its place in
+	 * the lane list. The server always says; absent from an older server's,
+	 * it is on the default board.
+	 */
+	board?: number;
 }
 
 /** A queue of tasks that build on each other, worked top first. */
 export interface LaneState {
 	id: number;
 	name: string;
+	board?: number;
 	todos: TaskRecord[];
 	/** The started tasks at work on its queued ones now, top first: who is on the lane. */
 	agents: string[];
@@ -83,12 +91,15 @@ export function named(
 			),
 		),
 	].sort((left, right) => left - right);
-	return [...records, ...unnamed.map((id) => ({ id, name: `Lane ${id}` }))];
+	return [
+		...records,
+		...unnamed.map((id) => ({ id, name: `Lane ${id}`, board: DEFAULT_BOARD })),
+	];
 }
 
 /** The lane `record` stands for, empty when no task is in it. */
 export function lane(tasks: TaskRecord[], record: LaneRecord): LaneState {
-	const { id, name } = record;
+	const { id, name, board } = record;
 	const steps = tasks
 		.filter((task) => task.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -107,6 +118,7 @@ export function lane(tasks: TaskRecord[], record: LaneRecord): LaneState {
 	return {
 		id,
 		name,
+		board,
 		todos: steps,
 		agents,
 		next,

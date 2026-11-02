@@ -1,6 +1,6 @@
-import { age } from "@stringsync/splates-server/age";
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
+import { age } from "@splates/server/age";
+import type { AutoPicked } from "@splates/server/auto-pick";
+import { DEPTHS, KINDS } from "@splates/server/auto-pick/browser";
 import type { JSX } from "react";
 
 /**

@@ -2,7 +2,7 @@ import type {
 	EvalGrid,
 	EvalScenario,
 	EvalStatus,
-} from "@stringsync/splates-server/evals/browser";
+} from "@splates/server/evals/browser";
 import { ORDER } from "./eval-status";
 
 /** How a scenario last went: the newest batch that ran it, and its cells' outcomes. */

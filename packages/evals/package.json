@@ -4,10 +4,10 @@
 	"type": "module",
 	"dependencies": {
 		"@evals/evals": "workspace:*",
-		"@stringsync/splates-server": "workspace:*"
+		"@splates/server": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"
 	},
-	"version": "1.13.5"
+	"version": "1.13.6"
 }

@@ -5,7 +5,6 @@ import type { Config } from "../config";
 import { fail } from "../exit";
 import type { ReplicaStatus } from "../replica";
 import { type Document, FsStorage } from "../storage";
-import type { WorkerListing } from "../workers";
 import { checked, listed } from "./checks";
 import {
 	type FieldProgress,
@@ -151,6 +150,7 @@ export class Setup {
 					user: step.user,
 					agent: step.agent,
 					optional: step.optional,
+					extra: step.extra ?? false,
 					after: step.after.map((each) => each.id),
 					status,
 					problem,
@@ -178,8 +178,19 @@ export class Setup {
 				done: steps.filter((step) => step.status === "done").length,
 				skipped: steps.filter((step) => step.status === "skipped").length,
 				left: steps.filter(
-					(step) => step.status === "ready" || step.status === "waiting",
+					(step) =>
+						!step.extra &&
+						(step.status === "ready" || step.status === "waiting"),
 				).length,
+				extras: steps.filter(
+					(step) =>
+						step.extra &&
+						(step.status === "ready" || step.status === "waiting"),
+				).length,
+				complete: steps.every(
+					(step) =>
+						step.extra || step.status === "done" || step.status === "skipped",
+				),
 				undoable: false,
 				steps,
 			});
@@ -327,13 +338,6 @@ export interface SetupMachine {
 	 * repository rather than the machine; none outside one.
 	 */
 	project?: SetupProject;
-	/** The workers `splates server` lists, for the steps that read the pool; none with no server to ask. */
-	workers?(): Promise<readonly SetupWorker[]>;
-	/**
-	 * Removes worker `id` from the pool, revoking its key, as `splates worker
-	 * remove` does; one with agents on it drains first. None with no server.
-	 */
-	removeWorker?(id: string): Promise<void>;
 	/**
 	 * Deletes what `splates tunnel setup` and the slots made in Cloudflare and
 	 * forgets their saved files, as `splates tunnel remove` does. None outside
@@ -341,12 +345,6 @@ export interface SetupMachine {
 	 */
 	removeTunnel?(): Promise<void>;
 }
-
-/** A worker as a step reads it, from `GET /api/workers`. */
-export type SetupWorker = Pick<
-	WorkerListing,
-	"id" | "kind" | "draining" | "removing" | "host"
->;
 
 /** What a step that sets up a repository reads of its project, afresh each time. */
 export interface SetupProject {
@@ -387,6 +385,8 @@ export interface SetupStep {
 	readonly agent: string;
 	/** An optional step can be left undone for good; a required one cannot. */
 	readonly optional: boolean;
+	/** An extra is a nice-to-have: its area reads complete without it, and it is listed as an optional step. */
+	readonly extra?: boolean;
 	/** The steps that must be done first, on the roster before this one. */
 	readonly after: readonly SetupStep[];
 	/** Whether it is done, from real state. */
@@ -479,6 +479,8 @@ export interface StepProgress {
 	user: string;
 	agent: string;
 	optional: boolean;
+	/** Whether it is a nice-to-have its area can be complete without. */
+	extra: boolean;
 	after: string[];
 	status: StepStatus;
 	/** What went wrong checking it, or null when the check ran. */
@@ -511,8 +513,12 @@ export interface AreaProgress {
 	optional: boolean;
 	done: number;
 	skipped: number;
-	/** Steps neither done nor skipped. */
+	/** Core steps neither done nor skipped. */
 	left: number;
+	/** Extra steps neither done nor skipped. */
+	extras: number;
+	/** Whether every core step is done or skipped, however many extras are left. */
+	complete: boolean;
 	/** Whether a step is done or started, so Undo has something to take out. */
 	undoable: boolean;
 	steps: StepProgress[];

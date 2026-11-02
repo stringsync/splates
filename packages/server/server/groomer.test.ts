@@ -57,8 +57,8 @@ describe("Groomer", () => {
 		expect((await conversations.list()).map(({ id }) => id)).toEqual([
 			kept?.id ?? "",
 		]);
-		// Placed in a lane, the claim has done its work.
-		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
+		// Its turn had, the claim stays, so no later run grooms it again.
+		expect((await deps.tasks.find(1)).state.grooming).toBeDefined();
 		expect((await deps.tasks.find(1)).lane).toBe(0);
 		expect(kept?.state).toMatchObject({ archived: true, resting: true });
 		expect(kept?.state.status).toBe("stopped");

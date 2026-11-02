@@ -3,7 +3,7 @@ import {
 	combine,
 	type PeriodId,
 	type Stats,
-} from "@stringsync/splates-server/stats/browser";
+} from "@splates/server/stats/browser";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 import { act, fireEvent, render, waitFor } from "./testing-library";

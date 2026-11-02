@@ -1,11 +1,11 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import { blockerLabel } from "@stringsync/splates-server/board/browser";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
+import { blockerLabel } from "@splates/server/board/browser";
 import {
 	blockage,
 	isBlocked,
 	queueOrder,
 	waitedOn,
-} from "@stringsync/splates-server/queue/browser";
+} from "@splates/server/queue/browser";
 import { ListPlusIcon, Unlink2Icon } from "lucide-react";
 import { type JSX, useContext, useEffect, useState } from "react";
 import {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EvalDetail } from "@stringsync/splates-server/evals/browser";
+import type { EvalDetail } from "@splates/server/evals/browser";
 import { improvable, improvePrompt } from "./eval-improve";
 
 describe("improvePrompt", () => {

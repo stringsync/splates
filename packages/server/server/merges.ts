@@ -1,14 +1,12 @@
-import type { Logger } from "core/log";
-import { Exit, fail } from "../exit";
+import { fail } from "../exit";
 import {
-	adopt,
 	MergeAsk,
 	merge,
 	type RunMerge,
 	ServedMerges,
 	WorktreePs,
 } from "../merge";
-import { type Facts, openRepository } from "../records";
+import { openRepository } from "../records";
 import type { WorktreeService } from "../tasks";
 import type { Project } from "./project-types";
 import { refuse } from "./shared";
@@ -86,15 +84,6 @@ function taskOf(url: URL): string {
  */
 function servedMerge(project: Project, open: typeof openRepository): RunMerge {
 	return async (ask, log, facts) => {
-		if (ask.remote !== undefined) {
-			return await remoteMerge(
-				project,
-				open,
-				{ ...ask, remote: ask.remote },
-				log,
-				facts,
-			);
-		}
 		const ps = new WorktreePs(project.ps, ask);
 		const repository = await open({ fs: project.fs, ps, log }, { at: ask.cwd });
 		try {
@@ -143,62 +132,4 @@ async function handBack(
 			heartbeatAt: new Date().toISOString(),
 		},
 	});
-}
-
-/**
- * Merges a worker's pushed branch, checked out here, as `splates merge`
- * would in the worker's tree. The checkout goes either way: a refusal
- * carries the budget spent, for the worker to save, and the worker rebases
- * and fixes in its own tree.
- */
-async function remoteMerge(
-	project: Project,
-	open: typeof openRepository,
-	ask: MergeAsk & { remote: NonNullable<MergeAsk["remote"]> },
-	log: Logger,
-	facts: Partial<Facts["merge"]>,
-): Promise<void> {
-	const { worktree, before } = await adopt(
-		{
-			service: project.service,
-			git: project.service.git,
-			branches: project.branches,
-		},
-		ask,
-	);
-	const here = { ...ask, cwd: worktree.path };
-	const repository = await open(
-		{ fs: project.fs, ps: new WorktreePs(project.ps, here), log },
-		{ at: worktree.path },
-	);
-	try {
-		await merge(
-			{ ...repository, premerge: project.premerge, log },
-			worktree.path,
-			facts,
-			{ message: ask.message },
-		);
-	} catch (error) {
-		const left = await project.service.find(ask.task);
-		if (error instanceof Exit) {
-			// A conflict leaves a rebase in progress in the checkout, which the
-			// worker has no use for: it rebases its own tree.
-			await project.service.git.run(worktree.path, "rebase", "--abort");
-			throw new Exit(error.reason, error.message, {
-				...error.data,
-				attempts: left.mergeAttempts,
-				conflicts: left.conflictAttempts,
-			});
-		}
-		throw error;
-	} finally {
-		try {
-			const left = await project.service.find(ask.task);
-			if (!left.gone) {
-				await project.service.release(left, before);
-			}
-		} finally {
-			repository.dispose();
-		}
-	}
 }

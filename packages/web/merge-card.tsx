@@ -1,6 +1,6 @@
-import type { MergeEstimates } from "@stringsync/splates-server/merge";
-import type { Event } from "@stringsync/splates-server/records";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { MergeEstimates } from "@splates/server/merge";
+import type { Event } from "@splates/server/records";
+import type { Details } from "@splates/server/tasks";
 import {
 	CheckIcon,
 	ChevronsUpIcon,

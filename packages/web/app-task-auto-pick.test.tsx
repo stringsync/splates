@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import type { Event } from "@stringsync/splates-server/records";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { AutoPicked } from "@splates/server/auto-pick";
+import type { Event } from "@splates/server/records";
+import type { Details } from "@splates/server/tasks";
 import {
 	act,
 	cleanup,

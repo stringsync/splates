@@ -1,4 +1,4 @@
-import type { StepProgress } from "@stringsync/splates-server/setup";
+import type { StepProgress } from "@splates/server/setup";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import type { JSX } from "react";
 

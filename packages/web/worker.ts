@@ -10,7 +10,7 @@
  * address.
  */
 
-import type { Pushed } from "@stringsync/splates-server/push";
+import type { Pushed } from "@splates/server/push";
 import { PageCache, type PageCaches, type Stale } from "./page-cache";
 
 /** What a notification carries for its click, as `Notifier.show` and a push set it. */

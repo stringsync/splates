@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { UndoPlan } from "@stringsync/splates-server/setup";
+import type { UndoPlan } from "@splates/server/setup";
 import { setupProgress } from "./setup-testing";
 import {
 	act,

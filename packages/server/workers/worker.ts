@@ -47,7 +47,7 @@ export const CALL_BOUNDS: CallBounds = {
 /**
  * How a worker joined: over this machine's socket, or by its own say-so.
  */
-export type WorkerKind = "local" | "registered";
+export type WorkerKind = "local";
 
 /**
  * The server's handle on one worker: what it said of itself in its
@@ -73,7 +73,7 @@ export class ConnectedWorker implements WorkerMachine {
 		public info: { [key: string]: Json },
 		readonly session: WorkerSession,
 		/** How its last connection arrived. */
-		public kind: WorkerKind = "registered",
+		public kind: WorkerKind = "local",
 		private readonly bounds: CallBounds = CALL_BOUNDS,
 	) {}
 

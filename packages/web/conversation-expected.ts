@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 
 /** A write `expect` holds as pending: what it changes, and when it landed. */
 export interface Expected {

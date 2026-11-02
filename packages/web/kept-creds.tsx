@@ -1,8 +1,4 @@
-import type {
-	CredRequest,
-	Provider,
-	Scope,
-} from "@stringsync/splates-server/creds";
+import type { CredRequest, Provider, Scope } from "@splates/server/creds";
 import { EllipsisIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

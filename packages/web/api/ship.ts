@@ -4,7 +4,7 @@ import type {
 	Ship,
 	ShipGraph,
 	StageKey,
-} from "@stringsync/splates-server/ship";
+} from "@splates/server/ship";
 import { ApiError, answered, scoped } from "./request";
 
 /** Every registered project and who pins whose packages, the Ship page's tree. */

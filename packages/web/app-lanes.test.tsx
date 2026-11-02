@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import {
-	SOUND2SCORE_LANES,
-	sound2score,
-} from "@stringsync/splates-server/board/example";
+import { SOUND2SCORE_LANES, sound2score } from "@splates/server/board/example";
 import {
 	act,
 	cleanup,
@@ -70,6 +67,18 @@ describe("App's lanes", () => {
 		expect(view.queryByRole("menuitem", { name: "Rename" })).toBeNull();
 		expect(view.queryByRole("menuitem", { name: /Remove lane/ })).toBeNull();
 		expect(view.getByRole("menuitem", { name: "Queue lane" })).toBeTruthy();
+	});
+
+	it("shows a chip per lane with its count, and locks Backlog", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "unplaced" })],
+			lanes: [{ id: 0, name: "Backlog" }],
+		});
+		const strip = within(view.getByRole("navigation", { name: "Lanes" }));
+		expect(strip.getByRole("button", { name: /Untriaged\s*1/ })).toBeTruthy();
+		expect(strip.getByRole("button", { name: /Backlog\s*0/ })).toBeTruthy();
+		const backlog = within(view.getByRole("region", { name: "Backlog" }));
+		expect(backlog.getByLabelText("Permanent lane")).toBeTruthy();
 	});
 
 	it("draws each lane as a named column, saying whether it is running and what blocks it", async () => {
@@ -261,6 +270,49 @@ describe("App's lanes", () => {
 			view.getByRole("menuitem", { name: "Move left" }),
 		);
 		expect(left.getAttribute("aria-disabled")).toBe("true");
+	});
+
+	it("moves a lane to another board from its menu, at a chosen place, and not Backlog", async () => {
+		const boards = [
+			{ id: 1, name: "Default", position: 1, archived: false },
+			{ id: 2, name: "Site", position: 2, archived: false },
+		];
+		const view = await testing.open({
+			todos: [],
+			boards,
+			lanes: [
+				{ id: 0, name: "Backlog", board: 1 },
+				{ id: 3, name: "Editor", board: 1 },
+				{ id: 4, name: "Landing", board: 2 },
+				{ id: 5, name: "Pricing", board: 2 },
+			],
+		});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Backlog actions" })),
+		);
+		const locked = await waitFor(() =>
+			view.getByRole("menuitem", { name: "Move to board" }),
+		);
+		expect(locked.getAttribute("aria-disabled")).toBe("true");
+		await act(async () => fireEvent.keyDown(locked, { key: "Escape" }));
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Editor actions" })),
+		);
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Move to board" }),
+		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Site" }));
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "After Landing" }),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/lanes/3",
+			method: "PUT",
+			body: JSON.stringify({ board: 2, position: 2 }),
+		});
 	});
 
 	it("marks a lane blocked when its next task waits on one in another lane", async () => {

@@ -129,7 +129,7 @@ describe("App's archiving conversations", () => {
 			fireEvent.click(
 				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
 					"button",
-					{ name: "Archive" },
+					{ name: /^Archive/ },
 				),
 			),
 		);
@@ -162,7 +162,7 @@ describe("App's archiving conversations", () => {
 			fireEvent.click(
 				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
 					"button",
-					{ name: "Archive" },
+					{ name: /^Archive/ },
 				),
 			),
 		);
@@ -235,7 +235,7 @@ describe("App's archiving conversations", () => {
 			"Archiving removes its task, alpha, which has nothing unmerged.",
 		);
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+			fireEvent.click(within(dialog).getByRole("button", { name: /^Archive/ })),
 		);
 
 		await waitFor(() =>
@@ -259,7 +259,7 @@ describe("App's archiving conversations", () => {
 			fireEvent.click(
 				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
 					"button",
-					{ name: "Archive" },
+					{ name: /^Archive/ },
 				),
 			),
 		);
@@ -328,7 +328,7 @@ describe("App's archiving conversations", () => {
 		expect(dialog.textContent).toContain("or started with it");
 		expect(dialog.textContent).toContain("alpha");
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+			fireEvent.click(within(dialog).getByRole("button", { name: /^Archive/ })),
 		);
 
 		expect(testing.posted("/api/conversations/o1/archived")).toEqual([
@@ -433,7 +433,7 @@ describe("App's archiving conversations", () => {
 		const dialog = view.getByRole("dialog", { name: "Archive Fix login?" });
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+			fireEvent.click(within(dialog).getByRole("button", { name: /^Archive/ })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([

@@ -1,14 +1,11 @@
-import type {
-	ElsewhereOnBoard,
-	TaskRecord,
-} from "@stringsync/splates-server/board";
+import type { ElsewhereOnBoard, TaskRecord } from "@splates/server/board";
 import {
 	type LaneRecord,
 	lanesTaken,
 	named,
-} from "@stringsync/splates-server/board/browser";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/board/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Details } from "@splates/server/tasks";
 import { WindowBackgroundObserver } from "core/browser";
 import { useReactive } from "core/react";
 import { ChevronLeftIcon } from "lucide-react";
@@ -29,6 +26,7 @@ import {
 	draftFor,
 	modelFor,
 	NEW,
+	queuedIn,
 	startsAuto,
 	startsOne,
 	taskFor,
@@ -46,6 +44,7 @@ import { useExpect } from "./expecting";
 import { FinishedByName } from "./finished-tasks";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
+import { QueuedTask } from "./queued-task";
 import { useRefusals } from "./refusal";
 import { Task } from "./task-dialog";
 import {
@@ -245,6 +244,13 @@ export const Conversations = memo(function Conversations({
 							onOpen(NEW);
 							terminals.close(open);
 						}}
+					/>
+				) : queuedIn(open) !== null ? (
+					<QueuedTask
+						key={open}
+						id={queuedIn(open) as number}
+						onBack={phone ? () => onOpen(null) : null}
+						onLeft={() => onOpen(null, "replace")}
 					/>
 				) : shelled !== null ? (
 					shelledIn === null ? (

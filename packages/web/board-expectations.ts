@@ -1,10 +1,7 @@
-import type {
-	ElsewhereBlocker,
-	TaskRecord,
-} from "@stringsync/splates-server/board";
-import type { AgentPick } from "@stringsync/splates-server/models";
-import { queueOrder } from "@stringsync/splates-server/queue/browser";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { ElsewhereBlocker, TaskRecord } from "@splates/server/board";
+import type { AgentPick } from "@splates/server/models";
+import { queueOrder } from "@splates/server/queue/browser";
+import type { Snapshot } from "@splates/server/tasks";
 
 /**
  * What each board write will make of the snapshot, so `Feed.expect` knows
@@ -154,6 +151,38 @@ export function laneAdded(name: string) {
 	);
 }
 
+/** Lane `id` on `board`, at `position` among that board's lanes or last. */
+export function laneOnBoard(id: number, board: number, position?: number) {
+	return keyed(`lane:${id}`, (snapshot: Snapshot): Snapshot => {
+		const lane = snapshot.lanes.find((each) => each.id === id);
+		if (lane === undefined) {
+			return snapshot;
+		}
+		const rest = snapshot.lanes.filter((each) => each.id !== id);
+		const peers = rest.filter((each) => each.board === board);
+		const at = Math.min(
+			Math.max((position ?? peers.length + 1) - 1, 0),
+			peers.length,
+		);
+		const after = peers[at - 1];
+		const before = peers[at];
+		let index = rest.length;
+		if (after !== undefined) {
+			index = rest.indexOf(after) + 1;
+		} else if (before !== undefined) {
+			index = rest.indexOf(before);
+		}
+		return {
+			...snapshot,
+			lanes: [
+				...rest.slice(0, index),
+				{ ...lane, board },
+				...rest.slice(index),
+			],
+		};
+	});
+}
+
 /** Lane `from`'s todos at the bottom of lane `into`, in the order they had, and `from` gone. */
 export function lanesJoined(from: number, into: number) {
 	return keyed(`lane:${from}`, (snapshot: Snapshot): Snapshot => {
@@ -217,15 +246,31 @@ export function taskRemoved(task: string) {
 	);
 }
 
-/** Todo `id` off the list. */
+/**
+ * Todo `id` off the list, those it blocked held as Blocked by it, as the
+ * server holds them.
+ */
 export function todoRemoved(id: number) {
-	return keyed(
-		`todo:${id}`,
-		(snapshot: Snapshot): Snapshot => ({
+	return keyed(`todo:${id}`, (snapshot: Snapshot): Snapshot => {
+		const gone = snapshot.todos.find((todo) => todo.id === id);
+		return {
 			...snapshot,
-			todos: snapshot.todos.filter((todo) => todo.id !== id),
-		}),
-	);
+			todos: snapshot.todos
+				.filter((todo) => todo.id !== id)
+				.map((todo) =>
+					gone === undefined || !todo.blockedBy.includes(id)
+						? todo
+						: {
+								...todo,
+								blockedBy: todo.blockedBy.filter((before) => before !== id),
+								blockersLost: [
+									...(todo.blockersLost ?? []),
+									{ id, subject: gone.subject },
+								],
+							},
+				),
+		};
+	});
 }
 
 /**

@@ -1,5 +1,5 @@
-import type { Message } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Message } from "@splates/server/conversations";
+import type { Event } from "@splates/server/records";
 
 /**
  * What splates did at the agent's word, by the reply it came in: each of

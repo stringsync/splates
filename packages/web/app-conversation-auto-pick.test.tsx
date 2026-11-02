@@ -1,6 +1,6 @@
 import "./testing-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Setting } from "@stringsync/splates-server/conversations";
+import type { Setting } from "@splates/server/conversations";
 import {
 	act,
 	cleanup,

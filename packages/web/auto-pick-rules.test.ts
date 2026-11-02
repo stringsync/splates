@@ -2,11 +2,8 @@ import { describe, expect, it } from "bun:test";
 import type {
 	AutoPickRules,
 	AutoPickRulesView,
-} from "@stringsync/splates-server/auto-pick";
-import {
-	DEFAULT_PACE,
-	DEFAULT_RULES,
-} from "@stringsync/splates-server/auto-pick/browser";
+} from "@splates/server/auto-pick";
+import { DEFAULT_PACE, DEFAULT_RULES } from "@splates/server/auto-pick/browser";
 import { RulesEditor, type RulesStore } from "./auto-pick-rules";
 
 describe("RulesEditor", () => {

@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { SquareTerminalIcon } from "lucide-react";
 import { type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -31,6 +31,11 @@ import { ShellRunning, ShowTerminal } from "./terminal";
 export function useArchive(
 	conversation: ConversationState,
 	refuse: Refuse,
+	/**
+	 * Puts its task back on the board and archives it once that is done, for
+	 * the dialog to offer in place of removing the task; none to not offer it.
+	 */
+	putBack?: () => void,
 ): {
 	/**
 	 * Files it away, or asks first; `then` as it goes, which shows at once,
@@ -195,6 +200,16 @@ export function useArchive(
 					<DialogClose render={<Button variant="outline" />}>
 						Cancel
 					</DialogClose>
+					{task !== null && putBack !== undefined && (
+						<Button
+							onClick={() => {
+								setAsking(false);
+								putBack();
+							}}
+						>
+							Put back on board & archive
+						</Button>
+					)}
 					<Button
 						variant="destructive"
 						onClick={() => {
@@ -202,7 +217,7 @@ export function useArchive(
 							put();
 						}}
 					>
-						Archive
+						{task === null ? "Archive" : "Archive & remove task"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

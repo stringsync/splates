@@ -1,10 +1,6 @@
-import type {
-	AutomationRow,
-	Hook,
-	Trigger,
-} from "@stringsync/splates-server/hooks";
-import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AutomationRow, Hook, Trigger } from "@splates/server/hooks";
+import { GROOMER_AUTOMATION } from "@splates/server/hooks/browser";
+import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 import {
 	addAutomation,

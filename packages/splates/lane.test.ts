@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { Testing } from "@stringsync/splates-server/testing";
+import { Testing } from "@splates/server/testing";
 import { splates } from "./splates";
 
 it("addresses permanent Backlog by name in both task and lane commands", async () => {

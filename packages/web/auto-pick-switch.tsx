@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { switched } from "@stringsync/splates-server/conversations/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import { switched } from "@splates/server/conversations/browser";
 import { switchAutoPick } from "./conversation-api";
 import { useExpect } from "./expecting";
 import type { Refuse } from "./refusal";

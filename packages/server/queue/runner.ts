@@ -1,7 +1,7 @@
 import { Disposer, type Resource } from "core/disposable";
 import { color, type Logger } from "core/log";
 import { Duration, SystemTimer, type Timer } from "core/time";
-import type { TaskRecord } from "../board";
+import { type TaskRecord, ungroomed } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
@@ -264,7 +264,7 @@ export class QueueRunner implements Resource {
 
 	/**
 	 * Whom each queued task goes to: the agent it names, else Auto pick's
-	 * pick. Every Untriaged available task or queued task that names none has its
+	 * pick. Every ungroomed available task or queued task that names none has its
 	 * words judged in the background as it is added and once for each new
 	 * wording, so the queued ones take what that judged, guessed without
 	 * asking again; those about to start, `next`, are decided now on fresh
@@ -280,7 +280,7 @@ export class QueueRunner implements Resource {
 		const waiting = all.filter(
 			(task) =>
 				(task.stage === "queued" ||
-					(task.stage === "available" && task.lane === null)) &&
+					(task.stage === "available" && ungroomed(task))) &&
 				task.takenBy === null &&
 				task.assignee === undefined,
 		);
@@ -539,7 +539,7 @@ export interface HeldConversations {
 /**
  * What a queued task's agent is told beyond claiming its task: that the
  * queue started it, the commit each task it was blocked by landed as,
- * which it builds on, and to groom it first when it is still in Untriaged.
+ * which it builds on, and to groom it first when it is still ungroomed in Backlog.
  */
 export function queuePrompt(queued: TaskRecord): string {
 	// The page reads a lane's words back as an event line (`queueStartOf` in
@@ -556,10 +556,10 @@ export function queuePrompt(queued: TaskRecord): string {
 			(landed) =>
 				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
 		),
-		...(queued.lane !== null
+		...(!ungroomed(queued)
 			? []
 			: [
-					"Groom it first, since it is still in Untriaged, as the splates skill's `references/groom.md` says under Grooming a task you start.",
+					"Groom it first, since it is still ungroomed in Backlog, as the splates skill's `references/groom.md` says under Grooming a task you start.",
 				]),
 		"Work it as the splates skill says, ending in `splates merge` or `splates remove`, or in questions for the user.",
 	].join("\n");

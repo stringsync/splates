@@ -1,11 +1,8 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { AgentPick } from "@stringsync/splates-server/models";
-import type {
-	TaskReport,
-	TodoProposal,
-} from "@stringsync/splates-server/plans";
-import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
+import type { TaskRecord } from "@splates/server/board";
+import type { AgentPick } from "@splates/server/models";
+import type { TaskReport, TodoProposal } from "@splates/server/plans";
+import { taskNumberReference } from "@splates/server/plans/browser";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,

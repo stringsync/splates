@@ -72,10 +72,7 @@ merge again.
 Under `splates server`, `splates merge` hands the merge to the server, which
 runs it in your worktree with the server's own merge code and prints back
 what it says; the command still waits in the foreground and ends as the
-merge does. With a central remote, `splates merge` pushes the branch untested as
-`splates/<task>` and the server rebases, gates and lands its own checkout of it in the same
-line; a refusal (a conflict, failing tests) leaves nothing on the server, so rebase your own tree
-onto trunk and merge again. With no server to reach, it merges itself. A server that
+merge does. With no server to reach, or a central remote, it merges itself. A server that
 restarts mid-merge runs it again once the waiting command reconnects, so
 keep waiting rather than merging again.
 

@@ -20,6 +20,8 @@ export class BackgroundOutput
 	readonly events = this.dispatcher.events;
 
 	status: BackgroundOutputStatus = "connecting";
+	/** Whether any output has arrived yet. */
+	printed = false;
 	/** What the page draws the terminal into; mount it with `attach`. */
 	readonly element = document.createElement("div");
 
@@ -76,6 +78,25 @@ export class BackgroundOutput
 		});
 	}
 
+	/** Everything the terminal holds, scrollback included, as plain text. */
+	text(): string {
+		const buffer = this.terminal.buffer.active;
+		const lines: string[] = [];
+		for (let row = 0; row < buffer.length; row++) {
+			const line = buffer.getLine(row);
+			if (line === undefined) {
+				continue;
+			}
+			const text = line.translateToString(true);
+			if (line.isWrapped && lines.length > 0) {
+				lines[lines.length - 1] += text;
+			} else {
+				lines.push(text);
+			}
+		}
+		return lines.join("\n").trimEnd();
+	}
+
 	dispose(): void {
 		this.reading.abort();
 		this.disposer.dispose();
@@ -106,6 +127,10 @@ export class BackgroundOutput
 					break;
 				}
 				this.terminal.write(value);
+				if (!this.printed && value.length > 0) {
+					this.printed = true;
+					this.dispatcher.dispatch("changed");
+				}
 			}
 			this.set("ended");
 		} catch {

@@ -147,7 +147,12 @@ const anchoredTurn = (s: AssistantState, going: boolean) => {
  * anchors.
  */
 export function useAnchoredTurn(going: boolean): string | undefined {
-	const turn = useAuiState((s) => anchoredTurn(s, going));
+	// While history loads the messages above the turn are still arriving, so
+	// the room sized for it would outlast the place it was sized for and leave
+	// the thread scrolled past its end.
+	const turn = useAuiState((s) =>
+		s.thread.isLoading ? undefined : anchoredTurn(s, going),
+	);
 	const any = useAuiState((s) => s.thread.messages.length > 0);
 	const asked = useAuiState(
 		(s) => s.thread.messages.findLast((m) => m.role === "user")?.id,

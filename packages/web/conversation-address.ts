@@ -1,10 +1,7 @@
-import type {
-	ConversationState,
-	Setting,
-} from "@stringsync/splates-server/conversations";
+import type { ConversationState, Setting } from "@splates/server/conversations";
 import type { AgentChoice } from "./conversation-feed";
 
-export { openedBy, TASK } from "@stringsync/splates-server/plans/browser";
+export { openedBy, TASK } from "@splates/server/plans/browser";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -23,6 +20,20 @@ export const NEW = "new";
 export function conversationIn(hash: string): string | null {
 	const [, id] = hash.match(/^#conversations\/(.+)$/) ?? [];
 	return id ?? null;
+}
+
+/** In place of an id in the address, as `queued/12`: the page of queued task 12. */
+export const QUEUED = "queued";
+
+/** The address of queued task `id`'s page. */
+export function queuedAddress(id: number): string {
+	return `${QUEUED}/${id}`;
+}
+
+/** The task whose page `open` shows, or null. */
+export function queuedIn(open: string | null): number | null {
+	const [, id] = open?.match(/^queued\/(\d+)$/) ?? [];
+	return id === undefined ? null : Number(id);
 }
 
 /**

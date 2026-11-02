@@ -4,13 +4,10 @@
  * serves.
  */
 
-import type {
-	After,
-	Checkpoint,
-} from "@stringsync/splates-server/conversations";
-import type { Added, Reach } from "@stringsync/splates-server/projects";
-import type { Behind, ServerChoice } from "@stringsync/splates-server/server";
-import type { Held } from "@stringsync/splates-server/terminal";
+import type { After, Checkpoint } from "@splates/server/conversations";
+import type { Added, Reach } from "@splates/server/projects";
+import type { Behind, ServerChoice } from "@splates/server/server";
+import type { Held } from "@splates/server/terminal";
 import { ApiError, answered, send, sendJson } from "./api";
 
 /** Every splates project on this machine, and the `splates server` serving them. */

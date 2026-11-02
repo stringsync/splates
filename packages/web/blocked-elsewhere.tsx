@@ -1,7 +1,7 @@
 import type {
 	ElsewhereBlockerNow,
 	TaskRecord,
-} from "@stringsync/splates-server/board/browser";
+} from "@splates/server/board/browser";
 import { HourglassIcon, LinkIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board } from "./board";

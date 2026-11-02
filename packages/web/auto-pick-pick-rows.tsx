@@ -15,7 +15,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AgentPick } from "@splates/server/models";
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";

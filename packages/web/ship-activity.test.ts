@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type {
-	Cascade,
-	CascadeStep,
-	Ship,
-} from "@stringsync/splates-server/ship";
+import type { Cascade, CascadeStep, Ship } from "@splates/server/ship";
 import { shipActivity, shipLine } from "./ship-activity";
 
 describe("shipActivity", () => {

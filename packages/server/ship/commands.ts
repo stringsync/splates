@@ -97,6 +97,7 @@ export async function registeredGraph(
 				if (project.ship !== null) {
 					project.changes = await new ReleaseGit(ps, project.root).changes(
 						project.version,
+						project.paths,
 					);
 				}
 			}),

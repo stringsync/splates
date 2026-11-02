@@ -3,12 +3,9 @@ import type {
 	AutoPickRules,
 	AutoPickRulesView,
 	AutoPickTrial,
-} from "@stringsync/splates-server/auto-pick";
-import type {
-	SetupProgress,
-	StepProgress,
-} from "@stringsync/splates-server/setup";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+} from "@splates/server/auto-pick";
+import type { SetupProgress, StepProgress } from "@splates/server/setup";
+import type { Snapshot } from "@splates/server/tasks";
 import {
 	act,
 	cleanup,
@@ -326,6 +323,7 @@ function progress({
 } = {}): SetupProgress {
 	const base = {
 		optional: true,
+		extra: false,
 		problem: null,
 		cred: null,
 		fields: [],
@@ -386,6 +384,8 @@ function progress({
 				done: steps.filter((step) => step.status === "done").length,
 				skipped: 0,
 				left: steps.filter((step) => step.status !== "done").length,
+				extras: 0,
+				complete: steps.every((step) => step.status === "done"),
 				undoable: steps.some((step) => step.status === "done"),
 				steps,
 			},

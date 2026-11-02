@@ -51,6 +51,7 @@ function shipsArea(): SetupArea {
 		notDone:
 			"No `shipStatus` command is named: have an agent add one and approve it, or skip this when the project ships to npm.",
 		optional: true,
+		extra: true,
 		after: [commandStep],
 		fields: [
 			{

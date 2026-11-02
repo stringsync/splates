@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 import {
 	cleanup,
 	fireEvent,

@@ -1,9 +1,6 @@
-import type {
-	ElsewhereBlocker,
-	ElsewhereBoards,
-} from "@stringsync/splates-server/board";
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { fail } from "@stringsync/splates-server/exit";
+import type { ElsewhereBlocker, ElsewhereBoards } from "@splates/server/board";
+import { commaList } from "@splates/server/comma-list";
+import { fail } from "@splates/server/exit";
 
 /**
  * Reads `--blocked-by` and `--remove-blocked-by` in the project at `here`:

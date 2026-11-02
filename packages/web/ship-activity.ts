@@ -1,10 +1,5 @@
-import type {
-	Cascade,
-	CascadeStep,
-	Ship,
-	Stage,
-} from "@stringsync/splates-server/ship";
-import { shipName } from "@stringsync/splates-server/ship/browser";
+import type { Cascade, CascadeStep, Ship, Stage } from "@splates/server/ship";
+import { shipName } from "@splates/server/ship/browser";
 
 /**
  * What the ship under way asks of the page: `waiting` while it needs the

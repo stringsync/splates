@@ -1,7 +1,7 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { PermissionProposal } from "@splates/server/plans";
+import type { Snapshot } from "@splates/server/tasks";
 import {
 	CircleCheckIcon,
 	HourglassIcon,

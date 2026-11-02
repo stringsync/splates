@@ -1,5 +1,5 @@
-import type { EvalDetail } from "@stringsync/splates-server/evals/browser";
-import { targetName } from "@stringsync/splates-server/evals/browser";
+import type { EvalDetail } from "@splates/server/evals/browser";
+import { targetName } from "@splates/server/evals/browser";
 import { ChevronDownIcon, WrenchIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

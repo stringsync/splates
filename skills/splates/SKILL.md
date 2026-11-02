@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.5
+version: 1.13.6
 ---
 
 # Using splates
@@ -248,7 +248,9 @@ The log rotation fix is on main and unreleased; mdom and vexml take it next.
 
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
 tasks needs the person's remove-lane permission card (see
-[reporting.md](references/reporting.md)). Backlog is permanent.
+[reporting.md](references/reporting.md)). Backlog is permanent. Agents place
+every lane on a board and may add and remove empty boards (`splates board`);
+see Boards in [queue.md](references/queue.md).
 
 You never change the queue, which splates refuses an agent: when a
 conversation asks for several tasks, or a request is several medium changes,
@@ -279,8 +281,8 @@ the file when one arrives.
 | `[SPLATES TASK <task>]`             | Resume a task                                                                                                                                     | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands                                                                                                                                                                                                                                                                                                                                                                               |
 | `[SPLATES MERGE]`                   | The user approved your review, from the Ready to merge card                                                                                       | As for a reply of "merge": [merge.md](references/merge.md), Merge or review                                                                                                                                                                                                                                                                                                                                                                                    |
 | `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
-| `[SPLATES GROOM #N]` | You are the project's groomer: organize Untriaged task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
-| `[SPLATES LANE N]` | Work down lane N (`untriaged` places the Untriaged tasks in lanes first) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
+| `[SPLATES GROOM #N]` | You are the project's groomer: organize ungroomed Backlog task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
+| `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
 | `[SPLATES RETRIED]`                 | The user granted your task another round of merge attempts, which the page has run `splates retry` for | Merge again, as [merge.md](references/merge.md) says under When a merge fails |

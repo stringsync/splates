@@ -2,8 +2,8 @@ import type {
 	AutoPickRules,
 	AutoPickRulesView,
 	AutoPickTrial,
-} from "@stringsync/splates-server/auto-pick";
-import type { RuleOverrides } from "@stringsync/splates-server/stats/browser";
+} from "@splates/server/auto-pick";
+import type { RuleOverrides } from "@splates/server/stats/browser";
 import { ApiError, answered, sendJson } from "./api";
 
 /** How often the person overrode each rule's pick, across this machine's projects. */

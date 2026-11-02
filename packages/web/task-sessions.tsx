@@ -1,8 +1,5 @@
-import { age } from "@stringsync/splates-server/age";
-import type {
-	ConversationState,
-	Session,
-} from "@stringsync/splates-server/conversations";
+import { age } from "@splates/server/age";
+import type { ConversationState, Session } from "@splates/server/conversations";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { AgentIcon } from "./agent-icons";

@@ -1,5 +1,5 @@
-import { age } from "@stringsync/splates-server/age";
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
+import { age } from "@splates/server/age";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";

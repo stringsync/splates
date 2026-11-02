@@ -1,5 +1,5 @@
-import type { Proposal, TaskReport } from "@stringsync/splates-server/plans";
-import { APPROVE, directive } from "@stringsync/splates-server/plans/browser";
+import type { Proposal, TaskReport } from "@splates/server/plans";
+import { APPROVE, directive } from "@splates/server/plans/browser";
 import type { Words } from "./splates-event";
 
 /**

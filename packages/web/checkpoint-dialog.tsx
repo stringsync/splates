@@ -1,4 +1,4 @@
-import type { Held } from "@stringsync/splates-server/terminal";
+import type { Held } from "@splates/server/terminal";
 import { Duration } from "core/time";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

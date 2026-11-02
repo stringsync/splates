@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { BotIcon, ShipIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";

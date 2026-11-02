@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { EverywhereProject } from "@stringsync/splates-server/projects";
+import type { EverywhereProject } from "@splates/server/projects";
 import {
 	act,
 	agentList,

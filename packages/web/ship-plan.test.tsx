@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Cascade, ShipProject } from "@stringsync/splates-server/ship";
+import type { Cascade, ShipProject } from "@splates/server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
@@ -101,7 +101,7 @@ describe("Ship plan", () => {
 			target: { value: "  Keep this exactly.\n" },
 		});
 		expect(body).toBeNull();
-		fireEvent.click(view.getByRole("button", { name: /^Start/ }));
+		fireEvent.click(view.getByRole("button", { name: /^Ship \d/ }));
 		await waitFor(() =>
 			expect(body).toEqual({
 				projects: [
@@ -122,6 +122,71 @@ describe("Ship plan", () => {
 		);
 		expect(await view.findByRole("alert")).toBeTruthy();
 	});
+	it("previews each release with the version it gets and marks a dependent added automatically", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				answer(String(url), [
+					project({ slug: "base" }),
+					project({ slug: "consumer", uses: [{ project: "base", pins: [] }] }),
+				]),
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await view.findByText("base");
+		expect(view.getByText("Nothing chosen")).toBeTruthy();
+		fireEvent.click(view.getByRole("checkbox", { name: "Ship base" }));
+		const preview = view.getByRole("region", { name: "What Start will do" });
+		expect(preview.textContent).toContain("base 0.0.53 → 0.0.54: publish");
+		expect(preview.textContent).toContain(
+			"consumer 0.0.53 → 0.0.54: pin base 0.0.54, then publish",
+		);
+		expect(view.getAllByText("added automatically")).toHaveLength(1);
+		expect(view.getByRole("button", { name: "Ship 2 projects" })).toBeTruthy();
+	});
+	it("explains shipping until something is chosen", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				answer(String(url), [
+					project({
+						slug: "base",
+						changes: {
+							commits: null,
+							branch: "main",
+							tag: "v1",
+							error: "no tag",
+						},
+					}),
+				]),
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await view.findByRole("region", { name: "About shipping" });
+		expect(view.getByText(/Can't tell what changed/)).toBeTruthy();
+		fireEvent.click(view.getByRole("checkbox", { name: "Ship base" }));
+		expect(view.queryByRole("region", { name: "About shipping" })).toBeNull();
+	});
 	it("blocks another start while a ship is stopped", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
@@ -130,8 +195,10 @@ describe("Ship plan", () => {
 				stream = this;
 			}
 		} as unknown as typeof EventSource;
-		globalThis.fetch = (async () =>
-			Response.json({ projects: [project({})] })) as unknown as typeof fetch;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				answer(String(url), [project({})]),
+			)) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		act(() =>
 			stream?.onmessage?.({
@@ -140,7 +207,9 @@ describe("Ship plan", () => {
 		);
 		expect(await view.findByText("A ship is under way.")).toBeTruthy();
 		expect(
-			view.getByRole("button", { name: /^Start/ }).hasAttribute("disabled"),
+			view
+				.getByRole("button", { name: /^Choose a project/ })
+				.hasAttribute("disabled"),
 		).toBe(true);
 	});
 });

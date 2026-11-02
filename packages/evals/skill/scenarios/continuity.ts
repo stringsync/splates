@@ -1,11 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type { Repo } from "@evals/evals/scenario";
-import {
-	CHECKPOINT,
-	RECONNECT,
-	RESUME,
-} from "@stringsync/splates-server/plans";
+import { CHECKPOINT, RECONNECT, RESUME } from "@splates/server/plans";
 import type { Scenario } from "../box";
 import { firstStep, opens } from "./discovery";
 

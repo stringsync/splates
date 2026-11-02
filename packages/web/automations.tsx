@@ -1,12 +1,5 @@
-import type {
-	AutomationRow,
-	Hook,
-	Trigger,
-} from "@stringsync/splates-server/hooks";
-import {
-	GROOMER_AUTOMATION,
-	runsNow,
-} from "@stringsync/splates-server/hooks/browser";
+import type { AutomationRow, Hook, Trigger } from "@splates/server/hooks";
+import { GROOMER_AUTOMATION, runsNow } from "@splates/server/hooks/browser";
 import { useReactive } from "core/react";
 import {
 	ChevronRightIcon,

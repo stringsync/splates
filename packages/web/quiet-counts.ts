@@ -1,4 +1,4 @@
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 
 /** What a count of quiet events counts, in the order they show. */
 export type CountKind =

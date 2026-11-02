@@ -1,4 +1,4 @@
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 
 /** Ids of the first step of each task's newest merge: a merge queued, or a start that no queue preceded. */
 export function newestMerges(events: readonly Event[]): Set<string> {

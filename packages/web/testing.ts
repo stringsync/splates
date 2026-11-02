@@ -1,37 +1,24 @@
 // vet-ignore-file compact-files: the page tests' one fake server; its routes belong together
-import type {
-	BillingView,
-	SpendReport,
-} from "@stringsync/splates-server/spend";
+import type { BillingView, SpendReport } from "@splates/server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
 // before anything below loads react-dom.
 import "./testing-dom";
 import { expect } from "bun:test";
-import type { AutoPickRulesView } from "@stringsync/splates-server/auto-pick";
+import type { AutoPickRulesView } from "@splates/server/auto-pick";
 import type {
 	ConversationState,
 	Said,
 	Session,
-} from "@stringsync/splates-server/conversations";
-import {
-	saidIn,
-	wordsOf,
-} from "@stringsync/splates-server/conversations/browser";
-import type { PortLink } from "@stringsync/splates-server/ports";
-import type { EverywhereProject } from "@stringsync/splates-server/projects";
-import type { ServerChoice } from "@stringsync/splates-server/server";
-import type { SetupProgress, UndoPlan } from "@stringsync/splates-server/setup";
-import type {
-	Landed,
-	RuleOverrides,
-} from "@stringsync/splates-server/stats/browser";
-import type {
-	FileDiff,
-	FinishedPlan,
-	Snapshot,
-} from "@stringsync/splates-server/tasks";
-import type { Held } from "@stringsync/splates-server/terminal";
-import type { WorkerPool } from "@stringsync/splates-server/workers";
+} from "@splates/server/conversations";
+import { saidIn, wordsOf } from "@splates/server/conversations/browser";
+import type { PortLink } from "@splates/server/ports";
+import type { EverywhereProject } from "@splates/server/projects";
+import type { ServerChoice } from "@splates/server/server";
+import type { SetupProgress, UndoPlan } from "@splates/server/setup";
+import type { Landed, RuleOverrides } from "@splates/server/stats/browser";
+import type { FileDiff, FinishedPlan, Snapshot } from "@splates/server/tasks";
+import type { Held } from "@splates/server/terminal";
+import type { WorkerPool } from "@splates/server/workers";
 import { aborts } from "core/abort";
 import type { Resource } from "core/disposable";
 import { Duration } from "core/time";

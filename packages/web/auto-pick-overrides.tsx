@@ -1,4 +1,4 @@
-import type { RuleOverrides } from "@stringsync/splates-server/stats/browser";
+import type { RuleOverrides } from "@splates/server/stats/browser";
 import { type JSX, useEffect, useState } from "react";
 import { autoPickOverrides } from "./auto-pick-api";
 

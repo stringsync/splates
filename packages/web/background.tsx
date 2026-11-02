@@ -3,7 +3,7 @@ import type {
 	Background,
 	BackgroundState,
 	Tool,
-} from "@stringsync/splates-server/conversations";
+} from "@splates/server/conversations";
 import {
 	CheckIcon,
 	ChevronDownIcon,

@@ -1,6 +1,6 @@
-import type { Message } from "@stringsync/splates-server/conversations";
-import { stretches } from "@stringsync/splates-server/plans/browser";
-import type { Landed } from "@stringsync/splates-server/stats/browser";
+import type { Message } from "@splates/server/conversations";
+import { stretches } from "@splates/server/plans/browser";
+import type { Landed } from "@splates/server/stats/browser";
 import { taskOutcome } from "./api";
 
 /**

@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import { type ReactNode, useMemo } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import { Conversations } from "./conversations";

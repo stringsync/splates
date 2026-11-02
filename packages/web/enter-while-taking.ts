@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 /**
  * Hands `enter` an Enter pressed on the bare page while `live`, such as
@@ -28,4 +28,32 @@ export function useEnterWhileTaking(live: boolean, enter: () => boolean): void {
 		document.addEventListener("keydown", onKey);
 		return () => document.removeEventListener("keydown", onKey);
 	}, [live]);
+}
+
+/**
+ * Makes Enter in a card's last box do the card's primary action, `primary`,
+ * and returns the box's `onKeyDown`. Mid-dictation the box is inert and Enter
+ * lands on the bare page, so it is caught there too; `primary` finishes the
+ * take first. Shift+Enter stays a new line.
+ */
+export function useEnterDoes(
+	panel: RefObject<HTMLElement | null>,
+	primary: (() => void) | null,
+): (event: globalThis.KeyboardEvent) => void {
+	useEnterWhileTaking(primary !== null, () => {
+		if (
+			primary === null ||
+			panel.current?.querySelector("[data-dictation-owner]") == null
+		) {
+			return false;
+		}
+		primary();
+		return true;
+	});
+	return (event) => {
+		if (primary !== null && event.key === "Enter" && !event.shiftKey) {
+			event.preventDefault();
+			primary();
+		}
+	};
 }

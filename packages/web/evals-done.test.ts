@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { evalsDonePrompt } from "@stringsync/splates-server/evals";
-import type { EvalGrid } from "@stringsync/splates-server/evals/browser";
+import { evalsDonePrompt } from "@splates/server/evals";
+import type { EvalGrid } from "@splates/server/evals/browser";
 import { evalsDoneLine, evalsDoneOf } from "./evals-done";
 
 const grid: EvalGrid = {

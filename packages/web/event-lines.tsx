@@ -1,6 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Action, Event } from "@stringsync/splates-server/records";
-import { isEscalation } from "@stringsync/splates-server/records/browser";
+import type { Action, Event } from "@splates/server/records";
+import { isEscalation } from "@splates/server/records/browser";
 import type { JSX } from "react";
 import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";

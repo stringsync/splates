@@ -5,7 +5,7 @@ import {
 	Setup,
 	type SetupProgress,
 	type StepStatus,
-} from "@stringsync/splates-server/setup";
+} from "@splates/server/setup";
 import { FakeSecretStore } from "core/creds/testing";
 import { FakeFs } from "core/system/testing";
 import { AppSetupPage } from "./app-setup-page";
@@ -55,6 +55,7 @@ describe("Setup journeys", () => {
 					...area,
 					steps,
 					done: steps.filter((step) => step.status === "done").length,
+					complete: steps.every((step) => step.status === "done"),
 				};
 			}),
 		};
@@ -106,9 +107,9 @@ describe("Setup journeys", () => {
 		expect(testing.asked).not.toContain("/api/setup/opencode");
 	});
 
-	it("makes Replica, Evals and GitHub push config changes an agent makes, not edits by hand", () => {
+	it("makes Replica and Evals config changes an agent makes, not edits by hand", () => {
 		const steps = progress.areas.flatMap((area) => area.steps);
-		for (const id of ["replica-place", "evals-results", "github-push"]) {
+		for (const id of ["replica-place", "evals-results"]) {
 			const step = steps.find((each) => each.id === id);
 			expect(step?.fields.map((field) => field.kind)).toEqual(["config"]);
 			expect(step?.user).not.toContain("restart `splates server`");
@@ -239,6 +240,7 @@ describe("Setup journeys", () => {
 				areas={progress.areas.map((area) => ({
 					...area,
 					done: area.id === "claude" ? area.steps.length : 0,
+					complete: area.id === "claude",
 					undoable: area.id === "claude" || area.id === "codex",
 				}))}
 				onSelect={() => {}}

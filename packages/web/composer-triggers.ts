@@ -1,9 +1,6 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
-import type {
-	Command,
-	ProjectRef,
-} from "@stringsync/splates-server/conversations";
-import { nameOf } from "@stringsync/splates-server/conversations/browser";
+import type { Command, ProjectRef } from "@splates/server/conversations";
+import { nameOf } from "@splates/server/conversations/browser";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { paths } from "./api";
 import { Lanes } from "./conversation-names";

@@ -1,9 +1,6 @@
-import {
-	lanesTaken,
-	type TaskRecord,
-} from "@stringsync/splates-server/board/browser";
-import type { Needing } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import { lanesTaken, type TaskRecord } from "@splates/server/board/browser";
+import type { Needing } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { ArchiveIcon } from "lucide-react";
 import {
@@ -219,7 +216,7 @@ export const ConversationList = memo(function ConversationList({
 		() => ({
 			places: placesOf(nested),
 			agentOf: (
-				each: import("@stringsync/splates-server/conversations").ConversationState,
+				each: import("@splates/server/conversations").ConversationState,
 			) => agentName(agents, each.agent),
 		}),
 		[nested, agents],
@@ -313,6 +310,7 @@ export const ConversationList = memo(function ConversationList({
 									? onOpen(NEW)
 									: navigation.show(newConversationUrl(folder.project))
 							}
+							onOpen={onOpen}
 							render={renderRow}
 							beneath={beneathOf}
 						/>

@@ -1,8 +1,9 @@
 import type {
+	BoardRecord,
 	ElsewhereOnBoard,
 	LaneRecord,
 	TaskRecord,
-} from "@stringsync/splates-server/board";
+} from "@splates/server/board";
 import { createContext } from "react";
 import { Drafts } from "./drafts";
 
@@ -36,6 +37,8 @@ export interface BoardContext {
 	todos: TaskRecord[];
 	/** Every lane, in board order, to call each by its name. */
 	lanes: LaneRecord[];
+	/** The project's boards, in order; absent from an older server. */
+	boards?: BoardRecord[];
 	/** Where its todos' blockers in other projects stand, and theirs it blocks; absent unread. */
 	elsewhere?: ElsewhereOnBoard;
 	open: (id: number) => void;

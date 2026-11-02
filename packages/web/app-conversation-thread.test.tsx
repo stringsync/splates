@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
-import {
-	conflictWarning,
-	earlyWarning,
-} from "@stringsync/splates-server/server/browser";
+import { SERVER_TOLD } from "@splates/server/conversations/browser";
+import { conflictWarning, earlyWarning } from "@splates/server/server/browser";
 import {
 	act,
 	cleanup,

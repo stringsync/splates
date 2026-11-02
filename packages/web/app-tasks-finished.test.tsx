@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { FinishedPlan } from "@stringsync/splates-server/tasks";
+import type { FinishedPlan } from "@splates/server/tasks";
 import {
 	act,
 	cleanup,

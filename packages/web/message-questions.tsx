@@ -4,10 +4,10 @@ import type {
 	Proposal,
 	Question,
 	TaskReport,
-} from "@stringsync/splates-server/plans";
-import { isUpdate } from "@stringsync/splates-server/plans/browser";
-import type { Event } from "@stringsync/splates-server/records";
-import { isEscalation } from "@stringsync/splates-server/records/browser";
+} from "@splates/server/plans";
+import { isUpdate } from "@splates/server/plans/browser";
+import type { Event } from "@splates/server/records";
+import { isEscalation } from "@splates/server/records/browser";
 import type { JSX } from "react";
 import { InMessage, textOf } from "./card-reply";
 import { Sheeted, useSheeted } from "./phone-sheets";

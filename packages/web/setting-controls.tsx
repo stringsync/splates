@@ -1,4 +1,4 @@
-import type { Setting } from "@stringsync/splates-server/conversations";
+import type { Setting } from "@splates/server/conversations";
 import { ChevronDownIcon, SlidersHorizontalIcon } from "lucide-react";
 import { type JSX, useId, useLayoutEffect, useRef, useState } from "react";
 import {

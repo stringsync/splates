@@ -1,6 +1,6 @@
-import type { AutomationRow } from "@stringsync/splates-server/hooks";
-import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AutomationRow } from "@splates/server/hooks";
+import { GROOMER_AUTOMATION } from "@splates/server/hooks/browser";
+import type { AgentPick } from "@splates/server/models";
 import { Dispatcher } from "core/events";
 import {
 	automations,

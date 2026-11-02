@@ -1,11 +1,11 @@
-import type { Rule } from "@stringsync/splates-server/auto-pick";
+import type { Rule } from "@splates/server/auto-pick";
 import {
 	ANY,
 	CLARITIES,
 	DEPTHS,
 	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+} from "@splates/server/auto-pick/browser";
+import type { AgentPick } from "@splates/server/models";
 import { useReactive } from "core/react";
 import {
 	ArrowDownIcon,

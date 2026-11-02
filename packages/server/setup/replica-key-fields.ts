@@ -1,7 +1,7 @@
 import { REPLICA_ACCESS_KEY, REPLICA_SECRET_KEY } from "../replica";
 import type { StepField } from "./fields";
 
-/** The two Spaces keys the Replica and Server on a Droplet areas both ask for, so each is pasted in its own step. */
+/** The two Spaces keys the Replica area asks for, each pasted in its own step. */
 export const REPLICA_KEY_FIELDS: readonly StepField[] = [
 	{
 		kind: "cred",

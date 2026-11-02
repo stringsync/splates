@@ -1,6 +1,6 @@
-import type { AutoPickAgent } from "@stringsync/splates-server/auto-pick";
-import type { EvalAgentsView } from "@stringsync/splates-server/evals/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { AutoPickAgent } from "@splates/server/auto-pick";
+import type { EvalAgentsView } from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 import { evalAgents, saveEvalAgents } from "./api";
 import type { PickList } from "./auto-pick-pick-chips";

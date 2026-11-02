@@ -149,7 +149,7 @@ describe("App's list actions on a conversation, pending until the server says so
 			fireEvent.click(
 				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
 					"button",
-					{ name: "Archive" },
+					{ name: /^Archive/ },
 				),
 			),
 		);

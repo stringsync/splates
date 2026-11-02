@@ -9,7 +9,7 @@ directories, which takes along locks, leases and paths of this machine.
 
 ## Moving the server
 
-To move `splates server` between machines, the Mac and a Droplet, or rebuild
+To move `splates server` between machines, or rebuild
 a lost box, go through the project's replica (`replica` in
 `splates.config.ts`: a bucket, or for a user without one a `dir` on a disk
 both machines reach).

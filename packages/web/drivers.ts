@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import type { TextNode } from "lexical";
 import type { ConversationsView, Testing } from "./testing";
 import {

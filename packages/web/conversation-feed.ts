@@ -1,9 +1,9 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import {
 	type ConversationDelta,
 	ConversationUpdates,
 	listed,
-} from "@stringsync/splates-server/conversations/browser";
+} from "@splates/server/conversations/browser";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { type IdProvider, UuidProvider } from "core/id";

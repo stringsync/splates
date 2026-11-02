@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import type { JSX } from "react";
 import { useAutoPick } from "./auto-pick-switch";
 import { useChooseSetting } from "./choose-setting";

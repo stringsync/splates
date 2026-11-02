@@ -6,7 +6,7 @@ import type {
 	EvalLaunch,
 	EvalPlan,
 	EvalScenario,
-} from "@stringsync/splates-server/evals/browser";
+} from "@splates/server/evals/browser";
 import { ApiError, answered, scoped, sendJson } from "./request";
 
 /**

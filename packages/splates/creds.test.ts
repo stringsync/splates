@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Testing } from "@stringsync/splates-server/testing";
+import { Testing } from "@splates/server/testing";
 import { Duration, sleep } from "core/time";
 import { splates } from "./splates";
 

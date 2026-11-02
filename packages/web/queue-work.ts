@@ -1,6 +1,6 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import { queueIsSettled } from "@stringsync/splates-server/plans/browser";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
+import type { PermissionProposal } from "@splates/server/plans";
+import { queueIsSettled } from "@splates/server/plans/browser";
 import { laneQueued, queued } from "./board-expectations";
 import type { SnapshotExpecter } from "./expecting";
 import { stageOf } from "./todo-queue";

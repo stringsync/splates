@@ -2,7 +2,7 @@ import {
 	DEFAULT_PORT,
 	type SplatesDeps,
 	serveDev,
-} from "@stringsync/splates-server/server";
+} from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 

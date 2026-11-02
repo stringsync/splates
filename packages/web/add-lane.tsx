@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

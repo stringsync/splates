@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
+import type { AutoPicked } from "@splates/server/auto-pick";
 import { autoPickRuns } from "./auto-pick-runs";
 import { details, todo } from "./testing";
 

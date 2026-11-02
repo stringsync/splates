@@ -1,4 +1,4 @@
-import type { Setting } from "@stringsync/splates-server/conversations";
+import type { Setting } from "@splates/server/conversations";
 import { chooseSetting } from "./conversation-api";
 import { useExpect } from "./expecting";
 import type { Refuse } from "./refusal";

@@ -1,8 +1,8 @@
-import type { Checkpoint } from "@stringsync/splates-server/conversations";
+import type { Checkpoint } from "@splates/server/conversations";
 import type { AgentChoice } from "./conversation-feed";
 import type { ProjectChoice } from "./project-api";
 
-export * from "@stringsync/splates-server/fixtures";
+export * from "@splates/server/fixtures";
 
 /** A conversation of a project's, as the projects route lists it. */
 export function live(

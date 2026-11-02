@@ -92,8 +92,8 @@ describe.concurrent("queueing a lane", () => {
 		);
 
 		expect(await deps.tasks.lanes()).toEqual([
-			{ id: 0, name: "Backlog" },
-			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog", board: 1 },
+			{ id: 1, name: "Licensing", board: 1 },
 		]);
 	});
 });

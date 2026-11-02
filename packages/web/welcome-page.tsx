@@ -1,23 +1,22 @@
-import type { AreaProgress } from "@stringsync/splates-server/setup";
-import { ArrowRightIcon } from "lucide-react";
+import type { AreaProgress } from "@splates/server/setup";
+import { FlagIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import {
 	type JSX,
+	type ReactNode,
 	useContext,
 	useEffect,
 	useRef,
 	useSyncExternalStore,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import { useWide } from "./app-nav";
-import { ShortcutSettings } from "./hooks/use-shortcut";
+import { ShortcutSettings, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Move } from "./page-address";
 import type { Page } from "./page-route";
-import { SetupIndex } from "./setup-form";
 import { SetupContext } from "./setup-state";
 import { TopBar } from "./top-bar";
 
-/** The page a desktop opens to: each setup area, what it is for and how far along it is. */
+/** The page a desktop opens to: a way to begin, and the setup areas still left to do. */
 export function WelcomePage({
 	onSetup,
 	onConversation,
@@ -27,67 +26,139 @@ export function WelcomePage({
 	/** Opens a new conversation. */
 	onConversation: () => void;
 }): JSX.Element {
-	const { progress } = useContext(SetupContext);
-	const left = recommended(progress?.areas ?? []);
+	const { progress, cached, reading } = useContext(SetupContext);
+	// What the device last read stands in until this read answers, so the page is never empty.
+	const shown = progress ?? cached;
+	const left = recommended(shown?.areas ?? []);
+	const newKeys = useShortcutLabel("shortcuts.new");
 	return (
 		<section
 			aria-label="welcome"
 			className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-10 pb-10"
 		>
 			<TopBar title="Welcome" />
-			<header className="flex flex-col gap-1 px-3 pt-6">
-				<h1 className="font-semibold text-3xl tracking-tight">
-					Welcome to splates
-				</h1>
-				<p className="text-lg text-muted-foreground">
-					Many agents on one repository, each on its own branch.
-				</p>
+			<header className="flex items-center gap-6 px-3 pt-6">
+				<PlateIcon className="size-16 shrink-0 rounded-2xl" />
+				<div className="flex flex-col gap-1">
+					<h1 className="font-normal text-3xl tracking-tight">
+						Welcome back to splates
+					</h1>
+					<p className="text-lg text-muted-foreground italic">
+						Many agents, one trunk
+					</p>
+				</div>
 			</header>
-			{(progress === null || left.length === 0) && (
-				<NextSteps onSetup={onSetup} onConversation={onConversation} />
-			)}
-			{progress !== null && (
-				<>
-					<SetupIndex
-						heading={left.length > 0 ? "Get started" : "You're all set"}
-						areas={left}
-						onSelect={(id) => onSetup(id)}
-					/>
-					<div className="mx-auto w-full max-w-2xl px-3">
-						<Button
-							variant="link"
-							className="h-auto p-0"
-							onClick={() => onSetup(null)}
-						>
-							All setup areas <ArrowRightIcon aria-hidden />
-						</Button>
-					</div>
-				</>
+			<WelcomeGroup heading="Get started">
+				<WelcomeRow
+					label="New conversation"
+					icon={<PlusIcon aria-hidden />}
+					keys={newKeys}
+					onClick={onConversation}
+				/>
+			</WelcomeGroup>
+			{(shown === null || left.length > 0) && (
+				<WelcomeGroup heading="Suggested next" loading={reading}>
+					{shown === null && <WelcomeSkeleton />}
+					{left.map((area) => (
+						<WelcomeRow
+							key={area.id}
+							label={`Set up ${area.title}`}
+							hint={area.purpose}
+							icon={<FlagIcon aria-hidden className="text-warning" />}
+							onClick={() => onSetup(area.id)}
+						/>
+					))}
+				</WelcomeGroup>
 			)}
 			<ShowOnStartup />
 		</section>
 	);
 }
 
-/** What to do once no setup area is left to suggest, so the page is never a dead end. */
-function NextSteps({
-	onSetup,
-	onConversation,
+/** A titled list of rows, ruled across like a Zed welcome section; a spinner beside the title while it loads. */
+function WelcomeGroup({
+	heading,
+	loading = false,
+	children,
 }: {
-	onSetup: (area: string | null) => void;
-	onConversation: () => void;
+	heading: string;
+	loading?: boolean;
+	children: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="flex flex-wrap gap-2 px-3">
-			<Button onClick={onConversation}>Start a new conversation</Button>
-			<Button variant="outline" onClick={() => onSetup("ships")}>
-				Help me write a ship
-			</Button>
-			<Button variant="outline" onClick={() => onSetup("evals")}>
-				Help me add an eval
-			</Button>
+		<div className="flex flex-col gap-2">
+			<h2 className="flex items-center gap-3 px-3 font-mono text-muted-foreground text-xs uppercase">
+				{heading}
+				{loading && (
+					<Loader2Icon
+						role="img"
+						aria-label="checking setup"
+						className="size-3.5 animate-spin"
+					/>
+				)}
+				<span aria-hidden className="h-px flex-1 bg-border" />
+			</h2>
+			<ul className="flex flex-col gap-0.5">{children}</ul>
 		</div>
 	);
+}
+
+/** One action: an icon, what it does, and its shortcut when it has one. */
+function WelcomeRow({
+	label,
+	hint,
+	icon,
+	keys,
+	onClick,
+}: {
+	label: string;
+	hint?: string;
+	icon: ReactNode;
+	keys?: string | null;
+	onClick: () => void;
+}): JSX.Element {
+	return (
+		<li>
+			<button
+				type="button"
+				aria-label={label}
+				className="flex w-full cursor-pointer items-center gap-4 rounded-lg px-3 py-3 text-left outline-none hover:bg-muted/60 focus-visible:bg-muted/60"
+				onClick={onClick}
+			>
+				<span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-5">
+					{icon}
+				</span>
+				<span className="flex-1 text-lg">{label}</span>
+				{hint && (
+					<span className="hidden truncate text-muted-foreground text-sm sm:block">
+						{hint}
+					</span>
+				)}
+				{keys && (
+					<kbd className="font-mono text-muted-foreground text-sm">{keys}</kbd>
+				)}
+			</button>
+		</li>
+	);
+}
+
+/** Placeholder rows while the first read of setup, with nothing kept from an earlier one, is out. */
+function WelcomeSkeleton(): JSX.Element {
+	return (
+		<>
+			{[0, 1].map((at) => (
+				<li key={at} aria-hidden className="flex items-center gap-4 px-3 py-3">
+					<span className="size-5 animate-pulse rounded bg-muted" />
+					<span className="h-5 w-48 animate-pulse rounded bg-muted" />
+				</li>
+			))}
+		</>
+	);
+}
+
+/** The app's icon, the plate the installed app and its tab wear. */
+function PlateIcon({ className }: { className?: string }): JSX.Element {
+	return <img src="/icon-192.png" alt="" className={className} />;
 }
 
 /** How many areas the page suggests at a time. */
@@ -104,8 +175,7 @@ const JOURNEYS = ["ships", "evals"];
 function recommended(areas: readonly AreaProgress[]): AreaProgress[] {
 	const left = areas.filter(
 		(area) =>
-			area.done < area.steps.length ||
-			area.steps.some((step) => step.warning !== null),
+			!area.complete || area.steps.some((step) => step.warning !== null),
 	);
 	const required = left.filter((area) => !area.optional);
 	const first = [...required, ...left.filter((area) => area.optional)].slice(

@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Ending } from "@stringsync/splates-server/plans/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Ending } from "@splates/server/plans/browser";
 import { useContext } from "react";
 import { Board } from "./board";
 import { queueAsked, reportedAs } from "./conversation-names";

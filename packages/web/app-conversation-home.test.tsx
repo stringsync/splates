@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Limit, Setting } from "@stringsync/splates-server/conversations";
+import type { Limit, Setting } from "@splates/server/conversations";
 import {
 	AGENTS,
 	act,

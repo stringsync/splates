@@ -1,4 +1,4 @@
-import type { Answer, Question } from "@stringsync/splates-server/plans";
+import type { Answer, Question } from "@splates/server/plans";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import type { JSX } from "react";
 import { CardBox } from "./card-box";

@@ -1,5 +1,5 @@
-import type { Question } from "@stringsync/splates-server/plans";
-import { type Answer, replyOf } from "@stringsync/splates-server/plans/browser";
+import type { Question } from "@splates/server/plans";
+import { type Answer, replyOf } from "@splates/server/plans/browser";
 import { Disposer, type Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { ATTACHMENT_REFERENCE, attachmentName } from "./attachment-chips";

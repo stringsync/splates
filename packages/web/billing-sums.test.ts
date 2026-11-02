@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { SpendTotal } from "@stringsync/splates-server/spend";
+import type { SpendTotal } from "@splates/server/spend";
 import {
 	byProvider,
 	colorOf,

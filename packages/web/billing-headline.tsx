@@ -1,4 +1,4 @@
-import type { SpendReport } from "@stringsync/splates-server/spend";
+import type { SpendReport } from "@splates/server/spend";
 import type { JSX, ReactNode } from "react";
 import {
 	monthEnd,

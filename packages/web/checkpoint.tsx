@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { useDisposerEffect, useReactive } from "core/react";
 import { Duration, SystemClock, SystemTimer, type Timer } from "core/time";
 import { CheckIcon, PowerIcon } from "lucide-react";

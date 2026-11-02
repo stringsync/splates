@@ -1,7 +1,4 @@
-import type {
-	WorkerListing,
-	WorkerPool,
-} from "@stringsync/splates-server/workers";
+import type { WorkerListing, WorkerPool } from "@splates/server/workers";
 
 // This machine's own worker, which runs every agent. One turned off before
 // the Workers page went is turned back on by the Queue page's Resume.

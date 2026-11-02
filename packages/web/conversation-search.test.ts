@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Said } from "@stringsync/splates-server/conversations";
+import type { Said } from "@splates/server/conversations";
 import { FakeTimer } from "core/time/testing";
 import { ConversationSearch, type WordsServer } from "./conversation-search";
 

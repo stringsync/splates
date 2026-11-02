@@ -1,4 +1,4 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
 import { Dispatcher, type Eventful } from "core/events";
 import { arrangeTodo, moveLane, moveTodo } from "./api";
 

@@ -1,5 +1,5 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import { isBlocked } from "@stringsync/splates-server/queue/browser";
+import type { TaskRecord } from "@splates/server/board";
+import { isBlocked } from "@splates/server/queue/browser";
 import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";

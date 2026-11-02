@@ -2,7 +2,7 @@ import type {
 	Compaction,
 	ConversationState,
 	Tool,
-} from "@stringsync/splates-server/conversations";
+} from "@splates/server/conversations";
 import { Duration } from "core/time";
 import { useCallback, useContext, useSyncExternalStore } from "react";
 import { cancelConversation } from "./conversation-api";

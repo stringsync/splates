@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { Message, Part } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Message, Part } from "@splates/server/conversations";
+import type { Event } from "@splates/server/records";
 import { tool } from "./fixtures";
 import { like } from "./thread-messages";
 import type { Work } from "./work";

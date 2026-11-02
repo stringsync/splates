@@ -1,8 +1,8 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { paused } from "@stringsync/splates-server/conversations/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
-import { DEFER, RESUME } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import { paused } from "@splates/server/conversations/browser";
+import type { AgentPick } from "@splates/server/models";
+import { DEFER, RESUME } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import { Duration } from "core/time";
 import {
 	ArchiveIcon,
@@ -10,6 +10,7 @@ import {
 	ClockIcon,
 	FileDiffIcon,
 	FolderGit2Icon,
+	ListPlusIcon,
 	PauseIcon,
 	PlayIcon,
 	RotateCwIcon,
@@ -46,7 +47,7 @@ import { ToggleTerminal } from "./terminal";
  * changes, its terminal, pausing its agent at a checkpoint and resuming it,
  * restarting its agent on its task or handing the task to a new one,
  * carrying a General conversation on in a project,
- * deferring what the person last asked, showing its messages' timestamps,
+ * putting what the person last asked back on the board, showing its messages' timestamps,
  * and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) does too; and
  * starting a new conversation with its agent.
  */
@@ -57,11 +58,12 @@ export function useThreadActions(
 	refused: Refuse,
 	onLeft: () => void,
 	onOpen: (id: string) => void,
+	putBack?: () => void,
 ): ThreadActions {
 	const { id, archived } = conversation;
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
-	const archive = useArchive(conversation, refused);
+	const archive = useArchive(conversation, refused, putBack);
 	const archiveKey = useShortcutLabel("shortcuts.archive");
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
 	const dispatching = useContext(Dispatching);
@@ -192,9 +194,9 @@ const PAUSE_WITHIN = Duration.mins(3);
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
  * stopped; once the person's last word paused it, Resume, under a row saying
- * it waits on the worker budget when a hard stop asked it; and Defer under
+ * it waits on the worker budget when a hard stop asked it; and Put back on board under
  * them, whether or not the agent is working. While a checkpoint is asked of
- * it, which Defer would stop, a row saying it pauses in their place.
+ * it, which it would stop, a row saying it pauses in their place.
  */
 function pauseActions(
 	conversation: ConversationState,
@@ -223,8 +225,10 @@ function pauseActions(
 		return [];
 	}
 	const defer: Action = {
-		label: "Defer",
-		icon: <ClockIcon />,
+		label: "Put back on board",
+		icon: <ListPlusIcon />,
+		// The chat stays open; Archive is its own action and leaves the task be.
+		detail: <span className="text-xs">keeps chat</span>,
 		// Sent now, stopping any turn, so the agent saves its work on the
 		// request rather than finishing it first.
 		pending: writes.pending("defer"),

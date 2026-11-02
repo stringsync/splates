@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";

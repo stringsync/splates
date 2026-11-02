@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type {
-	ConversationState,
-	Message,
-} from "@stringsync/splates-server/conversations";
-import { questions } from "@stringsync/splates-server/plans/browser";
-import type { Event } from "@stringsync/splates-server/records";
+import type { ConversationState, Message } from "@splates/server/conversations";
+import { questions } from "@splates/server/plans/browser";
+import type { Event } from "@splates/server/records";
 import {
 	act,
 	cleanup,

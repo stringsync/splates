@@ -1,11 +1,7 @@
 #!/usr/bin/env bun
 import { basename } from "node:path";
-import {
-	LEGACY,
-	legacyWarnings,
-	systemPs,
-} from "@stringsync/splates-server/config";
-import { assets } from "@stringsync/splates-server/server";
+import { LEGACY, legacyWarnings, systemPs } from "@splates/server/config";
+import { assets } from "@splates/server/server";
 import { NodeFs } from "core/system";
 import { handOffDev } from "./handoff";
 import { projectArgs, splates } from "./splates";

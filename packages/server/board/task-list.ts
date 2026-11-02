@@ -2,6 +2,7 @@ import { color, type Logger } from "core/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";
+import { BACKLOG_LANE, ungroomed } from "./backlog";
 import { cleared, deferralBlockers } from "./deferral";
 import {
 	type ElsewhereBlockerNow,
@@ -198,7 +199,7 @@ export async function taskShow(
 		`  position:  ${task.position}`,
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.
-		`  groomed:   ${task.lane === null ? "no, groom it before work on it" : "yes, it is in a lane"}`,
+		`  groomed:   ${ungroomed(task.state) ? "no, groom it before work on it" : task.lane === BACKLOG_LANE ? "yes, it was groomed and stays in Backlog" : "yes, it is in a lane"}`,
 		...(task.state.grooming === undefined
 			? []
 			: [`  grooming:  the groomer has it, until it is groomed or taken`]),

@@ -1,5 +1,5 @@
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { fail } from "@stringsync/splates-server/exit";
+import { commaList } from "@splates/server/comma-list";
+import { fail } from "@splates/server/exit";
 import {
 	type Hook,
 	HookStore,
@@ -16,10 +16,10 @@ import {
 	type TaskEventName,
 	type TaskFilter,
 	type Trigger,
-} from "@stringsync/splates-server/hooks";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import type { Storage } from "@stringsync/splates-server/storage";
+} from "@splates/server/hooks";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import type { Storage } from "@splates/server/storage";
 import { cli } from "core/cmd";
 import { z } from "zod";
 import { assigneeIn } from "./flags";

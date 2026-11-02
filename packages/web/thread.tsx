@@ -1,8 +1,8 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { TaskReport } from "@stringsync/splates-server/plans";
-import { isEscalation } from "@stringsync/splates-server/records/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState } from "@splates/server/conversations";
+import type { TaskReport } from "@splates/server/plans";
+import { isEscalation } from "@splates/server/records/browser";
+import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { ArchiveIcon, XIcon } from "lucide-react";
 import {
@@ -59,6 +59,7 @@ import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
+import { useArchiveAfterPutBack, usePutBack } from "./put-back";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
@@ -211,6 +212,7 @@ function Conversation({
 		busy: queueBusy,
 	} = useQueueEdits(id, runtime, section, refused);
 	const touch = useTouch();
+	const { putBack, awaiting } = usePutBack(conversation, refused);
 	const { actions, archive, startNew } = useThreadActions(
 		conversation,
 		task,
@@ -218,6 +220,7 @@ function Conversation({
 		refused,
 		onLeft,
 		onOpen,
+		putBack,
 	);
 	const [details, setDetails] = useState(false);
 	const where = useWhereAction({
@@ -254,6 +257,7 @@ function Conversation({
 		archivable ? ended(conversation) : null,
 		fileAway,
 	);
+	useArchiveAfterPutBack(awaiting, offer?.report ?? null, fileAway);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	return (
@@ -501,11 +505,11 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
 			role="status"
 			className={cn(
 				bleed(phone),
-				"flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
+				"flex shrink-0 items-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
 			)}
 		>
 			<ArchiveIcon className="size-4 shrink-0" />
-			<span>
+			<span className="min-w-0 flex-1">
 				<span className="font-medium text-foreground">
 					This conversation is archived.
 				</span>{" "}
@@ -515,7 +519,7 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
 				type="button"
 				aria-label="Dismiss"
 				onClick={() => setDismissed(true)}
-				className="-mr-2 shrink-0 rounded-md p-1 active:bg-background"
+				className="-mr-2 ml-auto shrink-0 rounded-md p-1 active:bg-background"
 			>
 				<XIcon className="size-4" />
 			</button>

@@ -5,7 +5,7 @@ import type {
 	Ship,
 	Stage,
 	StageState,
-} from "@stringsync/splates-server/ship";
+} from "@splates/server/ship";
 import { Duration, SystemTimer } from "core/time";
 import {
 	CircleCheckIcon,
@@ -21,6 +21,7 @@ import { shipStageLog } from "./api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { ShipOutput } from "./ship-badge";
+import { CopyFrame } from "./ship-copy";
 import { plain } from "./work-timeline";
 
 const AMBER = "text-amber-600 dark:text-amber-400";
@@ -235,9 +236,14 @@ function StageLog({
 		return <ShipOutput key={ship.started} project={ship.project} />;
 	}
 	return (
-		<pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-sm whitespace-pre-wrap">
-			{text === null ? "Reading the log…" : plain(text)}
-		</pre>
+		<CopyFrame
+			title={step.slug}
+			read={() => (text === null ? "" : plain(text))}
+		>
+			<pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-sm whitespace-pre-wrap">
+				{text === null ? "Reading the log…" : plain(text)}
+			</pre>
+		</CopyFrame>
 	);
 }
 

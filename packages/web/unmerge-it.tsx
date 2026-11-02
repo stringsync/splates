@@ -1,4 +1,4 @@
-import { unmergeReference } from "@stringsync/splates-server/plans/browser";
+import { unmergeReference } from "@splates/server/plans/browser";
 import { Undo2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

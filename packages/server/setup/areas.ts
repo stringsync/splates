@@ -1,14 +1,11 @@
 import { AUTO_PICK_AREA } from "./area-auto-pick";
 import { DICTATION_AREA } from "./area-dictation";
-import { DROPLET_AREA } from "./area-droplet";
 import { EVALS_AREA } from "./area-evals";
-import { GITHUB_AREA } from "./area-github";
 import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
 import { OPENCODE_AREA } from "./area-opencode";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { REPLICA_AREA } from "./area-replica";
 import { SHIPS_AREA } from "./area-ships";
-import { WORKERS_AREA } from "./area-workers";
 import type { SetupArea } from "./setup";
 
 /**
@@ -22,12 +19,9 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	KIMI_AREA,
 	OPENCODE_AREA,
 	REMOTE_ACCESS_AREA,
-	WORKERS_AREA,
 	REPLICA_AREA,
 	DICTATION_AREA,
-	DROPLET_AREA,
 	EVALS_AREA,
 	SHIPS_AREA,
 	AUTO_PICK_AREA,
-	GITHUB_AREA,
 ];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Needing } from "@stringsync/splates-server/plans/browser";
+import type { Needing } from "@splates/server/plans/browser";
 import { statusOf } from "./row-status";
 import { conversation, message } from "./testing";
 

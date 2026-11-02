@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { type JSX, useEffect, useSyncExternalStore } from "react";
 import { AgentIcon } from "./agent-icons";
 import {

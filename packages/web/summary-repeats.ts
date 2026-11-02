@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { listed } from "@stringsync/splates-server/conversations/browser";
+import type { ConversationState } from "@splates/server/conversations";
+import { listed } from "@splates/server/conversations/browser";
 
 /** Whether `listing`, a summary, only says again what `held`, read whole, holds. */
 export function repeats(

@@ -1,4 +1,4 @@
-import type { Cascade, Ship } from "@stringsync/splates-server/ship";
+import type { Cascade, Ship } from "@splates/server/ship";
 import { todoAddress } from "./page-address";
 
 /** One thing the person is asked for, or told of. */

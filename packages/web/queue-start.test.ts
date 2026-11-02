@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { queuePrompt } from "@stringsync/splates-server/queue";
+import { queuePrompt } from "@splates/server/queue";
 import { queueStartOf } from "./queue-start";
 
 test("reads back the start of a task a queued lane started", () => {

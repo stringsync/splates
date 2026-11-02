@@ -270,7 +270,7 @@ describe("App's review panel and demo cards", () => {
 	});
 
 	// vet-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
-	it("orders a review by what deciding takes: summary, demo, checks, then the details folded", async () => {
+	it("orders a review by what deciding takes: summary, demo, checks, then the details under a header", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Header",
@@ -316,16 +316,14 @@ describe("App's review panel and demo cards", () => {
 			expect(within(checks).getByText("bun run typecheck")).toBeTruthy(),
 		);
 		expect(within(checks).getByText("bun test")).toBeTruthy();
-		// The details wait behind its toggle.
+		// The details show at once, under their header.
+		const details = within(panel).getByRole("region", { name: "Details" });
 		expect(
-			view.queryByText("It breaks at 400px, kept in one constant."),
-		).toBeNull();
-		fireEvent.click(within(panel).getByRole("button", { name: "Details" }));
-		await waitFor(() =>
-			expect(
-				view.getByText("It breaks at 400px, kept in one constant."),
-			).toBeTruthy(),
-		);
+			within(details).getByRole("heading", { name: "Details" }),
+		).toBeTruthy();
+		expect(
+			within(details).getByText("It breaks at 400px, kept in one constant."),
+		).toBeTruthy();
 	});
 
 	it("says on a review's folded checks when one failed, and which", async () => {

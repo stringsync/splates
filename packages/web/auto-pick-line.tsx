@@ -1,4 +1,4 @@
-import type { Event, Lifted } from "@stringsync/splates-server/records";
+import type { Event, Lifted } from "@splates/server/records";
 import { InfoIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";

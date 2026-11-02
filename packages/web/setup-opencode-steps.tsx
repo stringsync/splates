@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { send } from "./api";

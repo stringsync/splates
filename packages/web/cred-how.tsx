@@ -1,4 +1,4 @@
-import type { CredRequest } from "@stringsync/splates-server/creds";
+import type { CredRequest } from "@splates/server/creds";
 import type { JSX } from "react";
 import { Markdown } from "./markdown";
 

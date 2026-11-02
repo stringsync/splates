@@ -1,7 +1,4 @@
-import {
-	elsewhereMention,
-	MENTION,
-} from "@stringsync/splates-server/board/browser";
+import { elsewhereMention, MENTION } from "@splates/server/board/browser";
 import { ArchiveIcon, FolderGit2Icon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
 import { type ComponentProps, type JSX, memo, useContext } from "react";

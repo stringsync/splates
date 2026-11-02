@@ -1,4 +1,4 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import { createContext, type JSX, useContext, useState } from "react";
 import type { RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";

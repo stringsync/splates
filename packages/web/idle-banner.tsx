@@ -1,4 +1,4 @@
-import { IDLE_STOP } from "@stringsync/splates-server/conversations/browser";
+import { IDLE_STOP } from "@splates/server/conversations/browser";
 import { MoonIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";

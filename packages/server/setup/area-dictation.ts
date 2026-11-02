@@ -44,6 +44,7 @@ function dictationArea(): SetupArea {
 		agent:
 			'Have the user list them on the page, or write `~/.splates/dictation.json` as `{ "words": [...] }`. Words for one project go in its `splates.config.ts` as `dictationWords` instead.',
 		optional: true,
+		extra: true,
 		after: [dictationStep],
 		fields: async (machine) => [
 			{

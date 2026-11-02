@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type {
-	Artifact,
-	ArtifactVersion,
-} from "@stringsync/splates-server/artifacts";
-import type { Event } from "@stringsync/splates-server/records";
+import type { Artifact, ArtifactVersion } from "@splates/server/artifacts";
+import type { Event } from "@splates/server/records";
 import { workTimeline } from "./drivers";
 import {
 	act,

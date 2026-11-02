@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { useReactive } from "core/react";
 import { useEffect } from "react";
 import type { ConversationFeed } from "./conversation-feed";

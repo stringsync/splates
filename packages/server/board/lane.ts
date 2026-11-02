@@ -1,8 +1,8 @@
 import { color, type Logger } from "core/log";
 import { fail } from "../exit";
-import { UNTRIAGED } from "../plans";
 import type { Facts, Journal } from "../records";
 import { table } from "../table";
+import { DEFAULT_BOARD } from "./boards";
 import {
 	blockerLabel,
 	type LaneRecord,
@@ -60,20 +60,15 @@ export interface LaneShowOptions {
 
 /**
  * One lane in full, step by step: what an agent handed `[SPLATES LANE N]`
- * reads to know which task is next, and whether it is blocked first. For
- * null, the untriaged tasks, and how to place them in lanes.
+ * reads to know which task is next, and whether it is blocked first.
  */
 export async function laneShow(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
-	id: number | null,
+	id: number,
 	{ json = false }: LaneShowOptions = {},
 ): Promise<void> {
 	const states = (await tasks.all()).map((task) => task.state);
 	const records = await tasks.lanes();
-	if (id === null) {
-		log.info(untriagedShow(states, records, json));
-		return;
-	}
 	const record = records.find((each) => each.id === id);
 	if (record === undefined) {
 		fail(
@@ -97,65 +92,6 @@ export async function laneShow(
 	}
 	lines.push("", ...nextLines(found));
 	log.info(lines.join("\n"));
-}
-
-/**
- * The untriaged tasks, in list order, and what an agent handed
- * `[SPLATES LANE untriaged]` does with them: place each open one in a lane,
- * then work down the lanes it placed them in.
- */
-function untriagedShow(
-	states: TaskRecord[],
-	records: LaneRecord[],
-	json: boolean,
-): string {
-	const found = states
-		.filter((task) => task.lane === null)
-		.sort((left, right) => left.position - right.position);
-	const open = found.filter((task) => task.takenBy === null);
-	if (json) {
-		return JSON.stringify(
-			{
-				lane: null,
-				name: "Untriaged",
-				tasks: found.map((task) => task.id),
-				open: open.map((task) => task.id),
-			},
-			null,
-			"\t",
-		);
-	}
-	const lines = [
-		`${color.bold(UNTRIAGED)}: ${found.length} task${found.length === 1 ? "" : "s"} in no lane`,
-	];
-	for (const [i, task] of found.entries()) {
-		const blockers = states.filter((other) =>
-			task.blockedBy.includes(other.id),
-		);
-		lines.push(
-			`  ${i + 1}. #${task.id} ${task.subject}${
-				task.takenBy !== null
-					? color.green(`  (taken by ${task.takenBy})`)
-					: blockers.length === 0
-						? ""
-						: color.yellow(
-								`  (blocked by ${blockers.map((other) => blockerLabel(other, records)).join(", ")})`,
-							)
-			}`,
-		);
-	}
-	lines.push(
-		"",
-		...(open.length === 0
-			? ["Nothing to place."]
-			: [
-					`next: place ${open.length === 1 ? "it" : "each"} in a lane, if one fits, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
-					"  splates task update <id> --lane <n>         a lane of related work (`splates lane list`)",
-					"  splates task update <id> --lane new         a lane of its own",
-					"  splates task update <id> --blocked-by <id>  a task it needs merged first",
-				]),
-	);
-	return lines.join("\n");
 }
 
 /** What there is to do with the lane now, in a line. */
@@ -210,8 +146,9 @@ function laneJson(found: LaneState) {
 export async function laneAdd(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	name: string,
+	board?: number,
 ): Promise<LaneRecord> {
-	const record = await tasks.addLane(name);
+	const record = await tasks.addLane(name, board);
 	log.info(
 		[
 			`${color.green("added")} lane ${record.id}: ${record.name}`,
@@ -226,22 +163,28 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
+	/** The board it moves to, at `position` there or last; it stays on its own when absent. */
+	board?: number;
 }
 
 /** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ name, position }: LaneUpdateOptions = {},
+	{ name, position, board }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
-	if (name === undefined && position === undefined) {
+	if (name === undefined && position === undefined && board === undefined) {
 		fail(
 			"usage",
 			"nothing to change: pass `--name <name>` or `--position <n>`",
 			{ lane: id },
 		);
 	}
-	const { record, order } = await tasks.changeLane(id, { name, position });
+	const { record, order } = await tasks.changeLane(id, {
+		name,
+		position,
+		board,
+	});
 	log.info(
 		[
 			`${color.green("updated")} lane ${id}: ${record?.name}`,
@@ -252,14 +195,14 @@ export async function laneUpdate(
 					]),
 		].join("\n"),
 	);
-	return record ?? { id, name: "" };
+	return record ?? { id, name: "", board: DEFAULT_BOARD };
 }
 
 /** What a lane update changed, for the event: only the parts it was asked to. */
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position }: LaneUpdateOptions,
+	{ name, position, board }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -267,6 +210,7 @@ export function laneUpdated(
 		changed: {
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
+			...(board === undefined ? {} : { board }),
 		},
 	};
 }

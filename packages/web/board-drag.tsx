@@ -12,11 +12,7 @@ import {
 	useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type {
-	LaneRecord,
-	LaneState,
-	TaskRecord,
-} from "@stringsync/splates-server/board";
+import type { LaneRecord, LaneState, TaskRecord } from "@splates/server/board";
 import type { JSX, ReactNode } from "react";
 import { Card } from "./card";
 import { columnOf, LiftedLane, laneOf } from "./lanes";

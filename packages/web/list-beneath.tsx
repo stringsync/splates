@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/plans/browser";
+import type { Needing } from "@splates/server/plans/browser";
 import { useReactive } from "core/react";
 import { type ReactNode, useContext } from "react";
 import { useCloseTerminal } from "./close-terminal";

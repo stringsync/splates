@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";

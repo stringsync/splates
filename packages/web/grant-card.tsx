@@ -1,15 +1,13 @@
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import {
-	GRANT_DENIED,
-	GRANTED,
-} from "@stringsync/splates-server/plans/browser";
-import type { Reach } from "@stringsync/splates-server/projects";
+import type { PermissionProposal } from "@splates/server/plans";
+import { GRANT_DENIED, GRANTED } from "@splates/server/plans/browser";
+import type { Reach } from "@splates/server/projects";
 import { BanIcon, CheckIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
+import { useEnterDoes } from "./enter-while-taking";
 import { PendingSpinner, useShowPending } from "./pending";
 import { grantReach } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
@@ -18,7 +16,7 @@ import { SplatesEvent } from "./splates-event";
 /** What each reach lets the project granted it do, in plain words. */
 const REACH_WORDS: Record<Reach, string> = {
 	read: "look at its tasks and lanes",
-	queue: "add tasks to its untriaged lane",
+	queue: "add tasks to its Backlog",
 	tasks: "run its queue and lanes",
 };
 
@@ -51,6 +49,10 @@ export function GrantCard({
 	const granted = sent?.includes(GRANTED) === true;
 	const denied = sent?.includes(GRANT_DENIED) === true;
 	const send = reply?.send ?? null;
+	const enterDoes = useEnterDoes(
+		panel,
+		send === null || busy !== null ? null : () => turn(allow),
+	);
 	const deny = (): void => {
 		if (send === null) {
 			return;
@@ -120,6 +122,7 @@ export function GrantCard({
 						value={more}
 						placeholder="Your answer (optional)"
 						files={null}
+						onKeyDown={enterDoes}
 						onValue={(text) => {
 							written.current = text;
 							setMore(text);

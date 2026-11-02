@@ -6,7 +6,7 @@ import {
 } from "@assistant-ui/react-lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $dfs } from "@lexical/utils";
-import { DIRECTIVES } from "@stringsync/splates-server/plans/browser";
+import { DIRECTIVES } from "@splates/server/plans/browser";
 import { Debouncer, Duration, SystemTimer } from "core/time";
 import {
 	$createTextNode,

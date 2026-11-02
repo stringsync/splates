@@ -64,6 +64,25 @@ describe("App's grant card", () => {
 		expect(view.getByText("Granted splates tasks in shop")).toBeTruthy();
 	});
 
+	it("allows on Enter in its note, but not on Shift+Enter", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Cart", messages: [ask] }),
+		]);
+		const note = await waitFor(() =>
+			view.getByRole("textbox", { name: "Anything else" }),
+		);
+		await act(async () =>
+			fireEvent.keyDown(note, { key: "Enter", shiftKey: true }),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+		await act(async () => fireEvent.keyDown(note, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[SPLATES GRANTED]" } },
+			]),
+		);
+	});
+
 	it("denies without granting, sending the note", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Cart", messages: [ask] }),

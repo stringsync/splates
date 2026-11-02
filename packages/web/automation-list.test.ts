@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AutomationRow } from "@stringsync/splates-server/hooks";
+import type { AutomationRow } from "@splates/server/hooks";
 import { AutomationList, type AutomationsApi } from "./automation-list";
 
 describe("AutomationList", () => {

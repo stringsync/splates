@@ -1,4 +1,4 @@
-import type { AutoPickTrial } from "@stringsync/splates-server/auto-pick";
+import type { AutoPickTrial } from "@splates/server/auto-pick";
 import { Dispatcher, type Eventful } from "core/events";
 import { tryAutoPick } from "./auto-pick-api";
 

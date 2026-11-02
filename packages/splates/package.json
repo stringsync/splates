@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates",
-	"version": "1.13.5",
+	"version": "1.13.6",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -27,7 +27,7 @@
 		"access": "public"
 	},
 	"dependencies": {
-		"@stringsync/splates-server": "workspace:*",
+		"@splates/server": "workspace:*",
 		"@evals/evals": "workspace:*",
 		"core": "workspace:*",
 		"zod": "catalog:"

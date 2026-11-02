@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import { LinkIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board } from "./board";

@@ -41,7 +41,7 @@ export async function servedProjects(
 		devDependencies: { "@wren/cli": "0.0.50", wren: "0.0.50" },
 	});
 	await write("/splates/packages/server", {
-		name: "@stringsync/splates-server",
+		name: "@splates/server",
 		version: "0.0.57",
 		dependencies: { wren: "0.0.50" },
 	});
@@ -65,7 +65,7 @@ export async function servedProjects(
 		private: true,
 		dependencies: {
 			"@stringsync/mdom": "1.4.2",
-			"@stringsync/splates-server": "0.0.57",
+			"@splates/server": "0.0.57",
 			"@stringsync/vexml": "2.0.9",
 			wren: "0.0.50",
 		},

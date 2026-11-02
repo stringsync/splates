@@ -1,15 +1,13 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type {
-	ConversationState,
-	Said,
-} from "@stringsync/splates-server/conversations";
+import type { LaneRecord, TaskRecord } from "@splates/server/board";
+import type { BoardRecord } from "@splates/server/board/browser";
+import type { ConversationState, Said } from "@splates/server/conversations";
 import {
 	nameOf,
 	snippetOf,
 	wordsOf,
-} from "@stringsync/splates-server/conversations/browser";
-import { goalLine, needs } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/conversations/browser";
+import { goalLine, needs } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 
 /** What ⌘K searches, from the shown project, since the page holds no other's. */
 export interface Searched {
@@ -24,6 +22,8 @@ export interface Searched {
 	said: Readonly<Record<string, Said>>;
 	/** Every lane there has been, to name a lane's orchestrator after it. */
 	lanes: readonly LaneRecord[];
+	/** The project's boards, to name the one a board task is on when there are several. */
+	boards?: readonly BoardRecord[];
 }
 
 export type Kind = "task" | "conversation" | "todo";
@@ -69,7 +69,7 @@ export function search(query: string, searched: Searched): Group[] {
 		...searched.conversations.map((each) =>
 			conversationOf(each, searched.lanes, searched.said[each.id] ?? {}),
 		),
-		...searched.todos.map(todoOf),
+		...searched.todos.map((todo) => todoOf(todo, boardNamed(todo, searched))),
 	];
 	const groups: Group[] = [];
 	for (const kind of KINDS) {
@@ -154,17 +154,34 @@ function inText(body: string): (word: string) => string | null {
 	};
 }
 
-function todoOf(todo: TaskRecord): Candidate {
+/** The name of the board `todo` is on, only when the project has more than one. */
+function boardNamed(todo: TaskRecord, searched: Searched): string | null {
+	const boards = searched.boards?.filter((each) => !each.archived) ?? [];
+	if (boards.length < 2 || todo.lane === null) {
+		return null;
+	}
+	const id = searched.lanes.find((each) => each.id === todo.lane)?.board;
+	return (
+		searched.boards?.find((each) => each.id === (id ?? boards[0]?.id))?.name ??
+		null
+	);
+}
+
+function todoOf(todo: TaskRecord, board: string | null): Candidate {
 	return {
 		found: {
 			kind: "todo",
 			key: `todo:${todo.id}`,
 			todo: todo.id,
 			title: todo.subject,
-			detail:
+			detail: [
 				todo.takenBy === null
 					? `#${todo.id}`
 					: `#${todo.id} in ${todo.takenBy}`,
+				board,
+			]
+				.filter((part) => part !== null)
+				.join(" · "),
 			score: 0,
 			at: todo.createdAt,
 		},
@@ -289,7 +306,7 @@ function unasked(searched: Searched): Group[] {
 			kind: "todo",
 			found: [...searched.todos]
 				.sort((one, other) => one.position - other.position)
-				.map((todo) => todoOf(todo).found)
+				.map((todo) => todoOf(todo, boardNamed(todo, searched)).found)
 				.slice(0, UNASKED),
 		},
 	];

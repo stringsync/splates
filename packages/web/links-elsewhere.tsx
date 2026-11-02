@@ -1,8 +1,5 @@
-import type {
-	ElsewhereBlocker,
-	ElsewhereOpen,
-} from "@stringsync/splates-server/board";
-import { elsewhereName } from "@stringsync/splates-server/board/browser";
+import type { ElsewhereBlocker, ElsewhereOpen } from "@splates/server/board";
+import { elsewhereName } from "@splates/server/board/browser";
 import { ExternalLinkIcon, XIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

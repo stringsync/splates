@@ -1,7 +1,7 @@
-import { BACKLOG_LANE } from "@stringsync/splates-server/board";
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
-import { fail } from "@stringsync/splates-server/exit";
+import { BACKLOG_LANE } from "@splates/server/board";
+import { commaList } from "@splates/server/comma-list";
+import { SYSTEM_STORES } from "@splates/server/creds";
+import { fail } from "@splates/server/exit";
 import {
 	type AgentPick,
 	Offered,
@@ -9,13 +9,13 @@ import {
 	pickEffort,
 	type RosterAgent,
 	splatesHome,
-} from "@stringsync/splates-server/models";
-import { SLOT_POOL } from "@stringsync/splates-server/ports";
-import type { Repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { rosterOf, seeded } from "@stringsync/splates-server/server";
-import { FsStorage } from "@stringsync/splates-server/storage";
-import { SavedTunnel } from "@stringsync/splates-server/tunnel";
+} from "@splates/server/models";
+import { SLOT_POOL } from "@splates/server/ports";
+import type { Repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { rosterOf, seeded } from "@splates/server/server";
+import { FsStorage } from "@splates/server/storage";
+import { SavedTunnel } from "@splates/server/tunnel";
 import { z } from "zod";
 
 /** A place in the queue, 1 at the top; absent leaves it to the command. */
@@ -105,7 +105,7 @@ export function slotTunnelsOf({
 	);
 }
 
-/** `--lane 3`, `new` or `none` as a lane; absent leaves it to the command. */
+/** `--lane 3`, `backlog` or `new` as a lane; absent leaves it to the command. */
 export function laneIn(raw: string): number | "new" | null | undefined {
 	const value = raw.trim();
 	if (value === "") {
@@ -114,15 +114,12 @@ export function laneIn(raw: string): number | "new" | null | undefined {
 	if (value === "new") {
 		return "new";
 	}
-	if (value === "none") {
-		return null;
-	}
 	if (value === "backlog") {
 		return BACKLOG_LANE;
 	}
 	const id = Number(value);
 	if (!Number.isInteger(id) || id < 0) {
-		fail("usage", `'${value}' is not a lane: pass its number, new or none`, {
+		fail("usage", `'${value}' is not a lane: pass its number, backlog or new`, {
 			lane: value,
 		});
 	}

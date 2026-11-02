@@ -1,11 +1,8 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
-import {
-	BACKLOG_LANE,
-	elsewhereName,
-} from "@stringsync/splates-server/board/browser";
+import type { LaneState, TaskRecord } from "@splates/server/board";
+import { BACKLOG_LANE, elsewhereName } from "@splates/server/board/browser";
 import { LockIcon } from "lucide-react";
 import {
 	type JSX,
@@ -14,6 +11,11 @@ import {
 	useContext,
 	useState,
 } from "react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
 import { renameLane } from "./api";
@@ -209,7 +211,21 @@ export function Lane({
 				>
 					<div className="flex items-center justify-between gap-2">
 						{lane.id === BACKLOG_LANE ? (
-							<h3 className="font-medium text-sm">{lane.name}</h3>
+							<h3 className="flex items-center gap-1.5 font-medium text-sm">
+								{lane.name}
+								<Tooltip>
+									<TooltipTrigger
+										render={<span />}
+										aria-label="Permanent lane"
+										className="inline-flex cursor-default text-muted-foreground"
+									>
+										<LockIcon aria-hidden className="size-3.5" />
+									</TooltipTrigger>
+									<TooltipContent>
+										Permanent lane: it cannot be renamed, moved or deleted
+									</TooltipContent>
+								</Tooltip>
+							</h3>
 						) : renaming ? (
 							<LaneName lane={lane} onDone={() => setRenaming(false)} />
 						) : (

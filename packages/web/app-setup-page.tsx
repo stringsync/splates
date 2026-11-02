@@ -1,4 +1,4 @@
-import type { SetupProgress } from "@stringsync/splates-server/setup";
+import type { SetupProgress } from "@splates/server/setup";
 import { type JSX, useState } from "react";
 import type { SetupOpen } from "./page-address";
 import { HeldJourneys } from "./setup-held";
@@ -20,7 +20,15 @@ export function AppSetupPage({
 	const [open, setOpen] = useState<SetupOpen>({ area: null, step: null });
 	return (
 		<SetupContext
-			value={{ progress, error: null, refresh: () => {}, settle, held }}
+			value={{
+				progress,
+				cached: null,
+				reading: false,
+				error: null,
+				refresh: () => {},
+				settle,
+				held,
+			}}
 		>
 			<SetupPage
 				feed={null}

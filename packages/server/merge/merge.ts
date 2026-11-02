@@ -265,14 +265,14 @@ export async function merge(
 				facts,
 			);
 		}
-		// Only a gated merge batches. With a central remote the batch's stack
-		// tip is what the server lands on the remote's trunk.
-		const batching = runner.command !== "";
+		// Only a gated merge landing here batches: with a central remote each
+		// task pushes its own tested branch for the server to land.
+		const batching = remote === null && runner.command !== "";
 		// While waiting, a base that moved under the branch and now conflicts
 		// with it ends the wait: the rebase after refuses it as it would
 		// have, without the line. Never lets anything through.
 		const doomed = conflictsOnBase(git, base, firstOnto, ownHead);
-		const watching = runner.command !== "";
+		const watching = remote === null && runner.command !== "";
 		let followed: Followed;
 		if (batching) {
 			followed = await follow(

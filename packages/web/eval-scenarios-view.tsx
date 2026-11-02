@@ -2,7 +2,7 @@ import type {
 	EvalBatch,
 	EvalGrid,
 	EvalScenario,
-} from "@stringsync/splates-server/evals/browser";
+} from "@splates/server/evals/browser";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { evalBatch, evalBatches, evalScenarios } from "./api";

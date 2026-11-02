@@ -1,10 +1,10 @@
-import type { PortLink } from "@stringsync/splates-server/ports";
-import type { Cascade, Ship } from "@stringsync/splates-server/ship";
+import type { PortLink } from "@splates/server/ports";
+import type { Cascade, Ship } from "@splates/server/ship";
 import type {
 	MachineReading,
 	QueueListing,
 	WorkerPool,
-} from "@stringsync/splates-server/workers";
+} from "@splates/server/workers";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /**

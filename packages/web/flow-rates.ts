@@ -2,7 +2,7 @@ import {
 	bucketOf,
 	type Stats,
 	type Tally,
-} from "@stringsync/splates-server/stats/browser";
+} from "@splates/server/stats/browser";
 import { type Axis, axis, type Bucket, type Period } from "./stats-report";
 
 /** The flow `stats` holds for `period`, its bars labeled as `buckets` are. */

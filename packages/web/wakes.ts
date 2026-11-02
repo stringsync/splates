@@ -1,4 +1,4 @@
-import { PULSE } from "@stringsync/splates-server/server/browser";
+import { PULSE } from "@splates/server/server/browser";
 import { Disposer, type Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import {

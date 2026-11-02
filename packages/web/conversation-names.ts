@@ -1,15 +1,12 @@
-import type { LaneRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import {
-	nameOf,
-	realName,
-} from "@stringsync/splates-server/conversations/browser";
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
+import type { LaneRecord } from "@splates/server/board";
+import type { ConversationState } from "@splates/server/conversations";
+import { nameOf, realName } from "@splates/server/conversations/browser";
+import type { PermissionProposal } from "@splates/server/plans";
 import {
 	type Ending,
 	stretches,
 	type TaskReport,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import { createContext, use } from "react";
 
 /** Every lane there has been, to name a lane's orchestrator after it. */
@@ -58,11 +55,14 @@ export function lastReport(conversation: ConversationState): TaskReport | null {
 	const reply = last.parts.findLast(
 		(part) => part.type === "text" && part.text.trim() !== "",
 	);
-	const report =
+	// A card or question after the report leaves more to do: not its last word.
+	const final =
 		reply?.type === "text"
-			? stretches(reply.text).findLast((each) => each.type === "report")
+			? stretches(reply.text).findLast(
+					(each) => each.type !== "text" || each.text.trim() !== "",
+				)
 			: undefined;
-	return report?.type === "report" ? report.report : null;
+	return final?.type === "report" ? final.report : null;
 }
 
 /**

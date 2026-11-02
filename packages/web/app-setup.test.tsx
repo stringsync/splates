@@ -99,14 +99,20 @@ describe("App's setup", () => {
 		testing.setup = setupProgress();
 		const view = await openSetup(null);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Agents" })),
+			fireEvent.click(
+				await view.findByRole("button", { name: "Set up Agents" }),
+			),
 		);
 		await step(view, "Choose the agents splates starts");
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back to Setup" })),
+			fireEvent.click(
+				await view.findByRole("button", { name: "Back to Setup" }),
+			),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Dictation" })),
+			fireEvent.click(
+				await view.findByRole("button", { name: "Set up Dictation" }),
+			),
 		);
 		await step(view, "Dictate prompts");
 		expect(testing.posts).toEqual([]);

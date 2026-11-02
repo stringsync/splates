@@ -1,8 +1,9 @@
-import type { LaneState } from "@stringsync/splates-server/board";
-import { BACKLOG_LANE } from "@stringsync/splates-server/board/browser";
+import type { LaneState } from "@splates/server/board";
+import { BACKLOG_LANE } from "@splates/server/board/browser";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	KanbanIcon,
 	ListPlusIcon,
 	ListXIcon,
 	MergeIcon,
@@ -28,12 +29,20 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { dropLane, joinLanes, queueLane } from "./api";
+import { dropLane, joinLanes, moveLaneToBoard, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
-import { laneDropped, laneQueued, lanesJoined } from "./board-expectations";
+import {
+	laneDropped,
+	laneOnBoard,
+	laneQueued,
+	lanesJoined,
+} from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 
 /**
@@ -50,7 +59,7 @@ export function LaneMenu({
 	lanes: LaneState[];
 	onRename: () => void;
 }): JSX.Element {
-	const { moveLane, refuseLane } = useContext(Board);
+	const { moveLane, refuseLane, boards = [], lanes: every } = useContext(Board);
 	const expect = useExpectSnapshot();
 	const queue = useQueueLane(lane);
 	const { waiting, queued } = laneQueue(lane);
@@ -119,6 +128,48 @@ export function LaneMenu({
 							</DropdownMenuItem>
 						</>
 					)}
+					{boards.length > 1 && (
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger disabled={lane.id === BACKLOG_LANE}>
+								<KanbanIcon />
+								Move to board
+							</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent className={cn("w-56", touchItems)}>
+								{boards
+									.filter((each) => !each.archived && each.id !== lane.board)
+									.map((each) => (
+										<DropdownMenuSub key={each.id}>
+											<DropdownMenuSubTrigger>
+												{each.name}
+											</DropdownMenuSubTrigger>
+											<DropdownMenuSubContent
+												className={cn("w-56", touchItems)}
+											>
+												{boardSpots(each.id, every).map((spot) => (
+													<DropdownMenuItem
+														key={spot.label}
+														onClick={() =>
+															void expect(
+																laneOnBoard(lane.id, each.id, spot.position),
+																moveLaneToBoard(
+																	lane.id,
+																	each.id,
+																	spot.position,
+																),
+															).catch((error: unknown) =>
+																refuseLane(lane.id, "Not moved", error),
+															)
+														}
+													>
+														{spot.label}
+													</DropdownMenuItem>
+												))}
+											</DropdownMenuSubContent>
+										</DropdownMenuSub>
+									))}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
+					)}
 					{lane.id !== BACKLOG_LANE &&
 						others.length > 0 &&
 						lane.todos.length > 0 && (
@@ -185,6 +236,24 @@ export function LaneMenu({
 			</Dialog>
 		</>
 	);
+}
+
+/** The places a lane can go on `board`: first, after each lane there, the last of them meaning the end. */
+function boardSpots(
+	board: number,
+	lanes: readonly { id: number; name: string; board?: number }[],
+): { label: string; position: number | undefined }[] {
+	const there = lanes.filter((each) => each.board === board);
+	// Backlog stays first on the board that has it.
+	const first = there.some((each) => each.id === BACKLOG_LANE) ? 2 : 1;
+	const named = there.filter((each) => each.id !== BACKLOG_LANE);
+	return [
+		{ label: "At the start", position: first },
+		...named.map((each, i) => ({
+			label: `After ${each.name}`,
+			position: i === named.length - 1 ? undefined : first + i + 1,
+		})),
+	];
 }
 
 /**

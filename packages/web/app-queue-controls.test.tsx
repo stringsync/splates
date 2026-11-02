@@ -3,7 +3,7 @@ import type {
 	HeldListing,
 	WorkerListing,
 	WorkerPool,
-} from "@stringsync/splates-server/workers";
+} from "@splates/server/workers";
 import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
 
 describe("App's queue controls", () => {

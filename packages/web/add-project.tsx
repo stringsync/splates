@@ -1,4 +1,4 @@
-import type { Added } from "@stringsync/splates-server/projects";
+import type { Added } from "@splates/server/projects";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";

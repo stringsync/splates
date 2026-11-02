@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import type { EvalDetail } from "@stringsync/splates-server/evals";
+import type { EvalDetail } from "@splates/server/evals";
 import { pickOf, runId, shown, summary, toldBy } from "./index";
 
 it("reads agent, model and thinking level", () => {

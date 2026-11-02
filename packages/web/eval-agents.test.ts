@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { EvalAgentsView } from "@stringsync/splates-server/evals/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { EvalAgentsView } from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
 import { EvalAgentsEditor, type EvalAgentsStore } from "./eval-agents";
 
 describe("EvalAgentsEditor", () => {

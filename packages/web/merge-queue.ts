@@ -1,5 +1,5 @@
-import { TASK } from "@stringsync/splates-server/plans/browser";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import { TASK } from "@splates/server/plans/browser";
+import type { Snapshot } from "@splates/server/tasks";
 
 /** One merge in the status popover, timed from when it was asked for. */
 export interface QueuedMerge {

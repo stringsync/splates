@@ -11,8 +11,8 @@ import type {
 	Image,
 	Said,
 	Session,
-} from "@stringsync/splates-server/conversations";
-import { FROM_HEADER } from "@stringsync/splates-server/conversations/browser";
+} from "@splates/server/conversations";
+import { FROM_HEADER } from "@splates/server/conversations/browser";
 import { answered, scoped, send, sendJson, WAITS } from "./api";
 import { WIDE } from "./app-nav";
 

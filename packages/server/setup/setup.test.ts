@@ -17,8 +17,9 @@ function fake(
 	done: Set<string>,
 	{
 		optional = false,
+		extra = false,
 		after = [],
-	}: { optional?: boolean; after?: SetupStep[] } = {},
+	}: { optional?: boolean; extra?: boolean; after?: SetupStep[] } = {},
 ): SetupStep {
 	return {
 		id,
@@ -27,6 +28,7 @@ function fake(
 		user: `Do ${id}.`,
 		agent: `Help with ${id}.`,
 		optional,
+		extra,
 		after,
 		check: async () => done.has(id),
 	};
@@ -132,6 +134,32 @@ describe("Setup", () => {
 		const progress = await setup.read();
 
 		expect(progress.areas[1]).toMatchObject({ done: 1, skipped: 0, left: 0 });
+	});
+
+	it("reads an area complete with only its extras left, and counts them apart", async () => {
+		const core = fake("core", done);
+		const extra = fake("extra", done, { extra: true, after: [core] });
+		const setup = new Setup(machine, [
+			{ id: "area", title: "Area", purpose: "p", steps: [core, extra] },
+		]);
+		done.add("core");
+
+		const progress = await setup.read();
+
+		expect(progress.areas[0]).toMatchObject({
+			complete: true,
+			left: 0,
+			extras: 1,
+		});
+	});
+
+	it("reads an area complete once its unfinished core step is skipped", async () => {
+		const setup = new Setup(machine, roster());
+		await setup.skip("key");
+
+		const progress = await setup.read();
+
+		expect(progress.areas[1]).toMatchObject({ complete: true, left: 0 });
 	});
 
 	it("reports a check that throws as the step's problem", async () => {

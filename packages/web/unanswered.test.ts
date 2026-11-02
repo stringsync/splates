@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	questions,
-	unanswered,
-} from "@stringsync/splates-server/plans/browser";
+import { questions, unanswered } from "@splates/server/plans/browser";
 import { message } from "./testing";
 
 const open = questions(`# a task

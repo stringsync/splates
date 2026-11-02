@@ -1,5 +1,5 @@
-import type { ElsewhereOpen } from "@stringsync/splates-server/board/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { ElsewhereOpen } from "@splates/server/board/browser";
+import type { AgentPick } from "@splates/server/models";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
 /** A todo's files: new ones to add, and the stored ones to keep. */
@@ -141,6 +141,20 @@ export async function moveLane(id: number, position: number): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { position });
 }
 
+/** Puts lane `id` on `board` at `position` among its lanes, 1 the first, or last without one. */
+export async function moveLaneToBoard(
+	id: number,
+	board: number,
+	position?: number,
+): Promise<void> {
+	await sendJson(`/api/lanes/${id}`, "PUT", { board, position });
+}
+
+/** Puts board `id` at `position` among the boards, 1 the first. */
+export async function moveBoard(id: number, position: number): Promise<void> {
+	await sendJson(`/api/boards/${id}`, "PUT", { position });
+}
+
 /**
  * Queues every todo waiting in lane `id` now, once, or takes its queued ones
  * no agent has back out.
@@ -195,4 +209,14 @@ export async function elsewhereTasks(): Promise<ElsewhereOpen[]> {
 		throw new ApiError("error", `/api/elsewhere/tasks: ${response.status}`);
 	}
 	return (await response.json()) as ElsewhereOpen[];
+}
+
+/** Starts a board called `name`, after the others. */
+export async function addBoard(name: string): Promise<void> {
+	await sendJson("/api/boards", "POST", { name });
+}
+
+/** Calls board `id` by another name. */
+export async function renameBoard(id: number, name: string): Promise<void> {
+	await sendJson(`/api/boards/${id}`, "PUT", { name });
 }

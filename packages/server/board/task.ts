@@ -3,6 +3,7 @@ import type { Attachment, Attachments } from "../artifacts";
 import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
+import { BACKLOG_LANE } from "./backlog";
 import type { Deferral, DeferralAsk } from "./deferral";
 import { type ElsewhereBlocker, sameBlocker } from "./elsewhere";
 import { ElsewhereLinks } from "./elsewhere-links";
@@ -106,7 +107,7 @@ export class Task {
 			if (
 				state.takenBy !== null ||
 				state.stage !== "available" ||
-				state.lane !== null ||
+				state.lane !== BACKLOG_LANE ||
 				state.grooming === by
 			) {
 				return state;
@@ -115,11 +116,6 @@ export class Task {
 			return { ...state, grooming: by };
 		});
 		return claimed;
-	}
-
-	/** Places a groomed task in Backlog if nobody placed or took it meanwhile. */
-	backlog(): Promise<Task> {
-		return this.tasks.backlog(this.id);
 	}
 
 	/**
@@ -387,7 +383,7 @@ export interface TaskRecord {
 	lane: number | null;
 	/** How far it has come: available, queued or running. */
 	stage: TaskStage;
-	/** The groomer conversation that claimed it, in Untriaged untaken; absent for none. */
+	/** The groomer conversation that claimed it, in Backlog untaken; absent for none. */
 	grooming?: string;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
@@ -485,10 +481,10 @@ export function staged(state: TaskRecord, running: boolean): TaskRecord {
 	return {
 		...rest,
 		stage,
-		// A groomer's claim lasts only while the task waits in Untriaged untaken.
+		// A groomer's claim lasts only while the task waits in Backlog untaken.
 		...(grooming !== undefined &&
 		stage === "available" &&
-		state.lane === null &&
+		state.lane === BACKLOG_LANE &&
 		state.takenBy === null
 			? { grooming }
 			: {}),
@@ -633,8 +629,8 @@ export interface LandedBlocker extends GoneBlocker {
  * Where a task stands: `available` until the person puts it in the queue,
  * whether or not it names an agent, which is picked when it runs otherwise;
  * `queued` for a worker to start; and `running` while an agent works it in
- * a worktree. Whether it was groomed is where it sits: one in Untriaged
- * still waits for the groomer.
+ * a worktree. Whether it was groomed is where it sits: one in Backlog
+ * with no groomer's claim still waits for the groomer.
  */
 export type TaskStage = "available" | "queued" | "running";
 

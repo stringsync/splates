@@ -1,4 +1,4 @@
-import type { WorkerPool } from "@stringsync/splates-server/workers";
+import type { WorkerPool } from "@splates/server/workers";
 import { WindowBackgroundObserver } from "core/browser";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";

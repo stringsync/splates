@@ -12,8 +12,16 @@ export class ReleaseGit {
 		private readonly root: string,
 	) {}
 
-	/** Count unshipped commits since `version`, or explain why its release history is unknown. */
-	async changes(version: string | null): Promise<ReleaseChanges> {
+	/**
+	 * Count unshipped commits since `version`, or explain why its release history is unknown.
+	 * A project that owns `paths` of a shared repository is tagged in its own
+	 * mirror, not here, so its release is the commit that stamped `version`
+	 * under them, and only commits under them count.
+	 */
+	async changes(
+		version: string | null,
+		paths?: string[],
+	): Promise<ReleaseChanges> {
 		// The Ship page reads local history without changing the repository or contacting origin.
 		let branch: string | null = null;
 		const tag = version === null ? null : `v${version}`;
@@ -22,18 +30,23 @@ export class ReleaseGit {
 			if (tag === null) {
 				throw new Error("No release version is recorded");
 			}
-			const from = await this.out(
-				"rev-parse",
-				"--verify",
-				`refs/tags/${tag}^{commit}`,
-			);
+			const owned = paths !== undefined && paths.length > 0 ? paths : null;
+			const from =
+				owned === null
+					? await this.out("rev-parse", "--verify", `refs/tags/${tag}^{commit}`)
+					: await this.stamped(version as string, owned);
 			const to = await this.out(
 				"rev-parse",
 				"--verify",
 				`refs/heads/${branch}^{commit}`,
 			);
 			await this.out("merge-base", "--is-ancestor", from, to);
-			const count = await this.out("rev-list", "--count", `${from}..${to}`);
+			const count = await this.out(
+				"rev-list",
+				"--count",
+				`${from}..${to}`,
+				...(owned === null ? [] : ["--", ...owned]),
+			);
 			if (!/^\d+$/.test(count)) {
 				throw new Error("Git did not return a commit count");
 			}
@@ -97,6 +110,22 @@ export class ReleaseGit {
 			);
 		}
 		return `origin/${branch} verified at ${head}`;
+	}
+
+	/** The latest commit that wrote `"version": "<version>"` under `paths`. */
+	private async stamped(version: string, paths: string[]): Promise<string> {
+		const commit = await this.out(
+			"log",
+			"-1",
+			"--format=%H",
+			`-S"version": "${version}"`,
+			"--",
+			...paths,
+		);
+		if (commit === "") {
+			throw new Error(`No commit under ${paths.join(", ")} stamps ${version}`);
+		}
+		return commit;
 	}
 
 	private async branch(): Promise<string> {

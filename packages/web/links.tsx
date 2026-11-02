@@ -1,8 +1,5 @@
-import type {
-	ElsewhereBlocker,
-	TaskRecord,
-} from "@stringsync/splates-server/board";
-import { cycle, followers } from "@stringsync/splates-server/board/browser";
+import type { ElsewhereBlocker, TaskRecord } from "@splates/server/board";
+import { cycle, followers } from "@splates/server/board/browser";
 import {
 	CornerDownRightIcon,
 	HourglassIcon,
@@ -222,7 +219,7 @@ function LanePicker({
 	/** Makes a write, saying whether it landed. */
 	attempt: (write: Promise<void>, failed: string) => Promise<boolean>;
 }): JSX.Element {
-	const { lanes } = useContext(Board);
+	const { lanes, boards = [] } = useContext(Board);
 	const expect = useExpectSnapshot();
 	const [naming, setNaming] = useState(false);
 	const [name, setName] = useState("");
@@ -238,7 +235,10 @@ function LanePicker({
 	}, [naming]);
 	const items = [
 		{ value: "none", label: "Untriaged" },
-		...lanes.map((lane) => ({ value: String(lane.id), label: lane.name })),
+		...lanes.map((lane) => ({
+			value: String(lane.id),
+			label: boardLabel(boards, lane),
+		})),
 		{ value: "new", label: "A new lane…" },
 	];
 	if (naming) {
@@ -338,6 +338,17 @@ function LanePicker({
 			</SelectContent>
 		</Select>
 	);
+}
+
+/** A lane's name, led by its board's when the project has several, so lanes read grouped by board. */
+function boardLabel(
+	boards: readonly { id: number; name: string }[],
+	lane: { name: string; board?: number },
+): string {
+	const board = boards.find((each) => each.id === lane.board);
+	return boards.length > 1 && board
+		? `${board.name} · ${lane.name}`
+		: lane.name;
 }
 
 /** What a lane is called on the board, by its number. */

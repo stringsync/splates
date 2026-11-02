@@ -1,13 +1,13 @@
 {
 	"name": "@splates/web",
-	"version": "1.13.5",
+	"version": "1.13.6",
 	"private": true,
 	"type": "module",
 	"imports": {
 		"#web/*": "./*"
 	},
 	"dependencies": {
-		"@stringsync/splates-server": "workspace:*",
+		"@splates/server": "workspace:*",
 		"core": "workspace:*"
 	},
 	"devDependencies": {

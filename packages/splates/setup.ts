@@ -1,15 +1,13 @@
 import { dirname } from "node:path";
-import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
-import { fail } from "@stringsync/splates-server/exit";
-import { splatesHome } from "@stringsync/splates-server/models";
-import { Projects } from "@stringsync/splates-server/projects";
+import { SYSTEM_STORES } from "@splates/server/creds";
+import { fail } from "@splates/server/exit";
+import { splatesHome } from "@splates/server/models";
+import { Projects } from "@splates/server/projects";
+import { openRepository, type Repository } from "@splates/server/records";
+import { Replicator } from "@splates/server/replica";
+import type { SplatesDeps } from "@splates/server/server";
 import {
-	openRepository,
-	type Repository,
-} from "@stringsync/splates-server/records";
-import { Replicator } from "@stringsync/splates-server/replica";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import {
+	OPENCODE_NEEDS_SERVER,
 	SETUP_AREAS,
 	Setup,
 	type SetupProgress,
@@ -17,8 +15,7 @@ import {
 	type StepStatus,
 	setupProjectAt,
 	type UndoPlan,
-} from "@stringsync/splates-server/setup";
-import { fetchWorkers } from "@stringsync/splates-server/workers";
+} from "@splates/server/setup";
 import type { Logger } from "core/log";
 import { color } from "core/log";
 import type { Ps } from "core/system";
@@ -108,10 +105,6 @@ export async function setupOf(deps: SplatesDeps): Promise<Setup> {
 			home: splatesHome(ps),
 			device: secrets.device,
 			fetch,
-			// Only a server this agent runs under, or is pointed at, can be asked.
-			workers: deps.ps.env("SPLATES_DEV")
-				? () => fetchWorkers({ dev: "", log: deps.log, ps: deps.ps })
-				: undefined,
 			project:
 				root === null
 					? undefined
@@ -174,6 +167,16 @@ const MARKS: Record<StepStatus, string> = {
 
 function printProgress(log: Logger, progress: SetupProgress): void {
 	for (const area of progress.areas) {
+		// Unchecked, not undone: counting its steps would read 0/4.
+		if (
+			area.steps.length > 0 &&
+			area.steps.every((step) => step.problem === OPENCODE_NEEDS_SERVER)
+		) {
+			log.info(
+				`${color.bold(area.title)}  ${color.dim("needs `splates server` to check")}`,
+			);
+			continue;
+		}
 		const counts = [
 			`${area.done}/${area.steps.length} done`,
 			area.skipped > 0 ? `${area.skipped} skipped` : "",

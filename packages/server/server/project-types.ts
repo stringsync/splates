@@ -156,8 +156,13 @@ export interface Served extends AsyncResource {
 	retryQueued: Handler;
 	joinLane: Handler;
 	addLane: Handler;
+	addBoard: Handler;
+	renameBoard: Handler;
 	updateLane: Handler;
+	moveBoard: Handler;
 	dropLane: Handler;
+	updateBoard: Handler;
+	dropBoard: Handler;
 	removeQueued: Handler;
 	restoreQueued: Handler;
 	/** The project's latest ship. */

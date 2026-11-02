@@ -34,14 +34,11 @@ describe("SETUP_AREAS", () => {
 			"kimi",
 			"opencode",
 			"remote-access",
-			"workers",
 			"replica",
 			"dictation",
-			"droplet",
 			"evals",
 			"ships",
 			"auto-pick",
-			"github",
 		]);
 	});
 });

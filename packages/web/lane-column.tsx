@@ -3,7 +3,7 @@ import {
 	SortableContext,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { TaskRecord } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@splates/server/board";
 import type { CSSProperties, JSX, ReactNode, Ref } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { Sortable } from "./sortable-card";

@@ -1,4 +1,4 @@
-import type { Stats, Tally } from "@stringsync/splates-server/stats/browser";
+import type { Stats, Tally } from "@splates/server/stats/browser";
 import { type Axis, axis, type Bucket } from "./stats-report";
 
 /**

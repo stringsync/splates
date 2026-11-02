@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { ElsewhereLinks } from "@stringsync/splates-server/board";
-import { OpenBoards } from "@stringsync/splates-server/records";
-import { Testing } from "@stringsync/splates-server/testing";
+import { ElsewhereLinks } from "@splates/server/board";
+import { OpenBoards } from "@splates/server/records";
+import { Testing } from "@splates/server/testing";
 import { splates } from "./splates";
 
 /** A task here blocked by one of another project on the same machine. */

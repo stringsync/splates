@@ -1,8 +1,8 @@
-import { age } from "@stringsync/splates-server/age";
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import { blockerLabel } from "@stringsync/splates-server/board/browser";
-import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
-import { isBlocked } from "@stringsync/splates-server/queue/browser";
+import { age } from "@splates/server/age";
+import type { TaskRecord } from "@splates/server/board";
+import { blockerLabel } from "@splates/server/board/browser";
+import { taskNumberReference } from "@splates/server/plans/browser";
+import { isBlocked } from "@splates/server/queue/browser";
 import {
 	CircleAlertIcon,
 	ClockIcon,

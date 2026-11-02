@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	conflictWarning,
-	earlyWarning,
-} from "@stringsync/splates-server/server/browser";
-import { overlapWarnings } from "@stringsync/splates-server/tasks";
+import { conflictWarning, earlyWarning } from "@splates/server/server/browser";
+import { overlapWarnings } from "@splates/server/tasks";
 import { earlyWarningOf, warningLines } from "./early-warning";
 
 describe("splates server's early warnings", () => {

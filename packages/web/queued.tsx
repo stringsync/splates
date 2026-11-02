@@ -1,9 +1,6 @@
 import type { AssistantRuntime } from "@assistant-ui/react";
-import type {
-	ConversationState,
-	Message,
-} from "@stringsync/splates-server/conversations";
-import { textOf } from "@stringsync/splates-server/conversations/browser";
+import type { ConversationState, Message } from "@splates/server/conversations";
+import { textOf } from "@splates/server/conversations/browser";
 import type { RefObject } from "react";
 import { focusComposer } from "./composer-editor";
 import { sendQueuedNow, unqueueConversation } from "./conversation-api";

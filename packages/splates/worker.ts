@@ -1,12 +1,12 @@
-import { splatesHome } from "@stringsync/splates-server/models";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { splatesHome } from "@splates/server/models";
+import type { SplatesDeps } from "@splates/server/server";
 import {
 	drainWorker,
 	FileLogger,
 	listWorkers,
 	removeWorker,
 	workerRun,
-} from "@stringsync/splates-server/workers";
+} from "@splates/server/workers";
 import { cli } from "core/cmd";
 import { CompositeLogger } from "core/log";
 import { z } from "zod";

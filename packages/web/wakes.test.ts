@@ -1,6 +1,6 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { PULSE } from "@stringsync/splates-server/server/browser";
+import { PULSE } from "@splates/server/server/browser";
 import { Duration } from "core/time";
 import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { Wakes } from "./wakes";

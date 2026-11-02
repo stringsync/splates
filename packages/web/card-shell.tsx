@@ -1,4 +1,4 @@
-import type { TaskReport } from "@stringsync/splates-server/plans";
+import type { TaskReport } from "@splates/server/plans";
 import {
 	ChevronRightIcon,
 	CircleCheckIcon,

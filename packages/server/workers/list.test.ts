@@ -11,7 +11,6 @@ import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
 import { DevWorkers } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
-import type { WebSocketWorkerSocket } from "./websocket-socket";
 
 describe("splates worker list", () => {
 	let dir: string;
@@ -45,7 +44,7 @@ describe("splates worker list", () => {
 
 	async function join_(
 		id: string,
-		dial: () => Promise<UnixWorkerSocket | WebSocketWorkerSocket>,
+		dial: () => Promise<UnixWorkerSocket>,
 	): Promise<void> {
 		const joined = new Promise<void>((resolve) =>
 			workers.registry.events.on(
@@ -74,7 +73,6 @@ describe("splates worker list", () => {
 		return log.entries.map((entry) => String(entry.message)).join("\n");
 	}
 
-	// vet-ignore simple-test-setup: it alone dials both a socket and a WebSocket
 	it("lists this machine’s worker over its Unix socket", async () => {
 		await join_("local", () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
@@ -119,6 +117,6 @@ describe("splates worker list", () => {
 			ps: new FakePs(),
 		});
 
-		await expect(asking).rejects.toThrow("no `splates server` to ask");
+		expect(asking).rejects.toThrow("no `splates server` to ask");
 	});
 });

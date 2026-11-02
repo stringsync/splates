@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { listed } from "@stringsync/splates-server/conversations/browser";
+import { listed } from "@splates/server/conversations/browser";
 import { ConversationFeed } from "./conversation-feed";
 import { conversation, message, Testing, waitFor } from "./testing";
 

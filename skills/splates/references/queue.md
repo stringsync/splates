@@ -2,7 +2,7 @@
 
 Writing a task (Queueing tasks), deferring it, asking the user to queue it, and linking,
 placing and ordering it. Grooming one, whether you write it, start it or
-groom Untriaged, is in [groom.md](groom.md). Ordering is the user's (see
+groom ungroomed Backlog tasks, is in [groom.md](groom.md). Ordering is the user's (see
 Positions).
 
 ## Queueing tasks
@@ -14,7 +14,7 @@ blocks it, and put it in a lane (`--lane`, Backlog when none is plain; see
 [groom.md](groom.md)). When you know too little of it
 to do that without looking into it, as for a rough idea or a request
 deferred as it came, `splates task defer` it instead, which takes the same
-flags and leaves it in Untriaged for whoever grooms it. Leave its position
+flags and leaves it in Backlog, ungroomed, for whoever grooms it. Leave its position
 to the user and the queue, unless the user names it. Leave its model off
 too, unless the user names one: a task that names none goes to Auto pick,
 which judges its words and starts it on the agent, model and thinking level
@@ -190,12 +190,12 @@ is chosen and shown rather than crept into.
 When a task cannot start before another merges, it is blocked by that one:
 say so with `--blocked-by` (`splates task add <subject> --blocked-by 12`, or
 `splates task update 14 --blocked-by 12`), rather than in its detail. splates
-then warns whoever takes it early, drops the link when 12 merges or is
-removed, and shows it on the board. Once 12 merges, `splates task show 14`
-names the commit it landed as; removing it without merging automatically
-clears the dependency too, without waiting for the user.
-`--remove-blocked-by 12` also undoes a link or clears a hold left by older
-versions. Several links go in one
+then warns whoever takes it early, drops the link when 12 merges, and shows
+it on the board. Once 12 merges, `splates task show 14` names the commit it
+landed as; if 12 is removed without merging, 14 is held as Blocked for the
+person, who lets go of the link from its card (the page's remove lists such
+tasks first). `--remove-blocked-by 12` undoes a link or lets go of a removed
+blocker. Several links go in one
 call, the flag repeated or a comma list: `--blocked-by 12 --blocked-by 13`, or
 `--blocked-by 12,13`.
 Link only for a real order (one needs the other's code or data), never for
@@ -217,7 +217,7 @@ holds the work up.
 ## Lanes
 
 A lane is a named group of related tasks, for the user to see them together
-on the board. It orders nothing: the queue starts tasks, and links
+on the board. Every lane is on exactly one board (see Boards below). It orders nothing: the queue starts tasks, and links
 alone say what must land first, so link a task `--blocked-by` another
 whenever it needs that one's code or changes its files, even in the same
 lane. A lane has no model of its own: each task names its own, or Auto pick picks it. Placing a task, read `splates lane
@@ -226,18 +226,17 @@ list`, then:
 - **An existing lane** when it builds on that lane's work, needing its code,
   files, or context: `--lane <n>` puts it at the bottom.
 - **A new lane** when it starts a chain that more tasks will follow, or
-  shares a theme with another Untriaged task, such as the same feature,
-  area or kind of fix: `splates lane add '<name>'`, named for what they
-  add up to, then `--lane <n>` for each. A lane you add for the user to
+  shares a theme with another ungroomed Backlog task, such as the same feature,
+  area or kind of fix: `splates lane add '<name>' --board <n>`, named for what they
+  add up to, on the board that fits, then `--lane <n>` for each. A lane you add for the user to
   queue ends your reply with its queue card (see Asking the user to queue).
-- **Untriaged** otherwise, for the user to place: a task that fits with no
-  other yet.
+- **Backlog** otherwise: a task that fits with no other yet.
 
 After grooming, unmatched work goes to **Backlog** (`--lane backlog`, lane
 `0`), the permanent catch-all. Backlog can be queued and worked like any
 other lane, but cannot be renamed, removed, or merged away; it stays empty
-once its work finishes. Untriaged's Groom button starts the groomer, which
-always moves processed tasks to a themed lane or Backlog.
+once its work finishes. Backlog's Groom button starts the groomer, which
+moves each ungroomed task to a themed lane or leaves it in Backlog, groomed.
 
 `splates task update <id> --lane <n>` moves one that exists.
 
@@ -247,12 +246,27 @@ blocked by lands. One blocked by a task outside the queue, neither queued
 nor running, stays queued but shows as Blocked, with a button on its card
 that queues that chain of blockers, until the user presses it. A task added to the lane later is not queued with it: so a
 follow-up you add to a lane under way waits, and your reply ends with its
-queue card, as for any task you add. Untriaged cannot be queued as a lane.
+queue card, as for any task you add. 
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),
 `splates lane update <n> --position <p>`, 1 the first column, then read
 `splates lane list` to check the order is the one asked for.
+
+## Boards
+
+A board groups and orders a project's lanes, and is organizational only: tasks,
+links and the queue do not change with it. Every lane you add or keep is
+placed on a board: read `splates board list`, pick the board whose lanes
+share its theme, and `splates lane add '<name>' --board <n>`; `splates lane
+update <n> --board <n>` moves one (Backlog stays on the default board, 1). When
+no board fits, `splates board add '<name>'`, named for the area its lanes
+cover. `splates board update <n>` renames (`--name`), reorders (`--position`)
+and archives (`--archived`, `--no-archived` to bring back), and `splates
+board show <n>` lists its lanes. Agents delete an empty board with `splates
+board remove <n>`; one whose lanes hold tasks is refused: move
+the lanes to another board, or ask the person, as a question, to delete it. The default board cannot be archived or
+deleted. There is no `board queue`: queueing stays the user's, per lane.
 
 ## Positions
 

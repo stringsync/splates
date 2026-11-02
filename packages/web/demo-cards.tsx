@@ -1,5 +1,5 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Demo } from "@stringsync/splates-server/plans";
+import type { Demo } from "@splates/server/plans";
 import { ClapperboardIcon, ExternalLinkIcon } from "lucide-react";
 import type { JSX } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";

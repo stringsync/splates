@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Compaction } from "@stringsync/splates-server/conversations";
+import type { Compaction } from "@splates/server/conversations";
 import {
 	cleanup,
 	second,

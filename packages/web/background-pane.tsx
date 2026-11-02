@@ -1,4 +1,4 @@
-import type { Background } from "@stringsync/splates-server/conversations";
+import type { Background } from "@splates/server/conversations";
 import { useDisposerEffect, useReactive } from "core/react";
 import { SquareIcon, XIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";

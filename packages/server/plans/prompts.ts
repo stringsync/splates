@@ -94,14 +94,25 @@ export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;
 }
 
+/** How much of a failed stage's log goes into the text sent to an agent. */
+const SHIP_LOG_LINES = 150;
+
 /**
  * What asks an agent to look into ship `ship`, stopped at `project`'s `stage`:
  * read its logs from the server at `origin`, prescribe a fix and land it,
  * then continue the ship. The person asked for the retry by sending this, so
- * the agent may make it; it starts no ship of its own.
+ * the agent may make it; it starts no ship of its own. The failure's `note` and
+ * the end of the stage's `log` go in the text, since an agent may not reach
+ * the server to read them.
  */
 export function shipFailureReference(
-	ship: { id: string; project: string; stage: string | null },
+	ship: {
+		id: string;
+		project: string;
+		stage: string | null;
+		note?: string | null;
+		log?: string | null;
+	},
 	origin: string,
 ): string {
 	const where =
@@ -109,7 +120,16 @@ export function shipFailureReference(
 			? `\`${ship.project}\``
 			: `the \`${ship.stage}\` stage of \`${ship.project}\``;
 	const log = `${origin}/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
-	return `Ship \`${ship.id}\` stopped at ${where}. Examine its logs, find why it failed, and prescribe a fix.
+	const note = ship.note ? `\n\nThe ship's note: ${ship.note}` : "";
+	const tail = ship.log
+		?.trimEnd()
+		.split("\n")
+		.slice(-SHIP_LOG_LINES)
+		.join("\n");
+	const printed = tail
+		? `\n\nThe end of the stage's log (the last ${SHIP_LOG_LINES} lines at most):\n\n\`\`\`\n${tail}\n\`\`\``
+		: "";
+	return `Ship \`${ship.id}\` stopped at ${where}. Examine its logs, find why it failed, and prescribe a fix.${note}${printed}
 
 - The stage's log: \`curl '${log}'\`. The ship itself is at ${origin}/api/ship/steps (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
 - When the fix is a code change, make it as a task and land it as the splates skill says. When it is not (a registry, a credential, something outside the repository), say what the person must do.

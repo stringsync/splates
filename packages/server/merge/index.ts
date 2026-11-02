@@ -1,5 +1,3 @@
-export type { Adopted } from "./adopted";
-export { adopt } from "./adopted";
 export type { AttributedFailure, FailureAttribution } from "./attribution";
 export { attributeFailure } from "./attribution";
 export type { AppSource, Pushed, TokenMinter } from "./branches";
@@ -34,5 +32,4 @@ export { MergeAsk, ServedMerges } from "./served";
 export type { TimedTest } from "./test-report";
 export type { Landed, TrunkLanding } from "./trunk";
 export { CoordinatorLanding } from "./trunk";
-export { mergeViaServer } from "./worker-merge";
 export { WorktreePs } from "./worktree-ps";

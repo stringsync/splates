@@ -1,4 +1,4 @@
-import type { Action, Event } from "@stringsync/splates-server/records";
+import type { Action, Event } from "@splates/server/records";
 
 /**
  * How loudly an event shows in a conversation. A loud one keeps a line of its

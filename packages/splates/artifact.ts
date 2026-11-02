@@ -3,12 +3,12 @@ import {
 	addArtifact,
 	listArtifacts,
 	removeArtifact,
-} from "@stringsync/splates-server/artifacts";
-import { commaList } from "@stringsync/splates-server/comma-list";
-import { conversationOf } from "@stringsync/splates-server/conversations";
-import { fail } from "@stringsync/splates-server/exit";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+} from "@splates/server/artifacts";
+import { commaList } from "@splates/server/comma-list";
+import { conversationOf } from "@splates/server/conversations";
+import { fail } from "@splates/server/exit";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 import { here } from "./flags";

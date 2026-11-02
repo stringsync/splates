@@ -107,7 +107,10 @@ export class FakeCloudflare {
 		const parts = path.split("/").slice(1);
 		const id = () => `id-${this.next++}`;
 		if (path === "/zones") {
-			return this.zones.filter((zone) => zone.name === query.get("name"));
+			const name = query.get("name");
+			return name === null
+				? this.zones
+				: this.zones.filter((zone) => zone.name === name);
 		}
 		if (parts[0] === "zones" && parts[2] === "dns_records") {
 			const record = this.records.find((each) => each.id === parts[3]);

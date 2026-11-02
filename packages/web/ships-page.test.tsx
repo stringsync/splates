@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Cascade, ShipProject } from "@stringsync/splates-server/ship";
+import type { Cascade, ShipProject } from "@splates/server/ship";
 // Before the page: base-ui reads the DOM as it loads, so a file run alone
 // needs it registered first.
 import "./register-dom";
@@ -173,7 +173,7 @@ describe("ShipsPage", () => {
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
-		expect(await view.findByText("3 to ship")).toBeTruthy();
+		expect(await view.findByText("3 commits since v1.0.0")).toBeTruthy();
 		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
 			"Missing release tag",
 		);

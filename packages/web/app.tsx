@@ -1,5 +1,5 @@
-import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { Details } from "@splates/server/tasks";
 import { useDisposerEffect, useReactive } from "core/react";
 import { type Duration, SystemClock, SystemTimer, type Timer } from "core/time";
 import {
@@ -55,6 +55,7 @@ import { listProjects, restartIdle } from "./project-api";
 import { shownProject, useProjectName } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
+import { searchedIn } from "./searched-in";
 import type { Settings } from "./settings";
 import { SetupProvider } from "./setup-state";
 import { matches } from "./shortcuts";
@@ -74,7 +75,6 @@ import { WelcomeLanding } from "./welcome-page";
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
 const NO_TODOS: TaskRecord[] = [];
-const NO_LANES: LaneRecord[] = [];
 
 /**
  * The pages a seeded snapshot draws, its tasks being the project's own; the
@@ -189,11 +189,7 @@ export function App({
 		openSetup,
 	} = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
-	const searched = {
-		tasks,
-		todos: snapshot?.todos ?? NO_TODOS,
-		lanes: snapshot?.laneNames ?? NO_LANES,
-	};
+	const searched = searchedIn(snapshot);
 	// A todo opens on the board, or as the task that took it.
 	const openTodo = useCallback(
 		(id: number) => {

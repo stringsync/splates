@@ -1,5 +1,5 @@
-import type { ProjectRef } from "@stringsync/splates-server/conversations";
-import { conversationReference } from "@stringsync/splates-server/conversations/browser";
+import type { ProjectRef } from "@splates/server/conversations";
+import { conversationReference } from "@splates/server/conversations/browser";
 import { MessageCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";

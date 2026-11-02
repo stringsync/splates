@@ -1,8 +1,10 @@
 import { Credentials } from "core/creds";
 import { MemoryLogger } from "core/log";
+import { z } from "zod";
 import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
+	CloudflareApi,
 	portsHostFlag,
 	SavedPortsHost,
 	SavedTunnel,
@@ -14,10 +16,55 @@ import {
 } from "../tunnel";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
+/** Cloudflare's page of `cloudflared` downloads, which covers every platform. */
+const CLOUDFLARED_DOWNLOADS =
+	"https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/";
+
+/** How long an install gets before it counts as failed. */
+const INSTALL_MS = 10 * 60_000;
+
 /** Reaching `splates server` from a phone or another computer, behind Access. */
 export const REMOTE_ACCESS_AREA: SetupArea = remoteAccessArea();
 
 function remoteAccessArea(): SetupArea {
+	const cloudflaredStep: SetupStep = {
+		id: "cloudflared",
+		title: "Install cloudflared",
+		why: "A tunnel lets your phone or another computer reach `splates server` on this machine without opening a port on your router or exposing your IP address: `cloudflared` dials out to Cloudflare, which carries your own host name back to it, behind Cloudflare Access so only the emails you name get in. `cloudflared` is the program that holds that connection open.",
+		user: `Next installs it with Homebrew (\`brew install cloudflared\`); without Homebrew, install it from [Cloudflare's downloads](${CLOUDFLARED_DOWNLOADS}) and press Next. You also need a domain whose DNS is on Cloudflare, which a later step checks.`,
+		agent: `Check \`cloudflared --version\`; press Next on the page to install it with Homebrew on a Mac, or send the user to ${CLOUDFLARED_DOWNLOADS}. Explain why they would want a tunnel before asking for anything else.`,
+		optional: true,
+		after: [],
+		doing: "Installing cloudflared with Homebrew…",
+		check: async (machine) =>
+			cloudflaredVersion(machine).then((version) => version !== null),
+		found: async (machine) => {
+			const version = await cloudflaredVersion(machine);
+			return version === null ? null : `${version} is installed.`;
+		},
+		submit: async ({ ps }) => {
+			const result = await ps
+				?.spawnCapture(["brew", "install", "cloudflared"], {
+					timeoutMs: INSTALL_MS,
+					stdin: "",
+				})
+				.catch(() => null);
+			if (result?.exitCode !== 0) {
+				throw new Error(
+					`Could not install cloudflared from here. Install it from ${CLOUDFLARED_DOWNLOADS}, then press Next.`,
+				);
+			}
+		},
+		// Other tools may use it, so only the person takes it out.
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"cloudflared stays installed: run `brew uninstall cloudflared` to remove it.",
+			],
+			run: async () => {},
+		},
+	};
+
 	const tokenStep: SetupStep = {
 		id: "cloudflare-token",
 		title: "Give splates a Cloudflare API token",
@@ -25,7 +72,7 @@ function remoteAccessArea(): SetupArea {
 		user: `Create a [Cloudflare API token](${TOKENS_PAGE}) with these permissions (${TOKEN_PERMISSIONS.join("; ")}), for your account and your zone, and paste it here. Skip to keep \`splates server\` on this machine only, or to use a tunnel of your own, which \`splates.config.ts\` can name instead.`,
 		agent: `Request it with \`splates creds request ${API_TOKEN} --device\`, with how to make it, or let \`splates tunnel setup\` request it.`,
 		optional: true,
-		after: [],
+		after: [cloudflaredStep],
 		fields: [
 			{
 				kind: "cred",
@@ -46,6 +93,28 @@ function remoteAccessArea(): SetupArea {
 		},
 	};
 
+	const domainStep: SetupStep = {
+		id: "cloudflare-domain",
+		title: "Check your domain is on Cloudflare",
+		why: "The tunnel's host name has to live in a domain whose DNS Cloudflare serves, since splates adds the DNS record that routes the host to the tunnel.",
+		user: "Add a domain to your Cloudflare account if you have none ([Add a site](https://dash.cloudflare.com/?to=/:account/add-site)), pointing its nameservers at Cloudflare, then press Next. Any subdomain of it works as the host name.",
+		notDone:
+			"The token sees no domain on your Cloudflare account yet: add one, give the token Zone Read and DNS Edit on it, then press Next.",
+		agent:
+			"Press Next on the page, which lists the zones the token can read. If there are none, help the user add a domain to Cloudflare and check the token's zone permission.",
+		optional: true,
+		after: [tokenStep],
+		uses: [API_TOKEN],
+		doing: "Asking Cloudflare for your domains…",
+		check: async (machine) => (await zones(machine)).length > 0,
+		found: async (machine) => {
+			const names = await zones(machine);
+			return names.length === 0
+				? null
+				: `Your account serves ${names.map((name) => `\`${name}\``).join(", ")}.`;
+		},
+	};
+
 	const tunnelStep: SetupStep = {
 		id: "tunnel",
 		title: "Make the tunnel",
@@ -54,7 +123,7 @@ function remoteAccessArea(): SetupArea {
 		agent:
 			"Run `splates tunnel setup <host> --email <emails>`, adding `--team <name>` when the account has no Zero Trust organization yet.",
 		optional: true,
-		after: [tokenStep],
+		after: [domainStep],
 		// Removed with the API token, which workers' Access step asks for too.
 		uses: [API_TOKEN],
 		fields: [
@@ -157,6 +226,7 @@ function remoteAccessArea(): SetupArea {
 		agent:
 			"Have the user restart `splates server` with `--ports-host <base>`, which saves the base for this machine, then check this step again.",
 		optional: true,
+		extra: true,
 		after: [accessStep],
 		fields: [
 			{
@@ -207,8 +277,38 @@ function remoteAccessArea(): SetupArea {
 		id: "remote-access",
 		title: "Remote access",
 		purpose: "Reach splates server from your phone or another computer.",
-		steps: [tokenStep, tunnelStep, accessStep, portsStep],
+		steps: [
+			cloudflaredStep,
+			tokenStep,
+			domainStep,
+			tunnelStep,
+			accessStep,
+			portsStep,
+		],
 	};
+}
+
+/** What `cloudflared --version` prints, or null when it is not there. */
+async function cloudflaredVersion({
+	ps,
+}: SetupMachine): Promise<string | null> {
+	const result = await ps
+		?.spawnCapture(["cloudflared", "--version"], { timeoutMs: 10_000 })
+		.catch(() => null);
+	return result?.exitCode === 0 ? result.stdout.trim() : null;
+}
+
+/** The names of the domains the API token can read; none without the token. */
+async function zones({ device, fetch }: SetupMachine): Promise<string[]> {
+	const token = await device.get(API_TOKEN);
+	if (token === undefined) {
+		return [];
+	}
+	const found = await new CloudflareApi(token, { fetch }).list(
+		"/zones",
+		z.object({ name: z.string() }),
+	);
+	return found.map((zone) => zone.name);
 }
 
 /** The tunnel `splates tunnel setup` saved, when its token is kept too. */

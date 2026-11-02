@@ -12,8 +12,8 @@ export type {
 	Config,
 	ConfigFile,
 	EvalsConfig,
-} from "@stringsync/splates-server/config";
+} from "@splates/server/config";
 export type {
 	TunnelProvider,
 	TunnelRoute,
-} from "@stringsync/splates-server/tunnel";
+} from "@splates/server/tunnel";

@@ -1,15 +1,15 @@
-import { tasksNamed } from "@stringsync/splates-server/board";
-import { refuseGroomer } from "@stringsync/splates-server/conversations";
+import { tasksNamed } from "@splates/server/board";
+import { refuseGroomer } from "@splates/server/conversations";
 import {
 	queueAdd,
 	queueList,
 	queueMove,
 	queueRemove,
 	refuseAgentQueue,
-} from "@stringsync/splates-server/queue";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { setQueuePaused } from "@stringsync/splates-server/workers";
+} from "@splates/server/queue";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
+import { setQueuePaused } from "@splates/server/workers";
 import { cli } from "core/cmd";
 import { z } from "zod";
 import { here } from "./flags";

@@ -211,6 +211,18 @@ export interface Facts {
 	"task remove": TasksFacts;
 	"queue add": TasksFacts;
 	"queue remove": TasksFacts;
+	"board add": {
+		/** The board it started, by number. */
+		board: number;
+		/** Its name. */
+		name: string;
+	};
+	"board rename": {
+		/** The board, by number. */
+		board: number;
+		/** Its name once renamed. */
+		name: string;
+	};
 	"lane add": {
 		/** The lane it started, by number. */
 		lane: number;
@@ -228,6 +240,8 @@ export interface Facts {
 			name?: string;
 			/** Where it moved to among the lanes, 1 the first column. */
 			position?: number;
+			/** The board it moved to. */
+			board?: number;
 			/** Whether it runs from now on, its tasks started by `splates server`. */
 			running?: boolean;
 			/** In records from before lanes queued once, whether it was queued whole from then on. */
@@ -511,6 +525,8 @@ export const FACTS = {
 	"task remove": ["tasks"],
 	"queue add": ["tasks"],
 	"queue remove": ["tasks"],
+	"board add": ["board", "name"],
+	"board rename": ["board", "name"],
 	"lane add": ["lane", "name"],
 	"lane update": ["lane", "name", "changed"],
 	"lane remove": ["lane", "name", "tasks"],

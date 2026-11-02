@@ -255,7 +255,7 @@ describe.concurrent("task", () => {
 		};
 		// An empty list, as every task had, is no tag at all.
 		await tag(4, []);
-		expect((await deps.tasks.find(4)).lane).toBeNull();
+		expect((await deps.tasks.find(4)).lane).toBe(0);
 		await tag(1, ["licensing"]);
 		await tag(2, ["dark-mode", "licensing"]);
 		await tag(3, ["dark-mode"]);
@@ -270,15 +270,15 @@ describe.concurrent("task", () => {
 		const moved = await deps.tasks.moveTagsToLanes();
 
 		expect(moved).toEqual([
-			{ lane: { id: 1, name: "Licensing" }, tasks: [1, 2, 6] },
-			{ lane: { id: 2, name: "Dark mode" }, tasks: [3] },
+			{ lane: { id: 1, name: "Licensing", board: 1 }, tasks: [2, 6, 1] },
+			{ lane: { id: 2, name: "Dark mode", board: 1 }, tasks: [3] },
 		]);
 		const lanes = (await deps.tasks.all()).map(({ id, lane }) => [id, lane]);
 		expect(lanes).toEqual([
 			[2, 1],
 			[3, 2],
-			[4, null],
-			[5, null],
+			[4, 0],
+			[5, 0],
 			[6, 1],
 			[1, 1],
 		]);
@@ -457,7 +457,7 @@ describe.concurrent("task", () => {
 
 		await expect(deps.tasks.find(1)).toBail("not_found");
 		const out = color.strip(deps.out());
-		expect(out).toContain("next task 3: follow-up from dark");
+		expect(out).toContain("next in lane 0 Backlog task 3: follow-up from dark");
 		expect(out).toContain("splates add <slug> --task 3");
 	});
 
@@ -488,7 +488,7 @@ describe.concurrent("task", () => {
 		);
 	});
 
-	it("unlinks a removed blocker automatically and preserves other dependencies", async () => {
+	it("holds what a removed blocker blocked until the person lets go of it", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await taskAdd(deps, "chart data", null);
@@ -496,20 +496,25 @@ describe.concurrent("task", () => {
 
 		await taskRemove(deps, 1);
 
-		const waiting = await deps.tasks.find(3);
-		expect(waiting.state.blockedBy).toEqual([2]);
-		expect(waiting.state.blockersLost).toBeUndefined();
-		expect(isReady(waiting.state)).toBe(false);
+		const held = await deps.tasks.find(3);
+		expect(held.state.blockedBy).toEqual([2]);
+		expect(held.state.blockersLost).toEqual([
+			{ id: 1, subject: "support dark mode" },
+		]);
+		expect(isReady(held.state)).toBe(false);
 
 		await taskRemove(deps, 2);
 
+		const still = await deps.tasks.find(3);
+		expect(still.state.blockedBy).toEqual([]);
+		expect(still.state.blockersLost).toHaveLength(2);
+		expect(isReady(still.state)).toBe(false);
+
+		await deps.tasks.link(3, { drop: [1, 2] });
+
 		const freed = await deps.tasks.find(3);
-		expect(freed.state.blockedBy).toEqual([]);
 		expect(freed.state.blockersLost).toBeUndefined();
 		expect(isReady(freed.state)).toBe(true);
-		deps.log.clear();
-		await taskShow(deps, 3);
-		expect(color.strip(deps.out())).not.toContain("waits on you");
 	});
 
 	it("recommends the highest open task, and sets stale ones aside", async () => {

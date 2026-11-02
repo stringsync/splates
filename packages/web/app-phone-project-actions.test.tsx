@@ -176,7 +176,9 @@ describe("Inbox actions across projects", () => {
 			testing.posted("/api/conversations/c1/archived?project=zebra"),
 		).toEqual([]);
 		await act(async () =>
-			fireEvent.click(within(confirm).getByRole("button", { name: "Archive" })),
+			fireEvent.click(
+				within(confirm).getByRole("button", { name: /^Archive/ }),
+			),
 		);
 		expect(testing.posted("/api/tasks/alpha?project=zebra")).toEqual([
 			{ method: "DELETE", body: {} },

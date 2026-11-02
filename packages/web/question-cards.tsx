@@ -3,7 +3,7 @@ import type {
 	Proposal,
 	Question,
 	TaskReport,
-} from "@stringsync/splates-server/plans";
+} from "@splates/server/plans";
 import {
 	type Answer,
 	APPROVE,
@@ -14,7 +14,7 @@ import {
 	isEmpty,
 	replyOf,
 	takenOf,
-} from "@stringsync/splates-server/plans/browser";
+} from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
 import {
 	CheckIcon,

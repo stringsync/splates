@@ -7,8 +7,8 @@ import {
 	lanes as laneList,
 	named,
 	type TaskRecord,
-} from "@stringsync/splates-server/board/browser";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+} from "@splates/server/board/browser";
+import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -17,9 +17,12 @@ import { cn } from "#web/lib/utils.ts";
 import { AddLane } from "./add-lane";
 import { Board as BoardContext, takenTask } from "./board";
 import { BoardDrag } from "./board-drag";
+import { saveBoard, savedBoard } from "./board-places";
+import { BoardSwitcher } from "./board-switcher";
 import type { Drafts } from "./drafts";
 import { FinishedByName } from "./finished-tasks";
 import { fadeOf, useEdges } from "./hooks/use-edges";
+import { LaneStrip } from "./lane-strip";
 import { columnId, Lane, Untriaged } from "./lanes";
 import { useRefusals } from "./refusal";
 import { shownLanes } from "./shown-lanes";
@@ -92,12 +95,69 @@ export function Todos({
 	// each column lists is narrowed.
 	const passes = (todo: TaskRecord) =>
 		(only === null || only.includes(todo.id)) && filter.passes(filtered(todo));
-	const lanes = laneList(all, records).map((lane) => ({
-		...lane,
-		todos: lane.todos.filter(passes),
-	}));
+	// The board the person picked, else the one the URL or this device had,
+	// else the project's first; a lane with no board, from an older server,
+	// is on the first.
+	const [picked, setPicked] = useState(savedBoard);
+	const liveBoards = snapshot.boards?.filter((each) => !each.archived) ?? [];
+	const boardId =
+		liveBoards.find((each) => each.id === picked)?.id ??
+		liveBoards[0]?.id ??
+		snapshot.boards?.[0]?.id ??
+		null;
+	// Something opened that sits on another board brings its board up: a lane
+	// the board was opened on, a task from a link or search, a note's card.
+	const boardOf = (laneId: number | null | undefined) =>
+		laneId == null
+			? undefined
+			: (snapshot.lanes.find((each) => each.id === laneId)?.board ??
+				snapshot.boards?.[0]?.id);
+	const opening =
+		boardOf(lane) ??
+		boardOf(current?.lane) ??
+		boardOf(all.find((todo) => todo.takenBy === openedTask)?.lane);
+	const brought = useRef<number | undefined>(undefined);
+	useEffect(() => {
+		if (opening === undefined) {
+			brought.current = undefined;
+			return;
+		}
+		if (opening === brought.current) {
+			return;
+		}
+		brought.current = opening;
+		if (liveBoards.some((each) => each.id === opening)) {
+			setPicked(opening);
+			saveBoard(opening);
+		}
+	}, [opening, liveBoards]);
+	const lanes = laneList(all, records)
+		.filter(
+			(lane) =>
+				boardId === null || lane.board === undefined || lane.board === boardId,
+		)
+		.map((lane) => ({
+			...lane,
+			todos: lane.todos.filter(passes),
+		}));
 	const kept = all.filter(passes);
 	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
+	const switcher =
+		snapshot.boards !== undefined && boardId !== null ? (
+			<BoardSwitcher
+				boards={snapshot.boards}
+				current={boardId}
+				tasks={snapshot.boards.map((each) => ({
+					id: each.id,
+					tasks: laneList(all, records)
+						.filter(
+							(lane) => (lane.board ?? snapshot.boards?.[0]?.id) === each.id,
+						)
+						.flatMap((lane) => lane.todos),
+				}))}
+				onPick={setPicked}
+			/>
+		) : undefined;
 	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
 	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<
 		number | null
@@ -107,6 +167,7 @@ export function Todos({
 			linked: true,
 			todos: all,
 			lanes: records,
+			boards: snapshot.boards,
 			elsewhere: snapshot.elsewhere,
 			open: (id: number) => {
 				const task = takenTask(all, snapshot.tasks, id);
@@ -155,8 +216,17 @@ export function Todos({
 	// first lane rather than an empty Untriaged.
 	const untriaged = all.some((todo) => todo.lane === null);
 	const opened = useRef(false);
+	// Switching boards opens the new one on its first lane too.
+	const openedBoard = useRef(boardId);
 	useEffect(() => {
 		const board = scroller.current;
+		if (openedBoard.current !== boardId) {
+			openedBoard.current = boardId;
+			opened.current = false;
+			if (board !== null) {
+				board.scrollLeft = 0;
+			}
+		}
 		if (opened.current || board === null || shown.length === 0) {
 			return;
 		}
@@ -176,7 +246,7 @@ export function Todos({
 				board.getBoundingClientRect().left -
 				Number.parseFloat(getComputedStyle(board).scrollPaddingLeft || "0");
 		}
-	}, [shown, untriaged, hidden]);
+	}, [shown, untriaged, hidden, boardId]);
 	// Opened on a lane: shown if hidden, then scrolled to, once each time.
 	const revealed = useRef<number | null>(null);
 	useEffect(() => {
@@ -228,6 +298,7 @@ export function Todos({
 					untriaged={kept.filter((todo) => todo.lane === null).length}
 					hidden={hidden}
 					view={view}
+					switcher={switcher}
 					filterOptions={{
 						projects: projectOptions(all.map(filtered), filter.projects),
 						tags: tagOptions(
@@ -236,6 +307,15 @@ export function Todos({
 							filter.tags,
 						),
 					}}
+				/>
+				<LaneStrip
+					lanes={shown}
+					untriaged={
+						hidden.includes(null)
+							? null
+							: kept.filter((todo) => todo.lane === null).length
+					}
+					board={scroller}
 				/>
 				<div
 					ref={scroller}
@@ -309,7 +389,9 @@ function TodosBar({
 	hidden,
 	view,
 	filterOptions,
+	switcher,
 }: {
+	switcher?: JSX.Element;
 	filterOptions: { projects: string[]; tags: string[] };
 	lanes: LaneState[];
 	/** How many todos shown are in no lane. */
@@ -319,7 +401,7 @@ function TodosBar({
 }): JSX.Element {
 	return (
 		<TopBar
-			title="Board"
+			title={switcher ?? "Board"}
 			actions={[
 				shownLanes({
 					lanes,

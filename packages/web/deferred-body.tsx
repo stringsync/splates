@@ -6,7 +6,7 @@ import {
 	type ElsewhereOnBoard,
 	type TaskBlockerStatus,
 	type TaskRecord,
-} from "@stringsync/splates-server/board/browser";
+} from "@splates/server/board/browser";
 import { CheckIcon, CircleIcon, LinkIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

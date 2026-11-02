@@ -2,8 +2,8 @@ import type {
 	EvalBatch,
 	EvalGrid,
 	EvalScenario,
-} from "@stringsync/splates-server/evals/browser";
-import { targetName } from "@stringsync/splates-server/evals/browser";
+} from "@splates/server/evals/browser";
+import { targetName } from "@splates/server/evals/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
 import { evalBatch, evalBatches, evalScenarios } from "./api";

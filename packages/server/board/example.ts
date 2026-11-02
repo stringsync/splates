@@ -63,9 +63,9 @@ export function sound2score({
 
 /** The names the sound2score lanes were given, in board order. */
 export const SOUND2SCORE_LANES: LaneRecord[] = [
-	{ id: 1, name: "Licensing" },
-	{ id: 2, name: "Audio, uploads and pricing" },
-	{ id: 3, name: "Score editor" },
+	{ id: 1, name: "Licensing", board: 1 },
+	{ id: 2, name: "Audio, uploads and pricing", board: 1 },
+	{ id: 3, name: "Score editor", board: 1 },
 ];
 
 /**

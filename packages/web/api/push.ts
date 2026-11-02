@@ -1,4 +1,4 @@
-import type { Wants } from "@stringsync/splates-server/push/browser";
+import type { Wants } from "@splates/server/push/browser";
 import { ApiError, answered, sendJson } from "./request";
 
 /** The public key this device subscribes to the server's pushes with. */

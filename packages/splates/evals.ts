@@ -3,9 +3,9 @@ import {
 	type InspectLog,
 	inspectBatch,
 	writeImported,
-} from "@stringsync/splates-server/evals";
-import { fail } from "@stringsync/splates-server/exit";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+} from "@splates/server/evals";
+import { fail } from "@splates/server/exit";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { color } from "core/log";
 import { z } from "zod";

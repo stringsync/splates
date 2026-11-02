@@ -1,6 +1,6 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { ConversationState } from "@splates/server/conversations";
+import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import type { JSX } from "react";
 import { openedBy } from "./conversation-address";

@@ -1,4 +1,4 @@
-import type { GoneBlocker } from "@stringsync/splates-server/board";
+import type { GoneBlocker } from "@splates/server/board";
 import { XIcon } from "lucide-react";
 import type { JSX } from "react";
 import {

@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/plans/browser";
+import type { Needing } from "@splates/server/plans/browser";
 import {
 	PencilIcon,
 	SquareTerminalIcon,

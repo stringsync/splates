@@ -48,6 +48,7 @@ function evalsArea(): SetupArea {
 		agent: `The page makes the \`evals.list\` and \`evals.run\` change in a task named \`setup-evals-run\` and offers the restart: have the user approve it there, then run \`splates setup evals-run\`. Offer a \`plan\` too. The contract is in ${DOCS}.`,
 		notDone: `\`evals\` in \`splates.config.ts\` names no \`list\` and \`run\` yet: have an agent add them and approve it, then press Next. [The commands](${DOCS}).`,
 		optional: true,
+		extra: true,
 		after: [resultsStep],
 		fields: [
 			{

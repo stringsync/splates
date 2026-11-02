@@ -1,6 +1,6 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
-import type { ProjectRef } from "@stringsync/splates-server/conversations";
-import { nameOf } from "@stringsync/splates-server/conversations/browser";
+import type { ProjectRef } from "@splates/server/conversations";
+import { nameOf } from "@splates/server/conversations/browser";
 import {
 	APPROVE,
 	CHECKPOINT,
@@ -15,8 +15,8 @@ import {
 	RUN_DENIED,
 	taskNumberReference,
 	taskReference,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+} from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import {
 	BanIcon,
 	BookmarkIcon,
@@ -197,7 +197,7 @@ export const BARE_DIRECTIVES = [
 	},
 	{
 		directive: DEFER,
-		label: "Defer",
+		label: "Put back on board",
 		about: "put the request on the board rather than do it",
 		icon: ClockIcon,
 		tone: "neutral",

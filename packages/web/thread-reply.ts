@@ -4,9 +4,9 @@ import {
 	type Stretch,
 	stretches,
 	type TaskReport,
-} from "@stringsync/splates-server/plans/browser";
-import type { Event } from "@stringsync/splates-server/records";
-import { isEscalation } from "@stringsync/splates-server/records/browser";
+} from "@splates/server/plans/browser";
+import type { Event } from "@splates/server/records";
+import { isEscalation } from "@splates/server/records/browser";
 import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./message-questions";
 import type { Turn } from "./report-cards";

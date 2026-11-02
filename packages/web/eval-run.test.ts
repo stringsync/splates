@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type {
-	EvalGrid,
-	EvalLaunch,
-} from "@stringsync/splates-server/evals/browser";
-import type { AgentPick } from "@stringsync/splates-server/models";
+import type { EvalGrid, EvalLaunch } from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
 import { FakeTimer } from "core/time/testing";
 import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
 

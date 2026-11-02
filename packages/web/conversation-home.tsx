@@ -3,13 +3,10 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type {
-	ConversationState,
-	Setting,
-} from "@stringsync/splates-server/conversations";
-import { modelOption } from "@stringsync/splates-server/models/browser";
-import { orphaned } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { ConversationState, Setting } from "@splates/server/conversations";
+import { modelOption } from "@splates/server/models/browser";
+import { orphaned } from "@splates/server/plans/browser";
+import type { Details } from "@splates/server/tasks";
 import {
 	type JSX,
 	type ReactNode,

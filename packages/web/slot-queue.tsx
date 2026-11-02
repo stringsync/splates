@@ -1,5 +1,5 @@
-import type { QueueSpot } from "@stringsync/splates-server/conversations";
-import type { QueueListing } from "@stringsync/splates-server/workers";
+import type { QueueSpot } from "@splates/server/conversations";
+import type { QueueListing } from "@splates/server/workers";
 import { Duration } from "core/time";
 import {
 	ArrowUpIcon,

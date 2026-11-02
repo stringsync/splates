@@ -5,7 +5,7 @@ import {
 	handOffReference,
 	scheduleReference,
 	taskReference,
-} from "@stringsync/splates-server/plans";
+} from "@splates/server/plans";
 import { handOffLines, serverToldLines } from "./server-messages";
 
 const board: Parameters<typeof serverToldLines>[1] = {

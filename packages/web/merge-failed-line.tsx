@@ -1,4 +1,4 @@
-import type { Event } from "@stringsync/splates-server/records";
+import type { Event } from "@splates/server/records";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import {
 	Dialog,

@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { Snapshot } from "@splates/server/tasks";
 import { Duration } from "core/time";
 import { GitMergeIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";

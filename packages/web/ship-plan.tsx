@@ -1,12 +1,9 @@
-import type {
-	ShipBump,
-	ShipGraph,
-	ShipProject,
-} from "@stringsync/splates-server/ship";
+import type { ShipBump, ShipGraph, ShipProject } from "@splates/server/ship";
 import {
 	CHANGED,
 	changedProjects,
-} from "@stringsync/splates-server/ship/browser";
+	nextVersion,
+} from "@splates/server/ship/browser";
 import { ShipIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -24,15 +21,15 @@ import { Textarea } from "#web/components/ui/textarea.tsx";
 import { shipGraph } from "./api";
 import { startShip } from "./api/ship";
 import { cn } from "./lib/utils";
+import { ShipIntro } from "./ship-intro";
+import { ShipPreview } from "./ship-preview";
+import { releaseOrder, shippable, staleOf, treeOrder } from "./ship-tree";
 
 type Choice = {
 	bump: ShipBump;
 	adopt: "mechanical" | "agent";
 	instructions: string;
 };
-
-/** A pin that trails the version its project is at now. */
-type Stale = { project: string; name: string; from: string; to: string };
 
 const BUMPS: ShipBump[] = ["patch", "minor", "major"];
 
@@ -214,9 +211,46 @@ function Plan({
 	};
 	const unshipped = changed.filter((slug) => !ships.has(slug));
 	const ordered = releaseOrder(projects).filter((each) => ships.has(each.slug));
-	const summary = ships.size > 0 ? `Ship ${ships.size}` : "";
+	const withWork = projects.filter(
+		(each) => shippable(each) && (each.changes?.commits ?? 0) > 0,
+	).length;
+	const releasable = projects.filter(shippable);
+	const unknown = releasable.filter(
+		(each) => each.changes?.commits === null,
+	).length;
+	const behind = projects.filter(
+		(each) => staleOf(each, graph).length > 0,
+	).length;
+	const versionAfter = (slug: string) => {
+		const project = projects.find((each) => each.slug === slug);
+		return project?.version == null
+			? null
+			: nextVersion(project.version, choice(slug).bump);
+	};
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
+			{ordered.length === 0 && <ShipIntro />}
+			<p className="flex flex-wrap items-center gap-2 text-xs">
+				<span
+					className={cn(
+						"rounded-full px-2.5 py-1",
+						withWork > 0
+							? "bg-warning/15 text-warning"
+							: "bg-muted text-muted-foreground",
+					)}
+				>
+					{withWork > 0
+						? `${withWork} ${withWork === 1 ? "project has" : "projects have"} unreleased work`
+						: unknown === releasable.length && unknown > 0
+							? "Can't tell what changed since the last release"
+							: "Nothing unreleased"}
+				</span>
+				{behind > 0 && (
+					<span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+						{behind} behind a pin
+					</span>
+				)}
+			</p>
 			{unshipped.length > 0 && (
 				<Button
 					variant="outline"
@@ -252,7 +286,11 @@ function Plan({
 					const shipping = ships.has(each.slug);
 					const commits = each.changes?.commits ?? 0;
 					const value = choice(each.slug);
-					const idle = commits === 0 && stale.length === 0 && !shipping;
+					const idle =
+						commits === 0 &&
+						each.changes?.commits !== null &&
+						stale.length === 0 &&
+						!shipping;
 					const adopts = shipping;
 					return (
 						<li
@@ -261,6 +299,7 @@ function Plan({
 							className={cn(
 								"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
 								idle && "py-2 opacity-50",
+								shipping && "bg-primary/5",
 							)}
 							style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
 						>
@@ -280,6 +319,11 @@ function Plan({
 												{each.version}
 											</span>
 										)}
+										{shipping && !roots.includes(each.slug) && (
+											<span className="rounded-full bg-success/15 px-2 text-success text-xs">
+												added automatically
+											</span>
+										)}
 									</span>
 									<span className="flex flex-col text-xs">
 										{each.changes?.commits === null && (
@@ -295,8 +339,12 @@ function Plan({
 												className="text-warning"
 												title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
 											>
-												{commits} to ship
+												{commits} {commits === 1 ? "commit" : "commits"} since{" "}
+												{each.changes?.tag}
 											</span>
+										)}
+										{idle && each.changes?.commits === 0 && (
+											<span className="text-muted-foreground">Up to date</span>
 										)}
 										{stale.map((pin) => (
 											<span key={pin.name} className="text-muted-foreground">
@@ -326,6 +374,11 @@ function Plan({
 							</div>
 							{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
 							<div className={cn("text-sm", shippable(each) && "min-h-14")}>
+								{!shipping && shippable(each) && (
+									<p className="text-muted-foreground text-xs">
+										Tick to include in this ship.
+									</p>
+								)}
 								{shipping && (
 									<div className="flex flex-col gap-2">
 										<div className="flex flex-wrap items-center gap-4">
@@ -417,9 +470,15 @@ function Plan({
 						A ship is under way.
 					</p>
 				)}
-				<p className="text-muted-foreground text-xs">
-					{summary === "" ? "Nothing chosen" : summary}
-				</p>
+				{ordered.length > 0 ? (
+					<ShipPreview
+						ordered={ordered}
+						shipsAll={ships}
+						versionAfter={versionAfter}
+					/>
+				) : (
+					<p className="text-muted-foreground text-xs">Nothing chosen</p>
+				)}
 				<Button
 					className="min-h-11 w-full"
 					disabled={loading || busy || pending || ordered.length === 0}
@@ -444,84 +503,13 @@ function Plan({
 					}}
 				>
 					<ShipIcon />
-					{pending ? "Starting…" : "Start"}
+					{pending
+						? "Starting…"
+						: ordered.length > 0
+							? `Ship ${ordered.length} ${ordered.length === 1 ? "project" : "projects"}`
+							: "Choose a project to ship"}
 				</Button>
 			</div>
 		</section>
 	);
-}
-
-const shippable = (each: ShipProject) => each.ship !== null && !each.private;
-
-/**
- * `projects` with each after the first of its dependencies among them, as
- * the plan's tree reads top to bottom, so the list is in release order.
- */
-function releaseOrder(projects: ShipProject[]): ShipProject[] {
-	const slugs = new Set(projects.map((each) => each.slug));
-	const seen = new Set<string>();
-	const ordered: ShipProject[] = [];
-	const visit = (project: ShipProject) => {
-		if (seen.has(project.slug)) {
-			return;
-		}
-		seen.add(project.slug);
-		for (const use of project.uses) {
-			const dependency = projects.find((each) => each.slug === use.project);
-			if (dependency !== undefined && slugs.has(use.project)) {
-				visit(dependency);
-			}
-		}
-		ordered.push(project);
-	};
-	for (const each of projects) {
-		visit(each);
-	}
-	return ordered;
-}
-
-/**
- * `projects` as a tree for display: each under the first project it pins,
- * so who depends on whom shows.
- */
-function treeOrder(
-	projects: ShipProject[],
-): { project: ShipProject; depth: number }[] {
-	const slugs = new Set(projects.map((each) => each.slug));
-	const firstPinned = (project: ShipProject) =>
-		project.uses
-			.map((use) => use.project)
-			.find((slug) => slugs.has(slug) && slug !== project.slug) ?? null;
-	const rows: { project: ShipProject; depth: number }[] = [];
-	const seen = new Set<string>();
-	const visit = (parent: string | null, depth: number) => {
-		for (const each of projects) {
-			if (!seen.has(each.slug) && firstPinned(each) === parent) {
-				seen.add(each.slug);
-				rows.push({ project: each, depth });
-				visit(each.slug, depth + 1);
-			}
-		}
-	};
-	visit(null, 0);
-	return rows;
-}
-
-/** The pins of `project` that trail the version their project is at now. */
-function staleOf(project: ShipProject, graph: ShipGraph): Stale[] {
-	return project.uses.flatMap((use) => {
-		const now = graph.projects.find(
-			(each) => each.slug === use.project,
-		)?.version;
-		return now == null
-			? []
-			: use.pins
-					.filter((pin) => pin.version !== now)
-					.map((pin) => ({
-						project: use.project,
-						name: pin.name,
-						from: pin.version,
-						to: now,
-					}));
-	});
 }

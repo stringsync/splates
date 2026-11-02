@@ -1,6 +1,6 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { Needing } from "@stringsync/splates-server/plans";
-import type { Details } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { Needing } from "@splates/server/plans";
+import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useMemo } from "react";
@@ -263,6 +263,7 @@ export function Inbox({
 											agents={agents}
 											beneath={beneath}
 											onOpen={open}
+											onOpenQueued={onOpen}
 										/>
 									);
 								})

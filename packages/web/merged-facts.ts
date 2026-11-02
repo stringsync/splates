@@ -1,15 +1,12 @@
-import {
-	keptDecisions,
-	madeByYou,
-} from "@stringsync/splates-server/plans/browser";
-import type { Landed } from "@stringsync/splates-server/stats/browser";
+import { keptDecisions, madeByYou } from "@splates/server/plans/browser";
+import type { Landed } from "@splates/server/stats/browser";
 import {
 	type FoundFacts,
 	foundFacts,
 	type Measure,
 	measured,
 	outlier,
-} from "@stringsync/splates-server/stats/browser";
+} from "@splates/server/stats/browser";
 import { duration } from "./stats-advice";
 
 /** What the merged card says of how a task went, a line each. */

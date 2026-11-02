@@ -1,6 +1,6 @@
 import { useAuiState } from "@assistant-ui/react";
-import type { PermissionProposal } from "@stringsync/splates-server/plans";
-import { RUN_DENIED } from "@stringsync/splates-server/plans/browser";
+import type { PermissionProposal } from "@splates/server/plans";
+import { RUN_DENIED } from "@splates/server/plans/browser";
 import { useReactive } from "core/react";
 import { BanIcon, FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
+import { useEnterDoes } from "./enter-while-taking";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { ORDER, planText, spent } from "./eval-status";
@@ -74,6 +75,17 @@ export function EvalsCard({
 	const turnedDown = sent?.includes(RUN_DENIED) ?? false;
 	const open = launch === null && !turnedDown;
 	const showRejecting = useShowPending(rejecting);
+	const enterDoes = useEnterDoes(
+		panel,
+		!open ||
+			send === null ||
+			!state.loaded ||
+			state.unknown.length > 0 ||
+			state.plan === null ||
+			state.plan.refused
+			? null
+			: () => turn(start),
+	);
 	if (!state.loaded) {
 		return (
 			<CardShell
@@ -227,6 +239,7 @@ export function EvalsCard({
 						value={more}
 						placeholder="Your note (optional)"
 						files={null}
+						onKeyDown={enterDoes}
 						onValue={(text) => {
 							written.current = text;
 							setMore(text);

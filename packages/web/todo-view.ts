@@ -1,5 +1,5 @@
-import type { TaskRecord } from "@stringsync/splates-server/board";
-import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { TaskRecord } from "@splates/server/board";
+import type { Snapshot } from "@splates/server/tasks";
 import { Dispatcher, type Eventful } from "core/events";
 import { TaskFilter } from "./task-filter";
 

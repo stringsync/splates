@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Testing } from "@stringsync/splates-server/testing";
+import { Testing } from "@splates/server/testing";
 import { ensure } from "core/assert";
 import { color } from "core/log";
 

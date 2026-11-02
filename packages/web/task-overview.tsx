@@ -1,7 +1,4 @@
-import {
-	cleared,
-	deferralBlockers,
-} from "@stringsync/splates-server/board/browser";
+import { cleared, deferralBlockers } from "@splates/server/board/browser";
 import { type JSX, type ReactNode, useContext } from "react";
 import { Board } from "./board";
 import { deferredTask } from "./deferred-body";

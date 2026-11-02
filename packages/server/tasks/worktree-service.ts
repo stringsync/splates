@@ -281,24 +281,6 @@ export class WorktreeService {
 		);
 	}
 
-	/**
-	 * Drops a checkout made only to run a merge: its tree and branch, and its
-	 * record, put back as `before` had it (none ends it). It is no task that
-	 * ended, so nothing is recorded of it.
-	 */
-	async release(
-		worktree: Worktree,
-		before: TaskState | null,
-	): Promise<GitResult> {
-		const removed = await this.worktrees.remove(worktree.path, worktree.branch);
-		if (before === null) {
-			await this.records.end(worktree.task);
-		} else {
-			await this.records.save(before);
-		}
-		return removed;
-	}
-
 	async discard(
 		worktree: Worktree,
 		ended: "merged" | "removed",

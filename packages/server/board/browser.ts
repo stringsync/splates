@@ -1,4 +1,5 @@
 export { BACKLOG_LANE } from "./backlog";
+export type { BoardRecord } from "./boards";
 export type {
 	Deferral,
 	DeferralBlocker,

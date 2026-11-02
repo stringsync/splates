@@ -2,7 +2,7 @@ import type {
 	SetupProgress,
 	StepAnswers,
 	UndoPlan,
-} from "@stringsync/splates-server/setup";
+} from "@splates/server/setup";
 import { Duration } from "core/time";
 import { ApiError, answered, scoped, sendJson } from "./api";
 

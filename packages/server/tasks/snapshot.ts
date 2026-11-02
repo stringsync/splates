@@ -70,6 +70,7 @@ export async function snapshot({
 			? {}
 			: { tagColors: service.config.tags.colors }),
 		todos: (await queue.all()).map((each) => each.state),
+		boards: await queue.boards(),
 		lanes: await queue.lanes(),
 		laneNames: await queue.laneNames(),
 		tasks,
@@ -107,7 +108,9 @@ export interface Snapshot {
 	todos: Board.TaskRecord[];
 	/** Its tasks' blockers in other projects, and theirs it blocks; absent unread. */
 	elsewhere?: Board.ElsewhereOnBoard;
-	/** Every lane, in board order, empty ones too. */
+	/** The project's boards, in order; the first is the default. Absent from older servers. */
+	boards?: Board.BoardRecord[];
+	/** Every lane, in board order, empty ones too, each on its board. */
 	lanes: Board.LaneRecord[];
 	/**
 	 * The name of every lane there has been, those on the board first, to
@@ -154,6 +157,7 @@ export async function tasksOf({
 /** What a page shows of `snapshot`, as a string to compare with the last pushed. */
 export function fingerprint({
 	todos,
+	boards,
 	lanes,
 	laneNames,
 	tasks,
@@ -170,6 +174,7 @@ export function fingerprint({
 		behind,
 		ship ?? null,
 		todos,
+		boards ?? [],
 		lanes,
 		laneNames,
 		creds,

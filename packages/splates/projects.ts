@@ -1,17 +1,13 @@
-import {
-	grantReach,
-	listReaches,
-	REACHES,
-} from "@stringsync/splates-server/projects";
-import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { grantReach, listReaches, REACHES } from "@splates/server/projects";
+import { repository } from "@splates/server/records";
+import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { z } from "zod";
 
 /** `splates projects`, which the root cli mounts after `splates lane`. */
 export const splatesProjects = cli<SplatesDeps>("projects")
 	.description(
-		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks and lanes; add tasks to their untriaged lane with `queue`, as every project may until granted otherwise; or run their queue, lanes and hooks with `tasks`. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
+		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks and lanes; add tasks to their Backlog with `queue`, as every project may until granted otherwise; or run their queue, lanes and hooks with `tasks`. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
 	)
 	.fallback("list");
 

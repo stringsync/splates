@@ -1,4 +1,4 @@
-import type { SpendTotal } from "@stringsync/splates-server/spend";
+import type { SpendTotal } from "@splates/server/spend";
 import type { JSX } from "react";
 import {
 	Tooltip,
