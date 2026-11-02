@@ -32,7 +32,6 @@ import { linkAttachments } from "#web/attachment-chips.tsx";
 import { Board } from "#web/board.ts";
 import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
-import { useAnchorAtOnce } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
 	DropdownMenu,
@@ -64,27 +63,6 @@ import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SendingLine } from "#web/unsent.tsx";
 
-/**
- * Has a person's message report, as its `offsetTop`, where it sits before it
- * sticks: its turn's box, which it opens. Stuck, the browser's reading follows
- * the scroll instead, and assistant-ui (like `useAnchorAtOnce`) sizes its
- * spacer from it, so each time it measured a stuck message the spacer grew
- * by however far the thread had scrolled, letting the reply scroll behind
- * the message with nothing more below it.
- */
-const unstuckTop = (element: HTMLDivElement | null) => {
-	const turn = element?.parentElement;
-	if (element == null || turn == null || turn.firstElementChild !== element) {
-		return;
-	}
-	Object.defineProperty(element, "offsetTop", {
-		configurable: true,
-		get: () => turn.offsetTop,
-	});
-	return () => {
-		Reflect.deleteProperty(element, "offsetTop");
-	};
-};
 /**
  * What the person typed, as markdown with each line break kept, each todo it
  * mentions a link to it, each system and file a chip, and the directives and
@@ -309,9 +287,7 @@ export const UserMessage: FC = () => {
 	}
 	return (
 		<MessagePrimitive.Root
-			ref={unstuckTop}
 			data-slot="aui_user-message-root"
-			// What `useAnchorAtOnce` finds a new turn's start by.
 			data-message-id={id}
 			className={cn(
 				// No entrance: the thread jumps to it as it comes, with nothing

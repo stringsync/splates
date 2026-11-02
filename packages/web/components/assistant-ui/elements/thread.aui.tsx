@@ -30,9 +30,6 @@ import {
 } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
 import { ThreadMessage } from "#web/components/assistant-ui/elements/thread-message.aui.tsx";
 import {
-	UNCLAMPED,
-	useAnchorAtOnce,
-	useAnchoredTurn,
 	useClearOf,
 	useFollowWork,
 	useHoldPlace,
@@ -55,7 +52,6 @@ export const Thread: FC<ThreadProps> = ({
 	controls,
 	stopping,
 	starting,
-	going = false,
 	mentions,
 	references,
 	commands,
@@ -94,7 +90,6 @@ export const Thread: FC<ThreadProps> = ({
 					onRead={onRead}
 					docked={docked}
 					welcomeAtTop={welcomeAtTop}
-					going={going}
 				/>
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
@@ -107,7 +102,6 @@ const ThreadRoot: FC<{
 	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
 	welcomeAtTop: boolean;
-	going: boolean;
 	occupied: boolean;
 }> = ({
 	isEmpty,
@@ -115,7 +109,6 @@ const ThreadRoot: FC<{
 	onRead,
 	docked,
 	welcomeAtTop,
-	going,
 	historyFailure,
 	occupied,
 }) => {
@@ -153,8 +146,6 @@ const ThreadRoot: FC<{
 		};
 	}, []);
 	useTrackRead(viewport, onRead);
-	const turn = useAnchoredTurn(going);
-	useAnchorAtOnce(viewport, turn);
 	useFollowWork(viewport);
 	useHoldPlace(viewport);
 	const footer = useRef<HTMLDivElement>(null);
@@ -173,13 +164,9 @@ const ThreadRoot: FC<{
 		>
 			<ThreadPrimitive.Viewport
 				ref={viewport}
-				// Late media and cards must keep the bottom in view after opening;
-				// top anchoring otherwise disables this once the first scroll lands.
-				// Only a turn sent from here anchors at the top, so a thread opened
-				// mid-turn opens at its bottom.
-				autoScroll={turn === undefined && !going}
-				turnAnchor={turn === undefined ? "bottom" : "top"}
-				topAnchorMessageClamp={UNCLAMPED}
+				// Late media and cards must keep the bottom in view after opening.
+				autoScroll
+				turnAnchor="bottom"
 				data-slot="aui_thread-viewport"
 				// Clear of what sits over its right, such as docked widgets, which
 				// set `--thread-inset-end`, so the messages center beside them; and

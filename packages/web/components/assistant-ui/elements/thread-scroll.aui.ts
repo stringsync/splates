@@ -1,7 +1,6 @@
-import { type AssistantState, useAuiState } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import { ReadingPlace } from "#web/components/assistant-ui/elements/thread-place.aui.ts";
-import { carriesOn } from "#web/directives.tsx";
 
 /**
  * Keeps `viewport`'s scroll padding at the bottom as tall as `footer`, which
@@ -47,44 +46,12 @@ export function useClearOf(
 		};
 	}, [viewport, footer]);
 }
-/**
- * How far down `element` sits in `scroller`, by layout, as assistant-ui
- * measures, so a fade's slide counts for nothing.
- */
-function layoutTop(element: HTMLElement, scroller: HTMLElement): number {
-	let top = 0;
-	for (
-		let at: HTMLElement | null = element;
-		at != null && at !== scroller;
-		at = at.offsetParent as HTMLElement | null
-	) {
-		top += at.offsetTop;
-	}
-	return top;
-}
-/**
- * Sizes `room`, at the foot of the thread, so `scroller` can scroll `top`
- * to its top. Again until it holds: while the thread is shorter than the
- * viewport, the room it takes first comes out of the space the composer's
- * margin fills.
- */
-function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
-	for (let tries = 0; tries < 4; tries++) {
-		const rest = scroller.scrollHeight - room.offsetHeight;
-		const height = `${Math.max(0, top + scroller.clientHeight - rest)}px`;
-		if (room.style.height === height) {
-			break;
-		}
-		room.style.height = height;
-	}
-}
 /** The timeline of work still going on, opened by the person. */
 const FOLLOWED = '[data-slot="work"] details[open][data-working]';
 /**
  * Keeps `viewport` at its bottom as it grows while the person has the
  * timeline of work still going on open and was at the bottom, so they watch
- * it come. assistant-ui follows nothing while a turn is anchored to the top,
- * and would stop following once a disclosure in a message opened anyway.
+ * it come. assistant-ui would stop following once a disclosure in a message opened.
  * Scrolling up lets go; scrolling back to the bottom takes hold again.
  */
 export function useFollowWork(
@@ -123,128 +90,6 @@ export function useFollowWork(
 			watching.disconnect();
 		};
 	}, [viewport]);
-}
-/**
- * The person's message that opens the turn assistant-ui anchors to the top:
- * the one before the last, a reply, while it runs or, sent a moment
- * ago, before the server says it does. None for a bare line, as a
- * checkpoint is, which carries on the turn it comes in.
- */
-const anchoredTurn = (s: AssistantState, going: boolean) => {
-	const { messages, isRunning } = s.thread;
-	const anchor = messages.at(-2);
-	return (isRunning || going) &&
-		anchor?.role === "user" &&
-		!carriesOn(anchor) &&
-		messages.at(-1)?.role === "assistant"
-		? anchor.id
-		: undefined;
-};
-/**
- * The turn to anchor to the top, as `anchoredTurn` finds it, but never one
- * already under way when the thread opened: opening a conversation mid-turn
- * shows its latest, at the bottom, and only a message sent from here
- * anchors.
- */
-export function useAnchoredTurn(going: boolean): string | undefined {
-	// While history loads the messages above the turn are still arriving, so
-	// the room sized for it would outlast the place it was sized for and leave
-	// the thread scrolled past its end.
-	const turn = useAuiState((s) =>
-		s.thread.isLoading ? undefined : anchoredTurn(s, going),
-	);
-	const any = useAuiState((s) => s.thread.messages.length > 0);
-	const asked = useAuiState(
-		(s) => s.thread.messages.findLast((m) => m.role === "user")?.id,
-	);
-	const opening = useRef<{ asked: string | undefined } | null>(null);
-	// The first messages in sight are what the thread opened on, unless the
-	// person sent them from here, which `going` says.
-	if (opening.current === null && any) {
-		opening.current = { asked: going ? undefined : asked };
-	}
-	return turn !== undefined && turn === opening.current?.asked
-		? undefined
-		: turn;
-}
-/**
- * No message is too tall to anchor by its top. assistant-ui would scroll past
- * the top of a tall one, leaving only its foot in view, but ours stays stuck
- * atop its turn whole, so the reply would only scroll behind it.
- */
-export const UNCLAMPED = { tallerThan: `${Number.MAX_SAFE_INTEGER}px` };
-/** The spacer assistant-ui keeps below a turn anchored to the top. */
-const RESERVE = "[data-aui-top-anchor-reserve]";
-/**
- * Puts a new turn's message at the top of `viewport` in the commit that adds
- * it, with room below for the reply to fill, from the moment `going` says it
- * was sent rather than a frame or two later, or when the server says the
- * agent works, so the message never paints at the bottom first.
- */
-export function useAnchorAtOnce(
-	viewport: RefObject<HTMLDivElement | null>,
-	id: string | undefined,
-): void {
-	useLayoutEffect(() => {
-		const scroller = viewport.current;
-		const anchor = scroller?.querySelector<HTMLElement>(
-			`[data-role="user"][data-message-id="${CSS.escape(id ?? "")}"]`,
-		);
-		const target = anchor?.nextElementSibling;
-		if (
-			id === undefined ||
-			scroller == null ||
-			anchor == null ||
-			!(target instanceof HTMLElement)
-		) {
-			return;
-		}
-		// Before assistant-ui has anchored a turn here it has no spacer, and
-		// its own comes a frame later: a stand-in holds the room until then.
-		// assistant-ui keeps its spacer by reference, so it would never take
-		// one made here for its own.
-		const found = scroller.querySelector<HTMLElement>(RESERVE);
-		const reserve = found ?? document.createElement("div");
-		if (found === null) {
-			reserve.setAttribute("aria-hidden", "true");
-			reserve.style.flexShrink = "0";
-			reserve.style.pointerEvents = "none";
-		}
-		target.after(reserve);
-		const scrollTop = layoutTop(anchor, scroller);
-		// As assistant-ui sizes it frame by frame.
-		makeRoom(scroller, reserve, scrollTop);
-		const ratio = window.devicePixelRatio || 1;
-		scroller.scrollTop = Math.round(scrollTop * ratio) / ratio;
-		if (found !== null) {
-			return;
-		}
-		// Its spacer comes empty, the stand-in already making the room: the
-		// stand-in hands it the room before the frame paints.
-		// Sent before the server says the agent works, assistant-ui's spacer
-		// may be a while coming: the stand-in shrinks as the reply fills in.
-		const filling = new ResizeObserver(() =>
-			makeRoom(scroller, reserve, scrollTop),
-		);
-		filling.observe(target);
-		let frame = 0;
-		const handOver = () => {
-			const theirs = scroller.querySelector<HTMLElement>(RESERVE);
-			if (theirs === null) {
-				frame = requestAnimationFrame(handOver);
-				return;
-			}
-			filling.disconnect();
-			theirs.style.height = reserve.style.height;
-			reserve.remove();
-		};
-		frame = requestAnimationFrame(handOver);
-		return () => {
-			cancelAnimationFrame(frame);
-			filling.disconnect();
-			reserve.remove();
-		};
-	}, [id, viewport]);
 }
 /**
  * Keeps what the person is reading where it is when the thread changes above
