@@ -207,6 +207,11 @@ describe("dev", () => {
 				`<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />`,
 			);
 
+			// iOS asks for the home screen icon without cookies, so it is inline.
+			expect(html).toMatch(
+				/rel="apple-touch-icon" href="data:image\/png;base64,iVBOR/,
+			);
+
 			const response = await fetch(`${at}/manifest.webmanifest`);
 			expect(response.headers.get("content-type")).toContain(
 				"application/manifest+json",

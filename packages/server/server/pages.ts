@@ -192,7 +192,7 @@ export class Pages {
 // restart under the name a new one goes by. It also asks for the chunks the
 // script starts from, so they load beside it rather than after it.
 function stamped(
-	{ shell, script }: Assets,
+	{ shell, script, icons }: Assets,
 	hashes: { script: string; styles: string },
 ): string {
 	const starts = [
@@ -201,8 +201,16 @@ function stamped(
 	const preloads = [...new Set(starts)]
 		.map((name) => `<link rel="modulepreload" href="/${name}">`)
 		.join("\n\t\t");
-	return shell
-		.replace('src="/main.js"', `src="/main.js?v=${hashes.script}"`)
-		.replace('href="/styles.css"', `href="/styles.css?v=${hashes.styles}"`)
-		.replace("</head>", `${preloads}\n\t</head>`);
+	return (
+		shell
+			.replace('src="/main.js"', `src="/main.js?v=${hashes.script}"`)
+			.replace('href="/styles.css"', `href="/styles.css?v=${hashes.styles}"`)
+			// iOS fetches the home screen icon without cookies, which a tunnel's
+			// sign-in would turn away, so it travels inside the page.
+			.replace(
+				'rel="apple-touch-icon" href="/icon-192.png"',
+				`rel="apple-touch-icon" href="data:image/png;base64,${icons[192].toBase64()}"`,
+			)
+			.replace("</head>", `${preloads}\n\t</head>`)
+	);
 }
