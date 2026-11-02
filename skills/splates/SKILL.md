@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.8
+version: 1.13.9
 ---
 
 # Using splates
@@ -68,8 +68,10 @@ on stderr: do what stderr says.
 **Deliver screenshots before asking for visual review.** A tool preview is
 visible to you, not automatically to the user. Run `splates attach <file>`,
 then copy the image Markdown it prints into your reply, outside a code block.
-Use the stored path it returns, not the original capture path. For task
-evidence, put the same image under `## Verification` in `SPLATES.md`.
+Use the stored path it returns, not the original capture path. In a task,
+every screenshot you attach also goes under `## Verification` in `SPLATES.md`
+as the same image, written before you reply, even when the task stays open,
+the reply already shows it, or the capture falls short of the change.
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
 
@@ -192,8 +194,10 @@ splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
 scenarios you picked, one `` - `id` `` item each, and optionally the
 revision the change is judged against and how many times to run each cell
-(`Repetitions: <n>`, to tell a change from noise). The page shows it with
-the saved eval agents and, when the project prints a plan, what the run
+(`Repetitions: <n>`, to tell a change from noise) and the saved agents to
+run on (`Agents:` then each as `` `agent:model@effort` ``), leaving out those that need no
+rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
+the saved eval agents, only those named ticked, and, when the project prints a plan, what the run
 costs at most; it runs in your worktree, and its Run button is the user's:
 never run the eval command yourself.
 
@@ -207,6 +211,7 @@ Checks the new wording of the scoped-tests rule.
 
 Baseline: `main`
 Repetitions: 3
+Agents: `claude:haiku@high`, `claude:sonnet@high`
 ```
 
 In another project, evals from any framework show on the Evals page when the
@@ -225,7 +230,11 @@ reply, with the runs that errored listed apart. On `[SPLATES EVAL LOOP RESUME <i
 add a Loop line with the ID in backticks and `at <version>`; the complete format is in [evals.md](references/evals.md).
 Improvement loops are durable records: `splates evals improve` creates one,
 `show` recovers its evidence and next action, and lifecycle commands record work
-without starting paid runs. Improving a scenario is a
+without starting paid runs. Leave remarks on a batch
+with `splates evals remarks <batch-dir> <file>` ([evals.md](references/evals.md)):
+what failed and why, what held up, any special circumstance. They stay
+viewable and show in its card.
+Improving a scenario is a
 loop of run, diagnose, fix one thing, rerun and log, which
 [evals.md](references/evals.md) lays out: read it before the first run card
 of a task and when the run is done.

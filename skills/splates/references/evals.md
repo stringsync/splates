@@ -23,6 +23,13 @@ under `## Notes` in `SPLATES.md`, never into a task, a lane or another fix.
      the agent to something the rubric and the skill never ask.
    - **skill**: the agent did what the skill as written led it to, or
      missed something the skill says too faintly or not at all.
+   Then leave remarks on the batch, so they can be viewed later and show in the
+   run's card. Write as Markdown, to a file outside the repository, the labels
+   and the shared cause, and also what held up and any special circumstance
+   (a flaky network, a partial run), whether or not anything failed. Run
+   `splates evals remarks <results>/<batch> <file>` (the directory is the
+   batch under `evals.results`). It replaces earlier remarks, so keep one
+   file per batch and rewrite it whole; write them again on a rerun's batch.
 3. **Fix one thing**: the label most of the failures share, in its own
    layer. Harness in `packages/evals/skill/*.ts`, scenario in
    `packages/evals/skill/scenarios/`, judge in the scenario's rubric, skill in

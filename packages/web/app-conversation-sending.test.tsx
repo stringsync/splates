@@ -463,6 +463,24 @@ describe("App's sending messages", () => {
 		expect(view.getAllByText("and the logout")).toHaveLength(1);
 	});
 
+	it("shows a message sent while the agent is starting as sent in the thread, not held above the composer", async () => {
+		setHeldAfterMs(5000);
+		const view = await testing.openConversations([
+			conversation({
+				title: "Login",
+				status: "starting",
+				taking: "queue",
+				messages: [message("user", "go")],
+			}),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and the logout");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
+		expect(view.getAllByText("and the logout")).toHaveLength(1);
+	});
+
 	it("shows a message sent mid-turn in the same pending row when the server will steer it in", async () => {
 		const view = await sayMidTurn("steer");
 

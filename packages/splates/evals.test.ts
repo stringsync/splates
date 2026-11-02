@@ -118,3 +118,24 @@ it("drives a loop through CLI payloads and reports resumable JSON without launch
 	expect(env.out()).toContain("Stale loop version");
 	expect((await store.show("example")).version).toBe(5);
 });
+
+it("attaches remarks to a batch for the Evals page", async () => {
+	await using env = await Testing.open();
+	env.ps.cd(env.root);
+	const deps = {
+		log: env.log,
+		fs: env.fs,
+		ps: env.ps,
+		assets: env.assets,
+		secrets: env.secrets,
+	};
+	await env.fs.mkdir(`${env.root}/nightly`);
+	await env.fs.write(`${env.root}/nightly/batch.json`, "{}");
+	await env.fs.write(`${env.root}/remarks.md`, "Skill: too faint");
+
+	await splates.run(deps, ["evals", "remarks", "nightly", "remarks.md"]);
+
+	expect(await env.fs.read(`${env.root}/nightly/remarks.md`)).toBe(
+		"Skill: too faint",
+	);
+});

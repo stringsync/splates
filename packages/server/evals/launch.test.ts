@@ -74,6 +74,25 @@ describe("EvalLaunches", () => {
 		);
 	});
 
+	it("gives each of two runs going at once the batch that ran its own cases", async () => {
+		// The first card's runner is slower, so the second's batch lands first.
+		const both = {
+			...commands,
+			run: `case "$SPLATES_EVALS_CASES" in a) sleep 0.3;; esac; mkdir -p "$SPLATES_EVALS_RESULTS/batch-$SPLATES_EVALS_CASES" && printf '{"cells":[{"case":"%s"}]}' "$SPLATES_EVALS_CASES" > "$SPLATES_EVALS_RESULTS/batch-$SPLATES_EVALS_CASES/batch.json"`,
+		};
+		await launches.start(both, { ...spec, key: "card-a", scenarios: ["a"] });
+		await launches.start(both, { ...spec, key: "card-b", scenarios: ["b"] });
+		await eventually(
+			async () =>
+				(await launches.get(both, "card-a"))?.status === "done" &&
+				(await launches.get(both, "card-b"))?.status === "done",
+			5_000,
+		);
+
+		expect((await launches.get(both, "card-a"))?.batch).toBe("batch-a");
+		expect((await launches.get(both, "card-b"))?.batch).toBe("batch-b");
+	});
+
 	it("tells the conversation whose card started a run once it is done", async () => {
 		await launches.start(commands, { ...spec, conversation: "c-1" });
 		await done(launches, commands);

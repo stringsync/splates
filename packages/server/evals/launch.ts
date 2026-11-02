@@ -1,4 +1,5 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { AsyncResource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import type { Child, Ps } from "core/system";
@@ -388,10 +389,28 @@ export class EvalLaunches
 	/** The launch, its batch found if the runner has made one since it started. */
 	private async read(launch: Launched): Promise<EvalLaunch> {
 		if (launch.batch === null) {
-			const made = (await batchesIn(launch.commands.results)).filter(
-				(each) => !launch.known.has(each),
+			const claimed = new Set(
+				[...this.launches.values()]
+					.filter(
+						(each) =>
+							each !== launch && each.commands.root === launch.commands.root,
+					)
+					.flatMap((each) => (each.batch === null ? [] : [each.batch])),
 			);
-			launch.batch = made.sort().at(-1) ?? null;
+			const made = (await batchesIn(launch.commands.results)).filter(
+				(each) => !launch.known.has(each) && !claimed.has(each),
+			);
+			// Concurrent runs each write a new batch: take the one that ran this launch's cases.
+			const matching: string[] = [];
+			for (const each of made) {
+				if (
+					await ranCases(launch.commands.results, each, launch.spec.scenarios)
+				) {
+					matching.push(each);
+				}
+			}
+			const candidates = matching.length > 0 ? matching : made;
+			launch.batch = candidates.sort().at(-1) ?? null;
 			if (launch.batch !== null) {
 				await this.save(launch);
 			}
@@ -450,6 +469,26 @@ async function batchesIn(results: string): Promise<string[]> {
 	return (await readdir(results, { withFileTypes: true }).catch(() => []))
 		.filter((each) => each.isDirectory())
 		.map((each) => each.name);
+}
+
+/** Whether the batch's cells run exactly the cases `scenarios` names; false when it cannot be read yet. */
+async function ranCases(
+	results: string,
+	batch: string,
+	scenarios: string[],
+): Promise<boolean> {
+	try {
+		const { cells } = JSON.parse(
+			await readFile(join(results, batch, "batch.json"), "utf8"),
+		) as { cells?: { case?: unknown }[] };
+		const ran = new Set((cells ?? []).map((each) => each.case));
+		return (
+			ran.size === new Set(scenarios).size &&
+			scenarios.every((each) => ran.has(each))
+		);
+	} catch {
+		return false;
+	}
 }
 
 /** The JSON object `line` holds, or null for anything else. */

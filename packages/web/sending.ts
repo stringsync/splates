@@ -13,6 +13,18 @@ export function heldAfter(queue = false): Duration {
 	return Duration.ms(queue ? 0 : heldAfterMs);
 }
 
+/**
+ * Whether a message said to `conversation` now waits behind a running turn,
+ * and so is held at once. One said while its agent is still starting looks
+ * sent, as it does when the agent is idle, rather than queued.
+ */
+export function queuesNow(conversation: {
+	taking: string;
+	status: string;
+}): boolean {
+	return conversation.taking === "queue" && conversation.status === "running";
+}
+
 let heldAfterMs = Duration.secs(5).ms;
 
 /** Tests shorten the wait before a message is held above the composer. */

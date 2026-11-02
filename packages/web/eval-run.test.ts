@@ -88,6 +88,18 @@ describe("EvalRun", () => {
 			loop: { id: "loop", version: 4 },
 		});
 	});
+	it("ticks only the agents the card names and flags the ones not saved", async () => {
+		const run = EvalRun.of(
+			{ ...proposal(), evals: { ...ASK, agents: ["codex", "claude:gone"] } },
+			{ server, timer },
+		);
+
+		await run.load();
+
+		expect(run.picked).toEqual([{ agent: "codex" }]);
+		expect(run.unknownAgents).toEqual(["claude:gone"]);
+		run.dispose();
+	});
 	it("groups the scenarios and plans on the saved agents without starting", async () => {
 		const run = EvalRun.of(proposal(), { server, timer });
 

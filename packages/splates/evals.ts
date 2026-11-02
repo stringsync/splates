@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import {
 	EvalLoopStore,
 	type InspectLog,
@@ -6,6 +6,7 @@ import {
 	LoopRecovery,
 	loopEventSchema,
 	loopNext,
+	REMARKS_FILE,
 	writeImported,
 } from "@splates/server/evals";
 import { fail } from "@splates/server/exit";
@@ -48,6 +49,29 @@ splatesEvals
 		ctx.log.info(
 			`${color.green("imported")} ${imported.batch.cells.length} cells to ${dir}`,
 		);
+	});
+
+splatesEvals
+	.command("remarks")
+	.description(
+		"attach remarks on a batch to it, as Markdown from <file>: what failed and why, what held up, any special circumstance, replacing earlier remarks: the Evals page shows them on the batch's report and its run card, and they stay for anyone viewing the batch later",
+	)
+	.arg("batch-dir", z.string(), {
+		description:
+			"the batch's directory, inside the one evals.results names; its name is the batch's",
+	})
+	.arg("file", z.string(), { description: "the remarks, as Markdown" })
+	.action(async (opts, ctx) => {
+		const dir = resolve(ctx.ps.cwd(), opts["batch-dir"]);
+		const file = resolve(ctx.ps.cwd(), opts.file);
+		if (!(await ctx.fs.exists(join(dir, "batch.json")))) {
+			fail("not_found", `no eval batch at ${dir}`, { dir });
+		}
+		if (!(await ctx.fs.exists(file))) {
+			fail("not_found", `no file at ${file}`, { file });
+		}
+		await ctx.fs.write(join(dir, REMARKS_FILE), await ctx.fs.read(file));
+		ctx.log.info(`${color.green("attached")} remarks to ${dir}`);
 	});
 
 /** The log at `file`, dumped as JSON by Inspect's own CLI when it is a zipped `.eval`. */

@@ -86,6 +86,7 @@ export function permissionOf(
 		const scenarios: string[] = [];
 		let baseline: string | null = null;
 		let reps: number | undefined;
+		let agents: string[] | undefined;
 		let loop: { id: string; version: number } | undefined;
 		const prose = body.split("\n").filter((each) => {
 			const linked = /^Loop: `([a-zA-Z0-9][a-zA-Z0-9._-]*)` at (\d+)$/.exec(
@@ -103,6 +104,14 @@ export function permissionOf(
 			const base = EVAL_BASELINE.exec(each);
 			if (base !== null) {
 				baseline = base[1] as string;
+				return false;
+			}
+			const named = EVAL_AGENTS.exec(each);
+			if (named !== null) {
+				agents = Array.from(
+					(named[1] as string).matchAll(/`([^`\s]+)`/g),
+					(one) => one[1] as string,
+				);
 				return false;
 			}
 			const times = EVAL_REPS.exec(each);
@@ -123,6 +132,7 @@ export function permissionOf(
 				scenarios,
 				baseline,
 				...(reps === undefined ? {} : { reps }),
+				...(agents === undefined ? {} : { agents }),
 				...(loop === undefined ? {} : { loop }),
 			},
 		};
@@ -200,7 +210,9 @@ export interface ReachAsk {
  * asks to run: the scenarios it picked, one `` - `scenario-id` `` item each, and
  * optionally the revision the skill's change is judged against, as a
  * `` Baseline: `rev` `` line and how many times to run each cell, as a
- * `Repetitions: <n>` line.
+ * `Repetitions: <n>` line, and optionally the agents to run on, as an
+ * `Agents:` line of backticked `agent:model@effort` targets, so the person
+ * need not leave out the ones that need no rerun.
  */
 export interface EvalAsk {
 	loop?: { id: string; version: number };
@@ -209,6 +221,8 @@ export interface EvalAsk {
 	baseline: string | null;
 	/** Runs of each cell; the runner's own default when absent. */
 	reps?: number;
+	/** The saved agents to run on, as `agent:model@effort`; every saved agent when absent. */
+	agents?: string[];
 }
 
 const LOOP_CARD =
@@ -219,6 +233,7 @@ const EVALS_PERMISSION =
 /** A run-evals card's scenario: a list item that is one code span, then maybe a note. */
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
+const EVAL_AGENTS = /^Agents:[ \t]*(`[^`\s]+`(?:,?[ \t]*`[^`\s]+`)*)[ \t]*$/;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */

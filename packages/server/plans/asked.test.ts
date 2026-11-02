@@ -448,6 +448,27 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads a run evals card's Agents line", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: run evals splates: rerun the failing model",
+				"",
+				"- `decisions/local-choice`",
+				"",
+				"Agents: `claude:haiku@high`, `codex`",
+			].join("\n"),
+		);
+
+		expect(found).toMatchObject([
+			{
+				permission: {
+					body: "",
+					evals: { agents: ["claude:haiku@high", "codex"] },
+				},
+			},
+		]);
+	});
+
 	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

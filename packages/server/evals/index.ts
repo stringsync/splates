@@ -35,6 +35,6 @@ export {
 } from "./loops";
 export { LoopRecovery } from "./recovery";
 export { EvalRoutes, projectEvalCommands } from "./routes";
-export { EvalStore } from "./store";
+export { EvalStore, REMARKS_FILE } from "./store";
 export { targetName } from "./target";
 export type { EvalDetail, EvalGrid } from "./types";

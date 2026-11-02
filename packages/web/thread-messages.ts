@@ -15,7 +15,7 @@ import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt } from "./held-prompt";
-import { heldAfter, messageOf } from "./sending";
+import { heldAfter, messageOf, queuesNow } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
@@ -46,7 +46,7 @@ export function useThreadMessages(
 		feed,
 		conversation.messages.filter((each) => each.queued),
 		(each) => (each.at === null ? null : Date.parse(each.at)),
-		heldAfter(conversation.taking === "queue"),
+		heldAfter(queuesNow(conversation)),
 	);
 	const sendingNow = useReactive(feed, (feed) => feed.sending.get(id), [
 		"changed",
@@ -55,7 +55,7 @@ export function useThreadMessages(
 		feed,
 		sendingNow ?? [],
 		(each) => each.at,
-		heldAfter(conversation.taking === "queue"),
+		heldAfter(queuesNow(conversation)),
 	);
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);

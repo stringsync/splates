@@ -150,7 +150,7 @@ export function GrantCard({
 							variant="outline"
 							disabled={send === null || busy !== null}
 							onClick={() => turn(deny)}
-							className="gap-1.5"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
 						>
 							{busy === "deny" && showBusy ? (
 								<PendingSpinner shown />
@@ -163,7 +163,7 @@ export function GrantCard({
 							size="sm"
 							disabled={send === null || busy !== null}
 							onClick={() => turn(allow)}
-							className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 						>
 							{busy === "allow" && showBusy ? (
 								<PendingSpinner shown />

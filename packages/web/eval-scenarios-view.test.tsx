@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from "bun:test";
+import type { ConversationFeed } from "./conversation-feed";
 import { EvalActivity } from "./eval-activity";
 import { EvalScenarios } from "./eval-scenarios-view";
 import { cleanup, fireEvent, render, waitFor } from "./testing";
@@ -21,40 +22,63 @@ it("browses never-run scenarios without offering execution controls", async () =
 	expect(view.getByText("Scenario details and history")).toBeTruthy();
 	expect(view.queryByRole("button", { name: /Plan|Run|Improve/ })).toBeNull();
 });
-it("enqueues one task for a single pick and asks first for several", async () => {
-	const calls: string[] = [];
-	const posted = () => calls.filter((each) => !each.startsWith("GET"));
-	globalThis.fetch = (async (input, init) => {
+const feed = {
+	agents: [],
+	conversations: [],
+	put: () => undefined,
+	send: () => ({ id: "m1" }),
+	answered: () => undefined,
+	refused: () => undefined,
+} as unknown as ConversationFeed;
+const scenariosFetch = (bodies: Record<string, string[]>) =>
+	(async (input, init) => {
 		const url = String(input);
-		calls.push(`${init?.method ?? "GET"} ${url}`);
+		if (init?.method === "POST") {
+			bodies[url] = [...(bodies[url] ?? []), String(init.body ?? "")];
+		}
 		return Response.json(
-			url.includes("/api/todos")
-				? { id: 7 }
-				: url.includes("scenarios")
-					? [
-							{ id: "a/one", skill: "a", about: null },
-							{ id: "a/two", skill: "a", about: null },
-						]
-					: [],
+			url === "/api/conversations/auto"
+				? { id: `c${(bodies[url] ?? []).length}` }
+				: url.includes("/prompt")
+					? { id: "c1" }
+					: url.includes("scenarios")
+						? [
+								{ id: "a/one", skill: "a", about: null },
+								{ id: "a/two", skill: "a", about: null },
+							]
+						: [],
 		);
 	}) as typeof fetch;
-	const view = render(<EvalScenarios onOpenBatch={() => {}} />);
+it("starts a conversation with the eval loop directive and opens it", async () => {
+	const bodies: Record<string, string[]> = {};
+	globalThis.fetch = scenariosFetch(bodies);
+	const view = render(<EvalScenarios onOpenBatch={() => {}} feed={feed} />);
 	await waitFor(() => expect(view.getByText("a/one")).toBeTruthy());
-	fireEvent.click(view.getByRole("checkbox", { name: "Select a/one" }));
-	fireEvent.click(view.getByRole("button", { name: "Enqueue 1 eval loop" }));
-	await waitFor(() => expect(posted().length).toBe(2));
-	expect(view.queryByText("Enqueue 1 eval loops?")).toBeNull();
+	fireEvent.click(view.getByRole("button", { name: "Start a/one" }));
+	await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
+	const words = JSON.parse(
+		bodies["/api/conversations/auto"]?.[0] ?? "{}",
+	).words;
+	expect(words).toContain("eval loop");
+	expect(words).toContain("a/one");
+	expect(
+		view.getByRole("link", { name: "Open the conversation for a/one" }),
+	).toBeTruthy();
+	expect(view.queryByRole("button", { name: "Start a/one" })).toBeNull();
+});
+it("starts a conversation per scenario in a section after asking", async () => {
+	const bodies: Record<string, string[]> = {};
+	globalThis.fetch = scenariosFetch(bodies);
+	const view = render(<EvalScenarios onOpenBatch={() => {}} feed={feed} />);
+	await waitFor(() => expect(view.getByText("a/one")).toBeTruthy());
+	fireEvent.click(view.getByRole("button", { name: "Start all 2" }));
 	await waitFor(() =>
-		expect(view.queryByRole("button", { name: /Enqueue/ })).toBeNull(),
+		expect(view.getByText("Start 2 conversations?")).toBeTruthy(),
 	);
-	fireEvent.click(view.getByRole("checkbox", { name: /Select all/ }));
-	fireEvent.click(view.getByRole("button", { name: "Enqueue 2 eval loops" }));
-	await waitFor(() =>
-		expect(view.getByText("Enqueue 2 eval loops?")).toBeTruthy(),
-	);
-	expect(posted().length).toBe(2);
-	fireEvent.click(view.getByRole("button", { name: "Enqueue all" }));
-	await waitFor(() => expect(posted().length).toBe(6));
+	expect(bodies["/api/conversations/auto"]).toBeUndefined();
+	fireEvent.click(view.getByRole("button", { name: "Start all" }));
+	await waitFor(() => expect(view.getByText("All started")).toBeTruthy());
+	expect(bodies["/api/conversations/auto"]?.length).toBe(2);
 });
 it("links active improvement state to its owning conversation", async () => {
 	globalThis.fetch = (async () =>

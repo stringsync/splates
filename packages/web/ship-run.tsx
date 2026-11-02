@@ -263,7 +263,7 @@ function ShipJobs({
 		cascade.steps.find((each) => each.slug === asked?.slug) ??
 		current;
 	return (
-		<div className="grid min-w-0 overflow-hidden rounded-lg border bg-card md:grid-cols-[14rem_minmax(0,1fr)] md:divide-x">
+		<div className="grid min-w-0 overflow-hidden rounded-lg border bg-card md:grid-cols-[24rem_minmax(0,1fr)] md:divide-x">
 			<nav aria-label="Ship jobs" className="flex flex-col gap-1.5 p-2">
 				<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Jobs

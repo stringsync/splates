@@ -219,7 +219,7 @@ export function RunCommandCard({
 							variant="outline"
 							disabled={send === null || busy !== null}
 							onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
-							className="gap-1.5"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
 						>
 							{busy === RUN_DENIED && showBusy ? (
 								<PendingSpinner shown />
@@ -245,7 +245,7 @@ export function RunCommandCard({
 								size="sm"
 								disabled={send === null || busy !== null}
 								onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
-								className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
+								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 							>
 								{busy === RUN_ALLOWED && showBusy ? (
 									<PendingSpinner shown />

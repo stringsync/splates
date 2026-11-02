@@ -1,8 +1,9 @@
-import type {
-	EvalGrid,
-	EvalLaunch,
-	EvalPlan,
-	EvalScenario,
+import {
+	type EvalGrid,
+	type EvalLaunch,
+	type EvalPlan,
+	type EvalScenario,
+	targetOf,
 } from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
 import type { EvalAsk, PermissionProposal } from "@splates/server/plans";
@@ -80,6 +81,8 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	groups: ScenarioGroup[] = [];
 	/** The scenarios the card names that the harness does not know. */
 	unknown: string[] = [];
+	/** The agents the card names that are not saved. */
+	unknownAgents: string[] = [];
 	plan: EvalPlan | null = null;
 	launch: EvalLaunch | null = null;
 	grid: EvalGrid | null = null;
@@ -150,7 +153,13 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				this.server.scenarios(this.conversation),
 				this.server.launch(this.key),
 			]);
-			this.agents = saved.map((pick) => ({ pick, on: true }));
+			const named = this.ask.agents;
+			this.agents = saved.map((pick) => ({
+				pick,
+				on: named === undefined || named.includes(targetOf(pick)),
+			}));
+			const have = new Set(saved.map(targetOf));
+			this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
 			this.groups = groupsOf(
 				scenarios.filter((each) => this.ask.scenarios.includes(each.id)),
 			);
@@ -212,7 +221,13 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			) {
 				// A card can outlive a correction to a rejected model. Show the
 				// new picks and cost before the person authorizes that run.
-				this.agents = saved.map((pick) => ({ pick, on: true }));
+				const named = this.ask.agents;
+				this.agents = saved.map((pick) => ({
+					pick,
+					on: named === undefined || named.includes(targetOf(pick)),
+				}));
+				const have = new Set(saved.map(targetOf));
+				this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
 				this.plan = null;
 				this.refusal =
 					"Saved eval agents changed. Review the updated agents and press Run again.";

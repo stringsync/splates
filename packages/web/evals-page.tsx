@@ -3,6 +3,7 @@ import { targetName } from "@splates/server/evals/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
 import { evalBatch, evalBatches } from "./api";
+import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
 import { EvalActivity } from "./eval-activity";
 import { EvalDebug } from "./eval-debug";
@@ -21,10 +22,13 @@ const FOLLOW = Duration.secs(3);
 export function EvalsPage({
 	open: { batch: open, run, plan },
 	onOpen,
+	feed = null,
 }: {
 	/** The batch open, its run and the scenario planned, each null for none, as the address has them. */
 	open: EvalsOpen;
 	onOpen: (batch: string | null, run?: string | string[] | null) => void;
+	/** Where a conversation started from the scenarios is shown; null while there is none to start. */
+	feed?: ConversationFeed | null;
 }): JSX.Element {
 	const [batches, setBatches] = useState<EvalBatch[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -69,7 +73,7 @@ export function EvalsPage({
 			)}
 			{open === null && <EvalActivity />}
 			{open === null && plan === null && (
-				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} />
+				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} feed={feed} />
 			)}
 			{plan !== null ? (
 				<p className="text-muted-foreground text-sm">

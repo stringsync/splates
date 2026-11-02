@@ -67,7 +67,7 @@ import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SuiteGrant } from "./run-command-card";
-import { heldAfter } from "./sending";
+import { heldAfter, queuesNow } from "./sending";
 import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
@@ -185,7 +185,7 @@ function Conversation({
 		feed,
 		sending ?? [],
 		(each) => each.at,
-		heldAfter(conversation.taking === "queue"),
+		heldAfter(queuesNow(conversation)),
 	);
 	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const superseded = useMemo(

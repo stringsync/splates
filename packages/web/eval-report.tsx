@@ -4,6 +4,7 @@ import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ORDER, StatusChip, spent } from "./eval-status";
+import { Markdown } from "./markdown";
 
 /** Shows an eval batch's totals and results; select a landed cell to open its run. */
 export function EvalReport({
@@ -41,6 +42,7 @@ export function EvalReport({
 					))}
 				</span>
 			</header>
+			{grid.remarks !== undefined && <Remarks text={grid.remarks} />}
 			{aspects.length > 1 && (
 				<div
 					role="radiogroup"
@@ -172,6 +174,7 @@ export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
 	};
 	return (
 		<>
+			{grid.remarks !== undefined && <Remarks text={grid.remarks} />}
 			<div className="hidden md:block">
 				<table
 					aria-label="eval summary"
@@ -312,4 +315,19 @@ function rowsOf(cells: EvalCell[], aspect: string | null): Row[] {
 			}),
 		),
 	]);
+}
+
+/** What an agent found reading a batch, kept with it. */
+function Remarks({ text }: { text: string }): JSX.Element {
+	return (
+		<section
+			aria-label="remarks"
+			className="rounded-lg border bg-muted/40 p-3 text-sm"
+		>
+			<h3 className="mb-1 font-medium text-muted-foreground text-xs">
+				Remarks
+			</h3>
+			<Markdown text={text} />
+		</section>
+	);
 }

@@ -10,6 +10,9 @@ import type {
 	EvalTarget,
 } from "./types";
 
+/** The file in a batch's directory holding an agent's remarks on it. */
+export const REMARKS_FILE = "remarks.md";
+
 /**
  * The eval batches under `directory`: each directory's `batch.json`, in the
  * public `splates-evals/1` format any framework writes (`contract.ts`),
@@ -25,7 +28,7 @@ export class EvalStore {
 		);
 		return grids
 			.filter((grid) => grid !== null)
-			.map(({ grid: _, ...batch }) => batch)
+			.map(({ grid: _, remarks: __, ...batch }) => batch)
 			.sort((first, second) => second.startedAt.localeCompare(first.startedAt));
 	}
 
@@ -39,14 +42,20 @@ export class EvalStore {
 			return null;
 		}
 		const { targets, grid } = await contractCells(dir, id, saved);
-		return gridOf(
-			id,
-			saved.title ?? null,
-			saved.producer ?? null,
-			saved.startedAt,
-			targets,
-			grid,
+		const found = await readFile(join(dir, REMARKS_FILE), "utf8").catch(
+			() => "",
 		);
+		return {
+			...gridOf(
+				id,
+				saved.title ?? null,
+				saved.producer ?? null,
+				saved.startedAt,
+				targets,
+				grid,
+			),
+			...(found.trim() === "" ? {} : { remarks: found }),
+		};
 	}
 
 	/** The run `id` names, `<batch>#<cell>`, opened whole. */

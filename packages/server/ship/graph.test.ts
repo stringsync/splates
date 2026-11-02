@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "core/system/testing";
-import { movePins, readGraph } from "./graph";
+import { movePins, pinsMatch, readGraph } from "./graph";
 import { servedProjects } from "./testing";
 
 describe("readGraph", () => {
@@ -244,5 +244,31 @@ describe("readGraph", () => {
 		expect(
 			JSON.parse(await fs.read("/p/packages/b/package.json")).devDependencies,
 		).toEqual({ wren: "0.0.51" });
+	});
+
+	it("counts a pin held only as a workspace pin as matching, and a stale one beside it as not", async () => {
+		const fs = new FakeFs();
+		await fs.mkdir("/p/packages/a", { recursive: true });
+		await fs.mkdir("/p/packages/b", { recursive: true });
+		await fs.write(
+			"/p/package.json",
+			JSON.stringify({ workspaces: ["packages/*"] }),
+		);
+		await fs.write(
+			"/p/packages/a/package.json",
+			JSON.stringify({ dependencies: { wren: "workspace:*" } }),
+		);
+		const pins = [{ name: "wren", version: "0.0.51" }];
+
+		expect(await pinsMatch(fs, "/p", pins)).toBe(true);
+		expect(
+			await pinsMatch(fs, "/p", [{ name: "gone", version: "1.0.0" }]),
+		).toBe(false);
+
+		await fs.write(
+			"/p/packages/b/package.json",
+			JSON.stringify({ dependencies: { wren: "0.0.50" } }),
+		);
+		expect(await pinsMatch(fs, "/p", pins)).toBe(false);
 	});
 });

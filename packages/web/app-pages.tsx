@@ -116,7 +116,13 @@ export function useAppPages({
 						),
 						stats: <StatsPage report={report} />,
 						ships: <ShipsPage feed={available ? talk : null} />,
-						evals: <EvalsPage open={evals} onOpen={openEval} />,
+						evals: (
+							<EvalsPage
+								open={evals}
+								onOpen={openEval}
+								feed={available ? talk : null}
+							/>
+						),
 						creds: (
 							<CredsPage
 								requests={snapshot.creds}

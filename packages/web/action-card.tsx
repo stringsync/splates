@@ -95,7 +95,7 @@ export function ActionCard({
 								size="sm"
 								variant="outline"
 								onClick={archive}
-								className="gap-1.5"
+								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
 							>
 								<ArchiveIcon data-icon="inline-start" />
 								Archive
@@ -108,7 +108,7 @@ export function ActionCard({
 						<Button
 							size="sm"
 							onClick={run}
-							className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 						>
 							<action.VerbIcon data-icon="inline-start" />
 							{action.verb}
@@ -135,7 +135,7 @@ function Command({ command }: { command: string }): JSX.Element {
 			aria-label={`copy ${command}`}
 			title={copied.state === "failed" ? copied.error : command}
 			onClick={() => copy(command)}
-			className="gap-1.5"
+			className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
 		>
 			{done ? <CheckIcon /> : <CopyIcon />}
 			{done ? "Copied" : "Copy command"}

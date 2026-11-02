@@ -1,4 +1,5 @@
 import { join, relative } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import type { Outcome, Repo } from "@evals/evals/scenario";
 import type { Scenario } from "../box";
 
@@ -47,7 +48,7 @@ function deliveredAndKept(
 		transcript.some(
 			(step) =>
 				step.kind === "tool" &&
-				/attached \d+ file/.test(step.output ?? "") &&
+				/attached \d+ file/.test(stripVTControlCharacters(step.output ?? "")) &&
 				step.output?.includes(path),
 		),
 	);
@@ -95,7 +96,9 @@ export const scenarios: Scenario[] = [
 						transcript.some(
 							(step) =>
 								step.kind === "tool" &&
-								/attached \d+ file/.test(step.output ?? "") &&
+								/attached \d+ file/.test(
+									stripVTControlCharacters(step.output ?? ""),
+								) &&
 								step.output?.includes(path),
 						),
 					),

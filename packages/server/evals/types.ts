@@ -64,6 +64,8 @@ export interface EvalCell {
 /** A batch with every cell, planned or landed: what the report card draws. */
 export interface EvalGrid extends EvalBatch {
 	grid: EvalCell[];
+	/** An agent's or person's commentary on the batch (`remarks.md` in its directory), as Markdown; absent until it does. */
+	remarks?: string;
 }
 
 /** One code check of a run and how it went. */

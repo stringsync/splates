@@ -97,6 +97,11 @@ cell with, every field optional: `input`, `rubric`, `reply`, `checks`
 (`{id, about, pass, error?}`), `judge` (`{pass, reason}`) and `transcript`
 (`{kind: "text", text}` or `{kind: "tool", name, input, output}` steps).
 
+`<results>/<batch>/remarks.md` is optional: a person's or agent's commentary on the
+batch, as Markdown: what failed and why, what held up, any special circumstance. The report and the run card show it, and it stays with
+the batch. `splates evals remarks <batch-dir> <file>` writes it, replacing any
+earlier remarks.
+
 ## From Inspect
 
 `splates evals import` turns an [Inspect AI](https://inspect.aisi.org.uk) eval

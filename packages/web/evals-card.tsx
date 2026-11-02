@@ -56,6 +56,7 @@ export function EvalsCard({
 			agents: each.agents.map((agent) => ({ ...agent })),
 			groups: each.groups,
 			unknown: each.unknown,
+			unknownAgents: each.unknownAgents,
 			plan: each.plan,
 			launch: each.launch,
 			grid: each.grid,
@@ -84,6 +85,7 @@ export function EvalsCard({
 			send === null ||
 			!state.loaded ||
 			state.unknown.length > 0 ||
+			state.unknownAgents.length > 0 ||
 			state.plan === null ||
 			state.plan.refused
 			? null
@@ -218,6 +220,11 @@ export function EvalsCard({
 								No saved agents: open Configure below to add some.
 							</p>
 						)}
+						{state.unknownAgents.length > 0 && (
+							<p className="text-destructive text-xs">
+								Not a saved agent: {state.unknownAgents.join(", ")}
+							</p>
+						)}
 						{state.agents.map((each, index) => (
 							<label
 								key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
@@ -318,6 +325,7 @@ export function EvalsCard({
 						disabled={
 							!state.loaded ||
 							state.unknown.length > 0 ||
+							state.unknownAgents.length > 0 ||
 							state.plan === null ||
 							state.plan.refused
 						}

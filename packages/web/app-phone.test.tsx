@@ -184,8 +184,18 @@ describe("App on a phone", () => {
 				worktreeRoot: "/code/worktrees",
 				lanesTaken: {},
 				conversations: [
-					conversation({ id: "z1", title: "Stripes", status: "running" }),
-					conversation({ id: "z2", title: "Zebra broke", status: "failed" }),
+					conversation({
+						id: "z1",
+						title: "Stripes",
+						status: "running",
+						createdAt: "2026-10-02T00:00:00.000Z",
+					}),
+					conversation({
+						id: "z2",
+						title: "Zebra broke",
+						status: "failed",
+						createdAt: "2026-10-01T00:00:00.000Z",
+					}),
 				],
 			},
 		];

@@ -1,4 +1,5 @@
 import { join, relative } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import type { Scenario } from "./scenario";
 
 /** Whether a reply embeds an absolute image path outside fenced code. */
@@ -48,7 +49,9 @@ export const scenarios: Scenario[] = [
 						transcript.some(
 							(step) =>
 								step.kind === "tool" &&
-								/attached \d+ file/.test(step.output ?? "") &&
+								/attached \d+ file/.test(
+									stripVTControlCharacters(step.output ?? ""),
+								) &&
 								step.output?.includes(path),
 						),
 					),

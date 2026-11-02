@@ -427,7 +427,10 @@ const DEPENDENCY_FIELDS = [
 	"optionalDependencies",
 ] as const;
 
-/** Whether every target is already pinned everywhere it occurs in the base manifests. */
+/**
+ * Whether every target is already pinned everywhere it occurs in the base
+ * manifests; a `workspace:` pin follows its package, so it is always current.
+ */
 export async function pinsMatch(
 	fs: Fs,
 	root: string,
@@ -436,16 +439,15 @@ export async function pinsMatch(
 ): Promise<boolean> {
 	const manifests = await manifestsOf(fs, root, paths);
 	return pins.every((pin) => {
-		const versions = manifests.flatMap((manifest) =>
+		const values = manifests.flatMap((manifest) =>
 			DEPENDENCY_FIELDS.flatMap((field) => {
 				const value = manifest[field]?.[pin.name];
-				return value === undefined || value.startsWith("workspace:")
-					? []
-					: [value];
+				return value === undefined ? [] : [value];
 			}),
 		);
+		const versions = values.filter((value) => !value.startsWith("workspace:"));
 		return (
-			versions.length > 0 &&
+			values.length > 0 &&
 			versions.every((version) => version.replace(/^[~^]/, "") === pin.version)
 		);
 	});
