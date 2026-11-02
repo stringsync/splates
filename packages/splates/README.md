@@ -5,11 +5,21 @@
 Run many coding agents on one repository at once. Each works in its own git
 worktree and lands its change on `main` itself, without pull requests.
 
+## Quick start
+
 ```bash
+# In your repository: install the splates skill for your agents
 bunx @stringsync/splates init
+
+# Optional: start the server for the page that shows tasks, queue and merges
+bunx @stringsync/splates server
 ```
 
-Run it in your repository and commit what it writes: the splates skill, which it
+Running the server is optional. After `init`, your agents already work with
+`splates add` and `splates merge` from the command line; the server adds a
+page to watch and steer them.
+
+`init` runs in your repository. Commit what it writes: the splates skill, which it
 installs with [`skills`](https://skills.sh) from this release's tag into
 `.agents/skills` for Codex and most agents, linked from `.claude/skills` for
 Claude Code, and `skills-lock.json`. `splates update` moves it to a newer release.

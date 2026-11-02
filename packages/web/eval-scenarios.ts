@@ -13,6 +13,10 @@ export interface LastResult {
 	passed: number;
 	/** The worst outcome among its cells, in the order `ORDER` reads them. */
 	status: EvalStatus;
+	/** What the scenario requires, from its first cell. */
+	requirement: string;
+	/** A landed run to read its checks from; null while none has landed. */
+	run: string | null;
 }
 
 /** A skill's scenarios, under the heading the index shows. */
@@ -63,6 +67,11 @@ export function lastResults(grids: EvalGrid[]): Map<string, LastResult> {
 				cells: statuses.length,
 				passed: statuses.filter((each) => each === "pass").length,
 				status: ORDER.find((each) => statuses.includes(each)) ?? "pass",
+				requirement:
+					grid.grid.find((cell) => cell.scenario === id)?.requirement ?? "",
+				run:
+					grid.grid.find((cell) => cell.scenario === id && cell.run !== null)
+						?.run?.id ?? null,
 			});
 		}
 	}

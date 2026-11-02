@@ -19,7 +19,9 @@ it("browses never-run scenarios without offering execution controls", async () =
 	const view = render(<EvalScenarios onOpenBatch={() => {}} />);
 	await waitFor(() => expect(view.getByText("never run")).toBeTruthy());
 	expect(view.getByText("a/one")).toBeTruthy();
-	expect(view.getByText("Scenario details and history")).toBeTruthy();
+	expect(view.getByText("About")).toBeTruthy();
+	expect(view.getByText("A requirement")).toBeTruthy();
+	expect(view.queryByText("Scenario details and history")).toBeNull();
 	expect(view.queryByRole("button", { name: /Plan|Run|Improve/ })).toBeNull();
 });
 const feed = {

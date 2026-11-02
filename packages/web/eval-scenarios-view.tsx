@@ -1,10 +1,12 @@
 import type {
 	EvalBatch,
+	EvalCheck,
 	EvalGrid,
 	EvalScenario,
 	StoredEvalLoop,
 } from "@splates/server/evals/browser";
-import { type JSX, useEffect, useState } from "react";
+import { FlaskConicalIcon } from "lucide-react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -15,7 +17,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
-import { answered, evalBatch, evalBatches, evalScenarios, scoped } from "./api";
+import {
+	answered,
+	evalBatch,
+	evalBatches,
+	evalRun,
+	evalScenarios,
+	scoped,
+} from "./api";
+import { CardShell } from "./card-shell";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
@@ -27,6 +37,7 @@ import {
 } from "./eval-scenarios";
 import { EvalSection } from "./eval-section";
 import { StatusChip } from "./eval-status";
+import { HEADING } from "./markdown";
 
 /**
  * Every scenario the project lists, under its skill, with how it last went
@@ -169,67 +180,17 @@ export function EvalScenarios({
 									ids.length > 1 ? setAsking(ids) : void start(ids)
 								}
 							/>
-							<ul className="flex flex-col divide-y">
+							<ul className="flex flex-col gap-3 pb-3">
 								{section.scenarios.map((scenario) => {
 									const result = last.get(scenario.id);
 									return (
-										<li
+										<ScenarioCard
 											key={scenario.id}
-											className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 py-2"
+											scenario={scenario}
+											result={result}
+											history={history}
+											onOpenBatch={onOpenBatch}
 										>
-											<div className="flex min-w-0 flex-1 flex-col">
-												<code className="break-all text-sm">{scenario.id}</code>
-												<details className="text-xs">
-													<summary className="cursor-pointer text-muted-foreground">
-														Scenario details and history
-													</summary>
-													<p className="py-1">
-														{scenario.about ?? "No description supplied."}
-													</p>
-													<ul>
-														{history
-															.filter((grid) =>
-																grid.grid.some(
-																	(cell) => cell.scenario === scenario.id,
-																),
-															)
-															.map((grid) => (
-																<li key={grid.id}>
-																	<button
-																		type="button"
-																		className="text-info underline"
-																		onClick={() => onOpenBatch(grid.id)}
-																	>
-																		{new Date(grid.startedAt).toLocaleString()}{" "}
-																		· {grid.id}
-																	</button>
-																</li>
-															))}
-													</ul>
-												</details>
-												{scenario.about !== null && (
-													<span className="text-muted-foreground text-xs">
-														{scenario.about}
-													</span>
-												)}
-											</div>
-											{result === undefined ? (
-												<span className="text-muted-foreground text-xs">
-													never run
-												</span>
-											) : (
-												<button
-													type="button"
-													aria-label={`Report of ${scenario.id}`}
-													onClick={() => onOpenBatch(result.batch)}
-													className="flex items-center gap-1.5"
-												>
-													<StatusChip status={result.status} />
-													<span className="text-xs tabular-nums">
-														{result.passed}/{result.cells} pass
-													</span>
-												</button>
-											)}
 											<StartButton
 												id={scenario.id}
 												conversation={working.get(scenario.id) ?? null}
@@ -237,7 +198,7 @@ export function EvalScenarios({
 												ready={feed !== null}
 												onStart={() => void start([scenario.id])}
 											/>
-										</li>
+										</ScenarioCard>
 									);
 								})}
 							</ul>
@@ -355,6 +316,119 @@ function SectionStart({
 					{working ? "Starting…" : `Start all ${open.length}`}
 				</Button>
 			)}
+		</div>
+	);
+}
+
+/**
+ * One eval as a card: what it is about, the outcomes its latest report
+ * checked, and how it last went, with the call to action in its footer.
+ */
+function ScenarioCard({
+	scenario,
+	result,
+	history,
+	onOpenBatch,
+	children,
+}: {
+	scenario: EvalScenario;
+	result: LastResult | undefined;
+	history: EvalGrid[];
+	onOpenBatch: (batch: string) => void;
+	children: ReactNode;
+}): JSX.Element {
+	const [checks, setChecks] = useState<EvalCheck[]>([]);
+	const run = result?.run ?? null;
+	useEffect(() => {
+		let current = true;
+		setChecks([]);
+		if (run !== null) {
+			evalRun(run).then(
+				(detail) => current && setChecks(detail.checks ?? []),
+				() => {},
+			);
+		}
+		return () => {
+			current = false;
+		};
+	}, [run]);
+	const earlier = history.filter((grid) =>
+		grid.grid.some((cell) => cell.scenario === scenario.id),
+	).length;
+	return (
+		<li className="min-w-0 [&>section]:my-0">
+			<CardShell
+				label={scenario.id}
+				Icon={FlaskConicalIcon}
+				title={scenario.id}
+				tone="info"
+				aside={
+					result === undefined ? (
+						<span className="text-muted-foreground text-xs">never run</span>
+					) : (
+						<span className="flex items-center gap-1.5">
+							<StatusChip status={result.status} />
+							<span className="text-xs tabular-nums">
+								{result.passed}/{result.cells} pass
+							</span>
+						</span>
+					)
+				}
+			>
+				<div className="flex flex-col gap-3 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5">
+					<Part title="About">
+						<p className="text-sm">
+							{scenario.about ?? "No description supplied."}
+						</p>
+					</Part>
+					{result !== undefined && result.requirement !== "" && (
+						<Part title="Testing">
+							<p className="text-sm">{result.requirement}</p>
+						</Part>
+					)}
+					{checks.length > 0 && (
+						<Part title="Outcomes wanted">
+							<ul className="list-disc pl-5 text-sm">
+								{checks.map((check) => (
+									<li key={check.id}>{check.about}</li>
+								))}
+							</ul>
+						</Part>
+					)}
+					<div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+						{result === undefined ? (
+							<span className="text-muted-foreground text-xs">No runs yet</span>
+						) : (
+							<button
+								type="button"
+								aria-label={`Report of ${scenario.id}`}
+								className="text-info text-xs underline"
+								onClick={() => onOpenBatch(result.batch)}
+							>
+								Last run {new Date(result.startedAt).toLocaleString()} · report
+								{earlier > 1 ? ` · ${earlier - 1} earlier` : ""}
+							</button>
+						)}
+						{children}
+					</div>
+				</div>
+			</CardShell>
+		</li>
+	);
+}
+
+/** One labelled part of a card's body. */
+function Part({
+	title,
+	children,
+}: {
+	title: string;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<div className="flex flex-col">
+			<h3 className={HEADING}>{title}</h3>
+			{children}
 		</div>
 	);
 }
