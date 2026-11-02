@@ -32,7 +32,7 @@ describe("App's queue", () => {
 
 	/** The untriaged cards, top first, as text. */
 	const cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
-		within(view.getByRole("list", { name: "Untriaged tasks", hidden: true }))
+		within(view.getByRole("list", { name: "Backlog tasks", hidden: true }))
 			.getAllByRole("listitem", { hidden: true })
 			.map((card) => card.textContent ?? "");
 
@@ -65,7 +65,7 @@ describe("App's queue", () => {
 			],
 		});
 
-		const cards = within(view.getByRole("list", { name: "Untriaged tasks" }))
+		const cards = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 		expect(cards[0]).toContain("Available");
@@ -321,7 +321,10 @@ describe("App's queue", () => {
 			within(part)
 				.getAllByRole("listitem")
 				.map((row) => row.textContent),
-		).toEqual(["#1store licensesavailable", "#2check themavailable"]);
+		).toEqual([
+			"#1 in Backlogstore licensesavailable",
+			"#2 in Backlogcheck themavailable",
+		]);
 		expect(
 			within(part).getByRole("button", { name: "Queue 2 blockers" }),
 		).toBeTruthy();
@@ -385,7 +388,7 @@ describe("App's queue", () => {
 			],
 		});
 
-		const marks = within(view.getByRole("list", { name: "Untriaged tasks" }))
+		const marks = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map(
 				(card) =>

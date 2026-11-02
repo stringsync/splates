@@ -2,8 +2,8 @@ import { z } from "zod";
 
 /**
  * A decision model: it reads some state and answers yes-or-no questions about
- * it with the probability of yes. The same shape as scry's `Judge`, so scry's
- * Jev and Clef fit here too, without splates carrying scry's native
+ * it with the probability of yes. The same shape as vet's `Judge`, so vet's
+ * Jev and Clef fit here too, without splates carrying vet's native
  * dependencies; a fake in a test is another.
  */
 export interface Judge {

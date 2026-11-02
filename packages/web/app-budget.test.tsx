@@ -26,13 +26,25 @@ describe("App's budget", () => {
 	const card = (view: Awaited<ReturnType<typeof openBudget>>, role: string) =>
 		waitFor(() => view.getByRole("listitem", { name: `${role} budget` }));
 
+	it("estimates input dollars from configured model rates", async () => {
+		testing.budgets.models = {
+			som: [
+				{ effort: "default", model: "example", from: null, inputPrice: 0.1 },
+			],
+			llm: [],
+		};
+		const view = await openBudget();
+		const som = await card(view, "som");
+		expect(within(som).getByText("≈ $0.42 of $0.70 · input only")).toBeTruthy();
+	});
+
 	it("shows each model's spend, what each window has used, and its raises", async () => {
 		const view = await openBudget();
 
 		const som = await card(view, "som");
 		expect(
 			within(som).getByRole("listitem", { name: "today" }).textContent,
-		).toBe("today4.2m of 7m (+2m)");
+		).toBe("today4.2m of 7mDollar estimate unavailable (+2m)");
 		expect(
 			within(som).getByRole("button", { name: "end raise 1" }),
 		).toBeTruthy();
@@ -119,10 +131,10 @@ describe("App's budget", () => {
 		const som = await card(view, "som");
 		expect(
 			within(som).getByRole("listitem", { name: "today" }).textContent,
-		).toBe("today1m of 3m");
+		).toBe("today1m of 3mDollar estimate unavailable");
 		expect(
 			within(som).getByRole("listitem", { name: "today, shared" }).textContent,
-		).toBe("todayevery project9m of 20m (+5m)");
+		).toBe("todayevery project9m of 20mDollar estimate unavailable (+5m)");
 		expect(
 			within(som).getByRole("list", { name: "raises" }).textContent,
 		).toContain("+5mevery project");

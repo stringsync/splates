@@ -57,6 +57,7 @@ export {
 	groomReference,
 	handOffReference,
 	isUpdate,
+	laneReference,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,

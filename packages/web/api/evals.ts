@@ -119,6 +119,7 @@ export async function stopEvalRun(key: string): Promise<void> {
 
 /** What a run is asked with: the cases, the agents and what the change is judged against. */
 export interface EvalRunAsk {
+	loop?: { id: string; version: number };
 	skill: string;
 	scenarios: string[];
 	agents: EvalAgentsView["agents"];

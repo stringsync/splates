@@ -89,6 +89,7 @@ export function AppNav({
 		<TabsTrigger
 			key={value}
 			value={value}
+			aria-current={value === navPage(page) ? "page" : undefined}
 			// Folded, a tab stays mounted, so it still answers to its shortcut.
 			hidden={!pagesShown}
 			className={cn(

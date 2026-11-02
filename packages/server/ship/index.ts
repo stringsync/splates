@@ -6,7 +6,7 @@ export type {
 export { Cascades } from "./cascade";
 export { CascadeRoutes } from "./cascade-routes";
 export type { ShipContext } from "./commands";
-export { registeredGraph, shipsFrom } from "./commands";
+export { registeredGraph, shipsFrom, targetPaths } from "./commands";
 export type { ReleaseChanges } from "./git";
 export { ReleaseGit } from "./git";
 export type { Pin, ShipGraph, ShipProject, ShipSource, Use } from "./graph";

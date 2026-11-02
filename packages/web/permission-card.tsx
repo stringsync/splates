@@ -24,6 +24,7 @@ import { answered, dropLane, queueLane, queueTodo, scoped } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
+import { EvalLoopCard } from "./eval-loop-card";
 import { EvalsCard } from "./evals-card";
 import { type SnapshotExpecter, useExpectSnapshot } from "./expecting";
 import { GrantCard } from "./grant-card";
@@ -55,6 +56,12 @@ export function PermissionCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	switch (proposal.action) {
+		case "eval-loop":
+			return (
+				<EvalLoopCard
+					reference={proposal.loop as { id: string; version: number }}
+				/>
+			);
 		case "remove-lane":
 			return <RemoveLaneCard proposal={proposal} />;
 		case "run-evals":

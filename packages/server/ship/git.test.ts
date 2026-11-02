@@ -32,6 +32,22 @@ describe("ReleaseGit", () => {
 		});
 	});
 
+	it("counts a deploy's commits since the deployed one, under its paths only", async () => {
+		const deployed = await env.gitCli(env.root, "rev-parse", "HEAD");
+		mkdirSync(`${env.root}/web`);
+		await Bun.write(`${env.root}/web/a.txt`, "a");
+		await env.gitCli(env.root, "add", ".");
+		await env.gitCli(env.root, "commit", "-m", "web");
+		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "elsewhere");
+		expect(await git.since(deployed.trim(), ["web/**"])).toMatchObject({
+			commits: 1,
+			error: null,
+		});
+		expect(await git.since("nope", ["web/**"])).toMatchObject({
+			commits: null,
+		});
+	});
+
 	it("tells a release whose tag never reached the remote from one that did", async () => {
 		// A remote with no release tags at all is a project that does not tag.
 		expect(await git.tagged("1.0.1")).toBe(true);

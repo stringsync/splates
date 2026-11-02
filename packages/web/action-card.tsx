@@ -78,7 +78,7 @@ export function ActionCard({
 		>
 			{body !== "" && <CardBody text={body} />}
 			{children}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
 				{gone === null && !done && note !== undefined && (
 					<span className="mr-auto text-muted-foreground text-xs">{note}</span>
 				)}
@@ -105,7 +105,11 @@ export function ActionCard({
 				) : (
 					<>
 						<Command command={action.command} />
-						<Button size="sm" onClick={run} className="gap-1.5">
+						<Button
+							size="sm"
+							onClick={run}
+							className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
+						>
 							<action.VerbIcon data-icon="inline-start" />
 							{action.verb}
 						</Button>

@@ -384,7 +384,7 @@ See [the manual comparison recipe](../../designs/opencode-acp.md#354-implementat
 for identical baseline files, a results worksheet, provenance and the authorization
 gate. Fixtures need no production login. Live executable compatibility remains
 unverified and no real comparison was run. `splates dev fix --code-only` disables
-both Scry model roles and avoids opening credential stores; model-dependent rules
+both vet model roles and avoids opening credential stores; model-dependent rules
 are reported as unchecked. `splates dev test` runs the local fixture suites.
 
 ### OpenCode setup wizard (optional)

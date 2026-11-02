@@ -139,16 +139,16 @@ describe("Setup's undo", () => {
 
 	it("keeps a cred a done step outside the area still uses", async () => {
 		const token = step("token", { cred: "TOKEN" });
-		const scry = step("scry", { uses: ["TOKEN"] });
-		done.add("token").add("scry");
+		const vet = step("vet", { uses: ["TOKEN"] });
+		done.add("token").add("vet");
 		await device.set("TOKEN", "t");
 		const setup = new Setup(machine, [
 			{ id: "remote", title: "Remote", purpose: "", steps: [token] },
-			{ id: "scry", title: "Scry", purpose: "", steps: [scry] },
+			{ id: "vet", title: "vet", purpose: "", steps: [vet] },
 		]);
 
 		expect((await setup.undoPlan("remote")).creds).toEqual([
-			{ name: "TOKEN", keptFor: "Set up scry" },
+			{ name: "TOKEN", keptFor: "Set up vet" },
 		]);
 		await setup.undo("remote", null);
 		expect(await device.get("TOKEN")).toBe("t");
@@ -207,7 +207,7 @@ describe("Setup's undo", () => {
 		]).undoPlan("auto-pick");
 
 		expect(plan.creds).toEqual([
-			{ name: "CLOUDFLARE_API_TOKEN", keptFor: "scry's Workers AI" },
+			{ name: "CLOUDFLARE_API_TOKEN", keptFor: "vet's Workers AI" },
 		]);
 	});
 

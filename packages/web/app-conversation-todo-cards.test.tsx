@@ -310,7 +310,7 @@ describe("App's todo cards", () => {
 		});
 		expect(groups).toEqual([
 			["Added 2 to Uploads by this task", ["task 12", "task 13"]],
-			["Added to Untriaged by this task", ["task 14"]],
+			["Added to Backlog by this task", ["task 14"]],
 		]);
 		// Only a line over two or more cards draws a rail.
 		const railed = view

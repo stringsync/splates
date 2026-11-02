@@ -34,6 +34,27 @@ describe("App's Deferred card", () => {
 		],
 	});
 
+	const old = conversation({
+		title: "Deferring",
+		messages: [
+			message(
+				"agent",
+				"## ⏸ Deferred upload-retry: waiting on the new client\n\nIt set out to retry a 413.",
+			),
+		],
+	});
+
+	const openCard = async (
+		opened: ReturnType<typeof conversation>,
+		served: typeof board,
+	) => {
+		const view = await testing.openConversations([opened], undefined, served);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "deferred upload-retry" }),
+		);
+		return { view, card };
+	};
+
 	const board = {
 		todos: [
 			todo({
@@ -58,44 +79,18 @@ describe("App's Deferred card", () => {
 		lanes: [],
 	};
 
-	it("says why it stopped and what it waits on, with Archive its one way on", async () => {
-		const view = await testing.openConversations([deferring], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "deferred upload-retry" }),
-		);
+	it("says why it stopped, what it waits on and that it is back on the board", async () => {
+		const { card } = await openCard(deferring, board);
 		expect(card.textContent).toContain("The fix needs the new client.");
 		expect(card.textContent).toContain("Rewrite the upload client");
 		expect(card.textContent).toContain("Keep the retry for old clients?");
 		expect(card.textContent).toContain("an upstream release");
-		// Archive puts the conversation away; the
-		// rest open the task or answer it.
+		expect(card.textContent).toContain("Back on the board · waits on #812");
 		expect(
 			within(card)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual([
-			"Taskupload-retry",
-			"#812 Rewrite the upload client",
-			"Answer",
-			"Archive",
-		]);
-	});
-
-	it("records an answer without starting the task", async () => {
-		const view = await testing.openConversations([deferring], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "deferred upload-retry" }),
-		);
-		fireEvent.change(within(card).getByRole("textbox", { name: "answer" }), {
-			target: { value: "Yes" },
-		});
-		fireEvent.click(within(card).getByRole("button", { name: "Answer" }));
-		await waitFor(() =>
-			expect(testing.posted("/api/todos/20/deferral/answer")).toEqual([
-				{ method: "PUT", body: { index: 0, answer: "Yes" } },
-			]),
-		);
-		expect(testing.posted("/api/todos/20/queued")).toEqual([]);
+		).toEqual(["Taskupload-retry", "#812 Rewrite the upload client"]);
 	});
 
 	it("folds to a record once the conversation went on past it", async () => {
@@ -103,26 +98,14 @@ describe("App's Deferred card", () => {
 			title: "Deferring",
 			messages: [...deferring.messages, message("user", "[SPLATES TASK #20]")],
 		});
-		const view = await testing.openConversations([resumed], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "deferred upload-retry" }),
-		);
+		const { card } = await openCard(resumed, board);
 		expect(card.textContent).toContain("Resumed");
 		expect(within(card).queryByRole("button", { name: "Resume" })).toBeNull();
 		expect(card.textContent).not.toContain("The fix needs the new client.");
 	});
 
 	it("lets the person link a blocker to an old deferral, which recorded none", async () => {
-		const old = conversation({
-			title: "Deferring",
-			messages: [
-				message(
-					"agent",
-					"## ⏸ Deferred upload-retry: waiting on the new client\n\nIt set out to retry a 413.",
-				),
-			],
-		});
-		const view = await testing.openConversations([old], undefined, {
+		const { view, card } = await openCard(old, {
 			todos: [
 				todo({
 					id: 812,
@@ -133,9 +116,6 @@ describe("App's Deferred card", () => {
 			],
 			lanes: [],
 		});
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "deferred upload-retry" }),
-		);
 		expect(card.textContent).toContain("It set out to retry a 413.");
 
 		fireEvent.click(
@@ -184,13 +164,10 @@ describe("App's Deferred card", () => {
 				message("agent", "## ⏸ Deferred upload-retry: waiting\n\nIt set out."),
 			],
 		});
-		const view = await testing.openConversations([old], undefined, {
+		const { card } = await openCard(old, {
 			todos: [todo({ id: 20, subject: "Retry on 413", slug: "upload-retry" })],
 			lanes: [],
 		});
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "deferred upload-retry" }),
-		);
 		expect(card.textContent).toContain("Link what it waits on");
 		fireEvent.click(within(card).getByRole("button", { name: "Queue" }));
 		await waitFor(() =>

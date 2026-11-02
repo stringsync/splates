@@ -50,7 +50,7 @@ const PLANS = [
 
 /**
  * The Billing page: the dollars spent by provider and service, how much of
- * the agent plans is used, and, for each scry model in this project, which
+ * the agent plans is used, and, for each vet model in this project, which
  * model it asks, what its checks may spend, how much of each window is
  * gone, and forms to change the spend, raise it or pause it for a while.
  */
@@ -74,7 +74,7 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 			<div className="flex min-w-0 flex-col gap-4">
 				<header className="flex flex-wrap items-center gap-2">
 					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
-						Scry budgets
+						vet budgets
 					</h2>
 					<span className="text-muted-foreground text-xs">
 						Input tokens a check may spend here, on this device.
@@ -89,9 +89,9 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 				)}
 				{budgets !== null && !budgets.declared && (
 					<div className="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm">
-						<p className="font-medium">No Scry budget yet</p>
+						<p className="font-medium">No vet budget yet</p>
 						<p className="text-muted-foreground">
-							With no budget, scry checks only what code decides and asks no
+							With no budget, vet checks only what code decides and asks no
 							model. Choose Edit on a model below and give it an allowance, like
 							5m/day, to let its checks run.
 						</p>
@@ -116,7 +116,7 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 
 /**
  * The models a role asks at each effort and the config naming each, or that
- * none does and scry's own is used, so nothing is left to guess.
+ * none does and vet's own is used, so nothing is left to guess.
  */
 function ModelList({ models }: { models?: ModelChoice[] }): JSX.Element | null {
 	if (models === undefined) {
@@ -137,7 +137,7 @@ function ModelList({ models }: { models?: ModelChoice[] }): JSX.Element | null {
 							<>
 								<code className="font-mono">{model}</code>{" "}
 								<span className="text-muted-foreground">
-									{from === null ? "scry's default, none set" : `from ${from}`}
+									{from === null ? "vet's default, none set" : `from ${from}`}
 								</span>
 							</>
 						)}
@@ -256,7 +256,7 @@ function RoleCard({
 						</span>
 					</p>
 				)}
-				<Windows role={role} />
+				<Windows role={role} models={models} />
 				{role.raises.length > 0 && (
 					<ul aria-label="raises" className="flex flex-col gap-1">
 						{role.raises.map((raise) => (
@@ -328,7 +328,13 @@ function RoleCard({
 }
 
 /** Each window of a role's budget as a bar, or what it spends without one. */
-function Windows({ role }: { role: RoleBudget }): JSX.Element {
+function Windows({
+	role,
+	models,
+}: {
+	role: RoleBudget;
+	models?: ModelChoice[];
+}): JSX.Element {
 	if (role.standing.length === 0) {
 		return (
 			<p className="text-sm">
@@ -373,6 +379,9 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 							)}
 						>
 							{tokens(each.spent)} of {tokens(each.tokens)}
+							<span className="block text-muted-foreground text-xs">
+								{estimate(each.spent, each.tokens, models)}
+							</span>
 							{each.raised > 0 && (
 								// The raise list says it too, where a phone has no room.
 								<span className="text-muted-foreground text-xs max-md:hidden">
@@ -484,4 +493,26 @@ function tokens(count: number): string {
 /** A path with the home directory as `~`, the way a config is named. */
 function home(path: string): string {
 	return path.replace(/^\/(?:Users|home)\/[^/]+/, "~");
+}
+
+/** Input-only estimate across the configured models, without inventing missing prices. */
+function estimate(
+	spent: number,
+	limit: number,
+	models?: ModelChoice[],
+): string {
+	const choices = models?.filter((choice) => choice.model !== null) ?? [];
+	if (
+		choices.length === 0 ||
+		choices.some((choice) => choice.inputPrice == null)
+	) {
+		return "Dollar estimate unavailable";
+	}
+	const rates = choices.map((choice) => choice.inputPrice as number);
+	const money = (tokens: number) => {
+		const low = ((tokens * Math.min(...rates)) / 1_000_000).toFixed(2);
+		const high = ((tokens * Math.max(...rates)) / 1_000_000).toFixed(2);
+		return low === high ? `$${low}` : `$${low} to $${high}`;
+	};
+	return `≈ ${money(spent)} of ${money(limit)} · input only`;
 }

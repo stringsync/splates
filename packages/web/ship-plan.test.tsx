@@ -56,6 +56,42 @@ describe("Ship plan", () => {
 			),
 		);
 	});
+	it("shows a deploy target by its commits since the deployed one, with no bump picker", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				answer(String(url), [
+					project({
+						slug: "app",
+						version: null,
+						private: true,
+						deploy: true,
+						changes: {
+							commits: 3,
+							branch: "main",
+							tag: "abc123456",
+							error: null,
+						},
+					}),
+				]),
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await view.findByText("deploy");
+		expect(view.getByText(/3 commits since/)).toBeTruthy();
+		expect(view.queryByLabelText("app version bump")).toBeNull();
+	});
+	// vet-ignore simple-test-setup: this test owns the captured POST body and refused response needed to verify the submission.
 	it("submits bump and verbatim agent instructions in dependency order only after Start", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
@@ -88,7 +124,7 @@ describe("Ship plan", () => {
 			}),
 		);
 		await view.findByText("base");
-		fireEvent.click(view.getByRole("button", { name: "Include all changed" }));
+		fireEvent.click(view.getByRole("checkbox", { name: "All changed" }));
 		await act(async () =>
 			fireEvent.click(
 				view.getByRole("combobox", { name: "base version bump" }),
@@ -154,7 +190,7 @@ describe("Ship plan", () => {
 		expect(view.getAllByText("added automatically")).toHaveLength(1);
 		expect(view.getByRole("button", { name: "Ship 2 projects" })).toBeTruthy();
 	});
-	it("explains shipping until something is chosen", async () => {
+	it("shows the plan without a steps card", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
 			constructor() {
@@ -182,8 +218,9 @@ describe("Ship plan", () => {
 				data: JSON.stringify({ cascade: null, ship: null }),
 			}),
 		);
-		await view.findByRole("region", { name: "About shipping" });
-		expect(view.getByText(/Can't tell what changed/)).toBeTruthy();
+		await view.findByText("base");
+		expect(view.queryByRole("region", { name: "About shipping" })).toBeNull();
+		expect(view.getByText("Release status unknown")).toBeTruthy();
 		fireEvent.click(view.getByRole("checkbox", { name: "Ship base" }));
 		expect(view.queryByRole("region", { name: "About shipping" })).toBeNull();
 	});

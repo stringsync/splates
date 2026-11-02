@@ -16,21 +16,23 @@ export async function budgets(): Promise<Budgets> {
 	return body;
 }
 
-/** Where a project's vet budgets stand, and the models scry asks. */
+/** Where a project's vet budgets stand, and the models vet asks. */
 export interface Budgets {
 	/** Whether any config or change declares budgets. */
 	declared: boolean;
 	roles: RoleBudget[];
-	/** The models scry asks, per role, with the config naming each. */
+	/** The models vet asks, per role, with the config naming each. */
 	models?: Record<RoleBudget["role"], ModelChoice[]>;
 }
 
-/** The model scry asks at one effort. */
+/** The model vet asks at one effort. */
 export interface ModelChoice {
+	/** Dollars per million uncached input tokens; absent when unavailable. */
+	inputPrice?: number | null;
 	effort: string;
-	/** None when no config names one and scry has no default. */
+	/** None when no config names one and vet has no default. */
 	model: string | null;
-	/** The config naming it; none when it is scry's own default. */
+	/** The config naming it; none when it is vet's own default. */
 	from: string | null;
 }
 

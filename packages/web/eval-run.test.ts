@@ -46,6 +46,48 @@ describe("EvalRun", () => {
 		expect(resent.key).not.toBe(first.key);
 	});
 
+	it("shares a launch identity across cards for one loop version", () => {
+		const linked = {
+			...proposal(),
+			evals: { ...ASK, loop: { id: "loop", version: 4 } },
+		};
+		const first = EvalRun.of(linked, {
+			server,
+			timer,
+			conversation: "c1",
+			message: "m1",
+		});
+		const second = EvalRun.of(linked, {
+			server,
+			timer,
+			conversation: "c1",
+			message: "m2",
+		});
+		expect(first.key).toBe(second.key);
+		first.dispose();
+		second.dispose();
+	});
+	it("configures ordinary repetitions while keeping linked contracts frozen", async () => {
+		const run = EvalRun.of(proposal(), { server, timer });
+		await run.load();
+		await run.repeat(5);
+		await run.run();
+		expect(server.started[0]).toMatchObject({ reps: 5 });
+		const linked = {
+			...proposal(),
+			evals: { ...ASK, reps: 3, loop: { id: "loop", version: 4 } },
+		};
+		const frozen = EvalRun.of(linked, { server, timer });
+		await frozen.load();
+		await frozen.repeat(9);
+		await frozen.run();
+		run.dispose();
+		frozen.dispose();
+		expect(server.started[1]).toMatchObject({
+			reps: 3,
+			loop: { id: "loop", version: 4 },
+		});
+	});
 	it("groups the scenarios and plans on the saved agents without starting", async () => {
 		const run = EvalRun.of(proposal(), { server, timer });
 

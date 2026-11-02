@@ -15,6 +15,14 @@ const LOCALE = {
 	subject: "format() takes a locale",
 };
 
+/** The todo waiting on the locale change in wren. */
+const waiting = (overrides: Parameters<typeof todo>[0]) =>
+	todo({
+		subject: "Show prices by locale",
+		blockedElsewhere: [LOCALE],
+		...overrides,
+	});
+
 describe("App's blockers in other projects", () => {
 	let testing: Testing;
 
@@ -29,14 +37,7 @@ describe("App's blockers in other projects", () => {
 
 	it("says on a card what it waits on there, and what there waits on it", async () => {
 		const view = await testing.open({
-			todos: [
-				todo({
-					id: 7,
-					subject: "Show prices by locale",
-					blockedElsewhere: [LOCALE],
-				}),
-			],
-			lanes: [],
+			todos: [waiting({ id: 7 })],
 			elsewhere: {
 				blockers: { 7: [{ ...LOCALE, slug: "wren", status: "queued" }] },
 				following: {
@@ -55,7 +56,7 @@ describe("App's blockers in other projects", () => {
 		});
 
 		const list = await waitFor(() =>
-			view.getByRole("list", { name: "Untriaged tasks" }),
+			view.getByRole("list", { name: "Backlog tasks" }),
 		);
 		const waits = within(list).getByTitle("#404 in wren, another project");
 		expect(waits.getAttribute("href")).toContain("project=wren");
@@ -76,10 +77,8 @@ describe("App's blockers in other projects", () => {
 		});
 		const view = await testing.openConversations([deferring], undefined, {
 			todos: [
-				todo({
+				waiting({
 					id: 20,
-					subject: "Show prices by locale",
-					blockedElsewhere: [LOCALE],
 					deferred: {
 						why: "Needs the locale change in wren.",
 						at: "2026-10-27T10:00:00.000Z",
@@ -90,7 +89,6 @@ describe("App's blockers in other projects", () => {
 					},
 				}),
 			],
-			lanes: [],
 			elsewhere: {
 				blockers: { 20: [{ ...LOCALE, slug: "wren", status: "working" }] },
 				following: {},

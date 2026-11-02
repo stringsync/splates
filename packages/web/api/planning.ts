@@ -17,18 +17,18 @@ export interface TodoForm {
 	position?: number;
 }
 
-/** Adds a todo at the bottom of `lane`, or of the untriaged ones for null. */
+/** Adds a todo at the bottom of `lane`, or of the untriaged ones for null; answers its id. */
 export async function addTodo(
 	{ subject, text, position }: TodoForm,
 	files: File[],
 	lane: number | null = null,
-): Promise<void> {
+): Promise<number> {
 	const form = filesForm({ files, keep: [] });
 	todoForm(form, { subject, text, position });
 	if (lane !== null) {
 		form.set("lane", String(lane));
 	}
-	await send("/api/todos", { body: form });
+	return ((await send("/api/todos", { body: form })) as { id: number }).id;
 }
 
 export async function updateTodo(
@@ -219,4 +219,17 @@ export async function addBoard(name: string): Promise<void> {
 /** Calls board `id` by another name. */
 export async function renameBoard(id: number, name: string): Promise<void> {
 	await sendJson(`/api/boards/${id}`, "PUT", { name });
+}
+
+/** Puts board `id` away, or brings it back, keeping its lanes, tasks and links. */
+export async function archiveBoard(
+	id: number,
+	archived: boolean,
+): Promise<void> {
+	await sendJson(`/api/boards/${id}`, "PUT", { archived });
+}
+
+/** Deletes board `id`; the lanes still on it go with it, so move any worth keeping first. */
+export async function dropBoard(id: number): Promise<void> {
+	await sendJson(`/api/boards/${id}`, "DELETE", {});
 }

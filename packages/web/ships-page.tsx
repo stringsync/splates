@@ -5,9 +5,9 @@ import { HistoryIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { ActiveShip } from "./active-ship";
 import { actOnShip, shipHistory, shipHistoryEntry, shipStageLog } from "./api";
-import { BackButton } from "./back-button";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import { RouteTrail } from "./route-trail";
 import { LastShip, ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
 import { ProjectStages } from "./ship-run";
@@ -56,24 +56,32 @@ export function ShipsPage({
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
 			<TopBar
-				leading={
-					viewed === null || (viewed === ACTIVE && busy) ? undefined : (
-						<BackButton
-							parent="Ship"
-							onBack={() => {
-								location.hash = "ships";
-							}}
+				title={
+					viewed === null ? (
+						"Ship"
+					) : (
+						<RouteTrail
+							items={[
+								{
+									label: "Ship",
+									onClick:
+										viewed === ACTIVE && busy
+											? undefined
+											: () => {
+													location.hash = "ships";
+												},
+								},
+								{
+									label:
+										viewed === ACTIVE
+											? "Active ship"
+											: viewed === HISTORY
+												? "History"
+												: "Past ship",
+								},
+							]}
 						/>
 					)
-				}
-				title={
-					viewed === null
-						? "Ship"
-						: viewed === ACTIVE
-							? "Active ship"
-							: viewed === HISTORY
-								? "History"
-								: "Past ship"
 				}
 				actions={
 					viewed === null
@@ -114,22 +122,21 @@ export function ShipsPage({
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
-				<>
-					<ShipPlan
-						ship={new URLSearchParams(location.search).get("ship")}
-						endedAt={live?.cascade?.ended ?? null}
-						busy={busy}
-						loading={live === null}
-						onStarted={() => {
-							setPrevious(live?.cascade?.id ?? null);
-							const url = new URL(location.href);
-							url.searchParams.delete("ship");
-							history.replaceState(null, "", url);
-							location.hash = `ships/${ACTIVE}`;
-						}}
-					/>
+				<ShipPlan
+					ship={new URLSearchParams(location.search).get("ship")}
+					endedAt={live?.cascade?.ended ?? null}
+					busy={busy}
+					loading={live === null}
+					onStarted={() => {
+						setPrevious(live?.cascade?.id ?? null);
+						const url = new URL(location.href);
+						url.searchParams.delete("ship");
+						history.replaceState(null, "", url);
+						location.hash = `ships/${ACTIVE}`;
+					}}
+				>
 					<LastShip cascades={past} />
-				</>
+				</ShipPlan>
 			)}
 		</section>
 	);

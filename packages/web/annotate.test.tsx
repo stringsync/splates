@@ -44,6 +44,18 @@ describe("Annotate", () => {
 		expect(done()).toBe(1);
 	});
 
+	it("is done on Enter unless a button or field has the focus", () => {
+		const { done, board } = opened();
+
+		fireEvent.keyDown(within(board).getByRole("button", { name: "close" }), {
+			key: "Enter",
+		});
+		expect(done()).toBe(0);
+
+		fireEvent.keyDown(board, { key: "Enter" });
+		expect(done()).toBe(1);
+	});
+
 	it("stays open on a click in the frame around the image or on its tools", () => {
 		const { done, board } = opened();
 

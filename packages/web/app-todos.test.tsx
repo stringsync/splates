@@ -42,7 +42,7 @@ describe("App's todos", () => {
 		});
 
 		expect(document.body.textContent).not.toContain("alpha");
-		const cards = within(view.getByRole("list", { name: "Untriaged tasks" }))
+		const cards = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent);
 		expect(cards[0]).toContain("more to say");
@@ -53,7 +53,7 @@ describe("App's todos", () => {
 		expect(view.getAllByRole("img", { name: "stale" })).toHaveLength(1);
 	});
 
-	it("says an untriaged one is untriaged in its dialog, not a step of a sequence", async () => {
+	it("says a Backlog one is in Backlog in its dialog, not a step of a sequence", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "loose" })],
 		});
@@ -61,7 +61,9 @@ describe("App's todos", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^loose/ })),
 		);
-		await waitFor(() => view.getByRole("dialog", { description: "Untriaged" }));
+		await waitFor(() =>
+			view.getByRole("dialog", { description: "In Backlog" }),
+		);
 	});
 
 	it("copies a link to one, without opening it", async () => {
@@ -140,7 +142,7 @@ describe("App's todos", () => {
 		expect(view.queryByRole("textbox", { name: "new task" })).toBeNull();
 	});
 
-	it("adds an untriaged one with no lane", async () => {
+	it("adds one to Backlog", async () => {
 		const view = await testing.open();
 
 		await act(async () =>
@@ -157,6 +159,6 @@ describe("App's todos", () => {
 
 		await waitFor(() => expect(testing.posts).toHaveLength(1));
 		const form = testing.posts[0]?.body as FormData;
-		expect(form.has("lane")).toBe(false);
+		expect(form.get("lane")).toBe("0");
 	});
 });

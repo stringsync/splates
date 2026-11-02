@@ -54,7 +54,7 @@ command definitions. `packages/web` owns the browser app, compiled into
 the repository commands behind `splates dev`, which only the checkout's entry
 `packages/splates/checkout.ts` mounts, so they are never published.
 One root `tsconfig.json` and `biome.json` cover the workspace. The fix command
-runs Biome, TypeScript, and Scry against these shared settings.
+runs Biome, TypeScript, and vet against these shared settings.
 
 The maintained splates agent skill lives in `skills/splates`, linked from
 `.agents/skills/splates`. Third-party skills in `.agents/skills` are installed

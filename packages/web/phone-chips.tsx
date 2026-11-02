@@ -45,7 +45,7 @@ export function PageChips({
 						title={label}
 						aria-current={current ? "page" : undefined}
 						onClick={() => {
-							if (!current) {
+							if (!current || page === "boards") {
 								onGo(
 									value,
 									null,

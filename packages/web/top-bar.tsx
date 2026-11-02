@@ -33,6 +33,8 @@ export interface BarFrame {
 	 * out to draw the bar in place.
 	 */
 	slot?: HTMLElement | null;
+	/** A phone shows its page hierarchy below the project bar. */
+	titleSlot?: HTMLElement | null;
 	/** Said after every title: outdated or a restart under way. */
 	status?: ReactNode;
 	/** The server is updating, even before its streams drop. */
@@ -56,26 +58,14 @@ export interface BarFrame {
 	project?: string;
 	/**
 	 * Leaves the title out, as a phone's page bar does, which the project
-	 * heads instead and the page chips name.
+	 * heads instead, with the page title in its own row.
 	 */
 	untitled?: boolean;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
 
-/**
- * The bar atop every page and conversation, one line of text and icons at
- * `--top-bar-height`: what leads it, as a way back, then the title, the
- * page's status and what `detail` adds, then its actions. On a desktop, a
- * scoped page puts its project switcher before the title, separated by a
- * slash. On a phone, a bar of the project's own, `project`, puts the
- * project's switcher under its title, and `detail` beside it. Those that do not
- * fit fold into a kebab on their left, the last first, so the first stay in
- * sight; the kebab holds the page menu too, where the shell gives one, with
- * Update before it once a restart would update splates. Under
- * a shell that keeps a row for it, it goes there, so the bar stays put
- * however the page under it scrolls or is laid out.
- */
+/** Render a page title or breadcrumb with actions. Pass leading for a navigation control, detail for supporting text, and actions for the responsive action menu. */
 export function TopBar({
 	leading,
 	title,
@@ -208,6 +198,7 @@ export function TopBar({
 		return (
 			<>
 				{createPortal(row, frame.slot)}
+				{frame.titleSlot && createPortal(pageTitle, frame.titleSlot)}
 				{frame.bannerSlot != null &&
 					frame.banner !== undefined &&
 					createPortal(frame.banner, frame.bannerSlot)}

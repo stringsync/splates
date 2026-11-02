@@ -1,34 +1,23 @@
-import type {
-	EvalBatch,
-	EvalGrid,
-	EvalScenario,
-} from "@splates/server/evals/browser";
+import type { EvalBatch, EvalGrid } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
-import { evalBatch, evalBatches, evalScenarios } from "./api";
-import { BackButton } from "./back-button";
+import { evalBatch, evalBatches } from "./api";
 import { ReadingNow } from "./countdown";
-import { EvalAgentsEditor } from "./eval-agents";
-import { EvalAgentsView } from "./eval-agents-view";
+import { EvalActivity } from "./eval-activity";
 import { EvalDebug } from "./eval-debug";
-import { EvalPlanPage } from "./eval-plan-page";
 import { EvalReport } from "./eval-report";
 import { EvalScenarios } from "./eval-scenarios-view";
 import { EvalSection } from "./eval-section";
 import { ORDER, StatusChip, spent } from "./eval-status";
-import { type EvalsOpen, PLAN } from "./page-address";
+import type { EvalsOpen } from "./page-address";
+import { RouteTrail } from "./route-trail";
 import { TopBar } from "./top-bar";
 
 /** How often an open batch with cells still to land is read again. */
 const FOLLOW = Duration.secs(3);
 
-/**
- * The Evals page, one page to a mode: the scenarios index with the batches run
- * on this machine, newest first; the plan of a run of one scenario, with its
- * Run button; and a batch for its report with a cell of it for its run. The bar
- * leads back up a level. Browsing costs no tokens.
- */
+/** Browse evaluation scenarios, improvement activity and reports. Pass open to inspect evidence and onOpen to navigate. */
 export function EvalsPage({
 	open: { batch: open, run, plan },
 	onOpen,
@@ -37,7 +26,6 @@ export function EvalsPage({
 	open: EvalsOpen;
 	onOpen: (batch: string | null, run?: string | string[] | null) => void;
 }): JSX.Element {
-	const [agents] = useState(() => new EvalAgentsEditor());
 	const [batches, setBatches] = useState<EvalBatch[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	// Read each time the list is shown: batches land while it is away.
@@ -54,23 +42,24 @@ export function EvalsPage({
 	return (
 		<section aria-label="evals" className="flex min-w-0 flex-col gap-4">
 			<TopBar
-				leading={
-					plan !== null ? (
-						<BackButton parent="Evals" onBack={() => onOpen(null)} />
-					) : open === null ? undefined : run !== null ? (
-						<BackButton parent="Report" onBack={() => onOpen(open)} />
-					) : (
-						<BackButton parent="Evals" onBack={() => onOpen(null)} />
-					)
-				}
 				title={
-					plan !== null
-						? "Plan"
-						: open === null
-							? "Evals"
-							: run !== null
-								? "Run"
-								: "Report"
+					open === null && plan === null ? (
+						"Evals"
+					) : (
+						<RouteTrail
+							items={[
+								{ label: "Evals", onClick: () => onOpen(null) },
+								...(plan !== null
+									? [{ label: "Plan" }]
+									: run !== null
+										? [
+												{ label: "Report", onClick: () => onOpen(open) },
+												{ label: "Run" },
+											]
+										: [{ label: "Report" }]),
+							]}
+						/>
+					)
 				}
 			/>
 			{error !== null && (
@@ -78,15 +67,14 @@ export function EvalsPage({
 					{error}
 				</p>
 			)}
-			{open === null && plan === null && <EvalAgentsView editor={agents} />}
+			{open === null && <EvalActivity />}
 			{open === null && plan === null && (
-				<EvalScenarios
-					onPlan={(scenarios) => onOpen(PLAN, scenarios)}
-					onOpenBatch={(batch) => onOpen(batch)}
-				/>
+				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} />
 			)}
 			{plan !== null ? (
-				<Plan scenarios={plan} />
+				<p className="text-muted-foreground text-sm">
+					Run evals from a conversation. Browse results on Evals.
+				</p>
 			) : open !== null && run !== null ? (
 				<EvalDebug id={run} />
 			) : open !== null ? (
@@ -99,7 +87,12 @@ export function EvalsPage({
 					<code>evals run</code> is saved in ~/.splates/evals and shows here.
 				</p>
 			) : (
-				<EvalSection label="batches" title="Recent runs" count={batches.length}>
+				<EvalSection
+					label="batches"
+					title="Recent runs"
+					count={batches.length}
+					defaultOpen={false}
+				>
 					<ul className="flex flex-col divide-y">
 						{batches.map((batch) => (
 							<li key={batch.id}>
@@ -142,40 +135,6 @@ export function EvalsPage({
 				</EvalSection>
 			)}
 		</section>
-	);
-}
-
-/** The plan of a run of scenarios, under the skill the project lists them in. */
-function Plan({ scenarios }: { scenarios: string[] }): JSX.Element {
-	const [found, setFound] = useState<EvalScenario[] | undefined>();
-	const [error, setError] = useState<string | null>(null);
-	const wanted = scenarios.join(",");
-	useEffect(() => {
-		evalScenarios().then(
-			(each) =>
-				setFound(each.filter((one) => wanted.split(",").includes(one.id))),
-			(failed: unknown) =>
-				setError(failed instanceof Error ? failed.message : String(failed)),
-		);
-	}, [wanted]);
-	if (error !== null) {
-		return (
-			<p role="alert" className="text-destructive text-sm">
-				{error}
-			</p>
-		);
-	}
-	if (found === undefined) {
-		return <ReadingNow label="Reading the scenarios…" />;
-	}
-	const skills = [
-		...new Set(found.map((one) => one.skill ?? one.group ?? "evals")),
-	];
-	return (
-		<EvalPlanPage
-			scenarios={scenarios}
-			skill={skills.length === 1 ? (skills[0] ?? "evals") : "evals"}
-		/>
 	);
 }
 

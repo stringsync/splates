@@ -79,7 +79,7 @@ describe("App's Auto pick page", () => {
 		expect(automations.className).toContain("tabs-list:bg-accent");
 
 		const back = await waitFor(() =>
-			view.getByRole("button", { name: "Back to Automations" }),
+			view.getByRole("button", { name: "Automations" }),
 		);
 		await act(async () => fireEvent.click(back));
 		expect(location.hash).toBe("#automations");
@@ -117,8 +117,7 @@ describe("App's Auto pick page", () => {
 		await act(async () =>
 			fireEvent.change(kind, { target: { value: "bugfix" } }),
 		);
-		const back = () =>
-			view.getByRole("button", { name: "Back to Automations" });
+		const back = () => view.getByRole("button", { name: "Automations" });
 		const unloading = new Event("beforeunload", { cancelable: true });
 		window.dispatchEvent(unloading);
 		expect(unloading.defaultPrevented).toBe(true);

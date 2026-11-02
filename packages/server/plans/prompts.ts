@@ -3,6 +3,11 @@ export function taskNumberReference(id: number): string {
 	return `[SPLATES TASK #${id}]`;
 }
 
+/** What a chat with an agent takes to mean lane `id`. */
+export function laneReference(id: number): string {
+	return `[SPLATES LANE ${id}]`;
+}
+
 /**
  * What the untriaged lane, the tasks in no lane, goes by where a lane's
  * number would: `[SPLATES LANE untriaged]`, `splates lane show untriaged`.

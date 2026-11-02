@@ -12,28 +12,24 @@ import { touchItems } from "./board";
 import type { BarAction } from "./top-bar";
 
 /**
- * Which columns the board shows, picked from its bar: each lane and the
- * untriaged, with how many todos it holds, or all at once. The action says
+ * Which columns the board shows, picked from its bar: each lane,
+ * with how many todos it holds, or all at once. The action says
  * how many are hidden, once one is.
  */
 export function shownLanes({
 	lanes,
-	untriaged,
 	hidden,
 	onToggle,
 	onHide,
 }: {
 	lanes: LaneState[];
-	/** How many todos are in no lane. */
-	untriaged: number;
-	/** The lanes left out, null for the untriaged. */
-	hidden: (number | null)[];
-	onToggle: (lane: number | null) => void;
+	/** The lanes left out. */
+	hidden: number[];
+	onToggle: (lane: number) => void;
 	/** Hides these columns and shows the rest. */
-	onHide: (lanes: (number | null)[]) => void;
+	onHide: (lanes: number[]) => void;
 }): BarAction {
 	const columns = [
-		{ id: null, name: "Untriaged", count: untriaged },
 		...lanes.map((lane) => ({
 			id: lane.id,
 			name: lane.name,
@@ -61,7 +57,7 @@ export function shownLanes({
 				<DropdownMenuSeparator />
 				{columns.map((column) => (
 					<DropdownMenuCheckboxItem
-						key={column.id ?? "untriaged"}
+						key={column.id}
 						checked={!hidden.includes(column.id)}
 						onCheckedChange={() => onToggle(column.id)}
 					>

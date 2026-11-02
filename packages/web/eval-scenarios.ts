@@ -68,3 +68,11 @@ export function lastResults(grids: EvalGrid[]): Map<string, LastResult> {
 	}
 	return results;
 }
+
+/** What a queued task says to have an agent work the eval loop on `scenario`. */
+export function loopTask(scenario: string): { subject: string; text: string } {
+	return {
+		subject: `Run the eval loop for ${scenario}`,
+		text: `Work the eval loop in the splates skill's \`references/evals.md\` for the scenario \`${scenario}\`: run it with 3 repetitions for its starting pass rate, label each failure (harness, scenario, judge or skill), fix one thing in that layer, rerun, and log the round in SPLATES.md, until it passes every repetition or three rounds bring no gain. Never start an eval yourself: ask with the run evals card.`,
+	};
+}

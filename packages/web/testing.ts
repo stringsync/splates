@@ -5,6 +5,7 @@ import type { BillingView, SpendReport } from "@splates/server/spend";
 import "./testing-dom";
 import { expect } from "bun:test";
 import type { AutoPickRulesView } from "@splates/server/auto-pick";
+import { BACKLOG_LANE } from "@splates/server/board/browser";
 import type {
 	ConversationState,
 	Said,
@@ -140,7 +141,14 @@ export class Testing implements Resource {
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();
 	/** What the page reads; a test sets it before the page fetches again. */
-	served: Snapshot = snapshot();
+	#served: Snapshot = inBacklog(snapshot());
+	/** The board the server lists, always with Backlog and no todo in no lane. */
+	get served(): Snapshot {
+		return this.#served;
+	}
+	set served(next: Snapshot) {
+		this.#served = inBacklog(next);
+	}
 	/** What the page reads of another project's, by the slug `?project=` names. */
 	servedOf: Record<string, Snapshot> = {};
 	/** What `/api/paths` lists, for `@`. */
@@ -594,7 +602,7 @@ export class Testing implements Resource {
 		await waitFor(() =>
 			expect(
 				view.queryByRole("region", { name: "inbox", hidden: true }) ??
-					view.getByRole("region", { name: "Untriaged", hidden: true }),
+					view.getByRole("region", { name: "new lane", hidden: true }),
 			).toBeTruthy(),
 		);
 		return view;
@@ -798,4 +806,20 @@ export async function openQueueRow(
 			within(queueRow(view, name, list)).getByRole("button", { name: "Open" }),
 		),
 	);
+}
+
+/**
+ * `snapshot` as the server lists it: Backlog is always a lane, and a todo in
+ * no lane waits there.
+ */
+export function inBacklog(snapshot: Snapshot): Snapshot {
+	return {
+		...snapshot,
+		lanes: snapshot.lanes.some((lane) => lane.id === BACKLOG_LANE)
+			? snapshot.lanes
+			: [{ id: BACKLOG_LANE, name: "Backlog", board: 1 }, ...snapshot.lanes],
+		todos: snapshot.todos.map((todo) =>
+			todo.lane === null ? { ...todo, lane: BACKLOG_LANE } : todo,
+		),
+	};
 }

@@ -1,6 +1,10 @@
+import { useSyncExternalStore } from "react";
+import { placeKey, shownProject } from "./project-places";
+
 /** Where the current board is kept: the URL first, then what the device last had. */
+const changed = new Set<() => void>();
+
 const CURRENT = "splates.board";
-const STARRED = "splates.boards.starred";
 const RECENT = "splates.boards.recent";
 
 /** How many recent boards are kept. */
@@ -9,7 +13,7 @@ const RECENT_KEPT = 3;
 /** The board the URL names, else the one this device last showed, else null. */
 export function savedBoard(): number | null {
 	const named = new URLSearchParams(location.search).get("board");
-	const raw = named ?? localStorage.getItem(CURRENT);
+	const raw = named ?? localStorage.getItem(currentKey());
 	const id = raw === null ? Number.NaN : Number(raw);
 	return Number.isInteger(id) ? id : null;
 }
@@ -19,26 +23,14 @@ export function saveBoard(id: number): void {
 	const url = new URL(location.href);
 	url.searchParams.set("board", String(id));
 	history.replaceState(history.state, "", url);
-	localStorage.setItem(CURRENT, String(id));
+	localStorage.setItem(currentKey(), String(id));
 	localStorage.setItem(
 		RECENT,
 		JSON.stringify([id, ...readIds(RECENT).filter((each) => each !== id)]),
 	);
-}
-
-/** The boards this device starred. */
-export function starredBoards(): number[] {
-	return readIds(STARRED);
-}
-
-/** Stars board `id`, or takes the star off it. */
-export function toggleStar(id: number): number[] {
-	const stars = readIds(STARRED);
-	const next = stars.includes(id)
-		? stars.filter((each) => each !== id)
-		: [...stars, id];
-	localStorage.setItem(STARRED, JSON.stringify(next));
-	return next;
+	for (const notify of changed) {
+		notify();
+	}
 }
 
 /** The boards this device showed last, newest first. */
@@ -53,4 +45,24 @@ function readIds(key: string): number[] {
 	} catch {
 		return [];
 	}
+}
+
+function currentKey(): string {
+	return `${CURRENT}.${placeKey(shownProject())}`;
+}
+
+/** Follows board links, browser history, and selections while panels remain mounted. */
+export function useSavedBoard(): number | null {
+	return useSyncExternalStore(subscribe, savedBoard);
+}
+
+function subscribe(notify: () => void): () => void {
+	changed.add(notify);
+	window.addEventListener("popstate", notify);
+	window.addEventListener("hashchange", notify);
+	return () => {
+		changed.delete(notify);
+		window.removeEventListener("popstate", notify);
+		window.removeEventListener("hashchange", notify);
+	};
 }

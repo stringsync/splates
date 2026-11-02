@@ -47,7 +47,7 @@ in the splates repository) documents each one, and its defaults are in
 | `ship`         | `null`  | What the publish runner runs from the root to publish the project's packages at their next version and commit and tag the release on trunk. `null` never ships it. Only the person ships. |
 | `shipStatus` | `null` | A read-only command in the main tree printing JSON `{ "version": "1.2.3", "artifacts": [{ "name": "npm", "deployed": "1.2.3" }, { "name": "git", "deployed": null }] }`. Every artifact must match the requested release before a ship step proceeds. Null reads npm latest for every public package. Failed commands and invalid replies are errors, retried by the step. |
 | `afterBump` | `null` | A command for consumers to run after installing this project’s new versions, such as `"bunx @stringsync/splates refresh"`. Retained for ship-step adoption; the old cascade no longer runs bump tasks. |
-| `ships` | `null` | `{ name: { paths: ["name/**"], ship, shipStatus?, afterBump? } }`: the ship targets of a repository that holds several, each shipped by its own command. Unlike `projects` it splits no tasks, queues or gates. `shipStatus` and `afterBump` fall back to the repository's. An empty name, a target with no paths, an absolute or `..` glob, or two overlapping targets is refused. With none, the repository is one target, as `ship` and `projects` say. |
+| `ships` | `null` | `{ name: { packages \| deploys, ship, shipStatus?, afterBump? } }`: the ship targets of a repository that holds several, each shipped by its own command. Unlike `projects` it splits no tasks, queues or gates. A target names what it ships with exactly one of `packages: ["@scope/name"]` (an npm target: its version is those packages', its files they and the workspace packages they depend on) or `deploys: ["@scope/web"]` (a versionless deploy target: its `shipStatus` prints the commit deployed, and what is unshipped is the commits since it touching those packages and their workspace dependencies; the Ships page shows it by commits, with no bump picker). `shipStatus` and `afterBump` fall back to the repository's. An empty name, a target with no names, or one naming both kinds is refused; targets may overlap. With none, the repository has no ship targets: nothing is found by path. |
 
 ## Task events
 
@@ -73,7 +73,7 @@ project cannot declare itself from a folder of its own.
 export default {
 	projects: {
 		wren: ["wren/**"],
-		scry: ["scry/**", "docs/scry.md"],
+		vet: ["vet/**", "docs/vet.md"],
 	},
 	shared: ["package.json", "bun.lock", "bin/**"],
 } satisfies ConfigFile;
@@ -131,7 +131,7 @@ Byte and millisecond options take plain numbers, as `100 * 1024 * 1024`.
 | `tunnel`         | `null` (`cloudflared`)  | A `TunnelProvider` of the project's own for `splates server --tunnel`: [setup.md](setup.md), under the tunnel of their own.                                                                            |
 | `replica`        | `null`                  | Where the server keeps a copy of the project's records, to move them to another machine: `{ provider: "s3", endpoint, bucket }`, whose keys the Creds page asks for, or `{ provider: "dir", path }` ([transfer.md](transfer.md)). |
 | `evals`          | `null` (no Evals page)  | `{ results, list?, run?, plan? }`: where eval batches land for the Evals page and the commands its run card lists, prices and starts them with (`docs/evals.md` in the splates repository).            |
-| `dictationWords` | `[]`                    | Words the composer's mic spells as written for everyone on the project, as `["wren", "scry"]`; each person adds their own on the Setup page.                                                       |
+| `dictationWords` | `[]`                    | Words the composer's mic spells as written for everyone on the project, as `["wren", "vet"]`; each person adds their own on the Setup page.                                                       |
 | `projects`       | `null` (the repository is one project) | `{ slug: ["globs/**"] }`: the projects inside the repository, each the paths it owns. See [Projects](#projects). |
 | `shared`         | `[]`                    | Path globs that count against no project, such as the root `package.json`. See [Projects](#projects). |
 | `tags`           | `null` (any tag, none required) | `{ allowed?: [...], required?: boolean, colors?: { <tag>: <color> } }`: free labels that group tasks without making them projects; ships, queues and the merge gate ignore them. Tasks take them with `--tag <name>` (repeatable or a comma list; lowercase with dashes) on `splates add`, `task add`, `task defer` and `task update` (`--remove-tag` drops one), and `list` and `task list` filter by `--tag`. With `allowed`, an unknown tag is refused, naming the allowed ones, and a task added from inside a folder named for an allowed tag gets it by default. With `required: true`, a new task with no tag is refused. Only new and updated tasks are checked; existing tasks stay valid untagged. `colors` tints a tag's chips on the page, one of red, orange, amber, green, teal, blue, indigo, violet, pink or gray; a tag without one gets a neutral chip. |

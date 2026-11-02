@@ -15,13 +15,12 @@ import type { References } from "#web/references.tsx";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 /**
- * Optional component overrides for the thread. `AssistantMessage` and
- * `Welcome` replace whole sections; the remaining slots override how the
- * assistant message renders tool calls and part groups. Tool UIs registered
- * by name (toolkit `render`, `useAssistantDataUI`) take precedence over
- * `ToolFallback`. When `TaskGroup` is set, tool calls that carry a nested
- * conversation and have no registered UI render through it instead of the
- * tool group; without it they render like any other tool call.
+ * Replaces parts of the thread, each optional: `AssistantMessage` and
+ * `Welcome` swap whole sections, and the rest change how an assistant message
+ * shows tool calls and part groups. A tool UI registered by name wins over
+ * `ToolFallback`. Set `TaskGroup` to show tool calls that carry a nested
+ * conversation as a group of their own; without it they show like any other
+ * tool call.
  */
 export type ThreadComponents = {
 	AssistantMessage?: ComponentType | undefined;
@@ -53,6 +52,11 @@ export type ThreadProps = {
 	above?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
 	welcome?: ReactNode | undefined;
+	/**
+	 * With `docked`, the greeting sits at the top of the thread, as a message
+	 * does, rather than centered over the composer.
+	 */
+	welcomeAtTop?: boolean | undefined;
 	/** Shown under the composer while the thread is empty, so it never moves the composer. */
 	below?: ReactNode | undefined;
 	/** In the composer's bottom row, before its buttons: the session's pickers. */

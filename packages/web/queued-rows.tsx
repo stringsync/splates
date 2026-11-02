@@ -4,6 +4,7 @@ import { cn } from "#web/lib/utils.ts";
 import { queuedAddress } from "./conversation-address";
 import type { Folder, Queued } from "./project-folders";
 import { QueueBlockersIcon } from "./queue-blockers";
+import { QueueToggle } from "./todo-queue";
 
 /**
  * A folder's queued tasks under its agents, muted and italic with an
@@ -27,7 +28,7 @@ export function QueuedRows({
 	return (
 		<ul aria-label={`${folder.name} queue`} className="flex flex-col">
 			{folder.queue.map((queued, place) => (
-				<li key={queued.todo.id} className="flex items-center">
+				<li key={queued.todo.id} className="group flex items-center">
 					<button
 						type="button"
 						data-row
@@ -50,6 +51,7 @@ export function QueuedRows({
 							</span>
 						</span>
 					</button>
+					<QueueToggle todo={queued.todo} />
 					<QueueBlockersIcon
 						todo={queued.todo}
 						chain={queued.unqueued}

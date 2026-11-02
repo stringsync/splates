@@ -63,6 +63,7 @@ export const Thread: FC<ThreadProps> = ({
 	composer,
 	onRead,
 	docked = false,
+	welcomeAtTop = false,
 	historyFailure,
 	occupied = false,
 }) => {
@@ -92,6 +93,7 @@ export const Thread: FC<ThreadProps> = ({
 					autoFocus={autoFocus}
 					onRead={onRead}
 					docked={docked}
+					welcomeAtTop={welcomeAtTop}
 					going={going}
 				/>
 			</ThreadExtrasContext.Provider>
@@ -104,6 +106,7 @@ const ThreadRoot: FC<{
 	autoFocus: boolean;
 	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
+	welcomeAtTop: boolean;
 	going: boolean;
 	occupied: boolean;
 }> = ({
@@ -111,6 +114,7 @@ const ThreadRoot: FC<{
 	autoFocus,
 	onRead,
 	docked,
+	welcomeAtTop,
 	going,
 	historyFailure,
 	occupied,
@@ -196,7 +200,9 @@ const ThreadRoot: FC<{
 				>
 					<AuiIf condition={isNew}>
 						{docked ? (
-							<div className="my-auto">{welcome ?? <Welcome />}</div>
+							<div className={welcomeAtTop ? "mb-auto" : "my-auto"}>
+								{welcome ?? <Welcome />}
+							</div>
 						) : (
 							(welcome ?? <Welcome />)
 						)}

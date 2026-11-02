@@ -46,7 +46,7 @@ export function useThreadMessages(
 		feed,
 		conversation.messages.filter((each) => each.queued),
 		(each) => (each.at === null ? null : Date.parse(each.at)),
-		heldAfter(),
+		heldAfter(conversation.taking === "queue"),
 	);
 	const sendingNow = useReactive(feed, (feed) => feed.sending.get(id), [
 		"changed",
@@ -55,7 +55,7 @@ export function useThreadMessages(
 		feed,
 		sendingNow ?? [],
 		(each) => each.at,
-		heldAfter(),
+		heldAfter(conversation.taking === "queue"),
 	);
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);

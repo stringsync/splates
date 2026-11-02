@@ -105,9 +105,7 @@ describe("App's setup", () => {
 		);
 		await step(view, "Choose the agents splates starts");
 		await act(async () =>
-			fireEvent.click(
-				await view.findByRole("button", { name: "Back to Setup" }),
-			),
+			fireEvent.click(await view.findByRole("button", { name: "Setup" })),
 		);
 		await act(async () =>
 			fireEvent.click(

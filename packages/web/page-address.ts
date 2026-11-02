@@ -104,7 +104,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			next === "setup"
 				? setupAddress(this.setup)
 				: next === "todos"
-					? ""
+					? "#todos"
 					: next === "conversations" && conversation !== null
 						? `#conversations/${conversation}`
 						: next === "auto-pick"
@@ -161,7 +161,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			this.page = "evals";
 			this.evals =
 				batch === PLAN && run !== null
-					? { batch: null, run: null, plan: [run].flat() }
+					? NO_EVALS
 					: {
 							batch,
 							run: batch === null || Array.isArray(run) ? null : run,
@@ -301,6 +301,9 @@ function entry(): Entry | null {
 }
 
 function pageIn(hash: string): Page {
+	if (hash === "#boards") {
+		return "boards";
+	}
 	// The Queue page, `#queue` and the Workers page it took in too.
 	if (
 		hash === "#tasks" ||
@@ -453,8 +456,8 @@ export interface EvalsOpen {
 	plan: string[] | null;
 }
 
-/** The word standing for the plan page where an Evals address names a batch; a batch directory is always `batch-…`. */
-export const PLAN = "plan";
+// Retain the reserved word to recognize old bookmarks.
+const PLAN = "plan";
 
 const NO_EVALS: EvalsOpen = { batch: null, run: null, plan: null };
 
@@ -465,13 +468,7 @@ function evalsIn(hash: string): EvalsOpen {
 		return NO_EVALS;
 	}
 	if (batch === PLAN) {
-		return run === undefined
-			? NO_EVALS
-			: {
-					batch: null,
-					run: null,
-					plan: run.split(",").map(decodeURIComponent),
-				};
+		return NO_EVALS;
 	}
 	return {
 		batch: decodeURIComponent(batch),

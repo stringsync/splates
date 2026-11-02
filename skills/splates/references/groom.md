@@ -83,7 +83,7 @@ few `splates task` commands, then your turn ends.
    too. When its detail holds `#### Questions from grooming`, a groomer
    before you asked them: those the user has answered since, in this
    conversation or in its detail, fold into it and go on; while any is open,
-   leave it as it is.
+   keep those questions in its detail and place it in a named lane below.
 2. **One that already asks it.** Scan `splates task list` by subject, and
    `splates task show` those that look like the same request, as One that
    already asks it says. When an open one asks it,
@@ -118,8 +118,8 @@ few `splates task` commands, then your turn ends.
    every lane you add on a board, as Boards in [queue.md](queue.md) says:
    `splates board list`, then `--board <n>` for the one that fits, or `splates
    board add` one. When no
-   themed lane fits, use `--lane backlog`: the permanent catch-all lane for
-   deferred work.
+   themed lane fits, create a named lane for the task, even if it is the
+   only task in it. Never leave a processed task in Backlog.
 6. **Place it**, last and in one `splates task update N '<detail>'
    --blocked-by <id> (repeated per id) --lane <n>`. When the config lists tags and it has none, add
    `--tag <name>` for the project it changes. Pick no agent, model or
@@ -129,7 +129,7 @@ few `splates task` commands, then your turn ends.
 ### Conflicts and open questions
 
 The groomer makes every call a revert would undo itself. It asks the user,
-rather than place it, when N:
+and records the questions while still placing it in a named lane, when N:
 
 - asks the opposite of another task, open or under way;
 - would undo work already merged, or go against a call the code or a past
@@ -137,7 +137,8 @@ rather than place it, when N:
 - is too unclear to organize: you cannot tell what it asks, so not what it
   duplicates, splits into or touches.
 
-Leave it in Backlog, and ask the user as numbered questions
+Place it in a named lane (create one for clarification when its scope is
+still unclear), and ask the user as numbered questions
 in your reply, as [questions.md](questions.md) says, naming the task or commit
 each conflict is with. You have no `SPLATES.md`, so write the same questions
 into its detail under a `#### Questions from grooming` heading, keeping the
@@ -167,14 +168,15 @@ Reading the board whole, as step 5 has you, shows what to prune:
 
 Change nothing else: no position, and no task taken, which splates refuses
 you. No queue card either: the user queues lanes from the board. Never
-leave a processed task for lack of a lane: Backlog can be worked and queued like
-other lanes, but cannot be renamed, removed or merged away, even when empty.
+leave a processed task in Backlog: create a named lane when none fits,
+including for tasks awaiting answers. Backlog is only the intake for tasks
+that have not yet been organized.
 
 ### Replying
 
 Reply with one line per task on where it went, such as `#12: in lane 3
 Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and
-#16`, `#17: left in Backlog on the questions below`, `#18 and #19: into new
+#16`, `#17: in lane 6 Clarification, with the questions below`, `#18 and #19: into new
 lane 4 Auto pick`, `lane 5 Old tests: removed, empty`, `#20: removed, already merged in a1b2c3d`, then those questions, and nothing
 more, then end your turn. Never wait, sleep or poll for the next task:
 splates tells you.

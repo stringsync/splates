@@ -198,7 +198,7 @@ export function RunCommandCard({
 			) : choice !== null && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />
 			) : null}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
 				{choice !== null ? (
 					<span className="flex items-center gap-1 text-xs">
 						{choice === RUN_ALLOWED ? (
@@ -245,7 +245,7 @@ export function RunCommandCard({
 								size="sm"
 								disabled={send === null || busy !== null}
 								onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
-								className="gap-1.5"
+								className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
 							>
 								{busy === RUN_ALLOWED && showBusy ? (
 									<PendingSpinner shown />

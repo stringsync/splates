@@ -297,8 +297,8 @@ export interface UndoCred {
  * the area that asked for them leaves.
  */
 const OUTSIDE: Record<string, string> = {
-	CLOUDFLARE_API_TOKEN: "scry's Workers AI",
-	CLOUDFLARE_ACCOUNT_ID: "scry's Workers AI",
+	CLOUDFLARE_API_TOKEN: "vet's Workers AI",
+	CLOUDFLARE_ACCOUNT_ID: "vet's Workers AI",
 };
 
 /** The names in `keeps` something still keeps. */

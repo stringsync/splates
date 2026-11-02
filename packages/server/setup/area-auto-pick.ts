@@ -33,7 +33,7 @@ function autoPickArea(): SetupArea {
 				optional: true,
 			},
 		],
-		// Clef's, for the undo plan to list; scry's Workers AI keeps them.
+		// Clef's, for the undo plan to list; vet's Workers AI keeps them.
 		uses: JUDGE_CREDS.clef,
 		check: async ({ device }) =>
 			(await judgeFrom(new Credentials([device]))) !== null,
@@ -52,7 +52,7 @@ function autoPickArea(): SetupArea {
 				}
 				if (await clefKept(device)) {
 					leaves.push(
-						`Auto pick still judges with Clef, on ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")}, kept for scry's Workers AI: forget them on the Creds page to stop it.`,
+						`Auto pick still judges with Clef, on ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")}, kept for vet's Workers AI: forget them on the Creds page to stop it.`,
 					);
 				}
 				return leaves;

@@ -1,6 +1,6 @@
 import { cp, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import type { Repo, Scenario } from "./scenario";
 
 /** Makes the sandbox of one run of `scenario` with the skill at `skill`. */
@@ -42,7 +42,10 @@ export async function sandbox(
 	};
 	const repo = repoAt(dir, env);
 	for (const at of installs) {
-		await cp(skill, join(dir, at), { recursive: true });
+		await cp(skill, join(dir, at), {
+			recursive: true,
+			filter: (source) => relative(skill, source).split(/[\\/]/)[0] !== "evals",
+		});
 	}
 	await repo.run(["git", "init", "-q", "-b", "main"]);
 	await repo.run(["git", "config", "user.name", "Eval seed"]);

@@ -16,6 +16,8 @@ const DEFAULTS: Record<"som" | "llm", Record<string, string>> = {
 
 /** One model scry asks at an effort, and the config naming it. */
 export interface ModelChoice {
+	/** Dollars per million uncached input tokens; absent when unavailable. */
+	inputPrice?: number | null;
 	effort: string;
 	/** The model, or none when no config names one and scry has no default. */
 	model: string | null;

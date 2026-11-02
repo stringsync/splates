@@ -29,6 +29,7 @@ export interface EvalCommands {
 
 /** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
 export interface EvalLaunchSpec {
+	loop?: { id: string; version: number };
 	/** Names the card, so a reload finds its run again. */
 	key: string;
 	/** The card's label, the skill or suite it names. */
@@ -104,7 +105,7 @@ export class EvalLaunches
 
 	constructor(
 		private readonly ps: Ps,
-		storage: Storage,
+		private readonly storage: Storage,
 	) {
 		this.record = storage.document("eval-launches.json");
 	}
@@ -181,22 +182,63 @@ export class EvalLaunches
 				{},
 			);
 		}
+		// Serialize starts across cards and server instances before spending.
+		const lock = this.storage.lock("eval-launch-start");
+		await lock.acquire();
+		try {
+			return await this.startLocked(commands, spec);
+		} finally {
+			await lock.release();
+		}
+	}
+
+	private async startLocked(
+		commands: EvalCommands,
+		spec: EvalLaunchSpec,
+	): Promise<EvalLaunch> {
+		if (spec.loop !== undefined) {
+			const existing = Object.values((await this.record.read()) ?? {}).find(
+				(each) =>
+					each.commands.root === commands.root &&
+					each.spec.loop?.id === spec.loop?.id &&
+					each.spec.loop?.version === spec.loop?.version &&
+					each.launch.status !== "refused",
+			);
+			if (existing !== undefined) {
+				await this.storage
+					.document<Record<string, string>>("eval-launch-aliases.json")
+					.update((all) => ({
+						...all,
+						[idOf(commands, spec.key)]: idOf(commands, existing.spec.key),
+					}));
+				return (await this.get(commands, existing.spec.key)) ?? existing.launch;
+			}
+		}
 		const id = idOf(commands, spec.key);
 		const held = this.launches.get(id);
 		if (held !== undefined && held.status === "running") {
 			return this.read(held);
 		}
 		const known = new Set(await batchesIn(commands.results));
-		const child = this.ps.start(["sh", "-c", commands.run], {
+		const reserved: SavedLaunch = {
+			launch: {
+				id: crypto.randomUUID(),
+				key: spec.key,
+				status: "running",
+				batch: null,
+				output: "",
+			},
+			commands,
+			spec,
+		};
+		// Persist the request before a process can spend, including a crash during spawn.
+		await this.record.update((all) => ({ ...all, [id]: reserved }));
+		const child = this.ps.start(["sh", "-c", commands.run as string], {
 			cwd: spec.cwd ?? commands.root,
 			env: envOf(commands, spec),
 		});
 		const launch: Launched = {
-			id: crypto.randomUUID(),
-			key: spec.key,
-			status: "running",
-			batch: null,
-			output: "",
+			...reserved.launch,
 			recordId: id,
 			commands,
 			spec,
@@ -222,7 +264,7 @@ export class EvalLaunches
 		return this.read(launch);
 	}
 
-	/** Runs again each launch a stopped server left in progress. */
+	/** Recover saved launches after a server restart without rerunning paid loop requests. */
 	async resume(commands: EvalCommands[]): Promise<void> {
 		const current = new Map(commands.map((each) => [each.root, each]));
 		for (const [id, saved] of Object.entries(
@@ -235,7 +277,7 @@ export class EvalLaunches
 				continue;
 			}
 			const commandsNow = current.get(saved.commands.root);
-			if (commandsNow?.run != null) {
+			if (commandsNow?.run != null && saved.spec.loop === undefined) {
 				await this.start(commandsNow, saved.spec);
 			}
 		}
@@ -243,7 +285,7 @@ export class EvalLaunches
 
 	/** The run of the card `key` names, or null when it has none. */
 	async get(commands: EvalCommands, key: string): Promise<EvalLaunch | null> {
-		const id = idOf(commands, key);
+		const id = await this.resolveId(commands, key);
 		const launch = this.launches.get(id);
 		return launch === undefined
 			? ((await this.record.read())?.[id]?.launch ?? null)
@@ -252,7 +294,7 @@ export class EvalLaunches
 
 	/** Stops the run of the card `key` names; its landed cells stay on the Evals page. */
 	async stop(commands: EvalCommands, key: string): Promise<EvalLaunch | null> {
-		const launch = this.launches.get(idOf(commands, key));
+		const launch = this.launches.get(await this.resolveId(commands, key));
 		if (launch === undefined) {
 			return null;
 		}
@@ -261,6 +303,20 @@ export class EvalLaunches
 			launch.child.kill();
 		}
 		return this.read(launch);
+	}
+
+	private async resolveId(
+		commands: EvalCommands,
+		key: string,
+	): Promise<string> {
+		const id = idOf(commands, key);
+		return (
+			(
+				await this.storage
+					.document<Record<string, string>>("eval-launch-aliases.json")
+					.read()
+			)?.[id] ?? id
+		);
 	}
 
 	/** Stops runners and waits for their writes, leaving interrupted runs in progress to resume. */
@@ -306,6 +362,7 @@ export class EvalLaunches
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
 				results: launch.commands.results,
+				...(launch.spec.loop === undefined ? {} : { loop: launch.spec.loop }),
 				conversation: launch.spec.conversation,
 			});
 		} else {
@@ -419,6 +476,7 @@ function viewOf(launch: Launched): EvalLaunch {
 
 /** A run that finished with its batch written, for the conversation whose card started it. */
 export interface EvalFinished {
+	loop?: { id: string; version: number };
 	launch: EvalLaunch;
 	/** The directory the batch is in. */
 	results: string;
@@ -437,7 +495,7 @@ export type EvalLaunchesEvents = {
 	running: EvalRunning;
 };
 
-interface SavedLaunch {
+export interface SavedLaunch {
 	launch: EvalLaunch;
 	commands: EvalCommands;
 	spec: EvalLaunchSpec;

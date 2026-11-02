@@ -203,6 +203,8 @@ export const REAL: Runners = { command: commandFor, judge };
 
 /** One cell of a batch: a scenario on an agent with a skill, at a repetition. */
 export interface Cell {
+	/** File-specific factory; takes precedence over the batch default. */
+	sandbox?: MakeSandbox;
 	scenario: Scenario;
 	agent: AgentPick;
 	skill: { dir: string; used: SkillUsed };
@@ -245,7 +247,7 @@ export async function runBatch(
 				used: cell.skill.used,
 				repetition: cell.repetition,
 				runners: opts.runners,
-				sandbox: opts.sandbox,
+				sandbox: cell.sandbox ?? opts.sandbox,
 			});
 			await saveResult(dir, cellId(index), result);
 			opts.landed?.(result);

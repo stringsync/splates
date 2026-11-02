@@ -133,7 +133,7 @@ export function GrantCard({
 			) : (granted || denied) && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />
 			) : null}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
 				{granted || denied ? (
 					<span className="flex items-center gap-1 text-xs">
 						{granted ? (
@@ -163,7 +163,7 @@ export function GrantCard({
 							size="sm"
 							disabled={send === null || busy !== null}
 							onClick={() => turn(allow)}
-							className="gap-1.5"
+							className="gap-1.5 @max-md:h-11 @max-md:flex-1 @max-md:text-base"
 						>
 							{busy === "allow" && showBusy ? (
 								<PendingSpinner shown />

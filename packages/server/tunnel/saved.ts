@@ -11,7 +11,7 @@ export const TUNNEL_TOKEN = "SPLATES_TUNNEL_TOKEN";
 
 /**
  * The cred the Cloudflare API token is kept as, on the device, since the
- * account is the person's. Not `CLOUDFLARE_API_TOKEN`, which scry's Workers
+ * account is the person's. Not `CLOUDFLARE_API_TOKEN`, which vet's Workers
  * AI token goes by in the same store.
  */
 export const API_TOKEN = "SPLATES_CLOUDFLARE_API_TOKEN";

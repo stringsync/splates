@@ -78,8 +78,13 @@ export class MechanicalAdoption {
 			}
 		}
 		if (tree.gone) {
+			// A repo whose config requires a tag refuses an untagged fresh task, so
+			// tag it with its project's folder, the step slug less its npm scope.
+			const folder = step.slug.slice(step.slug.lastIndexOf("/") + 1);
+			const allowed = config.tags?.allowed;
 			await add(repo, task, {
 				tasks: numbered === undefined ? [] : [numbered.id],
+				tag: allowed === undefined || allowed.includes(folder) ? [folder] : [],
 				goal: `Adopt ${pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")} for this ship.`,
 			});
 			tree = await service.find(task);
@@ -258,7 +263,11 @@ export class MechanicalAdoption {
 	}
 
 	private taskOf(ship: Cascade, step: CascadeStep): string {
-		return `ship-${ship.started.replace(/[^0-9]/g, "")}-${step.slug}`;
+		const slug = step.slug
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-|-$/g, "");
+		return `ship-${ship.started.replace(/[^0-9]/g, "")}-${slug}`;
 	}
 }
 

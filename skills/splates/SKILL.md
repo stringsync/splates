@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.7
+version: 1.13.8
 ---
 
 # Using splates
@@ -117,12 +117,21 @@ The task set out to stop uploads retrying a 413.
 When the work is blocked and only set aside for later, remove it with
 `--reason blocked`, which asks why it stopped and what it waits on (a task
 in another project as `--blocked-by wren#404`), and report it
-deferred, the blockers in short after the colon, not removed:
+deferred, the blockers in short after the colon, not removed. Ask any
+question the work waits on as a numbered question, never as a blocker. When
+the tasks it waits on can be queued, end the reply with their queue card,
+the deferred task last, so the user queues them all in one press:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on #812 and your call on old clients
+## ⏸ Deferred <task>: waiting on #812 and #813
 
-The task set out to stop uploads retrying a 413; it is back on the list.
+The task set out to stop uploads retrying a 413; it is back on the board.
+
+## 🔐 Permission: queue #812, #813, #20: Upload client first
+
+`splates queue add 812 813 20`
+
+The client and the retry flag land first, then the retry itself.
 ```
 
 When the work the conversation was for is over and no task merged, was
@@ -134,7 +143,9 @@ Done report claims nothing is left: use it only when the request is fully
 met and no step, fix or follow-up remains that the user might want. A
 finding that leaves something to do (a bug found, a fix identified, a
 change proposed) is not over: say what you found and ask whether to
-proceed, as a numbered question, with no Done title. Never end on Done
+proceed, as a numbered question, with no Done title. An eval loop whose
+scenario already passes ends on Done with its pass rates, though its task is
+removed (see [evals.md](references/evals.md), Stopping). Never end on Done
 when the user asked for a change and none was made, or when the next move is
 theirs to approve. A reply in a talk that carries on is no Done report:
 
@@ -210,7 +221,11 @@ run `splates evals import inspect <log> <batch-dir>` in its place, and the
 Once the run is done, splates tells you with `[SPLATES EVALS DONE <batch>]`
 and the report condensed: each scenario's pass rate on each agent, and for
 each run that failed, the checks that failed, the judge's reason and the
-reply, with the runs that errored listed apart. Improving a scenario is a
+reply, with the runs that errored listed apart. On `[SPLATES EVAL LOOP RESUME <id> at <version>]`, read `splates evals resume <id>` and restore its current card without replaying paid runs; see [evals.md](references/evals.md). Guided loop cards use `## 🧪 Eval loop <id> at <version>` and linked run cards
+add a Loop line with the ID in backticks and `at <version>`; the complete format is in [evals.md](references/evals.md).
+Improvement loops are durable records: `splates evals improve` creates one,
+`show` recovers its evidence and next action, and lifecycle commands record work
+without starting paid runs. Improving a scenario is a
 loop of run, diagnose, fix one thing, rerun and log, which
 [evals.md](references/evals.md) lays out: read it before the first run card
 of a task and when the run is done.

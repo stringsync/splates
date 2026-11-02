@@ -34,7 +34,9 @@ describe("App's feed", () => {
 		});
 		await act(async () => testing.stream?.onmessage?.());
 
-		await waitFor(() => expect(view.getByText(/new one/)).toBeTruthy());
+		await waitFor(() =>
+			expect(view.getAllByText(/new one/)).not.toHaveLength(0),
+		);
 	});
 
 	it("says it cannot reach the server when the server goes away", async () => {

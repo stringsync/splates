@@ -1,10 +1,21 @@
 import type { Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
-import { ConfigFiles, shipSettings, shipTargets } from "../config";
+import { Duration } from "core/time";
+import {
+	ConfigFiles,
+	type ShipTarget,
+	shipSettings,
+	shipTargets,
+} from "../config";
 import type { Git } from "../git";
 import type { Projects } from "../projects";
-import { ReleaseGit } from "./git";
-import { readGraph, type ShipGraph, type ShipSource } from "./graph";
+import { type ReleaseChanges, ReleaseGit } from "./git";
+import {
+	readGraph,
+	type ShipGraph,
+	type ShipProject,
+	type ShipSource,
+} from "./graph";
 
 /** Dependencies for reading registered shipping projects. */
 export interface ShipContext {
@@ -24,7 +35,7 @@ export interface ShipContext {
 export async function shipsFrom(
 	ctx: Pick<ShipContext, "fs" | "configs">,
 	root: string,
-	slug = "",
+	_slug = "",
 ): Promise<boolean> {
 	// The two things `planShip` refuses a start for. One whose config does
 	// not load ships nothing, as in `registeredGraph`.
@@ -32,13 +43,13 @@ export async function shipsFrom(
 	const sources = await files.read(root).then(
 		(config): ShipSource[] =>
 			config.ships
-				? shipTargets(config, slug).map((target) => ({
+				? shipTargets(config).map((target) => ({
 						slug: target.name,
 						root,
-						paths: target.paths,
+						...targetPaths(target),
 						ship: target.ship,
 					}))
-				: [{ slug: "", root, ship: shipSettings(config, slug).ship ?? null }],
+				: [],
 		() => [],
 	);
 	const graph = await readGraph(
@@ -68,20 +79,18 @@ export async function registeredGraph(
 				.map(async ({ slug, root }): Promise<ShipSource[]> => {
 					try {
 						const config = await files.read(root);
-						// A repository naming `ships` draws each target as its own entry.
+						// Each declared `ships` target is its own entry; a repository naming none ships nothing.
 						if (config.ships) {
-							return shipTargets(config, slug).map((target) => ({
+							return shipTargets(config).map((target) => ({
 								slug: target.name,
 								root,
 								repo: slug,
-								paths: target.paths,
+								...targetPaths(target),
 								ship: target.ship,
 								shipStatus: target.shipStatus,
 							}));
 						}
-						return [
-							{ slug, root, ship: shipSettings(config, slug).ship ?? null },
-						];
+						return [];
 					} catch (error) {
 						ctx.log.error(`${slug}: ${error}; drawn as never shipped`);
 						return [{ slug, root, ship: null }];
@@ -92,16 +101,69 @@ export async function registeredGraph(
 	const graph = await readGraph(ctx.fs, sources);
 	if (ctx.ps !== undefined) {
 		const ps = ctx.ps;
+		const deployCtx = { ...ctx, ps };
 		await Promise.all(
 			graph.projects.map(async (project) => {
 				if (project.ship !== null) {
-					project.changes = await new ReleaseGit(ps, project.root).changes(
-						project.version,
-						project.paths,
-					);
+					const git = new ReleaseGit(ps, project.root);
+					project.changes = project.deploy
+						? await deployChanges(deployCtx, git, project)
+						: await git.changes(project.version, project.paths);
 				}
 			}),
 		);
 	}
 	return graph;
+}
+
+/** The part of a ship target a source names: its paths, packages or deploys, whichever it has. */
+export function targetPaths(
+	target: Pick<ShipTarget, "paths" | "packages" | "deploys">,
+): Pick<ShipSource, "paths" | "packages" | "deploys"> {
+	if (target.packages.length > 0) {
+		return { packages: target.packages };
+	}
+	if (target.deploys.length > 0) {
+		return { deploys: target.deploys };
+	}
+	return { paths: target.paths };
+}
+
+/**
+ * The commits since the one a deploy target's `shipStatus` prints, touching
+ * what it deploys; unknown when the command is missing or fails.
+ */
+async function deployChanges(
+	ctx: Pick<ShipContext, "ps" | "configs" | "fs">,
+	git: ReleaseGit,
+	project: ShipProject,
+): Promise<ReleaseChanges> {
+	const unknown = (error: string): ReleaseChanges => ({
+		commits: null,
+		branch: null,
+		tag: null,
+		error,
+	});
+	const command =
+		project.shipStatus !== undefined
+			? project.shipStatus
+			: shipSettings(
+					await (ctx.configs ?? new ConfigFiles(ctx.fs)).read(project.root),
+					project.repo ?? project.slug,
+				).shipStatus;
+	if (command === undefined || command === null || command.trim() === "") {
+		return unknown(`${project.slug}: a deploy needs a shipStatus command`);
+	}
+	const result = await ctx.ps.spawnCapture(["sh", "-c", command], {
+		cwd: project.root,
+		timeoutMs: Duration.secs(30).ms,
+		stdin: "",
+	});
+	const commit = result.stdout.trim();
+	if (result.exitCode !== 0 || !/^[0-9a-f]{7,40}$/.test(commit)) {
+		return unknown(
+			`${project.slug}: shipStatus did not print a deployed commit: ${result.stderr.trim() || commit || `exited ${result.exitCode}`}`,
+		);
+	}
+	return git.since(commit, project.paths ?? []);
 }

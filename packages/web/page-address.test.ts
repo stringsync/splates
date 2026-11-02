@@ -77,7 +77,7 @@ describe("PageAddress", () => {
 
 		expect([arrived.page, arrived.todo]).toEqual(["todos", 404]);
 		arrived.go("todos", null, "replace");
-		expect([arrived.todo, location.hash]).toEqual([null, ""]);
+		expect([arrived.todo, location.hash]).toEqual([null, "#todos"]);
 	});
 
 	it("sets the Creds page on one cred and leaves it for the page", () => {
@@ -92,25 +92,9 @@ describe("PageAddress", () => {
 		expect(address.cred).toBeNull();
 	});
 
-	it("opens the plan of a scenario, whose id holds slashes, from the Evals page", () => {
+	it("retires old plan links to the read-only catalog", () => {
 		address.openEval("plan", "resources/focused-tests");
-
-		expect(location.hash).toBe("#evals/plan/resources%2Ffocused-tests");
-		expect(address.page).toBe("evals");
-		expect(address.evals).toEqual({
-			batch: null,
-			run: null,
-			plan: ["resources/focused-tests"],
-		});
-
-		address.openEval("plan", ["a/b", "c"]);
-
-		expect(location.hash).toBe("#evals/plan/a%2Fb,c");
-		expect(address.evals.plan).toEqual(["a/b", "c"]);
-
-		address.openEval("batch-a", "run-1");
-
-		expect(location.hash).toBe("#evals/batch-a/run-1");
+		expect(location.hash).toBe("#evals");
 		expect(address.evals.plan).toBeNull();
 	});
 

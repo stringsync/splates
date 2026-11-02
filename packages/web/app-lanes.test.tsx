@@ -49,34 +49,37 @@ describe("App's lanes", () => {
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
-	it("offers Groom on Untriaged and protects Backlog while allowing it to be queued", async () => {
+	it("offers Groom on Backlog, which is locked, while allowing it to be queued", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "unplaced" })],
-			lanes: [{ id: 0, name: "Backlog" }],
+			lanes: [{ id: 0, name: "Backlog", board: 1 }],
+			boards: [
+				{ id: 1, name: "Main", position: 1, archived: false },
+				{ id: 2, name: "Other", position: 2, archived: false },
+			],
 		});
-		const untriaged = within(view.getByRole("region", { name: "Untriaged" }));
-		expect(untriaged.getByRole("button", { name: "Groom" })).toBeTruthy();
-		expect(
-			untriaged.queryByRole("button", { name: "Queue Untriaged" }),
-		).toBeNull();
+		await act(async () =>
+			fireEvent.click(await view.findByRole("button", { name: /^Main \d+$/ })),
+		);
+		expect(view.queryByRole("region", { name: "Untriaged" })).toBeNull();
 		const backlog = within(view.getByRole("region", { name: "Backlog" }));
+		expect(backlog.getByRole("button", { name: "Groom" })).toBeTruthy();
+		expect(backlog.getByLabelText("Permanent lane")).toBeTruthy();
 		expect(backlog.queryByTitle("Rename")).toBeNull();
 		await clickShown(() =>
 			backlog.getByRole("button", { name: "Backlog actions" }),
 		);
 		expect(view.queryByRole("menuitem", { name: "Rename" })).toBeNull();
+		expect(view.queryByRole("menuitem", { name: /Move/ })).toBeNull();
 		expect(view.queryByRole("menuitem", { name: /Remove lane/ })).toBeNull();
-		expect(view.getByRole("menuitem", { name: "Queue lane" })).toBeTruthy();
+		expect(view.getByRole("menuitem", { name: /^Queue lane/ })).toBeTruthy();
 	});
 
-	it("shows a chip per lane with its count, and locks Backlog", async () => {
+	it("locks Backlog", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "unplaced" })],
 			lanes: [{ id: 0, name: "Backlog" }],
 		});
-		const strip = within(view.getByRole("navigation", { name: "Lanes" }));
-		expect(strip.getByRole("button", { name: /Untriaged\s*1/ })).toBeTruthy();
-		expect(strip.getByRole("button", { name: /Backlog\s*0/ })).toBeTruthy();
 		const backlog = within(view.getByRole("region", { name: "Backlog" }));
 		expect(backlog.getByLabelText("Permanent lane")).toBeTruthy();
 	});
@@ -125,9 +128,9 @@ describe("App's lanes", () => {
 		).toBeTruthy();
 		// Every todo is in a lane: the untriaged column is empty.
 		expect(
-			within(
-				view.getByRole("list", { name: "Untriaged tasks" }),
-			).queryAllByRole("listitem"),
+			within(view.getByRole("list", { name: "Backlog tasks" })).queryAllByRole(
+				"listitem",
+			),
 		).toHaveLength(0);
 	});
 
@@ -254,10 +257,10 @@ describe("App's lanes", () => {
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/lanes/3",
 			method: "PUT",
-			body: JSON.stringify({ position: 2 }),
+			body: JSON.stringify({ position: 3 }),
 		});
 		expect(columns()).toEqual([
-			"Untriaged",
+			"Backlog",
 			"Licensing",
 			"Score editor",
 			"Audio, uploads and pricing",
@@ -287,15 +290,19 @@ describe("App's lanes", () => {
 				{ id: 5, name: "Pricing", board: 2 },
 			],
 		});
+		await act(async () =>
+			fireEvent.click(
+				await view.findByRole("button", { name: /^Default \d+$/ }),
+			),
+		);
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Backlog actions" })),
 		);
-		const locked = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Move to board" }),
+		expect(view.queryByRole("menuitem", { name: "Move to board" })).toBeNull();
+		await act(async () =>
+			fireEvent.keyDown(view.getByRole("menu"), { key: "Escape" }),
 		);
-		expect(locked.getAttribute("aria-disabled")).toBe("true");
-		await act(async () => fireEvent.keyDown(locked, { key: "Escape" }));
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Editor actions" })),
@@ -549,7 +556,7 @@ describe("App's lanes", () => {
 		expect(again.getByRole("region", { name: "Licensing" })).toBeTruthy();
 		await all("Hide all");
 		expect(again.queryByRole("region", { name: "Licensing" })).toBeNull();
-		expect(again.queryByRole("list", { name: "Untriaged tasks" })).toBeNull();
+		expect(again.queryByRole("list", { name: "Backlog tasks" })).toBeNull();
 	});
 
 	it("links a mention to its todo, and shows one that is gone as archived", async () => {

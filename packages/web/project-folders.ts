@@ -201,9 +201,14 @@ function queuedOf(
 		.map((todo) => ({
 			todo,
 			// Only the blockers still on the board; a merged one is gone from it.
-			blockedBy: isBlocked(todo, todos)
-				? todo.blockedBy.filter((id) => todos.some((each) => each.id === id))
-				: null,
+			blockedBy:
+				todo.blockedBy.some((id) => todos.some((each) => each.id === id)) ||
+				isBlocked(todo, todos) ||
+				(todo.blockedElsewhere ?? []).some(
+					(blocker) => blocker.landed === undefined,
+				)
+					? todo.blockedBy.filter((id) => todos.some((each) => each.id === id))
+					: null,
 			unqueued: unqueuedBlockers(todo, todos),
 		}));
 	return [

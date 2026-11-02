@@ -3,7 +3,6 @@ import { targetName } from "@splates/server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { ORDER, StatusChip, spent } from "./eval-status";
 
 /** Shows an eval batch's totals and results; select a landed cell to open its run. */
@@ -63,17 +62,20 @@ export function EvalReport({
 					))}
 				</div>
 			)}
-			<div className="hidden md:block">
-				<table className="w-full border-collapse text-sm">
+			<div className="hidden overflow-x-auto md:block">
+				<table
+					className="w-full table-fixed border-collapse text-sm"
+					style={{ minWidth: `${16 + grid.targets.length * 11}rem` }}
+				>
 					<thead>
 						<tr>
-							<th className="py-1 pr-3 text-left font-normal text-muted-foreground text-xs">
+							<th className="w-64 py-1 pr-3 text-left font-normal text-muted-foreground text-xs">
 								Scenario
 							</th>
 							{grid.targets.map((target) => (
 								<th
 									key={target.key}
-									className="px-2 py-1 text-left font-normal text-muted-foreground text-xs whitespace-nowrap"
+									className="px-2 py-1 text-left font-normal text-muted-foreground text-xs"
 								>
 									{targetName(target)}
 								</th>
@@ -94,16 +96,12 @@ export function EvalReport({
 							) : (
 								<tr key={row.scenario} className="border-t">
 									<td className="py-1.5 pr-3 align-top">
-										<div className="font-medium">{row.scenario}</div>
-										<div className="text-muted-foreground text-xs">
+										<div className="break-words font-medium">
+											{row.scenario}
+										</div>
+										<div className="break-words text-muted-foreground text-xs">
 											{row.requirement}
 										</div>
-										{ownBatch(grid.producer) && worst(row.cells) !== null && (
-											<ImproveMenu
-												run={worst(row.cells) ?? ""}
-												className="mt-1"
-											/>
-										)}
 									</td>
 									{grid.targets.map((target) => (
 										<td key={target.key} className="px-2 py-1.5 align-top">
@@ -152,9 +150,6 @@ export function EvalReport({
 									/>
 								</div>
 							))}
-							{ownBatch(grid.producer) && worst(row.cells) !== null && (
-								<ImproveMenu run={worst(row.cells) ?? ""} className="mt-1" />
-							)}
 						</div>
 					),
 				)}
@@ -279,14 +274,6 @@ function Cells({
 				),
 			)}
 		</span>
-	);
-}
-
-/** The id of the first landed run of `cells` worth improving, or null for none. */
-function worst(cells: EvalCell[]): string | null {
-	return (
-		cells.find((cell) => cell.run !== null && improvable(cell.run.status))?.run
-			?.id ?? null
 	);
 }
 

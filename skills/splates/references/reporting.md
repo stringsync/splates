@@ -36,19 +36,44 @@ A task blocked on other work is deferred, not discarded: `splates remove
 <task> --reason blocked`, then the report below, so the user does not read it
 as lost. It keeps `## 🧹 Removed` for work that really ended. The remove
 takes `--why`, what you found that stops the work, and at least one
-blocker: `--blocked-by <n>` for a task that has to merge first, `--ask
-"<question>"` for the person's call, `--waiting-on "<what>"` for something
-outside splates. Add `--detail` to rewrite the task's detail for whoever
+blocker: `--blocked-by <n>` for a task that has to merge first, or
+`--waiting-on "<what>"` for something outside splates. A call that is the
+person's to make is a numbered question in your reply, as in
+[questions.md](questions.md), not a blocker. Add `--detail` to rewrite the task's detail for whoever
 takes it next, as Deferring in [queue.md](queue.md) says. The board task
 keeps all of it, one of its own made for work that took none, and the
 queue starts it in a fresh conversation once it is queued and its tasks
 have merged; nothing comes back to this one. The text after the colon sums
-up the blockers:
+up the blockers. When the tasks it waits on are on the board, end the reply
+with their queue card, naming them and then the deferred task (see
+[queue.md](queue.md), Asking the user to queue), so one press queues all:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on #812 and your call on old clients
+## ⏸ Deferred <task>: waiting on #812 and #813
 
-The task set out to stop uploads retrying a 413; it is back on the list.
+The task set out to stop uploads retrying a 413; it is back on the board.
+
+## 🔐 Permission: queue #812, #813, #20: Upload client first
+
+`splates queue add 812 813 20`
+
+The client and the retry flag land first, then the retry itself.
+```
+
+An eval loop whose scenario already passed every repetition ends on Done even
+though its task is removed as `nothing`: the result is the news, so title it
+for the scenario and put each agent's pass rate in a table under it (see
+[evals.md](evals.md), Stopping).
+
+```markdown
+## ✅ Done: lifecycle/claim passes every repetition
+
+| Agent | Pass rate |
+| --- | --- |
+| claude sonnet | 3/3 |
+| opencode | 3/3 |
+
+The baseline run found nothing to fix, so no change was made.
 ```
 
 Work over with no task to merge or remove, such as a question you were

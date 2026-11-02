@@ -1,8 +1,11 @@
-import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { LaneState, TaskRecord } from "@splates/server/board";
-import { BACKLOG_LANE, elsewhereName } from "@splates/server/board/browser";
+import type { LaneState } from "@splates/server/board";
+import {
+	BACKLOG_LANE,
+	elsewhereName,
+	ungroomed,
+} from "@splates/server/board/browser";
 import { LockIcon } from "lucide-react";
 import {
 	type JSX,
@@ -24,7 +27,7 @@ import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { GroomUntriaged } from "./groom-untriaged";
-import { Cards, Column, laneOfCard } from "./lane-column";
+import { Cards, Column } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
 import { Refusal } from "./refusal";
@@ -51,54 +54,6 @@ export function columnOf(
 export function laneOf(id: string | number): number | undefined {
 	const lane = columnOf(id);
 	return typeof lane === "number" ? lane : undefined;
-}
-
-/**
- * The first column: every todo in no lane, where new ones land until someone
- * puts them in a lane.
- */
-export function Untriaged({
-	todos,
-	staleness,
-}: {
-	/** Every untriaged todo. */
-	todos: TaskRecord[];
-	staleness: number;
-}): JSX.Element {
-	const board = useContext(Board);
-	const { setNodeRef, isOver, active } = useDroppable({
-		id: columnId(null),
-	});
-	return (
-		<Column label="Untriaged" drop={setNodeRef} lit={isOver}>
-			<header className="flex flex-col gap-1 px-1 pt-1">
-				<div className="flex items-center justify-between gap-2">
-					<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
-						Untriaged
-						<StageCounts todos={todos} />
-					</h3>
-					<GroomUntriaged
-						empty={!todos.some((todo) => todo.takenBy === null)}
-					/>
-				</div>
-				<p className="text-muted-foreground text-xs">Not in a lane yet.</p>
-				<Refusal refusal={board.refusedLanes.get(null)} />
-			</header>
-			<Cards
-				todos={todos}
-				label="Untriaged tasks"
-				staleness={staleness}
-				steps={false}
-				coming={isOver && laneOfCard(board.todos, active?.id) !== null}
-			/>
-			{board.todos.length === 0 && (
-				<p className="px-1 py-2 text-muted-foreground text-xs">
-					Nothing to do yet. Agents add what comes up outside their task here.
-				</p>
-			)}
-			<AddTodo lane={null} />
-		</Column>
-	);
 }
 
 /**
@@ -136,7 +91,7 @@ export function Lane({
 		active,
 	} = useSortable({
 		id: columnId(lane.id),
-		// Backlog is static, right after untriaged.
+		// Backlog is static, the first lane.
 		disabled: lane.id === BACKLOG_LANE,
 	});
 	// Lit for a card over it, not for a lane passing by.
@@ -247,6 +202,11 @@ export function Lane({
 									className="mx-1 size-3.5 text-muted-foreground"
 								/>
 							)}
+							{lane.id === BACKLOG_LANE && (
+								<GroomUntriaged
+									empty={!lane.todos.some((todo) => ungroomed(todo))}
+								/>
+							)}
 							<LaneMenu
 								lane={lane}
 								lanes={lanes}
@@ -312,7 +272,7 @@ export function Lane({
 					todos={lane.todos}
 					label={`${lane.name} tasks`}
 					staleness={staleness}
-					steps
+					steps={lane.id !== BACKLOG_LANE}
 					coming={lit && !lane.todos.some((todo) => todo.id === active?.id)}
 				/>
 				<AddTodo lane={lane.id} />

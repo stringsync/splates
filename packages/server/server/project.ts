@@ -11,13 +11,20 @@ import {
 	SERVER_TOLD,
 } from "../conversations";
 import { CredRoutes } from "../creds";
+import { EvalLoopStore, EvalStore, LoopRuns } from "../evals";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { needs, taskNumberReference, waitsOnYou } from "../plans";
 import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import { queueOverloaded } from "../queue/load";
 import { Replicator } from "../replica";
-import { readGraph, ShipLock, Shipping, ShipRoutes } from "../ship";
+import {
+	readGraph,
+	ShipLock,
+	Shipping,
+	ShipRoutes,
+	targetPaths,
+} from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
@@ -61,9 +68,7 @@ export async function serveProject(
 	// since each commits to the same trunk; the one above stays for the
 	// repository as a whole.
 	const lock = new ShipLock();
-	const targets = project.config.ships
-		? shipTargets(project.config, await slug())
-		: [];
+	const targets = project.config.ships ? shipTargets(project.config) : [];
 	const targetShippings = new Map(
 		targets.map((target) => [
 			target.name,
@@ -79,7 +84,7 @@ export async function serveProject(
 							{
 								slug: target.name,
 								root: service.git.root,
-								paths: target.paths,
+								...targetPaths(target),
 								ship: target.ship,
 							},
 						])
@@ -193,6 +198,30 @@ export async function serveProject(
 	const taskRoutes = new TaskRoutes(project, conversations, watch);
 	return {
 		...taskRoutes,
+		checkEvalLoop: async (request) => {
+			await new LoopRuns(new EvalLoopStore(storage)).check(
+				await request.json(),
+			);
+			return Response.json(null);
+		},
+		finishEvalLoop: async (reference, directory, id) => {
+			const grid = await new EvalStore(directory).grid(id);
+			if (grid === null) {
+				throw new Error("Loop completion batch unavailable");
+			}
+			await new LoopRuns(new EvalLoopStore(storage)).record(reference, grid);
+		},
+		evalLoop: async (request) => {
+			const params = new URL(request.url).searchParams;
+			if (!params.has("id")) {
+				return Response.json(await new EvalLoopStore(storage).list());
+			}
+			const saved = await new EvalLoopStore(storage).at(
+				params.get("id") ?? "",
+				Number(params.get("version") ?? -1),
+			);
+			return Response.json(saved);
+		},
 		...new MergeRoutes(project),
 		...new BoardRoutes(project, talks, watch, {
 			boards: context.boards,

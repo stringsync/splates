@@ -1,5 +1,6 @@
-export { BACKLOG_LANE } from "./backlog";
+export { BACKLOG_LANE, ungroomed } from "./backlog";
 export type { BoardRecord } from "./boards";
+export { DEFAULT_BOARD } from "./boards";
 export type {
 	Deferral,
 	DeferralBlocker,

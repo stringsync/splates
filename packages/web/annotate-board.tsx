@@ -112,7 +112,16 @@ export function AnnotateBoard({
 			return;
 		}
 		const picked = TOOLS.find((each) => each.key === event.key.toLowerCase());
-		if ((event.metaKey || event.ctrlKey) && event.key === "z") {
+		if (event.key === "Enter") {
+			// Enter on a button or a field is theirs; anywhere else it is Done.
+			if (
+				!(event.target instanceof HTMLElement) ||
+				!event.target.closest("button, a, input, textarea, select")
+			) {
+				event.preventDefault();
+				onDone();
+			}
+		} else if ((event.metaKey || event.ctrlKey) && event.key === "z") {
 			event.preventDefault();
 			annotation.undo();
 		} else if (

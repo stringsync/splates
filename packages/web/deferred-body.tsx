@@ -8,16 +8,17 @@ import {
 	type TaskRecord,
 } from "@splates/server/board/browser";
 import { CheckIcon, CircleIcon, LinkIcon } from "lucide-react";
-import { type JSX, useContext, useState } from "react";
+import { type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { answerDeferral, linkTodo, queueTodo } from "./api";
+import { linkTodo, queueTodo } from "./api";
 import { Board } from "./board";
 import { linked } from "./board-expectations";
+import { queueingAfter, useActs } from "./deferred-acts";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
 import { ElsewhereMention, HEADING } from "./markdown";
-import { Refusal, useRefusal } from "./refusal";
+import { Refusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
 const TASK_STATUS: Record<string, string> = {
@@ -73,20 +74,17 @@ export function DeferredBody({
 		board.todos,
 		board.elsewhere?.blockers[task.id],
 	);
-	const { refusal, pending, act } = useActs();
-	const [answers, setAnswers] = useState<Record<number, string>>({});
 	if (deferred === undefined) {
 		return null;
 	}
 	const queued = task.stage === "queued" && task.takenBy === null;
 	const open = blockers.filter((each) => !cleared(each));
 	// The server resumes it once every task it waits on has merged.
-	const alone =
+	const _alone =
 		deferred.conversation !== undefined &&
 		deferred.questions.length === 0 &&
 		deferred.outside.length === 0 &&
 		open.length > 0;
-	let questionIndex = -1;
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
 			<section aria-label="why it stopped">
@@ -100,11 +98,6 @@ export function DeferredBody({
 						{blockers.map((blocker, i) => {
 							const key = `${blocker.kind}:${i}`;
 							const done = cleared(blocker);
-							let index = 0;
-							if (blocker.kind === "question") {
-								questionIndex += 1;
-								index = questionIndex;
-							}
 							return (
 								<li key={key} className="flex items-start gap-2">
 									<Mark done={done} />
@@ -122,45 +115,6 @@ export function DeferredBody({
 														{blocker.answer}
 													</p>
 												)}
-												{!done && (
-													<form
-														className="flex flex-wrap items-center gap-2"
-														onSubmit={(event) => {
-															event.preventDefault();
-															const answer = (answers[i] ?? "").trim();
-															if (answer === "") {
-																return;
-															}
-															void act(key, () =>
-																answerDeferral(task.id, index, answer),
-															);
-														}}
-													>
-														<input
-															aria-label="answer"
-															placeholder="Your answer"
-															value={answers[i] ?? ""}
-															onChange={(event) =>
-																setAnswers({
-																	...answers,
-																	[i]: event.target.value,
-																})
-															}
-															className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 pointer-coarse:h-10"
-														/>
-														<Button
-															type="submit"
-															size="sm"
-															variant="outline"
-															disabled={
-																(answers[i] ?? "").trim() === "" ||
-																pending.has(key)
-															}
-														>
-															Answer
-														</Button>
-													</form>
-												)}
 											</>
 										)}
 										{blocker.kind === "outside" && (
@@ -176,26 +130,12 @@ export function DeferredBody({
 				</section>
 			)}
 			{task.takenBy === null && (
-				<p className="flex flex-wrap items-center justify-end gap-2 text-xs">
-					{alone && !queued && (
-						<span className="mr-auto text-muted-foreground">
-							Resumes on its own once{" "}
-							{open
-								.map((each) => (each.kind === "task" ? `#${each.id}` : ""))
-								.join(", ")}{" "}
-							merges
-						</span>
-					)}
-					{queued && (
-						<span className="mr-auto text-muted-foreground">
-							Queued
-							{task.blockedBy.length > 0 &&
-								` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
-						</span>
-					)}
+				<p className="text-muted-foreground text-xs">
+					{queued ? "Queued" : "Back on the board"}
+					{task.blockedBy.length > 0 &&
+						` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
 				</p>
 			)}
-			<Refusal refusal={refusal} />
 		</div>
 	);
 }
@@ -328,37 +268,6 @@ function linkedBlockers(
 /** Whether `task` sits on the board waiting for the person to start it. */
 function waiting(task: TaskRecord): boolean {
 	return task.takenBy === null && task.stage === "available";
-}
-
-/**
- * An action for each of the card's blockers, pending by key until the write
- * resolves; the card says it done only once the board shows it. A refusal
- * clears pending and is said.
- */
-function useActs() {
-	const { refusal, attempt } = useRefusal();
-	// The keys whose write is on its way.
-	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
-	const act = async (key: string, write: () => Promise<void>) => {
-		setPending((was) => new Set(was).add(key));
-		await attempt(write(), "Not done");
-		setPending((was) => {
-			const left = new Set(was);
-			left.delete(key);
-			return left;
-		});
-	};
-	return { refusal, attempt, pending, act };
-}
-
-/** Queues blocker `id`, unless `queuedAlready`, then `task` to run after it. */
-function queueingAfter(task: TaskRecord) {
-	return (id: number, queuedAlready: boolean) => async () => {
-		if (!queuedAlready) {
-			await queueTodo(id, true);
-		}
-		await queueTodo(task.id, true);
-	};
 }
 
 /** A blocker's check once cleared, or an empty circle while it holds. */

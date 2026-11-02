@@ -5,7 +5,7 @@ import {
 	nextVersion,
 } from "@splates/server/ship/browser";
 import { ShipIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import {
@@ -15,13 +15,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#web/components/ui/select.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { shipGraph } from "./api";
 import { startShip } from "./api/ship";
 import { cn } from "./lib/utils";
-import { ShipIntro } from "./ship-intro";
+import { PlanLoading } from "./ship-plan-loading";
 import { ShipPreview } from "./ship-preview";
 import { releaseOrder, shippable, staleOf, treeOrder } from "./ship-tree";
 
@@ -51,7 +50,9 @@ export function ShipPlan({
 	busy,
 	loading,
 	onStarted,
+	children,
 }: {
+	children?: ReactNode;
 	ship: string | null;
 	/** When the last cascade ended, so versions are read again after one. */
 	endedAt: string | null;
@@ -76,7 +77,7 @@ export function ShipPlan({
 				The projects did not load.
 			</p>
 		) : (
-			<PlanSkeleton />
+			<PlanLoading />
 		);
 	}
 	const listed = graph.projects.filter(
@@ -84,61 +85,29 @@ export function ShipPlan({
 	);
 	if (listed.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm">
-				No project ships yet. One does once its splates.config.ts names a{" "}
-				<code>ship</code> command.
-			</p>
+			<>
+				<p className="text-muted-foreground text-sm">
+					No project ships yet. One does once its splates.config.ts names a{" "}
+					<code>ship</code> command.
+				</p>
+				{children}
+			</>
 		);
 	}
 	return (
-		<Plan
-			// Read again once a ship has ended, so the choices follow the new versions.
-			key={endedAt ?? ""}
-			graph={graph}
-			projects={listed}
-			ship={ship}
-			busy={busy}
-			loading={loading}
-			onStarted={onStarted}
-		/>
-	);
-}
-
-/**
- * The plan's shape while the projects are read, so the list and the Start bar
- * hold their places and nothing moves when the real rows arrive.
- */
-function PlanSkeleton(): JSX.Element {
-	return (
-		<section aria-label="ship plan" aria-busy className="flex flex-col gap-3">
-			<p role="status" className="sr-only">
-				Reading the projects…
-			</p>
-			<ol
-				aria-hidden
-				className="flex animate-pulse flex-col overflow-hidden rounded-lg border bg-card"
-			>
-				{[0, 1, 2, 3].map((row) => (
-					<li
-						key={row}
-						className="flex min-h-[4.5rem] items-center gap-3 border-b px-3 py-3 last:border-b-0"
-					>
-						<div className="flex flex-1 flex-col gap-2">
-							<Skeleton className="h-4 w-32" />
-							<Skeleton className="h-3 w-20" />
-						</div>
-						<Skeleton className="mr-2.5 size-4" />
-					</li>
-				))}
-			</ol>
-			<div className="flex flex-col gap-2 py-3">
-				<p className="text-muted-foreground text-xs">Nothing chosen</p>
-				<Button className="min-h-11 w-full" disabled>
-					<ShipIcon />
-					Start
-				</Button>
-			</div>
-		</section>
+		<>
+			<Plan
+				// Read again once a ship has ended, so the choices follow the new versions.
+				key={endedAt ?? ""}
+				graph={graph}
+				projects={listed}
+				ship={ship}
+				busy={busy}
+				loading={loading}
+				onStarted={onStarted}
+			/>
+			{children}
+		</>
 	);
 }
 
@@ -211,13 +180,6 @@ function Plan({
 	};
 	const unshipped = changed.filter((slug) => !ships.has(slug));
 	const ordered = releaseOrder(projects).filter((each) => ships.has(each.slug));
-	const withWork = projects.filter(
-		(each) => shippable(each) && (each.changes?.commits ?? 0) > 0,
-	).length;
-	const releasable = projects.filter(shippable);
-	const unknown = releasable.filter(
-		(each) => each.changes?.commits === null,
-	).length;
 	const behind = projects.filter(
 		(each) => staleOf(each, graph).length > 0,
 	).length;
@@ -229,42 +191,31 @@ function Plan({
 	};
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
-			{ordered.length === 0 && <ShipIntro />}
-			<p className="flex flex-wrap items-center gap-2 text-xs">
-				<span
-					className={cn(
-						"rounded-full px-2.5 py-1",
-						withWork > 0
-							? "bg-warning/15 text-warning"
-							: "bg-muted text-muted-foreground",
-					)}
-				>
-					{withWork > 0
-						? `${withWork} ${withWork === 1 ? "project has" : "projects have"} unreleased work`
-						: unknown === releasable.length && unknown > 0
-							? "Can't tell what changed since the last release"
-							: "Nothing unreleased"}
-				</span>
-				{behind > 0 && (
-					<span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-						{behind} behind a pin
-					</span>
-				)}
-			</p>
-			{unshipped.length > 0 && (
-				<Button
-					variant="outline"
-					className="w-full"
-					disabled={pending}
-					onClick={() => {
-						setRoots([...new Set([...roots, ...changed])]);
-						setExcluded(excluded.filter((each) => !changed.includes(each)));
-					}}
-				>
-					Include all changed
-				</Button>
+			{behind > 0 && (
+				<p className="text-muted-foreground text-xs">{behind} behind a pin</p>
 			)}
+
 			<div className="-mb-2 flex items-center justify-end gap-4 px-3 text-muted-foreground text-xs">
+				<span className="flex items-center gap-2">
+					All changed
+					<Checkbox
+						aria-label="All changed"
+						checked={changed.length > 0 && unshipped.length === 0}
+						disabled={pending || changed.length === 0}
+						onCheckedChange={(on) => {
+							setRoots(
+								on
+									? [...new Set([...roots, ...changed])]
+									: roots.filter((each) => !changed.includes(each)),
+							);
+							setExcluded(
+								on
+									? excluded.filter((each) => !changed.includes(each))
+									: [...new Set([...excluded, ...changed])],
+							);
+						}}
+					/>
+				</span>
 				<span className="flex items-center gap-2">
 					Select all
 					<span className="flex w-9 justify-center">
@@ -317,6 +268,11 @@ function Plan({
 										{each.version !== null && (
 											<span className="text-muted-foreground text-xs tabular-nums">
 												{each.version}
+											</span>
+										)}
+										{each.deploy === true && (
+											<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs">
+												deploy
 											</span>
 										)}
 										{shipping && !roots.includes(each.slug) && (

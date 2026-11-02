@@ -57,6 +57,42 @@ export class ReleaseGit {
 	}
 
 	/**
+	 * Count the commits since `deployed`, the commit a deploy target last put
+	 * out, that touch `paths`, or explain why that is unknown.
+	 */
+	async since(deployed: string, paths: string[]): Promise<ReleaseChanges> {
+		let branch: string | null = null;
+		const tag = deployed.slice(0, 9);
+		try {
+			branch = await this.branch();
+			const from = await this.out(
+				"rev-parse",
+				"--verify",
+				`${deployed}^{commit}`,
+			);
+			const to = await this.out(
+				"rev-parse",
+				"--verify",
+				`refs/heads/${branch}^{commit}`,
+			);
+			await this.out("merge-base", "--is-ancestor", from, to);
+			const count = await this.out(
+				"rev-list",
+				"--count",
+				`${from}..${to}`,
+				"--",
+				...paths,
+			);
+			if (!/^\d+$/.test(count)) {
+				throw new Error("Git did not return a commit count");
+			}
+			return { commits: Number(count), branch, tag, error: null };
+		} catch (error) {
+			return { commits: null, branch, tag, error: String(error) };
+		}
+	}
+
+	/**
 	 * Whether `version`'s release tag is on the remote, or the project tags no
 	 * releases there at all, so a release that died before its tag is told apart.
 	 */

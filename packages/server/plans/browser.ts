@@ -28,6 +28,7 @@ export {
 	GRANTED,
 	handOffReference,
 	isUpdate,
+	laneReference,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,

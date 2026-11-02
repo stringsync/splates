@@ -165,7 +165,7 @@ export interface Config {
 	/**
 	 * Words the composer's mic should spell as written, for everyone who
 	 * dictates in the project: its tools, modules and names, as
-	 * `["wren", "scry"]`. Splates and the project's name are always
+	 * `["wren", "vet"]`. Splates and the project's name are always
 	 * told; each person adds their own on the Setup page.
 	 */
 	dictationWords: string[];
@@ -190,12 +190,12 @@ export interface Config {
 	 */
 	projects: Record<string, string[] | ProjectConfig> | null;
 	/**
-	 * The ship targets of this repository, each a name, the paths it owns and
-	 * the command that ships it, as `{ mdom: { paths: ["mdom/**"], ship:
-	 * "bin/mdom ship" } }`. Unlike `projects` it splits no tasks, queues or
+	 * The ship targets of this repository, each a name, the packages or deploys it
+	 * ships and the command that ships it, as `{ mdom: { packages:
+	 * ["@stringsync/mdom"], ship: "bin/mdom ship" } }`. Unlike `projects` it splits no tasks, queues or
 	 * gates: it only names what the Ships page can ship from one repository.
 	 * `shipStatus` and `afterBump` fall back to the repository's. Two targets
-	 * may not claim overlapping paths. Null makes the repository one target,
+	 * may overlap. Null makes the repository one target,
 	 * as its `ship` and `projects` say.
 	 */
 	ships: Record<string, ShipTargetConfig> | null;
@@ -241,10 +241,24 @@ export interface ProjectConfig {
 	afterBump?: string | null;
 }
 
-/** A ship target inside a repository: its paths and how it ships. */
+/**
+ * A ship target inside a repository: what it ships, named by exactly one of
+ * `packages` or `deploys`, and how it ships.
+ */
 export interface ShipTargetConfig {
-	/** The path globs the target owns, as `["mdom/**"]`. */
-	paths: string[];
+	/**
+	 * The workspace packages an npm target publishes, as `["@scope/name"]`:
+	 * its version is theirs, and its files are those packages plus the
+	 * workspace packages they depend on. Targets naming packages may overlap.
+	 */
+	packages?: string[];
+	/**
+	 * The workspace packages a deploy target puts out, as `["@scope/web"]`.
+	 * It has no version: its `shipStatus` prints the commit deployed, and
+	 * what is unshipped is the commits since it that touch those packages and
+	 * the workspace packages they depend on. Targets naming deploys may overlap.
+	 */
+	deploys?: string[];
 	/** The command that ships it, as `ship`; `null` never ships it. */
 	ship: string | null;
 	/** Overrides `shipStatus` for this target. */

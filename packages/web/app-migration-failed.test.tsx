@@ -66,7 +66,9 @@ describe("App, on a project whose records failed to migrate", () => {
 		expect(testing.posts.map((each) => each.path)).toContain(
 			"/api/migration/retry",
 		);
-		await waitFor(() => expect(view.getByText(/back again/)).toBeTruthy());
+		await waitFor(() =>
+			expect(view.getAllByText(/back again/)).not.toHaveLength(0),
+		);
 		expect(view.queryByText("lanes are tangled")).toBeNull();
 	});
 

@@ -11,7 +11,6 @@ import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
-import { PageChips } from "./phone-chips";
 import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
@@ -66,7 +65,7 @@ export function PhoneApp({
 	// own way back, and every other page sits under a bar whose menu opens the
 	// drawer. How many agents wait on you marks the way out of every screen but
 	// the inbox. The project is every bar's title, which switches it, with a
-	// row of its pages under it and a pen to start a conversation; every bar's
+	// breadcrumb row under it and a pen to start a conversation; every bar's
 	// kebab holds the page menu, and the server's status past offline is the
 	// drawer's.
 	const [drawer, setDrawer] = useState(false);
@@ -78,6 +77,7 @@ export function PhoneApp({
 	}
 	const openNew = (open: string = NEW) => go("conversations", open);
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
+	const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
 	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
 		talk,
@@ -98,7 +98,6 @@ export function PhoneApp({
 		refreshing: restartBusy,
 	};
 	const banner = (offline || unreachable) && <OfflineBanner reason={reason} />;
-	const chips = <PageChips page={page} onGo={go} />;
 	return (
 		<div className="min-h-dvh">
 			{page === "conversations" && open === null ? (
@@ -119,7 +118,6 @@ export function PhoneApp({
 									}
 						}
 						loading={snapshot === null}
-						chips={chips}
 						onMenu={menu}
 						onOpen={(id) => go("conversations", id)}
 					/>
@@ -180,7 +178,10 @@ export function PhoneApp({
 						/>
 					</header>
 					<div ref={setBannerSlot} className="contents" />
-					{chips}
+					<div
+						ref={setTitleSlot}
+						className="flex h-11 min-w-0 items-center border-b px-4 [&>nav]:w-full"
+					/>
 					<TopBarFrame
 						value={{
 							...kebab,
@@ -188,6 +189,7 @@ export function PhoneApp({
 							bannerSlot,
 							banner,
 							untitled: true,
+							titleSlot,
 							end: available && (
 								<BarButton label="New conversation" onClick={() => openNew()}>
 									<SquarePenIcon />

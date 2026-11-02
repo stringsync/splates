@@ -30,7 +30,7 @@ export class TodoView implements Eventful<TodoViewEvents> {
 
 	opened: number | null = null;
 	openedTask: string | null = null;
-	hidden: (number | null)[];
+	hidden: number[];
 	/** The only todos the board shows, by id, or null for every one. */
 	only: readonly number[] | null = null;
 
@@ -75,8 +75,8 @@ export class TodoView implements Eventful<TodoViewEvents> {
 		this.set({ only: ids });
 	}
 
-	/** Shows lane `lane`, or the untriaged for null, if hidden, else hides it. */
-	toggleLane(lane: number | null): void {
+	/** Shows lane `lane` if hidden, else hides it. */
+	toggleLane(lane: number): void {
 		this.hide(
 			this.hidden.includes(lane)
 				? this.hidden.filter((other) => other !== lane)
@@ -84,8 +84,8 @@ export class TodoView implements Eventful<TodoViewEvents> {
 		);
 	}
 
-	/** Hides `lanes`, null for the untriaged, and shows every other. */
-	hide(lanes: (number | null)[]): void {
+	/** Hides `lanes` and shows every other. */
+	hide(lanes: number[]): void {
 		this.storage?.setItem(HIDDEN, JSON.stringify(lanes));
 		this.set({ hidden: lanes });
 	}
@@ -99,11 +99,11 @@ export class TodoView implements Eventful<TodoViewEvents> {
 }
 
 /** The lanes hidden on the last visit; none when what was kept will not read. */
-function hiddenIn(storage?: Storage): (number | null)[] {
+function hiddenIn(storage?: Storage): number[] {
 	try {
 		const kept: unknown = JSON.parse(storage?.getItem(HIDDEN) ?? "[]");
 		return Array.isArray(kept)
-			? kept.filter((lane) => lane === null || typeof lane === "number")
+			? kept.filter((lane) => typeof lane === "number")
 			: [];
 	} catch {
 		return [];

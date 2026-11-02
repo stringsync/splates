@@ -38,6 +38,98 @@ describe("readGraph", () => {
 		expect(mdom?.dependents.map((each) => each.project)).toEqual(["vexml"]);
 	});
 
+	it("draws a workspace pin on another target's package of the same repository as a use", async () => {
+		const fs = new FakeFs();
+		const json = async (path: string, value: object) => {
+			await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+			await fs.write(path, JSON.stringify(value));
+		};
+		await json("/repo/package.json", {
+			private: true,
+			workspaces: ["*/packages/*"],
+		});
+		await json("/repo/mdom/packages/mdom/package.json", {
+			name: "@stringsync/mdom",
+			version: "1.2.0",
+		});
+		await json("/repo/vexml/packages/vexml/package.json", {
+			name: "@stringsync/vexml",
+			version: "3.0.0",
+			dependencies: { "@stringsync/mdom": "workspace:*" },
+		});
+
+		const graph = await readGraph(fs, [
+			{
+				slug: "@stringsync/mdom",
+				root: "/repo",
+				packages: ["@stringsync/mdom"],
+				ship: "a",
+			},
+			{
+				slug: "@stringsync/vexml",
+				root: "/repo",
+				packages: ["@stringsync/vexml"],
+				ship: "b",
+			},
+		]);
+
+		const [mdom, vexml] = graph.projects;
+		expect(vexml?.uses).toEqual([
+			{
+				project: "@stringsync/mdom",
+				pins: [{ name: "@stringsync/mdom", version: "1.2.0" }],
+			},
+		]);
+		expect(mdom?.dependents.map((each) => each.project)).toEqual([
+			"@stringsync/vexml",
+		]);
+		expect(mdom?.uses).toEqual([]);
+	});
+
+	it("draws overlapping targets from the packages they name and the workspace packages those use", async () => {
+		const fs = new FakeFs();
+		const json = async (path: string, value: object) => {
+			await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+			await fs.write(path, JSON.stringify(value));
+		};
+		await json("/repo/package.json", {
+			private: true,
+			workspaces: ["app/packages/*"],
+		});
+		await json("/repo/app/packages/player/package.json", {
+			name: "@app/player",
+			version: "2.0.0",
+			dependencies: { "@app/core": "workspace:*" },
+		});
+		await json("/repo/app/packages/core/package.json", {
+			name: "@app/core",
+			version: "0.0.1",
+			private: true,
+		});
+		await json("/repo/app/packages/web/package.json", {
+			name: "@app/web",
+			private: true,
+			dependencies: { "@app/core": "workspace:*" },
+		});
+
+		const graph = await readGraph(fs, [
+			{ slug: "player", root: "/repo", packages: ["@app/player"], ship: "a" },
+			{ slug: "web", root: "/repo", deploys: ["@app/web"], ship: "b" },
+		]);
+
+		const [player, web] = graph.projects;
+		expect(player?.version).toBe("2.0.0");
+		expect(player?.packages).toEqual(["@app/player"]);
+		expect(player?.paths).toEqual([
+			"app/packages/player/**",
+			"app/packages/core/**",
+		]);
+		expect(web?.deploy).toBe(true);
+		expect(web?.version).toBeNull();
+		expect(web?.packages).toEqual([]);
+		expect(web?.paths).toEqual(["app/packages/web/**", "app/packages/core/**"]);
+	});
+
 	it("draws who pins whose public packages across the served projects", async () => {
 		const { fs, sources } = await servedProjects();
 

@@ -90,6 +90,7 @@ export function usePageRoute(): PageRoute {
  */
 export type Page =
 	| "todos"
+	| "boards"
 	| "tasks"
 	| "conversations"
 	| "stats"
@@ -117,7 +118,7 @@ export const PAGES: {
 }[] = [
 	{
 		value: "todos",
-		label: "Board",
+		label: "Boards",
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
 		scope: "project",
@@ -152,15 +153,20 @@ export const PAGES: {
  * opens from a card on Automations; every other page is its own.
  */
 export function navPage(page: Page): Page {
-	return page === "auto-pick" ? "automations" : page;
+	return page === "auto-pick"
+		? "automations"
+		: page === "boards"
+			? "todos"
+			: page;
 }
 
 /** The classes that lay each page out on a phone, under its bar. */
 export const PHONE_PAGES: Record<Page, string> = {
+	boards: "min-w-0 px-4 py-6",
 	// As tall as the screen under its bar, so the board's scrollbar sits on
 	// the screen's bottom edge.
 	todos:
-		"flex h-[calc(100dvh-var(--top-bar-height)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
+		"flex h-[calc(100dvh-var(--top-bar-height)-2.75rem-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
 	ships: "min-w-0 px-4 py-6",

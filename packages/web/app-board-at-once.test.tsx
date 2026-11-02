@@ -179,25 +179,6 @@ describe("App's board writes held pending", () => {
 		await waitFor(() => expect(columns()).not.toContain("Docs"));
 	});
 
-	it("holds a lane's todos in place while they move into another", async () => {
-		await pick("Docs", "Licensing");
-
-		expect(columns()).toContain("Docs");
-		expect(cards("Licensing")).toEqual([expect.stringContaining("first")]);
-
-		await answer();
-		await serve({
-			todos: [first(), todo({ ...second(), lane: 1 }), loose()],
-			lanes: [licensing],
-		});
-
-		await waitFor(() => expect(columns()).not.toContain("Docs"));
-		expect(cards("Licensing")).toEqual([
-			expect.stringContaining("first"),
-			expect.stringContaining("second"),
-		]);
-	});
-
 	it("holds an added todo pending in the box until the server lists it, or keeps it saying why when refused", async () => {
 		const docs = view.getByRole("region", { name: "Docs" });
 		await act(async () =>
@@ -272,14 +253,14 @@ describe("App's board writes held pending", () => {
 		);
 
 		expect(view.queryByRole("dialog")).toBeNull();
-		expect(cards("Untriaged").join()).not.toContain("loose ends");
+		expect(cards("Backlog").join()).not.toContain("loose ends");
 
 		await answer("no");
 
 		await waitFor(() =>
-			expect(cards("Untriaged").join()).toContain("Not saved: no"),
+			expect(cards("Backlog").join()).toContain("Not saved: no"),
 		);
-		expect(cards("Untriaged").join()).not.toContain("loose ends");
+		expect(cards("Backlog").join()).not.toContain("loose ends");
 		// What was typed comes back when it opens again.
 		await act(async () => fireEvent.click(view.getByText("loose")));
 		const again = await waitFor(() =>
@@ -306,7 +287,7 @@ describe("App's board writes held pending", () => {
 		});
 
 		await waitFor(() =>
-			expect(cards("Untriaged").join()).toContain("loose ends"),
+			expect(cards("Backlog").join()).toContain("loose ends"),
 		);
 	});
 
@@ -321,12 +302,12 @@ describe("App's board writes held pending", () => {
 		);
 
 		expect(view.queryByRole("dialog")).toBeNull();
-		expect(cards("Untriaged").join()).toContain("loose");
+		expect(cards("Backlog").join()).toContain("loose");
 
 		await answer();
 		await serve({ todos: [first(), second()], lanes: [licensing, docsLane] });
 
-		await waitFor(() => expect(cards("Untriaged")).toEqual([]));
+		await waitFor(() => expect(cards("Backlog")).toEqual([]));
 	});
 
 	it("stays pending over the refetch that began before its write landed", async () => {

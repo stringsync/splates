@@ -1,4 +1,5 @@
 import { fail } from "../exit";
+import { Prices } from "../prices";
 import type { Project } from "../server/shared";
 import { body } from "../server/shared";
 import { ScryModelsReader } from "./scry-models";
@@ -96,6 +97,20 @@ export class BudgetRoutes {
 			fail("usage", message);
 		}
 		const models = await new ScryModelsReader(service.git.root).read();
+		const catalog = await new Prices(this.#project.storage).catalog();
+		for (const choices of Object.values(models)) {
+			for (const choice of choices) {
+				const matches = Object.entries(catalog ?? {}).filter(
+					([key]) =>
+						choice.model !== null &&
+						(key === choice.model ||
+							key === `anthropic/${choice.model}` ||
+							key === `openai/${choice.model}`),
+				);
+				choice.inputPrice =
+					matches.length === 1 ? (matches[0]?.[1].input ?? null) : null;
+			}
+		}
 		return Response.json({ ...(reportOf(stdout) as object), models });
 	}
 }

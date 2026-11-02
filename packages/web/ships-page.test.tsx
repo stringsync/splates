@@ -59,6 +59,7 @@ describe("ShipsPage", () => {
 		await waitFor(() =>
 			expect(posts).toContain("POST /api/ship/steps/abandon"),
 		);
+		await waitFor(() => expect(location.hash).toBe("#ships"));
 	});
 
 	it("sends a stopped ship to an agent on Auto pick, with its logs to examine", async () => {

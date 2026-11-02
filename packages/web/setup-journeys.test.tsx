@@ -100,7 +100,7 @@ describe("Setup journeys", () => {
 		});
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
-		fireEvent.click(view.getByRole("button", { name: "Back to Setup" }));
+		fireEvent.click(view.getByRole("button", { name: "Setup" }));
 		expect(
 			await view.findByRole("button", { name: "Set up Claude" }),
 		).toBeTruthy();
@@ -109,11 +109,15 @@ describe("Setup journeys", () => {
 
 	it("makes Replica and Evals config changes an agent makes, not edits by hand", () => {
 		const steps = progress.areas.flatMap((area) => area.steps);
-		for (const id of ["replica-place", "evals-results"]) {
-			const step = steps.find((each) => each.id === id);
-			expect(step?.fields.map((field) => field.kind)).toEqual(["config"]);
-			expect(step?.user).not.toContain("restart `splates server`");
-		}
+		const chosen = ["replica-place", "evals-results"].map((id) =>
+			steps.find((each) => each.id === id),
+		);
+		expect(
+			chosen.map((step) => step?.fields.map((field) => field.kind)),
+		).toEqual([["config"], ["config"]]);
+		expect(chosen.map((step) => step?.user)).not.toContainEqual(
+			expect.stringContaining("restart `splates server`"),
+		);
 	});
 
 	it("stays on the page with one line on what went wrong, Next becoming Try again", async () => {
@@ -153,7 +157,7 @@ describe("Setup journeys", () => {
 		const view = open();
 		await click(view, "Set up Codex");
 		expect(view.getByRole("form", { name: "Choose Codex models" }));
-		await click(view, "Back to Setup");
+		await click(view, "Setup");
 		await click(view, "Set up Dictation");
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});

@@ -13,34 +13,63 @@ export async function readGraph(
 	sources: ShipSource[],
 ): Promise<ShipGraph> {
 	const read = await Promise.all(
-		sources.map(async (source) => ({
-			source,
-			manifests: await manifestsOf(fs, source.root, source.paths),
-		})),
+		sources.map(async (source) => {
+			const named = source.packages ?? source.deploys;
+			if (named === undefined) {
+				return {
+					source,
+					manifests: await manifestsOf(fs, source.root, source.paths),
+					own: undefined,
+				};
+			}
+			const members = await workspaceClosure(fs, source.root, named);
+			return {
+				source: {
+					...source,
+					paths: members.map((member) => `${member.dir}/**`),
+				},
+				manifests: members.map((member) => member.manifest),
+				own: members
+					.filter((member) => named.includes(member.manifest.name ?? ""))
+					.map((member) => member.manifest),
+			};
+		}),
 	);
 	const owner = new Map<string, string>();
-	for (const { source, manifests } of read) {
-		for (const manifest of manifests) {
+	const ownerOf = new Map<string, { root: string; version: string }>();
+	for (const { source, manifests, own } of read) {
+		if (source.deploys !== undefined) {
+			continue;
+		}
+		for (const manifest of own ?? manifests) {
 			if (manifest.name !== undefined && manifest.private !== true) {
 				owner.set(manifest.name, source.slug);
+				ownerOf.set(manifest.name, {
+					root: source.root,
+					version: manifest.version ?? "",
+				});
 			}
 		}
 	}
 	const rank = new Map(sources.map((each, i) => [each.slug, i]));
-	const projects: ShipProject[] = read.map(({ source, manifests }) => {
-		const packages = manifests
+	const projects: ShipProject[] = read.map(({ source, manifests, own }) => {
+		const deploy = source.deploys !== undefined;
+		const packages = (own ?? manifests)
+			.filter((_each) => !deploy)
 			.filter((each) => each.name !== undefined && each.private !== true)
 			.map((each) => each.name as string);
 		return {
 			...source,
-			version:
-				(source.paths === undefined
-					? manifests[0]?.version
-					: (manifests.find((each) => each.private !== true)?.version ??
-						manifests[0]?.version)) ?? null,
+			version: deploy
+				? null
+				: ((source.paths === undefined
+						? manifests[0]?.version
+						: ((own ?? manifests).find((each) => each.private !== true)
+								?.version ?? (own ?? manifests)[0]?.version)) ?? null),
 			packages,
+			deploy,
 			private: packages.length === 0,
-			uses: usesOf(manifests, source.slug, owner).sort(
+			uses: usesOf(manifests, source, owner, ownerOf).sort(
 				(one, other) =>
 					(rank.get(one.project) ?? 0) - (rank.get(other.project) ?? 0),
 			),
@@ -87,6 +116,17 @@ export interface ShipSource {
 	 * under them are read. Absent for the whole repository.
 	 */
 	paths?: string[];
+	/**
+	 * The workspace packages an npm target publishes: its version is theirs
+	 * and its paths become their directories plus those of the workspace
+	 * packages they depend on, which {@link readGraph} fills in.
+	 */
+	packages?: string[];
+	/**
+	 * The workspace packages a deploy target puts out: no version, and its
+	 * paths become as for `packages`.
+	 */
+	deploys?: string[];
 	/** The target's `shipStatus`, null for npm latest; absent to read the repository's config. */
 	shipStatus?: string | null;
 	/** Its `splates.config.ts`'s `ship`, null when it is never shipped. */
@@ -115,6 +155,8 @@ export interface ShipProject extends ShipSource {
 	version: string | null;
 	/** The public packages it publishes, by name. */
 	packages: string[];
+	/** It is a deploy target: no version, its shipStatus prints the commit deployed. */
+	deploy?: boolean;
 	/** It publishes nothing: every package it has is private. */
 	private: boolean;
 	/** The projects whose packages it pins. */
@@ -134,23 +176,28 @@ export interface ShipGraph {
  */
 function usesOf(
 	manifests: Manifest[],
-	slug: string,
+	source: ShipSource,
 	owner: Map<string, string>,
+	ownerOf: Map<string, { root: string; version: string }>,
 ): Use[] {
 	const pins = new Map<string, Map<string, Pin>>();
 	for (const manifest of manifests) {
 		for (const field of DEPENDENCY_FIELDS) {
 			for (const [name, version] of Object.entries(manifest[field] ?? {})) {
 				const from = owner.get(name);
-				if (
-					from === undefined ||
-					from === slug ||
-					version.startsWith("workspace:")
-				) {
+				if (from === undefined || from === source.slug) {
 					continue;
 				}
+				// A workspace pin is another target's only when both ship from one
+				// repository; it pins the version that target has now.
+				const workspace = version.startsWith("workspace:");
+				const theirs = ownerOf.get(name);
+				if (workspace && theirs?.root !== source.root) {
+					continue;
+				}
+				const pinned = workspace ? (theirs?.version ?? version) : version;
 				const of = pins.get(from) ?? new Map<string, Pin>();
-				of.set(JSON.stringify([name, version]), { name, version });
+				of.set(JSON.stringify([name, pinned]), { name, version: pinned });
 				pins.set(from, of);
 			}
 		}
@@ -256,6 +303,48 @@ async function manifestsOf(
 		}
 	}
 	return owned("package.json") ? [rootManifest, ...members] : members;
+}
+
+/**
+ * The workspace members named `names` and every workspace member they depend
+ * on, each with its directory relative to `root`.
+ */
+async function workspaceClosure(
+	fs: Fs,
+	root: string,
+	names: string[],
+): Promise<{ dir: string; manifest: Manifest }[]> {
+	const rootManifest = await manifestAt(fs, root);
+	const patterns = Array.isArray(rootManifest?.workspaces)
+		? rootManifest.workspaces
+		: (rootManifest?.workspaces?.packages ?? []);
+	const byName = new Map<string, { dir: string; manifest: Manifest }>();
+	for (const dir of await workspaceDirs(fs, root, patterns)) {
+		const manifest = await manifestAt(fs, dir);
+		if (manifest?.name !== undefined) {
+			byName.set(manifest.name, { dir: dir.slice(root.length + 1), manifest });
+		}
+	}
+	const found = new Map<string, { dir: string; manifest: Manifest }>();
+	const pending = [...names];
+	for (let name = pending.pop(); name !== undefined; name = pending.pop()) {
+		const member = byName.get(name);
+		if (member === undefined) {
+			throw new Error(`${name} is not a workspace package of ${root}`);
+		}
+		if (found.has(name)) {
+			continue;
+		}
+		found.set(name, member);
+		for (const field of DEPENDENCY_FIELDS) {
+			for (const dependency of Object.keys(member.manifest[field] ?? {})) {
+				if (byName.has(dependency)) {
+					pending.push(dependency);
+				}
+			}
+		}
+	}
+	return [...found.values()];
 }
 
 /** Whether a path relative to the root is one of `paths`, every path for none. */

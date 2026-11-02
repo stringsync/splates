@@ -69,7 +69,7 @@ describe("App on a phone", () => {
 			view.getByRole("button", { name: "Inbox" }).getAttribute("aria-current"),
 		).toBe("page");
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Board" })),
+			fireEvent.click(view.getByRole("button", { name: "Boards" })),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
@@ -606,27 +606,25 @@ describe("App on a phone", () => {
 		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
 	});
 
-	it("goes between the project's pages from the chips under the bar, back going home", async () => {
+	it("goes between the project's pages from the menu without destination chips, back going home", async () => {
 		const view = await testing.openConversations([], null);
 		const length = history.length;
-		const chip = (name: string) =>
-			within(view.getByRole("navigation", { name: "pages" })).getByRole(
-				"button",
-				{ name },
+		const openPage = async (name: string) => {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
 			);
-		expect(chip("Inbox").getAttribute("aria-current")).toBe("page");
-
-		await act(async () => fireEvent.click(chip("Board")));
-		await waitFor(() =>
-			expect(chip("Board").getAttribute("aria-current")).toBe("page"),
-		);
-		await act(async () => fireEvent.click(chip("Creds")));
+			const drawer = await view.findByRole("dialog", { name: "Pages" });
+			await act(async () =>
+				fireEvent.click(within(drawer).getByRole("button", { name })),
+			);
+		};
+		expect(view.queryByRole("navigation", { name: "pages" })).toBeNull();
+		await openPage("Boards");
+		await openPage("Creds");
 		expect(location.hash).toBe("#creds");
-		expect(chip("Creds").getAttribute("aria-current")).toBe("page");
-
-		await act(async () => fireEvent.click(chip("Automations")));
+		await openPage("Automations");
 		expect(location.hash).toBe("#automations");
-		expect(chip("Automations").getAttribute("aria-current")).toBe("page");
+
 		expect(history.length).toBe(length + 1);
 
 		await act(
@@ -1241,14 +1239,8 @@ describe("App on a phone", () => {
 		expect(
 			within(bar).queryByRole("img", { name: /Spinning Plates|slot / }),
 		).toBeNull();
-		await waitFor(() =>
-			expect(
-				within(view.getByRole("navigation", { name: "pages" })).getByRole(
-					"button",
-					{ current: "page" },
-				).textContent,
-			).toBe("Stats"),
-		);
+		await waitFor(() => view.getByRole("heading", { name: "Stats" }));
+		expect(view.queryByRole("navigation", { name: "pages" })).toBeNull();
 		expect(within(bar).queryByRole("heading", { name: "Stats" })).toBeNull();
 	});
 

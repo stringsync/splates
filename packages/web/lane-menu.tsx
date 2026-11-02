@@ -1,12 +1,13 @@
 import type { LaneState } from "@splates/server/board";
 import { BACKLOG_LANE } from "@splates/server/board/browser";
+import { laneReference } from "@splates/server/plans/browser";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	CopyIcon,
 	KanbanIcon,
 	ListPlusIcon,
 	ListXIcon,
-	MergeIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
 	Trash2Icon,
@@ -25,9 +26,7 @@ import {
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuGroup,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuSub,
 	DropdownMenuSubContent,
@@ -35,14 +34,10 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { dropLane, joinLanes, moveLaneToBoard, queueLane } from "./api";
+import { dropLane, moveLaneToBoard, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
-import {
-	laneDropped,
-	laneOnBoard,
-	laneQueued,
-	lanesJoined,
-} from "./board-expectations";
+import { laneDropped, laneOnBoard, laneQueued } from "./board-expectations";
+import { copiedLabel, useCopy } from "./card";
 import { useExpectSnapshot } from "./expecting";
 
 /**
@@ -65,6 +60,7 @@ export function LaneMenu({
 	const { waiting, queued } = laneQueue(lane);
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
+	const { copied, copy } = useCopy();
 	const [asking, setAsking] = useState(false);
 	const remove = () =>
 		void expect(laneDropped(lane.id), dropLane(lane.id)).catch(
@@ -94,6 +90,13 @@ export function LaneMenu({
 							Rename
 						</DropdownMenuItem>
 					)}
+					<DropdownMenuItem
+						closeOnClick={false}
+						onClick={() => copy(laneReference(lane.id))}
+					>
+						<CopyIcon />
+						{copiedLabel(copied, "Copy reference")}
+					</DropdownMenuItem>
 					<DropdownMenuItem
 						disabled={waiting === 0}
 						onClick={() => queue(true)}
@@ -128,9 +131,9 @@ export function LaneMenu({
 							</DropdownMenuItem>
 						</>
 					)}
-					{boards.length > 1 && (
+					{lane.id !== BACKLOG_LANE && boards.length > 1 && (
 						<DropdownMenuSub>
-							<DropdownMenuSubTrigger disabled={lane.id === BACKLOG_LANE}>
+							<DropdownMenuSubTrigger>
 								<KanbanIcon />
 								Move to board
 							</DropdownMenuSubTrigger>
@@ -170,34 +173,6 @@ export function LaneMenu({
 							</DropdownMenuSubContent>
 						</DropdownMenuSub>
 					)}
-					{lane.id !== BACKLOG_LANE &&
-						others.length > 0 &&
-						lane.todos.length > 0 && (
-							<>
-								<DropdownMenuSeparator />
-								<DropdownMenuGroup>
-									<DropdownMenuLabel>
-										Move its tasks to the end of
-									</DropdownMenuLabel>
-									{others.map((other) => (
-										<DropdownMenuItem
-											key={other.id}
-											onClick={() =>
-												void expect(
-													lanesJoined(lane.id, other.id),
-													joinLanes(lane.id, other.id),
-												).catch((error: unknown) =>
-													refuseLane(lane.id, "Not moved", error),
-												)
-											}
-										>
-											<MergeIcon />
-											{other.name}
-										</DropdownMenuItem>
-									))}
-								</DropdownMenuGroup>
-							</>
-						)}
 					<DropdownMenuSeparator />
 					{lane.id !== BACKLOG_LANE && (
 						<DropdownMenuItem

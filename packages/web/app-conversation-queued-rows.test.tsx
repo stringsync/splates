@@ -61,10 +61,50 @@ describe("App's queued rows in the sidebar", () => {
 		const rows = within(queue).getAllByRole("listitem");
 
 		expect(rows.map((row) => row.textContent)).toEqual([
-			"Waits for an agentWaiting for an agent · 1 in line",
-			"Needs the thirdBlocked · waits on #3",
+			"Waits for an agentWaiting for an agent · 1 in lineUnqueue",
+			"Needs the thirdBlocked · waits on #3Unqueue",
 		]);
 		expect(within(queue).queryByText("Not queued yet")).toBeNull();
+	});
+
+	it("names queued and running dependencies instead of waiting for an agent", async () => {
+		const view = await testing.openConversations([], undefined, {
+			todos: [
+				todo({
+					id: 1,
+					subject: "After running",
+					stage: "queued",
+					blockedBy: [3],
+				}),
+				todo({
+					id: 2,
+					subject: "After queued",
+					stage: "queued",
+					blockedBy: [1],
+				}),
+				todo({
+					id: 3,
+					subject: "Running",
+					stage: "running",
+					takenBy: "upstream",
+				}),
+			],
+			lanes: [],
+		});
+		const queue = await view.findByRole("list", { name: /queue$/ });
+		expect(within(queue).getByText("Blocked · waits on #3")).toBeTruthy();
+		expect(within(queue).getByText("Blocked · waits on #1")).toBeTruthy();
+		expect(within(queue).queryByText(/Waiting for an agent/)).toBeNull();
+	});
+
+	it("unqueues directly from a queued row without opening its page", async () => {
+		const view = await testing.openConversations([], undefined, board);
+		fireEvent.click(await view.findByRole("button", { name: "Unqueue #2" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/2/queued")).toEqual([
+				{ method: "PUT", body: { queued: false } },
+			]),
+		);
 	});
 
 	it("opens a queued task on its own page, which puts it back on the board", async () => {
@@ -78,7 +118,7 @@ describe("App's queued rows in the sidebar", () => {
 		);
 		fireEvent.click(within(queue).getByText("Waits for an agent"));
 		await waitFor(() => view.getByText("Queued · 1"));
-		fireEvent.click(view.getByRole("button", { name: /Unqueue/ }));
+		fireEvent.click(view.getByRole("button", { name: "Unqueue: Unqueue" }));
 		await waitFor(() =>
 			expect(testing.posted("/api/todos/2/queued")).toEqual([
 				{ method: "PUT", body: { queued: false } },

@@ -1,5 +1,6 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { type ReactNode, useMemo } from "react";
+import { BoardsPage } from "./boards-page";
 import type { ConversationFeed } from "./conversation-feed";
 import { Conversations } from "./conversations";
 import { CredsPage } from "./creds";
@@ -81,6 +82,12 @@ export function useAppPages({
 			snapshot === null
 				? null
 				: {
+						boards: (
+							<BoardsPage
+								snapshot={snapshot}
+								onPick={() => go("todos", null, "replace")}
+							/>
+						),
 						todos: (
 							<TagFilterContext.Provider value={todoView.taskFilter}>
 								<Todos
@@ -89,6 +96,7 @@ export function useAppPages({
 									view={todoView}
 									lane={lane}
 									onLane={openLane}
+									onIndex={() => go("boards")}
 								/>
 							</TagFilterContext.Provider>
 						),

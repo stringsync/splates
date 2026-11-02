@@ -112,15 +112,6 @@ describe("App's todo edits", () => {
 			expect(JSON.parse(String(testing.posts[0]?.body))).toEqual({
 				position: 1,
 			});
-			// Where it was let go, before the server says so.
-			expect(
-				within(view.getByRole("list", { name: "Untriaged tasks" }))
-					.getAllByRole("listitem")
-					.map((card) => card.textContent),
-			).toEqual([
-				expect.stringContaining("second"),
-				expect.stringContaining("first"),
-			]);
 		} finally {
 			Element.prototype.getBoundingClientRect = rect;
 		}

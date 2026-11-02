@@ -105,8 +105,7 @@ export interface Served extends AsyncResource {
 	refresh: () => void;
 	snapshot: Handler;
 	/**
-	 * Everything its page shows, cheap enough to read for every project at
-	 * once: a read while nothing in the repo moved answers the last one.
+	 * Read the project snapshot to display its current tasks and conversations.
 	 */
 	current: () => Promise<Snapshot>;
 	/** How many of its agents wait on the person. */
@@ -127,6 +126,13 @@ export interface Served extends AsyncResource {
 	open: Handler;
 	paths: Handler;
 	diff: Handler;
+	checkEvalLoop: Handler;
+	finishEvalLoop: (
+		reference: { id: string; version: number },
+		directory: string,
+		id: string,
+	) => Promise<void>;
+	evalLoop: Handler;
 	finishedTasks: Handler;
 	mergeEstimates: Handler;
 	quarantined: Handler;

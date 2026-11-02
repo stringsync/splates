@@ -431,13 +431,36 @@ describe("App's sending messages", () => {
 		return view;
 	}
 
-	it("shows a message sent mid-turn in the pending row above the composer, not the queue, when the server will queue it", async () => {
+	it("immediately shows a message awaiting queue confirmation as sending", async () => {
+		setHeldAfterMs(5000);
 		const view = await sayMidTurn("queue");
 
 		const pending = view.getByRole("list", { name: "messages sending" });
 		expect(within(pending).getAllByText("and the logout")).toHaveLength(1);
 		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
 		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
+	});
+
+	it("immediately shows a confirmed queue for an agent without steering", async () => {
+		setHeldAfterMs(5000);
+		const view = await testing.openConversations([
+			conversation({
+				title: "Login",
+				status: "running",
+				taking: "queue",
+				messages: [
+					message("user", "go"),
+					{
+						...message("user", "and the logout"),
+						queued: true,
+						at: new Date(testing.wall.now()).toISOString(),
+					},
+				],
+			}),
+		]);
+		const queue = view.getByRole("list", { name: "messages sending" });
+		expect(within(queue).getByText("and the logout")).toBeTruthy();
+		expect(view.getAllByText("and the logout")).toHaveLength(1);
 	});
 
 	it("shows a message sent mid-turn in the same pending row when the server will steer it in", async () => {
@@ -451,7 +474,7 @@ describe("App's sending messages", () => {
 
 	it("shows a message just sent in the thread as sent, with a small Sending line, until it has waited a few seconds, then holds it above the composer", async () => {
 		setHeldAfterMs(5000);
-		const view = await sayMidTurn("queue");
+		const view = await sayMidTurn("steer");
 
 		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
 		expect(view.getAllByText("and the logout")).toHaveLength(1);

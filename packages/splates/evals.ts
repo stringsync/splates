@@ -1,10 +1,15 @@
 import { resolve } from "node:path";
 import {
+	EvalLoopStore,
 	type InspectLog,
 	inspectBatch,
+	LoopRecovery,
+	loopEventSchema,
+	loopNext,
 	writeImported,
 } from "@splates/server/evals";
 import { fail } from "@splates/server/exit";
+import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
 import { color } from "core/log";
@@ -75,3 +80,121 @@ async function dumped(ctx: SplatesDeps, file: string): Promise<string> {
 	}
 	return stdout;
 }
+
+// Payload files keep multiline diagnoses and frozen contracts out of shell quoting.
+for (const name of ["start", "improve"]) {
+	splatesEvals
+		.command(name)
+		.use(repository({ needs: "own" }))
+		.description(
+			"create a durable eval loop (same ID and input retries safely); records only, never starts a paid run",
+		)
+		.arg("id", z.string())
+		.arg("file", z.string(), {
+			description:
+				"JSON: contract, revision, conversation, optional task; see docs/evals.md",
+		})
+		.action(async (opts, ctx) => {
+			const loops = new EvalLoopStore(ctx.storage);
+			const saved = await loops.start(
+				opts.id,
+				JSON.parse(await ctx.fs.read(resolve(ctx.ps.cwd(), opts.file))),
+			);
+			ctx.log.info(
+				JSON.stringify({ ...saved, next: loopNext(saved) }, null, 2),
+			);
+		});
+}
+
+splatesEvals
+	.command("show")
+	.use(repository({ needs: "own" }))
+	.description(
+		"print the loop's state, version, links, evidence, event/round history and next action as JSON",
+	)
+	.arg("id", z.string())
+	.action(async (opts, ctx) => {
+		const loops = new EvalLoopStore(ctx.storage);
+		const saved = await loops.show(opts.id);
+		ctx.log.info(JSON.stringify({ ...saved, next: loopNext(saved) }, null, 2));
+	});
+
+const loopCommands = {
+	request: { type: "start-batch" },
+	record: { type: "finish-batch" },
+	diagnose: { type: "diagnose" },
+	propose: { type: "candidate-ready" },
+	keep: { type: "decide", action: "keep" },
+	revert: { type: "decide", action: "revert" },
+	rebaseline: { type: "rebaseline" },
+	stop: { type: "stop" },
+} as const;
+for (const [name, discriminator] of Object.entries(loopCommands)) {
+	splatesEvals
+		.command(name)
+		.use(repository({ needs: "own" }))
+		.description(
+			"record a loop transition without running evals or changing code; see docs/evals.md for payloads",
+		)
+		.arg("id", z.string())
+		.arg("file", z.string(), {
+			description: "JSON event payload without type/action",
+		})
+		.option("version", z.coerce.number().int().nonnegative(), {
+			description: "expected version from show",
+		})
+		.option("event", z.string(), {
+			description: "stable event ID; request uses the run-request ID",
+		})
+		.option("task", z.string().optional(), {
+			description: "link the code-change task",
+		})
+		.action(async (opts, ctx) => {
+			const payload: unknown = JSON.parse(
+				await ctx.fs.read(resolve(ctx.ps.cwd(), opts.file)),
+			);
+			if (
+				typeof payload !== "object" ||
+				payload === null ||
+				Array.isArray(payload)
+			) {
+				fail("usage", "Expected a JSON object");
+			}
+			const event = loopEventSchema.parse({ ...payload, ...discriminator });
+			const loops = new EvalLoopStore(ctx.storage);
+			const saved = await loops.change(opts.id, {
+				id: opts.event,
+				expectedVersion: opts.version,
+				event,
+				task: opts.task,
+			});
+			ctx.log.info(
+				JSON.stringify({ ...saved, next: loopNext(saved) }, null, 2),
+			);
+		});
+}
+
+splatesEvals
+	.command("resume")
+	.use(repository({ needs: "own" }))
+	.description(
+		"recover the current loop card, run links, full history and next action without starting work",
+	)
+	.arg("id", z.string())
+	.action(async (opts, ctx) => {
+		const recovery = new LoopRecovery(ctx.storage, ctx.machine, ctx.git.root);
+		ctx.log.info(JSON.stringify(await recovery.show(opts.id), null, 2));
+	});
+
+splatesEvals
+	.command("reconcile")
+	.use(repository({ needs: "own" }))
+	.description(
+		"record existing finished launch evidence after a lost notice; never starts evals",
+	)
+	.arg("id", z.string())
+	.action(async (opts, ctx) => {
+		const recovery = new LoopRecovery(ctx.storage, ctx.machine, ctx.git.root);
+		await recovery.reconcile(opts.id);
+		ctx.log.info(JSON.stringify(await recovery.show(opts.id), null, 2));
+	});

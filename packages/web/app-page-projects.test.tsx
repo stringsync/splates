@@ -101,7 +101,7 @@ describe("App's pages and the project switcher", () => {
 			null,
 			null,
 			[
-				"Board",
+				"Boards",
 				"Creds",
 				"Automations",
 				"Queue",
@@ -123,10 +123,10 @@ describe("App's pages and the project switcher", () => {
 		expect([
 			view.getByRole("tab", { name: /Board/ }).textContent,
 			view.getByRole("tab", { name: /Queue/ }).textContent,
-		]).toEqual(["Board", "Queue"]);
+		]).toEqual(["Boards", "Queue"]);
 	});
 
-	it("heads a phone's drawer with the server and its pages, and a page's bar with the project, its chips naming the page", async () => {
+	it("heads a phone's drawer with the server and its pages, and a page's bar with the project, a separate row naming the page without chips", async () => {
 		resize(390, 844);
 		const view = await testing.open({
 			repo: "wren",
@@ -139,9 +139,9 @@ describe("App's pages and the project switcher", () => {
 			within(drawer).queryByRole("heading", { name: "splates" }),
 			within(drawer).getByRole("button", { name: /^Switch project/ })
 				.textContent,
-			within(drawer).getByRole("button", { name: "Board" }).textContent,
+			within(drawer).getByRole("button", { name: "Boards" }).textContent,
 			within(drawer).getByRole("button", { name: "Queue" }).textContent,
-		]).toEqual([null, "wren", "Board", "Queue"]);
+		]).toEqual([null, "wren", "Boards", "Queue"]);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
@@ -156,10 +156,7 @@ describe("App's pages and the project switcher", () => {
 				within(bar).queryByRole("heading", { name: "Creds" }),
 				within(bar).getByRole("button", { name: /^Switch project/ })
 					.textContent,
-				within(view.getByRole("navigation", { name: "pages" })).getByRole(
-					"button",
-					{ current: "page" },
-				).textContent,
+				view.getByRole("heading", { name: "Creds" }).textContent,
 			]).toEqual([null, "wren", "Creds"]),
 		);
 	});
@@ -247,9 +244,9 @@ describe("App's pages and the project switcher", () => {
 		const view = await testing.open({ repo: "wren" });
 		const drawer = await openDrawer(view);
 		await act(async () =>
-			fireEvent.click(within(drawer).getByRole("button", { name: "Board" })),
+			fireEvent.click(within(drawer).getByRole("button", { name: "Boards" })),
 		);
-		await waitFor(() => expect(location.hash).toBe(""));
+		await waitFor(() => expect(location.hash).toBe("#todos"));
 		const bar = await waitFor(() => {
 			const header = view.container.querySelector("header");
 			expect(header).not.toBeNull();

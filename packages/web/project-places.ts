@@ -101,6 +101,7 @@ export function projectUrl(
 ): string {
 	const url = new URL(location.href);
 	url.searchParams.set("project", project.slug);
+	url.searchParams.delete("board");
 	const { hash } = placeOf(project.slug);
 	// Off the conversations, the page is the project's own view of something
 	// (board, tasks, queue, stats): the switch keeps to it rather than to a

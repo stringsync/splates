@@ -95,7 +95,7 @@ describe("AUTO_PICK_AREA", () => {
 		await AUTO_PICK_AREA.steps[0]?.undo?.run(machine);
 	});
 
-	it("says Clef still judges once undone, its account kept for scry", async () => {
+	it("says Clef still judges once undone, its account kept for vet", async () => {
 		await machine.device.set("CLOUDFLARE_ACCOUNT_ID", "account");
 		await machine.device.set("CLOUDFLARE_API_TOKEN", "token");
 
@@ -109,13 +109,13 @@ describe("AUTO_PICK_AREA", () => {
 				done: true,
 				removes: [],
 				leaves: [
-					"Auto pick still judges with Clef, on `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, kept for scry's Workers AI: forget them on the Creds page to stop it.",
+					"Auto pick still judges with Clef, on `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, kept for vet's Workers AI: forget them on the Creds page to stop it.",
 				],
 			},
 		]);
 		expect(plan.creds).toEqual([
-			{ name: "CLOUDFLARE_ACCOUNT_ID", keptFor: "scry's Workers AI" },
-			{ name: "CLOUDFLARE_API_TOKEN", keptFor: "scry's Workers AI" },
+			{ name: "CLOUDFLARE_ACCOUNT_ID", keptFor: "vet's Workers AI" },
+			{ name: "CLOUDFLARE_API_TOKEN", keptFor: "vet's Workers AI" },
 		]);
 		expect(await machine.device.get("CLOUDFLARE_API_TOKEN")).toBe("token");
 	});

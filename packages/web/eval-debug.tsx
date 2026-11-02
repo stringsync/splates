@@ -4,7 +4,6 @@ import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
 import { ReadingNow } from "./countdown";
-import { ImproveMenu, improvable, ownBatch } from "./eval-improve";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
 import { HEADING } from "./markdown";
@@ -72,9 +71,6 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 					>
 						Open in its framework
 					</a>
-				)}
-				{ownBatch(run.producer) && improvable(run.status) && (
-					<ImproveMenu run={run} className="mt-1" />
 				)}
 			</header>
 			{run.error !== undefined && (

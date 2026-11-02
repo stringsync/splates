@@ -17,8 +17,8 @@ import { AutoPickOverrides } from "./auto-pick-overrides";
 import { RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";
 import { autoPickRuns } from "./auto-pick-runs";
-import { BackButton } from "./back-button";
 import { guardNavigation } from "./navigation-guard";
+import { RouteTrail } from "./route-trail";
 import { TopBar } from "./top-bar";
 
 /**
@@ -76,8 +76,14 @@ export function AutoPickPage({
 		<>
 			<section aria-label="Auto pick" className="flex min-w-0 flex-col gap-6">
 				<TopBar
-					leading={<BackButton parent="Automations" onBack={onBack} />}
-					title="Auto pick"
+					title={
+						<RouteTrail
+							items={[
+								{ label: "Automations", onClick: onBack },
+								{ label: "Auto pick" },
+							]}
+						/>
+					}
 				/>
 				<div className="flex items-center gap-3">
 					<AutoPickMark className="size-8" />

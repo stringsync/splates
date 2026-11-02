@@ -16,6 +16,8 @@ import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
+import { EvalAgentsEditor } from "./eval-agents";
+import { EvalAgentsView } from "./eval-agents-view";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { ORDER, planText, spent } from "./eval-status";
@@ -41,6 +43,7 @@ export function EvalsCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	const conversation = useContext(EvalsConversation);
+	const [editor] = useState(() => new EvalAgentsEditor());
 	const message = useAuiState((state) => state.message.id);
 	const [run] = useState(() => EvalRun.of(proposal, { conversation, message }));
 	useEffect(() => {
@@ -141,28 +144,61 @@ export function EvalsCard({
 			tone="info"
 		>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
+			{run.ask.loop !== undefined && (
+				<p className="mx-4 mb-3 text-muted-foreground text-xs">
+					Loop {run.ask.loop.id} · v{run.ask.loop.version} · {run.ask.reps}{" "}
+					repetitions · frozen contract
+				</p>
+			)}
+			{open && (
+				<details className="mx-4 mb-3 text-sm">
+					<summary>Configure run and saved agents</summary>
+					<EvalAgentsView editor={editor} />
+					{run.ask.loop === undefined && (
+						<label>
+							Repetitions
+							<input
+								aria-label="Run repetitions"
+								className="ml-2 w-20 rounded border p-2"
+								type="number"
+								min={1}
+								defaultValue={run.ask.reps}
+								placeholder="Default"
+								onChange={(event) =>
+									void run.repeat(Number(event.target.value))
+								}
+							/>
+						</label>
+					)}
+					<Button size="sm" variant="outline" onClick={() => void run.load()}>
+						Refresh saved agents
+					</Button>
+				</details>
+			)}
 			{launch === null && !turnedDown ? (
 				<>
 					<section
 						aria-label="scenarios"
-						className="mx-4 mb-3 flex flex-col gap-2 text-sm"
+						className="mx-4 mb-3 flex flex-col gap-3 text-sm"
 					>
 						{state.groups.map((group) => (
-							<div key={group.group}>
+							<div key={group.group} className="flex flex-col gap-2">
 								{group.group !== "" && (
 									<div className="font-medium">{group.group}</div>
 								)}
 								{group.abouts.map((each) => (
 									<div
 										key={each.about}
-										className="ml-3 text-muted-foreground text-xs"
+										className="ml-3 flex flex-col gap-0.5 border-border/60 border-t pt-2 text-muted-foreground text-xs"
 									>
-										{each.about !== "" && `${each.about}: `}
-										{each.scenarios.map((id) => (
-											<code key={id} className="mr-1.5">
-												{id}
-											</code>
-										))}
+										{each.about !== "" && <p>{each.about}</p>}
+										<div className="flex flex-wrap gap-x-2 gap-y-0.5">
+											{each.scenarios.map((id) => (
+												<code key={id} className="text-foreground">
+													{id}
+												</code>
+											))}
+										</div>
 									</div>
 								))}
 							</div>
@@ -179,7 +215,7 @@ export function EvalsCard({
 					>
 						{state.agents.length === 0 && state.loaded && (
 							<p className="text-muted-foreground text-xs">
-								No saved agents: add some on the Evals page.
+								No saved agents: open Configure below to add some.
 							</p>
 						)}
 						{state.agents.map((each, index) => (

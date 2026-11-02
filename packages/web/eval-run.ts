@@ -87,6 +87,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	refusal: string | null = null;
 	loaded = false;
 
+	private repetitions: number | undefined;
 	private following: Resource | null = null;
 	private planning = 0;
 
@@ -99,6 +100,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		readonly key: string,
 		opts: EvalRunOptions = {},
 	) {
+		this.repetitions = ask.reps;
 		this.server = opts.server ?? HTTP_EVAL_RUN;
 		this.timer = opts.timer ?? new SystemTimer();
 		this.conversation = opts.conversation ?? null;
@@ -120,7 +122,9 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		const ask = proposal.evals as EvalAsk;
 		return new EvalRun(
 			ask,
-			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`,
+			ask.loop === undefined
+				? `${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`
+				: `loop:${ask.loop.id}:${ask.loop.version}`,
 			opts,
 		);
 	}
@@ -174,6 +178,20 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		}
 		each.on = !each.on;
 		this.changed();
+		await this.replan();
+	}
+
+	/** Change repetitions before starting an unlinked run and refresh its cost plan. */
+	async repeat(repetitions: number): Promise<void> {
+		if (
+			this.started ||
+			this.ask.loop !== undefined ||
+			!Number.isSafeInteger(repetitions) ||
+			repetitions < 1
+		) {
+			return;
+		}
+		this.repetitions = repetitions;
 		await this.replan();
 	}
 
@@ -234,8 +252,9 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			scenarios: this.ask.scenarios,
 			agents: this.picked,
 			baseline: this.ask.baseline,
-			...(this.ask.reps === undefined ? {} : { reps: this.ask.reps }),
+			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
 			conversation: this.conversation,
+			...(this.ask.loop === undefined ? {} : { loop: this.ask.loop }),
 		};
 	}
 

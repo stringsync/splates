@@ -1,6 +1,6 @@
 import { age } from "@splates/server/age";
 import type { TaskRecord } from "@splates/server/board";
-import { blockerLabel } from "@splates/server/board/browser";
+import { BACKLOG_LANE, blockerLabel } from "@splates/server/board/browser";
 import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -67,14 +67,16 @@ export function Edit({
 		["changed"],
 	);
 	const [tab, setTab] = useState("overview");
-	// Its step in its lane says more than its place in the whole list. An
-	// untriaged todo is in no sequence, so it says only that.
+	// Its step in its lane says more than its place in the whole list. One in
+	// Backlog is in no sequence, so it says only that.
 	const steps = board.todos.filter((other) => other.lane === todo.lane);
 	const lane = board.lanes.find((record) => record.id === todo.lane);
 	const place =
 		lane === undefined
 			? "Untriaged"
-			: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;
+			: lane.id === BACKLOG_LANE
+				? "In Backlog"
+				: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;
 	const mentions = useMentions<HTMLInputElement>(editor.subject);
 
 	const { refusal, refuse } = useRefusal();

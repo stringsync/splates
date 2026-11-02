@@ -13,6 +13,7 @@ import {
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
+	LoopRecovery,
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
@@ -170,6 +171,7 @@ export async function dev(
 	// every other registered one only when a page asks for it.
 	const served = new Map<string, Promise<Served>>();
 	const replicas = new Replicas(log);
+	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
 	const context: DevContext = {
 		replicas,
 		get url() {
@@ -183,16 +185,23 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		conversationsFor: ({ dir, storage, git, service, creds, journal }) =>
-			converse?.({
-				dir,
-				storage,
-				git,
-				config: service.config,
-				creds,
-				service,
-				journal,
-			}) ?? null,
+		conversationsFor: ({ dir, storage, git, service, creds, journal }) => {
+			const conversations =
+				converse?.({
+					dir,
+					storage,
+					git,
+					config: service.config,
+					creds,
+					service,
+					journal,
+				}) ?? null;
+			if (conversations !== null) {
+				const recovery = new LoopRecovery(storage, machineStorage, git.root);
+				conversations.context = (id) => recovery.conversation(id);
+			}
+			return conversations;
+		},
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 		boards: new OpenBoards({ fs, ps, log }, projects),
@@ -467,7 +476,6 @@ export async function dev(
 
 	const ended = new DevOutcomes(deps);
 	const configFiles = new ConfigFiles(fs);
-	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
 	// Read at each request, so a project that adds `evals` to its config
 	// shows its Evals page, and runs them, without a restart.
 	const evalCommandsOf = async (request: Request) => {
@@ -488,9 +496,9 @@ export async function dev(
 	// to take the person through what to do next.
 	const unwatch = evalLaunches.events.on(
 		"finished",
-		({ launch, results, conversation }) => {
+		({ launch, results, conversation, loop }) => {
 			void (async () => {
-				const text = await evals.donePrompt(results, launch.batch ?? "");
+				let text = await evals.donePrompt(results, launch.batch ?? "");
 				let owner = await holding(conversation);
 				if (owner === null) {
 					await everywhere.openAll();
@@ -498,6 +506,17 @@ export async function dev(
 				}
 				if (owner?.conversations == null) {
 					return;
+				}
+				if (loop !== undefined && launch.batch !== null) {
+					try {
+						if (!("finishEvalLoop" in owner)) {
+							throw new Error("Loop requires a project conversation");
+						}
+						await owner.finishEvalLoop(loop, results, launch.batch);
+						text = `${text ?? ""}\n\nLoop ${loop.id} recorded this batch. Run splates evals show ${loop.id}, then publish its new guided card.`;
+					} catch (error) {
+						text = `${text ?? ""}\n\nLoop ${loop.id} did not record this batch: ${String(error)}. Inspect the evidence and reconcile through the CLI; do not rerun paid evals automatically.`;
+					}
 				}
 				const told = await owner.conversations.find(conversation);
 				if (text === null) {
@@ -798,13 +817,19 @@ export async function dev(
 						GET: guarded(evalAgents.read),
 						PUT: guarded(evalAgents.save),
 					},
+					"/api/evals/loop": guarded(async (request) =>
+						(await projectFor(request)).evalLoop(request),
+					),
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
 					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),
-						POST: guarded(evalLaunchRoutes.start),
+						POST: guarded(async (request) => {
+							await (await projectFor(request)).checkEvalLoop(request.clone());
+							return evalLaunchRoutes.start(request);
+						}),
 						DELETE: guarded(evalLaunchRoutes.stop),
 					},
 					"/api/identity": guarded(async (request) =>

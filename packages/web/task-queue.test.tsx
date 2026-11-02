@@ -144,7 +144,7 @@ describe("Queue page's Up next", () => {
 		await openQueueRow(view, "first", "queued tasks");
 
 		await waitFor(() => expect(view.getByRole("dialog")).toBeTruthy());
-		expect(location.hash).toBe("");
+		expect(location.hash).toBe("#todos");
 	});
 
 	const queue = () => [

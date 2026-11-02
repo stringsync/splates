@@ -25,6 +25,15 @@ export type {
 export { EvalLaunches } from "./launch";
 export type { ConversationDirs, EvalProjects } from "./launch-routes";
 export { EvalLaunchRoutes } from "./launch-routes";
+export { LoopRuns } from "./loop-run";
+export type { LoopChange, LoopStart, StoredEvalLoop } from "./loops";
+export {
+	EvalLoopStore,
+	loopEventSchema,
+	loopNext,
+	loopStartSchema,
+} from "./loops";
+export { LoopRecovery } from "./recovery";
 export { EvalRoutes, projectEvalCommands } from "./routes";
 export { EvalStore } from "./store";
 export { targetName } from "./target";

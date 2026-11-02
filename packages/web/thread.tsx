@@ -185,7 +185,7 @@ function Conversation({
 		feed,
 		sending ?? [],
 		(each) => each.at,
-		heldAfter(),
+		heldAfter(conversation.taking === "queue"),
 	);
 	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const superseded = useMemo(

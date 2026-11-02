@@ -115,10 +115,10 @@ describe("App", () => {
 		});
 
 		expect(
-			within(view.getByRole("region", { name: "Untriaged" })).getByText(
+			within(view.getByRole("region", { name: "Backlog" })).getAllByText(
 				/later/,
 			),
-		).toBeTruthy();
+		).not.toHaveLength(0);
 		expect(view.queryByText("alpha")).toBeNull();
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
@@ -129,7 +129,7 @@ describe("App", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Board/ })),
 		);
-		expect(location.hash).toBe("");
+		expect(location.hash).toBe("#todos");
 	});
 
 	/** happy-dom answers media queries against this, 1024 wide to start. */

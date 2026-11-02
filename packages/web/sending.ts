@@ -6,10 +6,11 @@ export const STILL_SENDING = Duration.secs(3);
 
 /**
  * How long a message looks sent, in the thread, before it is held in the row
- * above the composer as waiting.
+ * above the composer as waiting. When the server will queue it, show it
+ * above the composer immediately instead of making it look sent.
  */
-export function heldAfter(): Duration {
-	return Duration.ms(heldAfterMs);
+export function heldAfter(queue = false): Duration {
+	return Duration.ms(queue ? 0 : heldAfterMs);
 }
 
 let heldAfterMs = Duration.secs(5).ms;

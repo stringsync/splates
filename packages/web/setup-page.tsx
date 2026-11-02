@@ -17,7 +17,6 @@ import {
 } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
-import { BackButton } from "./back-button";
 import {
 	agentFor,
 	autoModelChosen,
@@ -33,6 +32,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ReadFailed, StillWaiting } from "./countdown";
 import { Markdown } from "./markdown";
 import type { Move, SetupOpen } from "./page-address";
+import { RouteTrail } from "./route-trail";
 import {
 	autoPickBrowserSteps,
 	RulesEditorContext,
@@ -75,12 +75,18 @@ export function SetupPage({
 	return (
 		<section aria-label="setup" className="flex min-w-0 flex-col gap-8">
 			<TopBar
-				leading={
+				title={
 					area ? (
-						<BackButton parent="Setup" onBack={() => onSetup(null)} />
-					) : undefined
+						<RouteTrail
+							items={[
+								{ label: "Setup", onClick: () => onSetup(null) },
+								{ label: area.title },
+							]}
+						/>
+					) : (
+						"Setup"
+					)
 				}
-				title={area ? area.title : "Setup"}
 			/>
 			{!area && (
 				<p className="text-muted-foreground text-sm">

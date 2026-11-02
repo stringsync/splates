@@ -120,10 +120,7 @@ export function ReportCard({
 				{resumed ? (
 					text !== "" && <CardBody text={text} lead={report.reason !== null} />
 				) : deferral !== null ? (
-					<>
-						<DeferredBody task={deferral} />
-						<CardArchive report={report} />
-					</>
+					<DeferredBody task={deferral} />
 				) : text === "" && !merged ? (
 					archivable ? (
 						<CardArchive report={report} />
