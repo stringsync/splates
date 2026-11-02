@@ -15,6 +15,7 @@ import type { Needing } from "@splates/server/plans";
 import { GENERAL } from "@splates/server/projects/browser";
 import { isBlocked, queueOrder } from "@splates/server/queue/browser";
 import type { Details } from "@splates/server/tasks";
+import { blockedFix } from "./blocked-fix";
 import {
 	flatten,
 	hostsAtWork,
@@ -120,6 +121,8 @@ export interface Folder {
 export interface Queued {
 	todo: TaskRecord;
 	blockedBy: number[] | null;
+	/** The tasks it waits on that nothing will start, blockers first: queueing them clears it. */
+	unqueued: TaskRecord[];
 }
 
 /** The page's own project, as its snapshot and conversation feed have it. */
@@ -201,6 +204,7 @@ function queuedOf(
 			blockedBy: isBlocked(todo, todos)
 				? todo.blockedBy.filter((id) => todos.some((each) => each.id === id))
 				: null,
+			unqueued: unqueuedBlockers(todo, todos),
 		}));
 	return [
 		...order.filter((each) => each.blockedBy === null),
@@ -210,3 +214,12 @@ function queuedOf(
 
 /** Where this browser keeps which projects the sidebar and the inbox fold away. */
 export const FOLDED_FOLDERS = "splates.sidebar.collapsed";
+
+/** The blockers of `todo` that nothing will start, when queueing them is its fix. */
+function unqueuedBlockers(
+	todo: TaskRecord,
+	todos: readonly TaskRecord[],
+): TaskRecord[] {
+	const fix = blockedFix(todo, todos);
+	return fix?.kind === "queue" ? fix.chain : [];
+}

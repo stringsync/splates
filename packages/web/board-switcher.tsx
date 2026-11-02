@@ -8,12 +8,7 @@ import {
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { addBoard, renameBoard } from "./api";
-import {
-	recentBoards,
-	saveBoard,
-	starredBoards,
-	toggleStar,
-} from "./board-places";
+import { saveBoard, starredBoards, toggleStar } from "./board-places";
 
 /** A board's lanes' tasks, as the switcher counts them. */
 export interface BoardTasks {
@@ -23,7 +18,7 @@ export interface BoardTasks {
 
 /**
  * The top bar's board switcher: names the current board and opens a list of
- * the project's boards, starred and recent first, each with its task count and
+ * the project's boards, Default first and the rest alphabetical, each with its task count and
  * a dot when something there needs a look, with Create and Rename board. Typing
  * filters; `b` opens it.
  */
@@ -66,23 +61,13 @@ export function BoardSwitcher({
 		return () => window.removeEventListener("keydown", key);
 	}, []);
 
-	const recent = recentBoards();
-	const rank = (board: BoardRecord) => {
-		if (stars.includes(board.id)) {
-			return 0;
-		}
-		const at = recent.indexOf(board.id);
-		return at === -1 ? 2 : 1;
-	};
+	const isDefault = (board: BoardRecord) => board.name === "Default";
 	const shown = live
 		.filter((each) => each.name.toLowerCase().includes(filter.toLowerCase()))
 		.sort(
 			(left, right) =>
-				rank(left) - rank(right) ||
-				(rank(left) === 1
-					? recent.indexOf(left.id) - recent.indexOf(right.id)
-					: 0) ||
-				left.position - right.position,
+				Number(isDefault(right)) - Number(isDefault(left)) ||
+				left.name.localeCompare(right.name),
 		);
 	const submit = async (value: string) => {
 		const name = value.trim();

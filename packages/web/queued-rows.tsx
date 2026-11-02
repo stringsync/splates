@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { queuedAddress } from "./conversation-address";
 import type { Folder, Queued } from "./project-folders";
+import { QueueBlockersIcon } from "./queue-blockers";
 
 /**
  * A folder's queued tasks under its agents, muted and italic with an
@@ -26,14 +27,14 @@ export function QueuedRows({
 	return (
 		<ul aria-label={`${folder.name} queue`} className="flex flex-col">
 			{folder.queue.map((queued, place) => (
-				<li key={queued.todo.id}>
+				<li key={queued.todo.id} className="flex items-center">
 					<button
 						type="button"
 						data-row
 						title={status(queued, place)}
 						onClick={() => onOpen(queuedAddress(queued.todo.id))}
 						className={cn(
-							"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-muted-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+							"flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-muted-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
 							phone && "gap-3 px-4 py-2.5",
 						)}
 					>
@@ -49,6 +50,11 @@ export function QueuedRows({
 							</span>
 						</span>
 					</button>
+					<QueueBlockersIcon
+						todo={queued.todo}
+						chain={queued.unqueued}
+						phone={phone}
+					/>
 				</li>
 			))}
 		</ul>

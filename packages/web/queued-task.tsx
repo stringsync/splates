@@ -1,9 +1,11 @@
 import { ChevronLeftIcon, HourglassIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { queueTodo } from "./api";
+import { blockedFix } from "./blocked-fix";
 import { Board } from "./board";
 import { queued } from "./board-expectations";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
+import { QueueBlockersCta } from "./queue-blockers";
 import { Refusal, useRefusal } from "./refusal";
 import { stageLabel } from "./todo-queue";
 import { BarButton, TopBar } from "./top-bar";
@@ -50,6 +52,8 @@ export function QueuedTask({
 		);
 	}
 	const waits = waitLines(waitsOn(todo, todos, lanes));
+	const fix = blockedFix(todo, todos);
+	const unqueued = fix?.kind === "queue" ? fix.chain : [];
 	const putBack = () =>
 		void expect(queued(id, false), queueTodo(id, false)).then(onLeft, (error) =>
 			refuse("Not unqueued", error),
@@ -92,6 +96,7 @@ export function QueuedTask({
 							<p className="whitespace-pre-line ps-6 text-xs">{waits}</p>
 						)}
 					</div>
+					<QueueBlockersCta todo={todo} chain={unqueued} />
 				</div>
 				<div className="w-full pb-4 pt-2 max-md:pb-2">
 					<div

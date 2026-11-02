@@ -85,4 +85,50 @@ describe("App's queued rows in the sidebar", () => {
 			]),
 		);
 	});
+
+	it("queues a blocked task's blockers from the row's triangle", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login" })],
+			undefined,
+			board,
+		);
+		const queue = await waitFor(() =>
+			view.getByRole("list", { name: /queue$/ }),
+		);
+		fireEvent.click(
+			await within(queue).findByRole("button", {
+				name: "Queue 1 blocker of Needs the third",
+			}),
+		);
+		expect(
+			within(queue).queryByRole("button", {
+				name: "Queue 1 blocker of Waits for an agent",
+			}),
+		).toBeNull();
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/3/queued")).toEqual([
+				{ method: "PUT", body: { queued: true } },
+			]),
+		);
+	});
+
+	it("offers the same on the blocked task's page", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login" })],
+			undefined,
+			board,
+		);
+		const queue = await waitFor(() =>
+			view.getByRole("list", { name: /queue$/ }),
+		);
+		fireEvent.click(within(queue).getByText("Needs the third"));
+		fireEvent.click(
+			await view.findByRole("button", { name: "Queue 1 blocker" }),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/3/queued")).toEqual([
+				{ method: "PUT", body: { queued: true } },
+			]),
+		);
+	});
 });

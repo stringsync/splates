@@ -189,7 +189,7 @@ describe("dev", () => {
 		await serving(deps, async (_snapshot, port) => {
 			const html = await (await fetch(`http://127.0.0.1:${port}/`)).text();
 
-			expect(html).toContain("<title>Spinning Plates</title>");
+			expect(html).toContain("<title>splates</title>");
 			expect(html).toContain(`<div id="root">`);
 			expect(html).toMatch(/href="\/styles\.css\?v=\w+"/);
 			expect(html).toMatch(/src="\/main\.js\?v=\w+"/);
